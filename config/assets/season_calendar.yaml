@@ -1,0 +1,65 @@
+# The generic US undergraduate admission-season calendar (ARCHITECTURE §16).
+# Consumed by `domain.season.admission_season(today, calendar)` in Phase 1 — a pure
+# lookup: today's month selects one window; the window's `entering_class` rule
+# resolves the active entering class.
+#
+# Schema (one entry per phase window, 8 windows covering all 12 months):
+#   months:         {start: M, end: M}  — inclusive calendar-month range (1–12);
+#                   ranges never wrap a year boundary.
+#   phase:          short phase name (stable identifier; Phase 1 tests pin these).
+#   description:    one student-readable sentence about what's happening.
+#   entering_class: which fall term the student in this window is applying for —
+#     next_fall: fall of (today.year + 1)  — all Jun–Dec windows
+#     this_fall: fall of today.year        — all Jan–May windows
+#
+# Season awareness is *context*, not a deadline tracker. School-specific dates are
+# data (CDS fields or live web), never inferred from this generic calendar.
+- months: {start: 6, end: 7}
+  phase: pre-application
+  description: >-
+    List building and campus research; rising seniors draft their school list
+    and start early essay prep.
+  entering_class: next_fall
+- months: {start: 8, end: 9}
+  phase: essays & applications open
+  description: >-
+    The Common App opens August 1; essays, recommendations, and application
+    materials are in full swing.
+  entering_class: next_fall
+- months: {start: 10, end: 10}
+  phase: early application crunch
+  description: >-
+    Final push to complete Early Decision / Early Action applications and last
+    test sittings before the November deadlines.
+  entering_class: next_fall
+- months: {start: 11, end: 11}
+  phase: early deadlines
+  description: >-
+    Early Decision I and Early Action deadlines land (typically November 1 and
+    November 15).
+  entering_class: next_fall
+- months: {start: 12, end: 12}
+  phase: early results & regular push
+  description: >-
+    Early Decision/Action results arrive mid-December; Regular Decision and
+    ED II applications get their final push.
+  entering_class: next_fall
+- months: {start: 1, end: 1}
+  phase: regular decision deadlines
+  description: >-
+    Most Regular Decision deadlines land (typically January 1–15), along with
+    many financial-aid form deadlines.
+  entering_class: this_fall
+- months: {start: 2, end: 3}
+  phase: waiting & aid
+  description: >-
+    Applications are in; students finalize aid forms, compare likely costs,
+    and wait — Regular Decision results begin arriving in mid-to-late March.
+  entering_class: this_fall
+- months: {start: 4, end: 5}
+  phase: decision/choose
+  description: >-
+    Admission decisions and aid offers are in hand; students compare offers,
+    visit campuses, and commit by the May 1 national deposit deadline, with
+    waitlist movement through May.
+  entering_class: this_fall

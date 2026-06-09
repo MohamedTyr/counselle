@@ -1,0 +1,15 @@
+# The labeled subreddit menu for agent-steered Reddit search (ARCHITECTURE §14).
+# Each entry: `sub` (subreddit name, no r/ prefix) + `label` (what it's good for).
+# "{school}" is a template slot the agent fills with the likely school subreddit.
+- sub: ApplyingToCollege
+  label: general admissions process, deadlines, culture
+- sub: chanceme
+  label: chances/profile discussions (vibe only, never odds)
+- sub: financialaid
+  label: aid, FAFSA, net price experiences
+- sub: premed
+  label: pre-med tracks
+- sub: csMajors
+  label: CS programs, recruiting
+- sub: "{school}"
+  label: "school-specific campus life — agent substitutes the likely subreddit name (best-effort)"

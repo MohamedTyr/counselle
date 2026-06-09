@@ -1,0 +1,37 @@
+# Common school abbreviation → IPEDS-style full-name expansions, used by
+# resolve_school (DATABASE_GUIDE §11): name search is substring ILIKE, so
+# abbreviations never match — expand before searching. Values follow IPEDS
+# naming conventions (hyphens, not commas; campus suffixes where students
+# mean a specific main campus).
+"MIT": Massachusetts Institute of Technology
+"Caltech": California Institute of Technology
+"NYU": New York University
+"UCLA": University of California-Los Angeles
+"USC": University of Southern California
+"UNC": University of North Carolina at Chapel Hill
+"UVA": University of Virginia-Main Campus
+"CMU": Carnegie Mellon University
+"Georgia Tech": Georgia Institute of Technology-Main Campus
+"UMich": University of Michigan-Ann Arbor
+"UPenn": University of Pennsylvania
+"JHU": Johns Hopkins University
+"WashU": Washington University in St Louis
+"BU": Boston University
+"BC": Boston College
+"A&M": Texas A & M University-College Station
+"UT Austin": The University of Texas at Austin
+"UIUC": University of Illinois Urbana-Champaign
+"Ohio State": Ohio State University-Main Campus
+"Penn State": Pennsylvania State University-Main Campus
+"UC Berkeley": University of California-Berkeley
+"Berkeley": University of California-Berkeley
+"UCSD": University of California-San Diego
+"UCSB": University of California-Santa Barbara
+"UCI": University of California-Irvine
+"UMD": University of Maryland-College Park
+"Virginia Tech": Virginia Polytechnic Institute and State University
+"UW": University of Washington-Seattle Campus
+"UF": University of Florida
+"UGA": University of Georgia
+"RPI": Rensselaer Polytechnic Institute
+"RIT": Rochester Institute of Technology

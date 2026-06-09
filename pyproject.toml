@@ -1,0 +1,55 @@
+[project]
+name = "counselle"
+version = "0.1.0"
+description = "AI agent for thinking and answering about US universities — read-only consumer of the Counselle data pipeline"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "pyyaml>=6.0.3",
+    "structlog>=26.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "anyio>=4.13.0",
+    "mypy>=2.1.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.15.16",
+    "types-pyyaml>=6.0.12.20260518",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Flat layout: top-level packages at the repo root (no src/), per ARCHITECTURE §5.
+[tool.hatch.build.targets.wheel]
+packages = [
+    "config",
+    "domain",
+    "app",
+    "adapters",
+    "api",
+    "counselle_db",
+    "evals",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "domain.*"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
