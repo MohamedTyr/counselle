@@ -1,0 +1,165 @@
+# The curated dossier field shortlist (DATABASE_GUIDE §7) — the ~90 high-value
+# fields behind the MVP1 "deep school dossier" wedge, grouped into the six
+# student-meaningful sections A–F. Field keys are copied verbatim from §7.
+#
+# Schema per field entry:
+#   key:      full field key (pasteable into a query)
+#   note:     optional annotation carried over from §7 (e.g. "decode",
+#             "sparse-CDS", "prefer over X")
+#   fallback: optional sibling key emitted when the primary is NULL
+#
+# CDS fields are listed where they add unique value but are sparse today
+# (~8 schools) — always fall back to IPEDS/Scorecard for breadth.
+sections:
+  - id: A
+    title: Admissions & Selectivity
+    fields:
+      - key: admissions.acceptance_rate
+        note: "scorecard; prefer over admissions.admit_rate_total"
+      - key: admissions.admit_rate_total
+        note: ipeds
+      - key: admissions.sat_average
+      - key: admissions.sat_ebrw_25
+      - key: admissions.sat_ebrw_75
+      - key: admissions.sat_math_25
+      - key: admissions.sat_math_75
+      - key: admissions.act_composite_25
+      - key: admissions.act_composite_75
+      - key: admissions.yield_rate_total
+      - key: admissions.open_admissions
+      - key: admissions.req_test_scores
+        note: decode
+      - key: cds.c8a_test_policy
+        note: sparse-CDS
+      - key: cds.c11_pct_gpa_4_0
+        note: sparse-CDS
+      - key: cds.c12_avg_hs_gpa
+        note: sparse-CDS
+      - key: cds.c10_pct_top_tenth
+        note: sparse-CDS
+      - key: cds.c7_academic_gpa
+        note: "sparse-CDS; factor weights"
+      - key: cds.c7_standardized_test_scores
+        note: "sparse-CDS; factor weights"
+      - key: cds.c7_application_essay
+        note: "sparse-CDS; factor weights"
+      - key: cds.c7_extracurricular_activities
+        note: "sparse-CDS; factor weights"
+      - key: cds.c7_recommendations
+        note: "sparse-CDS; factor weights"
+      - key: cds.early_decision_offered
+        note: sparse-CDS
+      - key: cds.ed1_closing_date
+        note: sparse-CDS
+      - key: cds.ed1_notification_date
+        note: sparse-CDS
+      - key: cds.early_action_offered
+        note: sparse-CDS
+      - key: cds.ea_is_restrictive
+        note: sparse-CDS
+      - key: cds.application_deadline_fall
+        note: sparse-CDS
+      - key: cds.waitlist_offered
+        note: sparse-CDS
+      - key: cds.waitlist_admitted
+        note: sparse-CDS
+      - key: cds.c9_sat_composite_25th
+        note: >-
+          SAT composite range, which IPEDS lacks — but extra-sparse (only ~4
+          schools today); lean on the IPEDS SAT-section percentiles for breadth
+      - key: cds.c9_sat_composite_75th
+        note: >-
+          SAT composite range, which IPEDS lacks — but extra-sparse (only ~4
+          schools today); lean on the IPEDS SAT-section percentiles for breadth
+  - id: B
+    title: Cost & Aid
+    fields:
+      - key: cost.tuition_in_state
+      - key: cost.tuition_out_of_state
+      - key: cost.room_and_board
+        note: >-
+          COA-composition caveat (DATABASE_GUIDE §13.7) — null for many schools
+          after the 2024-25 COST1/COST2 restructure; check the sibling field
+        fallback: cost.on_campus_room_board_other
+      - key: cost.books_supplies
+      - key: aid.avg_net_price_title4
+      - key: aid.avg_net_price_0_30k
+      - key: aid.avg_net_price_30_48k
+      - key: aid.avg_net_price_48_75k
+      - key: aid.avg_net_price_75_110k
+      - key: aid.avg_net_price_over_110k
+      - key: aid.pct_ftft_pell
+      - key: aid.pct_receiving_any_aid
+      - key: aid.median_debt_completers
+      - key: aid.cumulative_debt_p25
+      - key: aid.cumulative_debt_p75
+      - key: aid.repayment_rate_3yr_completers
+      - key: cds.pct_need_met_freshmen
+        note: sparse-CDS
+      - key: cds.avg_financial_aid_package_freshmen
+        note: sparse-CDS
+      - key: cds.required_aid_forms_domestic
+        note: "sparse-CDS; CSS Profile/FAFSA"
+  - id: C
+    title: Outcomes & Earnings
+    fields:
+      - key: retention.rate_full_time
+      - key: retention.ft_4yr
+      - key: outcomes.grad_rate_6yr_bach
+      - key: outcomes.completion_150_4yr
+      - key: cds.grad_rate_6yr_total
+        note: sparse-CDS
+      - key: cds.first_to_second_year_retention_rate
+        note: sparse-CDS
+      - key: earnings.median_4yr_postcompletion
+      - key: earnings.median_6yr
+      - key: earnings.median_10yr
+      - key: earnings.median_10yr_income_low
+      - key: earnings.pct_above_hs_threshold_6yr
+      - key: outcomes.cohort_default_rate_3yr
+  - id: D
+    title: Academics & Majors
+    note: "plus programs/earnings-by-major via /programs (DATABASE_GUIDE §8)"
+    fields:
+      - key: academics.student_faculty_ratio
+      - key: academics.instruction_expenditure_per_fte_gasb
+      - key: academics.avg_faculty_salary_9mo
+      - key: academics.pct_full_time_faculty
+      - key: academics.ap_credits_accepted
+      - key: academics.study_abroad
+      - key: academics.undergraduate_research
+      - key: academics.calendar_system
+        note: decode
+      - key: cds.special_study_honors_program
+        note: sparse-CDS
+      - key: cds.pct_class_sections_under_20
+        note: sparse-CDS
+      - key: programs.offers_cs_bachelors
+      - key: programs.offers_engineering_bachelors
+  - id: E
+    title: Student Body & Diversity
+    note: "plus full breakdown via /diversity (DATABASE_GUIDE §8)"
+    fields:
+      - key: demographics.pct_white_total
+      - key: demographics.pct_black_total
+      - key: demographics.pct_hispanic_total
+      - key: demographics.pct_asian_total
+      - key: demographics.pct_women_total
+      - key: students.share_first_gen
+      - key: students.pct_ever_pell
+      - key: institution.hbcu
+        note: "sc bool; prefer over institution.is_hbcu"
+      - key: institution.hispanic_serving
+  - id: F
+    title: Institution basics
+    fields:
+      - key: schools.city
+      - key: schools.state
+      - key: schools.control
+      - key: institution.carnegie_2021_basic
+        note: "decode; and/or institution.carnegie_2025_*"
+      - key: enrollment.total_headcount
+        note: "total institution, incl. grad"
+      - key: enrollment.undergrad_total
+      - key: institution.endowment_per_fte_gasb
+      - key: institution.admissions_url
