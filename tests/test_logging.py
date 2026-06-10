@@ -27,7 +27,7 @@ def test_log_call_emits_json_with_trace_id_timestamp_and_level(
 
     structlog.get_logger().info("hello", school="MIT")
 
-    output = capsys.readouterr().out.strip()
+    output = capsys.readouterr().err.strip()
     payload = json.loads(output)  # valid JSON, single line
     assert payload["trace_id"] == "abc123"
     assert payload["level"] == "info"
@@ -44,7 +44,7 @@ def test_level_filtering_suppresses_below_threshold(
 
     structlog.get_logger().info("too quiet")
 
-    assert capsys.readouterr().out == ""
+    assert capsys.readouterr().err == ""
 
 
 def test_unknown_level_raises_value_error() -> None:
@@ -60,4 +60,4 @@ def test_setup_logging_is_idempotent_without_force(
 
     structlog.get_logger().info("still filtered")
 
-    assert capsys.readouterr().out == ""
+    assert capsys.readouterr().err == ""

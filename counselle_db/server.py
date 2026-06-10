@@ -8,18 +8,28 @@ docstrings here are the agent-facing contracts (ARCHITECTURE §8, ADRs 0004/0005
 Run over stdio: ``uv run python -m counselle_db.server``.
 """
 
+import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
+import asyncpg
+import structlog
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
+from config.logging import setup_logging
+from config.settings import get_settings
 from counselle_db import service
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
+from counselle_db.reconcile import reconcile_field_index
+from counselle_db.search_fields import FieldHit, search_fields
 from counselle_db.service_find import FindCriteria
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -29,12 +39,43 @@ class AppState:
     catalog: Catalog
 
 
+async def _reconcile_forever(app_pool: asyncpg.Pool, interval_minutes: int) -> None:
+    """Periodic field_index reconcile (ADR 0008) — failures never kill the server."""
+    while True:
+        await asyncio.sleep(interval_minutes * 60)
+        try:
+            await reconcile_field_index(app_pool)
+        except Exception:
+            logger.exception("periodic field_index reconcile failed — keyword fallback serves")
+
+
 @asynccontextmanager
 async def _lifespan(_server: FastMCP) -> AsyncIterator[AppState]:
-    """Open the read-only pool + load the catalog at startup; close on shutdown."""
+    """Open the pools + load the catalog at startup; reconcile field_index; close on shutdown."""
+    settings = get_settings()
+    # stdout is the JSON-RPC channel — route all structlog output to stderr.
+    setup_logging(settings.log_level)
     pool = await create_pool()
     try:
-        yield AppState(catalog=await Catalog.load(pool))
+        # Second pool on the app role: counselle.field_index writes need counselle_app.
+        app_pool = await create_pool(dsn=settings.db_app_dsn)
+        try:
+            catalog = await Catalog.load(pool)
+            try:  # Non-fatal: with no index, search_fields' keyword fallback still serves.
+                await reconcile_field_index(app_pool)
+            except Exception:
+                logger.exception("startup field_index reconcile failed — keyword fallback serves")
+            reconcile_task = asyncio.create_task(
+                _reconcile_forever(app_pool, settings.reconcile_interval_minutes)
+            )
+            try:
+                yield AppState(catalog=catalog)
+            finally:
+                reconcile_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await reconcile_task
+        finally:
+            await app_pool.close()
     finally:
         await pool.close()
 
@@ -181,6 +222,41 @@ async def get_data_calendar(ctx: AppContext) -> list[dict[str, Any]]:
     """
     entries = await service.get_data_calendar(await _catalog(ctx))
     return [entry.model_dump(mode="json") for entry in entries]
+
+
+@mcp.tool(name="search_fields")
+async def discover_fields(
+    query: str,
+    ctx: AppContext,
+    category: str | None = None,
+    source: str | None = None,
+    limit: int = 8,
+    use_vector: bool | None = None,
+) -> list[dict[str, Any]]:
+    """Discover which catalog fields answer a natural-language question (ADR 0008).
+
+    Hybrid search: cosine vector similarity against counselle.field_index (when
+    the index is populated) PLUS always-on keyword fallback (key/label ILIKE +
+    pg_trgm), merged so vector hits come first and exact-match keyword hits are
+    never crowded out. A field absent from the index is still found via keyword —
+    new fields are never invisible.
+
+    Returns up to ``limit`` (default 8, max 25) FieldHit objects. Each hit
+    carries: key, label, category, data_type, source, needs_decode (bool — R1:
+    the int value must be decoded before display), fill_note (DATABASE_GUIDE §5
+    coverage warning, or null), and similarity (cosine, null for keyword-only
+    hits). Use the returned ``key`` values with ``get_values`` or ``compare_schools``.
+
+    Optional filters: ``category`` (e.g. "admissions", "aid", "earnings") and
+    ``source`` (e.g. "ipeds", "scorecard", "cds") narrow the search. Set
+    ``use_vector=false`` to force keyword-only (useful when the index is being
+    rebuilt or for exact-match lookups).
+    """
+    catalog = await _catalog(ctx)
+    hits: list[FieldHit] = await search_fields(
+        catalog, query, category=category, source=source, limit=limit, use_vector=use_vector
+    )
+    return [hit.model_dump(mode="json") for hit in hits]
 
 
 def main() -> None:

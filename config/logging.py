@@ -1,6 +1,11 @@
-"""Structured logging setup: structlog with JSON output, ISO timestamps, trace ids."""
+"""Structured logging setup: structlog with JSON output, ISO timestamps, trace ids.
+
+Logs go to STDERR: the counselle-db MCP server speaks JSON-RPC over stdout, so
+anything printed there corrupts the protocol channel.
+"""
 
 import logging
+import sys
 
 import structlog
 
@@ -27,7 +32,7 @@ def setup_logging(level: str, *, force: bool = False) -> None:
             structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(level_number),
-        logger_factory=structlog.PrintLoggerFactory(),
+        logger_factory=structlog.PrintLoggerFactory(sys.stderr),
         cache_logger_on_first_use=not force,
     )
     _configured = True

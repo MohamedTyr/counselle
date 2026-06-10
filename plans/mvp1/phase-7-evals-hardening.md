@@ -13,7 +13,7 @@
 - `evals/runner.py`: replays each question through `run_turn` (real Gemini + DB; Tavily enabled only for questions tagged `web`), captures the event stream + tool calls + registry, scores mechanically where possible (tool/field/viz/clarify assertions) and via a **cheap-model judge** (`model_cheap`) for the honesty prose checks (judge prompt included in `evals/judge.md`: answer yes/no per criterion, quote evidence). Output: `evals/report-<date>.json` + a markdown summary table (per-type accuracy). **No pass threshold** (PRD) — the report is the deliverable; the orchestrator eyeballs failures and files fixes if they're bugs (vs. model judgment calls, which get logged as observations).
 
 ## Slice B — the final review gauntlet (orchestrator-run)
-1. Parallel Fable/Opus reviewers over the whole repo, scoped by area: `code-reviewer` (app+api), `python-reviewer` (all), `security-reviewer` (api + counselle_db Layer 3 + tavily), `silent-failure-hunter` (all error paths), each given the diff range `main..HEAD` of the full project.
+1. Parallel reviewers (Sonnet in most cases; Fable/Opus only for the hardest surfaces) over the whole repo, scoped by area: `code-reviewer` (app+api), `python-reviewer` (all), `security-reviewer` (api + counselle_db Layer 3 + tavily), `silent-failure-hunter` (all error paths), each given the diff range `main..HEAD` of the full project.
 2. Consolidate findings → fixer agents → re-run full `pytest` (+ live markers) → re-review changed files. Loop to clean (max 4 cycles, then user escalation).
 3. **Cross-doc audit** (one agent): walk PRD stories 1–58 minus 39–41 against the codebase, and ARCHITECTURE §§1–25 against reality; output a conformance table; any ✗ becomes a fix or a documented, user-approved deviation.
 
