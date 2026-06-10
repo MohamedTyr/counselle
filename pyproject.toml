@@ -7,11 +7,16 @@ requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.31.0",
     "google-genai>=2.8.0",
+    "httpx>=0.28.1",
+    "langgraph>=1.2.4",
+    "langgraph-checkpoint-postgres>=3.1.0",
     "mcp>=1.27.2",
     "pydantic>=2.13.4",
+    "pydantic-ai>=1.107.0",
     "pydantic-settings>=2.14.1",
     "pyyaml>=6.0.3",
     "structlog>=26.1.0",
+    "tavily-python>=0.7.25",
     "yoyo-migrations>=9.0.0",
 ]
 
@@ -62,4 +67,6 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "live_db: integration tests against the live pipeline database (requires COUNSELLE_DB_RO_DSN and the DB container)",
+    "live_search: integration tests against the live Tavily search API (requires TAVILY_API_KEY or COUNSELLE_TAVILY_API_KEY)",
+    "live_llm: end-to-end conversations against real Gemini + DB + Tavily (slow, costs money; run serially)",
 ]
