@@ -9,7 +9,7 @@
 - Phase 2's `counselle_db/` (this phase extends it).
 
 ## Step 0 (orchestrator): credentials + pgvector decision
-1. Read `~/Projects/ascensia-data-pipeline/.env`; mirror `GOOGLE_APPLICATION_CREDENTIALS` / project / location into Counselle's `.env`. Verify with a live embedding smoke call (`scripts/embed_smoke.py`: embed "acceptance rate", expect a vector of `embed_dimensions` floats).
+1. Read `~/Projects/ascensia-data-pipeline/.env`; mirror the pipeline's Vertex credentials into Counselle's `.env`. **(As-built note, 2026-06-10:** the pipeline uses a Vertex **express-mode API key** (`VERTEX_API_KEY`, used as `genai.Client(vertexai=True, api_key=...)`), not `GOOGLE_APPLICATION_CREDENTIALS` — mirrored as `COUNSELLE_VERTEX_API_KEY`, added to Settings' GCP group as a masked secret.**)** Verify with a live embedding smoke call (`scripts/embed_smoke.py`: embed "acceptance rate", expect a vector of `embed_dimensions` floats).
 2. pgvector check from Phase 2: if unavailable, present the user the image-swap decision (overview §4). If declined → set `COUNSELLE_VECTOR_SEARCH_ENABLED=false` and Slices B/C still ship (reconciler no-ops; keyword path serves everything).
 
 ## Work breakdown

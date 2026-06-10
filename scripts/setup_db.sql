@@ -21,5 +21,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO counselle_ro
 CREATE SCHEMA counselle AUTHORIZATION counselle_app;
 GRANT USAGE ON SCHEMA counselle TO counselle_ro;
 
+-- Phase 3: the reconciler (runs as counselle_app) reads the field catalog
+GRANT SELECT ON public.fields TO counselle_app;
+
 -- pgvector availability check (informational, recorded for Phase 3)
 SELECT count(*) AS pgvector_available FROM pg_available_extensions WHERE name = 'vector';

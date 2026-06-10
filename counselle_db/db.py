@@ -34,6 +34,11 @@ async def create_pool(dsn: str | None = None) -> asyncpg.Pool:
     )
 
 
+def vector_literal(vec: list[float]) -> str:
+    """pgvector text input format: '[0.1,0.2,...]' — cast to ::vector in SQL."""
+    return "[" + ",".join(str(value) for value in vec) + "]"
+
+
 async def fetch(pool: asyncpg.Pool, sql: str, *args: object) -> list[asyncpg.Record]:
     """Run one parameterized SELECT and return the rows."""
     async with pool.acquire() as conn:

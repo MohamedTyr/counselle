@@ -10,7 +10,7 @@ import json
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-EXPECTED_TOOL_COUNT = 10
+EXPECTED_TOOL_COUNT = 11
 SERVER = StdioServerParameters(command="uv", args=["run", "python", "-m", "counselle_db.server"])
 
 

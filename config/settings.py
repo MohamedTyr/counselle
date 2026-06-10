@@ -27,7 +27,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _ENV_PREFIX = "COUNSELLE_"
 
 #: Fields whose values must never appear unmasked in repr/str/logs.
-_SECRET_FIELDS = frozenset({"db_ro_dsn", "db_app_dsn", "tavily_api_key"})
+_SECRET_FIELDS = frozenset({"db_ro_dsn", "db_app_dsn", "tavily_api_key", "vertex_api_key"})
 
 
 def _mask_secret(name: str, value: str) -> str:
@@ -77,8 +77,11 @@ class Settings(BaseSettings):
     search_max_results: int = 5
 
     # --- GCP ---
-    # Credentials ride the standard GOOGLE_APPLICATION_CREDENTIALS var (unprefixed,
-    # not a Settings field — documented in .env.example).
+    # Auth: the pipeline's Vertex express-mode API key (genai.Client(vertexai=True,
+    # api_key=...)) — mirrored from the pipeline repo. Service-account auth via the
+    # standard GOOGLE_APPLICATION_CREDENTIALS var also works (documented in
+    # .env.example); the API key wins when both are set.
+    vertex_api_key: str | None = None
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
 
