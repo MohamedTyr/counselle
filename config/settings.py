@@ -97,6 +97,14 @@ class Settings(BaseSettings):
     # --- Observability ---
     log_level: str = "INFO"
     usage_accounting: bool = True
+    # Per-model token prices (USD per 1 M tokens): {model_name: (input, output)}.
+    # Vertex AI list prices as of 2025-Q3 — est only, no billing guarantee.
+    model_prices: dict[str, tuple[float, float]] = Field(
+        default_factory=lambda: {
+            "gemini-2.5-pro": (1.25, 10.0),  # est only — Vertex list price
+            "gemini-2.5-flash": (0.30, 2.50),  # est only — Vertex list price
+        }
+    )
 
     # --- Assets ---
     assets_dir: Path = Path(__file__).parent / "assets"
