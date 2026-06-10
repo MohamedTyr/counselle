@@ -1,6 +1,8 @@
 """Spec types: clarify spec (ARCHITECTURE §12.1), render spec (§17), events (§6)."""
 
 import pytest
+from pydantic import ValidationError
+
 from domain.envelope import Citation, CitationEnvelope
 from domain.events import Event, ev_delta
 from domain.specs import (
@@ -11,7 +13,6 @@ from domain.specs import (
     ScoreBand,
     VizRow,
 )
-from pydantic import ValidationError
 
 
 def _options(n: int) -> list[ClarifyOption]:

@@ -10,9 +10,10 @@ incl. range tokens/URLs/garbage, bools, None, lists, dicts — the engine must:
 
 from typing import Any
 
-from domain.normalize import FieldMeta, normalize
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from domain.normalize import FieldMeta, normalize
 
 DATA_TYPES = ["int", "number", "percent", "currency", "text", "bool", "date", "json"]
 SOURCES = ["ipeds", "scorecard", "cds"]

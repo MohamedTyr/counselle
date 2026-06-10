@@ -5,17 +5,22 @@ description = "AI agent for thinking and answering about US universities — rea
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "asyncpg>=0.31.0",
+    "mcp>=1.27.2",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.1",
     "pyyaml>=6.0.3",
     "structlog>=26.1.0",
+    "yoyo-migrations>=9.0.0",
 ]
 
 [dependency-groups]
 dev = [
     "anyio>=4.13.0",
+    "bandit>=1.9.4",
     "hypothesis>=6.155.2",
     "mypy>=2.1.0",
+    "psycopg2-binary>=2.9.12",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.15.16",
@@ -54,3 +59,6 @@ strict = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "live_db: integration tests against the live pipeline database (requires COUNSELLE_DB_RO_DSN and the DB container)",
+]
