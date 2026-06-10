@@ -21,6 +21,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from domain.envelope import Unit
+
 NOT_AVAILABLE = "not available"
 
 _BENCHMARK_CAVEAT = "National benchmark across all institutions — not this school's own value."
@@ -54,7 +56,7 @@ class NormalizedValue(BaseModel):
     display: str
     raw: float | int | bool | str | None = None
     available: bool
-    unit: str | None = None
+    unit: Unit | None = None
     decoded_label: str | None = None
     extra_caveat: str | None = None  # e.g. the national-benchmark warning
 
