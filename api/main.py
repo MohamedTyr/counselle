@@ -30,11 +30,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import asyncpg
 import structlog
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from api.context import install_middleware
 from api.routes import sessions, system
@@ -126,4 +128,8 @@ def create_app() -> FastAPI:
     install_middleware(app, settings)
     app.include_router(sessions.router, prefix="/v1")
     app.include_router(system.router, prefix="/v1")
+    # Dev harness static files — served at /harness (html=True serves index.html)
+    _harness_dir = Path(__file__).parent.parent / "harness"
+    if _harness_dir.is_dir():
+        app.mount("/harness", StaticFiles(directory=str(_harness_dir), html=True), name="harness")
     return app
