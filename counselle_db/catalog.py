@@ -7,12 +7,12 @@ cached forever (IPEDS codes are static — DATABASE_GUIDE R1). Scorecard has no
 decode table, so its few coded columns use the hardcoded maps from §8.
 """
 
-import logging
 import re
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
 import asyncpg
+import structlog
 from pydantic import BaseModel
 
 from counselle_db.db import fetch
@@ -20,7 +20,7 @@ from counselle_db.models import ServiceError
 from domain.normalize import FieldMeta
 from domain.vintage import vintage_for
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _REFRESH_INTERVAL = timedelta(hours=1)
 
@@ -114,7 +114,7 @@ def _scan_source_files(rows: list[asyncpg.Record]) -> _SourceFiles:
                 ipeds_cycle_year = int(match.group(1))
             else:
                 ipeds_cycle_year = None
-                logger.warning("unparseable IPEDS filename (no cycle year): %r", filename)
+                logger.warning("unparseable IPEDS filename (no cycle year)", filename=filename)
     return _SourceFiles(scorecard_filename, scorecard_loaded_at, ipeds_cycle_year, ipeds_loaded_at)
 
 
@@ -142,9 +142,25 @@ class Catalog:
         return catalog
 
     async def maybe_refresh(self) -> None:
-        """Reload the catalog if it is older than an hour (callers decide when)."""
-        if datetime.now(UTC) - self.loaded_at >= _REFRESH_INTERVAL:
+        """Reload the catalog if it is older than an hour (callers decide when).
+
+        On failure, the stale catalog is served (callers continue normally) and
+        the next retry is deferred by ~10 minutes to avoid a thundering herd of
+        reload attempts during a DB blip. The initial load (via ``load()``) still
+        raises on failure — only the periodic refresh serves stale.
+        """
+        if datetime.now(UTC) - self.loaded_at < _REFRESH_INTERVAL:
+            return
+        try:
             await self._reload()
+        except Exception:
+            logger.warning(
+                "catalog refresh failed — serving stale catalog",
+                exc_info=True,
+            )
+            # Advance loaded_at so the next attempt happens in ~10 minutes,
+            # not on every subsequent call (thundering herd prevention).
+            self.loaded_at = datetime.now(UTC) - (_REFRESH_INTERVAL - timedelta(minutes=10))
 
     async def _reload(self) -> None:
         # Build everything into locals first; a failed query mid-reload must never

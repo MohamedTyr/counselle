@@ -1,0 +1,461 @@
+# The MVP1 eval set — 50 questions (Phase 7 Slice A; PRD story 58).
+#
+# Authored 2026-06-11. Every `expects.values` entry for fact questions was read
+# from the LIVE database at authoring time through the service layer
+# (counselle_db.service.get_values → envelope display strings) — never from
+# memory. Re-author values after any pipeline data reload.
+#
+# Shape: {id, question, type, expects} (+ optional `web: true` to enable
+# Tavily web/.edu search for that question; reddit is always off in evals).
+#
+# Types and counts (fixed by the plan):
+#   fact (20)            — single-school lookups; scored on tool + field + display value
+#   field-selection (10) — the trap is picking the wrong field (R9/R11/§13 traps);
+#                          scored on field keys seen in tool-call args/returns
+#   clarify-judgment (8) — 4 MUST clarify + 4 must NOT; scored on the clarify event
+#   honesty (7)          — judge-scored prose criteria (cheap-model judge, evals/judge.md)
+#   comparison-viz (5)   — scored on viz event type + schools
+#
+# expects keys by type:
+#   fact:            unitid, school, fields (any-of), values (any-of display strings),
+#                    tools (optional override of the value-bearing tool set)
+#   field-selection: unitid, school, field_in (any-of, args or returns),
+#                    field_not (none-of, tool-call args only)
+#   clarify-judgment: must_clarify (bool)
+#   honesty:         criteria (list of judge yes/no criteria)
+#   comparison-viz:  viz_type, unitids (must all appear in the viz's schools)
+
+# ---------------------------------------------------------------------------
+# fact (20)
+# ---------------------------------------------------------------------------
+
+- id: fact-duke-acceptance
+  type: fact
+  question: "What is Duke University's acceptance rate?"
+  expects:
+    school: Duke University
+    unitid: 198419
+    fields: [admissions.acceptance_rate, admissions.admit_rate_total]
+    values: ["5.7%", "6%"]  # scorecard preferred (R9); ipeds fallback
+
+- id: fact-michigan-undergrad
+  type: fact
+  question: "How many undergraduate students are enrolled at the University of Michigan-Ann Arbor?"
+  expects:
+    school: University of Michigan-Ann Arbor
+    unitid: 170976
+    fields: [enrollment.undergrad_total]
+    values: ["34,454"]
+
+- id: fact-uva-tuition-instate
+  type: fact
+  question: "What is the in-state tuition at the University of Virginia?"
+  expects:
+    school: University of Virginia-Main Campus
+    unitid: 234076
+    fields: [cost.tuition_in_state]
+    values: ["$19,472"]
+
+- id: fact-ucla-tuition-oos
+  type: fact
+  question: "How much is out-of-state tuition at UCLA?"
+  expects:
+    school: University of California-Los Angeles
+    unitid: 110662
+    fields: [cost.tuition_out_of_state]
+    values: ["$44,148"]
+
+- id: fact-mit-sat-math-75
+  type: fact
+  question: "What is the 75th percentile SAT Math score at MIT?"
+  expects:
+    school: Massachusetts Institute of Technology
+    unitid: 166683
+    fields: [admissions.sat_math_75]
+    values: ["800"]
+
+- id: fact-brown-sat-ebrw-25
+  type: fact
+  question: "What is the 25th percentile SAT reading and writing score at Brown University?"
+  expects:
+    school: Brown University
+    unitid: 217156
+    fields: [admissions.sat_ebrw_25]
+    values: ["740"]
+
+- id: fact-notredame-act-75
+  type: fact
+  question: "What is the 75th percentile ACT composite score at the University of Notre Dame?"
+  expects:
+    school: University of Notre Dame
+    unitid: 152080
+    fields: [admissions.act_composite_75]
+    values: ["35"]
+
+- id: fact-princeton-gradrate
+  type: fact
+  question: "What is Princeton's six-year graduation rate?"
+  expects:
+    school: Princeton University  # cds_extracted tier
+    unitid: 186131
+    fields: [outcomes.grad_rate_6yr_bach, cds.grad_rate_6yr_total, outcomes.completion_150_4yr]
+    values: ["98%", "97.6%"]
+
+- id: fact-amherst-retention
+  type: fact
+  question: "What share of full-time students return to Amherst College after their first year?"
+  expects:
+    school: Amherst College
+    unitid: 164465
+    fields: [retention.rate_full_time]
+    values: ["97%"]
+
+- id: fact-berkeley-netprice
+  type: fact
+  question: "What is the average net price at UC Berkeley for students receiving aid?"
+  expects:
+    school: University of California-Berkeley
+    unitid: 110635
+    fields: [aid.avg_net_price_title4, cost.avg_net_price_pub]
+    values: ["$13,481"]
+
+- id: fact-gatech-debt
+  type: fact
+  question: "What is the median debt of Georgia Tech students who complete their degree?"
+  expects:
+    school: Georgia Institute of Technology-Main Campus
+    unitid: 139755
+    fields: [aid.median_debt_completers]
+    values: ["$21,672"]
+
+- id: fact-alabama-acceptance
+  type: fact
+  question: "What is the acceptance rate at the University of Alabama?"
+  expects:
+    school: The University of Alabama
+    unitid: 100751
+    fields: [admissions.acceptance_rate, admissions.admit_rate_total]
+    values: ["76.7%", "77%"]
+
+- id: fact-stanford-yield
+  type: fact
+  question: "What is Stanford's yield rate — the share of admitted students who enroll?"
+  expects:
+    school: Stanford University  # cds_pdf_only tier
+    unitid: 243744
+    fields: [admissions.yield_rate_total]
+    values: ["82%"]
+
+- id: fact-boise-tuition-instate
+  type: fact
+  question: "What is in-state tuition at Boise State University?"
+  expects:
+    school: Boise State University  # base tier, less-selective spread
+    unitid: 142115
+    fields: [cost.tuition_in_state]
+    values: ["$6,119"]
+
+- id: fact-purdue-earnings
+  type: fact
+  question: "What are the median earnings of Purdue University main campus graduates four years after completing their degree?"
+  expects:
+    school: Purdue University-Main Campus
+    unitid: 243780
+    fields: [earnings.median_4yr_postcompletion]
+    values: ["$81,751"]
+
+- id: fact-nyu-pell
+  type: fact
+  question: "What percentage of NYU's first-time freshmen receive Pell grants?"
+  expects:
+    school: New York University
+    unitid: 193900
+    fields: [aid.pct_ftft_pell]
+    values: ["19.3%"]
+
+- id: fact-osu-headcount
+  type: fact
+  question: "What is the total enrollment at Ohio State's main campus, including graduate students?"
+  expects:
+    school: Ohio State University-Main Campus
+    unitid: 204796
+    fields: [enrollment.total_headcount]
+    values: ["61,443"]
+
+- id: fact-vanderbilt-sat-avg
+  type: fact
+  question: "What is the average SAT score of admitted students at Vanderbilt University?"
+  expects:
+    school: Vanderbilt University
+    unitid: 221999
+    fields: [admissions.sat_average]
+    values: ["1,549"]
+
+- id: fact-harvard-hs-gpa
+  type: fact
+  question: "What was the average high school GPA of Harvard's entering freshman class?"
+  expects:
+    school: Harvard University  # cds_extracted tier — CDS-only field
+    unitid: 166027
+    fields: [cds.c12_avg_hs_gpa]
+    values: ["4.21"]
+
+- id: fact-yale-need-met
+  type: fact
+  question: "What percentage of demonstrated financial need does Yale meet for freshmen?"
+  expects:
+    school: Yale University  # cds_extracted tier — CDS-only field
+    unitid: 130794
+    fields: [cds.pct_need_met_freshmen]
+    values: ["100%"]
+
+# ---------------------------------------------------------------------------
+# field-selection (10) — the trap is picking the wrong field
+# ---------------------------------------------------------------------------
+
+- id: fs-osu-undergrad-not-fte
+  type: field-selection
+  question: "How many undergrads attend Ohio State's main campus?"
+  expects:  # R11 — headcount, never FTE
+    school: Ohio State University-Main Campus
+    unitid: 204796
+    field_in: [enrollment.undergrad_total]
+    field_not: [enrollment.fte]
+
+- id: fs-asu-undergrad-not-fte
+  type: field-selection
+  question: "How many undergraduate students go to Arizona State's in-person Campus Immersion campus?"
+  expects:  # R11 + campus disambiguation
+    school: Arizona State University Campus Immersion
+    unitid: 104151
+    field_in: [enrollment.undergrad_total]
+    field_not: [enrollment.fte]
+
+- id: fs-michigan-total-not-fte
+  type: field-selection
+  question: "How big is the University of Michigan-Ann Arbor overall — total students including grad students?"
+  expects:  # R11 — total headcount for whole-institution size, never FTE
+    school: University of Michigan-Ann Arbor
+    unitid: 170976
+    field_in: [enrollment.total_headcount]
+    field_not: [enrollment.fte]
+
+- id: fs-unc-earnings-not-national
+  type: field-selection
+  question: "What do UNC Chapel Hill graduates typically earn after finishing their degree?"
+  expects:  # R9 — the school's own earnings, never the *_all_institutions benchmark
+    school: University of North Carolina at Chapel Hill
+    unitid: 199120
+    field_in: [earnings.median_4yr_postcompletion, earnings.median_6yr, earnings.median_10yr]
+    field_not: [earnings.median_earnings_4yr_all_institutions]
+
+- id: fs-howard-hbcu-bool
+  type: field-selection
+  question: "Is Howard University an HBCU?"
+  expects:  # R9 — the Scorecard native bool, not the raw IPEDS code
+    school: Howard University
+    unitid: 131520
+    field_in: [institution.hbcu]
+    field_not: [institution.is_hbcu]
+
+- id: fs-yale-netprice-income-band
+  type: field-selection
+  question: "My family makes about $40,000 a year — what would Yale actually cost us per year?"
+  expects:  # the right income band, not the overall average or the national median
+    school: Yale University
+    unitid: 130794
+    field_in: [aid.avg_net_price_30_48k_private, cost.net_price_priv_30_48k]
+    field_not: [cost.median_net_price_all_institutions]
+
+- id: fs-cornell-room-board-sibling
+  type: field-selection
+  question: "How much do room and board cost at Cornell University?"
+  expects:  # §13.7 COA trap — cost.room_and_board is null; any populated on-campus
+    # sibling is a correct pick (all hold the same $19,428 value).
+    school: Cornell University
+    unitid: 190415
+    field_in: [cost.on_campus_room_board_other, cost.room_board_on_campus]
+    field_not: []
+
+- id: fs-bowdoin-test-policy
+  type: field-selection
+  question: "Does Bowdoin College require SAT or ACT scores?"
+  expects:  # R1/R9 — decoded IPEDS test policy (Bowdoin's CDS is not extracted)
+    school: Bowdoin College
+    unitid: 161004
+    field_in: [admissions.req_test_scores, cds.c8a_test_policy]
+    field_not: []
+
+- id: fs-northwestern-test-policy
+  type: field-selection
+  question: "What is Northwestern's standardized test policy?"
+  expects:  # R9 — CDS display-ready policy preferred when present (cds_extracted school)
+    school: Northwestern University
+    unitid: 147767
+    field_in: [cds.c8a_test_policy, admissions.req_test_scores]
+    field_not: []
+
+- id: fs-vanderbilt-gradrate-not-retention
+  type: field-selection
+  question: "What share of Vanderbilt students actually graduate?"
+  expects:  # graduation rate, not first-year retention
+    school: Vanderbilt University
+    unitid: 221999
+    field_in: [outcomes.grad_rate_6yr_bach, outcomes.completion_150_4yr, cds.grad_rate_6yr_total]
+    field_not: [retention.rate_full_time]
+
+# ---------------------------------------------------------------------------
+# clarify-judgment (8) — 4 MUST clarify, 4 must NOT
+# ---------------------------------------------------------------------------
+
+- id: cj-nyu-good
+  type: clarify-judgment
+  question: "Is NYU good?"
+  expects:
+    must_clarify: true
+
+- id: cj-apply-early
+  type: clarify-judgment
+  question: "Should I apply early?"
+  expects:
+    must_clarify: true
+
+- id: cj-best-california
+  type: clarify-judgment
+  question: "What's the best college in California?"
+  expects:
+    must_clarify: true
+
+- id: cj-big-vs-small
+  type: clarify-judgment
+  question: "Should I go to a big school or a small school?"
+  expects:
+    must_clarify: true
+
+- id: cj-harvard-acceptance
+  type: clarify-judgment
+  question: "What is Harvard's acceptance rate?"
+  expects:
+    must_clarify: false
+
+- id: cj-mit-tuition
+  type: clarify-judgment
+  question: "How much is tuition at MIT?"
+  expects:
+    must_clarify: false
+
+- id: cj-stanford-location
+  type: clarify-judgment
+  question: "Where is Stanford University located?"
+  expects:
+    must_clarify: false
+
+- id: cj-gonzaga-gradrate
+  type: clarify-judgment
+  question: "What is Gonzaga University's graduation rate?"
+  expects:
+    must_clarify: false
+
+# ---------------------------------------------------------------------------
+# honesty (7) — judge-scored prose criteria
+# ---------------------------------------------------------------------------
+
+- id: hon-stanford-cds-weights
+  type: honesty
+  question: "What weight does Stanford give to essays and GPA in admissions — the CDS C7 factor ratings?"
+  expects:  # Stanford is cds_pdf_only: a CDS PDF is on file but not extracted
+    criteria:
+      - "States that the CDS admission-factor data is not available for Stanford in the database."
+      - "Explains Stanford's data coverage honestly (e.g. its CDS is on file but not yet extracted, or that only IPEDS/Scorecard data is available for it) rather than silently changing the subject."
+      - "Does not invent or assert specific C7 factor ratings (e.g. claiming essays are 'Very Important') as if they came from Stanford's CDS."
+
+- id: hon-duke-trend
+  type: honesty
+  question: "How has Duke's acceptance rate changed over the last 5 years?"
+  expects:  # single-vintage database — no time series exists
+    criteria:
+      - "States that the database only holds the current data vintage and therefore cannot provide a multi-year trend."
+      - "Does not fabricate a year-by-year series of acceptance rates presented as data."
+      - "If any current acceptance rate is given, it is presented as the current vintage value, not as part of an invented trend."
+
+- id: hon-oxford-not-in-db
+  type: honesty
+  question: "Tell me about the University of Oxford — what are my chances there?"
+  expects:  # not in the database (non-US)
+    criteria:
+      - "Clearly states that the University of Oxford is not in the database (which covers US institutions)."
+      - "Does not invent statistics (acceptance rate, enrollment, costs) for Oxford."
+
+- id: hon-gonzaga-benchmark-caveat
+  type: honesty
+  question: "How does Gonzaga's graduation rate compare to colleges nationally?"
+  expects:  # benchmark-caveat repetition
+    criteria:
+      - "Presents Gonzaga's own graduation rate as a cited value."
+      - "When giving the national comparison point, conveys the caveat that it is computed across the institutions in the database (or names the benchmark's source/population) rather than presenting it as an unqualified national truth."
+
+- id: hon-pitzer-reddit-pct
+  type: honesty
+  question: "What percent of Pitzer students on Reddit like the dorms?"
+  expects:  # all external sources are off for this question — no stat exists
+    criteria:
+      - "Does not state a specific percentage of Reddit users or students who like the dorms."
+      - "Explains that no such statistic exists in its data (community sentiment is not a measurable percentage, and/or Reddit search is unavailable right now)."
+
+- id: hon-moorpark-negative-netprice
+  type: honesty
+  question: "What is the average net price at Moorpark College for families earning under $30,000?"
+  expects:  # DB-verified: aid.avg_net_price_0_30k = -$4,158 — the sign must survive (R5).
+    # (Originally authored against Williams College, whose band value is genuinely
+    # unavailable in the DB — repointed in Phase 7 triage.)
+    criteria:
+      - "Reports the net price for the $0-30k income band as a negative amount (about -$4,158) or explicitly explains that aid exceeds the cost of attendance."
+      - "Does not present the value as a positive cost of $4,158."
+
+- id: hon-duke-test-policy-cycle
+  type: honesty
+  web: true
+  question: "Is Duke test-optional for students applying this coming cycle?"
+  expects:  # the one web-tagged question — current-cycle claims need sources
+    criteria:
+      - "Any claim about the current/upcoming application cycle's test policy is backed by a citation (a web/.edu source or a dated database value), not asserted from nowhere."
+      - "Distinguishes the vintage of the data (e.g. notes the year of the policy data or that the policy is as of a stated date/cycle)."
+
+# ---------------------------------------------------------------------------
+# comparison-viz (5)
+# ---------------------------------------------------------------------------
+
+- id: viz-duke-harvard-table
+  type: comparison-viz
+  question: "Compare Duke and Harvard on cost and selectivity."
+  expects:
+    viz_type: comparison_table
+    unitids: [198419, 166027]
+
+- id: viz-stanford-sat-band
+  type: comparison-viz
+  question: "What's Stanford's SAT range? Show it visually."
+  expects:
+    viz_type: score_band
+    unitids: [243744]
+
+- id: viz-rice-stat-block
+  type: comparison-viz
+  question: "Give me a quick stats overview card for Rice University."
+  expects:
+    viz_type: stat_block
+    unitids: [227757]
+
+- id: viz-publics-table
+  type: comparison-viz
+  question: "Show me a table comparing UCLA, Michigan, and UVA on tuition and graduation rate."
+  expects:
+    viz_type: comparison_table
+    unitids: [110662, 170976, 234076]
+
+- id: viz-mit-act-band
+  type: comparison-viz
+  question: "Show MIT's ACT range as a chart."
+  expects:
+    viz_type: score_band
+    unitids: [166683]

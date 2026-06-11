@@ -44,6 +44,8 @@ from api.supervision import McpSupervisor
 from app.deps import build_runtime
 from config.logging import setup_logging
 from config.settings import get_settings
+
+# ADR 0017 deviation 2: api/ → counselle_db direct import accepted for MVP1.
 from counselle_db.reconcile import reconcile_field_index
 
 logger = structlog.get_logger(__name__)
@@ -106,6 +108,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         supervisor = McpSupervisor(runtime.deps.mcp_toolset)
         supervisor.start()  # first probe spawns/verifies the counselle-db child (D4)
+        # Wire supervisor.kick to deps.on_failure so any turn crash immediately
+        # triggers a probe + restart of the MCP child (FIX 3; ADR 0017 carve-out).
+        runtime.deps.on_failure = supervisor.kick
         app.state.settings = settings
         app.state.runtime = runtime
         app.state.reconciler = reconciler

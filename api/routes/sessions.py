@@ -39,8 +39,9 @@ from sse_starlette import EventSourceResponse
 
 from api.sse import SSE_HEADERS, encode_sse
 from api.usage import enrich_usage_event, log_turn_complete
-from app.run_turn import run_turn
+from app.run_turn import _USER_SAFE_ERROR, run_turn
 from app.sessions import create_session, get_session
+from domain.events import ev_error
 from domain.specs import SourceConfig
 
 router = APIRouter(tags=["sessions"])
@@ -210,20 +211,41 @@ async def post_message(
         start_mono = time.monotonic()
         last_usage_event = None
         try:
-            async for event in run_turn(
-                sid,
-                body.text,
-                body.source_config,
-                deps=runtime.deps,
-                graph=runtime.graph,
-            ):
-                # Enrich usage events with cost estimate
-                if event.type == "usage":
-                    event = enrich_usage_event(event, settings.model_counselor, settings)
-                    last_usage_event = event
+            try:
+                async for event in run_turn(
+                    sid,
+                    body.text,
+                    body.source_config,
+                    deps=runtime.deps,
+                    graph=runtime.graph,
+                ):
+                    # Enrich usage events with cost estimate
+                    if event.type == "usage":
+                        event = enrich_usage_event(event, settings.model_counselor, settings)
+                        last_usage_event = event
 
-                yield encode_sse(event, seq)
-                seq += 1
+                    yield encode_sse(event, seq)
+                    seq += 1
+            except Exception:
+                # An exception escaped run_turn (e.g. in enrich_usage_event or
+                # encode_sse) AFTER Starlette committed the 200 response — the
+                # client would otherwise see a silently dropped connection.
+                # Yield a terminal error event so the client always gets a clean
+                # protocol end, then let the finally block run normally.
+                logger.exception(
+                    "stream error after response committed",
+                    session_id=sid,
+                    trace_id=trace_id,
+                )
+                error_event = ev_error(_USER_SAFE_ERROR, trace_id or "")
+                try:
+                    yield encode_sse(error_event, seq)
+                except Exception:
+                    # encode_sse itself failed — fall back to a hand-built SSE frame
+                    import json
+
+                    raw = json.dumps(error_event.model_dump(), separators=(",", ":"))
+                    yield f"id: {seq}\r\nevent: error\r\ndata: {raw}\r\n\r\n"
         finally:
             active.discard(sid)
             # Emit turn_complete log after stream ends (including on cancel)
@@ -282,7 +304,15 @@ async def get_session_route(
         messages: list[dict[str, Any]] = list(snapshot.values.get("messages") or [])
     except Exception:
         logger.exception("failed to load checkpointer state", session_id=sid)
-        messages = []
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "message": "Failed to load session transcript — please try again.",
+                    "trace_id": trace_id,
+                }
+            },
+        )
 
     transcript = _extract_transcript(messages)
 

@@ -14,7 +14,7 @@ compiled graph — and one ``aclose()`` that puts it all away.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import asyncpg
@@ -38,12 +38,17 @@ class AppDeps(GraphDeps):
     production wiring (``get_settings()`` / ``make_tool_deps`` / the real
     GoogleModel) when a seam is unset. ``mcp_toolset=None`` mounts no MCP
     toolset at all — what unit tests want (no stdio child).
+
+    ``on_failure`` is an optional zero-arg hook called (guarded, never raises)
+    when run_turn's outer exception handler fires — used by the API to kick
+    the MCP supervisor for prompt recovery (FIX 3, api/supervision.py).
     """
 
     settings: Any = None  # config.settings.Settings (Any: tests pass a namespace)
     tool_deps: ToolDeps | None = None
     mcp_toolset: MCPToolset | None = None
     model_factory: Callable[[], Model] | None = None
+    on_failure: Callable[[], None] | None = field(default=None)
 
 
 @dataclass

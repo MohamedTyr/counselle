@@ -129,6 +129,10 @@ async def run_turn(
             }
 
         interrupted = False
+        # Capture the last source_registry dump emitted by the agent node as a
+        # fallback for FIX 2 — used when the post-run aget_state fails.
+        last_registry_dump: list[Any] = []
+        last_usage_dict_inline: dict[str, Any] | None = None
         async for mode, chunk in graph.astream(
             graph_input, config, stream_mode=["custom", "updates"]
         ):
@@ -137,10 +141,21 @@ async def run_turn(
                     yield ev_delta(chunk["text"])
                 elif chunk.get("type") == "viz":
                     yield ev_viz(RenderSpec.model_validate(chunk["spec"]))
-            elif mode == "updates" and isinstance(chunk, dict) and "__interrupt__" in chunk:
-                interrupt = chunk["__interrupt__"][0]
-                yield ev_clarify(ClarifySpec.model_validate(interrupt.value))
-                interrupted = True
+            elif mode == "updates" and isinstance(chunk, dict):
+                if "__interrupt__" in chunk:
+                    interrupt = chunk["__interrupt__"][0]
+                    yield ev_clarify(ClarifySpec.model_validate(interrupt.value))
+                    interrupted = True
+                # Capture registry and usage from the node's state update so we
+                # have a fallback if the post-run aget_state call fails (FIX 2).
+                for node_update in chunk.values():
+                    if isinstance(node_update, dict):
+                        sr = node_update.get("source_registry")
+                        if sr is not None:
+                            last_registry_dump = sr
+                        us = node_update.get("usage")
+                        if us is not None:
+                            last_usage_dict_inline = us
 
         # Fix 3: touch_session must not fail a successful turn — wrap it.
         if deps.app_pool is not None:
@@ -157,29 +172,40 @@ async def run_turn(
             yield ev_done("awaiting_input")
             return
 
-        # Fix 4: isolate sources construction so a failure here does not turn a
-        # successfully-answered turn into ev_error — yield empty sources and
-        # proceed to usage/done("complete").
+        # Build the sources event from graph state; on failure fall back to the
+        # registry dump captured from the updates stream (FIX 2) so inline
+        # citation markers already seen by the student still resolve.
         try:
             final = await graph.aget_state(config)
             entries = [
                 SourceEntry.model_validate(entry)
                 for entry in (final.values.get("source_registry") or [])
             ]
+            usage_dict: dict[str, Any] | None = final.values.get("usage")
         except Exception:
             logger.error(
-                "Failed to build ev_sources (trace_id=%s, session_id=%s) — yielding empty",
+                "Failed to build ev_sources post-run (trace_id=%s, session_id=%s)"
+                " — falling back to in-stream registry",
                 trace_id,
                 session_id,
                 exc_info=True,
             )
-            entries = []
-            final = None
+            entries = [SourceEntry.model_validate(entry) for entry in last_registry_dump]
+            usage_dict = last_usage_dict_inline
         yield ev_sources(entries)
-        usage_dict = final.values.get("usage") if final is not None else None
         if usage_dict:
             yield ev_usage(UsageData.model_validate(usage_dict))
         yield ev_done("complete")
     except Exception:
         logger.exception("turn failed (trace_id=%s, session_id=%s)", trace_id, session_id)
+        # Kick the MCP supervisor for prompt recovery (FIX 3) — the probe is
+        # cheap and idempotent; call guarded so it can never mask the original error.
+        on_failure = getattr(deps, "on_failure", None)
+        if on_failure is not None:
+            try:
+                on_failure()
+            except Exception:
+                logger.warning(
+                    "on_failure hook raised (trace_id=%s) — ignoring", trace_id, exc_info=True
+                )
         yield ev_error(_USER_SAFE_ERROR, trace_id)

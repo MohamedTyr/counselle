@@ -27,3 +27,9 @@ The honesty-critical logic (reading rules R1–R12, the citation envelope, vinta
 - The MCP child process (stdio) is supervised by the service lifespan — exponential-backoff restart, status surfaced in `/v1/health`; a tool call hitting a dead child gets a structured tool error, never a hang (eng-review D4).
 - Framework swaps/upgrades are localized; the domain core and its tests survive them.
 - The repo layout (ARCHITECTURE §5) mirrors the layers, making the structure self-explanatory.
+
+## Accepted deviations
+
+1. **`app/` ← `counselle_db/service`** (eng-review D2 carve-out, documented above): `app/` imports `counselle_db/service.py` directly in-process for render_viz, the data calendar, and tier checks.
+
+2. **`api/` ← `counselle_db/reconcile`**: `api/main.py` (lifespan) and `api/routes/system.py` (the admin reconcile route) import `counselle_db.reconcile` directly, bypassing the `app/` layer. This is accepted for MVP1 because the reconciler has no `app/`-layer business logic — it is infrastructure maintenance wired at the process boundary. Adding an `app/` wrapper would be a pass-through with no behaviour behind it and would fail the deletion test.

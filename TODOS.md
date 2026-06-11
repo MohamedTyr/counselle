@@ -8,3 +8,9 @@
 - **Context (start here):** lives next to the reconciler interval task in the API lifespan (`api/main.py`); the deletion is two statements inside one transaction; add a `cleanup: {last_run, deleted}` line to `/v1/health`.
 - **Depends on / blocked by:** Phase 4 checkpointer landed (tables exist in `counselle.*` per eng-review D3).
 - *(Logged from /plan-eng-review, 2026-06-10. Note: CI pipeline was proposed and explicitly declined by the user the same day.)*
+
+## Community card viz type (deferred from MVP1)
+- **What:** implement the `community_card` type in `RenderSpec` and the corresponding harness renderer for qualitative/Reddit content.
+- **Why:** the architecture designed it (ARCHITECTURE §17) but it was not built in MVP1 — `RenderSpec.type` currently accepts only `stat_block | comparison_table | score_band`. Community/Reddit content falls back to prose narration in the delta stream.
+- **Context:** see `domain/specs.py` (`RenderSpec`) and ARCHITECTURE §17. No honesty risk deferred — community content is never quantified anyway; this is a UX improvement only.
+- *(Logged from Phase 7 Slice D docs audit, 2026-06-11.)*

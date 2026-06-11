@@ -369,3 +369,79 @@ async def test_clarify_parks_then_resume_feeds_answer_to_the_model() -> None:
         next(e for e in events_1 if e.type == "meta").data["trace_id"]
         != next(e for e in events_2 if e.type == "meta").data["trace_id"]
     )
+
+
+# ---------------------------------------------------------------------------
+# (f) FIX 2: post-run aget_state failure falls back to in-stream registry dump
+# ---------------------------------------------------------------------------
+
+
+async def test_post_run_aget_state_failure_falls_back_to_stream_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the post-run aget_state raises, sources event still carries the
+    registry entries captured from the updates stream (FIX 2)."""
+    rig = Rig(_fn_model(_search_then_answer))
+    session_id = str(uuid4())
+    config = SourceConfig(web=True, reddit=False, edu=False)
+
+    # Run a first turn to warm up the graph and get the real graph reference
+    events = await rig.turn(session_id, "duke dorms?", config)
+
+    # All events should be present (meta, delta, sources, usage, done)
+    assert "sources" in _types(events)
+    sources = next(e.data["sources"] for e in events if e.type == "sources")
+    assert len(sources) == 1, "expected exactly one source from the search tool"
+
+    # Now simulate a second turn where the post-run aget_state fails.
+    # We monkeypatch the graph's aget_state to fail ONLY on the second call
+    # (the first call is the pre-run interrupt check).
+    original_aget_state = rig.graph.aget_state
+    call_count: list[int] = [0]
+
+    async def patched_aget_state(cfg: Any, *args: Any, **kwargs: Any) -> Any:
+        call_count[0] += 1
+        if call_count[0] >= 2:
+            raise RuntimeError("checkpointer blip on post-run state fetch")
+        return await original_aget_state(cfg, *args, **kwargs)
+
+    monkeypatch.setattr(rig.graph, "aget_state", patched_aget_state)
+
+    events2 = await rig.turn(session_id, "and harvard?", config)
+
+    # Must still end with sources and done(complete), not error
+    assert "sources" in _types(events2), "sources event missing when post-run aget_state fails"
+    assert _done_status(events2) == "complete"
+    assert "error" not in _types(events2)
+
+    # Sources should contain registry entries from the updates stream fallback
+    sources2 = next(e.data["sources"] for e in events2 if e.type == "sources")
+    assert len(sources2) >= 1, "fallback registry was empty — FIX 2 not working"
+
+
+# ---------------------------------------------------------------------------
+# (g) FIX 3: on_failure hook is called when the agent node raises
+# ---------------------------------------------------------------------------
+
+
+async def test_on_failure_hook_called_when_turn_fails() -> None:
+    """When the graph raises an unexpected exception, deps.on_failure is invoked."""
+    hook_calls: list[int] = [0]
+
+    def on_failure() -> None:
+        hook_calls[0] += 1
+
+    # A model that always raises to force run_turn's outer exception handler
+    def always_raises(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("agent node exploded")
+
+    rig = Rig(_fn_model(always_raises))
+    # Inject the hook into deps
+    rig.deps.on_failure = on_failure
+
+    events = await rig.turn(str(uuid4()), "hi", _ALL_OFF)
+
+    # The turn must yield an error event (not propagate the exception)
+    assert "error" in _types(events)
+    # And the hook must have been called once
+    assert hook_calls[0] == 1, f"on_failure called {hook_calls[0]} times, expected 1"

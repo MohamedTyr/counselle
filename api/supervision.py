@@ -103,8 +103,10 @@ class McpSupervisor:
             self._task = None
         close = getattr(getattr(self._toolset, "client", None), "close", None)
         if close is not None:
-            with contextlib.suppress(Exception):
+            try:
                 await close()
+            except Exception as exc:
+                logger.debug("mcp client close error", error=str(exc))
 
     def kick(self) -> None:
         """Wake the prober now — call after an in-flight tool call hit a dead child."""

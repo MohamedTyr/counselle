@@ -79,6 +79,22 @@ _SEARCH_SQL = (
     "SELECT unitid, name, city, state, control, level FROM schools "
     "WHERE name ILIKE '%' || $1 || '%' ORDER BY name LIMIT 10"
 )
+# Trigram fallback when ILIKE finds nothing — catches punctuation/word-order
+# variants ("Alabama A&M" vs "Alabama A & M", "UNC Chapel Hill") so we never
+# falsely tell a student a school is not in the database (honesty carve-out).
+# pg_trgm similarity() handles whole-name closeness; word_similarity() handles
+# partial-name queries. Thresholds tuned against the live DB (Phase 7).
+_FUZZY_SEARCH_SQL = (
+    "SELECT unitid, name, city, state, control, level, "
+    "GREATEST(similarity(name, $1), word_similarity($1, name)) AS score "
+    "FROM schools "
+    "WHERE similarity(name, $1) >= 0.4 OR word_similarity($1, name) >= 0.7 "
+    "ORDER BY GREATEST(similarity(name, $1), word_similarity($1, name)) DESC, name "
+    "LIMIT 5"
+)
+#: A fuzzy top hit at/above this score is unambiguous — return it as a direct
+#: match instead of asking the student (e.g. "Alabama A&M" → "Alabama A & M").
+_FUZZY_EXACT_SCORE = 0.95
 _TIER_SQL = """
 SELECT (SELECT count(*) FROM field_values
          WHERE unitid = $1 AND source = 'cds' AND value IS NOT NULL) AS cds_count,
@@ -150,6 +166,10 @@ _SQL_FIRST_KEYWORD_RE = re.compile(r"^(select|with)\b", re.IGNORECASE)
 _SQL_WRITE_KEYWORD_RE = re.compile(
     r"\b(insert|update|delete|merge|truncate|drop|alter|grant|revoke)\b", re.IGNORECASE
 )
+# Deny dangerous system/session functions called as function calls (with an opening
+# parenthesis immediately after the name): set_config, pg_advisory_lock variants, and
+# pg_sleep variants. Over-rejection is intentional for the escape hatch.
+_SQL_FUNC_DENYLIST_RE = re.compile(r"\b(set_config|pg_advisory\w*|pg_sleep\w*)\s*\(", re.IGNORECASE)
 
 
 # --- The one choke point -----------------------------------------------------
@@ -235,10 +255,19 @@ async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
         if not rows:
             return ResolveNotFound(message=_NOT_FOUND_MESSAGE)
         return await _match(catalog, rows[0])
-    rows = await fetch(catalog.pool, _SEARCH_SQL, _expand_abbreviation(query))
+    expanded = _expand_abbreviation(query)
+    fuzzy_path = False
+    rows = await fetch(catalog.pool, _SEARCH_SQL, expanded)
     if not rows:
-        return ResolveNotFound(message=_NOT_FOUND_MESSAGE)
-    if len(rows) == 1:
+        rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
+        if not rows:
+            return ResolveNotFound(message=_NOT_FOUND_MESSAGE)
+        if rows[0]["score"] >= _FUZZY_EXACT_SCORE:
+            return await _match(catalog, rows[0])
+        # Sub-exact fuzzy hits are never auto-matched — even a single row could
+        # be the wrong school; the agent must confirm with the student.
+        fuzzy_path = True
+    if len(rows) == 1 and not fuzzy_path:
         return await _match(catalog, rows[0])
     ordered = sorted(rows, key=lambda row: (_campus_rank(row["name"]), row["name"]))
     return ResolveCandidates(
@@ -572,6 +601,12 @@ def _guard_sql(sql: str) -> str:
         raise ServiceError(
             f"rejected: read-only — write keyword {write_keyword.group(1).upper()!r} "
             "is not allowed anywhere in the statement (including CTEs)"
+        )
+    func_denied = _SQL_FUNC_DENYLIST_RE.search(stripped)
+    if func_denied:
+        raise ServiceError(
+            f"rejected: function call {func_denied.group(1).lower()!r} is not permitted "
+            "in the escape hatch (set_config, pg_advisory_lock variants, pg_sleep variants)"
         )
     return stripped
 
