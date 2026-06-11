@@ -10,10 +10,16 @@ import { atomWithStorage } from 'jotai/utils';
 
 /**
  * Whether the sidebar is expanded.
- * Upstream localStorage key: `sidebar-state` (recoil atom 'sidebarExpanded').
- * Frozen default: true (sidebar open on desktop).
+ * Upstream: store/settings.ts `sidebarExpanded` — localStorage key
+ * `unifiedSidebarExpanded`, default collapsed on small screens, expanded
+ * otherwise. Replicated exactly (getOnInit matches upstream's eager read).
  */
-export const sidebarExpandedAtom = atomWithStorage<boolean>('sidebar-state', true);
+export const sidebarExpandedAtom = atomWithStorage<boolean>(
+  'unifiedSidebarExpanded',
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches ? false : true,
+  undefined,
+  { getOnInit: true },
+);
 
 // ── Search ────────────────────────────────────────────────────────────────────
 
