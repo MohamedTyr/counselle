@@ -1,0 +1,8 @@
+/*
+ * Counselle-native design tokens — the ONLY token additions allowed on top of
+ * the cloned LibreChat system (ADR 0020, decision 5).
+ *
+ * Populated in FE-4 with exactly two semantic pairs, per theme:
+ *   --official-*   (cool)  — official-source surfaces (CDS / IPEDS / .edu)
+ *   --community-*  (warm)  — community-source surfaces (Reddit)
+ */
