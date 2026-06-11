@@ -69,3 +69,35 @@ export function useCreateChatMutation() {
     },
   );
 }
+
+// ── Feedback (PRD story 22) ──────────────────────────────────────────────────
+
+import { setFeedback, type StoredFeedback } from './mock/feedbackStore';
+
+type FeedbackPayload = {
+  feedback?: { rating: 'thumbsUp' | 'thumbsDown'; tag: string; text?: string };
+};
+
+type FeedbackResponse = {
+  feedback?: { rating: 'thumbsUp' | 'thumbsDown'; tag?: string | null; text?: string };
+};
+
+/**
+ * Mirrors upstream's data-provider hook of the same name, over the mock
+ * feedback store (FE-7 swaps in POST .../messages/{id}/feedback). Upsert;
+ * an absent `feedback` clears the stored rating (re-tap toggles).
+ */
+export function useUpdateFeedbackMutation(conversationId: string, messageId: string) {
+  return useMutation((payload: FeedbackPayload): Promise<FeedbackResponse> => {
+    const stored: StoredFeedback | undefined =
+      payload.feedback !== undefined
+        ? {
+            rating: payload.feedback.rating,
+            tag: payload.feedback.tag,
+            text: payload.feedback.text,
+          }
+        : undefined;
+    setFeedback(conversationId, messageId, stored);
+    return Promise.resolve({ feedback: payload.feedback });
+  });
+}

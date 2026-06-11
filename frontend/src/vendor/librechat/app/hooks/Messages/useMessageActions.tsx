@@ -1,0 +1,132 @@
+/**
+ * Vendored from upstream client/src/hooks/Messages/useMessageActions.tsx
+ * (pinned 197a1dc4).
+ *
+ * Subtractions / rewires:
+ * - agents/assistants endpoint resolution dropped (single fixed assistant)
+ * - chatContext getter-object indirection dropped — our flat list re-renders
+ *   only the live message during streaming (reducer blocks are reference-stable),
+ *   so values come straight from our ChatContext
+ * - copyToClipboard: their content-parts walker reduced to the message prose
+ *   (`copy-to-clipboard`, same setIsCopied contract + 3s reset)
+ * - handleContinue dropped (no continue in the MVP2 protocol)
+ * - UsernameDisplay (recoil) frozen false → "You" for user messages
+ * - feedback hydration via getTagByKey + useUpdateFeedbackMutation kept, over
+ *   our mock feedback store
+ */
+import { useCallback, useMemo, useState } from 'react';
+import copy from 'copy-to-clipboard';
+import { getTagByKey, toMinimalFeedback } from 'librechat-data-provider';
+import type { TFeedback } from 'librechat-data-provider';
+import type { ChatMessage } from '@/app/ChatContext';
+import { useChatContext } from '@/app/ChatContext';
+import { useUpdateFeedbackMutation } from '@/api/hooks';
+import { useLocalize } from '~/hooks';
+
+export type TMessageActions = {
+  message?: ChatMessage;
+  currentEditId: string | number | null;
+  setCurrentEditId: React.Dispatch<React.SetStateAction<string | number | null>>;
+};
+
+const COPY_RESET_MS = 3000;
+
+export default function useMessageActions(props: TMessageActions) {
+  const localize = useLocalize();
+  const { message, currentEditId, setCurrentEditId } = props;
+  const {
+    ask,
+    regenerate,
+    latestMessageId,
+    isSubmitting,
+    conversationId,
+  } = useChatContext();
+
+  const { messageId = null } = message ?? {};
+  const edit = useMemo(() => messageId === currentEditId, [messageId, currentEditId]);
+
+  const [feedback, setFeedback] = useState<TFeedback | undefined>(() => {
+    if (message?.feedback) {
+      const tag = getTagByKey(message.feedback.tag?.key as Parameters<typeof getTagByKey>[0]);
+      return {
+        rating: message.feedback.rating,
+        tag,
+        text: message.feedback.text,
+      };
+    }
+    return undefined;
+  });
+
+  const enterEdit = useCallback(
+    (cancel?: boolean) => setCurrentEditId && setCurrentEditId(cancel === true ? -1 : messageId),
+    [messageId, setCurrentEditId],
+  );
+
+  const regenerateMessage = useCallback(() => {
+    if ((isSubmitting && message?.isCreatedByUser === true) || !message) {
+      return;
+    }
+
+    regenerate(message);
+  }, [isSubmitting, message, regenerate]);
+
+  const copyToClipboard = useCallback(
+    (setIsCopied: React.Dispatch<React.SetStateAction<boolean>>) => {
+      copy(message?.text ?? '', { format: 'text/plain' });
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), COPY_RESET_MS);
+    },
+    [message?.text],
+  );
+
+  const messageLabel = useMemo(() => {
+    if (message?.isCreatedByUser === true) {
+      return localize('com_user_message');
+    }
+    return message?.sender ?? 'Counselle';
+  }, [message, localize]);
+
+  const feedbackMutation = useUpdateFeedbackMutation(
+    conversationId ?? '',
+    message?.messageId ?? '',
+  );
+
+  const handleFeedback = useCallback(
+    ({ feedback: newFeedback }: { feedback: TFeedback | undefined }) => {
+      const minimal = newFeedback ? toMinimalFeedback(newFeedback) : undefined;
+
+      feedbackMutation.mutate(
+        { feedback: minimal },
+        {
+          onSuccess: (data) => {
+            if (!data.feedback) {
+              setFeedback(undefined);
+            } else {
+              const tag = getTagByKey(
+                (data.feedback.tag ?? undefined) as Parameters<typeof getTagByKey>[0],
+              );
+              setFeedback({
+                rating: data.feedback.rating,
+                tag,
+                text: data.feedback.text,
+              });
+            }
+          },
+        },
+      );
+    },
+    [feedbackMutation],
+  );
+
+  return {
+    ask,
+    edit,
+    feedback,
+    enterEdit,
+    messageLabel,
+    handleFeedback,
+    copyToClipboard,
+    latestMessageId,
+    regenerateMessage,
+  };
+}

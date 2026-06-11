@@ -155,3 +155,67 @@ Sibling files copied verbatim from upstream `client/`:
 | `src/components/source-control/SourceDropdown.tsx` | Radix Popover — Database (fixed on), Web/edu/Reddit toggles, Reddit subreddit checkboxes; per-conversation persistence in `localStorage` at `counselle:sourceConfig:<conversationId>` |
 | `src/api/mock/fixtures/config.ts` | `APP_CONFIG`: greeting, season_note, 4 conversation_starters |
 | `src/api/mock/sourceStore.ts` | `getSourceConfig` / `updateSourceConfig` — typed source config store with defaults |
+
+## app/ — FE-3 (messages & streaming)
+
+### Vendored verbatim (alias-normalized diff = empty)
+
+| Our path (under `app/`) | Upstream path |
+|---|---|
+| `components/Chat/Messages/Content/MarkdownBlocks.tsx` | same (the per-block memoization core — **byte-identical**) |
+| `components/Chat/Messages/Content/splitMarkdown.ts` | same — **byte-identical** |
+| `components/Chat/Messages/Feedback.tsx` | same — **byte-identical** (works as-is over the data-provider shim) |
+| `components/Chat/Messages/SubRow.tsx` | same — **byte-identical** |
+| `components/Chat/Messages/ui/PlaceholderRow.tsx` | same — **byte-identical** |
+| `components/Messages/Content/CopyButton.tsx` | same — **byte-identical** |
+| `components/Messages/Content/useCopyCode.ts` | same — **byte-identical** |
+| `components/Messages/Content/LangIcon.tsx` / `langIconPaths.ts` | same — **byte-identical** |
+| `utils/languages.ts` (`langSubset`) | `client/src/utils/languages.ts` — **byte-identical** |
+| `hooks/Messages/messageLayout.ts` | same — **byte-identical** |
+| `Providers/MessageContext.tsx`, `Providers/CodeBlockContext.tsx`, `Providers/ArtifactContext.tsx` | same — **byte-identical** |
+
+### Stripped / rewired (subtractions per file header comment)
+
+| Our path (under `app/`) | Key changes |
+|---|---|
+| `components/Chat/Messages/MessagesView.tsx` | MultiMessage tree recursion → flat map over ChatContext messages; MessageNav dropped; `useMessageScrolling` → `@/app/useQuestionAnchoredScroll` (PRD-mvp2 decision 8); screenshot/provider dropped. Scroll container structure + classes byte-identical |
+| `components/Chat/Messages/Message.tsx` | + `useMessageProcess` collapsed in: children recursion dropped; `effectiveIsSubmitting` computed for the latest message; throttled abort-scroll kept |
+| `components/Chat/Messages/ui/MessageRender.tsx` | siblings/parallel-content/endpoint icons dropped; fontSize frozen `text-base` (FE-5 wires); memo comparator keeps upstream shape with reducer fields (`content` reference, `activity`, `streamError`) |
+| `components/Chat/Messages/Content/MessageContent.tsx` | `:::thinking` parse dropped (protocol events instead); `enableUserMsgMarkdown` frozen true; assistant messages render reducer `content` blocks (markdown → `<Markdown>`, viz → `@/components/viz/VizPlaceholder`); mid-stream `streamError` appended after partial prose; UnfinishedMessage text = "You stopped this response." (cancelled turns) |
+| `components/Chat/Messages/Content/Markdown.tsx` | LaTeX (recoil `LaTeXParsing` + `preprocessLaTeX`) dropped; `result-thinking` init placeholder kept |
+| `components/Chat/Messages/Content/MarkdownLite.tsx` | math/katex + ArtifactProvider dropped |
+| `components/Chat/Messages/Content/markdownConfig.ts` | remark: `[supersub, remarkGfm]` (math/directive/artifact/citation/MCP-UI dropped); rehype: highlight only; lazy-cached getter pattern kept verbatim |
+| `components/Chat/Messages/Content/MarkdownComponents.tsx` | math/mermaid branches dropped; `canRunCode` frozen false; `a` → plain `target="_blank" rel="noopener noreferrer"` anchor (file-download branch dropped); `img` src passthrough |
+| `components/Chat/Messages/Content/MarkdownErrorBoundary.tsx` | math/artifact dropped; **type-level patch**: rehype plugin array cast `as PluggableList` (rehype-highlight@6 nests its own vfile → Plugin type mismatch under TS 5.9) — same cast in MarkdownLite/markdownConfig |
+| `components/Chat/Messages/Content/EditMessage.tsx` | user-message-only editing (PRD decision 4); Save & Submit → `ask({text, messageId})` (truncate-and-re-ask); Save → `updateMessageText`; siblings/RTL/file overrides dropped; classes + shortcuts byte-identical |
+| `components/Chat/Messages/Content/Container.tsx` | Files/SkillPills rows dropped; container classes byte-identical |
+| `components/Chat/Messages/HoverButtons.tsx` | audio/Fork/Continue dropped; `useGenerationsByLatest` → flat-list derivations (regenerate: latest assistant msg, not submitting; edit: user msgs only); HoverButton + classes byte-identical |
+| `components/Chat/Messages/MessageIcon.tsx` | endpoint/assistant resolution collapsed; user chip = upstream UserAvatar fallback byte-for-byte; assistant = Counselle "C" roundel |
+| `components/Messages/Content/CodeBlock.tsx` | run-code tool calls/FloatingCodeBar/plugin branch dropped; container + CodeBar + code classes byte-identical |
+| `components/Messages/Content/CodeBar.tsx` | RunCode + plugin InfoIcon dropped; bar classes byte-identical |
+| `components/Messages/Content/Error.tsx` | their backend error-code parser reduced to text passthrough (protocol `error.message` is already human) |
+| `components/Messages/ScrollToBottom.tsx` | `maximizeChatSpace` frozen false; classes byte-identical |
+| `hooks/Messages/useMessageActions.tsx` | endpoints/agents dropped; chatContext getter-object dropped (reducer blocks are reference-stable); copy = `copy-to-clipboard` over message prose; feedback via `@/api/hooks` mutation over the mock store |
+
+### Support changes
+
+- `Providers/index.ts`: + MessageContext / CodeBlockContext / ArtifactContext exports
+- `common/index.ts`: + FE-3 message prop types (`TMessageProps`, `TMessageContentProps`, `TDisplayProps`, `TEditProps`, `CodeBarProps`, `TMessageIcon`) — upstream shapes trimmed to the flat list, `TMessage` → our `ChatMessage`
+- `utils/index.ts`: + `langSubset`, `handleDoubleClick` (verbatim), `getMessageAriaLabel`/`getHeaderPrefixForScreenReader` (depth numbering dropped — flat list)
+- `utils/cn.ts`: default-export alias for upstream `import cn from '~/utils/cn'` consumers
+- `src/vendor/librechat-data-provider/index.ts`: + feedback types/tags/helpers (from upstream `packages/data-provider/src/feedback.ts`, zod dropped) + `TUser`/`TFile`/`TStartupConfig`; the ambient `src/types/librechat-data-provider.d.ts` stub **deleted** (it shadowed the runtime shim for tsc)
+- Known upstream wart kept byte-identical: Feedback.tsx passes `bold` to lucide icons → dev-only React non-boolean-attribute warning (exists upstream too)
+
+### Counselle-native additions (FE-3)
+
+| File | Description |
+|---|---|
+| `src/api/protocol.ts` | TS mirror of the v1 protocol (architecture.md §27) incl. step/thinking, done.cancelled, the §27.5 transcript contract |
+| `src/api/turn-reducer.ts` | Pure reducer: events → TurnState (ordered content blocks, merged steps, thinking, sources, usage, status); `reduceTranscriptEntry` replays persisted entries through the SAME reducer; completed blocks keep object identity (feeds the MarkdownBlocks memoization) |
+| `src/api/transport.ts` | The Transport seam (sendMessage/attach/cancel/transcript) — FE-7 swaps MockTransport for HTTP without touching anything above |
+| `src/api/mock/transport.ts` | MockTransport: fixture replay with latency theater, cancel → done(cancelled), attach replays the in-memory ring |
+| `src/api/mock/fixtures/turns/` | dossier / simple / error / cancelled event fixtures (§27 schemas verbatim) + `deltas()` chunker |
+| `src/api/mock/messagesStore.ts` | Per-chat persisted transcripts (localStorage, version-gated); truncateFrom (PRD decision 4), updateEntryText |
+| `src/api/mock/feedbackStore.ts` | Thumbs feedback persistence (PRD decision 10) |
+| `src/app/useQuestionAnchoredScroll.ts` | Question-anchored scrolling (PRD decision 8): sent question pins to top (spacer grows so short chats can anchor), no bottom-chasing, ↓ pill via their ScrollToBottom |
+| `src/components/viz/VizPlaceholder.tsx` | FE-3 labeled card for in-stream viz blocks (FE-4 renders them properly) |

@@ -18,6 +18,7 @@ import { useSetAtom } from 'jotai';
 import type { ChatFormValues } from '~/common';
 import { ChatFormProvider } from '~/Providers';
 import ConversationStarters from '~/components/Chat/Input/ConversationStarters';
+import MessagesView from '~/components/Chat/Messages/MessagesView';
 import ChatForm from '~/components/Chat/Input/ChatForm';
 import Landing from '~/components/Chat/Landing';
 import Header from '~/components/Chat/Header';
@@ -60,7 +61,9 @@ export default function ChatView() {
               >
                 {isLandingPage ? (
                   <Landing centerFormOnLanding={CENTER_FORM_ON_LANDING} />
-                ) : null /* FE-3: <MessagesView /> */}
+                ) : (
+                  <MessagesView />
+                )}
                 <div
                   className={cn(
                     'w-full',
