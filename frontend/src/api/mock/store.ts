@@ -7,9 +7,17 @@ import type { ChatRecord } from '@/api/types';
 import { FIXTURE_CHATS } from './fixtures/chats';
 
 const STORAGE_KEY = 'counselle:mock:chats';
+const VERSION_KEY = 'counselle:mock:version';
+/** Bump to wipe persisted mock state on every client (fixtures changed, test garbage, …). */
+const STORE_VERSION = '2';
 
 function loadFromStorage(): ChatRecord[] | null {
   try {
+    if (localStorage.getItem(VERSION_KEY) !== STORE_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(VERSION_KEY, STORE_VERSION);
+      return null;
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return null;

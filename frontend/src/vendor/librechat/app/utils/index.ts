@@ -15,3 +15,13 @@ export { groupConversationsByDate } from './convos';
 export function clearMessagesCache(_queryClient?: unknown): void {
   // no-op in MVP2
 }
+
+// textarea utils — verbatim from upstream client/src/utils/textarea.ts
+export { insertTextAtCursor, forceResize, checkIfScrollable } from './textarea';
+
+// draft helpers — verbatim from upstream client/src/utils/drafts.ts
+export { clearDraft, clearAllDrafts, setDraft, getDraft, NEW_CONVO, PENDING_CONVO } from './drafts';
+
+// removeFocusRings — verbatim from upstream client/src/utils/index.ts
+export const removeFocusRings =
+  'focus:outline-none focus:ring-0 focus:border-transparent focus-visible:ring-0 focus-visible:outline-none';

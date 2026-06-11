@@ -30,3 +30,14 @@ export const searchQueryAtom = atom<string>('');
 
 /** The currently-open conversation id, or null when on the landing screen. */
 export const activeConversationIdAtom = atom<string | null>(null);
+
+// ── Composer prefs ────────────────────────────────────────────────────────────
+
+/**
+ * Whether pressing Enter (without Shift) sends the message.
+ * Upstream: store/settings.ts `enterToSend` — localStorage key `enterToSend`, default true.
+ * Replicated exactly.
+ */
+export const enterToSendAtom = atomWithStorage<boolean>('enterToSend', true, undefined, {
+  getOnInit: true,
+});

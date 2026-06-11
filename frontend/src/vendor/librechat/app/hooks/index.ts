@@ -3,6 +3,10 @@
 export { default as useLocalize } from '@librechat/client/hooks/useLocalize';
 export type { TranslationKeys } from '@librechat/client/hooks/useLocalize';
 export { default as useNavScrolling } from './Nav/useNavScrolling';
+export { default as useFocusChatEffect } from './Chat/useFocusChatEffect';
+export { default as useTextarea } from './Input/useTextarea';
+export { default as useHandleKeyUp } from './Input/useHandleKeyUp';
+export { useAutoSave } from './Input/useAutoSave';
 
 // useElementSize — returns ref + measured width + height of a DOM element
 // Used by Conversations.tsx for the virtualized list container.
