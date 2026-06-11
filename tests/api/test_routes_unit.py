@@ -382,3 +382,110 @@ def test_extract_transcript_concatenates_multiple_text_parts() -> None:
     ]
     result = session_routes._extract_transcript(messages)
     assert result[0]["text"] == "Hello world"
+
+
+# ---------------------------------------------------------------------------
+# FIX 4: GET /v1/sessions/{id} — aget_state failure → 500, not 200
+# ---------------------------------------------------------------------------
+
+
+def test_get_session_checkpointer_failure_returns_500() -> None:
+    """GET /v1/sessions/{id} where aget_state raises → 500, never 200 with empty transcript."""
+    test_session_uuid = "00000000-0000-4000-8000-000000000099"
+    test_session_id = test_session_uuid
+
+    _, app_conn = _make_pool()
+    fake_row = {
+        "session_id": test_session_id,
+        "user_id": None,
+        "title": None,
+        "source_config": None,
+        "created_at": None,
+        "updated_at": None,
+    }
+    app_conn.fetchrow.return_value = fake_row
+
+    app_pool = MagicMock()
+    app_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=app_conn)
+    app_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    # Graph whose aget_state raises an exception
+    broken_graph = AsyncMock()
+    broken_graph.aget_state.side_effect = RuntimeError("checkpointer exploded")
+
+    app = make_test_app(app_pool=app_pool, graph=broken_graph)
+
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.get(f"/v1/sessions/{test_session_uuid}")
+
+    assert response.status_code == 500
+    body = response.json()
+    assert "error" in body
+    assert "transcript" not in body  # 500 envelope, not the 200 transcript shape
+
+
+# ---------------------------------------------------------------------------
+# FIX 1: _stream() — exception after 200 committed → error SSE event in stream
+# ---------------------------------------------------------------------------
+
+
+def test_stream_yields_error_event_when_enrich_usage_raises() -> None:
+    """When enrich_usage_event raises inside _stream, the stream must end with an error event."""
+    import json
+    from unittest.mock import patch
+
+    test_session_uuid = "00000000-0000-4000-8000-000000000098"
+    test_session_id = test_session_uuid
+
+    _, app_conn = _make_pool()
+    fake_row = {
+        "session_id": test_session_id,
+        "user_id": None,
+        "title": None,
+        "source_config": None,
+        "created_at": None,
+        "updated_at": None,
+    }
+    app_conn.fetchrow.return_value = fake_row
+    app_pool = MagicMock()
+    app_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=app_conn)
+    app_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    # Graph that yields a usage event (to trigger enrich_usage_event)
+    from domain.events import UsageData, ev_meta, ev_usage
+
+    usage_event = ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
+
+    async def fake_run_turn(*args: Any, **kwargs: Any):  # type: ignore[no-untyped-def]
+        yield ev_meta("trace-1", test_session_id, "model-x")
+        yield usage_event
+
+    app = make_test_app(app_pool=app_pool)
+
+    with (
+        patch("api.routes.sessions.run_turn", side_effect=fake_run_turn),
+        patch(
+            "api.routes.sessions.enrich_usage_event",
+            side_effect=RuntimeError("enrichment boom"),
+        ),
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{test_session_uuid}/messages",
+            json={"text": "hello"},
+        )
+
+    # The response is still 200 (SSE headers already sent)
+    assert response.status_code == 200
+    # Parse the SSE frames and find an error event
+    frames = response.text.split("\r\n\r\n")
+    error_frames = [f for f in frames if "event: error" in f]
+    assert error_frames, f"expected an error SSE frame, got frames: {frames}"
+    # Extract the data line from the first error frame
+    data_line = next(
+        (line for line in error_frames[0].splitlines() if line.startswith("data: ")), None
+    )
+    assert data_line is not None
+    payload = json.loads(data_line[len("data: ") :])
+    assert payload["type"] == "error"
+    assert "Something went wrong" in payload["data"]["message"]

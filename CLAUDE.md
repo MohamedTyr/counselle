@@ -12,7 +12,29 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 ## Status
 
-**Plan complete, implementation not started.** No agent code yet. The data pipeline is built and live (Postgres on `localhost:5432`). The design is done: `PRD.md`, `docs/DATABASE_GUIDE.md`, `docs/ARCHITECTURE.md`, the ADRs in `docs/adr/`, and the research in `docs/research/`. The **MVP1 implementation plan lives in `plans/mvp1/`** (8 phases, eng-review CLEARED 2026-06-10) — implementation starts at Phase 0 on the user's go. **Deep research (PRD stories 39–41) is deferred from this plan** to a follow-up; the graph ships a stub `research` seam.
+**MVP1 built (2026-06-11).** PRD stories 1–38 and 42–58 are implemented and verified by tests, evals, and live E2E. Deep research (PRD stories 39–41) is **deferred** — the graph ships a stub `research` seam; the follow-up plan lives in `plans/mvp1-deep-research.md`. The data pipeline is live (Postgres on `localhost:5432`). The MVP1 implementation plan is archived in `plans/archive/mvp1/`.
+
+## Commands
+
+```bash
+# Routine tests (no live LLM or Tavily, ~$0.00)
+uv run pytest -m "not live_llm and not live_search"
+
+# Full test suite including live Gemini + Tavily (~$0.50)
+uv run pytest
+
+# Lint + type-check
+uv run ruff check . && uv run mypy .
+
+# Run the eval set (~$2-3, produces evals/report-<date>.json)
+uv run python -m evals.runner
+
+# Start the server
+uv run uvicorn api.main:create_app --factory --port 8000
+
+# Dev harness chat (after server is running)
+# Open: http://localhost:8000/harness/
+```
 
 ## Documentation map
 
@@ -21,13 +43,15 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 | File | What it is |
 |------|-----------|
 | `PRD.md` | Product requirements: the agent's purpose, primary user, MVP1 scope, the feature list, what's deferred, and the decision history/rationale from the design conversation |
+| `PRD-mvp2.md` | MVP2 PRD (drafted 2026-06-11, WHAT-level): the full-stack app over the MVP1 agent — auth, home screen, the chat-experience spec (activity timeline, inline cards, citation grammar, smoothness laws), chat management, settings, the backend delta (`step`/`thinking` events, resume/cancel, chat CRUD, rate limiting), locked product decisions, and MVP2 out-of-scope |
 | `docs/ARCHITECTURE.md` | The full system architecture: the chosen stack, the data-access layer (the `counselle-db` MCP server, its 3 layers and tool catalog), the citation envelope, field discovery, school coverage & the CDS tier, the agent runtime, the deep-research subsystem, source control, skills, visualizations, temporal awareness, deployment, the feature→component matrix, risks, and open questions |
 | `docs/DATABASE_GUIDE.md` | Exhaustive reference for the underlying database — every table, the 1,093-field catalog, value-reading rules (R1–R12, anti-misread), raw/multi-row data, enum decoding, data recency/provenance, the query surface, school identity, the CDS pipeline, gotchas, and how-to SQL recipes. Verified against the live DB (snapshot 2026-06-09) |
 | `docs/research/agent-stack-evaluation.md` | The frontier-tech survey behind the stack choice: agent frameworks, model-provider abstraction, and the agent-skills ecosystem, with scorecards and the verdict |
 | `docs/research/deep-research-bakeoff.md` | The 4-way quality-vs-cost comparison of open-source deep-research systems (Alibaba DeepResearch, STORM, dzhng/deep-research, GPT-Researcher) and the verdict |
 | `docs/adr/README.md` | **Index of all 19 ADRs** (number, title, one-line summary). Start here for decisions |
 | `docs/adr/` | One file per architectural decision (context → decision → rationale → alternatives → consequences). Do not silently break an ADR |
-| `plans/mvp1/` | The MVP1 implementation plan: `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7). Implementing agents follow their phase file exactly |
+| `plans/archive/mvp1/` | The MVP1 implementation plan (archived): `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7) |
+| `plans/mvp1-deep-research.md` | Stub plan for the deferred deep-research follow-up (PRD stories 39–41) |
 | `TODOS.md` | Deferred work with full context (currently: the session-TTL cleanup job). CI was proposed and explicitly declined — don't re-propose it |
 
 ## The three principles (inherited from the data pipeline, they apply here too)

@@ -17,6 +17,10 @@ import textwrap
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
+import structlog
+
+_skills_logger = structlog.get_logger(__name__)
+
 # ---------------------------------------------------------------------------
 # Internal: locate the skills tree (relative to this file's package parent)
 # ---------------------------------------------------------------------------
@@ -81,8 +85,10 @@ def load_all_skill_meta() -> list[dict[str, str]]:
             description = fm.get("description", "").strip()
             if name and description:
                 meta.append({"name": name, "description": description})
-        except OSError:
-            pass  # missing or unreadable file — skip
+        except OSError as exc:
+            _skills_logger.warning(
+                "skill file unreadable — skipping", path=str(path), error=str(exc)
+            )
 
     _meta_cache = meta
     return _meta_cache

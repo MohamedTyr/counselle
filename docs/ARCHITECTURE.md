@@ -2,7 +2,7 @@
 
 > The complete architecture for the Counselle AI agent (MVP1), designed so the future platform (persistent chats, user accounts, profiles, chancing, writing) extends it without rework. Companion docs: `PRD.md` (what & why), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
 >
-> Status: design. No code yet. The data pipeline + Postgres are live (`localhost:5432`).
+> Status: **MVP1 built (2026-06-11)**. PRD stories 1–38 and 42–58 implemented and verified. Deep research (PRD stories 39–41) designed but not yet built — see §13 and `plans/mvp1-deep-research.md`.
 
 ---
 
@@ -101,13 +101,13 @@ Chosen by surveying the 2026 frontier and picking proven pieces (never reinvent 
 | **Orchestration** | **LangGraph** | Multi-agent research subgraphs; `interrupt()` for clarifying questions; checkpointer = session persistence (and the platform's chat history later). | 0003 |
 | **API edge** | **FastAPI** (+ SSE) | Matches the Python stack; typed request/response; streaming-native. | 0016 |
 | **Database access** | **`counselle-db` MCP server** (Python, asyncpg, read-only role) | 3 layers (discovery → safe tools → guarded SQL); reading rules + citations + read-only enforced in code. | 0004, 0005, 0012 |
-| **Deep research** | **GPT-Researcher** (embedded) | Only OSS deep-research with pluggable MCP sources (our DB first-class); best controllable cost. | 0009 |
+| **Deep research** | **GPT-Researcher** (embedded) | Only OSS deep-research with pluggable MCP sources (our DB first-class); best controllable cost. **Not yet built — deferred from MVP1; see §13.** | 0009 |
 | **External search** | **Tavily** | One search+extract backend for web / .edu / Reddit, scoped by domain; also GPT-Researcher's retriever. No scraping of our own. | 0015 |
 | **Skills** | **SKILL.md** open standard | Portable workflow layer, loaded on demand. | 0010 |
 | **Session persistence** | **LangGraph Postgres checkpointer** in `counselle.*` | Sessions survive restarts from day one; the platform's chats are the same rows + a user FK. | 0019 |
 | **Vector search** | **pgvector** (`counselle.field_index`) | Field-discovery embeddings; reuses Postgres, no new infra. | 0007, 0008 |
 | **Config** | **pydantic-settings** + versioned data assets | One typed settings surface, fail-fast at startup. | 0018 |
-| **Models** | Default **Vertex AI**: `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier); any agent swappable to Anthropic/others via config; optional LiteLLM sidecar later. | 0011 |
+| **Models** | Default **Vertex AI**: `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier); any agent swappable to Anthropic/others via config; optional LiteLLM sidecar (configured in Settings, not deployed in MVP1). | 0011 |
 | **Language** | Python | Matches the pipeline; asyncpg expertise carries over. | — |
 
 ---
@@ -119,7 +119,7 @@ Chosen by surveying the 2026 frontier and picking proven pieces (never reinvent 
 | Layer | Package | Contains | May import |
 |---|---|---|---|
 | **Domain core** | `domain/` | Citation-envelope types; the **normalization engine** (reading rules R1–R12); vintage interpretation; coverage-tier logic; `admission_season(today)`; render-spec / clarify-spec / source-config / protocol-event **types**. Pure functions and Pydantic models. **No I/O, no LLM calls, no LangGraph/FastAPI imports.** | stdlib, pydantic |
-| **Application** | `app/` | The LangGraph graph; PydanticAI agent definitions (counselor, researcher, verifier); the research subagent wiring; source-config tool mounting; skills loading; the data calendar assembly. | `domain/`, the stack |
+| **Application** | `app/` | The LangGraph graph; PydanticAI agent definitions (counselor in MVP1; researcher + verifier deferred — §12, §13); source-config tool mounting; skills loading; the data calendar assembly. | `domain/`, the stack |
 | **Adapters** | `adapters/` (+ the separate `counselle-db` server) | asyncpg access, Tavily tools, GPT-Researcher embedding, checkpointer setup, embedding client. Each adapter implements a seam consumed by `app/` — mostly the stack's own seams (MCP tools, retrievers, checkpointer). | `domain/`, vendor SDKs |
 | **API edge** | `api/` | FastAPI routes, SSE encoding, request context (trace ID + optional principal), translation of graph output → protocol events. | `app/`, `domain/` |
 
@@ -128,6 +128,7 @@ Rules of thumb (the seam discipline):
 - **The domain core is the deletion-test survivor.** Deleting it would scatter the reading rules across every tool and prompt — it concentrates the product's entire honesty guarantee in one deep module with a tiny interface (`normalize(field, raw) → envelope`, `season(today) → phase`, …). It is the most-tested code in the repo (§21).
 - **One adapter = hypothetical seam; two = real.** We do not write interfaces for things with one implementation and no honesty stake. The model seam is real (Vertex/Anthropic — via PydanticAI, not ours). The search seam is the three thin tools (Tavily today; the tool signatures are the seam). The session seam is LangGraph's checkpointer protocol (theirs, not ours).
 - **No pass-through wrappers.** If a module's interface is as complex as what it hides, delete it.
+- **Accepted deviations (ADR 0017):** (1) `app/` imports `counselle_db/service.py` directly in-process for `render_viz`, the data calendar, and tier checks — MCP is the tool seam for the LLM's tool loop only. (2) `api/main.py` and `api/routes/system.py` import `counselle_db.reconcile` directly, bypassing `app/` — the reconciler is infrastructure maintenance wired at the process boundary; an `app/` wrapper would be a pass-through with no behaviour and would fail the deletion test. Both deviations are documented in ADR 0017.
 
 ---
 
@@ -180,7 +181,7 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 | Event | Payload | Notes |
 |---|---|---|
 | `meta` | trace_id, session_id, model in use | First event of every stream. |
-| `delta` | text tokens (with inline citation markers) | The prose. |
+| `delta` | text tokens (with inline citation markers) | The prose. **Visible reasoning steps** (PRD story 52) are realized as prose narration woven into the delta stream (e.g. "Let me check the acceptance rate…") — not a separate step event type. |
 | `viz` | a **render spec** (§17) — cells are citation envelopes | Out-of-band: numbers never ride in `delta` tokens. |
 | `clarify` | a **clarify spec** (§12.1) | Stream ends `awaiting_input`; client answers via a new message. |
 | `sources` | the deduplicated citation list for the turn (official/community, vintages) | Feeds the expandable-marker UX (PRD). |
@@ -290,7 +291,9 @@ Tier is computed from **actual data presence** (extracted values → extracted; 
 
 ## 12. The agent runtime (PydanticAI + LangGraph)
 
-(ADR 0003.) PydanticAI defines each agent (counselor, researcher, verifier) with `model=` from config, native MCP connections, and typed `result_type`s. LangGraph orchestrates: parallel research subgraphs scaled to question complexity, state passing, session persistence via the checkpointer (§7), and `interrupt()` for clarifying questions.
+(ADR 0003.) PydanticAI defines each agent with `model=` from config, native MCP connections, and typed `result_type`s. LangGraph orchestrates: state passing, session persistence via the checkpointer (§7), and `interrupt()` for clarifying questions.
+
+**MVP1 as-built:** only the **counselor** agent is implemented. The **researcher** and **verifier** agents are designed (§13) but not yet built — they are part of the deferred deep-research follow-up (`plans/mvp1-deep-research.md`). Parallel research subgraphs are also deferred.
 
 ### 12.1 Clarifying questions
 
@@ -322,9 +325,11 @@ One focused round, 2–4 options, never an intake form. The chips are a shortcut
 
 ## 13. The deep-research subsystem (GPT-Researcher)
 
+> **Not yet built — designed, deferred from MVP1.** The graph ships a stub `research` seam. The follow-up plan is `plans/mvp1-deep-research.md`. The design below is the approved spec for that plan. See ADR 0009 for the GPT-Researcher choice and `docs/research/deep-research-bakeoff.md` for the bake-off.
+
 Embedded as a research subagent inside the LangGraph orchestrator — not adopted wholesale, and **not** a hosted research black box (our DB must be a first-class source; our model routing and source tiering must apply). (ADR 0009; bake-off in `docs/research/deep-research-bakeoff.md`.)
 
-**Cost-optimized configuration (all knobs in §18):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard `DEPTH`/`BREADTH`/concurrency caps; documented cost ~$0.08–0.10/task cheap mode, ~$0.50–1.00 deep mode. **DB-first does the heavy lifting:** web research only fills gaps the DB can't answer — a base-tier dossier comes almost entirely from IPEDS/Scorecard with zero web spend.
+**Cost-optimized configuration (all knobs in §18 — deep-research-only; not yet active in MVP1):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard `DEPTH`/`BREADTH`/concurrency caps; documented cost ~$0.08–0.10/task cheap mode, ~$0.50–1.00 deep mode. **DB-first does the heavy lifting:** web research only fills gaps the DB can't answer — a base-tier dossier comes almost entirely from IPEDS/Scorecard with zero web spend.
 
 **What we add (already PRD features):** source-type tagging (each source tags `official`/`community`, carried into citations), the **verification pass** (a cheap post-pass cross-checking the top 2–3 cited sources before stating a fact), and the eval set (§21).
 
@@ -368,7 +373,7 @@ Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, opti
 
 ## 17. Visualizations
 
-(ADR 0014.) **MVP1 ships three:** the **dossier stat block**, the **comparison table** (per-cell citations), and the **score-range band** (SAT/ACT middle-50%). Net-price-by-income bars and the factor-weight grid are designed but deferred.
+(ADR 0014.) **MVP1 ships three:** the **dossier stat block**, the **comparison table** (per-cell citations), and the **score-range band** (SAT/ACT middle-50%). Net-price-by-income bars and the factor-weight grid are designed but deferred. The **community card** viz type (for qualitative/Reddit content) is also designed but **not implemented in MVP1** — `RenderSpec.type` accepts only `stat_block | comparison_table | score_band`; community-card support is deferred to the follow-up.
 
 **The provenance boundary (the core rule):** the **LLM decides the shape** (schools, fields, chart type); a **tool fetches the numbers** straight from citation envelopes. **Numbers never round-trip through the LLM's tokens.** Community/qualitative content renders as an explicitly community-tier qualitative card, never a quantified chart. **No trend charts** — the DB holds one vintage per source; a trend line would be fabricated.
 
@@ -390,8 +395,8 @@ Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, opti
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` (counselor / researcher / verifier / clarifier), GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, provider credentials, optional LiteLLM endpoint |
-| Research | depth, breadth, concurrency, per-tier token caps, per-question cost ceiling |
+| Models | per-agent `model=` (counselor / clarifier), provider credentials. *Note: researcher / verifier model knobs and GPT-Researcher's `FAST/STRATEGIC/SMART` tiers are in the Settings surface but not yet active — deep-research only, deferred (§13). LiteLLM sidecar endpoint is in Settings as optional but not deployed in MVP1.* |
+| Research | depth, breadth, concurrency, per-tier token caps, per-question cost ceiling. *Deep-research-only — not yet active in MVP1 (§13).* |
 | Database | pipeline DSN (`counselle_ro`), statement timeout, row cap, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Discovery | embedding model + version, reconcile interval |

@@ -506,6 +506,21 @@ class TestSafeError:
         assert "password" not in result["error"].lower()
         assert "internal error" in result["error"]
 
+    def test_message_containing_tvly_prefix_is_sanitized(self) -> None:
+        # FIX 6: any message containing the Tavily key prefix "tvly-" must be suppressed
+        exc = RuntimeError("Auth failed for key tvly-abc123XYZ")
+        result = _safe_error(exc)
+        assert result["retryable"] is True
+        assert "tvly-" not in result["error"].lower()
+        assert "internal error" in result["error"]
+
+    def test_message_containing_tvly_prefix_case_insensitive(self) -> None:
+        # FIX 6: case-insensitive match ("TVLY-" still triggers suppression)
+        exc = RuntimeError("Token TVLY-secret123 invalid")
+        result = _safe_error(exc)
+        assert "tvly-" not in result["error"].lower()
+        assert "internal error" in result["error"]
+
     @pytest.mark.asyncio
     async def test_search_web_auth_error_is_not_retryable(self) -> None:
         client = StubTavilyClient(raise_exc=InvalidAPIKeyError("bad key"))

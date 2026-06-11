@@ -116,8 +116,12 @@ _MCP_ENV_ALLOWLIST: frozenset[str] = frozenset(
         "COUNSELLE_DB_POOL_MAX",
         "COUNSELLE_DB_STATEMENT_TIMEOUT_MS",
         # Vertex / GCP credentials needed for embedding (reconciler)
-        "COUNSELLE_VERTEX_PROJECT",
+        # COUNSELLE_VERTEX_API_KEY is included so the child's embedding calls and
+        # reconciler work in env-var-only deployments (in dev the child also reads
+        # .env itself, but in prod only this allowlist reaches the child process).
+        "COUNSELLE_VERTEX_API_KEY",
         "COUNSELLE_VERTEX_LOCATION",
+        "COUNSELLE_VERTEX_PROJECT",
         "GOOGLE_APPLICATION_CREDENTIALS",
         # Embedding / vector-search / reconciler flags
         "COUNSELLE_EMBED_MODEL",
@@ -125,6 +129,9 @@ _MCP_ENV_ALLOWLIST: frozenset[str] = frozenset(
         "COUNSELLE_VECTOR_SEARCH_LIMIT",
         # Log level for the child process
         "COUNSELLE_LOG_LEVEL",
+        # The child is spawned via `uv run`; in the container HOME is
+        # non-writable (/nonexistent), so uv needs its cache dir passed through.
+        "UV_CACHE_DIR",
     }
 )
 

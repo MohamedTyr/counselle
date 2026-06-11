@@ -9,7 +9,13 @@ import asyncpg
 import pytest
 
 from counselle_db.catalog import Catalog
-from counselle_db.models import FieldKeyError, ResolveMatch, ResolveNotFound, ServiceError
+from counselle_db.models import (
+    FieldKeyError,
+    ResolveCandidates,
+    ResolveMatch,
+    ResolveNotFound,
+    ServiceError,
+)
 from counselle_db.service import (
     compare_schools,
     get_data_calendar,
@@ -84,6 +90,32 @@ async def test_resolve_hogwarts_is_honestly_not_found(catalog: Catalog) -> None:
     # Assert
     assert isinstance(result, ResolveNotFound)
     assert result.status == "not_found"
+
+
+async def test_resolve_unc_chapel_hill_fuzzy_offers_the_full_name(catalog: Catalog) -> None:
+    # "UNC Chapel Hill" is not a substring of the DB name — the trigram
+    # fallback must find it (Phase 7 eval regression: false not-in-DB claim).
+    # Sub-exact fuzzy hits surface as candidates so the agent confirms with
+    # the student instead of silently guessing.
+    # Act
+    result = await resolve_school(catalog, "UNC Chapel Hill")
+
+    # Assert
+    assert isinstance(result, ResolveCandidates)
+    assert "University of North Carolina at Chapel Hill" in [
+        school.name for school in result.candidates
+    ]
+
+
+async def test_resolve_alabama_am_punctuation_variant_is_a_direct_match(catalog: Catalog) -> None:
+    # DB stores "Alabama A & M University"; the spacing variant must resolve
+    # directly (trigram score 1.0 — no clarifying question needed).
+    # Act
+    result = await resolve_school(catalog, "Alabama A&M University")
+
+    # Assert
+    assert isinstance(result, ResolveMatch)
+    assert result.school.name == "Alabama A & M University"
 
 
 # --- get_values ----------------------------------------------------------------

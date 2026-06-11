@@ -113,7 +113,9 @@ def _safe_error(exc: Exception) -> dict[str, Any]:
         }
     msg = str(exc)
     _msg_lower = msg.lower()
-    if "://" in msg or "password" in _msg_lower:
+    # Suppress any message that looks like it contains a URL, a password, or
+    # the Tavily API key prefix ("tvly-") to prevent credential leakage.
+    if "://" in msg or "password" in _msg_lower or "tvly-" in _msg_lower:
         msg = "internal error — check server logs"
     return {"error": msg, "retryable": True}
 
