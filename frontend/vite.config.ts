@@ -30,6 +30,16 @@ export default defineConfig(({ mode }) => ({
       $fonts: path.resolve(__dirname, 'public/fonts'),
       // Counselle-authored code.
       '@': path.resolve(__dirname, 'src'),
+      // librechat-data-provider is NOT installed — point to our runtime shim.
+      // Subpath 'librechat-data-provider/react-query' is handled separately.
+      'librechat-data-provider/react-query': path.resolve(
+        __dirname,
+        'src/vendor/librechat-data-provider/react-query/index.ts',
+      ),
+      'librechat-data-provider': path.resolve(
+        __dirname,
+        'src/vendor/librechat-data-provider/index.ts',
+      ),
     },
   },
 }));

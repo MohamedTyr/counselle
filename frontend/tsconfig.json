@@ -22,7 +22,9 @@
       "@librechat/client": ["src/vendor/librechat/client/index.ts"],
       "@librechat/client/*": ["src/vendor/librechat/client/*"],
       "~/*": ["src/vendor/librechat/app/*"],
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "librechat-data-provider": ["src/vendor/librechat-data-provider/index.ts"],
+      "librechat-data-provider/*": ["src/vendor/librechat-data-provider/*"]
     }
   },
   "include": ["src", "vite.config.ts"]
