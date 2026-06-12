@@ -231,3 +231,156 @@ semantic pairs. Vendor-file deltas (each marked `FE-4:` inline):
 | `components/Chat/Messages/Content/MessageContent.tsx` | ActivityTimeline above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn); SourcesFooter on completed answers |
 | `components/Chat/Messages/Content/markdownConfig.ts` | + `remarkCitations` remark plugin; + `'citation-ref': CitationRefMarkdown` component mapping |
 | `hooks/Input/useTextarea.ts` | placeholder swaps to "Pick one, or just type…" while a clarify is open (`awaitingClarify` from ChatContext) |
+
+## app/ — FE-5A (auth)
+
+Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
+(localStorage `counselle:mock:auth`) + jotai `sessionUserAtom`
+(`src/app/auth.ts`). Login/register accept anything and succeed instantly.
+
+### Vendored verbatim (byte-identical)
+
+| Our path (under `app/`) | Upstream path |
+|---|---|
+| `components/Auth/ErrorMessage.tsx` | same — **byte-identical** |
+| `components/Auth/BlinkAnimation.tsx` | same — **byte-identical** |
+| `components/Auth/Footer.tsx` | same — **byte-identical** (fixture has no privacy/ToS URLs → renders empty contentinfo, as upstream does without config) |
+
+### Stripped / rewired (subtractions per file header comment)
+
+| Our path (under `app/`) | Key changes |
+|---|---|
+| `components/Auth/AuthLayout.tsx` | Banner dropped; logo `<img>` → "Counselle" wordmark (`text-2xl font-semibold`, container div + BlinkAnimation kept); `error` prop narrowed `string` → `TranslationKeys`; everything else byte-identical incl. the `2fa` pathname check |
+| `components/Auth/Login.tsx` | OpenID auto-redirect, OAuth-error toast, `redirect_to` persistence, and the `useAuthContext` error branch dropped (mock login can't fail); LoginForm props → `{ startupConfig }` only |
+| `components/Auth/LoginForm.tsx` | Turnstile, resend-verification block, LDAP username, `useGetStartupConfig` dropped; submit → `login()` + session atom + `navigate('/', {replace:true})`; classes + floating-label structure byte-identical |
+| `components/Auth/Registration.tsx` | username field (PRD story 4), Turnstile, invite token, register mutation + 3-s success countdown + email-verification alert, errorMessage state dropped; submit → `register()` + session atom + `navigate('/')` |
+| `components/Auth/RequestPasswordReset.tsx` | mutation dropped — submit always shows the upstream "link sent" success state (`setHeaderText` + `ResetPasswordBodyText`); the `emailEnabled` inline-link branch dropped |
+| `components/Auth/ResetPassword.tsx` | mutation, hidden token/userId inputs + their error spans, invalid-token `setError` path dropped; submit → local `isSuccess` + upstream success card |
+| `components/Auth/SocialLoginRender.tsx` | Google only — discord/facebook/github/apple/openid/saml branches dropped; Google button → `loginWithGoogle()` + session atom + `navigate('/')`; "Or" divider + structure byte-identical |
+| `components/Auth/SocialButton.tsx` | `<a href={serverDomain}/oauth/…>` → `<button onClick>` (no OAuth server); classes byte-identical |
+| `components/Auth/index.ts` | VerifyEmail / ApiErrorWatcher / TwoFactorScreen exports dropped (pages not vendored — no email verification / 2FA, PRD story 4 + decision 6) |
+| `routes/Layouts/Startup.tsx` | `useGetStartupConfig` → FE-5A fixture (`isFetching` frozen false); `REDIRECT_PARAM`/`SESSION_KEY` pending-redirect check + 2FA header entry dropped; `isAuthenticated` ← session atom; authed users → `'/'` (our landing) instead of `'/c/new'` |
+
+### Not vendored
+
+`VerifyEmail.tsx`, `TwoFactorScreen.tsx`, `ApiErrorWatcher.tsx`, the
+`__tests__` folder (email verification + 2FA dropped per PRD; no API auth).
+
+### Support changes
+
+- `common/index.ts`: + `TLoginLayoutContext` (upstream `common/types.ts:600`; `error`/`headerText` narrowed `string` → `TranslationKeys` — our Startup passes keys straight to `localize`)
+- `utils/index.ts`: + `validateEmail` (upstream `utils/email.ts`, zod schema → upstream's own Registration email regex; zod isn't a dependency)
+- `src/vendor/librechat-data-provider/index.ts`: `TStartupConfig` typed (auth fields + index signature), + `TLoginUser`/`TRegisterUser`/`TRequestPasswordReset`/`TResetPassword` (trimmed: no username/token/userId), + `loginPage()`/`registerPage()`
+- `components/Nav/AccountSettings.tsx`: placeholder user → `useAuthUser()`; logout MenuItem → `logout()` + atom clear + `navigate('/login')` (Settings MenuItem untouched — FE-5B wires it)
+- `src/app/routes.tsx`: + StartupLayout route (`/login`, `/register`, `/forgot-password`, `/reset-password`) outside the app shell; Root wrapped in `AuthGate` (signup wall → `/login`)
+
+### Counselle-native additions (FE-5A)
+
+| File | Description |
+|---|---|
+| `src/api/mock/authStore.ts` | `MockUser` + `getSessionUser`/`login`/`register`/`loginWithGoogle`/`logout`/`updateUser`/`deleteAccount` (clears all `counselle:mock:*` keys) |
+| `src/app/auth.ts` | jotai `sessionUserAtom` (hydrated from the store) + `useAuthUser()` |
+| `src/api/mock/fixtures/auth.ts` | `startupConfigFixture` — the minimal fields the vendored Auth components read |
+
+## app/ — FE-5B (settings)
+
+### Vendored files
+
+| Our path (under `app/`) | Upstream path | Status |
+|---|---|---|
+| `components/Nav/Settings.tsx` | `client/src/components/Nav/Settings.tsx` | stripped (see below) |
+| `components/Nav/SettingsTabs/index.ts` | same | stripped to 3 exports |
+| `components/Nav/SettingsTabs/General/General.tsx` | same | stripped + addition (see below) |
+| `components/Nav/SettingsTabs/ToggleSwitch.tsx` | same | rewired Recoil→props (see below) |
+| `components/Nav/SettingsTabs/DangerButton.tsx` | same | **verbatim** |
+| `components/Nav/SettingsTabs/Data/Data.tsx` | same | stripped + DeleteAccount moved in |
+| `components/Nav/SettingsTabs/Data/ClearChats.tsx` | same | rewired (see below) |
+| `components/Nav/SettingsTabs/Account/Account.tsx` | same | stripped + Counselle rows (see below) |
+| `components/Nav/SettingsTabs/Account/DeleteAccount.tsx` | same | stripped + rewired (see below) |
+
+### Subtractions per file
+
+**`components/Nav/Settings.tsx`**
+- Chat / Commands / Speech / Personalization / Balance / About tabs dropped (MVP2
+  ships exactly General, Data, Account — upstream tab order kept)
+- `usePersonalizationAccess`, `useGetStartupConfig`, the `aboutEnabled` redirect
+  effect, lucide tab icons (MessageSquare/Command/DollarSign/Info) dropped with them
+- Type-level patch: `tabRefs` typed `Record<string, HTMLButtonElement | null>`
+  (upstream's untyped `useRef({})` fails under strict TS)
+- Dialog shell (HeadlessUI Dialog/Transition + Radix Tabs), all classes, the close
+  button SVG, and keyboard nav byte-identical
+
+**`components/Nav/SettingsTabs/General/General.tsx`**
+- `ThemeSelector` (the Dropdown-based export) kept byte-identical
+- LangSelector dropped (English-only, PRD) + js-cookie/recoil imports
+- The 4 `toggleSwitchConfigs` rows dropped (enableUserMsgMarkdown / autoScroll /
+  keepScreenAwake / newChatSwitchToHistory — Recoil prefs not surfaced in MVP2)
+- ArchivedChats dropped (no archive feature)
+- **Addition (Counselle-native):** `<DefaultSources />` row — default source config
+  for new chats (`@/components/source-control/DefaultSources`, localStorage
+  `counselle:sourceDefaults`)
+
+**`components/Nav/SettingsTabs/ToggleSwitch.tsx`**
+- Recoil→props rewire: RecoilToggle/JotaiToggle/`isRecoilState` branches collapse
+  into one controlled component (`checked` + `onCheckedChange` props);
+  `localizationKey` → pre-localized `label` string (Counselle callers pass plain
+  strings). Row JSX + classes byte-identical to the upstream toggle body
+
+**`components/Nav/SettingsTabs/DangerButton.tsx`**
+- Verbatim, no subtractions. Vendored as the shared destructive-row primitive per
+  the FE-5 plan; the kept tabs' rows use upstream's Button-based confirms (upstream
+  only consumed DangerButton from the dropped DeleteCache/RevokeKeys rows)
+
+**`components/Nav/SettingsTabs/Data/Data.tsx`**
+- ImportConversations, SharedLinks, AgentApiKeys (+ useHasAccess/Permissions gate),
+  RevokeKeys, DeleteCache dropped; the unused `confirmClearConvos` state +
+  `useOnClickOutside` went with them
+- DeleteAccount row added (upstream renders it in Account; the FE-5 plan moves
+  account deletion into Data controls)
+
+**`components/Nav/SettingsTabs/Data/ClearChats.tsx`**
+- `useClearConversationsMutation` → mock stores: `clearAllChats()` (`@/api/mock/store`)
+  + `clearAllTranscripts()` (`@/api/mock/messagesStore`, new helper that wipes
+  `counselle:mock:messages:*` keys) + react-query `[QueryKeys.chats]` invalidation
+- `clearAllConversationStorage` / `useNewConvo` → `navigate('/')` +
+  `activeConversationIdAtom` reset (the established Convo.tsx rewire)
+- Spinner select-text branch dropped (mock clear is synchronous)
+- Row + OGDialogTemplate confirm JSX/classes byte-identical
+
+**`components/Nav/SettingsTabs/Account/Account.tsx`**
+- DisplayUsernameMessages toggle, Avatar upload, EnableTwoFactorItem +
+  BackupCodesItem (2FA dropped, PRD decision 6), `allowAccountDeletion` startup gate
+  dropped; DeleteAccount moved to the Data tab
+- `useAuthContext` → `@/app/auth` `useAuthUser()` (mock session)
+- **Additions (Counselle-native rows, upstream row grammar — `flex items-center
+  justify-between` + Label, `pb-3` spacing):** name (inline edit, commit on
+  blur/Enter → mock `updateUser` + `sessionUserAtom`), email (read-only),
+  password (disabled "Reset password" button — upstream has **no in-app
+  password-change dialog** at the pinned commit, only the logged-out reset flow;
+  row shown for `provider === 'password'` only, mirroring upstream's `provider ===
+  'local'` 2FA gate), connected-Google ("Connected", shown when `provider ===
+  'google'`, hidden otherwise)
+
+**`components/Nav/SettingsTabs/Account/DeleteAccount.tsx`**
+- Whole 2FA/OTP path dropped (`needs2FA`, InputOTP usage — the client package's
+  InputOTP was already deleted in FE-0)
+- `useDeleteUserMutation` + `isDeleting` Spinner branch dropped (mock delete is
+  synchronous); `useAuthContext` → `useAuthUser()`; delete → `@/api/mock/authStore`
+  `deleteAccount()` then hard navigate `window.location.href = '/login'`
+- Email-confirm lock (`isLocked`) + dialog JSX/classes byte-identical
+
+### Other FE-5B changes
+
+| File | Change |
+|---|---|
+| `components/Nav/AccountSettings.tsx` | settings wiring restored to upstream pattern: `showSettings` state + `<Settings open onOpenChange/>` rendered inside MenuProvider; Settings MenuItem `onClick={() => setShowSettings(true)}` (was the FE-1 no-op) |
+| `app/common/index.ts` | + `TDangerButtonProps`, `TDialogProps` (upstream common/types.ts:452,468; `UseMutationResult<unknown>` widened to 4 type args for strict TS), `LocalizeFunction` (types.ts:89) |
+| `src/vendor/librechat-data-provider/index.ts` | + `SettingsTabValues` enum (upstream packages/data-provider/src/config.ts:2366, trimmed to GENERAL/DATA/ACCOUNT) |
+
+### Counselle-native additions (FE-5B)
+
+| File | Description |
+|---|---|
+| `src/components/source-control/DefaultSources.tsx` | "Default sources" settings rows — Database fixed on, Web/.edu/Reddit toggles via the vendored ToggleSwitch; writes `counselle:sourceDefaults` |
+| `src/api/mock/sourceStore.ts` | + `getDefaultSourceConfig()` / `setDefaultSourceConfig()`; `getSourceConfig` for a chat with no stored config now falls back to the user defaults instead of the hardcoded constant |
+| `src/api/mock/messagesStore.ts` | + `clearAllTranscripts()` |

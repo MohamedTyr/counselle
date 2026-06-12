@@ -79,3 +79,19 @@ export function deleteTranscript(conversationId: string): void {
     // silent no-op
   }
 }
+
+/** FE-5 (Settings → Data → Clear all chats): wipe every persisted transcript. */
+export function clearAllTranscripts(): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key !== null && key.startsWith(STORAGE_PREFIX)) {
+        keys.push(key);
+      }
+    }
+    keys.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // private mode — silent no-op
+  }
+}

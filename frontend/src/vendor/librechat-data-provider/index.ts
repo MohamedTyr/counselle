@@ -21,6 +21,22 @@ export const Constants = {
   NEW_CONVO: 'new',
 } as const;
 
+/** Upstream packages/data-provider/src/config.ts:2366 — trimmed to the three tabs FE-5 keeps. */
+export enum SettingsTabValues {
+  /**
+   * Tab for General Settings
+   */
+  GENERAL = 'general',
+  /**
+   * Tab for Data Controls
+   */
+  DATA = 'data',
+  /**
+   * Tab for Account Settings
+   */
+  ACCOUNT = 'account',
+}
+
 export enum PermissionTypes {
   NONE = 0,
   READ = 1,
@@ -56,7 +72,56 @@ export type TFile = {
   [key: string]: unknown;
 };
 
-export type TStartupConfig = Record<string, unknown>;
+// FE-5A: typed fields the vendored Auth components read; index signature
+// keeps prior Record<string, unknown> consumers working.
+export type TStartupConfig = {
+  appTitle?: string;
+  registrationEnabled?: boolean;
+  emailLoginEnabled?: boolean;
+  socialLoginEnabled?: boolean;
+  googleLoginEnabled?: boolean;
+  passwordResetEnabled?: boolean;
+  emailEnabled?: boolean;
+  minPasswordLength?: number;
+  serverDomain?: string;
+  socialLogins?: string[];
+  interface?: {
+    privacyPolicy?: { externalUrl?: string; openNewTab?: boolean };
+    termsOfService?: { externalUrl?: string; openNewTab?: boolean };
+  };
+  [key: string]: unknown;
+};
+
+// FE-5A: auth form payloads + route helpers (shapes from upstream
+// librechat-data-provider, trimmed to MVP2 fields — no username/token/userId).
+export type TLoginUser = {
+  email: string;
+  password: string;
+};
+
+export type TRegisterUser = {
+  name: string;
+  email: string;
+  password: string;
+  confirm_password: string;
+};
+
+export type TRequestPasswordReset = {
+  email: string;
+};
+
+export type TResetPassword = {
+  password: string;
+  confirm_password: string;
+};
+
+export function loginPage(): string {
+  return '/login';
+}
+
+export function registerPage(): string {
+  return '/register';
+}
 
 export type TConversation = {
   conversationId: string | null;

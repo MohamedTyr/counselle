@@ -1,19 +1,35 @@
 // Vendored from upstream client/src/components/Nav/AccountSettings.tsx @ 197a1dc4
 // Subtractions: token balance (useGetUserBalance), My Files (MyFilesModal, FileText),
 //   Help/FAQ link (startupConfig.helpAndFaqURL), useGetStartupConfig, useAuthContext.
-// Rewire: Settings → no-op handler (FE-5 wires this); logout → no-op (FE-5 wires this).
-import { memo, useRef } from 'react';
+// Rewire: Settings → upstream showSettings state + <Settings/> render (FE-5B);
+//   logout → FE-5A mock logout() + session atom clear + navigate('/login');
+//   user ← useAuthUser().
+import { memo, useRef, useState } from 'react';
 import * as Menu from '@ariakit/react/menu';
 import { LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useSetAtom } from 'jotai';
 import { GearIcon, DropdownMenuSeparator, Avatar } from '@librechat/client';
+import Settings from './Settings';
 import { useLocalize } from '~/hooks';
+import { logout } from '@/api/mock/authStore';
+import { sessionUserAtom, useAuthUser } from '@/app/auth';
 
 function AccountSettings({ collapsed = false }: { collapsed?: boolean }) {
   const localize = useLocalize();
+  const navigate = useNavigate();
+  const [showSettings, setShowSettings] = useState(false);
   const accountSettingsButtonRef = useRef<HTMLButtonElement>(null);
+  const setSessionUser = useSetAtom(sessionUserAtom);
 
-  // FE-5 wires real auth; placeholder user for FE-1.
-  const user = { id: 'placeholder', name: 'You', email: 'you@example.com' };
+  // FE-5A: mock session user (signup wall guarantees one exists here).
+  const user = useAuthUser() ?? undefined;
+
+  const handleLogout = () => {
+    logout();
+    setSessionUser(null);
+    navigate('/login', { replace: true });
+  };
 
   return (
     <Menu.MenuProvider placement={collapsed ? 'right-end' : undefined}>
@@ -56,7 +72,7 @@ function AccountSettings({ collapsed = false }: { collapsed?: boolean }) {
         </div>
         <DropdownMenuSeparator />
         <Menu.MenuItem
-          onClick={() => { /* FE-5 wires this */ }}
+          onClick={() => setShowSettings(true)}
           className="select-item text-sm"
         >
           <GearIcon className="icon-md" aria-hidden="true" />
@@ -64,13 +80,14 @@ function AccountSettings({ collapsed = false }: { collapsed?: boolean }) {
         </Menu.MenuItem>
         <DropdownMenuSeparator />
         <Menu.MenuItem
-          onClick={() => { /* FE-5 wires this */ }}
+          onClick={handleLogout}
           className="select-item text-sm"
         >
           <LogOut className="icon-md" aria-hidden="true" />
           {localize('com_nav_log_out')}
         </Menu.MenuItem>
       </Menu.Menu>
+      {showSettings && <Settings open={showSettings} onOpenChange={setShowSettings} />}
     </Menu.MenuProvider>
   );
 }

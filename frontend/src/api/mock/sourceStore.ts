@@ -6,6 +6,8 @@
  */
 
 const STORAGE_KEY_PREFIX = 'counselle:sourceConfig:';
+/** FE-5: user-set DEFAULT source config for new chats (Settings → General). */
+const DEFAULTS_STORAGE_KEY = 'counselle:sourceDefaults';
 
 export const SUBREDDITS = [
   'r/ApplyingToCollege',
@@ -29,17 +31,52 @@ const DEFAULT_CONFIG: SourceConfig = {
   selectedSubreddits: [...SUBREDDITS],
 };
 
-function loadConfig(conversationId: string): SourceConfig {
+/**
+ * FE-5: the default source config for NEW conversations.
+ * User-editable in Settings → General; falls back to the built-in defaults.
+ */
+export function getDefaultSourceConfig(): SourceConfig {
   try {
-    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${conversationId}`);
+    const raw = localStorage.getItem(DEFAULTS_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_CONFIG, selectedSubreddits: [...SUBREDDITS] };
     const parsed = JSON.parse(raw) as unknown;
     if (typeof parsed !== 'object' || parsed === null) {
       return { ...DEFAULT_CONFIG, selectedSubreddits: [...SUBREDDITS] };
     }
-    return parsed as SourceConfig;
+    const stored = parsed as Partial<SourceConfig>;
+    return {
+      webSearch: stored.webSearch ?? DEFAULT_CONFIG.webSearch,
+      eduSources: stored.eduSources ?? DEFAULT_CONFIG.eduSources,
+      reddit: stored.reddit ?? DEFAULT_CONFIG.reddit,
+      selectedSubreddits: stored.selectedSubreddits ?? [...SUBREDDITS],
+    };
   } catch {
     return { ...DEFAULT_CONFIG, selectedSubreddits: [...SUBREDDITS] };
+  }
+}
+
+/** FE-5: persist the default source config for new conversations. */
+export function setDefaultSourceConfig(patch: Partial<SourceConfig>): SourceConfig {
+  const updated: SourceConfig = { ...getDefaultSourceConfig(), ...patch };
+  try {
+    localStorage.setItem(DEFAULTS_STORAGE_KEY, JSON.stringify(updated));
+  } catch {
+    // quota exceeded or private mode — silent no-op
+  }
+  return updated;
+}
+
+function loadConfig(conversationId: string): SourceConfig {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${conversationId}`);
+    if (!raw) return getDefaultSourceConfig();
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) {
+      return getDefaultSourceConfig();
+    }
+    return parsed as SourceConfig;
+  } catch {
+    return getDefaultSourceConfig();
   }
 }
 
@@ -52,7 +89,7 @@ function saveConfig(conversationId: string, config: SourceConfig): void {
 }
 
 export function getSourceConfig(conversationId: string | null): SourceConfig {
-  if (!conversationId) return { ...DEFAULT_CONFIG, selectedSubreddits: [...SUBREDDITS] };
+  if (!conversationId) return getDefaultSourceConfig();
   return loadConfig(conversationId);
 }
 

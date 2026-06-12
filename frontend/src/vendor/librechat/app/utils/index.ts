@@ -23,6 +23,16 @@ export { insertTextAtCursor, forceResize, checkIfScrollable } from './textarea';
 // draft helpers — verbatim from upstream client/src/utils/drafts.ts
 export { clearDraft, clearAllDrafts, setDraft, getDraft, NEW_CONVO, PENDING_CONVO } from './drafts';
 
+// validateEmail — from upstream client/src/utils/email.ts, adapted: the zod
+// emailSchema is replaced with the email regex upstream uses in Registration
+// (zod isn't a dependency here). Same signature and empty-string behavior.
+export const validateEmail = (email: string, errorMessage?: string): true | string => {
+  if (!email || email.trim() === '') {
+    return true;
+  }
+  return /\S+@\S+\.\S+/.test(email) || errorMessage || 'Please enter a valid email address';
+};
+
 // removeFocusRings — verbatim from upstream client/src/utils/index.ts
 export const removeFocusRings =
   'focus:outline-none focus:ring-0 focus:border-transparent focus-visible:ring-0 focus-visible:outline-none';
