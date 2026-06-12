@@ -86,7 +86,7 @@ class TestEncodeSSEAttributes:
         assert parsed["data"]["text"] == "test text"
 
     def test_meta_event_type(self) -> None:
-        event = ev_meta("trace-1", "session-1", "gemini-2.5-pro")
+        event = ev_meta("trace-1", "session-1", "gemini-2.5-pro", "m-1", "um-1")
         sse = encode_sse(event, seq=0)
         assert sse.event == "meta"
         parsed = json.loads(_sse_data(sse))
@@ -157,7 +157,7 @@ class TestEncodeSSEWireBytes:
         assert parsed["data"]["status"] == "awaiting_input"
 
     def test_id_parseable_from_wire_bytes(self) -> None:
-        event = ev_meta("t1", "s1", "gemini-2.5-flash")
+        event = ev_meta("t1", "s1", "gemini-2.5-flash", "m-1", "um-1")
         sse = encode_sse(event, seq=0)
         fields = _parse_sse_bytes(sse.encode())
         assert fields["id"] == "0"

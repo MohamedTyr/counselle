@@ -72,6 +72,8 @@ _FILES_SQL = "SELECT filename, downloaded_at, source FROM raw.files ORDER BY id"
 
 _VALUESETS_COUNT_SQL = "SELECT count(*) FROM raw.ipeds_valuesets24"
 
+_SCHOOL_NAMES_SQL = "SELECT unitid, name FROM schools"
+
 _CDS_CALENDAR_SQL = """
 SELECT (SELECT value FROM settings WHERE key = 'current_cycle_year') AS cycle_year,
        (SELECT count(DISTINCT unitid) FROM field_values
@@ -124,12 +126,21 @@ class Catalog:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
         self.fields_by_key: dict[str, FieldMeta] = {}
+        self.school_names: dict[int, str] = {}
         self.scorecard_filename: str | None = None
         self.ipeds_cycle_year: int | None = None
         self.loaded_at: datetime = datetime.min.replace(tzinfo=UTC)
         self._decode_cache: dict[tuple[str, str], dict[str, str] | None] = {}
         self._ipeds_loaded_at: datetime | None = None
         self._scorecard_loaded_at: datetime | None = None
+
+    def school_name(self, unitid: int) -> str | None:
+        """The school's display name, or None when the unitid is unknown.
+
+        In-memory (loaded with the catalog, ~2.7k rows) so hot paths — step
+        labels (MVP2 §27.1) — never touch the pool.
+        """
+        return self.school_names.get(unitid)
 
     @classmethod
     async def load(cls, pool: asyncpg.Pool) -> "Catalog":
@@ -168,8 +179,11 @@ class Catalog:
         field_rows = await fetch(self.pool, _FIELDS_SQL)
         new_fields = {row["key"]: FieldMeta(**dict(row)) for row in field_rows}
         files = _scan_source_files(await fetch(self.pool, _FILES_SQL))
+        name_rows = await fetch(self.pool, _SCHOOL_NAMES_SQL)
+        new_names = {row["unitid"]: row["name"] for row in name_rows}
         # Every query succeeded — swap the instance state, loaded_at last.
         self.fields_by_key = new_fields
+        self.school_names = new_names
         self.scorecard_filename = files.scorecard_filename
         self._scorecard_loaded_at = files.scorecard_loaded_at
         self.ipeds_cycle_year = files.ipeds_cycle_year

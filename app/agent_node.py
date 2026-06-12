@@ -31,21 +31,19 @@ Design (notes-p4-apis §1/§3/§4/§6/§7):
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from langgraph.config import get_stream_writer
+from langgraph.errors import GraphInterrupt
 from pydantic_ai import Agent, Tool
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelRequest,
-    PartDeltaEvent,
-    PartStartEvent,
-    TextPart,
-    TextPartDelta,
     UserPromptPart,
 )
 from pydantic_ai.models import Model
@@ -57,13 +55,29 @@ from app.clarify import ask_student
 from app.prompt import build_system_prompt
 from app.skills import make_load_skill_tool
 from app.sources import SourceRegistry
-from app.toolset import build_tools, make_tool_deps
-from config.settings import get_settings
+from app.steps import CloseReason, EmissionRouter, StepMapper
+from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
+from config.settings import get_settings, load_yaml_asset
 from domain.events import UsageData
 from domain.specs import SourceConfig
 
 if TYPE_CHECKING:
     from app.graph import GraphDeps  # circular at runtime: graph imports run_agent_node
+
+logger = logging.getLogger(__name__)
+
+
+def _close_router_safely(router: EmissionRouter, reason: CloseReason) -> None:
+    """Best-effort router closure inside an except block.
+
+    A ``close()`` failure here must never mask the original exception — on the
+    GraphInterrupt path the re-raise is honesty-critical (the clarify must
+    park the turn), so closing the timeline is strictly best-effort.
+    """
+    try:
+        router.close(reason)
+    except Exception:
+        logger.warning("router.close(%r) raised — continuing", reason, exc_info=True)
 
 #: The clean cut-off message when the run hits settings.max_tool_rounds (notes §6).
 _TOOL_BUDGET_MESSAGE = (
@@ -197,16 +211,33 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     model_factory = getattr(deps, "model_factory", None) or (
         lambda: default_model_factory(settings)
     )
+    model_settings = None
+    if getattr(settings, "thinking_summaries", False):
+        # Native Gemini thought summaries → `thinking` events (B0 spike 2).
+        # A non-Google model simply ignores the google_* key.
+        from pydantic_ai.models.google import GoogleModelSettings
+
+        model_settings = GoogleModelSettings(google_thinking_config={"include_thoughts": True})
     agent: Agent[TurnDeps, str] = Agent(
         model_factory(),
         instructions=build_system_prompt(state["temporal"]["context"]),
         deps_type=TurnDeps,
         tools=tools,
         toolsets=[mcp_toolset] if mcp_toolset is not None else None,
+        model_settings=model_settings,
     )
     limits = UsageLimits(request_limit=settings.max_tool_rounds)  # notes §6
 
-    # --- the run; only UsageLimitExceeded is caught (GraphInterrupt MUST fly) ---
+    # --- the emission router (steps/thinking/delta — ARCHITECTURE §27.1–27.2) ---
+    resolve_name = getattr(deps.catalog, "school_name", None) or (lambda unitid: None)
+    router = EmissionRouter(
+        writer=writer,
+        mapper=StepMapper(load_yaml_asset("step_labels"), resolve_name),
+        unmounted=GATEABLE_TOOLS - {tool.name for tool in tools},
+    )
+
+    # --- the run; only UsageLimitExceeded is caught (GraphInterrupt MUST fly,
+    #     but the router closes open steps first so nothing shimmers forever) ---
     messages_out = state["messages"]
     usage = UsageData(input_tokens=0, output_tokens=0, tool_calls=0)
     result = None
@@ -222,16 +253,22 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             ) as stream,
         ):
             async for event in stream:
-                if isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
-                    if event.part.content:  # first chunk rides the start event
-                        writer({"type": "delta", "text": event.part.content})
-                elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
-                    if event.delta.content_delta:
-                        writer({"type": "delta", "text": event.delta.content_delta})
-                elif isinstance(event, AgentRunResultEvent):
+                router.handle(event)
+                if isinstance(event, AgentRunResultEvent):
                     result = event.result
     except UsageLimitExceeded:
+        _close_router_safely(router, "budget")
         writer({"type": "delta", "text": _TOOL_BUDGET_MESSAGE})
+    except GraphInterrupt:
+        _close_router_safely(router, "interrupt")
+        raise
+    except Exception:
+        _close_router_safely(router, "error")
+        raise
+    else:
+        # Deliberately NOT guarded: a close() failure on the happy path is a
+        # real turn failure (the final flush/steps never reached the student).
+        router.close("complete")
 
     if result is not None:
         messages_out = ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")

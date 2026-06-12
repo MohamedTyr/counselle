@@ -1,0 +1,99 @@
+# Step labels — the editorial voice of the activity timeline (ARCHITECTURE §27.1).
+#
+# One row per tool the agent can call. `label` templates interpolate args the
+# step mapper (app/steps.py) guarantees: {query} {school} {schools} {category}
+# {subreddits} {viz_label} {name} {field} {tool}. Changing the product voice
+# never touches code (ADR 0018 bucket 2).
+#
+# `tier` drives the timeline icon/color grammar: official | community | null
+# (null = neutral — the open web is mixed-tier per result; the citation
+# envelope carries the per-result truth).
+
+tools:
+  resolve_school:
+    kind: db_tool
+    tier: official
+    label: "Finding “{query}” in the database"
+  get_values:
+    kind: db_tool
+    tier: official
+    label: "Pulling {school}'s {category} data"
+  get_dossier:
+    kind: db_tool
+    tier: official
+    label: "Pulling {school}'s full dossier"
+  compare_schools:
+    kind: db_tool
+    tier: official
+    label: "Comparing {schools}"
+  find_schools:
+    kind: db_tool
+    tier: official
+    label: "Searching the database for matching schools"
+  national_benchmark:
+    kind: db_tool
+    tier: official
+    label: "Checking the national picture for {field}"
+  get_programs:
+    kind: db_tool
+    tier: official
+    label: "Looking up {school}'s programs"
+  get_diversity:
+    kind: db_tool
+    tier: official
+    label: "Pulling {school}'s diversity profile"
+  get_data_calendar:
+    kind: db_tool
+    tier: official
+    label: "Checking how fresh each data source is"
+  search_fields:
+    kind: db_tool
+    tier: official
+    label: "Finding the right data fields for “{query}”"
+  query_database:
+    kind: sql
+    tier: official
+    label: "Running a custom database query"
+  search_web:
+    kind: web_search
+    tier: null
+    label: "Searching the web: “{query}”"
+  search_school_site:
+    kind: edu_search
+    tier: official
+    label: "Searching {school}'s website: “{query}”"
+  search_reddit:
+    kind: reddit_search
+    tier: community
+    label: "Checking {subreddits}"
+  render_viz:
+    kind: viz
+    tier: null
+    label: "Building a {viz_label}"
+  load_skill:
+    kind: skill
+    tier: null
+    label: "Consulting the “{name}” playbook"
+
+# Any tool not in the table maps here — a generic step, never nothing.
+default:
+  kind: db_tool
+  tier: null
+  label: "Working: {tool}"
+
+# Error labels per failure class ({label} = the step's original label).
+errors:
+  retry: "{label} — the request needed a correction"
+  search_failed: "{label} — source unavailable"
+  tool_failed: "{label} — failed"
+
+# Editorial names for render_viz types ({viz_label}).
+viz_labels:
+  stat_block: "stat card"
+  comparison_table: "comparison table"
+  score_band: "score-range chart"
+
+# Fallbacks when an arg can't be resolved (e.g. unknown unitid).
+fallbacks:
+  school: "the school"
+  category: "profile"

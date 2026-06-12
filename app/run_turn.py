@@ -38,6 +38,7 @@ from config.settings import get_settings
 from domain.events import (
     Event,
     SourceEntry,
+    StepData,
     UsageData,
     ev_clarify,
     ev_delta,
@@ -45,6 +46,8 @@ from domain.events import (
     ev_error,
     ev_meta,
     ev_sources,
+    ev_step,
+    ev_thinking,
     ev_usage,
     ev_viz,
 )
@@ -109,7 +112,12 @@ async def run_turn(
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
     trace_id = str(uuid4())
-    yield ev_meta(trace_id, session_id, settings.model_counselor)
+    # G1 message identity: the turn's two UUIDs, minted at start so the live
+    # stream is addressable for feedback/edit (ADR 0022). B1b persists them in
+    # the turn record and makes a clarify resume reuse the parked message_id.
+    message_id = str(uuid4())
+    user_message_id = str(uuid4())
+    yield ev_meta(trace_id, session_id, settings.model_counselor, message_id, user_message_id)
 
     config = {"configurable": {"thread_id": session_id}}
     try:
@@ -139,6 +147,10 @@ async def run_turn(
             if mode == "custom" and isinstance(chunk, dict):
                 if chunk.get("type") == "delta":
                     yield ev_delta(chunk["text"])
+                elif chunk.get("type") == "step":
+                    yield ev_step(StepData.model_validate(chunk["data"]))
+                elif chunk.get("type") == "thinking":
+                    yield ev_thinking(chunk["text"])
                 elif chunk.get("type") == "viz":
                     yield ev_viz(RenderSpec.model_validate(chunk["spec"]))
             elif mode == "updates" and isinstance(chunk, dict):

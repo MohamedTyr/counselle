@@ -445,3 +445,129 @@ async def test_on_failure_hook_called_when_turn_fails() -> None:
     assert "error" in _types(events)
     # And the hook must have been called once
     assert hook_calls[0] == 1, f"on_failure called {hook_calls[0]} times, expected 1"
+
+
+# ---------------------------------------------------------------------------
+# (h) B1a: step/thinking events in the run_turn stream
+# ---------------------------------------------------------------------------
+
+_WEB_ONLY = SourceConfig(web=True, reddit=False, edu=False)
+
+_SEARCH_STEP_KINDS = {"web_search", "edu_search", "reddit_search"}
+
+
+def _steps(events: list[Event]) -> list[dict[str, Any]]:
+    return [event.data for event in events if event.type == "step"]
+
+
+def _assert_every_step_start_has_a_terminal(events: list[Event]) -> None:
+    steps = _steps(events)
+    started = [step["step_id"] for step in steps if step["status"] == "start"]
+    terminal = [step["step_id"] for step in steps if step["status"] in ("end", "error")]
+    assert sorted(started) == sorted(terminal), f"orphan steps: {steps}"
+
+
+async def test_tool_turn_streams_step_pair_in_sane_order() -> None:
+    from uuid import UUID
+
+    rig = Rig(_fn_model(_search_then_answer))
+
+    events = await rig.turn(str(uuid4()), "duke dorms?", _WEB_ONLY)
+
+    types = _types(events)
+    # meta first (with the G1 identity pair as real UUIDs), done last.
+    assert types[0] == "meta"
+    assert types[-1] == "done"
+    meta = events[0].data
+    UUID(meta["message_id"])
+    UUID(meta["user_message_id"])
+    assert meta["message_id"] != meta["user_message_id"]
+    assert _done_status(events) == "complete"
+    assert {"sources", "usage", "delta"} <= set(types)
+    # One web_search step: start before end, same id, label has no template holes.
+    steps = _steps(events)
+    assert [step["status"] for step in steps] == ["start", "end"]
+    assert steps[0]["step_id"] == steps[1]["step_id"]
+    assert steps[0]["kind"] == "web_search"
+    assert all("{" not in step["label"] for step in steps)
+    # The step pair fully precedes done; the start precedes the end.
+    step_positions = [i for i, event in enumerate(events) if event.type == "step"]
+    assert step_positions[0] < step_positions[1] < types.index("done")
+
+
+def _stubborn_web_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    """Tries search_web once; answers as soon as ANY tool response came back
+    (a ToolReturnPart or the tool-not-found RetryPromptPart)."""
+    from pydantic_ai.messages import RetryPromptPart
+
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, (ToolReturnPart, RetryPromptPart)) for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("I cannot search the web right now.")])
+    return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
+
+
+async def test_disabled_sources_make_search_step_kinds_impossible() -> None:
+    rig = Rig(_fn_model(_stubborn_web_searcher))
+
+    events = await rig.turn(str(uuid4()), "what do dorms look like?", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    kinds = {step["kind"] for step in _steps(events)}
+    assert not (kinds & _SEARCH_STEP_KINDS), f"disabled source surfaced a step: {kinds}"
+
+
+def _search_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    """One sibling tool call alongside ask_student in the same response."""
+    return ModelResponse(
+        parts=[
+            ToolCallPart(tool_name="search_web", args={"query": "dorms"}),
+            ToolCallPart(
+                tool_name="ask_student",
+                args={
+                    "question": "Which campus?",
+                    "header": "Pick one",
+                    "options": [
+                        {"label": "Main", "hint": "the flagship"},
+                        {"label": "Satellite", "hint": "the branch"},
+                    ],
+                },
+            ),
+        ]
+    )
+
+
+async def test_clarify_turn_has_no_ask_student_step_and_siblings_close_clean() -> None:
+    rig = Rig(_fn_model(_search_then_clarify))
+
+    events = await rig.turn(str(uuid4()), "Is NYU good?", _WEB_ONLY)
+
+    assert "clarify" in _types(events)
+    assert _done_status(events) == "awaiting_input"
+    steps = _steps(events)
+    # ask_student never surfaces on the timeline (would map to the default row).
+    assert not any("ask_student" in step["label"] for step in steps)
+    # The sibling step opened before the interrupt is closed — with status end,
+    # never error (the work is superseded, not failed) — before the stream ends.
+    _assert_every_step_start_has_a_terminal(events)
+    terminals = [step for step in steps if step["status"] != "start"]
+    assert terminals and all(step["status"] == "end" for step in terminals)
+
+
+async def test_budget_cutoff_closes_steps_and_streams_the_budget_delta() -> None:
+    def endless_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
+
+    settings = FakeSettings()
+    settings.max_tool_rounds = 1
+    rig = Rig(_fn_model(endless_searcher), settings=settings)
+
+    events = await rig.turn(str(uuid4()), "hi", _WEB_ONLY)
+
+    assert "error" not in _types(events)
+    assert "tool budget" in _text(events)
+    assert _done_status(events) == "complete"
+    # Whatever steps opened, every one of them reached a terminal state.
+    assert _steps(events), "the searcher's tool call must surface a step"
+    _assert_every_step_start_has_a_terminal(events)

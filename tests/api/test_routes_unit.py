@@ -457,7 +457,7 @@ def test_stream_yields_error_event_when_enrich_usage_raises() -> None:
     usage_event = ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
 
     async def fake_run_turn(*args: Any, **kwargs: Any):  # type: ignore[no-untyped-def]
-        yield ev_meta("trace-1", test_session_id, "model-x")
+        yield ev_meta("trace-1", test_session_id, "model-x", "m-1", "um-1")
         yield usage_event
 
     app = make_test_app(app_pool=app_pool)

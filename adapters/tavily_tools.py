@@ -16,6 +16,7 @@ Source registry marker logic ("[n]") is added by Slice B's post-tool hook, not h
 from __future__ import annotations
 
 import os
+import re
 from datetime import date
 from typing import Any
 from urllib.parse import urlsplit
@@ -36,6 +37,12 @@ from domain.envelope import Citation
 # ---------------------------------------------------------------------------
 
 _GOV_TLDS = frozenset({"gov", "mil"})
+
+#: Infra-shaped content in exception messages (defense-in-depth for SDK
+#: messages that may embed hosts, accounts, or addresses): a bare IPv4 or an
+#: email-like token suppresses the raw message — see ``_safe_error``.
+_IPV4_RE = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
+_EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 
 
 def _registrable_domain(url: str) -> str | None:
@@ -102,8 +109,10 @@ def _safe_error(exc: Exception) -> dict[str, Any]:
     key is wrong or revoked and retrying will not help.  All other errors are
     retryable (transient network/rate-limit issues).
 
-    Security: if the exception message contains a URL scheme ("://") or the
-    word "password" the raw message is suppressed — log server-side instead.
+    Security: if the exception message looks like it carries infrastructure —
+    a URL scheme ("://"), the word "password", the Tavily key prefix, an
+    email-like token, or a bare IPv4 address — the raw message is suppressed
+    (log server-side instead).
     """
     is_auth_failure = isinstance(exc, (InvalidAPIKeyError, ForbiddenError))
     if is_auth_failure:
@@ -113,9 +122,16 @@ def _safe_error(exc: Exception) -> dict[str, Any]:
         }
     msg = str(exc)
     _msg_lower = msg.lower()
-    # Suppress any message that looks like it contains a URL, a password, or
-    # the Tavily API key prefix ("tvly-") to prevent credential leakage.
-    if "://" in msg or "password" in _msg_lower or "tvly-" in _msg_lower:
+    # Suppress any message that looks like it contains a URL, a password, the
+    # Tavily API key prefix ("tvly-"), an email, or an IPv4 — credential and
+    # infra details never reach the model or the student.
+    if (
+        "://" in msg
+        or "password" in _msg_lower
+        or "tvly-" in _msg_lower
+        or _EMAIL_RE.search(msg)
+        or _IPV4_RE.search(msg)
+    ):
         msg = "internal error — check server logs"
     return {"error": msg, "retryable": True}
 

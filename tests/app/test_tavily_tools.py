@@ -514,6 +514,28 @@ class TestSafeError:
         assert "tvly-" not in result["error"].lower()
         assert "internal error" in result["error"]
 
+    def test_message_containing_bare_ipv4_is_sanitized(self) -> None:
+        # B1a review fix 9: a bare IPv4 in an SDK message is infra leakage
+        exc = RuntimeError("connect to 10.0.12.7 failed: timeout")
+        result = _safe_error(exc)
+        assert result["retryable"] is True
+        assert "10.0.12.7" not in result["error"]
+        assert "internal error" in result["error"]
+
+    def test_message_containing_email_is_sanitized(self) -> None:
+        # B1a review fix 9: an email-like token in an SDK message is suppressed
+        exc = RuntimeError("account ops@counselle.internal is over quota")
+        result = _safe_error(exc)
+        assert result["retryable"] is True
+        assert "@" not in result["error"]
+        assert "internal error" in result["error"]
+
+    def test_dotted_version_number_is_not_mistaken_for_an_ip(self) -> None:
+        # Three dot-segments (a version) must NOT trigger the IPv4 suppression
+        exc = RuntimeError("unsupported client version 1.2.3")
+        result = _safe_error(exc)
+        assert "unsupported client version 1.2.3" in result["error"]
+
     def test_message_containing_tvly_prefix_case_insensitive(self) -> None:
         # FIX 6: case-insensitive match ("TVLY-" still triggers suppression)
         exc = RuntimeError("Token TVLY-secret123 invalid")

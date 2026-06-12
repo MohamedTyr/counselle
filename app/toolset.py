@@ -170,6 +170,13 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
 # ---------------------------------------------------------------------------
 
 
+#: The source-gated tool names (ADR 0013). A disabled source's tool is never
+#: mounted — and a hallucinated call to it must never paint a timeline step
+#: (story 17): the emission router suppresses calls to gateable-but-unmounted
+#: tools, because no search happened.
+GATEABLE_TOOLS: frozenset[str] = frozenset({"search_web", "search_school_site", "search_reddit"})
+
+
 def build_tools(
     source_config: SourceConfig,
     deps: ToolDeps,

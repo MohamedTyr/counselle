@@ -530,7 +530,18 @@ async def test_sse_naive_parser_yields_valid_event_sequence(live_app: FastAPI) -
             assert "type" in ev["data"]
 
         # All event types are known protocol types
-        known = {"meta", "delta", "viz", "clarify", "sources", "usage", "done", "error"}
+        known = {
+            "meta",
+            "delta",
+            "step",
+            "thinking",
+            "viz",
+            "clarify",
+            "sources",
+            "usage",
+            "done",
+            "error",
+        }
         for t in types:
             assert t in known, f"unknown event type: {t!r}"
     finally:

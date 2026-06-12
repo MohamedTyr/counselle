@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     model_cheap: str = "google-vertex:gemini-2.5-flash"
     model_clarifier: str = "google-vertex:gemini-2.5-flash"
     max_tool_rounds: int = 12  # agent tool-loop bound (eng-review)
+    thinking_summaries: bool = True  # native Gemini thought summaries → `thinking` events (§27.2)
 
     # --- Database ---
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required

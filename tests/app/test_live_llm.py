@@ -279,3 +279,42 @@ async def test_6_stanford_sat_range_renders_section_bands(rt: Runtime) -> None:
             ), f"fabricated SAT composite row: {row['label']}"
     finally:
         await _cleanup(rt, session_id)
+
+
+# ---------------------------------------------------------------------------
+# 7. Duke vs Vanderbilt admission rates — the activity timeline (B1a)
+# ---------------------------------------------------------------------------
+
+
+def _steps(events: list[Event]) -> list[dict[str, Any]]:
+    return [event.data for event in events if event.type == "step"]
+
+
+async def test_7_compare_admission_rates_streams_a_clean_step_timeline(rt: Runtime) -> None:
+    session_id = str(uuid4())
+    try:
+        events = await _turn(
+            rt,
+            session_id,
+            "Compare the admission rates at Duke and Vanderbilt",
+            label="steps",
+        )
+
+        _assert_clean_complete(events)
+        steps = _steps(events)
+        # At least one start/end pair of agent work against our data (db or viz).
+        ended = [step for step in steps if step["status"] == "end"]
+        assert any(step["kind"] in ("db_tool", "viz") for step in ended), steps
+        # Every step start reached a terminal state — nothing shimmers forever.
+        started_ids = [step["step_id"] for step in steps if step["status"] == "start"]
+        terminal_ids = [step["step_id"] for step in steps if step["status"] in ("end", "error")]
+        assert sorted(started_ids) == sorted(terminal_ids), steps
+        # Narration: a thinking line or a delta lands before the first step.
+        first_step = next(i for i, event in enumerate(events) if event.type == "step")
+        assert any(
+            event.type in ("thinking", "delta") for event in events[:first_step]
+        ), f"no narration before the first step: {_types(events[: first_step + 1])}"
+        # Label sanity: no unfilled template ever reaches a student.
+        assert all("{" not in step["label"] for step in steps), steps
+    finally:
+        await _cleanup(rt, session_id)

@@ -43,7 +43,7 @@ from api.routes import sessions, system
 from api.supervision import McpSupervisor
 from app.deps import build_runtime
 from config.logging import setup_logging
-from config.settings import get_settings
+from config.settings import get_settings, load_yaml_asset
 
 # ADR 0017 deviation 2: api/ → counselle_db direct import accepted for MVP1.
 from counselle_db.reconcile import reconcile_field_index
@@ -98,6 +98,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Boot the runtime, reconciler, and MCP supervisor; put it all away on shutdown."""
     settings = get_settings()
     setup_logging(settings.log_level)
+    load_yaml_asset("step_labels")  # a missing/broken asset fails at boot, not on turn 1
     runtime = await build_runtime(settings)  # pools + catalog + checkpointer (D3) + graph
     try:
         reconciler = ReconcilerState()
