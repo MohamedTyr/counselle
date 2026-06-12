@@ -48,6 +48,7 @@ Sibling files copied verbatim from upstream `client/`:
 | `hooks/useLocalize.ts` | **reimplemented**: flat English lookup over the vendored en translation JSONs, `{{var}}` interpolation, dev-mode missing-key warn | drops i18next/react-i18next; strings stay byte-identical |
 | `*.spec.*` (9 files) | deleted | their test files; we don't run their suite |
 | `librechat-data-provider` imports | package never installed; typed stub at `src/types/librechat-data-provider.d.ts` | type-only imports remain (TUser, TFile) |
+| `components/SplitText.tsx` | **FE-6 patch**: `prefers-reduced-motion` honored — spring runs `immediate` with zero stagger when reduced (letters land at final state) | PRD story 44; upstream has no gate |
 
 ## app/ — FE-2 (composer + landing)
 

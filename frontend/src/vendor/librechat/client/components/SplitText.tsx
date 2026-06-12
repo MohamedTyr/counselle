@@ -58,6 +58,12 @@ const splitGraphemes = (text: string): string[] => {
   }
 };
 
+// FE-6 patch (UPSTREAM.md): respect prefers-reduced-motion — letters land at
+// their final state immediately instead of the staggered per-letter spring.
+const prefersReducedMotion = (): boolean =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const SplitText: React.FC<SplitTextProps> = ({
   text = '',
   className = '',
@@ -90,7 +96,8 @@ const SplitText: React.FC<SplitTextProps> = ({
             }
           }
         : animationFrom,
-      delay: i * delay,
+      delay: prefersReducedMotion() ? 0 : i * delay,
+      immediate: prefersReducedMotion(),
       config: { easing },
     }),
     [inView, text, delay, animationFrom, animationTo, easing, onLetterAnimationComplete],

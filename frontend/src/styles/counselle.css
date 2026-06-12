@@ -54,4 +54,25 @@
     animation: none;
     opacity: 1;
   }
+
+  /* FE-6 audit: gate the cloned system's remaining loops/slides (PRD story 44).
+     Kept here so vendored style.css stays byte-identical. */
+  .animate-fadeIn {
+    animation: none;
+  }
+  .animate-spin {
+    animation: none;
+  }
+  .animate-pulse {
+    animation: none;
+  }
+  .scroll-animation-enter-active,
+  .scroll-animation-appear-active {
+    animation: none;
+    opacity: 1;
+  }
+  .scroll-animation-exit-active {
+    animation: none;
+    opacity: 0;
+  }
 }

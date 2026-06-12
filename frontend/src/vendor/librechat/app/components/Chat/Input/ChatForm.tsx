@@ -250,7 +250,7 @@ const ChatForm = memo(function ChatForm({ placeholder, centerFormOnLanding = fal
             </div>
 
             {/* Bottom action row */}
-            <div className="@container items-between flex flex-row gap-2 pb-2">
+            <div className="@container items-between flex gap-2 pb-2">
               {/* Source dropdown — Counselle addition (left slot, where AttachFileChat was) */}
               <div className="ml-2">
                 <SourceDropdown conversationId={conversationId} />
