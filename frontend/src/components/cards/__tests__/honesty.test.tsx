@@ -1,0 +1,224 @@
+/**
+ * The §34 honesty-surface tests for the cards (architecture.md §34):
+ * NA states, tier-chip fidelity, no-1600, no-winner-highlight,
+ * unknown-card → markdown fallback.
+ */
+import { render, screen } from '@testing-library/react';
+import { describe, expect, test } from 'vitest';
+import type { Citation, CitationEnvelope, RenderSpec } from '@/api/protocol';
+import VizCard from '@/components/cards/VizCard';
+
+function citation(over: Partial<Citation> = {}): Citation {
+  return {
+    source: 'Common Data Set 2024-25',
+    tier: 'cds',
+    vintage: 'CDS 2024-25',
+    ...over,
+  };
+}
+
+function env(over: Partial<CitationEnvelope> = {}): CitationEnvelope {
+  return {
+    v: 1,
+    field: 'adm.acceptance_rate',
+    label: 'Acceptance rate',
+    display: '12.5%',
+    raw: 0.125,
+    available: true,
+    citation: citation(),
+    ...over,
+  };
+}
+
+function naEnv(): CitationEnvelope {
+  return env({ display: 'not available', raw: null, available: false });
+}
+
+function spec(over: Partial<RenderSpec> = {}): RenderSpec {
+  return {
+    v: 1,
+    type: 'stat_block',
+    title: 'NYU at a glance',
+    schools: [{ unitid: 193900, name: 'New York University' }],
+    rows: [],
+    ...over,
+  };
+}
+
+describe('not available — the designed muted state, never an empty cell', () => {
+  test('stat block renders "not available" for an unavailable cell', () => {
+    render(
+      <VizCard
+        spec={spec({
+          rows: [
+            { label: 'Acceptance rate', cells: [env()] },
+            { label: 'Yield', cells: [naEnv()] },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText('not available')).toBeInTheDocument();
+    expect(screen.getByText('12.5%')).toBeInTheDocument();
+  });
+
+  test('comparison cells render the muted NA state, never empty', () => {
+    const { container } = render(
+      <VizCard
+        spec={spec({
+          type: 'comparison_table',
+          schools: [
+            { unitid: 1, name: 'School A' },
+            { unitid: 2, name: 'School B' },
+          ],
+          rows: [{ label: 'Yield', cells: [env({ display: '45%' }), naEnv()] }],
+        })}
+      />,
+    );
+    expect(screen.getByText('not available')).toBeInTheDocument();
+    // No value cell may be empty.
+    const valueCells = Array.from(container.querySelectorAll('td'));
+    expect(valueCells.length).toBe(2);
+    for (const cell of valueCells) {
+      expect(cell.textContent?.trim()).not.toBe('');
+    }
+  });
+
+  test('NA is visibly distinct from a zero value', () => {
+    render(
+      <VizCard
+        spec={spec({
+          rows: [
+            { label: 'Real zero', cells: [env({ display: '0', raw: 0 })] },
+            { label: 'Missing', cells: [naEnv()] },
+          ],
+        })}
+      />,
+    );
+    const zero = screen.getByText('0');
+    const na = screen.getByText('not available');
+    expect(zero.className).not.toBe(na.className);
+    expect(na.className).toContain('italic');
+  });
+});
+
+describe('tier chips always match the envelope tier', () => {
+  test('official envelope → official chip; reddit → community chip', () => {
+    render(
+      <VizCard
+        spec={spec({
+          rows: [
+            { label: 'Acceptance rate', cells: [env()] },
+            {
+              label: 'Student take',
+              cells: [
+                env({
+                  display: 'mixed reviews',
+                  citation: citation({ source: 'r/nyu', tier: 'reddit', vintage: '2026' }),
+                }),
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText('CDS')).toHaveAttribute('data-tier', 'official');
+    expect(screen.getByText('Reddit')).toHaveAttribute('data-tier', 'community');
+  });
+});
+
+describe('score band', () => {
+  function bandSpec(): RenderSpec {
+    return spec({
+      type: 'score_band',
+      title: 'SAT range',
+      band: { test: 'sat' },
+      rows: [
+        {
+          label: 'SAT EBRW',
+          cells: [env({ display: '690', raw: 690 }), env({ display: '800', raw: 800 })],
+        },
+        {
+          label: 'SAT Math',
+          cells: [env({ display: '700', raw: 700 }), env({ display: '800', raw: 800 })],
+        },
+      ],
+    });
+  }
+
+  test('never composes a 1600 from section rows', () => {
+    const { container } = render(<VizCard spec={bandSpec()} />);
+    // 800 + 800 sections — any composed total would surface as "1600".
+    expect(container.textContent).not.toContain('1600');
+    expect(screen.queryByText(/1600/)).toBeNull();
+  });
+
+  test('always shows the permanent teaching caption', () => {
+    render(<VizCard spec={bandSpec()} />);
+    expect(
+      screen.getByText("Half of enrolled students scored inside this band. It's not a cutoff."),
+    ).toBeInTheDocument();
+  });
+
+  test('both ends unavailable → "not reported" muted state', () => {
+    render(
+      <VizCard
+        spec={spec({
+          type: 'score_band',
+          band: { test: 'sat' },
+          rows: [{ label: 'SAT EBRW', cells: [naEnv(), naEnv()] }],
+        })}
+      />,
+    );
+    expect(screen.getByText('not reported')).toBeInTheDocument();
+  });
+});
+
+describe('comparison table never winner-highlights', () => {
+  test('a clearly larger value gets the identical cell treatment', () => {
+    const { container } = render(
+      <VizCard
+        spec={spec({
+          type: 'comparison_table',
+          schools: [
+            { unitid: 1, name: 'School A' },
+            { unitid: 2, name: 'School B' },
+          ],
+          rows: [
+            {
+              label: 'Median earnings',
+              cells: [
+                env({ display: '$45,000', raw: 45000 }),
+                env({ display: '$95,000', raw: 95000 }),
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+    const cells = Array.from(container.querySelectorAll('td'));
+    expect(cells.length).toBe(2);
+    expect(cells[0].className).toBe(cells[1].className);
+    const values = [screen.getByText('$45,000'), screen.getByText('$95,000')];
+    expect(values[0].className).toBe(values[1].className);
+  });
+});
+
+describe('unknown card type → markdown fallback (the degrade rule)', () => {
+  test("type 'future_thing' renders title + row text without throwing", () => {
+    const futureSpec = {
+      ...spec({
+        title: 'A future card',
+        rows: [
+          { label: 'Some metric', cells: [env({ display: '42' })] },
+          { label: 'Missing metric', cells: [naEnv()] },
+        ],
+      }),
+      type: 'future_thing',
+    } as unknown as RenderSpec;
+
+    render(<VizCard spec={futureSpec} />);
+    expect(screen.getByText('A future card')).toBeInTheDocument();
+    expect(screen.getByText('Some metric: 42')).toBeInTheDocument();
+    expect(screen.getByText('Missing metric: not available')).toBeInTheDocument();
+  });
+});
