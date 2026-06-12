@@ -15,6 +15,8 @@
 | `00-overview.md` | This file |
 | `architecture.md` | The full MVP2 architecture spec — the extension of `docs/ARCHITECTURE.md` (Part II): system shape, protocol extensions, auth, chat management, the frontend, config, deployment, testing, risks |
 | `frontend-plan.md` | The frontend execution plan (built first, backend-free): the LibreChat vendoring scheme (aliases, substrate, strip lists from the 4-agent source recon), the mock-transport architecture, phases FE‑0…FE‑6 with gates, and the pixel-fidelity audit. Backend hookup is FE‑7, planned later |
+| `fe6-audit.md` | The FE‑6 smoothness & fidelity audit sign-off (FE‑0…FE‑6 shipped 2026‑06‑12) |
+| `ship-plan.md` | **The execution plan for the rest of the app** (phases B0–B7): the backend delta (step/thinking emission, turn registry, auth, chat CRUD, feedback, rate limiting), the §0.1 spec-gap resolutions (message identity, full transcript fidelity, edit/regenerate history rewrite, clarify-park lifecycle, cancel semantics), FE‑7 hookup, deployment, and the docs/evals close-out |
 | `adr/0020-frontend-librechat-clone.md` | ADR draft: frontend stack + the LibreChat clone strategy |
 | `adr/0021-auth-fastapi-users-cookie-jwt.md` | ADR draft: auth — fastapi-users, cookie JWT, Google OAuth |
 | `adr/0022-protocol-work-visibility-resume-cancel.md` | ADR draft: `step`/`thinking` events, Last-Event-ID resume, cancel — additive within protocol v1 |
