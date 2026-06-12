@@ -8,6 +8,7 @@ import type { ProtocolEvent, TranscriptEntry } from '@/api/protocol';
 import type { SendMessageBody, Transport } from '@/api/transport';
 import { getTranscript } from './messagesStore';
 import { CANCELLED_EVENTS } from './fixtures/turns/cancelled';
+import { CLARIFY_EVENTS } from './fixtures/turns/clarify';
 import { DOSSIER_EVENTS } from './fixtures/turns/dossier';
 import { ERROR_EVENTS } from './fixtures/turns/error';
 import { SIMPLE_EVENTS } from './fixtures/turns/simple';
@@ -49,6 +50,10 @@ function delayFor(event: ProtocolEvent): number {
 
 function pickFixture(text: string): ProtocolEvent[] {
   const lower = text.toLowerCase();
+  // FE-4: the clarify scenario wins over dossier ("compare X and Y dossier").
+  if (lower.includes('compare') || lower.includes('clarify')) {
+    return CLARIFY_EVENTS;
+  }
   if (lower.includes('dossier')) {
     return DOSSIER_EVENTS;
   }

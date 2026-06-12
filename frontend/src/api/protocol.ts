@@ -204,6 +204,9 @@ export type TranscriptAssistantEntry = {
   /** §27.5: per assistant message, the persisted step record. Pre-MVP2 turns have none. */
   step_record?: StepRecord;
   parts?: AssistantContentPart[];
+  /** A turn that parked as awaiting_input persists its clarify spec (PRD 25 —
+   *  the widget freezes into a transcript record of what was asked). */
+  clarify?: ClarifySpec;
   sources?: SourceEntry[];
   usage?: UsageData;
   status?: DoneStatus | 'error';

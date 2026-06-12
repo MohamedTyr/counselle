@@ -6,10 +6,47 @@
  * Events follow architecture.md §27 verbatim; FE-7 reconciles against the
  * backend's exported fixtures.
  */
-import type { ProtocolEvent, RenderSpec, SourceEntry } from '@/api/protocol';
+import type { CitationEnvelope, ProtocolEvent, RenderSpec, SourceEntry } from '@/api/protocol';
 import { deltas } from './deltas';
 
 const NYU = { unitid: 193900, name: 'New York University' };
+const BU = { unitid: 164988, name: 'Boston University' };
+
+// FE-4: compact envelope factory for the added comparison/score-band specs.
+type CellOpts = {
+  available?: boolean;
+  caveat?: string | null;
+  unit?: string | null;
+  source?: string;
+  tier?: string;
+  vintage?: string;
+};
+
+function cell(
+  field: string,
+  label: string,
+  display: string,
+  raw: number | string | null,
+  opts: CellOpts = {},
+): CitationEnvelope {
+  return {
+    v: 1,
+    field,
+    label,
+    display,
+    raw,
+    available: opts.available ?? true,
+    unit: opts.unit ?? null,
+    citation: {
+      source: opts.source ?? 'cds',
+      tier: opts.tier ?? 'cds',
+      vintage: opts.vintage ?? 'CDS 2025-26',
+      caveat: opts.caveat ?? null,
+      raw_table: 'cds_c',
+      url: null,
+    },
+  };
+}
 
 const STAT_BLOCK: RenderSpec = {
   v: 1,
@@ -109,6 +146,83 @@ const STAT_BLOCK: RenderSpec = {
   band: null,
 };
 
+// FE-4: the SAT middle-50% band — cells[0] = p25, cells[1] = p75 per section.
+const SCORE_BAND: RenderSpec = {
+  v: 1,
+  type: 'score_band',
+  title: 'NYU SAT middle 50% — enrolled, Fall 2025',
+  schools: [NYU],
+  rows: [
+    {
+      label: 'SAT EBRW',
+      cells: [
+        cell('adm.sat_ebrw_25', 'SAT EBRW 25th', '720', 720, { vintage: 'CDS 2025-26 (C9)' }),
+        cell('adm.sat_ebrw_75', 'SAT EBRW 75th', '770', 770, { vintage: 'CDS 2025-26 (C9)' }),
+      ],
+    },
+    {
+      label: 'SAT Math',
+      cells: [
+        cell('adm.sat_math_25', 'SAT Math 25th', '750', 750, { vintage: 'CDS 2025-26 (C9)' }),
+        cell('adm.sat_math_75', 'SAT Math 75th', '800', 800, { vintage: 'CDS 2025-26 (C9)' }),
+      ],
+    },
+  ],
+  band: { test: 'sat' },
+};
+
+// FE-4: NYU vs BU — 4 rows × 2 schools, exactly one NA cell (BU yield).
+const COMPARISON: RenderSpec = {
+  v: 1,
+  type: 'comparison_table',
+  title: 'NYU vs Boston University — Fall 2025 admissions',
+  schools: [NYU, BU],
+  rows: [
+    {
+      label: 'Acceptance rate',
+      cells: [
+        cell('adm.acceptance_rate', 'Acceptance rate', '9.4%', 0.094, { unit: 'percent' }),
+        cell('adm.acceptance_rate', 'Acceptance rate', '10.7%', 0.107, { unit: 'percent' }),
+      ],
+    },
+    {
+      label: 'Applicants',
+      cells: [
+        cell('adm.applicants_total', 'Applicants', '118,000', 118000, { unit: 'count' }),
+        cell('adm.applicants_total', 'Applicants', '78,634', 78634, { unit: 'count' }),
+      ],
+    },
+    {
+      label: 'SAT middle 50%',
+      cells: [
+        cell('adm.sat_total_25_75', 'SAT middle 50%', '1470–1570', '1470-1570', {
+          caveat: 'Submitters only — NYU is test-optional.',
+        }),
+        cell('adm.sat_total_25_75', 'SAT middle 50%', '1410–1520', '1410-1520', {
+          caveat: 'Submitters only — BU is test-optional.',
+        }),
+      ],
+    },
+    {
+      label: 'Yield',
+      cells: [
+        cell('adm.yield_rate', 'Yield', '48%', 0.48, {
+          unit: 'percent',
+          source: 'ipeds',
+          tier: 'ipeds',
+          vintage: 'IPEDS 2024-25 (provisional)',
+        }),
+        cell('adm.yield_rate', 'Yield', 'not available', null, {
+          available: false,
+          unit: 'percent',
+          caveat: 'Not reported in the latest CDS.',
+        }),
+      ],
+    },
+  ],
+  band: null,
+};
+
 const SOURCES: SourceEntry[] = [
   {
     index: 1,
@@ -184,7 +298,15 @@ Key dates for the 2026-27 cycle [3]:
 2. **Early Decision II** — January 1
 3. **Regular Decision** — January 5
 
-### A quick fit check
+### Test scores in context
+
+NYU is test-optional through 2026-27 [3], but the scores enrolled students *did* submit skew high [1]:
+`;
+
+const COMPARE_PROSE = `Against Boston University — the most common cross-application in community threads [4] — NYU runs tighter on every admissions axis [2]:
+`;
+
+const CLOSING = `### A quick fit check
 
 - Urban, no traditional campus — the city is the campus
 - Strong pre-professional culture (Stern, Tisch, Tandon)
@@ -398,6 +520,62 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
   },
   { v: 1, type: 'viz', data: STAT_BLOCK },
   ...deltas(AFTER_VIZ),
+  {
+    v: 1,
+    type: 'step',
+    data: {
+      step_id: 's7',
+      status: 'start',
+      kind: 'viz',
+      label: 'Building a score band: NYU SAT middle 50%',
+      tier: 'official',
+      detail: null,
+    },
+  },
+  {
+    v: 1,
+    type: 'step',
+    data: {
+      step_id: 's7',
+      status: 'end',
+      kind: 'viz',
+      label: 'Building a score band: NYU SAT middle 50%',
+      tier: 'official',
+      detail: { viz_type: 'score_band', schools: ['New York University'], duration_ms: 320 },
+    },
+  },
+  { v: 1, type: 'viz', data: SCORE_BAND },
+  ...deltas(COMPARE_PROSE),
+  {
+    v: 1,
+    type: 'step',
+    data: {
+      step_id: 's8',
+      status: 'start',
+      kind: 'viz',
+      label: 'Building a comparison: NYU vs Boston University',
+      tier: 'official',
+      detail: null,
+    },
+  },
+  {
+    v: 1,
+    type: 'step',
+    data: {
+      step_id: 's8',
+      status: 'end',
+      kind: 'viz',
+      label: 'Building a comparison: NYU vs Boston University',
+      tier: 'official',
+      detail: {
+        viz_type: 'comparison_table',
+        schools: ['New York University', 'Boston University'],
+        duration_ms: 480,
+      },
+    },
+  },
+  { v: 1, type: 'viz', data: COMPARISON },
+  ...deltas(CLOSING),
   { v: 1, type: 'sources', data: { sources: SOURCES } },
   {
     v: 1,

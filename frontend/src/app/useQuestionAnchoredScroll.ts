@@ -56,11 +56,15 @@ export default function useQuestionAnchoredScroll() {
    * a turn is in flight (landing → new chat navigation) — there the anchor
    * effect owns the scroll, and this jump would cancel its smooth scrollTo.
    */
+  /** Set on conversation change; consumed when the transcript actually renders. */
+  const needsBottomJumpRef = useRef(false);
+
   useEffect(() => {
     if (isSubmittingRef.current) {
       return;
     }
     lastAnchoredIdRef.current = null;
+    needsBottomJumpRef.current = true;
     if (contentRef.current) {
       contentRef.current.style.paddingBottom = '';
     }
@@ -71,14 +75,35 @@ export default function useQuestionAnchoredScroll() {
     updateScrollButton();
   }, [conversationId, updateScrollButton]);
 
+  /**
+   * The transcript loads asynchronously after the conversation opens — the
+   * jump above lands on an empty pane. Re-jump once, when messages render.
+   */
+  useEffect(() => {
+    if (!needsBottomJumpRef.current || messages.length === 0) {
+      return;
+    }
+    needsBottomJumpRef.current = false;
+    const el = scrollableRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+    updateScrollButton();
+  }, [messages, updateScrollButton]);
+
   /** A newly sent user message anchors near the top of the viewport — once. */
   useEffect(() => {
     const lastUser = [...messages].reverse().find((m) => m.isCreatedByUser);
     if (lastUser === undefined || lastUser.messageId === lastAnchoredIdRef.current) {
       return;
     }
-    const isNewlySent = messages[messages.length - 1] === lastUser
-      || messages[messages.length - 1]?.parentMessageId === lastUser.messageId;
+    // "Newly sent" = a turn is in flight for it. A transcript reload also ends
+    // with a user-message-then-assistant pair, but no live turn — opening an
+    // old chat must NOT re-anchor (and must never fight the user's scroll).
+    const isNewlySent =
+      isSubmittingRef.current &&
+      (messages[messages.length - 1] === lastUser ||
+        messages[messages.length - 1]?.parentMessageId === lastUser.messageId);
     if (!isNewlySent) {
       lastAnchoredIdRef.current = lastUser.messageId;
       return;

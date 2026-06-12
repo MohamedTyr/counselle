@@ -219,3 +219,15 @@ Sibling files copied verbatim from upstream `client/`:
 | `src/api/mock/feedbackStore.ts` | Thumbs feedback persistence (PRD decision 10) |
 | `src/app/useQuestionAnchoredScroll.ts` | Question-anchored scrolling (PRD decision 8): sent question pins to top (spacer grows so short chats can anchor), no bottom-chasing, ↓ pill via their ScrollToBottom |
 | `src/components/viz/VizPlaceholder.tsx` | FE-3 labeled card for in-stream viz blocks (FE-4 renders them properly) |
+
+## app/ — FE-4 (the Counselle honesty surfaces)
+
+All FE-4 components are Counselle-native (`@/components/{citations,cards,timeline,clarify}`),
+built from vendored primitives + LibreChat tokens + the two `counselle.css`
+semantic pairs. Vendor-file deltas (each marked `FE-4:` inline):
+
+| File | Change |
+|---|---|
+| `components/Chat/Messages/Content/MessageContent.tsx` | ActivityTimeline above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn); SourcesFooter on completed answers |
+| `components/Chat/Messages/Content/markdownConfig.ts` | + `remarkCitations` remark plugin; + `'citation-ref': CitationRefMarkdown` component mapping |
+| `hooks/Input/useTextarea.ts` | placeholder swaps to "Pick one, or just type…" while a clarify is open (`awaitingClarify` from ChatContext) |

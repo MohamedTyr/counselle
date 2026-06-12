@@ -9,7 +9,7 @@ import { FIXTURE_CHATS } from './fixtures/chats';
 const STORAGE_KEY = 'counselle:mock:chats';
 const VERSION_KEY = 'counselle:mock:version';
 /** Bump to wipe persisted mock state on every client (fixtures changed, test garbage, …). */
-const STORE_VERSION = '3';
+const STORE_VERSION = '4';
 
 function loadFromStorage(): ChatRecord[] | null {
   try {

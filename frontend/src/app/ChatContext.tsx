@@ -30,17 +30,22 @@ import { mockTransport } from '@/api/mock/transport';
 import * as messagesStore from '@/api/mock/messagesStore';
 import { getFeedback } from '@/api/mock/feedbackStore';
 import {
+  deriveDurationMs,
   initialTurnState,
   proseOf,
   reduce,
   reduceTranscriptEntry,
   toStepRecord,
   type ContentBlock,
+  type TimelineEntry,
   type TurnState,
+  type TurnStatus,
 } from '@/api/turn-reducer';
 import type {
   AssistantContentPart,
+  ClarifySpec,
   ErrorData,
+  SourceEntry,
   StepRecord,
   TranscriptAssistantEntry,
   TranscriptEntry,
@@ -64,6 +69,15 @@ export type ChatMessage = {
   stepRecord?: StepRecord;
   /** Live-turn receipt line: the latest activity while streaming. */
   activity?: string;
+  /** FE-4: the activity timeline (steps + thinking, arrival order). */
+  timeline?: TimelineEntry[];
+  /** FE-4: the derived one-line receipt the timeline collapses to at done. */
+  receipt?: string;
+  /** FE-4: total worked time (sum of step receipt durations). */
+  durationMs?: number;
+  sources?: SourceEntry[];
+  clarify?: ClarifySpec;
+  turnStatus?: TurnStatus;
   streamError?: ErrorData;
   feedback?: { rating: 'thumbsUp' | 'thumbsDown'; tag?: { key: string }; text?: string };
   ts: string | null;
@@ -92,6 +106,9 @@ type ChatContextValue = {
   updateMessageText: (messageId: string, text: string) => void;
   stopGenerating: () => void;
   newConversation: () => void;
+  /** True while the open conversation's latest turn is parked on a clarifying
+   *  question (PRD 23–25) — typing is answering; the composer swaps placeholder. */
+  awaitingClarify: boolean;
   /** Vendored scroll hooks read/set this (user scroll detaches auto-follow). */
   abortScroll: boolean;
   setAbortScroll: (value: boolean) => void;
@@ -168,10 +185,30 @@ function assistantMessage(
       state.status === 'streaming' || state.status === 'idle'
         ? (activeStep?.label ?? lastThinking ?? record?.receipt)
         : record?.receipt,
+    timeline: state.timeline,
+    receipt: record?.receipt,
+    durationMs: deriveDurationMs(state.steps),
+    sources: state.sources.length > 0 ? state.sources : undefined,
+    clarify: state.clarify ?? undefined,
+    turnStatus: state.status,
     streamError: state.error ?? undefined,
     feedback: feedbackOf(conversationId, messageId),
     ts,
   };
+}
+
+/** Map the reducer's final status to the persisted §27.5 status field. */
+function entryStatusOf(status: TurnStatus): TranscriptAssistantEntry['status'] {
+  if (status === 'error') {
+    return 'error';
+  }
+  if (status === 'cancelled') {
+    return 'cancelled';
+  }
+  if (status === 'awaiting_input') {
+    return 'awaiting_input';
+  }
+  return 'complete';
 }
 
 function blocksToParts(blocks: ContentBlock[]): AssistantContentPart[] {
@@ -256,9 +293,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           ts: new Date().toISOString(),
           step_record: toStepRecord(state),
           parts: blocksToParts(state.blocks),
+          // FE-4: a clarify-parked turn persists its spec + awaiting status so
+          // the widget freezes into the transcript record (PRD 25) and the
+          // composer placeholder survives a reload (PRD 24).
+          clarify: state.clarify ?? undefined,
           sources: state.sources.length > 0 ? state.sources : undefined,
           usage: state.usage ?? undefined,
-          status: state.status === 'error' ? 'error' : state.status === 'cancelled' ? 'cancelled' : 'complete',
+          status: entryStatusOf(state.status),
           error: state.error ?? undefined,
         };
         messagesStore.appendEntry(convoId, entry);
@@ -427,6 +468,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
+  // The open conversation is awaiting a clarify answer when its latest turn —
+  // live or just-persisted (the stream ends at done(awaiting_input)) — parked
+  // with a clarify spec. `messages` only ever holds the open conversation.
+  const awaitingClarify =
+    latestMessage !== null &&
+    !latestMessage.isCreatedByUser &&
+    latestMessage.turnStatus === 'awaiting_input' &&
+    latestMessage.clarify !== undefined;
+
   const value = useMemo<ChatContextValue>(
     () => ({
       conversationId,
@@ -440,6 +490,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       updateMessageText,
       stopGenerating,
       newConversation,
+      awaitingClarify,
       abortScroll,
       setAbortScroll,
     }),
@@ -454,6 +505,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       updateMessageText,
       stopGenerating,
       newConversation,
+      awaitingClarify,
       abortScroll,
     ],
   );

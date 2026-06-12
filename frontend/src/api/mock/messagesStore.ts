@@ -10,7 +10,7 @@ import type { TranscriptEntry } from '@/api/protocol';
 const STORAGE_PREFIX = 'counselle:mock:messages:';
 const VERSION_KEY = 'counselle:mock:messages:version';
 /** Bump to wipe persisted transcripts on every client. */
-const STORE_VERSION = '2';
+const STORE_VERSION = '3';
 
 function checkVersion(): void {
   try {

@@ -42,7 +42,8 @@ export default function useTextarea({
 }) {
   const isComposing = useRef(false);
   const enterToSend = useAtomValue(enterToSendAtom);
-  const { isSubmitting } = useChatContext();
+  // FE-4: awaitingClarify swaps the placeholder — typing is answering (PRD 24).
+  const { isSubmitting, awaitingClarify } = useChatContext();
   const localize = useLocalize();
 
   /** isNotAppendable — false until FE-3 wires the turn reducer */
@@ -53,6 +54,10 @@ export default function useTextarea({
     const getPlaceholderText = () => {
       if (isNotAppendable) {
         return localize('com_endpoint_message_not_appendable');
+      }
+      // FE-4: a parked clarifying question makes the composer the answer box (PRD 24).
+      if (awaitingClarify) {
+        return 'Pick one, or just type…';
       }
       if (placeholder) {
         return placeholder;
@@ -79,7 +84,7 @@ export default function useTextarea({
     debouncedSetPlaceholder();
 
     return () => debouncedSetPlaceholder.cancel();
-  }, [localize, placeholder, textAreaRef, isNotAppendable]);
+  }, [localize, placeholder, textAreaRef, isNotAppendable, awaitingClarify]);
 
   const handleKeyDown = useCallback(
     (e: KeyEvent) => {

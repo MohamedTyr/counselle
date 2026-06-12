@@ -46,6 +46,17 @@ export type TurnStatus = 'idle' | 'streaming' | 'awaiting_input' | 'complete' | 
 /** A step merged to its latest status (start → end/error), receipts attached. */
 export type TurnStep = StepData;
 
+/**
+ * One row of the activity timeline, in ARRIVAL order: a step's first event
+ * appends an entry (subsequent events for the same step_id merge into it in
+ * place); thinking lines append between them. This interleaving is exact for
+ * live streams; persisted turns replay steps-then-thinking (§27.5 stores them
+ * as two lists), which is the accepted ordering for old chats.
+ */
+export type TimelineEntry =
+  | { type: 'step'; step: StepData }
+  | { type: 'thinking'; text: string };
+
 export type TurnState = {
   meta: MetaData | null;
   /** Ordered content blocks; markdown accumulates into the last open block. */
@@ -54,6 +65,8 @@ export type TurnState = {
   steps: TurnStep[];
   /** Thinking lines in arrival order (§27.2). */
   thinking: string[];
+  /** Steps + thinking interleaved in arrival order — what the timeline draws. */
+  timeline: TimelineEntry[];
   /** Pause state — set by a clarify event, turn parks as awaiting_input. */
   clarify: ClarifySpec | null;
   sources: SourceEntry[];
@@ -68,6 +81,7 @@ export function initialTurnState(): TurnState {
     blocks: [],
     steps: [],
     thinking: [],
+    timeline: [],
     clarify: null,
     sources: [],
     usage: null,
@@ -91,13 +105,32 @@ function appendDelta(state: TurnState, text: string): TurnState {
 function mergeStep(state: TurnState, step: StepData): TurnState {
   const idx = state.steps.findIndex((s) => s.step_id === step.step_id);
   if (idx === -1) {
-    return { ...state, steps: [...state.steps, step] };
+    // First event for this step_id: append to both lists (arrival order).
+    return {
+      ...state,
+      steps: [...state.steps, step],
+      timeline: [...state.timeline, { type: 'step', step }],
+    };
   }
   const merged: TurnStep = { ...state.steps[idx], ...step };
   return {
     ...state,
     steps: [...state.steps.slice(0, idx), merged, ...state.steps.slice(idx + 1)],
+    timeline: replaceTimelineStep(state.timeline, merged),
   };
+}
+
+/** Merge a step's later event into its existing timeline entry, keeping order. */
+function replaceTimelineStep(timeline: TimelineEntry[], merged: StepData): TimelineEntry[] {
+  const idx = timeline.findIndex((e) => e.type === 'step' && e.step.step_id === merged.step_id);
+  if (idx === -1) {
+    return [...timeline, { type: 'step', step: merged }];
+  }
+  return [
+    ...timeline.slice(0, idx),
+    { type: 'step', step: merged },
+    ...timeline.slice(idx + 1),
+  ];
 }
 
 // ── The reducer ──────────────────────────────────────────────────────────────
@@ -111,7 +144,11 @@ export function reduce(state: TurnState, event: ProtocolEvent): TurnState {
     case 'step':
       return mergeStep(state, event.data);
     case 'thinking':
-      return { ...state, thinking: [...state.thinking, event.data.text] };
+      return {
+        ...state,
+        thinking: [...state.thinking, event.data.text],
+        timeline: [...state.timeline, { type: 'thinking', text: event.data.text }],
+      };
     case 'viz':
       return { ...state, blocks: [...state.blocks, { kind: 'viz', spec: event.data }] };
     case 'clarify':
@@ -186,6 +223,15 @@ export function deriveReceipt(steps: TurnStep[], thinking: string[]): string {
   return labels.join(' · ');
 }
 
+/** Total worked time across steps (sum of receipt duration_ms), if any. */
+export function deriveDurationMs(steps: TurnStep[]): number | undefined {
+  let total = 0;
+  for (const step of steps) {
+    total += step.detail?.duration_ms ?? 0;
+  }
+  return total > 0 ? total : undefined;
+}
+
 /** The persisted step record for a finished turn (§27.1/§27.5). */
 export function toStepRecord(state: TurnState): StepRecord | undefined {
   if (state.steps.length === 0 && state.thinking.length === 0) {
@@ -203,6 +249,10 @@ export function toStepRecord(state: TurnState): StepRecord | undefined {
 /**
  * Synthesize the event sequence a persisted assistant entry stands for, then
  * replay it through `reduce`. One code path for live and persisted renders.
+ *
+ * Timeline ordering note (§34): the step record stores steps and thinking as
+ * two lists, so the replayed timeline is steps-then-thinking. Exact
+ * interleaving is a live-stream-only property — acceptable for old chats.
  */
 export function transcriptEntryToEvents(entry: TranscriptAssistantEntry): ProtocolEvent[] {
   const events: ProtocolEvent[] = [];
@@ -224,6 +274,10 @@ export function transcriptEntryToEvents(entry: TranscriptAssistantEntry): Protoc
     } else if (part.type === 'viz') {
       events.push({ v: 1, type: 'viz', data: part.spec });
     }
+  }
+  if (entry.clarify !== undefined) {
+    // The persisted clarify renders as the frozen transcript record (PRD 25).
+    events.push({ v: 1, type: 'clarify', data: entry.clarify });
   }
   if (entry.sources !== undefined && entry.sources.length > 0) {
     events.push({ v: 1, type: 'sources', data: { sources: entry.sources } });

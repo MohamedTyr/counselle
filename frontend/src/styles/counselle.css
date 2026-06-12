@@ -2,7 +2,56 @@
  * Counselle-native design tokens — the ONLY token additions allowed on top of
  * the cloned LibreChat system (ADR 0020, decision 5).
  *
- * Populated in FE-4 with exactly two semantic pairs, per theme:
- *   --official-*   (cool)  — official-source surfaces (CDS / IPEDS / .edu)
+ * Exactly two semantic pairs, defined per theme:
+ *   --official-*   (cool)  — official-source surfaces (CDS / IPEDS / Scorecard / .edu)
  *   --community-*  (warm)  — community-source surfaces (Reddit)
+ *
+ * The squint test (PRD story 26): official claims read cool, community claims
+ * read warm — identically in chips, timeline steps, cards, and the sources
+ * footer. No other component may introduce source-tier color.
  */
+
+:root,
+.light {
+  --official-text: #1d4ed8; /* blue-700 */
+  --official-surface: #eff6ff; /* blue-50 */
+  --official-border: #bfdbfe; /* blue-200 */
+
+  --community-text: #b45309; /* amber-700 */
+  --community-surface: #fffbeb; /* amber-50 */
+  --community-border: #fde68a; /* amber-200 */
+}
+
+.dark {
+  --official-text: #93c5fd; /* blue-300 */
+  --official-surface: rgba(59, 130, 246, 0.1);
+  --official-border: rgba(59, 130, 246, 0.35);
+
+  --community-text: #fcd34d; /* amber-300 */
+  --community-surface: rgba(245, 158, 11, 0.1);
+  --community-border: rgba(245, 158, 11, 0.35);
+}
+
+/* Timeline shimmer on the active step — compositor-friendly, reduced-motion aware. */
+@keyframes counselle-shimmer {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
+.counselle-step-active {
+  animation: counselle-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .counselle-step-active {
+    animation: none;
+    opacity: 1;
+  }
+}

@@ -21,7 +21,13 @@ import type { TMessageContentProps, TDisplayProps } from '~/common';
 import type { ChatMessage } from '@/app/ChatContext';
 import Error from '~/components/Messages/Content/Error';
 import { useMessageContext } from '~/Providers';
-import VizPlaceholder from '@/components/viz/VizPlaceholder';
+// FE-4: timeline above the prose, VizCard (replaces VizPlaceholder), citations context, clarify, sources footer.
+import { useChatContext } from '@/app/ChatContext';
+import ActivityTimeline from '@/components/timeline/ActivityTimeline';
+import ClarifyWidget from '@/components/clarify/ClarifyWidget';
+import SourcesContext from '@/components/citations/SourcesContext';
+import SourcesFooter from '@/components/citations/SourcesFooter';
+import VizCard from '@/components/cards/VizCard';
 import MarkdownLite from './MarkdownLite';
 import EditMessage from './EditMessage';
 import Container from './Container';
@@ -68,6 +74,8 @@ export const ErrorMessage = ({
 
 const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplayProps) => {
   const { isSubmitting = false, isLatestMessage = false } = useMessageContext();
+  // FE-4: the live clarify widget answers through the composer's submit path.
+  const { submitMessage } = useChatContext();
   /** Upstream default — user messages render markdown. */
   const enableUserMsgMarkdown = true;
 
@@ -84,7 +92,8 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
           block.kind === 'markdown' ? (
             <Markdown key={`md-${i}`} content={block.text} isLatestMessage={isLatestMessage} />
           ) : (
-            <VizPlaceholder key={`viz-${i}`} spec={block.spec} />
+            // FE-4: real viz cards replace the FE-3 placeholder.
+            <VizCard key={`viz-${i}`} spec={block.spec} />
           ),
         );
       }
@@ -96,19 +105,44 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
     return <>{text}</>;
   }, [isCreatedByUser, enableUserMsgMarkdown, text, message.content, isLatestMessage]);
 
+  // FE-4: the clarify widget is live (interactive) only on the latest message
+  // of a turn parked awaiting input — every other render is the frozen record.
+  const clarifyFrozen = !(isLatestMessage && message.turnStatus === 'awaiting_input');
+  const sources = message.sources ?? [];
+
   return (
     <Container message={message}>
-      <div
-        className={cn(
-          'markdown prose message-content dark:prose-invert light w-full break-words',
-          isSubmitting && 'submitting',
-          showCursorState && text.length > 0 && 'result-streaming',
-          isCreatedByUser && !enableUserMsgMarkdown && 'whitespace-pre-wrap',
-          isCreatedByUser ? 'dark:text-gray-20' : 'dark:text-gray-100',
+      {/* FE-4: the activity timeline renders ABOVE the prose (PRD stories 13–16). */}
+      {!isCreatedByUser && message.timeline !== undefined && (
+        <ActivityTimeline
+          timeline={message.timeline}
+          status={message.turnStatus ?? 'complete'}
+          receipt={message.receipt}
+          durationMs={message.durationMs}
+        />
+      )}
+      {/* FE-4: inline citation chips resolve against the turn's sources. */}
+      <SourcesContext.Provider value={sources}>
+        <div
+          className={cn(
+            'markdown prose message-content dark:prose-invert light w-full break-words',
+            isSubmitting && 'submitting',
+            showCursorState && text.length > 0 && 'result-streaming',
+            isCreatedByUser && !enableUserMsgMarkdown && 'whitespace-pre-wrap',
+            isCreatedByUser ? 'dark:text-gray-20' : 'dark:text-gray-100',
+          )}
+        >
+          {content}
+        </div>
+        {/* FE-4: the clarifying-question widget, inline where the agent paused (PRD 23–25). */}
+        {!isCreatedByUser && message.clarify !== undefined && (
+          <ClarifyWidget spec={message.clarify} frozen={clarifyFrozen} onAnswer={submitMessage} />
         )}
-      >
-        {content}
-      </div>
+        {/* FE-4: the sources footer closes a completed answer (PRD story 21). */}
+        {!isCreatedByUser && message.turnStatus === 'complete' && sources.length > 0 && (
+          <SourcesFooter sources={sources} />
+        )}
+      </SourcesContext.Provider>
     </Container>
   );
 };

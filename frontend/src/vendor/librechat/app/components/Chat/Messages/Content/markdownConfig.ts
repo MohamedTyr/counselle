@@ -14,6 +14,8 @@ import supersub from 'remark-supersub';
 import rehypeHighlight from 'rehype-highlight';
 import type { PluggableList } from 'unified';
 import type { ElementType } from 'react';
+// FE-4: inline [n] citation chips (remark plugin + the citation-ref renderer).
+import remarkCitations, { CitationRefMarkdown } from '@/components/citations/remarkCitations';
 import { code, a, p, img, table } from './MarkdownComponents';
 import { langSubset } from '~/utils';
 
@@ -36,7 +38,8 @@ let markdownComponentsCache: { [nodeType: string]: ElementType } | null = null;
 
 export const getRemarkPlugins = (): PluggableList => {
   if (remarkPluginsCache === null) {
-    remarkPluginsCache = [supersub, remarkGfm];
+    // FE-4: remarkCitations turns [n] markers into citation-ref chips.
+    remarkPluginsCache = [supersub, remarkGfm, remarkCitations];
   }
   return remarkPluginsCache;
 };
@@ -58,6 +61,8 @@ export const getMarkdownComponents = (): { [nodeType: string]: ElementType } => 
       p,
       img,
       table,
+      // FE-4: the renderer for remarkCitations' citation-ref element.
+      'citation-ref': CitationRefMarkdown,
     };
   }
   return markdownComponentsCache;
