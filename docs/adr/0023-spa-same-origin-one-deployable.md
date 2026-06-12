@@ -1,6 +1,6 @@
 # ADR 0023 — One deployable: the SPA served same-origin from the FastAPI service
 
-**Status:** Draft (MVP2 architecture pass, 2026-06-11 — moves to `docs/adr/` as Accepted when the build starts)
+**Status:** Accepted (2026-06-12; drafted in the MVP2 architecture pass, 2026-06-11)
 
 ## Context
 MVP2 adds a real frontend (`frontend/`, ADR 0020) and auth (ADR 0021). Where the built SPA is served from determines the CORS surface, the cookie-auth story, the TLS/deploy story, and whether day-one deployability (Part I, §20) survives. MVP1's posture: one container, stateless, state in Postgres.
@@ -26,4 +26,4 @@ MVP2 adds a real frontend (`frontend/`, ADR 0020) and auth (ADR 0021). Where the
 - The `Containerfile` gains a node build stage; image build time grows; runtime image stays Python-only.
 - `api/` gains the static-mount + SPA-fallback wiring and the landing-page route (a few lines, Settings-gated so dev can run API-only).
 - Horizontal scaling requires the named-state migration first — documented, closed-list, later.
-- The CORS settings knob (Part I, §18) becomes effectively unused — kept for the API-as-product future, defaulted empty.
+- The CORS settings knob (Part I, §18) becomes effectively unused — kept for the API-as-product future, defaulted empty. *Amended at B0 (2026-06-12): same-origin serving makes `CORS_ORIGINS` default-empty in production; the current `localhost:8000` default dies at B6 (the deploy phase flips it).*

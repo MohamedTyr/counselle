@@ -14,6 +14,8 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 **MVP1 built (2026-06-11).** PRD stories 1–38 and 42–58 are implemented and verified by tests, evals, and live E2E. Deep research (PRD stories 39–41) is **deferred** — the graph ships a stub `research` seam; the follow-up plan lives in `plans/mvp1-deep-research.md`. The data pipeline is live (Postgres on `localhost:5432`). The MVP1 implementation plan is archived in `plans/archive/mvp1/`.
 
+**MVP2 in build.** The frontend (FE-0…FE-6, the backend-free LibreChat clone) merged 2026-06-12; the backend/app build (phases B0–B7) is underway per `plans/mvp2/ship-plan.md`. **B0 done (2026-06-12):** docs merged (ARCHITECTURE Part II + the §0.1/§0.2 addenda), ADRs 0020–0023 accepted, the four gate-spike decisions recorded in ship-plan §5.
+
 ## Commands
 
 ```bash
@@ -44,14 +46,16 @@ uv run uvicorn api.main:create_app --factory --port 8000
 |------|-----------|
 | `PRD.md` | Product requirements: the agent's purpose, primary user, MVP1 scope, the feature list, what's deferred, and the decision history/rationale from the design conversation |
 | `PRD-mvp2.md` | MVP2 PRD (drafted 2026-06-11, WHAT-level): the full-stack app over the MVP1 agent — auth, home screen, the chat-experience spec (activity timeline, inline cards, citation grammar, smoothness laws), chat management, settings, the backend delta (`step`/`thinking` events, resume/cancel, chat CRUD, rate limiting), locked product decisions, and MVP2 out-of-scope |
-| `docs/ARCHITECTURE.md` | The full system architecture: the chosen stack, the data-access layer (the `counselle-db` MCP server, its 3 layers and tool catalog), the citation envelope, field discovery, school coverage & the CDS tier, the agent runtime, the deep-research subsystem, source control, skills, visualizations, temporal awareness, deployment, the feature→component matrix, risks, and open questions |
+| `docs/ARCHITECTURE.md` | The full system architecture, in two parts. **Part I (§1–25, MVP1):** the chosen stack, the data-access layer (the `counselle-db` MCP server, its 3 layers and tool catalog), the citation envelope, field discovery, school coverage & the CDS tier, the agent runtime, the deep-research subsystem, source control, skills, visualizations, temporal awareness, deployment, the feature→component matrix, risks, and open questions. **Part II (§26–35, MVP2):** the full-stack app — protocol extensions (step/thinking, the turn registry, resume/cancel, the §27.7 turn-record/identity/lifecycle resolutions), auth, chat management, feedback & rate limiting, the frontend, config/deployment/testing deltas |
 | `docs/DATABASE_GUIDE.md` | Exhaustive reference for the underlying database — every table, the 1,093-field catalog, value-reading rules (R1–R12, anti-misread), raw/multi-row data, enum decoding, data recency/provenance, the query surface, school identity, the CDS pipeline, gotchas, and how-to SQL recipes. Verified against the live DB (snapshot 2026-06-09) |
 | `docs/research/agent-stack-evaluation.md` | The frontier-tech survey behind the stack choice: agent frameworks, model-provider abstraction, and the agent-skills ecosystem, with scorecards and the verdict |
 | `docs/research/deep-research-bakeoff.md` | The 4-way quality-vs-cost comparison of open-source deep-research systems (Alibaba DeepResearch, STORM, dzhng/deep-research, GPT-Researcher) and the verdict |
-| `docs/adr/README.md` | **Index of all 19 ADRs** (number, title, one-line summary). Start here for decisions |
+| `docs/adr/README.md` | **Index of all 23 ADRs** (number, title, one-line summary). Start here for decisions |
 | `docs/adr/` | One file per architectural decision (context → decision → rationale → alternatives → consequences). Do not silently break an ADR |
 | `plans/archive/mvp1/` | The MVP1 implementation plan (archived): `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7) |
 | `plans/mvp1-deep-research.md` | Stub plan for the deferred deep-research follow-up (PRD stories 39–41) |
+| `plans/mvp2/ship-plan.md` | The MVP2 execution plan (phases B0–B7): the backend delta, the §0.1 spec-gap resolutions (G1–G5), the §0.2 wire-contract summary, FE‑7 hookup, deployment, the evals/docs close-out — plus §5, the recorded B0 spike decisions |
+| `plans/mvp2/wire-contract.md` | The FE↔BE wire contract, field by field (B0 spike 4 output): SSE event shapes incl. `step`/`thinking`, the transcript wire shape, `/v1/config`, source-config mapping, sources/citation rules, Last-Event-ID, the receipt format, and the resolved conflicts. B1b/B2/B4/B5 build from it; nothing re-opens |
 | `TODOS.md` | Deferred work with full context (currently: the session-TTL cleanup job). CI was proposed and explicitly declined — don't re-propose it |
 
 ## The three principles (inherited from the data pipeline, they apply here too)
