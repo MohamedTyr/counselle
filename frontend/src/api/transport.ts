@@ -18,6 +18,12 @@ export type SendMessageBody = {
   replace_message_id?: string;
 };
 
+/** POST /v1/sessions — the new-chat flow mints a real session id before sending. */
+export type CreatedSession = {
+  session_id: string;
+  source_config: Record<string, unknown> | null;
+};
+
 export interface Transport {
   /** POST .../messages — start a turn, stream its events. */
   sendMessage(sessionId: string, body: SendMessageBody): AsyncIterable<ProtocolEvent>;
@@ -30,4 +36,6 @@ export interface Transport {
   cancel(sessionId: string): Promise<void>;
   /** GET /v1/sessions/{id} — the persisted transcript (§27.5). */
   transcript(sessionId: string): Promise<TranscriptEntry[]>;
+  /** POST /v1/sessions — mint a new session (new-chat flow). */
+  createSession(sourceConfig?: Record<string, unknown>): Promise<CreatedSession>;
 }

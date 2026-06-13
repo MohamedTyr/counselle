@@ -24,7 +24,7 @@ import { cn } from '~/utils';
 
 export default function MessagesView() {
   const localize = useLocalize();
-  const { messages } = useChatContext();
+  const { messages, transcriptError, retryTranscript } = useChatContext();
   const fontSize = 'text-base';
   const [currentEditId, setCurrentEditId] = useState<number | string | null>(-1);
   const scrollToBottomRef = useRef<HTMLDivElement>(null);
@@ -53,15 +53,31 @@ export default function MessagesView() {
             }}
           >
             <div ref={contentRef} className="flex flex-col pb-9 pt-14 dark:bg-transparent">
-              {messages.length === 0 ? (
-                <div
-                  className={cn(
-                    'flex w-full items-center justify-center p-3 text-text-secondary',
-                    fontSize,
-                  )}
-                >
-                  {localize('com_ui_nothing_found')}
+              {transcriptError !== null && (
+                <div className="mx-auto my-3 flex w-full max-w-3xl items-center justify-between gap-3 rounded-lg border border-border-light bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+                  <span>{transcriptError.message}</span>
+                  <button
+                    type="button"
+                    onClick={retryTranscript}
+                    className="shrink-0 font-medium text-text-primary hover:underline"
+                  >
+                    Retry
+                  </button>
                 </div>
+              )}
+              {messages.length === 0 ? (
+                // Suppress the empty-state copy when a transcript load failed —
+                // the error banner above is the honest signal, not "nothing found".
+                transcriptError === null ? (
+                  <div
+                    className={cn(
+                      'flex w-full items-center justify-center p-3 text-text-secondary',
+                      fontSize,
+                    )}
+                  >
+                    {localize('com_ui_nothing_found')}
+                  </div>
+                ) : null
               ) : (
                 <>
                   {messages.map((message) => (

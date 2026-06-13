@@ -5,7 +5,8 @@
  * §27.4) and attach (in-memory replay of already-emitted events, then live).
  */
 import type { ProtocolEvent, TranscriptEntry } from '@/api/protocol';
-import type { SendMessageBody, Transport } from '@/api/transport';
+import type { CreatedSession, SendMessageBody, Transport } from '@/api/transport';
+import { createChat } from './store';
 import { getTranscript } from './messagesStore';
 import { CANCELLED_EVENTS } from './fixtures/turns/cancelled';
 import { CLARIFY_EVENTS } from './fixtures/turns/clarify';
@@ -188,6 +189,14 @@ export class MockTransport implements Transport {
 
   transcript(sessionId: string): Promise<TranscriptEntry[]> {
     return Promise.resolve(getTranscript(sessionId));
+  }
+
+  createSession(sourceConfig?: Record<string, unknown>): Promise<CreatedSession> {
+    const chat = createChat('New chat');
+    return Promise.resolve({
+      session_id: chat.conversationId,
+      source_config: sourceConfig ?? null,
+    });
   }
 }
 

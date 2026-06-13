@@ -8,6 +8,7 @@
  * copy (PRD story 34's voice rule).
  */
 import type { SourceEntry } from '@/api/protocol';
+import { isSafeUrl } from '@/api/url';
 import CitationPopover from '@/components/citations/CitationPopover';
 import TierChip, { isCommunityTier, tierLabel } from '@/components/citations/TierChip';
 
@@ -25,7 +26,7 @@ function SourceRow({ entry }: { entry: SourceEntry }) {
         </TierChip>
       </CitationPopover>
       <span className="text-xs text-text-primary">
-        {citation.url != null && citation.url !== '' ? (
+        {isSafeUrl(citation.url) ? (
           <a
             href={citation.url}
             target="_blank"
