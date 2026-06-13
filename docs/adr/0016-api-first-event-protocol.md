@@ -6,7 +6,7 @@
 MVP1 builds only the agent — no real frontend. The future is a full platform (web/mobile apps, accounts, chat history) like ChatGPT/Claude/Gemini. The PRD ships a deliberately minimal web chat for MVP1. Without a defined contract between the agent and whatever renders it, the platform phase would require invasive rework — the classic prototype-to-product debt.
 
 ## Decision
-1. **The MVP1 deliverable is the Counselle agent service**: a Python service exposing a small versioned HTTP API (`/v1`). Everything user-facing — including MVP1's minimal chat — is a **client** of that API. The minimal chat lives in `harness/` as an explicitly throwaway dev harness.
+1. **The MVP1 deliverable is the Counselle agent service**: a Python service exposing a small versioned HTTP API (`/v1`). Everything user-facing — including MVP1's minimal chat — is a **client** of that API. The minimal chat lives in `harness/` as an explicitly throwaway dev harness. *(MVP2 amendment: `harness/` was retired and deleted in B5d once `frontend/` reached parity — ADR 0020.)*
 2. **One streaming event protocol** carries every conversation: SSE events, each `{v, type, data}` with types `meta`, `delta` (prose tokens with inline citation markers), `viz` (render spec), `clarify` (clarify spec; stream parks awaiting input), `sources`, `usage`, `done`, `error` (user-safe message + trace_id; never leaks internals).
    **Single-flight per session:** a second `POST /v1/sessions/{id}/messages` while a turn is already streaming returns `409` — one active stream per session (in-process lock for the single-replica MVP1; multi-replica needs a DB advisory lock).
 3. **Versioning:** `v` on every event, `/v1` on routes, version fields inside the render/clarify specs. Additive changes don't bump; breaking ones do; clients ignore unknown event types.
@@ -23,6 +23,6 @@ MVP1 builds only the agent — no real frontend. The future is a full platform (
 - **WebSocket-first** — rejected for MVP1: bidirectional streaming isn't needed (clarify answers arrive as ordinary messages); SSE is simpler and HTTP-native.
 
 ## Consequences
-- The dev harness and the future platform consume identical events — the platform phase starts with a working, tested API.
+- The dev harness and the future platform consume identical events — the platform phase starts with a working, tested API. *(MVP2: the platform phase shipped; the React SPA (ADR 0020) consumed the same protocol unchanged.)*
 - The protocol becomes a compatibility surface to maintain (mitigated by versioning + additive-only discipline).
 - The API edge owns translating graph output → protocol events; the orchestrator never knows about HTTP.

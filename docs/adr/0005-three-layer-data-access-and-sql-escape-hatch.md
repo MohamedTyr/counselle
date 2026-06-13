@@ -8,7 +8,7 @@ The PRD wants the agent to "do any search it wants / full control" over the DB, 
 ## Decision
 Expose the DB through **three layers** in the `counselle-db` MCP server, and **include the guarded SQL escape hatch in MVP1**:
 1. **Field discovery** — `search_fields` (ADR 0007).
-2. **Safe typed tools** — `resolve_school`, `get_values`, `get_dossier`, `compare_schools`, `find_schools`, `national_benchmark`, `get_programs`, `get_diversity` — each normalized + cited (ADR 0006) and coverage-tier-aware (ADR 0002). Plus `get_data_calendar` (read-only; the per-source recency table used for temporal context) — 10 tools total with layers 1 and 3.
+2. **Safe typed tools** — `resolve_school`, `get_values`, `get_dossier`, `compare_schools`, `find_schools`, `national_benchmark`, `get_programs`, `get_diversity` — each normalized + cited (ADR 0006) and coverage-tier-aware (ADR 0002). Plus `get_data_calendar` (read-only; the per-source recency table used for temporal context) — **11 tools total — Layer 1: `search_fields`; Layer 2: 8 typed tools + `get_data_calendar`; Layer 3: `query_database`.**
 3. **Guarded SQL escape hatch** — `query_database(sql, params)`: read-only, parameterized, statement-timeout, row-cap (no scope gate — any in-database school; ADR 0002).
 
 ## Rationale

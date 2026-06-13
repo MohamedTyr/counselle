@@ -22,6 +22,8 @@ MVP2 adds a real frontend (`frontend/`, ADR 0020) and auth (ADR 0021). Where the
 - **A second container (nginx for static + API behind it)** — rejected: an extra moving part to do what `StaticFiles` does fine at this traffic; a real reverse proxy can be added at the host level without touching the app.
 - **Server-side rendering (Next.js et al.)** — rejected: a chat app behind a signup wall has no SEO surface; the one page that needs instant paint (the marketing landing) is a static file. SSR would add a Node runtime to a Python service for nothing.
 
+**Build status (2026-06-13):** B6 is deferred — the same-origin serving, multi-stage container, and migration-on-boot below are the approved design but are NOT yet implemented. The current Containerfile is single-stage and `api/main.py` serves only `/v1/*`; `frontend/` runs separately on Vite in dev.
+
 ## Consequences
 - The `Containerfile` gains a node build stage; image build time grows; runtime image stays Python-only.
 - `api/` gains the static-mount + SPA-fallback wiring and the landing-page route (a few lines, Settings-gated so dev can run API-only).

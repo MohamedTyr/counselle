@@ -8,7 +8,7 @@ The PRD wants deep research across the web, our DB, .edu, and Reddit, with citat
 ## Decision
 Adopt **GPT-Researcher**, **embedded as a research subagent/tool inside the LangGraph orchestrator** (Anthropic orchestrator-worker pattern), cost-optimized.
 
-**MVP1 status (2026-06-10):** the deep-research subsystem (PRD stories 39–41, including the verification pass) is **deferred from the MVP1 implementation plan**. The LangGraph graph ships a clearly-marked stub `research` node seam so the follow-up plan adds it without restructuring. This ADR remains the valid design for that follow-up.
+**MVP1 status (2026-06-10):** the deep-research subsystem (PRD stories 39–41, including the verification pass) is **deferred from the MVP1 implementation plan**. The LangGraph graph does **not** ship a stub research node — the topology is `prepare → agent → END`. The follow-up plan (`specs/deep-research/plan.md`) adds the research node when GPT-Researcher is activated; the deliberately minimal topology makes that insertion additive (no restructuring). This ADR remains the valid design for that follow-up.
 
 ## Rationale
 - **Only OSS option with native pluggable sources via MCP** — so we plug in our DB + Reddit + .edu (a hard requirement).

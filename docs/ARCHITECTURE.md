@@ -4,7 +4,7 @@
 >
 > Status: **MVP1 built (2026-06-11)**. PRD stories 1–38 and 42–58 implemented and verified. Deep research (PRD stories 39–41) designed but not yet built — see §13 and `specs/deep-research/plan.md`.
 >
-> **MVP2 in build (2026-06-12)** — Part II is the spec; frontend FE-0…FE-6 merged, backend phases B0–B7 underway per `specs/mvp2/plan/ship-plan.md`.
+> **MVP2 shipped (2026-06-13), merged to `main`.** B0–B5 / FE-7 complete: the work-visibility protocol, auth, chat management, feedback, rate limiting, and the React frontend. **B6 (deploy) and B7 (hardening / evals re-baseline) are deferred — never built.** No production deployment exists yet (see `docs/DEPLOY.md`). Execution record: `specs/mvp2/plan/ship-plan.md`.
 
 ---
 
@@ -61,7 +61,7 @@
 
 2. **Use the stack's native seams; never wrap them.** Every major extension point we need already exists in a chosen tool: PydanticAI's `model=` *is* the model seam, MCP *is* the tool/transport seam, LangGraph's checkpointer protocol *is* the session-persistence seam, SKILL.md *is* the workflow seam, Tavily-behind-thin-tools *is* the search seam. A hand-rolled abstraction layered over any of these would be a shallow pass-through — interface as complex as the thing it hides, deletable without losing anything. Our own code adds exactly three seams the stack doesn't provide: the **domain core** (§4), the **event protocol** (§6), and the **configuration surface** (§18).
 
-3. **MVP1 is the agent; the platform comes later — so the agent is a service, not an app.** Everything user-facing (today's throwaway dev chat, tomorrow's ChatGPT-style platform with accounts and chat history) is a **client of one API**. Nothing in the agent service knows or cares what's rendering it. (§2, ADR 0016.)
+3. **MVP1 is the agent; the platform comes later — so the agent is a service, not an app.** Everything user-facing (MVP1's throwaway dev harness — since retired; the MVP2 React SPA; a future mobile/API client) is a **client of one API**. Nothing in the agent service knows or cares what's rendering it. (§2, ADR 0016.)
 
 4. **Configurable means one place.** Anything a developer might plausibly change lives in the central typed settings or in a versioned data asset — never inline in code. Hardcoding is reserved for invariants that will never change (§18, ADR 0018).
 
@@ -71,13 +71,13 @@
 
 ## 2. The shape of the system: an API-first agent service
 
-**MVP1 builds one deployable: the Counselle agent service.** It exposes a small versioned HTTP API (§6) that streams a conversation as typed events. The PRD's "deliberately minimal web chat" is a **dev harness client** of that API — one plain page, zero coupling, fully replaceable. (ADR 0016.) *MVP2: the dev harness is superseded by `frontend/` (§31) — still a pure client of the same protocol.*
+**MVP1 builds one deployable: the Counselle agent service.** It exposes a small versioned HTTP API (§6) that streams a conversation as typed events. MVP1's client was a "deliberately minimal web chat" — a throwaway dev harness, fully replaceable. (ADR 0016.) *MVP2 (B5d): the harness was retired and deleted; `frontend/` (§31) is now the sole client of the same protocol.*
 
 ```
-                       MVP1                                      Platform (future)
+                       MVP1 → MVP2                               Platform (future)
             ┌───────────────────────┐                  ┌──────────────────────────────┐
-  clients   │  dev harness chat     │                  │  web app / mobile / API users │
-            │  (throwaway, dumb)    │                  │  auth, profiles, chat history │
+  clients   │  React SPA (frontend/)│                  │  web app / mobile / API users │
+            │  (MVP1: dev harness)  │                  │  auth, profiles, chat history │
             └──────────┬────────────┘                  └──────────────┬───────────────┘
                        │      the same versioned event protocol (§6)  │
             ┌──────────▼──────────────────────────────────────────────▼───────────────┐
@@ -104,9 +104,8 @@
 1. A message arrives on a session: question + **source-config** (§14). The API edge attaches a trace ID and request context, and hands it to the orchestrator.
 2. The orchestrator resolves the school via `resolve_school` → unitid. **Not in the database → short-circuit** with the graceful "not in our database" answer (§11); otherwise note the school's coverage tier. Underspecified question → `interrupt()` emits a **clarify event** (§12.1) and the graph parks until the client resumes.
 3. Structured facts come from the `counselle-db` tools — every value a **citation envelope** (§9), already normalized + dated.
-4. Gaps the DB can't fill (this year's deadline, campus vibe) → the **deep-research subagent** over the *enabled* sources, DB-first (§13).
-5. **Verification pass** cross-checks claims across sources.
-6. The answer streams out as protocol events: text deltas with inline citation markers, **viz events** (§17), then a final `done` event with sources + usage.
+4. Gaps the DB can't fill (this year's deadline, campus vibe) → the agent calls the three **Tavily search tools** (`search_web` / `search_school_site` / `search_reddit`) for the *enabled* sources, steering which to use (§14). *(The dedicated deep-research subagent + verification pass — §13 — is designed but not yet built; these inline tools are the current gap-filler.)*
+5. The answer streams out as protocol events: text deltas with inline citation markers, **viz events** (§17), `step`/`thinking` work-visibility events (§27), then a final `done` event with sources + usage.
 
 ---
 
@@ -126,7 +125,7 @@ Chosen by surveying the 2026 frontier and picking proven pieces (never reinvent 
 | **Session persistence** | **LangGraph Postgres checkpointer** in `counselle.*` | Sessions survive restarts from day one; the platform's chats are the same rows + a user FK. | 0019 |
 | **Vector search** | **pgvector** (`counselle.field_index`) | Field-discovery embeddings; reuses Postgres, no new infra. | 0007, 0008 |
 | **Config** | **pydantic-settings** + versioned data assets | One typed settings surface, fail-fast at startup. | 0018 |
-| **Models** | Default **Vertex AI**: `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier); any agent swappable to Anthropic/others via config; optional LiteLLM sidecar (configured in Settings, not deployed in MVP1). | 0011 |
+| **Models** | Default **Vertex AI**: `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier — also the clarifier and auto-title models); any agent swappable to Anthropic/others via config. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011 |
 | **Language** | Python | Matches the pipeline; asyncpg expertise carries over. | — |
 
 ---
@@ -139,7 +138,7 @@ Chosen by surveying the 2026 frontier and picking proven pieces (never reinvent 
 |---|---|---|---|
 | **Domain core** | `domain/` | Citation-envelope types; the **normalization engine** (reading rules R1–R12); vintage interpretation; coverage-tier logic; `admission_season(today)`; render-spec / clarify-spec / source-config / protocol-event **types**. Pure functions and Pydantic models. **No I/O, no LLM calls, no LangGraph/FastAPI imports.** | stdlib, pydantic |
 | **Application** | `app/` | The LangGraph graph; PydanticAI agent definitions (counselor in MVP1; researcher + verifier deferred — §12, §13); source-config tool mounting; skills loading; the data calendar assembly. | `domain/`, the stack |
-| **Adapters** | `adapters/` (+ the separate `counselle-db` server) | asyncpg access, Tavily tools, GPT-Researcher embedding, checkpointer setup, embedding client. Each adapter implements a seam consumed by `app/` — mostly the stack's own seams (MCP tools, retrievers, checkpointer). | `domain/`, vendor SDKs |
+| **Adapters** | `adapters/` (+ the separate `counselle-db` server) | Tavily search tools (`tavily_tools.py`), the embedding client (`embeddings.py`), the email sender (`email.py`, console arm). The LangGraph checkpointer setup lives in `app/checkpointer.py` (the ADR 0017 carve-out), not here; there is no GPT-Researcher code (deferred — §13). Each adapter implements a seam consumed by `app/` — mostly the stack's own seams. | `domain/`, vendor SDKs |
 | **API edge** | `api/` | FastAPI routes, SSE encoding, request context (trace ID + optional principal), translation of graph output → protocol events. | `app/`, `domain/` |
 
 Rules of thumb (the seam discipline):
@@ -165,21 +164,26 @@ counselle/
 │       ├── prompts/              # one file per agent prompt, loaded by name
 │       ├── subreddit_menu.yaml   # the labeled Reddit menu the agent picks from
 │       ├── dossier_shortlist.yaml# the ~90 curated dossier field keys (from DATABASE_GUIDE §7)
-│       └── season_calendar.yaml  # the generic US admission-season table
+│       ├── season_calendar.yaml  # the generic US admission-season table
+│       ├── greeting_templates.yaml / starter_prompts.yaml  # home-screen config (§32, GET /v1/config)
+│       ├── step_labels.yaml      # tool-call → work-visibility step labels (§27.1)
+│       ├── abbreviations.yaml    # school-name abbreviation expansion (used by resolve_school)
+│       └── static_field_map.md   # the static category map fallback for field discovery
 ├── domain/                       # the pure honesty core (§4)
-├── app/                          # orchestration: graph, agents, research, skills
-├── adapters/                     # tavily, gpt-researcher, checkpointer, embeddings
-├── api/                          # FastAPI edge: routes, SSE, request context
+├── app/                          # orchestration: graph, agent node, steps/turns/records/transcript, skills
+├── adapters/                     # tavily tools, email adapter, embedding client (§4)
+├── api/                          # FastAPI edge: routes, SSE, auth, request context
 ├── counselle_db/                 # the counselle-db MCP server (own process; imports domain/)
 ├── skills/                       # SKILL.md files (§15)
-├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY
+├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY (0001–0006)
 ├── evals/                        # the ~50-question eval set + runner (§21)
-├── frontend/                     # the MVP2 React SPA (§31) — a pure protocol client
-├── harness/                      # the throwaway dev chat page (retired in MVP2 — deleted at parity)
+├── frontend/                     # the MVP2 React SPA (§31) — the sole protocol client
+├── scripts/                      # one-off utilities (setup_db.sql, chat_cli.py, smoke scripts)
+├── specs/                        # PRDs + execution plans (mvp1/, mvp2/, deep-research/)
 └── tests/
 ```
 
-The `counselle-db` MCP server ships in the same repo (it imports the domain core for normalization) but runs as its own process — already the right shape to split out later if ever needed. The dev harness lives in `harness/` to make its throwaway status physical.
+The `counselle-db` MCP server ships in the same repo (it imports the domain core for normalization) but runs as its own process — already the right shape to split out later if ever needed. (MVP1's throwaway dev harness lived in `harness/`; it was retired and deleted in B5d once `frontend/` reached parity.)
 
 ---
 
@@ -192,16 +196,18 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 | Endpoint | Purpose |
 |---|---|
 | `POST /v1/sessions` | Create a session → `{session_id}`. Accepts an optional default source-config. |
-| `POST /v1/sessions/{id}/messages` | Send a user message (text + per-request source-config override) → **SSE stream** of events. Also how a clarify answer is sent (`in_reply_to` the clarify event) — it resumes the parked graph. |
+| `POST /v1/sessions/{id}/messages` | Send a user message (text + per-request source-config override) → **SSE stream** of events. A clarify answer is sent the same way — `run_turn` autonomously detects the parked interrupt from the last turn record; `in_reply_to` is accepted for forward-compat but ignored beyond validation. |
 | `GET /v1/sessions/{id}` | Session metadata + transcript (the platform's chat-history read, working from day one). |
 | `GET /v1/health` | Liveness + DB reachability. |
+
+*The four rows above are the MVP1 surface. MVP2 adds the full chat-management, auth, config, and identity surface (`GET/PATCH/DELETE /v1/sessions`, `GET /v1/sessions/{id}/stream` reattach, `POST .../cancel`, `POST .../feedback`, `/v1/me`, `/v1/config`, `/v1/auth/*`) — see §27.6 / §28–§32 for the complete v1 contract.*
 
 **The event stream.** Every event is `{v: 1, type, data}` — one envelope, every consumer. Types:
 
 | Event | Payload | Notes |
 |---|---|---|
-| `meta` | trace_id, session_id, model in use | First event of every stream. |
-| `delta` | text tokens (with inline citation markers) | The prose. **Visible reasoning steps** (PRD story 52) are realized as prose narration woven into the delta stream (e.g. "Let me check the acceptance rate…") — not a separate step event type. |
+| `meta` | trace_id, session_id, model, `message_id`, `user_message_id` | First event of every stream. The two ids anchor feedback and edit/regenerate (§27, §30). |
+| `delta` | text tokens (with inline citation markers) | The final-answer prose. *(In MVP1 interstitial reasoning rode here as narration; MVP2 reroutes between-tool model text to `thinking` events — §27.2 — so only the answer rides `delta`.)* |
 | `viz` | a **render spec** (§17) — cells are citation envelopes | Out-of-band: numbers never ride in `delta` tokens. |
 | `clarify` | a **clarify spec** (§12.1) | Stream ends `awaiting_input`; client answers via a new message. |
 | `sources` | the deduplicated citation list for the turn (official/community, vintages) | Feeds the expandable-marker UX (PRD). |
@@ -212,7 +218,7 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 
 **Versioning:** `v` on every event, `/v1` on every route, and a version field inside the render/clarify specs. Additive changes don't bump; breaking changes do. Clients ignore unknown event types (forward compatibility).
 
-**Auth posture:** MVP1 runs with no auth (local/dev). The request context already carries an **optional principal** populated by middleware, so the platform adds an auth middleware + a `user_id` — no route or orchestration changes. We do not build auth now. *Fulfilled in MVP2 (§28).*
+**Auth posture:** MVP1 ran with no auth (local/dev), with an **optional principal** already on the request context so identity could be added without route or orchestration changes. **Fulfilled in MVP2 (§28):** cookie-JWT auth (fastapi-users) + Google OAuth; every `/v1/sessions` and `/v1/me` route requires a logged-in user (foreign sessions 404), with per-IP auth rate limiting. `/v1/health` stays open.
 
 ---
 
@@ -222,7 +228,7 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 
 - **Every conversation is a session with a durable `session_id` from day one.** In-session working memory (PRD) *is* the LangGraph state for that session — one mechanism, not two.
 - **State persists in Postgres via LangGraph's own Postgres checkpointer**, in Counselle's `counselle.*` schema. Sessions survive restarts; a parked `interrupt()` (clarify question) survives too. No bespoke session store — the checkpointer protocol is the seam, and swapping it (memory in unit tests, Postgres in prod) is configuration.
-- **A thin `counselle.sessions` row** (session_id, created_at, **nullable `user_id`** — *populated from MVP2 (§28)*, title, default source-config) fronts the checkpoint data. The platform phase adds a `users` table and starts filling `user_id` — chat history, profiles, and per-user memory attach to rows that already exist. No migration of meaning, only addition.
+- **A thin `counselle.sessions` row** (session_id, created_at, `user_id`, title, default source-config) fronts the checkpoint data. The column was nullable in MVP1 and is **populated and FK-enforced for new rows since MVP2** (migration 0004 added `counselle.users` + the FK; §28) — chat history, profiles, and per-user memory attach to rows that already existed. No migration of meaning, only addition.
 - **Counselle owns its schema and migration chain** (`migrations/`, over `counselle.*` only — never `public.*`/`raw.*`, which belong to the pipeline and are read-only to us; ADR 0012).
 - **Long-term memory & personalization stay out of MVP1** (PRD) — but they will live behind the same session/user rows, which is why those rows exist now.
 - **Retention:** sessions are cheap rows; MVP1 sets a configurable TTL/cleanup job knob (§18) and defaults it to "keep everything" until there's a reason not to.
@@ -257,7 +263,7 @@ Each applies the **normalization engine** + **vintage resolver** (both from `dom
 
 - **Normalization engine** — the reading rules **R1–R12** (`DATABASE_GUIDE` §6 is the spec): decode coded ints via valuesets, ×100 percents, currency with valid negatives, strip int trailing zeros, native bools, title-case CDS enums, fix scheme-less URLs, source preference per concept, NULL/missing → "not available", BBRR range-token detection, FTE ≠ headcount. `(field_key, raw jsonb)` → `(display, raw_numeric, available, unit, decoded_label?)`. **The honesty-critical core — built once, TDD'd hard.**
 - **Vintage resolver** — the `DATABASE_GUIDE` §9 provenance query → `{source, vintage_string, caveat}` (e.g. "College Scorecard published Mar 2026; earnings reflect ~2016 entrants").
-- **Data calendar** — a small always-available summary derived **live** from `raw.files` + the Scorecard filename + `settings.current_cycle_year`: per source, its vintage and knowledge cutoff. Injected into agent context so the agent knows each source's cutoff *before* it fetches, and routes beyond-cutoff questions to the web. Live-derived → a pipeline re-ingest updates it automatically; never hardcoded. Also exposed as the `get_data_calendar` tool — the server's 10th tool across layers 1–3.
+- **Data calendar** — a small always-available summary derived **live** from `raw.files` + the Scorecard filename + the pipeline's `public.settings['current_cycle_year']` (read live from the DB, not a Counselle Settings knob): per source, its vintage and knowledge cutoff. Injected into agent context so the agent knows each source's cutoff *before* it fetches, and routes beyond-cutoff questions to the web. Live-derived → a pipeline re-ingest updates it automatically; never hardcoded. Also exposed as the `get_data_calendar` tool — the server's **11th tool** (Layer 1: `search_fields`; Layer 2: the 8 typed tools + `get_data_calendar`; Layer 3: `query_database`).
 
 ---
 
@@ -347,11 +353,11 @@ One focused round, 2–4 options, never an intake form. The chips are a shortcut
 
 ## 13. The deep-research subsystem (GPT-Researcher)
 
-> **Not yet built — designed, deferred from MVP1.** The graph ships a stub `research` seam. The follow-up plan is `specs/deep-research/plan.md`. The design below is the approved spec for that plan. See ADR 0009 for the GPT-Researcher choice and `docs/research/deep-research-bakeoff.md` for the bake-off.
+> **Not yet built — designed, deferred from MVP1.** There is **no stub `research` node** in the current graph — it is exactly `prepare → agent → END` (§12). The follow-up plan (`specs/deep-research/plan.md`) adds the research node when GPT-Researcher is activated; the deliberately minimal topology is what makes that insertion additive (no restructuring). The design below is the approved spec for that plan. See ADR 0009 for the GPT-Researcher choice and `docs/research/deep-research-bakeoff.md` for the bake-off.
 
 Embedded as a research subagent inside the LangGraph orchestrator — not adopted wholesale, and **not** a hosted research black box (our DB must be a first-class source; our model routing and source tiering must apply). (ADR 0009; bake-off in `docs/research/deep-research-bakeoff.md`.)
 
-**Cost-optimized configuration (all knobs in §18 — deep-research-only; not yet active in MVP1):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard `DEPTH`/`BREADTH`/concurrency caps; documented cost ~$0.08–0.10/task cheap mode, ~$0.50–1.00 deep mode. **DB-first does the heavy lifting:** web research only fills gaps the DB can't answer — a base-tier dossier comes almost entirely from IPEDS/Scorecard with zero web spend.
+**Cost-optimized configuration (to be added with the follow-up — these knobs do not exist in `config/settings.py` yet):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard `DEPTH`/`BREADTH`/concurrency caps; documented cost ~$0.08–0.10/task cheap mode, ~$0.50–1.00 deep mode. **DB-first does the heavy lifting:** web research only fills gaps the DB can't answer — a base-tier dossier comes almost entirely from IPEDS/Scorecard with zero web spend.
 
 **What we add (already PRD features):** source-type tagging (each source tags `official`/`community`, carried into citations), the **verification pass** (a cheap post-pass cross-checking the top 2–3 cited sources before stating a fact), and the eval set (§21).
 
@@ -371,13 +377,13 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 **Reddit is agent-steered:** the agent picks subreddit(s) per question from the **labeled menu** (a versioned data asset, §18 — r/ApplyingToCollege for process, r/chanceme, r/financialaid, r/[SchoolName] for campus life, program subs), several in parallel when useful. School subs are best-effort (a wrong guess returns nothing, harmlessly) — no mapping table to maintain.
 
-**Source control (per-request, enforced in code — ADR 0013):** a **source-config object** travels with each request (web on/off; Reddit on/off + per-subreddit allowlist; .edu on/off; DB always on). The orchestrator **builds the toolset from the config**: a disabled source's tool isn't mounted, and GPT-Researcher's retriever list is set from the same config. A disabled source can't be reached and never appears in citations. Three named tools (not one generic) so the dropdown maps 1:1 and the citation tier is unambiguous per tool.
+**Source control (per-request, enforced in code — ADR 0013):** a **source-config object** travels with each request (web on/off; Reddit on/off + per-subreddit allowlist; .edu on/off; DB always on). The orchestrator **builds the toolset from the config**: a disabled source's tool isn't mounted. (When the deep-research subagent is activated — §13, deferred — its retriever list will be gated by the same config.) A disabled source can't be reached and never appears in citations. Three named tools (not one generic) so the dropdown maps 1:1 and the citation tier is unambiguous per tool.
 
 ---
 
 ## 15. Skills (SKILL.md)
 
-Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, optional scripts), living in `skills/`. (ADR 0010.) Metadata loads at startup; full instructions load only when triggered (progressive disclosure). Skills are the **workflow** layer; MCP is the **transport** layer — kept separate. Candidate MVP1 skills: dossier assembly, school comparison, deep-research-with-citations, decode-a-coded-value, vintage/citation formatting. Skills are data, not code — editing one never requires a deploy decision beyond shipping the file.
+Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, optional scripts), living in `skills/`. (ADR 0010.) Metadata loads at startup; full instructions load only when triggered (progressive disclosure). Skills are the **workflow** layer; MCP is the **transport** layer — kept separate. **MVP1 ships four** (in `skills/`): `dossier-assembly`, `school-comparison`, `decode-coded-value`, `citation-and-recency`. (`deep-research-with-citations` is deferred with the GPT-Researcher subsystem — ADR 0009.) Skills are data, not code — editing one never requires a deploy decision beyond shipping the file.
 
 ---
 
@@ -417,14 +423,15 @@ Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, opti
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` (counselor / clarifier), provider credentials. *Note: researcher / verifier model knobs and GPT-Researcher's `FAST/STRATEGIC/SMART` tiers are in the Settings surface but not yet active — deep-research only, deferred (§13). LiteLLM sidecar endpoint is in Settings as optional but not deployed in MVP1.* |
-| Research | depth, breadth, concurrency, per-tier token caps, per-question cost ceiling. *Deep-research-only — not yet active in MVP1 (§13).* |
+| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_summaries` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2); `max_tool_rounds`; provider credentials. *(Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are **not** in Settings yet — added with the deep-research follow-up, §13.)* |
 | Database | pipeline DSN (`counselle_ro`), statement timeout, row cap, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Discovery | embedding model + version, reconcile interval |
 | Sources | default source-config (web/Reddit/.edu on/off), Tavily key, per-tool result limits |
 | API | host/port, CORS origins, SSE keepalive, protocol version |
 | Observability | log level, cost-accounting on/off |
+
+*(MVP2 added the Auth, Chat, Streaming, and Rate-limit groups — §32. There is no "Research" group yet — it lands with §13.)*
 
 **2. Versioned data assets (`config/assets/`).** Things a developer tunes *editorially*, hot-changeable without touching code: **agent prompts** (one file per agent, loaded by name), the **subreddit menu**, the **dossier field shortlist**, the **season calendar table**. Reviewable in diffs, no magic strings in code.
 
@@ -440,18 +447,18 @@ Cheap on day one, brutal to retrofit:
 
 - **Structured logging (structlog)** — JSON logs; a **trace ID** minted per request at the API edge rides through the graph, tools, and research subagent, and is returned in the `meta`/`error` events. Never log secrets (house rule); never log full student messages at INFO.
 - **Per-request usage accounting** — every model call's tokens (PydanticAI exposes usage) and Tavily/research calls roll up into the turn's `usage` event and a log line: per-session and per-turn cost visibility from the first day, which is also how the research cost caps get verified in practice.
-- **Health** — `GET /v1/health` checks the process + DB reachability; the reconciler and checkpointer report status there.
+- **Health** — `GET /v1/health` checks the process + DB reachability; the reconciler, checkpointer, and the MCP child supervisor (`api/supervision.py`) report status there. (The turn registry and rate-limiter counters are in-process best-effort state and degrade gracefully on restart — §33 — rather than gating health.)
 - Metrics/dashboards are a platform-phase concern; the structured logs are designed so that adding them is aggregation, not re-instrumentation.
 
 ---
 
 ## 20. Deployment & day-one deployability
 
-MVP1 runs locally, but **nothing may block containerized deployment** — deployability is a property, not a phase. *MVP2's deployment delta (same-origin SPA serving, the amended statelessness clause, entrypoint migrations) is §33.*
+MVP1 runs locally, but **nothing may block containerized deployment** — deployability is a property, not a phase. *MVP2's deployment delta (same-origin SPA serving, the amended statelessness clause, entrypoint migrations) is §33.* **Status (2026-06-13): the first actual deploy (B6) is deferred — no production host exists, and the `Containerfile` is still single-stage (backend only). The points below describe the as-designed deployability; §33 carries the MVP2 deploy plan and its unbuilt items.**
 
 - **12-factor:** all config from the environment (§18); the service is **stateless** — every bit of state lives in Postgres (checkpoints, sessions, field_index) — so it can restart, scale, or move at any time.
-- **One container** (a `Containerfile` from day one) running the API service; the `counselle-db` MCP server runs as a child process inside it (its own container later if ever needed — the MCP transport already permits it).
-- **Migrations** (`migrations/`) run on deploy against `counselle.*` only.
+- **One container** (a `Containerfile` from day one) running the API service; the `counselle-db` MCP server runs as a child process inside it, supervised by `api/supervision.py` (`McpSupervisor`: exponential-backoff restart, status on `/v1/health`).
+- **Migrations** (`migrations/`, chain 0001–0006 over `counselle.*` only). *(Note: nothing runs `yoyo apply` automatically yet — boot assumes the schema is current. Migration-on-boot via the container entrypoint is a B6 deliverable — §33, deferred.)*
 - **Secrets** in `.env`/secret manager only; shared with the pipeline **credentials only** (the read-only DSN + Vertex/GCP keys) — no shared code, config, or runtime dependency. The DB is the contract.
 - **Read-only role `counselle_ro`** — `GRANT SELECT` on `public.*` + the needed `raw.*` tables; `default_transaction_read_only`; statement timeout. Never the pipeline's write role. (ADR 0012.) A read replica is a later optimization.
 
@@ -464,7 +471,8 @@ MVP1 runs locally, but **nothing may block containerized deployment** — deploy
 - **The domain core is the test surface.** The normalization engine gets the full TDD treatment with `DATABASE_GUIDE` §6 as its spec — every reading rule R1–R12 has behavioral tests (fraction→percent, coded-int decode vs passthrough, NULL/missing → "not available", negative currency, range tokens never arithmetic'd, FTE≠headcount, URL fixing, benchmark fields never school values, vintage attached). Pure functions → trivial to test, no mocks.
 - **The eval set (`evals/`)** — ~50 university questions with known answers, scoring citation accuracy, field-selection accuracy, and clarify-vs-assume judgment. An engineering tool, no numeric launch gate (PRD).
 - **Runtime schema validation is the contract enforcement** — the typed specs (envelope, render, clarify, events) validate at runtime via Pydantic; no separate golden/contract-test machinery in MVP1 (deliberately dropped as enterprise-ish).
-- **No UI tests** — the harness is not the product.
+- **Three pytest marker tiers** (`pyproject.toml`): `live_db` (integration tests against the live Postgres — the largest tier: auth, sessions, viz, protocol, durability, reconcile), `live_search` (live Tavily), `live_llm` (real Gemini + DB + Tavily; slow, costs money). Routine runs exclude all three.
+- **No MVP1 UI tests** — the dev harness was not the product (and is now retired). The MVP2 frontend test strategy is §34.
 - The layering (§4) is what keeps this strategy cheap: the honesty core needs no LLM, no DB, no network to test.
 
 ---
@@ -476,7 +484,7 @@ MVP1 runs locally, but **nothing may block containerized deployment** — deploy
 | DB access (full power, 1,093 fields, no overwhelm) | `counselle-db` 3 layers + field discovery (§8, §10) |
 | Web / Reddit / .edu search | Tavily, 3 domain-scoped tools; Reddit agent-steered (§14) |
 | Source-control dropdown | per-request source-config gating the toolset (§14) |
-| Deep research + verification | GPT-Researcher subagent + verification pass (§13) |
+| Deep research + verification | GPT-Researcher subagent + verification pass (§13) — **deferred; not built** |
 | Citations (official vs community) | citation envelope `tier` (§9); `sources` event (§6) |
 | Citation UX (inline expandable markers) | `delta` markers + `sources` event; client renders (§6, §16) |
 | Recency & temporal awareness | vintage resolver + data calendar + injected date + `admission_season` (§8, §16) |
@@ -487,8 +495,13 @@ MVP1 runs locally, but **nothing may block containerized deployment** — deploy
 | Model configurability | per-agent `model=` from Settings (§18) |
 | School coverage / CDS tier | tier-aware data layer; in-DB-or-not boundary (§11) |
 | Honesty / no-misread | normalization engine in `domain/` (§8, §21) |
-| Minimal MVP1 surface | `harness/` dev chat consuming the same protocol (§2, §6) |
-| Future platform (chats, users, profiles) | API-first protocol (§6) + platform-ready sessions (§7) + evolution path (§23) |
+| Product client | `frontend/` React SPA — the sole protocol client (§31); MVP1's dev harness was retired (B5d) |
+| Work visibility (steps / thinking) | `step` + `thinking` events; `app/steps.py` (`StepMapper`/`EmissionRouter`), `domain/events.py` (§27.1–27.2) |
+| Resume & cancel | the turn registry `app/turns.py` (Last-Event-ID reattach, `POST .../cancel`); the self-contained turn record `app/records.py` (§27.3, §27.7) |
+| Auth & identity | fastapi-users cookie-JWT + Google OAuth — `api/auth.py`, `api/users_db.py`, `api/routes/me.py`, migration 0004 (§28) |
+| Chat management | `api/routes/sessions.py` (list/search/rename/delete, keyset pagination); auto-titles `app/titles.py` (§29) |
+| Feedback & rate limiting | `app/feedback.py` + migration 0005; `api/ratelimit.py` (per-user turns, per-IP auth) (§30) |
+| Future platform (mobile, profiles) | API-first protocol (§6) + platform-ready sessions (§7) + evolution path (§23) |
 
 ---
 
@@ -515,11 +528,12 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 
 | Risk | Mitigation |
 |---|---|
-| **PydanticAI pre/early-v2 API churn** (biggest stack risk) | Pin versions; agent definitions are already thin (config-driven `model=`, typed outputs) so migration is localized to `app/`; verify exact APIs at build time. |
+| **PydanticAI API churn** (was the biggest stack risk) | *Resolved at B0/B1:* APIs verified against the pinned version — `run_stream_events()`, `FunctionToolCallEvent`/`FunctionToolResultEvent`, `AgentRunResultEvent`, `UsageLimits` all confirmed and in use (`app/agent_node.py`, `app/steps.py`). Re-verify on any version bump. |
 | Protocol churn breaking clients | `v` on every event/route; additive-only within v1; clients ignore unknown events. |
 | Agent misreads raw values via the SQL escape hatch | Normalization is the default path; escape hatch exposes decode/vintage helpers + "rules still apply" note; eval set watches. |
-| Deep-research cost blowup (unbounded school count) | DB-first + depth/breadth caps + cheap-model tiers + per-question cost ceiling (§18) + usage accounting making spend visible per turn (§19). |
-| GPT-Researcher has no published citation-accuracy benchmark | The ~50-question eval set, measured before launch. |
+| `COUNSELLE_JWT_SECRET` missing or too short | Fail-fast validated at boot (≥32 bytes); the service refuses to start. Set it before first launch — the most likely first-boot failure (§32). |
+| Deep-research cost blowup *(future — §13 deferred)* | When activated: DB-first + depth/breadth caps + cheap-model tiers + per-question cost ceiling + usage accounting making spend visible per turn (§19). |
+| GPT-Researcher has no published citation-accuracy benchmark *(applies when §13 activates)* | The ~50-question eval set, measured before launch. |
 | CDS sparsity → thin dossiers for most schools | Tier awareness + IPEDS/Scorecard fallback; the agent says what isn't available (§11). |
 | Checkpoint/session data growth | Configurable TTL/cleanup (§7, §18); rows are cheap until they aren't — knob exists from day one. |
 | Pipeline re-ingest changes counts/vintages | Everything derived live (calendar, tiers, catalog, embeddings reconcile); `DATABASE_GUIDE` is snapshot-dated — re-verify on re-ingest. |
@@ -529,11 +543,13 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 
 ## 25. Open questions
 
-- **Exact PydanticAI / LangGraph / GPT-Researcher / checkpointer package APIs & versions** — confirm at build time (pin everything).
-- **Migration tool for `counselle.*`** (alembic vs yoyo like the pipeline) — pick at build time; the decision is contained to `migrations/`.
-- **Tavily Reddit scoping** — confirm `reddit.com/r/<sub>` domain scoping quality (vs needing the Reddit API), and finalize the default subreddit menu asset.
-- **Eval harness design** — the ~50-question set (citation accuracy, field-selection accuracy, clarify judgment); how scores are tracked over time.
-- **SSE vs WebSocket** — *resolved in MVP2: SSE kept; resume via `Last-Event-ID` over the turn registry (§27.3); cancel is a plain HTTP POST.*
+*All five MVP1 open questions are now resolved (kept here as the decision trail):*
+
+- ~~**PydanticAI / LangGraph / checkpointer APIs & versions**~~ — *resolved at B0:* pinned in `pyproject.toml`; APIs confirmed in use.
+- ~~**Migration tool for `counselle.*`**~~ — *resolved:* **yoyo-migrations**; chain 0001–0006 over `counselle.*` only.
+- ~~**Tavily Reddit scoping**~~ — *resolved:* `reddit.com/r/<sub>` domain scoping confirmed; `search_reddit` shipped; `config/assets/subreddit_menu.yaml` finalized.
+- ~~**Eval harness design**~~ — *resolved:* `evals/runner.py` + `questions.yaml` + `judge.md`; ~50 questions across fact / field-selection / clarify-judgment / comparison-viz / honesty.
+- ~~**SSE vs WebSocket**~~ — *resolved in MVP2:* SSE kept; resume via `Last-Event-ID` over the turn registry (§27.3); cancel is a plain HTTP POST.
 
 ---
 
@@ -564,19 +580,19 @@ MVP1 was built API-first precisely so this step would be additive (Part I, §23)
 
 1. **Still one backend deployable.** No second service, no BFF, no gateway, no Redis, no message bus. Auth is `api/`-layer middleware and routes; chat CRUD is routes over rows that already exist (ADR 0019); rate limiting is middleware. The dependency rule (ADR 0017) absorbs all of it.
 2. **Every addition lands on a reserved seam.** Auth fills the optional principal (Part I, §6). Chat history reads rows the checkpointer already writes (Part I, §7). New event types ride the additive-within-v1 rule (Part I, §6). If an MVP2 feature ever requires changing `domain/` or breaking v1 semantics — stop and write the ADR (the Part I, §23 discipline).
-3. **The frontend is a pure client.** It speaks only the versioned protocol. The service still doesn't know or care what renders it; the dev harness keeps working unmodified until deleted.
+3. **The frontend is a pure client.** It speaks only the versioned protocol. The service still doesn't know or care what renders it.
 4. **Clone, don't design.** The UI's design system and core chat components are cloned from LibreChat (MIT) — tokens wholesale, components vendored (§31, ADR 0020). We design only what LibreChat doesn't have: the honesty surfaces (timeline, cards, citations, clarify).
 5. **Same origin, one container.** The SPA and the landing page are served by the FastAPI service (§33, ADR 0023) — no CORS, trivial cookie auth, one TLS cert, one deploy.
 
-**Retirement:** `harness/` is deleted once `frontend/` reaches feature parity (it was built to die — Part I, §5). Until then it stays as the protocol's second client and a useful regression check that v1 stayed additive.
+**Retired (B5d):** `harness/` was deleted once `frontend/` reached feature parity (it was built to die — Part I, §5). Before deletion it served as the protocol's second client and proved v1 stayed additive. `frontend/` is now the sole client.
 
-**Seam reality check (verified against the code, 2026-06-11):** several things this plan needs already exist in MVP1 and must not be re-specified as new work — the SSE `id:` field on every event (`api/sse.py`), `sessions.updated_at` + the per-turn touch (`migrations/0001_sessions.sql`, `app/sessions.py`), the in-process single-flight guard (`api/routes/sessions.py`), the unvalidated-principal seam (`api/context.py`), the `Containerfile` (single-stage today), `.env.example`, and the yoyo migration chain. The genuinely new machinery is: the **turn registry** (§27.3), step/thinking emission (§27.1–27.2), auth, the chat-management routes, and the frontend.
+**Seam reality check (verified against the code, 2026-06-11):** several things this plan needs already existed in MVP1 and were not re-specified as new work — the SSE `id:` field on every event (`api/sse.py`), `sessions.updated_at` + the per-turn touch (`migrations/0001_sessions.sql`, `app/sessions.py`), the in-process single-flight guard (`api/routes/sessions.py`), the unvalidated-principal seam (`api/context.py`), the `Containerfile` (still single-stage — the multi-stage build is the deferred B6 work, §33), `.env.example`, and the yoyo migration chain. The genuinely new machinery was: the **turn registry** (§27.3), step/thinking emission (§27.1–27.2), auth, the chat-management routes, and the frontend.
 
 ---
 
 ## 27. Protocol extensions: work visibility, resume & cancel
 
-(ADR 0022.) All changes are **additive within v1** — `v` stays 1, existing clients (the harness) ignore unknown event types by design (Part I, §6). This section is the single biggest enabler of the PRD's chat experience: today's protocol has no granular work visibility.
+(ADR 0022.) All changes are **additive within v1** — `v` stays 1; unknown event types are ignored by design (Part I, §6), which is how the now-retired harness ran unmodified against every new event and proved the rule. This section is the single biggest enabler of the PRD's chat experience: the base protocol has no granular work visibility.
 
 ### 27.1 New event: `step`
 
@@ -637,6 +653,7 @@ MVP2 introduces **one deep module — the turn registry** (`app/turns.py`) — t
 - **Interface (the endpoints become thin callers):** `start(session_id, message, …)`, `attach(session_id, last_event_id) → event iterator`, `cancel(session_id)`, `is_generating(session_id)`.
 - `POST .../messages` = start + attach. **New endpoint `GET /v1/sessions/{id}/stream`** = attach from `Last-Event-ID` — replay the buffer tail, then live to `done`. (Every event already carries the SSE `id:` field — implemented in MVP1, `api/sse.py`; the buffer and reattach are the new parts.) No active turn in this process → `204 No Content` → the client falls back to the **transcript read** (§27.5).
 - **Single-writer rule** (PRD story 40): a second `POST .../messages` while a turn is active → `409 {error: "stream_active"}` (the existing guard moves into the registry). "Send mid-stream re-asks" is client-orchestrated: cancel → await `done` → send. The sessions list (§29) reads `is_generating` from the registry for the cross-tab indicator.
+- **Backpressure caps** (both Settings knobs): a reattach beyond `max_consumers_per_turn` → `429`; a start beyond `max_concurrent_turns` process-wide → `503`. Both degrade gracefully — the client falls back to the transcript read.
 - **The buffer is best-effort UX; persisted state is the correctness guarantee** — prose in the checkpointer, the step record in the graph state (§27.1). A deploy mid-turn loses the buffer, not the chat. No Redis, no event store.
 - **Every piece of single-instance state lives inside this one module** — §33's scale-out story becomes "re-back the turn registry", not a hunt across route handlers. Deletion test: removing the registry would smear task ownership, buffering, locking, and cancellation across four route handlers — it concentrates complexity, so it earns its keep.
 
@@ -673,7 +690,7 @@ All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `P
 Five spec gaps surfaced in the ship-plan review are resolved here as architecture (ADR 0022 carries the decision trail). The field-level FE↔BE contract that realizes these on the wire is **the wire contract** (B0 spike 4, `specs/mvp2/plan/wire-contract.md`, archived with the MVP2 plan).
 
 - **Message identity (G1).** Every turn mints two UUIDs at start — `user_message_id` and `message_id` (the assistant message). Both ride `meta.data` (additive within v1 — the live stream can address the in-flight message for feedback/edit) and persist in the turn record. Feedback keys on the globally-unique assistant `message_id`. A clarify resume **reuses the parked turn's `message_id`** — one assistant message, one id, however many park/resume cycles produced it.
-- **The turn record (G2 — supersedes §27.5's step record).** Per assistant turn, persisted in graph state: the G1 ids; ordered `parts[]` — text and viz at emission offsets (offsets into the streamed prose, never duplicated text); steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and `messages_offset` — the graph-state slice point for history rewrite (server-internal, never on the wire). Because `parts[]` is offsets, one prose invariant holds everywhere: **every terminal path (complete, cancelled, error, tool-budget) leaves `messages` carrying exactly the prose that streamed.** The transcript read returns the consumer-contract wire shape; pre-MVP2 turns have no record and render prose-only.
+- **The turn record (G2 — supersedes §27.5's step record).** Per assistant turn, persisted in graph state (`app/records.py`): the G1 ids; ordered `parts[]` — **materialized** segments in stream order (`{"type":"text","text":…}` and `{"type":"viz","spec":…}`; adjacent deltas merged, verbatim text, **never offsets into `messages`**) so the record is self-contained and the transcript read never slices prose out of the message history; steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and a separate `messages_offset` field — the index of this turn's user `ModelRequest` in `messages`, the graph-state slice point for history rewrite (server-internal, never on the wire). One prose invariant holds everywhere: **every terminal path (complete, cancelled, error, tool-budget) leaves both the record's `parts[]` and `messages` carrying exactly the prose that streamed.** The transcript read returns the consumer-contract wire shape; pre-MVP2 turns have no record and render prose-only.
 - **Edit & regenerate = history rewrite (G3).** `POST /v1/sessions/{id}/messages` gains optional `replace_message_id` (a prior `user_message_id`): with the single-flight lock held and no active turn, one `aupdate_state` rewrite — messages sliced at the target turn's `messages_offset`, turn records truncated, the source registry restored from the last surviving record's cumulative snapshot, any pending interrupt cleared (per G4) — then the new text runs as a normal turn. **Regenerate = edit of the last user message with the same text** — one mechanism. Pre-MVP2 turns have no `user_message_id` and **cannot be edit targets** (`422`; the FE hides Edit on id-less entries) — the rewrite never slices into record-less history; synthesized clarify-answer entries are likewise refused (`422`, by an explicit synthesized flag, not id-absence).
 - **The clarify-park lifecycle (G4).** `interrupt()` ends the turn — `done(awaiting_input)`, the task completes, the lock releases; **no parked task exists**, so the answering POST is never 409'd and cancel-on-parked is a no-op + **unpark** (clear the interrupt; freeze the clarify as *unanswered*). A plain next message remains the answer. The answered case persists: the answer rides `Command(resume=text)` and never enters `messages`, so the resumed turn's record stores it alongside the spec, and the transcript read synthesizes the student's answer bubble from it — a first-class, feedback-anchorable entry carrying the resume's `user_message_id` (but not an edit target, per G3). **Mechanics, amended by B0 spike 1:** writing the parked turn record via `aupdate_state` while the interrupt is pending works, and `Command(resume)` survives it — but the write clears `tasks[*].interrupts`, so **parked-detection reads the turn record itself** (last record `status == "awaiting_input"`), never the interrupts; **unpark = `aupdate_state(..., as_node="agent")`** (clears the interrupt and `next`; the next plain message runs a complete fresh turn). Resume-replay: LangGraph re-executes the node — pre-clarify tools re-run and re-stream as fresh steps in the answering turn; shown as-is (the work *is* re-done), and the resumed run's record **replaces** the parked record, same `message_id` (ADR 0022's consequences).
 - **Cancel semantics (G5).** Active turn → `202` + a single-shot `done(cancelled)`; idle → `204` no-op; parked → `204` + unpark. Cancel racing completion = the idle no-op. **A watchdog timeout terminates with `error`, not `done(cancelled)`** — the student didn't press stop.
@@ -688,7 +705,7 @@ Five spec gaps surfaced in the ship-plan review are resolved here as architectur
 - **Token transport: JWT in an httpOnly, `Secure`, `SameSite=Lax` cookie.** The deciding constraint is SSE: `EventSource` cannot set an `Authorization` header, but cookies ride along free on same-origin requests — and the SPA *is* same-origin (§33). One transport for REST and streams, zero token-juggling in the client.
 - **CSRF posture:** `SameSite=Lax` + the API is JSON-only (no form-encoded state changes, content-type enforced). That combination is the standard mitigation; no CSRF-token machinery in MVP2. Revisit only if the app is ever embedded cross-origin.
 - **Google OAuth:** fastapi-users' OAuth router with `GoogleOAuth2`; accounts link by email (a Google sign-in with an existing email attaches to that user). Signup collects name + email only (PRD story 4).
-- **Reset emails:** a thin `adapters/email.py` seam — provider (`smtp | resend | console`) + credentials in Settings; templates are data assets. `console` is the dev default (prints the reset link to logs).
+- **Reset emails:** a thin `adapters/email.py` seam. In MVP2 only the **`console`** provider is implemented — it prints the reset link to the logs (`email_provider` is `Literal["console"]` in Settings today). `smtp`/`resend` arms are stubbed for a later phase.
 - **Schema delta** (own migration chain, `counselle.*` only — ADR 0019): `counselle.users` (fastapi-users base columns: `id uuid`, `email` unique, `hashed_password` nullable for OAuth-only accounts, `is_active`; plus `name`, `created_at`, `settings jsonb` for theme + default source-config preset) and `counselle.oauth_accounts`. `sessions.user_id` gets its FK and a NOT NULL constraint *for new rows* (enforced in code; old dev rows are deleted, not migrated — they're disposable).
 - **The principal:** the auth dependency populates the existing request-context principal (`api/context.py` already parses-but-ignores it — the seam is sitting there) — exactly as Part I, §6 promised, **no route-shape or orchestration changes**.
 - **Ownership is one dependency, not per-route code:** a single FastAPI dependency — `owned_session(session_id, principal)` — resolves principal → session row → ownership and raises uniformly; a foreign or unknown session returns **404, not 403** (don't leak existence). Every `/v1/sessions/*` route takes it as a parameter, so the authz rule has one home and one test suite — a route can't half-forget it, and a route-inventory test (§34) catches forgetting it entirely.
@@ -711,7 +728,7 @@ Five spec gaps surfaced in the ship-plan review are resolved here as architectur
 
 ## 30. Feedback & per-user rate limiting
 
-**Feedback (PRD story 22):** `POST /v1/sessions/{id}/messages/{message_id}/feedback` with `{rating: "up" | "down"}` → upsert into `counselle.feedback` (`id, user_id, session_id, message_id, rating, created_at`) — idempotent per (user, message), re-tapping toggles. Feedback is an engineering instrument: the eval workflow reads this table (an export script in `evals/`, not a pipeline) to source regression questions from real thumbs-downs. Reason chips are MVP3 (PRD).
+**Feedback (PRD story 22):** `POST /v1/sessions/{id}/messages/{message_id}/feedback` with `{rating: "up" | "down" | null}` → `up`/`down` upsert into `counselle.feedback` (`id, user_id, session_id, message_id, rating, created_at`), keyed on `(user_id, message_id)`; `null` clears the rating (DELETE, 204). Re-submitting a different rating overwrites it. Feedback is an engineering instrument: the eval workflow reads this table (an export script in `evals/`, not a pipeline) to source regression questions from real thumbs-downs. Reason chips are MVP3 (PRD).
 
 **Rate limiting (PRD story 50):** MVP2 is the first time strangers can spend the Gemini/Tavily budget.
 
@@ -767,19 +784,19 @@ frontend/
     ├── styles/                   # style.css (cloned tokens) + counselle.css (official/community tokens)
     ├── vendor/librechat/         # cloned components — quarantined; UPSTREAM.md + MIT notice
     ├── components/               # Counselle-native: timeline/ cards/ citations/ clarify/
-    ├── api/                      # THE protocol client: fetch wrapper, SSE parser, event types
-    ├── state/                    # jotai atoms: drafts, per-chat source-config, ui bits
-    ├── routes/                   # login / signup / reset / app shell / c/:sessionId
-    └── hooks/
+    ├── vendor/librechat-data-provider/  # thin in-repo type shim (avoids their npm package)
+    ├── api/                      # THE protocol client: fetch wrapper, SSE parser, event types, hooks
+    ├── app/                      # AppShell, ChatView, ChatContext, routes.tsx, Jotai atoms (state.ts), auth hooks
+    └── types/                    # shared TypeScript types
 ```
 
-`frontend/` joins the monorepo as a sibling of `harness/` — it's a pure client like everything else (Part I principle 3). House rules apply (files <800 lines, organize by feature).
+`frontend/` is the sole protocol client in the monorepo — a pure client like everything else (Part I principle 3; the dev harness was its retired predecessor). House rules apply (files <800 lines, organize by feature). *(Routing lives in `app/routes.tsx`; Jotai atoms in `app/state.ts`; hooks alongside their consumers, e.g. `api/hooks.ts` — there is no top-level `state/`, `routes/`, or `hooks/` directory.)*
 
 ### 31.4 State & data rules
 
 - **TanStack Query owns server state** (me, sessions list, transcript, runtime config). **Jotai owns the small client state** (composer drafts, per-chat source-config, open popover, theme). **The URL owns which chat** (`/c/:sessionId`). Server state is never duplicated into client stores.
 - **`src/api/` is the only module that knows the protocol.** A typed event union mirroring the `domain/` spec types; a fetch-streaming SSE parser (`POST` streams can't use `EventSource`; the same parser serves the reattach `GET`); cookie auth means zero token handling. Two forward-compatibility rules live here and nowhere else: **unknown event type → ignored; unknown render-spec type → markdown fallback** (the degrade rule, PRD story 35).
-- **The turn reducer is a named pure module** (`src/api/turn-reducer.ts`): protocol events in → turn view-state out (the append-only block list, the accumulated steps/thinking, skeleton placeholders, the derived receipt) — **no React imports**. Components are dumb draws over its output. Most of §31.5's smoothness laws *are* reducer logic; scattered through components they'd be untestable, and this is exactly where lying-to-a-student rendering bugs would live. It also reduces the persisted step record from the transcript contract (§27.5), so live streams and revisited chats render through one code path. Tested against the backend's exported protocol fixtures (§34).
+- **The turn reducer is a named pure module** (`src/api/turn-reducer.ts`): protocol events in → turn view-state out (the append-only block list, the accumulated steps/thinking, skeleton placeholders, the derived receipt) — **no React imports**. Components are dumb draws over its output. Most of §31.5's smoothness laws *are* reducer logic; scattered through components they'd be untestable, and this is exactly where lying-to-a-student rendering bugs would live. It also reduces the persisted turn record from the transcript contract (§27.5/§27.7), so live streams and revisited chats render through one code path. Tested against the backend's exported protocol fixtures (§34).
 - **Composer drafts persist to localStorage per session** (PRD story 41); a failed send keeps the text in the composer with inline retry.
 
 ### 31.5 The turn pipeline (how the smoothness laws are implemented)
@@ -791,7 +808,7 @@ frontend/
 | Streaming prose, no flicker (18) | Append-only markdown **block list** — completed blocks are memoized and never re-render; only the open block re-parses; soft caret at the stream edge |
 | Citation chips materialize inline (19) | Marker syntax in `delta` → chip component via the markdown renderer, resolved against the `sources` event |
 | Cards inline, CLS ≈ 0 (20, 43) | The announcing `step` triggers a skeleton **sized from the render-spec shape** (type + row/column counts) before data; fill with ~200ms fade; text above never reflows |
-| Collapse to receipt (16) | The turn reducer derives the receipt from accumulated `steps[]` at `done`; old chats render it from the persisted step record (§27.5, PRD decision 5) |
+| Collapse to receipt (16) | The turn reducer derives the receipt from accumulated `steps[]` at `done`; old chats render it from the persisted turn record (§27.5/§27.7, PRD decision 5) |
 | Scroll always wins (37) | User scroll detaches the view; "↓ Latest" pill; completion never yanks the viewport |
 | Stop / re-ask (38) | Send⇄stop button on `is_generating`/`done.status`; cancel-then-send orchestration (§27.4) |
 | F5-proof (39) | Reattach via `GET .../stream` + Last-Event-ID against the turn registry; 204 → transcript fetch (§27.3, §27.5) |
@@ -812,12 +829,12 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 | Group | Knobs |
 |---|---|
-| Auth | JWT secret + TTL, cookie name/flags, Google client id/secret, reset-token TTL |
-| Email | provider (`smtp \| resend \| console`), credentials, from-address |
-| Rate limit | `turns_per_hour`, `turns_per_day` |
-| Chat | title model (cheap tier), title max length |
-| Streaming | resume ring-buffer size, reattach on/off |
-| Frontend | static bundle dir, serve on/off (off in dev — Vite proxies `/v1`) |
+| Auth | `jwt_secret` (required, ≥32 bytes) + `jwt_lifetime_seconds`, `cookie_name`/`cookie_secure`, `google_oauth_client_id`/`_secret`, `oauth_state_secret` (falls back to the JWT secret), `oauth_redirect_url`. *(Reset-token TTL is a fastapi-users class default, not a Settings knob.)* |
+| Email | `email_provider` (`Literal["console"]` today; `smtp`/`resend` stubbed), `email_from` |
+| Rate limit | `turns_per_hour`, `turns_per_day` (per-user); `auth_attempts_per_window`, `auth_window_seconds` (per-IP, on login + forgot-password) |
+| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len` |
+| Streaming | `stream_buffer_size` (resume ring buffer), `reattach_enabled`, `turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
+| Frontend | *static bundle dir, serve on/off — **planned for B6, not yet built**; `api/main.py` serves only `/v1/*` today and `frontend/` runs on Vite in dev* |
 
 **Data assets added (`config/assets/`):** `starter_prompts.yaml` (the home-screen chips, one per signature capability), `greeting_templates.yaml` (keyed by `admission_season` phase — the season-aware greeting reuses Part I, §16's machinery), `step_labels.yaml` (§27.1), the title prompt, email templates.
 
@@ -829,7 +846,9 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 (ADR 0023; extends Part I, §20 — deployability remains a property, not a phase.)
 
-- **Still one container.** The existing single-stage `Containerfile` becomes multi-stage: stage 1 (node) builds the Vite bundle; stage 2 is the existing Python image with the bundle mounted via FastAPI `StaticFiles` and the static landing page at `/`. `/v1/*` is the API; everything else falls through to the SPA (client-side routing).
+> **Status (2026-06-13): B6 is deferred — none of this is built.** As of B5, the `Containerfile` is single-stage (backend only), `api/main.py` serves only `/v1/*`, `frontend/` runs separately on the Vite dev server (proxying `/v1` → `localhost:8000`), and migrations are applied by hand (`uv run yoyo apply`). No production host, domain, or same-origin serving exists. This section is the **approved plan** for the first deploy; `docs/DEPLOY.md` carries the operational runbook and the env matrix.
+
+- **Still one container.** The single-stage `Containerfile` becomes multi-stage: stage 1 (node) builds the Vite bundle; stage 2 is the existing Python image with the bundle mounted via FastAPI `StaticFiles` and the static landing page at `/`. `/v1/*` is the API; everything else falls through to the SPA (client-side routing).
 - **Same origin is the load-bearing choice:** no CORS configuration, cookie auth trivially secure (no third-party-cookie pain), SSE auth just works, one TLS cert, one deploy target (any VPS / Fly / Railway, day one). Splitting the SPA to a CDN later is a config change, not an architecture change.
 - **Dev parity:** Vite dev server proxies `/v1` → `localhost:8000`, so the same-origin posture (and cookie behavior) holds in development with HMR.
 - **The statelessness clause, amended honestly:** the service remains stateless **except for two named owners of in-process, best-effort state** — the **turn registry** (§27.3: detached tasks, ring buffers, stream locks, cancel handles) and the **rate-limit counters** (§30). Each degrades gracefully on restart (transcript catch-up / lock vanishes with its turn / counters reset). **One instance is the documented MVP2 posture.** Scale-out beyond one instance means re-backing exactly these two — a contained, known job, deliberately not done now.
@@ -847,8 +866,8 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 - **Backend delta — routine pytest, no live LLM:** auth flows + the `owned_session` dependency (foreign session → 404; plus a route-inventory test asserting every `/v1/sessions/*` route declares it), rate-limit behavior (429 + Retry-After + window reset), step persistence (the step record survives into the transcript read), **disabled source ⇒ its step kind cannot appear** (story 17's test), feedback idempotency, auto-title failure never blocks a turn.
 - **Shared protocol fixtures are the contract test:** the backend's protocol tests export their emitted event payloads (including a full turn with steps, viz, clarify, and the transcript with step records) as JSON fixture files; the frontend's turn-reducer tests consume the same files. Python↔TypeScript drift is caught by a failing fixture, with no contract-test machinery built.
 - **Frontend — the honesty surfaces are the test surface** (Vitest + Testing Library; the turn reducer tested headlessly against the shared fixtures, components against fixture render specs): "not available" renders the designed muted state, never an empty cell; tier chips always match envelope tier; the score band **never composes a 1600** and always shows the teaching caption; comparison table never winner-highlights; unknown card type → markdown fallback; the clarify widget freezes to a record after answering; citation popover content matches the envelope.
-- **One Playwright smoke** (the only E2E): signup → ask → stream completes with timeline → refresh mid-answer lands on a sane state → transcript intact. Nothing more — no visual-regression infra, no cross-browser matrix in MVP2.
-- **The eval set is unchanged** — it tests the agent, which didn't change. Thumbs feedback begins feeding it (§30). *Amended at B0 (2026-06-12): the "agent didn't change" premise is sanctioned-false — B1a's prompt delta (the narration instruction) and the delta-only prose recomposition (§27.2) shift the eval baseline by design. The eval set re-baselines once after B1, and the close-out compares like-with-like, per-criterion — not headline accuracy.*
+- **One Playwright smoke** (the only E2E): signup → ask → stream completes with timeline → refresh mid-answer lands on a sane state → transcript intact. Nothing more — no visual-regression infra, no cross-browser matrix in MVP2. *(Planned for B6 — not yet built; no `playwright.config.ts` / `e2e/` exists.)*
+- **The eval set re-baseline:** B1a's prompt delta (the narration instruction) and the delta-only prose recomposition (§27.2) shifted the eval baseline by design, so the close-out must re-run the routine subset once and compare like-with-like, per-criterion — not headline accuracy. *(This is B7 work — deferred; the re-baseline has not yet run, so the committed eval report still reflects the pre-MVP2 baseline.)* Thumbs feedback begins feeding the regression-question workflow (§30).
 
 ---
 
@@ -858,9 +877,9 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 |---|---|
 | LibreChat upstream churn / clone drift | Pinned commit in `UPSTREAM.md`; `vendor/` quarantine; re-syncing is a deliberate task, never automatic |
 | Version skew (their Tailwind 3.4 vs ecosystem v4) | Stay on their versions while cloning; upgrade only if/when re-syncing with them |
-| Cloned components drag hidden coupling (Recoil stores, their contexts) | Strip-and-rewire at vendor time; each surface budgets its support files; the harness proves the protocol needs nothing from their plumbing |
+| Cloned components drag hidden coupling (Recoil stores, their contexts) | Strip-and-rewire at vendor time; each surface budgets its support files; shared protocol-fixture tests prove the wire stays clean |
 | In-process resume buffer lost on restart/deploy | Transcript catch-up is the correctness guarantee; the buffer is UX sugar (§27.3) |
-| pydantic-ai doesn't emit tool-call stream events (the §27.1 gate fails) | Decided fallback already on owned seams: the MCP `process_tool_call` hook + our own Tavily/`render_viz`/skill functions — no tool wrapping either way |
+| ~~pydantic-ai doesn't emit tool-call stream events~~ | *Resolved (B0 spike 2):* the pinned pydantic-ai emits `FunctionToolCallEvent`/`FunctionToolResultEvent` from `run_stream_events()`; `app/steps.py` consumes them directly. The MCP-hook fallback was not needed. |
 | Step records bloat graph state on long chats | Receipts are bounded (queries/domains/counts/keys, no payloads); checkpoint growth already has the TTL knob (Part I, §7); watch, don't pre-build |
 | Cookie auth CSRF | `SameSite=Lax` + JSON-only state changes (§28); revisit if ever embedded cross-origin |
 | Single-instance assumptions (the turn registry + rate counters) | Explicitly documented as the MVP2 posture (§33); two named owners, closed list; re-back them when scale demands |
@@ -869,15 +888,18 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | fastapi-users maintenance risk | Surface used is small (routers + dependency); standard FastAPI underneath; replaceable at the router layer |
 | `users.settings jsonb` grows into a junk drawer | It holds exactly theme + source preset in MVP2; anything more triggers a real column/table decision |
 
-**Open questions (resolve at build time):**
+**Open questions — resolved at build time (kept as the decision trail):**
 
-- **The §27.1 emission gate:** does the pinned pydantic-ai emit tool-call start/result events from `run_stream_events()`? (Today `app/agent_node.py` consumes only Part events.) Verify first thing; the fallback order is already decided.
-- Exact `fastapi-users` / `httpx-oauth` versions and cookie-transport API — pin everything (the Part I posture).
-- The LibreChat pin commit — chosen when the clone is cut; recorded in `UPSTREAM.md`.
-- `thinking` density — if interstitial narration proves too sparse in dogfooding, add the cheap-model per-step summarizer (decide on evidence, not now).
-- Virtualization library — clone theirs vs a lighter modern one; decide when cloning the message list.
-- LangGraph thread-deletion API for chat delete — confirm the exact call (contained to the checkpointer adapter).
+- ~~The §27.1 emission gate~~ — *resolved (B0 spike 2):* the pinned pydantic-ai emits the tool-call events; `app/steps.py` (`EmissionRouter`) consumes them.
+- ~~Exact `fastapi-users` / `httpx-oauth` versions~~ — *resolved (B0 spike 3):* fastapi-users 15.0.5, httpx-oauth 0.17.0, pwdlib 0.3.0, pyjwt 2.13.0 (pinned).
+- ~~The LibreChat pin commit~~ — *resolved:* recorded in `frontend/src/vendor/librechat/UPSTREAM.md`.
+- ~~LangGraph thread-deletion API for chat delete~~ — *resolved (B3/B4):* `AsyncPostgresSaver.adelete_thread(thread_id)` — used in `api/routes/me.py` and `api/routes/sessions.py`.
+
+**Still open:**
+
+- `thinking` density — native Gemini thought summaries (B5d) cut dead air to ~16s; if dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
+- Virtualization library — clone theirs vs a lighter modern one; decide when the long-chat surface needs it.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (product), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (decisions — see ADRs 0016–0019 for the service/platform decisions added with this revision), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` / `specs/mvp2/PRD.md` (product), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0023), `docs/research/` (stack survey). Keep this current as decisions change.*

@@ -12,7 +12,7 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 ## Status
 
-**MVP1 shipped (2026-06-11).** The agent — PRD stories 1–38 and 42–58 — is implemented and verified by tests, evals, and live E2E. Deep research (PRD stories 39–41) is **deferred**: the graph ships a stub `research` seam; the follow-up plan is `specs/deep-research/plan.md`. The data pipeline is live (Postgres on `localhost:5432`).
+**MVP1 shipped (2026-06-11).** The agent — PRD stories 1–38 and 42–58 — is implemented and verified by tests, evals, and live E2E. Deep research (PRD stories 39–41) is **deferred**: the graph is `prepare → agent → END` (no stub node), and the follow-up plan (`specs/deep-research/plan.md`) adds the research node — the minimal topology is what makes that additive. The data pipeline is live (Postgres on `localhost:5432`).
 
 **MVP2 shipped (2026-06-13), merged to `main`.** The full-stack app over the agent: step/thinking work-visibility events, the turn registry (detached turns, reattach, cancel), auth & identity (fastapi-users cookie-JWT + Google OAuth), chat management, feedback, rate limiting, `GET /v1/config`, and the React/Vite frontend (FE-0…FE-7) wired to the real backend. Phases **B0–B5 are complete**; the per-phase build log lives in `specs/mvp2/plan/ship-plan.md`.
 
