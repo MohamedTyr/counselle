@@ -10,8 +10,10 @@ import VizCard from '@/components/cards/VizCard';
 
 function citation(over: Partial<Citation> = {}): Citation {
   return {
-    source: 'Common Data Set 2024-25',
-    tier: 'cds',
+    // B2/C1 re-pin: the real wire serves source NAMES + the two-value tier
+    // ('official' | 'community') — never display strings or source-name tiers.
+    source: 'cds',
+    tier: 'official',
     vintage: 'CDS 2024-25',
     ...over,
   };
@@ -113,7 +115,7 @@ describe('tier chips always match the envelope tier', () => {
               cells: [
                 env({
                   display: 'mixed reviews',
-                  citation: citation({ source: 'r/nyu', tier: 'reddit', vintage: '2026' }),
+                  citation: citation({ source: 'reddit', tier: 'community', vintage: '2026' }),
                 }),
               ],
             },

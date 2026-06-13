@@ -4,17 +4,35 @@
 //   cannot fail — getLoginError/ErrorMessage branch dropped with it).
 // Rewire: login → mock authStore login() + navigate('/') (in LoginForm).
 import { registerPage } from 'librechat-data-provider';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useLocation } from 'react-router-dom';
 import type { TLoginLayoutContext } from '~/common';
 import { useLocalize } from '~/hooks';
 import LoginForm from './LoginForm';
 
+/** A one-off notice handed off via router state — e.g. the "account created,
+ *  please log in" message after a registration that auto-login couldn't finish
+ *  (FIX 2). Read defensively; `state` is `unknown`. */
+function useNotice(): string | null {
+  const { state } = useLocation();
+  if (state !== null && typeof state === 'object' && 'notice' in state) {
+    const notice = (state as { notice: unknown }).notice;
+    return typeof notice === 'string' ? notice : null;
+  }
+  return null;
+}
+
 function Login() {
   const localize = useLocalize();
   const { startupConfig } = useOutletContext<TLoginLayoutContext>();
+  const notice = useNotice();
 
   return (
     <>
+      {notice != null && (
+        <div role="status" className="mt-4 text-sm text-green-600 dark:text-green-500">
+          {notice}
+        </div>
+      )}
       {startupConfig?.emailLoginEnabled === true && (
         <LoginForm startupConfig={startupConfig} />
       )}

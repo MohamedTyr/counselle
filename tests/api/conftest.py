@@ -23,6 +23,7 @@ container must be up.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator
 from dataclasses import replace
 from typing import Any
@@ -36,14 +37,35 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, DeltaToolCalls
 
 import app.agent_node
 import app.graph
+from api.auth import current_active_user
 from api.context import install_middleware
+from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter
+from api.routes import config as config_routes
+from api.routes import me as me_routes
 from api.routes import sessions as session_routes
 from api.routes import system as system_routes
+from api.users_db import UserDB
 from app.deps import Runtime, build_runtime
 from app.graph import build_graph
 from app.state import TemporalContext
+from app.turns import TurnRegistry
 from config.settings import get_settings
 from domain.season import Season
+
+# A stable test user the override returns; its UUID stamps session rows so the
+# ownership guard passes naturally in the FunctionModel integration tests.
+TEST_USER_ID = uuid.UUID("00000000-0000-4000-8000-00000000ffff")
+
+
+def _test_user() -> UserDB:
+    return UserDB(
+        id=TEST_USER_ID,
+        email="test-user@counselle.test",
+        hashed_password="x",
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
+    )
 
 # ---------------------------------------------------------------------------
 # Hermetic fixtures (same as test_run_turn.py)
@@ -153,10 +175,33 @@ class _FakeSupervisor:
 # ---------------------------------------------------------------------------
 
 
+async def ensure_test_user(pool: Any, user: UserDB | None = None) -> UserDB:
+    """Upsert a user row so session FKs resolve (live_db). Returns the user."""
+    user = user or _test_user()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO counselle.users
+              (id, email, hashed_password, is_active, is_superuser, is_verified, name)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email
+            """,
+            user.id,
+            user.email,
+            user.hashed_password,
+            user.is_active,
+            user.is_superuser,
+            user.is_verified,
+            user.name,
+        )
+    return user
+
+
 async def _build_test_runtime(model_factory: Any = None) -> tuple[Runtime, Runtime]:
     """Return (test_runtime, orig_runtime) — caller must close orig_runtime."""
     settings = get_settings()
     orig = await build_runtime(settings)
+    await ensure_test_user(orig.app_pool)
 
     test_deps = replace(
         orig.deps,
@@ -182,23 +227,75 @@ async def _build_test_runtime(model_factory: Any = None) -> tuple[Runtime, Runti
 # ---------------------------------------------------------------------------
 
 
-def _build_live_app(runtime: Runtime) -> FastAPI:
+def _build_live_app(
+    runtime: Runtime, run_turn_fn: Any = None, *, authed: bool = True
+) -> FastAPI:
     """Build a FastAPI test app with the given runtime injected on app.state.
 
     No lifespan is wired here — the runtime is already built; the app state
     is injected directly (the same pattern test_routes_unit.py uses).
+    ``run_turn_fn`` injects a fake turn generator into the registry (B2 seam).
+
+    ``authed=True`` (default) overrides ``current_active_user`` with a fixed test
+    user so the existing FunctionModel suite runs without minting JWT cookies;
+    session rows are stamped with :data:`TEST_USER_ID`, so ``owned_session``
+    passes. The dedicated auth tests build with ``authed=False`` to exercise the
+    real cookie flow.
     """
     settings = get_settings()
     app = FastAPI(title="Counselle-Test")
     install_middleware(app, settings)
     app.include_router(session_routes.router, prefix="/v1")
     app.include_router(system_routes.router, prefix="/v1")
+    app.include_router(me_routes.router, prefix="/v1")
+    app.include_router(config_routes.router, prefix="/v1")
 
     app.state.settings = settings
     app.state.runtime = runtime
     app.state.reconciler = _FakeReconciler()
     app.state.mcp_supervisor = _FakeSupervisor()
+    app.state.turn_registry = TurnRegistry(
+        deps=runtime.deps, graph=runtime.graph, settings=settings, run_turn_fn=run_turn_fn
+    )
+    setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
+    if authed:
+        app.dependency_overrides[current_active_user] = _test_user
     return app
+
+
+def _build_auth_app(runtime: Runtime, run_turn_fn: Any = None) -> FastAPI:
+    """A test app with the REAL fastapi-users routers mounted (no override).
+
+    Exercises the genuine cookie flow — register, login, the auth/users/reset
+    routers, ``/v1/me``, and the session routes behind real auth. Used by the
+    dedicated B3 auth suite.
+    """
+    from api.main import _install_auth_routers
+
+    settings = get_settings()
+    app = FastAPI(title="Counselle-Auth-Test")
+    install_middleware(app, settings)
+    _install_auth_routers(app, settings)
+    app.include_router(session_routes.router, prefix="/v1")
+    app.include_router(system_routes.router, prefix="/v1")
+    app.include_router(me_routes.router, prefix="/v1")
+    app.include_router(config_routes.router, prefix="/v1")
+
+    app.state.settings = settings
+    app.state.runtime = runtime
+    app.state.reconciler = _FakeReconciler()
+    app.state.mcp_supervisor = _FakeSupervisor()
+    app.state.turn_registry = TurnRegistry(
+        deps=runtime.deps, graph=runtime.graph, settings=settings, run_turn_fn=run_turn_fn
+    )
+    setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
+    return app
+
+
+async def delete_user_by_email(pool: Any, email: str) -> None:
+    """Remove a test user (FK cascade clears their sessions + oauth accounts)."""
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM counselle.users WHERE lower(email) = lower($1)", email)
 
 
 # ---------------------------------------------------------------------------

@@ -10,18 +10,20 @@
  */
 import { useCallback, useState } from 'react';
 import ToggleSwitch from '~/components/Nav/SettingsTabs/ToggleSwitch';
-import {
-  getDefaultSourceConfig,
-  setDefaultSourceConfig,
-  type SourceConfig,
-} from '@/api/mock/sourceStore';
+import { getDefaultSourceConfig, type SourceConfig } from '@/api/mock/sourceStore';
+import { usePersistDefaultSources } from '@/app/settingsSync';
 
 export default function DefaultSources() {
   const [config, setConfig] = useState<SourceConfig>(() => getDefaultSourceConfig());
+  const persistDefaults = usePersistDefaultSources();
 
-  const patch = useCallback((partial: Partial<SourceConfig>) => {
-    setConfig(setDefaultSourceConfig(partial));
-  }, []);
+  const patch = useCallback(
+    (partial: Partial<SourceConfig>) => {
+      // Optimistic localStorage + server PATCH so the choice survives a reload.
+      setConfig(persistDefaults(partial));
+    },
+    [persistDefaults],
+  );
 
   return (
     <div className="flex flex-col gap-3">

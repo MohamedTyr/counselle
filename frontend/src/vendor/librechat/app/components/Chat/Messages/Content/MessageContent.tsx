@@ -24,9 +24,11 @@ import { useMessageContext } from '~/Providers';
 // FE-4: timeline above the prose, VizCard (replaces VizPlaceholder), citations context, clarify, sources footer.
 import { useChatContext } from '@/app/ChatContext';
 import ActivityTimeline from '@/components/timeline/ActivityTimeline';
+import ThinkingShimmer from '@/components/timeline/ThinkingShimmer';
 import ClarifyWidget from '@/components/clarify/ClarifyWidget';
 import SourcesContext from '@/components/citations/SourcesContext';
 import SourcesFooter from '@/components/citations/SourcesFooter';
+import { citedIndexesIn } from '@/components/citations/remarkCitations';
 import VizCard from '@/components/cards/VizCard';
 import MarkdownLite from './MarkdownLite';
 import EditMessage from './EditMessage';
@@ -110,6 +112,29 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   const clarifyFrozen = !(isLatestMessage && message.turnStatus === 'awaiting_input');
   const sources = message.sources ?? [];
 
+  // B5d (wire-contract §5, PINNED): the footer shows only the sources THIS
+  // message cited — the union of `[n]` markers in its markdown blocks (viz cells
+  // contribute nothing; cards carry their own per-cell popovers). The cumulative
+  // chips elsewhere stay untouched.
+  const citedIndexes = useMemo(() => {
+    const indexes = new Set<number>();
+    const blocks = message.content;
+    if (blocks !== undefined) {
+      for (const block of blocks) {
+        if (block.kind === 'markdown') {
+          for (const i of citedIndexesIn(block.text)) {
+            indexes.add(i);
+          }
+        }
+      }
+    } else if (!isCreatedByUser) {
+      for (const i of citedIndexesIn(text)) {
+        indexes.add(i);
+      }
+    }
+    return indexes;
+  }, [message.content, text, isCreatedByUser]);
+
   return (
     <Container message={message}>
       {/* FE-4: the activity timeline renders ABOVE the prose (PRD stories 13–16). */}
@@ -121,6 +146,8 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
           durationMs={message.durationMs}
         />
       )}
+      {/* B5d: the dead-air "Thinking…" shimmer — live turn, nothing progressing. */}
+      {!isCreatedByUser && message.isThinking === true && <ThinkingShimmer />}
       {/* FE-4: inline citation chips resolve against the turn's sources. */}
       <SourcesContext.Provider value={sources}>
         <div
@@ -136,11 +163,19 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
         </div>
         {/* FE-4: the clarifying-question widget, inline where the agent paused (PRD 23–25). */}
         {!isCreatedByUser && message.clarify !== undefined && (
-          <ClarifyWidget spec={message.clarify} frozen={clarifyFrozen} onAnswer={submitMessage} />
+          <ClarifyWidget
+            // Remount on a live→frozen / answer change so `selected`/`otherOpen`
+            // (seeded once at mount) re-seed cleanly instead of going stale.
+            key={message.clarifyAnswer ?? 'live'}
+            spec={message.clarify}
+            frozen={clarifyFrozen}
+            answer={message.clarifyAnswer}
+            onAnswer={submitMessage}
+          />
         )}
         {/* FE-4: the sources footer closes a completed answer (PRD story 21). */}
         {!isCreatedByUser && message.turnStatus === 'complete' && sources.length > 0 && (
-          <SourcesFooter sources={sources} />
+          <SourcesFooter sources={sources} citedIndexes={citedIndexes} />
         )}
       </SourcesContext.Provider>
     </Container>

@@ -19,6 +19,10 @@ type ClarifyWidgetProps = {
   spec: ClarifySpec;
   frozen: boolean;
   onAnswer: (text: string) => void;
+  /** The persisted answer (frozen transcript record): the resume text the
+   *  student chose. Seeds the frozen widget's selection so it shows what was
+   *  chosen (PRD 25). null/undefined = unanswered (live parked or never resumed). */
+  answer?: string | null;
 };
 
 type ChipProps = {
@@ -84,9 +88,28 @@ function OtherInput({ onAnswer }: { onAnswer: (text: string) => void }) {
   );
 }
 
-export default function ClarifyWidget({ spec, frozen, onAnswer }: ClarifyWidgetProps) {
-  const [selected, setSelected] = useState<string[]>([]);
-  const [otherOpen, setOtherOpen] = useState(false);
+/** Derive which option labels the persisted answer selected. An answer that
+ *  matches no option label was a free-text ("Other") response — returned as
+ *  `other` so the frozen widget shows it. */
+function deriveSelection(
+  spec: ClarifySpec,
+  answer: string | null | undefined,
+): { labels: string[]; other: string | null } {
+  if (answer === null || answer === undefined || answer.length === 0) {
+    return { labels: [], other: null };
+  }
+  const optionLabels = new Set(spec.options.map((o) => o.label));
+  const parts = spec.multi_select ? answer.split(',').map((p) => p.trim()) : [answer.trim()];
+  const labels = parts.filter((p) => optionLabels.has(p));
+  const others = parts.filter((p) => p.length > 0 && !optionLabels.has(p));
+  return { labels, other: others.length > 0 ? others.join(', ') : null };
+}
+
+export default function ClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
+  // Frozen: seed selection from the persisted answer (shows what was chosen).
+  const seeded = frozen ? deriveSelection(spec, answer) : { labels: [], other: null };
+  const [selected, setSelected] = useState<string[]>(seeded.labels);
+  const [otherOpen, setOtherOpen] = useState(seeded.other !== null);
 
   const toggle = (label: string) =>
     setSelected((prev) =>
@@ -99,6 +122,11 @@ export default function ClarifyWidget({ spec, frozen, onAnswer }: ClarifyWidgetP
       onAnswer(label);
     }
   };
+
+  // Frozen chips reflect the persisted selection (single or multi); the live
+  // widget only tracks multi-select selection in `selected`.
+  const isChipSelected = (label: string) =>
+    frozen ? seeded.labels.includes(label) : spec.multi_select && selected.includes(label);
 
   return (
     <div
@@ -115,7 +143,7 @@ export default function ClarifyWidget({ spec, frozen, onAnswer }: ClarifyWidgetP
             key={opt.label}
             label={opt.label}
             hint={opt.hint}
-            selected={spec.multi_select && selected.includes(opt.label)}
+            selected={isChipSelected(opt.label)}
             frozen={frozen}
             onClick={() => handleChip(opt.label)}
           />
@@ -128,6 +156,12 @@ export default function ClarifyWidget({ spec, frozen, onAnswer }: ClarifyWidgetP
           onClick={() => setOtherOpen((v) => !v)}
         />
       </div>
+      {/* Frozen "Other" answer: show the typed text the student chose. */}
+      {frozen && seeded.other !== null && (
+        <div className="mt-3 rounded-xl border border-border-light px-3 py-2 text-sm text-text-primary">
+          {seeded.other}
+        </div>
+      )}
       {spec.multi_select && !frozen && (
         <button
           type="button"

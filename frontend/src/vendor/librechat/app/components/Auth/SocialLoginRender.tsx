@@ -1,15 +1,15 @@
 // Vendored from upstream client/src/components/Auth/SocialLoginRender.tsx @ 197a1dc4
 // Subtractions: discord/facebook/github/apple/openid/saml providers (Google only — PRD story 3).
-// Rewire: SocialButton href → onClick calling mock loginWithGoogle() + navigate('/').
+// Rewire (B5b): SocialButton onClick → fetch GET /v1/auth/google/authorize, then
+//   `window.location.href = authorization_url` (the backend callback sets the
+//   cookie and 302s back to '/'). An authorize failure surfaces inline.
+import { useState } from 'react';
 import { GoogleIcon } from '@librechat/client';
-import { useNavigate } from 'react-router-dom';
-import { useSetAtom } from 'jotai';
 
 import SocialButton from './SocialButton';
 
 import { useLocalize } from '~/hooks';
-import { loginWithGoogle } from '@/api/mock/authStore';
-import { sessionUserAtom } from '@/app/auth';
+import { authErrorMessage, googleAuthorizeUrl } from '@/api/http/auth';
 
 import { TStartupConfig } from 'librechat-data-provider';
 
@@ -19,16 +19,20 @@ function SocialLoginRender({
   startupConfig: TStartupConfig | null | undefined;
 }) {
   const localize = useLocalize();
-  const navigate = useNavigate();
-  const setSessionUser = useSetAtom(sessionUserAtom);
+  const [authorizeError, setAuthorizeError] = useState<string | null>(null);
 
   if (!startupConfig) {
     return null;
   }
 
-  const handleGoogleLogin = () => {
-    setSessionUser(loginWithGoogle());
-    navigate('/', { replace: true });
+  const handleGoogleLogin = async () => {
+    setAuthorizeError(null);
+    try {
+      const url = await googleAuthorizeUrl();
+      window.location.href = url;
+    } catch (error: unknown) {
+      setAuthorizeError(authErrorMessage(error));
+    }
   };
 
   const providerComponents = {
@@ -56,6 +60,11 @@ function SocialLoginRender({
             </div>
             <div className="mt-8" />
           </>
+        )}
+        {authorizeError != null && (
+          <div role="alert" className="mt-2 text-sm text-red-600 dark:text-red-500">
+            {authorizeError}
+          </div>
         )}
         <div className="mt-2">
           {startupConfig.socialLogins?.map((provider) => providerComponents[provider] || null)}

@@ -21,13 +21,26 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import yaml
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_PREFIX = "COUNSELLE_"
 
+#: A JWT signing secret shorter than this is rejected (pyjwt 2.13 warns below 32).
+_MIN_JWT_SECRET_BYTES = 32
+
 #: Fields whose values must never appear unmasked in repr/str/logs.
-_SECRET_FIELDS = frozenset({"db_ro_dsn", "db_app_dsn", "tavily_api_key", "vertex_api_key"})
+_SECRET_FIELDS = frozenset(
+    {
+        "db_ro_dsn",
+        "db_app_dsn",
+        "tavily_api_key",
+        "vertex_api_key",
+        "jwt_secret",
+        "google_oauth_client_secret",
+        "oauth_state_secret",
+    }
+)
 
 
 def _mask_secret(name: str, value: str) -> str:
@@ -49,7 +62,22 @@ class Settings(BaseSettings):
     model_counselor: str = "google-vertex:gemini-2.5-pro"
     model_cheap: str = "google-vertex:gemini-2.5-flash"
     model_clarifier: str = "google-vertex:gemini-2.5-flash"
+    # B4 auto-titles: the cheap model that names a chat from its first exchange
+    # (one no-tools call, fire-and-forget; failure leaves the derived default).
+    model_title: str = "google-vertex:gemini-2.5-flash"
     max_tool_rounds: int = 12  # agent tool-loop bound (eng-review)
+    thinking_summaries: bool = True  # native Gemini thought summaries → `thinking` events (§27.2)
+
+    # --- Chat (B4) ---
+    title_max_len: int = 60  # cap for both the derived default and the model title
+
+    # --- Rate limiting (B4: in-process sliding windows; api/ratelimit.py) ---
+    # Per-user message caps (a clarify answer spends a token — a resume is a send).
+    turns_per_hour: int = 60
+    turns_per_day: int = 300
+    # Per-IP auth caps (login + forgot-password) — password-brute / reset-spam guard.
+    auth_attempts_per_window: int = 10
+    auth_window_seconds: int = 60
 
     # --- Database ---
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required
@@ -90,9 +118,60 @@ class Settings(BaseSettings):
     api_port: int = 8000
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
     sse_keepalive_s: int = 15
+    # --- Turn registry (B2: detached turns, reattach, cancel) ---
+    # Ring-buffer capacity in events, sized to a full worst-case turn so
+    # overflow is effectively unreachable (a consumer that still falls off the
+    # head is terminated with an `error` event — never silently skipped).
+    stream_buffer_size: int = 20_000
+    # Watchdog: a turn exceeding this terminates with `error` (G5 — never
+    # done(cancelled): the student didn't press stop), partial persisted.
+    turn_timeout_s: int = 180
+    # GET /v1/sessions/{id}/stream reattach endpoint (off → always 204).
+    reattach_enabled: bool = True
+    # Global backstop on concurrent detached turns across all sessions — a
+    # memory-exhaustion guard (over the cap → 503). Per-user caps + rate
+    # limiting are B4; this is only the process-wide ceiling.
+    max_concurrent_turns: int = 50
+    # Per-turn consumer ceiling: how many streams may attach to one turn's
+    # ring buffer at once (over the cap → 429). A cheap abuse guard.
+    max_consumers_per_turn: int = 8
     # Frozen constant: the SSE event-protocol version (ADR 0016). Re-exported from
     # domain/ in Phase 1; bump only with an architecture discussion.
     protocol_version: int = 1
+
+    # --- Auth (B3, ADR 0021) ---
+    # REQUIRED: the JWT signing secret (≥32 bytes — pyjwt 2.13 warns below).
+    jwt_secret: str
+    cookie_name: str = "counselle_auth"
+    cookie_secure: bool = False  # True in prod via env (HTTPS only)
+    jwt_lifetime_seconds: int = 60 * 60 * 24 * 30  # 30 days, no refresh (locked)
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
+    oauth_state_secret: str | None = None  # falls back to jwt_secret (see property)
+    oauth_redirect_url: str = "/"  # where the OAuth callback 302s the SPA
+
+    # --- Email (B3) ---
+    email_provider: Literal["console"] = "console"
+    email_from: str = "noreply@counselle.app"
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _jwt_secret_long_enough(cls, value: str) -> str:
+        if len(value.encode("utf-8")) < _MIN_JWT_SECRET_BYTES:
+            raise ValueError(
+                f"must be at least {_MIN_JWT_SECRET_BYTES} bytes (pyjwt 2.13 warns below)"
+            )
+        return value
+
+    @property
+    def effective_oauth_state_secret(self) -> str:
+        """The OAuth CSRF state secret — falls back to the JWT secret when unset."""
+        return self.oauth_state_secret or self.jwt_secret
+
+    @property
+    def google_oauth_configured(self) -> bool:
+        """True when both Google OAuth client credentials are present."""
+        return bool(self.google_oauth_client_id and self.google_oauth_client_secret)
 
     # --- Observability ---
     log_level: str = "INFO"

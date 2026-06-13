@@ -1,7 +1,9 @@
 import type { ChatRecord } from '@/api/types';
 
+type FixtureChat = Omit<ChatRecord, 'isGenerating'>;
+
 /** ~12 fixture chats with realistic Counselle titles spread across all date groups. */
-export const FIXTURE_CHATS: ChatRecord[] = [
+const FIXTURE_CHATS_BASE: FixtureChat[] = [
   // Today
   {
     conversationId: 'chat-001',
@@ -80,3 +82,9 @@ export const FIXTURE_CHATS: ChatRecord[] = [
     createdAt: new Date(Date.now() - 65 * 24 * 60 * 60 * 1000 - 2 * 60 * 60 * 1000).toISOString(),
   },
 ];
+
+/** B5c: `isGenerating` is required on `ChatSummary` — fixtures are never live. */
+export const FIXTURE_CHATS: ChatRecord[] = FIXTURE_CHATS_BASE.map((c) => ({
+  ...c,
+  isGenerating: false,
+}));

@@ -270,7 +270,9 @@ export type TMinimalFeedback = {
 
 export type TFeedback = {
   rating: TFeedbackRating;
-  tag: TFeedbackTag | undefined;
+  // B5c: `tag`/`text` are optional — the reason-chip + free-text UI was
+  // subtracted (the backend stores only `{rating}`; reason chips are MVP3).
+  tag?: TFeedbackTag | undefined;
   text?: string;
 };
 

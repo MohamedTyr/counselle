@@ -10,7 +10,13 @@ export const CLARIFY_EVENTS: ProtocolEvent[] = [
   {
     v: 1,
     type: 'meta',
-    data: { trace_id: 'mock-trace-clarify', session_id: 'mock', model: 'gemini-2.5-pro' },
+    data: {
+      trace_id: 'mock-trace-clarify',
+      session_id: 'mock',
+      model: 'gemini-2.5-pro',
+      message_id: 'mock-msg-clarify',
+      user_message_id: 'mock-umsg-clarify',
+    },
   },
   {
     v: 1,

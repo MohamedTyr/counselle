@@ -141,6 +141,9 @@ const ChatForm = memo(function ChatForm({ placeholder, centerFormOnLanding = fal
   }, []);
 
   // ── Submit ────────────────────────────────────────────────────────────────
+  // B5a: clear the composer optimistically, but RESTORE the text if the send
+  // failed before stream start (submitMessage resolves false). A failed send
+  // must not lose what the student typed — inline retry re-sends it.
   const onSubmit = useCallback(
     async (data: { text: string }) => {
       const text = data.text.trim();
@@ -148,7 +151,10 @@ const ChatForm = memo(function ChatForm({ placeholder, centerFormOnLanding = fal
         return;
       }
       methods.reset({ text: '' });
-      await submitMessage(text);
+      const accepted = await submitMessage(text);
+      if (!accepted) {
+        methods.reset({ text });
+      }
     },
     [isSubmitting, methods, submitMessage],
   );

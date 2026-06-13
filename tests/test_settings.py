@@ -11,6 +11,7 @@ from config.settings import Settings, get_settings, load_prompt, load_yaml_asset
 
 RO_DSN = "postgresql://counselle_ro:ro-s3cret-pw@localhost:5432/ascensia"
 APP_DSN = "postgresql://counselle_app:app-s3cret-pw@localhost:5432/ascensia"
+JWT_SECRET = "test-jwt-secret-deadbeef-deadbeef-0123456789"  # ≥32 bytes
 
 
 class EnvFileFreeSettings(Settings):
@@ -44,6 +45,7 @@ def dsn_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Provide just the two required DSNs via the environment."""
     monkeypatch.setenv("COUNSELLE_DB_RO_DSN", RO_DSN)
     monkeypatch.setenv("COUNSELLE_DB_APP_DSN", APP_DSN)
+    monkeypatch.setenv("COUNSELLE_JWT_SECRET", JWT_SECRET)
 
 
 class TestFailFast:
@@ -65,7 +67,7 @@ class TestFailFast:
 
 class TestDefaults:
     def test_minimal_env_loads_documented_defaults(self, clean_env: None) -> None:
-        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN)
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
         # Models
         assert settings.model_counselor == "google-vertex:gemini-2.5-pro"
@@ -113,12 +115,14 @@ class TestSecretMasking:
         settings = EnvFileFreeSettings(
             db_ro_dsn=RO_DSN,
             db_app_dsn=APP_DSN,
+            jwt_secret=JWT_SECRET,
             tavily_api_key="tvly-super-secret-key",
         )
         for rendered in (repr(settings), str(settings)):
             assert "ro-s3cret-pw" not in rendered
             assert "app-s3cret-pw" not in rendered
             assert "tvly-super-secret-key" not in rendered
+            assert JWT_SECRET not in rendered  # jwt_secret is masked too
             # The masked DSN still shows scheme + host for debuggability.
             assert "postgresql://***@localhost" in rendered
 

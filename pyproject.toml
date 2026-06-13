@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.31.0",
     "fastapi>=0.136.3",
+    "fastapi-users[oauth]>=15.0.5",
     "google-genai>=2.8.0",
     "httpx>=0.28.1",
     "langgraph>=1.2.4",
@@ -57,6 +58,11 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom puts Depends()/Security() in argument
+# defaults — that's the framework contract, not a B008 mutable-default bug.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Security", "fastapi.Query"]
 
 [tool.mypy]
 ignore_missing_imports = true

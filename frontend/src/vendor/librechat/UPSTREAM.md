@@ -65,11 +65,11 @@ Sibling files copied verbatim from upstream `client/`:
 | `components/Chat/Input/SendButton.tsx` | `client/src/components/Chat/Input/SendButton.tsx` | verbatim |
 | `components/Chat/Input/StopButton.tsx` | `client/src/components/Chat/Input/StopButton.tsx` | verbatim |
 | `components/Chat/Input/CollapseChat.tsx` | `client/src/components/Chat/Input/CollapseChat.tsx` | verbatim |
-| `components/Chat/Input/ConversationStarters.tsx` | `client/src/components/Chat/Input/ConversationStarters.tsx` | adapted (see below) |
+| `components/Chat/Input/ConversationStarters.tsx` | `client/src/components/Chat/Input/ConversationStarters.tsx` | adapted (see below); B5c: starters from `GET /v1/config` (async) |
 | `components/Chat/Input/ChatForm.tsx` | `client/src/components/Chat/Input/ChatForm.tsx` | stripped + rewired (see below) |
-| `components/Chat/Landing.tsx` | `client/src/components/Chat/Landing.tsx` | stripped + rewired (see below) |
+| `components/Chat/Landing.tsx` | `client/src/components/Chat/Landing.tsx` | stripped + rewired (see below); B5c: greeting/season_note from `GET /v1/config` (async + loading fade) |
 | `components/Chat/Header.tsx` | `client/src/components/Chat/Header.tsx` | stripped (see below) |
-| `components/Chat/Footer.tsx` | `client/src/components/Chat/Footer.tsx` | stripped: GTM/markdown/config links out; fixture text; container classes + separator byte-identical |
+| `components/Chat/Footer.tsx` | `client/src/components/Chat/Footer.tsx` | stripped: GTM/markdown/config links out; static `APP_FOOTER` constant (B5c: not served by `/v1/config`); container classes + separator byte-identical |
 | `Providers/CustomFormContext.tsx` | `client/src/Providers/CustomFormContext.tsx` | verbatim |
 | `Providers/ChatFormContext.tsx` | `client/src/Providers/ChatFormContext.tsx` | verbatim |
 
@@ -165,7 +165,7 @@ Sibling files copied verbatim from upstream `client/`:
 |---|---|
 | `components/Chat/Messages/Content/MarkdownBlocks.tsx` | same (the per-block memoization core — **byte-identical**) |
 | `components/Chat/Messages/Content/splitMarkdown.ts` | same — **byte-identical** |
-| `components/Chat/Messages/Feedback.tsx` | same — **byte-identical** (works as-is over the data-provider shim) |
+| `components/Chat/Messages/Feedback.tsx` | B5c rewrite: reason-chip popovers (Ariakit + `getTagsForRating`) and the "other" free-text `OGDialog` **subtracted** — the backend stores only `{rating}` (reason chips are MVP3); collecting-and-discarding tags is a dishonest affordance. Now a plain two-button thumbs toggle; `buttonClasses`/`ThumbUpIcon`/`ThumbDownIcon`/`isLast` grammar byte-identical |
 | `components/Chat/Messages/SubRow.tsx` | same — **byte-identical** |
 | `components/Chat/Messages/ui/PlaceholderRow.tsx` | same — **byte-identical** |
 | `components/Messages/Content/CopyButton.tsx` | same — **byte-identical** |
@@ -188,15 +188,15 @@ Sibling files copied verbatim from upstream `client/`:
 | `components/Chat/Messages/Content/markdownConfig.ts` | remark: `[supersub, remarkGfm]` (math/directive/artifact/citation/MCP-UI dropped); rehype: highlight only; lazy-cached getter pattern kept verbatim |
 | `components/Chat/Messages/Content/MarkdownComponents.tsx` | math/mermaid branches dropped; `canRunCode` frozen false; `a` → plain `target="_blank" rel="noopener noreferrer"` anchor (file-download branch dropped); `img` src passthrough |
 | `components/Chat/Messages/Content/MarkdownErrorBoundary.tsx` | math/artifact dropped; **type-level patch**: rehype plugin array cast `as PluggableList` (rehype-highlight@6 nests its own vfile → Plugin type mismatch under TS 5.9) — same cast in MarkdownLite/markdownConfig |
-| `components/Chat/Messages/Content/EditMessage.tsx` | user-message-only editing (PRD decision 4); Save & Submit → `ask({text, messageId})` (truncate-and-re-ask); Save → `updateMessageText`; siblings/RTL/file overrides dropped; classes + shortcuts byte-identical |
+| `components/Chat/Messages/Content/EditMessage.tsx` | user-message-only editing (PRD decision 4); Save & Submit → `ask({text, messageId})`. **B5d (G3):** the plain "Save" (text-mutation-without-re-ask) + its Ctrl/⌘+S shortcut **removed** — PRD decision 4 gives it no meaning and post-seam it's a client-side lie; Save & Submit is now a real `replace_message_id` rewrite. Save&Submit/Cancel classes + shortcuts byte-identical |
 | `components/Chat/Messages/Content/Container.tsx` | Files/SkillPills rows dropped; container classes byte-identical |
-| `components/Chat/Messages/HoverButtons.tsx` | audio/Fork/Continue dropped; `useGenerationsByLatest` → flat-list derivations (regenerate: latest assistant msg, not submitting; edit: user msgs only); HoverButton + classes byte-identical |
+| `components/Chat/Messages/HoverButtons.tsx` | audio/Fork/Continue dropped; `useGenerationsByLatest` → flat-list derivations (regenerate: latest assistant msg, not submitting; edit: user msgs only). **B5d (G3):** Edit gate tightened — also requires `message.hasBackendId === true` (no `replace_message_id` for id-less / pre-MVP2 / not-yet-reconciled entries) and `synthesized !== true` (clarify-answer bubbles return 422). HoverButton + classes byte-identical |
 | `components/Chat/Messages/MessageIcon.tsx` | endpoint/assistant resolution collapsed; user chip = upstream UserAvatar fallback byte-for-byte; assistant = Counselle "C" roundel |
 | `components/Messages/Content/CodeBlock.tsx` | run-code tool calls/FloatingCodeBar/plugin branch dropped; container + CodeBar + code classes byte-identical |
 | `components/Messages/Content/CodeBar.tsx` | RunCode + plugin InfoIcon dropped; bar classes byte-identical |
 | `components/Messages/Content/Error.tsx` | their backend error-code parser reduced to text passthrough (protocol `error.message` is already human) |
 | `components/Messages/ScrollToBottom.tsx` | `maximizeChatSpace` frozen false; classes byte-identical |
-| `hooks/Messages/useMessageActions.tsx` | endpoints/agents dropped; chatContext getter-object dropped (reducer blocks are reference-stable); copy = `copy-to-clipboard` over message prose; feedback via `@/api/hooks` mutation over the mock store |
+| `hooks/Messages/useMessageActions.tsx` | endpoints/agents dropped; chatContext getter-object dropped (reducer blocks are reference-stable); copy = `copy-to-clipboard` over message prose; B5c: tag hydration (`getTagByKey`/`toMinimalFeedback`) **removed** (`message.feedback` is just `{rating}`); feedback via `@/api/hooks` mutation over the real `POST .../feedback` with optimistic-thumb rollback on failure |
 
 ### Support changes
 
@@ -229,7 +229,7 @@ semantic pairs. Vendor-file deltas (each marked `FE-4:` inline):
 
 | File | Change |
 |---|---|
-| `components/Chat/Messages/Content/MessageContent.tsx` | ActivityTimeline above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn); SourcesFooter on completed answers |
+| `components/Chat/Messages/Content/MessageContent.tsx` | ActivityTimeline above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn); SourcesFooter on completed answers. **B5d:** + ThinkingShimmer (dead-air cover, `message.isThinking`); ClarifyWidget gains `answer={message.clarifyAnswer}` (frozen widget seeds from the persisted answer); SourcesFooter gains `citedIndexes` (footer filters to markers cited in this message's prose, wire-contract §5) via `citedIndexesIn` |
 | `components/Chat/Messages/Content/markdownConfig.ts` | + `remarkCitations` remark plugin; + `'citation-ref': CitationRefMarkdown` component mapping |
 | `hooks/Input/useTextarea.ts` | placeholder swaps to "Pick one, or just type…" while a clarify is open (`awaitingClarify` from ChatContext) |
 
@@ -377,6 +377,7 @@ Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
 | `components/Nav/AccountSettings.tsx` | settings wiring restored to upstream pattern: `showSettings` state + `<Settings open onOpenChange/>` rendered inside MenuProvider; Settings MenuItem `onClick={() => setShowSettings(true)}` (was the FE-1 no-op) |
 | `app/common/index.ts` | + `TDangerButtonProps`, `TDialogProps` (upstream common/types.ts:452,468; `UseMutationResult<unknown>` widened to 4 type args for strict TS), `LocalizeFunction` (types.ts:89) |
 | `src/vendor/librechat-data-provider/index.ts` | + `SettingsTabValues` enum (upstream packages/data-provider/src/config.ts:2366, trimmed to GENERAL/DATA/ACCOUNT) |
+| `src/vendor/librechat-data-provider/index.ts` (B5c) | `TFeedback.tag` made optional — the reason-chip/free-text UI was subtracted (backend stores only `{rating}`; reason chips are MVP3) |
 
 ### Counselle-native additions (FE-5B)
 
@@ -385,3 +386,71 @@ Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
 | `src/components/source-control/DefaultSources.tsx` | "Default sources" settings rows — Database fixed on, Web/.edu/Reddit toggles via the vendored ToggleSwitch; writes `counselle:sourceDefaults` |
 | `src/api/mock/sourceStore.ts` | + `getDefaultSourceConfig()` / `setDefaultSourceConfig()`; `getSourceConfig` for a chat with no stored config now falls back to the user defaults instead of the hardcoded constant |
 | `src/api/mock/messagesStore.ts` | + `clearAllTranscripts()` |
+
+## app/ — B5b (real auth + account surface)
+
+Swaps the FE-5A mock localStorage auth for the real cookie-JWT backend. The
+session is now the httpOnly cookie, resolved by a TanStack Query over `GET
+/v1/me`; the jotai `sessionUserAtom` is retired from the live path. Mock auth
+fixtures (`src/api/mock/authStore.ts`) stay on disk (Sampler/tests) but no live
+file imports them.
+
+### Vendored import-site swaps (behavior rewired, layout/markup unchanged)
+
+| File | Change |
+|---|---|
+| `components/Auth/LoginForm.tsx` | mock `login()`/jotai/`navigate` → `useLogin()` (real form-encoded `POST /v1/auth/login`); `onSubmit` is async with a loading state (`isSubmitting \|\| loginMutation.isLoading`); a 400/429/network failure renders inline via `authErrorMessage` ("Incorrect email or password.") and keeps the form; success invalidates `me` so the AuthGate + Startup land the user in the app. Floating-label form JSX byte-identical |
+| `components/Auth/SocialLoginRender.tsx` | mock `loginWithGoogle()`/jotai/`navigate` → `handleGoogleLogin` fetches `GET /v1/auth/google/authorize` then `window.location.href = authorization_url` (backend callback sets the cookie, 302s to `/`); an authorize failure renders inline. "Or" divider + button structure byte-identical |
+| `components/Auth/Registration.tsx` | mock `register()`/jotai/`navigate` → `useRegister()` then auto-`useLogin()` with the same creds (register does not establish a session); inline existing-email / weak-password / rate-limit errors via `authErrorMessage`; `useNavigate` dropped (the `me` invalidation drives the redirect). Form JSX byte-identical |
+| `components/Nav/AccountSettings.tsx` | `useAuthUser()` now reads `/v1/me`; logout → `useLogout()` (real `POST /v1/auth/logout` + invalidate `me`/`chats`) then `navigate('/login')` in a `finally`. Avatar/menu markup unchanged |
+| `components/Nav/SettingsTabs/Account/Account.tsx` | mock `updateUser` → `usePatchMe()` (`PATCH /v1/me` name); **+ story 49 password row**: a real in-app change dialog (`changePassword` → `PATCH /v1/auth/users/me`) with new+confirm fields and min-length/match validation; OAuth-only users (`has_password === false`) see a "Set a password" framing; the connected-Google row gates on `google_connected`. Upstream row grammar (`flex justify-between` + Label, `pb-3`) preserved |
+| `components/Nav/SettingsTabs/Account/DeleteAccount.tsx` | mock `deleteAccount()` → `useDeleteAccount()` (real `DELETE /v1/me`) then a hard `window.location.href = '/login'` in a `finally` (drops every cached query). Email-confirm lock + dialog JSX byte-identical |
+
+### Other B5b vendor touches (named in the deliverable, ledgered)
+
+| File | Change |
+|---|---|
+| `routes/Layouts/Startup.tsx` | `useAuthUser()` → `useMe().data != null` — authed-user redirect to `/` fires only once `me` resolves (no flash between the auth pages and the shell) |
+| `components/Nav/SettingsTabs/Data/ClearChats.tsx` | mock-store clears → real `DELETE /v1/me/chats` (keeps the account) then invalidate `[QueryKeys.chats]`; `navigate('/')` + `activeConversationIdAtom` reset retained. Dialog JSX byte-identical |
+| `components/Nav/SettingsTabs/General/General.tsx` | theme write goes through `usePersistTheme` (local-optimistic flip + `PATCH /v1/me`, existing server settings spread so `default_source_config` is never clobbered); theme read still from `ThemeProvider`. `useCallback` import dropped |
+| `routes/Root.tsx` | (via the Counselle `AuthGate` wrapper, not Root) the server-wins theme seed runs once `me` resolves — see `src/app/settingsSync.ts`. Root itself is unchanged |
+
+### Counselle-native B5b additions / replacements
+
+| File | Description |
+|---|---|
+| `src/api/http/auth.ts` (new) | The real auth client over `/v1/auth/*` + `/v1/me`: `register`/`login` (form-encoded)/`logout`/`forgotPassword`/`resetPassword`/`fetchMe` (→ `null` on 401)/`patchMe`/`deleteAccount`/`deleteMyChats`/`changePassword`/`googleAuthorizeUrl`; `MeData`/`UserSettings` types; `AuthError` (coded 400) + `authErrorMessage` friendly-message mapper. Reuses B5a's `credentials:'same-origin'` + `errorFromResponse` |
+| `src/app/auth.ts` (replaced) | jotai `sessionUserAtom` → TanStack Query: `useMe()` (`[QueryKeys.me]`, 401→null), `useAuthUser()` shim, and the mutations `useLogin`/`useRegister`/`useLogout`/`usePatchMe`/`useDeleteAccount` (each invalidates `me`, plus `chats` on logout/delete) |
+| `src/app/settingsSync.ts` (new) | `useServerThemeSeed()` (server-wins theme seed on me-resolve) + `usePersistTheme()` (optimistic flip → `PATCH /v1/me`, settings spread). `default_source_config` deliberately untouched (B5c) |
+| `src/api/hooks.ts` | + `QueryKeys.me` |
+
+## B5c — Source control, feedback, config, sessions list
+
+### Vendored-component touches (ledgered)
+
+| File | Change |
+|---|---|
+| `components/Chat/Messages/Feedback.tsx` | Reason-chip popovers (Ariakit `usePopoverStore` + `getTagsForRating` + `FeedbackOptionButton`) and the "other" free-text `OGDialog` **subtracted** — the backend stores only `{rating}` (reason chips are MVP3); collecting tags it discards is a dishonest affordance. Now a plain two-button thumbs toggle (click to set, click the active thumb to clear). `buttonClasses`/`ThumbUpIcon`/`ThumbDownIcon`/`isLast` grammar byte-identical |
+| `hooks/Messages/useMessageActions.tsx` | Tag hydration (`getTagByKey`/`toMinimalFeedback`) removed — `message.feedback` is just `{rating}` (ChatContext's transcript projection). `handleFeedback` paints the thumb optimistically and rolls back on a rejected `POST .../feedback` (honesty: never show feedback the backend didn't persist) |
+| `components/Chat/Landing.tsx` | greeting + season_note now from `useConfigQuery()` (`GET /v1/config`, async); loading fades the content block in (no fallback flash); on error falls back to a local greeting constant, season_note hidden |
+| `components/Chat/Input/ConversationStarters.tsx` | starters from `useConfigQuery()` (was the import-time fixture); empty until resolved (the existing `!length` guard returns null gracefully) |
+| `components/Chat/Footer.tsx` | footer text now the static `@/api/appFooter` `APP_FOOTER` constant (`/v1/config` does NOT serve the footer) |
+| `components/Conversations/Conversations.tsx` | `activeJobIds` is now a prop (the set of `is_generating` session ids) instead of frozen-empty — the per-row generating indicator (upstream's spinner in the action slot) renders for live turns |
+| `components/UnifiedSidebar/ConversationsSection.tsx` | `useChatsQuery` is now the real `GET /v1/sessions`; derives `activeJobIds` from each row's `isGenerating` and passes it to `Conversations` |
+
+### Counselle-native B5c additions / replacements
+
+| File | Description |
+|---|---|
+| `src/api/source-config.ts` (new) | The §4 wire boundary: `toWire`/`fromWire` (FE `SourceConfig` ↔ `SourceConfigWire`), `FULL_MENU` (bare keys, `null`=full menu), defensive `fromWire`. The ONLY place that translates store↔wire shape |
+| `src/api/http/sessions.ts` (new) | `listSessions` (`GET /v1/sessions?limit=50` → `ChatSummary[]`, `is_generating`→`isGenerating`), `renameSession` (PATCH), `deleteSession` (DELETE 204; non-ok throws so a failed delete keeps the row) |
+| `src/api/http/config.ts` (new) | `fetchConfig` (`GET /v1/config`) + `ConfigData` type |
+| `src/api/http/feedback.ts` (new) | `setFeedback` (`POST .../messages/{id}/feedback {rating:'up'\|'down'\|null}`); non-ok throws |
+| `src/api/appFooter.ts` (new) | the static `APP_FOOTER` brand copy (replaces the deleted `mock/fixtures/config.ts`) |
+| `src/api/hooks.ts` | `useChatsQuery`/rename/delete now real (`http/sessions`); `useUpdateFeedbackMutation` real (`http/feedback`, `thumbsUp↔up` map); `useConfigQuery` new (seeds default source config via `setDefaultSourceConfig(fromWire(...))` on success); `useCreateChatMutation` **removed** (dead — the new-chat flow goes through `ChatContext.transport.createSession`); `+ QueryKeys.config` |
+| `src/api/transport.ts` | `SendMessageBody.source_config` + `CreatedSession.source_config` + `createSession()` tightened to `SourceConfigWire`; `transcript()` now returns `SessionTranscript` (`{entries, sourceConfig}`) so chat-open seeds the dropdown |
+| `src/api/mock/sourceStore.ts` | `SUBREDDITS` corrected (C3) to the concrete yaml menu (`ApplyingToCollege, chanceme, financialaid, premed, csMajors`; `{school}` excluded) |
+| `src/api/types.ts` | `ChatSummary` gains `isGenerating: boolean` |
+| `src/app/ChatContext.tsx` | every `sendMessage` carries `source_config: toWire(getSourceConfig(convoId))`; `createSession` passes the default config; chat-open seeds the dropdown via `updateSourceConfig(convoId, fromWire(serverConfig))` |
+| `src/components/source-control/SourceDropdown.tsx` | re-reads `getSourceConfig` on popover open (picks up the server-seeded config written at chat open) |
+| `src/api/mock/fixtures/config.ts` | **deleted** (config now from `/v1/config`; footer moved to `appFooter.ts`) |

@@ -1,0 +1,64 @@
+# Home-screen greeting + season note, keyed by the admissions-cycle phase
+# (`domain.season.admission_season(today, windows).phase` over season_calendar.yaml).
+# Served by GET /v1/config (B4). `season_note` may be null/'' — the Landing screen
+# hides the line when falsy. One entry per phase in season_calendar.yaml, plus a
+# `default` fallback for an unknown phase.
+#
+# Phases (must stay in sync with season_calendar.yaml):
+#   pre-application, essays & applications open, early application crunch,
+#   early deadlines, early results & regular push, regular decision deadlines,
+#   waiting & aid, decision/choose.
+
+default:
+  greeting: "What can I help you figure out today?"
+  season_note: null
+
+pre-application:
+  greeting: "Building your college list?"
+  season_note: >-
+    It's list-building season — a good time to research fit, explore programs,
+    and start shaping your shortlist before applications open.
+
+essays & applications open:
+  greeting: "Applications are open — where should we start?"
+  season_note: >-
+    The Common App is open and essays are in full swing. Ask me about any
+    school's requirements, deadlines, or how you stack up.
+
+early application crunch:
+  greeting: "Crunch time on early apps — what do you need?"
+  season_note: >-
+    Early Decision and Early Action deadlines are close. Let's pressure-test your
+    school list and double-check requirements before you submit.
+
+early deadlines:
+  greeting: "Early deadlines are here — let's get it right."
+  season_note: >-
+    Many ED I and EA deadlines fall around this time of year. Ask me to verify
+    any school's exact requirements and dates before you hit submit.
+
+early results & regular push:
+  greeting: "Early results are landing — what's next?"
+  season_note: >-
+    Early decisions are arriving and Regular Decision apps are coming together
+    ahead of the January deadlines. I can help you weigh options or finish your
+    remaining applications.
+
+regular decision deadlines:
+  greeting: "Regular Decision deadlines — let's finish strong."
+  season_note: >-
+    Many Regular Decision deadlines and aid forms cluster around this time of
+    year. Ask me about any school's requirements, or how to prioritize your last
+    applications.
+
+waiting & aid:
+  greeting: "Apps are in — let's think about what comes next."
+  season_note: >-
+    While decisions trickle in, it's a good time to compare likely costs and aid.
+    Ask me about net price, financial aid, or any school on your list.
+
+decision/choose:
+  greeting: "Decision time — let's compare your options."
+  season_note: >-
+    Offers are in hand and decision day (often around May 1) is on the horizon.
+    I can help you compare schools side by side on cost, outcomes, and fit.

@@ -1,22 +1,24 @@
 /**
  * TierChip — the inline source-tier marker (PRD story 26).
  *
- * The official/community visual grammar: official tiers (cds / ipeds /
- * scorecard / web / edu / anything unknown) read cool via the --official-*
- * tokens; 'reddit' reads warm via --community-*. Squint test: tier is
- * instantly visible. Used identically in prose chips, cards, and the
- * sources footer (counselle.css contract).
+ * The official/community visual grammar: tier 'official' reads cool via the
+ * --official-* tokens; 'community' (Reddit) reads warm via --community-*.
+ * Squint test: tier is instantly visible. Used identically in prose chips,
+ * cards, and the sources footer (counselle.css contract).
  */
 import { forwardRef } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '@librechat/client/utils';
-import type { Tier } from '@/api/protocol';
+import type { SourceName, Tier } from '@/api/protocol';
 
+// B2 / wire-contract C1 (the honesty fix): the backend serves
+// tier: 'official' | 'community' — the old `tier === 'reddit'` check would
+// have rendered every community source as official against the real wire.
 export function isCommunityTier(tier: Tier): boolean {
-  return tier === 'reddit';
+  return tier === 'community';
 }
 
-const TIER_LABELS: Record<string, string> = {
+const SOURCE_LABELS: Record<SourceName, string> = {
   cds: 'CDS',
   ipeds: 'IPEDS',
   scorecard: 'Scorecard',
@@ -25,9 +27,10 @@ const TIER_LABELS: Record<string, string> = {
   reddit: 'Reddit',
 };
 
-/** Short human label for a tier; unknown tiers show the tier string itself. */
-export function tierLabel(tier: Tier): string {
-  return TIER_LABELS[tier] ?? tier;
+/** Short human label for a citation's SOURCE (C1: labels key on
+ *  `citation.source`, not the two-value tier); unknown sources show as-is. */
+export function tierLabel(source: SourceName | string): string {
+  return SOURCE_LABELS[source as SourceName] ?? source;
 }
 
 interface TierChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {

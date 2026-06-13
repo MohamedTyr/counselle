@@ -4,8 +4,15 @@
  * user text. Supports cancel (the stream terminates with done(cancelled),
  * §27.4) and attach (in-memory replay of already-emitted events, then live).
  */
-import type { ProtocolEvent, TranscriptEntry } from '@/api/protocol';
-import type { SendMessageBody, Transport } from '@/api/transport';
+import type { ProtocolEvent } from '@/api/protocol';
+import type {
+  CreatedSession,
+  SendMessageBody,
+  SessionTranscript,
+  Transport,
+} from '@/api/transport';
+import type { SourceConfigWire } from '@/api/source-config';
+import { createChat } from './store';
 import { getTranscript } from './messagesStore';
 import { CANCELLED_EVENTS } from './fixtures/turns/cancelled';
 import { CLARIFY_EVENTS } from './fixtures/turns/clarify';
@@ -186,8 +193,16 @@ export class MockTransport implements Transport {
     return Promise.resolve();
   }
 
-  transcript(sessionId: string): Promise<TranscriptEntry[]> {
-    return Promise.resolve(getTranscript(sessionId));
+  transcript(sessionId: string): Promise<SessionTranscript> {
+    return Promise.resolve({ entries: getTranscript(sessionId), sourceConfig: null });
+  }
+
+  createSession(sourceConfig?: SourceConfigWire): Promise<CreatedSession> {
+    const chat = createChat('New chat');
+    return Promise.resolve({
+      session_id: chat.conversationId,
+      source_config: sourceConfig ?? null,
+    });
   }
 }
 

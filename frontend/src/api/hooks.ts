@@ -1,22 +1,51 @@
 /**
- * TanStack Query v4 hooks over the mock store.
- * Call signatures are close to what the vendored conversation components expect.
- * FE-7 swaps the implementation (same QueryKeys, same shape) when HttpTransport lands.
+ * TanStack Query v4 hooks over the real `/v1` backend (B5c).
+ *
+ * The mock-store reads were swapped for HTTP clients in `http/sessions.ts`,
+ * `http/config.ts`, and `http/feedback.ts`. Query keys + return shapes are
+ * unchanged from the mock era, so the consuming components were untouched
+ * except where the new data (config async, is_generating) flows.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as store from './mock/store';
-import type { ChatRecord } from './types';
+import {
+  listSessions,
+  renameSession,
+  deleteSession,
+} from './http/sessions';
+import { fetchConfig, type ConfigData } from './http/config';
+import { setFeedback, type WireRating } from './http/feedback';
+import { fromWire } from './source-config';
+import { setDefaultSourceConfig } from './mock/sourceStore';
 
 export const QueryKeys = {
   chats: 'chats' as const,
+  me: 'me' as const,
+  config: 'config' as const,
 };
 
 // ── Queries ──────────────────────────────────────────────────────────────────
 
+/** GET /v1/sessions — the sidebar list. On 401 the AuthGate handles the
+ *  redirect; the sidebar tolerates an error/empty result (`data = []`). */
 export function useChatsQuery() {
-  return useQuery([QueryKeys.chats], () => store.listChats(), {
+  return useQuery([QueryKeys.chats], () => listSessions(), {
     staleTime: 30_000,
     cacheTime: 300_000,
+  });
+}
+
+/** GET /v1/config — the season-keyed home-screen config. Near-static per
+ *  session; seeds the default source config into the store on resolve. */
+export function useConfigQuery() {
+  return useQuery([QueryKeys.config], () => fetchConfig(), {
+    // Config is near-static per session; never background-refetch so onSuccess
+    // seeds the store once and can't clobber a mid-session Settings→General edit.
+    staleTime: Infinity,
+    cacheTime: 600_000,
+    onSuccess: (data: ConfigData) => {
+      // The user's server-side default sources seed new-chat dropdowns.
+      setDefaultSourceConfig(fromWire(data.default_source_config));
+    },
   });
 }
 
@@ -27,10 +56,7 @@ type RenameChatVars = { conversationId: string; title: string };
 export function useRenameChatMutation() {
   const queryClient = useQueryClient();
   return useMutation(
-    ({ conversationId, title }: RenameChatVars) => {
-      const updated = store.renameChat(conversationId, title);
-      return Promise.resolve(updated);
-    },
+    ({ conversationId, title }: RenameChatVars) => renameSession(conversationId, title),
     {
       onSuccess: () => {
         queryClient.invalidateQueries([QueryKeys.chats]);
@@ -42,10 +68,7 @@ export function useRenameChatMutation() {
 export function useDeleteChatMutation() {
   const queryClient = useQueryClient();
   return useMutation(
-    ({ conversationId }: { conversationId: string }) => {
-      store.deleteChat(conversationId);
-      return Promise.resolve();
-    },
+    ({ conversationId }: { conversationId: string }) => deleteSession(conversationId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries([QueryKeys.chats]);
@@ -54,50 +77,32 @@ export function useDeleteChatMutation() {
   );
 }
 
-export function useCreateChatMutation() {
-  const queryClient = useQueryClient();
-  return useMutation(
-    ({ title }: { title: string }) => {
-      const chat = store.createChat(title);
-      return Promise.resolve(chat);
-    },
-    {
-      onSuccess: (chat: ChatRecord) => {
-        queryClient.invalidateQueries([QueryKeys.chats]);
-        return chat;
-      },
-    },
-  );
-}
-
 // ── Feedback (PRD story 22) ──────────────────────────────────────────────────
 
-import { setFeedback, type StoredFeedback } from './mock/feedbackStore';
-
+/** The narrowed payload — tag/text UI subtracted in B5c (reason chips are MVP3).
+ *  An absent `feedback` clears the stored rating (re-tap toggles). */
 type FeedbackPayload = {
-  feedback?: { rating: 'thumbsUp' | 'thumbsDown'; tag: string; text?: string };
+  feedback?: { rating: 'thumbsUp' | 'thumbsDown' };
 };
 
-type FeedbackResponse = {
-  feedback?: { rating: 'thumbsUp' | 'thumbsDown'; tag?: string | null; text?: string };
-};
+type FeedbackResponse = FeedbackPayload;
+
+function toWireRating(payload: FeedbackPayload): WireRating {
+  if (payload.feedback === undefined) {
+    return null;
+  }
+  return payload.feedback.rating === 'thumbsUp' ? 'up' : 'down';
+}
 
 /**
- * Mirrors upstream's data-provider hook of the same name, over the mock
- * feedback store (FE-7 swaps in POST .../messages/{id}/feedback). Upsert;
- * an absent `feedback` clears the stored rating (re-tap toggles).
+ * POST .../messages/{id}/feedback — upsert (`up`/`down`) or clear (`null`).
+ * Throws on a non-ok response so the optimistic thumb rolls back (honesty:
+ * never claim a feedback write that the backend rejected). Resolves with the
+ * same payload the caller sent, mapped back, so the UI can confirm state.
  */
 export function useUpdateFeedbackMutation(conversationId: string, messageId: string) {
-  return useMutation((payload: FeedbackPayload): Promise<FeedbackResponse> => {
-    const stored: StoredFeedback | undefined =
-      payload.feedback !== undefined
-        ? {
-            rating: payload.feedback.rating,
-            tag: payload.feedback.tag,
-            text: payload.feedback.text,
-          }
-        : undefined;
-    setFeedback(conversationId, messageId, stored);
-    return Promise.resolve({ feedback: payload.feedback });
+  return useMutation(async (payload: FeedbackPayload): Promise<FeedbackResponse> => {
+    await setFeedback(conversationId, messageId, toWireRating(payload));
+    return { feedback: payload.feedback };
   });
 }

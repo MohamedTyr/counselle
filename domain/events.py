@@ -13,7 +13,16 @@ from domain.specs import ClarifySpec, RenderSpec
 
 PROTOCOL_VERSION = 1
 
-EventType = Literal["meta", "delta", "viz", "clarify", "sources", "usage", "done", "error"]
+EventType = Literal[
+    "meta", "delta", "step", "thinking", "viz", "clarify", "sources", "usage", "done", "error"
+]
+
+StepStatus = Literal["start", "end", "error"]
+StepKind = Literal[
+    "db_tool", "sql", "web_search", "edu_search", "reddit_search", "viz", "skill", "research"
+]
+StepTier = Literal["official", "community"]
+DoneStatus = Literal["complete", "awaiting_input", "cancelled"]
 
 
 class Event(BaseModel):
@@ -25,15 +34,60 @@ class Event(BaseModel):
 
 
 class MetaData(BaseModel):
-    """First event of every stream: identifiers + the model in use."""
+    """First event of every stream: identifiers + the model in use.
+
+    ``message_id``/``user_message_id`` are the turn's G1 identity pair (ADR
+    0022): the assistant message being streamed and the user message that
+    started the turn — minted at turn start so the live stream is addressable
+    for feedback/edit. A clarify resume re-emits the parked turn's
+    ``message_id``.
+    """
 
     trace_id: str
     session_id: str
     model: str
+    message_id: str
+    user_message_id: str
 
 
 class DeltaData(BaseModel):
     """A chunk of prose (with inline citation markers)."""
+
+    text: str
+
+
+class StepDetail(BaseModel):
+    """Kind-specific receipt payload on a step's ``end``/``error`` (§27.1).
+
+    Carries queries, domains, counts, field keys — NEVER DSNs, credentials,
+    or payloads (house rule; tested). The ``sql`` kind's statement rides
+    ``query`` (radical transparency — B0 decision).
+    """
+
+    query: str | None = None
+    domains: list[str] | None = None
+    result_count: int | None = None
+    duration_ms: int | None = None
+    tool: str | None = None
+    field_keys: list[str] | None = None
+    row_count: int | None = None
+    viz_type: str | None = None
+    schools: list[str] | None = None
+
+
+class StepData(BaseModel):
+    """One unit of agent work: a start/end pair the activity timeline renders."""
+
+    step_id: str
+    status: StepStatus
+    kind: StepKind
+    label: str
+    tier: StepTier | None
+    detail: StepDetail | None = None
+
+
+class ThinkingData(BaseModel):
+    """A short reasoning line interleaved in the timeline (§27.2)."""
 
     text: str
 
@@ -62,9 +116,9 @@ class UsageData(BaseModel):
 
 
 class DoneData(BaseModel):
-    """Terminal event: the turn completed or parked on a clarify question."""
+    """Terminal event: the turn completed, parked on a clarify, or was cancelled."""
 
-    status: Literal["complete", "awaiting_input"]
+    status: DoneStatus
 
 
 class ErrorData(BaseModel):
@@ -74,13 +128,34 @@ class ErrorData(BaseModel):
     trace_id: str
 
 
-def ev_meta(trace_id: str, session_id: str, model: str) -> Event:
-    meta = MetaData(trace_id=trace_id, session_id=session_id, model=model)
+def ev_meta(
+    trace_id: str, session_id: str, model: str, message_id: str, user_message_id: str
+) -> Event:
+    meta = MetaData(
+        trace_id=trace_id,
+        session_id=session_id,
+        model=model,
+        message_id=message_id,
+        user_message_id=user_message_id,
+    )
     return Event(type="meta", data=meta.model_dump())
 
 
 def ev_delta(text: str) -> Event:
     return Event(type="delta", data=DeltaData(text=text).model_dump())
+
+
+def ev_step(step: StepData) -> Event:
+    data = step.model_dump()
+    if data["detail"] is not None:
+        # detail's unset fields are dropped (FE optionals are `?:`, not null);
+        # top-level tier/detail stay explicit nulls (required-but-nullable).
+        data["detail"] = {k: v for k, v in data["detail"].items() if v is not None}
+    return Event(type="step", data=data)
+
+
+def ev_thinking(text: str) -> Event:
+    return Event(type="thinking", data=ThinkingData(text=text).model_dump())
 
 
 def ev_viz(spec: RenderSpec) -> Event:
@@ -99,7 +174,7 @@ def ev_usage(usage: UsageData) -> Event:
     return Event(type="usage", data=usage.model_dump())
 
 
-def ev_done(status: Literal["complete", "awaiting_input"]) -> Event:
+def ev_done(status: DoneStatus) -> Event:
     return Event(type="done", data=DoneData(status=status).model_dump())
 
 

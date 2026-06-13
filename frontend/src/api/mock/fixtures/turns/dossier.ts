@@ -6,7 +6,14 @@
  * Events follow architecture.md §27 verbatim; FE-7 reconciles against the
  * backend's exported fixtures.
  */
-import type { CitationEnvelope, ProtocolEvent, RenderSpec, SourceEntry } from '@/api/protocol';
+import type {
+  CitationEnvelope,
+  ProtocolEvent,
+  RenderSpec,
+  SourceEntry,
+  SourceName,
+  Tier,
+} from '@/api/protocol';
 import { deltas } from './deltas';
 
 const NYU = { unitid: 193900, name: 'New York University' };
@@ -17,8 +24,8 @@ type CellOpts = {
   available?: boolean;
   caveat?: string | null;
   unit?: string | null;
-  source?: string;
-  tier?: string;
+  source?: SourceName;
+  tier?: Tier;
   vintage?: string;
 };
 
@@ -39,7 +46,7 @@ function cell(
     unit: opts.unit ?? null,
     citation: {
       source: opts.source ?? 'cds',
-      tier: opts.tier ?? 'cds',
+      tier: opts.tier ?? 'official',
       vintage: opts.vintage ?? 'CDS 2025-26',
       caveat: opts.caveat ?? null,
       raw_table: 'cds_c',
@@ -67,7 +74,7 @@ const STAT_BLOCK: RenderSpec = {
           unit: 'percent',
           citation: {
             source: 'cds',
-            tier: 'cds',
+            tier: 'official',
             vintage: 'CDS 2025-26 (C1)',
             caveat: null,
             raw_table: 'cds_c',
@@ -89,7 +96,7 @@ const STAT_BLOCK: RenderSpec = {
           unit: 'count',
           citation: {
             source: 'cds',
-            tier: 'cds',
+            tier: 'official',
             vintage: 'CDS 2025-26 (C1)',
             caveat: null,
             raw_table: 'cds_c',
@@ -111,7 +118,7 @@ const STAT_BLOCK: RenderSpec = {
           unit: null,
           citation: {
             source: 'cds',
-            tier: 'cds',
+            tier: 'official',
             vintage: 'CDS 2025-26 (C9)',
             caveat: 'Submitters only — NYU is test-optional.',
             raw_table: 'cds_c',
@@ -133,7 +140,7 @@ const STAT_BLOCK: RenderSpec = {
           unit: 'percent',
           citation: {
             source: 'cds',
-            tier: 'cds',
+            tier: 'official',
             vintage: 'CDS 2025-26',
             caveat: 'Not reported in the latest CDS.',
             raw_table: 'cds_c',
@@ -209,7 +216,7 @@ const COMPARISON: RenderSpec = {
         cell('adm.yield_rate', 'Yield', '48%', 0.48, {
           unit: 'percent',
           source: 'ipeds',
-          tier: 'ipeds',
+          tier: 'official',
           vintage: 'IPEDS 2024-25 (provisional)',
         }),
         cell('adm.yield_rate', 'Yield', 'not available', null, {
@@ -229,7 +236,7 @@ const SOURCES: SourceEntry[] = [
     label: 'NYU Common Data Set 2025-26',
     citation: {
       source: 'cds',
-      tier: 'cds',
+      tier: 'official',
       vintage: 'CDS 2025-26',
       caveat: null,
       raw_table: 'cds_c',
@@ -241,7 +248,7 @@ const SOURCES: SourceEntry[] = [
     label: 'IPEDS Admissions 2024-25',
     citation: {
       source: 'ipeds',
-      tier: 'ipeds',
+      tier: 'official',
       vintage: 'IPEDS 2024-25 (provisional)',
       caveat: null,
       raw_table: 'adm',
@@ -253,7 +260,7 @@ const SOURCES: SourceEntry[] = [
     label: 'nyu.edu — First-Year Application Deadlines',
     citation: {
       source: 'edu',
-      tier: 'edu',
+      tier: 'official',
       vintage: 'fetched 2026-06-11',
       caveat: null,
       raw_table: null,
@@ -265,7 +272,7 @@ const SOURCES: SourceEntry[] = [
     label: 'r/ApplyingToCollege — NYU CAS vs Stern admit threads',
     citation: {
       source: 'reddit',
-      tier: 'reddit',
+      tier: 'community',
       vintage: 'fetched 2026-06-11',
       caveat: 'Community anecdotes — not official data.',
       raw_table: null,
@@ -331,7 +338,13 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
   {
     v: 1,
     type: 'meta',
-    data: { trace_id: 'mock-trace-dossier', session_id: 'mock', model: 'gemini-2.5-pro' },
+    data: {
+      trace_id: 'mock-trace-dossier',
+      session_id: 'mock',
+      model: 'gemini-2.5-pro',
+      message_id: 'mock-msg-dossier',
+      user_message_id: 'mock-umsg-dossier',
+    },
   },
   {
     v: 1,

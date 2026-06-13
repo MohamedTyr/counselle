@@ -4,18 +4,18 @@ Phase 5 Slice B implementation (phase-5-api.md Slice B route table).
 
 ``/v1/admin/reconcile``
 -----------------------
-This endpoint is **dev-only and unauthenticated** in MVP1.  It runs the full
-field-index reconciliation immediately, returning the summary dict.  In a
-multi-tenant deployment this would require admin auth; for now a comment
-documents the intent (ADR 0016, ARCHITECTURE §23).
+**Superuser-only (B3).**  It runs the full field-index reconciliation
+immediately (paid Vertex embedding work), returning the summary dict, and is
+gated behind ``current_superuser`` (ADR 0016, ARCHITECTURE §23). ``/v1/health``
+stays open for uptime checks.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from config.settings import get_settings, load_yaml_asset
+from api.auth import current_superuser
 from counselle_db.reconcile import reconcile_field_index
 
 APP_VERSION = "0.1.0"
@@ -74,35 +74,13 @@ async def health(request: Request) -> JSONResponse:
     )
 
 
-@router.get("/meta/sources")
-async def meta_sources() -> JSONResponse:
-    """Return the subreddit menu + source defaults for the dev harness dropdown.
-
-    Loads ``config/assets/subreddit_menu.yaml`` and the source defaults from
-    settings.  The ``{school}`` template entry is included as-is so the client
-    can filter it if desired.
-    """
-    settings = get_settings()
-    menu = load_yaml_asset("subreddit_menu")
-    subreddits = [{"sub": entry["sub"], "label": entry["label"]} for entry in (menu or [])]
-    return JSONResponse(
-        content={
-            "subreddits": subreddits,
-            "defaults": {
-                "web": settings.source_web_default,
-                "reddit": settings.source_reddit_default,
-                "edu": settings.source_edu_default,
-            },
-        }
-    )
-
-
-@router.post("/admin/reconcile")
+@router.post("/admin/reconcile", dependencies=[Depends(current_superuser)])
 async def admin_reconcile(request: Request) -> JSONResponse:
     """Trigger an immediate field-index reconciliation pass.
 
-    **Dev-only / unauthenticated in MVP1.**  A production deployment must add
-    admin auth before exposing this to the internet (ADR 0016, ARCHITECTURE §23).
+    **Superuser-only (B3):** it kicks off paid Vertex embedding work, so it is
+    gated behind ``current_superuser`` — a non-superuser (or unauthenticated)
+    caller gets 401/403 (ADR 0016, ARCHITECTURE §23).
 
     Returns the reconcile summary dict from :func:`reconcile_field_index`.
     """

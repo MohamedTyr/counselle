@@ -2,8 +2,9 @@
 // Subtractions: BookmarkNav, FavoritesList, ProjectsSection, useTitleGeneration (mock store titles),
 //   useHasAccess, useAuthContext, useConversationsInfiniteQuery (→ useChatsQuery),
 //   search state from Recoil (→ local state), isTyping/isSearching logic simplified.
-// Rewire: conversations from @/api mock hooks; search query → local atom;
+// Rewire: conversations from @/api hooks (real GET /v1/sessions, B5c); search query → local atom;
 //   sidebarExpanded → jotai; TConversation shape adapted from ChatRecord.
+//   B5c: activeJobIds derived from is_generating and passed to Conversations (per-row indicator).
 import { useCallback, useState, useMemo, memo, useRef } from 'react';
 import { useSetAtom } from 'jotai';
 import { useMediaQuery } from '@librechat/client';
@@ -25,6 +26,13 @@ const ConversationsSection = memo(() => {
   const conversationsRef = useRef<List | null>(null);
 
   const { data: chatRecords = [], isLoading } = useChatsQuery();
+
+  /** B5c: the set of session ids with a live turn (is_generating) → the per-row
+   *  generating indicator. */
+  const activeJobIds = useMemo(
+    () => new Set(chatRecords.filter((c) => c.isGenerating).map((c) => c.conversationId)),
+    [chatRecords],
+  );
 
   /** Map our ChatRecord shape to TConversation so vendored Conversations component is unmodified. */
   const conversations = useMemo((): TConversation[] => {
@@ -77,6 +85,7 @@ const ConversationsSection = memo(() => {
           isChatsExpanded={isChatsExpanded}
           setIsChatsExpanded={setIsChatsExpanded}
           showFavorites={false}
+          activeJobIds={activeJobIds}
         />
       </div>
     </div>

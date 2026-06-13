@@ -1,6 +1,6 @@
 # ADR 0020 — MVP2 frontend: LibreChat-cloned design system & components on React/Vite/Tailwind
 
-**Status:** Draft (MVP2 architecture pass, 2026-06-11 — moves to `docs/adr/` as Accepted when the build starts)
+**Status:** Accepted (2026-06-12; drafted in the MVP2 architecture pass, 2026-06-11)
 
 ## Context
 MVP2 needs a ChatGPT-grade web app (PRD-mvp2). Designing a chat product's design system and commodity components (sidebar, composer, message rendering, settings) from scratch is the highest-risk, lowest-differentiation work in the project. The product decision: clone the look of LibreChat — an MIT-licensed, mature open-source chat UI — exactly (colors, fonts, spacing, components), but recomposed for our product ("a house from the castle's bricks"). Counselle's differentiating surfaces (activity timeline, cited cards, clarify widget) don't exist in LibreChat and must be built.

@@ -12,6 +12,7 @@ import * as Popover from '@radix-ui/react-popover';
 import { ExternalLink } from 'lucide-react';
 import { cn } from '@librechat/client/utils';
 import type { Citation } from '@/api/protocol';
+import { isSafeUrl } from '@/api/url';
 
 interface CitationPopoverProps {
   citation: Citation;
@@ -44,7 +45,7 @@ export default function CitationPopover({ citation, children }: CitationPopoverP
           {citation.caveat != null && citation.caveat !== '' && (
             <span className="mt-1.5 text-xs italic text-text-secondary">{citation.caveat}</span>
           )}
-          {citation.url != null && citation.url !== '' && (
+          {isSafeUrl(citation.url) && (
             <a
               href={citation.url}
               target="_blank"

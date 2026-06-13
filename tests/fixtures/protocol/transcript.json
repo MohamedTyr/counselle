@@ -1,0 +1,260 @@
+{
+  "transcript": [
+    {
+      "role": "user",
+      "text": "Tell me about Duke",
+      "ts": "2026-01-01T00:00:00+00:00",
+      "message_id": "id-1"
+    },
+    {
+      "role": "assistant",
+      "text": "Duke's housing is consistently well reviewed by students [1]. The acceptance-rate snapshot above puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper.",
+      "ts": "2026-01-01T00:00:00+00:00",
+      "message_id": "id-2",
+      "parts": [
+        {
+          "type": "viz",
+          "spec": {
+            "v": 1,
+            "type": "stat_block",
+            "title": "Duke University at a glance",
+            "schools": [
+              {
+                "unitid": 198419,
+                "name": "Duke University"
+              }
+            ],
+            "rows": [
+              {
+                "label": "Acceptance rate",
+                "cells": [
+                  {
+                    "v": 1,
+                    "field": "admissions.acceptance_rate",
+                    "label": "Acceptance rate",
+                    "display": "6.8%",
+                    "raw": 0.068,
+                    "available": true,
+                    "unit": "percent",
+                    "citation": {
+                      "source": "ipeds",
+                      "tier": "official",
+                      "vintage": "IPEDS 2024-25 (provisional)",
+                      "caveat": null,
+                      "raw_table": "adm",
+                      "url": null
+                    }
+                  }
+                ]
+              }
+            ],
+            "band": null
+          }
+        },
+        {
+          "type": "text",
+          "text": "Duke's housing is consistently well reviewed by students [1]. The acceptance-rate snapshot above puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper."
+        }
+      ],
+      "step_record": {
+        "steps": [
+          {
+            "step_id": "id-3",
+            "status": "end",
+            "kind": "web_search",
+            "label": "Searching the web: \u201cDuke University dorms\u201d",
+            "tier": null,
+            "detail": {
+              "query": "Duke University dorms",
+              "domains": [
+                "example.com"
+              ],
+              "result_count": 1,
+              "duration_ms": 0
+            }
+          },
+          {
+            "step_id": "id-4",
+            "status": "end",
+            "kind": "viz",
+            "label": "Building a stat card",
+            "tier": null,
+            "detail": {
+              "duration_ms": 0,
+              "viz_type": "stat_block",
+              "schools": []
+            }
+          }
+        ],
+        "thinking": [
+          "Let me look at Duke's housing first."
+        ],
+        "receipt": "1 web search \u00b7 1 visualization"
+      },
+      "sources": [
+        {
+          "index": 1,
+          "citation": {
+            "source": "web",
+            "tier": "community",
+            "vintage": "Retrieved Jun 10, 2026 (live web)",
+            "caveat": "General web source \u2014 verify on the school's official site.",
+            "raw_table": null,
+            "url": "https://example.com/1"
+          },
+          "label": "Result 1"
+        },
+        {
+          "index": 2,
+          "citation": {
+            "source": "ipeds",
+            "tier": "official",
+            "vintage": "IPEDS 2024-25 (provisional)",
+            "caveat": null,
+            "raw_table": "adm",
+            "url": null
+          },
+          "label": "IPEDS 2024-25 (provisional)"
+        }
+      ],
+      "status": "complete",
+      "usage": {
+        "input_tokens": 150,
+        "output_tokens": 61,
+        "est_cost_usd": null,
+        "tool_calls": 2
+      }
+    },
+    {
+      "role": "user",
+      "text": "Is it right for me?",
+      "ts": null
+    },
+    {
+      "role": "user",
+      "text": "Cost",
+      "ts": "2026-01-01T00:00:00+00:00",
+      "message_id": "id-5",
+      "synthesized": true
+    },
+    {
+      "role": "assistant",
+      "text": "Focusing on Cost, then.",
+      "ts": "2026-01-01T00:00:00+00:00",
+      "message_id": "id-6",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Focusing on Cost, then."
+        }
+      ],
+      "step_record": {
+        "steps": [],
+        "thinking": [],
+        "receipt": ""
+      },
+      "sources": [
+        {
+          "index": 1,
+          "citation": {
+            "source": "web",
+            "tier": "community",
+            "vintage": "Retrieved Jun 10, 2026 (live web)",
+            "caveat": "General web source \u2014 verify on the school's official site.",
+            "raw_table": null,
+            "url": "https://example.com/1"
+          },
+          "label": "Result 1"
+        },
+        {
+          "index": 2,
+          "citation": {
+            "source": "ipeds",
+            "tier": "official",
+            "vintage": "IPEDS 2024-25 (provisional)",
+            "caveat": null,
+            "raw_table": "adm",
+            "url": null
+          },
+          "label": "IPEDS 2024-25 (provisional)"
+        }
+      ],
+      "status": "complete",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 32,
+        "est_cost_usd": null,
+        "tool_calls": 1
+      },
+      "clarify": {
+        "spec": {
+          "v": 1,
+          "question": "What matters most to you?",
+          "header": "Pick one",
+          "multi_select": false,
+          "options": [
+            {
+              "label": "Cost",
+              "hint": "affordability and aid"
+            },
+            {
+              "label": "Academics",
+              "hint": "programs and rigor"
+            }
+          ]
+        },
+        "answer": "Cost"
+      }
+    },
+    {
+      "role": "user",
+      "text": "What does it cost?",
+      "ts": "2026-01-01T00:00:00+00:00",
+      "message_id": "id-7"
+    },
+    {
+      "role": "assistant",
+      "text": "Cost-wise, Duke meets full demonstrated need for every admitted student, and around half the class receives some form of aid. The sticker price looks intimidating, but the net price for aided families is dramatically lower, and there are no loans in the aid packages for families under the income thresholds.",
+      "ts": "2026-01-01T00:00:00+00:00",
+      "message_id": "id-8",
+      "parts": [
+        {
+          "type": "text",
+          "text": "Cost-wise, Duke meets full demonstrated need for every admitted student, and around half the class receives some form of aid. The sticker price looks intimidating, but the net price for aided families is dramatically lower, and there are no loans in the aid packages for families under the income thresholds."
+        }
+      ],
+      "step_record": {
+        "steps": [],
+        "thinking": [],
+        "receipt": ""
+      },
+      "sources": [
+        {
+          "index": 1,
+          "citation": {
+            "source": "web",
+            "tier": "community",
+            "vintage": "Retrieved Jun 10, 2026 (live web)",
+            "caveat": "General web source \u2014 verify on the school's official site.",
+            "raw_table": null,
+            "url": "https://example.com/1"
+          },
+          "label": "Result 1"
+        },
+        {
+          "index": 2,
+          "citation": {
+            "source": "ipeds",
+            "tier": "official",
+            "vintage": "IPEDS 2024-25 (provisional)",
+            "caveat": null,
+            "raw_table": "adm",
+            "url": null
+          },
+          "label": "IPEDS 2024-25 (provisional)"
+        }
+      ],
+      "status": "cancelled"
+    }
+  ]
+}

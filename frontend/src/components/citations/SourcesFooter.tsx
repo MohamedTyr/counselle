@@ -2,14 +2,15 @@
  * SourcesFooter — the grouped sources footer for a completed answer
  * (PRD story 21).
  *
- * Official block (tier !== 'reddit') and community block (tier === 'reddit'),
+ * Official block (tier === 'official') and community block (tier === 'community'),
  * each entry: index chip + source name + vintage, wrapped in the citation
  * popover; url entries link out. The community label is permanent product
  * copy (PRD story 34's voice rule).
  */
 import type { SourceEntry } from '@/api/protocol';
+import { isSafeUrl } from '@/api/url';
 import CitationPopover from '@/components/citations/CitationPopover';
-import TierChip, { isCommunityTier } from '@/components/citations/TierChip';
+import TierChip, { isCommunityTier, tierLabel } from '@/components/citations/TierChip';
 
 function SourceRow({ entry }: { entry: SourceEntry }) {
   const { citation } = entry;
@@ -17,12 +18,15 @@ function SourceRow({ entry }: { entry: SourceEntry }) {
     <li className="flex items-baseline gap-1.5 py-0.5">
       {/* The chip is the popover trigger — name/link stay separately tappable. */}
       <CitationPopover citation={citation}>
-        <TierChip tier={citation.tier} aria-label={`Citation ${entry.index}: ${citation.source}`}>
+        <TierChip
+          tier={citation.tier}
+          aria-label={`Citation ${entry.index}: ${tierLabel(citation.source)}`}
+        >
           {entry.index}
         </TierChip>
       </CitationPopover>
       <span className="text-xs text-text-primary">
-        {citation.url != null && citation.url !== '' ? (
+        {isSafeUrl(citation.url) ? (
           <a
             href={citation.url}
             target="_blank"
@@ -58,12 +62,23 @@ function SourceGroup({ label, entries }: { label: string; entries: SourceEntry[]
   );
 }
 
-export default function SourcesFooter({ sources }: { sources: SourceEntry[] }) {
-  if (sources.length === 0) {
+type SourcesFooterProps = {
+  sources: SourceEntry[];
+  /** The marker indexes cited in THIS message's prose (wire-contract §5,
+   *  PINNED). The footer shows only these — never a source the message didn't
+   *  cite. Viz cells contribute nothing (cards carry their own popovers). When
+   *  omitted, the full list shows (callers that don't scan prose). */
+  citedIndexes?: Set<number>;
+};
+
+export default function SourcesFooter({ sources, citedIndexes }: SourcesFooterProps) {
+  const cited =
+    citedIndexes !== undefined ? sources.filter((s) => citedIndexes.has(s.index)) : sources;
+  if (cited.length === 0) {
     return null;
   }
-  const official = sources.filter((s) => !isCommunityTier(s.citation.tier));
-  const community = sources.filter((s) => isCommunityTier(s.citation.tier));
+  const official = cited.filter((s) => !isCommunityTier(s.citation.tier));
+  const community = cited.filter((s) => isCommunityTier(s.citation.tier));
 
   return (
     <div className="not-prose mt-3 border-t border-border-light pt-3">

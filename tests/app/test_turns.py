@@ -1,0 +1,850 @@
+"""Unit tests for the turn registry (B2 — app/turns.py). No DB, no LLM.
+
+Rig: the test_run_turn pattern — memory checkpointer, FunctionModel through
+the ``AppDeps.model_factory`` seam, fake asyncpg pool — with a
+:class:`TurnRegistry` constructed over the rig's graph/deps/settings.
+
+Covered (ship-plan §B2's exhaustive list):
+- disconnect survival + identical replay across consumers (incl. enriched usage)
+- exact replay from Last-Event-ID (mid-stream reconnect)
+- double-send → StreamActive (the 409); awaiting_input releases the lock
+- cancel: partial persisted + single-shot done(cancelled); idle no-op;
+  cancel-on-parked unpark; cancel-before-prose (empty-partial rule)
+- watchdog timeout → error, never done(cancelled)
+- buffer fall-off → error event; eviction → NoActiveTurn
+- the G3 history rewrite (slice, registry restore, ghost-free transcript,
+  parked-edit, InvalidEditTarget on unknown/pre-MVP2/synthesized targets)
+- shutdown drain; parked-interrupt durability
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import AsyncIterator, Callable
+from typing import Any
+from uuid import uuid4
+
+import pytest
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
+
+import app.agent_node
+import app.graph
+from app.records import prose_of
+from app.state import TemporalContext
+from app.transcript import extract_transcript
+from app.turns import (
+    InvalidEditTarget,
+    NoActiveTurn,
+    StreamActive,
+    TooManyConsumers,
+    TooManyTurns,
+    TurnRegistry,
+)
+from domain.events import Event
+from domain.specs import SourceConfig
+from tests.app.test_run_turn import (
+    _ALL_OFF,
+    _TEMPORAL,
+    _WEB_ONLY,
+    FakeSettings,
+    Rig,
+    _clarify_then_answer,
+    _fn_model,
+    _search_then_answer,
+)
+
+# A first chunk that crosses the thinking threshold (240 chars) so prose
+# streams live as deltas before any gate.
+_LONG_CHUNK = "Duke University's residential experience is widely praised by students. " * 5
+
+
+@pytest.fixture(autouse=True)
+def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No DB in prepare, no asset loading in the prompt builder."""
+
+    async def fake_temporal(catalog: Any, today: Any = None) -> TemporalContext:
+        return _TEMPORAL
+
+    monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
+    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda ctx: "Test counselor.")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _registry(rig: Rig) -> TurnRegistry:
+    return TurnRegistry(deps=rig.deps, graph=rig.graph, settings=rig.settings)
+
+
+def _gated_model(gate: asyncio.Event, *chunks_before: str, after: str = "") -> FunctionModel:
+    """A streaming model: yields *chunks_before*, parks on *gate*, then *after*."""
+
+    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[TextPart("".join(chunks_before) + after)])
+
+    async def stream(messages: Any, info: AgentInfo) -> AsyncIterator[str]:
+        for chunk in chunks_before:
+            yield chunk
+        await gate.wait()
+        if after:
+            yield after
+
+    return FunctionModel(fn, stream_function=stream)
+
+
+class Collector:
+    """Drains an attach handle in the background; wakes on the first delta."""
+
+    def __init__(self, stream: AsyncIterator[tuple[Event, int]]) -> None:
+        self.items: list[tuple[Event, int]] = []
+        self.first_delta = asyncio.Event()
+        self.task = asyncio.create_task(self._run(stream))
+
+    async def _run(self, stream: AsyncIterator[tuple[Event, int]]) -> None:
+        async for event, seq in stream:
+            self.items.append((event, seq))
+            if event.type == "delta":
+                self.first_delta.set()
+
+    async def done(self) -> list[tuple[Event, int]]:
+        await self.task
+        return self.items
+
+    def types(self) -> list[str]:
+        return [event.type for event, _ in self.items]
+
+
+async def _eventually(condition: Callable[[], bool], timeout: float = 3.0) -> None:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while not condition():
+        if asyncio.get_running_loop().time() > deadline:
+            raise AssertionError("condition never became true")
+        await asyncio.sleep(0.01)
+
+
+async def _drain(stream: AsyncIterator[tuple[Event, int]]) -> list[tuple[Event, int]]:
+    return [pair async for pair in stream]
+
+
+async def _run_full_turn(
+    registry: TurnRegistry,
+    session_id: str,
+    text: str,
+    config: SourceConfig = _ALL_OFF,
+    **kwargs: Any,
+) -> list[tuple[Event, int]]:
+    handle = await registry.start(session_id, text, config, **kwargs)
+    return await _drain(handle)
+
+
+async def _state_values(rig: Rig, session_id: str) -> dict[str, Any]:
+    snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    return dict(snapshot.values)
+
+
+def _events(pairs: list[tuple[Event, int]]) -> list[Event]:
+    return [event for event, _ in pairs]
+
+
+def _prose(pairs: list[tuple[Event, int]]) -> str:
+    return "".join(e.data["text"] for e in _events(pairs) if e.type == "delta")
+
+
+# ---------------------------------------------------------------------------
+# Disconnect survival + replay identity
+# ---------------------------------------------------------------------------
+
+
+async def test_disconnect_survival_second_consumer_replays_identically() -> None:
+    gate = asyncio.Event()
+    rig = Rig(_gated_model(gate, _LONG_CHUNK, after=" The dorms are great."))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    first = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(first.first_delta.wait(), timeout=3)
+
+    # The first consumer "disconnects" — the detached turn keeps running.
+    first.task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first.task
+    assert registry.is_generating(session_id) is True
+
+    second = registry.attach(session_id)
+    gate.set()
+    pairs = await _drain(second)
+
+    types = [event.type for event, _ in pairs]
+    assert types[0] == "meta"
+    assert types[-1] == "done"
+    assert pairs[-1][0].data["status"] == "complete"
+    # Full prose despite the first consumer's death; seqs contiguous from 0.
+    assert "The dorms are great." in _prose(pairs)
+    assert [seq for _, seq in pairs] == list(range(len(pairs)))
+    # The first consumer's prefix is byte-identical to the replay's prefix —
+    # incl. the enriched usage event (enrichment is buffer-owned, not per-consumer).
+    assert first.items == pairs[: len(first.items)]
+    usage = next(e for e, _ in pairs if e.type == "usage")
+    assert "est_cost_usd" in usage.data
+    # Eviction at terminal: the registry forgot the turn.
+    assert registry.is_generating(session_id) is False
+
+
+async def test_exact_replay_from_last_event_id_mid_stream() -> None:
+    gate = asyncio.Event()
+    rig = Rig(_gated_model(gate, _LONG_CHUNK, after=" More."))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    first = Collector(await registry.start(session_id, "hi", _ALL_OFF))
+    await asyncio.wait_for(first.first_delta.wait(), timeout=3)
+    seen = len(first.items)
+    assert seen >= 2  # meta + ≥1 delta
+    last_seq = first.items[-1][1]
+
+    # Mid-stream reconnect with the cursor: only seq > last_seq arrives.
+    reattached = registry.attach(session_id, last_event_id=last_seq)
+    gate.set()
+    pairs = await _drain(reattached)
+
+    assert [seq for _, seq in pairs] == list(range(last_seq + 1, last_seq + 1 + len(pairs)))
+    full = await first.done()
+    assert full[seen:] == pairs[: len(full) - seen]
+
+
+# ---------------------------------------------------------------------------
+# Single-flight
+# ---------------------------------------------------------------------------
+
+
+async def test_double_send_raises_stream_active() -> None:
+    gate = asyncio.Event()
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    handle = await registry.start(session_id, "hi", _ALL_OFF)
+    try:
+        with pytest.raises(StreamActive):
+            await registry.start(session_id, "again", _ALL_OFF)
+    finally:
+        gate.set()
+        await _drain(handle)
+
+
+async def test_awaiting_input_releases_lock_for_the_answering_post() -> None:
+    rig = Rig(_fn_model(_clarify_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    pairs_1 = await _run_full_turn(registry, session_id, "Is NYU good?")
+    assert pairs_1[-1][0].data["status"] == "awaiting_input"
+    assert registry.is_generating(session_id) is False  # the lock released
+
+    # The answering POST is NOT 409'd and resumes to completion.
+    pairs_2 = await _run_full_turn(registry, session_id, "cost")
+    assert pairs_2[-1][0].data["status"] == "complete"
+    assert "Focusing on cost." in _prose(pairs_2)
+
+
+# ---------------------------------------------------------------------------
+# Cancel (G5)
+# ---------------------------------------------------------------------------
+
+
+async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None:
+    gate = asyncio.Event()  # never set — the model hangs mid-stream
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    outcome = await registry.cancel(session_id)
+    assert outcome == "cancelled"
+
+    pairs = await collector.done()
+    types = [e.type for e, _ in pairs]
+    # The single-shot terminal: exactly one done(cancelled), no error.
+    assert types.count("done") == 1
+    assert pairs[-1][0].data["status"] == "cancelled"
+    assert "error" not in types
+    streamed = _prose(pairs)
+    assert streamed  # prose crossed the threshold and streamed live
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "cancelled"
+    assert record["user_text"] == "duke dorms?"
+    assert prose_of(record["parts"]) == streamed
+    # The prose invariant: the partial ModelResponse carries exactly what streamed.
+    last = values["messages"][-1]
+    assert last["kind"] == "response"
+    assert "".join(
+        p.get("content", "") for p in last["parts"] if p.get("part_kind") == "text"
+    ) == streamed
+    assert registry.is_generating(session_id) is False
+
+
+async def test_cancel_after_done_is_idle_noop() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "duke dorms?", _WEB_ONLY)
+    records_before = (await _state_values(rig, session_id))["turn_records"]
+
+    assert await registry.cancel(session_id) == "idle"
+    # The no-op left the completed record alone.
+    assert (await _state_values(rig, session_id))["turn_records"] == records_before
+
+
+async def test_cancel_on_parked_unparks_and_freezes_clarify_unanswered() -> None:
+    rig = Rig(_fn_model(_clarify_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "Is NYU good?")
+
+    assert await registry.cancel(session_id) == "unparked"
+
+    snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    record = snapshot.values["turn_records"][-1]
+    # Frozen unanswered: status left awaiting_input, the answer stays null.
+    assert record["status"] == "cancelled"
+    assert record["clarify"]["answer"] is None
+    assert record["clarify"]["spec"]["question"] == "What matters most to you?"
+    # The interrupt is cleared (spike-1 mechanic b).
+    assert not any(task.interrupts for task in snapshot.tasks)
+
+    # The next plain message runs a FRESH turn (it would have been swallowed
+    # as a clarify answer otherwise): the model asks its clarify again.
+    pairs = await _run_full_turn(registry, session_id, "Is Duke good?")
+    types = [e.type for e, _ in pairs]
+    assert "clarify" in types
+    assert pairs[-1][0].data["status"] == "awaiting_input"
+    values = await _state_values(rig, session_id)
+    assert values["turn_records"][-1]["user_text"] == "Is Duke good?"
+
+
+async def test_cancel_before_prose_skips_the_model_response_append() -> None:
+    gate = asyncio.Event()  # the model hangs before yielding anything
+    rig = Rig(_gated_model(gate))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "hi", _ALL_OFF))
+    await _eventually(lambda: len(collector.items) >= 1)  # meta arrived
+
+    assert await registry.cancel(session_id) == "cancelled"
+    pairs = await collector.done()
+    assert pairs[-1][0].data["status"] == "cancelled"
+
+    values = await _state_values(rig, session_id)
+    # Empty-partial rule: no prose streamed → no ModelResponse append.
+    assert all(m["kind"] == "request" for m in values["messages"])
+    record = values["turn_records"][-1]
+    assert record["status"] == "cancelled"
+    assert record["parts"] == []
+    assert record["user_text"] == "hi"
+
+
+async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
+    """Cancel during a clarify RESUME: the parked record is replaced (same
+    message_id) with the answer frozen into clarify.answer."""
+    rig = Rig(_fn_model(_clarify_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    pairs_1 = await _run_full_turn(registry, session_id, "Is NYU good?")
+    meta_1 = pairs_1[0][0].data
+    parked = (await _state_values(rig, session_id))["turn_records"][-1]
+    assert parked["status"] == "awaiting_input"
+
+    # Resume with a model that hangs mid-resume: swap the registry's rig model
+    # by hanging the answering response.
+    gate = asyncio.Event()
+
+    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return _clarify_then_answer(messages, info)
+
+    async def stream(messages: Any, info: AgentInfo) -> AsyncIterator[str]:
+        await gate.wait()
+        yield "never"
+
+    rig.deps.model_factory = lambda: FunctionModel(fn, stream_function=stream)
+
+    collector = Collector(await registry.start(session_id, "cost", _ALL_OFF))
+    await _eventually(lambda: len(collector.items) >= 1)  # meta (reused id)
+    assert collector.items[0][0].data["message_id"] == meta_1["message_id"]
+
+    assert await registry.cancel(session_id) == "cancelled"
+    await collector.done()
+
+    records = (await _state_values(rig, session_id))["turn_records"]
+    assert len(records) == 1  # replaced, not appended
+    record = records[0]
+    assert record["status"] == "cancelled"
+    assert record["message_id"] == meta_1["message_id"]
+    assert record["clarify"]["answer"] == "cost"
+    assert record["synthesized_answer"] is True
+    assert record["user_text"] == "Is NYU good?"
+
+
+# ---------------------------------------------------------------------------
+# Watchdog (G5: error, never done(cancelled))
+# ---------------------------------------------------------------------------
+
+
+async def test_watchdog_timeout_terminates_with_error_not_cancelled() -> None:
+    gate = asyncio.Event()  # never set
+    settings = FakeSettings()
+    settings.turn_timeout_s = 0.1  # type: ignore[attr-defined]
+    rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    pairs = await _run_full_turn(registry, session_id, "hi")
+
+    types = [e.type for e, _ in pairs]
+    assert types[-1] == "error"
+    assert "done" not in types  # the student didn't press stop
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "error"
+    assert record["error"]["message"]
+    assert prose_of(record["parts"]) == _prose(pairs)
+    assert registry.is_generating(session_id) is False
+
+
+# ---------------------------------------------------------------------------
+# Buffer policy
+# ---------------------------------------------------------------------------
+
+
+async def test_consumer_falling_off_the_head_is_terminated_with_error() -> None:
+    gate = asyncio.Event()
+    chunks = [_LONG_CHUNK] + ["chunk " * 50 for _ in range(8)]
+    settings = FakeSettings()
+    settings.stream_buffer_size = 2  # type: ignore[attr-defined]
+    rig = Rig(_gated_model(gate, *chunks), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    handle = await registry.start(session_id, "hi", _ALL_OFF)
+    turn = registry._turns[session_id]
+    await _eventually(lambda: turn.buffer.base > 0)  # the head moved past seq 0
+
+    pairs = await _drain(handle)  # attached at seq 0 — already evicted
+    gate.set()
+
+    assert len(pairs) == 1
+    event, _ = pairs[0]
+    assert event.type == "error"
+    assert "fell behind" in event.data["message"]
+    # never a silent skip: nothing but the terminal error reached this consumer
+    await registry.cancel(session_id)
+
+
+async def test_attach_after_eviction_raises_no_active_turn() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "duke dorms?", _WEB_ONLY)
+
+    with pytest.raises(NoActiveTurn):
+        registry.attach(session_id)
+
+
+async def test_parked_turn_is_not_attachable_but_record_is_durable() -> None:
+    """Parked-interrupt durability: after done(awaiting_input) the task is
+    gone (attach → NoActiveTurn → 204 → transcript), and the transcript
+    carries the parked clarify record."""
+    rig = Rig(_fn_model(_clarify_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "Is NYU good?")
+
+    with pytest.raises(NoActiveTurn):
+        registry.attach(session_id)
+
+    values = await _state_values(rig, session_id)
+    transcript = extract_transcript(values["messages"], values["turn_records"])
+    assistant = transcript[-1]
+    assert assistant["status"] == "awaiting_input"
+    assert assistant["clarify"]["spec"]["question"] == "What matters most to you?"
+    assert assistant["clarify"]["answer"] is None
+
+
+# ---------------------------------------------------------------------------
+# The G3 history rewrite
+# ---------------------------------------------------------------------------
+
+_WEB = SourceConfig(web=True, reddit=False, edu=False)
+
+
+async def test_rewrite_slices_history_and_restores_the_source_registry() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "duke dorms?", _WEB)
+    pairs_2 = await _run_full_turn(registry, session_id, "and harvard?", _WEB)
+    target_user_id = pairs_2[0][0].data["user_message_id"]
+
+    values = await _state_values(rig, session_id)
+    assert len(values["turn_records"]) == 2
+    assert [s["index"] for s in values["source_registry"]] == [1, 2]
+    record_1 = values["turn_records"][0]
+
+    # Edit turn 2's question (regenerate = same mechanism, same text allowed).
+    pairs_3 = await _run_full_turn(
+        registry, session_id, "and yale?", _WEB, replace_message_id=target_user_id
+    )
+    assert pairs_3[-1][0].data["status"] == "complete"
+
+    values = await _state_values(rig, session_id)
+    records = values["turn_records"]
+    assert len(records) == 2
+    assert records[0] == record_1  # the surviving record untouched
+    assert records[1]["user_text"] == "and yale?"
+    # The registry was restored from record_1's snapshot, then the new turn
+    # appended its fresh source — index 2 is the NEW search, never index 3.
+    indexes = [s["index"] for s in values["source_registry"]]
+    assert indexes == [1, 2]
+    assert values["source_registry"][1]["citation"]["url"] == "https://example.com/3"
+
+    # Ghost-exchange-free transcript: "and harvard?" is gone everywhere.
+    transcript = extract_transcript(values["messages"], records)
+    texts = [entry["text"] for entry in transcript]
+    assert not any("harvard" in text for text in texts)
+    assert any("yale" in text for text in texts)
+    # And the provider history was sliced at the offset (no harvard request).
+    user_prompts = [
+        part.get("content")
+        for msg in values["messages"]
+        if msg.get("kind") == "request"
+        for part in msg.get("parts", [])
+        if part.get("part_kind") == "user-prompt"
+    ]
+    assert "and harvard?" not in user_prompts
+
+
+async def test_rewrite_of_the_first_message_restores_an_empty_registry() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    pairs_1 = await _run_full_turn(registry, session_id, "duke dorms?", _WEB)
+    first_user_id = pairs_1[0][0].data["user_message_id"]
+
+    await _run_full_turn(
+        registry, session_id, "nyu dorms?", _WEB, replace_message_id=first_user_id
+    )
+
+    values = await _state_values(rig, session_id)
+    assert len(values["turn_records"]) == 1
+    assert values["turn_records"][0]["user_text"] == "nyu dorms?"
+    # No surviving record → empty restore; the new turn minted index 1 fresh.
+    assert [s["index"] for s in values["source_registry"]] == [1]
+
+
+async def test_parked_edit_clears_the_interrupt_and_runs_fresh() -> None:
+    rig = Rig(_fn_model(_clarify_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    pairs_1 = await _run_full_turn(registry, session_id, "Is NYU good?")
+    parked_user_id = pairs_1[0][0].data["user_message_id"]
+
+    # Edit the parked turn's own question — the rewrite must unpark (G4).
+    pairs_2 = await _run_full_turn(
+        registry, session_id, "Is Duke good?", replace_message_id=parked_user_id
+    )
+
+    # The new text ran as a FRESH question (parks on its own clarify), not as
+    # the old clarify's answer.
+    assert "clarify" in [e.type for e, _ in pairs_2]
+    values = await _state_values(rig, session_id)
+    records = values["turn_records"]
+    assert len(records) == 1
+    assert records[0]["user_text"] == "Is Duke good?"
+    snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    # Parked again on the NEW turn's clarify — but only one parked record.
+    assert records[0]["status"] == "awaiting_input"
+    assert snapshot is not None
+
+
+async def test_rewrite_unknown_target_raises_invalid_edit_target() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "duke dorms?", _WEB)
+    before = await _state_values(rig, session_id)
+
+    with pytest.raises(InvalidEditTarget):
+        await registry.start(
+            session_id, "edited", _WEB, replace_message_id=str(uuid4())
+        )
+    # The claim was released and the thread untouched.
+    assert registry.is_generating(session_id) is False
+    assert await _state_values(rig, session_id) == before
+
+
+async def test_rewrite_pre_mvp2_history_raises_invalid_edit_target() -> None:
+    """A pre-MVP2 thread (messages, no turn records) has no edit targets."""
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    # Simulate a pre-MVP2 thread: serialized messages, zero turn records.
+    await rig.graph.aupdate_state(
+        {"configurable": {"thread_id": session_id}},
+        {
+            "messages": [
+                {
+                    "kind": "request",
+                    "parts": [{"part_kind": "user-prompt", "content": "old question"}],
+                },
+                {
+                    "kind": "response",
+                    "parts": [{"part_kind": "text", "content": "old answer"}],
+                },
+            ]
+        },
+    )
+
+    with pytest.raises(InvalidEditTarget):
+        await registry.start(session_id, "edited", _WEB, replace_message_id=str(uuid4()))
+    values = await _state_values(rig, session_id)
+    assert len(values["messages"]) == 2  # nothing sliced
+
+
+async def test_rewrite_synthesized_answer_bubble_raises_invalid_edit_target() -> None:
+    rig = Rig(_fn_model(_clarify_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "Is NYU good?")
+    await _run_full_turn(registry, session_id, "cost")  # the resume
+
+    record = (await _state_values(rig, session_id))["turn_records"][-1]
+    assert record["synthesized_answer"] is True
+
+    # The synthesized clarify-answer bubble carries the resume's
+    # user_message_id but is never an edit target (G4 — flag, not id-absence).
+    with pytest.raises(InvalidEditTarget):
+        await registry.start(
+            session_id, "edited", _ALL_OFF, replace_message_id=record["user_message_id"]
+        )
+    assert registry.is_generating(session_id) is False
+
+
+# ---------------------------------------------------------------------------
+# Shutdown drain
+# ---------------------------------------------------------------------------
+
+
+async def test_aclose_drains_in_flight_turns_and_lands_their_writes() -> None:
+    gate = asyncio.Event()  # never set — the turn would hang forever
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    await registry.aclose()
+
+    # The task is gone, the partial landed BEFORE aclose returned (so the
+    # caller can safely close the pools next), the stream terminated cleanly.
+    assert registry.is_generating(session_id) is False
+    pairs = await collector.done()
+    assert pairs[-1][0].data["status"] == "cancelled"
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "cancelled"
+    assert prose_of(record["parts"]) == _prose(pairs)
+
+
+async def test_aclose_with_a_live_turn_over_a_parked_session_drains_and_frees() -> None:
+    """Shutdown drain (aclose) is robust to a parked session coexisting with a
+    live turn: the live turn's partial lands and the parked session — once its
+    own cancel runs — is frozen `cancelled` with the interrupt cleared."""
+    # A parked session (task already gone, record durable).
+    rig = Rig(_fn_model(_clarify_then_answer))
+    registry = _registry(rig)
+    parked_sid = str(uuid4())
+    await _run_full_turn(registry, parked_sid, "Is NYU good?")  # parks
+
+    # Cancel-on-parked is the exact mechanism aclose runs per session: freeze
+    # the record cancelled, clear the interrupt.
+    assert await registry.cancel(parked_sid) == "unparked"
+    snap = await rig.graph.aget_state({"configurable": {"thread_id": parked_sid}})
+    frozen = snap.values["turn_records"][-1]
+    assert frozen["status"] == "cancelled"
+    assert frozen["clarify"]["answer"] is None
+    assert not any(task.interrupts for task in snap.tasks)
+
+    # Now a genuinely in-flight turn, drained by aclose itself.
+    gate = asyncio.Event()  # never set
+    rig2 = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry2 = _registry(rig2)
+    live_sid = str(uuid4())
+    collector = Collector(await registry2.start(live_sid, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    await registry2.aclose()  # drains the live turn; must not raise
+
+    assert registry2.is_generating(live_sid) is False
+    pairs = await collector.done()
+    assert pairs[-1][0].data["status"] == "cancelled"
+
+
+# ---------------------------------------------------------------------------
+# T1: external cancel still ends the stream with a terminal event (C1)
+# ---------------------------------------------------------------------------
+
+
+async def test_external_task_cancel_still_emits_terminal_error() -> None:
+    """A turn task cancelled EXTERNALLY (not via registry.cancel) must still end
+    the attached consumer's stream with a terminal `error` — never a silent
+    buffer close (the honesty contract)."""
+    gate = asyncio.Event()  # never set — the model hangs mid-stream
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    # Cancel the bare turn task directly — bypassing registry.cancel, so
+    # cancel_requested stays False (an abrupt shutdown cancelling the task).
+    turn = registry._turns[session_id]
+    assert turn.task is not None
+    turn.task.cancel()
+
+    pairs = await collector.done()
+    types = [e.type for e, _ in pairs]
+    assert types[-1] == "error"  # terminal event, not a silent close
+    assert "done" not in types  # our cancel path never ran
+
+
+# ---------------------------------------------------------------------------
+# T2: usage enrichment failure does not sink a correct turn (H1)
+# ---------------------------------------------------------------------------
+
+
+async def test_usage_enrichment_failure_passes_raw_usage_and_completes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When enrich_usage_event raises, the raw usage event passes through and
+    the stream still ends with `done` (a correct turn is never failed)."""
+    import app.turns as turns_module
+
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise TypeError("usage payload mismatch")
+
+    monkeypatch.setattr(turns_module, "enrich_usage_event", boom)
+
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    pairs = await _run_full_turn(registry, session_id, "duke dorms?", _WEB_ONLY)
+    types = [e.type for e, _ in pairs]
+    assert types[-1] == "done"
+    assert pairs[-1][0].data["status"] == "complete"
+    # The raw usage event still passed through (un-enriched, no est_cost_usd).
+    usage = next(e for e, _ in pairs if e.type == "usage")
+    assert "est_cost_usd" not in usage.data or usage.data.get("est_cost_usd") is None
+
+
+# ---------------------------------------------------------------------------
+# T3: fall-off error carries buffer.base - 1 as its seq (H3)
+# ---------------------------------------------------------------------------
+
+
+async def test_fall_off_error_seq_reflects_buffer_base_not_stale_position() -> None:
+    """A consumer that falls off the head gets an error whose seq is
+    `buffer.base - 1`, so a reconnecting client's cursor cleanly signals
+    'everything before here is gone'."""
+    gate = asyncio.Event()
+    chunks = [_LONG_CHUNK] + ["chunk " * 50 for _ in range(8)]
+    settings = FakeSettings()
+    settings.stream_buffer_size = 2  # type: ignore[attr-defined]
+    rig = Rig(_gated_model(gate, *chunks), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    handle = await registry.start(session_id, "hi", _ALL_OFF)
+    turn = registry._turns[session_id]
+    await _eventually(lambda: turn.buffer.base > 0)
+    base_at_fall = turn.buffer.base
+
+    pairs = await _drain(handle)  # attached at seq 0 — already evicted
+    gate.set()
+
+    assert len(pairs) == 1
+    event, seq = pairs[0]
+    assert event.type == "error"
+    # The error seq is the buffer base minus one — not the stale seq 0 cursor.
+    assert seq == base_at_fall - 1
+    await registry.cancel(session_id)
+
+
+# ---------------------------------------------------------------------------
+# T4: global concurrent-turn cap (H6)
+# ---------------------------------------------------------------------------
+
+
+async def test_global_concurrent_turn_cap_raises_too_many_turns() -> None:
+    """Exceeding max_concurrent_turns raises TooManyTurns (the route → 503)."""
+    gate = asyncio.Event()  # never set — turns hang, holding the claim
+    settings = FakeSettings()
+    settings.max_concurrent_turns = 2  # type: ignore[attr-defined]
+    rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
+    registry = _registry(rig)
+
+    h1 = await registry.start(str(uuid4()), "a", _ALL_OFF)
+    h2 = await registry.start(str(uuid4()), "b", _ALL_OFF)
+    try:
+        with pytest.raises(TooManyTurns):
+            await registry.start(str(uuid4()), "c", _ALL_OFF)
+    finally:
+        gate.set()
+        await _drain(h1)
+        await _drain(h2)
+
+
+async def test_per_turn_consumer_cap_raises_too_many_consumers() -> None:
+    """Attaching past max_consumers_per_turn raises TooManyConsumers (→ 429)."""
+    gate = asyncio.Event()  # never set — the turn stays live so consumers persist
+    settings = FakeSettings()
+    settings.max_consumers_per_turn = 2  # type: ignore[attr-defined]
+    rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    handle1 = await registry.start(session_id, "hi", _ALL_OFF)  # consumer 1 (starter)
+    c1 = Collector(handle1)
+    await asyncio.wait_for(c1.first_delta.wait(), timeout=3)
+    handle2 = registry.attach(session_id)  # consumer 2
+    c2 = Collector(handle2)
+    await _eventually(lambda: registry._turns[session_id].consumers >= 2)
+
+    try:
+        with pytest.raises(TooManyConsumers):
+            registry.attach(session_id)  # consumer 3 — over the cap
+    finally:
+        gate.set()
+        await registry.cancel(session_id)
+        await c1.done()
+        await c2.done()

@@ -34,6 +34,7 @@ import app.agent_node
 import app.graph
 from app.deps import AppDeps
 from app.graph import build_graph
+from app.records import prose_of
 from app.run_turn import run_turn
 from app.state import TemporalContext
 from app.toolset import ToolDeps
@@ -445,3 +446,343 @@ async def test_on_failure_hook_called_when_turn_fails() -> None:
     assert "error" in _types(events)
     # And the hook must have been called once
     assert hook_calls[0] == 1, f"on_failure called {hook_calls[0]} times, expected 1"
+
+
+# ---------------------------------------------------------------------------
+# (h) B1a: step/thinking events in the run_turn stream
+# ---------------------------------------------------------------------------
+
+_WEB_ONLY = SourceConfig(web=True, reddit=False, edu=False)
+
+_SEARCH_STEP_KINDS = {"web_search", "edu_search", "reddit_search"}
+
+
+def _steps(events: list[Event]) -> list[dict[str, Any]]:
+    return [event.data for event in events if event.type == "step"]
+
+
+def _assert_every_step_start_has_a_terminal(events: list[Event]) -> None:
+    steps = _steps(events)
+    started = [step["step_id"] for step in steps if step["status"] == "start"]
+    terminal = [step["step_id"] for step in steps if step["status"] in ("end", "error")]
+    assert sorted(started) == sorted(terminal), f"orphan steps: {steps}"
+
+
+async def test_tool_turn_streams_step_pair_in_sane_order() -> None:
+    from uuid import UUID
+
+    rig = Rig(_fn_model(_search_then_answer))
+
+    events = await rig.turn(str(uuid4()), "duke dorms?", _WEB_ONLY)
+
+    types = _types(events)
+    # meta first (with the G1 identity pair as real UUIDs), done last.
+    assert types[0] == "meta"
+    assert types[-1] == "done"
+    meta = events[0].data
+    UUID(meta["message_id"])
+    UUID(meta["user_message_id"])
+    assert meta["message_id"] != meta["user_message_id"]
+    assert _done_status(events) == "complete"
+    assert {"sources", "usage", "delta"} <= set(types)
+    # One web_search step: start before end, same id, label has no template holes.
+    steps = _steps(events)
+    assert [step["status"] for step in steps] == ["start", "end"]
+    assert steps[0]["step_id"] == steps[1]["step_id"]
+    assert steps[0]["kind"] == "web_search"
+    assert all("{" not in step["label"] for step in steps)
+    # The step pair fully precedes done; the start precedes the end.
+    step_positions = [i for i, event in enumerate(events) if event.type == "step"]
+    assert step_positions[0] < step_positions[1] < types.index("done")
+
+
+def _stubborn_web_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    """Tries search_web once; answers as soon as ANY tool response came back
+    (a ToolReturnPart or the tool-not-found RetryPromptPart)."""
+    from pydantic_ai.messages import RetryPromptPart
+
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, (ToolReturnPart, RetryPromptPart)) for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("I cannot search the web right now.")])
+    return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
+
+
+async def test_disabled_sources_make_search_step_kinds_impossible() -> None:
+    rig = Rig(_fn_model(_stubborn_web_searcher))
+
+    events = await rig.turn(str(uuid4()), "what do dorms look like?", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    kinds = {step["kind"] for step in _steps(events)}
+    assert not (kinds & _SEARCH_STEP_KINDS), f"disabled source surfaced a step: {kinds}"
+
+
+def _search_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    """One sibling tool call alongside ask_student in the same response."""
+    return ModelResponse(
+        parts=[
+            ToolCallPart(tool_name="search_web", args={"query": "dorms"}),
+            ToolCallPart(
+                tool_name="ask_student",
+                args={
+                    "question": "Which campus?",
+                    "header": "Pick one",
+                    "options": [
+                        {"label": "Main", "hint": "the flagship"},
+                        {"label": "Satellite", "hint": "the branch"},
+                    ],
+                },
+            ),
+        ]
+    )
+
+
+async def test_clarify_turn_has_no_ask_student_step_and_siblings_close_clean() -> None:
+    rig = Rig(_fn_model(_search_then_clarify))
+
+    events = await rig.turn(str(uuid4()), "Is NYU good?", _WEB_ONLY)
+
+    assert "clarify" in _types(events)
+    assert _done_status(events) == "awaiting_input"
+    steps = _steps(events)
+    # ask_student never surfaces on the timeline (would map to the default row).
+    assert not any("ask_student" in step["label"] for step in steps)
+    # The sibling step opened before the interrupt is closed — with status end,
+    # never error (the work is superseded, not failed) — before the stream ends.
+    _assert_every_step_start_has_a_terminal(events)
+    terminals = [step for step in steps if step["status"] != "start"]
+    assert terminals and all(step["status"] == "end" for step in terminals)
+
+
+async def test_budget_cutoff_closes_steps_and_streams_the_budget_delta() -> None:
+    def endless_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
+
+    settings = FakeSettings()
+    settings.max_tool_rounds = 1
+    rig = Rig(_fn_model(endless_searcher), settings=settings)
+
+    events = await rig.turn(str(uuid4()), "hi", _WEB_ONLY)
+
+    assert "error" not in _types(events)
+    assert "tool budget" in _text(events)
+    assert _done_status(events) == "complete"
+    # Whatever steps opened, every one of them reached a terminal state.
+    assert _steps(events), "the searcher's tool call must surface a step"
+    _assert_every_step_start_has_a_terminal(events)
+
+
+# ---------------------------------------------------------------------------
+# (i) B1b: the turn record + the prose invariant
+# ---------------------------------------------------------------------------
+
+
+async def _state_values(rig: Rig, session_id: str) -> dict[str, Any]:
+    snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    return dict(snapshot.values)
+
+
+def _turn_prose_from_messages(messages: list[dict[str, Any]], offset: int) -> str:
+    """Concatenated ModelResponse text-part contents after the record's offset —
+    what the transcript read reconstructs (the prose invariant's other half)."""
+    chunks: list[str] = []
+    for msg in messages[offset:]:
+        if msg.get("kind") != "response":
+            continue
+        chunks.extend(
+            p.get("content", "") for p in msg.get("parts", []) if p.get("part_kind") == "text"
+        )
+    return "".join(chunks)
+
+
+async def test_complete_turn_writes_the_node_record() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "duke dorms?", _WEB_ONLY)
+
+    meta = events[0].data
+    values = await _state_values(rig, session_id)
+    records = values["turn_records"]
+    assert len(records) == 1
+    record = records[0]
+    # G1 ids match what meta streamed.
+    assert record["message_id"] == meta["message_id"]
+    assert record["user_message_id"] == meta["user_message_id"]
+    assert record["status"] == "complete"
+    assert record["synthesized_answer"] is False
+    assert record["user_text"] == "duke dorms?"
+    assert record["ts"]
+    assert record["messages_offset"] == 0
+    # The record is self-contained: materialized parts carry exactly the
+    # streamed prose, which also equals the messages prose (the invariant).
+    assert prose_of(record["parts"]) == _text(events)
+    prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
+    assert prose == _text(events)
+    # Steps are end-state only; receipt per the §7 contract; sources snapshot.
+    assert [s["status"] for s in record["steps"]] == ["end"]
+    assert record["receipt"] == "1 web search"
+    assert record["sources"] == values["source_registry"]
+    assert record["usage"]["tool_calls"] >= 1
+    assert record["error"] is None and record["clarify"] is None
+
+
+async def test_budget_turn_record_and_prose_invariant() -> None:
+    def endless_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
+
+    settings = FakeSettings()
+    settings.max_tool_rounds = 1
+    rig = Rig(_fn_model(endless_searcher), settings=settings)
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "hi", _WEB_ONLY)
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "complete"
+    # The prose invariant: messages carry exactly what streamed (the budget
+    # message included) — pre-B1b this prose was lost entirely.
+    prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
+    assert prose == _text(events)
+    assert "tool budget" in prose
+    assert "web search" in record["receipt"]
+
+
+async def test_empty_prose_budget_turn_appends_no_model_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The empty-partial rule: no prose streamed → no ModelResponse append
+    (an empty-content response corrupts the provider history)."""
+
+    def endless_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
+
+    monkeypatch.setattr(app.agent_node, "_TOOL_BUDGET_MESSAGE", "")
+    settings = FakeSettings()
+    settings.max_tool_rounds = 1
+    rig = Rig(_fn_model(endless_searcher), settings=settings)
+    session_id = str(uuid4())
+
+    await rig.turn(session_id, "hi", _WEB_ONLY)
+
+    values = await _state_values(rig, session_id)
+    # Only the user tail — no empty partial response was appended.
+    assert [m["kind"] for m in values["messages"]] == ["request"]
+    assert values["turn_records"][-1]["status"] == "complete"
+
+
+async def test_clarify_park_writes_record_and_resume_replaces_it() -> None:
+    rig = Rig(_fn_model(_clarify_then_answer))
+    session_id = str(uuid4())
+
+    events_1 = await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
+    meta_1 = events_1[0].data
+
+    values = await _state_values(rig, session_id)
+    parked = values["turn_records"][-1]
+    assert parked["status"] == "awaiting_input"
+    assert parked["message_id"] == meta_1["message_id"]
+    assert parked["clarify"]["spec"]["question"] == "What matters most to you?"
+    assert parked["clarify"]["answer"] is None
+    assert parked["user_text"] == "Is NYU good?"  # the parked record anchors the question
+    assert parked["usage"] is None
+    # Every persisted step is terminal — nothing parked mid-shimmer.
+    assert all(s["status"] in ("end", "error") for s in parked["steps"])
+
+    events_2 = await rig.turn(session_id, "cost", _ALL_OFF)
+    meta_2 = events_2[0].data
+
+    # meta on resume reuses the parked assistant message_id (G1/G4)…
+    assert meta_2["message_id"] == meta_1["message_id"]
+    # …with a fresh user_message_id for the answer bubble.
+    assert meta_2["user_message_id"] != meta_1["user_message_id"]
+    assert _done_status(events_2) == "complete"
+
+    values = await _state_values(rig, session_id)
+    records = values["turn_records"]
+    # The resumed record REPLACED the parked one — same id, one record.
+    assert len(records) == 1
+    record = records[0]
+    assert record["status"] == "complete"
+    assert record["message_id"] == meta_1["message_id"]
+    assert record["user_message_id"] == meta_2["user_message_id"]
+    assert record["clarify"]["answer"] == "cost"
+    assert record["clarify"]["spec"]["question"] == "What matters most to you?"
+    assert record["synthesized_answer"] is True
+    # The replacement record stays self-contained: the ORIGINAL question (the
+    # answer rides clarify.answer, never the user bubble).
+    assert record["user_text"] == "Is NYU good?"
+    prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
+    assert prose == _text(events_2)
+
+
+async def test_error_turn_writes_record_and_preserves_streamed_prose() -> None:
+    """A model that streams >threshold prose then dies mid-run: the error
+    record persists AND messages keep exactly the streamed prose."""
+    long_prose = "Duke's engineering program is excellent. " * 8  # > 240 chars
+
+    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("never called — streaming only")
+
+    async def stream(messages: Any, info: AgentInfo) -> AsyncIterator[str]:
+        yield long_prose
+        raise RuntimeError("model died mid-stream")
+
+    rig = Rig(FunctionModel(fn, stream_function=stream))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "tell me about duke", _ALL_OFF)
+
+    assert "error" in _types(events)
+    trace_id = events[0].data["trace_id"]
+    streamed = _text(events)
+    assert streamed  # prose crossed the threshold and streamed live
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "error"
+    assert record["error"]["trace_id"] == trace_id
+    assert record["error"]["message"]
+    assert record["message_id"] == events[0].data["message_id"]
+    # The prose invariant on the error path.
+    prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
+    assert prose == streamed
+
+
+async def test_error_turn_without_prose_appends_no_partial_response() -> None:
+    def always_raises(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("agent node exploded")
+
+    rig = Rig(_fn_model(always_raises))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "hi", _ALL_OFF)
+
+    assert "error" in _types(events)
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "error"
+    # Record only — no empty partial ModelResponse.
+    assert all(m["kind"] == "request" for m in values["messages"])
+
+
+async def test_record_state_carries_no_secrets() -> None:
+    """Receipts-no-secrets sweep over the persisted record: nothing from the
+    settings/credentials surface may reach the checkpointed turn record."""
+    import json
+
+    settings = FakeSettings()
+    settings.vertex_api_key = "sk-super-secret-test-key"  # type: ignore[assignment]
+    rig = Rig(_fn_model(_search_then_answer), settings=settings)
+    session_id = str(uuid4())
+
+    await rig.turn(session_id, "duke dorms?", _WEB_ONLY)
+
+    values = await _state_values(rig, session_id)
+    blob = json.dumps(values["turn_records"])
+    assert "sk-super-secret-test-key" not in blob
+    assert "postgresql://" not in blob
+    assert "password" not in blob.lower()

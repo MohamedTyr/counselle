@@ -15,6 +15,21 @@ import CitationRef from '@/components/citations/CitationRef';
 
 const CITATION_PATTERN = /\[(\d{1,2})\]/g;
 
+/**
+ * The set of citation-marker indexes cited in a block of text — the SAME grammar
+ * the inline-chip transform uses (single-sourced here so they can't drift).
+ * Used by the sources footer to filter to only the sources this message cited
+ * (wire-contract §5, PINNED). Scans plain markdown source — exact enough for the
+ * footer (a `[7]` inside a code fence over-counts at worst, never under-counts).
+ */
+export function citedIndexesIn(text: string): Set<number> {
+  const indexes = new Set<number>();
+  for (const match of text.matchAll(CITATION_PATTERN)) {
+    indexes.add(Number(match[1]));
+  }
+  return indexes;
+}
+
 type CitationRefNode = {
   type: 'citationRef';
   data: {

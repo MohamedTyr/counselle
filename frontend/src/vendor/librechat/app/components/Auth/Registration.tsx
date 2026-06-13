@@ -1,36 +1,42 @@
 // Vendored from upstream client/src/components/Auth/Registration.tsx @ 197a1dc4
 // Subtractions: username field (PRD story 4: name+email+password only),
-//   Turnstile captcha, invite-token query param, useRegisterUserMutation +
-//   success-countdown/email-verification alert (mock register succeeds
-//   instantly), errorMessage state (mock register cannot fail).
-// Rewire: submit → mock authStore register() + jotai session atom + navigate('/').
+//   Turnstile captcha, invite-token query param, the 3-s success-countdown +
+//   email-verification alert.
+// Rewire (B5b): submit → real register() then auto-login() with the same creds
+//   (register does NOT set a session), then invalidate `me` so the AuthGate
+//   lands the user in the app. Existing-email / weak-password / rate-limit
+//   failures render inline. Form layout/markup byte-identical.
 import { useForm } from 'react-hook-form';
 import React, { useState } from 'react';
 import { SecretInput, Spinner, Button } from '@librechat/client';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { loginPage } from 'librechat-data-provider';
 import type { TRegisterUser } from 'librechat-data-provider';
 import type { TLoginLayoutContext } from '~/common';
 import { useLocalize, TranslationKeys } from '~/hooks';
-import { useSetAtom } from 'jotai';
-import { register as registerUser } from '@/api/mock/authStore';
-import { sessionUserAtom } from '@/app/auth';
+import { authErrorMessage } from '@/api/http/auth';
+import { useLogin, useRegister } from '@/app/auth';
 
 const Registration: React.FC = () => {
-  const navigate = useNavigate();
   const localize = useLocalize();
-  const setSessionUser = useSetAtom(sessionUserAtom);
+  const navigate = useNavigate();
+  const registerMutation = useRegister();
+  const loginMutation = useLogin();
   const { startupConfig, startupConfigError, isFetching } = useOutletContext<TLoginLayoutContext>();
 
   const {
     watch,
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<TRegisterUser>({ mode: 'onChange' });
   const password = watch('password');
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Drive the busy state off the mutations themselves so it can't stick if a
+  // handler returns early (FIX 2) — no manual `isSubmitting` flag to reset.
+  const isSubmitting = registerMutation.isLoading || loginMutation.isLoading;
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const authInputClassName =
     'webkit-dark-styles transition-color peer w-full rounded-2xl border border-border-light bg-surface-primary px-3.5 pb-2.5 pt-3 text-text-primary duration-200 hover:border-border-light focus:border-green-500 focus:outline-none focus-visible:border-green-500';
@@ -40,10 +46,39 @@ const Registration: React.FC = () => {
   const authSecretButtonClassName =
     'size-9 rounded-xl text-text-secondary-alt hover:bg-transparent hover:text-text-primary';
 
-  const onRegister = (data: TRegisterUser) => {
-    setIsSubmitting(true);
-    setSessionUser(registerUser(data.name, data.email, data.password));
-    navigate('/', { replace: true });
+  const onRegister = async (data: TRegisterUser) => {
+    setSubmitError(null);
+
+    // Step 1 — create the account. On failure (existing email / weak password /
+    // rate-limit) show it inline and stop. The account does NOT exist.
+    try {
+      await registerMutation.mutateAsync({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+    } catch (error: unknown) {
+      setSubmitError(authErrorMessage(error));
+      return;
+    }
+
+    // The account now exists. Clear the form so the plaintext password doesn't
+    // linger in form state past the point it's needed.
+    reset();
+
+    // Step 2 — auto-login with the same creds (register sets no session). If
+    // THIS fails, the account is already created: don't strand the student with
+    // a cryptic login error — tell them it worked and send them to /login.
+    // Re-registering would 409, so /login is the only correct path forward.
+    try {
+      await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      // On success the `me` invalidation flips the AuthGate; Startup → '/'.
+    } catch {
+      navigate('/login', {
+        replace: true,
+        state: { notice: 'Your account was created — please log in.' },
+      });
+    }
   };
 
   const renderInput = (id: string, label: TranslationKeys, type: string, validation: object) => {
@@ -100,6 +135,11 @@ const Registration: React.FC = () => {
     <>
       {!startupConfigError && !isFetching && (
         <>
+          {submitError != null && (
+            <div role="alert" className="mt-4 text-sm text-red-600 dark:text-red-500">
+              {submitError}
+            </div>
+          )}
           <form
             className="mt-6"
             aria-label="Registration form"

@@ -27,10 +27,18 @@ export default function SourceDropdown({ conversationId }: SourceDropdownProps) 
   const [open, setOpen] = useState(false);
   const [config, setConfig] = useState<SourceConfig>(() => getSourceConfig(conversationId));
 
-  // Re-load config when the conversation changes
+  // Re-load config when the conversation changes, and again when the popover
+  // opens — the latter picks up the server-seeded config that ChatContext
+  // writes into the store on chat open (B5c), which may land after this mount.
   useEffect(() => {
     setConfig(getSourceConfig(conversationId));
   }, [conversationId]);
+
+  useEffect(() => {
+    if (open) {
+      setConfig(getSourceConfig(conversationId));
+    }
+  }, [open, conversationId]);
 
   const patch = useCallback(
     (partial: Partial<SourceConfig>) => {

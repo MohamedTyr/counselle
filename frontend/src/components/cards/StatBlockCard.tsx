@@ -33,7 +33,7 @@ function StatValue({ cell }: { cell: CitationEnvelope | undefined }) {
     <span className="inline-flex items-center gap-1.5">
       <span className="text-sm font-medium tabular-nums text-text-primary">{cell.display}</span>
       <CitationPopover citation={cell.citation}>
-        <TierChip tier={cell.citation.tier}>{tierLabel(cell.citation.tier)}</TierChip>
+        <TierChip tier={cell.citation.tier}>{tierLabel(cell.citation.source)}</TierChip>
       </CitationPopover>
     </span>
   );

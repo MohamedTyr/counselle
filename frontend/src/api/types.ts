@@ -11,6 +11,8 @@ export type ChatSummary = {
   /** ISO-8601 datetime string; used for date-group sorting. */
   updatedAt: string;
   createdAt: string;
+  /** True while this session's latest turn is streaming (B5c — a pulsing row dot). */
+  isGenerating: boolean;
 };
 
 /** The shape the mock store holds per-conversation. */

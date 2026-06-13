@@ -28,7 +28,7 @@ function ComparisonCell({ cell }: { cell: CitationEnvelope | undefined }) {
       <span className="inline-flex items-center gap-1.5">
         <span className="tabular-nums">{cell.display}</span>
         <CitationPopover citation={cell.citation}>
-          <TierChip tier={cell.citation.tier}>{tierLabel(cell.citation.tier)}</TierChip>
+          <TierChip tier={cell.citation.tier}>{tierLabel(cell.citation.source)}</TierChip>
         </CitationPopover>
       </span>
     </td>
