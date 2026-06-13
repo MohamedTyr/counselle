@@ -2,10 +2,10 @@
 // Subtractions: the whole 2FA/OTP path (needs2FA, InputOTP/* — 2FA dropped, PRD
 //   decision 6), useDeleteUserMutation + isDeleting spinner branch (mock delete is
 //   synchronous), TDeleteUserRequest.
-// Rewire (data source): useAuthContext → @/app/auth useAuthUser();
-//   deleteUser mutation → @/api/mock/authStore deleteAccount() + hard navigate to
-//   /login via window.location (full reset, the FE-5 plan's logout path).
-//   Email-confirm lock + dialog JSX/classes byte-identical.
+// Rewire (B5b): useAuthUser() over /v1/me; delete → real DELETE /v1/me (the
+//   account) via useDeleteAccount(), then a hard navigate to /login (full reset
+//   — clears every cached query). Email-confirm lock + dialog JSX/classes
+//   byte-identical.
 import React, { useState, useCallback } from 'react';
 import { LockIcon, Trash } from 'lucide-react';
 import {
@@ -18,8 +18,8 @@ import {
   Label,
   Input,
 } from '@librechat/client';
-import { deleteAccount } from '@/api/mock/authStore';
-import { useAuthUser } from '@/app/auth';
+import { authErrorMessage } from '@/api/http/auth';
+import { useAuthUser, useDeleteAccount } from '@/app/auth';
 import { LocalizeFunction } from '~/common';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
@@ -27,16 +27,28 @@ import { cn } from '~/utils';
 const DeleteAccount = ({ disabled = false }: { title?: string; disabled?: boolean }) => {
   const localize = useLocalize();
   const user = useAuthUser();
+  const deleteAccountMutation = useDeleteAccount();
 
   const [isDialogOpen, setDialogOpen] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleDeleteUser = () => {
+  // FIX 4 (honesty): navigate to /login ONLY after the DELETE resolves. The
+  // "even if it fails, route to /login" reasoning is correct for *logout* but
+  // wrong for *delete* — on failure the account survives and the still-valid
+  // cookie would bounce the student right back in, so we stay and show the error.
+  const handleDeleteUser = async () => {
     if (isLocked) {
       return;
     }
-
-    deleteAccount();
+    setError(null);
+    try {
+      await deleteAccountMutation.mutateAsync();
+    } catch (err: unknown) {
+      setError(authErrorMessage(err));
+      return;
+    }
+    // Hard navigate so every cached query is dropped along with the session.
     window.location.href = '/login';
   };
 
@@ -51,7 +63,15 @@ const DeleteAccount = ({ disabled = false }: { title?: string; disabled?: boolea
 
   return (
     <>
-      <OGDialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+      <OGDialog
+        open={isDialogOpen}
+        onOpenChange={(next) => {
+          setDialogOpen(next);
+          if (!next) {
+            setError(null);
+          }
+        }}
+      >
         <div className="flex items-center justify-between">
           <Label id="delete-account-label">{localize('com_nav_delete_account')}</Label>
           <OGDialogTrigger asChild>
@@ -87,6 +107,11 @@ const DeleteAccount = ({ disabled = false }: { title?: string; disabled?: boolea
               )}
             </div>
             {renderDeleteButton(handleDeleteUser, isLocked, localize)}
+            {error != null && (
+              <div role="alert" className="mt-3 text-sm text-red-600 dark:text-red-500">
+                {error}
+              </div>
+            )}
           </div>
         </OGDialogContent>
       </OGDialog>

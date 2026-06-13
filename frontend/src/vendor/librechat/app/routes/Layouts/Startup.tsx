@@ -9,7 +9,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { TranslationKeys, useLocalize } from '~/hooks';
 import AuthLayout from '~/components/Auth/AuthLayout';
 import { startupConfigFixture } from '@/api/mock/fixtures/auth';
-import { useAuthUser } from '@/app/auth';
+import { useMe } from '@/app/auth';
 
 const headerMap: Record<string, TranslationKeys> = {
   '/login': 'com_auth_welcome_back',
@@ -21,7 +21,11 @@ const headerMap: Record<string, TranslationKeys> = {
 export default function StartupLayout() {
   const [error, setError] = useState<TranslationKeys | null>(null);
   const [headerText, setHeaderText] = useState<TranslationKeys | null>(null);
-  const isAuthenticated = useAuthUser() != null;
+  // B5b: redirect only once `me` resolves to an actual user (`data != null`).
+  // This keys off `data` alone, so it stays false while the cookie is being
+  // checked (no flash) AND on a non-401 error (`data === undefined`) — a server
+  // hiccup never gets treated as authed, and never loops (FIX 1, honesty).
+  const isAuthenticated = useMe().data != null;
   const startupConfig = startupConfigFixture;
   const isFetching = false;
   const startupConfigError = null;

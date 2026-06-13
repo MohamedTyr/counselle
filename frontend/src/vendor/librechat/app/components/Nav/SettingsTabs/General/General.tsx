@@ -5,9 +5,10 @@
 //   js-cookie + recoil imports.
 // Addition (Counselle-native): <DefaultSources /> row — the default source config
 //   for new chats (PRD-mvp2; localStorage 'counselle:sourceDefaults').
-import React, { useContext, useCallback } from 'react';
+import React, { useContext } from 'react';
 import { Dropdown, ThemeContext } from '@librechat/client';
 import DefaultSources from '@/components/source-control/DefaultSources';
+import { usePersistTheme } from '@/app/settingsSync';
 import { useLocalize } from '~/hooks';
 
 export const ThemeSelector = ({
@@ -48,14 +49,10 @@ export const ThemeSelector = ({
 };
 
 function General() {
-  const { theme, setTheme } = useContext(ThemeContext);
-
-  const changeTheme = useCallback(
-    (value: string) => {
-      setTheme(value);
-    },
-    [setTheme],
-  );
+  // B5b: theme reads from the ThemeProvider; writes go through usePersistTheme
+  // (local-optimistic flip + PATCH /v1/me, server settings preserved).
+  const { theme } = useContext(ThemeContext);
+  const changeTheme = usePersistTheme();
 
   return (
     <div className="flex flex-col gap-3 p-1 text-sm text-text-primary">

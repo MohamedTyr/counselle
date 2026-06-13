@@ -2,33 +2,35 @@
 // Subtractions: token balance (useGetUserBalance), My Files (MyFilesModal, FileText),
 //   Help/FAQ link (startupConfig.helpAndFaqURL), useGetStartupConfig, useAuthContext.
 // Rewire: Settings → upstream showSettings state + <Settings/> render (FE-5B);
-//   logout → FE-5A mock logout() + session atom clear + navigate('/login');
-//   user ← useAuthUser().
+//   logout (B5b) → real POST /v1/auth/logout (clears the cookie) + invalidate
+//   `me`/`chats`, then navigate('/login'); user ← useAuthUser() over /v1/me.
 import { memo, useRef, useState } from 'react';
 import * as Menu from '@ariakit/react/menu';
 import { LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useSetAtom } from 'jotai';
 import { GearIcon, DropdownMenuSeparator, Avatar } from '@librechat/client';
 import Settings from './Settings';
 import { useLocalize } from '~/hooks';
-import { logout } from '@/api/mock/authStore';
-import { sessionUserAtom, useAuthUser } from '@/app/auth';
+import { useAuthUser, useLogout } from '@/app/auth';
 
 function AccountSettings({ collapsed = false }: { collapsed?: boolean }) {
   const localize = useLocalize();
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
   const accountSettingsButtonRef = useRef<HTMLButtonElement>(null);
-  const setSessionUser = useSetAtom(sessionUserAtom);
+  const logoutMutation = useLogout();
 
-  // FE-5A: mock session user (signup wall guarantees one exists here).
+  // B5b: the signed-in user (signup wall guarantees one exists here).
   const user = useAuthUser() ?? undefined;
 
-  const handleLogout = () => {
-    logout();
-    setSessionUser(null);
-    navigate('/login', { replace: true });
+  const handleLogout = async () => {
+    try {
+      await logoutMutation.mutateAsync();
+    } finally {
+      // Even if the logout request fails, route to /login; the next `me` fetch
+      // re-establishes truth (a stale cookie would 401 and bounce back).
+      navigate('/login', { replace: true });
+    }
   };
 
   return (

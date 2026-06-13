@@ -9,6 +9,7 @@ import type { ChatRecord } from './types';
 
 export const QueryKeys = {
   chats: 'chats' as const,
+  me: 'me' as const,
 };
 
 // ── Queries ──────────────────────────────────────────────────────────────────

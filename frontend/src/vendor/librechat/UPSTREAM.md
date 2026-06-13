@@ -385,3 +385,40 @@ Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
 | `src/components/source-control/DefaultSources.tsx` | "Default sources" settings rows — Database fixed on, Web/.edu/Reddit toggles via the vendored ToggleSwitch; writes `counselle:sourceDefaults` |
 | `src/api/mock/sourceStore.ts` | + `getDefaultSourceConfig()` / `setDefaultSourceConfig()`; `getSourceConfig` for a chat with no stored config now falls back to the user defaults instead of the hardcoded constant |
 | `src/api/mock/messagesStore.ts` | + `clearAllTranscripts()` |
+
+## app/ — B5b (real auth + account surface)
+
+Swaps the FE-5A mock localStorage auth for the real cookie-JWT backend. The
+session is now the httpOnly cookie, resolved by a TanStack Query over `GET
+/v1/me`; the jotai `sessionUserAtom` is retired from the live path. Mock auth
+fixtures (`src/api/mock/authStore.ts`) stay on disk (Sampler/tests) but no live
+file imports them.
+
+### Vendored import-site swaps (behavior rewired, layout/markup unchanged)
+
+| File | Change |
+|---|---|
+| `components/Auth/LoginForm.tsx` | mock `login()`/jotai/`navigate` → `useLogin()` (real form-encoded `POST /v1/auth/login`); `onSubmit` is async with a loading state (`isSubmitting \|\| loginMutation.isLoading`); a 400/429/network failure renders inline via `authErrorMessage` ("Incorrect email or password.") and keeps the form; success invalidates `me` so the AuthGate + Startup land the user in the app. Floating-label form JSX byte-identical |
+| `components/Auth/SocialLoginRender.tsx` | mock `loginWithGoogle()`/jotai/`navigate` → `handleGoogleLogin` fetches `GET /v1/auth/google/authorize` then `window.location.href = authorization_url` (backend callback sets the cookie, 302s to `/`); an authorize failure renders inline. "Or" divider + button structure byte-identical |
+| `components/Auth/Registration.tsx` | mock `register()`/jotai/`navigate` → `useRegister()` then auto-`useLogin()` with the same creds (register does not establish a session); inline existing-email / weak-password / rate-limit errors via `authErrorMessage`; `useNavigate` dropped (the `me` invalidation drives the redirect). Form JSX byte-identical |
+| `components/Nav/AccountSettings.tsx` | `useAuthUser()` now reads `/v1/me`; logout → `useLogout()` (real `POST /v1/auth/logout` + invalidate `me`/`chats`) then `navigate('/login')` in a `finally`. Avatar/menu markup unchanged |
+| `components/Nav/SettingsTabs/Account/Account.tsx` | mock `updateUser` → `usePatchMe()` (`PATCH /v1/me` name); **+ story 49 password row**: a real in-app change dialog (`changePassword` → `PATCH /v1/auth/users/me`) with new+confirm fields and min-length/match validation; OAuth-only users (`has_password === false`) see a "Set a password" framing; the connected-Google row gates on `google_connected`. Upstream row grammar (`flex justify-between` + Label, `pb-3`) preserved |
+| `components/Nav/SettingsTabs/Account/DeleteAccount.tsx` | mock `deleteAccount()` → `useDeleteAccount()` (real `DELETE /v1/me`) then a hard `window.location.href = '/login'` in a `finally` (drops every cached query). Email-confirm lock + dialog JSX byte-identical |
+
+### Other B5b vendor touches (named in the deliverable, ledgered)
+
+| File | Change |
+|---|---|
+| `routes/Layouts/Startup.tsx` | `useAuthUser()` → `useMe().data != null` — authed-user redirect to `/` fires only once `me` resolves (no flash between the auth pages and the shell) |
+| `components/Nav/SettingsTabs/Data/ClearChats.tsx` | mock-store clears → real `DELETE /v1/me/chats` (keeps the account) then invalidate `[QueryKeys.chats]`; `navigate('/')` + `activeConversationIdAtom` reset retained. Dialog JSX byte-identical |
+| `components/Nav/SettingsTabs/General/General.tsx` | theme write goes through `usePersistTheme` (local-optimistic flip + `PATCH /v1/me`, existing server settings spread so `default_source_config` is never clobbered); theme read still from `ThemeProvider`. `useCallback` import dropped |
+| `routes/Root.tsx` | (via the Counselle `AuthGate` wrapper, not Root) the server-wins theme seed runs once `me` resolves — see `src/app/settingsSync.ts`. Root itself is unchanged |
+
+### Counselle-native B5b additions / replacements
+
+| File | Description |
+|---|---|
+| `src/api/http/auth.ts` (new) | The real auth client over `/v1/auth/*` + `/v1/me`: `register`/`login` (form-encoded)/`logout`/`forgotPassword`/`resetPassword`/`fetchMe` (→ `null` on 401)/`patchMe`/`deleteAccount`/`deleteMyChats`/`changePassword`/`googleAuthorizeUrl`; `MeData`/`UserSettings` types; `AuthError` (coded 400) + `authErrorMessage` friendly-message mapper. Reuses B5a's `credentials:'same-origin'` + `errorFromResponse` |
+| `src/app/auth.ts` (replaced) | jotai `sessionUserAtom` → TanStack Query: `useMe()` (`[QueryKeys.me]`, 401→null), `useAuthUser()` shim, and the mutations `useLogin`/`useRegister`/`useLogout`/`usePatchMe`/`useDeleteAccount` (each invalidates `me`, plus `chats` on logout/delete) |
+| `src/app/settingsSync.ts` (new) | `useServerThemeSeed()` (server-wins theme seed on me-resolve) + `usePersistTheme()` (optimistic flip → `PATCH /v1/me`, settings spread). `default_source_config` deliberately untouched (B5c) |
+| `src/api/hooks.ts` | + `QueryKeys.me` |

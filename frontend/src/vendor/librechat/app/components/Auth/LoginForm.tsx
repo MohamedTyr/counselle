@@ -1,18 +1,18 @@
 // Vendored from upstream client/src/components/Auth/LoginForm.tsx @ 197a1dc4
 // Subtractions: Turnstile captcha, resend-verification-email block (no email
-//   verification — PRD story 4), LDAP username login, useGetStartupConfig,
-//   error/setError props (mock login cannot fail).
-// Rewire: onSubmit → mock authStore login() + jotai session atom + navigate('/').
-import React from 'react';
+//   verification — PRD story 4), LDAP username login, useGetStartupConfig.
+// Rewire (B5b): onSubmit → real form-encoded login() then invalidate `me`
+//   (the router lands the now-signed-in user in the app); a 400/429/network
+//   failure renders inline ("Incorrect email or password.") and keeps the form.
+//   Form layout/markup byte-identical.
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { SecretInput, Spinner, Button } from '@librechat/client';
-import { useNavigate } from 'react-router-dom';
-import { useSetAtom } from 'jotai';
 import type { TLoginUser, TStartupConfig } from 'librechat-data-provider';
 import { validateEmail } from '~/utils';
 import { useLocalize } from '~/hooks';
-import { login } from '@/api/mock/authStore';
-import { sessionUserAtom } from '@/app/auth';
+import { authErrorMessage } from '@/api/http/auth';
+import { useLogin } from '@/app/auth';
 
 type TLoginFormProps = {
   startupConfig: TStartupConfig;
@@ -20,8 +20,8 @@ type TLoginFormProps = {
 
 const LoginForm: React.FC<TLoginFormProps> = ({ startupConfig }) => {
   const localize = useLocalize();
-  const navigate = useNavigate();
-  const setSessionUser = useSetAtom(sessionUserAtom);
+  const loginMutation = useLogin();
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -49,13 +49,26 @@ const LoginForm: React.FC<TLoginFormProps> = ({ startupConfig }) => {
     ) : null;
   };
 
-  const onSubmit = (data: TLoginUser) => {
-    setSessionUser(login(data.email, data.password));
-    navigate('/', { replace: true });
+  const onSubmit = async (data: TLoginUser) => {
+    setSubmitError(null);
+    try {
+      await loginMutation.mutateAsync({ email: data.email, password: data.password });
+      // On success the `me` query invalidates; the AuthGate re-renders into the
+      // app and Startup's effect redirects away from /login.
+    } catch (error: unknown) {
+      setSubmitError(authErrorMessage(error));
+    }
   };
+
+  const isBusy = isSubmitting || loginMutation.isLoading;
 
   return (
     <>
+      {submitError != null && (
+        <div role="alert" className="mt-4 text-sm text-red-600 dark:text-red-500">
+          {submitError}
+        </div>
+      )}
       <form
         className="mt-6"
         aria-label="Login form"
@@ -123,11 +136,11 @@ const LoginForm: React.FC<TLoginFormProps> = ({ startupConfig }) => {
             aria-label={localize('com_auth_continue')}
             data-testid="login-button"
             type="submit"
-            disabled={isSubmitting}
+            disabled={isBusy}
             variant="submit"
             className="h-12 w-full rounded-2xl"
           >
-            {isSubmitting ? <Spinner /> : localize('com_auth_continue')}
+            {isBusy ? <Spinner /> : localize('com_auth_continue')}
           </Button>
         </div>
       </form>

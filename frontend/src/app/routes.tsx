@@ -4,16 +4,54 @@ import StartupLayout from '~/routes/Layouts/Startup';
 import { Login, Registration, RequestPasswordReset, ResetPassword } from '~/components/Auth';
 import Sampler from '@/app/Sampler';
 import ChatView from '@/app/ChatView';
-import { useAuthUser } from '@/app/auth';
+import { useMe } from '@/app/auth';
+import { useServerThemeSeed } from '@/app/settingsSync';
+import { Spinner } from '@librechat/client';
 
-// FE-5A signup wall (PRD stories 1–2): the app shell requires a session;
-// anonymous visitors land on /login. Client-side only — mock auth.
+// Authed-only wrapper: runs the server-wins theme seed (settings sync, theme
+// half) once `me` resolves, then renders the shell. Mounted only inside the
+// authed branch so it never fires for anonymous visitors.
+function AuthedShell({ children }: { children: React.ReactNode }) {
+  useServerThemeSeed();
+  return <>{children}</>;
+}
+
+// B5b signup wall (PRD stories 1–2): the app shell requires a session. The
+// session is the cookie, resolved by `GET /v1/me`. Three states, kept distinct
+// so a server hiccup never masquerades as "logged out" (FIX 1, honesty):
+//   - isLoading            → spinner (the cookie is still being checked);
+//   - data === null (401)  → genuinely logged out → /login;
+//   - isError (non-401)    → server/network/timeout → an honest retry state,
+//     NEVER a bounce to /login (the student may well be authed).
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const user = useAuthUser();
+  const { data: user, isLoading, isError, refetch } = useMe();
+  if (isLoading) {
+    return (
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-surface-primary">
+        <Spinner />
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="flex h-[100dvh] w-full flex-col items-center justify-center gap-4 bg-surface-primary px-6 text-center">
+        <p className="text-text-primary">
+          Couldn&rsquo;t reach the server. Check your connection and try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="rounded-2xl bg-surface-tertiary px-5 py-2 text-text-primary transition-colors hover:bg-surface-hover"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  return <>{children}</>;
+  return <AuthedShell>{children}</AuthedShell>;
 }
 
 export const router = createBrowserRouter([
