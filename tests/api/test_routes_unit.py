@@ -28,6 +28,7 @@ from api.auth import current_active_user
 from api.context import install_middleware
 from api.routes import sessions as session_routes
 from api.routes import system as system_routes
+from app import transcript as transcript_mod
 from app.turns import TurnRegistry
 from tests.api.conftest import TEST_USER_ID, _test_user
 
@@ -87,6 +88,9 @@ def make_test_app(
         stream_buffer_size=1000,
         turn_timeout_s=30,
         reattach_enabled=True,
+        title_max_len=60,
+        turns_per_hour=60,
+        turns_per_day=300,
     )
 
     # Default fake pools
@@ -141,6 +145,9 @@ def make_test_app(
         settings=settings,
         run_turn_fn=run_turn_fn,
     )
+    from api.ratelimit import SlidingWindowLimiter
+
+    app.state.rate_limiter = SlidingWindowLimiter()
     # B3: the session routes require auth + ownership. These unit tests fake the
     # principal with the shared test user; fake session rows are owned by it.
     app.dependency_overrides[current_active_user] = _test_user
@@ -362,12 +369,12 @@ def test_health_returns_503_when_pool_fails() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _extract_transcript unit tests
+# extract_transcript unit tests
 # ---------------------------------------------------------------------------
 
 
 def test_extract_transcript_maps_user_and_assistant() -> None:
-    """_extract_transcript correctly maps request→user and response→assistant."""
+    """extract_transcript correctly maps request→user and response→assistant."""
     messages = [
         {
             "kind": "request",
@@ -384,7 +391,7 @@ def test_extract_transcript_maps_user_and_assistant() -> None:
             ],
         },
     ]
-    result = session_routes._extract_transcript(messages)
+    result = transcript_mod.extract_transcript(messages)
     assert len(result) == 2
     assert result[0] == {"role": "user", "text": "hello", "ts": "2026-06-10T12:00:00Z"}
     assert result[1] == {"role": "assistant", "text": "world", "ts": "2026-06-10T12:00:01Z"}
@@ -401,7 +408,7 @@ def test_extract_transcript_skips_tool_only_responses() -> None:
             ],
         },
     ]
-    result = session_routes._extract_transcript(messages)
+    result = transcript_mod.extract_transcript(messages)
     assert result == []
 
 
@@ -417,7 +424,7 @@ def test_extract_transcript_concatenates_multiple_text_parts() -> None:
             ],
         }
     ]
-    result = session_routes._extract_transcript(messages)
+    result = transcript_mod.extract_transcript(messages)
     assert result[0]["text"] == "Hello world"
 
 

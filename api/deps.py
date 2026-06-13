@@ -25,12 +25,19 @@ from app.sessions import get_session
 
 
 class EnvelopeError(Exception):
-    """A user-safe error that renders as the project's ``{"error": …}`` envelope."""
+    """A user-safe error that renders as the project's ``{"error": …}`` envelope.
 
-    def __init__(self, status_code: int, message: str) -> None:
+    ``headers`` lets a raiser attach response headers (B4: ``Retry-After`` on a
+    429) — the handler emits them on the JSONResponse.
+    """
+
+    def __init__(
+        self, status_code: int, message: str, headers: dict[str, str] | None = None
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.message = message
+        self.headers = headers
 
 
 async def envelope_error_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -40,6 +47,7 @@ async def envelope_error_handler(request: Request, exc: Exception) -> JSONRespon
     return JSONResponse(
         status_code=err.status_code,
         content={"error": {"message": err.message, "trace_id": trace_id}},
+        headers=err.headers,
     )
 
 

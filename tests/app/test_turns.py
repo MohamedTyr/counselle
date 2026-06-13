@@ -30,9 +30,9 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 import app.agent_node
 import app.graph
-from api.routes.sessions import _extract_transcript
 from app.records import prose_of
 from app.state import TemporalContext
+from app.transcript import extract_transcript
 from app.turns import (
     InvalidEditTarget,
     NoActiveTurn,
@@ -475,7 +475,7 @@ async def test_parked_turn_is_not_attachable_but_record_is_durable() -> None:
         registry.attach(session_id)
 
     values = await _state_values(rig, session_id)
-    transcript = _extract_transcript(values["messages"], values["turn_records"])
+    transcript = extract_transcript(values["messages"], values["turn_records"])
     assistant = transcript[-1]
     assert assistant["status"] == "awaiting_input"
     assert assistant["clarify"]["spec"]["question"] == "What matters most to you?"
@@ -521,7 +521,7 @@ async def test_rewrite_slices_history_and_restores_the_source_registry() -> None
     assert values["source_registry"][1]["citation"]["url"] == "https://example.com/3"
 
     # Ghost-exchange-free transcript: "and harvard?" is gone everywhere.
-    transcript = _extract_transcript(values["messages"], records)
+    transcript = extract_transcript(values["messages"], records)
     texts = [entry["text"] for entry in transcript]
     assert not any("harvard" in text for text in texts)
     assert any("yale" in text for text in texts)

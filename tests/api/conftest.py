@@ -39,6 +39,8 @@ import app.agent_node
 import app.graph
 from api.auth import current_active_user
 from api.context import install_middleware
+from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter
+from api.routes import config as config_routes
 from api.routes import me as me_routes
 from api.routes import sessions as session_routes
 from api.routes import system as system_routes
@@ -246,6 +248,7 @@ def _build_live_app(
     app.include_router(session_routes.router, prefix="/v1")
     app.include_router(system_routes.router, prefix="/v1")
     app.include_router(me_routes.router, prefix="/v1")
+    app.include_router(config_routes.router, prefix="/v1")
 
     app.state.settings = settings
     app.state.runtime = runtime
@@ -254,6 +257,7 @@ def _build_live_app(
     app.state.turn_registry = TurnRegistry(
         deps=runtime.deps, graph=runtime.graph, settings=settings, run_turn_fn=run_turn_fn
     )
+    setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
     if authed:
         app.dependency_overrides[current_active_user] = _test_user
     return app
@@ -275,6 +279,7 @@ def _build_auth_app(runtime: Runtime, run_turn_fn: Any = None) -> FastAPI:
     app.include_router(session_routes.router, prefix="/v1")
     app.include_router(system_routes.router, prefix="/v1")
     app.include_router(me_routes.router, prefix="/v1")
+    app.include_router(config_routes.router, prefix="/v1")
 
     app.state.settings = settings
     app.state.runtime = runtime
@@ -283,6 +288,7 @@ def _build_auth_app(runtime: Runtime, run_turn_fn: Any = None) -> FastAPI:
     app.state.turn_registry = TurnRegistry(
         deps=runtime.deps, graph=runtime.graph, settings=settings, run_turn_fn=run_turn_fn
     )
+    setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
     return app
 
 

@@ -1,0 +1,9 @@
+# Home-screen conversation starters (B4) — student-facing prompt suggestions,
+# served by GET /v1/config as `conversation_starters`. College-admissions flavored,
+# on-brand for Counselle (honest, exploratory, never odds-promising). 4-6 entries.
+- "Compare Williams and Amherst on class size, aid, and outcomes"
+- "What SAT and GPA range does UNC Chapel Hill admit?"
+- "Which UC campuses are strongest for computer science?"
+- "Walk me through how need-based aid works at a private university"
+- "Help me build a balanced college list for a pre-med student"
+- "What's the difference between Early Decision and Early Action?"

@@ -62,8 +62,22 @@ class Settings(BaseSettings):
     model_counselor: str = "google-vertex:gemini-2.5-pro"
     model_cheap: str = "google-vertex:gemini-2.5-flash"
     model_clarifier: str = "google-vertex:gemini-2.5-flash"
+    # B4 auto-titles: the cheap model that names a chat from its first exchange
+    # (one no-tools call, fire-and-forget; failure leaves the derived default).
+    model_title: str = "google-vertex:gemini-2.5-flash"
     max_tool_rounds: int = 12  # agent tool-loop bound (eng-review)
     thinking_summaries: bool = True  # native Gemini thought summaries → `thinking` events (§27.2)
+
+    # --- Chat (B4) ---
+    title_max_len: int = 60  # cap for both the derived default and the model title
+
+    # --- Rate limiting (B4: in-process sliding windows; api/ratelimit.py) ---
+    # Per-user message caps (a clarify answer spends a token — a resume is a send).
+    turns_per_hour: int = 60
+    turns_per_day: int = 300
+    # Per-IP auth caps (login + forgot-password) — password-brute / reset-spam guard.
+    auth_attempts_per_window: int = 10
+    auth_window_seconds: int = 60
 
     # --- Database ---
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required

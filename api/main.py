@@ -35,7 +35,7 @@ from typing import Any
 
 import asyncpg
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from api.auth import (
@@ -48,9 +48,12 @@ from api.auth import (
     oauth_backend,
 )
 from api.context import install_middleware
+from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter, auth_rate_limit
+from api.routes import config as config_routes
 from api.routes import me, sessions, system
 from api.supervision import McpSupervisor
 from app.deps import build_runtime
+from app.titles import make_auto_titler
 from app.turns import TurnRegistry
 from config.logging import setup_logging
 from config.settings import get_settings, load_yaml_asset
@@ -108,7 +111,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Boot the runtime, reconciler, and MCP supervisor; put it all away on shutdown."""
     settings = get_settings()
     setup_logging(settings.log_level)
-    load_yaml_asset("step_labels")  # a missing/broken asset fails at boot, not on turn 1
+    # Pre-load the data assets so a missing/broken file fails at boot, not per-request.
+    load_yaml_asset("step_labels")
+    load_yaml_asset("greeting_templates")
+    load_yaml_asset("season_calendar")
+    load_yaml_asset("starter_prompts")
     runtime = await build_runtime(settings)  # pools + catalog + checkpointer (D3) + graph
     try:
         reconciler = ReconcilerState()
@@ -124,11 +131,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         runtime.deps.on_failure = supervisor.kick
         # B2: the turn registry — detached turns, reattach, cancel (G3–G5).
         registry = TurnRegistry(deps=runtime.deps, graph=runtime.graph, settings=settings)
+        # B4: the auto-title hook (cheap-model retitle; never raises — see titles.py).
+        registry.on_turn_complete = make_auto_titler(runtime.app_pool, runtime, settings)
         app.state.settings = settings
         app.state.runtime = runtime
         app.state.reconciler = reconciler
         app.state.mcp_supervisor = supervisor
         app.state.turn_registry = registry
+        # B4: the process-local rate limiter (messages + auth windows). The named
+        # constant governs both the write here and the read in get_limiter.
+        setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
         try:
             yield
         finally:
@@ -151,8 +163,16 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
     — story 49), and — when Google creds are set — the OAuth router whose
     callback sets the cookie and 302s the SPA.
     """
+    # B4: per-IP rate limit on the brute-forceable surfaces. The auth router
+    # carries login + logout; logout is harmless to limit (a logged-in user won't
+    # hit the window). The reset router carries forgot + reset-password; both are
+    # spam-worth limiting. Register-router stays unlimited (account creation is
+    # email-verified and lower-risk).
     app.include_router(
-        fastapi_users.get_auth_router(auth_backend), prefix="/v1/auth", tags=["auth"]
+        fastapi_users.get_auth_router(auth_backend),
+        prefix="/v1/auth",
+        tags=["auth"],
+        dependencies=[Depends(auth_rate_limit)],
     )
     app.include_router(
         fastapi_users.get_register_router(UserRead, UserCreate),
@@ -160,7 +180,10 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
         tags=["auth"],
     )
     app.include_router(
-        fastapi_users.get_reset_password_router(), prefix="/v1/auth", tags=["auth"]
+        fastapi_users.get_reset_password_router(),
+        prefix="/v1/auth",
+        tags=["auth"],
+        dependencies=[Depends(auth_rate_limit)],
     )
     app.include_router(
         fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/v1/auth", tags=["auth"]
@@ -189,6 +212,7 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router, prefix="/v1")
     app.include_router(system.router, prefix="/v1")
     app.include_router(me.router, prefix="/v1")
+    app.include_router(config_routes.router, prefix="/v1")
     # Dev harness static files — served at /harness (html=True serves index.html)
     _harness_dir = Path(__file__).parent.parent / "harness"
     if _harness_dir.is_dir():

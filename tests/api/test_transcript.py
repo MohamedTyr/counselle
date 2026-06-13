@@ -1,7 +1,7 @@
 """The transcript wire shape (B1b — wire-contract §2). No DB, no network.
 
 Runs real graph turns through the test Rig (memory checkpointer +
-FunctionModel), then asserts ``_extract_transcript`` serves the §2 contract
+FunctionModel), then asserts ``extract_transcript`` serves the §2 contract
 verbatim — field names, status literals, ``clarify {spec, answer}``, the
 synthesized clarify-answer bubble, materialized ``parts``, the receipt string
 — plus the pinned pre-MVP2 prose-only fallback (keys absent, not null).
@@ -26,8 +26,8 @@ from pydantic_ai.models.function import AgentInfo
 
 import app.agent_node
 import app.graph
-from api.routes.sessions import _extract_transcript
 from app.state import TemporalContext
+from app.transcript import extract_transcript
 from domain.season import Season
 from tests.app.test_run_turn import _ALL_OFF, _WEB_ONLY, Rig, _fn_model, _text
 
@@ -58,7 +58,7 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
 
 async def _transcript_of(rig: Rig, session_id: str) -> list[dict[str, Any]]:
     snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
-    return _extract_transcript(
+    return extract_transcript(
         list(snapshot.values.get("messages") or []),
         list(snapshot.values.get("turn_records") or []),
     )
@@ -297,7 +297,7 @@ _PRE_MVP2_MESSAGES: list[dict[str, Any]] = [
 
 
 def test_pre_mvp2_fallback_is_prose_only_with_keys_absent() -> None:
-    transcript = _extract_transcript(_PRE_MVP2_MESSAGES, [])
+    transcript = extract_transcript(_PRE_MVP2_MESSAGES, [])
     assert transcript == [
         {"role": "user", "text": "hello", "ts": None},
         {"role": "assistant", "text": "world", "ts": "2026-06-01T12:00:00Z"},
@@ -327,7 +327,7 @@ def test_invalid_first_record_offset_clamps_fallback_and_still_serves_records() 
         "messages_offset": None,
         "synthesized_answer": False,
     }
-    transcript = _extract_transcript(_PRE_MVP2_MESSAGES, [record])
+    transcript = extract_transcript(_PRE_MVP2_MESSAGES, [record])
     # Clamped boundary: the messages render prose-only first…
     assert transcript[0] == {"role": "user", "text": "hello", "ts": None}
     # …and the record-backed entries still follow, self-contained.
@@ -429,7 +429,7 @@ async def test_error_without_user_anchor_or_prose_writes_no_ghost_entry() -> Non
     snapshot = await rig.graph.aget_state(config)
     records = list(snapshot.values.get("turn_records") or [])
     assert records == before  # the ghost record was never written
-    transcript = _extract_transcript(list(snapshot.values.get("messages") or []), records)
+    transcript = extract_transcript(list(snapshot.values.get("messages") or []), records)
     assert all(e.get("status") != "error" for e in transcript)
 
 

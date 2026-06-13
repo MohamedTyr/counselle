@@ -21,21 +21,30 @@ that detection, not by this field.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette import EventSourceResponse
 
 from api.auth import current_active_user
-from api.deps import owned_session, require_json
+from api.deps import EnvelopeError, owned_session, require_json
+from api.ratelimit import message_rate_limit
 from api.sse import SSE_HEADERS, encode_sse
 from api.users_db import UserDB
-from app.records import prose_of
-from app.sessions import create_session
+from app.feedback import clear_feedback, feedback_for_session, set_feedback
+from app.sessions import (
+    create_session,
+    encode_cursor,
+    list_sessions,
+    set_session_source_config,
+    set_session_title,
+)
+from app.titles import default_title
+from app.transcript import extract_transcript
 from app.turns import (
     InvalidEditTarget,
     NoActiveTurn,
@@ -86,6 +95,21 @@ class SessionResponse(BaseModel):
     created_at: str | None
     source_config: dict[str, Any] | None
     transcript: list[dict[str, Any]]
+
+
+#: Generous sentinel ceiling on a rename title — the route re-validates against
+#: settings.title_max_len; the model can't read settings at class-definition time.
+_RENAME_TITLE_PYDANTIC_CEIL = 200
+
+
+class RenameSessionBody(BaseModel):
+    # title bounds: min 1 (no empty rename); the upper bound here is a generous
+    # sentinel — the route validates the real ceiling against settings.title_max_len.
+    title: str = Field(min_length=1, max_length=_RENAME_TITLE_PYDANTIC_CEIL)
+
+
+class FeedbackBody(BaseModel):
+    rating: Literal["up", "down"] | None
 
 
 # ---------------------------------------------------------------------------
@@ -145,149 +169,6 @@ def _sse_response(
     )
 
 
-def _prose_only_entries(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The pre-MVP2 fallback: serialized ModelMessages → prose-only entries.
-
-    The pinned fallback shape (wire-contract §2): ``{role, text, ts}`` — no
-    ``message_id``, no ``parts``, no ``step_record``, no ``status`` (absent,
-    not null). Mapping rules:
-
-    - ``kind == "request"`` → role ``"user"``, text from the first
-      ``user-prompt`` part's ``content``.  Parts of other kinds (tool-return,
-      system) are skipped; if no user-prompt part exists the message is skipped.
-    - ``kind == "response"`` → role ``"assistant"``, text from the concatenated
-      ``text`` parts (``part_kind == "text"``).  Tool-call parts are skipped.
-      If a response has no text parts it is skipped entirely (tool-only round).
-    - ``ts`` is taken from the message-level ``timestamp`` field when present.
-    """
-    entries: list[dict[str, Any]] = []
-    for msg in messages:
-        kind = msg.get("kind")
-        ts = msg.get("timestamp") or None
-        if kind == "request":
-            for part in msg.get("parts", []):
-                if part.get("part_kind") == "user-prompt":
-                    content = part.get("content", "")
-                    if content:
-                        entries.append({"role": "user", "text": content, "ts": ts})
-                    break  # only the first user-prompt part
-        elif kind == "response":
-            text_parts = [
-                p.get("content", "") for p in msg.get("parts", []) if p.get("part_kind") == "text"
-            ]
-            combined = "".join(text_parts)
-            if combined:
-                entries.append({"role": "assistant", "text": combined, "ts": ts})
-    return entries
-
-
-def _user_entries_for_record(record: dict[str, Any]) -> list[dict[str, Any]]:
-    """The user entries a turn record stands for (wire-contract §2.1).
-
-    Self-contained: the question comes from ``record["user_text"]``, never
-    from a ``messages`` slice. On a resumed clarify (``synthesized_answer``)
-    the record's fresh ``user_message_id`` belongs to the synthesized answer
-    bubble (G4) — the original question still renders, but id-less (its
-    parked-era record was replaced). A record with neither yields nothing.
-    """
-    question = record.get("user_text")
-    entries: list[dict[str, Any]] = []
-    if record.get("synthesized_answer"):
-        if question:
-            entries.append({"role": "user", "text": question, "ts": None})
-        answer = (record.get("clarify") or {}).get("answer")
-        entries.append(
-            {
-                "role": "user",
-                "text": answer or "",
-                "ts": record.get("ts"),
-                "message_id": record.get("user_message_id"),
-                "synthesized": True,
-            }
-        )
-    elif question:
-        entries.append(
-            {
-                "role": "user",
-                "text": question,
-                "ts": record.get("ts"),
-                "message_id": record.get("user_message_id"),
-            }
-        )
-    return entries
-
-
-def _assistant_entry_for_record(record: dict[str, Any]) -> dict[str, Any]:
-    """One turn record → the assistant transcript entry (wire-contract §2.2).
-
-    ``parts`` is served straight from the record (materialized at write time
-    — the read never reconstructs prose from ``messages``); ``text`` derives
-    from the same parts via :func:`prose_of`.
-    """
-    parts = list(record.get("parts") or [])
-    entry: dict[str, Any] = {
-        "role": "assistant",
-        "text": prose_of(parts),
-        "ts": record.get("ts"),
-        "message_id": record.get("message_id"),
-        "parts": parts,
-        "step_record": {
-            "steps": record.get("steps") or [],
-            "thinking": record.get("thinking") or [],
-            "receipt": record.get("receipt") or "",
-        },
-        "sources": record.get("sources") or [],
-        "status": record.get("status"),
-    }
-    if record.get("usage") is not None:
-        entry["usage"] = record["usage"]
-    if record.get("status") == "error" and record.get("error") is not None:
-        entry["error"] = record["error"]
-    if record.get("clarify") is not None:
-        entry["clarify"] = record["clarify"]
-    return entry
-
-
-def _pre_mvp2_boundary(messages: list[dict[str, Any]], records: list[dict[str, Any]]) -> int:
-    """Where the prose-only fallback ends: the FIRST record's offset.
-
-    Records are in insertion order (the overwrite channel appends), so
-    ``records[0]`` is the oldest — its offset is the boundary. A missing /
-    non-int / out-of-range offset clamps to ``len(messages)`` with a warning:
-    the read must degrade, never crash.
-    """
-    if not records:
-        return len(messages)
-    first = records[0].get("messages_offset")
-    if not isinstance(first, int) or not 0 <= first <= len(messages):
-        logger.warning(
-            "first turn record has invalid messages_offset — clamping the "
-            "pre-MVP2 fallback boundary to len(messages)",
-            messages_offset=first,
-        )
-        return len(messages)
-    return first
-
-
-def _extract_transcript(
-    messages: list[dict[str, Any]],
-    turn_records: list[dict[str, Any]] | None = None,
-) -> list[dict[str, Any]]:
-    """The full-fidelity transcript (B1b, wire-contract §2).
-
-    Turn records (G2) drive the MVP2 entries and are SELF-CONTAINED — the
-    user text and the materialized parts live on the record; no ``messages``
-    slicing. Messages not covered by any record (pre-MVP2 turns) fall back to
-    the prose-only shape, in order, BEFORE the record-backed entries.
-    """
-    records = turn_records or []
-    entries = _prose_only_entries(messages[: _pre_mvp2_boundary(messages, records)])
-    for record in records:
-        entries.extend(_user_entries_for_record(record))
-        entries.append(_assistant_entry_for_record(record))
-    return entries
-
-
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -321,13 +202,16 @@ async def create_session_route(
     )
 
 
-@router.post("/sessions/{session_id}/messages", dependencies=[Depends(require_json)])
+@router.post(
+    "/sessions/{session_id}/messages",
+    dependencies=[Depends(require_json), Depends(message_rate_limit)],
+)
 async def post_message(
     session_id: UUID,
     body: MessageBody,
     request: Request,
     user: UserDB = Depends(current_active_user),
-    _row: dict[str, Any] = Depends(owned_session),
+    row: dict[str, Any] = Depends(owned_session),
 ) -> EventSourceResponse:
     """Start one counselor turn and stream it as SSE.
 
@@ -342,6 +226,19 @@ async def post_message(
     """
     sid = str(session_id)
     trace_id = getattr(request.state, "trace_id", None)
+    settings = request.app.state.settings
+    pool = request.app.state.runtime.app_pool
+
+    # Source-config stickiness (PRD story 10): a per-message toggle is upserted
+    # onto the row so it survives devices/cleared storage; the session read seeds
+    # the dropdown from it. Done before the turn starts.
+    if body.source_config is not None:
+        await set_session_source_config(pool, sid, body.source_config.model_dump(mode="json"))
+
+    # Default title on first message: stamp the (truncated) question so the chat
+    # has a name immediately; the on_turn_complete hook may upgrade it later.
+    if row.get("title") is None:
+        await set_session_title(pool, sid, default_title(body.text, settings.title_max_len))
 
     try:
         stream = await _registry(request).start(
@@ -426,6 +323,7 @@ async def cancel_session(
 async def get_session_route(
     session_id: UUID,
     request: Request,
+    user: UserDB = Depends(current_active_user),
     row: dict[str, Any] = Depends(owned_session),
 ) -> JSONResponse:
     """Fetch session metadata and the conversation transcript.
@@ -436,7 +334,7 @@ async def get_session_route(
 
     Transcript is reconstructed from the LangGraph checkpointer's message
     history (``graph.aget_state`` → ``state.values["messages"]``).  See
-    :func:`_extract_transcript` for the mapping rules.
+    :func:`app.transcript.extract_transcript` for the mapping rules.
     """
     sid = str(session_id)
     runtime = request.app.state.runtime
@@ -458,8 +356,19 @@ async def get_session_route(
             500, "Failed to load session transcript — please try again.", trace_id
         )
 
+    # The honesty join (B4): the caller's thumbs, keyed on assistant message_id,
+    # so a rating survives reload. A read failure must not sink the transcript —
+    # degrade to no feedback (the prose is still honest).
+    feedback_by_id: dict[str, str] = {}
     try:
-        transcript = _extract_transcript(messages, turn_records)
+        feedback_by_id = await feedback_for_session(
+            runtime.app_pool, user_id=str(user.id), session_id=sid
+        )
+    except Exception:
+        logger.exception("failed to load feedback — serving transcript without it", session_id=sid)
+
+    try:
+        transcript = extract_transcript(messages, turn_records, feedback_by_id)
     except Exception:
         # A corrupt record (missing required id, malformed shape) must degrade
         # to an honest error, never a 500 stacktrace to the client.
@@ -468,16 +377,134 @@ async def get_session_route(
             500, "Failed to load session transcript — please try again.", trace_id
         )
 
-    created_at = row.get("created_at")
-    if created_at is not None and hasattr(created_at, "isoformat"):
-        created_at = created_at.isoformat()
-
     return JSONResponse(
         content={
             "session_id": row["session_id"],
             "title": row.get("title"),
-            "created_at": created_at,
+            "created_at": _iso(row.get("created_at")),
             "source_config": row.get("source_config"),
             "transcript": transcript,
         }
     )
+
+
+def _iso(value: Any) -> str | None:
+    """A datetime → isoformat, passing through None/strings unchanged."""
+    if value is not None and hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    return value if value is None else str(value)
+
+
+@router.get("/sessions")
+async def list_sessions_route(
+    request: Request,
+    user: UserDB = Depends(current_active_user),
+    q: str | None = Query(default=None),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> JSONResponse:
+    """The authed user's chat list — keyset-paginated, optional title search.
+
+    Each row carries ``is_generating`` (a live turn exists) and the stored
+    ``source_config`` (story 10 seed). ``next_cursor`` is null on the last page.
+    """
+    pool = request.app.state.runtime.app_pool
+    registry = _registry(request)
+    rows = await list_sessions(pool, str(user.id), q=q, cursor=cursor, limit=limit)
+
+    sessions = [
+        {
+            "session_id": row["session_id"],
+            "title": row.get("title"),
+            "created_at": _iso(row.get("created_at")),
+            "updated_at": _iso(row.get("updated_at")),
+            "source_config": row.get("source_config"),
+            "is_generating": registry.is_generating(row["session_id"]),
+        }
+        for row in rows
+    ]
+    next_cursor: str | None = None
+    if len(rows) == limit:
+        last = rows[-1]
+        next_cursor = encode_cursor(last["updated_at"], last["session_id"])
+    return JSONResponse(content={"sessions": sessions, "next_cursor": next_cursor})
+
+
+@router.patch("/sessions/{session_id}", dependencies=[Depends(require_json)])
+async def rename_session_route(
+    session_id: UUID,
+    body: RenameSessionBody,
+    request: Request,
+    row: dict[str, Any] = Depends(owned_session),
+) -> JSONResponse:
+    """Rename a chat (owned). Does NOT bump ``updated_at`` — a rename isn't activity."""
+    settings = request.app.state.settings
+    title = body.title.strip()
+    if not title:
+        raise EnvelopeError(422, "Title cannot be empty.")
+    if len(title) > settings.title_max_len:
+        raise EnvelopeError(422, f"Title must be at most {settings.title_max_len} characters.")
+    sid = str(session_id)
+    pool = request.app.state.runtime.app_pool
+    await set_session_title(pool, sid, title)
+    return JSONResponse(
+        content={
+            "session_id": sid,
+            "title": title,
+            "created_at": _iso(row.get("created_at")),
+            "source_config": row.get("source_config"),
+        }
+    )
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session_route(
+    session_id: UUID,
+    request: Request,
+    _row: dict[str, Any] = Depends(owned_session),
+) -> Response:
+    """Delete one chat: cancel any live turn FIRST, drop its checkpoint thread,
+    then the row — the me.py honest pattern (abort 500 if the thread fails,
+    row intact/retryable)."""
+    from api.routes.me import _cancel_and_drop_threads
+
+    sid = str(session_id)
+    pool = request.app.state.runtime.app_pool
+    failed = await _cancel_and_drop_threads(request, [sid])
+    if failed:
+        logger.error("session delete aborted — checkpoint thread survived", session_id=sid)
+        raise EnvelopeError(500, "Deleting this chat didn't fully complete — please try again.")
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM counselle.sessions WHERE session_id = $1", session_id)
+    return Response(status_code=204)
+
+
+@router.post(
+    "/sessions/{session_id}/messages/{message_id}/feedback",
+    dependencies=[Depends(require_json)],
+)
+async def feedback_route(
+    session_id: UUID,
+    body: FeedbackBody,
+    request: Request,
+    message_id: str = Path(..., max_length=128),
+    user: UserDB = Depends(current_active_user),
+    _row: dict[str, Any] = Depends(owned_session),
+) -> Response:
+    """Set/clear the caller's thumbs on an assistant message (owned session).
+
+    ``rating: null`` clears (204); ``up``/``down`` upserts (200 ``{rating}``).
+    ``message_id`` is the assistant message_id (a path str).
+    """
+    pool = request.app.state.runtime.app_pool
+    if body.rating is None:
+        await clear_feedback(pool, user_id=str(user.id), message_id=message_id)
+        return Response(status_code=204)
+    await set_feedback(
+        pool,
+        user_id=str(user.id),
+        session_id=str(session_id),
+        message_id=message_id,
+        rating=body.rating,
+    )
+    return JSONResponse(content={"rating": body.rating})

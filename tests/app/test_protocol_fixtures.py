@@ -39,8 +39,8 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 import app.agent_node
 import app.graph
 import app.viz
-from api.routes.sessions import _extract_transcript
 from app.state import TemporalContext
+from app.transcript import extract_transcript
 from app.turns import TurnRegistry
 from domain.envelope import Citation, CitationEnvelope
 from domain.events import Event
@@ -379,7 +379,7 @@ async def test_golden_full_fidelity_transcript() -> None:
     assert drained.is_set()
 
     snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
-    transcript = _extract_transcript(
+    transcript = extract_transcript(
         list(snapshot.values.get("messages") or []),
         list(snapshot.values.get("turn_records") or []),
     )
