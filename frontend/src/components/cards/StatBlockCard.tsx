@@ -1,6 +1,6 @@
 /**
- * StatBlockCard — the dossier stat block (PRD story 28; semantics from
- * harness/viz.js buildStatBlock).
+ * StatBlockCard — the dossier stat block (PRD story 28; semantics ported
+ * from the retired MVP1 harness's buildStatBlock).
  *
  * Label/value grid: one VizRow per line, value = cells[0]. Unavailable
  * values render the designed muted NA state (PRD story 29) — never an

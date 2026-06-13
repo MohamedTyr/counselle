@@ -22,4 +22,4 @@ The student is the biggest market and the hardest to get right (high emotional s
 - Clarifying questions, source tiering, recency, tables, and in-session memory become first-class (see PRD).
 - The architecture (retrieval layer) is built so personalization/chancing/memory/writing can be layered on later.
 
-See `PRD.md` for the full feature list and decision history.
+See `specs/mvp1/PRD.md` for the full feature list and decision history.

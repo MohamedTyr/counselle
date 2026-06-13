@@ -1,6 +1,6 @@
 /**
- * ScoreBandCard — the SAT/ACT middle-50% band (PRD story 33; semantics from
- * harness/viz.js buildScoreBand).
+ * ScoreBandCard — the SAT/ACT middle-50% band (PRD story 33; semantics ported
+ * from the retired MVP1 harness's buildScoreBand).
  *
  * Per VizRow: cells[0] = 25th percentile, cells[1] = 75th. Sections render
  * as SEPARATE rows — a combined 1600 is never rendered or computed, full

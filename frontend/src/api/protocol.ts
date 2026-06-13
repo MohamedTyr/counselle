@@ -3,7 +3,7 @@
  *
  * Sources of truth (field names verbatim):
  *   - `domain/events.py` (MVP1: meta/delta/viz/clarify/sources/usage/done/error)
- *   - `plans/mvp2/architecture.md` §27.1–27.2 (step/thinking), §27.4
+ *   - `specs/mvp2/architecture.md` §27.1–27.2 (step/thinking), §27.4
  *     (done.status gains "cancelled"), §27.5 (the transcript contract)
  *   - `domain/specs.py` (RenderSpec/ClarifySpec), `domain/envelope.py`
  *     (Citation/CitationEnvelope)

@@ -1,6 +1,6 @@
 /**
  * FE-4 — the clarifying-question widget (PRD stories 23–25; MVP1 semantics
- * from harness/clarify.js).
+ * ported from the retired harness's clarify renderer).
  *
  * Interactive: header, question, 2–4 option chips with hint sublabels.
  * Single-select: tap answers immediately. multi_select: taps toggle, "Send"

@@ -1,10 +1,10 @@
 # Counselle — System Architecture
 
-> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the MVP1 agent service, designed so the future platform (persistent chats, user accounts, profiles, chancing, writing) extends it without rework. **Part II (§26–35)** is the MVP2 full-stack app built on top of it — auth, chat management, the work-visibility protocol extensions, and the React frontend. Companion docs: `PRD.md` / `PRD-mvp2.md` (what & why), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
+> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the MVP1 agent service, designed so the future platform (persistent chats, user accounts, profiles, chancing, writing) extends it without rework. **Part II (§26–35)** is the MVP2 full-stack app built on top of it — auth, chat management, the work-visibility protocol extensions, and the React frontend. Companion docs: `specs/mvp1/PRD.md` / `specs/mvp2/PRD.md` (what & why), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
 >
-> Status: **MVP1 built (2026-06-11)**. PRD stories 1–38 and 42–58 implemented and verified. Deep research (PRD stories 39–41) designed but not yet built — see §13 and `plans/mvp1-deep-research.md`.
+> Status: **MVP1 built (2026-06-11)**. PRD stories 1–38 and 42–58 implemented and verified. Deep research (PRD stories 39–41) designed but not yet built — see §13 and `specs/deep-research/plan.md`.
 >
-> **MVP2 in build (2026-06-12)** — Part II is the spec; frontend FE-0…FE-6 merged, backend phases B0–B7 underway per `plans/mvp2/ship-plan.md`.
+> **MVP2 in build (2026-06-12)** — Part II is the spec; frontend FE-0…FE-6 merged, backend phases B0–B7 underway per `specs/mvp2/plan/ship-plan.md`.
 
 ---
 
@@ -315,7 +315,7 @@ Tier is computed from **actual data presence** (extracted values → extracted; 
 
 (ADR 0003.) PydanticAI defines each agent with `model=` from config, native MCP connections, and typed `result_type`s. LangGraph orchestrates: state passing, session persistence via the checkpointer (§7), and `interrupt()` for clarifying questions.
 
-**MVP1 as-built:** only the **counselor** agent is implemented. The **researcher** and **verifier** agents are designed (§13) but not yet built — they are part of the deferred deep-research follow-up (`plans/mvp1-deep-research.md`). Parallel research subgraphs are also deferred.
+**MVP1 as-built:** only the **counselor** agent is implemented. The **researcher** and **verifier** agents are designed (§13) but not yet built — they are part of the deferred deep-research follow-up (`specs/deep-research/plan.md`). Parallel research subgraphs are also deferred.
 
 ### 12.1 Clarifying questions
 
@@ -347,7 +347,7 @@ One focused round, 2–4 options, never an intake form. The chips are a shortcut
 
 ## 13. The deep-research subsystem (GPT-Researcher)
 
-> **Not yet built — designed, deferred from MVP1.** The graph ships a stub `research` seam. The follow-up plan is `plans/mvp1-deep-research.md`. The design below is the approved spec for that plan. See ADR 0009 for the GPT-Researcher choice and `docs/research/deep-research-bakeoff.md` for the bake-off.
+> **Not yet built — designed, deferred from MVP1.** The graph ships a stub `research` seam. The follow-up plan is `specs/deep-research/plan.md`. The design below is the approved spec for that plan. See ADR 0009 for the GPT-Researcher choice and `docs/research/deep-research-bakeoff.md` for the bake-off.
 
 Embedded as a research subagent inside the LangGraph orchestrator — not adopted wholesale, and **not** a hosted research black box (our DB must be a first-class source; our model routing and source tiering must apply). (ADR 0009; bake-off in `docs/research/deep-research-bakeoff.md`.)
 
@@ -670,7 +670,7 @@ All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `P
 
 ### 27.7 Turn identity, the turn record & lifecycle semantics (resolved at B0, 2026-06-12)
 
-Five spec gaps surfaced in the ship-plan review are resolved here as architecture (ADR 0022 carries the decision trail). The field-level FE↔BE contract that realizes these on the wire is **the wire contract** (B0 spike 4, `plans/mvp2/wire-contract.md`, archived with the MVP2 plan).
+Five spec gaps surfaced in the ship-plan review are resolved here as architecture (ADR 0022 carries the decision trail). The field-level FE↔BE contract that realizes these on the wire is **the wire contract** (B0 spike 4, `specs/mvp2/plan/wire-contract.md`, archived with the MVP2 plan).
 
 - **Message identity (G1).** Every turn mints two UUIDs at start — `user_message_id` and `message_id` (the assistant message). Both ride `meta.data` (additive within v1 — the live stream can address the in-flight message for feedback/edit) and persist in the turn record. Feedback keys on the globally-unique assistant `message_id`. A clarify resume **reuses the parked turn's `message_id`** — one assistant message, one id, however many park/resume cycles produced it.
 - **The turn record (G2 — supersedes §27.5's step record).** Per assistant turn, persisted in graph state: the G1 ids; ordered `parts[]` — text and viz at emission offsets (offsets into the streamed prose, never duplicated text); steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and `messages_offset` — the graph-state slice point for history rewrite (server-internal, never on the wire). Because `parts[]` is offsets, one prose invariant holds everywhere: **every terminal path (complete, cancelled, error, tool-budget) leaves `messages` carrying exactly the prose that streamed.** The transcript read returns the consumer-contract wire shape; pre-MVP2 turns have no record and render prose-only.
@@ -880,4 +880,4 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 ---
 
-*Companions: `PRD.md` (product), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (decisions — see ADRs 0016–0019 for the service/platform decisions added with this revision), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (product), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (decisions — see ADRs 0016–0019 for the service/platform decisions added with this revision), `docs/research/` (stack survey). Keep this current as decisions change.*

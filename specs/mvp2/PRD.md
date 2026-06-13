@@ -2,7 +2,7 @@
 
 > **Status:** MVP2 scope drafted 2026-06-11 (product level — the WHAT). The HOW (frontend stack, auth provider, exact protocol schemas) is deliberately not decided here; it comes in the MVP2 architecture/planning pass, same as MVP1's flow (PRD → architecture → ADRs → plan).
 >
-> **Relationship to MVP1:** MVP1 built the agent and proved it (PRD stories 1–38, 42–58 implemented; deep research 39–41 deferred to `plans/mvp1-deep-research.md`). MVP1 was deliberately **API-first** (ADR 0016 — every frontend is a client of the versioned SSE protocol) with **durable sessions** in Postgres carrying a nullable `user_id` waiting to be used (ADR 0019). MVP2 is therefore mostly **a real client + an identity layer + chat management + protocol extensions for work visibility**. The agent itself — the honesty machinery, the tools, the citation envelope — ships as-is.
+> **Relationship to MVP1:** MVP1 built the agent and proved it (PRD stories 1–38, 42–58 implemented; deep research 39–41 deferred to `specs/deep-research/plan.md`). MVP1 was deliberately **API-first** (ADR 0016 — every frontend is a client of the versioned SSE protocol) with **durable sessions** in Postgres carrying a nullable `user_id` waiting to be used (ADR 0019). MVP2 is therefore mostly **a real client + an identity layer + chat management + protocol extensions for work visibility**. The agent itself — the honesty machinery, the tools, the citation envelope — ships as-is.
 >
 > **MVP2 in one line:** take the MVP1 agent and wrap it in a ChatGPT-grade product — accounts, a persistent chat workspace, and a chat experience that finally does justice to the dossiers, comparisons, citations, and clarifying questions the agent already produces.
 
@@ -120,7 +120,7 @@ Everything below the UI ships from MVP1 unchanged except the explicitly listed b
 
 50. As the operator, I want **per-user rate limiting** — MVP2 is the first time strangers can spend the Gemini/Tavily budget.
 51. As the operator, I want the SSE protocol extended with granular **work-visibility events** (see Backend Delta) so the activity timeline renders real work, not theater.
-52. As a developer, I want the deferred deep-research feature to have UI room reserved: the timeline/streaming treatment must extend naturally to a long-running "researching…" phase when `plans/mvp1-deep-research.md` lands — design for it, don't build it.
+52. As a developer, I want the deferred deep-research feature to have UI room reserved: the timeline/streaming treatment must extend naturally to a long-running "researching…" phase when `specs/deep-research/plan.md` lands — design for it, don't build it.
 
 ---
 
@@ -241,7 +241,7 @@ First-run micro-tooltips/activation steering; source-degradation honesty notices
 
 - **Memory / personalization** — no stored profile, no cross-session memory (platform phase).
 - **Chancing, essay/activity writing, deadline tracking / process management** — still the "doing" layer (MVP1 deferrals stand).
-- **Deep research** — own follow-up (`plans/mvp1-deep-research.md`); MVP2 only reserves UI room for it.
+- **Deep research** — own follow-up (`specs/deep-research/plan.md`); MVP2 only reserves UI room for it.
 - **Guest mode** — growth phase.
 - **Chat sharing links** — later.
 - **Billing / plans / quotas beyond rate limiting** — later.
@@ -260,9 +260,9 @@ First-run micro-tooltips/activation steering; source-degradation honesty notices
 
 | Document | What it holds |
 |---|---|
-| `PRD.md` | MVP1 PRD — the agent (stories 1–58, decisions, deferrals) |
-| `PRD-mvp2.md` | This document — the full-stack app over the agent |
+| `specs/mvp1/PRD.md` | MVP1 PRD — the agent (stories 1–58, decisions, deferrals) |
+| `specs/mvp2/PRD.md` | This document — the full-stack app over the agent |
 | `docs/ARCHITECTURE.md` | MVP1 system design; to be extended in the MVP2 architecture pass |
 | `docs/adr/` | Architectural decisions; MVP2 will add its own (frontend stack, auth, protocol v2) |
-| `plans/mvp2/` | The MVP2 architecture pass (done 2026-06-11): `architecture.md` (the HOW spec) + ADR drafts 0020–0023; merges into `docs/` when the build starts |
-| `plans/mvp1-deep-research.md` | The deferred deep-research follow-up |
+| `specs/mvp2/` | The MVP2 architecture pass (done 2026-06-11): `specs/mvp2/architecture.md` (the HOW spec) + ADR drafts 0020–0023; plan files under `specs/mvp2/plan/` |
+| `specs/deep-research/plan.md` | The deferred deep-research follow-up |
