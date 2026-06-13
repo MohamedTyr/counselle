@@ -65,11 +65,11 @@ Sibling files copied verbatim from upstream `client/`:
 | `components/Chat/Input/SendButton.tsx` | `client/src/components/Chat/Input/SendButton.tsx` | verbatim |
 | `components/Chat/Input/StopButton.tsx` | `client/src/components/Chat/Input/StopButton.tsx` | verbatim |
 | `components/Chat/Input/CollapseChat.tsx` | `client/src/components/Chat/Input/CollapseChat.tsx` | verbatim |
-| `components/Chat/Input/ConversationStarters.tsx` | `client/src/components/Chat/Input/ConversationStarters.tsx` | adapted (see below) |
+| `components/Chat/Input/ConversationStarters.tsx` | `client/src/components/Chat/Input/ConversationStarters.tsx` | adapted (see below); B5c: starters from `GET /v1/config` (async) |
 | `components/Chat/Input/ChatForm.tsx` | `client/src/components/Chat/Input/ChatForm.tsx` | stripped + rewired (see below) |
-| `components/Chat/Landing.tsx` | `client/src/components/Chat/Landing.tsx` | stripped + rewired (see below) |
+| `components/Chat/Landing.tsx` | `client/src/components/Chat/Landing.tsx` | stripped + rewired (see below); B5c: greeting/season_note from `GET /v1/config` (async + loading fade) |
 | `components/Chat/Header.tsx` | `client/src/components/Chat/Header.tsx` | stripped (see below) |
-| `components/Chat/Footer.tsx` | `client/src/components/Chat/Footer.tsx` | stripped: GTM/markdown/config links out; fixture text; container classes + separator byte-identical |
+| `components/Chat/Footer.tsx` | `client/src/components/Chat/Footer.tsx` | stripped: GTM/markdown/config links out; static `APP_FOOTER` constant (B5c: not served by `/v1/config`); container classes + separator byte-identical |
 | `Providers/CustomFormContext.tsx` | `client/src/Providers/CustomFormContext.tsx` | verbatim |
 | `Providers/ChatFormContext.tsx` | `client/src/Providers/ChatFormContext.tsx` | verbatim |
 
@@ -165,7 +165,7 @@ Sibling files copied verbatim from upstream `client/`:
 |---|---|
 | `components/Chat/Messages/Content/MarkdownBlocks.tsx` | same (the per-block memoization core — **byte-identical**) |
 | `components/Chat/Messages/Content/splitMarkdown.ts` | same — **byte-identical** |
-| `components/Chat/Messages/Feedback.tsx` | same — **byte-identical** (works as-is over the data-provider shim) |
+| `components/Chat/Messages/Feedback.tsx` | B5c rewrite: reason-chip popovers (Ariakit + `getTagsForRating`) and the "other" free-text `OGDialog` **subtracted** — the backend stores only `{rating}` (reason chips are MVP3); collecting-and-discarding tags is a dishonest affordance. Now a plain two-button thumbs toggle; `buttonClasses`/`ThumbUpIcon`/`ThumbDownIcon`/`isLast` grammar byte-identical |
 | `components/Chat/Messages/SubRow.tsx` | same — **byte-identical** |
 | `components/Chat/Messages/ui/PlaceholderRow.tsx` | same — **byte-identical** |
 | `components/Messages/Content/CopyButton.tsx` | same — **byte-identical** |
@@ -196,7 +196,7 @@ Sibling files copied verbatim from upstream `client/`:
 | `components/Messages/Content/CodeBar.tsx` | RunCode + plugin InfoIcon dropped; bar classes byte-identical |
 | `components/Messages/Content/Error.tsx` | their backend error-code parser reduced to text passthrough (protocol `error.message` is already human) |
 | `components/Messages/ScrollToBottom.tsx` | `maximizeChatSpace` frozen false; classes byte-identical |
-| `hooks/Messages/useMessageActions.tsx` | endpoints/agents dropped; chatContext getter-object dropped (reducer blocks are reference-stable); copy = `copy-to-clipboard` over message prose; feedback via `@/api/hooks` mutation over the mock store |
+| `hooks/Messages/useMessageActions.tsx` | endpoints/agents dropped; chatContext getter-object dropped (reducer blocks are reference-stable); copy = `copy-to-clipboard` over message prose; B5c: tag hydration (`getTagByKey`/`toMinimalFeedback`) **removed** (`message.feedback` is just `{rating}`); feedback via `@/api/hooks` mutation over the real `POST .../feedback` with optimistic-thumb rollback on failure |
 
 ### Support changes
 
@@ -377,6 +377,7 @@ Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
 | `components/Nav/AccountSettings.tsx` | settings wiring restored to upstream pattern: `showSettings` state + `<Settings open onOpenChange/>` rendered inside MenuProvider; Settings MenuItem `onClick={() => setShowSettings(true)}` (was the FE-1 no-op) |
 | `app/common/index.ts` | + `TDangerButtonProps`, `TDialogProps` (upstream common/types.ts:452,468; `UseMutationResult<unknown>` widened to 4 type args for strict TS), `LocalizeFunction` (types.ts:89) |
 | `src/vendor/librechat-data-provider/index.ts` | + `SettingsTabValues` enum (upstream packages/data-provider/src/config.ts:2366, trimmed to GENERAL/DATA/ACCOUNT) |
+| `src/vendor/librechat-data-provider/index.ts` (B5c) | `TFeedback.tag` made optional — the reason-chip/free-text UI was subtracted (backend stores only `{rating}`; reason chips are MVP3) |
 
 ### Counselle-native additions (FE-5B)
 
@@ -422,3 +423,34 @@ file imports them.
 | `src/app/auth.ts` (replaced) | jotai `sessionUserAtom` → TanStack Query: `useMe()` (`[QueryKeys.me]`, 401→null), `useAuthUser()` shim, and the mutations `useLogin`/`useRegister`/`useLogout`/`usePatchMe`/`useDeleteAccount` (each invalidates `me`, plus `chats` on logout/delete) |
 | `src/app/settingsSync.ts` (new) | `useServerThemeSeed()` (server-wins theme seed on me-resolve) + `usePersistTheme()` (optimistic flip → `PATCH /v1/me`, settings spread). `default_source_config` deliberately untouched (B5c) |
 | `src/api/hooks.ts` | + `QueryKeys.me` |
+
+## B5c — Source control, feedback, config, sessions list
+
+### Vendored-component touches (ledgered)
+
+| File | Change |
+|---|---|
+| `components/Chat/Messages/Feedback.tsx` | Reason-chip popovers (Ariakit `usePopoverStore` + `getTagsForRating` + `FeedbackOptionButton`) and the "other" free-text `OGDialog` **subtracted** — the backend stores only `{rating}` (reason chips are MVP3); collecting tags it discards is a dishonest affordance. Now a plain two-button thumbs toggle (click to set, click the active thumb to clear). `buttonClasses`/`ThumbUpIcon`/`ThumbDownIcon`/`isLast` grammar byte-identical |
+| `hooks/Messages/useMessageActions.tsx` | Tag hydration (`getTagByKey`/`toMinimalFeedback`) removed — `message.feedback` is just `{rating}` (ChatContext's transcript projection). `handleFeedback` paints the thumb optimistically and rolls back on a rejected `POST .../feedback` (honesty: never show feedback the backend didn't persist) |
+| `components/Chat/Landing.tsx` | greeting + season_note now from `useConfigQuery()` (`GET /v1/config`, async); loading fades the content block in (no fallback flash); on error falls back to a local greeting constant, season_note hidden |
+| `components/Chat/Input/ConversationStarters.tsx` | starters from `useConfigQuery()` (was the import-time fixture); empty until resolved (the existing `!length` guard returns null gracefully) |
+| `components/Chat/Footer.tsx` | footer text now the static `@/api/appFooter` `APP_FOOTER` constant (`/v1/config` does NOT serve the footer) |
+| `components/Conversations/Conversations.tsx` | `activeJobIds` is now a prop (the set of `is_generating` session ids) instead of frozen-empty — the per-row generating indicator (upstream's spinner in the action slot) renders for live turns |
+| `components/UnifiedSidebar/ConversationsSection.tsx` | `useChatsQuery` is now the real `GET /v1/sessions`; derives `activeJobIds` from each row's `isGenerating` and passes it to `Conversations` |
+
+### Counselle-native B5c additions / replacements
+
+| File | Description |
+|---|---|
+| `src/api/source-config.ts` (new) | The §4 wire boundary: `toWire`/`fromWire` (FE `SourceConfig` ↔ `SourceConfigWire`), `FULL_MENU` (bare keys, `null`=full menu), defensive `fromWire`. The ONLY place that translates store↔wire shape |
+| `src/api/http/sessions.ts` (new) | `listSessions` (`GET /v1/sessions?limit=50` → `ChatSummary[]`, `is_generating`→`isGenerating`), `renameSession` (PATCH), `deleteSession` (DELETE 204; non-ok throws so a failed delete keeps the row) |
+| `src/api/http/config.ts` (new) | `fetchConfig` (`GET /v1/config`) + `ConfigData` type |
+| `src/api/http/feedback.ts` (new) | `setFeedback` (`POST .../messages/{id}/feedback {rating:'up'\|'down'\|null}`); non-ok throws |
+| `src/api/appFooter.ts` (new) | the static `APP_FOOTER` brand copy (replaces the deleted `mock/fixtures/config.ts`) |
+| `src/api/hooks.ts` | `useChatsQuery`/rename/delete now real (`http/sessions`); `useUpdateFeedbackMutation` real (`http/feedback`, `thumbsUp↔up` map); `useConfigQuery` new (seeds default source config via `setDefaultSourceConfig(fromWire(...))` on success); `useCreateChatMutation` **removed** (dead — the new-chat flow goes through `ChatContext.transport.createSession`); `+ QueryKeys.config` |
+| `src/api/transport.ts` | `SendMessageBody.source_config` + `CreatedSession.source_config` + `createSession()` tightened to `SourceConfigWire`; `transcript()` now returns `SessionTranscript` (`{entries, sourceConfig}`) so chat-open seeds the dropdown |
+| `src/api/mock/sourceStore.ts` | `SUBREDDITS` corrected (C3) to the concrete yaml menu (`ApplyingToCollege, chanceme, financialaid, premed, csMajors`; `{school}` excluded) |
+| `src/api/types.ts` | `ChatSummary` gains `isGenerating: boolean` |
+| `src/app/ChatContext.tsx` | every `sendMessage` carries `source_config: toWire(getSourceConfig(convoId))`; `createSession` passes the default config; chat-open seeds the dropdown via `updateSourceConfig(convoId, fromWire(serverConfig))` |
+| `src/components/source-control/SourceDropdown.tsx` | re-reads `getSourceConfig` on popover open (picks up the server-seeded config written at chat open) |
+| `src/api/mock/fixtures/config.ts` | **deleted** (config now from `/v1/config`; footer moved to `appFooter.ts`) |

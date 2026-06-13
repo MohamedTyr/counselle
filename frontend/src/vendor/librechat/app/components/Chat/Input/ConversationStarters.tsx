@@ -3,8 +3,8 @@
  * (pinned 197a1dc4).
  *
  * Subtractions: endpoint/entity/agentsMap/assistantMap resolution,
- * useGetAssistantDocsQuery/useGetEndpointsQuery — starters come from the
- * Counselle config fixture instead.
+ * useGetAssistantDocsQuery/useGetEndpointsQuery — starters come from
+ * `GET /v1/config` (B5c — async query; empty until resolved, never crashes).
  * Rewires: useSubmitMessage → our ChatContext submitMessage (upstream behavior:
  * clicking a starter SUBMITS the prompt).
  *
@@ -13,14 +13,15 @@
  */
 import { useCallback } from 'react';
 import { useChatContext } from '@/app/ChatContext';
-import { APP_CONFIG } from '@/api/mock/fixtures/config';
+import { useConfigQuery } from '@/api/hooks';
 
 const MAX_CONVO_STARTERS = 4;
 
 const ConversationStarters = () => {
   const { submitMessage } = useChatContext();
+  const { data: config } = useConfigQuery();
 
-  const conversation_starters: readonly string[] = APP_CONFIG.conversation_starters;
+  const conversation_starters: readonly string[] = config?.conversation_starters ?? [];
 
   const sendConversationStarter = useCallback(
     (text: string) => {

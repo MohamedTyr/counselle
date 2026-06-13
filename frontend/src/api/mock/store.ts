@@ -86,6 +86,7 @@ export function createChat(title: string): ChatRecord {
     title: title.trim() || 'New chat',
     updatedAt: now,
     createdAt: now,
+    isGenerating: false,
   };
   chats = [newChat, ...chats];
   persist();

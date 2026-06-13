@@ -2,15 +2,16 @@
  * Vendored from upstream client/src/components/Chat/Footer.tsx (pinned 197a1dc4).
  *
  * Subtractions: GTM analytics, ReactMarkdown rendering, startup-config fetch,
- * privacy/terms external links (none in MVP2 yet). Content comes from the
- * Counselle config fixture; the container classes and the `|`-separated
- * segment rendering with the divider element are byte-identical to upstream.
+ * privacy/terms external links (none in MVP2 yet). Content is static brand copy
+ * (B5c: `/v1/config` does NOT serve the footer); the container classes and the
+ * `|`-separated segment rendering with the divider element are byte-identical
+ * to upstream.
  */
 import React from 'react';
-import { APP_CONFIG } from '@/api/mock/fixtures/config';
+import { APP_FOOTER } from '@/api/appFooter';
 
 function Footer({ className }: { className?: string }) {
-  const footerElements = APP_CONFIG.footer
+  const footerElements = APP_FOOTER
     .split('|')
     .map((text) => text.trim())
     .filter(Boolean);

@@ -30,6 +30,8 @@ import { activeConversationIdAtom } from '@/app/state';
 import { QueryKeys } from '@/api/hooks';
 import { transport } from '@/api/selectTransport';
 import { isTransportError, TransportError } from '@/api/http/errors';
+import { toWire, fromWire } from '@/api/source-config';
+import { getSourceConfig, updateSourceConfig } from '@/api/mock/sourceStore';
 import {
   deriveDurationMs,
   initialTurnState,
@@ -77,7 +79,7 @@ export type ChatMessage = {
   clarify?: ClarifySpec;
   turnStatus?: TurnStatus;
   streamError?: ErrorData;
-  feedback?: { rating: 'thumbsUp' | 'thumbsDown'; tag?: { key: string }; text?: string };
+  feedback?: { rating: 'thumbsUp' | 'thumbsDown' };
   ts: string | null;
 };
 
@@ -277,9 +279,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const loadTranscript = useCallback(async (convoId: string): Promise<void> => {
     setTranscriptError(null);
     try {
-      const entries = await transport.transcript(convoId);
+      const { entries, sourceConfig } = await transport.transcript(convoId);
       if (conversationIdRef.current === convoId) {
         setPersisted(messagesFromTranscript(convoId, entries));
+        // Seed the source dropdown from server truth (B5c): the session's
+        // persisted config wins over whatever localStorage held for this id.
+        if (sourceConfig !== null) {
+          updateSourceConfig(convoId, fromWire(sourceConfig));
+        }
       }
     } catch (error: unknown) {
       if (conversationIdRef.current === convoId) {
@@ -339,7 +346,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         state,
       });
       try {
-        for await (const event of transport.sendMessage(convoId, { text })) {
+        // Story 17: every send carries the conversation's current source config
+        // (wire shape, mapped at the seam). The backend upserts it per send, so
+        // per-conversation stickiness is automatic; toggling Reddit off here
+        // means `reddit:false` on the wire and no reddit step can appear.
+        const sourceConfig = toWire(getSourceConfig(convoId));
+        for await (const event of transport.sendMessage(convoId, { text, source_config: sourceConfig })) {
           // Identity adoption (G1): the stream's meta reconciles the temp ids
           // to the canonical backend ids. The user echo's id swaps in `persisted`
           // exactly once, the assistant id swaps in the live turn.
@@ -444,7 +456,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setTurnError(null);
       let activeId = conversationIdRef.current;
       if (activeId === null) {
-        const created = await transport.createSession();
+        // Persist the user's default source config onto the minted session so
+        // the first send (and the dropdown) reflect their chosen sources.
+        const created = await transport.createSession(toWire(getSourceConfig(null)));
         activeId = created.session_id;
         // Mark fresh so the conversation-change effect doesn't blank+reload it
         // out from under the optimistic echo we add below (G1 reconciliation).

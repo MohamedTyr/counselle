@@ -11,7 +11,8 @@
  * - description / HTML sanitizer removed
  *
  * Rewires:
- * - Greeting text + season note come from Counselle config fixture
+ * - Greeting text + season note come from `GET /v1/config` (B5c — async query,
+ *   graceful loading/fallback; was an import-time constant)
  * - SplitText animation kept byte-identical
  * - ConversationStarters render in ChatView below the composer (upstream position)
  *
@@ -20,7 +21,10 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { easings } from '@react-spring/web';
 import { SplitText } from '@librechat/client';
-import { APP_CONFIG } from '@/api/mock/fixtures/config';
+import { useConfigQuery } from '@/api/hooks';
+
+/** Sensible fallbacks if `/v1/config` errors — the home screen never crashes. */
+const FALLBACK_GREETING = 'Where should we begin?';
 
 function getTextSizeClass(text: string | undefined | null) {
   if (!text) {
@@ -41,7 +45,11 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
   const [contentHeight, setContentHeight] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const greetingText = APP_CONFIG.greeting;
+  const { data: config, isLoading } = useConfigQuery();
+  // Don't flash the fallback while the query resolves; once settled, use the
+  // server greeting (or the fallback on error). season_note shows only when present.
+  const greetingText = config?.greeting ?? FALLBACK_GREETING;
+  const seasonNote = config?.season_note ?? null;
 
   const handleLineCountChange = useCallback((count: number) => {
     setTextHasMultipleLines(count > 1);
@@ -75,7 +83,10 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
     <div
       className={`flex h-full transform-gpu flex-col items-center justify-center pb-16 transition-all duration-200 ${centerFormOnLanding ? 'max-h-full sm:max-h-0' : 'max-h-full'} ${getDynamicMargin}`}
     >
-      <div ref={contentRef} className="flex flex-col items-center gap-0 p-2">
+      <div
+        ref={contentRef}
+        className={`flex flex-col items-center gap-0 p-2 transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+      >
         <div
           className={`flex ${textHasMultipleLines ? 'flex-col' : 'flex-col md:flex-row'} items-center justify-center gap-2`}
         >
@@ -93,9 +104,9 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
             onLineCountChange={handleLineCountChange}
           />
         </div>
-        {APP_CONFIG.season_note && (
+        {seasonNote && (
           <div className="animate-fadeIn mt-4 max-w-md text-center text-sm font-normal text-text-primary">
-            {APP_CONFIG.season_note}
+            {seasonNote}
           </div>
         )}
       </div>

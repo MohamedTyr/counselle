@@ -8,7 +8,13 @@
  * typed 401/409/429/422/5xx errors.
  */
 import type { ProtocolEvent, TranscriptEntry } from '@/api/protocol';
-import type { CreatedSession, SendMessageBody, Transport } from '@/api/transport';
+import type {
+  CreatedSession,
+  SendMessageBody,
+  SessionTranscript,
+  Transport,
+} from '@/api/transport';
+import type { SourceConfigWire } from '@/api/source-config';
 import { errorFromResponse, TransportError } from './errors';
 import { parseSseStream } from './sse';
 import { BASE } from './constants';
@@ -17,7 +23,7 @@ type TranscriptResponse = {
   session_id: string;
   title: string | null;
   created_at: string | null;
-  source_config: Record<string, unknown> | null;
+  source_config: SourceConfigWire | null;
   transcript: TranscriptEntry[];
 };
 
@@ -110,7 +116,7 @@ export class HttpTransport implements Transport {
     }
   }
 
-  async transcript(sessionId: string): Promise<TranscriptEntry[]> {
+  async transcript(sessionId: string): Promise<SessionTranscript> {
     const response = await safeFetch(`${BASE}/sessions/${sessionId}`, {
       method: 'GET',
       credentials: 'same-origin',
@@ -119,12 +125,12 @@ export class HttpTransport implements Transport {
       throw await errorFromResponse(response);
     }
     const json = (await response.json()) as TranscriptResponse;
-    return json.transcript;
+    return { entries: json.transcript, sourceConfig: json.source_config };
   }
 
   /** New-chat flow: mint a real session id before the first send. A network
    *  failure surfaces as TransportError('network') (reuses `safeFetch`). */
-  async createSession(sourceConfig?: Record<string, unknown>): Promise<CreatedSession> {
+  async createSession(sourceConfig?: SourceConfigWire): Promise<CreatedSession> {
     const body = sourceConfig !== undefined ? { source_config: sourceConfig } : {};
     const response = await safeFetch(`${BASE}/sessions`, {
       method: 'POST',

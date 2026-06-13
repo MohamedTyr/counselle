@@ -2,7 +2,10 @@
 // Subtractions: FavoritesList (favorites stripped), useActiveJobs (no generation indicators),
 //   useFavorites, useShowMarketplace, clearMessagesCache, useNewConvo, useQueryClient,
 //   QueryKeys, store.search (Recoil), store.conversationByIndex (Recoil).
-// Rewire: ChatsHeader new-chat button → useChatContext; activeJobIds → empty (no streaming yet).
+// Rewire: ChatsHeader new-chat button → useChatContext.
+//   B5c: `activeJobIds` is now passed in (the set of generating session ids from
+//   `is_generating`) instead of frozen-empty — the per-row generating indicator
+//   (upstream's spinner in the action slot) renders honestly for live turns.
 import { useMemo, memo, type FC, useCallback, useEffect, useRef } from 'react';
 import throttle from 'lodash/throttle';
 import { ChevronDown } from 'lucide-react';
@@ -39,6 +42,8 @@ interface ConversationsProps {
   isChatsExpanded: boolean;
   setIsChatsExpanded: (expanded: boolean) => void;
   showFavorites?: boolean;
+  /** B5c: session ids with a live (generating) turn — drives the per-row indicator. */
+  activeJobIds?: ReadonlySet<string>;
 }
 
 interface MeasuredRowProps {
@@ -165,6 +170,7 @@ const Conversations: FC<ConversationsProps> = ({
   isChatsExpanded,
   setIsChatsExpanded,
   showFavorites: _showFavorites = false, // stripped — always false in MVP2
+  activeJobIds: activeJobIdsProp,
 }) => {
   const localize = useLocalize();
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
@@ -175,8 +181,10 @@ const Conversations: FC<ConversationsProps> = ({
     height: listHeight,
   } = useElementSize<HTMLDivElement>();
 
-  // activeJobIds — frozen empty (no streaming indicators in FE-1)
-  const activeJobIds = useMemo(() => new Set<string>(), []);
+  // B5c: the generating-session ids come from the sessions list's is_generating
+  // (empty set when none are streaming).
+  const emptyJobIds = useMemo(() => new Set<string>(), []);
+  const activeJobIds = activeJobIdsProp ?? emptyJobIds;
 
   const filteredConversations = useMemo(
     () => rawConversations.filter(Boolean) as TConversation[],

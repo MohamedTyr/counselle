@@ -10,12 +10,20 @@
  *     PATCH /v1/me, spreading the existing settings so `default_source_config`
  *     (owned by B5c) is never clobbered.
  *
- * `default_source_config` is deliberately untouched here — B5c seeds it.
+ * `default_source_config` follows the same contract via `usePersistDefaultSources`
+ * below: the `/v1/config` seed wins on login (server → localStorage), and a
+ * Settings→General toggle is local-optimistic then PATCHed to the server so the
+ * choice survives a reload (otherwise the config seed re-clobbers it).
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { useTheme } from '@librechat/client';
 import { useMe, usePatchMe } from '@/app/auth';
 import type { UserSettings } from '@/api/http/auth';
+import {
+  setDefaultSourceConfig,
+  type SourceConfig,
+} from '@/api/mock/sourceStore';
+import { toWire } from '@/api/source-config';
 
 const VALID_THEMES = ['light', 'dark', 'system'];
 
@@ -76,5 +84,33 @@ export function usePersistTheme(): (value: string) => void {
       persist({ settings: { ...existing, theme: value } });
     },
     [me, setTheme, persist],
+  );
+}
+
+/**
+ * Returns a setter for the default source config (Settings→General). Writes
+ * localStorage optimistically (the dropdown/Landing read it immediately) then
+ * persists `default_source_config` to the server in WIRE shape, spreading the
+ * existing settings so `theme` survives. Without the server write, the next
+ * `/v1/config` seed would revert the toggle — a dishonest affordance.
+ *
+ * Error policy mirrors `usePersistTheme`: a 401 routes through the AuthGate (via
+ * `usePatchMe`); a non-401 failure stays silent (localStorage remains the cache).
+ */
+export function usePersistDefaultSources(): (patch: Partial<SourceConfig>) => SourceConfig {
+  const { data: me } = useMe();
+  const patchMeMutation = usePatchMe();
+  const persist = patchMeMutation.mutate;
+
+  return useCallback(
+    (patch: Partial<SourceConfig>) => {
+      const updated = setDefaultSourceConfig(patch);
+      if (me) {
+        const existing: UserSettings = me.settings ?? {};
+        persist({ settings: { ...existing, default_source_config: toWire(updated) } });
+      }
+      return updated;
+    },
+    [me, persist],
   );
 }

@@ -11,12 +11,13 @@
  *   (`copy-to-clipboard`, same setIsCopied contract + 3s reset)
  * - handleContinue dropped (no continue in the MVP2 protocol)
  * - UsernameDisplay (recoil) frozen false → "You" for user messages
- * - feedback hydration via getTagByKey + useUpdateFeedbackMutation kept, over
- *   our mock feedback store
+ * - feedback (B5c): the tag/text UI was subtracted (reason chips are MVP3), so
+ *   the getTagByKey/toMinimalFeedback hydration is gone — `message.feedback` is
+ *   just `{rating}` (ChatContext's transcript projection). The mutation posts to
+ *   the real POST .../messages/{id}/feedback; a failure rolls back the thumb.
  */
 import { useCallback, useMemo, useState } from 'react';
 import copy from 'copy-to-clipboard';
-import { getTagByKey, toMinimalFeedback } from 'librechat-data-provider';
 import type { TFeedback } from 'librechat-data-provider';
 import type { ChatMessage } from '@/app/ChatContext';
 import { useChatContext } from '@/app/ChatContext';
@@ -45,17 +46,9 @@ export default function useMessageActions(props: TMessageActions) {
   const { messageId = null } = message ?? {};
   const edit = useMemo(() => messageId === currentEditId, [messageId, currentEditId]);
 
-  const [feedback, setFeedback] = useState<TFeedback | undefined>(() => {
-    if (message?.feedback) {
-      const tag = getTagByKey(message.feedback.tag?.key as Parameters<typeof getTagByKey>[0]);
-      return {
-        rating: message.feedback.rating,
-        tag,
-        text: message.feedback.text,
-      };
-    }
-    return undefined;
-  });
+  const [feedback, setFeedback] = useState<TFeedback | undefined>(() =>
+    message?.feedback ? { rating: message.feedback.rating } : undefined,
+  );
 
   const enterEdit = useCallback(
     (cancel?: boolean) => setCurrentEditId && setCurrentEditId(cancel === true ? -1 : messageId),
@@ -93,29 +86,21 @@ export default function useMessageActions(props: TMessageActions) {
 
   const handleFeedback = useCallback(
     ({ feedback: newFeedback }: { feedback: TFeedback | undefined }) => {
-      const minimal = newFeedback ? toMinimalFeedback(newFeedback) : undefined;
-
+      // Optimistic: paint the thumb now; roll back on a rejected write so we
+      // never show a feedback state the backend didn't persist (honesty).
+      const previous = feedback;
+      const next = newFeedback ? { rating: newFeedback.rating } : undefined;
+      setFeedback(next);
       feedbackMutation.mutate(
-        { feedback: minimal },
+        { feedback: next },
         {
-          onSuccess: (data) => {
-            if (!data.feedback) {
-              setFeedback(undefined);
-            } else {
-              const tag = getTagByKey(
-                (data.feedback.tag ?? undefined) as Parameters<typeof getTagByKey>[0],
-              );
-              setFeedback({
-                rating: data.feedback.rating,
-                tag,
-                text: data.feedback.text,
-              });
-            }
+          onError: () => {
+            setFeedback(previous);
           },
         },
       );
     },
-    [feedbackMutation],
+    [feedback, feedbackMutation],
   );
 
   return {
