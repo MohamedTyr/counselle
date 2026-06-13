@@ -21,13 +21,26 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import yaml
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_PREFIX = "COUNSELLE_"
 
+#: A JWT signing secret shorter than this is rejected (pyjwt 2.13 warns below 32).
+_MIN_JWT_SECRET_BYTES = 32
+
 #: Fields whose values must never appear unmasked in repr/str/logs.
-_SECRET_FIELDS = frozenset({"db_ro_dsn", "db_app_dsn", "tavily_api_key", "vertex_api_key"})
+_SECRET_FIELDS = frozenset(
+    {
+        "db_ro_dsn",
+        "db_app_dsn",
+        "tavily_api_key",
+        "vertex_api_key",
+        "jwt_secret",
+        "google_oauth_client_secret",
+        "oauth_state_secret",
+    }
+)
 
 
 def _mask_secret(name: str, value: str) -> str:
@@ -111,6 +124,40 @@ class Settings(BaseSettings):
     # Frozen constant: the SSE event-protocol version (ADR 0016). Re-exported from
     # domain/ in Phase 1; bump only with an architecture discussion.
     protocol_version: int = 1
+
+    # --- Auth (B3, ADR 0021) ---
+    # REQUIRED: the JWT signing secret (≥32 bytes — pyjwt 2.13 warns below).
+    jwt_secret: str
+    cookie_name: str = "counselle_auth"
+    cookie_secure: bool = False  # True in prod via env (HTTPS only)
+    jwt_lifetime_seconds: int = 60 * 60 * 24 * 30  # 30 days, no refresh (locked)
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
+    oauth_state_secret: str | None = None  # falls back to jwt_secret (see property)
+    oauth_redirect_url: str = "/"  # where the OAuth callback 302s the SPA
+
+    # --- Email (B3) ---
+    email_provider: Literal["console"] = "console"
+    email_from: str = "noreply@counselle.app"
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _jwt_secret_long_enough(cls, value: str) -> str:
+        if len(value.encode("utf-8")) < _MIN_JWT_SECRET_BYTES:
+            raise ValueError(
+                f"must be at least {_MIN_JWT_SECRET_BYTES} bytes (pyjwt 2.13 warns below)"
+            )
+        return value
+
+    @property
+    def effective_oauth_state_secret(self) -> str:
+        """The OAuth CSRF state secret — falls back to the JWT secret when unset."""
+        return self.oauth_state_secret or self.jwt_secret
+
+    @property
+    def google_oauth_configured(self) -> bool:
+        """True when both Google OAuth client credentials are present."""
+        return bool(self.google_oauth_client_id and self.google_oauth_client_secret)
 
     # --- Observability ---
     log_level: str = "INFO"

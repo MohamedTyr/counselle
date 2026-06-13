@@ -349,15 +349,23 @@ async def test_unknown_session_post_message_returns_404(live_app: FastAPI) -> No
 
 
 async def test_oversized_text_returns_422(live_app: FastAPI) -> None:
-    """Test 4b: POST body with text > 4000 chars → 422 Unprocessable Entity."""
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=live_app), base_url="http://test"
-    ) as client:
-        resp = await client.post(
-            f"/v1/sessions/{uuid4()}/messages",
-            json={"text": "x" * 4001},
-        )
-    assert resp.status_code == 422
+    """Test 4b: POST body with text > 4000 chars → 422 Unprocessable Entity.
+
+    Uses a real owned session so the body-validation error (422) is what
+    surfaces — against an unknown session, ownership (404) would short-circuit.
+    """
+    session_id = await _create_session(live_app)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                f"/v1/sessions/{session_id}/messages",
+                json={"text": "x" * 4001},
+            )
+        assert resp.status_code == 422
+    finally:
+        await delete_session(live_app.state.runtime.app_pool, session_id)
 
 
 async def test_404_error_envelope_has_trace_id(live_app: FastAPI) -> None:

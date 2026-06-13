@@ -4,8 +4,8 @@
 
 - ``get_settings()`` at factory time — fail-fast: a misconfigured environment
   kills boot right here (ADR 0018);
-- the request-context stack — trace ids, optional principal, CORS, the 500
-  error envelope (``api/context.py``);
+- the request-context stack — trace ids, CORS, the 500 error envelope
+  (``api/context.py``);
 - the ``/v1`` routers — Slice A ships empty stubs in ``api/routes/``; Slice B
   fills their bodies (sessions, messages SSE, health, admin reconcile);
 - the lifespan — logging, the Phase 4 runtime via ``app.deps.build_runtime``
@@ -38,8 +38,17 @@ import structlog
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from api.auth import (
+    UserCreate,
+    UserRead,
+    UserUpdate,
+    auth_backend,
+    fastapi_users,
+    google_oauth_client,
+    oauth_backend,
+)
 from api.context import install_middleware
-from api.routes import sessions, system
+from api.routes import me, sessions, system
 from api.supervision import McpSupervisor
 from app.deps import build_runtime
 from app.turns import TurnRegistry
@@ -134,13 +143,52 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await runtime.aclose()
 
 
+def _install_auth_routers(app: FastAPI, settings: Any) -> None:
+    """Mount the fastapi-users routers under ``/v1/auth`` (B3, ADR 0021).
+
+    register (custom UserCreate carrying ``name``), login (form-encoded) +
+    logout, forgot/reset (always 202), the users router (email/password change
+    — story 49), and — when Google creds are set — the OAuth router whose
+    callback sets the cookie and 302s the SPA.
+    """
+    app.include_router(
+        fastapi_users.get_auth_router(auth_backend), prefix="/v1/auth", tags=["auth"]
+    )
+    app.include_router(
+        fastapi_users.get_register_router(UserRead, UserCreate),
+        prefix="/v1/auth",
+        tags=["auth"],
+    )
+    app.include_router(
+        fastapi_users.get_reset_password_router(), prefix="/v1/auth", tags=["auth"]
+    )
+    app.include_router(
+        fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/v1/auth", tags=["auth"]
+    )
+    google_client = google_oauth_client()
+    if google_client is not None:
+        app.include_router(
+            fastapi_users.get_oauth_router(
+                google_client,
+                oauth_backend,
+                settings.effective_oauth_state_secret,
+                redirect_url=None,
+                associate_by_email=True,
+            ),
+            prefix="/v1/auth/google",
+            tags=["auth"],
+        )
+
+
 def create_app() -> FastAPI:
     """Build the Counselle API service (ADR 0016): middleware, /v1 routers, lifespan."""
     settings = get_settings()  # fail-fast: misconfiguration kills boot at the factory
     app = FastAPI(title="Counselle", version="0.1.0", lifespan=_lifespan)
     install_middleware(app, settings)
+    _install_auth_routers(app, settings)
     app.include_router(sessions.router, prefix="/v1")
     app.include_router(system.router, prefix="/v1")
+    app.include_router(me.router, prefix="/v1")
     # Dev harness static files — served at /harness (html=True serves index.html)
     _harness_dir = Path(__file__).parent.parent / "harness"
     if _harness_dir.is_dir():

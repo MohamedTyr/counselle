@@ -1,12 +1,13 @@
 """Request context middleware + the global error envelope (Phase 5 Slice A).
 
 Every request gets: a fresh ``trace_id`` (uuid4 hex) bound into structlog's
-contextvars and stashed on ``request.state``; an **optional principal** parsed
-from ``Authorization: Bearer <token>`` — no validation, no auth, just the
-platform's auth seam (ADR 0016); CORS from Settings. Any unhandled exception
-becomes the user-safe 500 envelope ``{"error": {"message", "trace_id"}}`` with
-the full traceback logged under the trace id — internals never leak (PRD
-security rules).
+contextvars and stashed on ``request.state``; CORS from Settings. Any unhandled
+exception becomes the user-safe 500 envelope ``{"error": {"message",
+"trace_id"}}`` with the full traceback logged under the trace id — internals
+never leak (PRD security rules).
+
+B3: the MVP1 parse-only ``Authorization: Bearer`` seam is gone — the validated
+``current_active_user`` cookie dependency (``api/auth.py``) is now the principal.
 """
 
 from __future__ import annotations
@@ -29,20 +30,8 @@ logger = structlog.get_logger(__name__)
 ERROR_MESSAGE = "Something went wrong — this is on us."
 
 
-def _parse_principal(scope: Scope) -> str | None:
-    """``Authorization: Bearer <x>`` → ``<x>``; anything else → ``None``. No validation."""
-    headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
-    for name, value in headers:
-        if name == b"authorization":
-            scheme, _, token = value.decode("latin-1").partition(" ")
-            if scheme.lower() == "bearer" and token.strip():
-                return token.strip()
-            return None
-    return None
-
-
 class RequestContextMiddleware:
-    """Pure-ASGI middleware: trace id + optional principal on ``request.state``.
+    """Pure-ASGI middleware: a trace id on ``request.state``.
 
     Pure ASGI (not ``BaseHTTPMiddleware``) so SSE streaming responses pass
     through without buffering or background-task interference. The trace id is
@@ -61,7 +50,6 @@ class RequestContextMiddleware:
         bind_trace_id(trace_id)
         state = scope.setdefault("state", {})
         state["trace_id"] = trace_id
-        state["principal"] = _parse_principal(scope)
         await self.app(scope, receive, send)
 
 
@@ -87,11 +75,15 @@ def install_middleware(app: FastAPI, settings: Any) -> None:
     Add order matters: CORS is added last so it wraps outermost and answers
     preflights before anything else runs.
     """
+    from api.deps import EnvelopeError, envelope_error_handler
+
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_credentials=True,  # the httpOnly auth cookie must ride cross-origin
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "Last-Event-ID"],
     )
+    app.add_exception_handler(EnvelopeError, envelope_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

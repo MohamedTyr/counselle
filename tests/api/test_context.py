@@ -1,4 +1,4 @@
-"""Unit tests for api/context.py — trace ids, principal parsing, CORS, error envelope.
+"""Unit tests for api/context.py — trace ids, CORS, error envelope.
 
 The middleware stack is tested on a bare FastAPI app (no lifespan, no DB);
 ``test_app_boots_with_lifespan`` is the one live integration check that the
@@ -26,10 +26,7 @@ def make_app() -> FastAPI:
 
     @app.get("/echo")
     async def echo(request: Request) -> dict[str, str | None]:
-        return {
-            "trace_id": request.state.trace_id,
-            "principal": request.state.principal,
-        }
+        return {"trace_id": request.state.trace_id}
 
     @app.get("/boom")
     async def boom() -> None:
@@ -49,20 +46,6 @@ def test_trace_id_minted_per_request(client: TestClient) -> None:
     assert _HEX32.match(first)
     assert _HEX32.match(second)
     assert first != second
-
-
-def test_principal_parsed_from_bearer_header(client: TestClient) -> None:
-    body = client.get("/echo", headers={"Authorization": "Bearer tok-123"}).json()
-    assert body["principal"] == "tok-123"
-
-
-def test_principal_none_without_header(client: TestClient) -> None:
-    assert client.get("/echo").json()["principal"] is None
-
-
-def test_principal_none_for_non_bearer_scheme(client: TestClient) -> None:
-    body = client.get("/echo", headers={"Authorization": "Basic dXNlcjpwdw=="}).json()
-    assert body["principal"] is None
 
 
 def test_error_envelope_hides_internals_and_carries_trace_id(client: TestClient) -> None:

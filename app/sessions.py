@@ -12,8 +12,8 @@ from uuid import uuid4
 import asyncpg
 
 _INSERT_SQL = """
-INSERT INTO counselle.sessions (session_id, source_config, title)
-VALUES ($1, $2, $3)
+INSERT INTO counselle.sessions (session_id, source_config, title, user_id)
+VALUES ($1, $2, $3, $4)
 """
 _SELECT_SQL = """
 SELECT session_id, user_id, title, source_config, created_at, updated_at
@@ -24,12 +24,20 @@ _TOUCH_SQL = "UPDATE counselle.sessions SET updated_at = now() WHERE session_id 
 
 
 async def create_session(
-    pool: asyncpg.Pool, source_config: dict[str, Any], title: str | None = None
+    pool: asyncpg.Pool,
+    source_config: dict[str, Any],
+    title: str | None = None,
+    *,
+    user_id: str | None = None,
 ) -> str:
-    """Insert a new session row; returns the new ``session_id`` (uuid4 string)."""
+    """Insert a new session row; returns the new ``session_id`` (uuid4 string).
+
+    ``user_id`` is optional (the eval runner still calls without it — those rows
+    are dev-only and re-runnable; B3's FK purge sweeps any NULL-user rows once).
+    """
     session_id = str(uuid4())
     async with pool.acquire() as conn:
-        await conn.execute(_INSERT_SQL, session_id, source_config, title)
+        await conn.execute(_INSERT_SQL, session_id, source_config, title, user_id)
     return session_id
 
 

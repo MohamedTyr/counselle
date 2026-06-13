@@ -10,7 +10,9 @@ Counselle is an AI agent for the US college-admissions process — a thinking an
 
 ```bash
 psql postgres < scripts/setup_db.sql
-uv run yoyo apply --database "$COUNSELLE_DB_APP_DSN" migrations/
+# Append ?schema=counselle so yoyo keeps its bookkeeping tables in the
+# counselle schema (owned by counselle_app), not in public.
+uv run yoyo apply --batch --database "${COUNSELLE_DB_APP_DSN}?schema=counselle" migrations/
 ```
 
 ## Environment setup

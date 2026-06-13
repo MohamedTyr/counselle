@@ -25,14 +25,17 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette import EventSourceResponse
 
+from api.auth import current_active_user
+from api.deps import owned_session, require_json
 from api.sse import SSE_HEADERS, encode_sse
+from api.users_db import UserDB
 from app.records import prose_of
-from app.sessions import create_session, get_session
+from app.sessions import create_session
 from app.turns import (
     InvalidEditTarget,
     NoActiveTurn,
@@ -122,16 +125,6 @@ def _error_json(status_code: int, message: str, trace_id: str | None) -> JSONRes
         status_code=status_code,
         content={"error": {"message": message, "trace_id": trace_id}},
     )
-
-
-async def _session_404(request: Request, sid: str) -> JSONResponse | None:
-    """The unknown-session guard shared by every /sessions/{id} route."""
-    runtime = request.app.state.runtime
-    trace_id = getattr(request.state, "trace_id", None)
-    row = await get_session(runtime.app_pool, sid)
-    if row is None:
-        return _error_json(404, "Session not found.", trace_id)
-    return None
 
 
 def _sse_response(
@@ -300,21 +293,25 @@ def _extract_transcript(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/sessions", status_code=201)
+@router.post("/sessions", status_code=201, dependencies=[Depends(require_json)])
 async def create_session_route(
     request: Request,
     body: CreateSessionBody | None = None,
+    user: UserDB = Depends(current_active_user),
 ) -> JSONResponse:
     """Create a new counselle.sessions row and return {session_id, source_config}.
 
-    The body is optional; if ``source_config`` is omitted the settings defaults
-    are used (via :meth:`SourceConfig.defaults_from`).
+    Requires auth; the row is stamped with the authed ``user_id``. The body is
+    optional; if ``source_config`` is omitted the settings defaults are used
+    (via :meth:`SourceConfig.defaults_from`).
     """
     settings = request.app.state.settings
     runtime = request.app.state.runtime
 
     effective = (body.source_config if body else None) or SourceConfig.defaults_from(settings)
-    session_id = await create_session(runtime.app_pool, effective.model_dump(mode="json"))
+    session_id = await create_session(
+        runtime.app_pool, effective.model_dump(mode="json"), user_id=str(user.id)
+    )
     return JSONResponse(
         status_code=201,
         content={
@@ -324,35 +321,34 @@ async def create_session_route(
     )
 
 
-@router.post("/sessions/{session_id}/messages")
+@router.post("/sessions/{session_id}/messages", dependencies=[Depends(require_json)])
 async def post_message(
     session_id: UUID,
     body: MessageBody,
     request: Request,
+    user: UserDB = Depends(current_active_user),
+    _row: dict[str, Any] = Depends(owned_session),
 ) -> EventSourceResponse:
     """Start one counselor turn and stream it as SSE.
 
     FastAPI validates ``session_id`` as a UUID before this handler runs —
     a malformed id (e.g. ``"not-a-uuid"``) is rejected with 422, never 500.
 
-    Returns 404 when the session row is unknown; 409 when a turn is already
-    in flight (the registry's single-flight lock); 422 when
-    ``replace_message_id`` is not an editable target (G3: pre-MVP2 turns and
-    synthesized clarify-answer bubbles). The turn runs as a DETACHED task —
+    Requires auth + ownership (foreign/unknown → 404 via ``owned_session``);
+    409 when a turn is already in flight (the registry's single-flight lock);
+    422 when ``replace_message_id`` is not an editable target (G3: pre-MVP2 turns
+    and synthesized clarify-answer bubbles). The turn runs as a DETACHED task —
     dropping this response does not stop it (reattach via GET .../stream).
     """
     sid = str(session_id)
     trace_id = getattr(request.state, "trace_id", None)
-
-    not_found = await _session_404(request, sid)
-    if not_found is not None:
-        return not_found  # type: ignore[return-value]
 
     try:
         stream = await _registry(request).start(
             sid,
             body.text,
             body.source_config,
+            user_id=str(user.id),
             replace_message_id=body.replace_message_id,
         )
     except StreamActive:
@@ -376,20 +372,18 @@ async def post_message(
 async def stream_session(
     session_id: UUID,
     request: Request,
+    _row: dict[str, Any] = Depends(owned_session),
 ) -> EventSourceResponse:
     """Reattach to the in-flight turn (B2, §27.3).
 
-    Reads the standard ``Last-Event-ID`` request header; the registry replays
-    every buffered event with ``seq > Last-Event-ID`` (absent header → from
-    seq 0), then follows live. No active turn (idle, parked, or evicted at the
-    terminal) → 204 — the client falls back to the transcript (complete, G2).
+    Requires auth + ownership (foreign/unknown → 404). Reads the standard
+    ``Last-Event-ID`` request header; the registry replays every buffered event
+    with ``seq > Last-Event-ID`` (absent header → from seq 0), then follows live.
+    No active turn (idle, parked, or evicted at the terminal) → 204 — the client
+    falls back to the transcript (complete, G2).
     """
     sid = str(session_id)
     settings = request.app.state.settings
-
-    not_found = await _session_404(request, sid)
-    if not_found is not None:
-        return not_found  # type: ignore[return-value]
 
     if not getattr(settings, "reattach_enabled", True):
         return Response(status_code=204)  # type: ignore[return-value]
@@ -414,20 +408,16 @@ async def stream_session(
 async def cancel_session(
     session_id: UUID,
     request: Request,
+    _row: dict[str, Any] = Depends(owned_session),
 ) -> Response:
     """Cancel the in-flight turn (G5).
 
-    Active → 202 (partial persisted; the stream terminates with the
-    single-shot ``done(cancelled)``); parked clarify → 204 + unpark (the
-    clarify freezes unanswered); idle — including cancel racing completion —
-    → 204 no-op.
+    Requires auth + ownership (foreign/unknown → 404). Active → 202 (partial
+    persisted; the stream terminates with the single-shot ``done(cancelled)``);
+    parked clarify → 204 + unpark (the clarify freezes unanswered); idle —
+    including cancel racing completion — → 204 no-op.
     """
     sid = str(session_id)
-
-    not_found = await _session_404(request, sid)
-    if not_found is not None:
-        return not_found
-
     outcome = await _registry(request).cancel(sid)
     return Response(status_code=202 if outcome == "cancelled" else 204)
 
@@ -436,24 +426,21 @@ async def cancel_session(
 async def get_session_route(
     session_id: UUID,
     request: Request,
+    row: dict[str, Any] = Depends(owned_session),
 ) -> JSONResponse:
     """Fetch session metadata and the conversation transcript.
 
     FastAPI validates ``session_id`` as a UUID before this handler runs —
-    a malformed id is rejected with 422, never 500.
+    a malformed id is rejected with 422, never 500. Requires auth + ownership
+    (foreign/unknown → 404 via ``owned_session``).
 
     Transcript is reconstructed from the LangGraph checkpointer's message
     history (``graph.aget_state`` → ``state.values["messages"]``).  See
-    :func:`_extract_transcript` for the mapping rules.  Returns 404 for an
-    unknown session.
+    :func:`_extract_transcript` for the mapping rules.
     """
     sid = str(session_id)
     runtime = request.app.state.runtime
     trace_id = getattr(request.state, "trace_id", None)
-
-    row = await get_session(runtime.app_pool, sid)
-    if row is None:
-        return _error_json(404, "Session not found.", trace_id)
 
     # Pull message history from the checkpointer
     config = {"configurable": {"thread_id": sid}}

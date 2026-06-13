@@ -14,7 +14,7 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 **MVP1 built (2026-06-11).** PRD stories 1–38 and 42–58 are implemented and verified by tests, evals, and live E2E. Deep research (PRD stories 39–41) is **deferred** — the graph ships a stub `research` seam; the follow-up plan lives in `plans/mvp1-deep-research.md`. The data pipeline is live (Postgres on `localhost:5432`). The MVP1 implementation plan is archived in `plans/archive/mvp1/`.
 
-**MVP2 in build.** The frontend (FE-0…FE-6, the backend-free LibreChat clone) merged 2026-06-12; the backend/app build (phases B0–B7) is underway per `plans/mvp2/ship-plan.md`. **B0 done (2026-06-12):** docs merged (ARCHITECTURE Part II + the §0.1/§0.2 addenda), ADRs 0020–0023 accepted, the four gate-spike decisions recorded in ship-plan §5.
+**MVP2 in build.** The frontend (FE-0…FE-6, the backend-free LibreChat clone) merged 2026-06-12; the backend/app build (phases B0–B7) is underway per `plans/mvp2/ship-plan.md`. **B0 done (2026-06-12):** docs merged (ARCHITECTURE Part II + the §0.1/§0.2 addenda), ADRs 0020–0023 accepted, the four gate-spike decisions recorded in ship-plan §5. **B3 done (2026-06-13):** auth & identity — `counselle.users`/`counselle.oauth_accounts` (migration 0004; `sessions.user_id` FK CASCADE + the dev purge), fastapi-users cookie-JWT (`api/auth.py`, `api/users_db.py` — the custom asyncpg adapter), `/v1/auth/*` routers (register/login/reset/users/Google OAuth), `/v1/me` (profile + cascade deletes), per-session ownership 404s, the JSON-only CSRF posture, `adapters/email.py` (console arm), and the Auth/Email Settings groups (`COUNSELLE_JWT_SECRET` now required).
 
 ## Commands
 

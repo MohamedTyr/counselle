@@ -24,10 +24,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from api.auth import current_active_user
 from api.context import install_middleware
 from api.routes import sessions as session_routes
 from api.routes import system as system_routes
 from app.turns import TurnRegistry
+from tests.api.conftest import TEST_USER_ID, _test_user
+
+# Fake session rows in these unit tests are owned by the override's test user.
+_OWNER_ID = str(TEST_USER_ID)
 
 # ---------------------------------------------------------------------------
 # Fake DB helpers
@@ -136,6 +141,9 @@ def make_test_app(
         settings=settings,
         run_turn_fn=run_turn_fn,
     )
+    # B3: the session routes require auth + ownership. These unit tests fake the
+    # principal with the shared test user; fake session rows are owned by it.
+    app.dependency_overrides[current_active_user] = _test_user
     return app
 
 
@@ -212,21 +220,19 @@ def test_post_message_unknown_session_returns_404(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_post_message_oversized_text_returns_422(client: TestClient) -> None:
-    """POST body with text > 4000 chars → 422 Unprocessable Entity."""
-    response = client.post(
-        f"/v1/sessions/{_UNKNOWN_UUID}/messages",
-        json={"text": "x" * 4001},
-    )
+def test_post_message_oversized_text_returns_422() -> None:
+    """POST body with text > 4000 chars → 422 (owned session, so body validates)."""
+    app, session_id = _known_session_app()
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(f"/v1/sessions/{session_id}/messages", json={"text": "x" * 4001})
     assert response.status_code == 422
 
 
-def test_post_message_empty_text_returns_422(client: TestClient) -> None:
-    """POST body with empty text → 422 Unprocessable Entity."""
-    response = client.post(
-        f"/v1/sessions/{_UNKNOWN_UUID}/messages",
-        json={"text": ""},
-    )
+def test_post_message_empty_text_returns_422() -> None:
+    """POST body with empty text → 422 (owned session, so body validates)."""
+    app, session_id = _known_session_app()
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(f"/v1/sessions/{session_id}/messages", json={"text": ""})
     assert response.status_code == 422
 
 
@@ -254,7 +260,7 @@ async def test_post_message_409_when_turn_in_flight() -> None:
     _, app_conn = _make_pool()
     fake_row = {
         "session_id": test_session_id,
-        "user_id": None,
+        "user_id": _OWNER_ID,
         "title": None,
         "source_config": None,
         "created_at": None,
@@ -428,7 +434,7 @@ def test_get_session_checkpointer_failure_returns_500() -> None:
     _, app_conn = _make_pool()
     fake_row = {
         "session_id": test_session_id,
-        "user_id": None,
+        "user_id": _OWNER_ID,
         "title": None,
         "source_config": None,
         "created_at": None,
@@ -473,7 +479,7 @@ def test_stream_yields_error_event_when_enrich_usage_raises() -> None:
     _, app_conn = _make_pool()
     fake_row = {
         "session_id": test_session_id,
-        "user_id": None,
+        "user_id": _OWNER_ID,
         "title": None,
         "source_config": None,
         "created_at": None,
@@ -535,7 +541,7 @@ def _known_session_app(run_turn_fn: Any = None) -> tuple[Any, str]:
     _, app_conn = _make_pool()
     app_conn.fetchrow.return_value = {
         "session_id": session_id,
-        "user_id": None,
+        "user_id": _OWNER_ID,
         "title": None,
         "source_config": None,
         "created_at": None,
@@ -597,14 +603,22 @@ async def test_stream_route_replays_from_last_event_id_header() -> None:
     while turn.buffer.next_seq < 2:
         await asyncio.sleep(0.01)
 
+    async def _release_gate() -> None:
+        # Release after a tick so the GET attaches to the STILL-active turn
+        # (B3 added an ownership DB read to the route — setting the gate before
+        # the GET would let the turn finalize + evict first, yielding a 204).
+        await asyncio.sleep(0.05)
+        gate.set()
+
+    releaser = asyncio.create_task(_release_gate())
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        gate.set()
         resp = await client.get(
             f"/v1/sessions/{session_id}/stream",
             headers={"Last-Event-ID": "1"},
         )
+    await releaser
 
     assert resp.status_code == 200
     frames = [f for f in resp.text.split("\r\n\r\n") if "data: " in f]
