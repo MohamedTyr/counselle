@@ -105,7 +105,12 @@ const HoverButtons = ({
 
   /** Their useGenerationsByLatest, reduced to the flat-list equivalents. */
   const regenerateEnabled = !isCreatedByUser && !isSubmitting && isLatest;
-  const isEditableEndpoint = isCreatedByUser;
+  // Edit (G3, B5d): a real `replace_message_id` history rewrite needs a backend
+  // user_message_id, so Edit is hidden on (a) pre-MVP2 / not-yet-reconciled
+  // id-less entries and (b) `synthesized` clarify-answer bubbles (editing them
+  // is meaningless; the backend returns 422).
+  const isEditableEndpoint =
+    isCreatedByUser && message.hasBackendId === true && message.synthesized !== true;
   const hideEditButton = isSubmitting || error;
 
   if (error) {

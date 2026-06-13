@@ -188,9 +188,9 @@ Sibling files copied verbatim from upstream `client/`:
 | `components/Chat/Messages/Content/markdownConfig.ts` | remark: `[supersub, remarkGfm]` (math/directive/artifact/citation/MCP-UI dropped); rehype: highlight only; lazy-cached getter pattern kept verbatim |
 | `components/Chat/Messages/Content/MarkdownComponents.tsx` | math/mermaid branches dropped; `canRunCode` frozen false; `a` → plain `target="_blank" rel="noopener noreferrer"` anchor (file-download branch dropped); `img` src passthrough |
 | `components/Chat/Messages/Content/MarkdownErrorBoundary.tsx` | math/artifact dropped; **type-level patch**: rehype plugin array cast `as PluggableList` (rehype-highlight@6 nests its own vfile → Plugin type mismatch under TS 5.9) — same cast in MarkdownLite/markdownConfig |
-| `components/Chat/Messages/Content/EditMessage.tsx` | user-message-only editing (PRD decision 4); Save & Submit → `ask({text, messageId})` (truncate-and-re-ask); Save → `updateMessageText`; siblings/RTL/file overrides dropped; classes + shortcuts byte-identical |
+| `components/Chat/Messages/Content/EditMessage.tsx` | user-message-only editing (PRD decision 4); Save & Submit → `ask({text, messageId})`. **B5d (G3):** the plain "Save" (text-mutation-without-re-ask) + its Ctrl/⌘+S shortcut **removed** — PRD decision 4 gives it no meaning and post-seam it's a client-side lie; Save & Submit is now a real `replace_message_id` rewrite. Save&Submit/Cancel classes + shortcuts byte-identical |
 | `components/Chat/Messages/Content/Container.tsx` | Files/SkillPills rows dropped; container classes byte-identical |
-| `components/Chat/Messages/HoverButtons.tsx` | audio/Fork/Continue dropped; `useGenerationsByLatest` → flat-list derivations (regenerate: latest assistant msg, not submitting; edit: user msgs only); HoverButton + classes byte-identical |
+| `components/Chat/Messages/HoverButtons.tsx` | audio/Fork/Continue dropped; `useGenerationsByLatest` → flat-list derivations (regenerate: latest assistant msg, not submitting; edit: user msgs only). **B5d (G3):** Edit gate tightened — also requires `message.hasBackendId === true` (no `replace_message_id` for id-less / pre-MVP2 / not-yet-reconciled entries) and `synthesized !== true` (clarify-answer bubbles return 422). HoverButton + classes byte-identical |
 | `components/Chat/Messages/MessageIcon.tsx` | endpoint/assistant resolution collapsed; user chip = upstream UserAvatar fallback byte-for-byte; assistant = Counselle "C" roundel |
 | `components/Messages/Content/CodeBlock.tsx` | run-code tool calls/FloatingCodeBar/plugin branch dropped; container + CodeBar + code classes byte-identical |
 | `components/Messages/Content/CodeBar.tsx` | RunCode + plugin InfoIcon dropped; bar classes byte-identical |
@@ -229,7 +229,7 @@ semantic pairs. Vendor-file deltas (each marked `FE-4:` inline):
 
 | File | Change |
 |---|---|
-| `components/Chat/Messages/Content/MessageContent.tsx` | ActivityTimeline above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn); SourcesFooter on completed answers |
+| `components/Chat/Messages/Content/MessageContent.tsx` | ActivityTimeline above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn); SourcesFooter on completed answers. **B5d:** + ThinkingShimmer (dead-air cover, `message.isThinking`); ClarifyWidget gains `answer={message.clarifyAnswer}` (frozen widget seeds from the persisted answer); SourcesFooter gains `citedIndexes` (footer filters to markers cited in this message's prose, wire-contract §5) via `citedIndexesIn` |
 | `components/Chat/Messages/Content/markdownConfig.ts` | + `remarkCitations` remark plugin; + `'citation-ref': CitationRefMarkdown` component mapping |
 | `hooks/Input/useTextarea.ts` | placeholder swaps to "Pick one, or just type…" while a clarify is open (`awaitingClarify` from ChatContext) |
 

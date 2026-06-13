@@ -5,27 +5,27 @@
  * Subtractions / rewires:
  * - Only user messages are editable (PRD decision 4: truncate-and-re-ask), so
  *   the assistant-edit branch (replay parent with editedText) is dropped
- * - "Save & Submit" → our ChatContext.ask({ text, messageId }) — truncates the
- *   transcript from this message and re-asks
- * - "Save" → our ChatContext.updateMessageText (edit-in-place, no re-ask)
+ * - "Save & Submit" → our ChatContext.ask({ text, messageId }) — a real
+ *   `replace_message_id` history rewrite (G3, B5d)
+ * - B5d: the plain "Save" (text-mutation-without-re-ask) is REMOVED — PRD
+ *   decision 4 gives it no meaning, and post-seam it would be a client-side lie
+ *   (the in-memory echo would diverge from the server). Edit's only real action
+ *   is Save & Submit. The Ctrl/⌘+S shortcut is dropped with it.
  * - sibling index bookkeeping dropped (no branching)
  * - chatDirection (RTL) frozen ltr; file/skill overrides dropped
- * Kept byte-identical: textarea + container classes, the three buttons and
- * their shortcuts (Ctrl/⌘+Enter submit, Ctrl/⌘+S save, Esc cancel).
+ * Kept byte-identical: textarea + container classes, Save&Submit + Cancel and
+ * their shortcuts (Ctrl/⌘+Enter submit, Esc cancel).
  */
 import { useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { TextareaAutosize, TooltipAnchor } from '@librechat/client';
 import type { TEditProps } from '~/common';
-import { useChatContext } from '@/app/ChatContext';
 import { cn, removeFocusRings } from '~/utils';
 import { useLocalize } from '~/hooks';
 import Container from './Container';
 
 const EditMessage = ({ text, message, isSubmitting, ask, enterEdit }: TEditProps) => {
-  const saveButtonRef = useRef<HTMLButtonElement | null>(null);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
-  const { updateMessageText } = useChatContext();
 
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -56,20 +56,11 @@ const EditMessage = ({ text, message, isSubmitting, ask, enterEdit }: TEditProps
     enterEdit(true);
   };
 
-  const updateMessage = (data: { text: string }) => {
-    updateMessageText(messageId, data.text);
-    enterEdit(true);
-  };
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         submitButtonRef.current?.click();
-      }
-      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        saveButtonRef.current?.click();
       }
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -120,19 +111,6 @@ const EditMessage = ({ text, message, isSubmitting, ask, enterEdit }: TEditProps
               onClick={handleSubmit(resubmitMessage)}
             >
               {localize('com_ui_save_submit')}
-            </button>
-          }
-        />
-        <TooltipAnchor
-          description="Ctrl + S / ⌘ + S"
-          render={
-            <button
-              ref={saveButtonRef}
-              className="btn btn-secondary relative mr-2"
-              disabled={isSubmitting}
-              onClick={handleSubmit(updateMessage)}
-            >
-              {localize('com_ui_save')}
             </button>
           }
         />

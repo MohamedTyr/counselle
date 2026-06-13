@@ -7,8 +7,7 @@ Phase 5 Slice B implementation (phase-5-api.md Slice B route table).
 **Superuser-only (B3).**  It runs the full field-index reconciliation
 immediately (paid Vertex embedding work), returning the summary dict, and is
 gated behind ``current_superuser`` (ADR 0016, ARCHITECTURE §23). ``/v1/health``
-stays open for uptime checks; ``/v1/meta/sources`` retires with the harness in
-B5d.
+stays open for uptime checks.
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from api.auth import current_superuser
-from config.settings import get_settings, load_yaml_asset
 from counselle_db.reconcile import reconcile_field_index
 
 APP_VERSION = "0.1.0"
@@ -73,29 +71,6 @@ async def health(request: Request) -> JSONResponse:
             "reconciler": reconciler.as_dict(),
             "version": APP_VERSION,
         },
-    )
-
-
-@router.get("/meta/sources")
-async def meta_sources() -> JSONResponse:
-    """Return the subreddit menu + source defaults for the dev harness dropdown.
-
-    Loads ``config/assets/subreddit_menu.yaml`` and the source defaults from
-    settings.  The ``{school}`` template entry is included as-is so the client
-    can filter it if desired.
-    """
-    settings = get_settings()
-    menu = load_yaml_asset("subreddit_menu")
-    subreddits = [{"sub": entry["sub"], "label": entry["label"]} for entry in (menu or [])]
-    return JSONResponse(
-        content={
-            "subreddits": subreddits,
-            "defaults": {
-                "web": settings.source_web_default,
-                "reddit": settings.source_reddit_default,
-                "edu": settings.source_edu_default,
-            },
-        }
     )
 
 

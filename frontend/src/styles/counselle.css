@@ -49,8 +49,15 @@
   animation: counselle-shimmer 1.6s ease-in-out infinite;
 }
 
+/* B5d dead-air cover: the "Thinking…" shimmer line. Compositor-friendly
+   (opacity only). Reused keyframe, gated under reduced-motion below. */
+.counselle-thinking {
+  animation: counselle-shimmer 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .counselle-step-active {
+  .counselle-step-active,
+  .counselle-thinking {
     animation: none;
     opacity: 1;
   }

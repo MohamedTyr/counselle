@@ -62,12 +62,23 @@ function SourceGroup({ label, entries }: { label: string; entries: SourceEntry[]
   );
 }
 
-export default function SourcesFooter({ sources }: { sources: SourceEntry[] }) {
-  if (sources.length === 0) {
+type SourcesFooterProps = {
+  sources: SourceEntry[];
+  /** The marker indexes cited in THIS message's prose (wire-contract §5,
+   *  PINNED). The footer shows only these — never a source the message didn't
+   *  cite. Viz cells contribute nothing (cards carry their own popovers). When
+   *  omitted, the full list shows (callers that don't scan prose). */
+  citedIndexes?: Set<number>;
+};
+
+export default function SourcesFooter({ sources, citedIndexes }: SourcesFooterProps) {
+  const cited =
+    citedIndexes !== undefined ? sources.filter((s) => citedIndexes.has(s.index)) : sources;
+  if (cited.length === 0) {
     return null;
   }
-  const official = sources.filter((s) => !isCommunityTier(s.citation.tier));
-  const community = sources.filter((s) => isCommunityTier(s.citation.tier));
+  const official = cited.filter((s) => !isCommunityTier(s.citation.tier));
+  const community = cited.filter((s) => isCommunityTier(s.citation.tier));
 
   return (
     <div className="not-prose mt-3 border-t border-border-light pt-3">

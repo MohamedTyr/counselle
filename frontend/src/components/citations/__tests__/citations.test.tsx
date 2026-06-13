@@ -146,4 +146,39 @@ describe('sources footer groups by tier', () => {
     rerender(<SourcesFooter sources={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  // B5d (wire-contract §5, PINNED): the footer filters to only the markers
+  // cited in this message — never a source the message didn't cite.
+  test('citedIndexes filters the footer to the markers in this message', () => {
+    const sources = [
+      sourceEntry({ index: 1 }),
+      sourceEntry({ index: 2, citation: citation({ source: 'scorecard' }) }),
+      sourceEntry({ index: 7, citation: citation({ source: 'cds' }) }),
+    ];
+    // The message cited only [1] and [7]; [2] must NOT appear.
+    render(<SourcesFooter sources={sources} citedIndexes={new Set([1, 7])} />);
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.queryByText('2')).toBeNull();
+  });
+
+  test('citedIndexes that match nothing → footer renders null', () => {
+    const { container } = render(
+      <SourcesFooter sources={[sourceEntry({ index: 1 })]} citedIndexes={new Set([9])} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('citedIndexesIn — the §5 footer-filter grammar (single-sourced with the chips)', () => {
+  test('collects 1–2 digit markers; ignores non-markers', async () => {
+    const { citedIndexesIn } = await import('@/components/citations/remarkCitations');
+    const got = citedIndexesIn('Acceptance is 12.5% [1], yield [12]; not [123] (3 digits), not 4.');
+    expect([...got].sort((a, b) => a - b)).toEqual([1, 12]);
+  });
+
+  test('empty text → empty set', async () => {
+    const { citedIndexesIn } = await import('@/components/citations/remarkCitations');
+    expect(citedIndexesIn('').size).toBe(0);
+  });
 });

@@ -47,6 +47,7 @@ import {
 import type {
   ClarifySpec,
   ErrorData,
+  ProtocolEvent,
   SourceEntry,
   StepRecord,
   TranscriptEntry,
@@ -77,9 +78,24 @@ export type ChatMessage = {
   durationMs?: number;
   sources?: SourceEntry[];
   clarify?: ClarifySpec;
+  /** The persisted clarify answer (transcript only): non-null = the chosen
+   *  resume text (the widget freezes seeded to it); null/undefined = unanswered
+   *  / the live parked widget. Threaded outside the reducer event replay
+   *  (wire-contract §8b) — carried in view-state. */
+  clarifyAnswer?: string | null;
   turnStatus?: TurnStatus;
   streamError?: ErrorData;
+  /** B5d dead-air cover: the turn is live but nothing is visibly progressing
+   *  (no active step, no streaming prose tail) — render the "Thinking…" shimmer.
+   *  Truthful: the model IS thinking; it vanishes the instant a real event lands. */
+  isThinking?: boolean;
   feedback?: { rating: 'thumbsUp' | 'thumbsDown' };
+  /** G4: a synthesized clarify-answer user bubble — never an edit target (the
+   *  backend returns 422). Surfaced so HoverButtons hides Edit on it. */
+  synthesized?: boolean;
+  /** Whether the backend assigned this message a real id (vs a temp/derived
+   *  one). Edit is hidden on id-less entries (pre-MVP2 / not yet reconciled). */
+  hasBackendId?: boolean;
   ts: string | null;
 };
 
@@ -109,14 +125,14 @@ type ChatContextValue = {
   messages: ChatMessage[];
   latestMessage: ChatMessage | null;
   latestMessageId: string | undefined;
-  /** Returns false if the send failed before/at stream start (composer keeps text). */
-  submitMessage: (text: string) => Promise<boolean>;
-  /** Truncate-and-re-ask (PRD decision 4) — EditMessage's save-and-submit. */
+  /** Returns false if the send failed before/at stream start (composer keeps text).
+   *  `replaceMessageId` (G3) rewrites server history from that user message. */
+  submitMessage: (text: string, replaceMessageId?: string) => Promise<boolean>;
+  /** Truncate-and-re-ask (PRD decision 4) — EditMessage's save-and-submit; now a
+   *  real `replace_message_id` history rewrite (G3). */
   ask: (props: AskProps) => void;
   /** Re-run the turn that produced `message` (an assistant message). */
   regenerate: (message: ChatMessage) => void;
-  /** Edit-in-place without re-asking — EditMessage's plain save. */
-  updateMessageText: (messageId: string, text: string) => void;
   stopGenerating: () => void;
   newConversation: () => void;
   /** The last turn's surfaced error, if any — cleared on the next submit/retry. */
@@ -146,24 +162,24 @@ const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 function messagesFromTranscript(conversationId: string, entries: TranscriptEntry[]): ChatMessage[] {
   const messages: ChatMessage[] = [];
   entries.forEach((entry, i) => {
+    const hasBackendId = entry.message_id !== undefined;
     const messageId = entry.message_id ?? `msg-${conversationId}-${i}`;
     const parentMessageId = i > 0 ? (messages[i - 1]?.messageId ?? null) : null;
     if (entry.role === 'user') {
       messages.push({
-        messageId,
-        conversationId,
-        parentMessageId,
-        text: entry.text,
-        isCreatedByUser: true,
-        sender: '',
-        error: false,
-        unfinished: false,
-        ts: entry.ts,
+        ...userMessage(conversationId, messageId, parentMessageId, entry.text, entry.ts),
+        synthesized: entry.synthesized === true,
+        hasBackendId,
       });
       return;
     }
     const state = reduceTranscriptEntry(entry);
     const message = assistantMessage(conversationId, messageId, parentMessageId, state, entry.ts);
+    message.hasBackendId = hasBackendId;
+    // The persisted clarify answer is threaded outside the reducer's event
+    // replay (the event carries only the bare spec, wire-contract §8b): the
+    // frozen widget seeds its selection from it.
+    message.clarifyAnswer = entry.clarify !== undefined ? entry.clarify.answer : undefined;
     // Thumbs survive reload: map the entry's wire rating ('up'/'down') to the
     // component's thumbsUp/thumbsDown (mirrors the prior feedbackOf seam).
     message.feedback =
@@ -185,6 +201,16 @@ function assistantMessage(
   const record = toStepRecord(state);
   const activeStep = [...state.steps].reverse().find((s) => s.status === 'start');
   const lastThinking = state.thinking[state.thinking.length - 1];
+  const isLive = state.status === 'streaming' || state.status === 'idle';
+  // Dead air: live, no step currently in progress (an active StepRow already
+  // shimmers), no streaming prose tail (a growing answer is its own motion), and
+  // no thinking lines (the ActivityTimeline already renders a thinking row — the
+  // shimmer must not double up on it). This covers true gaps only: (a) send→
+  // first-event and (b) last-step-end→next-event with nothing painted.
+  const lastBlock = state.blocks[state.blocks.length - 1];
+  const hasProseTail = lastBlock !== undefined && lastBlock.kind === 'markdown';
+  const isThinking =
+    isLive && activeStep === undefined && !hasProseTail && state.thinking.length === 0;
   return {
     messageId,
     conversationId,
@@ -207,6 +233,7 @@ function assistantMessage(
     clarify: state.clarify ?? undefined,
     turnStatus: state.status,
     streamError: state.error ?? undefined,
+    isThinking,
     feedback: undefined,
     ts,
   };
@@ -240,6 +267,8 @@ type LiveTurn = {
   /** The optimistic user echo's id — reconciled to meta.user_message_id. */
   userMessageId: string;
   parentMessageId: string;
+  /** True once `meta` reconciled the assistant id to a backend id. */
+  hasBackendId: boolean;
   state: TurnState;
 };
 
@@ -261,16 +290,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   conversationIdRef.current = conversationId;
   const turnRef = useRef(turn);
   turnRef.current = turn;
+  /** Mirrors `persisted` for callbacks that must read the latest projection
+   *  without depending on it (reattach reads the in-flight user echo's id). */
+  const persistedRef = useRef(persisted);
+  persistedRef.current = persisted;
   /** Committed cancel: set only once `transport.cancel` RESOLVES (so we never
    *  claim "stopped" for a failed cancel). */
   const cancelledRef = useRef(false);
   /** A cancel request is in flight — guards a rapid double-click. */
   const cancelInFlightRef = useRef(false);
+  /** False once the provider unmounts — the up-to-5s cancel poll loop can
+   *  outlive it; short-circuit so its continuations don't setState post-unmount. */
+  const isMountedRef = useRef(true);
   /** Sessions created locally for an in-flight first send. The conversation-change
    *  effect must NOT blank+reload these: their projection is the optimistic turn,
    *  not a (still-empty) server transcript — reloading would wipe the user echo
    *  before `meta` reconciles its id (G1). Consumed once, then they reload normally. */
   const freshSessionsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Load the open conversation's transcript (server read). Extracted so the
   // FIX-3 retry banner can re-run it. A failure surfaces `transcriptError` and
@@ -296,7 +339,243 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Reload persisted messages when the open conversation changes.
+  const isSubmitting =
+    turn !== null &&
+    turn.conversationId === conversationId &&
+    (turn.state.status === 'streaming' || turn.state.status === 'idle');
+
+  // ── The turn loop ───────────────────────────────────────────────────────────
+
+  // The shared stream-consumption core — `runTurn` (send) and `attachTurn`
+  // (reattach) both drive it. It reconciles meta ids, updates the live turn from
+  // the reducer, and persists the terminal/error entry HONESTLY (a stream that
+  // ends without a terminal `done`/`error` is routed through the error path,
+  // never projected as a finished answer). DRY: the ~80-line loop lives once.
+  //
+  //  - `reconcileTempUserId`: true for send (a temp user echo is in `persisted`,
+  //    swap its id to meta.user_message_id); false for attach (the user echo
+  //    merged from the transcript already carries the backend id).
+  //  - returns `true` if a `meta` event was seen (the turn was accepted), so the
+  //    caller can decide composer-text retention on a thrown error.
+  const consumeStream = useCallback(
+    async (
+      convoId: string,
+      stream: AsyncIterable<ProtocolEvent>,
+      initialUserMessageId: string,
+      reconcileTempUserId: boolean,
+    ): Promise<boolean> => {
+      const tempAssistantId = `temp-asst-${crypto.randomUUID()}`;
+      let state = initialTurnState();
+      let assistantMessageId = tempAssistantId;
+      let userMessageId = initialUserMessageId;
+      let hasBackendId = false;
+      let metaSeen = false;
+      cancelledRef.current = false;
+      cancelInFlightRef.current = false;
+      setTurn({
+        conversationId: convoId,
+        assistantMessageId,
+        userMessageId,
+        parentMessageId: userMessageId,
+        hasBackendId,
+        state,
+      });
+      try {
+        for await (const event of stream) {
+          // Identity adoption (G1): the stream's meta carries the canonical
+          // backend ids. On send the temp user echo's id swaps in `persisted`
+          // exactly once; on attach the ids are simply adopted (the echo came
+          // from the transcript already canonical).
+          if (event.type === 'meta') {
+            metaSeen = true;
+            hasBackendId = true;
+            assistantMessageId = event.data.message_id;
+            const backendUserId = event.data.user_message_id;
+            if (reconcileTempUserId && backendUserId !== userMessageId) {
+              const prevUserId = userMessageId;
+              setPersisted((prev) => {
+                let matched = false;
+                const next = prev.map((m) => {
+                  if (m.messageId === prevUserId) {
+                    matched = true;
+                    return { ...m, messageId: backendUserId, hasBackendId: true };
+                  }
+                  return m;
+                });
+                if (!matched) {
+                  // The temp user id wasn't found — a permanently-temp id silently
+                  // breaks feedback/edit addressing for this user message.
+                  console.warn(
+                    `[chat] meta.user_message_id arrived but temp id ${prevUserId} ` +
+                      'was not found in the projection; identity not reconciled.',
+                  );
+                }
+                return next;
+              });
+            }
+            userMessageId = backendUserId;
+          }
+          state = reduce(state, event);
+          setTurn({
+            conversationId: convoId,
+            assistantMessageId,
+            userMessageId,
+            parentMessageId: userMessageId,
+            hasBackendId,
+            state,
+          });
+        }
+        // Honesty guard: the stream ended WITHOUT a terminal `done`/`error`
+        // (the server crashed / the connection dropped mid-turn). `parseSseStream`
+        // returned cleanly, so the loop exited with the turn still `streaming`/
+        // `idle` — never project that as a finished answer (a frozen bubble that
+        // looks mid-stream forever). Route it through the SAME error path.
+        if (state.status === 'streaming' || state.status === 'idle') {
+          throw new TransportError(
+            'network',
+            'Connection lost before the answer completed.',
+          );
+        }
+        // The completed turn stays in view from reducer state (a reload re-
+        // fetches via transport.transcript). Project it into `persisted` with
+        // the reconciled ids; the server already persisted it.
+        const done = assistantMessage(
+          convoId,
+          assistantMessageId,
+          userMessageId,
+          state,
+          new Date().toISOString(),
+        );
+        done.hasBackendId = hasBackendId;
+        setPersisted((prev) => [...prev, done]);
+        // The sidebar title may now exist (cheap-model title) — refresh the list.
+        void queryClient.invalidateQueries([QueryKeys.chats]);
+        return metaSeen;
+      } catch (error: unknown) {
+        setTurnError(turnErrorOf(error));
+        if (metaSeen) {
+          // The turn was accepted (meta seen) then the transport threw mid-stream.
+          // Persist the partial answer as an error entry so the error card
+          // renders; the composer text is NOT restored.
+          const errored: TurnState = {
+            ...state,
+            status: 'error',
+            error: state.error ?? { message: turnErrorOf(error).message, trace_id: '' },
+          };
+          const card = assistantMessage(
+            convoId,
+            assistantMessageId,
+            userMessageId,
+            errored,
+            new Date().toISOString(),
+          );
+          card.hasBackendId = hasBackendId;
+          setPersisted((prev) => [...prev, card]);
+          // Accepted-then-failed: the error card renders; do not re-throw.
+          return true;
+        }
+        // Pre-meta failure: re-throw so the send path can keep the composer text.
+        throw error;
+      } finally {
+        setTurn(null);
+      }
+    },
+    [queryClient],
+  );
+
+  const runTurn = useCallback(
+    async (
+      convoId: string,
+      tempUserMessageId: string,
+      text: string,
+      replaceMessageId?: string,
+    ): Promise<void> => {
+      // Story 17: every send carries the conversation's current source config
+      // (wire shape, mapped at the seam). The backend upserts it per send, so
+      // per-conversation stickiness is automatic; toggling Reddit off here means
+      // `reddit:false` on the wire and no reddit step can appear.
+      const body = {
+        text,
+        source_config: toWire(getSourceConfig(convoId)),
+        ...(replaceMessageId !== undefined ? { replace_message_id: replaceMessageId } : {}),
+      };
+      try {
+        await consumeStream(convoId, transport.sendMessage(convoId, body), tempUserMessageId, true);
+      } catch (error: unknown) {
+        // Pre-stream failure: keep the composer text for inline retry. No
+        // fabricated entry — the optimistic user echo is dropped on retry.
+        setPendingText(text);
+        throw error;
+      }
+      // A successful replace (edit/regenerate) rewrote history server-side: the
+      // now-orphaned messages were dropped. Re-source the projection from the
+      // server so the FE matches the canonical transcript. No `turnRef.current`
+      // guard: `setTurn(null)` runs in consumeStream's finally (async), so the
+      // ref isn't synchronously null here — guarding on it skipped every reload
+      // and left orphaned messages in the projection after each edit.
+      if (replaceMessageId !== undefined) {
+        void loadTranscript(convoId);
+      }
+    },
+    [consumeStream, loadTranscript],
+  );
+
+  // Reattach to an in-flight turn this tab didn't start (B5d). `attach` replays
+  // events after the transport's internal cursor; on a 204 / no-active-turn it
+  // completes with ZERO events (the generator just ends). We can't tell 204 from
+  // a fully-replayed-then-ended stream except by peeking, so we pull the first
+  // event manually: none → no active turn (the already-loaded transcript stands);
+  // one → drive `consumeStream` (reconcile=false: the user echo merged from the
+  // transcript already carries the backend id). A reattach that errors mid-stream
+  // takes the same error path as send — never a fabricated empty "complete".
+  const attachTurn = useCallback(
+    async (convoId: string): Promise<void> => {
+      if (turnRef.current !== null) {
+        return;
+      }
+      const iterator = transport.attach(convoId)[Symbol.asyncIterator]();
+      let first: IteratorResult<ProtocolEvent>;
+      try {
+        first = await iterator.next();
+      } catch {
+        // Attach failed to open — leave the loaded transcript in place (honest:
+        // no active turn surfaced, the history is intact).
+        return;
+      }
+      if (first.done === true) {
+        // 204 / no active turn — the transcript read already populated the view.
+        return;
+      }
+      // Re-emit the peeked first event, then the rest, into the shared core. The
+      // userMessageId seed is the last persisted user bubble (canonical from the
+      // transcript); meta will adopt the backend ids without reconciling a temp.
+      const firstEvent = first.value;
+      async function* replay(): AsyncGenerator<ProtocolEvent, void, undefined> {
+        yield firstEvent;
+        while (true) {
+          const next = await iterator.next();
+          if (next.done === true) {
+            return;
+          }
+          yield next.value;
+        }
+      }
+      const lastUser = [...persistedRef.current].reverse().find((m) => m.isCreatedByUser);
+      const seedUserId = lastUser?.messageId ?? `temp-user-${crypto.randomUUID()}`;
+      try {
+        await consumeStream(convoId, replay(), seedUserId, false);
+      } catch {
+        // Pre-meta attach failure — `consumeStream` already surfaced the error
+        // via `setTurnError`. The loaded transcript stays; never fabricate.
+      }
+    },
+    [consumeStream],
+  );
+
+  // Reload persisted messages when the open conversation changes. On open we
+  // reattach FIRST (pick up an in-flight turn another tab/page-load started),
+  // then the transcript: load the transcript for the user echo + history, then
+  // attach — a non-empty attach streams the in-flight answer live here.
   useEffect(() => {
     const convoId = conversationId;
     if (convoId === null) {
@@ -319,137 +598,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     // shows the banner over an empty (but honestly-flagged) view.
     setPersisted([]);
     setAbortScroll(false);
-    void loadTranscript(convoId);
-  }, [conversationId, loadTranscript]);
-
-  const isSubmitting =
-    turn !== null &&
-    turn.conversationId === conversationId &&
-    (turn.state.status === 'streaming' || turn.state.status === 'idle');
-
-  // ── The turn loop ───────────────────────────────────────────────────────────
-
-  const runTurn = useCallback(
-    async (convoId: string, tempUserMessageId: string, text: string): Promise<void> => {
-      const tempAssistantId = `temp-asst-${crypto.randomUUID()}`;
-      let state = initialTurnState();
-      let assistantMessageId = tempAssistantId;
-      let userMessageId = tempUserMessageId;
-      let metaSeen = false;
-      cancelledRef.current = false;
-      cancelInFlightRef.current = false;
-      setTurn({
-        conversationId: convoId,
-        assistantMessageId,
-        userMessageId,
-        parentMessageId: userMessageId,
-        state,
-      });
-      try {
-        // Story 17: every send carries the conversation's current source config
-        // (wire shape, mapped at the seam). The backend upserts it per send, so
-        // per-conversation stickiness is automatic; toggling Reddit off here
-        // means `reddit:false` on the wire and no reddit step can appear.
-        const sourceConfig = toWire(getSourceConfig(convoId));
-        for await (const event of transport.sendMessage(convoId, { text, source_config: sourceConfig })) {
-          // Identity adoption (G1): the stream's meta reconciles the temp ids
-          // to the canonical backend ids. The user echo's id swaps in `persisted`
-          // exactly once, the assistant id swaps in the live turn.
-          if (event.type === 'meta') {
-            metaSeen = true;
-            assistantMessageId = event.data.message_id;
-            const backendUserId = event.data.user_message_id;
-            if (backendUserId !== userMessageId) {
-              const prevUserId = userMessageId;
-              userMessageId = backendUserId;
-              setPersisted((prev) => {
-                let matched = false;
-                const next = prev.map((m) => {
-                  if (m.messageId === prevUserId) {
-                    matched = true;
-                    return { ...m, messageId: backendUserId };
-                  }
-                  return m;
-                });
-                if (!matched) {
-                  // The temp user id wasn't found — a permanently-temp id silently
-                  // breaks feedback/edit addressing for this user message.
-                  console.warn(
-                    `[chat] meta.user_message_id arrived but temp id ${prevUserId} ` +
-                      'was not found in the projection; identity not reconciled.',
-                  );
-                }
-                return next;
-              });
-            }
-          }
-          state = reduce(state, event);
-          setTurn({
-            conversationId: convoId,
-            assistantMessageId,
-            userMessageId,
-            parentMessageId: userMessageId,
-            state,
-          });
-        }
-        // Honesty guard: the stream ended WITHOUT a terminal `done`/`error`
-        // (the server crashed / the connection dropped mid-turn). `parseSseStream`
-        // returned cleanly, so the loop exited with the turn still `streaming`/
-        // `idle` — never project that as a finished answer (a frozen bubble that
-        // looks mid-stream forever). Route it through the SAME error path.
-        if (state.status === 'streaming' || state.status === 'idle') {
-          throw new TransportError(
-            'network',
-            'Connection lost before the answer completed.',
-          );
-        }
-        // The completed turn stays in view from reducer state (a reload re-
-        // fetches via transport.transcript). Project it into `persisted` with
-        // the reconciled ids; the server already persisted it.
-        setPersisted((prev) => [
-          ...prev,
-          assistantMessage(convoId, assistantMessageId, userMessageId, state, new Date().toISOString()),
-        ]);
-        // The sidebar title may now exist (cheap-model title) — refresh the list.
-        void queryClient.invalidateQueries([QueryKeys.chats]);
-      } catch (error: unknown) {
-        setTurnError(turnErrorOf(error));
-        if (metaSeen) {
-          // The send was accepted (user bubble echoed, stream opened) then the
-          // transport threw mid-stream. Persist the partial answer as an error
-          // entry so the error card renders; the composer text is NOT restored.
-          const errored: TurnState = {
-            ...state,
-            status: 'error',
-            error: state.error ?? { message: turnErrorOf(error).message, trace_id: '' },
-          };
-          setPersisted((prev) => [
-            ...prev,
-            assistantMessage(
-              convoId,
-              assistantMessageId,
-              userMessageId,
-              errored,
-              new Date().toISOString(),
-            ),
-          ]);
-          // Accepted-then-failed: the error card renders; do not re-throw (the
-          // composer text stays cleared, the message was sent).
-          return;
-        }
-        // Pre-stream failure: keep the composer text for inline retry. No
-        // fabricated entry — the optimistic user echo is dropped on retry.
-        setPendingText(text);
-        throw error;
-      } finally {
-        setTurn(null);
+    void (async () => {
+      // Transcript first (user echo + history), then attach to any in-flight turn.
+      await loadTranscript(convoId);
+      if (conversationIdRef.current === convoId) {
+        await attachTurn(convoId);
       }
-    },
-    [queryClient],
-  );
+    })();
+  }, [conversationId, loadTranscript, attachTurn]);
 
   const startSend = useCallback(
-    async (text: string): Promise<void> => {
+    async (text: string, replaceMessageId?: string): Promise<void> => {
       if (turnRef.current !== null) {
         return;
       }
@@ -468,23 +627,83 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         navigate(`/c/${activeId}`, { replace: false });
       }
 
-      const tempUserId = `temp-user-${crypto.randomUUID()}`;
-      const ts = new Date().toISOString();
-      setPersisted((prev) => [
-        ...prev,
-        userMessage(activeId, tempUserId, prev[prev.length - 1]?.messageId ?? null, text, ts),
-      ]);
+      // A replace (edit/regenerate) rewrites server history from the replaced
+      // user message: the optimistic echo would duplicate the kept user bubble,
+      // so we add no echo — the post-turn transcript re-read is the truth.
+      let tempUserId = `temp-user-${crypto.randomUUID()}`;
+      if (replaceMessageId === undefined) {
+        const ts = new Date().toISOString();
+        setPersisted((prev) => [
+          ...prev,
+          userMessage(activeId, tempUserId, prev[prev.length - 1]?.messageId ?? null, text, ts),
+        ]);
+      } else {
+        // On a replace the meta reconcile has nothing to swap; pass the canonical
+        // id so the live turn parents correctly until the transcript re-read.
+        tempUserId = replaceMessageId;
+      }
       setAbortScroll(false);
-      await runTurn(activeId, tempUserId, text);
+      await runTurn(activeId, tempUserId, text, replaceMessageId);
     },
     [navigate, queryClient, runTurn, setConversationId],
   );
 
+  /** Send-mid-stream (B5d): if a turn is streaming, cancel → await the stream's
+   *  `done` (the turn clears in consumeStream's finally) → then send. Never fire
+   *  two concurrent turns. Returns false if the running turn didn't stop within
+   *  the timeout (cancel failed) — the caller must NOT send, and must keep the
+   *  composer text + surface the honest error rather than silently drop it. */
+  const cancelAndAwaitClear = useCallback(async (): Promise<boolean> => {
+    const active = turnRef.current;
+    if (active === null) {
+      return true;
+    }
+    try {
+      await transport.cancel(active.conversationId);
+    } catch {
+      // Cancel failed — the existing turn keeps running; don't start a second.
+      // Fall through to the wait, which will time out and surface a conflict.
+    }
+    // Poll the ref the streaming loop nulls on its terminal event.
+    const start = Date.now();
+    const TIMEOUT_MS = 5000;
+    while (
+      isMountedRef.current &&
+      turnRef.current !== null &&
+      Date.now() - start < TIMEOUT_MS
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    // Still running after the wait: cancel didn't take. Surface it honestly so
+    // the new message isn't silently dropped (mirrors stopGenerating's grammar).
+    if (turnRef.current !== null) {
+      if (isMountedRef.current) {
+        setTurnError({
+          kind: 'network',
+          message: "Couldn't stop the previous response — try again.",
+        });
+      }
+      return false;
+    }
+    return true;
+  }, []);
+
   const submitMessage = useCallback(
-    async (text: string): Promise<boolean> => {
+    async (text: string, replaceMessageId?: string): Promise<boolean> => {
       setPendingText(null);
+      // Send-mid-stream: cancel the running turn and wait for it to terminate
+      // before opening a new one (no two concurrent turns). If it didn't clear,
+      // bail without sending — keep the composer text and the surfaced error
+      // rather than falling through startSend's turn guard and lying success.
+      if (turnRef.current !== null) {
+        const cleared = await cancelAndAwaitClear();
+        if (!cleared) {
+          setPendingText(text);
+          return false;
+        }
+      }
       try {
-        await startSend(text);
+        await startSend(text, replaceMessageId);
         return true;
       } catch (error: unknown) {
         // 409 → a turn is already streaming: cancel-then-retry-once.
@@ -495,7 +714,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               await transport.cancel(convoId);
               setTurnError(null);
               setPendingText(null);
-              await startSend(text);
+              await startSend(text, replaceMessageId);
               return true;
             } catch (retryError: unknown) {
               setTurnError(turnErrorOf(retryError));
@@ -514,7 +733,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [startSend],
+    [startSend, cancelAndAwaitClear],
   );
 
   const retryLastSend = useCallback(() => {
@@ -545,38 +764,31 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     void loadTranscript(convoId);
   }, [loadTranscript]);
 
-  // ── Edit / regenerate (B5a: in-memory only; real replace_message_id is B5d) ──
+  // ── Edit / regenerate (G3, B5d): real via `replace_message_id` ──────────────
   //
-  // TODO(B5d): edit & regenerate go real via `replace_message_id` from the
-  // transcript ids; the local truncate-then-submit path below is deleted, and
-  // Edit is hidden on id-less / synthesized entries. For B5a these operate on
-  // the in-memory projection only (no client-side persistence) so the affordance
-  // still works in-session; a reload re-sources from transport.transcript.
+  // The backend rewrites history from the replaced user_message_id, dropping the
+  // now-orphaned messages; `runTurn` re-sources the projection from
+  // `transport.transcript()` after a successful replace. No client-side
+  // truncation — the server rewrite + transcript re-read is the source of truth.
+  // (`updateMessageText` is gone: PRD decision 4 gives a silent text mutation no
+  // meaning, and post-seam it would be a client-side lie.)
 
-  const truncatePersistedAt = useCallback((messageId: string): boolean => {
-    let found = false;
-    setPersisted((prev) => {
-      const idx = prev.findIndex((m) => m.messageId === messageId);
-      if (idx === -1) {
-        return prev;
-      }
-      found = true;
-      return prev.slice(0, idx);
-    });
-    return found;
-  }, []);
-
+  /** Truncate-and-re-ask — EditMessage's Save&Submit, now a real replace. */
   const ask = useCallback(
     ({ text, messageId }: AskProps) => {
       if (turnRef.current !== null) {
         return;
       }
-      if (messageId !== undefined && messageId !== null) {
-        truncatePersistedAt(messageId);
-      }
-      void submitMessage(text);
+      // `messageId` is the edited user bubble's backend id (canonical post-G1).
+      // A temp/derived id (no backend id yet) can't replace history — refuse
+      // rather than send a bogus replace_message_id (Edit is hidden on those).
+      const replaceMessageId =
+        messageId !== undefined && messageId !== null && !messageId.startsWith('temp-')
+          ? messageId
+          : undefined;
+      void submitMessage(text, replaceMessageId);
     },
-    [submitMessage, truncatePersistedAt],
+    [submitMessage],
   );
 
   const regenerate = useCallback(
@@ -584,25 +796,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (turnRef.current !== null || message.isCreatedByUser) {
         return;
       }
-      // The user turn that produced this answer precedes it in the projection.
+      // The user turn that produced this answer precedes it in the projection;
+      // its backend id is the replace anchor.
       const idx = persisted.findIndex((m) => m.messageId === message.messageId);
       const userMsg = idx > 0 ? persisted[idx - 1] : undefined;
       if (userMsg === undefined || !userMsg.isCreatedByUser) {
         return;
       }
-      setPersisted((prev) => prev.slice(0, idx - 1));
-      void submitMessage(userMsg.text);
+      const replaceMessageId =
+        userMsg.hasBackendId === true ? userMsg.messageId : undefined;
+      void submitMessage(userMsg.text, replaceMessageId);
     },
     [persisted, submitMessage],
   );
-
-  const updateMessageText = useCallback((messageId: string, text: string) => {
-    // TODO(B5d): edit-in-place is removed (PRD decision 4 gives a silent text
-    // mutation no meaning post-seam). For B5a it updates the in-memory echo only.
-    setPersisted((prev) =>
-      prev.map((m) => (m.messageId === messageId ? { ...m, text } : m)),
-    );
-  }, []);
 
   const stopGenerating = useCallback(() => {
     const active = turnRef.current;
@@ -653,16 +859,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     if (turn === null || turn.conversationId !== conversationId) {
       return persisted;
     }
-    return [
-      ...persisted,
-      assistantMessage(
-        turn.conversationId,
-        turn.assistantMessageId,
-        turn.parentMessageId,
-        turn.state,
-        null,
-      ),
-    ];
+    const live = assistantMessage(
+      turn.conversationId,
+      turn.assistantMessageId,
+      turn.parentMessageId,
+      turn.state,
+      null,
+    );
+    live.hasBackendId = turn.hasBackendId;
+    // A live parked clarify is the interactive widget (answer not yet chosen);
+    // `clarifyAnswer` stays undefined so it isn't frozen-seeded.
+    //
+    // A clarify resume re-emits the parked turn's assistant id (wire-contract §1),
+    // and reattach can replay a turn already in `persisted` — both leave a stale
+    // copy of the live id in `persisted`. Drop it so the live turn renders exactly
+    // once (no duplicate React key / double render); filter-and-append also keeps
+    // the chronological order (question → answer echo → resumed response).
+    const deduped = persisted.filter((m) => m.messageId !== turn.assistantMessageId);
+    return [...deduped, live];
   }, [persisted, turn, conversationId]);
 
   const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -686,7 +900,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       submitMessage,
       ask,
       regenerate,
-      updateMessageText,
       stopGenerating,
       newConversation,
       turnError,
@@ -705,7 +918,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       submitMessage,
       ask,
       regenerate,
-      updateMessageText,
       stopGenerating,
       newConversation,
       turnError,
