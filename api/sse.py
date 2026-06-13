@@ -27,6 +27,8 @@ from domain.events import Event
 SSE_HEADERS: dict[str, str] = {
     "Cache-Control": "no-store",
     "X-Accel-Buffering": "no",
+    # Belt-and-suspenders against MIME-sniffing of the event-stream body.
+    "X-Content-Type-Options": "nosniff",
 }
 
 

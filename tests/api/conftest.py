@@ -42,6 +42,7 @@ from api.routes import system as system_routes
 from app.deps import Runtime, build_runtime
 from app.graph import build_graph
 from app.state import TemporalContext
+from app.turns import TurnRegistry
 from config.settings import get_settings
 from domain.season import Season
 
@@ -182,11 +183,12 @@ async def _build_test_runtime(model_factory: Any = None) -> tuple[Runtime, Runti
 # ---------------------------------------------------------------------------
 
 
-def _build_live_app(runtime: Runtime) -> FastAPI:
+def _build_live_app(runtime: Runtime, run_turn_fn: Any = None) -> FastAPI:
     """Build a FastAPI test app with the given runtime injected on app.state.
 
     No lifespan is wired here — the runtime is already built; the app state
     is injected directly (the same pattern test_routes_unit.py uses).
+    ``run_turn_fn`` injects a fake turn generator into the registry (B2 seam).
     """
     settings = get_settings()
     app = FastAPI(title="Counselle-Test")
@@ -198,6 +200,9 @@ def _build_live_app(runtime: Runtime) -> FastAPI:
     app.state.runtime = runtime
     app.state.reconciler = _FakeReconciler()
     app.state.mcp_supervisor = _FakeSupervisor()
+    app.state.turn_registry = TurnRegistry(
+        deps=runtime.deps, graph=runtime.graph, settings=settings, run_turn_fn=run_turn_fn
+    )
     return app
 
 

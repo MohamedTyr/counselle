@@ -10,7 +10,13 @@ export const ERROR_EVENTS: ProtocolEvent[] = [
   {
     v: 1,
     type: 'meta',
-    data: { trace_id: 'mock-trace-error', session_id: 'mock', model: 'gemini-2.5-pro' },
+    data: {
+      trace_id: 'mock-trace-error',
+      session_id: 'mock',
+      model: 'gemini-2.5-pro',
+      message_id: 'mock-msg-error',
+      user_message_id: 'mock-umsg-error',
+    },
   },
   {
     v: 1,

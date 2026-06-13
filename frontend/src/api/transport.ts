@@ -14,6 +14,8 @@ export type SendMessageBody = {
   text: string;
   /** Per-conversation source toggles (ADR 0013); shape owned by sourceStore. */
   source_config?: Record<string, unknown>;
+  /** G3 (B2): a prior user_message_id — edit & regenerate via history rewrite. */
+  replace_message_id?: string;
 };
 
 export interface Transport {

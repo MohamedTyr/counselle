@@ -91,6 +91,23 @@ class Settings(BaseSettings):
     api_port: int = 8000
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
     sse_keepalive_s: int = 15
+    # --- Turn registry (B2: detached turns, reattach, cancel) ---
+    # Ring-buffer capacity in events, sized to a full worst-case turn so
+    # overflow is effectively unreachable (a consumer that still falls off the
+    # head is terminated with an `error` event — never silently skipped).
+    stream_buffer_size: int = 20_000
+    # Watchdog: a turn exceeding this terminates with `error` (G5 — never
+    # done(cancelled): the student didn't press stop), partial persisted.
+    turn_timeout_s: int = 180
+    # GET /v1/sessions/{id}/stream reattach endpoint (off → always 204).
+    reattach_enabled: bool = True
+    # Global backstop on concurrent detached turns across all sessions — a
+    # memory-exhaustion guard (over the cap → 503). Per-user caps + rate
+    # limiting are B4; this is only the process-wide ceiling.
+    max_concurrent_turns: int = 50
+    # Per-turn consumer ceiling: how many streams may attach to one turn's
+    # ring buffer at once (over the cap → 429). A cheap abuse guard.
+    max_consumers_per_turn: int = 8
     # Frozen constant: the SSE event-protocol version (ADR 0016). Re-exported from
     # domain/ in Phase 1; bump only with an architecture discussion.
     protocol_version: int = 1

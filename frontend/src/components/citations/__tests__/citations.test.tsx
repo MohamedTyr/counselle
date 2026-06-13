@@ -14,8 +14,10 @@ import TierChip from '@/components/citations/TierChip';
 
 function citation(over: Partial<Citation> = {}): Citation {
   return {
-    source: 'IPEDS',
-    tier: 'ipeds',
+    // B2/C1 re-pin: the real wire serves source NAMES + the two-value tier
+    // ('official' | 'community') — never display strings or source-name tiers.
+    source: 'ipeds',
+    tier: 'official',
     vintage: 'IPEDS 2024-25 (provisional)',
     ...over,
   };
@@ -34,15 +36,16 @@ describe('citation popover content matches the envelope', () => {
       </CitationPopover>,
     );
     fireEvent.click(screen.getByText('IPEDS'));
-    expect(screen.getByText('IPEDS', { selector: 'span.font-semibold' })).toBeInTheDocument();
+    // The popover shows citation.source verbatim (display-name mapping is B5).
+    expect(screen.getByText('ipeds', { selector: 'span.font-semibold' })).toBeInTheDocument();
     expect(screen.getByText('IPEDS 2024-25 (provisional)')).toBeInTheDocument();
     expect(screen.getByText('Provisional release — final figures may shift.')).toBeInTheDocument();
   });
 
   test('renders the url as an external link when present', () => {
     const c = citation({
-      source: 'admissions.nyu.edu',
-      tier: 'edu',
+      source: 'edu',
+      tier: 'official',
       vintage: 'Fetched 2026-06-11',
       url: 'https://admissions.nyu.edu/apply',
     });
@@ -59,12 +62,12 @@ describe('citation popover content matches the envelope', () => {
 });
 
 describe('tier chips always match the envelope tier', () => {
-  test('official tiers render official; reddit renders community', () => {
+  test("tier 'official' renders official; 'community' renders community", () => {
     render(
       <>
-        <TierChip tier="cds">CDS</TierChip>
-        <TierChip tier="ipeds">IPEDS</TierChip>
-        <TierChip tier="reddit">Reddit</TierChip>
+        <TierChip tier="official">CDS</TierChip>
+        <TierChip tier="official">IPEDS</TierChip>
+        <TierChip tier="community">Reddit</TierChip>
       </>,
     );
     expect(screen.getByText('CDS')).toHaveAttribute('data-tier', 'official');
@@ -83,7 +86,7 @@ describe('CitationRef materializes as the text streams', () => {
   test('binds to the SourceEntry once sources stream in', () => {
     const entry = sourceEntry({
       index: 2,
-      citation: citation({ source: 'r/nyu', tier: 'reddit', vintage: '2026' }),
+      citation: citation({ source: 'reddit', tier: 'community', vintage: '2026' }),
     });
     render(
       <SourcesProvider value={[entry]}>
@@ -93,7 +96,7 @@ describe('CitationRef materializes as the text streams', () => {
     const chip = screen.getByText('2');
     expect(chip).toHaveAttribute('data-tier', 'community');
     fireEvent.click(chip);
-    expect(screen.getByText('r/nyu')).toBeInTheDocument();
+    expect(screen.getByText('reddit')).toBeInTheDocument();
     expect(screen.getByText('2026')).toBeInTheDocument();
   });
 });
@@ -127,7 +130,7 @@ describe('sources footer groups by tier', () => {
       sourceEntry({
         index: 2,
         label: 'r/nyu',
-        citation: citation({ source: 'r/nyu', tier: 'reddit', vintage: 'June 2026' }),
+        citation: citation({ source: 'reddit', tier: 'community', vintage: 'June 2026' }),
       }),
     ];
     const { container, rerender } = render(<SourcesFooter sources={sources} />);

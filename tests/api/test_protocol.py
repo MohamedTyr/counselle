@@ -383,20 +383,34 @@ async def test_404_error_envelope_has_trace_id(live_app: FastAPI) -> None:
 
 
 async def test_concurrent_second_message_returns_409(live_app: FastAPI) -> None:
-    """Test 5: second POST while a turn lock is held → 409."""
-    session_id = await _create_session(live_app)
+    """Test 5: second POST while the registry holds the turn claim → 409.
+
+    B2 rewrite: the single-flight lock lives on the turn registry now. A real
+    turn is started through the registry API (hung fake run_turn injected via
+    the registry seam), the second POST 409s, and cancel releases the claim.
+    """
+    import asyncio
+
+    from domain.events import ev_meta
+
+    gate = asyncio.Event()
+
+    async def hung_run_turn(sid: str, text: str, *args: Any, **kwargs: Any) -> Any:
+        yield ev_meta("trace-409", sid, "model-x", "m-409", "um-409")
+        await gate.wait()
+
+    # Same runtime, fake hung turn injected through the registry's seam.
+    app = _build_live_app(live_app.state.runtime, hung_run_turn)
+    registry = app.state.turn_registry
+    session_id = await _create_session(app)
 
     try:
-        # Pre-claim the session id in the active-sessions set to simulate an
-        # in-flight streaming turn (H2: sync claim-set approach).
-        from api.routes.sessions import _get_active_sessions
-
-        active = _get_active_sessions(live_app)
-        active.add(session_id)
+        await registry.start(session_id, "first message in flight")
+        assert registry.is_generating(session_id) is True
 
         try:
             async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
             ) as client:
                 resp = await client.post(
                     f"/v1/sessions/{session_id}/messages",
@@ -408,7 +422,9 @@ async def test_concurrent_second_message_returns_409(live_app: FastAPI) -> None:
             assert "error" in body
             assert "message" in body["error"]
         finally:
-            active.discard(session_id)
+            gate.set()
+            await registry.cancel(session_id)
+            assert registry.is_generating(session_id) is False
     finally:
         await delete_session(live_app.state.runtime.app_pool, session_id)
 

@@ -1,0 +1,177 @@
+{
+  "events": [
+    {
+      "v": 1,
+      "type": "meta",
+      "data": {
+        "trace_id": "id-1",
+        "session_id": "id-2",
+        "model": "google-vertex:gemini-2.5-pro",
+        "message_id": "id-3",
+        "user_message_id": "id-4"
+      }
+    },
+    {
+      "v": 1,
+      "type": "thinking",
+      "data": {
+        "text": "Let me look at Duke's housing first."
+      }
+    },
+    {
+      "v": 1,
+      "type": "step",
+      "data": {
+        "step_id": "id-5",
+        "status": "start",
+        "kind": "web_search",
+        "label": "Searching the web: \u201cDuke University dorms\u201d",
+        "tier": null,
+        "detail": null
+      }
+    },
+    {
+      "v": 1,
+      "type": "step",
+      "data": {
+        "step_id": "id-5",
+        "status": "end",
+        "kind": "web_search",
+        "label": "Searching the web: \u201cDuke University dorms\u201d",
+        "tier": null,
+        "detail": {
+          "query": "Duke University dorms",
+          "domains": [
+            "example.com"
+          ],
+          "result_count": 1,
+          "duration_ms": 0
+        }
+      }
+    },
+    {
+      "v": 1,
+      "type": "step",
+      "data": {
+        "step_id": "id-6",
+        "status": "start",
+        "kind": "viz",
+        "label": "Building a stat card",
+        "tier": null,
+        "detail": null
+      }
+    },
+    {
+      "v": 1,
+      "type": "viz",
+      "data": {
+        "v": 1,
+        "type": "stat_block",
+        "title": "Duke University at a glance",
+        "schools": [
+          {
+            "unitid": 198419,
+            "name": "Duke University"
+          }
+        ],
+        "rows": [
+          {
+            "label": "Acceptance rate",
+            "cells": [
+              {
+                "v": 1,
+                "field": "admissions.acceptance_rate",
+                "label": "Acceptance rate",
+                "display": "6.8%",
+                "raw": 0.068,
+                "available": true,
+                "unit": "percent",
+                "citation": {
+                  "source": "ipeds",
+                  "tier": "official",
+                  "vintage": "IPEDS 2024-25 (provisional)",
+                  "caveat": null,
+                  "raw_table": "adm",
+                  "url": null
+                }
+              }
+            ]
+          }
+        ],
+        "band": null
+      }
+    },
+    {
+      "v": 1,
+      "type": "step",
+      "data": {
+        "step_id": "id-6",
+        "status": "end",
+        "kind": "viz",
+        "label": "Building a stat card",
+        "tier": null,
+        "detail": {
+          "duration_ms": 0,
+          "viz_type": "stat_block",
+          "schools": []
+        }
+      }
+    },
+    {
+      "v": 1,
+      "type": "delta",
+      "data": {
+        "text": "Duke's housing is consistently well reviewed by students [1]. The acceptance-rate snapshot above puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper."
+      }
+    },
+    {
+      "v": 1,
+      "type": "sources",
+      "data": {
+        "sources": [
+          {
+            "index": 1,
+            "citation": {
+              "source": "web",
+              "tier": "community",
+              "vintage": "Retrieved Jun 10, 2026 (live web)",
+              "caveat": "General web source \u2014 verify on the school's official site.",
+              "raw_table": null,
+              "url": "https://example.com/1"
+            },
+            "label": "Result 1"
+          },
+          {
+            "index": 2,
+            "citation": {
+              "source": "ipeds",
+              "tier": "official",
+              "vintage": "IPEDS 2024-25 (provisional)",
+              "caveat": null,
+              "raw_table": "adm",
+              "url": null
+            },
+            "label": "IPEDS 2024-25 (provisional)"
+          }
+        ]
+      }
+    },
+    {
+      "v": 1,
+      "type": "usage",
+      "data": {
+        "input_tokens": 150,
+        "output_tokens": 61,
+        "est_cost_usd": null,
+        "tool_calls": 2
+      }
+    },
+    {
+      "v": 1,
+      "type": "done",
+      "data": {
+        "status": "complete"
+      }
+    }
+  ]
+}

@@ -17,10 +17,19 @@ export const PROTOCOL_VERSION = 1;
 
 // ── Citation envelope (domain/envelope.py) ───────────────────────────────────
 
-export type Tier = 'cds' | 'ipeds' | 'scorecard' | 'web' | 'edu' | 'reddit' | string;
+/**
+ * B2 / wire-contract C1 (the honesty fix): the backend's `domain/envelope.py`
+ * serves `tier: 'official' | 'community'` and `source` as the source-name
+ * union — the previous Tier union of source names made every community
+ * source render as official. Components key community-ness on
+ * `tier === 'community'` and labels on `citation.source` (B5).
+ */
+export type Tier = 'official' | 'community';
+
+export type SourceName = 'ipeds' | 'scorecard' | 'cds' | 'web' | 'edu' | 'reddit';
 
 export type Citation = {
-  source: string;
+  source: SourceName;
   tier: Tier;
   /** Human string, e.g. "IPEDS 2024-25 (provisional)". */
   vintage: string;
@@ -76,6 +85,10 @@ export type MetaData = {
   trace_id: string;
   session_id: string;
   model: string;
+  /** G1: the assistant message's id (a clarify resume re-emits the parked turn's id). */
+  message_id: string;
+  /** G1: the id minted for the user message that started this turn. */
+  user_message_id: string;
 };
 
 export type DeltaData = { text: string };
@@ -182,6 +195,11 @@ export type TranscriptUserEntry = {
   ts: string | null;
   /** Message id — MVP2 carries it for feedback/edit addressing (§27.6). */
   message_id?: string;
+  /**
+   * G4: present+true only on clarify-answer bubbles synthesized from the turn
+   * record. Never an edit target (the FE hides Edit; G3 returns 422 for it).
+   */
+  synthesized?: boolean;
 };
 
 /**
@@ -204,13 +222,19 @@ export type TranscriptAssistantEntry = {
   /** §27.5: per assistant message, the persisted step record. Pre-MVP2 turns have none. */
   step_record?: StepRecord;
   parts?: AssistantContentPart[];
-  /** A turn that parked as awaiting_input persists its clarify spec (PRD 25 —
-   *  the widget freezes into a transcript record of what was asked). */
-  clarify?: ClarifySpec;
+  /** A turn that asked a clarify persists the spec AND the student's answer
+   *  (wire-contract §2.2): `answer: null` = unanswered / unparked-frozen;
+   *  non-null = the resume text (the same string the synthesized user bubble
+   *  carries). The widget freezes into a transcript record of what was asked
+   *  and chosen (PRD 25). */
+  clarify?: { spec: ClarifySpec; answer: string | null };
   sources?: SourceEntry[];
   usage?: UsageData;
   status?: DoneStatus | 'error';
   error?: ErrorData;
+  /** The caller's stored rating, joined by the transcript read (B4) — thumbs
+   *  survive reload. */
+  feedback?: { rating: 'up' | 'down' };
 };
 
 export type TranscriptEntry = TranscriptUserEntry | TranscriptAssistantEntry;

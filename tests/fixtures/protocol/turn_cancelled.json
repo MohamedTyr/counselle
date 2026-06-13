@@ -1,0 +1,29 @@
+{
+  "events": [
+    {
+      "v": 1,
+      "type": "meta",
+      "data": {
+        "trace_id": "id-1",
+        "session_id": "id-2",
+        "model": "google-vertex:gemini-2.5-pro",
+        "message_id": "id-3",
+        "user_message_id": "id-4"
+      }
+    },
+    {
+      "v": 1,
+      "type": "delta",
+      "data": {
+        "text": "Here's what stands out about Duke's housing: the first-year East Campus model keeps the entire class together, the quad culture is strong, and upperclass housing is guaranteed all four years. Students consistently rate the community feel above the buildings themselves, which matters more than any amenity list."
+      }
+    },
+    {
+      "v": 1,
+      "type": "done",
+      "data": {
+        "status": "cancelled"
+      }
+    }
+  ]
+}

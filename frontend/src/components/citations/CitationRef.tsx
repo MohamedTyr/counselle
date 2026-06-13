@@ -8,7 +8,7 @@
  */
 import { useSources } from '@/components/citations/SourcesContext';
 import CitationPopover from '@/components/citations/CitationPopover';
-import TierChip from '@/components/citations/TierChip';
+import TierChip, { tierLabel } from '@/components/citations/TierChip';
 
 interface CitationRefProps {
   index: number;
@@ -20,8 +20,10 @@ export default function CitationRef({ index }: CitationRefProps) {
 
   const chip = (
     <TierChip
-      tier={entry?.citation.tier ?? 'cds'}
-      aria-label={entry ? `Citation ${index}: ${entry.citation.source}` : `Citation ${index}`}
+      tier={entry?.citation.tier ?? 'official'}
+      aria-label={
+        entry ? `Citation ${index}: ${tierLabel(entry.citation.source)}` : `Citation ${index}`
+      }
       className="mx-0.5 -translate-y-[0.2em] cursor-pointer"
     >
       {index}

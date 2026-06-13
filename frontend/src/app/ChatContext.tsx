@@ -295,8 +295,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           parts: blocksToParts(state.blocks),
           // FE-4: a clarify-parked turn persists its spec + awaiting status so
           // the widget freezes into the transcript record (PRD 25) and the
-          // composer placeholder survives a reload (PRD 24).
-          clarify: state.clarify ?? undefined,
+          // composer placeholder survives a reload (PRD 24). B2: the entry
+          // shape is {spec, answer} — a just-parked turn is unanswered (null);
+          // B5 threads the persisted answer end-to-end.
+          clarify: state.clarify ? { spec: state.clarify, answer: null } : undefined,
           sources: state.sources.length > 0 ? state.sources : undefined,
           usage: state.usage ?? undefined,
           status: entryStatusOf(state.status),

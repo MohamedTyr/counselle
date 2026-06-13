@@ -92,6 +92,6 @@ def install_middleware(app: FastAPI, settings: Any) -> None:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"],
+        allow_headers=["Content-Type", "Authorization", "Last-Event-ID"],
     )
     app.add_exception_handler(Exception, unhandled_exception_handler)

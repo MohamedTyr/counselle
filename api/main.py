@@ -42,6 +42,7 @@ from api.context import install_middleware
 from api.routes import sessions, system
 from api.supervision import McpSupervisor
 from app.deps import build_runtime
+from app.turns import TurnRegistry
 from config.logging import setup_logging
 from config.settings import get_settings, load_yaml_asset
 
@@ -112,13 +113,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Wire supervisor.kick to deps.on_failure so any turn crash immediately
         # triggers a probe + restart of the MCP child (FIX 3; ADR 0017 carve-out).
         runtime.deps.on_failure = supervisor.kick
+        # B2: the turn registry — detached turns, reattach, cancel (G3–G5).
+        registry = TurnRegistry(deps=runtime.deps, graph=runtime.graph, settings=settings)
         app.state.settings = settings
         app.state.runtime = runtime
         app.state.reconciler = reconciler
         app.state.mcp_supervisor = supervisor
+        app.state.turn_registry = registry
         try:
             yield
         finally:
+            # Drain the registry FIRST: in-flight turns' final state writes
+            # must land before runtime.aclose() closes the pools.
+            await registry.aclose()
             reconcile_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await reconcile_task

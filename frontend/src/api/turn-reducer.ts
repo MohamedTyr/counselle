@@ -277,7 +277,9 @@ export function transcriptEntryToEvents(entry: TranscriptAssistantEntry): Protoc
   }
   if (entry.clarify !== undefined) {
     // The persisted clarify renders as the frozen transcript record (PRD 25).
-    events.push({ v: 1, type: 'clarify', data: entry.clarify });
+    // B2: the entry carries {spec, answer}; the stream event stays the bare
+    // spec (wire-contract §1.4). B5 threads `answer` into the frozen widget.
+    events.push({ v: 1, type: 'clarify', data: entry.clarify.spec });
   }
   if (entry.sources !== undefined && entry.sources.length > 0) {
     events.push({ v: 1, type: 'sources', data: { sources: entry.sources } });

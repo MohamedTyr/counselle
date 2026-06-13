@@ -2,14 +2,14 @@
  * SourcesFooter — the grouped sources footer for a completed answer
  * (PRD story 21).
  *
- * Official block (tier !== 'reddit') and community block (tier === 'reddit'),
+ * Official block (tier === 'official') and community block (tier === 'community'),
  * each entry: index chip + source name + vintage, wrapped in the citation
  * popover; url entries link out. The community label is permanent product
  * copy (PRD story 34's voice rule).
  */
 import type { SourceEntry } from '@/api/protocol';
 import CitationPopover from '@/components/citations/CitationPopover';
-import TierChip, { isCommunityTier } from '@/components/citations/TierChip';
+import TierChip, { isCommunityTier, tierLabel } from '@/components/citations/TierChip';
 
 function SourceRow({ entry }: { entry: SourceEntry }) {
   const { citation } = entry;
@@ -17,7 +17,10 @@ function SourceRow({ entry }: { entry: SourceEntry }) {
     <li className="flex items-baseline gap-1.5 py-0.5">
       {/* The chip is the popover trigger — name/link stay separately tappable. */}
       <CitationPopover citation={citation}>
-        <TierChip tier={citation.tier} aria-label={`Citation ${entry.index}: ${citation.source}`}>
+        <TierChip
+          tier={citation.tier}
+          aria-label={`Citation ${entry.index}: ${tierLabel(citation.source)}`}
+        >
           {entry.index}
         </TierChip>
       </CitationPopover>
