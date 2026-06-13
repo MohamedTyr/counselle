@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Counselle — the thinking phase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* =========================================================================
+   Counselle — THE THINKING PHASE (standalone mockup).
+   Built on the REAL app design system: LibreChat base tokens + Counselle's
+   two source-tier pairs (official=blue, community=amber). Inter / Roboto Mono.
+   Depth from borders + surface contrast (no card shadows). The active/dead-air
+   shimmer is the app's opacity pulse (counselle-shimmer), not gradient text.
+   Light + dark parity; toggle in the header. Tokens copied verbatim from
+   frontend/src/styles/{style,counselle}.css.
+   ========================================================================= */
+
+/* ---- gray scale + semantic tokens (LIGHT) ---- */
+:root{
+  --gray-50:#f7f7f8; --gray-100:#ececec; --gray-200:#e3e3e3; --gray-300:#cdcdcd;
+  --gray-400:#999696; --gray-500:#595959; --gray-600:#424242; --gray-700:#2f2f2f;
+  --gray-800:#212121; --gray-850:#171717; --gray-900:#0d0d0d;
+
+  --text-primary:#212121; --text-secondary:#424242; --text-secondary-alt:#595959;
+  --text-tertiary:#595959;
+  --surface-primary:#ffffff; --surface-primary-alt:#f7f7f8;
+  --surface-secondary:#f7f7f8; --surface-tertiary:#ececec; --surface-hover:#e3e3e3;
+  --surface-submit:#047857; --surface-submit-hover:#065f46; --surface-chat:#ffffff;
+  --border-light:#e3e3e3; --border-medium:#cdcdcd; --border-heavy:#999696;
+  --ring-primary:#595959;
+
+  /* Counselle source-tier (light) */
+  --official-text:#1d4ed8; --official-surface:#eff6ff; --official-border:#bfdbfe;
+  --community-text:#b45309; --community-surface:#fffbeb; --community-border:#fde68a;
+
+  --radius:0.5rem;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+/* ---- dark ---- */
+html.dark{
+  --text-primary:#ececec; --text-secondary:#cdcdcd; --text-secondary-alt:#999696;
+  --text-tertiary:#999696;
+  --surface-primary:#0d0d0d; --surface-primary-alt:#171717;
+  --surface-secondary:#212121; --surface-tertiary:#2f2f2f; --surface-hover:#424242;
+  --surface-chat:#2f2f2f;
+  --border-light:#2f2f2f; --border-medium:#424242; --border-heavy:#595959;
+  --ring-primary:#cdcdcd;
+
+  --official-text:#93c5fd; --official-surface:rgba(59,130,246,.10); --official-border:rgba(59,130,246,.35);
+  --community-text:#fcd34d; --community-surface:rgba(245,158,11,.10); --community-border:rgba(245,158,11,.35);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--surface-primary); color:var(--text-primary);
+  font-family:"Inter",system-ui,sans-serif; font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  transition:background .25s var(--ease), color .25s var(--ease);
+}
+
+/* header */
+.topbar{
+  position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;
+  padding:12px clamp(16px,5vw,40px);
+  background:var(--surface-primary); border-bottom:1px solid var(--border-light);
+}
+.brand{display:flex; align-items:center; gap:10px}
+.brand .mark{width:28px; height:28px; border-radius:8px; background:var(--surface-submit); display:grid; place-items:center}
+.brand .mark svg{width:16px; height:16px; color:#fff}
+.brand .name{font-weight:600; font-size:18px; letter-spacing:-.01em}
+.tools{display:flex; align-items:center; gap:8px}
+.btn{
+  display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+  font-family:inherit; font-size:13px; font-weight:500; color:var(--text-secondary);
+  background:transparent; border:1px solid var(--border-medium); padding:7px 12px; border-radius:var(--radius);
+  transition:background .16s var(--ease), color .16s var(--ease), border-color .16s var(--ease);
+}
+.btn:hover{background:var(--surface-hover); color:var(--text-primary)}
+.btn:focus-visible{outline:none; box-shadow:0 0 0 2px var(--ring-primary)}
+.btn svg{width:15px; height:15px}
+.btn.icon{padding:7px; border-color:transparent}
+.btn.icon:hover{border-color:var(--border-medium)}
+
+/* thread */
+.thread{max-width:760px; margin:0 auto; padding:40px clamp(16px,5vw,40px) 80px}
+.user-row{display:flex; justify-content:flex-end; margin-bottom:26px}
+.user-bubble{
+  max-width:82%; background:var(--surface-secondary); border:1px solid var(--border-light);
+  border-radius:18px 18px 6px 18px; padding:11px 15px; font-size:15px; line-height:1.55; color:var(--text-primary);
+}
+.assistant{display:flex; gap:13px}
+.assistant .avatar{flex:none; width:30px; height:30px; border-radius:8px; margin-top:2px; background:var(--surface-submit); display:grid; place-items:center}
+.assistant .avatar svg{width:16px; height:16px; color:#fff}
+.assistant .body{flex:1; min-width:0}
+
+/* ========================= the working card ========================= */
+.work{
+  background:var(--surface-secondary); border:1px solid var(--border-light);
+  border-radius:12px; overflow:hidden;
+}
+.work-head{display:flex; align-items:center; gap:9px; width:100%; padding:12px 16px; background:transparent;
+  border:0; cursor:pointer; font-family:inherit; text-align:left; transition:background .15s var(--ease)}
+.work-head:hover{background:var(--surface-hover)}
+.work-head:focus-visible{outline:none; box-shadow:inset 0 0 0 2px var(--ring-primary)}
+.livedot{position:relative; width:8px; height:8px; border-radius:50%; background:var(--surface-submit); flex:none}
+.livedot::after{content:""; position:absolute; inset:-5px; border-radius:50%; border:1.5px solid var(--surface-submit); opacity:.5; animation:ping 1.7s var(--ease) infinite}
+@keyframes ping{0%{transform:scale(.5); opacity:.6} 80%,100%{transform:scale(1.7); opacity:0}}
+/* collapsed-default header shows the CURRENT activity (shimmers while live). */
+.work-now{flex:1; min-width:0; overflow:hidden}
+.work-now.live{animation:counselle-shimmer 1.6s ease-in-out infinite}
+.work-now .nt{display:block; font-size:13.5px; font-weight:600; color:var(--text-primary);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.work-now .nt q{font-style:normal; font-family:"Roboto Mono",monospace; font-weight:500; font-size:12.5px; color:var(--text-secondary)}
+.work-now .nt.in{animation:nowIn .36s var(--ease)}
+@keyframes nowIn{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+.timer{font-family:"Roboto Mono",monospace; font-size:12px; color:var(--text-tertiary); font-variant-numeric:tabular-nums}
+.chev{width:15px; height:15px; flex:none; color:var(--text-tertiary); transition:transform .2s var(--ease)}
+.work.expanded .chev{transform:rotate(90deg)}
+.work.done .livedot{background:var(--border-heavy)}
+.work.done .livedot::after{display:none}
+
+/* the thread — only visible when expanded; carries the divider so a collapsed
+   card has no dangling line. */
+.rail{position:relative; padding:14px 16px 16px; border-top:1px solid var(--border-light)}
+.rail::before{content:""; position:absolute; left:31px; top:22px; bottom:24px; width:1.5px; background:var(--border-medium); border-radius:2px}
+.node{position:relative; display:grid; grid-template-columns:30px 1fr auto; gap:12px; align-items:flex-start; padding:5px 0}
+.node + .node{margin-top:1px}
+
+/* Every step node is a 30px CIRCLE defined only by a hairline tier ring — bg
+   matches the card so it reads as identity, not a box. Logo nodes (school /
+   reddit / web) carry the real logo cover-filling the circle (slight scale eats
+   each favicon's padding → consistent weight); icon nodes (db / web / viz) carry
+   the kind glyph. School DB pulls add a small DB badge = "from the Counselle
+   database". One shape for every node (shape-consistency lock). */
+.tile{position:relative; z-index:1; width:30px; height:30px; border-radius:50%; box-shadow:0 0 0 4px var(--surface-secondary)}
+.tile .frame{width:100%; height:100%; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:var(--surface-secondary)}
+.tile .frame > svg{width:15px; height:15px}
+.tile .frame img{width:100%; height:100%; object-fit:cover; transform:scale(1.14); display:block}
+.tile.t-official .frame{box-shadow:inset 0 0 0 1.25px var(--official-border)}
+.tile.t-official .frame > svg{color:var(--official-text)}
+.tile.t-community .frame{box-shadow:inset 0 0 0 1.25px var(--community-border)}
+.tile.t-community .frame > svg{color:var(--community-text)}
+.tile.t-neutral .frame{box-shadow:inset 0 0 0 1.25px var(--border-medium)}
+.tile.t-neutral .frame > svg{color:var(--text-secondary-alt)}
+.tile .dbbadge{position:absolute; bottom:-2px; right:-2px; width:13px; height:13px; border-radius:50%;
+  background:var(--official-text); box-shadow:0 0 0 2px var(--surface-secondary); display:grid; place-items:center; z-index:2}
+.tile .dbbadge svg{width:8px; height:8px; color:#fff}
+.ndbody{min-width:0; padding-top:5px}
+.nlabel{font-size:14.5px; color:var(--text-primary); line-height:1.4}
+.nlabel q{font-style:normal; font-family:"Roboto Mono",monospace; font-size:13px; color:var(--text-secondary)}
+.nstate{padding-top:7px; display:grid; place-items:center; width:18px}
+.nstate svg{width:15px; height:15px}
+.check{color:var(--official-text)}
+.spin{width:14px; height:14px; border-radius:50%; border:2px solid var(--border-medium); border-top-color:var(--text-secondary); animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* active step: the app's opacity pulse (counselle-shimmer), NOT gradient text */
+.node.active .nlabel{animation:counselle-shimmer 1.6s ease-in-out infinite}
+.node.done .nlabel{color:var(--text-secondary)}
+@keyframes counselle-shimmer{0%{opacity:.45} 50%{opacity:1} 100%{opacity:.45}}
+
+/* thinking narration node — no tile, hollow node on the thread */
+.node.think{grid-template-columns:30px 1fr}
+.tdot{position:relative; z-index:1; justify-self:center; margin-top:9px; width:9px; height:9px; border-radius:50%; background:var(--surface-secondary); box-shadow:0 0 0 4px var(--surface-secondary), inset 0 0 0 1.5px var(--official-border)}
+.tline{font-style:italic; font-size:15px; line-height:1.5; color:var(--text-secondary); padding:3px 0}
+
+/* node entrance */
+.enter{opacity:0; transform:translateY(5px); animation:nodeIn .45s var(--ease) forwards}
+@keyframes nodeIn{to{opacity:1; transform:translateY(0)}}
+
+/* live source chips */
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:9px}
+.chip{
+  display:inline-flex; align-items:center; gap:7px; padding:4px 10px 4px 7px; border-radius:999px;
+  background:var(--surface-primary); border:1px solid var(--border-medium); font-size:12.5px; color:var(--text-secondary);
+  white-space:nowrap; max-width:100%; overflow:hidden;
+  opacity:0; transform:translateY(3px); animation:chipIn .4s var(--ease) forwards;
+}
+.chip .fav{width:17px; height:17px; border-radius:50%; flex:none; overflow:hidden; display:grid; place-items:center;
+  background:var(--surface-secondary); box-shadow:inset 0 0 0 1px var(--border-light)}
+.chip .fav img{width:100%; height:100%; object-fit:cover; transform:scale(1.12); display:block}
+.chip .dom{font-weight:500; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis}
+.chip.more{background:var(--surface-tertiary); border-color:transparent; color:var(--text-secondary)}
+@keyframes chipIn{to{opacity:1; transform:translateY(0)}}
+
+/* dead-air shimmer */
+.shimmer{display:flex; align-items:center; gap:8px; padding:8px 16px 14px}
+.shimmer .lbl{font-style:italic; font-size:14.5px; color:var(--text-secondary); animation:counselle-shimmer 1.6s ease-in-out infinite}
+.shimmer .pips{display:inline-flex; gap:3px}
+.shimmer .pips i{width:4px; height:4px; border-radius:50%; background:var(--text-tertiary); animation:pip 1.2s var(--ease) infinite}
+.shimmer .pips i:nth-child(2){animation-delay:.15s}
+.shimmer .pips i:nth-child(3){animation-delay:.3s}
+@keyframes pip{0%,100%{opacity:.35; transform:translateY(0)} 50%{opacity:1; transform:translateY(-2px)}}
+.shimmer[hidden]{display:none}
+
+/* answer handoff */
+.answer{font-size:16.5px; line-height:1.65; color:var(--text-primary); margin-top:20px; opacity:0; transform:translateY(6px)}
+.answer.show{animation:nodeIn .55s var(--ease) forwards}
+.answer .caret{display:inline-block; width:2px; height:1.05em; vertical-align:-2px; background:var(--official-text); margin-left:2px; border-radius:1px; animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important; transition:none!important}
+  .enter,.chip,.answer{opacity:1!important; transform:none!important}
+  .node.active .nlabel,.shimmer .lbl{opacity:1!important}
+}
+@media (max-width:560px){.tline{font-size:14.5px} .nlabel{font-size:14px} .answer{font-size:16px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg></span>
+    <span class="name">Counselle</span>
+  </div>
+  <div class="tools">
+    <button class="btn icon" id="theme" aria-label="Toggle theme"><svg id="themeicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    <button class="btn" id="replay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Replay</button>
+  </div>
+</header>
+
+<main class="thread">
+  <div class="user-row">
+    <div class="user-bubble">Compare Stanford to MIT for computer science, and what SAT do I need? Mine’s a 1520.</div>
+  </div>
+  <div class="assistant">
+    <div class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 2 3 6 3s6-2 6-3v-5"/></svg></div>
+    <div class="body">
+      <div class="work" id="work">
+        <button class="work-head" id="workhead" aria-expanded="false">
+          <span class="livedot" id="livedot"></span>
+          <span class="work-now live" id="worknow"><span class="nt" id="nowtext">Thinking…</span></span>
+          <span class="timer" id="timer">0.0s</span>
+          <svg class="chev" id="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        <div class="rail" id="rail" hidden></div>
+        <div class="shimmer" id="shimmer" hidden><span class="lbl">Thinking</span><span class="pips"><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="answer" id="answer">
+        <p>For CS, Stanford and MIT are about as close as two schools get, and your 1520 is competitive at both.<span class="caret"></span></p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const I = {
+  db:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg>',
+  web:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 6 3.8 9S14.5 18.5 12 21C9.5 18.5 8.2 15 8.2 12 8.2 9 9.5 5.5 12 3z"/></svg>',
+  reddit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 9.5 9.5 0 0 1-4-.9L3 21l1.9-5.5a8.38 8.38 0 0 1-.9-4A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>',
+  viz:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>',
+  check:'<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  dbmini:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>'
+};
+
+/* sequence: think (narration), start (tool begins), done (+ optional chips). */
+const SEQ = [
+  {dt:700,  type:'think', text:'Both are top-tier for CS, so this comes down to the details. Let me pull the hard admissions numbers for each first.'},
+  {dt:600,  type:'start', id:'s1', tier:'official', logo:'assets/logos/stanford.png', db:true, label:'Pulling Stanford’s admissions data'},
+  {dt:1100, type:'done',  id:'s1'},
+  {dt:250,  type:'start', id:'s2', tier:'official', logo:'assets/logos/mit.png', db:true, label:'Pulling MIT’s admissions data'},
+  {dt:950,  type:'done',  id:'s2'},
+  {dt:550,  type:'think', text:'Numbers alone won’t capture how they actually differ, so let me check current reporting and what students are saying.'},
+  {dt:600,  type:'start', id:'s3', tier:'neutral', icon:'web', label:'Searching the web: <q>Stanford vs MIT computer science</q>'},
+  {dt:1300, type:'done',  id:'s3', chips:[
+      {t:'official', logo:'assets/logos/stanford.png',    d:'cs.stanford.edu'},
+      {t:'official', logo:'assets/logos/mit.png',         d:'eecs.mit.edu'},
+      {t:'neutral',  logo:'assets/logos/usnews.png',      d:'usnews.com'},
+      {t:'neutral',  logo:'assets/logos/collegevine.png', d:'collegevine.com'},
+      {more:'+3 more'}
+  ]},
+  {dt:300,  type:'start', id:'s4', tier:'community', logo:'assets/logos/reddit.png', label:'Checking r/ApplyingToCollege'},
+  {dt:1050, type:'done',  id:'s4', chips:[
+      {t:'community', logo:'assets/logos/reddit.png', d:'“Stanford vs MIT for CS: which did you choose?”'},
+      {t:'community', logo:'assets/logos/reddit.png', d:'“MIT EECS culture is no joke”'},
+      {more:'+5 more'}
+  ]},
+  {dt:600,  type:'think', text:'They’re remarkably close. Your 1520 is the deciding variable here, so let me place it against each school’s range.'},
+  {dt:550,  type:'start', id:'s5', tier:'neutral', icon:'viz', label:'Building your comparison'},
+  {dt:1150, type:'done',  id:'s5'},
+  {dt:450,  type:'think', text:'I have everything I need. Putting it together…'},
+  {dt:900,  type:'finish'}
+];
+
+const SPEED=1;
+const rail=document.getElementById('rail'), work=document.getElementById('work'),
+      shimmer=document.getElementById('shimmer'), timerEl=document.getElementById('timer'),
+      worknow=document.getElementById('worknow'), chev=document.getElementById('chev'),
+      workhead=document.getElementById('workhead'), answer=document.getElementById('answer'),
+      replay=document.getElementById('replay');
+const nowtext=document.getElementById('nowtext');
+let timers=[], rafId=null, t0=0, shimmerTimer=null, shimmerWanted=false;
+let expanded=false, done=false, currentActivity='Thinking…';
+// collapsed activity ticker: each activity holds for MIN_DWELL and slides in,
+// so fast back-to-back steps don't flash by.
+let activityQueue=[], pumping=false, lastShown='Thinking…';
+const MIN_DWELL=850;
+const prefersReduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* The header is the COLLAPSED-default view: it shows the current activity
+   (shimmering while live) so the user always has feedback. The rail (full
+   thread) is opt-in via the chevron. */
+function renderShimmer(){ shimmer.hidden = !(shimmerWanted && expanded && !done); }
+function paintNow(html, animate){
+  nowtext.innerHTML=html;
+  if(animate && !prefersReduced){ nowtext.classList.remove('in'); void nowtext.offsetWidth; nowtext.classList.add('in'); }
+}
+function renderHead(){
+  work.classList.toggle('expanded', expanded);
+  workhead.setAttribute('aria-expanded', String(expanded));
+  rail.hidden = !expanded;
+  if(done){ paintNow('Reasoned for', false); worknow.classList.remove('live'); }
+  else if(expanded){ paintNow('Working', false); worknow.classList.remove('live'); }
+  else { worknow.classList.add('live'); paintNow(currentActivity, false); pump(); }
+  renderShimmer();
+}
+// queue an activity for the collapsed ticker (dedup consecutive repeats).
+function setNow(html){
+  currentActivity=html;
+  if(expanded || done) return;
+  if(activityQueue.length ? activityQueue[activityQueue.length-1]===html : lastShown===html) return;
+  activityQueue.push(html); pump();
+}
+function pump(){
+  if(pumping || expanded || done || !activityQueue.length) return;
+  pumping=true;
+  const next=activityQueue.shift(); lastShown=next;
+  worknow.classList.add('live'); paintNow(next, true);
+  setTimeout(()=>{ pumping=false; pump(); }, MIN_DWELL*SPEED);
+}
+function showShimmer(on){ shimmerWanted=on; renderShimmer(); }
+function scheduleShimmer(gap){ clearTimeout(shimmerTimer); shimmerTimer=setTimeout(()=>showShimmer(true), gap*SPEED); }
+
+function clearAll(){
+  timers.forEach(clearTimeout); timers=[]; if(rafId)cancelAnimationFrame(rafId); clearTimeout(shimmerTimer);
+  rail.innerHTML=''; answer.classList.remove('show');
+  done=false; shimmerWanted=false; currentActivity='Thinking…';
+  activityQueue=[]; pumping=false; lastShown='Thinking…';
+  timerEl.textContent='0.0s'; renderHead();
+}
+function addThink(text){
+  setNow('Thinking…'); showShimmer(false);
+  const n=document.createElement('div'); n.className='node think enter';
+  n.innerHTML='<span class="tdot"></span><div class="tline">'+text+'</div>';
+  rail.appendChild(n); scheduleShimmer(650);
+}
+function addStart(ev){
+  setNow(ev.label); showShimmer(false);
+  const n=document.createElement('div'); n.className='node step active enter'; n.id='node-'+ev.id;
+  // every node is the same circle: a logo (school / reddit / web) cover-fills the
+  // frame; otherwise the kind glyph sits in it. School DB pulls add the DB badge.
+  const inner = ev.logo ? '<img src="'+ev.logo+'" alt="">' : I[ev.icon];
+  const badge = ev.db ? '<span class="dbbadge" aria-label="Counselle database">'+I.dbmini+'</span>' : '';
+  const tile = '<span class="tile t-'+ev.tier+'"'+(ev.db?' title="From the Counselle database"':'')+'>'+
+                 '<span class="frame">'+inner+'</span>'+badge+'</span>';
+  n.innerHTML=tile+
+              '<div class="ndbody"><div class="nlabel">'+ev.label+'</div></div>'+
+              '<span class="nstate"><span class="spin"></span></span>';
+  rail.appendChild(n);
+}
+function addDone(ev){
+  const n=document.getElementById('node-'+ev.id); if(!n)return;
+  n.classList.remove('active'); n.classList.add('done');
+  n.querySelector('.nstate').innerHTML=I.check;
+  if(ev.chips){
+    const wrap=document.createElement('div'); wrap.className='chips';
+    ev.chips.forEach((c,i)=>{
+      const el=document.createElement('span');
+      if(c.more){ el.className='chip more'; el.textContent=c.more; }
+      else {
+        el.className='chip tier-'+c.t;
+        el.innerHTML = '<span class="fav"><img src="'+c.logo+'" alt=""></span><span class="dom">'+c.d+'</span>';
+      }
+      el.style.animationDelay=(prefersReduced?0:0.11*(i+1))+'s';
+      wrap.appendChild(el);
+    });
+    n.querySelector('.ndbody').appendChild(wrap);
+  }
+  scheduleShimmer(500);
+}
+function finish(){
+  showShimmer(false); done=true; activityQueue=[]; pumping=false; renderHead();
+  setTimeout(()=>answer.classList.add('show'), prefersReduced?0:250);
+}
+function tickTimer(){
+  const fn=()=>{ const s=((performance.now()-t0)/1000); timerEl.textContent=s.toFixed(1)+'s';
+    if(!done) rafId=requestAnimationFrame(fn); };
+  rafId=requestAnimationFrame(fn);
+}
+function play(){
+  clearAll();
+  if(prefersReduced){
+    SEQ.forEach(ev=>{ if(ev.type==='think')addThink(ev.text); else if(ev.type==='start')addStart(ev); else if(ev.type==='done')addDone(ev); });
+    done=true; timerEl.textContent='9.4s'; renderHead(); answer.classList.add('show'); return;
+  }
+  t0=performance.now(); tickTimer(); let acc=0;
+  SEQ.forEach(ev=>{ acc+=ev.dt*SPEED;
+    timers.push(setTimeout(()=>{
+      if(ev.type==='think')addThink(ev.text); else if(ev.type==='start')addStart(ev);
+      else if(ev.type==='done')addDone(ev); else if(ev.type==='finish')finish();
+    }, acc));
+  });
+}
+workhead.addEventListener('click', ()=>{ expanded=!expanded; renderHead(); });
+replay.addEventListener('click', play);
+
+/* theme toggle */
+const sun='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+const moon='<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>';
+document.getElementById('theme').addEventListener('click', ()=>{
+  const dark=document.documentElement.classList.toggle('dark');
+  document.getElementById('themeicon').innerHTML=dark?moon:sun;
+});
+
+play();
+</script>
+</body>
+</html>
