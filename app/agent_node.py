@@ -32,9 +32,11 @@ Design (notes-p4-apis §1/§3/§4/§6/§7):
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from langgraph.config import get_stream_writer
 from langgraph.errors import GraphInterrupt
@@ -44,6 +46,8 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelRequest,
+    ModelResponse,
+    TextPart,
     UserPromptPart,
 )
 from pydantic_ai.models import Model
@@ -53,6 +57,7 @@ from pydantic_ai.usage import UsageLimits
 from app import viz as viz_mod
 from app.clarify import ask_student
 from app.prompt import build_system_prompt
+from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.skills import make_load_skill_tool
 from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
@@ -186,10 +191,88 @@ def _make_ask_student_tool() -> Tool[Any]:
     return Tool(ask_student_async, takes_ctx=False)
 
 
+def _make_recording_writer(
+    writer: Any, emissions: list[Emission]
+) -> Callable[[dict[str, Any]], None]:
+    """Wrap the LangGraph custom-stream writer so the node keeps the full
+    ordered emission stream — the turn record (B1b) is built from exactly
+    what streamed, so the record can never drift from what the student saw."""
+
+    def recording(chunk: dict[str, Any]) -> None:
+        # .get + skip-if-absent: a malformed chunk must not KeyError mid-stream
+        # (the live writer still sees it — recording is observation only).
+        kind = chunk.get("type")
+        if kind == "delta":
+            if (text := chunk.get("text")) is not None:
+                emissions.append(("delta", text))
+        elif kind == "viz":
+            if (spec := chunk.get("spec")) is not None:
+                emissions.append(("viz", spec))
+        elif kind == "step":
+            if (data := chunk.get("data")) is not None:
+                emissions.append(("step", data))
+        elif kind == "thinking" and (text := chunk.get("text")) is not None:
+            emissions.append(("thinking", text))
+        writer(chunk)
+
+    return recording
+
+
+def _turn_ids(state: Any) -> dict[str, Any]:
+    """The turn's G1 identity from state, minting fallbacks for direct graph
+    invocations that bypass ``run_turn`` (tests, pre-B1b checkpoints)."""
+    ids = dict(state.get("turn_ids") or {})
+    ids.setdefault("message_id", str(uuid4()))
+    ids.setdefault("user_message_id", str(uuid4()))
+    return ids
+
+
+def _resume_clarify(
+    prior_records: list[dict[str, Any]], ids: dict[str, Any]
+) -> tuple[dict[str, Any] | None, bool]:
+    """``(clarify, synthesized_answer)`` for the record being built.
+
+    A resume replaces the parked record (same ``message_id``, G4): the new
+    record carries the parked spec plus the answer (the resume text rides
+    ``turn_ids`` because ``Command(resume)`` never enters ``messages`` —
+    that is WHY story 25 needs this), and flags the transcript read to
+    synthesize the student's answer bubble.
+    """
+    resume_text = ids.get("resume_text")
+    if resume_text is None or not prior_records:
+        return None, False
+    parked = prior_records[-1]
+    # str() both sides: a legacy/non-string stored id must still match.
+    if parked.get("status") != "awaiting_input" or str(parked.get("message_id")) != str(
+        ids["message_id"]
+    ):
+        return None, False
+    spec = (parked.get("clarify") or {}).get("spec")
+    if spec is None:
+        return None, False  # pre-B1b parked thread: no spec to carry
+    return {"spec": spec, "answer": resume_text}, True
+
+
+def _budget_partial_messages(
+    state_messages: list[dict[str, Any]], emissions: list[Emission]
+) -> list[dict[str, Any]]:
+    """The tool-budget path's messages: the streamed prose (incl. the budget
+    message) appended as a partial ``ModelResponse`` — the prose invariant
+    (G2): without it the streamed text would vanish from the transcript.
+    Empty-partial rule: no prose streamed → no append (an empty-content
+    response corrupts the provider history)."""
+    prose = "".join(text for kind, text in emissions if kind == "delta")
+    if not prose:
+        return state_messages
+    partial = ModelResponse(parts=[TextPart(content=prose)])
+    return state_messages + list(ModelMessagesTypeAdapter.dump_python([partial], mode="json"))
+
+
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     """One counselor turn: rebuild from state, run the agent, return the delta."""
     settings = getattr(deps, "settings", None) or get_settings()
-    writer = get_stream_writer()
+    emissions: list[Emission] = []
+    writer = _make_recording_writer(get_stream_writer(), emissions)
 
     # --- rebuild per-turn objects from state (replay-safe, module docstring) ---
     registry = SourceRegistry(state.get("source_registry") or [])
@@ -278,6 +361,39 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             output_tokens=run_usage.output_tokens or 0,
             tool_calls=run_usage.tool_calls or 0,
         )
+    else:
+        # Tool-budget path: result never materialized — preserve the streamed
+        # prose (the budget delta above included) as a partial ModelResponse.
+        messages_out = _budget_partial_messages(state["messages"], emissions)
+
+    # --- the turn record (B1b, G1/G2): built from exactly what streamed ---
+    ids = _turn_ids(state)
+    prior_records = list(state.get("turn_records") or [])
+    clarify, synthesized = _resume_clarify(prior_records, ids)
+    # messages_offset: run_turn computes the authoritative value per path (new
+    # turn vs resume) and threads it through turn_ids — the node never
+    # recomputes it. The len-1 fallback covers direct-graph invocations only
+    # (tests, pre-B1b checkpoints), where the tail is the user request.
+    offset = ids.get("messages_offset")
+    if not isinstance(offset, int):
+        offset = len(state["messages"]) - 1
+    # user_text is the turn's QUESTION even on a resume: the replayed node
+    # still splits the original user ModelRequest off the messages tail (the
+    # clarify answer rides Command(resume), never messages) — so the record
+    # stays self-contained and the read can render the question id-less next
+    # to the synthesized answer bubble.
+    record = build_turn_record(
+        emissions,
+        ids=ids,
+        status="complete",
+        sources=registry.dump(),
+        user_text=user_text,
+        usage=usage.model_dump(mode="json"),
+        clarify=clarify,
+        ts=now_iso(),
+        messages_offset=offset,
+        synthesized_answer=synthesized,
+    )
 
     return {
         "messages": messages_out,
@@ -285,4 +401,5 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         "viz_emitted": viz_list,
         "usage": usage.model_dump(mode="json"),
         "pending_clarify": None,
+        "turn_records": append_or_replace(prior_records, record),
     }

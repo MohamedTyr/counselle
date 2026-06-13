@@ -5,9 +5,11 @@ exactly this stream (ADR 0016). Per turn it:
 
 1. Ensures the ``counselle.sessions`` row exists (created with the request's
    source config or the settings defaults), and touches it on completion.
-2. Detects a pending ``ask_student`` interrupt on the thread (notes-p4-apis §7:
-   ``graph.aget_state(...).tasks[*].interrupts``) — if parked, the user's text
-   is the **answer** and the graph resumes via ``Command(resume=text)``;
+2. Detects a parked clarify on the thread — the last turn record's
+   ``status == "awaiting_input"`` (B1b; the parked-record write clears
+   ``tasks[*].interrupts``, kept only as the pre-B1b fallback) — if parked,
+   the user's text is the **answer** and the graph resumes via
+   ``Command(resume=text)`` (the parked ``message_id`` is reused in ``meta``);
    otherwise the text becomes a new serialized user ``ModelRequest`` appended
    to the prior messages (the agent node's tail convention, app/agent_node.py).
 3. Streams with ``stream_mode=["custom", "updates"]``: custom ``delta``/``viz``
@@ -15,6 +17,10 @@ exactly this stream (ADR 0016). Per turn it:
    becomes ``clarify`` + ``done(awaiting_input)``; a completed run ends with
    ``sources`` (the registry verbatim — the LLM never built citation metadata),
    ``usage``, and ``done(complete)``.
+4. Persists the turn record (B1b, ship-plan G2): the node writes the complete
+   record in its state delta; this runner writes the parked-clarify record
+   (after ``done(awaiting_input)``) and the error record (best-effort) via
+   ``graph.aupdate_state``.
 
 ``meta`` is emitted here with a fresh uuid4 trace id; Phase 5 wraps it with
 real tracing. Errors never propagate: the stream ends with a user-safe
@@ -30,9 +36,16 @@ from uuid import uuid4
 
 import asyncpg
 from langgraph.types import Command
-from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelRequest, UserPromptPart
+from pydantic_ai.messages import (
+    ModelMessagesTypeAdapter,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
 
 from app.graph import GraphDeps
+from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.sessions import get_session, touch_session
 from config.settings import get_settings
 from domain.events import (
@@ -101,7 +114,68 @@ def _serialized_user_message(user_text: str) -> list[dict[str, Any]]:
     return list(ModelMessagesTypeAdapter.dump_python([request], mode="json"))
 
 
-async def run_turn(
+async def _write_failure_record(
+    graph: Any,
+    config: dict[str, Any],
+    *,
+    emissions: list[Emission],
+    ids: dict[str, Any],
+    user_text: str | None,
+    trace_id: str,
+    messages_offset: int | None,
+    fallback_messages: list[dict[str, Any]] | None,
+    registry_dump: list[Any],
+) -> None:
+    """Best-effort error persistence (G2): the error turn record plus — when
+    prose streamed — a partial ``ModelResponse`` so ``messages`` keeps exactly
+    the streamed prose (the prose invariant). The caller guards this call: a
+    record-write failure must never mask the turn error.
+
+    # B2: if THIS write fails after the messages append landed but before the
+    # record write, the double-failure corner leaves prose without a record —
+    # B2's turn registry single-flight lock owns turn-lifecycle recovery.
+    """
+    prose = "".join(text for kind, text in emissions if kind == "delta")
+    if not user_text and not prose:
+        # Ghost-turn guard: with no user text to anchor the turn and no prose
+        # streamed, a record would render as an empty userless error bubble on
+        # reload — the live error event already reached the student, so skip.
+        logger.info("skipping anchorless empty error record (trace_id=%s)", trace_id)
+        return
+    snapshot = await graph.aget_state(config)
+    messages = list(snapshot.values.get("messages") or []) if snapshot else []
+    records = list(snapshot.values.get("turn_records") or []) if snapshot else []
+    messages_dirty = False
+    if fallback_messages is not None and len(messages) < len(fallback_messages):
+        # The run died before the input checkpoint landed — restore the turn's
+        # input so the record's offset points at a real user message.
+        messages = list(fallback_messages)
+        messages_dirty = True
+    if messages_offset is None:
+        messages_offset = max(len(messages) - 1, 0)
+    if prose and messages and messages[-1].get("kind") == "request":
+        # Empty-partial rule: no prose streamed (or no request to anchor it)
+        # → no ModelResponse append.
+        partial = ModelResponse(parts=[TextPart(content=prose)])
+        messages = messages + list(ModelMessagesTypeAdapter.dump_python([partial], mode="json"))
+        messages_dirty = True
+    record = build_turn_record(
+        emissions,
+        ids=ids,
+        status="error",
+        sources=registry_dump,
+        user_text=user_text,
+        error={"message": _USER_SAFE_ERROR, "trace_id": trace_id},
+        ts=now_iso(),
+        messages_offset=messages_offset,
+    )
+    update: dict[str, Any] = {"turn_records": append_or_replace(records, record)}
+    if messages_dirty:
+        update["messages"] = messages
+    await graph.aupdate_state(config, update)
+
+
+async def run_turn(  # noqa: C901 — the one stream switch; splitting hides the protocol
     session_id: str,
     user_text: str,
     source_config: SourceConfig | None = None,
@@ -113,50 +187,117 @@ async def run_turn(
     settings = getattr(deps, "settings", None) or get_settings()
     trace_id = str(uuid4())
     # G1 message identity: the turn's two UUIDs, minted at start so the live
-    # stream is addressable for feedback/edit (ADR 0022). B1b persists them in
-    # the turn record and makes a clarify resume reuse the parked message_id.
+    # stream is addressable for feedback/edit (ADR 0022). A clarify resume
+    # reuses the parked record's message_id — detected BEFORE ev_meta so the
+    # first event already carries the reused id.
     message_id = str(uuid4())
     user_message_id = str(uuid4())
+    config = {"configurable": {"thread_id": session_id}}
+
+    snapshot: Any = None
+    prefetch_exc: Exception | None = None
+    try:
+        snapshot = await graph.aget_state(config)
+    except Exception as exc:  # surfaced inside the main try → error event
+        prefetch_exc = exc
+    prior_records: list[dict[str, Any]] = (
+        list(snapshot.values.get("turn_records") or []) if snapshot else []
+    )
+    # Parked-detection (B0 spike 1): the turn record is the source of truth —
+    # the parked-record write empties tasks[*].interrupts — with the old
+    # interrupts check kept as the fallback for pre-B1b parked threads.
+    parked_record = (
+        prior_records[-1]
+        if prior_records and prior_records[-1].get("status") == "awaiting_input"
+        else None
+    )
+    parked = parked_record is not None or bool(
+        snapshot and any(task.interrupts for task in snapshot.tasks)
+    )
+    if parked_record is not None:
+        message_id = str(parked_record["message_id"])
+    # B2: a parked thread where the next POST is NOT a resume (e.g. a cancel
+    # races in) can ghost the parked record — B2's turn registry single-flight
+    # lock owns concurrent-turn lifecycle; no guard here.
+    # The record-anchoring question: on a resume this turn's question is the
+    # PARKED record's user_text (the live user_text is the clarify ANSWER,
+    # which rides clarify.answer, never the user bubble).
+    record_user_text: str | None = (
+        parked_record.get("user_text") if parked_record is not None else user_text
+    )
     yield ev_meta(trace_id, session_id, settings.model_counselor, message_id, user_message_id)
 
-    config = {"configurable": {"thread_id": session_id}}
+    turn_ids: dict[str, Any] = {"message_id": message_id, "user_message_id": user_message_id}
+    emissions: list[Emission] = []
+    # The last source_registry/usage dumps from the updates stream — the FIX 2
+    # fallback AND the parked/error records' sources snapshot.
+    last_registry_dump: list[Any] = []
+    last_usage_dict_inline: dict[str, Any] | None = None
+    messages_offset: int | None = None
+    graph_input: Any = None
     try:
+        if prefetch_exc is not None:
+            raise prefetch_exc
         effective_config = await _ensure_session(deps.app_pool, session_id, source_config, settings)
 
-        snapshot = await graph.aget_state(config)
-        parked = bool(snapshot and any(task.interrupts for task in snapshot.tasks))
-        graph_input: Any
         if parked:
-            # The student's text answers the pending clarify (notes §7).
+            # The student's text answers the pending clarify (notes §7). The
+            # answer rides Command(resume) and never enters messages, so it
+            # also rides turn_ids into the node's record (story 25). The
+            # aupdate_state-before-resume mechanic is spike-1c-proven.
+            # The replacement record must keep the ORIGINAL question's index:
+            # carry the parked record's messages_offset forward (G3 anchor).
+            parked_offset = parked_record.get("messages_offset") if parked_record else None
+            if isinstance(parked_offset, int):
+                messages_offset = parked_offset
+            else:
+                prior_messages = list(snapshot.values.get("messages") or []) if snapshot else []
+                messages_offset = max(len(prior_messages) - 1, 0)
+            turn_ids = {**turn_ids, "messages_offset": messages_offset}
+            await graph.aupdate_state(config, {"turn_ids": {**turn_ids, "resume_text": user_text}})
             graph_input = Command(resume=user_text)
         else:
             prior = list(snapshot.values.get("messages") or []) if snapshot else []
+            messages_offset = len(prior)
+            turn_ids = {**turn_ids, "messages_offset": messages_offset}
             graph_input = {
                 "messages": prior + _serialized_user_message(user_text),
                 "source_config": effective_config.model_dump(mode="json"),
+                "turn_ids": turn_ids,
             }
 
         interrupted = False
-        # Capture the last source_registry dump emitted by the agent node as a
-        # fallback for FIX 2 — used when the post-run aget_state fails.
-        last_registry_dump: list[Any] = []
-        last_usage_dict_inline: dict[str, Any] | None = None
+        clarify_dump: dict[str, Any] | None = None
         async for mode, chunk in graph.astream(
             graph_input, config, stream_mode=["custom", "updates"]
         ):
             if mode == "custom" and isinstance(chunk, dict):
-                if chunk.get("type") == "delta":
-                    yield ev_delta(chunk["text"])
-                elif chunk.get("type") == "step":
-                    yield ev_step(StepData.model_validate(chunk["data"]))
-                elif chunk.get("type") == "thinking":
-                    yield ev_thinking(chunk["text"])
-                elif chunk.get("type") == "viz":
-                    yield ev_viz(RenderSpec.model_validate(chunk["spec"]))
+                # The runner's emission feed mirrors the node's: the parked
+                # and error records are built from exactly what streamed.
+                # .get + skip-if-absent: a malformed chunk must never
+                # KeyError mid-stream.
+                kind = chunk.get("type")
+                if kind == "delta":
+                    if (text := chunk.get("text")) is not None:
+                        emissions.append(("delta", text))
+                        yield ev_delta(text)
+                elif kind == "step":
+                    if (data := chunk.get("data")) is not None:
+                        emissions.append(("step", data))
+                        yield ev_step(StepData.model_validate(data))
+                elif kind == "thinking":
+                    if (text := chunk.get("text")) is not None:
+                        emissions.append(("thinking", text))
+                        yield ev_thinking(text)
+                elif kind == "viz" and (spec := chunk.get("spec")) is not None:
+                    emissions.append(("viz", spec))
+                    yield ev_viz(RenderSpec.model_validate(spec))
             elif mode == "updates" and isinstance(chunk, dict):
                 if "__interrupt__" in chunk:
                     interrupt = chunk["__interrupt__"][0]
-                    yield ev_clarify(ClarifySpec.model_validate(interrupt.value))
+                    spec = ClarifySpec.model_validate(interrupt.value)
+                    clarify_dump = spec.model_dump(mode="json")
+                    yield ev_clarify(spec)
                     interrupted = True
                 # Capture registry and usage from the node's state update so we
                 # have a fallback if the post-run aget_state call fails (FIX 2).
@@ -182,6 +323,32 @@ async def run_turn(
 
         if interrupted:
             yield ev_done("awaiting_input")
+            # The parked turn record (G2/G4) — written after done per spike 1:
+            # the write sticks, interrupts clear (detection moves onto the
+            # record), Command(resume) still works. Guarded: the interrupts
+            # fallback above keeps resume working even if this write fails.
+            try:
+                record = build_turn_record(
+                    emissions,
+                    ids=turn_ids,
+                    status="awaiting_input",
+                    sources=last_registry_dump,
+                    user_text=record_user_text,
+                    clarify={"spec": clarify_dump, "answer": None} if clarify_dump else None,
+                    ts=now_iso(),
+                    messages_offset=messages_offset if messages_offset is not None else 0,
+                )
+                await graph.aupdate_state(
+                    config, {"turn_records": append_or_replace(prior_records, record)}
+                )
+            except Exception:
+                logger.error(
+                    "parked turn-record write failed (trace_id=%s, session_id=%s)"
+                    " — resume still works via the interrupt fallback",
+                    trace_id,
+                    session_id,
+                    exc_info=True,
+                )
             return
 
         # Build the sources event from graph state; on failure fall back to the
@@ -220,4 +387,26 @@ async def run_turn(
                 logger.warning(
                     "on_failure hook raised (trace_id=%s) — ignoring", trace_id, exc_info=True
                 )
+        # The error turn record (+ streamed-prose preservation) — best-effort:
+        # a record-write failure must never mask the turn error.
+        try:
+            await _write_failure_record(
+                graph,
+                config,
+                emissions=emissions,
+                ids=turn_ids,
+                user_text=record_user_text,
+                trace_id=trace_id,
+                messages_offset=messages_offset,
+                fallback_messages=graph_input["messages"]
+                if isinstance(graph_input, dict)
+                else None,
+                registry_dump=last_registry_dump,
+            )
+        except Exception:
+            logger.warning(
+                "error turn-record write failed (trace_id=%s) — ignoring",
+                trace_id,
+                exc_info=True,
+            )
         yield ev_error(_USER_SAFE_ERROR, trace_id)

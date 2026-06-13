@@ -39,6 +39,7 @@ from sse_starlette import EventSourceResponse
 
 from api.sse import SSE_HEADERS, encode_sse
 from api.usage import enrich_usage_event, log_turn_complete
+from app.records import prose_of
 from app.run_turn import _USER_SAFE_ERROR, run_turn
 from app.sessions import create_session, get_session
 from domain.events import ev_error
@@ -97,10 +98,13 @@ def _get_active_sessions(app: Any) -> set[str]:
     return app.state.active_sessions  # type: ignore[no-any-return]
 
 
-def _extract_transcript(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Map serialized ModelMessages to transcript entries.
+def _prose_only_entries(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The pre-MVP2 fallback: serialized ModelMessages → prose-only entries.
 
-    Mapping rules:
+    The pinned fallback shape (wire-contract §2): ``{role, text, ts}`` — no
+    ``message_id``, no ``parts``, no ``step_record``, no ``status`` (absent,
+    not null). Mapping rules:
+
     - ``kind == "request"`` → role ``"user"``, text from the first
       ``user-prompt`` part's ``content``.  Parts of other kinds (tool-return,
       system) are skipped; if no user-prompt part exists the message is skipped.
@@ -127,6 +131,113 @@ def _extract_transcript(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             combined = "".join(text_parts)
             if combined:
                 entries.append({"role": "assistant", "text": combined, "ts": ts})
+    return entries
+
+
+def _user_entries_for_record(record: dict[str, Any]) -> list[dict[str, Any]]:
+    """The user entries a turn record stands for (wire-contract §2.1).
+
+    Self-contained: the question comes from ``record["user_text"]``, never
+    from a ``messages`` slice. On a resumed clarify (``synthesized_answer``)
+    the record's fresh ``user_message_id`` belongs to the synthesized answer
+    bubble (G4) — the original question still renders, but id-less (its
+    parked-era record was replaced). A record with neither yields nothing.
+    """
+    question = record.get("user_text")
+    entries: list[dict[str, Any]] = []
+    if record.get("synthesized_answer"):
+        if question:
+            entries.append({"role": "user", "text": question, "ts": None})
+        answer = (record.get("clarify") or {}).get("answer")
+        entries.append(
+            {
+                "role": "user",
+                "text": answer or "",
+                "ts": record.get("ts"),
+                "message_id": record["user_message_id"],
+                "synthesized": True,
+            }
+        )
+    elif question:
+        entries.append(
+            {
+                "role": "user",
+                "text": question,
+                "ts": record.get("ts"),
+                "message_id": record["user_message_id"],
+            }
+        )
+    return entries
+
+
+def _assistant_entry_for_record(record: dict[str, Any]) -> dict[str, Any]:
+    """One turn record → the assistant transcript entry (wire-contract §2.2).
+
+    ``parts`` is served straight from the record (materialized at write time
+    — the read never reconstructs prose from ``messages``); ``text`` derives
+    from the same parts via :func:`prose_of`.
+    """
+    parts = list(record.get("parts") or [])
+    entry: dict[str, Any] = {
+        "role": "assistant",
+        "text": prose_of(parts),
+        "ts": record.get("ts"),
+        "message_id": record["message_id"],
+        "parts": parts,
+        "step_record": {
+            "steps": record.get("steps") or [],
+            "thinking": record.get("thinking") or [],
+            "receipt": record.get("receipt") or "",
+        },
+        "sources": record.get("sources") or [],
+        "status": record.get("status"),
+    }
+    if record.get("usage") is not None:
+        entry["usage"] = record["usage"]
+    if record.get("status") == "error" and record.get("error") is not None:
+        entry["error"] = record["error"]
+    if record.get("clarify") is not None:
+        entry["clarify"] = record["clarify"]
+    return entry
+
+
+def _pre_mvp2_boundary(messages: list[dict[str, Any]], records: list[dict[str, Any]]) -> int:
+    """Where the prose-only fallback ends: the FIRST record's offset.
+
+    Records are in insertion order (the overwrite channel appends), so
+    ``records[0]`` is the oldest — its offset is the boundary. A missing /
+    non-int / out-of-range offset clamps to ``len(messages)`` with a warning:
+    the read must degrade, never crash.
+    """
+    if not records:
+        return len(messages)
+    first = records[0].get("messages_offset")
+    if not isinstance(first, int) or not 0 <= first <= len(messages):
+        _log.warning(
+            "first turn record has invalid messages_offset=%r — clamping the "
+            "pre-MVP2 fallback boundary to len(messages)",
+            first,
+        )
+        return len(messages)
+    return first
+
+
+def _extract_transcript(
+    messages: list[dict[str, Any]],
+    turn_records: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """The full-fidelity transcript (B1b, wire-contract §2).
+
+    Turn records (G2) drive the MVP2 entries and are SELF-CONTAINED — the
+    user text and the materialized parts live on the record; no ``messages``
+    slicing. Messages not covered by any record (pre-MVP2 turns) fall back to
+    the prose-only shape, in order, BEFORE the record-backed entries.
+    """
+    records = turn_records or []
+    entries = _prose_only_entries(messages[: _pre_mvp2_boundary(messages, records)])
+    for record in records:
+        entries.extend(_user_entries_for_record(record))
+        entries.append(_assistant_entry_for_record(record))
     return entries
 
 
@@ -302,6 +413,7 @@ async def get_session_route(
     try:
         snapshot = await runtime.graph.aget_state(config)
         messages: list[dict[str, Any]] = list(snapshot.values.get("messages") or [])
+        turn_records: list[dict[str, Any]] = list(snapshot.values.get("turn_records") or [])
     except Exception:
         logger.exception("failed to load checkpointer state", session_id=sid)
         return JSONResponse(
@@ -314,7 +426,7 @@ async def get_session_route(
             },
         )
 
-    transcript = _extract_transcript(messages)
+    transcript = _extract_transcript(messages, turn_records)
 
     created_at = row.get("created_at")
     if created_at is not None and hasattr(created_at, "isoformat"):

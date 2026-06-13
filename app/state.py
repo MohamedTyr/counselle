@@ -59,6 +59,17 @@ class TurnState(TypedDict, total=False):
     - ``usage``: ``domain.events.UsageData.model_dump()`` for the turn.
     - ``temporal``: :class:`TemporalContext` dump — rebuilt by ``prepare``
       every turn, never stale.
+    - ``turn_records``: one record per assistant turn (``app/records.py``,
+      ship-plan G2) — the full-fidelity transcript source. This is an
+      **overwrite channel where every writer owns the full list**: each
+      writer (node return, parked-clarify write, error write, B2's cancel/
+      rewrite) reads the prior list, appends or replaces, and writes the
+      WHOLE list — never a partial delta (that's what prevents the
+      double-append class; there is no reducer).
+    - ``turn_ids``: the in-flight turn's G1 identity (``message_id``,
+      ``user_message_id``, and on a clarify resume ``resume_text`` — the
+      answer rides ``Command(resume)`` and never enters ``messages``, so
+      this is the node's only way to persist it into the record).
     """
 
     messages: list[dict[str, Any]]
@@ -68,3 +79,5 @@ class TurnState(TypedDict, total=False):
     viz_emitted: list[dict[str, Any]]
     usage: dict[str, Any]
     temporal: dict[str, Any]
+    turn_records: list[dict[str, Any]]
+    turn_ids: dict[str, Any] | None
