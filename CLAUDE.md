@@ -123,6 +123,21 @@ When in doubt, do the simplest thing that works and ship it.
 - The value-reading rules (`docs/DATABASE_GUIDE.md` §6, R1–R12) are the spec for the normalization engine — implement them in code and test them hard.
 - Plan before non-trivial work; keep `specs/mvp1/PRD.md`, `docs/ARCHITECTURE.md`, and the ADRs current as decisions change.
 
+## Frontend components — search registries first, never reinvent the wheel
+
+This is principle 2 (never reinvent the wheel) made concrete for UI. **Before building any frontend component, search for an existing one — don't hand-roll what a registry already ships.**
+
+1. **Search the shadcn MCP first, always.** Use the `shadcn` MCP (`search_items_in_registries` / `view_items_in_registries` / `get_item_examples_from_registries`) before writing any component. If it exists, use it.
+2. **We're building an AI application — check `@ai-elements` first.** The [AI Elements](https://elements.ai-sdk.dev/docs) registry (`@ai-elements`) ships AI-native components (conversation, message, reasoning, prompt-input, sources, …) built on shadcn. Prefer it for anything chat/agent/AI-shaped. Then fall back to `@shadcn` for plain primitives (button, tooltip, dialog, …).
+3. **If the 21st.dev `magic` MCP is available, search it too, and use whichever is better.** `magic` is user/global-scoped (not committed to this repo), so it may not be present for everyone — treat it as optional: when it exists, compare its result against the shadcn/AI-Elements option and pick the better fit; when it doesn't, skip it silently.
+4. **Only build custom when nothing fits.** Counselle's differentiating honesty surfaces (activity timeline, cited cards, clarify widget) are built new on the cloned tokens — see ADR 0020. Everything commodity should come from a registry.
+
+Registries are configured in `frontend/components.json` (`@ai-elements`, `@shadcn`). The shadcn MCP only auto-discovers them when run from `frontend/`; install components from there:
+
+```bash
+cd frontend && npx shadcn@latest add @ai-elements/conversation   # or @shadcn/button
+```
+
 ## Planning workflow — `plans/` vs `specs/`
 
 Two folders, one lifecycle. Keep them straight:
