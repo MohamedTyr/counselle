@@ -251,7 +251,7 @@ After projection, all numeric fields are stored as JSON **number** (verified: ze
 
 ## 7. The curated dossier field shortlist
 
-For the MVP1 "deep school dossier" wedge: ~90 high-value fields grouped into student-meaningful sections. CDS fields are listed where they add unique value but are **sparse today** (fall back to IPEDS/Scorecard). Field keys are written in full so they can be pasted into a query.
+For the "deep school dossier" wedge: ~90 high-value fields grouped into student-meaningful sections. CDS fields are listed where they add unique value but are **sparse today** (fall back to IPEDS/Scorecard). Field keys are written in full so they can be pasted into a query.
 
 **A. Admissions & Selectivity** — `admissions.acceptance_rate` (sc), `admissions.admit_rate_total` (ipeds), `admissions.sat_average`, `admissions.sat_ebrw_25`, `admissions.sat_ebrw_75`, `admissions.sat_math_25`, `admissions.sat_math_75`, `admissions.act_composite_25`, `admissions.act_composite_75`, `admissions.yield_rate_total`, `admissions.open_admissions`, `admissions.req_test_scores` (decode), `cds.c8a_test_policy`, `cds.c11_pct_gpa_4_0`, `cds.c12_avg_hs_gpa`, `cds.c10_pct_top_tenth`, `cds.c7_academic_gpa`/`c7_standardized_test_scores`/`c7_application_essay`/`c7_extracurricular_activities`/`c7_recommendations` (factor weights), `cds.early_decision_offered`/`ed1_closing_date`/`ed1_notification_date`, `cds.early_action_offered`/`ea_is_restrictive`, `cds.application_deadline_fall`, `cds.waitlist_offered`/`waitlist_admitted`, `cds.c9_sat_composite_25th`/`c9_sat_composite_75th` (SAT *composite* range — which IPEDS lacks — but extra-sparse: only ~4 schools today, so lean on the IPEDS SAT-section percentiles above for breadth). *(The only truly-empty CDS fields are `cds.d6_min_hs_gpa_transfer`, `cds.d7_min_college_gpa_transfer`, `cds.tuition_instate`, `cds.tuition_outofstate` — 0 rows.)*
 
@@ -300,7 +300,7 @@ For the MVP1 "deep school dossier" wedge: ~90 high-value fields grouped into stu
 
 ## 9. Data recency & provenance — how to date any value
 
-> MVP1 requires the agent to know the date of every value (CDS / IPEDS / Scorecard) so it knows what it doesn't know and when to go to the web. This is how.
+> The agent must know the date of every value (CDS / IPEDS / Scorecard) so it knows what it doesn't know and when to go to the web. This is how.
 
 ### Universal provenance query
 
@@ -364,7 +364,7 @@ Values cross the wire already jsonb-decoded (percent = fraction, currency = doll
 
 ### What the API does NOT do yet (the agent must use direct SQL, or we build it)
 
-These are real gaps the agent will hit constantly for MVP1's "think and compare" job:
+These are real gaps the agent will hit constantly in its "think and compare" job:
 
 - **No cross-school filter/rank** ("schools with admit rate < 15% ordered by SAT_75"). → direct SQL.
 - **No multi-school batch fetch** (comparison = N calls). → direct SQL `WHERE unitid = ANY($1)`.

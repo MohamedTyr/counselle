@@ -1,17 +1,17 @@
 # Deploying Counselle
 
-> **Status: not yet deployed.** The deploy + hardening phases (B6–B7 of the MVP2 ship-plan) were deliberately deferred. Counselle runs locally today (see the README). This guide is the **plan and the known traps** for the first real deployment — the steps below have **not** been executed or verified in production yet. Treat it as the map, not a tested runbook.
+> This is the deployment runbook — how Counselle is deployed and the traps to avoid. For the current deployment **status** (whether a given environment is live), see `CLAUDE.md`.
 
-Decision context: ADR 0023 (SPA same-origin, one deployable). The full plan narrative lives in [`../specs/mvp2/plan/ship-plan.md`](../specs/mvp2/plan/ship-plan.md) §B6.
+Decision context: ADR 0023 (SPA same-origin, one deployable). The execution narrative lives in [`../specs/mvp2/plan/ship-plan.md`](../specs/mvp2/plan/ship-plan.md).
 
-## What still needs building before a deploy works
+## What the deploy image must include
 
-The current `Containerfile` builds the **backend only** and runs `uv run` at runtime. Before a first deploy these are still TODO (all named in ship-plan §B6):
+The deploy image is a single same-origin container (API + built SPA). It must provide:
 
-- **Multi-stage container**: a Node stage (`npm ci`, `npm run build`, `VITE_TRANSPORT=http`) producing `frontend/dist`, copied into the Python stage.
-- **SPA same-origin serving** in `api/main.py`: Settings-gated static serving — landing at `/`, SPA fallback, `/v1` passthrough. (Today the backend serves `/v1` only; the frontend is a separate Vite dev server.)
-- **Runtime hygiene**: `uv sync --frozen --no-dev` at build; `exec` the venv binaries directly (no `uv run` at runtime); **promote `psycopg2-binary` to main deps** (yoyo's driver currently sits in the dev group, so `--no-dev` would brick the migration step); a tightened `.dockerignore` (`frontend/node_modules`, `tests/`, `docs/`, `plans/`, `specs/`, `evals/report-*`).
-- **First-boot reconcile → background task**: today the lifespan awaits a full 1,093-field embed before serving (30–90s) — a cold-start vs health-check-grace kill loop. Move it to a background task and pre-warm.
+- **A multi-stage container**: a Node stage (`npm ci`, `npm run build`, `VITE_TRANSPORT=http`) producing `frontend/dist`, copied into the Python stage.
+- **SPA same-origin serving** in `api/main.py`: Settings-gated static serving — landing at `/`, SPA fallback, `/v1` passthrough (the API surface).
+- **Runtime hygiene**: `uv sync --frozen --no-dev` at build; `exec` the venv binaries directly (no `uv run` at runtime); **keep `psycopg2-binary` in main deps** (yoyo's driver — if it sits in the dev group, `--no-dev` bricks the migration step); a tightened `.dockerignore` (`frontend/node_modules`, `tests/`, `docs/`, `plans/`, `specs/`, `evals/report-*`).
+- **First-boot reconcile as a background task**: the field-index embed (1,093 fields, 30–90s) must not block serving, or a cold start races the host's health-check grace into a kill loop. Run it in the background and pre-warm.
 
 ## Database first (everything depends on a reachable DSN)
 
@@ -24,7 +24,7 @@ The current `Containerfile` builds the **backend only** and runs `uv run` at run
 
 ## The environment matrix
 
-A first deploy forgets the MVP1 half. The complete set:
+A first deploy easily forgets the agent-core half. The complete set:
 
 **Database & sessions**
 - `COUNSELLE_DB_RO_DSN`, `COUNSELLE_DB_APP_DSN` (required)

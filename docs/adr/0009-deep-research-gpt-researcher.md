@@ -8,7 +8,7 @@ The PRD wants deep research across the web, our DB, .edu, and Reddit, with citat
 ## Decision
 Adopt **GPT-Researcher**, **embedded as a research subagent/tool inside the LangGraph orchestrator** (Anthropic orchestrator-worker pattern), cost-optimized.
 
-**MVP1 status (2026-06-10):** the deep-research subsystem (PRD stories 39–41, including the verification pass) is **deferred from the MVP1 implementation plan**. The LangGraph graph does **not** ship a stub research node — the topology is `prepare → agent → END`. The follow-up plan (`specs/deep-research/plan.md`) adds the research node when GPT-Researcher is activated; the deliberately minimal topology makes that insertion additive (no restructuring). This ADR remains the valid design for that follow-up.
+The graph topology is `prepare → agent → END`. The research node attaches additively at this seam without restructuring; the deliberately minimal topology is designed to make that insertion additive.
 
 ## Rationale
 - **Only OSS option with native pluggable sources via MCP** — so we plug in our DB + Reddit + .edu (a hard requirement).
@@ -24,4 +24,4 @@ Adopt **GPT-Researcher**, **embedded as a research subagent/tool inside the Lang
 
 ## Consequences
 - We add ourselves (already PRD features): **source-type tagging** (MCP metadata: official vs community) and the **verification step** (cheap cross-check of top sources) — both land with the deep-research follow-up.
-- The **~50-question eval set** (PRD story 58) ships in **MVP1 Phase 7 independently of GPT-Researcher** — it measures the whole agent (facts, field selection, clarify judgment, honesty, viz); citation-accuracy measurement of the research subsystem is an added concern when this ADR activates (GPT-Researcher has no published citation-accuracy benchmark).
+- The **~50-question eval set** (PRD story 58) is built independently of GPT-Researcher — it measures the whole agent (facts, field selection, clarify judgment, honesty, viz); citation-accuracy measurement of the research subsystem is an added concern when this ADR activates (GPT-Researcher has no published citation-accuracy benchmark).

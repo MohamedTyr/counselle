@@ -22,7 +22,7 @@ Three buckets, one policy:
 
 ## Alternatives considered
 - **Env vars only** — rejected: prompts/menus/shortlists don't belong in env; they're multi-line editorial content needing diffs.
-- **A config database / admin UI** — rejected for MVP1: infrastructure for a problem we don't have (YAGNI).
+- **A config database / admin UI** — rejected: infrastructure for a problem we don't have (YAGNI).
 - **Scattered per-module constants** — rejected: the exact failure mode the requirement forbids.
 
 ## Consequences
