@@ -22,7 +22,7 @@
 - *(Logged from B5c, 2026-06-13.)*
 
 ## Community card viz type (deferred from MVP1)
-- **What:** implement the `community_card` type in `RenderSpec` and the corresponding harness renderer for qualitative/Reddit content.
+- **What:** implement the `community_card` type in `RenderSpec` and the corresponding frontend card renderer for qualitative/Reddit content.
 - **Why:** the architecture designed it (ARCHITECTURE §17) but it was not built in MVP1 — `RenderSpec.type` currently accepts only `stat_block | comparison_table | score_band`. Community/Reddit content falls back to prose narration in the delta stream.
 - **Context:** see `domain/specs.py` (`RenderSpec`) and ARCHITECTURE §17. No honesty risk deferred — community content is never quantified anyway; this is a UX improvement only.
 - *(Logged from Phase 7 Slice D docs audit, 2026-06-11.)*

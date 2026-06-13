@@ -1,0 +1,70 @@
+# Deploying Counselle
+
+> This is the deployment runbook — how Counselle is deployed and the traps to avoid. For the current deployment **status** (whether a given environment is live), see `CLAUDE.md`.
+
+Decision context: ADR 0023 (SPA same-origin, one deployable). The execution narrative lives in [`../specs/mvp2/plan/ship-plan.md`](../specs/mvp2/plan/ship-plan.md).
+
+## What the deploy image must include
+
+The deploy image is a single same-origin container (API + built SPA). It must provide:
+
+- **A multi-stage container**: a Node stage (`npm ci`, `npm run build`, `VITE_TRANSPORT=http`) producing `frontend/dist`, copied into the Python stage.
+- **SPA same-origin serving** in `api/main.py`: Settings-gated static serving — landing at `/`, SPA fallback, `/v1` passthrough (the API surface).
+- **Runtime hygiene**: `uv sync --frozen --no-dev` at build; `exec` the venv binaries directly (no `uv run` at runtime); **keep `psycopg2-binary` in main deps** (yoyo's driver — if it sits in the dev group, `--no-dev` bricks the migration step); a tightened `.dockerignore` (`frontend/node_modules`, `tests/`, `docs/`, `plans/`, `specs/`, `evals/report-*`).
+- **First-boot reconcile as a background task**: the field-index embed (1,093 fields, 30–90s) must not block serving, or a cold start races the host's health-check grace into a kill loop. Run it in the background and pre-warm.
+
+## Database first (everything depends on a reachable DSN)
+
+1. Provision Postgres 16 (managed or VPS), **co-located with the app**.
+2. **Pre-create the `vector` extension as admin** — migration 0003 runs `CREATE EXTENSION` as the app role, which fails on managed Postgres. Without the pre-create, first boot crash-loops.
+3. `pg_dump` / `pg_restore` the pipeline DB into it.
+4. Run `scripts/setup_db.sql` as admin (roles + grants).
+5. **Verify grants as `counselle_ro`** — the `ALTER DEFAULT PRIVILEGES` trap: objects created by a different admin role are invisible to the agent, a silent honesty bug. Run the grant-verification query after every restore/refresh.
+6. Set both DSNs (`COUNSELLE_DB_RO_DSN`, `COUNSELLE_DB_APP_DSN`); use `pool_min ≥ 2` against a remote DB.
+
+## The environment matrix
+
+A first deploy easily forgets the agent-core half. The complete set:
+
+**Database & sessions**
+- `COUNSELLE_DB_RO_DSN`, `COUNSELLE_DB_APP_DSN` (required)
+- `COUNSELLE_CHECKPOINTER=postgres`
+- `COUNSELLE_SESSION_TTL_DAYS` (optional; unset = keep everything)
+
+**Models / GCP**
+- `COUNSELLE_VERTEX_API_KEY` (preferred) **or** `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON) — use the API key, not an ADC file, where possible
+- `COUNSELLE_GOOGLE_CLOUD_PROJECT`, `COUNSELLE_GOOGLE_CLOUD_LOCATION`
+- `COUNSELLE_MODEL_COUNSELOR`, `_CHEAP`, `_CLARIFIER`, `_TITLE`, and `COUNSELLE_MODEL_PRICES`
+
+**Sources**
+- `COUNSELLE_TAVILY_API_KEY` (required when any external source is enabled)
+
+**Auth (ADR 0021)**
+- `COUNSELLE_JWT_SECRET` — a **stable** ≥32-byte secret (rotating it logs everyone out)
+- `COUNSELLE_COOKIE_SECURE=true` (HTTPS only in prod)
+- `COUNSELLE_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET`, with the **production** redirect URI registered: `https://<domain>/v1/auth/google/callback`
+
+**API**
+- `COUNSELLE_CORS_ORIGINS` — **flip to empty** in prod (ADR 0023's consequence; the dev default is `["http://localhost:8000"]`)
+- `COUNSELLE_API_HOST=0.0.0.0`, `COUNSELLE_API_PORT=8000`
+
+## Entrypoint & the one flag that breaks first
+
+The entrypoint runs `yoyo apply --batch` (app DSN — migrations stay additive, so a failure crash-loops back to the previous image) then:
+
+```bash
+exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port 8000 --forwarded-allow-ips='*'
+```
+
+**`--forwarded-allow-ips='*'` is the flag the first OAuth attempt dies without.** Behind the host's TLS terminator, an untrusted `X-Forwarded-Proto` makes the app think it's on `http`, so the Google `redirect_uri` generates as `http://` → `redirect_uri_mismatch`.
+
+## Deploy checklist
+
+- [ ] DB provisioned, `vector` pre-created, restored, grants verified as `counselle_ro`
+- [ ] Full env matrix set; `CORS_ORIGINS` emptied; `COOKIE_SECURE=true`
+- [ ] Migrations ran on boot; `/v1/health` green
+- [ ] SSE un-buffered end-to-end (the TLS terminator must not buffer the stream)
+- [ ] Cookies set under TLS; **Google OAuth works on the prod domain** (the forwarded-proto proof)
+- [ ] One cold-boot run measured (MCP child spawn + first-turn latency)
+- [ ] Playwright smoke passes against production: signup → ask a known dossier question → stream with timeline → reload mid-stream → full-fidelity transcript
+- [ ] Security pass: response headers, cookie flags, no secrets baked into the image, admin routes gated

@@ -22,5 +22,5 @@
 
 ## Consequences
 - All per-agent model env vars live on the single Settings surface with the `COUNSELLE_` prefix (ADR 0018), e.g. `COUNSELLE_MODEL_COUNSELOR`, `COUNSELLE_MODEL_CHEAP`.
-- GPT-Researcher's three tiers (`FAST_LLM`/`STRATEGIC_LLM`/`SMART_LLM`) will be configured the same way when the deep-research subsystem activates (deferred from MVP1 — ADR 0009).
+- GPT-Researcher's three tiers (`FAST_LLM`/`STRATEGIC_LLM`/`SMART_LLM`) are configured the same way when the deep-research subsystem activates (ADR 0009).
 - Default routing: **Gemini 2.5 Flash** for routing/summaries, **Gemini 2.5 Pro** for synthesis; escalate to a stronger model (Gemini 2.5 Pro at higher depth, or e.g. `claude-opus-4-8`) for high-stakes. All swappable per-agent via env.

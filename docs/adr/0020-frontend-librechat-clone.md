@@ -1,9 +1,9 @@
-# ADR 0020 — MVP2 frontend: LibreChat-cloned design system & components on React/Vite/Tailwind
+# ADR 0020 — Frontend: LibreChat-cloned design system & components on React/Vite/Tailwind
 
-**Status:** Accepted (2026-06-12; drafted in the MVP2 architecture pass, 2026-06-11)
+**Status:** Accepted
 
 ## Context
-MVP2 needs a ChatGPT-grade web app (PRD-mvp2). Designing a chat product's design system and commodity components (sidebar, composer, message rendering, settings) from scratch is the highest-risk, lowest-differentiation work in the project. The product decision: clone the look of LibreChat — an MIT-licensed, mature open-source chat UI — exactly (colors, fonts, spacing, components), but recomposed for our product ("a house from the castle's bricks"). Counselle's differentiating surfaces (activity timeline, cited cards, clarify widget) don't exist in LibreChat and must be built.
+The full-stack app needs a ChatGPT-grade web app (see `specs/mvp2/PRD.md`). Designing a chat product's design system and commodity components (sidebar, composer, message rendering, settings) from scratch is the highest-risk, lowest-differentiation work in the project. The product decision: clone the look of LibreChat — an MIT-licensed, mature open-source chat UI — exactly (colors, fonts, spacing, components), but recomposed for our product ("a house from the castle's bricks"). Counselle's differentiating surfaces (activity timeline, cited cards, clarify widget) don't exist in LibreChat and must be built.
 
 ## Decision
 1. **The frontend stack is LibreChat's rendering stack** (verified against the repo): React 18 + TypeScript, Vite, Tailwind CSS 3.4 + their CSS-variable theme, Radix UI, lucide-react, TanStack Query, react-router, react-markdown + remark-gfm, react-textarea-autosize, framer-motion, Inter/Roboto Mono. We stay on their majors while cloning (no Tailwind v4 migration).
@@ -28,7 +28,7 @@ MVP2 needs a ChatGPT-grade web app (PRD-mvp2). Designing a chat product's design
 - **A component library (shadcn/ui etc.) styled to look similar** — rejected: "similar" is not "clone"; the requirement is exact.
 
 ## Consequences
-- `frontend/` joins the monorepo as a pure protocol client; `harness/` is deleted at parity.
+- `frontend/` is a pure protocol client in the monorepo; `harness/` has been deleted.
 - We own a fork-in-miniature: cloned files don't auto-update; upstream improvements arrive only by deliberate re-sync against the pinned commit.
 - Each cloned surface drags 3–10 support files (hooks, ui atoms) into `vendor/` — accepted; the quarantine absorbs them.
 - The two semantic token pairs are the only color additions allowed to the cloned system; any further color-with-meaning is a design-system decision, not a tweak.

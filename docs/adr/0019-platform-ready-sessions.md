@@ -3,7 +3,7 @@
 **Status:** Accepted
 
 ## Context
-MVP1 needs in-session working memory only (PRD). The platform phase adds persistent chats, user accounts, profiles, and long-term memory. The classic retrofit pain in chat products is bolting durable identity onto an in-memory prototype — a migration of meaning, not just of data.
+The agent needs in-session working memory; the platform phase adds persistent chats, user accounts, profiles, and long-term memory. The classic retrofit pain in chat products is bolting durable identity onto an in-memory prototype — a migration of meaning, not just of data.
 
 ## Decision
 1. **Every conversation is a session with a durable `session_id` from day one.** In-session working memory *is* the LangGraph state for that session — one mechanism.
@@ -20,8 +20,8 @@ MVP1 needs in-session working memory only (PRD). The platform phase adds persist
 - Durable interrupts make clarifying questions robust across restarts for free.
 
 ## Alternatives considered
-- **In-memory sessions for MVP1** — rejected: trades a trivial day-one choice for a guaranteed future migration; also loses parked clarifications on restart.
-- **Building users/auth/profiles now** — rejected: deferred by the PRD; only the *shape* is prepared, not the feature.
+- **In-memory sessions** — rejected: trades a trivial day-one choice for a guaranteed future migration; also loses parked clarifications on restart.
+- **Building users/auth/profiles immediately** — rejected: only the *shape* is prepared at this layer; auth is a separate concern (ADR 0021).
 - **A separate database for Counselle state** — rejected: new infrastructure with no current benefit; the schema boundary inside the existing Postgres is sufficient isolation.
 
 ## Consequences

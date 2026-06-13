@@ -17,6 +17,6 @@ Author skills as **SKILL.md** files (the open standard: YAML frontmatter with `n
 - Framework-specific tool decorators (LangChain `@tool`, CrewAI tasks, OpenAI agents-as-tools) as the canonical skill — rejected (vendor lock-in). Use thin per-framework adapters if needed, with SKILL.md as the canonical definition.
 
 ## Consequences
-- MVP1 ships **4 skills**: `dossier-assembly`, `school-comparison`, `decode-coded-value`, `citation-and-recency`. (`deep-research-with-citations` is deferred with the GPT-Researcher subsystem — ADR 0009.)
+- The core skills are: `dossier-assembly`, `school-comparison`, `decode-coded-value`, `citation-and-recency`. (`deep-research-with-citations` activates with the GPT-Researcher subsystem — ADR 0009.)
 - Skill metadata loads at startup; the full body is returned on demand via a `load_skill(name)` tool always present in the agent's toolset (progressive disclosure).
 - Skills load on top of PydanticAI (ADR 0003).

@@ -3,19 +3,19 @@
 **Status:** Accepted
 
 ## Context
-The PRD requires the agent to show visualizations (tables, charts) — e.g. a 2-school comparison. Two questions were open: (1) the catalog of visualization types for MVP1, and (2) for each, **what data the AI provides vs. what the visualization gets automatically** — i.e. whether numbers flow through the LLM or come straight from the data layer. The data is the product and honesty is non-negotiable (principle 3), so where the numbers come from is a correctness decision, not a UI detail.
+The PRD requires the agent to show visualizations (tables, charts) — e.g. a 2-school comparison. Two questions were open: (1) the catalog of visualization types in scope, and (2) for each, **what data the AI provides vs. what the visualization gets automatically** — i.e. whether numbers flow through the LLM or come straight from the data layer. The data is the product and honesty is non-negotiable (principle 3), so where the numbers come from is a correctness decision, not a UI detail.
 
 ## Decision
 
-**MVP1 ships three visualizations:**
+**Three visualizations are in scope:**
 1. **Dossier stat block** — a sectioned, cited fact card for one school (the wedge surface).
 2. **Comparison table** — N schools × M fields, per-cell citation.
 3. **Score-range band** — SAT/ACT middle-50% (25th–75th percentile) band(s).
 
-Deferred to post-MVP1: **net-price-by-income bars** (#4) and **admissions-factor weight grid** (#5).
+Deferred: **net-price-by-income bars** (#4) and **admissions-factor weight grid** (#5).
 
 **The data-provenance boundary (the core rule):** the **LLM decides the *shape*** (which schools, which fields, which chart type); a **tool fetches the *numbers*** straight from the citation envelopes (§5). **Numbers never round-trip through the LLM's tokens.** Two render paths, kept visibly distinct:
-- **Official / DB-backed numeric** → tool-fetched, deterministic, precise. (All three MVP1 viz.)
+- **Official / DB-backed numeric** → tool-fetched, deterministic, precise. (All three in-scope viz.)
 - **Community / qualitative** (Reddit, deep-research synthesis) → LLM-passed → rendered as an explicitly **community-tier qualitative card**, **never** a quantified chart. No fabricated "73% of redditors…" precision.
 
 **Mechanism:** one tool — `render_viz(type, selection)`, `type ∈ {comparison_table, stat_block, score_band}`, `selection` = schools + field_keys (+ test for the band). It calls `counselle_db.service` **directly in-process** — never through the MCP child (eng-review D2; the MCP child is the seam for the LLM's tool loop only) — gets back **citation envelopes**, wraps them with `type`, and returns one **render spec (JSON)** whose cells *are* envelopes. The server forwards the spec to the frontend **out-of-band** as a viz event; the LLM receives only a small acknowledgment, not the numbers to repeat. The frontend has three **dumb components** that draw `display` + an official/community chip (from `tier`) and render `available:false` as "not available". Visualizations appear in **tool-call order** interleaved with the prose (no anchoring machinery).
@@ -41,7 +41,7 @@ Deferred to post-MVP1: **net-price-by-income bars** (#4) and **admissions-factor
 - **Per-viz anchoring / placeholder tokens for placement** — rejected: tool-call order is sufficient (low-value-and-hard otherwise).
 
 ## Consequences
-- "Not focusing on the UI" now carries one exception: a **minimal viz renderer** (three components) is in MVP1 scope, because score bands need a drawing surface. Tables/stat-blocks also degrade to Markdown where no renderer exists.
+- A **minimal viz renderer** (three components) is in scope, because score bands need a drawing surface. Tables/stat-blocks also degrade to Markdown where no renderer exists.
 - A new `render_viz` tool joins the agent's toolset; it is a thin wrapper over `counselle_db.service` (in-process, not through the MCP child).
 - The eval set (ADR 0009 / ARCHITECTURE §19) gains a **field-selection-accuracy** dimension.
 - Supersedes the visualization open questions in ARCHITECTURE §13 and §19 and the PRD "Visualizations" open question.
