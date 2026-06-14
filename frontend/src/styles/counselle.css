@@ -55,11 +55,203 @@
   animation: counselle-shimmer 1.6s ease-in-out infinite;
 }
 
+/* ── ReasoningTrace (feat/reasoning-experience) ──────────────────────────────
+   The collapsed thinking-phase header's glowing orb + the current-activity
+   gradient shimmer, the source-chip reveal, and the step-node entrance. Ported
+   from mockups/thinking-phase.html. All compositor-friendly (transform/opacity/
+   background-position) and gated under prefers-reduced-motion below.
+
+   @property --angle drives the orb's conic rotation. Browser floor: Chrome 85+,
+   Safari 16.4+, Firefox 128+. Older engines render a static orb (the animation
+   fires but --angle won't interpolate) — the same graceful, legible fallback as
+   the reduced-motion path, so no extra handling is needed. */
+@property --counselle-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.counselle-orb {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 7px 0 rgba(13, 148, 136, 0.45);
+}
+.counselle-orb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from calc(var(--counselle-angle) * 1.2) at 30% 65%,
+      #22c55e 0deg,
+      transparent 45deg 315deg,
+      #22c55e 360deg
+    ),
+    conic-gradient(
+      from calc(var(--counselle-angle) * 0.8) at 70% 35%,
+      #0d9488 0deg,
+      transparent 60deg 300deg,
+      #0d9488 360deg
+    ),
+    conic-gradient(
+      from calc(var(--counselle-angle) * -1.5) at 65% 75%,
+      #1d4ed8 0deg,
+      transparent 90deg 270deg,
+      #1d4ed8 360deg
+    ),
+    radial-gradient(ellipse 120% 80% at 40% 60%, #0d9488 0%, transparent 50%);
+  filter: blur(1.6px) contrast(1.7) saturate(1.35);
+  animation: counselle-orbspin 5s linear infinite;
+}
+.counselle-orb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, rgba(255, 255, 255, 0.4), transparent 60%);
+  mix-blend-mode: overlay;
+}
+.counselle-orb.is-settled {
+  box-shadow: none;
+}
+.counselle-orb.is-settled::before {
+  animation: none;
+  opacity: 0.65;
+}
+@keyframes counselle-orbspin {
+  to {
+    --counselle-angle: 360deg;
+  }
+}
+
+/* The current-activity gradient shimmer (a moving light band over muted text). */
+.counselle-shimmer-text {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image:
+    linear-gradient(90deg, transparent 20%, var(--text-primary) 50%, transparent 80%),
+    linear-gradient(var(--text-secondary), var(--text-secondary));
+  background-size:
+    200% 100%,
+    100% 100%;
+  background-repeat: no-repeat;
+  animation: counselle-shimmer-sweep 1.8s linear infinite;
+}
+@keyframes counselle-shimmer-sweep {
+  0% {
+    background-position:
+      160% 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      -60% 0,
+      0 0;
+  }
+}
+
+/* The current-activity swap: each new line slides up as it replaces the last
+   (mockup `nowIn`). Lives on a transform wrapper so it never fights the inner
+   text's background-clip shimmer. Re-keyed per activity so it reruns. */
+.counselle-now-in {
+  animation: counselle-now-in 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes counselle-now-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Source chip reveal + step-node entrance. */
+.counselle-chip-in {
+  opacity: 0;
+  transform: translateY(3px);
+  animation: counselle-chip-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes counselle-chip-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Per-step connector line under the icon column (ChainOfThought rail). CSS
+   :not(:last-child) keeps the memoized StepNode free of an isLast prop. */
+.counselle-tl-node:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 24px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--border-light);
+}
+
+.counselle-node-in {
+  animation: counselle-node-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes counselle-node-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tier-2 receipt disclosure: the query line slides in when a search step is
+   expanded (StepNode toggle). Compositor-friendly; gated below. */
+.counselle-receipt-in {
+  animation: counselle-receipt-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes counselle-receipt-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .counselle-step-active,
   .counselle-thinking {
     animation: none;
     opacity: 1;
+  }
+
+  /* ReasoningTrace: orb stops spinning, the shimmer text degrades to a static
+     legible muted line, chips/nodes appear without motion. */
+  .counselle-orb::before {
+    animation: none;
+  }
+  .counselle-shimmer-text {
+    color: var(--text-secondary);
+    background: none;
+    -webkit-text-fill-color: var(--text-secondary);
+    animation: none;
+  }
+  .counselle-chip-in,
+  .counselle-node-in,
+  .counselle-now-in,
+  .counselle-receipt-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 
   /* FE-6 audit: gate the cloned system's remaining loops/slides (PRD story 44).

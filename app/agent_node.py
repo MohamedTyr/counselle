@@ -313,9 +313,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
 
     # --- the emission router (steps/thinking/delta — ARCHITECTURE §27.1–27.2) ---
     resolve_name = getattr(deps.catalog, "school_name", None) or (lambda unitid: None)
+    resolve_domain = getattr(deps.catalog, "school_domain", None) or (lambda unitid: None)
     router = EmissionRouter(
         writer=writer,
-        mapper=StepMapper(load_yaml_asset("step_labels"), resolve_name),
+        mapper=StepMapper(load_yaml_asset("step_labels"), resolve_name, resolve_domain),
         unmounted=GATEABLE_TOOLS - {tool.name for tool in tools},
     )
 

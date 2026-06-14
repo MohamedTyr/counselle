@@ -19,7 +19,6 @@ import os
 import re
 from datetime import date
 from typing import Any
-from urllib.parse import urlsplit
 
 from tavily import AsyncTavilyClient
 from tavily.errors import (
@@ -31,6 +30,7 @@ from tavily.errors import (
 
 from counselle_db.service import get_values as _get_values_impl
 from domain.envelope import Citation
+from domain.urls import registrable_domain as _registrable_domain
 
 # ---------------------------------------------------------------------------
 # Domain helpers
@@ -45,28 +45,9 @@ _IPV4_RE = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 _EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 
 
-def _registrable_domain(url: str) -> str | None:
-    """Extract the registrable domain (eTLD+1 approximation) from a URL.
-
-    Strategy: strip the leading ``www.`` from the netloc — sufficient for the
-    school-site tool since school URLs are stored as institutional domains
-    (e.g. ``https://www.duke.edu/admissions`` → ``duke.edu``).  The tool never
-    needs sub-sub-domain accuracy; a simple netloc-based approach is intentional
-    (KISS — no tldextract dependency).
-    """
-    try:
-        parsed = urlsplit(url)
-        netloc = parsed.netloc or parsed.path  # bare domains land in .path
-        # Drop port if present
-        netloc = netloc.split(":")[0].strip()
-        if not netloc:
-            return None
-        # Strip leading www. only (one level)
-        if netloc.startswith("www."):
-            netloc = netloc[4:]
-        return netloc or None
-    except Exception:
-        return None
+#: ``_registrable_domain`` now lives in ``domain/urls.py`` (shared with the
+#: catalog's school-domain loader); imported above as the original private name
+#: so existing call sites and tests are unchanged.
 
 
 def _tld(domain: str) -> str:
