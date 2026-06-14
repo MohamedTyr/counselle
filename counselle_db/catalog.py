@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from counselle_db.db import fetch
 from counselle_db.models import ServiceError
 from domain.normalize import FieldMeta
+from domain.urls import registrable_domain
 from domain.vintage import vintage_for
 
 logger = structlog.get_logger(__name__)
@@ -74,6 +75,19 @@ _VALUESETS_COUNT_SQL = "SELECT count(*) FROM raw.ipeds_valuesets24"
 
 _SCHOOL_NAMES_SQL = "SELECT unitid, name FROM schools"
 
+# unitid → website, for the activity-timeline school logos (MVP2 §27.1). A
+# separate query, NOT a join onto _SCHOOL_NAMES_SQL: field_values is keyed
+# (unitid, field_key, cycle_year) — DISTINCT ON keeps the newest row per school
+# and guards against a school ever carrying the field across two cycles. `value`
+# is jsonb (a JSON string scalar like "www.aamu.edu/"), so `#>> '{}'` unwraps it
+# to bare text. ~2.7k rows, one extra query at load (hits the field_key index).
+_SCHOOL_WEBSITES_SQL = """
+SELECT DISTINCT ON (unitid) unitid, value #>> '{}' AS website
+FROM field_values
+WHERE field_key = 'institution.website' AND value IS NOT NULL
+ORDER BY unitid, cycle_year DESC NULLS LAST
+"""
+
 _CDS_CALENDAR_SQL = """
 SELECT (SELECT value FROM settings WHERE key = 'current_cycle_year') AS cycle_year,
        (SELECT count(DISTINCT unitid) FROM field_values
@@ -127,6 +141,7 @@ class Catalog:
         self.pool = pool
         self.fields_by_key: dict[str, FieldMeta] = {}
         self.school_names: dict[int, str] = {}
+        self.school_domains: dict[int, str] = {}
         self.scorecard_filename: str | None = None
         self.ipeds_cycle_year: int | None = None
         self.loaded_at: datetime = datetime.min.replace(tzinfo=UTC)
@@ -141,6 +156,15 @@ class Catalog:
         labels (MVP2 §27.1) — never touch the pool.
         """
         return self.school_names.get(unitid)
+
+    def school_domain(self, unitid: int) -> str | None:
+        """The school's registrable website domain (e.g. ``stanford.edu``), or None.
+
+        In-memory like ``school_name`` — feeds the timeline's school-logo chip
+        (a favicon derived from this domain). The only honest fact we have is the
+        school's own website domain; the "logo" is derived from it client-side.
+        """
+        return self.school_domains.get(unitid)
 
     @classmethod
     async def load(cls, pool: asyncpg.Pool) -> "Catalog":
@@ -181,9 +205,16 @@ class Catalog:
         files = _scan_source_files(await fetch(self.pool, _FILES_SQL))
         name_rows = await fetch(self.pool, _SCHOOL_NAMES_SQL)
         new_names = {row["unitid"]: row["name"] for row in name_rows}
+        website_rows = await fetch(self.pool, _SCHOOL_WEBSITES_SQL)
+        new_domains = {
+            row["unitid"]: domain
+            for row in website_rows
+            if (domain := registrable_domain(row["website"] or "")) is not None
+        }
         # Every query succeeded — swap the instance state, loaded_at last.
         self.fields_by_key = new_fields
         self.school_names = new_names
+        self.school_domains = new_domains
         self.scorecard_filename = files.scorecard_filename
         self._scorecard_loaded_at = files.scorecard_loaded_at
         self.ipeds_cycle_year = files.ipeds_cycle_year

@@ -72,7 +72,9 @@ function areMessageRenderPropsEqual(prev: MessageRenderProps, next: MessageRende
     prevMsg.unfinished === nextMsg.unfinished &&
     prevMsg.isCreatedByUser === nextMsg.isCreatedByUser &&
     prevMsg.content === nextMsg.content &&
-    prevMsg.activity === nextMsg.activity &&
+    // `activities` is a fresh array each render; compare contents (it's tiny and
+    // append-mostly) so a new/changed step label still re-renders the trace.
+    prevMsg.activities?.join('\x00') === nextMsg.activities?.join('\x00') &&
     prevMsg.streamError === nextMsg.streamError &&
     prevMsg.feedback?.rating === nextMsg.feedback?.rating
   );

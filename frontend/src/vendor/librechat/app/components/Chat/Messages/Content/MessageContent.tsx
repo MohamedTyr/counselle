@@ -23,8 +23,7 @@ import Error from '~/components/Messages/Content/Error';
 import { useMessageContext } from '~/Providers';
 // FE-4: timeline above the prose, VizCard (replaces VizPlaceholder), citations context, clarify, sources footer.
 import { useChatContext } from '@/app/ChatContext';
-import ActivityTimeline from '@/components/timeline/ActivityTimeline';
-import ThinkingShimmer from '@/components/timeline/ThinkingShimmer';
+import ReasoningTrace from '@/components/timeline/ReasoningTrace';
 import ClarifyWidget from '@/components/clarify/ClarifyWidget';
 import SourcesContext from '@/components/citations/SourcesContext';
 import SourcesFooter from '@/components/citations/SourcesFooter';
@@ -99,6 +98,13 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
           ),
         );
       }
+      // No prose yet: the ReasoningTrace header owns the live "thinking" state,
+      // so suppress LibreChat's empty `result-thinking` placeholder (a pulsing
+      // dot). The mockup shows only the trace header during thinking; once prose
+      // streams, Markdown renders with its own end-of-text streaming caret.
+      if (text.length === 0) {
+        return null;
+      }
       return <Markdown content={text} isLatestMessage={isLatestMessage} />;
     }
     if (enableUserMsgMarkdown) {
@@ -137,17 +143,19 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
 
   return (
     <Container message={message}>
-      {/* FE-4: the activity timeline renders ABOVE the prose (PRD stories 13–16). */}
-      {!isCreatedByUser && message.timeline !== undefined && (
-        <ActivityTimeline
-          timeline={message.timeline}
-          status={message.turnStatus ?? 'complete'}
-          receipt={message.receipt}
-          durationMs={message.durationMs}
-        />
-      )}
-      {/* B5d: the dead-air "Thinking…" shimmer — live turn, nothing progressing. */}
-      {!isCreatedByUser && message.isThinking === true && <ThinkingShimmer />}
+      {/* feat/reasoning-experience: the collapsed thinking-phase trace renders
+          ABOVE the prose (PRD stories 13–16). It owns the dead-air "Thinking…"
+          header too (absorbing the old ThinkingShimmer), so it mounts when the
+          turn is live OR has timeline entries. */}
+      {!isCreatedByUser &&
+        (message.isThinking === true || (message.timeline?.length ?? 0) > 0) && (
+          <ReasoningTrace
+            timeline={message.timeline ?? []}
+            status={message.turnStatus ?? 'complete'}
+            activities={message.activities}
+            durationMs={message.durationMs}
+          />
+        )}
       {/* FE-4: inline citation chips resolve against the turn's sources. */}
       <SourcesContext.Provider value={sources}>
         <div

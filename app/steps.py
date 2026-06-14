@@ -55,7 +55,8 @@ from pydantic_ai.messages import (
     ThinkingPartDelta,
 )
 
-from domain.events import StepData, StepDetail, StepKind, StepTier, ev_step
+from domain.events import StepData, StepDetail, StepKind, StepSource, StepTier, ev_step
+from domain.urls import favicon_url, registrable_domain
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,10 @@ _LABEL_QUERY_MAX_CHARS = 120
 
 #: The tool whose call event never gets a result event (interrupt-backed).
 _EXCLUDED_TOOL = "ask_student"
+
+#: Max source chips per step (deduped by url first, then capped). Tavily returns
+#: ~5 results; the cap bounds payload if a future tool returns more.
+_MAX_STEP_SOURCES = 8
 
 CloseReason = Literal["complete", "interrupt", "error", "budget"]
 
@@ -102,7 +107,10 @@ class StepMapper:
     """Tool-call info → step identity + receipts, driven by the labels asset."""
 
     def __init__(
-        self, labels: dict[str, Any], resolve_school_name: Callable[[int], str | None]
+        self,
+        labels: dict[str, Any],
+        resolve_school_name: Callable[[int], str | None],
+        resolve_school_domain: Callable[[int], str | None] | None = None,
     ) -> None:
         self._tools: dict[str, Any] = labels.get("tools") or {}
         self._default: dict[str, Any] = labels.get("default") or {}
@@ -110,6 +118,7 @@ class StepMapper:
         self._viz_labels: dict[str, str] = labels.get("viz_labels") or {}
         self._fallbacks: dict[str, str] = labels.get("fallbacks") or {}
         self._resolve = resolve_school_name
+        self._resolve_domain = resolve_school_domain or (lambda _unitid: None)
 
     # -- call time --------------------------------------------------------
 
@@ -204,14 +213,74 @@ class StepMapper:
             "viz_label": self._viz_labels.get(viz_type, "visualization"),
         }
 
-    def _school_names(self, args: dict[str, Any]) -> list[str]:
-        unitids: list[int] = []
+    @staticmethod
+    def _school_unitids(args: dict[str, Any]) -> list[int]:
         if isinstance(args.get("unitid"), int):
-            unitids = [args["unitid"]]
-        elif isinstance(args.get("unitids"), list):
-            unitids = [u for u in args["unitids"] if isinstance(u, int)]
-        names = [self._resolve(u) for u in unitids]
+            return [args["unitid"]]
+        if isinstance(args.get("unitids"), list):
+            return [u for u in args["unitids"] if isinstance(u, int)]
+        return []
+
+    def _school_names(self, args: dict[str, Any]) -> list[str]:
+        names = [self._resolve(u) for u in self._school_unitids(args)]
         return [n for n in names if n]
+
+    # -- source chips (§27.1) ---------------------------------------------
+
+    def sources_for(
+        self, tool_name: str, args: dict[str, Any], content: Any
+    ) -> list[StepSource] | None:
+        """The completed step's source chips — None when the kind has none.
+
+        Search kinds read result URLs/titles from ``content``; db/sql/viz read
+        school unitids from ``args`` (the call), resolving each to its website
+        domain → favicon. ``None`` (never ``[]``) so ``ev_step`` drops the field.
+        """
+        kind: StepKind = (self._tools.get(tool_name) or self._default).get("kind", "db_tool")
+        if kind in ("web_search", "edu_search", "reddit_search"):
+            return self._search_sources(kind, content)
+        if kind in ("db_tool", "sql", "viz"):
+            return self._school_sources(args)
+        return None
+
+    def _search_sources(self, kind: StepKind, content: Any) -> list[StepSource] | None:
+        results = content.get("results") if isinstance(content, dict) else None
+        if not isinstance(results, list):
+            return None
+        out: list[StepSource] = []
+        seen: set[str] = set()
+        for result in results:
+            url = _str_or_none(result.get("url")) if isinstance(result, dict) else None
+            if not url or url in seen:  # dedup by url BEFORE the cap
+                continue
+            if not url.lower().startswith(("http://", "https://")):
+                continue  # skip javascript:/data:/etc — never reaches the wire
+            seen.add(url)
+            host = registrable_domain(url)
+            title = _str_or_none(result.get("title"))
+            # Reddit chips name the post; web/edu chips name the host.
+            label = _truncate(title) if (kind == "reddit_search" and title) else (host or url)
+            fav = favicon_url(host) if host else None
+            out.append(StepSource(label=label, favicon=fav, url=url))
+            if len(out) >= _MAX_STEP_SOURCES:
+                break
+        return out or None
+
+    def _school_sources(self, args: dict[str, Any]) -> list[StepSource] | None:
+        out: list[StepSource] = []
+        for unitid in self._school_unitids(args):
+            name = self._resolve(unitid)
+            domain = self._resolve_domain(unitid)
+            if not name and not domain:
+                continue
+            out.append(
+                StepSource(
+                    label=name or domain or "",
+                    favicon=favicon_url(domain) if domain else None,
+                    url=f"https://{domain}" if domain else None,
+                )
+            )
+        return out or None
 
     def _category_of(self, args: dict[str, Any]) -> str:
         keys = args.get("field_keys")
@@ -457,6 +526,12 @@ class EmissionRouter:
         errored = self.mapper.result_is_error(result_part, content)
         duration_ms = int((time.monotonic() - open_step.started) * 1000)
         detail = self.mapper.detail_for(open_step.tool_name, open_step.args, content, duration_ms)
+        # Source chips only on a clean end — a failed search has no sources to show.
+        sources = (
+            None
+            if errored
+            else self.mapper.sources_for(open_step.tool_name, open_step.args, content)
+        )
         self._emit_step(
             open_step.step_id,
             "error" if errored else "end",
@@ -465,6 +540,7 @@ class EmissionRouter:
             if errored
             else open_step.mapped.label,
             detail=detail,
+            sources=sources,
         )
 
     def _emit_step(
@@ -475,6 +551,7 @@ class EmissionRouter:
         *,
         label: str,
         detail: StepDetail | None,
+        sources: list[StepSource] | None = None,
     ) -> None:
         step = StepData(
             step_id=step_id,
@@ -483,6 +560,7 @@ class EmissionRouter:
             label=label,
             tier=mapped.tier,
             detail=detail,
+            sources=sources,
         )
         # ev_step (domain/events.py) is the one owner of the wire shaping
         # (detail None-dropping); building both the stream chunk AND the

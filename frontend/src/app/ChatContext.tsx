@@ -68,8 +68,8 @@ export type ChatMessage = {
   /** Ordered render blocks (assistant only) — reference-stable when unchanged. */
   content?: ContentBlock[];
   stepRecord?: StepRecord;
-  /** Live-turn receipt line: the latest activity while streaming. */
-  activity?: string;
+  /** Ordered step labels the collapsed header cycles through while streaming. */
+  activities?: string[];
   /** FE-4: the activity timeline (steps + thinking, arrival order). */
   timeline?: TimelineEntry[];
   /** FE-4: the derived one-line receipt the timeline collapses to at done. */
@@ -191,6 +191,9 @@ function messagesFromTranscript(conversationId: string, entries: TranscriptEntry
   return messages;
 }
 
+/** The generic collapsed-header label for narration gaps (mockup parity). */
+const THINKING_LABEL = 'Thinking…';
+
 function assistantMessage(
   conversationId: string,
   messageId: string,
@@ -200,13 +203,20 @@ function assistantMessage(
 ): ChatMessage {
   const record = toStepRecord(state);
   const activeStep = [...state.steps].reverse().find((s) => s.status === 'start');
-  const lastThinking = state.thinking[state.thinking.length - 1];
+  // The ordered labels the collapsed header cycles through (the mockup's
+  // setNow-per-step): each step's label in arrival order, with a generic
+  // "Thinking…" for narration gaps (never the narration text). The ticker dwells
+  // ≥850ms on each, so a burst of fast local-DB tools still plays one at a time
+  // rather than skipping straight to the last. Consecutive dups collapse.
+  const activities = state.timeline
+    .map((entry) => (entry.type === 'step' ? entry.step.label : THINKING_LABEL))
+    .filter((label, i, arr) => i === 0 || label !== arr[i - 1]);
   const isLive = state.status === 'streaming' || state.status === 'idle';
-  // Dead air: live, no step currently in progress (an active StepRow already
+  // Dead air: live, no step currently in progress (an active step row already
   // shimmers), no streaming prose tail (a growing answer is its own motion), and
-  // no thinking lines (the ActivityTimeline already renders a thinking row — the
-  // shimmer must not double up on it). This covers true gaps only: (a) send→
-  // first-event and (b) last-step-end→next-event with nothing painted.
+  // no thinking lines (the ReasoningTrace rail already renders a thinking row —
+  // the orb "Thinking…" must not double up on it). It is the mount trigger for
+  // ReasoningTrace at zero entries (the send→first-event / step-end→next gaps).
   const lastBlock = state.blocks[state.blocks.length - 1];
   const hasProseTail = lastBlock !== undefined && lastBlock.kind === 'markdown';
   const isThinking =
@@ -222,10 +232,7 @@ function assistantMessage(
     unfinished: state.status === 'cancelled',
     content: state.blocks,
     stepRecord: record,
-    activity:
-      state.status === 'streaming' || state.status === 'idle'
-        ? (activeStep?.label ?? lastThinking ?? record?.receipt)
-        : record?.receipt,
+    activities,
     timeline: state.timeline,
     receipt: record?.receipt,
     durationMs: deriveDurationMs(state.steps),

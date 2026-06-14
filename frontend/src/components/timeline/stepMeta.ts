@@ -40,7 +40,18 @@ export function tierTextClass(tier: StepTier): string {
   return 'text-text-secondary';
 }
 
-/** "1240" → "1.2s" — the receipt-grid rendering of duration_ms. */
+/** "1240" → "1.2s"; "92000" → "1m 32s" — the timeline's duration rendering.
+ *  Live turns (clarify-parked especially) can run for minutes, so seconds-only
+ *  ("600.0s") would be wrong above a minute. */
 export function formatDurationMs(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  // Round to whole seconds FIRST, then split — rounding the remainder alone can
+  // carry to 60 (e.g. 599_950ms → "9m 60s").
+  const whole = Math.round(seconds);
+  const minutes = Math.floor(whole / 60);
+  const rem = whole % 60;
+  return rem === 0 ? `${minutes}m` : `${minutes}m ${rem}s`;
 }

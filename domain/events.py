@@ -62,6 +62,10 @@ class StepDetail(BaseModel):
     Carries queries, domains, counts, field keys — NEVER DSNs, credentials,
     or payloads (house rule; tested). The ``sql`` kind's statement rides
     ``query`` (radical transparency — B0 decision).
+
+    Honesty invariant: ``field_keys`` and ``row_count`` are eng/debug-only —
+    they expose DB schema internals and MUST NOT be rendered in student-facing
+    UI. The FE upholds this by convention (only search receipts are shown).
     """
 
     query: str | None = None
@@ -75,6 +79,21 @@ class StepDetail(BaseModel):
     schools: list[str] | None = None
 
 
+class StepSource(BaseModel):
+    """One source chip on a completed step (§27.1): a favicon + a label.
+
+    The favicon is a CDN URL derived live from the source host — a school's
+    ``institution.website`` domain, or a search result's URL host — never a
+    stored/hardcoded logo. ``label`` is the host (web/edu), the school name
+    (db/viz), or the post title (reddit). ``url`` is the result link when one
+    exists. Display-only; honesty rules live in the citation envelope, not here.
+    """
+
+    label: str
+    favicon: str | None = None
+    url: str | None = None
+
+
 class StepData(BaseModel):
     """One unit of agent work: a start/end pair the activity timeline renders."""
 
@@ -84,6 +103,10 @@ class StepData(BaseModel):
     label: str
     tier: StepTier | None
     detail: StepDetail | None = None
+    #: Source chips, populated only on the ``end`` event (None otherwise). None
+    #: so ``ev_step`` drops it on the wire — an empty list would serialize as
+    #: ``[]`` (FE optional is ``?:``, not ``[]``).
+    sources: list[StepSource] | None = None
 
 
 class ThinkingData(BaseModel):
@@ -151,6 +174,14 @@ def ev_step(step: StepData) -> Event:
         # detail's unset fields are dropped (FE optionals are `?:`, not null);
         # top-level tier/detail stay explicit nulls (required-but-nullable).
         data["detail"] = {k: v for k, v in data["detail"].items() if v is not None}
+    if data["sources"] is None:
+        # FE optional (`sources?:`) — drop entirely rather than send null/[].
+        del data["sources"]
+    else:
+        # Each source's unset favicon/url are dropped too (mirror the detail
+        # None-drop): the FE optionals are `?:`, not null — a null favicon
+        # would crash the chip's `favicon.startsWith` guard.
+        data["sources"] = [{k: v for k, v in s.items() if v is not None} for s in data["sources"]]
     return Event(type="step", data=data)
 
 
