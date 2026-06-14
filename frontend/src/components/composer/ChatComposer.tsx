@@ -45,8 +45,9 @@ interface ChatComposerProps {
   centerFormOnLanding?: boolean;
 }
 
-/** Map the FE-store `SourceConfig` to the composer's controlled active set. */
-function toActiveSet(config: SourceConfig): Set<SourceId> {
+/** Map the FE-store `SourceConfig` to the composer's controlled active set.
+ *  Exported for unit testing the source bridge (behaviors 13, 16). */
+export function toActiveSet(config: SourceConfig): Set<SourceId> {
   return new Set<SourceId>([
     ...(config.webSearch ? (['web'] as const) : []),
     ...(config.eduSources ? (['edu'] as const) : []),
