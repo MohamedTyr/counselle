@@ -129,7 +129,13 @@ export type StepKind =
 
 export type StepTier = 'official' | 'community' | null;
 
-/** Kind-specific receipt payload (§27.1 "end" detail). */
+/**
+ * Kind-specific receipt payload (§27.1 "end" detail).
+ *
+ * Honesty invariant: `field_keys` and `row_count` are eng/debug-only — they
+ * expose DB schema internals and MUST NOT be rendered in student-facing UI.
+ * The FE upholds this by convention (only search receipts are shown).
+ */
 export type StepDetail = {
   query?: string;
   domains?: string[];
@@ -144,6 +150,16 @@ export type StepDetail = {
   schools?: string[];
 };
 
+/** A source chip on a completed step (§27.1): favicon + label (+ url). */
+export type StepSource = {
+  /** Host (web/edu), school name (db/viz), or post title (reddit). */
+  label: string;
+  /** CDN favicon URL derived live from the source host; absent if unresolved. */
+  favicon?: string;
+  /** The result link, when one exists. */
+  url?: string;
+};
+
 export type StepData = {
   /** Unique within the turn; pairs start/end. */
   step_id: string;
@@ -154,6 +170,8 @@ export type StepData = {
   /** Drives the icon/color grammar. */
   tier: StepTier;
   detail: StepDetail | null;
+  /** Source chips — present only on the `end` event (server drops it otherwise). */
+  sources?: StepSource[];
 };
 
 // ── §27.2 thinking ───────────────────────────────────────────────────────────

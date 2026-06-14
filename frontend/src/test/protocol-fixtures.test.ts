@@ -85,6 +85,19 @@ function assertEvent(raw: unknown): ProtocolEvent {
       ]).toContain(data.kind);
       expect(typeof data.label).toBe('string');
       expect('tier' in data).toBe(true);
+      if ('sources' in data) {
+        // StepSource[] — present only on end events; each is {label, favicon?, url?}.
+        expect(Array.isArray(data.sources)).toBe(true);
+        for (const s of data.sources as Array<Record<string, unknown>>) {
+          expect(typeof s.label).toBe('string');
+          if ('favicon' in s) {
+            expect(typeof s.favicon).toBe('string');
+          }
+          if ('url' in s) {
+            expect(typeof s.url).toBe('string');
+          }
+        }
+      }
       break;
     case 'viz':
       assertRenderSpec(data as RenderSpec);

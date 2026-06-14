@@ -66,7 +66,12 @@ class Settings(BaseSettings):
     # (one no-tools call, fire-and-forget; failure leaves the derived default).
     model_title: str = "google-vertex:gemini-2.5-flash"
     max_tool_rounds: int = 12  # agent tool-loop bound (eng-review)
-    thinking_summaries: bool = True  # native Gemini thought summaries → `thinking` events (§27.2)
+    # OFF by design: the live timeline shows ONE intent line per round of work,
+    # authored by the model's "Narrate As You Work" sentence (model-agnostic, the
+    # only `thinking` feed). Native Gemini thought summaries would dump the model's
+    # full multi-paragraph reasoning into the rail — exactly what the product does
+    # not want. Leave False; the narration is the one-liner the UI displays (§27.2).
+    thinking_summaries: bool = False
 
     # --- Chat (B4) ---
     title_max_len: int = 60  # cap for both the derived default and the model title

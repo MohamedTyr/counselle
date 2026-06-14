@@ -71,7 +71,14 @@
               ],
               "result_count": 1,
               "duration_ms": 0
-            }
+            },
+            "sources": [
+              {
+                "label": "example.com",
+                "favicon": "https://www.google.com/s2/favicons?domain=example.com&sz=64",
+                "url": "https://example.com/1"
+              }
+            ]
           },
           {
             "step_id": "id-4",
