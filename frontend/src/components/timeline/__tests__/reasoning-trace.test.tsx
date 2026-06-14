@@ -104,6 +104,25 @@ describe('ReasoningTrace activity ticker (dwell)', () => {
     expect(screen.getByText('Comparing')).toBeInTheDocument();
   });
 
+  test('dead-air (live, no activities yet) cycles through the thinking words', () => {
+    vi.useFakeTimers();
+    // Pin the random opener to the first word so the cadence is deterministic.
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+    render(<ReasoningTrace timeline={[]} status="streaming" />);
+
+    // First word shows immediately…
+    expect(screen.getAllByText('Thinking…').length).toBeGreaterThan(0);
+
+    // …then it advances to the next word on the placeholder dwell (never stuck).
+    act(() => {
+      vi.advanceTimersByTime(1900);
+    });
+    expect(screen.getAllByText('Pondering…').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Thinking…')).toBeNull();
+
+    rand.mockRestore();
+  });
+
   test('finishing the turn flushes the ticker — the receipt shows, no queued drain', () => {
     vi.useFakeTimers();
     const { rerender } = render(

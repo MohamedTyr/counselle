@@ -16,12 +16,13 @@
  */
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
+import { useReducedMotion } from 'framer-motion';
 import { Check, ChevronDown, X } from 'lucide-react';
 import type { StepData, StepKind, StepSource } from '@/api/protocol';
 import type { TimelineEntry, TurnStatus } from '@/api/turn-reducer';
 import { cn } from '~/utils';
 import StepSourceChip from './StepSourceChip';
-import { formatDurationMs, iconFor, tierTextClass } from './stepMeta';
+import { formatDurationMs, iconFor } from './stepMeta';
 
 type ReasoningTraceProps = {
   timeline: TimelineEntry[];
@@ -38,7 +39,22 @@ type ReasoningTraceProps = {
 const LIVE_STATUSES: TurnStatus[] = ['streaming', 'idle'];
 const MIN_DWELL_MS = 850;
 const MAX_VISIBLE_CHIPS = 4;
-const DEFAULT_ACTIVITY = 'Thinking…';
+// Dead-air cover: before the first real step/thinking line lands, the header
+// cycles these (à la Claude) so the wait never sits on one static word.
+const THINKING_WORDS = [
+  'Thinking…',
+  'Pondering…',
+  'Mulling it over…',
+  'Reasoning…',
+  'Connecting ideas…',
+  'Considering…',
+  'Working through it…',
+  'Digging in…',
+  'Percolating…',
+  'Synthesizing…',
+];
+const PLACEHOLDER_DWELL_MS = 1900;
+const DEFAULT_ACTIVITY = THINKING_WORDS[0];
 const EMPTY_ACTIVITIES: string[] = [];
 
 function isLive(status: TurnStatus): boolean {
@@ -49,6 +65,7 @@ function isLive(status: TurnStatus): boolean {
 
 function useActivityTicker(activities: string[], live: boolean): string {
   const [shown, setShown] = useState(DEFAULT_ACTIVITY);
+  const reduceMotion = useReducedMotion();
   const queue = useRef<string[]>([]);
   const pumping = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +128,30 @@ function useActivityTicker(activities: string[], live: boolean): string {
       pump();
     }
   }, [activities, live, pump]);
+
+  // Dead-air rotation: while live with no real activity yet, cycle the playful
+  // "thinking" words on an interval. A random start index varies the opener per
+  // turn. As soon as real activities arrive (length > 0) this cleans up and the
+  // pump above owns the line — it never reverts to a placeholder mid-turn.
+  // Under reduced motion we hold one static word (no interval, no re-renders).
+  // Dep is `activities.length` (not `activities`): the prop is a fresh array each
+  // render; we only care about the empty→non-empty transition.
+  useEffect(() => {
+    if (!live || activities.length > 0) {
+      return;
+    }
+    if (reduceMotion) {
+      setShown(DEFAULT_ACTIVITY);
+      return;
+    }
+    let i = Math.floor(Math.random() * THINKING_WORDS.length);
+    setShown(THINKING_WORDS[i]);
+    const id = setInterval(() => {
+      i = (i + 1) % THINKING_WORDS.length;
+      setShown(THINKING_WORDS[i]);
+    }, PLACEHOLDER_DWELL_MS);
+    return () => clearInterval(id);
+  }, [live, activities.length, reduceMotion]);
 
   return shown;
 }
@@ -191,7 +232,7 @@ function receiptText(step: StepData): string | null {
 
 function StatusMark({ status }: { status: StepData['status'] }) {
   if (status === 'end') {
-    return <Check className="size-3.5 shrink-0 text-[var(--official-text)]" aria-label="done" />;
+    return <Check className="size-3.5 shrink-0 text-text-secondary" aria-label="done" />;
   }
   if (status === 'error') {
     return <X className="size-3.5 shrink-0 text-red-500/80" aria-label="failed" />;
@@ -215,8 +256,17 @@ const StepNode = memo(function StepNode({ step }: { step: StepData }) {
   );
   return (
     <div className="counselle-tl-node counselle-node-in relative grid grid-cols-[22px_1fr] gap-3">
-      <span className="grid h-[21px] place-items-center text-text-secondary">
-        <Icon className={cn('size-4', tierTextClass(step.tier))} aria-hidden="true" />
+      <span className="grid h-[21px] place-items-center">
+        {/* Monochrome by design: the current step's icon is near-white, finished
+            ones recede to muted. Hue is reserved for meaning (source tiers in the
+            chip previews, the red error mark) — never decorative on the rail. */}
+        <Icon
+          className={cn(
+            'size-4',
+            step.status === 'start' ? 'text-text-primary' : 'text-text-secondary',
+          )}
+          aria-hidden="true"
+        />
       </span>
       <div className="min-w-0 pb-3.5">
         {receipt !== null ? (
@@ -304,14 +354,21 @@ function TraceHeader({
       aria-label={ariaLabel}
       className="flex w-full items-center gap-2 rounded-md px-0.5 py-1 text-left text-text-secondary transition-colors hover:text-text-primary"
     >
-      <span className={cn('counselle-orb', !live && 'is-settled')} aria-hidden="true" />
+      {/* The leading chevron is the expand affordance — a lucide chevron-right
+          shape masked over the SAME animated gradient as the activity text, so
+          it shimmers in lockstep while live+collapsed and rotates 90° (transform
+          only, no colour change) when the trace opens. */}
+      <span
+        aria-hidden="true"
+        className={cn('counselle-trace-caret', open && 'is-open', collapsedLive && 'is-live')}
+      />
       <span className="min-w-0 flex-1 overflow-hidden">
         {/* Transform wrapper (slide), re-keyed per activity so it reruns; the
             inner span carries the background-clip shimmer (the two never fight). */}
         <span key={collapsedLive ? shown : 'static'} className={cn('block', collapsedLive && 'counselle-now-in')}>
           <span
             className={cn(
-              'block truncate text-[13.5px] font-medium text-text-secondary',
+              'block truncate text-[13px] font-normal tracking-[0.005em] text-text-secondary',
               collapsedLive && 'counselle-shimmer-text',
             )}
           >
@@ -324,10 +381,6 @@ function TraceHeader({
           {formatDurationMs(elapsed)}
         </span>
       )}
-      <ChevronDown
-        className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-180')}
-        aria-hidden="true"
-      />
     </Collapsible.Trigger>
   );
 }

@@ -5,15 +5,18 @@
  * Subtractions / rewires:
  * - SiblingSwitch / sibling props (branching dropped)
  * - hasParallelContent / agents / assistants / endpoint icon data dropped
- * - fontSize (jotai settings atom) frozen 'text-base' (upstream default;
- *   FE-5 settings wires it)
  * - maximizeChatSpace (recoil) frozen false — non-maximized width classes kept
  * - useContentMetadata dropped (no parallel content)
  * - the memo comparator keeps upstream's key-field shape, swapping their
  *   tree fields (depth/children/model/endpoint/iconURL/files) for our
  *   reducer fields (content reference, unfinished, activity, streamError)
- * Kept byte-identical: the row layout, icon column, header, MessageContext
- * wiring, PlaceholderRow-while-submitting, SubRow + HoverButtons.
+ * - layout reworked off upstream's avatar+name row: USER turns render a
+ *   right-aligned surface bubble (AI Elements `Message` pattern); ASSISTANT
+ *   turns render full-width with no avatar/name chrome (the reasoning trace +
+ *   content carry identity). The avatar (MessageIcon), the <h2> name header,
+ *   and the frozen fontSize atom are gone.
+ * Kept: MessageContext wiring, PlaceholderRow-while-submitting (assistant
+ *   only), SubRow + HoverButtons, sr-only screen-reader labels.
  */
 import React, { useCallback, memo } from 'react';
 import type { TMessageProps } from '~/common';
@@ -22,7 +25,6 @@ import MessageContent from '~/components/Chat/Messages/Content/MessageContent';
 import PlaceholderRow from '~/components/Chat/Messages/ui/PlaceholderRow';
 import useMessageActions from '~/hooks/Messages/useMessageActions';
 import HoverButtons from '~/components/Chat/Messages/HoverButtons';
-import MessageIcon from '~/components/Chat/Messages/MessageIcon';
 import SubRow from '~/components/Chat/Messages/SubRow';
 import { useLocalize } from '~/hooks';
 import { MessageContext } from '~/Providers';
@@ -102,8 +104,6 @@ const MessageRender = memo(function MessageRender({
     currentEditId,
     setCurrentEditId,
   });
-  /** fontSize settings atom frozen to upstream default until FE-5. */
-  const fontSize = 'text-base';
 
   const handleRegenerateMessage = useCallback(() => regenerateMessage(), [regenerateMessage]);
   const isLast = isLatestMessage;
@@ -124,19 +124,86 @@ const MessageRender = memo(function MessageRender({
     return null;
   }
 
-  const getChatWidthClass = () => {
-    return 'md:max-w-[47rem] xl:max-w-[55rem]';
-  };
-
   const baseClasses = {
-    common: 'group mx-auto flex flex-1 gap-3 transition-all duration-300 transform-gpu ',
-    chat: getChatWidthClass(),
+    common: 'group mx-auto flex flex-1 transition-all duration-300 transform-gpu ',
+    chat: 'md:max-w-[47rem] xl:max-w-[55rem]',
   };
 
   const conditionalClasses = {
     focus: 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-xheavy',
   };
 
+  const isUser = msg.isCreatedByUser === true;
+
+  const messageBody = (
+    <MessageContext.Provider value={messageContextValue}>
+      <MessageContent
+        ask={ask}
+        edit={edit}
+        isLast={isLast}
+        text={msg.text || ''}
+        message={msg}
+        enterEdit={enterEdit}
+        error={!!msg.error}
+        isSubmitting={isSubmitting}
+        unfinished={msg.unfinished ?? false}
+        isCreatedByUser={msg.isCreatedByUser ?? true}
+      />
+    </MessageContext.Provider>
+  );
+
+  const hoverButtons = (
+    <HoverButtons
+      index={0}
+      isEditing={edit}
+      message={msg}
+      enterEdit={enterEdit}
+      isSubmitting={isSubmitting}
+      regenerate={handleRegenerateMessage}
+      copyToClipboard={copyToClipboard}
+      latestMessageId={latestMessageId}
+      handleFeedback={handleFeedback}
+      isLast={isLast}
+    />
+  );
+
+  // User turn — a right-aligned surface bubble (AI Elements `Message` pattern):
+  // no avatar/name chrome, alignment + surface carry "this is you". The bubble
+  // is `w-fit` so it hugs short messages and only wraps at the max-width cap.
+  if (isUser) {
+    return (
+      <div
+        id={msg.messageId}
+        aria-label={getMessageAriaLabel(msg, localize)}
+        className={cn(
+          baseClasses.common,
+          baseClasses.chat,
+          conditionalClasses.focus,
+          'message-render justify-end',
+        )}
+      >
+        <div className="user-turn flex min-w-0 max-w-[85%] flex-col items-end">
+          <span className="sr-only">
+            {getHeaderPrefixForScreenReader(msg, localize)} {messageLabel}
+          </span>
+          {edit ? (
+            <div className="w-full">{messageBody}</div>
+          ) : (
+            <div className="w-fit max-w-full rounded-2xl bg-surface-tertiary px-4 py-2.5 text-text-primary">
+              {messageBody}
+            </div>
+          )}
+          {/* User turns never stream, so no PlaceholderRow here — just the
+              hover actions, right-aligned under the bubble. */}
+          <div className="mt-1 flex justify-end gap-3 text-xs empty:hidden">{hoverButtons}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Assistant turn — full-width prose, no avatar/name chrome. The reasoning
+  // trace, cited cards, clarify widget, and sources footer (all inside
+  // MessageContent) are the agent's identity here, not a label.
   return (
     <div
       id={msg.messageId}
@@ -148,60 +215,16 @@ const MessageRender = memo(function MessageRender({
         'message-render',
       )}
     >
-      <div className="relative flex flex-shrink-0 flex-col items-center">
-        <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full">
-          <MessageIcon
-            iconData={{ isCreatedByUser: msg.isCreatedByUser, modelLabel: messageLabel }}
-          />
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          'relative flex flex-col',
-          'w-11/12',
-          msg.isCreatedByUser ? 'user-turn' : 'agent-turn',
-        )}
-      >
-        <h2 className={cn('select-none font-semibold', fontSize)}>
-          <span className="sr-only">{getHeaderPrefixForScreenReader(msg, localize)}</span>
-          {messageLabel}
-        </h2>
-
+      <div className="agent-turn relative flex w-full flex-col">
+        <span className="sr-only">
+          {getHeaderPrefixForScreenReader(msg, localize)} {messageLabel}
+        </span>
         <div className="flex flex-col gap-1">
-          <div className="flex min-h-[20px] max-w-full flex-grow flex-col gap-0">
-            <MessageContext.Provider value={messageContextValue}>
-              <MessageContent
-                ask={ask}
-                edit={edit}
-                isLast={isLast}
-                text={msg.text || ''}
-                message={msg}
-                enterEdit={enterEdit}
-                error={!!msg.error}
-                isSubmitting={isSubmitting}
-                unfinished={msg.unfinished ?? false}
-                isCreatedByUser={msg.isCreatedByUser ?? true}
-              />
-            </MessageContext.Provider>
-          </div>
+          <div className="flex min-h-[20px] max-w-full flex-grow flex-col gap-0">{messageBody}</div>
           {isLatestMessage && isSubmitting ? (
             <PlaceholderRow />
           ) : (
-            <SubRow classes="text-xs">
-              <HoverButtons
-                index={0}
-                isEditing={edit}
-                message={msg}
-                enterEdit={enterEdit}
-                isSubmitting={isSubmitting}
-                regenerate={handleRegenerateMessage}
-                copyToClipboard={copyToClipboard}
-                latestMessageId={latestMessageId}
-                handleFeedback={handleFeedback}
-                isLast={isLast}
-              />
-            </SubRow>
+            <SubRow classes="text-xs">{hoverButtons}</SubRow>
           )}
         </div>
       </div>

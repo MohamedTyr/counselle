@@ -70,92 +70,62 @@
 }
 
 /* ── ReasoningTrace (feat/reasoning-experience) ──────────────────────────────
-   The collapsed thinking-phase header's glowing orb + the current-activity
-   gradient shimmer, the source-chip reveal, and the step-node entrance. Ported
-   from mockups/thinking-phase.html. All compositor-friendly (transform/opacity/
-   background-position) and gated under prefers-reduced-motion below.
+   The collapsed thinking-phase header's leading chevron affordance + the
+   current-activity gradient shimmer, the source-chip reveal, and the step-node
+   entrance. All compositor-friendly (transform/opacity/background-position) and
+   gated under prefers-reduced-motion below. */
 
-   @property --angle drives the orb's conic rotation. Browser floor: Chrome 85+,
-   Safari 16.4+, Firefox 128+. Older engines render a static orb (the animation
-   fires but --angle won't interpolate) — the same graceful, legible fallback as
-   the reduced-motion path, so no extra handling is needed. */
-@property --counselle-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-.counselle-orb {
-  position: relative;
-  width: 16px;
-  height: 16px;
+/* The leading caret: a lucide chevron-right SHAPE used as a mask over a solid
+   fill (settled) or — while live — the exact same sweeping gradient as
+   .counselle-shimmer-text, so the chevron and the activity text shimmer as one.
+   Rotates 90° on expand (transform only; colour never changes). */
+.counselle-trace-caret {
+  width: 14px;
+  height: 14px;
   flex: none;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: 0 0 7px 0 rgba(13, 148, 136, 0.45);
+  background-color: var(--text-secondary);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E")
+    center / 80% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E")
+    center / 80% no-repeat;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.counselle-orb::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background:
-    conic-gradient(
-      from calc(var(--counselle-angle) * 1.2) at 30% 65%,
-      #22c55e 0deg,
-      transparent 45deg 315deg,
-      #22c55e 360deg
-    ),
-    conic-gradient(
-      from calc(var(--counselle-angle) * 0.8) at 70% 35%,
-      #0d9488 0deg,
-      transparent 60deg 300deg,
-      #0d9488 360deg
-    ),
-    conic-gradient(
-      from calc(var(--counselle-angle) * -1.5) at 65% 75%,
-      #1d4ed8 0deg,
-      transparent 90deg 270deg,
-      #1d4ed8 360deg
-    ),
-    radial-gradient(ellipse 120% 80% at 40% 60%, #0d9488 0%, transparent 50%);
-  filter: blur(1.6px) contrast(1.7) saturate(1.35);
-  animation: counselle-orbspin 5s linear infinite;
+.counselle-trace-caret.is-open {
+  transform: rotate(90deg);
 }
-.counselle-orb::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle at 45% 40%, rgba(255, 255, 255, 0.4), transparent 60%);
-  mix-blend-mode: overlay;
-}
-.counselle-orb.is-settled {
-  box-shadow: none;
-}
-.counselle-orb.is-settled::before {
-  animation: none;
-  opacity: 0.65;
-}
-@keyframes counselle-orbspin {
-  to {
-    --counselle-angle: 360deg;
-  }
+.counselle-trace-caret.is-live {
+  /* gradient + sweep inherited from the shared shimmer rule above. The solid
+     fill is a fallback: if `color-mix()` in the shared gradient is unsupported,
+     that whole background-image is dropped and this keeps the masked chevron
+     visible (static) instead of vanishing. */
+  background-color: var(--text-secondary);
 }
 
-/* The current-activity gradient shimmer (a moving light band over muted text). */
-.counselle-shimmer-text {
-  color: transparent;
-  background-clip: text;
-  -webkit-background-clip: text;
+/* The current-activity shimmer: a soft light band drifting over the muted base.
+   The peak is a color-mix (not full --text-primary) and the band is wide, so it
+   reads as a calm breath rather than a hard flash. Shared by the activity text
+   (clipped to glyphs) and the leading caret (clipped to its mask) so they sweep
+   as one. */
+.counselle-shimmer-text,
+.counselle-trace-caret.is-live {
   background-image:
-    linear-gradient(90deg, transparent 20%, var(--text-primary) 50%, transparent 80%),
+    linear-gradient(
+      90deg,
+      transparent 6%,
+      color-mix(in oklch, var(--text-primary) 72%, var(--text-secondary)) 50%,
+      transparent 94%
+    ),
     linear-gradient(var(--text-secondary), var(--text-secondary));
   background-size:
     200% 100%,
     100% 100%;
   background-repeat: no-repeat;
-  animation: counselle-shimmer-sweep 1.8s linear infinite;
+  animation: counselle-shimmer-sweep 2.1s linear infinite;
+}
+.counselle-shimmer-text {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
 }
 @keyframes counselle-shimmer-sweep {
   0% {
@@ -308,10 +278,15 @@
     opacity: calc(var(--ethereal-shadow-opacity, 0.15) * 0.6);
   }
 
-  /* ReasoningTrace: orb stops spinning, the shimmer text degrades to a static
-     legible muted line, chips/nodes appear without motion. */
-  .counselle-orb::before {
+  /* ReasoningTrace: the shimmer text degrades to a static legible muted line,
+     the caret stops sweeping, chips/nodes appear without motion. */
+  .counselle-trace-caret.is-live {
+    background-color: var(--text-secondary);
+    background-image: none;
     animation: none;
+  }
+  .counselle-trace-caret {
+    transition: none;
   }
   .counselle-shimmer-text {
     color: var(--text-secondary);
