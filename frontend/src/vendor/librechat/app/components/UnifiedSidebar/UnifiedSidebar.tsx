@@ -7,9 +7,8 @@ import { useCallback, useState, useEffect, useRef, memo, startTransition } from 
 import { useAtom } from 'jotai';
 import { useMediaQuery } from '@librechat/client';
 import { ActivePanelProvider } from '~/Providers/ActivePanelContext';
-import ExpandedPanel from './ExpandedPanel';
 import Sidebar from './Sidebar';
-import ConversationsSection from './ConversationsSection';
+import { SidebarColumn } from './ExpandedPanel';
 import { sidebarExpandedAtom } from '@/app/state';
 import { cn } from '~/utils';
 
@@ -22,17 +21,6 @@ function getInitialWidth(): number {
   const saved = localStorage.getItem('side:width');
   return saved ? Math.max(Number(saved), EXPANDED_MIN) : EXPANDED_MIN;
 }
-
-/** Single conversations NavLink — no multi-panel zoo for MVP2. */
-const LINKS = [
-  {
-    id: 'conversations',
-    title: 'com_ui_chat_history' as const,
-    label: '',
-    icon: () => null, // icon only shown in multi-panel icon strip; single link = no strip
-    Component: ConversationsSection,
-  },
-];
 
 function UnifiedSidebar() {
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
@@ -139,10 +127,7 @@ function UnifiedSidebar() {
           inert={!expanded ? '' : undefined}
         >
           <ActivePanelProvider>
-            <ExpandedPanel links={LINKS} onCollapse={handleCollapse} />
-            <nav className="min-h-0 flex-1 overflow-hidden bg-surface-primary-alt">
-              <ConversationsSection />
-            </nav>
+            <SidebarColumn onCollapse={handleCollapse} />
           </ActivePanelProvider>
         </div>
         <div
@@ -179,8 +164,10 @@ function UnifiedSidebar() {
         aria-label="Control panel"
       >
         <Sidebar
-          links={LINKS}
           expanded={expanded}
+          width={sidebarWidth}
+          minWidth={EXPANDED_MIN}
+          maxWidth={Math.round(window.innerWidth * 0.4)}
           onCollapse={handleCollapse}
           onExpand={handleExpand}
           onResizeStart={handleResizeStart}

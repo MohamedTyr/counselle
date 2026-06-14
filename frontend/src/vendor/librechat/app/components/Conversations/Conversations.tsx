@@ -10,7 +10,7 @@ import { useMemo, memo, type FC, useCallback, useEffect, useRef } from 'react';
 import throttle from 'lodash/throttle';
 import { ChevronDown } from 'lucide-react';
 import { List, CellMeasurer, CellMeasurerCache } from 'react-virtualized';
-import { Spinner, TooltipAnchor, NewChatIcon, useMediaQuery } from '@librechat/client';
+import { Spinner, useMediaQuery } from '@librechat/client';
 import type { TConversation } from 'librechat-data-provider';
 import {
   useLocalize,
@@ -19,7 +19,6 @@ import {
 } from '~/hooks';
 import { groupConversationsByDate, cn } from '~/utils';
 import Convo from './Convo';
-import { useChatContext } from '@/app/ChatContext';
 
 export type CellPosition = {
   columnIndex: number;
@@ -88,49 +87,27 @@ interface ChatsHeaderProps {
   onToggle: () => void;
 }
 
-const headerIconButtonClassName =
-  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-secondary outline-none transition-colors hover:bg-surface-active-alt hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-black dark:focus-visible:ring-white';
-
-/** Collapsible header for the Chats section */
+/** Collapsible section label for the Chats list. New-chat lives in the sidebar header now. */
 const ChatsHeader: FC<ChatsHeaderProps> = memo(({ isExpanded, onToggle }) => {
   const localize = useLocalize();
-  const { newConversation } = useChatContext();
-
-  const handleNewChat = useCallback(() => {
-    newConversation();
-  }, [newConversation]);
 
   return (
-    <div className="flex h-8 w-full items-center gap-0.5 pr-2">
-      <button
-        onClick={onToggle}
-        className="group flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 py-2 text-xs font-bold text-text-secondary outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-black dark:focus-visible:ring-white"
-        type="button"
-        aria-expanded={isExpanded}
-      >
-        <span className="select-none truncate">{localize('com_ui_chats')}</span>
-        <ChevronDown
-          className={cn(
-            'h-3 w-3 shrink-0 transition-transform duration-200',
-            isExpanded ? '' : '-rotate-90',
-          )}
-          aria-hidden="true"
-        />
-      </button>
-      <TooltipAnchor
-        description={localize('com_ui_new_chat')}
-        render={
-          <button
-            type="button"
-            aria-label={localize('com_ui_new_chat')}
-            className={headerIconButtonClassName}
-            onClick={handleNewChat}
-          >
-            <NewChatIcon className="h-4 w-4" />
-          </button>
-        }
+    <button
+      onClick={onToggle}
+      className="group flex h-8 w-full items-center gap-1 rounded-lg px-2 text-xs font-semibold uppercase tracking-wide text-text-secondary outline-none transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-xheavy"
+      type="button"
+      aria-expanded={isExpanded}
+      aria-controls="conversations-list-region"
+    >
+      <span className="select-none truncate">{localize('com_ui_chats')}</span>
+      <ChevronDown
+        className={cn(
+          'h-3 w-3 shrink-0 transition-transform duration-200',
+          isExpanded ? '' : '-rotate-90',
+        )}
+        aria-hidden="true"
       />
-    </div>
+    </button>
   );
 });
 
@@ -143,8 +120,10 @@ const DateLabel: FC<{ groupName: string; isFirst?: boolean }> = memo(({ groupNam
       aria-label={localize('com_a11y_chats_date_section', {
         date: localize(groupName as TranslationKeys) || groupName,
       })}
-      className={cn('pl-1 pt-1 text-text-secondary', isFirst === true ? 'mt-0' : 'mt-2')}
-      style={{ fontSize: '0.7rem' }}
+      className={cn(
+        'px-2 pb-1 text-xs font-medium text-text-secondary',
+        isFirst === true ? 'pt-1' : 'pt-4',
+      )}
     >
       {localize(groupName as TranslationKeys) || groupName}
     </h2>
@@ -330,7 +309,10 @@ const Conversations: FC<ConversationsProps> = ({
   );
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col pb-2 text-sm text-text-primary">
+    <div
+      id="conversations-list-region"
+      className="relative flex h-full min-h-0 flex-col pb-2 text-sm text-text-primary"
+    >
       <div className="px-3">
         <ChatsHeader
           isExpanded={isChatsExpanded}

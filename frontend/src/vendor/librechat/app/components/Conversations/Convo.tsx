@@ -212,10 +212,13 @@ function Conversation({
     <div
       ref={containerRef}
       className={cn(
-        'group relative flex h-12 w-full items-center rounded-lg outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-black dark:focus-visible:ring-white md:h-9',
+        'group relative flex h-12 w-full items-center rounded-lg outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-xheavy md:h-9',
+        // Solid fill for both — no side stripe, no border, no color transition (the
+        // fade smeared a trail across rows on mouse sweep). Selected stays distinct
+        // via medium weight + the always-visible options button.
         isActiveConvo || isPopoverActive
-          ? 'bg-surface-active-alt before:absolute before:bottom-1 before:left-0 before:top-1 before:w-0.5 before:rounded-full before:bg-black dark:before:bg-white'
-          : 'hover:bg-surface-active-alt',
+          ? 'bg-surface-active-alt font-medium text-text-primary'
+          : 'text-text-secondary hover:bg-surface-active-alt hover:text-text-primary',
       )}
       role="button"
       tabIndex={renaming ? -1 : 0}

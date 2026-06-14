@@ -34,11 +34,11 @@ const SearchBar = forwardRef((props: SearchBarProps, ref: React.Ref<HTMLDivEleme
   return (
     <div
       ref={ref}
-      className="group relative flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg border-2 border-transparent px-3 py-1.5 text-text-primary focus-within:border-ring-primary focus-within:bg-surface-active-alt hover:bg-surface-active-alt"
+      className="group relative flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg border-2 border-transparent px-2 py-1.5 text-text-primary focus-within:border-ring-primary focus-within:bg-surface-active-alt hover:bg-surface-active-alt"
     >
       <Search
         aria-hidden="true"
-        className="absolute left-3 h-4 w-4 text-text-secondary group-focus-within:text-text-primary group-hover:text-text-primary"
+        className="absolute left-2 h-4 w-4 text-text-secondary group-focus-within:text-text-primary group-hover:text-text-primary"
       />
       <input
         type="text"

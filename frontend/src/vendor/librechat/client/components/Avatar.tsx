@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { TUser } from 'librechat-data-provider';
 import { Skeleton } from './Skeleton';
 import { UserIcon } from '@librechat/client/svgs';
@@ -11,6 +11,12 @@ export interface AvatarProps {
   showDefaultWhenEmpty?: boolean;
 }
 
+/** First letter of the name, else the email's local part — uppercased. Empty when neither. */
+function deriveInitial(user?: TUser): string {
+  const source = user?.name?.trim() || user?.username?.trim() || user?.email?.trim() || '';
+  return source ? source[0].toUpperCase() : '';
+}
+
 const Avatar: React.FC<AvatarProps> = ({
   user,
   size = 32,
@@ -18,85 +24,76 @@ const Avatar: React.FC<AvatarProps> = ({
   alt,
   showDefaultWhenEmpty = true,
 }) => {
-  // Counselle strip: useAvatar (dicebear-generated fallback) removed; user.avatar URL only.
-  const avatarSrc = '';
+  // Counselle: dicebear fallback was stripped, so the ONLY real image source is a
+  // user-set `user.avatar` URL. Everything else falls back to the themed default
+  // (initial monogram, or a user glyph when we have no name/email at all).
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const avatarSeed = useMemo(
-    () => user?.avatar || user?.username || user?.email || '',
-    [user?.avatar, user?.username, user?.email],
-  );
+  const avatarUrl = useMemo(() => (user?.avatar ?? '').trim(), [user?.avatar]);
+  const hasImage = avatarUrl.length > 0 && !imageError;
+
+  // A new URL must get a fresh load attempt: clear the prior error/loaded flags so a
+  // swapped avatar isn't stuck on the monogram (or skipping its skeleton) for the session.
+  useEffect(() => {
+    setImageError(false);
+    setImageLoaded(false);
+  }, [avatarUrl]);
+
+  const initial = useMemo(() => deriveInitial(user), [user]);
 
   const altText = useMemo(
-    () => alt || `${user?.name || user?.username || user?.email || ''}'s avatar`,
+    () => alt || `${user?.name || user?.username || user?.email || 'User'}'s avatar`,
     [alt, user?.name, user?.username, user?.email],
   );
 
-  const imageSrc = useMemo(() => {
-    if (!avatarSeed || imageError) return '';
-    return (user?.avatar ?? '') || avatarSrc || '';
-  }, [user?.avatar, avatarSrc, avatarSeed, imageError]);
-
-  const handleImageLoad = useCallback(() => {
-    setImageLoaded(true);
-  }, []);
-
+  const handleImageLoad = useCallback(() => setImageLoaded(true), []);
   const handleImageError = useCallback(() => {
     setImageError(true);
     setImageLoaded(false);
   }, []);
 
-  const DefaultAvatar = useCallback(
-    () => (
-      <div
-        style={{
-          backgroundColor: 'rgb(121, 137, 255)',
-          width: `${size}px`,
-          height: `${size}px`,
-          boxShadow: 'rgba(240, 246, 252, 0.1) 0px 0px 0px 1px',
-        }}
-        className={`relative flex items-center justify-center rounded-full p-1 text-text-primary ${className}`}
-        aria-hidden="true"
-      >
-        <UserIcon />
-      </div>
-    ),
-    [size, className],
-  );
-
-  if (avatarSeed.length === 0 && showDefaultWhenEmpty) {
-    return <DefaultAvatar />;
-  }
-
-  if (avatarSeed.length > 0 && !imageError) {
+  if (!hasImage) {
+    if (!showDefaultWhenEmpty) {
+      return null;
+    }
+    // Themed default: a tinted neutral disc with the user's initial. No name → user glyph.
     return (
-      <div className="relative" style={{ width: `${size}px`, height: `${size}px` }}>
-        {!imageLoaded && (
-          <Skeleton className="rounded-full" style={{ width: `${size}px`, height: `${size}px` }} />
+      <div
+        style={{ width: `${size}px`, height: `${size}px` }}
+        className={`relative flex select-none items-center justify-center rounded-full bg-surface-tertiary font-medium uppercase text-text-secondary ring-1 ring-inset ring-border-medium ${className}`}
+        role="img"
+        aria-label={altText}
+        data-testid="default-avatar"
+      >
+        {initial ? (
+          <span style={{ fontSize: `${Math.round(size * 0.45)}px`, lineHeight: 1 }}>{initial}</span>
+        ) : (
+          <UserIcon />
         )}
-
-        <img
-          style={{
-            width: `${size}px`,
-            height: `${size}px`,
-            display: imageLoaded ? 'block' : 'none',
-          }}
-          className={`rounded-full ${className}`}
-          src={imageSrc}
-          alt={altText}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-        />
       </div>
     );
   }
 
-  if (imageError && showDefaultWhenEmpty) {
-    return <DefaultAvatar />;
-  }
-
-  return null;
+  return (
+    <div className="relative" style={{ width: `${size}px`, height: `${size}px` }}>
+      {!imageLoaded && (
+        <Skeleton className="rounded-full" style={{ width: `${size}px`, height: `${size}px` }} />
+      )}
+      <img
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          display: imageLoaded ? 'block' : 'none',
+        }}
+        className={`rounded-full object-cover ${className}`}
+        src={avatarUrl}
+        alt={altText}
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+      />
+    </div>
+  );
 };
 
 export default Avatar;
