@@ -11,8 +11,8 @@
  *   - Reddit expands to selectable subreddit chips (echoes the composer's pills).
  * The rotating-icon wow is preserved on each row's icon.
  *
- * The local `SUBREDDITS`/`SourceId` are kept for now; swapping to the app's
- * source store is Phase 3.
+ * `SUBREDDITS`/`Subreddit` come from the app's source store (`@/api/mock/sourceStore`);
+ * `SourceId` is the composer-local union the bar speaks in.
  */
 import React from 'react';
 import * as Popover from '@radix-ui/react-popover';
@@ -20,16 +20,11 @@ import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { Globe, Database, GraduationCap, Users, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@librechat/client/utils';
+import { SUBREDDITS, type Subreddit } from '@/api/mock/sourceStore';
 
 export type SourceId = 'web' | 'edu' | 'reddit';
 
-export const SUBREDDITS = [
-  'r/ApplyingToCollege',
-  'r/chanceme',
-  'r/collegeresults',
-  'r/CollegeAdmissions',
-  'r/IntltoUSA',
-];
+export type { Subreddit };
 
 const SOURCE_DEFS: { id: SourceId; label: string; Icon: typeof Globe }[] = [
   { id: 'web', label: 'Web', Icon: Globe },
@@ -43,7 +38,7 @@ interface SourcesControlProps {
   active: Set<SourceId>;
   setActive: (next: Set<SourceId>) => void;
   subs: string[];
-  setSubs: (next: string[]) => void;
+  setSubs: (next: Subreddit[]) => void;
 }
 
 export const SourcesControl: React.FC<SourcesControlProps> = ({ open, setOpen, active, setActive, subs, setSubs }) => {
@@ -152,7 +147,13 @@ export const SourcesControl: React.FC<SourcesControlProps> = ({ open, setOpen, a
                             <button
                               key={s}
                               type="button"
-                              onClick={() => setSubs(checked ? subs.filter((x) => x !== s) : [...subs, s])}
+                              onClick={() =>
+                                setSubs(
+                                  checked
+                                    ? (subs as Subreddit[]).filter((x) => x !== s)
+                                    : [...(subs as Subreddit[]), s],
+                                )
+                              }
                               className={cn(
                                 'rounded-full px-2.5 py-1 text-[11px] leading-none transition-colors',
                                 checked

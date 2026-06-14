@@ -24,6 +24,7 @@ interface PromptInputContextType {
   maxHeight: number | string;
   onSubmit?: () => void;
   disabled?: boolean;
+  enterToSend: boolean;
 }
 const PromptInputContext = React.createContext<PromptInputContextType>({
   isLoading: false,
@@ -32,6 +33,7 @@ const PromptInputContext = React.createContext<PromptInputContextType>({
   maxHeight: 240,
   onSubmit: undefined,
   disabled: false,
+  enterToSend: true,
 });
 function usePromptInput() {
   const context = React.useContext(PromptInputContext);
@@ -41,13 +43,15 @@ function usePromptInput() {
 
 interface PromptInputProps {
   isLoading?: boolean;
-  value?: string;
-  onValueChange?: (value: string) => void;
+  value: string;
+  onValueChange: (value: string) => void;
   maxHeight?: number | string;
   onSubmit?: () => void;
+  enterToSend?: boolean;
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
+  onPaste?: (e: React.ClipboardEvent) => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
@@ -61,29 +65,27 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       value,
       onValueChange,
       onSubmit,
+      enterToSend = true,
       children,
       disabled = false,
+      onPaste,
       onDragOver,
       onDragLeave,
       onDrop,
     },
     ref,
   ) {
-    const [internalValue, setInternalValue] = React.useState(value || '');
-    const handleChange = (newValue: string) => {
-      setInternalValue(newValue);
-      onValueChange?.(newValue);
-    };
     return (
       <TooltipProvider>
         <PromptInputContext.Provider
           value={{
             isLoading,
-            value: value ?? internalValue,
-            setValue: onValueChange ?? handleChange,
+            value: value,
+            setValue: onValueChange,
             maxHeight,
             onSubmit,
             disabled,
+            enterToSend,
           }}
         >
           <div
@@ -96,6 +98,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
               isLoading && 'border-red-500/70 dark:border-red-500/70',
               className,
             )}
+            onPaste={onPaste}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
@@ -112,11 +115,27 @@ interface PromptInputTextareaProps {
   disableAutosize?: boolean;
   placeholder?: string;
 }
-export const PromptInputTextarea: React.FC<
+export const PromptInputTextarea = React.forwardRef<
+  HTMLTextAreaElement,
   PromptInputTextareaProps & React.ComponentProps<typeof Textarea>
-> = ({ className, onKeyDown, disableAutosize = false, placeholder, ...props }) => {
-  const { value, setValue, maxHeight, onSubmit, disabled } = usePromptInput();
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+>(function PromptInputTextarea(
+  { className, onKeyDown, disableAutosize = false, placeholder, ...props },
+  forwardedRef,
+) {
+  const { value, setValue, maxHeight, onSubmit, disabled, isLoading, enterToSend } =
+    usePromptInput();
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+
+  // Bridge the forwarded ref (container autofocus/autosave) with the internal
+  // ref used for autosize, without clobbering either.
+  const setRefs = React.useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      textareaRef.current = node;
+      if (typeof forwardedRef === 'function') forwardedRef(node);
+      else if (forwardedRef) forwardedRef.current = node;
+    },
+    [forwardedRef],
+  );
 
   React.useEffect(() => {
     if (disableAutosize || !textareaRef.current) return;
@@ -127,17 +146,36 @@ export const PromptInputTextarea: React.FC<
         : `min(${textareaRef.current.scrollHeight}px, ${maxHeight})`;
   }, [value, maxHeight, disableAutosize]);
 
+  // Enter handling mirrors useTextarea.ts: IME guard, no double-send while
+  // streaming, then enterToSend selects Enter-vs-Ctrl/Cmd-Enter as the send key.
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.nativeEvent.isComposing || e.key === 'Process' || e.nativeEvent.keyCode === 229) return; // IME guard (incl. Safari)
+    if (e.key !== 'Enter') {
+      onKeyDown?.(e);
+      return;
+    }
+    if (isLoading) {
+      e.preventDefault();
+      return;
+    }
+    const isModEnter = e.metaKey || e.ctrlKey;
+    if (enterToSend) {
+      if (!e.shiftKey) {
+        e.preventDefault();
+        onSubmit?.();
+        return;
+      }
+    } else if (isModEnter) {
       e.preventDefault();
       onSubmit?.();
+      return;
     }
     onKeyDown?.(e);
   };
 
   return (
     <Textarea
-      ref={textareaRef}
+      ref={setRefs}
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={handleKeyDown}
@@ -147,7 +185,7 @@ export const PromptInputTextarea: React.FC<
       {...props}
     />
   );
-};
+});
 
 type PromptInputActionsProps = React.HTMLAttributes<HTMLDivElement>;
 export const PromptInputActions: React.FC<PromptInputActionsProps> = ({

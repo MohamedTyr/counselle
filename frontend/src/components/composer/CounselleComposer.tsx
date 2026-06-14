@@ -15,7 +15,8 @@ import React from 'react';
 import { ArrowUp, Paperclip, Square, X, StopCircle, Mic, BrainCog } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@librechat/client/utils';
-import { SourcesControl, type SourceId, SUBREDDITS } from './SourcesControl';
+import type { SourceConfig } from '@/api/mock/sourceStore';
+import { SourcesControl, type SourceId } from './SourcesControl';
 import { Button } from './primitives';
 import {
   PromptInput,
@@ -30,45 +31,49 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 const isImageFile = (file: File) => file.type.startsWith('image/');
 
-// ── Counselle adaptation: meta surfaced for the lab readout / future wiring ──
-export interface ComposerState {
-  text: string;
-  sources: SourceId[];
-  subreddits: string[];
-  thinking: boolean;
-}
-
 // Main Composer — upstream PromptInputBox, toggle cluster adapted to sources.
-interface CounselleComposerProps {
-  onSend?: (message: string, files?: File[]) => void;
-  onChange?: (state: ComposerState) => void;
-  isLoading?: boolean;
+// Fully controlled: text and source state are owned by the container; the
+// composer keeps only local UI state (files, recording, thinking, popover).
+export interface CounselleComposerProps {
+  value: string; // controlled text
+  onValueChange: (v: string) => void;
+  onSend: () => void; // container does trim/submit/clear
+  onStop?: () => void; // cancel a streaming turn
+  isLoading?: boolean; // = isSubmitting
+  enterToSend?: boolean; // from app pref; default true
   placeholder?: string;
   className?: string;
+  active: Set<SourceId>; // controlled sources
+  subs: string[]; // controlled subreddits (r/-prefixed)
+  onSourcesChange: (patch: Partial<SourceConfig>) => void;
+  onSourcesReread?: () => void; // fired when the popover opens
 }
-export const CounselleComposer = React.forwardRef(function CounselleComposer(
-  props: CounselleComposerProps,
-  ref: React.Ref<HTMLDivElement>,
-) {
-  const { onSend = () => {}, onChange, isLoading = false, placeholder = 'Ask anything about any school…', className } = props;
-  const [input, setInput] = React.useState('');
-  const [files, setFiles] = React.useState<File[]>([]);
-  const [filePreview, setFilePreview] = React.useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
-  const [isRecording, setIsRecording] = React.useState(false);
-  // Counselle state (replaces showSearch / showThink / showCanvas)
-  const [thinking, setThinking] = React.useState(false);
-  const [activeSources, setActiveSources] = React.useState<Set<SourceId>>(new Set(['web', 'edu', 'reddit']));
-  const [subs, setSubs] = React.useState<string[]>(SUBREDDITS.slice(0, 3));
-  const [sourcesOpen, setSourcesOpen] = React.useState(false);
-  const uploadInputRef = React.useRef<HTMLInputElement>(null);
-  const promptBoxRef = React.useRef<HTMLDivElement>(null);
+export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, CounselleComposerProps>(
+  function CounselleComposer(props, ref) {
+    const {
+      value,
+      onValueChange,
+      onSend,
+      onStop,
+      isLoading = false,
+      enterToSend = true,
+      placeholder = 'Ask anything about any school…',
+      className,
+      active,
+      subs,
+      onSourcesChange,
+      onSourcesReread,
+    } = props;
+    const [files, setFiles] = React.useState<File[]>([]);
+    const [filePreview, setFilePreview] = React.useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
+    const [isRecording, setIsRecording] = React.useState(false);
+    const [thinking, setThinking] = React.useState(false);
+    const [sourcesOpen, setSourcesOpen] = React.useState(false);
+    const uploadInputRef = React.useRef<HTMLInputElement>(null);
+    const promptBoxRef = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
-    onChange?.({ text: input, sources: [...activeSources], subreddits: subs, thinking });
-  }, [input, activeSources, subs, thinking, onChange]);
-
-  const processFile = React.useCallback((file: File) => {
+    const processFile = React.useCallback((file: File) => {
     // Guard-and-return: only images under the size cap are accepted. There is no
     // user-facing error channel and files are never transmitted, so a silent
     // bail is correct here (Phase-1 cleanup of the old console.log swallows).
@@ -108,8 +113,10 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
 
   const openImageModal = React.useCallback((imageUrl: string) => setSelectedImage(imageUrl), []);
 
+  // Scoped paste: attached to the composer root (not document), so it only
+  // captures images pasted INTO the composer.
   const handlePaste = React.useCallback(
-    (e: ClipboardEvent) => {
+    (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
       for (let i = 0; i < items.length; i++) {
@@ -126,19 +133,14 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
     [processFile],
   );
 
-  React.useEffect(() => {
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, [handlePaste]);
-
+  // Controlled text: the container owns trim/submit/clear via RHF. The composer
+  // clears only its local file preview after a send; the text is never touched
+  // here.
   const handleSubmit = React.useCallback(() => {
-    if (input.trim() || files.length > 0) {
-      onSend(input, files);
-      setInput('');
-      setFiles([]);
-      setFilePreview(null);
-    }
-  }, [input, files, onSend]);
+    onSend();
+    setFiles([]);
+    setFilePreview(null);
+  }, [onSend]);
 
   const handleStartRecording = React.useCallback(() => {}, []);
 
@@ -148,14 +150,15 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
     setIsRecording(false);
   }, []);
 
-  const hasContent = input.trim() !== '' || files.length > 0;
+  const hasContent = value.trim() !== '' || files.length > 0;
 
   return (
     <>
       <PromptInput
-        value={input}
-        onValueChange={setInput}
+        value={value}
+        onValueChange={onValueChange}
         isLoading={isLoading}
+        enterToSend={enterToSend}
         onSubmit={handleSubmit}
         className={cn(
           'w-full transition-all duration-300 ease-in-out',
@@ -164,8 +167,9 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
           isRecording && 'border-red-500/70 dark:border-red-500/70',
           className,
         )}
-        disabled={isLoading || isRecording}
-        ref={ref || promptBoxRef}
+        disabled={isRecording}
+        ref={promptBoxRef}
+        onPaste={handlePaste}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -197,7 +201,7 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
         )}
 
         <div className={cn('transition-all duration-300', isRecording ? 'h-0 overflow-hidden opacity-0' : 'opacity-100')}>
-          <PromptInputTextarea placeholder={thinking ? 'Think deeply…' : placeholder} className="text-base" />
+          <PromptInputTextarea ref={ref} placeholder={thinking ? 'Think deeply…' : placeholder} className="text-base" />
         </div>
 
         {isRecording && (
@@ -239,11 +243,20 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
               {/* Counselle adaptation: sources dropdown (was Search) */}
               <SourcesControl
                 open={sourcesOpen}
-                setOpen={setSourcesOpen}
-                active={activeSources}
-                setActive={setActiveSources}
+                setOpen={(v) => {
+                  setSourcesOpen(v);
+                  if (v) onSourcesReread?.();
+                }}
+                active={active}
+                setActive={(next) =>
+                  onSourcesChange({
+                    webSearch: next.has('web'),
+                    eduSources: next.has('edu'),
+                    reddit: next.has('reddit'),
+                  })
+                }
                 subs={subs}
-                setSubs={setSubs}
+                setSubs={(next) => onSourcesChange({ selectedSubreddits: next })}
               />
 
               <div
@@ -306,16 +319,17 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
                 isRecording && '!bg-transparent hover:!bg-gray-100 dark:hover:!bg-gray-600/30',
               )}
               onClick={() => {
+                // Precedence (plan §2.5): recording → loading(stop) → send → record.
                 if (isRecording) setIsRecording(false);
+                else if (isLoading) onStop?.();
                 else if (hasContent) handleSubmit();
                 else setIsRecording(true);
               }}
-              disabled={isLoading && !hasContent}
             >
-              {isLoading ? (
-                <Square className="h-4 w-4 fill-current animate-pulse" />
-              ) : isRecording ? (
+              {isRecording ? (
                 <StopCircle className="h-5 w-5 text-red-500" />
+              ) : isLoading ? (
+                <Square className="h-4 w-4 fill-current animate-pulse" />
               ) : hasContent ? (
                 <ArrowUp className="h-4 w-4 text-current" />
               ) : (
