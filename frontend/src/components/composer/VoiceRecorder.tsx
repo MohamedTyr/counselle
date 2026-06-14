@@ -1,9 +1,10 @@
 /**
  * VoiceRecorder — the decorative recording UI for the composer.
  *
- * Shows an elapsed timer and an animated bar visualizer while recording. Copied
- * AS-IS from the lab composer this phase; the known `useEffect` dependency bug
- * and the fake voice-submit are deliberately left untouched (Phase 2 fixes them).
+ * Shows an elapsed timer and an animated bar visualizer while recording. The
+ * timer effect is driven off `isRecording` only (tick count held in a ref, the
+ * callbacks in refs) so it fires once per recording start/stop rather than every
+ * tick. Recording is decorative — stopping submits nothing.
  */
 import React from 'react';
 import { cn } from '@librechat/client/utils';
@@ -22,23 +23,35 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 }) => {
   const [time, setTime] = React.useState(0);
   const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickRef = React.useRef(0);
+  // Hold the callbacks in refs so the timer effect depends only on `isRecording`
+  // (re-firing it every tick would clear/recreate the interval and mis-fire stop).
+  const onStartRef = React.useRef(onStartRecording);
+  const onStopRef = React.useRef(onStopRecording);
+  onStartRef.current = onStartRecording;
+  onStopRef.current = onStopRecording;
 
   React.useEffect(() => {
     if (isRecording) {
-      onStartRecording();
-      timerRef.current = setInterval(() => setTime((t) => t + 1), 1000);
+      onStartRef.current();
+      tickRef.current = 0;
+      timerRef.current = setInterval(() => {
+        tickRef.current += 1;
+        setTime(tickRef.current);
+      }, 1000);
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      onStopRecording(time);
+      onStopRef.current(tickRef.current);
+      tickRef.current = 0;
       setTime(0);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRecording, time, onStartRecording, onStopRecording]);
+  }, [isRecording]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

@@ -89,6 +89,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           <div
             ref={ref}
             className={cn(
+              'counselle-composer',
               'rounded-3xl border p-2 transition-all duration-300',
               'border-gray-200 bg-white shadow-[0_8px_30px_rgba(0,0,0,0.08)]',
               'dark:border-[#444444] dark:bg-[#1F2023] dark:shadow-[0_8px_30px_rgba(0,0,0,0.24)]',

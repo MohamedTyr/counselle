@@ -26,35 +26,6 @@ import {
 import { VoiceRecorder } from './VoiceRecorder';
 import { ImageViewDialog } from './ImageViewDialog';
 
-// Embedded CSS for minimal custom styles. Phase 2 moves this to a scoped
-// stylesheet; kept here verbatim for now.
-const styles = `
-  *:focus-visible {
-    outline-offset: 0 !important;
-    --ring-offset: 0 !important;
-  }
-  textarea::-webkit-scrollbar {
-    width: 6px;
-  }
-  textarea::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  textarea::-webkit-scrollbar-thumb {
-    background-color: #444444;
-    border-radius: 3px;
-  }
-  textarea::-webkit-scrollbar-thumb:hover {
-    background-color: #555555;
-  }
-`;
-
-// Inject styles into document
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.innerText = styles;
-  document.head.appendChild(styleSheet);
-}
-
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 const isImageFile = (file: File) => file.type.startsWith('image/');
@@ -169,16 +140,13 @@ export const CounselleComposer = React.forwardRef(function CounselleComposer(
     }
   }, [input, files, onSend]);
 
-  const handleStartRecording = React.useCallback(() => console.log('Started recording'), []);
+  const handleStartRecording = React.useCallback(() => {}, []);
 
-  const handleStopRecording = React.useCallback(
-    (duration: number) => {
-      console.log(`Stopped recording after ${duration} seconds`);
-      setIsRecording(false);
-      onSend(`[Voice message - ${duration} seconds]`, []);
-    },
-    [onSend],
-  );
+  // Recording is decorative: stopping just exits the recording UI and submits
+  // nothing. The duration is ignored — the turn endpoint has no voice channel.
+  const handleStopRecording = React.useCallback(() => {
+    setIsRecording(false);
+  }, []);
 
   const hasContent = input.trim() !== '' || files.length > 0;
 
