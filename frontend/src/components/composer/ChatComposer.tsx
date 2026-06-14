@@ -12,7 +12,7 @@
  *
  * Serves: the chat page composer (landing + in-conversation).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useWatch } from 'react-hook-form';
 import { useAtomValue } from 'jotai';
 import { cn } from '@librechat/client/utils';
@@ -43,6 +43,8 @@ const MAXIMIZE_CHAT_SPACE = false;
 
 interface ChatComposerProps {
   centerFormOnLanding?: boolean;
+  /** Optional external ref to the composer textarea (shared with SuggestionPills). */
+  textAreaRef?: RefObject<HTMLTextAreaElement>;
 }
 
 /** Map the FE-store `SourceConfig` to the composer's controlled active set.
@@ -55,7 +57,10 @@ export function toActiveSet(config: SourceConfig): Set<SourceId> {
   ]);
 }
 
-export default function ChatComposer({ centerFormOnLanding = false }: ChatComposerProps) {
+export default function ChatComposer({
+  centerFormOnLanding = false,
+  textAreaRef: externalTextAreaRef,
+}: ChatComposerProps) {
   const { conversationId, isSubmitting, submitMessage, stopGenerating, awaitingClarify } =
     useChatContext();
 
@@ -63,7 +68,8 @@ export default function ChatComposer({ centerFormOnLanding = false }: ChatCompos
   const methods = useChatFormContext();
   const text = useWatch({ control: methods.control, name: 'text' });
 
-  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const localTextAreaRef = useRef<HTMLTextAreaElement>(null);
+  const textAreaRef = externalTextAreaRef ?? localTextAreaRef;
 
   // Draft autosave — ported verbatim from ChatForm: save the old conversation's
   // draft and restore the new one on conversation switch.
@@ -131,7 +137,7 @@ export default function ChatComposer({ centerFormOnLanding = false }: ChatCompos
         'mx-auto flex w-full flex-row gap-3 transition-[max-width] duration-300 sm:px-2',
         MAXIMIZE_CHAT_SPACE ? 'max-w-full' : 'md:max-w-3xl xl:max-w-4xl',
         centerFormOnLanding && isNewConvo && !isSubmitting
-          ? 'transition-all duration-200 sm:mb-28'
+          ? 'transition-all duration-200 sm:mb-12'
           : 'sm:mb-10',
       )}
     >

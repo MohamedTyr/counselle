@@ -2,13 +2,16 @@
  * Counselle-native design tokens — the ONLY token additions allowed on top of
  * the cloned LibreChat system (ADR 0020, decision 5).
  *
- * Exactly two semantic pairs, defined per theme:
+ * Two source-tier semantic pairs, defined per theme:
  *   --official-*   (cool)  — official-source surfaces (CDS / IPEDS / Scorecard / .edu)
  *   --community-*  (warm)  — community-source surfaces (Reddit)
  *
  * The squint test (PRD story 26): official claims read cool, community claims
- * read warm — identically in chips, timeline steps, cards, and the sources
+ * read warm, identically in chips, timeline steps, cards, and the sources
  * footer. No other component may introduce source-tier color.
+ *
+ * Plus the landing-only ambient pair (--ethereal-shadow / -opacity), a teal
+ * atmosphere token that is NOT a source-tier signal (see .counselle-ethereal).
  */
 
 :root,
@@ -20,6 +23,12 @@
   --community-text: #b45309; /* amber-700 */
   --community-surface: #fffbeb; /* amber-50 */
   --community-border: #fde68a; /* amber-200 */
+
+  /* Ambient landing background ("EtherealShadow"). Teal echoes the reasoning
+     orb's identity; opacity keeps it well behind the greeting on a white page. */
+  --ethereal-shadow: rgba(13, 148, 136, 1); /* teal-600 */
+  --ethereal-shadow-opacity: 0.22;
+  --ethereal-grain-opacity: 0.05;
 }
 
 .dark {
@@ -30,6 +39,11 @@
   --community-text: #fcd34d; /* amber-300 */
   --community-surface: rgba(245, 158, 11, 0.1);
   --community-border: rgba(245, 158, 11, 0.35);
+
+  /* Brighter teal lifts the near-black presentation surface without washing it. */
+  --ethereal-shadow: rgba(45, 212, 191, 1); /* teal-400 */
+  --ethereal-shadow-opacity: 0.34;
+  --ethereal-grain-opacity: 0.09;
 }
 
 /* Timeline shimmer on the active step — compositor-friendly, reduced-motion aware. */
@@ -227,11 +241,71 @@
   }
 }
 
+/* Landing ambient layer: a soft teal bloom centered behind the composer that
+   dissolves outward, so the input looks like the light source while the
+   greeting and footer stay clean. pointer-events:none keeps it decorative;
+   opacity is theme-tuned. The radial mask vignettes the glow to that region. */
+.counselle-ethereal {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--ethereal-shadow-opacity, 0.15);
+  -webkit-mask-image: radial-gradient(
+    90% 82% at 50% 42%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 42%,
+    rgba(0, 0, 0, 0) 88%
+  );
+  mask-image: radial-gradient(
+    90% 82% at 50% 42%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 42%,
+    rgba(0, 0, 0, 0) 88%
+  );
+}
+
+/* Film grain over the glow. Its own layer (not the glow's crushed opacity) so
+   the texture stays readable; vignetted to the same region so it reads as part
+   of the shadow, not a flat overlay on the whole page. */
+.counselle-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url('/backgrounds/ethereal-noise.webp');
+  background-repeat: repeat;
+  background-size: 170px 170px;
+  opacity: var(--ethereal-grain-opacity, 0.06);
+  -webkit-mask-image: radial-gradient(
+    95% 88% at 50% 42%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 45%,
+    rgba(0, 0, 0, 0) 92%
+  );
+  mask-image: radial-gradient(
+    95% 88% at 50% 42%,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 45%,
+    rgba(0, 0, 0, 0) 92%
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   .counselle-step-active,
   .counselle-thinking {
     animation: none;
     opacity: 1;
+  }
+
+  /* Landing ambient layer: the JS already disables the displacement/hue loop
+     under reduced motion, leaving a static glow. Drop the film grain entirely
+     and ease the glow back so the home screen reads calm and flat. */
+  .counselle-grain {
+    display: none;
+  }
+  .counselle-ethereal {
+    opacity: calc(var(--ethereal-shadow-opacity, 0.15) * 0.6);
   }
 
   /* ReasoningTrace: orb stops spinning, the shimmer text degrades to a static

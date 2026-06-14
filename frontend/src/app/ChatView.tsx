@@ -11,13 +11,12 @@
  * drag-drop/side-panel layers (the bg-presentation + main wrappers are kept),
  * ProjectLandingChip, spinner states.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { useSetAtom } from 'jotai';
 import type { ChatFormValues } from '~/common';
 import { ChatFormProvider } from '~/Providers';
-import ConversationStarters from '~/components/Chat/Input/ConversationStarters';
 import MessagesView from '~/components/Chat/Messages/MessagesView';
 import Landing from '~/components/Chat/Landing';
 import Header from '~/components/Chat/Header';
@@ -26,6 +25,8 @@ import { cn } from '~/utils';
 import { useChatContext } from '@/app/ChatContext';
 import { activeConversationIdAtom } from '@/app/state';
 import ChatComposer from '@/components/composer/ChatComposer';
+import SuggestionPills from '@/components/composer/SuggestionPills';
+import EtherealShadow from '@/components/background/EtherealShadow';
 
 /** Upstream `centerFormOnLanding` atom — frozen true (no UI toggle in MVP2). */
 const CENTER_FORM_ON_LANDING = true;
@@ -36,6 +37,9 @@ export default function ChatView() {
   const setActiveConversationId = useSetAtom(activeConversationIdAtom);
 
   const methods = useForm<ChatFormValues>({ defaultValues: { text: '' } });
+  // Shared composer textarea ref so SuggestionPills can focus it directly
+  // (no global DOM scan).
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync URL param → atom so ChatContext/SourceDropdown see the current conversation.
   useEffect(() => {
@@ -47,7 +51,15 @@ export default function ChatView() {
   return (
     <ChatFormProvider {...methods}>
       <div className="relative flex w-full grow overflow-hidden bg-presentation">
-        <main className="flex h-full w-full flex-col overflow-y-auto" role="main">
+        {isLandingPage && (
+          <>
+            <div className="counselle-ethereal" aria-hidden="true">
+              <EtherealShadow animation={{ scale: 58, speed: 68 }} />
+            </div>
+            <div className="counselle-grain" aria-hidden="true" />
+          </>
+        )}
+        <main className="relative z-10 flex h-full w-full flex-col overflow-y-auto" role="main">
           <div className="relative flex h-full w-full flex-col">
             <Header />
             <>
@@ -67,11 +79,19 @@ export default function ChatView() {
                 <div
                   className={cn(
                     'w-full',
-                    isLandingPage && 'max-w-3xl transition-all duration-200 xl:max-w-4xl',
+                    // Landing: narrow the composer column so the input group
+                    // reads as the focal point without spanning the full panel.
+                    // A real max-width (not a post-layout scale) so the pills
+                    // stay aligned and nothing overflows its siblings'
+                    // footprint. In-conversation layout is untouched.
+                    isLandingPage && 'mt-1.5 max-w-2xl sm:max-w-3xl transition-all duration-200',
                   )}
                 >
-                  <ChatComposer centerFormOnLanding={CENTER_FORM_ON_LANDING} />
-                  {isLandingPage ? <ConversationStarters /> : <Footer />}
+                  <ChatComposer
+                    centerFormOnLanding={CENTER_FORM_ON_LANDING}
+                    textAreaRef={composerRef}
+                  />
+                  {isLandingPage ? <SuggestionPills textAreaRef={composerRef} /> : <Footer />}
                 </div>
               </div>
               {isLandingPage && <Footer />}

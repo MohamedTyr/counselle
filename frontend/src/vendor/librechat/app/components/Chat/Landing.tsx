@@ -11,32 +11,36 @@
  * - description / HTML sanitizer removed
  *
  * Rewires:
- * - Greeting text + season note come from `GET /v1/config` (B5c — async query,
- *   graceful loading/fallback; was an import-time constant)
- * - SplitText animation kept byte-identical
- * - ConversationStarters render in ChatView below the composer (upstream position)
+ * - Greeting text comes from `GET /v1/config` (B5c — async query, graceful
+ *   loading/fallback; was an import-time constant). The season-note caption is
+ *   no longer rendered (home-page redesign).
+ * - SplitText replaced by `AnimatedGreeting` (word-level blur+rise reveal on
+ *   framer-motion; reduced-motion safe) — see components/composer.
+ * - ConversationStarters replaced by `SuggestionPills` (rendered in ChatView
+ *   below the composer; pills populate the composer text, they do not submit).
  *
- * JSX layout classes byte-identical to upstream.
+ * JSX layout structure is based on upstream, but the greeting text sizes
+ * (getTextSizeClass) and typography classes have been updated for the home-page
+ * redesign — this file is intentionally NOT a verbatim upstream copy.
  */
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { easings } from '@react-spring/web';
-import { SplitText } from '@librechat/client';
 import { useConfigQuery } from '@/api/hooks';
+import AnimatedGreeting from '@/components/composer/AnimatedGreeting';
 
 /** Sensible fallbacks if `/v1/config` errors — the home screen never crashes. */
 const FALLBACK_GREETING = 'Where should we begin?';
 
 function getTextSizeClass(text: string | undefined | null) {
   if (!text) {
-    return 'text-xl sm:text-2xl';
-  }
-  if (text.length < 40) {
     return 'text-2xl sm:text-4xl';
   }
-  if (text.length < 70) {
-    return 'text-xl sm:text-2xl';
+  if (text.length < 40) {
+    return 'text-3xl sm:text-[2.5rem]';
   }
-  return 'text-lg sm:text-md';
+  if (text.length < 70) {
+    return 'text-2xl sm:text-[2rem]';
+  }
+  return 'text-xl sm:text-3xl';
 }
 
 export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: boolean }) {
@@ -47,9 +51,8 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
 
   const { data: config, isLoading } = useConfigQuery();
   // Don't flash the fallback while the query resolves; once settled, use the
-  // server greeting (or the fallback on error). season_note shows only when present.
+  // server greeting (or the fallback on error).
   const greetingText = config?.greeting ?? FALLBACK_GREETING;
-  const seasonNote = config?.season_note ?? null;
 
   const handleLineCountChange = useCallback((count: number) => {
     setTextHasMultipleLines(count > 1);
@@ -90,25 +93,12 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
         <div
           className={`flex ${textHasMultipleLines ? 'flex-col' : 'flex-col md:flex-row'} items-center justify-center gap-2`}
         >
-          <SplitText
-            key={`split-text-${greetingText}`}
+          <AnimatedGreeting
             text={greetingText}
-            className={`${getTextSizeClass(greetingText)} font-medium text-text-primary`}
-            delay={50}
-            textAlign="center"
-            animationFrom={{ opacity: 0, transform: 'translate3d(0,50px,0)' }}
-            animationTo={{ opacity: 1, transform: 'translate3d(0,0,0)' }}
-            easing={easings.easeOutCubic}
-            threshold={0}
-            rootMargin="0px"
+            className={`${getTextSizeClass(greetingText)} text-center font-semibold leading-[1.08] tracking-[-0.02em] text-text-primary`}
             onLineCountChange={handleLineCountChange}
           />
         </div>
-        {seasonNote && (
-          <div className="animate-fadeIn mt-4 max-w-md text-center text-sm font-normal text-text-primary">
-            {seasonNote}
-          </div>
-        )}
       </div>
     </div>
   );
