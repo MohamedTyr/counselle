@@ -19,13 +19,13 @@ import type { ChatFormValues } from '~/common';
 import { ChatFormProvider } from '~/Providers';
 import ConversationStarters from '~/components/Chat/Input/ConversationStarters';
 import MessagesView from '~/components/Chat/Messages/MessagesView';
-import ChatForm from '~/components/Chat/Input/ChatForm';
 import Landing from '~/components/Chat/Landing';
 import Header from '~/components/Chat/Header';
 import Footer from '~/components/Chat/Footer';
 import { cn } from '~/utils';
 import { useChatContext } from '@/app/ChatContext';
 import { activeConversationIdAtom } from '@/app/state';
+import ChatComposer from '@/components/composer/ChatComposer';
 
 /** Upstream `centerFormOnLanding` atom — frozen true (no UI toggle in MVP2). */
 const CENTER_FORM_ON_LANDING = true;
@@ -70,7 +70,7 @@ export default function ChatView() {
                     isLandingPage && 'max-w-3xl transition-all duration-200 xl:max-w-4xl',
                   )}
                 >
-                  <ChatForm centerFormOnLanding={CENTER_FORM_ON_LANDING} />
+                  <ChatComposer centerFormOnLanding={CENTER_FORM_ON_LANDING} />
                   {isLandingPage ? <ConversationStarters /> : <Footer />}
                 </div>
               </div>
