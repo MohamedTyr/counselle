@@ -155,11 +155,10 @@ def _make_render_viz_tool(
         type: viz_mod.VizType,
         unitids: list[int],
         field_keys: list[str] | None = None,
-        test: viz_mod.TestName | None = None,
         title: str | None = None,
     ) -> dict[str, Any]:
         result = await viz_mod.render_viz(
-            catalog, registry, viz_list, type, unitids, field_keys, test, title
+            catalog, registry, viz_list, type, unitids, field_keys, title
         )
         if result.get("ok"):
             writer({"type": "viz", "spec": viz_list[-1]})

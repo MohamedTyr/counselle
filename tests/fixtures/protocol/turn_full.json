@@ -78,7 +78,8 @@
         "schools": [
           {
             "unitid": 198419,
-            "name": "Duke University"
+            "name": "Duke University",
+            "domain": null
           }
         ],
         "rows": [
@@ -104,8 +105,7 @@
               }
             ]
           }
-        ],
-        "band": null
+        ]
       }
     },
     {

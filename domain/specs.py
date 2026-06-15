@@ -1,14 +1,12 @@
 """Typed specs: source-config (ADR 0013), clarify (ARCHITECTURE §12.1), render (§17).
 
 These are the contracts between the agent and every client: the agent emits a
-spec, a dumb widget renders it. The score-band validator encodes the §17
-honesty trap — IPEDS SAT percentiles are per *section* and must never be
-combined into a fabricated 1600-scale composite row.
+spec, a dumb widget renders it.
 """
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from domain.envelope import CitationEnvelope
 
@@ -82,35 +80,11 @@ class VizRow(BaseModel):
     cells: list[CitationEnvelope]
 
 
-class ScoreBand(BaseModel):
-    """Score-band chart definition: which test the band describes."""
-
-    test: Literal["sat", "act", "both"]
-
-
 class RenderSpec(BaseModel):
     """A visualization: the LLM picked the shape, the tool fetched the numbers."""
 
     v: int = 1
-    type: Literal["stat_block", "comparison_table", "score_band"]
+    type: Literal["stat_block", "comparison_table"]
     title: str
     schools: list[SchoolRef]
     rows: list[VizRow]
-    band: ScoreBand | None = None
-
-    @model_validator(mode="after")
-    def _reject_fabricated_sat_composite(self) -> "RenderSpec":
-        """§17 honesty trap: never combine SAT EBRW + Math percentiles in one row."""
-        if self.type != "score_band":
-            return self
-        for row in self.rows:
-            fields = [cell.field for cell in row.cells]
-            mixes_sections = any("sat_ebrw" in f for f in fields) and any(
-                "sat_math" in f for f in fields
-            )
-            if mixes_sections:
-                raise ValueError(
-                    "score_band row mixes SAT EBRW and SAT Math percentiles — a "
-                    "fabricated composite; render the sections as separate rows"
-                )
-        return self

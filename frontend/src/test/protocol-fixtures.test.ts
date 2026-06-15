@@ -128,7 +128,7 @@ function assertEvent(raw: unknown): ProtocolEvent {
 }
 
 function assertRenderSpec(spec: RenderSpec): void {
-  expect(['stat_block', 'comparison_table', 'score_band']).toContain(spec.type);
+  expect(['stat_block', 'comparison_table']).toContain(spec.type);
   expect(typeof spec.title).toBe('string');
   expect(Array.isArray(spec.schools)).toBe(true);
   expect(Array.isArray(spec.rows)).toBe(true);

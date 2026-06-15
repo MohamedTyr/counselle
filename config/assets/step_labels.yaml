@@ -91,7 +91,6 @@ errors:
 viz_labels:
   stat_block: "stat card"
   comparison_table: "comparison table"
-  score_band: "score-range chart"
 
 # Fallbacks when an arg can't be resolved (e.g. unknown unitid).
 fallbacks:

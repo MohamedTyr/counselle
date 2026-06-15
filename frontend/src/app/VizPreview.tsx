@@ -179,22 +179,6 @@ const statBlock: RenderSpec = {
   ],
 };
 
-// A score band — SAT sections rendered separately, never composed into 1600.
-const scoreBand: RenderSpec = {
-  v: 1,
-  type: 'score_band',
-  title: 'SAT middle 50% (enrolled students — not a cutoff)',
-  schools: [{ unitid: 1, name: 'New York University', domain: 'nyu.edu' }],
-  band: { test: 'sat' },
-  rows: [
-    {
-      label: 'SAT Evidence-Based Reading & Writing',
-      cells: [env('690', { raw: 690 }), env('760', { raw: 760 })],
-    },
-    { label: 'SAT Math', cells: [env('720', { raw: 720 }), env('790', { raw: 790 })] },
-  ],
-};
-
 export default function VizPreview() {
   const [artifact, setArtifact] = useAtom(artifactPanelAtom);
   return (
@@ -221,7 +205,6 @@ export default function VizPreview() {
                 <VizCard spec={comparison} />
                 <VizCard spec={realWorld} />
                 <VizCard spec={statBlock} />
-                <VizCard spec={scoreBand} />
               </section>
             </div>
           </div>

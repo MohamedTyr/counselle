@@ -8,7 +8,7 @@
  * VizCard's markdown-fallback degrade rule — an older client never shows a blank
  * eyebrow or a missing icon.
  */
-import { BarChart3, Columns3, Rows3, Ruler } from 'lucide-react';
+import { BarChart3, Columns3, Rows3 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { RenderSpec } from '@/api/protocol';
 
@@ -22,10 +22,9 @@ type VizMeta = {
 };
 
 const VIZ_META: Record<VizType, VizMeta> = {
-  // Icons mirror each card's structure: rows of stats, school columns, a scale.
+  // Icons mirror each card's structure: rows of stats, school columns.
   stat_block: { label: 'Stat block', icon: Rows3 },
   comparison_table: { label: 'Comparison', icon: Columns3 },
-  score_band: { label: 'Score band', icon: Ruler },
 };
 
 const UNKNOWN: VizMeta = { label: 'Visualization', icon: BarChart3 };

@@ -432,13 +432,6 @@
     viz_type: comparison_table
     unitids: [198419, 166027]
 
-- id: viz-stanford-sat-band
-  type: comparison-viz
-  question: "What's Stanford's SAT range? Show it visually."
-  expects:
-    viz_type: score_band
-    unitids: [243744]
-
 - id: viz-rice-stat-block
   type: comparison-viz
   question: "Give me a quick stats overview card for Rice University."
@@ -452,10 +445,3 @@
   expects:
     viz_type: comparison_table
     unitids: [110662, 170976, 234076]
-
-- id: viz-mit-act-band
-  type: comparison-viz
-  question: "Show MIT's ACT range as a chart."
-  expects:
-    viz_type: score_band
-    unitids: [166683]

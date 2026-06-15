@@ -124,50 +124,6 @@ async def test_comparison_table_payload_carries_no_numbers(catalog: Catalog) -> 
     assert "%" in spec_wire or "$" in spec_wire
 
 
-# --- score_band ----------------------------------------------------------------
-
-
-async def test_score_band_sat_renders_two_section_rows(catalog: Catalog) -> None:
-    registry = SourceRegistry()
-    viz_emitted: list[dict[str, Any]] = []
-    payload = await render_viz(
-        catalog, registry, viz_emitted, type="score_band", unitids=[DUKE], test="sat"
-    )
-    assert payload["ok"] is True
-    spec = RenderSpec.model_validate(viz_emitted[0])  # validator passes — no composite
-    assert spec.band is not None and spec.band.test == "sat"
-    assert len(spec.rows) == 2  # TWO section rows, never one combined row
-    labels = [row.label for row in spec.rows]
-    assert any("EBRW" in label for label in labels)
-    assert any("Math" in label for label in labels)
-    for row in spec.rows:  # each row stays within ONE section (the honesty trap)
-        fields = [cell.field for cell in row.cells]
-        assert not (
-            any("sat_ebrw" in field for field in fields)
-            and any("sat_math" in field for field in fields)
-        )
-    _assert_no_numbers(payload)
-
-
-async def test_score_band_rejects_caller_supplied_field_keys(catalog: Catalog) -> None:
-    registry = SourceRegistry()
-    viz_emitted: list[dict[str, Any]] = []
-    payload = await render_viz(
-        catalog,
-        registry,
-        viz_emitted,
-        type="score_band",
-        unitids=[DUKE],
-        field_keys=["admissions.sat_average"],  # the LLM may NOT pick band fields
-        test="sat",
-    )
-    assert payload["ok"] is False
-    assert "field_keys" in payload["error"]
-    assert viz_emitted == []
-    assert len(registry) == 0  # nothing registered on error
-    _assert_no_numbers(payload)
-
-
 # --- stat_block ------------------------------------------------------------------
 
 

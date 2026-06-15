@@ -1,6 +1,6 @@
 # ADR 0014 — Visualizations: render-spec contract & data-provenance boundary
 
-**Status:** Accepted
+**Status:** Accepted (score_band removed — superseded on that point by ADR 0024)
 
 ## Context
 The PRD requires the agent to show visualizations (tables, charts) — e.g. a 2-school comparison. Two questions were open: (1) the catalog of visualization types in scope, and (2) for each, **what data the AI provides vs. what the visualization gets automatically** — i.e. whether numbers flow through the LLM or come straight from the data layer. The data is the product and honesty is non-negotiable (principle 3), so where the numbers come from is a correctness decision, not a UI detail.

@@ -128,53 +128,6 @@ describe('tier chips always match the envelope tier', () => {
   });
 });
 
-describe('score band', () => {
-  function bandSpec(): RenderSpec {
-    return spec({
-      type: 'score_band',
-      title: 'SAT range',
-      band: { test: 'sat' },
-      rows: [
-        {
-          label: 'SAT EBRW',
-          cells: [env({ display: '690', raw: 690 }), env({ display: '800', raw: 800 })],
-        },
-        {
-          label: 'SAT Math',
-          cells: [env({ display: '700', raw: 700 }), env({ display: '800', raw: 800 })],
-        },
-      ],
-    });
-  }
-
-  test('never composes a 1600 from section rows', () => {
-    const { container } = render(<VizCard spec={bandSpec()} />);
-    // 800 + 800 sections — any composed total would surface as "1600".
-    expect(container.textContent).not.toContain('1600');
-    expect(screen.queryByText(/1600/)).toBeNull();
-  });
-
-  test('always shows the permanent teaching caption', () => {
-    render(<VizCard spec={bandSpec()} />);
-    expect(
-      screen.getByText("Half of enrolled students scored inside this band. It's not a cutoff."),
-    ).toBeInTheDocument();
-  });
-
-  test('both ends unavailable → "not reported" muted state', () => {
-    render(
-      <VizCard
-        spec={spec({
-          type: 'score_band',
-          band: { test: 'sat' },
-          rows: [{ label: 'SAT EBRW', cells: [naEnv(), naEnv()] }],
-        })}
-      />,
-    );
-    expect(screen.getByText('not reported')).toBeInTheDocument();
-  });
-});
-
 describe('comparison table never winner-highlights', () => {
   test('a clearly larger value gets the identical cell treatment', () => {
     const { container } = render(

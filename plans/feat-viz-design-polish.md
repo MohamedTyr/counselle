@@ -14,7 +14,7 @@ change safely**: fix the defects the review surfaced, make it production- and
 design-system-clean, remove the temporary scaffolding, and verify on the real
 chat path in both themes.
 
-**Non-goals:** redesigning `StatBlockCard` or `ScoreBandCard` (a later pass);
+**Non-goals:** redesigning `StatBlockCard` (a later pass);
 changing the SSE/wire protocol; changing the backend; committing/PR (separate
 step once the user approves).
 
@@ -98,7 +98,7 @@ M4. **[verify] Final gates** — re-run typecheck + tests + lint after removal.
    typechecks, all card/citation tests pass.
 8. The existing honesty contracts still hold: no winner-highlighting (identical
    cell classNames), NA distinct from zero, tier fidelity (`data-tier`),
-   permanent score-band caption, unknown-type → markdown fallback.
+   unknown-type → markdown fallback. (The score band was later deleted — ADR 0024.)
 9. Reduced-motion users get no popover zoom animation or link-arrow transition.
 
 ## 4. Risk register

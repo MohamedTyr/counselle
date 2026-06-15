@@ -64,15 +64,12 @@ export type SchoolRef = {
 
 export type VizRow = { label: string; cells: CitationEnvelope[] };
 
-export type ScoreBand = { test: 'sat' | 'act' | 'both' };
-
 export type RenderSpec = {
   v: number;
-  type: 'stat_block' | 'comparison_table' | 'score_band';
+  type: 'stat_block' | 'comparison_table';
   title: string;
   schools: SchoolRef[];
   rows: VizRow[];
-  band?: ScoreBand | null;
 };
 
 export type ClarifyOption = { label: string; hint: string };

@@ -1,7 +1,7 @@
 /**
  * VizCard — the render-spec dispatcher (replaces FE-3's VizPlaceholder).
  *
- * Known types route to the three cards; ANY unknown type degrades to the
+ * Known types route to the two cards; ANY unknown type degrades to the
  * markdown fallback (PRD story 35, MVP1's degrade rule): title + plain
  * "label: display" lines in a plain bordered card — never crash, never
  * blank, so future card types can never break an older client.
@@ -15,7 +15,6 @@ import type { VizVariant } from '@/components/cards/vizVariant';
 import VizFrame from '@/components/cards/VizFrame';
 import StatBlockCard from '@/components/cards/StatBlockCard';
 import ComparisonTableCard from '@/components/cards/ComparisonTableCard';
-import ScoreBandCard from '@/components/cards/ScoreBandCard';
 import ExpandToPanelButton from '@/components/artifact/ExpandToPanelButton';
 
 function MarkdownFallbackCard({ spec, variant }: { spec: RenderSpec; variant: VizVariant }) {
@@ -38,8 +37,6 @@ function renderCard(spec: RenderSpec, variant: VizVariant) {
       return <StatBlockCard spec={spec} variant={variant} />;
     case 'comparison_table':
       return <ComparisonTableCard spec={spec} variant={variant} />;
-    case 'score_band':
-      return <ScoreBandCard spec={spec} variant={variant} />;
     default:
       return <MarkdownFallbackCard spec={spec} variant={variant} />;
   }
