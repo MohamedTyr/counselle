@@ -11,9 +11,9 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@librechat/client/utils';
 import type { SchoolRef } from '@/api/protocol';
+import SchoolDomainLink from '@/components/cards/SchoolDomainLink';
 import SchoolLogo from '@/components/cards/SchoolLogo';
 
 const OPEN_DELAY = 60; // ms — debounce hover so sweeping across logos doesn't flicker
@@ -24,7 +24,6 @@ export default function SchoolHeader({ school }: { school: SchoolRef }) {
   const timer = useRef<number | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const url = school.domain ? `https://${school.domain}` : null;
 
   const clearTimer = () => {
     if (timer.current !== null) {
@@ -115,21 +114,7 @@ export default function SchoolHeader({ school }: { school: SchoolRef }) {
               <div className="text-sm font-semibold leading-snug text-text-primary">
                 {school.name}
               </div>
-              {url && (
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group/link mt-1 inline-flex max-w-full items-center gap-1 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
-                >
-                  <span className="truncate">{school.domain}</span>
-                  <ArrowUpRight
-                    className="h-3.5 w-3.5 shrink-0 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 motion-reduce:transition-none"
-                    aria-hidden="true"
-                  />
-                  <span className="sr-only"> (opens in new tab)</span>
-                </a>
-              )}
+              <SchoolDomainLink domain={school.domain} className="mt-1" />
             </div>
           </div>
         </Popover.Content>

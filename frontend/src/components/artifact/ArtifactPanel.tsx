@@ -12,6 +12,8 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '@librechat/client/utils';
 import type { RenderSpec } from '@/api/protocol';
+import SchoolDomainLink from '@/components/cards/SchoolDomainLink';
+import SchoolLogo from '@/components/cards/SchoolLogo';
 import VizCard from '@/components/cards/VizCard';
 import { vizIcon, vizLabel } from '@/components/cards/vizMeta';
 
@@ -55,6 +57,9 @@ function PanelChrome({ spec, onClose }: { spec: RenderSpec; onClose: () => void 
   const Icon = vizIcon(spec.type);
   const { ref, scrolled, onScroll } = useScrolled();
   const showFooter = hasCitableValue(spec);
+  // A single-school spec (the dossier) leads with its logo, not the generic
+  // type glyph — the same identity the chat card shows, scaled up for the panel.
+  const single = spec.schools.length === 1 ? spec.schools[0] : null;
 
   return (
     <>
@@ -65,12 +70,21 @@ function PanelChrome({ spec, onClose }: { spec: RenderSpec; onClose: () => void 
           scrolled && 'shadow-md',
         )}
       >
-        <span
-          aria-hidden="true"
-          className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-light bg-surface-primary-alt text-text-secondary"
-        >
-          <Icon className="h-[18px] w-[18px]" />
-        </span>
+        {single ? (
+          <SchoolLogo
+            name={single.name}
+            domain={single.domain}
+            size={40}
+            className="mt-0.5 shadow-sm"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-light bg-surface-primary-alt text-text-secondary"
+          >
+            <Icon className="h-[18px] w-[18px]" />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-tertiary">
             {label}
@@ -78,10 +92,14 @@ function PanelChrome({ spec, onClose }: { spec: RenderSpec; onClose: () => void 
           <h2 className="mt-0.5 text-base font-semibold leading-snug text-text-primary [overflow-wrap:anywhere]">
             {spec.title}
           </h2>
-          {spec.schools.length > 0 && (
-            <p className="mt-1.5 text-xs leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
-              {spec.schools.map((s) => s.name).join('  ·  ')}
-            </p>
+          {single ? (
+            <SchoolDomainLink domain={single.domain} className="mt-1.5" />
+          ) : (
+            spec.schools.length > 0 && (
+              <p className="mt-1.5 text-xs leading-relaxed text-text-secondary [overflow-wrap:anywhere]">
+                {spec.schools.map((s) => s.name).join('  ·  ')}
+              </p>
+            )
           )}
         </div>
         <button

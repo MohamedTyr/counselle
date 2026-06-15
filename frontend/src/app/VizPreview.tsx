@@ -161,8 +161,8 @@ const realWorld: RenderSpec = {
 const statBlock: RenderSpec = {
   v: 1,
   type: 'stat_block',
-  title: 'New York University at a glance',
-  schools: [{ unitid: 1, name: 'New York University' }],
+  title: 'New York University — at a glance',
+  schools: [{ unitid: 1, name: 'New York University', domain: 'nyu.edu' }],
   rows: [
     { label: 'Acceptance rate', cells: [env('12.5%')] },
     { label: 'Undergrad enrollment', cells: [env('29,401', { citation: cite({ source: 'ipeds' }) })] },
@@ -183,8 +183,8 @@ const statBlock: RenderSpec = {
 const scoreBand: RenderSpec = {
   v: 1,
   type: 'score_band',
-  title: 'SAT middle 50% — New York University',
-  schools: [{ unitid: 1, name: 'New York University' }],
+  title: 'SAT middle 50% (enrolled students — not a cutoff)',
+  schools: [{ unitid: 1, name: 'New York University', domain: 'nyu.edu' }],
   band: { test: 'sat' },
   rows: [
     {
