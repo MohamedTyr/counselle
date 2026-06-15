@@ -85,6 +85,25 @@ async def test_comparison_table_emits_spec_with_envelope_cells(catalog: Catalog)
             assert cell.citation.vintage
 
 
+async def test_comparison_table_schools_carry_website_domain(catalog: Catalog) -> None:
+    """Each school resolves its registrable website host live (for the client logo)."""
+    registry = SourceRegistry()
+    viz_emitted: list[dict[str, Any]] = []
+    payload = await render_viz(
+        catalog,
+        registry,
+        viz_emitted,
+        type="comparison_table",
+        unitids=[DUKE, HARVARD],
+        field_keys=[ACCEPTANCE_RATE, TUITION_IN_STATE],
+    )
+    assert payload["ok"] is True
+    spec = RenderSpec.model_validate(viz_emitted[0])
+    domains = {school.unitid: school.domain for school in spec.schools}
+    assert domains[DUKE] == "duke.edu"
+    assert domains[HARVARD] == "harvard.edu"
+
+
 async def test_comparison_table_payload_carries_no_numbers(catalog: Catalog) -> None:
     registry = SourceRegistry()
     viz_emitted: list[dict[str, Any]] = []

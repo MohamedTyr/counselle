@@ -1602,7 +1602,7 @@ html {
   padding-left: 1rem;
 }
 
-.markdown table {
+.markdown table:not(:where([class~='not-prose'] *)) {
   --tw-border-spacing-x: 0px;
   --tw-border-spacing-y: 0px;
   border-collapse: separate;
@@ -1610,7 +1610,7 @@ html {
   width: 100%;
 }
 
-.markdown th {
+.markdown th:not(:where([class~='not-prose'] *)) {
   background-color: rgba(236, 236, 241, 0.2);
   border-bottom-width: 1px;
   border-left-width: 1px;
@@ -1618,31 +1618,31 @@ html {
   padding: 0.25rem 0.75rem;
 }
 
-.markdown th:first-child {
+.markdown th:first-child:not(:where([class~='not-prose'] *)) {
   border-top-left-radius: 0.375rem;
 }
 
-.markdown th:last-child {
+.markdown th:last-child:not(:where([class~='not-prose'] *)) {
   border-right-width: 1px;
   border-color: #d1d5db;
   border-top-right-radius: 0.375rem;
 }
 
-.markdown td {
+.markdown td:not(:where([class~='not-prose'] *)) {
   border-bottom-width: 1px;
   border-left-width: 1px;
   padding: 0.25rem 0.75rem;
 }
 
-.markdown td:last-child {
+.markdown td:last-child:not(:where([class~='not-prose'] *)) {
   border-right-width: 1px;
 }
 
-.markdown tbody tr:last-child td:first-child {
+.markdown tbody tr:last-child td:first-child:not(:where([class~='not-prose'] *)) {
   border-bottom-left-radius: 0.375rem;
 }
 
-.markdown tbody tr:last-child td:last-child {
+.markdown tbody tr:last-child td:last-child:not(:where([class~='not-prose'] *)) {
   border-bottom-right-radius: 0.375rem;
 }
 
@@ -1852,7 +1852,7 @@ html {
 .dark .markdown blockquote {
   border-color: var(--gray-600);
 }
-.markdown table {
+.markdown table:not(:where([class~='not-prose'] *)) {
   --tw-border-spacing-x: 0px;
   --tw-border-spacing-y: 0px;
   border-collapse: separate;
@@ -1860,7 +1860,7 @@ html {
   width: 100%;
   border-color: var(--gray-300);
 }
-.markdown th {
+.markdown th:not(:where([class~='not-prose'] *)) {
   background-color: var(--gray-100);
   border-bottom-width: 1px;
   border-left-width: 1px;
@@ -1869,37 +1869,37 @@ html {
   padding: 0.25rem 0.75rem;
   font-weight: 600;
 }
-.dark .markdown th {
+.dark .markdown th:not(:where([class~='not-prose'] *)) {
   border-color: var(--gray-600);
   background-color: var(--gray-600);
 }
-.markdown th:first-child {
+.markdown th:first-child:not(:where([class~='not-prose'] *)) {
   border-top-left-radius: 0.75rem;
 }
-.markdown th:last-child {
+.markdown th:last-child:not(:where([class~='not-prose'] *)) {
   border-right-width: 1px;
   border-top-right-radius: 0.75rem;
 }
-.markdown td {
+.markdown td:not(:where([class~='not-prose'] *)) {
   border-bottom-width: 1px;
   border-left-width: 1px;
   border-color: var(--gray-300);
   padding: 0.25rem 0.75rem;
 }
-.markdown td:last-child {
+.markdown td:last-child:not(:where([class~='not-prose'] *)) {
   border-right-width: 1px;
   border-color: var(--gray-300);
 }
-.dark .markdown td {
+.dark .markdown td:not(:where([class~='not-prose'] *)) {
   border-color: var(--gray-600);
 }
-.dark .markdown td:last-child {
+.dark .markdown td:last-child:not(:where([class~='not-prose'] *)) {
   border-color: var(--gray-600);
 }
-.markdown tbody tr:last-child td:first-child {
+.markdown tbody tr:last-child td:first-child:not(:where([class~='not-prose'] *)) {
   border-bottom-left-radius: 0.75rem;
 }
-.markdown tbody tr:last-child td:last-child {
+.markdown tbody tr:last-child td:last-child:not(:where([class~='not-prose'] *)) {
   border-bottom-right-radius: 0.75rem;
 }
 .markdown a {
@@ -2956,4 +2956,35 @@ html {
 
 .sharepoint-picker-bg {
   background-color: #f5f5f5;
+}
+
+/* Artifact panel entrances (feat/viz-design-polish). Gated behind motion-safe
+   at the call site, so prefers-reduced-motion gets the panel instantly. */
+@keyframes artifact-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes artifact-sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes artifact-scrim {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

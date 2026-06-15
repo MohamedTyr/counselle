@@ -54,7 +54,13 @@ export type CitationEnvelope = {
 
 // ── Specs (domain/specs.py) ──────────────────────────────────────────────────
 
-export type SchoolRef = { unitid: number; name: string };
+export type SchoolRef = {
+  unitid: number;
+  name: string;
+  /** Registrable host of the school's website (e.g. "nyu.edu"); the client
+   *  builds a favicon URL from it and falls back to a monogram when absent. */
+  domain?: string | null;
+};
 
 export type VizRow = { label: string; cells: CitationEnvelope[] };
 

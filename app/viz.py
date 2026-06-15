@@ -23,6 +23,7 @@ from counselle_db.models import FieldKeyError, ResolveMatch, ServiceError
 from counselle_db.service import compare_schools, get_values, resolve_school
 from domain.envelope import CitationEnvelope
 from domain.specs import RenderSpec, SchoolRef, ScoreBand, VizRow
+from domain.urls import registrable_domain
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,44 @@ _BAND_ROWS: dict[str, list[tuple[str, list[str]]]] = {
 _TEST_DISPLAY = {"sat": "SAT", "act": "ACT", "both": "SAT & ACT"}
 
 
+#: The DB field whose value is each school's official website (R8: scheme may be
+#: absent). The host drives the client-side logo; ``registrable_domain`` is robust
+#: to both ``https://www.x.edu/`` and bare ``www.x.edu/`` shapes.
+_WEBSITE_KEY = "institution.website"
+
+
 async def _school_ref(catalog: Catalog, unitid: int) -> SchoolRef:
     """Resolve a unitid to a named SchoolRef; unknown unitid → ServiceError."""
     result = await resolve_school(catalog, str(unitid))
     if not isinstance(result, ResolveMatch):
         raise ServiceError(f"unitid {unitid} is not in our database")
     return SchoolRef(unitid=unitid, name=result.school.name)
+
+
+async def _domains(catalog: Catalog, unitids: list[int]) -> dict[int, str | None]:
+    """Map each unitid → its website host, in ONE batched query.
+
+    Best-effort and never fatal: a school with no website (or a website we can't
+    parse to a host) maps to ``None``, and any DB hiccup degrades the whole map to
+    empty — a viz without logos still renders. Logos are decoration, never data.
+    """
+    if not unitids:
+        return {}
+    try:
+        result = await compare_schools(catalog, unitids, [_WEBSITE_KEY])
+    except Exception:
+        logger.warning("viz: website lookup failed for %s; rendering without logos", unitids)
+        return {}
+    cells = result.rows[0].cells if result.rows else []
+    return {
+        school.unitid: (registrable_domain(cell.display) if cell.available else None)
+        for school, cell in zip(result.schools, cells, strict=False)
+    }
+
+
+def _with_domains(schools: list[SchoolRef], domains: dict[int, str | None]) -> list[SchoolRef]:
+    """Attach each school's website host (immutably) so the client can show a logo."""
+    return [school.model_copy(update={"domain": domains.get(school.unitid)}) for school in schools]
 
 
 async def _comparison_spec(
@@ -60,6 +93,7 @@ async def _comparison_spec(
         raise ServiceError("comparison_table needs field_keys — pick the fields that matter here")
     result = await compare_schools(catalog, unitids, field_keys)
     schools = [SchoolRef(unitid=s.unitid, name=s.name) for s in result.schools]
+    schools = _with_domains(schools, await _domains(catalog, [s.unitid for s in schools]))
     rows = [VizRow(label=row.label, cells=row.cells) for row in result.rows]
     if not rows:
         unknown = [error.field for error in result.errors]
@@ -79,6 +113,7 @@ async def _stat_block_spec(
         raise ServiceError("stat_block needs field_keys — pick the fields that matter here")
     unitid = unitids[0]  # a stat block is one school (ADR 0014)
     school = await _school_ref(catalog, unitid)
+    school = _with_domains([school], await _domains(catalog, [unitid]))[0]
     envelopes = await get_values(catalog, unitid, field_keys)
     rows = [
         VizRow(label=env.label, cells=[env])
@@ -111,6 +146,7 @@ async def _score_band_spec(
     if test not in _BAND_ROWS:
         raise ServiceError("score_band requires test='sat' | 'act' | 'both'")
     schools = [await _school_ref(catalog, unitid) for unitid in unitids]
+    schools = _with_domains(schools, await _domains(catalog, [s.unitid for s in schools]))
     rows: list[VizRow] = []
     for school in schools:
         for row_label, keys in _BAND_ROWS[test]:

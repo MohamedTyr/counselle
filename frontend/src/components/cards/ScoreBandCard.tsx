@@ -8,6 +8,8 @@
  * PERMANENT — rendered unconditionally at the card bottom.
  */
 import type { CitationEnvelope, RenderSpec, ScoreBand, VizRow } from '@/api/protocol';
+import VizFrame from '@/components/cards/VizFrame';
+import type { VizVariant } from '@/components/cards/vizVariant';
 
 const ACT_SCALE = { min: 1, max: 36 };
 const SAT_SECTION_SCALE = { min: 200, max: 800 };
@@ -70,16 +72,16 @@ function BandRow({ row, band }: { row: VizRow; band: ScoreBand | null | undefine
   );
 }
 
-export default function ScoreBandCard({ spec }: { spec: RenderSpec }) {
+export default function ScoreBandCard({
+  spec,
+  variant = 'card',
+}: {
+  spec: RenderSpec;
+  variant?: VizVariant;
+}) {
   return (
-    <div className="not-prose my-3 w-full rounded-xl border border-border-light bg-surface-primary-alt p-4">
-      <div className="text-sm font-semibold text-text-primary">{spec.title}</div>
-      {spec.schools.length > 0 && (
-        <div className="mt-0.5 text-xs text-text-secondary">
-          {spec.schools.map((s) => s.name).join(' · ')}
-        </div>
-      )}
-      <div className="mt-2 divide-y divide-border-light">
+    <VizFrame title={spec.title} schools={spec.schools} variant={variant}>
+      <div className="divide-y divide-border-light">
         {spec.rows.map((row, i) => (
           <BandRow key={`${row.label}-${i}`} row={row} band={spec.band} />
         ))}
@@ -88,6 +90,6 @@ export default function ScoreBandCard({ spec }: { spec: RenderSpec }) {
       <div className="mt-3 border-t border-border-light pt-2 text-xs text-text-secondary">
         {TEACHING_CAPTION}
       </div>
-    </div>
+    </VizFrame>
   );
 }

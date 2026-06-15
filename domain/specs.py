@@ -62,10 +62,17 @@ class ClarifySpec(BaseModel):
 
 
 class SchoolRef(BaseModel):
-    """A school as named in a visualization."""
+    """A school as named in a visualization.
+
+    ``domain`` is the registrable host of the school's ``institution.website``
+    (e.g. ``nyu.edu``), derived live from the DB — the client builds a favicon
+    URL from it and degrades to a monogram when absent or when the CDN fails.
+    Never a stored/hardcoded logo.
+    """
 
     unitid: int
     name: str
+    domain: str | None = None
 
 
 class VizRow(BaseModel):

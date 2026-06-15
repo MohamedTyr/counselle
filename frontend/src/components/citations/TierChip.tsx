@@ -33,6 +33,29 @@ export function tierLabel(source: SourceName | string): string {
   return SOURCE_LABELS[source as SourceName] ?? source;
 }
 
+// Fuller, human-readable source names for the citation popover header — the one
+// place provenance is spelled out in full (honesty: name the authority, never a
+// raw enum). Falls back to the short label for unknown sources.
+const SOURCE_DISPLAY_NAMES: Record<SourceName, string> = {
+  cds: 'Common Data Set',
+  ipeds: 'IPEDS',
+  scorecard: 'College Scorecard',
+  web: 'Web',
+  edu: 'University website',
+  reddit: 'Reddit',
+};
+
+/** The expanded source name for the citation popover (e.g. cds → "Common Data
+ *  Set"); unknown sources fall back to the short label. */
+export function sourceDisplayName(source: SourceName | string): string {
+  return SOURCE_DISPLAY_NAMES[source as SourceName] ?? tierLabel(source);
+}
+
+/** The provenance-grammar word for a tier (the squint test, spelled out). */
+export function tierWord(tier: Tier): string {
+  return isCommunityTier(tier) ? 'Community voice' : 'Official source';
+}
+
 interface TierChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   tier: Tier;
   children?: ReactNode;

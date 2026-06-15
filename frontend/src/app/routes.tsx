@@ -1,4 +1,6 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import type { RouteObject } from 'react-router-dom';
 import Root from '~/routes/Root';
 import StartupLayout from '~/routes/Layouts/Startup';
 import { Login, Registration, RequestPasswordReset, ResetPassword } from '~/components/Auth';
@@ -23,6 +25,23 @@ function AuthedShell({ children }: { children: React.ReactNode }) {
 //   - data === null (401)  → genuinely logged out → /login;
 //   - isError (non-401)    → server/network/timeout → an honest retry state,
 //     NEVER a bounce to /login (the student may well be authed).
+// Dev-only viz-card preview harness. Lazy + DEV-gated so it is never reachable
+// in (or bundled into the entry chunk of) a production build — it exists purely
+// to eyeball the cards in isolation during development.
+const VizPreview = lazy(() => import('@/app/VizPreview'));
+const devOnlyRoutes: RouteObject[] = import.meta.env.DEV
+  ? [
+      {
+        path: '/viz-preview',
+        element: (
+          <Suspense fallback={null}>
+            <VizPreview />
+          </Suspense>
+        ),
+      },
+    ]
+  : [];
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading, isError, refetch } = useMe();
   if (isLoading) {
@@ -91,4 +110,5 @@ export const router = createBrowserRouter([
     path: '/sampler',
     element: <Sampler />,
   },
+  ...devOnlyRoutes,
 ]);

@@ -203,6 +203,33 @@ describe('comparison table never winner-highlights', () => {
     const values = [screen.getByText('$45,000'), screen.getByText('$95,000')];
     expect(values[0].className).toBe(values[1].className);
   });
+
+  test('the table has an accessible name equal to its title', () => {
+    render(
+      <VizCard
+        spec={spec({
+          type: 'comparison_table',
+          // A distinct title (not the spec() default) so this asserts the table's
+          // aria-label is actually bound to spec.title, not a coincidental match.
+          title: 'Cost: MIT vs. Harvard',
+          schools: [
+            { unitid: 1, name: 'School A' },
+            { unitid: 2, name: 'School B' },
+          ],
+          rows: [
+            {
+              label: 'Median earnings',
+              cells: [
+                env({ display: '$45,000', raw: 45000 }),
+                env({ display: '$95,000', raw: 95000 }),
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByRole('table', { name: 'Cost: MIT vs. Harvard' })).toBeInTheDocument();
+  });
 });
 
 describe('unknown card type → markdown fallback (the degrade rule)', () => {

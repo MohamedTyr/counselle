@@ -5,6 +5,7 @@
  */
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
+import type { RenderSpec } from '@/api/protocol';
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
@@ -41,3 +42,16 @@ export const activeConversationIdAtom = atom<string | null>(null);
 export const enterToSendAtom = atomWithStorage<boolean>('enterToSend', true, undefined, {
   getOnInit: true,
 });
+
+// ── Artifact panel ──────────────────────────────────────────────────────────
+
+/**
+ * The viz spec currently opened in the right-side artifact panel, or null when
+ * closed. A dense card (esp. the comparison table) opens here to get full
+ * viewport height + width instead of scrolling inside the chat bubble. Single
+ * slot: opening a new card replaces the open one. Cleared on conversation
+ * switch and on Esc/close.
+ */
+export type ArtifactPanelState = { spec: RenderSpec } | null;
+
+export const artifactPanelAtom = atom<ArtifactPanelState>(null);
