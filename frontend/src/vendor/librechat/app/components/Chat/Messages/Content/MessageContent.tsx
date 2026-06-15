@@ -161,6 +161,10 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
         <div
           className={cn(
             'markdown prose message-content dark:prose-invert light w-full break-words',
+            // The editorial answer surface (counselle-answer.css) — assistant
+            // turns only; user bubbles keep the cloned prose. Scoped so it never
+            // reaches the viz cards / sources footer (they're `.not-prose`).
+            !isCreatedByUser && 'counselle-answer',
             isSubmitting && 'submitting',
             showCursorState && text.length > 0 && 'result-streaming',
             isCreatedByUser && !enableUserMsgMarkdown && 'whitespace-pre-wrap',

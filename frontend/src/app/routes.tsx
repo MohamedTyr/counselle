@@ -27,19 +27,32 @@ function AuthedShell({ children }: { children: React.ReactNode }) {
 //     NEVER a bounce to /login (the student may well be authed).
 // Dev-only viz-card preview harness. Lazy + DEV-gated so it is never reachable
 // in (or bundled into the entry chunk of) a production build — it exists purely
-// to eyeball the cards in isolation during development.
-const VizPreview = lazy(() => import('@/app/VizPreview'));
+// to eyeball the cards in isolation during development. The `lazy()` calls live
+// INSIDE the DEV branch so their dynamic `import()` chunks are statically dead in
+// production and never leak into the bundle.
 const devOnlyRoutes: RouteObject[] = import.meta.env.DEV
-  ? [
-      {
-        path: '/viz-preview',
-        element: (
-          <Suspense fallback={null}>
-            <VizPreview />
-          </Suspense>
-        ),
-      },
-    ]
+  ? (() => {
+      const VizPreview = lazy(() => import('@/app/VizPreview'));
+      const MessagePreview = lazy(() => import('@/app/MessagePreview'));
+      return [
+        {
+          path: '/viz-preview',
+          element: (
+            <Suspense fallback={null}>
+              <VizPreview />
+            </Suspense>
+          ),
+        },
+        {
+          path: '/message-preview',
+          element: (
+            <Suspense fallback={null}>
+              <MessagePreview />
+            </Suspense>
+          ),
+        },
+      ];
+    })()
   : [];
 
 function AuthGate({ children }: { children: React.ReactNode }) {
