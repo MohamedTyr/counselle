@@ -275,10 +275,10 @@ def test_detail_for_db_tool_kind(mapper: StepMapper) -> None:
 
 def test_detail_for_viz_kind(mapper: StepMapper) -> None:
     detail = mapper.detail_for(
-        "render_viz", {"type": "score_band", "unitids": [221999]}, {"ok": True}, 10
+        "render_viz", {"type": "comparison_table", "unitids": [221999]}, {"ok": True}, 10
     )
 
-    assert detail.viz_type == "score_band"
+    assert detail.viz_type == "comparison_table"
     assert detail.schools == ["Vanderbilt University"]
 
 

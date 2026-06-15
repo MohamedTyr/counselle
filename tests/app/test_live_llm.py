@@ -126,10 +126,6 @@ def _assert_markers_in_registry(events: list[Event]) -> None:
     assert cited <= indices, f"prose cites {sorted(cited - indices)} not in the registry"
 
 
-def _row_fields(row: dict[str, Any]) -> list[str]:
-    return [cell["field"] for cell in row["cells"]]
-
-
 # ---------------------------------------------------------------------------
 # 1. Duke overview
 # ---------------------------------------------------------------------------
@@ -254,35 +250,7 @@ async def test_5_pitzer_reddit_disabled_never_cites_reddit(rt: Runtime) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 6. Stanford SAT range → score band (the §17 honesty trap)
-# ---------------------------------------------------------------------------
-
-
-async def test_6_stanford_sat_range_renders_section_bands(rt: Runtime) -> None:
-    session_id = str(uuid4())
-    try:
-        events = await _turn(rt, session_id, "What's Stanford's SAT range?", label="sat-band")
-
-        _assert_clean_complete(events)
-        bands = [viz for viz in _vizzes(events) if viz["type"] == "score_band"]
-        assert bands, f"no score_band viz; got {[v['type'] for v in _vizzes(events)]}"
-        band = bands[0]
-        # Two per-section SAT rows: one EBRW row, one Math row...
-        assert any(all("sat_ebrw" in field for field in _row_fields(row)) for row in band["rows"])
-        assert any(all("sat_math" in field for field in _row_fields(row)) for row in band["rows"])
-        # ...and NEVER a fabricated composite row mixing the sections.
-        for row in band["rows"]:
-            fields = _row_fields(row)
-            assert not (
-                any("sat_ebrw" in field for field in fields)
-                and any("sat_math" in field for field in fields)
-            ), f"fabricated SAT composite row: {row['label']}"
-    finally:
-        await _cleanup(rt, session_id)
-
-
-# ---------------------------------------------------------------------------
-# 7. Duke vs Vanderbilt admission rates — the activity timeline (B1a)
+# 6. Duke vs Vanderbilt admission rates — the activity timeline (B1a)
 # ---------------------------------------------------------------------------
 
 
@@ -290,7 +258,7 @@ def _steps(events: list[Event]) -> list[dict[str, Any]]:
     return [event.data for event in events if event.type == "step"]
 
 
-async def test_7_compare_admission_rates_streams_a_clean_step_timeline(rt: Runtime) -> None:
+async def test_6_compare_admission_rates_streams_a_clean_step_timeline(rt: Runtime) -> None:
     session_id = str(uuid4())
     try:
         events = await _turn(

@@ -112,7 +112,7 @@ def test_parts_skip_empty_deltas_and_ignore_steps_thinking() -> None:
 
 
 def test_parts_viz_only_turn() -> None:
-    spec = {"type": "score_band"}
+    spec = {"type": "stat_block"}
     assert build_parts([("viz", spec)]) == [{"type": "viz", "spec": spec}]
 
 

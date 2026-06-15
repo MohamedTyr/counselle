@@ -36,8 +36,10 @@ describe('citation popover content matches the envelope', () => {
       </CitationPopover>,
     );
     fireEvent.click(screen.getByText('IPEDS'));
-    // The popover shows citation.source verbatim (display-name mapping is B5).
-    expect(screen.getByText('ipeds', { selector: 'span.font-semibold' })).toBeInTheDocument();
+    // The popover spells out the source name (sourceDisplayName) + the tier
+    // grammar word, never the raw lowercase enum.
+    expect(screen.getByText('IPEDS', { selector: 'span.font-semibold' })).toBeInTheDocument();
+    expect(screen.getByText('Official source')).toBeInTheDocument();
     expect(screen.getByText('IPEDS 2024-25 (provisional)')).toBeInTheDocument();
     expect(screen.getByText('Provisional release — final figures may shift.')).toBeInTheDocument();
   });
@@ -96,7 +98,8 @@ describe('CitationRef materializes as the text streams', () => {
     const chip = screen.getByText('2');
     expect(chip).toHaveAttribute('data-tier', 'community');
     fireEvent.click(chip);
-    expect(screen.getByText('reddit')).toBeInTheDocument();
+    expect(screen.getByText('Reddit')).toBeInTheDocument();
+    expect(screen.getByText('Community voice')).toBeInTheDocument();
     expect(screen.getByText('2026')).toBeInTheDocument();
   });
 });

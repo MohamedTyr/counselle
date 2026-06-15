@@ -29,4 +29,4 @@ Restricting the agent to the 8 tracked schools made the product artificially nar
 ## Consequences
 - **Deep-research cost is no longer bounded by school count** (was ~8, now up to 2,746). Cost control now rests entirely on the *other* levers (ADR 0009): **DB-first** (a dossier for a non-CDS school still comes mostly from IPEDS/Scorecard with no web spend — web only fills genuine gaps), depth/breadth caps, cheap-model routing, and caching. Watch this.
 - The CDS-sparsity caveat in `DATABASE_GUIDE` now applies broadly: for most schools the agent leans on IPEDS/Scorecard and must say so when a student asks for CDS-only detail (e.g. factor weights) that isn't available.
-- The factor-weight-grid visualization (deferred, ADR 0014) only renders for extracted-CDS schools; the score band and everything IPEDS/Scorecard-backed works for all schools.
+- The factor-weight-grid visualization (deferred, ADR 0014) only renders for extracted-CDS schools; everything IPEDS/Scorecard-backed works for all schools.

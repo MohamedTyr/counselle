@@ -6,6 +6,11 @@ Settings field, for the same reason: ``domain/`` must not depend on ``config/``.
 Swapping CDNs is a one-line edit here. Nothing is hardcoded *per source* — the
 host is always derived live from the data (a school's ``institution.website``
 domain, or a search result's URL).
+
+``FAVICON_CDN_BASE``/``favicon_url`` here serve only the search-step source chips
+(``app/steps.py``); the viz-card school logos use a separate, richer multi-CDN
+chain in ``frontend/src/components/cards/schoolLogo.ts`` (the backend emits only
+the ``domain`` string).
 """
 
 from __future__ import annotations

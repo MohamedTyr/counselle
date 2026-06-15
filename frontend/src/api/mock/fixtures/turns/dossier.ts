@@ -19,7 +19,7 @@ import { deltas } from './deltas';
 const NYU = { unitid: 193900, name: 'New York University' };
 const BU = { unitid: 164988, name: 'Boston University' };
 
-// FE-4: compact envelope factory for the added comparison/score-band specs.
+// FE-4: compact envelope factory for the added comparison spec.
 type CellOpts = {
   available?: boolean;
   caveat?: string | null;
@@ -150,32 +150,6 @@ const STAT_BLOCK: RenderSpec = {
       ],
     },
   ],
-  band: null,
-};
-
-// FE-4: the SAT middle-50% band — cells[0] = p25, cells[1] = p75 per section.
-const SCORE_BAND: RenderSpec = {
-  v: 1,
-  type: 'score_band',
-  title: 'NYU SAT middle 50% — enrolled, Fall 2025',
-  schools: [NYU],
-  rows: [
-    {
-      label: 'SAT EBRW',
-      cells: [
-        cell('adm.sat_ebrw_25', 'SAT EBRW 25th', '720', 720, { vintage: 'CDS 2025-26 (C9)' }),
-        cell('adm.sat_ebrw_75', 'SAT EBRW 75th', '770', 770, { vintage: 'CDS 2025-26 (C9)' }),
-      ],
-    },
-    {
-      label: 'SAT Math',
-      cells: [
-        cell('adm.sat_math_25', 'SAT Math 25th', '750', 750, { vintage: 'CDS 2025-26 (C9)' }),
-        cell('adm.sat_math_75', 'SAT Math 75th', '800', 800, { vintage: 'CDS 2025-26 (C9)' }),
-      ],
-    },
-  ],
-  band: { test: 'sat' },
 };
 
 // FE-4: NYU vs BU — 4 rows × 2 schools, exactly one NA cell (BU yield).
@@ -227,7 +201,6 @@ const COMPARISON: RenderSpec = {
       ],
     },
   ],
-  band: null,
 };
 
 const SOURCES: SourceEntry[] = [
@@ -533,37 +506,12 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
   },
   { v: 1, type: 'viz', data: STAT_BLOCK },
   ...deltas(AFTER_VIZ),
-  {
-    v: 1,
-    type: 'step',
-    data: {
-      step_id: 's7',
-      status: 'start',
-      kind: 'viz',
-      label: 'Building a score band: NYU SAT middle 50%',
-      tier: 'official',
-      detail: null,
-    },
-  },
-  {
-    v: 1,
-    type: 'step',
-    data: {
-      step_id: 's7',
-      status: 'end',
-      kind: 'viz',
-      label: 'Building a score band: NYU SAT middle 50%',
-      tier: 'official',
-      detail: { viz_type: 'score_band', schools: ['New York University'], duration_ms: 320 },
-    },
-  },
-  { v: 1, type: 'viz', data: SCORE_BAND },
   ...deltas(COMPARE_PROSE),
   {
     v: 1,
     type: 'step',
     data: {
-      step_id: 's8',
+      step_id: 's7',
       status: 'start',
       kind: 'viz',
       label: 'Building a comparison: NYU vs Boston University',
@@ -575,7 +523,7 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
     v: 1,
     type: 'step',
     data: {
-      step_id: 's8',
+      step_id: 's7',
       status: 'end',
       kind: 'viz',
       label: 'Building a comparison: NYU vs Boston University',
@@ -593,7 +541,7 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
   {
     v: 1,
     type: 'usage',
-    data: { input_tokens: 18432, output_tokens: 1287, est_cost_usd: 0.041, tool_calls: 6 },
+    data: { input_tokens: 18432, output_tokens: 1287, est_cost_usd: 0.041, tool_calls: 5 },
   },
   { v: 1, type: 'done', data: { status: 'complete' } },
 ];

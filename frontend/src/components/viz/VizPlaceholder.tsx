@@ -1,14 +1,13 @@
 /**
  * FE-3 placeholder for in-stream `viz` blocks — a labeled card at the spec's
  * exact in-stream position. FE-4 replaces this with the real stat-block /
- * comparison-table / score-band renderers (architecture.md §29).
+ * comparison-table renderers (architecture.md §29).
  */
 import type { RenderSpec } from '@/api/protocol';
 
 const TYPE_LABELS: Record<string, string> = {
   stat_block: 'Stat block',
   comparison_table: 'Comparison table',
-  score_band: 'Score band',
 };
 
 export default function VizPlaceholder({ spec }: { spec: RenderSpec }) {

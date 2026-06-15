@@ -10,7 +10,11 @@
 import type { SourceEntry } from '@/api/protocol';
 import { isSafeUrl } from '@/api/url';
 import CitationPopover from '@/components/citations/CitationPopover';
-import TierChip, { isCommunityTier, tierLabel } from '@/components/citations/TierChip';
+import TierChip, {
+  isCommunityTier,
+  sourceDisplayName,
+  tierLabel,
+} from '@/components/citations/TierChip';
 
 function SourceRow({ entry }: { entry: SourceEntry }) {
   const { citation } = entry;
@@ -33,10 +37,10 @@ function SourceRow({ entry }: { entry: SourceEntry }) {
             rel="noopener noreferrer"
             className="hover:underline"
           >
-            {citation.source}
+            {sourceDisplayName(citation.source)}
           </a>
         ) : (
-          citation.source
+          sourceDisplayName(citation.source)
         )}
       </span>
       <span className="text-xs text-text-secondary">{citation.vintage}</span>

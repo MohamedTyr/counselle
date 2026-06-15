@@ -1,19 +1,51 @@
 /**
  * ComparisonTableCard — the school comparison table (PRD stories 30–32).
  *
- * Real table: sticky first column (the dimension), schools as columns,
- * horizontal scroll past two schools. Per-cell citations open on tap
- * (popover — hover doesn't exist on phones). NA cells render the designed
- * muted state, visibly distinct from zero. ABSOLUTELY NO winner-highlighting
- * (PRD story 31 — honesty as restraint): every value cell gets the
- * identical treatment regardless of magnitude.
+ * Editorial data table: schools are the anchoring columns, the dimension is a
+ * sticky first column. Each value is the hero with its provenance stacked
+ * quietly beneath it (a tier-dotted SourceTag, tap to cite — hover doesn't
+ * exist on phones). NA cells render the designed muted state, visibly distinct
+ * from zero. ABSOLUTELY NO winner-highlighting (PRD story 31 — honesty as
+ * restraint): every value cell gets the identical treatment regardless of
+ * magnitude.
+ *
+ * Layout is `table-fixed` + a `<colgroup>` so columns share width predictably
+ * and long content WRAPS (`overflow-wrap:anywhere`) instead of blowing a column
+ * out. The two variants make a deliberate trade:
+ *   - inline (`card`): a horizontal-scroll escape hatch with a dynamic min-width
+ *     so many schools stay legible; the metric column pins while you scroll.
+ *   - sideview (`panel`): no min-width, so dense data wraps to fit the panel
+ *     without a horizontal scrollbar; the header row and metric column both
+ *     stick so you never lose context down a long list of rows.
  */
+import { cn } from '@librechat/client/utils';
 import type { CitationEnvelope, RenderSpec } from '@/api/protocol';
+import { NotAvailableValue } from '@/components/cards/NotAvailable';
+import SchoolHeader from '@/components/cards/SchoolHeader';
+import VizFrame from '@/components/cards/VizFrame';
+import type { VizVariant } from '@/components/cards/vizVariant';
 import CitationPopover from '@/components/citations/CitationPopover';
-import TierChip, { tierLabel } from '@/components/citations/TierChip';
-import { NotAvailableValue } from '@/components/cards/StatBlockCard';
+import SourceTag from '@/components/citations/SourceTag';
+import { tierLabel } from '@/components/citations/TierChip';
 
-const VALUE_CELL_CLASS = 'px-3 py-2 text-sm text-text-primary';
+// Comfortable per-column minimums (px), applied ONLY inline where the card can
+// scroll horizontally past them. The panel prefers wrapping (no min-width).
+const METRIC_COL_MIN = 148;
+const SCHOOL_COL_MIN = 128;
+
+// Every value cell is structurally identical (PRD story 31): same padding, same
+// text class, no per-magnitude styling. `overflow-wrap:anywhere` lets long
+// qualitative values ("Mostly positive") wrap rather than force a wide column.
+const VALUE_CELL_CLASS = 'px-4 py-3 align-top';
+const VALUE_TEXT_CLASS =
+  'text-sm font-medium tabular-nums text-text-primary [overflow-wrap:anywhere]';
+
+/** Metric column share of the table; the schools split the remainder evenly. */
+function metricColumnWidth(schoolCount: number): string {
+  if (schoolCount <= 2) return '36%';
+  if (schoolCount === 3) return '28%';
+  return '22%';
+}
 
 function ComparisonCell({ cell }: { cell: CitationEnvelope | undefined }) {
   if (!cell || !cell.available) {
@@ -25,52 +57,89 @@ function ComparisonCell({ cell }: { cell: CitationEnvelope | undefined }) {
   }
   return (
     <td className={VALUE_CELL_CLASS}>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="tabular-nums">{cell.display}</span>
+      <div className="flex flex-col items-start gap-1.5">
+        <span className={VALUE_TEXT_CLASS}>{cell.display}</span>
         <CitationPopover citation={cell.citation}>
-          <TierChip tier={cell.citation.tier}>{tierLabel(cell.citation.source)}</TierChip>
+          <SourceTag tier={cell.citation.tier}>{tierLabel(cell.citation.source)}</SourceTag>
         </CitationPopover>
-      </span>
+      </div>
     </td>
   );
 }
 
-export default function ComparisonTableCard({ spec }: { spec: RenderSpec }) {
-  return (
-    <div className="not-prose my-3 w-full rounded-xl border border-border-light bg-surface-primary-alt p-4">
-      <div className="text-sm font-semibold text-text-primary">{spec.title}</div>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-border-light">
-              <th className="sticky left-0 z-10 bg-surface-primary-alt px-3 py-2 text-xs font-medium text-text-secondary" />
-              {spec.schools.map((school) => (
-                <th
-                  key={school.unitid}
-                  className="whitespace-nowrap px-3 py-2 text-xs font-semibold text-text-primary"
-                >
-                  {school.name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {spec.rows.map((row, i) => (
-              <tr key={`${row.label}-${i}`} className="border-b border-border-light last:border-b-0">
-                <th
-                  scope="row"
-                  className="sticky left-0 z-10 whitespace-nowrap bg-surface-primary-alt px-3 py-2 text-sm font-normal text-text-secondary"
-                >
-                  {row.label}
-                </th>
-                {spec.schools.map((school, col) => (
-                  <ComparisonCell key={school.unitid} cell={row.cells[col]} />
-                ))}
-              </tr>
+export default function ComparisonTableCard({
+  spec,
+  variant = 'card',
+}: {
+  spec: RenderSpec;
+  variant?: VizVariant;
+}) {
+  const isPanel = variant === 'panel';
+  const schoolCount = spec.schools.length;
+
+  const metricThClass = cn(
+    'border-r border-border-light bg-surface-primary-alt px-4 py-2.5',
+    'text-[10.5px] font-medium uppercase tracking-wider text-text-secondary',
+    isPanel ? 'sticky left-0 top-0 z-30' : 'sticky left-0 z-10',
+  );
+  const schoolThClass = cn(
+    'px-4 py-2.5 align-middle',
+    isPanel && 'sticky top-0 z-20 bg-surface-primary-alt',
+  );
+  const rowHeaderClass = cn(
+    'sticky left-0 z-10 border-r border-border-light bg-surface-primary-alt px-4 py-3 align-top',
+    'text-sm font-normal text-text-primary [overflow-wrap:anywhere]',
+    'transition-colors group-hover:bg-surface-hover',
+  );
+
+  // Inline only: keep many-school tables legible by letting them scroll.
+  const tableMinWidth = isPanel ? undefined : METRIC_COL_MIN + schoolCount * SCHOOL_COL_MIN;
+
+  const table = (
+    <table
+      aria-label={spec.title}
+      className="w-full table-fixed border-collapse text-left"
+      style={tableMinWidth ? { minWidth: `${tableMinWidth}px` } : undefined}
+    >
+      <colgroup>
+        <col style={{ width: metricColumnWidth(schoolCount) }} />
+        {spec.schools.map((school) => (
+          <col key={school.unitid} />
+        ))}
+      </colgroup>
+      <thead>
+        <tr className="border-y border-border-light">
+          <th scope="col" className={metricThClass}>
+            Metric
+          </th>
+          {spec.schools.map((school) => (
+            <th key={school.unitid} scope="col" className={schoolThClass}>
+              <SchoolHeader school={school} />
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {spec.rows.map((row, i) => (
+          <tr
+            key={`${row.label}-${i}`}
+            className="group border-b border-border-light transition-colors last:border-b-0 hover:bg-surface-hover"
+          >
+            <th scope="row" className={rowHeaderClass}>
+              {row.label}
+            </th>
+            {spec.schools.map((school, col) => (
+              <ComparisonCell key={school.unitid} cell={row.cells[col]} />
             ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  return (
+    <VizFrame title={spec.title} variant={variant} flush>
+      {isPanel ? table : <div className="overflow-x-auto">{table}</div>}
+    </VizFrame>
   );
 }

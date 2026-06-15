@@ -42,7 +42,7 @@ For programs and diversity (Section D sub-data and Section E):
 Present the dossier in this order. Each section heading matches the shortlist:
 
 **A — Admissions & Selectivity**
-Lead with the accept rate (prefer Scorecard `admissions.acceptance_rate` over IPEDS). Add test policy and score ranges. If cds_extracted: add factor weights, GPA distribution, ED/EA dates. Score ranges go in a `score_band` viz — call `render_viz(type="score_band", unitids=[unitid], test="both")`. Teach the middle-50% meaning when you show it.
+Lead with the accept rate (prefer Scorecard `admissions.acceptance_rate` over IPEDS). Add test policy and score ranges. If cds_extracted: add factor weights, GPA distribution, ED/EA dates. Describe the SAT/ACT middle-50% ranges from the field values (keep SAT EBRW and Math separate — never a composite), and teach the middle-50% meaning when you show them.
 
 **B — Cost & Aid**
 Show tuition (in-state and out-of-state), room and board, net price by income band, Pell %, and median debt. Net price by income band is the most student-useful cost number. Note COA composition caveat if room_and_board is null — check the sibling field `cost.on_campus_room_board_other`. If cds_extracted: add % need met and avg aid package.

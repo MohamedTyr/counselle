@@ -65,7 +65,6 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
         type: str,
         unitids: list[int],
         field_keys: Any,
-        test: Any,
         title: Any,
     ) -> RenderSpec:
         return _CANNED_SPEC
@@ -104,7 +103,6 @@ _CANNED_SPEC = RenderSpec(
             ],
         )
     ],
-    band=None,
 )
 
 
