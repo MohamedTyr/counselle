@@ -14,7 +14,16 @@ import type { SourceEntry } from '@/api/protocol';
 import { useEscToClose } from '@/components/artifact/ArtifactPanel';
 import SourcesList, { displaySourceCount } from '@/components/citations/SourcesList';
 
-function SourcesChrome({ sources, onClose }: { sources: SourceEntry[]; onClose: () => void }) {
+type SourcesViewProps = {
+  sources: SourceEntry[];
+  /** Marker index opened from an inline pill — scrolled to + flashed. */
+  activeIndex?: number | null;
+  /** Schools the figures cover, for the Counselle card subline. */
+  dbSchools?: string[];
+  onClose: () => void;
+};
+
+function SourcesChrome({ sources, activeIndex, dbSchools, onClose }: SourcesViewProps) {
   // The header counts what SourcesList renders: one "Counselle data" entry for
   // all structured figures + each external page.
   const count = displaySourceCount(sources);
@@ -35,24 +44,29 @@ function SourcesChrome({ sources, onClose }: { sources: SourceEntry[]; onClose: 
         </button>
       </header>
 
-      <SourcesList sources={sources} />
+      <SourcesList sources={sources} activeIndex={activeIndex} dbSchools={dbSchools} />
     </>
   );
 }
 
-export function SourcesPanel({ sources, onClose }: { sources: SourceEntry[]; onClose: () => void }) {
+export function SourcesPanel({ sources, activeIndex, dbSchools, onClose }: SourcesViewProps) {
   useEscToClose(onClose);
   return (
     <aside
       aria-label="Sources panel"
       className="flex h-full w-full flex-col overflow-hidden bg-surface-primary motion-safe:[animation:artifact-in_.28s_cubic-bezier(.16,1,.3,1)]"
     >
-      <SourcesChrome sources={sources} onClose={onClose} />
+      <SourcesChrome
+        sources={sources}
+        activeIndex={activeIndex}
+        dbSchools={dbSchools}
+        onClose={onClose}
+      />
     </aside>
   );
 }
 
-export function SourcesSheet({ sources, onClose }: { sources: SourceEntry[]; onClose: () => void }) {
+export function SourcesSheet({ sources, activeIndex, dbSchools, onClose }: SourcesViewProps) {
   return (
     <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
@@ -62,7 +76,12 @@ export function SourcesSheet({ sources, onClose }: { sources: SourceEntry[]; onC
           className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-surface-primary shadow-2xl focus:outline-none motion-safe:[animation:artifact-sheet-in_.3s_cubic-bezier(.16,1,.3,1)] md:hidden"
         >
           <Dialog.Title className="sr-only">Sources for this answer</Dialog.Title>
-          <SourcesChrome sources={sources} onClose={onClose} />
+          <SourcesChrome
+            sources={sources}
+            activeIndex={activeIndex}
+            dbSchools={dbSchools}
+            onClose={onClose}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

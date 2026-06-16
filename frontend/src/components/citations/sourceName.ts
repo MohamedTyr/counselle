@@ -69,9 +69,18 @@ export function friendlySourceName(citation: Citation): string {
   return host ?? 'Source';
 }
 
-/** The school name a DB label leads with (`"NYU — Common Data Set…"` → `"NYU"`). */
+/**
+ * The school name a DB label leads with (`"NYU — Common Data Set…"` → `"NYU"`).
+ *
+ * Returns `null` when the label has no ` — ` separator: a bare dataset vintage
+ * like `"IPEDS 2024-25"` is NOT a school name, and must never masquerade as one
+ * (honesty — see ADR 0006). The school name only ever precedes the separator.
+ */
 export function schoolFromDbLabel(label: string): string | null {
-  const [head] = label.split(' — ');
-  const name = head?.trim();
-  return name && name.length > 0 ? name : null;
+  const sepIndex = label.indexOf(' — ');
+  if (sepIndex === -1) {
+    return null;
+  }
+  const name = label.slice(0, sepIndex).trim();
+  return name.length > 0 ? name : null;
 }

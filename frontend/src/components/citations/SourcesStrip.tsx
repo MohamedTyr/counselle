@@ -22,6 +22,11 @@ type SourcesStripProps = {
   /** Marker indexes cited in this message's prose (wire-contract §5). When
    *  given, only these sources are summarised. */
   citedIndexes?: Set<number>;
+  /** Overrides the count in the "{n} sources" label (favicons still come from
+   *  `sources`). Lets the strip show externals-only logos while the label still
+   *  reflects the full cited set — the Counselle card counting as one — so the
+   *  strip and the panel header agree. */
+  displayCount?: number;
   /** Opens the full sources panel. */
   onOpen: () => void;
 };
@@ -41,15 +46,28 @@ function Badge({ entry, stacked }: { entry: SourceEntry; stacked: boolean }) {
   );
 }
 
-export default function SourcesStrip({ sources, citedIndexes, onOpen }: SourcesStripProps) {
+export default function SourcesStrip({
+  sources,
+  citedIndexes,
+  displayCount,
+  onOpen,
+}: SourcesStripProps) {
   const cited =
     citedIndexes !== undefined ? sources.filter((s) => citedIndexes.has(s.index)) : sources;
-  if (cited.length === 0) {
+  // A DB-only answer has zero external favicons but still cites sources, so the
+  // strip must appear so the student can open the panel's Counselle card. Gate
+  // on the EFFECTIVE count (the full cited set when `displayCount` is supplied),
+  // not on the favicons actually shown.
+  const effectiveCount = displayCount ?? cited.length;
+  if (effectiveCount === 0) {
     return null;
   }
 
   const badges = cited.slice(0, MAX_BADGES);
-  const countLabel = `${cited.length} ${cited.length === 1 ? 'source' : 'sources'}`;
+  // The label counts the full cited set (Counselle card = 1) when `displayCount`
+  // is supplied; otherwise it falls back to the favicons actually shown.
+  const labelCount = effectiveCount;
+  const countLabel = `${labelCount} ${labelCount === 1 ? 'source' : 'sources'}`;
 
   return (
     <button

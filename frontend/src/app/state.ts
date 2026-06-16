@@ -63,7 +63,21 @@ export const artifactPanelAtom = atom<ArtifactPanelState>(null);
 // mutually exclusive: opening either clears the other (write-only atoms below).
 // `null` when closed; cleared on conversation switch (ChatView) and Esc/close.
 
-export const sourcesPanelAtom = atom<SourceEntry[] | null>(null);
+/**
+ * The open sources panel's full state:
+ *  - `sources`: the cited set for one answer (Counselle card + externals).
+ *  - `activeIndex`: the marker index opened from an inline pill (scrolls + flashes
+ *    its row); `null` when opened from the strip (no specific row).
+ *  - `dbSchools`: school names for the Counselle-data card subline, derived from
+ *    the answer's viz blocks / DB source labels (empty ⇒ generic truthful copy).
+ */
+export type SourcesPanelState = {
+  sources: SourceEntry[];
+  activeIndex: number | null;
+  dbSchools: string[];
+} | null;
+
+export const sourcesPanelAtom = atom<SourcesPanelState>(null);
 
 /** Open a viz card in the right rail, replacing whatever was there. */
 export const openArtifactPanelAtom = atom(null, (_get, set, spec: RenderSpec) => {
@@ -72,7 +86,10 @@ export const openArtifactPanelAtom = atom(null, (_get, set, spec: RenderSpec) =>
 });
 
 /** Open an answer's sources in the right rail, replacing whatever was there. */
-export const openSourcesPanelAtom = atom(null, (_get, set, sources: SourceEntry[]) => {
-  set(artifactPanelAtom, null);
-  set(sourcesPanelAtom, sources);
-});
+export const openSourcesPanelAtom = atom(
+  null,
+  (_get, set, panel: NonNullable<SourcesPanelState>) => {
+    set(artifactPanelAtom, null);
+    set(sourcesPanelAtom, panel);
+  },
+);

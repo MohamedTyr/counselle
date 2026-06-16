@@ -50,7 +50,7 @@ export default function ChatView() {
   // The right rail shows at most one of these — opening either clears the other
   // (state.ts write atoms), so this is a single physical panel.
   const [artifact, setArtifact] = useAtom(artifactPanelAtom);
-  const [sources, setSources] = useAtom(sourcesPanelAtom);
+  const [sourcesPanel, setSources] = useAtom(sourcesPanelAtom);
   const isDesktop = useIsDesktop();
 
   const methods = useForm<ChatFormValues>({ defaultValues: { text: '' } });
@@ -68,7 +68,7 @@ export default function ChatView() {
   }, [urlConversationId, setActiveConversationId, setArtifact, setSources]);
 
   const isLandingPage = messages.length === 0 && !urlConversationId;
-  const rightPanelOpen = artifact !== null || sources !== null;
+  const rightPanelOpen = artifact !== null || sourcesPanel !== null;
   const showDocked = rightPanelOpen && isDesktop;
   const showSheet = rightPanelOpen && !isDesktop;
   // Stable identities so the panels' Esc/keydown effects don't re-subscribe on
@@ -138,8 +138,13 @@ export default function ChatView() {
               maxSize="68%"
               className="min-w-0"
             >
-              {sources !== null ? (
-                <SourcesPanel sources={sources} onClose={closeSources} />
+              {sourcesPanel !== null ? (
+                <SourcesPanel
+                  sources={sourcesPanel.sources}
+                  activeIndex={sourcesPanel.activeIndex}
+                  dbSchools={sourcesPanel.dbSchools}
+                  onClose={closeSources}
+                />
               ) : artifact !== null ? (
                 <ArtifactPanel spec={artifact.spec} onClose={closeArtifact} />
               ) : null}
@@ -147,8 +152,15 @@ export default function ChatView() {
           )}
         </ResizablePanelGroup>
       </div>
-      {showSheet && sources !== null && <SourcesSheet sources={sources} onClose={closeSources} />}
-      {showSheet && sources === null && artifact !== null && (
+      {showSheet && sourcesPanel !== null && (
+        <SourcesSheet
+          sources={sourcesPanel.sources}
+          activeIndex={sourcesPanel.activeIndex}
+          dbSchools={sourcesPanel.dbSchools}
+          onClose={closeSources}
+        />
+      )}
+      {showSheet && sourcesPanel === null && artifact !== null && (
         <ArtifactSheet spec={artifact.spec} onClose={closeArtifact} />
       )}
     </ChatFormProvider>
