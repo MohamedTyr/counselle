@@ -128,6 +128,21 @@ class Settings(BaseSettings):
     # overflow is effectively unreachable (a consumer that still falls off the
     # head is terminated with an `error` event — never silently skipped).
     stream_buffer_size: int = 20_000
+    # Process-wide byte budget shared across EVERY live turn's ring buffer.
+    # The real OOM guard: stream_buffer_size bounds one turn's event COUNT,
+    # this bounds the TOTAL bytes held by all in-flight buffers. When a new
+    # event would push the global total over budget, the oldest events across
+    # the appending buffer are evicted (head-only) — a consumer that then
+    # falls off the head is terminated honestly with an `error` (BC-05/06).
+    # 256 MiB default ≈ comfortably below a 512 MiB–1 GiB container; tune per
+    # deploy. The accumulator lives on the TurnRegistry and is decremented on
+    # eviction and at finalize.
+    stream_buffer_bytes: int = 256 * 1024 * 1024
+    # Bound each partial-persist DB round so a wedged DB at cancel/timeout
+    # can't hold the single-flight session claim forever (BC-08). On timeout
+    # the partial is lost (logged) but the turn still finalizes + frees the
+    # claim — a stuck DB never permanently 409s a session.
+    persist_partial_timeout_s: float = 5.0
     # Watchdog: a turn exceeding this terminates with `error` (G5 — never
     # done(cancelled): the student didn't press stop), partial persisted.
     turn_timeout_s: int = 180

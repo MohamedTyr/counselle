@@ -75,6 +75,22 @@ def test_derive_receipt_counts_one_per_step_id() -> None:
     assert derive_receipt(steps, []) == "1 database lookup"
 
 
+def test_derive_receipt_other_bucket_never_negative() -> None:
+    # BC-20: the "other" bucket is clamped to >= 0 — a receipt must never render
+    # a negative step count. With real (disjoint) kinds the formula is already
+    # >= 0; assert the clamp by checking a mixed list with an uncounted `skill`
+    # kind exercises the other > 0 branch correctly, and that no segment is
+    # negative for any combination.
+    steps = [_step("s1", "db_tool"), _step("s2", "web_search"), _step("s3", "skill")]
+    receipt = derive_receipt(steps, [])
+    assert receipt == "1 database lookup · 1 web search · 1 step"
+    # The core honesty assertion: never a negative number anywhere.
+    assert "-" not in receipt
+    # An all-counted list produces no spurious "step" segment (other == 0).
+    counted = [_step("s1", "db_tool"), _step("s2", "viz")]
+    assert derive_receipt(counted, []) == "1 database lookup · 1 visualization"
+
+
 # ---------------------------------------------------------------------------
 # build_parts — materialized prose, self-contained record (no offsets)
 # ---------------------------------------------------------------------------

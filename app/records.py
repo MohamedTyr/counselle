@@ -90,7 +90,10 @@ def derive_receipt(steps: list[dict[str, Any]], thinking: list[str]) -> str:
     web = sum(1 for k in kinds if k in ("web_search", "edu_search"))
     reddit = sum(1 for k in kinds if k == "reddit_search")
     viz = sum(1 for k in kinds if k == "viz")
-    other = len(kinds) - db - web - reddit - viz
+    # Clamp defensively (BC-20): with the current StepKind literal the buckets
+    # are disjoint so this is already >= 0, but a future kind that joins two
+    # buckets would underflow to a nonsense "-1 steps" — never show that.
+    other = max(0, len(kinds) - db - web - reddit - viz)
     labels: list[str] = []
     if db:
         labels.append(f"{db} database {'lookup' if db == 1 else 'lookups'}")

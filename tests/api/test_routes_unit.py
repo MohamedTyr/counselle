@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -478,7 +478,6 @@ def test_stream_yields_error_event_when_enrich_usage_raises() -> None:
     """When enrich_usage_event raises on the buffer-fill path, the stream must
     end with an error event (the registry's after-commit error fallback)."""
     import json
-    from unittest.mock import patch
 
     test_session_uuid = "00000000-0000-4000-8000-000000000098"
     test_session_id = test_session_uuid
@@ -728,3 +727,78 @@ def test_post_message_422_for_invalid_edit_target() -> None:
     assert response.status_code == 422
     body = response.json()
     assert "error" in body
+
+
+# ---------------------------------------------------------------------------
+# BC-12 / BC-21: a rejected start() must NOT persist source-config or title
+# ---------------------------------------------------------------------------
+
+
+def test_422_does_not_overwrite_source_config_or_title() -> None:
+    """BC-12: a 422 (bogus replace_message_id on a fresh session) returns before
+    any source-config / title write — the claim-then-persist reorder means the
+    rejected message leaves the stored row untouched."""
+    app, session_id = _known_session_app()
+    with (
+        patch.object(session_routes, "set_session_source_config", new=AsyncMock()) as cfg_w,
+        patch.object(session_routes, "set_session_title", new=AsyncMock()) as title_w,
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "text": "edited",
+                "source_config": {"web": True, "reddit": False, "edu": False},
+                "replace_message_id": str(__import__("uuid").uuid4()),
+            },
+        )
+    assert response.status_code == 422
+    # The rejected message wrote NOTHING — neither sticky source-config nor title.
+    cfg_w.assert_not_awaited()
+    title_w.assert_not_awaited()
+
+
+async def test_409_does_not_overwrite_source_config_or_title() -> None:
+    """BC-12 / BC-21: a second POST that 409s while a turn is in flight must NOT
+    overwrite the stored source-config or stamp a title from the rejected prompt
+    (the rapid double-submit case). The first message's writes still land."""
+    import asyncio
+
+    import httpx
+
+    from domain.events import ev_meta
+
+    gate = asyncio.Event()
+
+    async def hung_run_turn(sid: str, text: str, *args: Any, **kwargs: Any) -> Any:
+        yield ev_meta("t-409bc12", sid, "model-x", "m-1", "um-1")
+        await gate.wait()
+
+    app, session_id = _known_session_app(run_turn_fn=hung_run_turn)
+    registry = app.state.turn_registry
+
+    with (
+        patch.object(session_routes, "set_session_source_config", new=AsyncMock()) as cfg_w,
+        patch.object(session_routes, "set_session_title", new=AsyncMock()) as title_w,
+    ):
+        # Hold the claim with a first in-flight turn (started via the registry).
+        await registry.start(session_id, "first message")
+        try:
+            assert registry.is_generating(session_id) is True
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.post(
+                    f"/v1/sessions/{session_id}/messages",
+                    json={
+                        "text": "second message",
+                        "source_config": {"web": True, "reddit": True, "edu": True},
+                    },
+                )
+            assert resp.status_code == 409
+            # The 409'd second POST wrote NOTHING (claim-then-persist, BC-12).
+            cfg_w.assert_not_awaited()
+            title_w.assert_not_awaited()
+        finally:
+            gate.set()
+            await registry.cancel(session_id)

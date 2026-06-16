@@ -42,6 +42,7 @@ Lifecycle semantics (G3/G4/G5, all decided in the ship plan):
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import AsyncGenerator, AsyncIterator, Callable
@@ -63,6 +64,10 @@ _USER_SAFE_TIMEOUT = "This took too long on our side — please try asking again
 _USER_SAFE_FELL_BEHIND = (
     "Your connection fell behind the live answer — please reload to see the full response."
 )
+
+#: Flat per-event overhead added to the JSON byte estimate (BC-01) — covers
+#: the Event wrapper, the list slot, and dict/list object headers.
+_EVENT_OVERHEAD_BYTES = 256
 
 CancelOutcome = Literal["cancelled", "unparked", "idle"]
 
@@ -99,20 +104,50 @@ class InvalidEditTarget(Exception):
     """
 
 
+def _event_nbytes(event: Event) -> int:
+    """Approximate heap cost of one buffered event (BC-01 byte accounting).
+
+    The compact JSON length is a cheap, deterministic, monotone proxy for the
+    event's footprint — exact byte counting of nested dicts is not worth it
+    (KISS); we only need a stable size to drive the shared budget. A constant
+    per-object overhead covers the Event wrapper + list slot.
+    """
+    try:
+        return len(json.dumps(event.data, separators=(",", ":"))) + _EVENT_OVERHEAD_BYTES
+    except (TypeError, ValueError):
+        # An unserializable payload should never reach here, but never let
+        # sizing crash the producer — charge a flat fallback.
+        return _EVENT_OVERHEAD_BYTES
+
+
 class _RingBuffer:
     """Append-only event log with head eviction; followers read by seq index.
 
     ``seq`` is the buffer index (starting at 0) — exactly the SSE ``id:``
     value, identical for every consumer. Eviction only ever drops the head
     (oldest); a follower that needs an evicted seq has fallen behind.
+
+    Eviction fires when EITHER the per-turn event cap (``maxsize``) OR the
+    process-wide byte budget (BC-01, enforced via ``on_charge``) is exceeded.
+    ``on_charge(delta)`` returns the budget's remaining headroom AFTER the
+    charge: a negative return means over budget → evict heads until it clears.
     """
 
-    def __init__(self, maxsize: int) -> None:
+    def __init__(
+        self,
+        maxsize: int,
+        *,
+        on_charge: Callable[[int], int],
+        on_refund: Callable[[int], None],
+    ) -> None:
         self._maxsize = max(1, maxsize)
         self._events: list[Event] = []
+        self._sizes: list[int] = []  # parallel to _events: each event's nbytes
         self.base = 0  # seq of self._events[0]
         self.closed = False
         self._flag = asyncio.Event()
+        self._on_charge = on_charge
+        self._on_refund = on_refund
 
     @property
     def next_seq(self) -> int:
@@ -122,15 +157,36 @@ class _RingBuffer:
         return self._events[seq - self.base]
 
     def append(self, event: Event) -> None:
+        if self.closed:
+            # Append-after-close is a logic bug (BC-05): a late terminal/
+            # enrichment must never land past the terminal a consumer already
+            # saw. Drop it loudly rather than corrupt the protocol.
+            logger.warning("append after close ignored (type=%s)", event.type)
+            return
+        nbytes = _event_nbytes(event)
         self._events.append(event)
-        if len(self._events) > self._maxsize:
+        self._sizes.append(nbytes)
+        headroom = self._on_charge(nbytes)
+        # Evict heads while over the event cap OR over the global byte budget,
+        # but never evict the only event (an empty buffer can't be read).
+        while len(self._events) > 1 and (len(self._events) > self._maxsize or headroom < 0):
+            evicted = self._sizes.pop(0)
             del self._events[0]
             self.base += 1
+            self._on_refund(evicted)
+            headroom += evicted
         self._notify()
 
     def close(self) -> None:
         self.closed = True
         self._notify()
+
+    def drop_all(self) -> None:
+        """Refund every still-held event's bytes to the shared budget — called
+        at finalize so an evicted-at-terminal buffer never leaks budget."""
+        for size in self._sizes:
+            self._on_refund(size)
+        self._sizes.clear()
 
     def _notify(self) -> None:
         flag, self._flag = self._flag, asyncio.Event()
@@ -177,12 +233,26 @@ class TurnRegistry:
         self._settings = settings
         self._run_turn = run_turn_fn or run_turn
         self._turns: dict[str, _Turn] = {}
+        #: Process-wide byte budget shared across every live ring buffer
+        #: (BC-01). Incremented on append, decremented on eviction and at
+        #: finalize. A new event that would exceed the budget triggers
+        #: head-eviction on the appending buffer (oldest-first) until it fits;
+        #: a consumer that falls off the head is terminated honestly (BC-05).
+        self._buffer_bytes_budget: int = getattr(
+            settings, "stream_buffer_bytes", 256 * 1024 * 1024
+        )
+        self._buffer_bytes_used: int = 0
         #: Tracked fire-and-forget hook tasks (the async ``on_turn_complete``
         #: path) — drained in ``aclose`` so a shutdown never abandons one
         #: against a closing pool.
         self._hook_tasks: set[asyncio.Task[None]] = set()
         #: B4's auto-title hook seam: called (guarded) with the session_id when
-        #: a turn reaches its terminal event. May be sync or async.
+        #: a turn reaches its terminal event. May be sync or async. INVARIANT
+        #: (BC-19): a SYNC hook MUST NOT block — it runs inline in _finalize on
+        #: the detached task AFTER the buffer is closed + the turn evicted, so a
+        #: blocking sync hook can't corrupt lifecycle state but would stall the
+        #: finalize coroutine. Heavy work belongs in an async hook (spawned,
+        #: drained in aclose). The auto-titler is async by design.
         self.on_turn_complete: Callable[[str], Any] | None = None
 
     # -- public surface ------------------------------------------------------
@@ -191,6 +261,20 @@ class TurnRegistry:
         """True while a turn is in flight for this session (B4's list dot)."""
         turn = self._turns.get(session_id)
         return turn is not None and not turn.finalized
+
+    # -- the shared byte budget (BC-01) -------------------------------------
+
+    def _charge_bytes(self, nbytes: int) -> int:
+        """Charge ``nbytes`` to the global budget; return remaining headroom
+        AFTER the charge (negative ⇒ over budget ⇒ the buffer evicts)."""
+        self._buffer_bytes_used += nbytes
+        return self._buffer_bytes_budget - self._buffer_bytes_used
+
+    def _refund_bytes(self, nbytes: int) -> None:
+        """Return ``nbytes`` to the global budget on eviction/finalize."""
+        self._buffer_bytes_used -= nbytes
+        if self._buffer_bytes_used < 0:  # defensive: never let it go negative
+            self._buffer_bytes_used = 0
 
     async def start(
         self,
@@ -212,6 +296,14 @@ class TurnRegistry:
         a registry lookup), so the starter always replays from seq 0 even if
         the turn finishes before the first read.
         """
+        # --- single-flight claim window: NO `await` from here through the
+        # `self._turns[session_id] = turn` assignment below (BC-10). asyncio's
+        # cooperative scheduling makes this check-and-claim atomic only because
+        # nothing yields inside it — adding an await here would let two POSTs
+        # both pass the check and double-claim the session. The rewrite-history
+        # await is AFTER the claim (the claim is held across it), which is
+        # correct: the claim is released in the `except BaseException` below if
+        # the rewrite fails.
         if session_id in self._turns:
             raise StreamActive(session_id)
         # The global backstop: a process-wide ceiling on detached turns so an
@@ -221,7 +313,11 @@ class TurnRegistry:
         max_turns = getattr(self._settings, "max_concurrent_turns", 50)
         if len(self._turns) >= max_turns:
             raise TooManyTurns(session_id)
-        buffer = _RingBuffer(getattr(self._settings, "stream_buffer_size", 20_000))
+        buffer = _RingBuffer(
+            getattr(self._settings, "stream_buffer_size", 20_000),
+            on_charge=self._charge_bytes,
+            on_refund=self._refund_bytes,
+        )
         turn = _Turn(session_id=session_id, user_text=text, user_id=user_id, buffer=buffer)
         self._turns[session_id] = turn  # the claim — released at the terminal
         try:
@@ -231,7 +327,12 @@ class TurnRegistry:
             self._turns.pop(session_id, None)
             raise
         turn.task = asyncio.create_task(self._drive(turn, source_config), name=f"turn-{session_id}")
-        turn.consumers += 1  # the starter is the first consumer (decremented in _follow)
+        # The starter's consumer slot is claimed on the generator's FIRST
+        # iteration (inside _follow), not here — a handle that is created but
+        # never driven (client RST before ASGI starts the body) must not leak
+        # a slot (BC-02). Release is symmetric in _follow's finally. The starter
+        # slot is uncapped by design (BC-18): the cap is enforced on attach only,
+        # never on the POST that created the turn.
         return self._follow(turn, None)
 
     def attach(
@@ -248,12 +349,20 @@ class TurnRegistry:
         max_consumers = getattr(self._settings, "max_consumers_per_turn", 8)
         if turn.consumers >= max_consumers:
             raise TooManyConsumers(session_id)
-        turn.consumers += 1  # claimed synchronously here (decremented in _follow)
+        # The cap is checked here (reject before handing out a handle), but the
+        # increment happens on _follow's first iteration so an undriven handle
+        # never leaks a slot (BC-02). Symmetric with the release in finally.
         return self._follow(turn, last_event_id)
 
     async def cancel(self, session_id: str) -> CancelOutcome:
         """G5: active → cancel-with-persistence (202); parked → unpark (204);
-        idle (incl. cancel racing completion) → no-op (204)."""
+        idle (incl. cancel racing completion) → no-op (204).
+
+        The active-cancel claim is single-flight: ``cancel_requested`` is set
+        SYNCHRONOUSLY here (no await between the guard read and the flag set),
+        so two concurrent cancels (the cancel route racing a delete) can't both
+        pass the guard and double-append the terminal / double-persist (BC-03).
+        """
         turn = self._turns.get(session_id)
         if (
             turn is not None
@@ -262,6 +371,7 @@ class TurnRegistry:
             and turn.task is not None
             and not turn.task.done()
         ):
+            turn.cancel_requested = True  # claim the cancel before any await
             await self._cancel_active(turn)
             return "cancelled"
         if await self._unpark_if_parked(session_id):
@@ -272,6 +382,12 @@ class TurnRegistry:
         """Drain every in-flight turn — their final state writes land NOW,
         before the caller closes the pools (the shutdown ordering rule).
 
+        A SHUTDOWN drain is NOT a user cancel: an active turn killed by a
+        redeploy is terminated with ``error`` (server-side termination), NOT
+        ``done(cancelled)`` — the student never pressed stop, so the transcript
+        must not read ``cancelled`` (BC-15, mirrors the watchdog's choice).
+        Parked sessions (no live task) are unparked as usual.
+
         Catches ``BaseException`` per session so one failure (incl. a
         ``CancelledError`` raised during drain) never leaves the rest
         undrained; the first ``CancelledError`` seen is re-raised after the loop
@@ -279,7 +395,7 @@ class TurnRegistry:
         first_cancelled: asyncio.CancelledError | None = None
         for session_id in list(self._turns):
             try:
-                await self.cancel(session_id)
+                await self._terminate_for_shutdown(session_id)
             except asyncio.CancelledError as exc:
                 if first_cancelled is None:
                     first_cancelled = exc
@@ -292,6 +408,23 @@ class TurnRegistry:
             await asyncio.gather(*self._hook_tasks, return_exceptions=True)
         if first_cancelled is not None:
             raise first_cancelled
+
+    async def _terminate_for_shutdown(self, session_id: str) -> None:
+        """Shutdown drain for one session: an ACTIVE turn is terminated with
+        ``error`` (server-side, not a user cancel — BC-15); anything else
+        (parked / idle) routes through the normal cancel/unpark path."""
+        turn = self._turns.get(session_id)
+        if (
+            turn is not None
+            and not turn.finalized
+            and not turn.cancel_requested
+            and turn.task is not None
+            and not turn.task.done()
+        ):
+            turn.cancel_requested = True  # claim it (same single-flight as cancel, BC-03)
+            await self._drain_active_with_error(turn)
+            return
+        await self._unpark_if_parked(session_id)
 
     # -- the detached task ----------------------------------------------------
 
@@ -330,22 +463,33 @@ class TurnRegistry:
                 turn.terminal_appended = True
                 turn.buffer.append(ev_error(_USER_SAFE_ERROR, turn.trace_id))
         finally:
-            # The honesty contract: every stream MUST end with a terminal event.
-            # If the task was cancelled by something OTHER than our own cancel
-            # path (an abrupt shutdown cancelling the bare task, say), no
-            # done/error was ever appended — without this, an attached consumer's
-            # stream would end on a silent buffer close. Append one error so no
-            # stream ever closes silently. (Our own cancel path owns the
-            # single-shot done(cancelled), guarded by cancel_requested.)
-            if not turn.cancel_requested and not turn.terminal_appended:
-                turn.terminal_appended = True
-                turn.buffer.append(ev_error(_USER_SAFE_ERROR, turn.trace_id))
+            # The honesty contract: every stream MUST end with exactly ONE
+            # terminal event. Our own cancel path (cancel_requested) owns the
+            # single-shot done(cancelled) and the finalize — skip both here so
+            # we never race a second terminal onto the buffer (BC-04). For any
+            # OTHER termination (an abrupt shutdown cancelling the bare task, a
+            # post-stream crash that already set terminal_appended), append a
+            # safety-net error ONLY if nothing terminal landed yet, then
+            # finalize. buffer.append is a no-op once closed (BC-05), so even a
+            # lost race can't push an event past the terminal.
             if not turn.cancel_requested:
+                if not turn.terminal_appended:
+                    turn.terminal_appended = True
+                    turn.buffer.append(ev_error(_USER_SAFE_ERROR, turn.trace_id))
                 self._finalize(turn)
             self._log_complete(turn, start_mono)
 
     def _observe(self, turn: _Turn, event: Event) -> Event:
-        """Track identity/emissions/usage from the stream; enrich usage events."""
+        """Track identity/emissions/usage from the stream; enrich usage events.
+
+        INVARIANT (BC-07): this runs on the SINGLE producer loop in ``_drive``
+        — it is the only thing between the model stream and the consumer-
+        visible buffer. It MUST stay O(1) per event and do no I/O / no awaits.
+        ``enrich_usage_event`` (the one non-trivial call) runs once per turn
+        (usage is terminal-ish) and is guarded. If any enrichment ever grows
+        heavy or needs I/O, move it OFF this loop (enrich lazily at yield,
+        cached) — never block the producer. Do not add per-event work here.
+        """
         kind = event.type
         if kind in ("done", "error"):
             turn.terminal_appended = True
@@ -387,6 +531,7 @@ class TurnRegistry:
             return
         turn.finalized = True
         turn.buffer.close()
+        turn.buffer.drop_all()  # BC-01: return this turn's bytes to the budget
         if self._turns.get(turn.session_id) is turn:
             del self._turns[turn.session_id]
         hook = self.on_turn_complete
@@ -433,9 +578,30 @@ class TurnRegistry:
     async def _follow(
         self, turn: _Turn, after_seq: int | None
     ) -> AsyncIterator[tuple[Event, int]]:
-        """Yield ``(event, seq)`` from the buffer: replay, then live-follow."""
+        """Yield ``(event, seq)`` from the buffer: replay, then live-follow.
+
+        The consumer slot is claimed on entry (the first time the generator is
+        actually driven) and released in ``finally`` — symmetric, so a handle
+        created but never iterated (client RST before ASGI starts the body)
+        never leaks a slot (BC-02).
+        """
         buffer = turn.buffer
         seq = 0 if after_seq is None else after_seq + 1
+        # A cursor AHEAD of the buffer (after_seq + 1 > next_seq) is stale or
+        # foreign — it belongs to a PREVIOUS turn whose buffer was evicted and
+        # replaced by this turn's fresh buffer (seq is per-turn, not
+        # per-session). Blocking on a future seq would silently skip this
+        # turn's early events (BC-06). Reset to a full replay from the head.
+        if seq > buffer.next_seq:
+            logger.info(
+                "Last-Event-ID %d ahead of buffer next_seq %d (foreign cursor) "
+                "— full replay from base (session_id=%s)",
+                after_seq,
+                buffer.next_seq,
+                turn.session_id,
+            )
+            seq = buffer.base
+        turn.consumers += 1
         try:
             while True:
                 flag = buffer.flag  # capture BEFORE the checks — no missed wakeup
@@ -466,8 +632,12 @@ class TurnRegistry:
     # -- cancel / watchdog (G5) -------------------------------------------------
 
     async def _cancel_active(self, turn: _Turn) -> None:
-        """Cancel the task, await propagation, persist the partial, terminal."""
-        turn.cancel_requested = True
+        """Cancel the task, await propagation, persist the partial, terminal.
+
+        ``cancel_requested`` is already set by the single caller ``cancel``
+        (BC-03) — set defensively here too so a direct call (tests) is safe.
+        """
+        turn.cancel_requested = True  # idempotent — cancel() already set it
         task = turn.task
         if task is None:  # guarded by the caller; defensive (asserts strip under -O)
             return
@@ -481,6 +651,33 @@ class TurnRegistry:
         await self._persist_partial_guarded(turn, status="cancelled", error=None)
         turn.terminal_appended = True
         turn.buffer.append(ev_done("cancelled"))  # the single-shot terminal
+        self._finalize(turn)
+
+    # Phase 3 (BC-09): fold with _cancel_active
+    async def _drain_active_with_error(self, turn: _Turn) -> None:
+        """Shutdown twin of ``_cancel_active`` (BC-15): cancel the task, await
+        propagation, persist the partial as ``error`` (server-side
+        termination), append the single-shot ``error`` terminal, finalize.
+
+        The ``cancel_requested`` flag is already set by the caller so
+        ``_drive``'s finally skips its own terminal (same contract as cancel)."""
+        task = turn.task
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("drained turn task raised (session_id=%s)", turn.session_id)
+        await self._persist_partial_guarded(
+            turn,
+            status="error",
+            error={"message": _USER_SAFE_ERROR, "trace_id": turn.trace_id},
+        )
+        turn.terminal_appended = True
+        turn.buffer.append(ev_error(_USER_SAFE_ERROR, turn.trace_id))
         self._finalize(turn)
 
     async def _handle_timeout(self, turn: _Turn, timeout_s: float) -> None:
@@ -502,28 +699,42 @@ class TurnRegistry:
     async def _persist_partial_guarded(
         self, turn: _Turn, *, status: str, error: dict[str, Any] | None
     ) -> None:
-        """Best-effort partial persistence — a write failure must never block
-        the terminal event the consumer is waiting on. One immediate retry (no
-        backoff): the partial the student watched stream should survive a
-        transient DB blip; a second failure is logged and swallowed."""
-        try:
-            await self._persist_partial(turn, status=status, error=error)
-            return
-        except Exception:
-            logger.warning(
-                "partial-turn persistence failed — retrying once (session_id=%s, status=%s)",
-                turn.session_id,
-                status,
-                exc_info=True,
-            )
-        try:
-            await self._persist_partial(turn, status=status, error=error)
-        except Exception:
-            logger.exception(
-                "partial-turn persistence failed after retry (session_id=%s, status=%s)",
-                turn.session_id,
-                status,
-            )
+        """Best-effort partial persistence — a write failure (or a DB HANG)
+        must never block the terminal event or hold the single-flight claim
+        (BC-08). Each attempt is bounded by ``persist_partial_timeout_s``; a
+        timeout is swallowed like any other failure so the caller proceeds to
+        the terminal + finalize. One immediate retry (no backoff): the partial
+        the student watched stream should survive a transient DB blip; a second
+        failure (or timeout) is logged and swallowed."""
+        timeout_s = getattr(self._settings, "persist_partial_timeout_s", 5.0)
+        for attempt in ("first", "retry"):
+            try:
+                async with asyncio.timeout(timeout_s):
+                    await self._persist_partial(turn, status=status, error=error)
+                return
+            except TimeoutError:
+                logger.warning(
+                    "partial-turn persistence timed out after %ss (%s attempt) "
+                    "— the turn still finalizes (session_id=%s, status=%s)",
+                    timeout_s,
+                    attempt,
+                    turn.session_id,
+                    status,
+                )
+            except Exception:
+                logger.warning(
+                    "partial-turn persistence failed (%s attempt) "
+                    "(session_id=%s, status=%s)",
+                    attempt,
+                    turn.session_id,
+                    status,
+                    exc_info=True,
+                )
+        logger.error(
+            "partial-turn persistence gave up after retry (session_id=%s, status=%s)",
+            turn.session_id,
+            status,
+        )
 
     async def _persist_partial(
         self, turn: _Turn, *, status: str, error: dict[str, Any] | None

@@ -132,6 +132,12 @@ def _parse_last_event_id(raw: str | None) -> int | None:
 
     A malformed, negative, or absurdly large value degrades to ``None`` (full
     replay) — never a 500. Only ``0 <= n < _MAX_EVENT_ID`` is honoured.
+
+    The ceiling is a sanity bound on garbage, NOT relevance: a cursor from a
+    PREVIOUS turn can be small yet still foreign to the current turn's buffer.
+    The real guard is server-side in ``TurnRegistry._follow`` (BC-06): a cursor
+    ahead of the buffer's ``next_seq`` triggers a full replay from the head,
+    never a silent skip.
     """
     if raw is None:
         return None
@@ -229,17 +235,12 @@ async def post_message(
     settings = request.app.state.settings
     pool = request.app.state.runtime.app_pool
 
-    # Source-config stickiness (PRD story 10): a per-message toggle is upserted
-    # onto the row so it survives devices/cleared storage; the session read seeds
-    # the dropdown from it. Done before the turn starts.
-    if body.source_config is not None:
-        await set_session_source_config(pool, sid, body.source_config.model_dump(mode="json"))
-
-    # Default title on first message: stamp the (truncated) question so the chat
-    # has a name immediately; the on_turn_complete hook may upgrade it later.
-    if row.get("title") is None:
-        await set_session_title(pool, sid, default_title(body.text, settings.title_max_len))
-
+    # BC-12: claim before side-effect writes.
+    # Claim the session FIRST (single-flight): a rejected start (409/503/422)
+    # must NOT mutate the stored source-config or stamp a title from a prompt
+    # that never ran (BC-12). The per-turn effective config is passed into
+    # start() directly; the sticky persistence + default title land only after
+    # the claim succeeds.
     try:
         stream = await _registry(request).start(
             sid,
@@ -261,6 +262,16 @@ async def post_message(
         # fixed user-safe line goes out, the detail is logged server-side.
         logger.warning("invalid edit target", session_id=sid, exc_info=True)
         return _error_json(422, "That message can't be edited.", trace_id)  # type: ignore[return-value]
+
+    # The claim succeeded — now persist the side effects (BC-12).
+    # Source-config stickiness (PRD story 10): upsert the per-message toggle so
+    # it survives devices/cleared storage; the session read seeds the dropdown.
+    if body.source_config is not None:
+        await set_session_source_config(pool, sid, body.source_config.model_dump(mode="json"))
+    # Default title on first message: stamp the (truncated) question so the chat
+    # has a name immediately; the on_turn_complete hook may upgrade it later.
+    if row.get("title") is None:
+        await set_session_title(pool, sid, default_title(body.text, settings.title_max_len))
 
     return _sse_response(stream, request)
 

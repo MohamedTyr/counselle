@@ -38,8 +38,13 @@ def encode_sse(event: Event, seq: int) -> ServerSentEvent:
     Args:
         event: The domain protocol event to encode.
         seq:   Monotonically increasing sequence number for the ``id:`` field.
-               Clients use this for reconnect/Last-Event-ID; it must be unique
-               within a stream but need not be globally unique.
+               Clients use this for reconnect/Last-Event-ID; it is unique within
+               a turn's buffer but NOT across turns. A client that persists a
+               Last-Event-ID across a turn boundary is handled safely
+               server-side (BC-06): a cursor ahead of the new turn's buffer
+               triggers a full replay, never a silent skip. The ``v:1`` field on
+               every frame is accepted wire overhead (no protocol change this
+               phase — master plan §5).
 
     Returns:
         A :class:`sse_starlette.sse.ServerSentEvent` ready to be yielded from

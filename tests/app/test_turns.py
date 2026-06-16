@@ -40,8 +40,9 @@ from app.turns import (
     TooManyConsumers,
     TooManyTurns,
     TurnRegistry,
+    _RingBuffer,
 )
-from domain.events import Event
+from domain.events import Event, ev_delta, ev_done
 from domain.specs import SourceConfig
 from tests.app.test_run_turn import (
     _ALL_OFF,
@@ -665,12 +666,17 @@ async def test_aclose_drains_in_flight_turns_and_lands_their_writes() -> None:
 
     # The task is gone, the partial landed BEFORE aclose returned (so the
     # caller can safely close the pools next), the stream terminated cleanly.
+    # BC-15: a shutdown drain is NOT a user cancel — the active turn is
+    # terminated with `error` (status="error"), never done(cancelled). The old
+    # `cancelled` assertion encoded the BC-15 bug; this correction is intentional.
     assert registry.is_generating(session_id) is False
     pairs = await collector.done()
-    assert pairs[-1][0].data["status"] == "cancelled"
+    types = [e.type for e, _ in pairs]
+    assert pairs[-1][0].type == "error"
+    assert "done" not in types
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
-    assert record["status"] == "cancelled"
+    assert record["status"] == "error"
     assert prose_of(record["parts"]) == _prose(pairs)
 
 
@@ -705,7 +711,10 @@ async def test_aclose_with_a_live_turn_over_a_parked_session_drains_and_frees() 
 
     assert registry2.is_generating(live_sid) is False
     pairs = await collector.done()
-    assert pairs[-1][0].data["status"] == "cancelled"
+    # BC-15: the live turn drained by aclose ends with `error` (server-side
+    # termination), not done(cancelled) — error has no `status` field, it carries
+    # message/trace_id. Intentional correction of the old `cancelled` assertion.
+    assert pairs[-1][0].type == "error"
 
 
 # ---------------------------------------------------------------------------
@@ -848,3 +857,375 @@ async def test_per_turn_consumer_cap_raises_too_many_consumers() -> None:
         await registry.cancel(session_id)
         await c1.done()
         await c2.done()
+
+
+# ---------------------------------------------------------------------------
+# BC-01: shared byte budget on the ring buffer
+# ---------------------------------------------------------------------------
+
+
+async def test_byte_budget_evicts_oldest_when_over_budget() -> None:
+    """A tiny byte budget (event count cap untouched) evicts the head by BYTES;
+    a consumer attached at seq 0 then gets the honest fell-off-head error."""
+    gate = asyncio.Event()  # never set — the model streams then parks
+    chunks = [_LONG_CHUNK] + ["chunk " * 80 for _ in range(8)]
+    settings = FakeSettings()
+    settings.stream_buffer_size = 20_000  # type: ignore[attr-defined]  # event cap never fires
+    settings.stream_buffer_bytes = 2_000  # type: ignore[attr-defined]  # the byte budget bites
+    rig = Rig(_gated_model(gate, *chunks), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    handle = await registry.start(session_id, "hi", _ALL_OFF)
+    turn = registry._turns[session_id]
+    # Eviction is driven by bytes, not the (huge) event cap.
+    await _eventually(lambda: turn.buffer.base > 0)
+
+    pairs = await _drain(handle)  # attached at seq 0 — already evicted by bytes
+    assert len(pairs) == 1
+    event, _ = pairs[0]
+    assert event.type == "error"
+    assert "fell behind" in event.data["message"]
+
+    gate.set()
+    await registry.cancel(session_id)
+
+
+async def test_byte_budget_refunded_at_finalize() -> None:
+    """Every event's bytes are refunded by drop_all at finalize; two full turns
+    in a row both return the accumulator to 0 (no leak across turns)."""
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+
+    await _run_full_turn(registry, str(uuid4()), "duke dorms?", _WEB_ONLY)
+    assert registry._buffer_bytes_used == 0
+
+    await _run_full_turn(registry, str(uuid4()), "harvard dorms?", _WEB_ONLY)
+    assert registry._buffer_bytes_used == 0
+
+
+async def test_byte_budget_never_evicts_the_only_event() -> None:
+    """A budget smaller than any single event still leaves the sole event
+    readable — the `len(self._events) > 1` guard prevents an empty buffer."""
+    gate = asyncio.Event()  # never set — park after meta
+    settings = FakeSettings()
+    settings.stream_buffer_bytes = 1  # type: ignore[attr-defined]  # smaller than any event
+    rig = Rig(_gated_model(gate), settings=settings)  # no chunks → meta then park
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    handle = await registry.start(session_id, "hi", _ALL_OFF)
+    turn = registry._turns[session_id]
+    await _eventually(lambda: turn.buffer.next_seq >= 1)  # meta landed
+    # The sole event is still readable despite the 1-byte budget.
+    assert len(turn.buffer._events) > 0
+    assert turn.buffer.next_seq >= 1
+
+    gate.set()
+    await registry.cancel(session_id)
+    await _drain(handle)
+
+
+# ---------------------------------------------------------------------------
+# BC-02: the consumer slot is claimed inside _follow (no leak on undriven handle)
+# ---------------------------------------------------------------------------
+
+
+async def test_undriven_handle_does_not_leak_a_consumer_slot() -> None:
+    """A handle from attach() that is never iterated must claim no slot; closing
+    a never-iterated generator must not over-decrement."""
+    gate = asyncio.Event()  # never set — turn stays live
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    c1 = Collector(await registry.start(session_id, "hi", _ALL_OFF))
+    await asyncio.wait_for(c1.first_delta.wait(), timeout=3)
+    turn = registry._turns[session_id]
+    await _eventually(lambda: turn.consumers >= 1)
+    before = turn.consumers
+
+    # A second handle that is NEVER iterated.
+    handle = registry.attach(session_id)
+    await asyncio.sleep(0)
+    assert turn.consumers == before  # the un-iterated handle claimed nothing
+
+    await handle.aclose()  # type: ignore[attr-defined]  # closed but never driven
+    await asyncio.sleep(0)
+    assert turn.consumers == before  # no over-decrement
+
+    gate.set()
+    await registry.cancel(session_id)
+    await c1.done()
+
+
+# ---------------------------------------------------------------------------
+# BC-03: concurrent cancels → exactly one terminal + one persist
+# ---------------------------------------------------------------------------
+
+
+async def test_concurrent_cancel_produces_exactly_one_terminal_and_one_persist() -> None:
+    gate = asyncio.Event()  # never set — the model hangs mid-stream
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    persist_calls = 0
+    original = registry._persist_partial
+
+    async def counting_persist(*args: Any, **kwargs: Any) -> None:
+        nonlocal persist_calls
+        persist_calls += 1
+        await original(*args, **kwargs)
+
+    registry._persist_partial = counting_persist  # type: ignore[method-assign]
+
+    outcomes = await asyncio.gather(
+        registry.cancel(session_id), registry.cancel(session_id)
+    )
+    assert set(outcomes) == {"cancelled", "idle"}
+
+    pairs = await collector.done()
+    types = [e.type for e, _ in pairs]
+    assert types.count("done") == 1
+    assert pairs[-1][0].data["status"] == "cancelled"
+    assert "error" not in types
+
+    values = await _state_values(rig, session_id)
+    assert len(values["turn_records"]) == 1
+    assert values["turn_records"][-1]["status"] == "cancelled"
+    assert persist_calls == 1
+
+
+# ---------------------------------------------------------------------------
+# BC-04: external cancel racing our cancel → a single terminal, nothing after
+# ---------------------------------------------------------------------------
+
+
+async def test_external_cancel_racing_our_cancel_yields_single_terminal() -> None:
+    gate = asyncio.Event()  # never set — the model hangs mid-stream
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    turn = registry._turns[session_id]
+    assert turn.task is not None
+
+    async def _external() -> None:
+        turn.task.cancel()  # type: ignore[union-attr]
+
+    await asyncio.gather(_external(), registry.cancel(session_id))
+
+    pairs = await collector.done()
+    types = [e.type for e, _ in pairs]
+    terminals = [t for t in types if t in ("done", "error")]
+    assert len(terminals) == 1  # exactly one terminal
+    assert types[-1] in ("done", "error")  # nothing follows it
+
+
+# ---------------------------------------------------------------------------
+# BC-05: append after close is a no-op
+# ---------------------------------------------------------------------------
+
+
+def test_append_after_close_is_a_noop(caplog: pytest.LogCaptureFixture) -> None:
+    buffer = _RingBuffer(10, on_charge=lambda n: 1_000, on_refund=lambda n: None)
+    buffer.append(ev_delta("hi"))
+    assert buffer.next_seq == 1
+    buffer.close()
+    with caplog.at_level("WARNING"):
+        buffer.append(ev_done("complete"))
+    assert buffer.next_seq == 1  # the post-close append was dropped
+    assert len(buffer._events) == 1
+    assert any("append after close" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# BC-06: a foreign/future Last-Event-ID full-replays (never a silent skip)
+# ---------------------------------------------------------------------------
+
+
+async def test_foreign_last_event_id_full_replays_not_silent_skip() -> None:
+    """A cursor from a PREVIOUS turn (ahead of the new turn's fresh buffer) must
+    full-replay the new turn from the head, never block forever, never skip."""
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    pairs_1 = await _run_full_turn(registry, session_id, "duke dorms?", _WEB_ONLY)
+    top_seq = pairs_1[-1][1]
+
+    # A SECOND turn on the same session — new buffer at base 0. Hang it so we
+    # can attach mid-stream with a far-ahead foreign cursor.
+    gate = asyncio.Event()
+    rig.deps.model_factory = lambda: _gated_model(gate, _LONG_CHUNK, after=" done.")
+    c1 = Collector(await registry.start(session_id, "harvard?", _ALL_OFF))
+    await asyncio.wait_for(c1.first_delta.wait(), timeout=3)
+
+    reattached = registry.attach(session_id, last_event_id=top_seq + 5)
+    c2 = Collector(reattached)
+    await asyncio.wait_for(c2.first_delta.wait(), timeout=3)
+    # The reattached consumer replays from the head: first seq is 0 and it sees
+    # the new turn's meta (no silent skip).
+    assert c2.items[0][1] == 0
+    assert c2.items[0][0].type == "meta"
+
+    gate.set()
+    pairs = await c2.done()
+    # Not blocked forever: it terminates with the new turn's terminal.
+    assert pairs[-1][0].type == "done"
+    assert pairs[-1][0].data["status"] == "complete"
+    await c1.done()
+
+
+async def test_caught_up_cursor_waits_then_follows_live() -> None:
+    """A cursor exactly at next_seq (caught up) is NOT treated as foreign — it
+    waits then follows live contiguously (guards the seq == next_seq edge)."""
+    gate = asyncio.Event()
+    rig = Rig(_gated_model(gate, _LONG_CHUNK, after=" More."))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    first = Collector(await registry.start(session_id, "hi", _ALL_OFF))
+    await asyncio.wait_for(first.first_delta.wait(), timeout=3)
+    last_seq = first.items[-1][1]
+
+    reattached = registry.attach(session_id, last_event_id=last_seq)
+    gate.set()
+    pairs = await _drain(reattached)
+    # Contiguous from last_seq + 1 — the caught-up cursor followed live.
+    assert [seq for _, seq in pairs] == list(range(last_seq + 1, last_seq + 1 + len(pairs)))
+    await first.done()
+
+
+# ---------------------------------------------------------------------------
+# BC-07: _observe is pure, synchronous, and O(1) (enrichment only on usage)
+# ---------------------------------------------------------------------------
+
+
+async def test_observe_is_pure_and_non_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.turns as turns_module
+
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+
+    # _observe is a plain def, not a coroutine.
+    assert not asyncio.iscoroutinefunction(registry._observe)
+
+    from app.turns import _RingBuffer as _RB
+    from app.turns import _Turn
+
+    turn = _Turn(
+        session_id="s",
+        user_text="hi",
+        user_id=None,
+        buffer=_RB(10, on_charge=lambda n: 1_000, on_refund=lambda n: None),
+    )
+
+    # A delta passes through unchanged and appends exactly once to emissions.
+    delta = ev_delta("hi")
+    out = registry._observe(turn, delta)
+    assert out is delta
+    assert turn.emissions == [("delta", "hi")]
+
+    # Enrichment is invoked only for usage events — never per delta/step/thinking.
+    calls = 0
+
+    def spy(event: Event, model: str, settings: Any) -> Event:
+        nonlocal calls
+        calls += 1
+        return event
+
+    monkeypatch.setattr(turns_module, "enrich_usage_event", spy)
+    registry._observe(turn, ev_delta("more"))
+    assert calls == 0  # a delta triggered no enrichment
+    registry._observe(turn, Event(type="usage", data={"input_tokens": 1, "output_tokens": 1}))
+    assert calls == 1  # exactly one enrichment for the one usage event
+
+
+# ---------------------------------------------------------------------------
+# BC-08: a hung partial-persist still finalizes + frees the claim
+# ---------------------------------------------------------------------------
+
+
+async def test_partial_persist_db_hang_still_finalizes_and_frees_the_claim() -> None:
+    gate = asyncio.Event()  # never set — the model hangs mid-stream
+    settings = FakeSettings()
+    settings.persist_partial_timeout_s = 0.05  # type: ignore[attr-defined]
+    rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    # Wedge the DB: aupdate_state hangs forever.
+    async def hang(*args: Any, **kwargs: Any) -> None:
+        await asyncio.sleep(1e9)
+
+    registry._graph.aupdate_state = hang
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    # The cancel must NOT hang despite the wedged DB.
+    outcome = await asyncio.wait_for(registry.cancel(session_id), timeout=2)
+    assert outcome == "cancelled"
+
+    pairs = await collector.done()
+    assert pairs[-1][0].type == "done"
+    assert pairs[-1][0].data["status"] == "cancelled"
+    assert registry.is_generating(session_id) is False  # claim freed despite hang
+
+
+async def test_partial_persist_timeout_does_not_emit_double_terminal() -> None:
+    gate = asyncio.Event()  # never set
+    settings = FakeSettings()
+    settings.persist_partial_timeout_s = 0.05  # type: ignore[attr-defined]
+    rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    async def hang(*args: Any, **kwargs: Any) -> None:
+        await asyncio.sleep(1e9)
+
+    registry._graph.aupdate_state = hang
+
+    collector = Collector(await registry.start(session_id, "hi", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    await asyncio.wait_for(registry.cancel(session_id), timeout=2)
+    pairs = await collector.done()
+    types = [e.type for e, _ in pairs]
+    terminals = [t for t in types if t in ("done", "error")]
+    assert len(terminals) == 1  # exactly one terminal despite the timeout
+
+
+# ---------------------------------------------------------------------------
+# BC-15: shutdown drain terminates an active turn with `error`, not `cancelled`
+# ---------------------------------------------------------------------------
+
+
+async def test_aclose_terminates_active_turn_with_error_not_cancelled() -> None:
+    gate = asyncio.Event()  # never set
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+
+    await registry.aclose()
+
+    pairs = await collector.done()
+    types = [e.type for e, _ in pairs]
+    assert pairs[-1][0].type == "error"  # NOT done
+    assert "done" not in types
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "error"
+    assert prose_of(record["parts"]) == _prose(pairs)
+    assert registry.is_generating(session_id) is False
