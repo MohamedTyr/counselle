@@ -128,7 +128,7 @@ const MessageRender = memo(function MessageRender({
   const isUser = msg?.isCreatedByUser === true;
   const showRevealToggle = useMemo(
     () => !!msg && !isUser && dbIndicesForMessage(msg).size > 0,
-    [isUser, msg, msg?.content, msg?.text, msg?.sources],
+    [isUser, msg],
   );
 
   const messageId = msg?.messageId ?? '';
