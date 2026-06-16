@@ -18,7 +18,7 @@
  * Kept: MessageContext wiring, PlaceholderRow-while-submitting (assistant
  *   only), SubRow + HoverButtons, sr-only screen-reader labels.
  */
-import React, { useCallback, memo } from 'react';
+import React, { useCallback, useMemo, useState, memo } from 'react';
 import type { TMessageProps } from '~/common';
 import { cn, getHeaderPrefixForScreenReader, getMessageAriaLabel } from '~/utils';
 import MessageContent from '~/components/Chat/Messages/Content/MessageContent';
@@ -28,6 +28,12 @@ import HoverButtons from '~/components/Chat/Messages/HoverButtons';
 import SubRow from '~/components/Chat/Messages/SubRow';
 import { useLocalize } from '~/hooks';
 import { MessageContext } from '~/Providers';
+import MessageSources from '@/components/citations/MessageSources';
+// feat/message-ui-polish: per-message reveal state shared with both the body
+// (→ MessageContent) and the action-row toggle, plus the toggle + its gate.
+import { RevealStateProvider } from '@/components/citations/RevealStateContext';
+import RevealDbToggle from '@/components/citations/RevealDbToggle';
+import { dbIndicesForMessage } from '@/components/citations/remarkCitations';
 
 type MessageRenderProps = {
   /**
@@ -78,7 +84,10 @@ function areMessageRenderPropsEqual(prev: MessageRenderProps, next: MessageRende
     // append-mostly) so a new/changed step label still re-renders the trace.
     prevMsg.activities?.join('\x00') === nextMsg.activities?.join('\x00') &&
     prevMsg.streamError === nextMsg.streamError &&
-    prevMsg.feedback?.rating === nextMsg.feedback?.rating
+    prevMsg.feedback?.rating === nextMsg.feedback?.rating &&
+    // The sources strip lives in the action row; re-render when the turn's
+    // sources arrive (the reducer hands us a fresh array on the `sources` event).
+    prevMsg.sources === nextMsg.sources
   );
 }
 
@@ -108,6 +117,20 @@ const MessageRender = memo(function MessageRender({
   const handleRegenerateMessage = useCallback(() => regenerateMessage(), [regenerateMessage]);
   const isLast = isLatestMessage;
 
+  // feat/message-ui-polish: per-message reveal flag. A setState re-renders
+  // MessageRender from the inside, so the prop-only memo is not an obstacle.
+  const [revealed, setRevealed] = useState(false);
+
+  // feat/message-ui-polish: the reveal toggle shows only when the answer has at
+  // least one DB-cited clause (behavior 7) — no DB citations → no toggle.
+  // Memoized so the per-render regex scan over content blocks + sources runs
+  // only when the message actually changes, not on every reveal-toggle click.
+  const isUser = msg?.isCreatedByUser === true;
+  const showRevealToggle = useMemo(
+    () => !!msg && !isUser && dbIndicesForMessage(msg).size > 0,
+    [isUser, msg],
+  );
+
   const messageId = msg?.messageId ?? '';
   const messageContextValue = React.useMemo(
     () => ({
@@ -132,8 +155,6 @@ const MessageRender = memo(function MessageRender({
   const conditionalClasses = {
     focus: 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-xheavy',
   };
-
-  const isUser = msg.isCreatedByUser === true;
 
   const messageBody = (
     <MessageContext.Provider value={messageContextValue}>
@@ -172,6 +193,11 @@ const MessageRender = memo(function MessageRender({
   // is `w-fit` so it hugs short messages and only wraps at the max-width cap.
   if (isUser) {
     return (
+      // feat/message-ui-polish: the provider wraps user turns intentionally —
+      // the shared MessageContent/DisplayMessage path calls useRevealState()
+      // unconditionally and needs a provider ancestor. User turns just take the
+      // safe default and render no toggle.
+      <RevealStateProvider value={{ revealed, setRevealed }}>
       <div
         id={msg.messageId}
         aria-label={getMessageAriaLabel(msg, localize)}
@@ -198,6 +224,7 @@ const MessageRender = memo(function MessageRender({
           <div className="mt-1 flex justify-end gap-3 text-xs empty:hidden">{hoverButtons}</div>
         </div>
       </div>
+      </RevealStateProvider>
     );
   }
 
@@ -205,6 +232,7 @@ const MessageRender = memo(function MessageRender({
   // trace, cited cards, clarify widget, and sources footer (all inside
   // MessageContent) are the agent's identity here, not a label.
   return (
+    <RevealStateProvider value={{ revealed, setRevealed }}>
     <div
       id={msg.messageId}
       aria-label={getMessageAriaLabel(msg, localize)}
@@ -224,11 +252,23 @@ const MessageRender = memo(function MessageRender({
           {isLatestMessage && isSubmitting ? (
             <PlaceholderRow />
           ) : (
-            <SubRow classes="text-xs">{hoverButtons}</SubRow>
+            // The action row: hover actions + the sources strip, vertically
+            // centered. MessageSources self-hides when the turn cited none.
+            <SubRow classes="text-xs items-center">
+              {hoverButtons}
+              {/* feat/message-ui-polish: the reveal toggle (locked to the 'wash'
+                  style via RevealDbProvider) sits beside the sources strip;
+                  active/onToggle come from the per-message RevealStateContext. */}
+              {showRevealToggle && (
+                <RevealDbToggle active={revealed} onToggle={() => setRevealed(!revealed)} />
+              )}
+              <MessageSources message={msg} />
+            </SubRow>
           )}
         </div>
       </div>
     </div>
+    </RevealStateProvider>
   );
 }, areMessageRenderPropsEqual);
 MessageRender.displayName = 'MessageRender';

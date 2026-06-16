@@ -14,7 +14,9 @@ import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@librechat/client/utils';
 import type { Citation } from '@/api/protocol';
 import { isSafeUrl } from '@/api/url';
-import { isCommunityTier, sourceDisplayName, tierWord } from '@/components/citations/TierChip';
+import { isCommunityTier, tierWord } from '@/components/citations/TierChip';
+import { useDejargon, sourceFullName } from '@/components/citations/dejargon';
+import { isDbSource } from '@/components/citations/sourceName';
 
 interface CitationPopoverProps {
   citation: Citation;
@@ -23,15 +25,21 @@ interface CitationPopoverProps {
 }
 
 export default function CitationPopover({ citation, children }: CitationPopoverProps) {
+  const dejargon = useDejargon();
+  const isDb = isDbSource(citation.source);
   const community = isCommunityTier(citation.tier);
   const tierColor = community ? 'var(--community-text)' : 'var(--official-text)';
   const hasCaveat = citation.caveat != null && citation.caveat !== '';
   const hasUrl = isSafeUrl(citation.url);
-  const hasRawTable = citation.raw_table != null && citation.raw_table !== '';
+  // Under dejargon, the raw table ("cds_c") and the dataset vintage are internal
+  // detail a student never needs — hide them; the friendly name carries it.
+  const hasRawTable = !dejargon && citation.raw_table != null && citation.raw_table !== '';
+  const sourceName = sourceFullName(citation, dejargon);
+  const vintageLine = dejargon && isDb ? 'Our verified college database' : citation.vintage;
 
   return (
     <Popover.Root>
-      <Popover.Trigger asChild aria-label={`Source: ${sourceDisplayName(citation.source)}`}>
+      <Popover.Trigger asChild aria-label={`Source: ${sourceName}`}>
         {children}
       </Popover.Trigger>
       <Popover.Portal>
@@ -56,16 +64,14 @@ export default function CitationPopover({ citation, children }: CitationPopoverP
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: tierColor }}
               />
-              <span className="text-sm font-semibold text-text-primary">
-                {sourceDisplayName(citation.source)}
-              </span>
+              <span className="text-sm font-semibold text-text-primary">{sourceName}</span>
             </div>
 
             <div className="flex flex-col gap-0.5 text-xs leading-snug">
               <span className="font-medium" style={{ color: tierColor }}>
                 {tierWord(citation.tier)}
               </span>
-              <span className="text-text-secondary">{citation.vintage}</span>
+              <span className="text-text-secondary">{vintageLine}</span>
             </div>
 
             {hasCaveat && (

@@ -9,17 +9,17 @@
 import { PanelRight } from 'lucide-react';
 import { useSetAtom } from 'jotai';
 import type { RenderSpec } from '@/api/protocol';
-import { artifactPanelAtom } from '@/app/state';
+import { openArtifactPanelAtom } from '@/app/state';
 
 export default function ExpandToPanelButton({ spec }: { spec: RenderSpec }) {
-  const setArtifact = useSetAtom(artifactPanelAtom);
+  const openArtifact = useSetAtom(openArtifactPanelAtom);
   return (
     <button
       type="button"
-      onClick={() => setArtifact({ spec })}
+      onClick={() => openArtifact(spec)}
       aria-label="Open in side panel"
       title="Open in side panel"
-      className="absolute right-3 top-5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-text-tertiary opacity-0 transition duration-150 ease-out hover:border-border-light hover:bg-surface-hover hover:text-text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/viz:opacity-100 max-md:opacity-100"
+      className="absolute right-3 top-3.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-text-tertiary opacity-0 transition duration-150 ease-out hover:border-border-light hover:bg-surface-hover hover:text-text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/viz:opacity-100 max-md:opacity-100"
     >
       <PanelRight className="h-4 w-4" aria-hidden="true" />
     </button>

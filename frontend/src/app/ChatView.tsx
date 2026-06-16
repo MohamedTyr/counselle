@@ -28,13 +28,14 @@ import {
   ResizablePanelGroup,
 } from '@librechat/client';
 import { useChatContext } from '@/app/ChatContext';
-import { activeConversationIdAtom, artifactPanelAtom } from '@/app/state';
+import { activeConversationIdAtom, artifactPanelAtom, sourcesPanelAtom } from '@/app/state';
 import { useIsDesktop } from '@/app/useMediaQuery';
 import {
   ARTIFACT_HANDLE_CLASS,
   ArtifactPanel,
   ArtifactSheet,
 } from '@/components/artifact/ArtifactPanel';
+import { SourcesPanel, SourcesSheet } from '@/components/citations/SourcesPanel';
 import ChatComposer from '@/components/composer/ChatComposer';
 import SuggestionPills from '@/components/composer/SuggestionPills';
 import EtherealShadow from '@/components/background/EtherealShadow';
@@ -46,7 +47,10 @@ export default function ChatView() {
   const { messages } = useChatContext();
   const { conversationId: urlConversationId } = useParams<{ conversationId: string }>();
   const setActiveConversationId = useSetAtom(activeConversationIdAtom);
+  // The right rail shows at most one of these — opening either clears the other
+  // (state.ts write atoms), so this is a single physical panel.
   const [artifact, setArtifact] = useAtom(artifactPanelAtom);
+  const [sourcesPanel, setSources] = useAtom(sourcesPanelAtom);
   const isDesktop = useIsDesktop();
 
   const methods = useForm<ChatFormValues>({ defaultValues: { text: '' } });
@@ -60,14 +64,17 @@ export default function ChatView() {
   useEffect(() => {
     setActiveConversationId(urlConversationId ?? null);
     setArtifact(null);
-  }, [urlConversationId, setActiveConversationId, setArtifact]);
+    setSources(null);
+  }, [urlConversationId, setActiveConversationId, setArtifact, setSources]);
 
   const isLandingPage = messages.length === 0 && !urlConversationId;
-  const showDocked = artifact !== null && isDesktop;
-  const showSheet = artifact !== null && !isDesktop;
-  // Stable identity so the panel's Esc/keydown effect doesn't re-subscribe on
-  // every ChatView render (setArtifact from jotai is itself stable).
+  const rightPanelOpen = artifact !== null || sourcesPanel !== null;
+  const showDocked = rightPanelOpen && isDesktop;
+  const showSheet = rightPanelOpen && !isDesktop;
+  // Stable identities so the panels' Esc/keydown effects don't re-subscribe on
+  // every ChatView render (the jotai setters are themselves stable).
   const closeArtifact = useCallback(() => setArtifact(null), [setArtifact]);
+  const closeSources = useCallback(() => setSources(null), [setSources]);
 
   return (
     <ChatFormProvider {...methods}>
@@ -125,18 +132,37 @@ export default function ChatView() {
           {showDocked && <ResizableHandle withHandle className={ARTIFACT_HANDLE_CLASS} />}
           {showDocked && (
             <ResizablePanel
-              id="artifact-pane"
+              id="right-pane"
               defaultSize="40%"
               minSize="28%"
               maxSize="68%"
               className="min-w-0"
             >
-              <ArtifactPanel spec={artifact.spec} onClose={closeArtifact} />
+              {sourcesPanel !== null ? (
+                <SourcesPanel
+                  sources={sourcesPanel.sources}
+                  activeIndex={sourcesPanel.activeIndex}
+                  dbSchools={sourcesPanel.dbSchools}
+                  onClose={closeSources}
+                />
+              ) : artifact !== null ? (
+                <ArtifactPanel spec={artifact.spec} onClose={closeArtifact} />
+              ) : null}
             </ResizablePanel>
           )}
         </ResizablePanelGroup>
       </div>
-      {showSheet && <ArtifactSheet spec={artifact.spec} onClose={closeArtifact} />}
+      {showSheet && sourcesPanel !== null && (
+        <SourcesSheet
+          sources={sourcesPanel.sources}
+          activeIndex={sourcesPanel.activeIndex}
+          dbSchools={sourcesPanel.dbSchools}
+          onClose={closeSources}
+        />
+      )}
+      {showSheet && sourcesPanel === null && artifact !== null && (
+        <ArtifactSheet spec={artifact.spec} onClose={closeArtifact} />
+      )}
     </ChatFormProvider>
   );
 }

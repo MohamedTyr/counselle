@@ -2988,3 +2988,14 @@ html {
     opacity: 1;
   }
 }
+
+/* Source-row attention flash: when the sidebar is opened from an inline pill,
+   the matching row briefly glows so the eye lands on it. */
+@keyframes source-flash {
+  0% {
+    background-color: color-mix(in oklab, var(--brand-purple) 18%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}

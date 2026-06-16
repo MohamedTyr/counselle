@@ -25,7 +25,7 @@ import { vizIcon, vizLabel } from '@/components/cards/vizMeta';
 export const ARTIFACT_HANDLE_CLASS =
   'w-px cursor-col-resize bg-border-light transition-colors hover:bg-border after:w-[11px] data-[separator=active]:bg-border';
 
-function useEscToClose(onClose: () => void) {
+export function useEscToClose(onClose: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;

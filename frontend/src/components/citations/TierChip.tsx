@@ -1,14 +1,12 @@
 /**
- * TierChip — the inline source-tier marker (PRD story 26).
+ * TierChip utils — the source-tier label/word/name helpers (PRD story 26).
  *
- * The official/community visual grammar: tier 'official' reads cool via the
- * --official-* tokens; 'community' (Reddit) reads warm via --community-*.
- * Squint test: tier is instantly visible. Used identically in prose chips,
- * cards, and the sources footer (counselle.css contract).
+ * The official/community grammar: tier 'official' reads as an official source;
+ * 'community' (Reddit) reads as community voice. These helpers are shared by the
+ * citation popover, source tags, and the stat/comparison cards. (The filled-pill
+ * JSX component was retired in feat/message-ui-polish in favour of the calmer
+ * SourceTag + the inline-citation surfaces.)
  */
-import { forwardRef } from 'react';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import { cn } from '@librechat/client/utils';
 import type { SourceName, Tier } from '@/api/protocol';
 
 // B2 / wire-contract C1 (the honesty fix): the backend serves
@@ -55,36 +53,3 @@ export function sourceDisplayName(source: SourceName | string): string {
 export function tierWord(tier: Tier): string {
   return isCommunityTier(tier) ? 'Community voice' : 'Official source';
 }
-
-interface TierChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  tier: Tier;
-  children?: ReactNode;
-}
-
-const TierChip = forwardRef<HTMLButtonElement, TierChipProps>(function TierChip(
-  { tier, children, className, ...rest },
-  ref,
-) {
-  const community = isCommunityTier(tier);
-  return (
-    <button
-      ref={ref}
-      type="button"
-      data-tier={community ? 'community' : 'official'}
-      className={cn(
-        'inline-flex items-center rounded-full border px-1.5 py-0.5 align-middle',
-        'text-[10px] font-medium leading-none',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-opacity-50',
-        community
-          ? 'border-[var(--community-border)] bg-[var(--community-surface)] text-[var(--community-text)]'
-          : 'border-[var(--official-border)] bg-[var(--official-surface)] text-[var(--official-text)]',
-        className,
-      )}
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-});
-
-export default TierChip;

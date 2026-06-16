@@ -90,6 +90,7 @@ class TestRegister:
             {
                 "index": 1,
                 "label": "IPEDS",
+                "snippet": None,
                 "citation": {
                     "source": "ipeds",
                     "tier": "official",
@@ -202,6 +203,26 @@ class TestAnnotateSearchResults:
 
         assert [item["marker"] for item in annotated["results"]] == ["[1]", "[2]"]
         assert [entry.label for entry in registry.entries] == ["Duke dorms guide", "Duke fees"]
+
+    def test_search_item_snippet_is_captured(self) -> None:
+        registry = SourceRegistry()
+        web = _citation(source="web", tier="community", raw_table=None, url="https://a.com/x")
+        item = _search_item("Duke dorms guide", "https://a.com/x", web)
+        item["snippet"] = "  A short page excerpt describing Duke dorms.  "
+
+        registry.annotate_search_results({"results": [item]})
+
+        assert registry.entries[0].snippet == "A short page excerpt describing Duke dorms."
+
+    def test_blank_snippet_becomes_none(self) -> None:
+        registry = SourceRegistry()
+        web = _citation(source="web", tier="community", raw_table=None, url="https://a.com/x")
+        item = _search_item("Duke dorms guide", "https://a.com/x", web)
+        item["snippet"] = "   "
+
+        registry.annotate_search_results({"results": [item]})
+
+        assert registry.entries[0].snippet is None
 
     def test_error_payload_passes_through(self) -> None:
         registry = SourceRegistry()

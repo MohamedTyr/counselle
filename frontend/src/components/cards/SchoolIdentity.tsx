@@ -25,14 +25,18 @@ export default function SchoolIdentity({ school, eyebrow, logoSize = 40 }: Schoo
       <SchoolLogo name={school.name} domain={school.domain} size={logoSize} className="shadow-sm" />
       <div className="min-w-0">
         {eyebrow && (
-          <div className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-text-tertiary">
+          <div className="text-[10.5px] font-medium uppercase leading-tight tracking-[0.12em] text-text-tertiary">
             {eyebrow}
           </div>
         )}
-        <h3 className="text-sm font-semibold leading-snug text-text-primary [overflow-wrap:anywhere]">
+        {/* `!my-0` pins the rhythm: the card lives inside `.message-content`,
+            whose ambient h3 rule (not neutralized by `not-prose`) otherwise
+            injects a ~10px margin and bloats the header. Zero margin keeps the
+            name and its domain link tight together. */}
+        <h3 className="!my-0 text-lg font-semibold leading-snug text-text-primary [overflow-wrap:anywhere]">
           {school.name}
         </h3>
-        <SchoolDomainLink domain={school.domain} className="mt-0.5" />
+        <SchoolDomainLink domain={school.domain} className="mt-0" />
       </div>
     </div>
   );
