@@ -27,6 +27,20 @@ from domain.envelope import Citation
 #: Citation identity for dedupe: same source + url + vintage + raw_table = same marker.
 _DedupeKey = tuple[str, str | None, str, str | None]
 
+#: Cap stored snippets so a verbose search result never bloats the checkpointed
+#: state — the UI only shows a couple of lines anyway.
+_MAX_SNIPPET_CHARS = 300
+
+
+def _clean_snippet(value: Any) -> str | None:
+    """A trimmed, length-capped snippet, or ``None`` when there's nothing usable."""
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip()
+    if not trimmed:
+        return None
+    return trimmed[:_MAX_SNIPPET_CHARS]
+
 
 def _dedupe_key(citation: Citation) -> _DedupeKey:
     return (citation.source, citation.url, citation.vintage, citation.raw_table)
@@ -61,18 +75,21 @@ class SourceRegistry:
         """The registered sources, in marker order (read-only view by convention)."""
         return list(self._entries)
 
-    def register(self, citation: Citation, label: str) -> int:
+    def register(self, citation: Citation, label: str, snippet: str | None = None) -> int:
         """Register a citation, returning its marker index (stable, 1-based).
 
         Dedupe is by ``(source, url, vintage, raw_table)`` — re-registering an
-        already-seen citation returns the existing index; the first label wins.
+        already-seen citation returns the existing index; the first label (and
+        snippet) wins.
         """
         key = _dedupe_key(citation)
         existing = self._index_by_key.get(key)
         if existing is not None:
             return existing
         index = self._entries[-1].index + 1 if self._entries else 1
-        self._entries.append(RegisteredSource(index=index, citation=citation, label=label))
+        self._entries.append(
+            RegisteredSource(index=index, citation=citation, label=label, snippet=snippet)
+        )
         self._index_by_key[key] = index
         return index
 
@@ -116,13 +133,18 @@ class SourceRegistry:
         for item in payload["results"]:
             if isinstance(item, dict) and _is_citation_shaped(item.get("citation")):
                 label = item.get("title") or item.get("url") or None
-                marker = self._register_dict(item["citation"], label=label)
+                # Search items carry the page excerpt under "snippet"
+                # (adapters.tavily_tools maps Tavily's `content` → `snippet`).
+                snippet = _clean_snippet(item.get("snippet"))
+                marker = self._register_dict(item["citation"], label=label, snippet=snippet)
                 if marker is not None:
                     item = {**item, "marker": marker}
             results.append(item)
         return {**payload, "results": results}
 
-    def _register_dict(self, citation_dict: dict[str, Any], label: str | None) -> str | None:
+    def _register_dict(
+        self, citation_dict: dict[str, Any], label: str | None, snippet: str | None = None
+    ) -> str | None:
         """Validate + register a dumped citation; ``None`` if it isn't a valid Citation.
 
         A malformed citation gets no marker (and never enters the registry) —
@@ -135,5 +157,5 @@ class SourceRegistry:
             return None
         # Default label for DB envelopes: the vintage is already the human
         # source string (e.g. "IPEDS 2024-25 (provisional)").
-        index = self.register(citation, label or citation.vintage)
+        index = self.register(citation, label or citation.vintage, snippet=snippet)
         return f"[{index}]"

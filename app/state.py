@@ -31,6 +31,9 @@ class RegisteredSource(BaseModel):
     index: int
     citation: Citation
     label: str
+    #: Optional page description (search-result snippet); ``None`` for DB sources.
+    #: Mirrors ``domain.events.SourceEntry.snippet`` so the dict round-trips.
+    snippet: str | None = None
 
 
 class TemporalContext(BaseModel):

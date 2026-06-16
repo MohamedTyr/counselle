@@ -109,7 +109,8 @@
             "raw_table": null,
             "url": "https://example.com/1"
           },
-          "label": "Result 1"
+          "label": "Result 1",
+          "snippet": "snippet"
         },
         {
           "index": 2,
@@ -121,7 +122,8 @@
             "raw_table": "adm",
             "url": null
           },
-          "label": "IPEDS 2024-25 (provisional)"
+          "label": "IPEDS 2024-25 (provisional)",
+          "snippet": null
         }
       ],
       "status": "complete",
@@ -171,7 +173,8 @@
             "raw_table": null,
             "url": "https://example.com/1"
           },
-          "label": "Result 1"
+          "label": "Result 1",
+          "snippet": "snippet"
         },
         {
           "index": 2,
@@ -183,7 +186,8 @@
             "raw_table": "adm",
             "url": null
           },
-          "label": "IPEDS 2024-25 (provisional)"
+          "label": "IPEDS 2024-25 (provisional)",
+          "snippet": null
         }
       ],
       "status": "complete",
@@ -246,7 +250,8 @@
             "raw_table": null,
             "url": "https://example.com/1"
           },
-          "label": "Result 1"
+          "label": "Result 1",
+          "snippet": "snippet"
         },
         {
           "index": 2,
@@ -258,7 +263,8 @@
             "raw_table": "adm",
             "url": null
           },
-          "label": "IPEDS 2024-25 (provisional)"
+          "label": "IPEDS 2024-25 (provisional)",
+          "snippet": null
         }
       ],
       "status": "cancelled"

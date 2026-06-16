@@ -19,17 +19,13 @@
  */
 
 .counselle-answer {
-  --answer-measure: 68ch;
   font-size: 1rem;
   color: var(--text-primary);
 }
 
-/* Measure: cap the text columns for comfortable reading; the markdown table
-   wrapper and viz cards stay full-width (they own their own layout). */
-.counselle-answer
-  :is(p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6):not(:where([class~='not-prose'] *)) {
-  max-width: var(--answer-measure);
-}
+/* No extra reading-measure cap: the assistant answer fills the full chat
+   column (the agent-turn container's own md:max-w-[47rem]/xl:max-w-[55rem]
+   bound is the width). Only the USER bubble is narrowed; the AI answer is not. */
 
 /* Paragraphs: a calm reading rhythm. */
 .counselle-answer p:not(:where([class~='not-prose'] *)) {

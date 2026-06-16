@@ -26,8 +26,6 @@ import { useChatContext } from '@/app/ChatContext';
 import ReasoningTrace from '@/components/timeline/ReasoningTrace';
 import ClarifyWidget from '@/components/clarify/ClarifyWidget';
 import SourcesContext from '@/components/citations/SourcesContext';
-import SourcesFooter from '@/components/citations/SourcesFooter';
-import { citedIndexesIn } from '@/components/citations/remarkCitations';
 import VizCard from '@/components/cards/VizCard';
 import MarkdownLite from './MarkdownLite';
 import EditMessage from './EditMessage';
@@ -118,29 +116,6 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   const clarifyFrozen = !(isLatestMessage && message.turnStatus === 'awaiting_input');
   const sources = message.sources ?? [];
 
-  // B5d (wire-contract §5, PINNED): the footer shows only the sources THIS
-  // message cited — the union of `[n]` markers in its markdown blocks (viz cells
-  // contribute nothing; cards carry their own per-cell popovers). The cumulative
-  // chips elsewhere stay untouched.
-  const citedIndexes = useMemo(() => {
-    const indexes = new Set<number>();
-    const blocks = message.content;
-    if (blocks !== undefined) {
-      for (const block of blocks) {
-        if (block.kind === 'markdown') {
-          for (const i of citedIndexesIn(block.text)) {
-            indexes.add(i);
-          }
-        }
-      }
-    } else if (!isCreatedByUser) {
-      for (const i of citedIndexesIn(text)) {
-        indexes.add(i);
-      }
-    }
-    return indexes;
-  }, [message.content, text, isCreatedByUser]);
-
   return (
     <Container message={message}>
       {/* feat/reasoning-experience: the collapsed thinking-phase trace renders
@@ -185,10 +160,10 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
             onAnswer={submitMessage}
           />
         )}
-        {/* FE-4: the sources footer closes a completed answer (PRD story 21). */}
-        {!isCreatedByUser && message.turnStatus === 'complete' && sources.length > 0 && (
-          <SourcesFooter sources={sources} citedIndexes={citedIndexes} />
-        )}
+        {/* feat/message-ui-polish: the collapsed sources affordance moved OUT of
+            the prose body into the message action row (MessageRender), rendered
+            by <MessageSources> next to the hover actions. The provider stays:
+            inline `[n]` chips still resolve against the turn's sources. */}
       </SourcesContext.Provider>
     </Container>
   );

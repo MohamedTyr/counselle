@@ -28,6 +28,7 @@ import HoverButtons from '~/components/Chat/Messages/HoverButtons';
 import SubRow from '~/components/Chat/Messages/SubRow';
 import { useLocalize } from '~/hooks';
 import { MessageContext } from '~/Providers';
+import MessageSources from '@/components/citations/MessageSources';
 
 type MessageRenderProps = {
   /**
@@ -78,7 +79,10 @@ function areMessageRenderPropsEqual(prev: MessageRenderProps, next: MessageRende
     // append-mostly) so a new/changed step label still re-renders the trace.
     prevMsg.activities?.join('\x00') === nextMsg.activities?.join('\x00') &&
     prevMsg.streamError === nextMsg.streamError &&
-    prevMsg.feedback?.rating === nextMsg.feedback?.rating
+    prevMsg.feedback?.rating === nextMsg.feedback?.rating &&
+    // The sources strip lives in the action row; re-render when the turn's
+    // sources arrive (the reducer hands us a fresh array on the `sources` event).
+    prevMsg.sources === nextMsg.sources
   );
 }
 
@@ -224,7 +228,12 @@ const MessageRender = memo(function MessageRender({
           {isLatestMessage && isSubmitting ? (
             <PlaceholderRow />
           ) : (
-            <SubRow classes="text-xs">{hoverButtons}</SubRow>
+            // The action row: hover actions + the sources strip, vertically
+            // centered. MessageSources self-hides when the turn cited none.
+            <SubRow classes="text-xs items-center">
+              {hoverButtons}
+              <MessageSources message={msg} />
+            </SubRow>
           )}
         </div>
       </div>

@@ -100,6 +100,10 @@ export type SourceEntry = {
   index: number;
   citation: Citation;
   label: string;
+  /** A short description of the page — its meta description or the search-result
+   *  snippet. Present for web/edu/reddit results; absent for structured sources
+   *  (CDS/IPEDS) that have no page. Rendered as the row's supporting line. */
+  snippet?: string | null;
 };
 
 export type SourcesData = { sources: SourceEntry[] };

@@ -121,6 +121,10 @@ class SourceEntry(BaseModel):
     index: int
     citation: Citation
     label: str
+    #: Short page description — the search-result snippet / meta description.
+    #: Present for web/edu/reddit results; ``None`` for structured DB sources
+    #: (CDS/IPEDS) that have no page. Rendered as the source row's body line.
+    snippet: str | None = None
 
 
 class SourcesData(BaseModel):

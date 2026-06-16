@@ -5,7 +5,7 @@
  */
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import type { RenderSpec } from '@/api/protocol';
+import type { RenderSpec, SourceEntry } from '@/api/protocol';
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
@@ -55,3 +55,24 @@ export const enterToSendAtom = atomWithStorage<boolean>('enterToSend', true, und
 export type ArtifactPanelState = { spec: RenderSpec } | null;
 
 export const artifactPanelAtom = atom<ArtifactPanelState>(null);
+
+// ── Sources panel ─────────────────────────────────────────────────────────
+//
+// The cited sources for ONE answer, opened in the same right-side rail the
+// artifact panel uses. There is one physical rail in the app, so the two are
+// mutually exclusive: opening either clears the other (write-only atoms below).
+// `null` when closed; cleared on conversation switch (ChatView) and Esc/close.
+
+export const sourcesPanelAtom = atom<SourceEntry[] | null>(null);
+
+/** Open a viz card in the right rail, replacing whatever was there. */
+export const openArtifactPanelAtom = atom(null, (_get, set, spec: RenderSpec) => {
+  set(sourcesPanelAtom, null);
+  set(artifactPanelAtom, { spec });
+});
+
+/** Open an answer's sources in the right rail, replacing whatever was there. */
+export const openSourcesPanelAtom = atom(null, (_get, set, sources: SourceEntry[]) => {
+  set(artifactPanelAtom, null);
+  set(sourcesPanelAtom, sources);
+});

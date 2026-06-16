@@ -30,6 +30,31 @@ export function citedIndexesIn(text: string): Set<number> {
   return indexes;
 }
 
+/**
+ * The union of `[n]` markers across an assistant message — its markdown blocks
+ * when the turn reducer has produced them, else the raw streamed text. Viz cells
+ * contribute nothing (cards carry their own per-cell popovers). Single-sourced
+ * here so the sources strip and panel can't drift from the inline-chip grammar
+ * (wire-contract §5, PINNED).
+ */
+export function citedIndexesForMessage(
+  blocks: ReadonlyArray<{ kind: string; text?: string }> | undefined,
+  fallbackText: string,
+): Set<number> {
+  if (blocks !== undefined) {
+    const indexes = new Set<number>();
+    for (const block of blocks) {
+      if (block.kind === 'markdown' && block.text !== undefined) {
+        for (const i of citedIndexesIn(block.text)) {
+          indexes.add(i);
+        }
+      }
+    }
+    return indexes;
+  }
+  return citedIndexesIn(fallbackText);
+}
+
 type CitationRefNode = {
   type: 'citationRef';
   data: {
