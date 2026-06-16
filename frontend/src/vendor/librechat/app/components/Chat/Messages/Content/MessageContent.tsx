@@ -34,7 +34,12 @@ import { DejargonProvider } from '@/components/citations/dejargon';
 import { CitationActivateProvider } from '@/components/citations/CitationActivateContext';
 import { RevealDbProvider } from '@/components/citations/RevealDbContext';
 import { useRevealState } from '@/components/citations/RevealStateContext';
-import { citedSourcesForMessage } from '@/components/citations/remarkCitations';
+import {
+  citedSourcesForMessage,
+  dbSourcesForMessage,
+  usedDbData,
+} from '@/components/citations/remarkCitations';
+import { isDbSource } from '@/components/citations/sourceName';
 import { dbSchoolsForMessage } from '@/components/citations/dbSchools';
 import { openSourcesPanelAtom } from '@/app/state';
 import VizCard from '@/components/cards/VizCard';
@@ -161,11 +166,23 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   // MessageSources does (shared helpers) so the strip and the panel agree.
   const { revealed } = useRevealState();
   const openSources = useSetAtom(openSourcesPanelAtom);
-  const cited = useMemo(() => citedSourcesForMessage(message), [message]);
+  // The panel opened from an inline pill must agree with the panel opened from
+  // the strip (MessageSources): the same DB-entries + external-cited list, the
+  // same authoritative `dbUsed` signal (FE-H4). The pill scans prose `[n]` for
+  // which source to jump to (correct — a pill IS a prose marker), but the panel
+  // CONTENTS are single-sourced the same way the strip derives them.
+  const externalCited = useMemo(
+    () => citedSourcesForMessage(message).filter((s) => !isDbSource(s.citation.source)),
+    [message],
+  );
+  const dbUsed = useMemo(() => usedDbData(message), [message]);
+  const dbEntries = useMemo(() => dbSourcesForMessage(message), [message]);
   const dbSchools = useMemo(() => dbSchoolsForMessage(message), [message]);
+  const panelSources = useMemo(() => [...dbEntries, ...externalCited], [dbEntries, externalCited]);
   const activate = useCallback(
-    (entry: SourceEntry) => openSources({ sources: cited, activeIndex: entry.index, dbSchools }),
-    [openSources, cited, dbSchools],
+    (entry: SourceEntry) =>
+      openSources({ sources: panelSources, activeIndex: entry.index, dbSchools, dbUsed }),
+    [openSources, panelSources, dbSchools, dbUsed],
   );
 
   return (

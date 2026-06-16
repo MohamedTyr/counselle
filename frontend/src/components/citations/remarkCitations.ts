@@ -8,6 +8,10 @@
  * `{ 'citation-ref': InlineCitationMarkdown }` (markdownConfig.ts) in the
  * react-markdown components map.
  */
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
+import { visit } from 'unist-util-visit';
 import type { Parent, Root, Text } from 'mdast';
 import type { Node } from 'unist';
 import type { SourceEntry } from '@/api/protocol';
@@ -16,17 +20,34 @@ import { isDbSource } from '@/components/citations/sourceName';
 const CITATION_PATTERN = /\[(\d{1,2})\]/g;
 
 /**
- * The set of citation-marker indexes cited in a block of text — the SAME grammar
- * the inline-chip transform uses (single-sourced here so they can't drift).
- * Used by the sources footer to filter to only the sources this message cited
- * (wire-contract §5, PINNED). Scans plain markdown source — exact enough for the
- * footer (a `[7]` inside a code fence over-counts at worst, never under-counts).
+ * The shared mdast parser the cited-index scan uses — the same `remark` /
+ * `remarkGfm` base the renderer parses with, so the scan and the render agree on
+ * what a `text` node is. (The supersub plugin doesn't affect `[n]` detection, so
+ * it's omitted here.)
+ */
+const parser = unified().use(remarkParse).use(remarkGfm);
+
+/**
+ * The `[n]` indexes cited in a block of markdown — the SAME grammar the
+ * inline-chip transform uses (single-sourced here so they can't drift). Used by
+ * the sources footer/panel/strip to filter to only the sources this message
+ * cited (wire-contract §5, PINNED).
+ *
+ * Scans the parsed mdast and visits ONLY `text` nodes, so a `[7]` inside
+ * `code` / `inlineCode` is skipped — the renderer's `remarkCitations` plugin
+ * already excludes those, so the footer/panel must too (FE-DUP-CITED-SCAN). A
+ * `[n]` in a code fence is NOT a citation, and must never inflate the source set.
  */
 export function citedIndexesIn(text: string): Set<number> {
   const indexes = new Set<number>();
-  for (const match of text.matchAll(CITATION_PATTERN)) {
-    indexes.add(Number(match[1]));
-  }
+  const tree = parser.parse(text);
+  visit(tree, 'text', (node: Text) => {
+    // `matchAll` is stateless on a fresh string, so the shared `/g` pattern's
+    // lastIndex doesn't leak between nodes.
+    for (const m of node.value.matchAll(CITATION_PATTERN)) {
+      indexes.add(Number(m[1]));
+    }
+  });
   return indexes;
 }
 
@@ -98,6 +119,41 @@ export function citedSourcesForMessage(message: {
   }
   const indexes = citedIndexesForMessage(message.content, message.text ?? '');
   return sources.filter((s) => indexes.has(s.index));
+}
+
+/**
+ * The DB source entries an answer actually used — DB facts carry NO inline
+ * `[n]` (figures live in viz cards / the panel), so DB inclusion is derived
+ * from the authoritative signals, NOT the prose `[n]` scan: (a) any viz block,
+ * or (b) any DB-class source entry on the message. Returns the DB SourceEntry
+ * subset (may be empty). Single-sourced so the strip count, panel header,
+ * panel card, and dbSchools cannot disagree (honesty — FE-H4).
+ */
+export function dbSourcesForMessage(message: {
+  content?: ReadonlyArray<{ kind: string }>;
+  sources?: ReadonlyArray<SourceEntry>;
+}): SourceEntry[] {
+  const dbEntries = (message.sources ?? []).filter((s) => isDbSource(s.citation.source));
+  if (dbEntries.length > 0) {
+    return dbEntries;
+  }
+  // No DB SourceEntry rows. A viz-only answer still USED Counselle data, but it
+  // has no per-row source entries to render in the panel — the card's existence
+  // is driven by `usedDbData()` (the boolean) and its school names by
+  // `dbSchoolsForMessage` (the viz blocks), NOT by source entries. So there are
+  // simply no DB rows to return here.
+  return [];
+}
+
+/** Did this answer use Counselle's own data? (viz card OR a DB source entry.) */
+export function usedDbData(message: {
+  content?: ReadonlyArray<{ kind: string }>;
+  sources?: ReadonlyArray<SourceEntry>;
+}): boolean {
+  if ((message.sources ?? []).some((s) => isDbSource(s.citation.source))) {
+    return true;
+  }
+  return (message.content ?? []).some((b) => b.kind === 'viz');
 }
 
 type CitationRefNode = {

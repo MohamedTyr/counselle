@@ -63,8 +63,11 @@
     "react-virtualized": "^9.22.6",
     "rehype-highlight": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
     "remark-supersub": "^1.0.0",
-    "tailwind-merge": "^1.9.1"
+    "tailwind-merge": "^1.9.1",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

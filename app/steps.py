@@ -164,6 +164,11 @@ class StepMapper:
             if isinstance(results, list):
                 kwargs["result_count"] = len(results)
                 kwargs["domains"] = _domains_of(results)
+            elif isinstance(content, dict) and "error" not in content:
+                # Success-but-no-results (shape drift): show "0 results" explicitly
+                # rather than omit the count — a completed search that found nothing
+                # must say so (honesty). Errored searches keep status:error / no count.
+                kwargs["result_count"] = 0
         elif kind == "sql":
             kwargs["query"] = _str_or_none(args.get("sql"))
             kwargs["row_count"] = _row_count_of(content)

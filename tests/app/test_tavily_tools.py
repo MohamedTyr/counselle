@@ -277,6 +277,70 @@ class TestSearchSchoolSite:
         assert "error" in result
         assert result["retryable"] is True
 
+    @staticmethod
+    def _patch_duke_domain(monkeypatch: pytest.MonkeyPatch) -> None:
+        """Resolve the school domain to duke.edu for the per-result tier tests."""
+        from domain.envelope import Citation, CitationEnvelope
+
+        env = CitationEnvelope(
+            field="institution.website",
+            label="Website",
+            display="https://www.duke.edu",
+            raw="https://www.duke.edu",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+
+        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
+            return [env]
+
+        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
+
+    @pytest.mark.asyncio
+    async def test_on_domain_result_stays_official(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # DS-02: an on-domain result keeps the school's-official-site citation.
+        self._patch_duke_domain(monkeypatch)
+        client = StubTavilyClient([_make_result("https://duke.edu/admissions")])
+        result = await search_school_site(
+            client, FakeCatalog(), 198419, "early decision", today=TODAY, max_results=MAX_RESULTS
+        )
+        citation = result["results"][0]["citation"]
+        assert citation["tier"] == "official"
+        assert citation["source"] == "edu"
+        assert "school's official site" in citation["vintage"]
+
+    @pytest.mark.asyncio
+    async def test_off_domain_result_is_retiered_community(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # DS-02: include_domains is a bias, not a guarantee. An off-domain result
+        # (a third-party host) must be re-tiered honestly, never stamped official.
+        self._patch_duke_domain(monkeypatch)
+        client = StubTavilyClient([_make_result("https://collegeconfidential.com/duke")])
+        result = await search_school_site(
+            client, FakeCatalog(), 198419, "early decision", today=TODAY, max_results=MAX_RESULTS
+        )
+        citation = result["results"][0]["citation"]
+        assert citation["tier"] == "community"
+        assert citation["source"] == "web"
+        assert citation["tier"] != "official"
+        assert "verify on the school's official site" in citation["caveat"]
+
+    @pytest.mark.asyncio
+    async def test_off_domain_gov_result_is_official_web(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # DS-02: an off-domain .gov result re-derives correctly to official/web —
+        # the tier comes from the actual URL, not the school stamp.
+        self._patch_duke_domain(monkeypatch)
+        client = StubTavilyClient([_make_result("https://nces.ed.gov/ipeds")])
+        result = await search_school_site(
+            client, FakeCatalog(), 198419, "outcomes", today=TODAY, max_results=MAX_RESULTS
+        )
+        citation = result["results"][0]["citation"]
+        assert citation["tier"] == "official"
+        assert citation["source"] == "web"
+
 
 # ---------------------------------------------------------------------------
 # search_reddit — allowlist enforcement

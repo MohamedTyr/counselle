@@ -22,13 +22,23 @@ interface SourcesListProps {
   /** Schools the figures cover, for the Counselle card subline. Passed in (DB
    *  source labels are dataset vintages, not school names). */
   dbSchools?: string[];
+  /** Whether to show the "Counselle data" card. Decoupled from `dbEntries`
+   *  presence (FE-H4) so a viz-only answer — which has zero DB source rows but
+   *  DID use Counselle data — still surfaces the card. Defaults to "has DB
+   *  entries" for back-compat callers; `MessageSources` passes the authoritative
+   *  `usedDbData` signal. */
+  showDbCard?: boolean;
 }
 
-/** Counts what the panel header shows: one "Counselle data" entry + each page. */
-export function displaySourceCount(sources: SourceEntry[]): number {
-  const db = sources.filter((s) => isDbSource(s.citation.source));
-  const externals = sources.length - db.length;
-  return (db.length > 0 ? 1 : 0) + externals;
+/**
+ * Counts what the panel header shows: one "Counselle data" entry (when the
+ * answer used DB data) + each external page. DB inclusion is the caller's
+ * authoritative `dbUsed` signal (`usedDbData`) — NOT a prose `[n]` scan and NOT
+ * the presence of DB source rows (a viz-only answer has none but still used
+ * Counselle data). External rows are passed in already filtered (FE-H4).
+ */
+export function displaySourceCount(externals: SourceEntry[], dbUsed: boolean): number {
+  return (dbUsed ? 1 : 0) + externals.length;
 }
 
 /** Trust order within the external list: a school's/gov's own site, then general
@@ -39,7 +49,12 @@ function externalRank(entry: SourceEntry): number {
   return 0;
 }
 
-export default function SourcesList({ sources, activeIndex, dbSchools }: SourcesListProps) {
+export default function SourcesList({
+  sources,
+  activeIndex,
+  dbSchools,
+  showDbCard,
+}: SourcesListProps) {
   const { dbEntries, externals } = useMemo(() => {
     const db = sources.filter((s) => isDbSource(s.citation.source));
     const ext = sources
@@ -49,6 +64,9 @@ export default function SourcesList({ sources, activeIndex, dbSchools }: Sources
     return { dbEntries: db, externals: ext };
   }, [sources]);
 
+  // The card shows when the host says so (viz-only answers have no DB rows but
+  // still used Counselle data); back-compat callers fall back to "has DB rows".
+  const renderDbCard = showDbCard ?? dbEntries.length > 0;
   const counselleActive = activeIndex != null && dbEntries.some((e) => e.index === activeIndex);
   const counselleRef = useRef<HTMLLIElement>(null);
   const activeRowRef = useRef<HTMLLIElement>(null);
@@ -63,7 +81,7 @@ export default function SourcesList({ sources, activeIndex, dbSchools }: Sources
 
   return (
     <ul className="min-h-0 flex-1 space-y-1 overflow-auto px-2 py-3">
-      {dbEntries.length > 0 && (
+      {renderDbCard && (
         <CounselleSourceCard innerRef={counselleRef} schools={dbSchools} active={counselleActive} />
       )}
       {externals.map((entry) => {

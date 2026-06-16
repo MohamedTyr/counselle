@@ -258,6 +258,47 @@ async def test_acceptance_rate_benchmark_has_all_stats_across_over_1000_schools(
     assert result.p25.raw <= result.median.raw <= result.p75.raw
 
 
+async def test_bbrr_percent_field_benchmark_does_not_crash(catalog: Catalog) -> None:
+    # DS-08: BBRR percent fields can carry jsonb privacy-range STRING tokens
+    # ("<=0.05", "0.05-0.09") per R4 alongside numbers. Casting a string token to
+    # ::numeric crashed the benchmark; the jsonb_typeof = 'number' predicate must
+    # skip them so the benchmark a student asked for returns valid stats.
+    #
+    # `outcomes.bbrr2_ug_default` is a numeric-typed BBRR percent field that
+    # reaches the benchmark SQL — it must aggregate cleanly under the predicate.
+    # Act — should NOT raise ServiceError.
+    result = await national_benchmark(catalog, "outcomes.bbrr2_ug_default")
+
+    # Assert — valid distribution computed over the numeric rows.
+    assert result.n >= 1
+    for stat in (result.median, result.mean, result.p25, result.p75):
+        assert isinstance(stat.raw, float)
+        assert stat.display.endswith("%")
+
+
+async def test_benchmark_sql_predicate_skips_string_tokens(catalog: Catalog) -> None:
+    # DS-08 (the load-bearing assertion): the jsonb_typeof = 'number' predicate is
+    # what prevents the ::numeric crash on a token-mixed BBRR field. Running the
+    # real _BENCHMARK_SQL over `outcomes.bbrr2_pell_default` (privacy-range string
+    # tokens per R4) must execute cleanly — without the predicate, the cast raises
+    # a Postgres InvalidParameterValueError. The numeric rows there are 0, so the
+    # benchmark's data_type guard rightly never serves it; this test pins the SQL.
+    from counselle_db.service import _BENCHMARK_SQL
+
+    # Act — the guarded SQL must not raise on the token-mixed field.
+    rows = await catalog.pool.fetch(
+        _BENCHMARK_SQL, "outcomes.bbrr2_pell_default", "scorecard"
+    )
+
+    # Assert — it ran (string tokens skipped), and a clean numeric field aggregates.
+    assert rows[0]["n"] == 0  # all rows are string tokens → none benchmarkable
+    numeric_rows = await catalog.pool.fetch(
+        _BENCHMARK_SQL, "outcomes.bbrr2_ug_default", "scorecard"
+    )
+    assert numeric_rows[0]["n"] >= 1
+    assert numeric_rows[0]["median"] is not None
+
+
 # --- get_programs / get_diversity -----------------------------------------------------
 
 

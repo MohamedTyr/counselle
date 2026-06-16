@@ -268,12 +268,7 @@ async def search_school_site(
     if not domain:
         return {"error": "school website unknown", "retryable": False}
 
-    citation = Citation(
-        source="edu",
-        tier="official",
-        vintage=f"Retrieved {today:%b %d, %Y} (school's official site)",
-        url=f"https://{domain}",
-    )
+    school_site_vintage = f"Retrieved {today:%b %d, %Y} (school's official site)"
     try:
         resp = await client.search(
             query,
@@ -292,10 +287,21 @@ async def search_school_site(
         return _safe_error(exc)
 
     results = resp.get("results", [])
-    items = [
-        _result_to_item(r, citation.model_copy(update={"url": r.get("url", f"https://{domain}")}))
-        for r in results
-    ]
+
+    def _citation_for_school_result(url: str) -> Citation:
+        # On-domain ⇒ the school's own official site. Off-domain (include_domains
+        # is a relevance bias, not a hard guarantee) ⇒ re-tier honestly via the
+        # web-result rule so a third-party host is never stamped "official".
+        if _registrable_domain(url) == domain:
+            return Citation(
+                source="edu",
+                tier="official",
+                vintage=school_site_vintage,
+                url=url,
+            )
+        return _citation_for_web_result(url, today)
+
+    items = [_result_to_item(r, _citation_for_school_result(r.get("url", ""))) for r in results]
     return {"results": items}
 
 

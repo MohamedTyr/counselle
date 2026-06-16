@@ -246,6 +246,31 @@ def test_detail_for_search_kind_counts_and_domains(mapper: StepMapper) -> None:
     assert detail.duration_ms == 120
 
 
+def test_search_success_without_results_list_shows_zero(mapper: StepMapper) -> None:
+    # BC-13: a search that succeeds with a dict carrying no `results` list (shape
+    # drift) must show "0 results" explicitly, not omit the count.
+    detail = mapper.detail_for("search_web", {"query": "x"}, {"query": "x"}, 30)
+
+    assert detail.result_count == 0
+
+
+def test_detail_for_errored_search_omits_result_count(mapper: StepMapper) -> None:
+    # BC-13 regression: an errored search dict still omits the count (no green
+    # "0 results" — the step is status:error and carries no count).
+    detail = mapper.detail_for("search_web", {"query": "x"}, {"error": "rate limited"}, 30)
+
+    assert detail.result_count is None
+
+
+def test_detail_for_normal_search_still_counts_results(mapper: StepMapper) -> None:
+    # BC-13 regression: a normal results list is still counted by length.
+    content = {"results": [{"url": "https://a.com/x"}, {"url": "https://b.com/y"}]}
+
+    detail = mapper.detail_for("search_web", {"query": "x"}, content, 30)
+
+    assert detail.result_count == 2
+
+
 def test_detail_for_sql_kind_carries_statement_and_row_count(mapper: StepMapper) -> None:
     detail = mapper.detail_for(
         "query_database",

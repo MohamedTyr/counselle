@@ -10,11 +10,24 @@
  * `citationRef` children remarkCitations produced.
  *
  * For each `citationRef`, its immediately-preceding text sibling already IS its
- * clause (any prior `citationRef` split the text, bounding the clause on the
- * left). We trim that sibling to the last `.?!` boundary within it — so
- * `"X. Y "` → `"Y "` — and wrap the trailing remainder in a `dbClaim` node
- * carrying `data.hProperties.index = n`. The `citationRef` itself is left as a
- * following sibling, never nested inside the dbClaim.
+ * clause. We trim that sibling on the left to the LATER of (a) the last `.?!`
+ * sentence boundary and (b) the last leftover `[…]` marker (a 3+-digit `[999]`
+ * that remarkCitations' `\[(\d{1,2})\]` pattern did not capture, so it stayed as
+ * literal text and belongs to a DIFFERENT — often external — source). So
+ * `"X. Y "` → `"Y "`, and `"Source 999 … [999], Y "` → `"Y "`. The trailing
+ * remainder is wrapped in a `dbClaim` node carrying `data.hProperties.index = n`;
+ * the `citationRef` itself is left as a following sibling, never nested inside
+ * the dbClaim.
+ *
+ * RESIDUAL LIMITATION (accepted, ADR 0006): a bare external attribution with NO
+ * marker and NO sentence boundary in the same text node ("US News reports …
+ * [1]") is NOT detectable here — there is no bracket to cut at, and the clause
+ * text alone carries no machine signal that "US News reports" is external.
+ * Bounding that case is the model's responsibility (attach a `[n]` to the
+ * external claim, or don't co-mingle it into a DB-cited sentence); `DbClaim`'s
+ * source gate (a clause lights only when its `[n]` resolves to a streamed DB
+ * source) is the only backstop, and it guards against the wrong source CLASS,
+ * not against co-mingled external PROSE under a DB index.
  *
  * The plugin is a plain, parameterless cached singleton: it wraps EVERY cited
  * clause unconditionally and stamps the index. Whether a wrapped clause actually
@@ -62,21 +75,37 @@ function citationIndexOf(node: Node): number | null {
   return typeof index === 'number' ? index : null;
 }
 
+//: Any "[…]" the citation plugin left behind — e.g. a 3+-digit marker like
+//: "[999]" that remarkCitations' `\[(\d{1,2})\]` pattern did not capture. Such
+//: a leftover bracket belongs to a DIFFERENT (often external) source, so the
+//: db-claim clause must not reach back across it.
+const EMBEDDED_MARKER = /\[[^\]]*]\s*/g;
+
 /**
- * Split a preceding text value into a leading remainder (everything up to and
- * including the last `.?!` boundary) and the trailing clause to wrap. When the
- * text has no boundary, the whole value is the clause.
+ * The clause to wrap = the text after the LATER of (a) the last `.?!` sentence
+ * boundary and (b) the last leftover `[…]` bracket. (a) keeps a db-claim from
+ * swallowing a prior sentence; (b) closes the unmatched-multi-digit-marker
+ * leak (a "[999]" the citation plugin left as text — see FE-C1 case 2). When
+ * neither is present, the whole value is the clause.
+ *
+ * NOTE the deliberate limit: a bare external attribution with NO bracket and
+ * NO sentence boundary ("US News reports … [1]") is undetectable here and is
+ * the model's responsibility per ADR 0006 — see the header's residual note.
  */
 function splitAtLastBoundary(value: string): { head: string; clause: string } {
+  let cut = 0;
   SENTENCE_BOUNDARY.lastIndex = 0;
-  let lastEnd = -1;
   for (const match of value.matchAll(SENTENCE_BOUNDARY)) {
-    lastEnd = match.index + match[0].length;
+    cut = Math.max(cut, match.index + match[0].length);
   }
-  if (lastEnd <= 0 || lastEnd >= value.length) {
+  EMBEDDED_MARKER.lastIndex = 0;
+  for (const match of value.matchAll(EMBEDDED_MARKER)) {
+    cut = Math.max(cut, match.index + match[0].length);
+  }
+  if (cut <= 0 || cut >= value.length) {
     return { head: '', clause: value };
   }
-  return { head: value.slice(0, lastEnd), clause: value.slice(lastEnd) };
+  return { head: value.slice(0, cut), clause: value.slice(cut) };
 }
 
 /**
@@ -91,6 +120,11 @@ function wrapClauses(children: ReadonlyArray<Node>): Node[] | null {
     if (isCitationRef(child)) {
       const index = citationIndexOf(child);
       const prev = out[out.length - 1];
+      // Invariant (FE-C1 Layer 2): the clause text for a citationRef never
+      // reaches across a PRIOR citationRef, because remarkCitations already
+      // split the text node at each `[n]` marker. So `prev` only ever holds
+      // the text accumulated since the last marker — no runtime "don't cross a
+      // prior citationRef" guard is needed; the split already guarantees it.
       if (index !== null && prev !== undefined && prev.type === 'text') {
         const { head, clause } = splitAtLastBoundary((prev as Text).value);
         if (clause.length > 0) {

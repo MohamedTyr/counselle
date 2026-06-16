@@ -93,6 +93,34 @@ def test_unavailable_always_displays_not_available(meta: FieldMeta, value: Any) 
 
 
 @settings(max_examples=200, deadline=None)
+@given(fraction=st.floats(min_value=-5.0, max_value=5.0, allow_nan=False, allow_infinity=False))
+def test_percent_respects_the_max_fraction_bound(fraction: float) -> None:
+    # DS-10: a percent fraction in [0, 1.5] renders; anything outside degrades to
+    # "not available" — never an absurd display like "4500%". Always pure (no raise).
+    # Arrange
+    meta = FieldMeta(
+        key="admissions.acceptance_rate",
+        label="Acceptance Rate",
+        category="admissions",
+        data_type="percent",
+        source="scorecard",
+        raw_table="raw.scorecard_institution",
+        raw_column="ADM_RATE",
+    )
+
+    # Act
+    result = normalize(meta, fraction)
+
+    # Assert
+    if 0 <= fraction <= 1.5:
+        assert result.available is True
+        assert result.display.endswith("%")
+    else:
+        assert result.available is False
+        assert result.display == "not available"
+
+
+@settings(max_examples=200, deadline=None)
 @given(code=st.integers(min_value=0, max_value=9))
 def test_decoded_value_never_displays_the_bare_code(code: int) -> None:
     # Arrange — a coded int field whose decode_map covers the value (R1).

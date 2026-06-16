@@ -13,25 +13,37 @@ import { useMemo } from 'react';
 import { useSetAtom } from 'jotai';
 import type { ChatMessage } from '@/app/ChatContext';
 import { openSourcesPanelAtom } from '@/app/state';
-import { citedSourcesForMessage } from '@/components/citations/remarkCitations';
+import {
+  citedSourcesForMessage,
+  dbSourcesForMessage,
+  usedDbData,
+} from '@/components/citations/remarkCitations';
 import { dbSchoolsForMessage } from '@/components/citations/dbSchools';
 import { isDbSource } from '@/components/citations/sourceName';
-import { displaySourceCount } from '@/components/citations/SourcesList';
 import SourcesStrip from '@/components/citations/SourcesStrip';
 
 export default function MessageSources({ message }: { message: ChatMessage }) {
   const openSources = useSetAtom(openSourcesPanelAtom);
 
-  // Filter to the cited subset once; the strip and the panel both render it, so
-  // they can never disagree about which sources the answer used.
-  const cited = useMemo(() => citedSourcesForMessage(message), [message]);
-
-  // The strip's favicon stack shows EXTERNAL sources only — the Counselle data
-  // card lives in the panel, not in the favicon row.
-  const externals = useMemo(() => cited.filter((s) => !isDbSource(s.citation.source)), [cited]);
-
+  // External sources: cited iff their `[n]` is in prose (correct grammar). The
+  // strip's favicon stack shows EXTERNAL sources only — the Counselle data card
+  // lives in the panel, not in the favicon row.
+  const externalCited = useMemo(
+    () => citedSourcesForMessage(message).filter((s) => !isDbSource(s.citation.source)),
+    [message],
+  );
+  // Counselle data: authoritative signal (viz card OR DB source entry), NOT the
+  // prose `[n]` scan — DB facts carry no inline marker.
+  const dbUsed = useMemo(() => usedDbData(message), [message]);
+  const dbEntries = useMemo(() => dbSourcesForMessage(message), [message]);
   // School names for the panel's Counselle-data card subline.
   const dbSchools = useMemo(() => dbSchoolsForMessage(message), [message]);
+
+  // The panel renders DB entries (if any) + external rows; the card shows
+  // whenever dbUsed, even with zero DB SourceEntry rows. Single-sourced so the
+  // strip count, panel header, card, and dbSchools cannot disagree (FE-H4).
+  const panelSources = useMemo(() => [...dbEntries, ...externalCited], [dbEntries, externalCited]);
+  const displayCount = (dbUsed ? 1 : 0) + externalCited.length;
 
   // Only show sources once the turn has settled. The backend emits ev_sources
   // before ev_done, so without this guard the strip would flash in while the
@@ -40,15 +52,15 @@ export default function MessageSources({ message }: { message: ChatMessage }) {
     return null;
   }
 
-  if (cited.length === 0) {
+  if (!dbUsed && externalCited.length === 0) {
     return null;
   }
 
   return (
     <SourcesStrip
-      sources={externals}
-      displayCount={displaySourceCount(cited)}
-      onOpen={() => openSources({ sources: cited, activeIndex: null, dbSchools })}
+      sources={externalCited}
+      displayCount={displayCount}
+      onOpen={() => openSources({ sources: panelSources, activeIndex: null, dbSchools, dbUsed })}
     />
   );
 }

@@ -68,6 +68,61 @@ def test_percent_keeps_real_precision_to_one_decimal() -> None:
     assert result.display == "58.7%"
 
 
+def test_percent_above_one_point_five_degrades_to_not_available() -> None:
+    # DS-10: a drifted "45" (already a percentage, not a 0–1 fraction) must NOT
+    # render "4500%" — it degrades honestly.
+    # Arrange
+    meta = _meta(data_type="percent")
+
+    # Act
+    result = normalize(meta, 45)
+
+    # Assert
+    assert result.available is False
+    assert result.display == "not available"
+    assert result.display != "4500%"
+
+
+def test_percent_at_one_point_zero_still_renders() -> None:
+    # DS-10 boundary: a clean 1.0 fraction is a valid 100%.
+    # Arrange
+    meta = _meta(data_type="percent")
+
+    # Act
+    result = normalize(meta, 1.0)
+
+    # Assert
+    assert result.display == "100%"
+    assert result.available is True
+
+
+def test_percent_slightly_over_one_still_renders() -> None:
+    # DS-10 slack: a real >100% value (e.g. a growth-style ratio) within the
+    # 1.5 bound is not clobbered.
+    # Arrange
+    meta = _meta(data_type="percent")
+
+    # Act
+    result = normalize(meta, 1.2)
+
+    # Assert
+    assert result.display == "120%"
+    assert result.available is True
+
+
+def test_negative_percent_degrades() -> None:
+    # DS-10: a negative fraction is nonsensical for a percent and degrades.
+    # Arrange
+    meta = _meta(data_type="percent")
+
+    # Act
+    result = normalize(meta, -0.1)
+
+    # Assert
+    assert result.available is False
+    assert result.display == "not available"
+
+
 # --- NULL / missing (R3) ---
 
 
@@ -191,6 +246,50 @@ def test_admcon7_code_5_decodes_to_test_optional() -> None:
 
     # Assert
     assert result.display == "Test-Optional"
+
+
+def test_coded_int_with_unmapped_code_degrades_to_not_available() -> None:
+    # DS-01: a field that IS coded but whose stored code is absent from the
+    # decode map must NOT show the raw integer (R1 — never show control: 4).
+    # Arrange
+    meta = _meta(
+        key="institution.control",
+        label="Control",
+        data_type="int",
+        source="ipeds",
+        raw_table="raw.ipeds_hd2024",
+        raw_column="CONTROL",
+    )
+    decode_map = {"1": "Public", "2": "Private not-for-profit", "3": "Private for-profit"}
+
+    # Act
+    result = normalize(meta, 4.0, decode_map=decode_map)
+
+    # Assert
+    assert result.available is False
+    assert result.display == "not available"
+    assert result.display != "4"
+
+
+def test_coded_int_with_present_code_still_decodes_after_ds01() -> None:
+    # DS-01 regression: the decode-success path is unchanged.
+    # Arrange
+    meta = _meta(
+        key="institution.control",
+        label="Control",
+        data_type="int",
+        source="ipeds",
+        raw_table="raw.ipeds_hd2024",
+        raw_column="CONTROL",
+    )
+    decode_map = {"1": "Public", "2": "Private not-for-profit", "3": "Private for-profit"}
+
+    # Act
+    result = normalize(meta, 2.0, decode_map=decode_map)
+
+    # Assert
+    assert result.display == "Private not-for-profit"
+    assert result.available is True
 
 
 def test_plain_int_without_decode_map_displays_as_a_count() -> None:

@@ -116,4 +116,25 @@ describe('citedIndexesIn — the §5 footer-filter grammar (single-sourced with 
     const { citedIndexesIn } = await import('@/components/citations/remarkCitations');
     expect(citedIndexesIn('').size).toBe(0);
   });
+
+  // FE-DUP-CITED-SCAN: the scan now parses mdast and visits only `text` nodes,
+  // so a `[n]` inside code/inlineCode is excluded — the footer/panel agree with
+  // the renderer's plugin, which never touches code.
+  test('ignores a marker inside an inline-code span', async () => {
+    const { citedIndexesIn } = await import('@/components/citations/remarkCitations');
+    const got = citedIndexesIn('See `[7]` in the example. Real cite [3].');
+    expect([...got].sort((a, b) => a - b)).toEqual([3]);
+  });
+
+  test('ignores a marker inside a fenced code block', async () => {
+    const { citedIndexesIn } = await import('@/components/citations/remarkCitations');
+    const got = citedIndexesIn('```\n[12]\n```\n\nReal cite [4].');
+    expect([...got].sort((a, b) => a - b)).toEqual([4]);
+  });
+
+  test('still counts normal prose markers (regression)', async () => {
+    const { citedIndexesIn } = await import('@/components/citations/remarkCitations');
+    const got = citedIndexesIn('Acceptance is 12.5% [1] and yield [2].');
+    expect([...got].sort((a, b) => a - b)).toEqual([1, 2]);
+  });
 });

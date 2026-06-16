@@ -419,7 +419,13 @@ function SourcesPanelPreview({
       aria-label="Sources panel"
       className="flex h-full w-full flex-col overflow-hidden bg-surface-primary motion-safe:[animation:artifact-in_.28s_cubic-bezier(.16,1,.3,1)]"
     >
-      <PanelHeader count={displaySourceCount(sources)} onClose={onClose} />
+      <PanelHeader
+        count={displaySourceCount(
+          sources.filter((s) => !isDbSource(s.citation.source)),
+          sources.some((s) => isDbSource(s.citation.source)),
+        )}
+        onClose={onClose}
+      />
       <SourcesList sources={sources} activeIndex={activeIndex} dbSchools={DB_SCHOOLS} />
     </aside>
   );
@@ -554,7 +560,13 @@ export default function MessagePreview(): ReactNode {
                   className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-surface-primary shadow-2xl focus:outline-none motion-safe:[animation:artifact-sheet-in_.3s_cubic-bezier(.16,1,.3,1)] md:hidden"
                 >
                   <Dialog.Title className="sr-only">Sources for this answer</Dialog.Title>
-                  <PanelHeader count={displaySourceCount(SOURCES)} onClose={close} />
+                  <PanelHeader
+                    count={displaySourceCount(
+                      SOURCES.filter((s) => !isDbSource(s.citation.source)),
+                      SOURCES.some((s) => isDbSource(s.citation.source)),
+                    )}
+                    onClose={close}
+                  />
                   <SourcesList sources={SOURCES} activeIndex={activeIndex} dbSchools={DB_SCHOOLS} />
                 </Dialog.Content>
               </Dialog.Portal>

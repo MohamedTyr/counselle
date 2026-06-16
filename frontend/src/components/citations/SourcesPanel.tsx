@@ -12,6 +12,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { SourceEntry } from '@/api/protocol';
 import { useEscToClose } from '@/components/artifact/ArtifactPanel';
+import { isDbSource } from '@/components/citations/sourceName';
 import SourcesList, { displaySourceCount } from '@/components/citations/SourcesList';
 
 type SourcesViewProps = {
@@ -20,13 +21,19 @@ type SourcesViewProps = {
   activeIndex?: number | null;
   /** Schools the figures cover, for the Counselle card subline. */
   dbSchools?: string[];
+  /** Whether the answer used Counselle's own data (viz card OR DB source entry)
+   *  — the authoritative signal from the panel payload (FE-H4). Drives the
+   *  header count and the "Counselle data" card, never a prose `[n]` scan. */
+  dbUsed: boolean;
   onClose: () => void;
 };
 
-function SourcesChrome({ sources, activeIndex, dbSchools, onClose }: SourcesViewProps) {
-  // The header counts what SourcesList renders: one "Counselle data" entry for
-  // all structured figures + each external page.
-  const count = displaySourceCount(sources);
+function SourcesChrome({ sources, activeIndex, dbSchools, dbUsed, onClose }: SourcesViewProps) {
+  // The header counts what SourcesList renders: one "Counselle data" entry when
+  // the answer used DB data (the authoritative `dbUsed` signal) + each external
+  // page. Externals are the non-DB rows of the mixed `sources` array.
+  const externals = sources.filter((s) => !isDbSource(s.citation.source));
+  const count = displaySourceCount(externals, dbUsed);
 
   return (
     <>
@@ -44,12 +51,17 @@ function SourcesChrome({ sources, activeIndex, dbSchools, onClose }: SourcesView
         </button>
       </header>
 
-      <SourcesList sources={sources} activeIndex={activeIndex} dbSchools={dbSchools} />
+      <SourcesList
+        sources={sources}
+        activeIndex={activeIndex}
+        dbSchools={dbSchools}
+        showDbCard={dbUsed}
+      />
     </>
   );
 }
 
-export function SourcesPanel({ sources, activeIndex, dbSchools, onClose }: SourcesViewProps) {
+export function SourcesPanel({ sources, activeIndex, dbSchools, dbUsed, onClose }: SourcesViewProps) {
   useEscToClose(onClose);
   return (
     <aside
@@ -60,13 +72,14 @@ export function SourcesPanel({ sources, activeIndex, dbSchools, onClose }: Sourc
         sources={sources}
         activeIndex={activeIndex}
         dbSchools={dbSchools}
+        dbUsed={dbUsed}
         onClose={onClose}
       />
     </aside>
   );
 }
 
-export function SourcesSheet({ sources, activeIndex, dbSchools, onClose }: SourcesViewProps) {
+export function SourcesSheet({ sources, activeIndex, dbSchools, dbUsed, onClose }: SourcesViewProps) {
   return (
     <Dialog.Root open onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
@@ -80,6 +93,7 @@ export function SourcesSheet({ sources, activeIndex, dbSchools, onClose }: Sourc
             sources={sources}
             activeIndex={activeIndex}
             dbSchools={dbSchools}
+            dbUsed={dbUsed}
             onClose={onClose}
           />
         </Dialog.Content>

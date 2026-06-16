@@ -143,6 +143,7 @@ export default function ChatView() {
                   sources={sourcesPanel.sources}
                   activeIndex={sourcesPanel.activeIndex}
                   dbSchools={sourcesPanel.dbSchools}
+                  dbUsed={sourcesPanel.dbUsed}
                   onClose={closeSources}
                 />
               ) : artifact !== null ? (
@@ -157,6 +158,7 @@ export default function ChatView() {
           sources={sourcesPanel.sources}
           activeIndex={sourcesPanel.activeIndex}
           dbSchools={sourcesPanel.dbSchools}
+          dbUsed={sourcesPanel.dbUsed}
           onClose={closeSources}
         />
       )}

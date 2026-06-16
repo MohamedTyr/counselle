@@ -142,8 +142,20 @@ def _fraction_as_percent(fraction: Decimal) -> str:
     return f"{_strip_trailing_point_zero(str(scaled))}%"
 
 
+#: A percent is a 0–1 fraction (DATABASE_GUIDE §6, max 1.0). Generous slack for
+#: rounding; beyond this it's pipeline drift (a raw "45" stored where a 0.45
+#: fraction belongs) — degrade rather than render "4500%". ``_currency`` is left
+#: intentionally unbounded: negative net price is valid (R5) and there is no sane
+#: symmetric dollar bound, so a wrong-but-plausible dollar figure is far less
+#: misleading than "4500%".
+_MAX_PERCENT_FRACTION = Decimal("1.5")
+
+
 def _percent(value: Any) -> NormalizedValue:
     fraction = _decimal(value)
+    if fraction < 0 or fraction > _MAX_PERCENT_FRACTION:
+        # Out of the 0–1 fraction contract ⇒ unknowable, not a real percent.
+        return _not_available()
     return NormalizedValue(
         display=_fraction_as_percent(fraction),
         raw=value if isinstance(value, int | float) else float(fraction),
@@ -165,11 +177,17 @@ def _currency(value: Any) -> NormalizedValue:
 
 def _int(value: Any, decode_map: Mapping[str, str] | None) -> NormalizedValue:
     count = int(_decimal(value).to_integral_value(rounding=ROUND_HALF_UP))  # R6
-    if decode_map is not None and str(count) in decode_map:  # R1 — never show the code
-        label = decode_map[str(count)]
+    if decode_map is not None:
+        # R1 — the field IS coded. Decode it, or degrade: an unknown code is
+        # "unknown", never a count. Showing the raw integer (e.g. control: 2)
+        # is exactly the misread R1 exists to prevent.
+        label = decode_map.get(str(count))
+        if label is None:
+            return _not_available()
         return NormalizedValue(
             display=label, raw=count, available=True, unit="count", decoded_label=label
         )
+    # Uncoded int (counts/scores/ratios) — display as a plain number.
     return NormalizedValue(display=f"{count:,}", raw=count, available=True, unit="count")
 
 

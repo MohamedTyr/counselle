@@ -123,7 +123,9 @@ SELECT percentile_cont(0.5)  WITHIN GROUP (ORDER BY (value)::numeric) AS median,
        percentile_cont(0.75) WITHIN GROUP (ORDER BY (value)::numeric) AS p75,
        count(*)                                                       AS n
 FROM field_values
-WHERE field_key = $1 AND source = $2 AND value IS NOT NULL
+WHERE field_key = $1 AND source = $2
+  AND value IS NOT NULL
+  AND jsonb_typeof(value) = 'number'   -- skip BBRR privacy-range tokens (R4)
 """
 _PROGRAMS_SQL = """
 SELECT "CIPCODE", "CIPDESC", "CREDLEV", "CREDDESC", "IPEDSCOUNT2",
@@ -611,6 +613,31 @@ def _guard_sql(sql: str) -> str:
     return stripped
 
 
+def _decode_hints_for(catalog: Catalog, columns: list[str]) -> dict[str, str]:
+    """DS-03: honesty reminders for value-bearing columns the raw rows bypass.
+
+    Pure (no pool, no I/O): resolves each column name against the catalog's
+    field index and flags percent / coded-int / raw-``value`` columns so the
+    model is reminded to decode/scale before quoting (R1/R2/R4). Unresolvable
+    columns get no hint — no false reassurance.
+    """
+    hints: dict[str, str] = {}
+    for col in columns:
+        meta = catalog.fields_by_key.get(col)
+        if meta is not None and meta.data_type == "percent":
+            hints[col] = "0–1 fraction — multiply by 100 before quoting (R2)."
+        elif meta is not None and meta.data_type == "int":
+            hints[col] = (
+                "may be a coded enum — decode via counselle.decode_ipeds before quoting (R1)."
+            )
+        elif col == "value":
+            hints[col] = (
+                "raw field_values payload — percents are 0–1 fractions, coded ints "
+                "need decoding, '-2'/range tokens are sentinels (R1/R2/R4)."
+            )
+    return hints
+
+
 async def query_database(
     catalog: Catalog, sql: str, params: list[Any] | None = None
 ) -> QueryResult:
@@ -637,6 +664,7 @@ async def query_database(
         rows=[list(row) for row in rows],
         row_count=len(rows),
         truncated=truncated,
+        decode_hints=_decode_hints_for(catalog, columns),
     )
 
 

@@ -148,3 +148,7 @@ class QueryResult(BaseModel):
     rows: list[list[Any]]
     row_count: int
     truncated: bool
+    # DS-03: per-column honesty reminders for value-bearing columns the raw
+    # rows did NOT decode/scale. Empty when no column is recognizably
+    # value-bearing. The model MUST apply these before quoting (R1/R2/R4).
+    decode_hints: dict[str, str] = Field(default_factory=dict)

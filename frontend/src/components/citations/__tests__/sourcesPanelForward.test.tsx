@@ -40,7 +40,13 @@ const SOURCES: SourceEntry[] = [
 describe('SourcesPanel forwards activeIndex + dbSchools', () => {
   test('the active external row gets the source-flash animation', () => {
     render(
-      <SourcesPanel sources={SOURCES} activeIndex={2} dbSchools={['NYU']} onClose={() => {}} />,
+      <SourcesPanel
+        sources={SOURCES}
+        activeIndex={2}
+        dbSchools={['NYU']}
+        dbUsed
+        onClose={() => {}}
+      />,
     );
     const flashed = document.querySelector('[class*="source-flash"]');
     expect(flashed).not.toBeNull();
@@ -52,6 +58,7 @@ describe('SourcesPanel forwards activeIndex + dbSchools', () => {
         sources={SOURCES}
         activeIndex={null}
         dbSchools={['NYU', 'Yale']}
+        dbUsed
         onClose={() => {}}
       />,
     );
@@ -66,6 +73,7 @@ describe('SourcesSheet forwards activeIndex + dbSchools', () => {
         sources={SOURCES}
         activeIndex={null}
         dbSchools={['Stanford']}
+        dbUsed
         onClose={() => {}}
       />,
     );

@@ -70,11 +70,16 @@ export const artifactPanelAtom = atom<ArtifactPanelState>(null);
  *    its row); `null` when opened from the strip (no specific row).
  *  - `dbSchools`: school names for the Counselle-data card subline, derived from
  *    the answer's viz blocks / DB source labels (empty ⇒ generic truthful copy).
+ *  - `dbUsed`: whether the answer used Counselle's own data (viz card OR a DB
+ *    source entry) — the authoritative signal (`usedDbData`) that drives the
+ *    panel header count and the "Counselle data" card, NOT a prose `[n]` scan
+ *    (FE-H4). A viz-only answer has `dbUsed=true` with zero DB source rows.
  */
 export type SourcesPanelState = {
   sources: SourceEntry[];
   activeIndex: number | null;
   dbSchools: string[];
+  dbUsed: boolean;
 } | null;
 
 export const sourcesPanelAtom = atom<SourcesPanelState>(null);
