@@ -7,13 +7,21 @@
  * shows a single line of reassurance. The wash sits on a persistent <span> so
  * flipping the toggle animates the reveal instead of snapping.
  *
- * `<db-claim>` is produced by remarkDbClaim; registered in the components map.
+ * `<db-claim>` is produced by remarkDbSpans, which stamps it with the citation
+ * index it wraps; registered in the components map.
+ *
+ * DbClaim is the decision point (honesty): a clause highlights ONLY when its
+ * citation resolves to a streamed DB source AND the reveal is on. An unresolved
+ * source (not yet streamed) or an external one renders children plainly — we
+ * never highlight a clause we can't vouch for as "from Counselle".
  */
 import type { ReactNode } from 'react';
 import * as HoverCard from '@radix-ui/react-hover-card';
 import { cn } from '@librechat/client/utils';
 import CounselleMark from '@/components/citations/CounselleMark';
 import { useRevealDb, type HighlightStyle } from '@/components/citations/RevealDbContext';
+import { useSources } from '@/components/citations/SourcesContext';
+import { isDbSource } from '@/components/citations/sourceName';
 
 function highlightClass(style: HighlightStyle): string {
   const wash =
@@ -28,32 +36,47 @@ function highlightClass(style: HighlightStyle): string {
   return `${wash} ${underline}`;
 }
 
-export default function DbClaim({ children }: { children?: ReactNode }) {
+export default function DbClaim({
+  children,
+  index,
+}: {
+  children?: ReactNode;
+  // react-markdown forwards hProperties.index as string | number; coerce below.
+  index?: string | number;
+}) {
   const { revealed, style } = useRevealDb();
+  const sources = useSources();
+
+  // Honesty gate: light up only a streamed DB source, and only when revealed.
+  // Undefined entry (source not yet streamed) or an external source ⇒ inert.
+  const claimIndex = index === undefined ? undefined : Number(index);
+  const entry =
+    claimIndex === undefined ? undefined : sources.find((s) => s.index === claimIndex);
+  const canHighlight = entry !== undefined && isDbSource(entry.citation.source);
+  const isHighlighted = canHighlight && revealed;
+
+  if (!isHighlighted) {
+    return <span data-db-claim="">{children}</span>;
+  }
 
   // Revealed claims act as the HoverCard trigger, so they must be reachable by
   // keyboard and announced as interactive — Radix opens the card on focus too.
   const span = (
     <span
       data-db-claim=""
-      data-revealed={revealed ? '' : undefined}
-      role={revealed ? 'button' : undefined}
-      tabIndex={revealed ? 0 : undefined}
-      aria-label={revealed ? "From Counselle's verified data" : undefined}
+      data-revealed=""
+      role="button"
+      tabIndex={0}
+      aria-label="From Counselle's verified data"
       className={cn(
         'transition-[background-color,text-decoration-color] duration-200 ease-out motion-reduce:transition-none',
-        revealed && highlightClass(style),
-        revealed &&
-          'cursor-default rounded-[0.3em] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-purple)]',
+        highlightClass(style),
+        'cursor-default rounded-[0.3em] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-purple)]',
       )}
     >
       {children}
     </span>
   );
-
-  if (!revealed) {
-    return span;
-  }
 
   return (
     <HoverCard.Root openDelay={140} closeDelay={80}>

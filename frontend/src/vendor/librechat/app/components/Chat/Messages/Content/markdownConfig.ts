@@ -15,7 +15,11 @@ import rehypeHighlight from 'rehype-highlight';
 import type { PluggableList } from 'unified';
 import type { ElementType } from 'react';
 // FE-4: inline [n] citation chips (remark plugin + the citation-ref renderer).
-import remarkCitations, { CitationRefMarkdown } from '@/components/citations/remarkCitations';
+import remarkCitations from '@/components/citations/remarkCitations';
+import { InlineCitationMarkdown } from '@/components/citations/InlineCitation';
+// Reveal: wrap each DB-cited clause; DbClaim decides whether it highlights.
+import remarkDbSpans from '@/components/citations/remarkDbSpans';
+import DbClaim from '@/components/citations/DbClaim';
 import { code, a, p, img, table } from './MarkdownComponents';
 import { langSubset } from '~/utils';
 
@@ -39,7 +43,9 @@ let markdownComponentsCache: { [nodeType: string]: ElementType } | null = null;
 export const getRemarkPlugins = (): PluggableList => {
   if (remarkPluginsCache === null) {
     // FE-4: remarkCitations turns [n] markers into citation-ref chips.
-    remarkPluginsCache = [supersub, remarkGfm, remarkCitations];
+    // remarkDbSpans MUST run after remarkCitations — it keys off the citationRef
+    // nodes remarkCitations produced (the raw [n] text is already consumed).
+    remarkPluginsCache = [supersub, remarkGfm, remarkCitations, remarkDbSpans];
   }
   return remarkPluginsCache;
 };
@@ -62,7 +68,9 @@ export const getMarkdownComponents = (): { [nodeType: string]: ElementType } => 
       img,
       table,
       // FE-4: the renderer for remarkCitations' citation-ref element.
-      'citation-ref': CitationRefMarkdown,
+      'citation-ref': InlineCitationMarkdown,
+      // Reveal: the renderer for remarkDbSpans' db-claim element.
+      'db-claim': DbClaim,
     };
   }
   return markdownComponentsCache;

@@ -3,18 +3,23 @@ import { ThemeSelector } from '@librechat/client';
 import { useState } from 'react';
 import type { ElementType, ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
+import * as HoverCard from '@radix-ui/react-hover-card';
 import { Clipboard, RefreshCw, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import { cn } from '@librechat/client/utils';
 import type { RenderSpec, SourceEntry, CitationEnvelope } from '@/api/protocol';
 import { useIsDesktop } from '@/app/useMediaQuery';
 import VizCard from '@/components/cards/VizCard';
+import CounselleMark from '@/components/citations/CounselleMark';
 import { DejargonProvider } from '@/components/citations/dejargon';
 import { CitationActivateProvider } from '@/components/citations/CitationActivateContext';
 import { InlineCitationMarkdown } from '@/components/citations/InlineCitation';
-import DbClaim from '@/components/citations/DbClaim';
 import RevealDbToggle from '@/components/citations/RevealDbToggle';
 import remarkDbClaim from '@/components/citations/remarkDbClaim';
-import { RevealDbProvider, type HighlightStyle } from '@/components/citations/RevealDbContext';
+import {
+  RevealDbProvider,
+  useRevealDb,
+  type HighlightStyle,
+} from '@/components/citations/RevealDbContext';
 import SourceFavicon from '@/components/citations/SourceFavicon';
 import SourcesList, { displaySourceCount } from '@/components/citations/SourcesList';
 import { isDbSource } from '@/components/citations/sourceName';
@@ -216,13 +221,85 @@ const SOURCES: SourceEntry[] = [
   },
 ];
 
+// Preview-local mirror of DbClaim's highlighted-branch styling. Kept here (not
+// imported) because production's `highlightClass` is private to DbClaim.
+function previewHighlightClass(style: HighlightStyle): string {
+  const wash =
+    'rounded-[0.3em] bg-[color-mix(in_oklab,var(--brand-purple)_14%,transparent)] ' +
+    '[box-decoration-break:clone] [-webkit-box-decoration-break:clone] ' +
+    'px-[0.18em] py-[0.04em] -mx-[0.04em]';
+  const underline =
+    '[text-decoration-line:underline] [text-decoration-thickness:2px] [text-underline-offset:3px] ' +
+    '[text-decoration-color:color-mix(in_oklab,var(--brand-purple)_60%,transparent)]';
+  if (style === 'wash') return wash;
+  if (style === 'underline') return underline;
+  return `${wash} ${underline}`;
+}
+
+/**
+ * Preview-only override for `<db-claim>`. Production's DbClaim runs the honesty
+ * gate (highlight ONLY a streamed DB source). The preview's `==…==` marks carry
+ * no source index — remarkDbClaim never stamps `hProperties.index` — so the
+ * production gate would render every span inert. This override restores the old
+ * unconditional behavior: highlight whenever `revealed` is on, regardless of
+ * source, so the design reference still reads correctly.
+ */
+function DbClaimPreview({ children }: { children?: ReactNode }) {
+  const { revealed, style } = useRevealDb();
+
+  if (!revealed) {
+    return <span data-db-claim="">{children}</span>;
+  }
+
+  const span = (
+    <span
+      data-db-claim=""
+      data-revealed=""
+      role="button"
+      tabIndex={0}
+      aria-label="From Counselle's verified data"
+      className={cn(
+        'transition-[background-color,text-decoration-color] duration-200 ease-out motion-reduce:transition-none',
+        previewHighlightClass(style),
+        'cursor-default rounded-[0.3em] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-purple)]',
+      )}
+    >
+      {children}
+    </span>
+  );
+
+  return (
+    <HoverCard.Root openDelay={140} closeDelay={80}>
+      <HoverCard.Trigger asChild>{span}</HoverCard.Trigger>
+      <HoverCard.Portal>
+        <HoverCard.Content
+          side="top"
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className={cn(
+            'z-50 inline-flex w-fit max-w-[16rem] items-center gap-1.5 rounded-xl',
+            'border border-border-light bg-surface-chat px-2.5 py-1.5 shadow-lg',
+            'text-[12px] font-medium leading-snug text-text-secondary',
+            'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+            'motion-reduce:animate-none',
+          )}
+        >
+          <CounselleMark sizeClass="h-[15px] w-[15px]" />
+          From Counselle&rsquo;s verified data
+        </HoverCard.Content>
+      </HoverCard.Portal>
+    </HoverCard.Root>
+  );
+}
+
 // The preview's markdown pipeline: the REAL plugins + components, with the
 // `citation-ref` renderer swapped for the new InlineCitation (DB → silent,
 // external → named pill). Built once.
 const PREVIEW_COMPONENTS: { [nodeType: string]: ElementType } = {
   ...getMarkdownComponents(),
   'citation-ref': InlineCitationMarkdown,
-  'db-claim': DbClaim,
+  'db-claim': DbClaimPreview,
 };
 
 // The real remark chain plus remarkDbClaim, which turns the preview's
