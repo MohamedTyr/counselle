@@ -152,7 +152,7 @@ class UserManager(BaseUserManager[UserDB, uuid.UUID]):  # type: ignore[type-var]
         user = await super().oauth_callback(*args, **kwargs)
         if not pre_existing and user.hashed_password is not None:
             try:
-                await self.user_db.update(user, {"hashed_password": None})
+                await self.user_db.update(user, {"hashed_password": None})  # nosec B105
             except Exception:
                 # Compensate: the row was just created with a random hash; if we
                 # can't null it, delete it so the OAuth flow fails clean instead

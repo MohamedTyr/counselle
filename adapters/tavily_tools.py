@@ -32,6 +32,19 @@ from counselle_db.service import get_values as _get_values_impl
 from domain.envelope import Citation
 from domain.urls import registrable_domain as _registrable_domain
 
+# A leading-underscore re-import is treated by mypy as non-exported unless it is
+# named in __all__. The test suite and the schema-search docs import these names
+# from this module, so declare the public surface explicitly (keeps `mypy .` green).
+__all__ = [
+    "make_tavily_client",
+    "search_web",
+    "search_school_site",
+    "search_reddit",
+    "_registrable_domain",
+    "_safe_error",
+    "_subreddits_allowed",
+]
+
 # ---------------------------------------------------------------------------
 # Domain helpers
 # ---------------------------------------------------------------------------

@@ -35,7 +35,12 @@ It is two pieces:
 - The `counselle_ro` and `counselle_app` roles and the `counselle.*` schema provisioned — run `scripts/setup_db.sql` once, then apply migrations with `yoyo`:
 
 ```bash
-psql postgres < scripts/setup_db.sql
+# setup_db.sql substitutes the role passwords at run time via -v (see the
+# script header). Supply both, matching the passwords in your .env DSNs.
+psql postgres \
+  -v ro_pw="<counselle_ro password>" \
+  -v app_pw="<counselle_app password>" \
+  < scripts/setup_db.sql
 # Append ?schema=counselle so yoyo keeps its bookkeeping tables in the
 # counselle schema (owned by counselle_app), not in public.
 uv run yoyo apply --batch --database "${COUNSELLE_DB_APP_DSN}?schema=counselle" migrations/
@@ -95,13 +100,16 @@ uv run pytest
 # Lint + type-check:
 uv run ruff check . && uv run mypy .
 
+# Security scan (bandit) over the backend source:
+uv run bandit -r app api counselle_db config adapters domain -q
+
 # Frontend:
 cd frontend && npm run typecheck && npm test
 ```
 
 ## Run the eval set
 
-A 50-question eval over the live DB + Gemini. Produces `evals/report-<date>.json` and a Markdown summary. Expect ~$2–3 in Gemini/Tavily spend.
+An eval over the live DB + Gemini (the question set in `evals/questions.yaml`). Produces `evals/report-<date>.json` and a Markdown summary. Expect ~$2–3 in Gemini/Tavily spend.
 
 ```bash
 uv run python -m evals.runner
@@ -111,7 +119,7 @@ uv run python -m evals.runner
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how the system is built (stack, layering, data access, event protocol), in two parts: Part I (MVP1 agent) and Part II (MVP2 full-stack app)
 - [`docs/DATABASE_GUIDE.md`](docs/DATABASE_GUIDE.md) — the data contract: every table, the field catalog, value-reading rules, gotchas
-- [`docs/adr/`](docs/adr/) — the 23 architectural decision records (start at `docs/adr/README.md`)
+- [`docs/adr/`](docs/adr/) — the 24 architectural decision records (start at `docs/adr/README.md`)
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — the deployment guide and its open gotchas (deploy itself is deferred)
 - [`specs/`](specs/) — the permanent PRDs and implementation plans for every MVP/feature ([`specs/README.md`](specs/README.md))
 - [`TODOS.md`](TODOS.md) — deferred work with full context

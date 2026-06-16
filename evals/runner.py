@@ -17,7 +17,7 @@ report is the deliverable; failures get eyeballed by the orchestrator.
 
 Run::
 
-    uv run python -m evals.runner                 # all 50 (slow, costs money)
+    uv run python -m evals.runner                 # the full set (slow, costs money)
     uv run python -m evals.runner --only fact-duke-acceptance
     uv run python -m evals.runner --type honesty
 

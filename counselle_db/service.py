@@ -620,8 +620,9 @@ async def query_database(
     params = params or []
     inner = _guard_sql(sql)
     row_cap = get_settings().db_row_cap
-    # The wrapper is a fixed template; the row cap is bound as the final parameter.
-    wrapped = f"SELECT * FROM ({inner}) q LIMIT ${len(params) + 1}"
+    # The wrapper is a fixed template; ``inner`` is the _guard_sql-validated query
+    # and the row cap binds as the final $N parameter. Safe by construction.
+    wrapped = f"SELECT * FROM ({inner}) q LIMIT ${len(params) + 1}"  # nosec B608
     try:
         rows = await fetch(catalog.pool, wrapped, *params, row_cap + 1)
     except asyncpg.PostgresError as exc:
@@ -643,5 +644,5 @@ async def query_database(
 
 
 async def get_data_calendar(catalog: Catalog) -> list[CalendarEntry]:
-    """Per-source vintage + cutoff (ARCHITECTURE §8) — the server's 10th tool."""
+    """Per-source vintage + cutoff (ARCHITECTURE §8) — the server's 11th tool."""
     return await catalog.data_calendar()

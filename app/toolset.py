@@ -137,7 +137,7 @@ _MCP_ENV_ALLOWLIST: frozenset[str] = frozenset(
 
 
 def build_mcp_toolset(settings: Any) -> MCPToolset:
-    """The counselle-db MCP server as a stdio child (notes §2; all 10 tools).
+    """The counselle-db MCP server as a stdio child (notes §2; all 11 tools).
 
     The child receives only the explicit ``_MCP_ENV_ALLOWLIST`` variables — it
     must NOT receive the Tavily key or other credentials unrelated to DB access.

@@ -159,8 +159,8 @@ async def list_sessions(
     limit_pos = len(args)
     # WHERE clauses are built from a fixed allowlist of column predicates; every
     # value binds via $N. Safe by construction.
-    sql = (  # nosec B608
-        "SELECT session_id, title, source_config, created_at, updated_at "
+    sql = (
+        "SELECT session_id, title, source_config, created_at, updated_at "  # nosec B608
         "FROM counselle.sessions "
         f"WHERE {' AND '.join(where)} "
         "ORDER BY updated_at DESC, session_id DESC "

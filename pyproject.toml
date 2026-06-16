@@ -13,6 +13,7 @@ dependencies = [
     "langgraph>=1.2.4",
     "langgraph-checkpoint-postgres>=3.1.0",
     "mcp>=1.27.2",
+    "psycopg[binary]>=3.3.0",
     "pydantic>=2.13.4",
     "pydantic-ai>=1.107.0",
     "pydantic-settings>=2.14.1",
@@ -21,18 +22,22 @@ dependencies = [
     "structlog>=26.1.0",
     "tavily-python>=0.7.25",
     "uvicorn>=0.49.0",
-    "yoyo-migrations>=9.0.0",
+    "yoyo-migrations[postgres]>=9.0.0",
 ]
 
 [dependency-groups]
 dev = [
-    "anyio>=4.13.0",
     "bandit>=1.9.4",
     "hypothesis>=6.155.2",
     "mypy>=2.1.0",
+    # psycopg2-binary ships the compiled module that yoyo-migrations needs at
+    # runtime (`uv run yoyo apply ...`). The `yoyo-migrations[postgres]` extra only
+    # pulls the SOURCE `psycopg2` distribution, which is not importable without a
+    # local build toolchain — so the binary wheel must be declared explicitly.
     "psycopg2-binary>=2.9.12",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov>=6.0.0",
     "ruff>=0.15.16",
     "types-pyyaml>=6.0.12.20260518",
 ]
@@ -79,3 +84,17 @@ markers = [
     "live_search: integration tests against the live Tavily search API (requires TAVILY_API_KEY or COUNSELLE_TAVILY_API_KEY)",
     "live_llm: end-to-end conversations against real Gemini + DB + Tavily (slow, costs money; run serially)",
 ]
+
+[tool.bandit]
+# Scan the backend source only (the honesty/auth/DB paths). Tests, plans, the
+# frontend, and vendored/tooling dirs are out of scope.
+exclude_dirs = ["tests", "frontend", ".worktrees", ".agents", ".claude", "evals"]
+
+[tool.coverage.run]
+branch = true
+source = ["config", "domain", "app", "adapters", "api", "counselle_db", "evals"]
+omit = ["tests/*", "*/__pycache__/*", "*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

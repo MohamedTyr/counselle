@@ -81,7 +81,8 @@ def build_system_prompt(temporal_context: str) -> str:
         "temporal_context",
         "tier_note",
     ]
-    _TOKEN_PREFIX = "\x00SLOT"
+    # Template slot sentinel, not a password (B105 is a false positive here).
+    _TOKEN_PREFIX = "\x00SLOT"  # nosec B105
     tokens: dict[str, str] = {}
     text = template
     for i, slot in enumerate(_SLOTS):

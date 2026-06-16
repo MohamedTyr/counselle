@@ -421,7 +421,7 @@ Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, opti
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_summaries` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2); `max_tool_rounds`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
+| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_summaries` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2; **default off** by design — the live timeline shows one model-authored intent line per round of work, not the model's full multi-paragraph reasoning; see `config/settings.py`); `max_tool_rounds`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
 | Database | pipeline DSN (`counselle_ro`), statement timeout, row cap, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Discovery | embedding model + version, reconcile interval |
@@ -637,7 +637,7 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
 
 Short reasoning summaries interleaved in the timeline (PRD story 14). The model's *interstitial* text — the text PydanticAI emits between tool calls — is rerouted into `thinking` events; only final-answer text rides `delta`. No second model call, no summarizer. One honesty rule, prompt-enforced and eval-watched: facts and numbers never appear *first* in `thinking` — it narrates intent, not findings. Thinking lines persist in the turn's step record (§27.1), so revisited chats keep them under the expanded receipt. If dogfooding shows interstitial narration is too sparse, the fallback is a cheap-tier summarizer per step (decide then, not now — §35).
 
-**The delta/thinking splitter** is a per-model-response **threshold buffer** with `PartEndEvent.next_part_kind` as the deterministic flush signal — a `TextPart` ending with `next_part_kind='tool-call'` while under the threshold (~240 chars) flushes as `thinking`; crossing the threshold mid-part flushes as `delta` and streams live thereafter; response end flushes as `delta`; the buffer resets per response (measured latency cost ≈ 0). Alongside the rerouted pre-tool text, **native Gemini thought summaries are adopted**: `include_thoughts` surfaces `ThinkingPart`/`ThinkingPartDelta`, mapped to `thinking` events as a second feed — real reasoning that cuts visible dead air from ~28s to ~16s on tool-using questions. Settings-gated (`thinking_summaries`, default on); the facts-first risk is carried by the eval set's mechanical digit check (§34).
+**The delta/thinking splitter** is a per-model-response **threshold buffer** with `PartEndEvent.next_part_kind` as the deterministic flush signal — a `TextPart` ending with `next_part_kind='tool-call'` while under the threshold (~240 chars) flushes as `thinking`; crossing the threshold mid-part flushes as `delta` and streams live thereafter; response end flushes as `delta`; the buffer resets per response (measured latency cost ≈ 0). Alongside the rerouted pre-tool text, **native Gemini thought summaries are available**: `include_thoughts` surfaces `ThinkingPart`/`ThinkingPartDelta`, mapped to `thinking` events as a second feed — real reasoning that would cut visible dead air from ~28s to ~16s on tool-using questions. **Settings-gated (`thinking_summaries`, default off** by design): the live timeline shows one model-authored intent line per round of work (the "Narrate As You Work" sentence); native Gemini thought summaries would dump the model's full multi-paragraph reasoning into the rail — exactly what the product does not want. Leave it off; the narration one-liner is what ships. See `config/settings.py`. The facts-first risk is carried by the eval set's mechanical digit check (§34).
 
 ### 27.3 The turn registry (one module owns the turn lifecycle)
 
@@ -891,7 +891,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 **Still open:**
 
-- `thinking` density — native Gemini thought summaries cut dead air to ~16s; if dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
+- `thinking` density — the model's own "Narrate As You Work" one-liner per round is the dead-air mitigation that ships (`thinking_summaries` is off by design; enabling native Gemini thought summaries would cut dead air to ~16s but dump full reasoning into the rail). If dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
 - Virtualization library — clone theirs vs a lighter modern one; decide when the long-chat surface needs it.
 
 ---

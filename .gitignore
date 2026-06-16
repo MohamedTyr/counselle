@@ -17,3 +17,23 @@ evals/report-*.json
 
 # Personal, never-committed local planning scratch (see plans/README.md).
 plans/.local/
+
+# Local agent / editor tooling caches — not Counselle source (06-M5).
+# The shadcn skill bundle is installed locally via the global agent rules; it
+# is not vendored into the product repo (no ADR sanctions vendoring it here).
+.agents/
+.claude/
+
+# Nested git worktrees live under .worktrees/ — duplicated source trees that
+# pollute every recursive grep/mypy/ruff walk. Keep them out of the index and
+# off the search path (01-L1, 06-L9).
+.worktrees/
+
+# Design-iteration screenshot scratch dropped in the repo root (06-M3).
+/*.png
+
+# Coverage artifacts (06-L8 adds pytest-cov; don't commit run output).
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml

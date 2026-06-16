@@ -121,6 +121,9 @@ async def _vector_rows(
         return []
     [vector] = await embed_texts([query])
     filters, filter_params = _filter_clauses("f.", 2, category, source)
+    # _META_COLUMNS and the _filter_clauses fragments are fixed module constants /
+    # a column allowlist, never user input; every value binds via $N. Safe by
+    # construction.
     sql = f"""
         SELECT {", ".join("f." + col for col in _META_COLUMNS.split(", "))},
                1 - (fi.embedding <=> $1::vector) AS similarity
@@ -129,7 +132,7 @@ async def _vector_rows(
         WHERE f.enabled {filters}
         ORDER BY fi.embedding <=> $1::vector
         LIMIT ${2 + len(filter_params)}
-    """
+    """  # nosec B608
     return await fetch(pool, sql, vector_literal(vector), *filter_params, limit)
 
 
@@ -138,7 +141,8 @@ async def _keyword_rows(
 ) -> list[asyncpg.Record]:
     """ILIKE + pg_trgm fallback rows, best label-similarity first."""
     filters, filter_params = _filter_clauses("", 2, category, source)
-    # _TRGM_THRESHOLD is a module constant, never user input — safe to inline.
+    # _TRGM_THRESHOLD and _META_COLUMNS are module constants, never user input;
+    # every value binds via $N. Safe by construction.
     sql = f"""
         SELECT {_META_COLUMNS}, similarity(label, $1) AS sim
         FROM fields
@@ -149,7 +153,7 @@ async def _keyword_rows(
           {filters}
         ORDER BY sim DESC NULLS LAST
         LIMIT ${2 + len(filter_params)}
-    """
+    """  # nosec B608
     return await fetch(pool, sql, query, *filter_params, limit)
 
 
