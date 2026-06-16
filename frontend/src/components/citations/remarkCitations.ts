@@ -11,7 +11,9 @@
 import { createElement } from 'react';
 import type { Parent, Root, Text } from 'mdast';
 import type { Node } from 'unist';
+import type { SourceEntry } from '@/api/protocol';
 import CitationRef from '@/components/citations/CitationRef';
+import { isDbSource } from '@/components/citations/sourceName';
 
 const CITATION_PATTERN = /\[(\d{1,2})\]/g;
 
@@ -53,6 +55,51 @@ export function citedIndexesForMessage(
     return indexes;
   }
   return citedIndexesIn(fallbackText);
+}
+
+/**
+ * feat/message-ui-polish: the prose `[n]` indices of an assistant message that
+ * resolve to a DB source (cds/ipeds/scorecard). It reuses the EXACT scan path of
+ * `citedIndexesForMessage` (content blocks, else the `text` fallback) so the
+ * reveal toggle's visibility is identical between the streaming and completed
+ * states, then intersects with the message's DB-source entries.
+ *
+ * Used ONLY for the action-row reveal-toggle visibility gate (behavior 7) — not
+ * in the markdown parse.
+ */
+export function dbIndicesForMessage(message: {
+  content?: ReadonlyArray<{ kind: string; text?: string }>;
+  text?: string;
+  sources?: ReadonlyArray<SourceEntry>;
+}): Set<number> {
+  const cited = citedIndexesForMessage(message.content, message.text ?? '');
+  const out = new Set<number>();
+  for (const entry of message.sources ?? []) {
+    if (cited.has(entry.index) && isDbSource(entry.citation.source)) {
+      out.add(entry.index);
+    }
+  }
+  return out;
+}
+
+/**
+ * feat/message-ui-polish: the message's cited source entries — the subset of
+ * `message.sources` whose index appears in the prose `[n]` grammar. Single-
+ * sourced here (shared by MessageSources' strip/panel and MessageContent's
+ * inline-pill activate handler) so the two can never disagree about which
+ * sources an answer used.
+ */
+export function citedSourcesForMessage(message: {
+  content?: ReadonlyArray<{ kind: string; text?: string }>;
+  text?: string;
+  sources?: ReadonlyArray<SourceEntry>;
+}): SourceEntry[] {
+  const sources = message.sources ?? [];
+  if (sources.length === 0) {
+    return [];
+  }
+  const indexes = citedIndexesForMessage(message.content, message.text ?? '');
+  return sources.filter((s) => indexes.has(s.index));
 }
 
 type CitationRefNode = {

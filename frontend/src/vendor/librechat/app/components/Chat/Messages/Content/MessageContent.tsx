@@ -15,10 +15,12 @@
  * Kept byte-identical: ErrorBox/Container chrome, the submitting/result-streaming
  * cursor classes, UnfinishedMessage + DelayedRender, the edit branch.
  */
-import { memo, Suspense, useMemo } from 'react';
+import { memo, Suspense, useCallback, useMemo } from 'react';
+import { useSetAtom } from 'jotai';
 import { DelayedRender } from '@librechat/client';
 import type { TMessageContentProps, TDisplayProps } from '~/common';
 import type { ChatMessage } from '@/app/ChatContext';
+import type { SourceEntry } from '@/api/protocol';
 import Error from '~/components/Messages/Content/Error';
 import { useMessageContext } from '~/Providers';
 // FE-4: timeline above the prose, VizCard (replaces VizPlaceholder), citations context, clarify, sources footer.
@@ -26,6 +28,15 @@ import { useChatContext } from '@/app/ChatContext';
 import ReasoningTrace from '@/components/timeline/ReasoningTrace';
 import ClarifyWidget from '@/components/clarify/ClarifyWidget';
 import SourcesContext from '@/components/citations/SourcesContext';
+// feat/message-ui-polish: the dejargon / citation-activate / reveal providers
+// that the new citation grammar reads, plus the panel-open atom + helpers.
+import { DejargonProvider } from '@/components/citations/dejargon';
+import { CitationActivateProvider } from '@/components/citations/CitationActivateContext';
+import { RevealDbProvider } from '@/components/citations/RevealDbContext';
+import { useRevealState } from '@/components/citations/RevealStateContext';
+import { citedSourcesForMessage } from '@/components/citations/remarkCitations';
+import { dbSchoolsForMessage } from '@/components/citations/dbSchools';
+import { openSourcesPanelAtom } from '@/app/state';
 import VizCard from '@/components/cards/VizCard';
 import MarkdownLite from './MarkdownLite';
 import EditMessage from './EditMessage';
@@ -70,6 +81,34 @@ export const ErrorMessage = ({
     </Container>
   );
 };
+
+/**
+ * feat/message-ui-polish: wraps the assistant answer region in the new citation
+ * grammar's three contexts (dejargon on, citation-activate, reveal-db locked to
+ * 'wash'). For user turns it's a pass-through — bubbles stay free of providers.
+ */
+function AnswerContexts({
+  assistant,
+  activate,
+  revealed,
+  children,
+}: {
+  assistant: boolean;
+  activate: (entry: SourceEntry) => void;
+  revealed: boolean;
+  children: React.ReactNode;
+}) {
+  if (!assistant) {
+    return <>{children}</>;
+  }
+  return (
+    <DejargonProvider value={true}>
+      <CitationActivateProvider value={activate}>
+        <RevealDbProvider value={{ revealed, style: 'wash' }}>{children}</RevealDbProvider>
+      </CitationActivateProvider>
+    </DejargonProvider>
+  );
+}
 
 const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplayProps) => {
   const { isSubmitting = false, isLatestMessage = false } = useMessageContext();
@@ -116,6 +155,19 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   const clarifyFrozen = !(isLatestMessage && message.turnStatus === 'awaiting_input');
   const sources = message.sources ?? [];
 
+  // feat/message-ui-polish: the per-message reveal flag (owned by MessageRender)
+  // and the inline-pill activate handler. An inline pill opens the sources panel
+  // jumped to its source; `cited`/`dbSchools` are computed the SAME way
+  // MessageSources does (shared helpers) so the strip and the panel agree.
+  const { revealed } = useRevealState();
+  const openSources = useSetAtom(openSourcesPanelAtom);
+  const cited = useMemo(() => citedSourcesForMessage(message), [message]);
+  const dbSchools = useMemo(() => dbSchoolsForMessage(message), [message]);
+  const activate = useCallback(
+    (entry: SourceEntry) => openSources({ sources: cited, activeIndex: entry.index, dbSchools }),
+    [openSources, cited, dbSchools],
+  );
+
   return (
     <Container message={message}>
       {/* feat/reasoning-experience: the collapsed thinking-phase trace renders
@@ -131,39 +183,46 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
             durationMs={message.durationMs}
           />
         )}
-      {/* FE-4: inline citation chips resolve against the turn's sources. */}
+      {/* FE-4: inline citation chips resolve against the turn's sources.
+          feat/message-ui-polish: for ASSISTANT turns the citation grammar reads
+          three more contexts — dejargon (friendly source names), citation-
+          activate (inline pill → open the panel at that source), and reveal-db
+          (locked to the 'wash' highlight; `revealed` flows from MessageRender's
+          RevealStateContext). User bubbles get none of these. */}
       <SourcesContext.Provider value={sources}>
-        <div
-          className={cn(
-            'markdown prose message-content dark:prose-invert light w-full break-words',
-            // The editorial answer surface (counselle-answer.css) — assistant
-            // turns only; user bubbles keep the cloned prose. Scoped so it never
-            // reaches the viz cards / sources footer (they're `.not-prose`).
-            !isCreatedByUser && 'counselle-answer',
-            isSubmitting && 'submitting',
-            showCursorState && text.length > 0 && 'result-streaming',
-            isCreatedByUser && !enableUserMsgMarkdown && 'whitespace-pre-wrap',
-            isCreatedByUser ? 'dark:text-gray-20' : 'dark:text-gray-100',
+        <AnswerContexts assistant={!isCreatedByUser} activate={activate} revealed={revealed}>
+          <div
+            className={cn(
+              'markdown prose message-content dark:prose-invert light w-full break-words',
+              // The editorial answer surface (counselle-answer.css) — assistant
+              // turns only; user bubbles keep the cloned prose. Scoped so it never
+              // reaches the viz cards / sources footer (they're `.not-prose`).
+              !isCreatedByUser && 'counselle-answer',
+              isSubmitting && 'submitting',
+              showCursorState && text.length > 0 && 'result-streaming',
+              isCreatedByUser && !enableUserMsgMarkdown && 'whitespace-pre-wrap',
+              isCreatedByUser ? 'dark:text-gray-20' : 'dark:text-gray-100',
+            )}
+          >
+            {content}
+          </div>
+          {/* FE-4: the clarifying-question widget, inline where the agent paused (PRD 23–25). */}
+          {!isCreatedByUser && message.clarify !== undefined && (
+            <ClarifyWidget
+              // Remount on a live→frozen / answer change so `selected`/`otherOpen`
+              // (seeded once at mount) re-seed cleanly instead of going stale.
+              key={message.clarifyAnswer ?? 'live'}
+              spec={message.clarify}
+              frozen={clarifyFrozen}
+              answer={message.clarifyAnswer}
+              onAnswer={submitMessage}
+            />
           )}
-        >
-          {content}
-        </div>
-        {/* FE-4: the clarifying-question widget, inline where the agent paused (PRD 23–25). */}
-        {!isCreatedByUser && message.clarify !== undefined && (
-          <ClarifyWidget
-            // Remount on a live→frozen / answer change so `selected`/`otherOpen`
-            // (seeded once at mount) re-seed cleanly instead of going stale.
-            key={message.clarifyAnswer ?? 'live'}
-            spec={message.clarify}
-            frozen={clarifyFrozen}
-            answer={message.clarifyAnswer}
-            onAnswer={submitMessage}
-          />
-        )}
-        {/* feat/message-ui-polish: the collapsed sources affordance moved OUT of
-            the prose body into the message action row (MessageRender), rendered
-            by <MessageSources> next to the hover actions. The provider stays:
-            inline `[n]` chips still resolve against the turn's sources. */}
+          {/* feat/message-ui-polish: the collapsed sources affordance moved OUT of
+              the prose body into the message action row (MessageRender), rendered
+              by <MessageSources> next to the hover actions. The provider stays:
+              inline `[n]` chips still resolve against the turn's sources. */}
+        </AnswerContexts>
       </SourcesContext.Provider>
     </Container>
   );
