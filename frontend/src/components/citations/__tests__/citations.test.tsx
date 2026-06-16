@@ -1,16 +1,15 @@
 /**
  * The §34 honesty-surface tests for the citation system: popover content
- * matches the envelope; tier-chip fidelity in chips and the sources footer;
- * CitationRef materializes before sources arrive.
+ * matches the envelope; tier fidelity on the in-cell SourceTag; and the
+ * remarkCitations plugin still turns `[n]` prose markers into citation-ref
+ * nodes (the contract the markdown pipeline depends on).
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 import type { Citation, SourceEntry } from '@/api/protocol';
 import CitationPopover from '@/components/citations/CitationPopover';
-import CitationRef from '@/components/citations/CitationRef';
-import SourcesFooter from '@/components/citations/SourcesFooter';
+import SourceTag from '@/components/citations/SourceTag';
 import { SourcesProvider } from '@/components/citations/SourcesContext';
-import TierChip from '@/components/citations/TierChip';
 
 function citation(over: Partial<Citation> = {}): Citation {
   return {
@@ -32,7 +31,7 @@ describe('citation popover content matches the envelope', () => {
     const c = citation({ caveat: 'Provisional release — final figures may shift.' });
     render(
       <CitationPopover citation={c}>
-        <TierChip tier={c.tier}>IPEDS</TierChip>
+        <SourceTag tier={c.tier}>IPEDS</SourceTag>
       </CitationPopover>,
     );
     fireEvent.click(screen.getByText('IPEDS'));
@@ -53,7 +52,7 @@ describe('citation popover content matches the envelope', () => {
     });
     render(
       <CitationPopover citation={c}>
-        <TierChip tier={c.tier}>.edu</TierChip>
+        <SourceTag tier={c.tier}>.edu</SourceTag>
       </CitationPopover>,
     );
     fireEvent.click(screen.getByText('.edu'));
@@ -63,13 +62,13 @@ describe('citation popover content matches the envelope', () => {
   });
 });
 
-describe('tier chips always match the envelope tier', () => {
+describe('source tags always match the envelope tier', () => {
   test("tier 'official' renders official; 'community' renders community", () => {
     render(
       <>
-        <TierChip tier="official">CDS</TierChip>
-        <TierChip tier="official">IPEDS</TierChip>
-        <TierChip tier="community">Reddit</TierChip>
+        <SourceTag tier="official">CDS</SourceTag>
+        <SourceTag tier="official">IPEDS</SourceTag>
+        <SourceTag tier="community">Reddit</SourceTag>
       </>,
     );
     expect(screen.getByText('CDS')).toHaveAttribute('data-tier', 'official');
@@ -78,98 +77,31 @@ describe('tier chips always match the envelope tier', () => {
   });
 });
 
-describe('CitationRef materializes as the text streams', () => {
-  test('renders a bare official chip before sources arrive', () => {
-    render(<CitationRef index={1} />);
-    const chip = screen.getByText('1');
-    expect(chip).toHaveAttribute('data-tier', 'official');
-  });
-
-  test('binds to the SourceEntry once sources stream in', () => {
+describe('remarkCitations (the plugin the markdown pipeline depends on)', () => {
+  test('replaces [n] in prose with a citation-ref pill, leaves code untouched', async () => {
+    const { default: ReactMarkdown } = await import('react-markdown');
+    const { default: remarkCitations } = await import('@/components/citations/remarkCitations');
+    const { InlineCitationMarkdown } = await import('@/components/citations/InlineCitation');
+    // An external (.edu) source so the inline marker renders a visible pill.
     const entry = sourceEntry({
-      index: 2,
-      citation: citation({ source: 'reddit', tier: 'community', vintage: '2026' }),
+      index: 1,
+      label: 'admissions.nyu.edu',
+      citation: citation({ source: 'edu', tier: 'official', url: 'https://admissions.nyu.edu' }),
     });
     render(
       <SourcesProvider value={[entry]}>
-        <CitationRef index={2} />
+        <ReactMarkdown
+          remarkPlugins={[remarkCitations]}
+          components={{ 'citation-ref': InlineCitationMarkdown } as never}
+        >
+          {'Acceptance sits at 12.5% [1] per the page. `code [2] stays` literal.'}
+        </ReactMarkdown>
       </SourcesProvider>,
     );
-    const chip = screen.getByText('2');
-    expect(chip).toHaveAttribute('data-tier', 'community');
-    fireEvent.click(chip);
-    expect(screen.getByText('Reddit')).toBeInTheDocument();
-    expect(screen.getByText('Community voice')).toBeInTheDocument();
-    expect(screen.getByText('2026')).toBeInTheDocument();
-  });
-});
-
-describe('remarkCitations (beyond §34 — the plugin the markdown pipeline depends on)', () => {
-  test('replaces [n] in prose with citation-ref chips, leaves code untouched', async () => {
-    const { default: ReactMarkdown } = await import('react-markdown');
-    const { default: remarkCitations, CitationRefMarkdown } = await import(
-      '@/components/citations/remarkCitations'
-    );
-    render(
-      <ReactMarkdown
-        remarkPlugins={[remarkCitations]}
-        components={{ 'citation-ref': CitationRefMarkdown } as never}
-      >
-        {'Acceptance sits at 12.5% [1] per the CDS. `code [2] stays` literal.'}
-      </ReactMarkdown>,
-    );
-    const chip = screen.getByText('1');
-    expect(chip).toHaveAttribute('data-tier', 'official');
-    // [2] inside inline code is not transformed.
+    // [1] became a citation-ref → a named SourcePill for the .edu source.
+    expect(screen.getByText('admissions.nyu.edu')).toBeInTheDocument();
+    // [2] inside inline code is not transformed (stays literal text).
     expect(screen.getByText('code [2] stays')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Citation 2')).toBeNull();
-  });
-});
-
-describe('sources footer groups by tier', () => {
-  test('official and community blocks, vintages shown; empty → null', () => {
-    const sources = [
-      sourceEntry({ index: 1 }),
-      sourceEntry({
-        index: 2,
-        label: 'r/nyu',
-        citation: citation({ source: 'reddit', tier: 'community', vintage: 'June 2026' }),
-      }),
-    ];
-    const { container, rerender } = render(<SourcesFooter sources={sources} />);
-    expect(screen.getByText('Official sources')).toBeInTheDocument();
-    expect(
-      screen.getByText('Community voice — experiences, not statistics'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('IPEDS 2024-25 (provisional)')).toBeInTheDocument();
-    expect(screen.getByText('June 2026')).toBeInTheDocument();
-    expect(screen.getByText('1')).toHaveAttribute('data-tier', 'official');
-    expect(screen.getByText('2')).toHaveAttribute('data-tier', 'community');
-
-    rerender(<SourcesFooter sources={[]} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  // B5d (wire-contract §5, PINNED): the footer filters to only the markers
-  // cited in this message — never a source the message didn't cite.
-  test('citedIndexes filters the footer to the markers in this message', () => {
-    const sources = [
-      sourceEntry({ index: 1 }),
-      sourceEntry({ index: 2, citation: citation({ source: 'scorecard' }) }),
-      sourceEntry({ index: 7, citation: citation({ source: 'cds' }) }),
-    ];
-    // The message cited only [1] and [7]; [2] must NOT appear.
-    render(<SourcesFooter sources={sources} citedIndexes={new Set([1, 7])} />);
-    expect(screen.getByText('1')).toBeInTheDocument();
-    expect(screen.getByText('7')).toBeInTheDocument();
-    expect(screen.queryByText('2')).toBeNull();
-  });
-
-  test('citedIndexes that match nothing → footer renders null', () => {
-    const { container } = render(
-      <SourcesFooter sources={[sourceEntry({ index: 1 })]} citedIndexes={new Set([9])} />,
-    );
-    expect(container).toBeEmptyDOMElement();
   });
 });
 

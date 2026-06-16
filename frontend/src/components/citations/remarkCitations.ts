@@ -5,14 +5,12 @@
  *
  * Only `text` nodes are visited, so `code` / `inlineCode` content is never
  * touched (their values live outside text nodes). The consumer registers
- * `{ 'citation-ref': CitationRefMarkdown }` in the react-markdown
- * components map.
+ * `{ 'citation-ref': InlineCitationMarkdown }` (markdownConfig.ts) in the
+ * react-markdown components map.
  */
-import { createElement } from 'react';
 import type { Parent, Root, Text } from 'mdast';
 import type { Node } from 'unist';
 import type { SourceEntry } from '@/api/protocol';
-import CitationRef from '@/components/citations/CitationRef';
 import { isDbSource } from '@/components/citations/sourceName';
 
 const CITATION_PATTERN = /\[(\d{1,2})\]/g;
@@ -168,13 +166,4 @@ export default function remarkCitations() {
   return (tree: Root) => {
     transform(tree);
   };
-}
-
-/**
- * The components-map entry for react-markdown:
- *   components={{ 'citation-ref': CitationRefMarkdown }}
- * react-markdown passes hProperties.index as a string or number — coerce.
- */
-export function CitationRefMarkdown({ index }: { index: string | number }) {
-  return createElement(CitationRef, { index: Number(index) });
 }
