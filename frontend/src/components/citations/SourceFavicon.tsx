@@ -1,10 +1,8 @@
 /**
- * SourceFavicon — the real site logo for a source (Reddit's logo, a school's
- * favicon, the federal-data sites' marks). Falls back to a neutral tile with
- * the source glyph when there's no resolvable domain (e.g. the Common Data Set,
- * which is a standard, not a website) or the favicon fails to load.
+ * SourceFavicon — the source mark for a citation (Reddit, a school, the federal
+ * data sites, the Common Data Set). Renders a neutral tile carrying the
+ * source-tier glyph; the tier owns colour, the glyph hints at WHICH authority.
  */
-import { useState } from 'react';
 import { cn } from '@librechat/client/utils';
 import type { Citation } from '@/api/protocol';
 import { isSafeUrl } from '@/api/url';
@@ -36,42 +34,29 @@ type SourceFaviconProps = {
   className?: string;
 };
 
+// The source-tier glyph is the source mark. We deliberately do NOT fetch a
+// remote favicon from a third party (the old Google favicon endpoint): doing so
+// would ship the host of every source a student reads to that third party — a
+// privacy leak this product's trust posture forbids (FE-H1). If a first-party
+// favicon channel ever lands (a backend proxy / bytes in the source envelope,
+// Phase 6/CFG-04), wire it here; until then the glyph is the honest, zero-leak
+// default.
 export default function SourceFavicon({
   citation,
   sizeClass = 'h-8 w-8',
   className,
 }: SourceFaviconProps) {
-  const [failed, setFailed] = useState(false);
-  const domain = citationDomain(citation);
   const Icon = sourceIcon(citation.source);
-
-  if (!domain || failed) {
-    return (
-      <span
-        aria-hidden="true"
-        className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-full border border-border-light bg-surface-primary-alt text-text-tertiary',
-          sizeClass,
-          className,
-        )}
-      >
-        <Icon className="h-[55%] w-[55%]" />
-      </span>
-    );
-  }
-
   return (
-    <img
-      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-      alt=""
+    <span
       aria-hidden="true"
-      loading="lazy"
-      onError={() => setFailed(true)}
       className={cn(
-        'shrink-0 rounded-full border border-border-light bg-white object-contain p-0.5',
+        'inline-flex shrink-0 items-center justify-center rounded-full border border-border-light bg-surface-primary-alt text-text-tertiary',
         sizeClass,
         className,
       )}
-    />
+    >
+      <Icon className="h-[55%] w-[55%]" />
+    </span>
   );
 }

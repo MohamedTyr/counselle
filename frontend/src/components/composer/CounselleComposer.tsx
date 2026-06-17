@@ -12,7 +12,7 @@
  * Upstream source: npx shadcn@latest add https://21st.dev/r/easemize/ai-prompt-box
  */
 import React from 'react';
-import { ArrowUp, Paperclip, Square, X, StopCircle, Mic, BrainCog } from 'lucide-react';
+import { ArrowUp, Paperclip, Square, StopCircle, Mic, BrainCog } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@librechat/client/utils';
 import type { SourceConfig } from '@/api/mock/sourceStore';
@@ -28,6 +28,14 @@ import { VoiceRecorder } from './VoiceRecorder';
 import { ImageViewDialog } from './ImageViewDialog';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// No image/voice channel exists in the MVP2 turn endpoint, so these affordances
+// are hidden rather than shown as silent no-ops that drop files / record nothing
+// (FE-M3 — never promise a capability the backend can't fulfill). Flip to true
+// when a real upload/voice channel lands (and add the send-side wiring + an
+// honest rejection toast then).
+const IMAGE_UPLOAD_ENABLED = false;
+const VOICE_ENABLED = false;
 
 const isImageFile = (file: File) => file.type.startsWith('image/');
 
@@ -74,9 +82,10 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
     const promptBoxRef = React.useRef<HTMLDivElement>(null);
 
     const processFile = React.useCallback((file: File) => {
-    // Guard-and-return: only images under the size cap are accepted. There is no
-    // user-facing error channel and files are never transmitted, so a silent
-    // bail is correct here (Phase-1 cleanup of the old console.log swallows).
+    // Upload is hidden (FE-M3): no image channel exists in the turn endpoint, so
+    // a dropped/pasted file must do nothing visible — not even silently populate
+    // a preview. When a real upload channel lands, flip IMAGE_UPLOAD_ENABLED.
+    if (!IMAGE_UPLOAD_ENABLED) return;
     if (!isImageFile(file)) return;
     if (file.size > MAX_FILE_BYTES) return;
     setFiles([file]);
@@ -174,37 +183,16 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {files.length > 0 && !isRecording && filePreview && (
-          <div className="flex flex-wrap gap-2 p-0 pb-1 transition-all duration-300">
-            {files.map((file, index) => (
-              <div key={index} className="relative group">
-                {file.type.startsWith('image/') && (
-                  <div
-                    className="w-16 h-16 rounded-xl overflow-hidden cursor-pointer transition-all duration-300"
-                    onClick={() => openImageModal(filePreview)}
-                  >
-                    <img src={filePreview} alt={file.name} className="h-full w-full object-cover" />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveFile();
-                      }}
-                      className="absolute top-1 right-1 rounded-full bg-black/70 p-0.5 opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3 text-white" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* File preview removed (FE-L8): upload is hidden (FE-M3), so there is
+            never a file to preview. Re-add a single-file preview here if a real
+            upload channel lands. */}
 
         <div className={cn('transition-all duration-300', isRecording ? 'h-0 overflow-hidden opacity-0' : 'opacity-100')}>
           <PromptInputTextarea ref={ref} placeholder={thinking ? 'Think deeply…' : placeholder} className="text-base" />
         </div>
 
-        {isRecording && (
+        {/* Voice affordance gated off (FE-M3): no voice channel exists. */}
+        {VOICE_ENABLED && isRecording && (
           <VoiceRecorder
             isRecording={isRecording}
             onStartRecording={handleStartRecording}
@@ -219,25 +207,28 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
               isRecording ? 'opacity-0 invisible h-0' : 'opacity-100 visible',
             )}
           >
-            <PromptInputAction tooltip="Upload image">
-              <button
-                onClick={() => uploadInputRef.current?.click()}
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-[#9CA3AF] dark:hover:bg-gray-600/30 dark:hover:text-[#D1D5DB]"
-                disabled={isRecording}
-              >
-                <Paperclip className="h-5 w-5 transition-colors" />
-                <input
-                  ref={uploadInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) processFile(e.target.files[0]);
-                    if (e.target) e.target.value = '';
-                  }}
-                  accept="image/*"
-                />
-              </button>
-            </PromptInputAction>
+            {/* Upload affordance gated off (FE-M3): no image channel exists. */}
+            {IMAGE_UPLOAD_ENABLED && (
+              <PromptInputAction tooltip="Upload image">
+                <button
+                  onClick={() => uploadInputRef.current?.click()}
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-[#9CA3AF] dark:hover:bg-gray-600/30 dark:hover:text-[#D1D5DB]"
+                  disabled={isRecording}
+                >
+                  <Paperclip className="h-5 w-5 transition-colors" />
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) processFile(e.target.files[0]);
+                      if (e.target) e.target.value = '';
+                    }}
+                    accept="image/*"
+                  />
+                </button>
+              </PromptInputAction>
+            )}
 
             <div className="flex items-center">
               {/* Counselle adaptation: sources dropdown (was Search) */}
@@ -307,33 +298,47 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
           </div>
 
           <PromptInputAction
-            tooltip={isLoading ? 'Stop generation' : isRecording ? 'Stop recording' : hasContent ? 'Send message' : 'Voice message'}
+            tooltip={
+              isLoading
+                ? 'Stop generation'
+                : VOICE_ENABLED && isRecording
+                  ? 'Stop recording'
+                  : VOICE_ENABLED && !hasContent
+                    ? 'Voice message'
+                    : 'Send message'
+            }
           >
             <Button
               variant="default"
               size="icon"
+              disabled={!isLoading && !(VOICE_ENABLED && isRecording) && !hasContent}
               className={cn(
                 'h-8 w-8 rounded-full transition-all duration-200',
                 // idle + hasContent use the (theme-aware) filled default variant;
                 // only recording overrides to a transparent, red-iconed button.
-                isRecording && '!bg-transparent hover:!bg-gray-100 dark:hover:!bg-gray-600/30',
+                VOICE_ENABLED && isRecording && '!bg-transparent hover:!bg-gray-100 dark:hover:!bg-gray-600/30',
               )}
               onClick={() => {
-                // Precedence (plan §2.5): recording → loading(stop) → send → record.
-                if (isRecording) setIsRecording(false);
+                // Precedence: recording → loading(stop) → send. The voice/record
+                // fallback is gated off (FE-M3) — with VOICE_ENABLED false the
+                // button is disabled rather than entering a recording UI that
+                // submits nothing.
+                if (VOICE_ENABLED && isRecording) setIsRecording(false);
                 else if (isLoading) onStop?.();
                 else if (hasContent) handleSubmit();
-                else setIsRecording(true);
+                else if (VOICE_ENABLED) setIsRecording(true);
               }}
             >
-              {isRecording ? (
+              {VOICE_ENABLED && isRecording ? (
                 <StopCircle className="h-5 w-5 text-red-500" />
               ) : isLoading ? (
                 <Square className="h-4 w-4 fill-current animate-pulse" />
               ) : hasContent ? (
                 <ArrowUp className="h-4 w-4 text-current" />
-              ) : (
+              ) : VOICE_ENABLED ? (
                 <Mic className="h-5 w-5 text-current transition-colors" />
+              ) : (
+                <ArrowUp className="h-4 w-4 text-current" />
               )}
             </Button>
           </PromptInputAction>

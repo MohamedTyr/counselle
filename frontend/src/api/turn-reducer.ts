@@ -55,7 +55,7 @@ export type TurnStep = StepData;
  */
 export type TimelineEntry =
   | { type: 'step'; step: StepData }
-  | { type: 'thinking'; text: string };
+  | { type: 'thinking'; id: string; text: string };
 
 export type TurnState = {
   meta: MetaData | null;
@@ -143,12 +143,21 @@ export function reduce(state: TurnState, event: ProtocolEvent): TurnState {
       return appendDelta(state.status === 'idle' ? { ...state, status: 'streaming' } : state, event.data.text);
     case 'step':
       return mergeStep(state, event.data);
-    case 'thinking':
+    case 'thinking': {
+      // Each thinking entry gets a STABLE, never-reused id so the renderer can
+      // key on it instead of the positional array index (FE-H3). The ordinal is
+      // the count of thinking lines already present: the reducer only ever
+      // appends, so `state.thinking.length` increments by exactly one per
+      // thinking event and is independent of how many steps interleave — two
+      // entries can never collide, and an entry's id never changes once created.
+      // The id is the ordinal, NOT the text, so duplicate thinking text is fine.
+      const id = `think-${state.thinking.length}`;
       return {
         ...state,
         thinking: [...state.thinking, event.data.text],
-        timeline: [...state.timeline, { type: 'thinking', text: event.data.text }],
+        timeline: [...state.timeline, { type: 'thinking', id, text: event.data.text }],
       };
+    }
     case 'viz':
       return { ...state, blocks: [...state.blocks, { kind: 'viz', spec: event.data }] };
     case 'clarify':
@@ -179,7 +188,17 @@ function doneStatusToTurnStatus(status: DoneStatus): TurnStatus {
 
 // ── Derivations ──────────────────────────────────────────────────────────────
 
-/** The turn's prose only — what persists as the §27.5 `text` field. */
+/**
+ * The turn's prose only — what persists as the §27.5 `text` field.
+ *
+ * DIGIT-SCAN-ONLY, NEVER CLAUSE-WRAPPING (FE-M6): this joins markdown blocks
+ * with `\n\n` and elides viz blocks, so the result does NOT reflect render order
+ * around a card. It is safe ONLY as the `text` fallback for the citation digit
+ * scan (`citedIndexesForMessage`), which cares about which `[n]` markers appear,
+ * not where. Clause wrapping (reveal/DB-span bounding) MUST use `content` blocks,
+ * never this string — live turns always carry `content`, so the fallback is
+ * legacy-only.
+ */
 export function proseOf(state: TurnState): string {
   return state.blocks
     .filter((b): b is Extract<ContentBlock, { kind: 'markdown' }> => b.kind === 'markdown')

@@ -1,30 +1,21 @@
 import { Link } from 'react-router-dom';
 import { ThemeSelector } from '@librechat/client';
-import { useState } from 'react';
-import type { ElementType, ReactNode } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as HoverCard from '@radix-ui/react-hover-card';
-import { Clipboard, RefreshCw, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Clipboard, RefreshCw, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { cn } from '@librechat/client/utils';
 import type { RenderSpec, SourceEntry, CitationEnvelope } from '@/api/protocol';
 import { useIsDesktop } from '@/app/useMediaQuery';
 import VizCard from '@/components/cards/VizCard';
-import CounselleMark from '@/components/citations/CounselleMark';
 import { DejargonProvider } from '@/components/citations/dejargon';
 import { CitationActivateProvider } from '@/components/citations/CitationActivateContext';
-import { InlineCitationMarkdown } from '@/components/citations/InlineCitation';
 import RevealDbToggle from '@/components/citations/RevealDbToggle';
-import remarkDbClaim from '@/components/citations/remarkDbClaim';
-import {
-  RevealDbProvider,
-  useRevealDb,
-  type HighlightStyle,
-} from '@/components/citations/RevealDbContext';
-import SourceFavicon from '@/components/citations/SourceFavicon';
-import SourcesList, { displaySourceCount } from '@/components/citations/SourcesList';
+import { RevealDbProvider, type HighlightStyle } from '@/components/citations/RevealDbContext';
+import SourcesStrip from '@/components/citations/SourcesStrip';
+import { SourcesPanel, SourcesSheet } from '@/components/citations/SourcesPanel';
+import { displaySourceCount } from '@/components/citations/SourcesList';
 import { isDbSource } from '@/components/citations/sourceName';
 import { SourcesProvider } from '@/components/citations/SourcesContext';
-import { useEscToClose } from '@/components/artifact/ArtifactPanel';
 import {
   getRemarkPlugins,
   getRehypePlugins,
@@ -33,28 +24,23 @@ import {
 import MarkdownBlocks from '~/components/Chat/Messages/Content/MarkdownBlocks';
 
 /**
- * DEV-only preview harness for the assistant MESSAGE body + the new citation
- * system, mounted at `/message-preview` (lazy + DEV-gated, excluded from prod).
+ * DEV-only preview harness for the assistant MESSAGE body + the citation system,
+ * mounted at `/message-preview` (lazy + DEV-gated, excluded from prod).
  *
- * It drives the REAL render pipeline (react-markdown + VizCard) but swaps the
- * `citation-ref` renderer for the new InlineCitation, and turns the dejargon
- * switch ON — so the whole turn reads the way the new system will:
- *  - Database figures carry NO inline marker and are credited once, plainly, as
- *    "Counselle data" (no IPEDS / Scorecard / CDS, in text OR in the viz card).
- *  - Web / .edu / Reddit claims show a named pill (favicon + site); hover for the
- *    page, click to open the sidebar jumped to that exact source.
- *
- * None of the live chat path is wired to this yet — it's the experiment to look
- * at before integration.
+ * It drives the REAL render pipeline end to end (FE-M5): the production markdown
+ * plugins + components (so `[n]` markers become InlineCitation pills and DB-cited
+ * clauses run through the live DbClaim honesty gate), the real SourcesStrip in
+ * the action row, and the real SourcesPanel / SourcesSheet. There is NO preview
+ * re-implementation — production behaviour is what you see, including FE-C1: the
+ * reveal lights ONLY clauses whose `[n]` resolves to a streamed DB source.
  */
 
 const ANSWER_CLASSES = 'markdown prose message-content dark:prose-invert light w-full break-words';
 
 // ── Representative answer, as the model emits it under the new grammar ─────────
-// Database facts (acceptance rate, SAT, …) appear with NO inline marker — they
-// live in the snapshot card and are credited as "Counselle data". Only claims
-// leaning on the open web carry markers ([3] .edu, [4] web, [5] reddit), which
-// render as named pills.
+// DB-grounded clauses carry a DB-source marker ([1] = a CDS figure) so the live
+// DbClaim gate lights them on reveal; open-web claims carry external markers
+// ([4] .edu, [5] web, [6] reddit) that render as named pills and stay inert.
 
 const INTRO_MD = `## NYU dossier
 
@@ -62,7 +48,7 @@ New York University is a large private research university in Manhattan, and one
 
 ### Admissions snapshot`;
 
-const BODY_MD = `==With about 118,000 applications and a 9.4% overall acceptance rate==, NYU is one of the most selective large private universities in the country. That headline hides real variation by school: Stern and CAS run meaningfully more selective than several other undergraduate colleges, something current students get into over on [6].
+const BODY_MD = `With about 118,000 applications and a 9.4% overall acceptance rate [1], NYU is one of the most selective large private universities in the country. That headline hides real variation by school: Stern and CAS run meaningfully more selective than several other undergraduate colleges, something current students get into over on [6].
 
 ### What matters in the application
 
@@ -73,7 +59,7 @@ const BODY_MD = `==With about 118,000 applications and a 9.4% overall acceptance
 | Essays | Important | A specific "Why NYU" matters |
 | Test scores | Considered | Test-optional through 2026-27 |
 
-Test scores stay optional, and the ones students do send skew high: ==among admitted submitters, the middle 50% scored between 720 and 770 on SAT EBRW==. For a wider read, [5] puts the composite middle 50% around 1480 to 1570, though that mixes sources and still reflects submitters only.
+Test scores stay optional, and the ones students do send skew high: among admitted submitters, the middle 50% scored between 720 and 770 on SAT EBRW [1]. For a wider read, [5] puts the composite middle 50% around 1480 to 1570, though that mixes sources and still reflects submitters only.
 
 NYU's own admissions site [4] lists the key dates for the 2026-27 cycle:
 
@@ -221,99 +207,13 @@ const SOURCES: SourceEntry[] = [
   },
 ];
 
-// Preview-local mirror of DbClaim's highlighted-branch styling. Kept here (not
-// imported) because production's `highlightClass` is private to DbClaim.
-function previewHighlightClass(style: HighlightStyle): string {
-  const wash =
-    'rounded-[0.3em] bg-[color-mix(in_oklab,var(--brand-purple)_14%,transparent)] ' +
-    '[box-decoration-break:clone] [-webkit-box-decoration-break:clone] ' +
-    'px-[0.18em] py-[0.04em] -mx-[0.04em]';
-  const underline =
-    '[text-decoration-line:underline] [text-decoration-thickness:2px] [text-underline-offset:3px] ' +
-    '[text-decoration-color:color-mix(in_oklab,var(--brand-purple)_60%,transparent)]';
-  if (style === 'wash') return wash;
-  if (style === 'underline') return underline;
-  return `${wash} ${underline}`;
-}
-
-/**
- * Preview-only override for `<db-claim>`. Production's DbClaim runs the honesty
- * gate (highlight ONLY a streamed DB source). The preview's `==…==` marks carry
- * no source index — remarkDbClaim never stamps `hProperties.index` — so the
- * production gate would render every span inert. This override restores the old
- * unconditional behavior: highlight whenever `revealed` is on, regardless of
- * source, so the design reference still reads correctly.
- */
-function DbClaimPreview({ children }: { children?: ReactNode }) {
-  const { revealed, style } = useRevealDb();
-
-  if (!revealed) {
-    return <span data-db-claim="">{children}</span>;
-  }
-
-  const span = (
-    <span
-      data-db-claim=""
-      data-revealed=""
-      role="button"
-      tabIndex={0}
-      aria-label="From Counselle's verified data"
-      className={cn(
-        'transition-[background-color,text-decoration-color] duration-200 ease-out motion-reduce:transition-none',
-        previewHighlightClass(style),
-        'cursor-default rounded-[0.3em] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-purple)]',
-      )}
-    >
-      {children}
-    </span>
-  );
-
-  return (
-    <HoverCard.Root openDelay={140} closeDelay={80}>
-      <HoverCard.Trigger asChild>{span}</HoverCard.Trigger>
-      <HoverCard.Portal>
-        <HoverCard.Content
-          side="top"
-          align="start"
-          sideOffset={6}
-          collisionPadding={12}
-          className={cn(
-            'z-50 inline-flex w-fit max-w-[16rem] items-center gap-1.5 rounded-xl',
-            'border border-border-light bg-surface-chat px-2.5 py-1.5 shadow-lg',
-            'text-[12px] font-medium leading-snug text-text-secondary',
-            'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
-            'motion-reduce:animate-none',
-          )}
-        >
-          <CounselleMark sizeClass="h-[15px] w-[15px]" />
-          From Counselle&rsquo;s verified data
-        </HoverCard.Content>
-      </HoverCard.Portal>
-    </HoverCard.Root>
-  );
-}
-
-// The preview's markdown pipeline: the REAL plugins + components, with the
-// `citation-ref` renderer swapped for the new InlineCitation (DB → silent,
-// external → named pill). Built once.
-const PREVIEW_COMPONENTS: { [nodeType: string]: ElementType } = {
-  ...getMarkdownComponents(),
-  'citation-ref': InlineCitationMarkdown,
-  'db-claim': DbClaimPreview,
-};
-
-// The real remark chain plus remarkDbClaim, which turns the preview's
-// hand-authored `==…==` spans into <db-claim> (the stand-in for production's
-// span inference). Built once so react-markdown keeps a stable processor.
-const PREVIEW_REMARK_PLUGINS = [...getRemarkPlugins(), remarkDbClaim];
-
 function PreviewMarkdown({ content }: { content: string }) {
   return (
     <MarkdownBlocks
       content={content}
-      remarkPlugins={PREVIEW_REMARK_PLUGINS}
+      remarkPlugins={getRemarkPlugins()}
       rehypePlugins={getRehypePlugins()}
-      components={PREVIEW_COMPONENTS}
+      components={getMarkdownComponents()}
     />
   );
 }
@@ -341,93 +241,6 @@ function MockActions() {
         <RefreshCw size={19} />
       </span>
     </div>
-  );
-}
-
-/**
- * The collapsed "sources" affordance in the action row. A quiet favicon stack of
- * the outside pages plus a plain "{n} sources" count — no "Counselle data"
- * segment (the database attestation lives on the cards and in the panel, not
- * here). Opens the panel.
- */
-function SourcesStripPreview({ sources, onOpen }: { sources: SourceEntry[]; onOpen: () => void }) {
-  const externals = sources.filter((s) => !isDbSource(s.citation.source));
-  if (externals.length === 0) {
-    return null;
-  }
-  const ring = 'ring-2 ring-surface-primary';
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={`Sources: ${externals.length} web sources`}
-      className={cn(
-        'not-prose group/strip inline-flex w-fit max-w-full items-center gap-2 rounded-full',
-        '-mx-2 px-2 py-1 text-left transition-colors duration-150 ease-out',
-        'hover:bg-surface-hover focus-visible:bg-surface-hover',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-      )}
-    >
-      <span className="flex shrink-0 items-center">
-        {externals.slice(0, 3).map((entry, i) => (
-          <SourceFavicon
-            key={entry.index}
-            citation={entry.citation}
-            sizeClass="h-[22px] w-[22px]"
-            className={cn(ring, i > 0 && '-ml-2')}
-          />
-        ))}
-      </span>
-      <span className="text-[14px] text-text-tertiary transition-colors group-hover/strip:text-text-secondary">
-        {externals.length} {externals.length === 1 ? 'source' : 'sources'}
-      </span>
-    </button>
-  );
-}
-
-function PanelHeader({ count, onClose }: { count: number; onClose: () => void }) {
-  return (
-    <header className="flex items-center justify-between border-b border-border-light px-5 py-4">
-      <h2 className="text-base font-semibold text-text-primary">
-        {count} {count === 1 ? 'source' : 'sources'}
-      </h2>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close sources"
-        className="-mr-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-tertiary transition hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <X className="h-4 w-4" aria-hidden="true" />
-      </button>
-    </header>
-  );
-}
-
-function SourcesPanelPreview({
-  sources,
-  activeIndex,
-  onClose,
-}: {
-  sources: SourceEntry[];
-  activeIndex: number | null;
-  onClose: () => void;
-}) {
-  useEscToClose(onClose);
-  return (
-    <aside
-      aria-label="Sources panel"
-      className="flex h-full w-full flex-col overflow-hidden bg-surface-primary motion-safe:[animation:artifact-in_.28s_cubic-bezier(.16,1,.3,1)]"
-    >
-      <PanelHeader
-        count={displaySourceCount(
-          sources.filter((s) => !isDbSource(s.citation.source)),
-          sources.some((s) => isDbSource(s.citation.source)),
-        )}
-        onClose={onClose}
-      />
-      <SourcesList sources={sources} activeIndex={activeIndex} dbSchools={DB_SCHOOLS} />
-    </aside>
   );
 }
 
@@ -490,6 +303,14 @@ export default function MessagePreview(): ReactNode {
   const isDesktop = useIsDesktop();
   const close = () => setOpen(false);
 
+  // The real strip/panel count the full cited set: one "Counselle data" entry
+  // (when the answer used DB data) + each external page (FE-H4 / FE-M1).
+  const { externals, dbUsed, displayCount } = useMemo(() => {
+    const ext = SOURCES.filter((s) => !isDbSource(s.citation.source));
+    const used = SOURCES.some((s) => isDbSource(s.citation.source));
+    return { externals: ext, dbUsed: used, displayCount: displaySourceCount(ext, used) };
+  }, []);
+
   // An inline pill opens the panel jumped to that source; the strip opens it
   // with nothing pre-selected.
   const activate = (entry: SourceEntry) => {
@@ -535,7 +356,11 @@ export default function MessagePreview(): ReactNode {
                       <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
                         <MockActions />
                         <RevealDbToggle active={revealed} onToggle={() => setRevealed((v) => !v)} />
-                        <SourcesStripPreview sources={SOURCES} onOpen={openFromStrip} />
+                        <SourcesStrip
+                          sources={externals}
+                          displayCount={displayCount}
+                          onOpen={openFromStrip}
+                        />
                       </div>
                     }
                   />
@@ -548,29 +373,23 @@ export default function MessagePreview(): ReactNode {
               can show it without ChatView's ResizablePanelGroup. */}
           {open && isDesktop && (
             <div className="fixed inset-y-0 right-0 z-40 w-[400px] border-l border-border-light shadow-xl">
-              <SourcesPanelPreview sources={SOURCES} activeIndex={activeIndex} onClose={close} />
+              <SourcesPanel
+                sources={SOURCES}
+                activeIndex={activeIndex}
+                dbSchools={DB_SCHOOLS}
+                dbUsed={dbUsed}
+                onClose={close}
+              />
             </div>
           )}
           {open && !isDesktop && (
-            <Dialog.Root open onOpenChange={(next) => !next && close()}>
-              <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 motion-safe:[animation:artifact-scrim_.2s_ease-out] md:hidden" />
-                <Dialog.Content
-                  aria-describedby={undefined}
-                  className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-surface-primary shadow-2xl focus:outline-none motion-safe:[animation:artifact-sheet-in_.3s_cubic-bezier(.16,1,.3,1)] md:hidden"
-                >
-                  <Dialog.Title className="sr-only">Sources for this answer</Dialog.Title>
-                  <PanelHeader
-                    count={displaySourceCount(
-                      SOURCES.filter((s) => !isDbSource(s.citation.source)),
-                      SOURCES.some((s) => isDbSource(s.citation.source)),
-                    )}
-                    onClose={close}
-                  />
-                  <SourcesList sources={SOURCES} activeIndex={activeIndex} dbSchools={DB_SCHOOLS} />
-                </Dialog.Content>
-              </Dialog.Portal>
-            </Dialog.Root>
+            <SourcesSheet
+              sources={SOURCES}
+              activeIndex={activeIndex}
+              dbSchools={DB_SCHOOLS}
+              dbUsed={dbUsed}
+              onClose={close}
+            />
           )}
           </div>
         </RevealDbProvider>

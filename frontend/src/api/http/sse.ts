@@ -47,6 +47,39 @@ function isKnownType(value: unknown): value is ProtocolEventType {
   return typeof value === 'string' && KNOWN_TYPES.has(value as ProtocolEventType);
 }
 
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0;
+}
+
+/**
+ * Per-type validation for the IDENTITY-BEARING events whose missing fields
+ * would silently corrupt identity reconciliation in consumeStream (FE-SSE-
+ * NOSCHEMA). A frame that fails is dropped like any malformed frame — the
+ * stream survives, the reducer never sees a half-typed meta/step/done/error.
+ * Non-identity events (delta/thinking/viz/clarify/sources/usage) keep the
+ * trust cast: the reducer tolerates their shapes and degrades visually.
+ */
+function validatePayload(type: ProtocolEventType, obj: Record<string, unknown>): boolean {
+  const data = obj.data;
+  switch (type) {
+    case 'meta':
+      // message_id is load-bearing (assistantMessageId); user_message_id is
+      // adopted but may legitimately differ — require message_id only.
+      return isObject(data) && isNonEmptyString(data.message_id);
+    case 'step':
+      return isObject(data) && isNonEmptyString(data.step_id) && isNonEmptyString(data.status);
+    case 'done':
+      return isObject(data) && isNonEmptyString(data.status);
+    case 'error':
+      return isObject(data) && isNonEmptyString(data.message);
+    default:
+      return true; // non-identity events: trusted (degrade-tolerant)
+  }
+}
+
 /** Parse one raw frame (its lines already split) into an SseFrame, or null. */
 function parseFrame(block: string): SseFrame | null {
   let id: string | undefined;
@@ -86,9 +119,14 @@ function parseFrame(block: string): SseFrame | null {
     console.warn(`[sse] dropped a frame with unknown type: ${String(obj.type)}`);
     return null;
   }
+  if (!validatePayload(obj.type, obj)) {
+    console.warn(`[sse] dropped a malformed ${obj.type} frame (missing identity field)`);
+    return null;
+  }
   // Trust boundary: the body comes from our same-origin, authed backend. We
-  // validate the `type` is a known member (above) but trust the rest of the
-  // frame's shape — the reducer is the consumer and tolerates extra fields.
+  // validate the `type` is a known member and the identity-bearing payload
+  // fields (above) but trust the rest of the frame's shape — the reducer is the
+  // consumer and tolerates extra fields.
   return { event: obj as unknown as ProtocolEvent, id };
 }
 

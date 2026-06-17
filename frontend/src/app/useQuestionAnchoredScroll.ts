@@ -23,6 +23,8 @@ const BOTTOM_THRESHOLD_PX = 100;
 /** Gap above the anchored question, so it doesn't touch the header. */
 const ANCHOR_TOP_OFFSET_PX = 12;
 const SCROLL_HANDLER_THROTTLE_MS = 100;
+/** Belt-and-suspenders re-apply delay after the composer resize settles. */
+const ANCHOR_REAPPLY_DELAY_MS = 600;
 
 export default function useQuestionAnchoredScroll() {
   const { conversationId, messages, isSubmitting } = useChatContext();
@@ -151,8 +153,11 @@ export default function useQuestionAnchoredScroll() {
     };
     applyAnchor();
     // The composer clearing/resizing right after submit shifts the layout —
-    // re-apply once it settles.
-    window.setTimeout(applyAnchor, 600);
+    // re-apply once it settles. `applyAnchor` is idempotent (early-returns when
+    // residual ≤ 4px), so calling it multiple times is safe. Two rAFs let layout
+    // settle for the common-fast case; the timeout is the slow-device fallback.
+    requestAnimationFrame(() => requestAnimationFrame(applyAnchor));
+    window.setTimeout(applyAnchor, ANCHOR_REAPPLY_DELAY_MS);
   }, [messages]);
 
   /** Streaming growth changes the overflow without scroll events — keep the pill honest. */

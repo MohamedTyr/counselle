@@ -535,6 +535,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // one → drive `consumeStream` (reconcile=false: the user echo merged from the
   // transcript already carries the backend id). A reattach that errors mid-stream
   // takes the same error path as send — never a fabricated empty "complete".
+  //
+  // Last-Event-ID contract (FE-ATTACH-CURSOR, see wire-contract.md §6): we call
+  // `transport.attach(convoId)` with no explicit lastEventId — the transport
+  // supplies the durable per-tab cursor from sessionStorage when it has one.
+  //   • No Last-Event-ID (a brand-new tab that never streamed this turn) ⇒ the
+  //     backend FULL-replays from seq 0. Because attachTurn reduces into a FRESH
+  //     turn state (initialTurnState, separate from `persisted`), a full replay
+  //     reduces cleanly into one coherent turn — no prose doubling.
+  //   • With a Last-Event-ID (this tab streamed a prefix, then reloaded) ⇒ the
+  //     backend replays tail-only (events with seq > cursor) and continues live.
   const attachTurn = useCallback(
     async (convoId: string): Promise<void> => {
       if (turnRef.current !== null) {

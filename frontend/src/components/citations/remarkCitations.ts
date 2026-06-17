@@ -73,6 +73,11 @@ export function citedIndexesForMessage(
     }
     return indexes;
   }
+  // The `fallbackText` path is digit-scan-only for legacy entries without
+  // `content` blocks; live turns always carry `content`. `fallbackText` comes
+  // from `proseOf` (markdown blocks joined with `\n\n`, viz blocks elided), so it
+  // does not reflect render order — fine here because we only collect which `[n]`
+  // markers appear, never use this string for clause wrapping (FE-M6).
   return citedIndexesIn(fallbackText);
 }
 

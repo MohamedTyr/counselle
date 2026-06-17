@@ -35,9 +35,11 @@ export default function SourcePill({ entry, onActivate }: SourcePillProps) {
           onClick={onActivate}
           aria-label={`Source: ${name}. Open in sidebar.`}
           className={cn(
-            'not-prose mx-px inline-flex max-w-[14rem] translate-y-[0.12em] items-center gap-1',
+            // Seat the pill on the text baseline via vertical-align (works in both
+            // prose flow and table cells) instead of a fixed transform (FE-M7).
+            'not-prose mx-px inline-flex max-w-[14rem] items-center gap-1 align-[-0.18em]',
             'rounded-full border border-border-light bg-surface-primary-alt py-[1px] pl-[3px] pr-2',
-            'align-baseline text-[0.82em] font-medium leading-none text-text-secondary no-underline',
+            'text-[0.82em] font-medium leading-none text-text-secondary no-underline',
             'transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}

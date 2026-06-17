@@ -30,9 +30,9 @@ describe('SourcesStrip', () => {
         onOpen={() => {}}
       />,
     );
-    // Each external source with a resolvable domain renders a favicon <img>
-    // (aria-hidden, so it has no a11y role — query by tag).
-    expect(container.querySelectorAll('img')).toHaveLength(2);
+    // Each source renders a glyph-tile badge (FE-H1 dropped the remote <img>
+    // favicon; the source mark is now an aria-hidden tile carrying an SVG glyph).
+    expect(container.querySelectorAll('span[aria-hidden="true"] > svg')).toHaveLength(2);
   });
 
   test('displayCount overrides the label without changing favicons', () => {
@@ -44,7 +44,7 @@ describe('SourcesStrip', () => {
       />,
     );
     expect(screen.getByText('3 sources')).toBeInTheDocument();
-    expect(container.querySelectorAll('img')).toHaveLength(1);
+    expect(container.querySelectorAll('span[aria-hidden="true"] > svg')).toHaveLength(1);
   });
 
   test('without displayCount the label falls back to the favicon count', () => {
@@ -83,7 +83,7 @@ describe('SourcesStrip', () => {
     const button = screen.getByRole('button');
     expect(button).toBeInTheDocument();
     expect(screen.getByText('1 source')).toBeInTheDocument();
-    expect(container.querySelectorAll('img')).toHaveLength(0);
+    expect(container.querySelectorAll('span[aria-hidden="true"] > svg')).toHaveLength(0);
     button.click();
     expect(opened).toBe(true);
   });

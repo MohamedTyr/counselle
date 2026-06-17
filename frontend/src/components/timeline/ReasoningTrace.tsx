@@ -56,6 +56,11 @@ const THINKING_WORDS = [
 const PLACEHOLDER_DWELL_MS = 1900;
 const DEFAULT_ACTIVITY = THINKING_WORDS[0];
 const EMPTY_ACTIVITIES: string[] = [];
+// Live-timer cadence. Normally 100ms (a smooth sub-second clock); under reduced
+// motion we tick coarsely (once/second) so a motion-sensitive user doesn't see
+// the number churn — the duration stays correct, it just doesn't animate.
+const TICK_MS = 100;
+const TICK_MS_REDUCED = 1000;
 
 function isLive(status: TurnStatus): boolean {
   return LIVE_STATUSES.includes(status);
@@ -158,17 +163,25 @@ function useActivityTicker(activities: string[], live: boolean): string {
 
 // ── The live wall-clock (setInterval → state; isolated to the header) ──────────
 
+// The live wall-clock. On every idle→live transition the timer RESTARTS from
+// zero (a reused ReasoningTrace instance must not carry a previous turn's elapsed
+// into the next — FE-H2): `start` is the moment we went live and we never read
+// `elapsed` inside the effect, so the dep array is honest ([live, reduceMotion])
+// and no lint suppression is needed (FE-L1). Under reduced motion the interval
+// ticks coarsely (FE-M4) — the displayed number stops churning sub-second.
 function useElapsed(live: boolean): number {
   const [elapsed, setElapsed] = useState(0);
+  const reduceMotion = useReducedMotion();
   useEffect(() => {
     if (!live) {
       return;
     }
-    const start = performance.now() - elapsed;
-    const id = setInterval(() => setElapsed(performance.now() - start), 100);
+    setElapsed(0);
+    const start = performance.now();
+    const period = reduceMotion ? TICK_MS_REDUCED : TICK_MS;
+    const id = setInterval(() => setElapsed(performance.now() - start), period);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live]);
+  }, [live, reduceMotion]);
   return elapsed;
 }
 
@@ -183,7 +196,12 @@ function SourceChips({
   kind: StepKind;
   query?: string;
 }) {
-  const visible = sources.slice(0, MAX_VISIBLE_CHIPS);
+  // "+N more" is a real focusable <button> that reveals the hidden chips inline
+  // (FE-M2). The old aria-labelled <span> was unreachable for keyboard/AT users —
+  // sources 5+ couldn't be opened, and an aria-label on a static span reads as a
+  // labelled element with no role. One-way expand is enough here.
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? sources : sources.slice(0, MAX_VISIBLE_CHIPS);
   const extra = sources.length - visible.length;
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -191,12 +209,15 @@ function SourceChips({
         <StepSourceChip key={s.url ?? `${s.label}-${i}`} source={s} kind={kind} index={i} query={query} />
       ))}
       {extra > 0 && (
-        <span
-          aria-label={`and ${extra} more ${extra === 1 ? 'source' : 'sources'}`}
-          className="px-1 py-0.5 text-xs text-text-secondary"
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          aria-expanded={false}
+          aria-label={`Show ${extra} more ${extra === 1 ? 'source' : 'sources'}`}
+          className="rounded px-1 py-0.5 text-xs text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-xheavy"
         >
           +{extra} more
-        </span>
+        </button>
       )}
     </div>
   );
@@ -412,11 +433,14 @@ export default function ReasoningTrace({
         />
         <Collapsible.Content className="mt-2.5">
           <div className="flex flex-col pl-0.5">
-            {timeline.map((entry, i) =>
+            {timeline.map((entry) =>
               entry.type === 'step' ? (
                 <StepNode key={`step-${entry.step.step_id}`} step={entry.step} />
               ) : (
-                <ThinkNode key={`thinking-${i}`} text={entry.text} />
+                // Keyed on the reducer-assigned stable id (FE-H3), never the array
+                // index: with steps and thinking interleaved in arrival order, an
+                // index key would re-map to different text as entries merge/arrive.
+                <ThinkNode key={entry.id} text={entry.text} />
               ),
             )}
           </div>

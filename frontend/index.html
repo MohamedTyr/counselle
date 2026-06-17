@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Stopgap CSP backstop (FE-M9). Constrains the resource classes that could leak
+      browsing signal or host an injection, WITHOUT a script-src (a meta-tag
+      script-src would break Vite's HMR inline bootstrap in dev). img-src allows
+      self + data: + remote https images that markdown content legitimately uses;
+      no Google favicon origin is whitelisted because FE-H1 removed that fetch.
+      The REAL control is a server-header CSP (incl. script-src with a nonce) —
+      that is a Phase-6 / deploy item (see TODOS.md + docs/DEPLOY.md).
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="img-src 'self' data: https:; object-src 'none'; frame-src 'none'; base-uri 'self'"
+    />
     <title>Counselle</title>
   </head>
   <body>

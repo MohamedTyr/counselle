@@ -8,6 +8,7 @@
  * official first, community after. Two shells over one body, mirroring the
  * artifact panel: docked on desktop, slide-over sheet on mobile.
  */
+import { useEffect, useRef } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { SourceEntry } from '@/api/protocol';
@@ -35,10 +36,21 @@ function SourcesChrome({ sources, activeIndex, dbSchools, dbUsed, onClose }: Sou
   const externals = sources.filter((s) => !isDbSource(s.citation.source));
   const count = displaySourceCount(externals, dbUsed);
 
+  // On open, move focus to the panel heading so AT users land inside the panel
+  // (the mount-focus is itself the announcement that the rail swapped) — FE-M8.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
   return (
     <>
       <header className="flex items-center justify-between border-b border-border-light px-5 py-4">
-        <h2 className="text-base font-semibold text-text-primary">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-base font-semibold text-text-primary focus:outline-none"
+        >
           {count} {count === 1 ? 'source' : 'sources'}
         </h2>
         <button

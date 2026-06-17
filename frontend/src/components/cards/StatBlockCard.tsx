@@ -113,7 +113,11 @@ export default function StatBlockCard({
   const school = spec.schools[0];
   const list = (
     <dl className={isPanel ? 'divide-y divide-border-light' : 'space-y-px'}>
-      {spec.rows.map((row, i) => (
+      {/* `rows` is guarded (`?? []`) so a malformed spec degrades to an empty
+          card instead of throwing (FE-H5). The `-${i}` row key is safe: viz
+          specs are emitted whole, so rows never stream in or reorder mid-render
+          — the index can't drift under React (FE-L5). */}
+      {(spec.rows ?? []).map((row, i) => (
         <div
           key={`${row.label}-${i}`}
           className={cn(

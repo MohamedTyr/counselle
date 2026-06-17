@@ -16,7 +16,7 @@
  *   just `{rating}` (ChatContext's transcript projection). The mutation posts to
  *   the real POST .../messages/{id}/feedback; a failure rolls back the thumb.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import copy from 'copy-to-clipboard';
 import type { TFeedback } from 'librechat-data-provider';
 import type { ChatMessage } from '@/app/ChatContext';
@@ -49,6 +49,19 @@ export default function useMessageActions(props: TMessageActions) {
   const [feedback, setFeedback] = useState<TFeedback | undefined>(() =>
     message?.feedback ? { rating: message.feedback.rating } : undefined,
   );
+
+  // Re-sync the thumb to server truth when the projection's rating changes
+  // (a transcript re-read / chats invalidation can replace this message with a
+  // server-joined rating after mount; the instance survives the stable key, so
+  // without this the local copy drifts and could show a rating the backend no
+  // longer holds — FE-FEEDBACK-STALE). The optimistic write in handleFeedback
+  // is unaffected: it sets local state synchronously, and a successful write
+  // makes the next projection match, so this effect is value-equal (React bails)
+  // then. Keyed on the SCALAR rating (not the object, which is fresh each
+  // projection) so it fires only on a real change.
+  useEffect(() => {
+    setFeedback(message?.feedback ? { rating: message.feedback.rating } : undefined);
+  }, [message?.feedback?.rating]);
 
   const enterEdit = useCallback(
     (cancel?: boolean) => setCurrentEditId && setCurrentEditId(cancel === true ? -1 : messageId),

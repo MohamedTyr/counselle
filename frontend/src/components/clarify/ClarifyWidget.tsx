@@ -53,6 +53,9 @@ function OptionChip({ label, hint, selected, frozen, onClick }: ChipProps) {
   );
 }
 
+/** Sane cap on the clarify free-text answer (no known backend limit). */
+const OTHER_MAX_LEN = 280;
+
 function OtherInput({ onAnswer }: { onAnswer: (text: string) => void }) {
   const [text, setText] = useState('');
   const send = () => {
@@ -65,6 +68,8 @@ function OtherInput({ onAnswer }: { onAnswer: (text: string) => void }) {
     <div className="mt-3 flex gap-2">
       <input
         type="text"
+        aria-label="Your answer"
+        maxLength={OTHER_MAX_LEN}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

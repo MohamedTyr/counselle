@@ -21,7 +21,9 @@ function MarkdownFallbackCard({ spec, variant }: { spec: RenderSpec; variant: Vi
   return (
     <VizFrame title={spec.title} variant={variant}>
       <div className="space-y-1">
-        {spec.rows.map((row, i) => (
+        {/* A malformed spec may omit `rows` entirely — degrade to an empty-but-
+            titled card rather than throw (FE-H5). */}
+        {(spec.rows ?? []).map((row, i) => (
           <div key={`${row.label}-${i}`} className="text-sm text-text-primary [overflow-wrap:anywhere]">
             {row.label}: {row.cells[0]?.available ? row.cells[0].display : 'not available'}
           </div>

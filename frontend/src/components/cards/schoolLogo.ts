@@ -26,6 +26,11 @@ export function logoCandidates(domain: string, size = 128): string[] {
   if (LOGO_DEV_TOKEN) {
     urls.push(`https://img.logo.dev/${enc}?token=${LOGO_DEV_TOKEN}&size=${px}&format=png&retina=true`);
   }
+  // NOTE: third-party-favicon privacy concern, same class as FE-H1 (the citation
+  // SourceFavicon leak Phase 4 closed) — fetching from Google reveals which school
+  // host the student is viewing. This is a DIFFERENT surface: school-card logos,
+  // not the citation/source-browsing path. Deliberately left here and deferred to
+  // Phase 6 (CFG-04 DRY + the deferred backend favicon-proxy option). See TODOS.md.
   urls.push(`https://www.google.com/s2/favicons?domain=${enc}&sz=${px}`);
   urls.push(`https://icons.duckduckgo.com/ip3/${enc}.ico`);
   return urls;

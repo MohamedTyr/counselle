@@ -36,6 +36,7 @@ import {
   ArtifactSheet,
 } from '@/components/artifact/ArtifactPanel';
 import { SourcesPanel, SourcesSheet } from '@/components/citations/SourcesPanel';
+import MessagesErrorBoundary from '@/components/error/MessagesErrorBoundary';
 import ChatComposer from '@/components/composer/ChatComposer';
 import SuggestionPills from '@/components/composer/SuggestionPills';
 import EtherealShadow from '@/components/background/EtherealShadow';
@@ -57,6 +58,11 @@ export default function ChatView() {
   // Shared composer textarea ref so SuggestionPills can focus it directly
   // (no global DOM scan).
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  // The chat region. On panel close we move focus here so AT focus isn't
+  // stranded on the removed panel node (FE-M8). Per-trigger restore (returning
+  // focus to the exact strip/pill that opened the panel) is a follow-up — see
+  // TODOS.md.
+  const mainRef = useRef<HTMLElement>(null);
 
   // Sync URL param → atom so ChatContext/SourceDropdown see the current
   // conversation. Switching conversations also closes any open artifact (its
@@ -72,9 +78,17 @@ export default function ChatView() {
   const showDocked = rightPanelOpen && isDesktop;
   const showSheet = rightPanelOpen && !isDesktop;
   // Stable identities so the panels' Esc/keydown effects don't re-subscribe on
-  // every ChatView render (the jotai setters are themselves stable).
-  const closeArtifact = useCallback(() => setArtifact(null), [setArtifact]);
-  const closeSources = useCallback(() => setSources(null), [setSources]);
+  // every ChatView render (the jotai setters are themselves stable). On close we
+  // also pull focus back to the chat region so AT focus isn't stranded on the
+  // unmounted panel (FE-M8).
+  const closeArtifact = useCallback(() => {
+    setArtifact(null);
+    mainRef.current?.focus();
+  }, [setArtifact]);
+  const closeSources = useCallback(() => {
+    setSources(null);
+    mainRef.current?.focus();
+  }, [setSources]);
 
   return (
     <ChatFormProvider {...methods}>
@@ -89,7 +103,12 @@ export default function ChatView() {
         )}
         <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
           <ResizablePanel id="chat-pane" minSize="35%" className="min-w-0">
-            <main className="relative z-10 flex h-full w-full flex-col overflow-y-auto" role="main">
+            <main
+              ref={mainRef}
+              tabIndex={-1}
+              className="relative z-10 flex h-full w-full flex-col overflow-y-auto focus:outline-none"
+              role="main"
+            >
               <div className="relative flex h-full w-full flex-col">
                 <Header />
                 <>
@@ -104,7 +123,9 @@ export default function ChatView() {
                     {isLandingPage ? (
                       <Landing centerFormOnLanding={CENTER_FORM_ON_LANDING} />
                     ) : (
-                      <MessagesView />
+                      <MessagesErrorBoundary>
+                        <MessagesView />
+                      </MessagesErrorBoundary>
                     )}
                     <div
                       className={cn(

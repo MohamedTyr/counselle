@@ -69,11 +69,19 @@ export default function SourcesStrip({
   const labelCount = effectiveCount;
   const countLabel = `${labelCount} ${labelCount === 1 ? 'source' : 'sources'}`;
 
+  // When the cited set includes a Counselle-data card, the count exceeds the
+  // external favicons a screen-reader user perceives — so the accessible name
+  // explains the extra (FE-M1). Visible text stays the plain count.
+  const includesData = displayCount !== undefined && displayCount > cited.length;
+  const ariaLabel = includesData
+    ? `View ${countLabel} for this answer, including Counselle data`
+    : `View ${countLabel} for this answer`;
+
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`View ${countLabel} for this answer`}
+      aria-label={ariaLabel}
       className={cn(
         'not-prose group/strip inline-flex w-fit max-w-full items-center gap-2 rounded-full',
         // Flat when idle; a quiet rounded-full surface appears on hover/focus.

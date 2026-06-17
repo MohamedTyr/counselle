@@ -37,8 +37,52 @@ async function safeFetch(input: string, init: RequestInit): Promise<Response> {
 }
 
 export class HttpTransport implements Transport {
-  /** Per-session cursor: the last `id:` seq parsed for the active turn (§6). */
+  /**
+   * Per-session cursor: the last `id:` seq parsed for the active turn (§6). The
+   * in-memory `Map` is a fast cache; the cursor is ALSO mirrored to
+   * `sessionStorage` so a full page reload (which wipes this module singleton)
+   * can still thread a `Last-Event-ID` and resume mid-turn (FE-ATTACH-CURSOR).
+   * `sessionStorage` is correct: a turn's seq cursor is per-tab/per-session
+   * ephemeral state — it must NOT bleed across tabs (localStorage) or survive
+   * the tab closing.
+   */
   private readonly cursors = new Map<string, string>();
+
+  /** sessionStorage key for a session's Last-Event-ID cursor (per-tab, ephemeral). */
+  private cursorKey(sessionId: string): string {
+    return `counselle:cursor:${sessionId}`;
+  }
+
+  private setCursor(sessionId: string, id: string): void {
+    this.cursors.set(sessionId, id);
+    try {
+      sessionStorage.setItem(this.cursorKey(sessionId), id);
+    } catch {
+      // sessionStorage unavailable (privacy mode / SSR) — the in-memory map
+      // still works within this page load; durability is best-effort.
+    }
+  }
+
+  private getCursor(sessionId: string): string | undefined {
+    const mem = this.cursors.get(sessionId);
+    if (mem !== undefined) {
+      return mem;
+    }
+    try {
+      return sessionStorage.getItem(this.cursorKey(sessionId)) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private clearCursor(sessionId: string): void {
+    this.cursors.delete(sessionId);
+    try {
+      sessionStorage.removeItem(this.cursorKey(sessionId));
+    } catch {
+      // best-effort
+    }
+  }
 
   /** Stream a fetch response's SSE body, tracking the Last-Event-ID cursor. */
   private async *streamEvents(
@@ -52,12 +96,12 @@ export class HttpTransport implements Transport {
     }
     for await (const frame of parseSseStream(response.body)) {
       if (frame.id !== undefined) {
-        this.cursors.set(sessionId, frame.id);
+        this.setCursor(sessionId, frame.id);
       }
       yield frame.event;
       // The cursor resets at each terminal event — the next turn restarts seq.
       if (frame.event.type === 'done' || frame.event.type === 'error') {
-        this.cursors.delete(sessionId);
+        this.clearCursor(sessionId);
       }
     }
   }
@@ -67,7 +111,7 @@ export class HttpTransport implements Transport {
     body: SendMessageBody,
   ): AsyncGenerator<ProtocolEvent, void, undefined> {
     // A new turn restarts the seq — drop any stale cursor before streaming.
-    this.cursors.delete(sessionId);
+    this.clearCursor(sessionId);
     const response = await safeFetch(`${BASE}/sessions/${sessionId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,7 +128,7 @@ export class HttpTransport implements Transport {
     sessionId: string,
     lastEventId?: string,
   ): AsyncGenerator<ProtocolEvent, void, undefined> {
-    const cursor = lastEventId ?? this.cursors.get(sessionId);
+    const cursor = lastEventId ?? this.getCursor(sessionId);
     const headers: Record<string, string> =
       cursor !== undefined ? { 'Last-Event-ID': cursor } : {};
     const response = await safeFetch(`${BASE}/sessions/${sessionId}/stream`, {

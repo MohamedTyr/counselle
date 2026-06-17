@@ -23,7 +23,7 @@ function step(over: Partial<StepData> = {}): StepData {
 }
 
 const timeline: TimelineEntry[] = [
-  { type: 'thinking', text: 'Let me check the rankings first.' },
+  { type: 'thinking', id: 'think-0', text: 'Let me check the rankings first.' },
   { type: 'step', step: step() },
 ];
 

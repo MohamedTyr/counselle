@@ -77,6 +77,10 @@ export default function SourcesList({
     }
     const target = counselleActive ? counselleRef.current : activeRowRef.current;
     target?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    // Opening from an inline pill lands AT focus on the flashed row, matching the
+    // visual flash (FE-M8). The Counselle card is a non-focusable <li>; only the
+    // external active row carries tabIndex={-1}, so a focus() there is a no-op.
+    target?.focus();
   }, [activeIndex, counselleActive]);
 
   return (

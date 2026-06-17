@@ -50,21 +50,31 @@ const SourceRow = forwardRef<HTMLLIElement, SourceRowProps>(function SourceRow(
     </>
   );
 
-  const rowClass = cn(
-    'flex gap-2.5 rounded-lg px-3 py-2 !no-underline transition-colors',
+  // The flash animation is shared by both shapes; the interactive hover/ring
+  // styling applies ONLY to the real link `<a>`. The inert no-URL `<div>` does
+  // nothing on click, so dressing it like a link is an affordance lie (FE-L6).
+  const flashClass = active ? 'motion-safe:[animation:source-flash_1.2s_ease-out]' : undefined;
+  const baseRowClass = 'flex gap-2.5 rounded-lg px-3 py-2 !no-underline transition-colors';
+  const interactiveRowClass = cn(
+    baseRowClass,
     'hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-    active && 'motion-safe:[animation:source-flash_1.2s_ease-out]',
+    flashClass,
   );
+  const inertRowClass = cn(baseRowClass, flashClass);
 
+  // When the panel is opened from an inline pill, the active row receives focus
+  // (SourcesList focuses `ref` in its activeIndex effect), so it must be a focus
+  // target (FE-M8). `tabIndex={-1}` makes it programmatically focusable without
+  // entering the tab order.
   return (
-    <li ref={ref}>
+    <li ref={ref} tabIndex={active ? -1 : undefined} className="focus:outline-none">
       {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer" className={rowClass}>
+        <a href={url} target="_blank" rel="noopener noreferrer" className={interactiveRowClass}>
           {inner}
           <span className="sr-only"> (opens in new tab)</span>
         </a>
       ) : (
-        <div className={rowClass}>{inner}</div>
+        <div className={inertRowClass}>{inner}</div>
       )}
     </li>
   );

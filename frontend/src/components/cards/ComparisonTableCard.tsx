@@ -103,8 +103,10 @@ export default function ComparisonTableCard({
     >
       <colgroup>
         <col style={{ width: metricColumnWidth(schoolCount) }} />
-        {spec.schools.map((school) => (
-          <col key={school.unitid} />
+        {/* Key on `${unitid}-${idx}` so a malformed spec with a repeated school
+            can't produce a duplicate React key (FE-L4). */}
+        {spec.schools.map((school, idx) => (
+          <col key={`${school.unitid}-${idx}`} />
         ))}
       </colgroup>
       <thead>
@@ -112,15 +114,18 @@ export default function ComparisonTableCard({
           <th scope="col" className={metricThClass}>
             Metric
           </th>
-          {spec.schools.map((school) => (
-            <th key={school.unitid} scope="col" className={schoolThClass}>
+          {spec.schools.map((school, idx) => (
+            <th key={`${school.unitid}-${idx}`} scope="col" className={schoolThClass}>
               <SchoolHeader school={school} />
             </th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {spec.rows.map((row, i) => (
+        {/* `rows` is guarded (`?? []`) so a malformed spec degrades instead of
+            throwing (FE-H5). The `-${i}` row key is safe: viz specs are emitted
+            whole, so rows never stream in or reorder mid-render (FE-L5). */}
+        {(spec.rows ?? []).map((row, i) => (
           <tr
             key={`${row.label}-${i}`}
             className="group border-b border-border-light transition-colors last:border-b-0 hover:bg-surface-hover"
@@ -129,7 +134,7 @@ export default function ComparisonTableCard({
               {row.label}
             </th>
             {spec.schools.map((school, col) => (
-              <ComparisonCell key={school.unitid} cell={row.cells[col]} />
+              <ComparisonCell key={`${school.unitid}-${col}`} cell={row.cells[col]} />
             ))}
           </tr>
         ))}

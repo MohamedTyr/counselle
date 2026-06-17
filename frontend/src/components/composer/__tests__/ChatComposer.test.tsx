@@ -101,10 +101,12 @@ describe('empty / whitespace submit is a no-op (behavior 6)', () => {
     expect(ctx.submitMessage).not.toHaveBeenCalled();
   });
 
-  test('empty field shows the Mic button (no content), not the send arrow', () => {
+  test('empty field shows a disabled send arrow, not a Mic fallback (FE-M3)', () => {
+    // The voice channel is gated off (FE-M3) — an empty composer no longer
+    // offers a decorative mic; the send button shows the arrow and is disabled.
     const { container } = render(<Harness />);
-    expect(container.querySelector('.lucide-mic')).toBeTruthy();
-    expect(container.querySelector('.lucide-arrow-up')).toBeNull();
+    expect(container.querySelector('.lucide-mic')).toBeNull();
+    expect(container.querySelector('.lucide-arrow-up')).toBeTruthy();
   });
 });
 
