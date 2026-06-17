@@ -7,6 +7,7 @@ respx/httpx mocking is needed.  All Tavily network I/O is replaced by the stub.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 from tavily.errors import ForbiddenError, InvalidAPIKeyError
@@ -529,6 +530,21 @@ class TestMakeTavilyClient:
 
         client = make_tavily_client(FakeSettings())
         assert client is not None
+
+    def test_no_dotfile_read(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """DS-05: the hand-rolled .env-file reader is gone — a .env present in CWD
+        with a key must NOT be read; with no settings/env key, it still raises."""
+        monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+        monkeypatch.delenv("COUNSELLE_TAVILY_API_KEY", raising=False)
+        env_file = tmp_path / ".env"
+        env_file.write_text("TAVILY_API_KEY=tvly-from-dotfile\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        class FakeSettings:
+            tavily_api_key = None
+
+        with pytest.raises(RuntimeError, match="Tavily API key missing"):
+            make_tavily_client(FakeSettings())
 
 
 # ---------------------------------------------------------------------------

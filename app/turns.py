@@ -238,9 +238,7 @@ class TurnRegistry:
         #: finalize. A new event that would exceed the budget triggers
         #: head-eviction on the appending buffer (oldest-first) until it fits;
         #: a consumer that falls off the head is terminated honestly (BC-05).
-        self._buffer_bytes_budget: int = getattr(
-            settings, "stream_buffer_bytes", 256 * 1024 * 1024
-        )
+        self._buffer_bytes_budget: int = settings.stream_buffer_bytes
         self._buffer_bytes_used: int = 0
         #: Tracked fire-and-forget hook tasks (the async ``on_turn_complete``
         #: path) — drained in ``aclose`` so a shutdown never abandons one
@@ -310,11 +308,11 @@ class TurnRegistry:
         # abusive fan-out can't exhaust memory (single-flight already caps it
         # per session; this caps the whole process). Checked under the same
         # synchronous window as the claim — no await between check and claim.
-        max_turns = getattr(self._settings, "max_concurrent_turns", 50)
+        max_turns = self._settings.max_concurrent_turns
         if len(self._turns) >= max_turns:
             raise TooManyTurns(session_id)
         buffer = _RingBuffer(
-            getattr(self._settings, "stream_buffer_size", 20_000),
+            self._settings.stream_buffer_size,
             on_charge=self._charge_bytes,
             on_refund=self._refund_bytes,
         )
@@ -346,7 +344,7 @@ class TurnRegistry:
         turn = self._turns.get(session_id)
         if turn is None:
             raise NoActiveTurn(session_id)
-        max_consumers = getattr(self._settings, "max_consumers_per_turn", 8)
+        max_consumers = self._settings.max_consumers_per_turn
         if turn.consumers >= max_consumers:
             raise TooManyConsumers(session_id)
         # The cap is checked here (reject before handing out a handle), but the
@@ -430,7 +428,7 @@ class TurnRegistry:
 
     async def _drive(self, turn: _Turn, source_config: SourceConfig | None) -> None:
         start_mono = time.monotonic()
-        timeout_s = getattr(self._settings, "turn_timeout_s", 180)
+        timeout_s = self._settings.turn_timeout_s
         try:
             try:
                 async with asyncio.timeout(timeout_s):
@@ -510,7 +508,7 @@ class TurnRegistry:
         elif kind == "usage":
             try:
                 event = enrich_usage_event(
-                    event, getattr(self._settings, "model_counselor", ""), self._settings
+                    event, self._settings.model_counselor, self._settings
                 )
             except Exception:
                 # A malformed usage payload must NOT sink an already-correct
@@ -706,7 +704,7 @@ class TurnRegistry:
         the terminal + finalize. One immediate retry (no backoff): the partial
         the student watched stream should survive a transient DB blip; a second
         failure (or timeout) is logged and swallowed."""
-        timeout_s = getattr(self._settings, "persist_partial_timeout_s", 5.0)
+        timeout_s = self._settings.persist_partial_timeout_s
         for attempt in ("first", "retry"):
             try:
                 async with asyncio.timeout(timeout_s):

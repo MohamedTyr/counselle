@@ -9,6 +9,7 @@ the database (notes-p4-apis §10).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -48,7 +49,7 @@ from domain.specs import SourceConfig
 
 
 class FakeSettings:
-    """The slice of Settings the runner + node read."""
+    """The slice of Settings the runner + node + registry read."""
 
     model_counselor = "google-vertex:gemini-2.5-pro"
     max_tool_rounds = 12
@@ -57,6 +58,20 @@ class FakeSettings:
     source_reddit_default = True
     source_edu_default = True
     search_max_results = 5
+    thinking_threshold_chars = 240  # CFG-07: agent_node reads this at router build
+    # Turn-registry knobs (CFG-02: the registry reads these directly, no getattr
+    # fallback). The existing per-test overrides (settings.stream_buffer_size = 2,
+    # etc.) now override a real default instead of a non-existent attribute.
+    max_concurrent_turns: int = 50
+    stream_buffer_size: int = 20_000
+    max_consumers_per_turn: int = 8
+    # float-typed so tests can drop it to 0.1 to fire the watchdog fast.
+    turn_timeout_s: float = 180
+    # Phase-1 fields (BC-01 / BC-08) — also read directly after CFG-02 removes
+    # their getattr fallbacks; the stub MUST carry them or __init__ /
+    # _persist_partial_guarded raise AttributeError.
+    stream_buffer_bytes: int = 256 * 1024 * 1024
+    persist_partial_timeout_s: float = 5.0
 
 
 class _FakeConn:
@@ -169,7 +184,7 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
         return _TEMPORAL
 
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
-    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda ctx: "Test counselor.")
+    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
 class Rig:
@@ -180,7 +195,10 @@ class Rig:
         self.tavily = StubTavilyClient()
         self.settings = settings or FakeSettings()
         self.deps = AppDeps(
-            catalog=None,  # type: ignore[arg-type]  # never touched: prepare is patched
+            # A minimal catalog stub: prepare is patched, but agent_node reads
+            # `catalog.school_count` for the system prompt (CFG-01). Only the
+            # count is needed; school_name/school_domain resolve via getattr.
+            catalog=SimpleNamespace(school_count=0),  # type: ignore[arg-type]
             app_pool=self.pool,  # duck-typed fake (asyncpg.Pool is Any to mypy)
             settings=self.settings,
             tool_deps=ToolDeps(

@@ -15,6 +15,8 @@
  * derived live from the DB's `institution.website`.
  */
 
+import { faviconUrl } from '@/config';
+
 const LOGO_DEV_TOKEN = (import.meta.env.VITE_LOGO_DEV_TOKEN as string | undefined)?.trim();
 
 export function logoCandidates(domain: string, size = 128): string[] {
@@ -31,7 +33,9 @@ export function logoCandidates(domain: string, size = 128): string[] {
   // host the student is viewing. This is a DIFFERENT surface: school-card logos,
   // not the citation/source-browsing path. Deliberately left here and deferred to
   // Phase 6 (CFG-04 DRY + the deferred backend favicon-proxy option). See TODOS.md.
-  urls.push(`https://www.google.com/s2/favicons?domain=${enc}&sz=${px}`);
+  // CFG-04: the Google s2 host now lives in the shared `faviconUrl` helper. Pass
+  // the un-encoded `host` (the helper encodes once) to avoid double-encoding.
+  urls.push(faviconUrl(host, px));
   urls.push(`https://icons.duckduckgo.com/ip3/${enc}.ico`);
   return urls;
 }

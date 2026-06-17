@@ -21,7 +21,7 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import yaml
-from pydantic import Field, ValidationError, field_validator
+from pydantic import AliasChoices, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_PREFIX = "COUNSELLE_"
@@ -75,6 +75,10 @@ class Settings(BaseSettings):
 
     # --- Chat (B4) ---
     title_max_len: int = 60  # cap for both the derived default and the model title
+    # Chars of buffered response text below which pre-tool-call text routes to
+    # `thinking` vs streaming live as `delta` (the live-timeline editorial dial,
+    # §27.2). Tune against real model chunking. (CFG-07)
+    thinking_threshold_chars: int = 240
 
     # --- Rate limiting (B4: in-process sliding windows; api/ratelimit.py) ---
     # Per-user message caps (a clarify answer spends a token — a resume is a send).
@@ -103,7 +107,15 @@ class Settings(BaseSettings):
     vector_search_enabled: bool = True
 
     # --- Sources ---
-    tavily_api_key: str | None = None  # required only when any external source is enabled
+    # Required only when any external source is enabled. The validation_alias makes
+    # BOTH COUNSELLE_TAVILY_API_KEY and the bare TAVILY_API_KEY populate this field
+    # through the single Settings surface (DS-05) — no second config reader. With
+    # env_prefix="COUNSELLE_", validation_alias overrides the prefix for THIS field
+    # only (verified against pydantic-settings 2.14).
+    tavily_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("COUNSELLE_TAVILY_API_KEY", "TAVILY_API_KEY"),
+    )
     source_web_default: bool = True
     source_reddit_default: bool = True
     source_edu_default: bool = True
@@ -121,7 +133,10 @@ class Settings(BaseSettings):
     # --- API ---
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
+    # Prod: empty (same-origin serving, ADR 0023); dev sets its own origin via env
+    # (the split-origin Vite setup runs the SPA on :5173). Default-empty is the
+    # fail-safe — a prod deploy never accidentally ships a localhost CORS allowance.
+    cors_origins: list[str] = Field(default_factory=list)  # 06-L1
     sse_keepalive_s: int = 15
     # --- Turn registry (B2: detached turns, reattach, cancel) ---
     # Ring-buffer capacity in events, sized to a full worst-case turn so
@@ -167,8 +182,12 @@ class Settings(BaseSettings):
     jwt_lifetime_seconds: int = 60 * 60 * 24 * 30  # 30 days, no refresh (locked)
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
-    oauth_state_secret: str | None = None  # falls back to jwt_secret (see property)
+    # DS-09: falls back to jwt_secret (see property) — DEV-ONLY. Production MUST
+    # set a distinct COUNSELLE_OAUTH_STATE_SECRET so a JWT-secret rotation/leak
+    # doesn't also compromise OAuth CSRF state (key-reuse coupling).
+    oauth_state_secret: str | None = None
     oauth_redirect_url: str = "/"  # where the OAuth callback 302s the SPA
+    password_min_length: int = 8  # the password-policy floor (CFG-03; security knob)
 
     # --- Email (B3) ---
     email_provider: Literal["console"] = "console"
@@ -185,7 +204,12 @@ class Settings(BaseSettings):
 
     @property
     def effective_oauth_state_secret(self) -> str:
-        """The OAuth CSRF state secret — falls back to the JWT secret when unset."""
+        """The OAuth CSRF state secret — falls back to jwt_secret when unset.
+
+        DEV-ONLY fallback (DS-09): production MUST set a distinct
+        COUNSELLE_OAUTH_STATE_SECRET; reusing the JWT secret couples two crypto
+        purposes (session JWTs + OAuth CSRF state) into one blast radius.
+        """
         return self.oauth_state_secret or self.jwt_secret
 
     @property

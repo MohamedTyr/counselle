@@ -78,6 +78,12 @@ def install_middleware(app: FastAPI, settings: Any) -> None:
     from api.deps import EnvelopeError, envelope_error_handler
 
     app.add_middleware(RequestContextMiddleware)
+    # 06-L1: a non-empty CORS allowance under prod (cookie_secure=True ≈ behind a
+    # TLS proxy) contradicts the same-origin serving model (ADR 0023) — surface it.
+    if settings.cors_origins and getattr(settings, "cookie_secure", False):
+        logger.warning(
+            "CORS_ORIGINS is non-empty under same-origin serving — confirm intended (ADR 0023)"
+        )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

@@ -90,8 +90,11 @@ class UserManager(BaseUserManager[UserDB, uuid.UUID]):  # type: ignore[type-var]
             raise InvalidID() from exc
 
     async def validate_password(self, password: str, user: Any) -> None:
-        if len(password) < 8:
-            raise InvalidPasswordException("Password must be at least 8 characters.")
+        min_len = self._settings.password_min_length
+        if len(password) < min_len:
+            raise InvalidPasswordException(
+                f"Password must be at least {min_len} characters."
+            )
 
     async def on_after_register(self, user: UserDB, request: Request | None = None) -> None:
         logger.info("user_registered", user_id=str(user.id))

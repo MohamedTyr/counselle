@@ -62,6 +62,11 @@ logger = logging.getLogger(__name__)
 
 #: Chars of buffered response text below which pre-tool-call text is routed to
 #: ``thinking`` (B0 spike 2 — measured latency cost ≈ 0 at Gemini chunk sizes).
+#: This is the ``EmissionRouter.threshold`` dataclass DEFAULT only — a test-time
+#: fallback so the router is independently constructible in unit tests. The
+#: PRODUCTION value is sourced from ``settings.thinking_threshold_chars`` at the
+#: construction site in ``app/agent_node.py`` (CFG-07); this is NOT a duplicated
+#: production read (no CFG-02-style drift).
 THINKING_THRESHOLD_CHARS = 240
 
 #: Max chars of a query/name substituted into an always-visible timeline label.

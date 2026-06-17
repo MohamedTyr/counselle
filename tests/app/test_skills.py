@@ -9,7 +9,7 @@ Covered behaviors:
 2. Each skill body is ≤ 120 lines.
 3. load_skill("dossier-assembly") returns body without frontmatter markers.
 4. load_skill with an unknown name returns an error string listing all 4 names.
-5. build_system_prompt fills every slot (no un-filled template residue; the five
+5. build_system_prompt fills every slot (no un-filled template residue; the six
    slot names do not appear as bare {slot} tokens in the output).
 6. build_system_prompt output contains the fake temporal string passed in.
 7. build_system_prompt output contains at least one subreddit line ("r/").
@@ -140,17 +140,18 @@ def built_prompt() -> str:
     sm_mod.load_static_map.cache_clear()
 
     importlib.reload(prompt_mod)
-    return prompt_mod.build_system_prompt(_FAKE_TEMPORAL)
+    return prompt_mod.build_system_prompt(_FAKE_TEMPORAL, 2710)
 
 
 def test_no_unfilled_template_slots(built_prompt: str) -> None:
-    """The five slot names must not appear as bare {name} tokens."""
+    """The six slot names must not appear as bare {name} tokens."""
     _slots = [
         "static_field_map",
         "dossier_shortlist_summary",
         "subreddit_menu",
         "temporal_context",
         "tier_note",
+        "school_count",
     ]
     for slot in _slots:
         token = "{" + slot + "}"
@@ -163,6 +164,12 @@ def test_prompt_contains_fake_temporal(built_prompt: str) -> None:
 
 def test_prompt_contains_subreddit_line(built_prompt: str) -> None:
     assert "r/" in built_prompt, "No subreddit line (r/<sub>) found in built prompt"
+
+
+def test_build_system_prompt_school_count(built_prompt: str) -> None:
+    """CFG-01: the live count is rendered (thousands-formatted); no stale literal."""
+    assert "2,710" in built_prompt, "school_count not rendered into the prompt"
+    assert "2,746" not in built_prompt, "stale hardcoded count leaked into the prompt"
 
 
 def test_prompt_is_non_trivially_long(built_prompt: str) -> None:

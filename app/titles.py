@@ -10,6 +10,10 @@ Two pieces:
   clobbered, and we don't retitle every turn — no schema change needed). The hook
   NEVER raises, blocks, or retries — a failure leaves the default standing. That
   swallow is the one sanctioned deliberate one in this module.
+
+The titling prompt is a versioned data asset
+(``config/assets/prompts/title.md``), loaded via ``load_prompt("title")`` like
+the other agent prompts (ADR 0018 bucket 2, CFG-09) — not an inline string.
 """
 
 from __future__ import annotations
@@ -20,16 +24,11 @@ from typing import Any
 import structlog
 
 from app.sessions import get_session, set_session_title
+from config.settings import load_prompt
 
 logger = structlog.get_logger(__name__)
 
 _ELLIPSIS = "…"
-
-_TITLE_PROMPT = (
-    "You name chat conversations. Given the first user message and the "
-    "assistant's reply, produce a short, specific title (4-8 words, no quotes, "
-    "no trailing punctuation) describing what the chat is about. Title only."
-)
 
 
 def default_title(text: str, max_len: int) -> str:
@@ -95,7 +94,10 @@ async def _generate_title(runtime: Any, settings: Any, user_text: str, assistant
     """One no-tools cheap-model call → a short title (raises on failure)."""
     from pydantic_ai import Agent
 
-    agent: Agent[None, str] = Agent(_title_model(runtime, settings), system_prompt=_TITLE_PROMPT)
+    agent: Agent[None, str] = Agent(
+        _title_model(runtime, settings),
+        system_prompt=load_prompt("title").strip(),
+    )
     result = await agent.run(f"User: {user_text}\n\nAssistant: {assistant_text}")
     return str(result.output).strip().strip('"').strip()
 

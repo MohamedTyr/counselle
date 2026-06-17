@@ -11,6 +11,7 @@
  */
 import { errorFromResponse, isTransportError, TransportError } from './errors';
 import { BASE } from './constants';
+import { AUTH_REQUEST_TIMEOUT_MS } from '@/config';
 
 /**
  * A 400 from an auth endpoint, carrying the backend's error code so the
@@ -114,12 +115,12 @@ interface PatchMeResponse {
 
 /**
  * How long a short auth/me request may hang before we treat it as a network
- * failure. A half-open server (TCP accepted, no response) would otherwise leave
- * the request pending forever — and the AuthGate spinner with it. SCOPED to the
- * auth client: the SSE stream fetches in `http/transport.ts` (sendMessage /
- * attach) are long-lived and use their own `safeFetch` with NO timeout.
+ * failure (`AUTH_REQUEST_TIMEOUT_MS`, centralized in `@/config`). A half-open
+ * server (TCP accepted, no response) would otherwise leave the request pending
+ * forever — and the AuthGate spinner with it. SCOPED to the auth client: the SSE
+ * stream fetches in `http/transport.ts` (sendMessage / attach) are long-lived
+ * and use their own `safeFetch` with NO timeout.
  */
-const AUTH_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * Wrap a fetch so connection failures surface as a typed 'network' error, and

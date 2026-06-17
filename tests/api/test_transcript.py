@@ -53,7 +53,7 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
         return _TEMPORAL
 
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
-    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda ctx: "Test counselor.")
+    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
 async def _transcript_of(rig: Rig, session_id: str) -> list[dict[str, Any]]:

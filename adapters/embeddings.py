@@ -19,8 +19,12 @@ from google.genai import types
 
 from config.settings import get_settings
 
-#: Vertex batch-embedding cap per the phase file (≤64 texts per call).
+#: Vertex batch-embedding cap per the phase file (≤64 texts per call). An
+#: external provider invariant, not a preference (CFG-08/LA-2: keep hardcoded).
 BATCH_SIZE = 64
+# Resilience tunables — kept as named constants (CFG-08 reviewed 2026-06: no
+# current need to tune retry without a deploy; promote to Settings if the
+# embedding path becomes flaky in prod).
 _MAX_ATTEMPTS = 3
 _BACKOFF_BASE_S = 1.0
 

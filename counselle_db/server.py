@@ -73,7 +73,7 @@ async def resolve_school(query: str, ctx: AppContext) -> dict[str, Any]:
     Returns status="match" (basics + coverage_tier: how deep our data goes for this
     school), status="candidates" (multiple campuses — main campus first; ask the
     student if genuinely ambiguous), or status="not_found" (the school is not in our
-    database of ~2,746 curated 4-year US institutions — say so honestly, never invent).
+    database of curated 4-year US institutions — say so honestly, never invent).
     """
     return (await service.resolve_school(await _catalog(ctx), query)).model_dump(mode="json")
 

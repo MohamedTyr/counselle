@@ -101,15 +101,43 @@ class TestDefaults:
         # API
         assert settings.api_host == "127.0.0.1"
         assert settings.api_port == 8000
-        assert settings.cors_origins == ["http://localhost:8000"]
+        assert settings.cors_origins == []  # 06-L1: default-empty (prod same-origin)
         assert settings.sse_keepalive_s == 15
         assert settings.protocol_version == 1
+        # Chat / auth knobs promoted in Phase 6
+        assert settings.thinking_threshold_chars == 240  # CFG-07
+        assert settings.password_min_length == 8  # CFG-03
         # Observability
         assert settings.log_level == "INFO"
         assert settings.usage_accounting is True
         # Assets
         assert settings.assets_dir.name == "assets"
         assert settings.assets_dir.is_dir()
+
+
+class TestTavilyKeyAlias:
+    def test_settings_reads_bare_tavily_env(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """DS-05: the bare TAVILY_API_KEY (no COUNSELLE_ prefix) populates the
+        field via the validation alias — no .env-file hand-parser needed."""
+        monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+        monkeypatch.setenv("TAVILY_API_KEY", "tvly-bare-env-key")
+        settings = EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
+        )
+        assert settings.tavily_api_key == "tvly-bare-env-key"
+
+    def test_settings_reads_prefixed_tavily_env(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The prefixed COUNSELLE_TAVILY_API_KEY still works via the alias."""
+        monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+        monkeypatch.setenv("COUNSELLE_TAVILY_API_KEY", "tvly-prefixed-key")
+        settings = EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
+        )
+        assert settings.tavily_api_key == "tvly-prefixed-key"
 
 
 class TestSecretMasking:

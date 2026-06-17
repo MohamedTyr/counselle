@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -69,7 +70,7 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
         return _TEMPORAL
 
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
-    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda ctx: "Test counselor.")
+    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
 def _clarify_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -123,7 +124,8 @@ async def _make_instance(settings: Any) -> tuple[Any, AppDeps, AsyncPostgresSave
     saver = await build_checkpointer(settings)
     assert isinstance(saver, AsyncPostgresSaver)  # the test IS the postgres path
     deps = AppDeps(
-        catalog=None,  # type: ignore[arg-type]  # prepare is patched; viz never called
+        # prepare is patched; agent_node reads catalog.school_count (CFG-01).
+        catalog=SimpleNamespace(school_count=0),  # type: ignore[arg-type]
         app_pool=None,  # session rows are not under test
         settings=settings,
         tool_deps=ToolDeps(

@@ -36,6 +36,7 @@ import {
   reconcileMetaIds,
 } from '@/api/streamReconcile';
 import { turnErrorOf, type TurnError } from '@/api/errorMessages';
+import { CANCEL_WAIT_TIMEOUT_MS } from '@/config';
 
 export type { AskProps };
 
@@ -395,8 +396,11 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
     }
     // Poll the ref the streaming loop nulls on its terminal event.
     const start = Date.now();
-    const TIMEOUT_MS = 5000;
-    while (isMountedRef.current && turnRef.current !== null && Date.now() - start < TIMEOUT_MS) {
+    while (
+      isMountedRef.current &&
+      turnRef.current !== null &&
+      Date.now() - start < CANCEL_WAIT_TIMEOUT_MS
+    ) {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     // Still running after the wait: cancel didn't take. Surface it honestly so

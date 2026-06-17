@@ -139,37 +139,19 @@ def make_tavily_client(settings: Any) -> AsyncTavilyClient:
     """Build an AsyncTavilyClient from the Counselle settings object.
 
     Key resolution order:
-    1. ``settings.tavily_api_key`` (loaded from ``COUNSELLE_TAVILY_API_KEY``)
-    2. ``TAVILY_API_KEY`` environment variable (what tavily-python reads natively)
-    3. ``TAVILY_API_KEY`` entry in the project ``.env`` file (for local dev where
-       the key is stored without the ``COUNSELLE_`` prefix)
+    1. ``settings.tavily_api_key`` — the single config surface. Its
+       ``validation_alias`` accepts BOTH ``COUNSELLE_TAVILY_API_KEY`` and the
+       bare ``TAVILY_API_KEY`` (DS-05), so the local-dev convention works through
+       Settings, not a side reader.
+    2. ``TAVILY_API_KEY`` environment variable — a defensive fallback for a
+       settings object built before the env var was set (e.g. duck-typed test
+       stubs). There is NO ``.env``-file hand-parser any more.
 
     Raises ``RuntimeError`` with a clear message if none of the above is set.
     """
     api_key: str | None = getattr(settings, "tavily_api_key", None)
     if not api_key:
         api_key = os.environ.get("TAVILY_API_KEY")
-    if not api_key:
-        # Last resort: read the .env file directly to support the common local-dev
-        # convention of storing TAVILY_API_KEY without the COUNSELLE_ prefix.
-        import logging as _logging
-
-        _env_log = _logging.getLogger(__name__)
-        try:
-            from pathlib import Path
-
-            env_path = Path(".env")
-            if env_path.exists():
-                for line in env_path.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("#") or not line.startswith("TAVILY_API_KEY="):
-                        continue
-                    # Strip inline comments and surrounding whitespace.
-                    api_key = line.split("=", 1)[1].split("#")[0].strip()
-                    _env_log.debug("Tavily API key loaded from .env file")
-                    break
-        except Exception as _e:
-            _env_log.debug("Could not read .env for TAVILY_API_KEY: %s", _e)
     if not api_key:
         raise RuntimeError(
             "Tavily API key missing — set COUNSELLE_TAVILY_API_KEY (or TAVILY_API_KEY) "

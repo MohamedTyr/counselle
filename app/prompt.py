@@ -1,13 +1,14 @@
 """Counselor system-prompt builder (ARCHITECTURE §16, ADR 0018).
 
 The prompt template lives in ``config/assets/prompts/counselor.md`` as a
-``str.format``-friendly file with five named slots:
+``str.format``-friendly file with six named slots:
 
 - ``{static_field_map}``      — the static category map (always-in-context)
 - ``{dossier_shortlist_summary}`` — section titles + field counts from the YAML
 - ``{subreddit_menu}``        — rendered as "r/<sub> — <label>" lines
 - ``{temporal_context}``      — today's date + season + data calendar (per-request)
 - ``{tier_note}``             — the three tier_explanation strings joined
+- ``{school_count}``          — the live coverage count (CFG-01, DB-derived)
 
 Literal braces in the markdown are escaped as ``{{``/``}}``.
 """
@@ -54,13 +55,15 @@ def _tier_note() -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt(temporal_context: str) -> str:
-    """Assemble the counselor system prompt with all five slots filled.
+def build_system_prompt(temporal_context: str, school_count: int) -> str:
+    """Assemble the counselor system prompt with all six slots filled.
 
     Args:
         temporal_context: The rendered temporal-context block for this request
             (today's date, season phase, data calendar). Rebuilt per turn by
             the ``prepare`` graph node (``app/graph.py``).
+        school_count: The live coverage count (``catalog.school_count``,
+            DB-derived) — never a hardcoded literal (CFG-01, honesty carve-out).
 
     Returns:
         The complete system prompt string, ready to pass to PydanticAI.
@@ -80,6 +83,7 @@ def build_system_prompt(temporal_context: str) -> str:
         "subreddit_menu",
         "temporal_context",
         "tier_note",
+        "school_count",
     ]
     # Template slot sentinel, not a password (B105 is a false positive here).
     _TOKEN_PREFIX = "\x00SLOT"  # nosec B105
@@ -103,4 +107,5 @@ def build_system_prompt(temporal_context: str) -> str:
         subreddit_menu=_subreddit_menu(),
         temporal_context=temporal_context,
         tier_note=_tier_note(),
+        school_count=f"{school_count:,}",
     )

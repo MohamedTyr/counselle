@@ -143,6 +143,12 @@ class Catalog:
         self.fields_by_key: dict[str, FieldMeta] = {}
         self.school_names: dict[int, str] = {}
         self.school_domains: dict[int, str] = {}
+        #: Live coverage count (= len(school_names)) — derived from the DB and
+        #: refreshed for free with the hourly catalog reload (CFG-01, ADR 0018
+        #: bucket 3). NEVER a hardcoded literal: the count drifts on every
+        #: pipeline re-ingest and a stale number would lie to a student about
+        #: coverage (CLAUDE.md principle 3). 0 until the first _reload().
+        self.school_count: int = 0
         self.scorecard_filename: str | None = None
         self.ipeds_cycle_year: int | None = None
         self.loaded_at: datetime = datetime.min.replace(tzinfo=UTC)
@@ -223,6 +229,7 @@ class Catalog:
         # Every query succeeded — swap the instance state, loaded_at last.
         self.fields_by_key = new_fields
         self.school_names = new_names
+        self.school_count = len(new_names)  # CFG-01: live coverage count, no extra query
         self.school_domains = new_domains
         self.scorecard_filename = files.scorecard_filename
         self._scorecard_loaded_at = files.scorecard_loaded_at

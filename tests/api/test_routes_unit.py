@@ -91,6 +91,11 @@ def make_test_app(
         title_max_len=60,
         turns_per_hour=60,
         turns_per_day=300,
+        # Turn-registry knobs read directly after CFG-02 (no getattr fallback).
+        max_concurrent_turns=50,
+        max_consumers_per_turn=8,
+        stream_buffer_bytes=256 * 1024 * 1024,
+        persist_partial_timeout_s=5.0,
     )
 
     # Default fake pools
@@ -339,9 +344,60 @@ def test_health_returns_ok_shape_with_healthy_pools() -> None:
     assert body["status"] == "ok"
     assert body["db"] == "ok"
     assert body["checkpointer"] == "ok"
+    assert body["rate_limiter"] == "ok"
     assert "mcp" in body
     assert "reconciler" in body
     assert body["version"] == "0.1.0"
+
+
+def test_health_reports_rate_limiter_ok() -> None:
+    """DS-06: with the limiter wired on app.state, /v1/health reports ok."""
+    _, ro_conn = _make_pool()
+    ro_conn.fetchval.return_value = 1
+    ro_pool = MagicMock()
+    ro_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=ro_conn)
+    ro_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    _, app_conn = _make_pool()
+    app_conn.fetchval.return_value = 1
+    app_pool = MagicMock()
+    app_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=app_conn)
+    app_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    app = make_test_app(ro_pool=ro_pool, app_pool=app_pool)
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.get("/v1/health")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["rate_limiter"] == "ok"
+    assert body["status"] == "ok"
+
+
+def test_health_reports_rate_limiter_missing() -> None:
+    """DS-06: a missing limiter is reported MISSING and degrades overall status
+    (a mis-wired limiter fails open — it must not be silent)."""
+    _, ro_conn = _make_pool()
+    ro_conn.fetchval.return_value = 1
+    ro_pool = MagicMock()
+    ro_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=ro_conn)
+    ro_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    _, app_conn = _make_pool()
+    app_conn.fetchval.return_value = 1
+    app_pool = MagicMock()
+    app_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=app_conn)
+    app_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    app = make_test_app(ro_pool=ro_pool, app_pool=app_pool)
+    # Remove the limiter the factory wired — simulate the mis-wired state.
+    delattr(app.state, "rate_limiter")
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.get("/v1/health")
+
+    body = response.json()
+    assert body["rate_limiter"] == "MISSING"
+    assert body["status"] == "degraded"
 
 
 def test_health_returns_503_when_pool_fails() -> None:

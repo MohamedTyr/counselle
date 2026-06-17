@@ -41,12 +41,20 @@ A first deploy easily forgets the agent-core half. The complete set:
 
 **Auth (ADR 0021)**
 - `COUNSELLE_JWT_SECRET` — a **stable** ≥32-byte secret (rotating it logs everyone out)
+- `COUNSELLE_OAUTH_STATE_SECRET` (DS-09) — **required and DISTINCT in prod** (do not reuse the JWT secret). The dev fallback to `COUNSELLE_JWT_SECRET` is **dev-only**: reusing one secret for two crypto purposes (session JWTs + OAuth CSRF state) couples their blast radius. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
 - `COUNSELLE_COOKIE_SECURE=true` (HTTPS only in prod)
 - `COUNSELLE_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET`, with the **production** redirect URI registered: `https://<domain>/v1/auth/google/callback`
 
 **API**
-- `COUNSELLE_CORS_ORIGINS` — **flip to empty** in prod (ADR 0023's consequence; the dev default is `["http://localhost:8000"]`)
+- `COUNSELLE_CORS_ORIGINS` — the default is now **empty** (06-L1; the fail-safe under same-origin serving, ADR 0023). Leave it empty in prod; the split-origin **dev** setup sets `["http://localhost:5173"]`.
 - `COUNSELLE_API_HOST=0.0.0.0`, `COUNSELLE_API_PORT=8000`
+
+> **`$PORT`-injecting hosts (CFG-11):** the `Containerfile` CMD binds a fixed `--port 8000`. If a deploy target injects `$PORT` (e.g. Cloud Run), change the CMD to `--port ${PORT:-8000}` at the deploy phase (B6). No `Containerfile` change is made now (deploy is deferred).
+
+## Open security items (must close before public traffic)
+
+- **DS-04 — OAuth `associate_by_email=True` + no email verification.** Email-based account linking without proof of email ownership is an account-takeover surface (a password account on an email links with a later Google sign-in for that email, and vice-versa). A documented MVP tradeoff (ADR 0021, PRD decision 6), **NOT shipped fixed in the hardening pass**. Before any non-trivial user base, do one of: (1) require email verification before login, (2) only associate-by-email when the existing account is verified, or (3) gate `current_active_user` on `is_verified` for password accounts. See `plans/audit/phase-6-configurability.md` DS-04 and `TODOS.md`. **Blocks B6.**
+- **DS-09 — distinct `COUNSELLE_OAUTH_STATE_SECRET`** in prod (see the env matrix above).
 
 ## Entrypoint & the one flag that breaks first
 

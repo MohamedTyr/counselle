@@ -11,10 +11,13 @@ export default defineConfig(({ mode }) => ({
     'process.env.VITE_ENABLE_LOGGER': JSON.stringify(process.env.VITE_ENABLE_LOGGER ?? ''),
     'process.env.VITE_LOGGER_FILTER': JSON.stringify(process.env.VITE_LOGGER_FILTER ?? ''),
   },
+  // Dev-only knobs (CFG-05): read at build time via process.env (Node), not
+  // import.meta.env — they never reach the client bundle. Defaults are the
+  // current values, so no-config behavior is identical.
   server: {
-    port: 5173,
+    port: Number(process.env.VITE_DEV_PORT ?? 5173),
     proxy: {
-      '/v1': 'http://localhost:8000',
+      '/v1': process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
     },
   },
   resolve: {

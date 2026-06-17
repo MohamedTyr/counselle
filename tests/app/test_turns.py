@@ -68,7 +68,7 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
         return _TEMPORAL
 
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
-    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda ctx: "Test counselor.")
+    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +404,7 @@ async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
 async def test_watchdog_timeout_terminates_with_error_not_cancelled() -> None:
     gate = asyncio.Event()  # never set
     settings = FakeSettings()
-    settings.turn_timeout_s = 0.1  # type: ignore[attr-defined]
+    settings.turn_timeout_s = 0.1
     rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -431,7 +431,7 @@ async def test_consumer_falling_off_the_head_is_terminated_with_error() -> None:
     gate = asyncio.Event()
     chunks = [_LONG_CHUNK] + ["chunk " * 50 for _ in range(8)]
     settings = FakeSettings()
-    settings.stream_buffer_size = 2  # type: ignore[attr-defined]
+    settings.stream_buffer_size = 2
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -788,7 +788,7 @@ async def test_fall_off_error_seq_reflects_buffer_base_not_stale_position() -> N
     gate = asyncio.Event()
     chunks = [_LONG_CHUNK] + ["chunk " * 50 for _ in range(8)]
     settings = FakeSettings()
-    settings.stream_buffer_size = 2  # type: ignore[attr-defined]
+    settings.stream_buffer_size = 2
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -818,7 +818,7 @@ async def test_global_concurrent_turn_cap_raises_too_many_turns() -> None:
     """Exceeding max_concurrent_turns raises TooManyTurns (the route → 503)."""
     gate = asyncio.Event()  # never set — turns hang, holding the claim
     settings = FakeSettings()
-    settings.max_concurrent_turns = 2  # type: ignore[attr-defined]
+    settings.max_concurrent_turns = 2
     rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
     registry = _registry(rig)
 
@@ -833,11 +833,54 @@ async def test_global_concurrent_turn_cap_raises_too_many_turns() -> None:
         await _drain(h2)
 
 
+async def test_registry_reads_settings_directly() -> None:
+    """CFG-02: the registry reads its knobs straight off the settings object — no
+    getattr fallback that could mask a stale/duplicated default. Distinctive
+    values flow through to the live concurrency cap and the byte budget."""
+    gate = asyncio.Event()  # never set — turns hang, holding the claim
+    settings = FakeSettings()
+    settings.max_concurrent_turns = 3
+    settings.stream_buffer_bytes = 4242
+    rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
+    registry = _registry(rig)
+
+    # The Phase-1 byte budget is read directly (no getattr fallback masking it).
+    assert registry._buffer_bytes_budget == 4242
+
+    handles = [await registry.start(str(uuid4()), str(i), _ALL_OFF) for i in range(3)]
+    try:
+        with pytest.raises(TooManyTurns):  # the 4th exceeds max_concurrent_turns=3
+            await registry.start(str(uuid4()), "overflow", _ALL_OFF)
+    finally:
+        gate.set()
+        for handle in handles:
+            await _drain(handle)
+
+
+async def test_registry_raises_without_phase1_settings_fields() -> None:
+    """CFG-02 regression guard: a settings stub MISSING a Phase-1 field
+    (``stream_buffer_bytes``) now raises AttributeError in __init__ instead of
+    silently using a baked literal (the drift smell the getattr removal kills)."""
+
+    class _MissingField:
+        max_concurrent_turns = 50
+        stream_buffer_size = 20_000
+        max_consumers_per_turn = 8
+        turn_timeout_s = 180
+        model_counselor = "x"
+        persist_partial_timeout_s = 5.0
+        # stream_buffer_bytes deliberately absent
+
+    rig = Rig(_gated_model(asyncio.Event()))
+    with pytest.raises(AttributeError):
+        TurnRegistry(deps=rig.deps, graph=rig.graph, settings=_MissingField())
+
+
 async def test_per_turn_consumer_cap_raises_too_many_consumers() -> None:
     """Attaching past max_consumers_per_turn raises TooManyConsumers (→ 429)."""
     gate = asyncio.Event()  # never set — the turn stays live so consumers persist
     settings = FakeSettings()
-    settings.max_consumers_per_turn = 2  # type: ignore[attr-defined]
+    settings.max_consumers_per_turn = 2
     rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -870,8 +913,8 @@ async def test_byte_budget_evicts_oldest_when_over_budget() -> None:
     gate = asyncio.Event()  # never set — the model streams then parks
     chunks = [_LONG_CHUNK] + ["chunk " * 80 for _ in range(8)]
     settings = FakeSettings()
-    settings.stream_buffer_size = 20_000  # type: ignore[attr-defined]  # event cap never fires
-    settings.stream_buffer_bytes = 2_000  # type: ignore[attr-defined]  # the byte budget bites
+    settings.stream_buffer_size = 20_000  # event cap never fires
+    settings.stream_buffer_bytes = 2_000  # the byte budget bites
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -909,7 +952,7 @@ async def test_byte_budget_never_evicts_the_only_event() -> None:
     readable — the `len(self._events) > 1` guard prevents an empty buffer."""
     gate = asyncio.Event()  # never set — park after meta
     settings = FakeSettings()
-    settings.stream_buffer_bytes = 1  # type: ignore[attr-defined]  # smaller than any event
+    settings.stream_buffer_bytes = 1  # smaller than any event
     rig = Rig(_gated_model(gate), settings=settings)  # no chunks → meta then park
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -1157,7 +1200,7 @@ async def test_observe_is_pure_and_non_blocking(monkeypatch: pytest.MonkeyPatch)
 async def test_partial_persist_db_hang_still_finalizes_and_frees_the_claim() -> None:
     gate = asyncio.Event()  # never set — the model hangs mid-stream
     settings = FakeSettings()
-    settings.persist_partial_timeout_s = 0.05  # type: ignore[attr-defined]
+    settings.persist_partial_timeout_s = 0.05
     rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -1184,7 +1227,7 @@ async def test_partial_persist_db_hang_still_finalizes_and_frees_the_claim() -> 
 async def test_partial_persist_timeout_does_not_emit_double_terminal() -> None:
     gate = asyncio.Event()  # never set
     settings = FakeSettings()
-    settings.persist_partial_timeout_s = 0.05  # type: ignore[attr-defined]
+    settings.persist_partial_timeout_s = 0.05
     rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())

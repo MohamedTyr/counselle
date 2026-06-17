@@ -92,7 +92,7 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
         return _TEMPORAL
 
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
-    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda ctx: "Test counselor.")
+    monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
 # ---------------------------------------------------------------------------

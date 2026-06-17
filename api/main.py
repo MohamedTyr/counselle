@@ -190,6 +190,17 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
                 oauth_backend,
                 settings.effective_oauth_state_secret,
                 redirect_url=None,
+                # DS-04 (PRE-DEPLOY SECURITY ITEM — blocks B6): associate-by-email
+                # without email verification is an account-takeover surface (a
+                # password account on an email links with a later Google sign-in
+                # for that email, and vice-versa). A documented MVP tradeoff
+                # (ADR 0021, PRD decision 6) — NOT changed in this hardening pass
+                # (flipping it changes login UX, a product decision). Before any
+                # non-trivial user base, do option (1) require email verification
+                # before login, (2) only associate when the existing account is
+                # verified, or (3) gate current_active_user on is_verified for
+                # password accounts — see plans/audit/phase-6-configurability.md
+                # DS-04 and TODOS.md.
                 associate_by_email=True,
             ),
             prefix="/v1/auth/google",

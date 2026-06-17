@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from api.auth import current_superuser
+from api.ratelimit import _RATE_LIMITER_ATTR
 from counselle_db.reconcile import reconcile_field_index
 
 APP_VERSION = "0.1.0"
@@ -28,8 +29,10 @@ async def health(request: Request) -> JSONResponse:
     """Health check.
 
     Pings both the read-only pool and the app pool (``SELECT 1``).  Returns
-    HTTP 200 when the DB is reachable, 503 otherwise.  Reconciler state and
-    MCP supervisor status are included for observability.
+    HTTP 200 when the DB is reachable, 503 otherwise.  Reconciler state, MCP
+    supervisor status, and the rate-limiter wiring (DS-06) are included for
+    observability — a mis-wired limiter (which fails open, admitting everything)
+    degrades the health status instead of being a silent log-only warning.
     """
     runtime = request.app.state.runtime
     reconciler = request.app.state.reconciler
@@ -58,7 +61,13 @@ async def health(request: Request) -> JSONResponse:
     if db_status == "fail":
         checkpointer_status = "fail"
 
-    overall = "ok" if db_status == "ok" else "degraded"
+    # --- Rate limiter (DS-06): a missing limiter fails open (admits everything),
+    # so a mis-wired limiter must be VISIBLE to monitoring, not silent. ---
+    limiter = getattr(request.app.state, _RATE_LIMITER_ATTR, None)
+    rate_limiter_status = "ok" if limiter is not None else "MISSING"
+
+    healthy = db_status == "ok" and rate_limiter_status == "ok"
+    overall = "ok" if healthy else "degraded"
     status_code = 200 if db_status == "ok" else 503
 
     return JSONResponse(
@@ -67,6 +76,7 @@ async def health(request: Request) -> JSONResponse:
             "status": overall,
             "db": db_status,
             "checkpointer": checkpointer_status,
+            "rate_limiter": rate_limiter_status,
             "mcp": supervisor.status(),
             "reconciler": reconciler.as_dict(),
             "version": APP_VERSION,

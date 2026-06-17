@@ -286,7 +286,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         model_settings = GoogleModelSettings(google_thinking_config={"include_thoughts": True})
     agent: Agent[TurnDeps, str] = Agent(
         model_factory(),
-        instructions=build_system_prompt(state["temporal"]["context"]),
+        instructions=build_system_prompt(
+            state["temporal"]["context"],
+            deps.catalog.school_count,
+        ),
         deps_type=TurnDeps,
         tools=tools,
         toolsets=[mcp_toolset] if mcp_toolset is not None else None,
@@ -300,6 +303,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     router = EmissionRouter(
         writer=writer,
         mapper=StepMapper(load_yaml_asset("step_labels"), resolve_name, resolve_domain),
+        threshold=settings.thinking_threshold_chars,  # CFG-07: Settings-sourced
         unmounted=GATEABLE_TOOLS - {tool.name for tool in tools},
     )
 

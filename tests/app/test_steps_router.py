@@ -138,6 +138,38 @@ def test_threshold_one_below_held_one_more_char_flushes_live(rig: Rig) -> None:
     assert rig.of_type("delta")[-1]["text"] == "live now"  # streamed immediately
 
 
+def test_router_honors_threshold() -> None:
+    """CFG-07: the router honors a custom ``threshold`` (the field the Settings
+    value flows into). Under-threshold pre-tool text routes to thinking;
+    at/over the threshold streams live as delta."""
+    chunks: list[dict[str, Any]] = []
+    router = EmissionRouter(
+        writer=chunks.append,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        threshold=10,
+    )
+
+    # 5 chars then a tool call → under threshold → thinking, never delta.
+    router.handle(_text_start("hi io"))  # 5 chars
+    router.handle(_text_end("tool-call"))
+    assert [c["text"] for c in chunks if c["type"] == "thinking"] == ["hi io"]
+    assert [c for c in chunks if c["type"] == "delta"] == []
+
+    # A 12-char start crosses the 10-char threshold → streams live as delta.
+    chunks.clear()
+    router.handle(_text_start("x" * 12))
+    assert [c["text"] for c in chunks if c["type"] == "delta"] == ["x" * 12]
+
+
+def test_router_threshold_default_is_module_constant() -> None:
+    """The dataclass default stays the module constant (the test-time fallback)."""
+    router = EmissionRouter(
+        writer=lambda _chunk: None,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+    )
+    assert router.threshold == THINKING_THRESHOLD_CHARS
+
+
 def test_response_end_flushes_held_text_as_delta_not_thinking(rig: Rig) -> None:
     rig.feed(_text_start("Short final answer."), _text_end(None))
 

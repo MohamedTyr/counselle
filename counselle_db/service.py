@@ -59,16 +59,28 @@ __all__ = [
 ]
 
 #: Protocol sanity caps for compare_schools — not tuning knobs (phase-2 Slice C #4).
+# Sanity cap, not a tuning knob (CFG-06 reviewed 2026-06: kept hardcoded — no
+# product need for runtime density control; promote to Settings only if the UI
+# gains a "compare more fields" control).
 _COMPARE_MAX_SCHOOLS = 6
 _COMPARE_MAX_FIELDS = 25
 _PROGRAMS_PREVIEW_TOP_N = 10
 _BACHELORS_CREDLEV = 3
 
-_NOT_FOUND_MESSAGE = (
-    "That school is not in our database — we cover ~2,746 curated 4-year US "
-    "institutions. Tell the student honestly that we don't have data on it; "
-    "do not invent values."
-)
+def _not_found_message(school_count: int) -> str:
+    """The not-found copy with the live coverage count (CFG-01, ADR 0018 bucket 3).
+
+    The count comes from the catalog (``catalog.school_count``), never a baked
+    literal — it drifts on every pipeline re-ingest and a stale number would lie
+    to a student about coverage (CLAUDE.md principle 3).
+    """
+    return (
+        f"That school is not in our database — we cover {school_count:,} curated "
+        "4-year US institutions. Tell the student honestly that we don't have data "
+        "on it; do not invent values."
+    )
+
+
 _CANDIDATES_HINT = (
     "Multiple campuses matched; the main campus is listed first. Pick the campus "
     "the student means, or ask them if it is genuinely ambiguous."
@@ -86,11 +98,18 @@ _SEARCH_SQL = f"{_SCHOOL_SELECT} WHERE name ILIKE '%' || $1 || '%' ORDER BY name
 # falsely tell a student a school is not in the database (honesty carve-out).
 # pg_trgm similarity() handles whole-name closeness; word_similarity() handles
 # partial-name queries. Thresholds tuned against the live DB (Phase 7).
+#: pg_trgm fuzzy-search thresholds, tuned against the live DB (Phase 7). Named for
+#: discoverability (CFG-15); code-owned literals, never user input.
+_FUZZY_SIMILARITY_FLOOR = 0.4
+_FUZZY_WORD_SIMILARITY_FLOOR = 0.7
+
+# nosec B608 — only trusted module-constant floats interpolated; $1 stays bound.
 _FUZZY_SEARCH_SQL = (
-    f"SELECT {_SCHOOL_COLUMNS}, "
+    f"SELECT {_SCHOOL_COLUMNS}, "  # nosec B608
     "GREATEST(similarity(name, $1), word_similarity($1, name)) AS score "
     "FROM schools "
-    "WHERE similarity(name, $1) >= 0.4 OR word_similarity($1, name) >= 0.7 "
+    f"WHERE similarity(name, $1) >= {_FUZZY_SIMILARITY_FLOOR} "
+    f"OR word_similarity($1, name) >= {_FUZZY_WORD_SIMILARITY_FLOOR} "
     "ORDER BY GREATEST(similarity(name, $1), word_similarity($1, name)) DESC, name "
     "LIMIT 5"
 )
@@ -249,7 +268,7 @@ async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
     """Name/unitid/abbreviation → one school (+ tier), candidates, or not_found."""
     query = query.strip()
     if not query:
-        return ResolveNotFound(message=_NOT_FOUND_MESSAGE)
+        return ResolveNotFound(message=_not_found_message(catalog.school_count))
     try:
         unitid = int(query)
     except ValueError:
@@ -257,7 +276,7 @@ async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
     if unitid is not None:
         rows = await fetch(catalog.pool, _SCHOOL_SQL, unitid)
         if not rows:
-            return ResolveNotFound(message=_NOT_FOUND_MESSAGE)
+            return ResolveNotFound(message=_not_found_message(catalog.school_count))
         return await _match(catalog, rows[0])
     expanded = _expand_abbreviation(query)
     fuzzy_path = False
@@ -265,7 +284,7 @@ async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
     if not rows:
         rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
         if not rows:
-            return ResolveNotFound(message=_NOT_FOUND_MESSAGE)
+            return ResolveNotFound(message=_not_found_message(catalog.school_count))
         if rows[0]["score"] >= _FUZZY_EXACT_SCORE:
             return await _match(catalog, rows[0])
         # Sub-exact fuzzy hits are never auto-matched — even a single row could
@@ -380,7 +399,7 @@ async def get_dossier(catalog: Catalog, unitid: int, sections: list[str] | None 
     """The wedge: the curated shortlist + programs preview + diversity, all cited."""
     rows = await fetch(catalog.pool, _SCHOOL_SQL, unitid)
     if not rows:
-        raise ServiceError(_NOT_FOUND_MESSAGE)
+        raise ServiceError(_not_found_message(catalog.school_count))
     school = _school_basics(rows[0])
     tier, explanation = await _coverage_tier(catalog, unitid)
     built, warnings = await _build_sections(catalog, school, _shortlist_sections(sections))

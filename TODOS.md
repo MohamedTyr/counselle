@@ -34,6 +34,21 @@
 - **Context (start here):** `src/app/ChatView.tsx` (`closeSources`/`closeArtifact`, `mainRef`), `src/app/state.ts` (the open atoms), `src/components/citations/SourcesPanel.tsx` (`headingRef` mount-focus). Also: focus-restore-on-close is hard to assert in jsdom — cover it with Playwright in Phase 7.
 - *(Logged from FE-M8, Phase 4. The contained main-focus fix is in; per-trigger restore is the follow-up.)*
 
+## DS-04 (pre-deploy security): OAuth associate-by-email + no email verification
+- **DS-04 (pre-deploy security): OAuth `associate_by_email=True` + no email verification = account-takeover surface.** A password account on an email links with a later Google sign-in for that email (and vice-versa) — full chat/PII blast radius. A documented MVP tradeoff (ADR 0021, PRD decision 6), not shipped fixed in the Phase 6 hardening pass (flipping login UX is a product decision). Before any non-trivial user base, do option (1), (2), or (3) from `plans/audit/phase-6-configurability.md` DS-04. **Blocks B6 deploy.** See the comment at the `associate_by_email=True` site in `api/main.py` and the open-items list in `docs/DEPLOY.md`.
+- *(Logged from Phase 6, DS-04.)*
+
+## DS-06: email-keyed + per-account auth rate limiting (multi-replica)
+- **What:** the auth rate limiter is per-IP only (`api/ratelimit.py`), and process-local. Add email-keyed + per-account-attempt caps, and a shared store (Redis) for a multi-replica deploy.
+- **Why:** per-IP alone is bypassable by distributed / rotating-IP brute force; the in-process sliding windows don't span replicas. Email-keying needs a body read (consumes the request stream) or a dependency rework; multi-replica needs Redis — both out of scope for the single-replica MVP2 (ARCHITECTURE §23). Phase 6 (DS-06) added a `/v1/health` `rate_limiter` signal so a mis-wired limiter is visible; this deferred item is the harder half.
+- **Context (start here):** `api/ratelimit.py` (`check_auth`, `_client_ip`, the MULTI-REPLICA CAVEAT comment), `api/routes/system.py` (the health signal).
+- *(Logged from Phase 6, DS-06.)*
+
+## Deferred config promotions (Phase 6, CFG-06 / CFG-08)
+- **CFG-06 — compare/dossier-preview/search-fields caps** (`_COMPARE_MAX_SCHOOLS`, `_COMPARE_MAX_FIELDS`, `_PROGRAMS_PREVIEW_TOP_N` in `counselle_db/service.py`; `_MAX_STEP_SOURCES` in `app/steps.py`; `_MAX_LIMIT` in `counselle_db/search_fields.py`): kept as named module constants. Promote to Settings only if the UI gains a "compare more fields"-style density control (value×ease says no now — YAGNI).
+- **CFG-08 — embedding retry/backoff** (`_MAX_ATTEMPTS`, `_BACKOFF_BASE_S` in `adapters/embeddings.py`): kept as named constants; promote to Settings only if the embedding path becomes flaky in prod. `BATCH_SIZE` is a Vertex provider invariant (≤64 texts/call) — never promote (LA-2).
+- *(Logged from Phase 6; both are deliberate leaves with rationale comments at the constants.)*
+
 ## Community card viz type (deferred from MVP1)
 - **What:** implement the `community_card` type in `RenderSpec` and the corresponding frontend card renderer for qualitative/Reddit content.
 - **Why:** the architecture designed it (ARCHITECTURE §17) but it was not built in MVP1 — `RenderSpec.type` currently accepts only `stat_block | comparison_table`. Community/Reddit content falls back to prose narration in the delta stream.
