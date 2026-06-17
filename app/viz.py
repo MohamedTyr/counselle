@@ -9,8 +9,9 @@ acknowledgment with citation markers — **numbers never transit the LLM's
 tokens**, success or error.
 """
 
-import logging
 from typing import Any, Literal
+
+import structlog
 
 from app.sources import SourceRegistry
 from counselle_db.catalog import Catalog
@@ -20,7 +21,7 @@ from domain.envelope import CitationEnvelope
 from domain.specs import RenderSpec, SchoolRef, VizRow
 from domain.urls import registrable_domain
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 VizType = Literal["stat_block", "comparison_table"]
 
@@ -51,7 +52,7 @@ async def _domains(catalog: Catalog, unitids: list[int]) -> dict[int, str | None
     try:
         result = await compare_schools(catalog, unitids, [_WEBSITE_KEY])
     except Exception:
-        logger.warning("viz: website lookup failed for %s; rendering without logos", unitids)
+        logger.warning("viz website lookup failed; rendering without logos", unitids=unitids)
         return {}
     cells = result.rows[0].cells if result.rows else []
     return {
@@ -117,13 +118,48 @@ async def _build_spec(
     field_keys: list[str] | None,
     title: str | None,
 ) -> RenderSpec:
-    if not unitids:
-        raise ServiceError("render_viz needs at least one unitid")
+    _validate_viz_request(type, unitids, field_keys)
     if type == "comparison_table":
         return await _comparison_spec(catalog, unitids, field_keys, title)
     if type == "stat_block":
         return await _stat_block_spec(catalog, unitids, field_keys, title)
     raise ServiceError(f"unknown viz type: {type!r}")
+
+
+def _validate_viz_request(
+    type: VizType | str, unitids: list[int], field_keys: list[str] | None
+) -> None:
+    if not unitids:
+        raise ServiceError("render_viz needs at least one unitid")
+    if type in {"comparison_table", "stat_block"} and not field_keys:
+        raise ServiceError(f"{type} needs field_keys — pick the fields that matter here")
+    if type not in {"comparison_table", "stat_block"}:
+        raise ServiceError(f"unknown viz type: {type!r}")
+
+
+def _viz_result_from_spec(
+    spec: RenderSpec, registry: SourceRegistry
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    cells = [cell for row in spec.rows for cell in row.cells]
+    n_available = sum(1 for cell in cells if cell.available)
+    if n_available == 0:
+        return (
+            {
+                "ok": False,
+                "error": "no values available for this visualization — tell the student "
+                "honestly that this data is not available; do not invent values",
+            },
+            None,
+        )
+    markers = sorted({registry.register(cell.citation, cell.citation.vintage) for cell in cells})
+    return (
+        {
+            "ok": True,
+            "viz": f"{spec.type} rendered with {n_available} values",
+            "sources": [f"[{index}]" for index in markers],
+        },
+        spec.model_dump(mode="json"),
+    )
 
 
 async def render_viz(
@@ -153,7 +189,7 @@ async def render_viz(
         return {"ok": False, "error": str(exc)}
     except Exception:
         logger.exception(
-            "render_viz: unexpected error building spec (type=%s, unitids=%s)", type, unitids
+            "render_viz unexpected error building spec", type=type, unitids=unitids
         )
         return {
             "ok": False,
@@ -161,20 +197,7 @@ async def render_viz(
                 "visualization data unavailable — a database error occurred; do not invent values"
             ),
         }
-    cells = [cell for row in spec.rows for cell in row.cells]
-    n_available = sum(1 for cell in cells if cell.available)
-    if n_available == 0:
-        return {
-            "ok": False,
-            "error": "no values available for this visualization — tell the student "
-            "honestly that this data is not available; do not invent values",
-        }
-    # Label falls back to the vintage — for DB envelopes it is already the
-    # human source string (same convention as SourceRegistry._register_dict).
-    markers = sorted({registry.register(cell.citation, cell.citation.vintage) for cell in cells})
-    viz_emitted.append(spec.model_dump(mode="json"))
-    return {
-        "ok": True,
-        "viz": f"{type} rendered with {n_available} values",
-        "sources": [f"[{index}]" for index in markers],
-    }
+    result, spec_to_emit = _viz_result_from_spec(spec, registry)
+    if spec_to_emit is not None:
+        viz_emitted.append(spec_to_emit)
+    return result

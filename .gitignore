@@ -14,6 +14,7 @@ dist/
 # Eval runs are regenerated output; one baseline report stays committed,
 # new dated reports do not.
 evals/report-*.json
+!evals/report-2026-06-17.json
 
 # Personal, never-committed local planning scratch (see plans/README.md).
 plans/.local/

@@ -758,14 +758,24 @@ async def test_post_message_503_when_concurrent_turn_cap_reached() -> None:
     await registry.start("00000000-0000-4000-8000-0000000000aa", "hold the slot")
 
     try:
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            resp = await client.post(
-                f"/v1/sessions/{session_id}/messages", json={"text": "hello"}
-            )
+        with (
+            patch.object(session_routes, "set_session_source_config", new=AsyncMock()) as cfg_w,
+            patch.object(session_routes, "set_session_title", new=AsyncMock()) as title_w,
+        ):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.post(
+                    f"/v1/sessions/{session_id}/messages",
+                    json={
+                        "text": "hello",
+                        "source_config": {"web": True, "reddit": False, "edu": True},
+                    },
+                )
         assert resp.status_code == 503
         assert "capacity" in resp.json()["error"]["message"]
+        cfg_w.assert_not_awaited()
+        title_w.assert_not_awaited()
     finally:
         gate.set()
         await registry.cancel("00000000-0000-4000-8000-0000000000aa")

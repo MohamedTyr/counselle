@@ -91,8 +91,11 @@ Then open **http://localhost:5173**.
 ## Tests
 
 ```bash
-# Routine suite — no live LLM or Tavily calls (~$0.00):
-uv run pytest -m "not live_llm and not live_search"
+# Routine suite — no live LLM, Tavily, or live DB calls (~$0.00):
+uv run pytest -m "not live_llm and not live_search and not live_db"
+
+# Coverage visibility for the routine suite (not a merge gate):
+uv run pytest -m "not live_llm and not live_search and not live_db" --cov --cov-report=term-missing
 
 # Full suite including live Gemini and Tavily (~$0.50):
 uv run pytest
@@ -119,7 +122,7 @@ uv run python -m evals.runner
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how the system is built (stack, layering, data access, event protocol), in two parts: Part I (MVP1 agent) and Part II (MVP2 full-stack app)
 - [`docs/DATABASE_GUIDE.md`](docs/DATABASE_GUIDE.md) — the data contract: every table, the field catalog, value-reading rules, gotchas
-- [`docs/adr/`](docs/adr/) — the 24 architectural decision records (start at `docs/adr/README.md`)
+- [`docs/adr/`](docs/adr/) — the 25 architectural decision records (start at `docs/adr/README.md`)
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — the deployment guide and its open gotchas (deploy itself is deferred)
 - [`specs/`](specs/) — the permanent PRDs and implementation plans for every MVP/feature ([`specs/README.md`](specs/README.md))
 - [`TODOS.md`](TODOS.md) — deferred work with full context

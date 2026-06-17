@@ -87,6 +87,19 @@ def _fill_note(key: str, source: str) -> str | None:
     return None
 
 
+def _merge_hits(
+    vector_rows: list[asyncpg.Record],
+    keyword_rows: list[asyncpg.Record],
+    limit: int,
+) -> tuple[list[asyncpg.Record], list[asyncpg.Record]]:
+    seen = {record["key"] for record in vector_rows}
+    new_keyword = [record for record in keyword_rows if record["key"] not in seen]
+    reserved = min(_KEYWORD_FLOOR, len(new_keyword))
+    vector_take = vector_rows[: max(0, limit - reserved)]
+    keyword_take = new_keyword[: limit - len(vector_take)]
+    return vector_take, keyword_take
+
+
 async def _hit_from_row(
     catalog: Catalog, row: asyncpg.Record, similarity: float | None
 ) -> FieldHit:
@@ -182,15 +195,13 @@ async def search_fields(
             logger.warning("search_fields vector path failed — serving keyword-only", exc_info=True)
     keyword_records = await _keyword_rows(catalog.pool, query, category, source, limit)
 
-    seen = {record["key"] for record in vector_records}
-    new_keyword = [record for record in keyword_records if record["key"] not in seen]
-    reserved = min(_KEYWORD_FLOOR, len(new_keyword))
+    vector_take, keyword_take = _merge_hits(vector_records, keyword_records, limit)
     hits = [
         await _hit_from_row(catalog, record, similarity=record["similarity"])
-        for record in vector_records[: limit - reserved]
+        for record in vector_take
     ]
     hits += [
         await _hit_from_row(catalog, record, similarity=None)
-        for record in new_keyword[: limit - len(hits)]
+        for record in keyword_take
     ]
     return hits

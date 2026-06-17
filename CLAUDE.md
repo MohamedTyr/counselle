@@ -16,13 +16,18 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 **MVP2 shipped (2026-06-13), merged to `main`.** The full-stack app over the agent: step/thinking work-visibility events, the turn registry (detached turns, reattach, cancel), auth & identity (fastapi-users cookie-JWT + Google OAuth), chat management, feedback, rate limiting, `GET /v1/config`, and the React/Vite frontend (FE-0…FE-7) wired to the real backend. Phases **B0–B5 are complete**; the per-phase build log lives in `specs/mvp2/plan/ship-plan.md`.
 
-**Deferred (not built):** **B6 (deploy)** — production DB hosting, the multi-stage container, SPA same-origin serving, the prod-deploy gotchas — and **B7 (hardening/evals re-baseline)**. See `docs/DEPLOY.md` for the deploy plan and its open items. The app runs locally today (see `README.md`); it has not been deployed.
+**Deferred (not built):** **B6 (deploy)** — production DB hosting, the multi-stage container, SPA same-origin serving, and the prod-deploy gotchas. See `docs/DEPLOY.md` for the deploy plan and its open items. The app runs locally today (see `README.md`); it has not been deployed.
+
+**B7 hardening shipped (2026-06-17).** The tests/docs hardening work is implemented, including the routine coverage command, regression pins, and the 2026-06-17 live eval re-baseline.
 
 ## Commands
 
 ```bash
-# Routine tests (no live LLM or Tavily, ~$0.00)
-uv run pytest -m "not live_llm and not live_search"
+# Routine tests (no live LLM, Tavily, or live DB, ~$0.00)
+uv run pytest -m "not live_llm and not live_search and not live_db"
+
+# Coverage visibility for the routine suite (not a merge gate)
+uv run pytest -m "not live_llm and not live_search and not live_db" --cov --cov-report=term-missing
 
 # Full test suite including live Gemini + Tavily (~$0.50)
 uv run pytest
@@ -57,7 +62,7 @@ cd frontend && npm run typecheck && npm test
 | `docs/DEPLOY.md` | The deployment guide and its open gotchas (env matrix, DB provisioning, the `--forwarded-allow-ips` trap). **Deploy itself is deferred** — this is the plan, not a tested runbook |
 | `docs/research/agent-stack-evaluation.md` | The frontier-tech survey behind the stack choice: agent frameworks, model-provider abstraction, and the agent-skills ecosystem, with scorecards and the verdict |
 | `docs/research/deep-research-bakeoff.md` | The 4-way quality-vs-cost comparison of open-source deep-research systems (Alibaba DeepResearch, STORM, dzhng/deep-research, GPT-Researcher) and the verdict |
-| `docs/adr/README.md` | **Index of all 24 ADRs** (number, title, one-line summary). Start here for decisions |
+| `docs/adr/README.md` | **Index of all 25 ADRs** (number, title, one-line summary). Start here for decisions |
 | `docs/adr/` | One file per architectural decision (context → decision → rationale → alternatives → consequences). Do not silently break an ADR |
 | `specs/mvp1/plan/` | The MVP1 implementation plan (archived): `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7) |
 | `specs/deep-research/plan.md` | Stub plan for the deferred deep-research follow-up (PRD stories 39–41) |

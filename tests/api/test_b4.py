@@ -16,7 +16,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from api.ratelimit import SlidingWindowLimiter
+from api.ratelimit import SlidingWindowLimiter, auth_rate_limit, message_rate_limit
 from app.feedback import feedback_for_session, set_feedback
 from app.sessions import (
     create_session,
@@ -120,6 +120,51 @@ def test_limiter_reset() -> None:
     limiter.check_message("u", per_hour=1, per_day=1)
     limiter.reset()
     assert limiter.check_message("u", per_hour=1, per_day=1) is None
+
+
+async def test_rate_limit_dependencies_read_settings_knobs() -> None:
+    """CFG-02: route dependencies pass Settings values through directly."""
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    class Recorder:
+        def check_message(self, user_id: str, *, per_hour: int, per_day: int) -> None:
+            calls.append(
+                ("message", {"user_id": user_id, "per_hour": per_hour, "per_day": per_day})
+            )
+            return None
+
+        def check_auth(self, ip: str, *, attempts: int, window_s: int) -> None:
+            calls.append(("auth", {"ip": ip, "attempts": attempts, "window_s": window_s}))
+            return None
+
+    settings = type(
+        "SettingsStub",
+        (),
+        {
+            "turns_per_hour": 7,
+            "turns_per_day": 11,
+            "auth_attempts_per_window": 13,
+            "auth_window_seconds": 17,
+        },
+    )()
+    request = type(
+        "RequestStub",
+        (),
+        {
+            "app": type("AppStub", (), {"state": type("StateStub", (), {})()})(),
+            "client": type("ClientStub", (), {"host": "203.0.113.7"})(),
+        },
+    )()
+    request.app.state.settings = settings
+    request.app.state.rate_limiter = Recorder()
+
+    await message_rate_limit(request, type("UserStub", (), {"id": "user-1"})())
+    await auth_rate_limit(request)
+
+    assert calls == [
+        ("message", {"user_id": "user-1", "per_hour": 7, "per_day": 11}),
+        ("auth", {"ip": "203.0.113.7", "attempts": 13, "window_s": 17}),
+    ]
 
 
 # ---------------------------------------------------------------------------

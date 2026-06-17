@@ -174,7 +174,7 @@ counselle/
 ├── counselle_db/                 # the counselle-db MCP server (own process; imports domain/)
 ├── skills/                       # SKILL.md files (§15)
 ├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY (0001–0006)
-├── evals/                        # the ~50-question eval set + runner (§21)
+├── evals/                        # the eval question set + runner (§21)
 ├── frontend/                     # the React SPA (§31) — the sole protocol client
 ├── scripts/                      # one-off utilities (setup_db.sql, chat_cli.py, smoke scripts)
 ├── specs/                        # PRDs + execution plans (mvp1/, mvp2/, deep-research/)
@@ -431,6 +431,14 @@ Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, opti
 
 *(The Auth, Chat, Streaming, and Rate-limit groups are in §32. There is no "Research" group yet — it lands with §13.)*
 
+The settings surface also owns the hardening knobs added after MVP2: the
+live-derived school count is read from `Catalog.school_count` (not a Settings
+literal); password length is `password_min_length`; the thinking splitter uses
+`thinking_threshold_chars`; embedding retry/reconcile behavior uses the discovery
+settings; and production CORS defaults to an empty `cors_origins` list. Compare
+caps remain protocol sanity constants in `counselle_db/service.py`, not tuning
+knobs.
+
 **2. Versioned data assets (`config/assets/`).** Things a developer tunes *editorially*, hot-changeable without touching code: **agent prompts** (one file per agent, loaded by name), the **subreddit menu**, the **dossier field shortlist**, the **season calendar table**. Reviewable in diffs, no magic strings in code.
 
 **3. Live-derived from the DB (never configured, never hardcoded).** The data calendar, coverage tiers, the field catalog, `current_cycle_year`, school URLs. These are *facts*, and facts come from the database at runtime.
@@ -467,7 +475,7 @@ Cheap on day one, brutal to retrofit:
 (Per the PRD: test where lying to a student is possible; skip ceremony elsewhere. Behavior, not implementation.)
 
 - **The domain core is the test surface.** The normalization engine gets the full TDD treatment with `DATABASE_GUIDE` §6 as its spec — every reading rule R1–R12 has behavioral tests (fraction→percent, coded-int decode vs passthrough, NULL/missing → "not available", negative currency, range tokens never arithmetic'd, FTE≠headcount, URL fixing, benchmark fields never school values, vintage attached). Pure functions → trivial to test, no mocks.
-- **The eval set (`evals/`)** — ~50 university questions with known answers, scoring citation accuracy, field-selection accuracy, and clarify-vs-assume judgment. An engineering tool, no numeric launch gate (PRD).
+- **The eval set (`evals/`)** — university questions with known answers, scoring citation accuracy, field-selection accuracy, and clarify-vs-assume judgment. An engineering tool, no numeric launch gate (PRD).
 - **Runtime schema validation is the contract enforcement** — the typed specs (envelope, render, clarify, events) validate at runtime via Pydantic; no separate golden/contract-test machinery (deliberately dropped as enterprise-ish).
 - **Three pytest marker tiers** (`pyproject.toml`): `live_db` (integration tests against the live Postgres — the largest tier: auth, sessions, viz, protocol, durability, reconcile), `live_search` (live Tavily), `live_llm` (real Gemini + DB + Tavily; slow, costs money). Routine runs exclude all three.
 - **Frontend tests** are covered in §34.
@@ -531,7 +539,7 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 | Agent misreads raw values via the SQL escape hatch | Normalization is the default path; escape hatch exposes decode/vintage helpers + "rules still apply" note; eval set watches. |
 | `COUNSELLE_JWT_SECRET` missing or too short | Fail-fast validated at boot (≥32 bytes); the service refuses to start. Set it before first launch — the most likely first-boot failure (§32). |
 | Deep-research cost blowup *(future — §13)* | When activated: DB-first + depth/breadth caps + cheap-model tiers + per-question cost ceiling + usage accounting making spend visible per turn (§19). |
-| GPT-Researcher has no published citation-accuracy benchmark *(applies when §13 activates)* | The ~50-question eval set, measured before launch. |
+| GPT-Researcher has no published citation-accuracy benchmark *(applies when §13 activates)* | The eval set, measured before launch. |
 | CDS sparsity → thin dossiers for most schools | Tier awareness + IPEDS/Scorecard fallback; the agent says what isn't available (§11). |
 | Checkpoint/session data growth | Configurable TTL/cleanup (§7, §18); rows are cheap until they aren't — knob exists from day one. |
 | Pipeline re-ingest changes counts/vintages | Everything derived live (calendar, tiers, catalog, embeddings reconcile); `DATABASE_GUIDE` is snapshot-dated — re-verify on re-ingest. |
@@ -546,7 +554,7 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 - ~~**PydanticAI / LangGraph / checkpointer APIs & versions**~~ — *resolved:* pinned in `pyproject.toml`; APIs confirmed in use.
 - ~~**Migration tool for `counselle.*`**~~ — *resolved:* **yoyo-migrations**; chain 0001–0006 over `counselle.*` only.
 - ~~**Tavily Reddit scoping**~~ — *resolved:* `reddit.com/r/<sub>` domain scoping confirmed; `search_reddit` shipped; `config/assets/subreddit_menu.yaml` finalized.
-- ~~**Eval harness design**~~ — *resolved:* `evals/runner.py` + `questions.yaml` + `judge.md`; ~50 questions across fact / field-selection / clarify-judgment / comparison-viz / honesty.
+- ~~**Eval harness design**~~ — *resolved:* `evals/runner.py` + `questions.yaml` + `judge.md`; the set covers fact / field-selection / clarify-judgment / comparison-viz / honesty.
 - ~~**SSE vs WebSocket**~~ — *resolved:* SSE kept; resume via `Last-Event-ID` over the turn registry (§27.3); cancel is a plain HTTP POST.
 
 ---
@@ -643,14 +651,15 @@ Short reasoning summaries interleaved in the timeline (PRD story 14). The model'
 
 **The load-bearing structural change in the backend delta.** Today the turn *is* the request-handler coroutine: `api/routes/sessions.py` runs `run_turn()` inside the SSE response generator, and the single-flight guard is a bare `set` on `app.state`. In that shape, a client disconnect (an F5!) cancels the coroutine and **kills the turn** — refresh-proof streams (PRD story 39) are impossible — and cancel/reattach would be different routes with no shared object to act on.
 
-**One deep module — the turn registry** (`app/turns.py`) — owns the whole lifecycle:
+**One deep module — the turn registry** (`app/turns.py`) — owns the live lifecycle,
+with terminal persistence factored into `app/turn_persistence.py` (ADR 0025):
 
 - **Turns run as detached asyncio tasks** that outlive any HTTP request. Per session the registry holds: the running task, the **ring buffer** of emitted events (size in Settings), the **single-flight lock**, and the **cancel handle**. A disconnected client costs the turn nothing.
 - **Interface (the endpoints become thin callers):** `start(session_id, message, …)`, `attach(session_id, last_event_id) → event iterator`, `cancel(session_id)`, `is_generating(session_id)`.
 - `POST .../messages` = start + attach. **`GET /v1/sessions/{id}/stream`** = attach from `Last-Event-ID` — replay the buffer tail, then live to `done`. (Every event carries the SSE `id:` field — `api/sse.py`; the buffer and reattach are the new parts.) No active turn in this process → `204 No Content` → the client falls back to the **transcript read** (§27.5).
 - **Single-writer rule** (PRD story 40): a second `POST .../messages` while a turn is active → `409 {error: "stream_active"}` (the existing guard moves into the registry). "Send mid-stream re-asks" is client-orchestrated: cancel → await `done` → send. The sessions list (§29) reads `is_generating` from the registry for the cross-tab indicator.
 - **Backpressure caps** (both Settings knobs): a reattach beyond `max_consumers_per_turn` → `429`; a start beyond `max_concurrent_turns` process-wide → `503`. Both degrade gracefully — the client falls back to the transcript read.
-- **The buffer is best-effort UX; persisted state is the correctness guarantee** — prose in the checkpointer, the step record in the graph state (§27.1). A deploy mid-turn loses the buffer, not the chat. No Redis, no event store.
+- **The buffer is best-effort UX; persisted state is the correctness guarantee** — prose in the checkpointer, the step record in the graph state (§27.1). `app/turn_persistence.py` is the single owner of terminal update payloads, the empty-partial prose rule, and parked-turn predicates, so transcript writes do not drift across the node, runner, and registry. A deploy mid-turn loses the buffer, not the chat. No Redis, no event store.
 - **Every piece of single-instance state lives inside this one module** — §33's scale-out story becomes "re-back the turn registry", not a hunt across route handlers. Deletion test: removing the registry would smear task ownership, buffering, locking, and cancellation across four route handlers — it concentrates complexity, so it earns its keep.
 
 ### 27.4 Cancel
@@ -825,11 +834,11 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 | Group | Knobs |
 |---|---|
-| Auth | `jwt_secret` (required, ≥32 bytes) + `jwt_lifetime_seconds`, `cookie_name`/`cookie_secure`, `google_oauth_client_id`/`_secret`, `oauth_state_secret` (falls back to the JWT secret), `oauth_redirect_url`. *(Reset-token TTL is a fastapi-users class default, not a Settings knob.)* |
+| Auth | `jwt_secret` (required, ≥32 bytes) + `jwt_lifetime_seconds`, `cookie_name`/`cookie_secure`, `google_oauth_client_id`/`_secret`, `oauth_state_secret` (falls back to the JWT secret), `oauth_redirect_url`, `password_min_length`. *(Reset-token TTL is a fastapi-users class default, not a Settings knob.)* |
 | Email | `email_provider` (`Literal["console"]` today; `smtp`/`resend` stubbed), `email_from` |
 | Rate limit | `turns_per_hour`, `turns_per_day` (per-user); `auth_attempts_per_window`, `auth_window_seconds` (per-IP, on login + forgot-password) |
-| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len` |
-| Streaming | `stream_buffer_size` (resume ring buffer), `reattach_enabled`, `turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
+| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, `thinking_threshold_chars` |
+| Streaming | `stream_buffer_size` (resume ring buffer), `stream_buffer_bytes` (process-wide buffer byte budget), `persist_partial_timeout_s`, `reattach_enabled`, `turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
 | Frontend | static bundle dir, serve on/off — planned per §33; in dev `frontend/` runs on the Vite dev server proxying `/v1` to the API |
 
 **Data assets added (`config/assets/`):** `starter_prompts.yaml` (the home-screen chips, one per signature capability), `greeting_templates.yaml` (keyed by `admission_season` phase — the season-aware greeting reuses Part I, §16's machinery), `step_labels.yaml` (§27.1), the title prompt, email templates.
@@ -896,4 +905,4 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0023), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0024; hardening added ADR 0025), `docs/research/` (stack survey). Keep this current as decisions change.*

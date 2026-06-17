@@ -148,3 +148,31 @@ describe('ReasoningTrace "+N more" overflow (FE-M2)', () => {
     expect(screen.queryByRole('button', { name: /more sources/i })).toBeNull();
   });
 });
+
+describe('ReasoningTrace stable node keys (FE-H3)', () => {
+  beforeEach(() => {
+    reduceMotionMock.mockReturnValue(false);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('inserting a step before a thinking line preserves the thinking DOM node', () => {
+    const original: TimelineEntry[] = [
+      { type: 'thinking', id: 'think-stable', text: 'I am checking the data.' },
+      { type: 'step', step: step({ step_id: 'step-old', label: 'Fetched values' }) },
+    ];
+    const inserted: TimelineEntry[] = [
+      { type: 'step', step: step({ step_id: 'step-new', label: 'Resolved schools' }) },
+      ...original,
+    ];
+
+    const { rerender } = render(<ReasoningTrace timeline={original} status="complete" />);
+    fireEvent.click(screen.getByRole('button'));
+    const thinkingNode = screen.getByText('I am checking the data.');
+
+    rerender(<ReasoningTrace timeline={inserted} status="complete" />);
+
+    expect(screen.getByText('I am checking the data.')).toBe(thinkingNode);
+  });
+});
