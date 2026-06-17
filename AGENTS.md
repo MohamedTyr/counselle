@@ -1,8 +1,8 @@
-# CLAUDE.md — Counselle
+# AGENTS.md — Counselle
 
 ## What we're building
 
-**Counselle** is an **AI agent** for the college-admissions process — a "thinking and answering partner" about US universities for **student applicants**. It sits on top of the existing **data pipeline** in `~/Projects/ascensia-data-pipeline` (the pipeline was renamed Counselle conceptually; the agent is this new project at `~/Projects/counselle`).
+**Counselle** is an **AI agent** for the college-admissions process — a "thinking and answering partner" about US universities for **student applicants**. It sits on top of the existing **data pipeline**.
 
 The ultimate goal: **the perfect AI agent for thinking about, and answering anything about, any university or school** — able to think, take steps, reason about those steps, and take further actions.
 
