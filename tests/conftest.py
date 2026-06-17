@@ -19,6 +19,6 @@ os.environ.setdefault(
     "COUNSELLE_JWT_SECRET", "test-jwt-secret-deadbeef-deadbeef-0123456789"
 )
 
-from config.settings import get_settings  # noqa: E402 — must follow the env setdefault
+from config.settings import reset_config_caches  # noqa: E402 — must follow the env setdefault
 
-get_settings.cache_clear()
+reset_config_caches()

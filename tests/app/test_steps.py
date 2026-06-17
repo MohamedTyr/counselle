@@ -159,6 +159,19 @@ def test_unknown_tool_maps_to_default_row_without_braces(mapper: StepMapper) -> 
     assert "{" not in mapped.label and "}" not in mapped.label
 
 
+def test_kind_for_known_and_unknown(mapper: StepMapper) -> None:
+    """_kind_for is the single owner of the unknown ⇒ db_tool default (audit L5).
+
+    A known tool resolves to its asset kind; an unknown one falls to db_tool —
+    identical to what map_call/detail_for/sources_for derive for the kind."""
+    known = next(row[0] for row in _MAP_CALL_TABLE)
+    expected = next(row[2] for row in _MAP_CALL_TABLE)
+    assert mapper._kind_for(known) == expected
+    assert mapper._kind_for("some_future_tool") == "db_tool"
+    # Equivalence with map_call's kind for the same unknown tool.
+    assert mapper._kind_for("some_future_tool") == mapper.map_call("some_future_tool", {}).kind
+
+
 # ---------------------------------------------------------------------------
 # No unfilled templates: empty args never leak `{key}` to the student
 # ---------------------------------------------------------------------------

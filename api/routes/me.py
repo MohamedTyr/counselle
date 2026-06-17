@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from api.auth import current_active_user
 from api.deps import EnvelopeError, require_json
 from api.users_db import UserDB
+from app.chat_deletion import cancel_and_drop_threads
 
 router = APIRouter(tags=["me"])
 logger = structlog.get_logger(__name__)
@@ -93,32 +94,6 @@ async def patch_me(
     return JSONResponse(content={"id": str(user.id), "name": name, "settings": settings_value})
 
 
-async def _cancel_and_drop_threads(request: Request, session_ids: list[str]) -> list[str]:
-    """Registry-cancel any live turn, then drop each session's checkpoint thread.
-
-    Returns the session ids whose ``adelete_thread`` FAILED. Cancel failures are
-    logged-and-tolerated (``registry.cancel`` awaits the task + persists its
-    partial, so a cancel slip is not a data-survival risk); a failed thread-delete
-    means checkpoints survive and the caller must abort the row deletion.
-    """
-    registry = request.app.state.turn_registry
-    # adelete_thread lives on the checkpointer (AsyncPostgresSaver), not the
-    # compiled graph — the graph has no such method.
-    checkpointer = request.app.state.runtime.checkpointer
-    failed: list[str] = []
-    for sid in session_ids:
-        try:
-            await registry.cancel(sid)
-        except Exception:
-            logger.exception("registry cancel failed during delete (session_id=%s)", sid)
-        try:
-            await checkpointer.adelete_thread(sid)
-        except Exception:
-            logger.exception("adelete_thread failed during delete (session_id=%s)", sid)
-            failed.append(sid)
-    return failed
-
-
 @router.delete("/me", status_code=204)
 async def delete_me(
     request: Request, user: UserDB = Depends(current_active_user)
@@ -130,7 +105,11 @@ async def delete_me(
     """
     pool = request.app.state.runtime.app_pool
     session_ids = await _user_session_ids(pool, str(user.id))
-    failed = await _cancel_and_drop_threads(request, session_ids)
+    failed = await cancel_and_drop_threads(
+        request.app.state.turn_registry,
+        request.app.state.runtime.checkpointer,
+        session_ids,
+    )
     if failed:
         logger.error("account delete aborted — checkpoint threads survived", failed=failed)
         raise EnvelopeError(500, "Account deletion didn't fully complete — please try again.")
@@ -151,7 +130,11 @@ async def delete_my_chats(
     """
     pool = request.app.state.runtime.app_pool
     session_ids = await _user_session_ids(pool, str(user.id))
-    failed = await _cancel_and_drop_threads(request, session_ids)
+    failed = await cancel_and_drop_threads(
+        request.app.state.turn_registry,
+        request.app.state.runtime.checkpointer,
+        session_ids,
+    )
     if failed:
         logger.error("chat delete aborted — checkpoint threads survived", failed=failed)
         raise EnvelopeError(500, "Deleting your chats didn't fully complete — please try again.")

@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 from pydantic_settings import SettingsConfigDict
 
-from config.settings import Settings, get_settings, load_prompt, load_yaml_asset
+from config.settings import (
+    Settings,
+    get_settings,
+    load_prompt,
+    load_yaml_asset,
+    reset_config_caches,
+)
 
 RO_DSN = "postgresql://counselle_ro:ro-s3cret-pw@localhost:5432/ascensia"
 APP_DSN = "postgresql://counselle_app:app-s3cret-pw@localhost:5432/ascensia"
@@ -23,13 +29,9 @@ class EnvFileFreeSettings(Settings):
 @pytest.fixture(autouse=True)
 def _clear_caches() -> Iterator[None]:
     """lru_cached loaders must not leak state between tests."""
-    get_settings.cache_clear()
-    load_yaml_asset.cache_clear()
-    load_prompt.cache_clear()
+    reset_config_caches()
     yield
-    get_settings.cache_clear()
-    load_yaml_asset.cache_clear()
-    load_prompt.cache_clear()
+    reset_config_caches()
 
 
 @pytest.fixture
@@ -203,3 +205,34 @@ class TestLoadPrompt:
     def test_missing_prompt_raises_file_not_found(self, dsn_env: None) -> None:
         with pytest.raises(FileNotFoundError):
             load_prompt("no-such-prompt")
+
+
+class TestConfigCacheReset:
+    """The asset loaders key on ``name`` only but read ``assets_dir`` — without a
+    coupled reset they serve stale assets after an assets_dir change (audit L4)."""
+
+    def _write_prompt(self, root: Path, name: str, body: str) -> Path:
+        prompts = root / "prompts"
+        prompts.mkdir(parents=True, exist_ok=True)
+        (prompts / f"{name}.md").write_text(body, encoding="utf-8")
+        return root
+
+    def test_reset_returns_fresh_assets_after_assets_dir_change(
+        self, dsn_env: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        first = self._write_prompt(tmp_path / "a", "greeting", "from-A")
+        monkeypatch.setenv("COUNSELLE_ASSETS_DIR", str(first))
+        reset_config_caches()
+        assert load_prompt("greeting") == "from-A"
+
+        # Point assets_dir at a different tree with a different value for the same
+        # name. Without a coupled reset, the name-keyed cache would serve "from-A".
+        second = self._write_prompt(tmp_path / "b", "greeting", "from-B")
+        monkeypatch.setenv("COUNSELLE_ASSETS_DIR", str(second))
+
+        # Stale-by-name: the assets cache alone still holds the old value.
+        assert load_prompt("greeting") == "from-A"
+
+        # The coupled reset clears get_settings too, so assets_dir is re-read.
+        reset_config_caches()
+        assert load_prompt("greeting") == "from-B"

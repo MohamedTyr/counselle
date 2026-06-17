@@ -4,10 +4,11 @@ ARCHITECTURE §19: every turn emits one structured ``turn_complete`` log line wi
 token counts, duration, and an estimated USD cost. The estimate is best-effort —
 None for any model not in the ``model_prices`` table — and is documented as such.
 
-Moved from ``api/usage.py`` at B2: the turn registry (``app/turns.py``) owns
-usage enrichment and the ``turn_complete`` log now, and ``app/`` must never
-import ``api/`` (ADR 0017 layering). ``api/usage.py`` re-exports for existing
-importers.
+This is the single canonical home for per-turn usage accounting. The turn
+registry (``app/turns.py``) owns usage enrichment and the ``turn_complete`` log,
+so the logic lives in ``app/`` — ``app/`` must never import ``api/`` (ADR 0017
+layering). The former ``api/usage.py`` re-export shim was deleted in M5; import
+``enrich_usage_event`` / ``estimate_cost`` / ``log_turn_complete`` from here.
 """
 
 from __future__ import annotations

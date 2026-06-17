@@ -12,9 +12,10 @@
   (RO pool + catalog, app pool, durable checkpointer incl. the D3 schema
   assertion, compiled graph), the field-index reconciler (startup pass +
   interval task, both non-fatal — keyword fallback serves when the index
-  lags; ``build_runtime`` starts none, and the MCP child's own reconciler
-  only covers the child process, not this one's in-process service calls),
-  and the MCP child supervisor (eng-review D4, ``api/supervision.py``).
+  lags). The API process is the SINGLE reconcile owner (audit H4); the MCP
+  child reads the index, it does not maintain it. The shared loop body lives
+  in ``counselle_db/reconcile.py``; this process supplies health callbacks.
+  Plus the MCP child supervisor (eng-review D4, ``api/supervision.py``).
 
 Everything lives on ``app.state``: ``settings``, ``runtime``, ``reconciler``,
 ``mcp_supervisor`` — Slice B's routes read them from there.
@@ -32,7 +33,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import asyncpg
 import structlog
 from fastapi import Depends, FastAPI
 
@@ -57,7 +57,7 @@ from config.logging import setup_logging
 from config.settings import get_settings, load_yaml_asset
 
 # ADR 0017 deviation 2: api/ → counselle_db direct import accepted for MVP1.
-from counselle_db.reconcile import reconcile_field_index
+from counselle_db.reconcile import reconcile_forever, reconcile_once
 
 logger = structlog.get_logger(__name__)
 
@@ -78,32 +78,6 @@ class ReconcilerState:
         }
 
 
-async def _reconcile_once(app_pool: asyncpg.Pool, state: ReconcilerState) -> None:
-    """One reconcile pass; never raises — keyword fallback serves when the index lags."""
-    state.last_run = datetime.now(UTC).isoformat()
-    try:
-        state.last_result = await reconcile_field_index(app_pool)
-        state.last_error = None
-    except Exception as exc:
-        state.last_result = None
-        # Surface only the class name; the full message may contain internal
-        # hosts/ports/DSNs — log server-side, never expose to clients.
-        state.last_error = type(exc).__name__
-        logger.exception(
-            "field_index reconcile failed — keyword fallback serves",
-            error=repr(exc),
-        )
-
-
-async def _reconcile_forever(
-    app_pool: asyncpg.Pool, interval_minutes: int, state: ReconcilerState
-) -> None:
-    """Periodic field-index reconcile (ADR 0008) — same pattern as counselle_db/server.py."""
-    while True:
-        await asyncio.sleep(interval_minutes * 60)
-        await _reconcile_once(app_pool, state)
-
-
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Boot the runtime, reconciler, and MCP supervisor; put it all away on shutdown."""
@@ -117,9 +91,31 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     runtime = await build_runtime(settings)  # pools + catalog + checkpointer (D3) + graph
     try:
         reconciler = ReconcilerState()
-        await _reconcile_once(runtime.app_pool, reconciler)
+
+        def _on_result(result: dict[str, int]) -> None:
+            reconciler.last_run = datetime.now(UTC).isoformat()
+            reconciler.last_result = result
+            reconciler.last_error = None
+
+        def _on_error(exc: Exception) -> None:
+            reconciler.last_run = datetime.now(UTC).isoformat()
+            reconciler.last_result = None
+            # Surface only the class name; the full message may contain internal
+            # hosts/ports/DSNs — log server-side, never expose to clients.
+            reconciler.last_error = type(exc).__name__
+            logger.exception(
+                "field_index reconcile failed — keyword fallback serves",
+                error=repr(exc),
+            )
+
+        await reconcile_once(runtime.app_pool, _on_result, _on_error)
         reconcile_task = asyncio.create_task(
-            _reconcile_forever(runtime.app_pool, settings.reconcile_interval_minutes, reconciler),
+            reconcile_forever(
+                runtime.app_pool,
+                settings.reconcile_interval_minutes,
+                _on_result,
+                _on_error,
+            ),
             name="field-index-reconciler",
         )
         supervisor = McpSupervisor(runtime.deps.mcp_toolset)

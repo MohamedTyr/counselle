@@ -7,6 +7,7 @@ cached forever (IPEDS codes are static — DATABASE_GUIDE R1). Scorecard has no
 decode table, so its few coded columns use the hardcoded maps from §8.
 """
 
+import asyncio
 import re
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
@@ -148,6 +149,9 @@ class Catalog:
         self._decode_cache: dict[tuple[str, str], dict[str, str] | None] = {}
         self._ipeds_loaded_at: datetime | None = None
         self._scorecard_loaded_at: datetime | None = None
+        # Serializes concurrent refreshes: N stale callers would each launch a full
+        # _reload (a thundering herd) — only the first waiter reloads (audit M1).
+        self._reload_lock = asyncio.Lock()
 
     def school_name(self, unitid: int) -> str | None:
         """The school's display name, or None when the unitid is unknown.
@@ -186,16 +190,21 @@ class Catalog:
         """
         if datetime.now(UTC) - self.loaded_at < _REFRESH_INTERVAL:
             return
-        try:
-            await self._reload()
-        except Exception:
-            logger.warning(
-                "catalog refresh failed — serving stale catalog",
-                exc_info=True,
-            )
-            # Advance loaded_at so the next attempt happens in ~10 minutes,
-            # not on every subsequent call (thundering herd prevention).
-            self.loaded_at = datetime.now(UTC) - (_REFRESH_INTERVAL - timedelta(minutes=10))
+        async with self._reload_lock:
+            # Double-check: a concurrent caller may have reloaded while we waited
+            # on the lock — only the first waiter reloads (audit M1).
+            if datetime.now(UTC) - self.loaded_at < _REFRESH_INTERVAL:
+                return
+            try:
+                await self._reload()
+            except Exception:
+                logger.warning(
+                    "catalog refresh failed — serving stale catalog",
+                    exc_info=True,
+                )
+                # Advance loaded_at so the next attempt happens in ~10 minutes,
+                # not on every subsequent call (thundering herd prevention).
+                self.loaded_at = datetime.now(UTC) - (_REFRESH_INTERVAL - timedelta(minutes=10))
 
     async def _reload(self) -> None:
         # Build everything into locals first; a failed query mid-reload must never

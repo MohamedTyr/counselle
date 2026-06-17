@@ -23,6 +23,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.agent_node import run_agent_node
 from app.state import TemporalContext, TurnState
+from app.turn_persistence import AGENT_NODE
 from config.settings import load_yaml_asset
 from counselle_db.catalog import CalendarEntry, Catalog
 from counselle_db.service import get_data_calendar
@@ -70,8 +71,8 @@ def build_graph(checkpointer: Any, deps: GraphDeps) -> CompiledStateGraph[TurnSt
 
     graph = StateGraph(TurnState)
     graph.add_node("prepare", prepare)
-    graph.add_node("agent", agent)
+    graph.add_node(AGENT_NODE, agent)
     graph.add_edge(START, "prepare")
-    graph.add_edge("prepare", "agent")
-    graph.add_edge("agent", END)
+    graph.add_edge("prepare", AGENT_NODE)
+    graph.add_edge(AGENT_NODE, END)
     return graph.compile(checkpointer=checkpointer)

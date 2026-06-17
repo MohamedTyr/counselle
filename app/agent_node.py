@@ -46,8 +46,6 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelRequest,
-    ModelResponse,
-    TextPart,
     UserPromptPart,
 )
 from pydantic_ai.models import Model
@@ -62,6 +60,7 @@ from app.skills import make_load_skill_tool
 from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
 from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
+from app.turn_persistence import partial_messages, resolve_offset
 from config.settings import get_settings, load_yaml_asset
 from domain.events import UsageData
 from domain.specs import SourceConfig
@@ -252,21 +251,6 @@ def _resume_clarify(
     return {"spec": spec, "answer": resume_text}, True
 
 
-def _budget_partial_messages(
-    state_messages: list[dict[str, Any]], emissions: list[Emission]
-) -> list[dict[str, Any]]:
-    """The tool-budget path's messages: the streamed prose (incl. the budget
-    message) appended as a partial ``ModelResponse`` — the prose invariant
-    (G2): without it the streamed text would vanish from the transcript.
-    Empty-partial rule: no prose streamed → no append (an empty-content
-    response corrupts the provider history)."""
-    prose = "".join(text for kind, text in emissions if kind == "delta")
-    if not prose:
-        return state_messages
-    partial = ModelResponse(parts=[TextPart(content=prose)])
-    return state_messages + list(ModelMessagesTypeAdapter.dump_python([partial], mode="json"))
-
-
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     """One counselor turn: rebuild from state, run the agent, return the delta."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -363,8 +347,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         )
     else:
         # Tool-budget path: result never materialized — preserve the streamed
-        # prose (the budget delta above included) as a partial ModelResponse.
-        messages_out = _budget_partial_messages(state["messages"], emissions)
+        # prose (the budget delta above included) as a partial ModelResponse
+        # (the empty-partial rule, owned by turn_persistence — audit H1).
+        messages_out, _ = partial_messages(state["messages"], emissions)
 
     # --- the turn record (B1b, G1/G2): built from exactly what streamed ---
     ids = _turn_ids(state)
@@ -372,11 +357,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     clarify, synthesized = _resume_clarify(prior_records, ids)
     # messages_offset: run_turn computes the authoritative value per path (new
     # turn vs resume) and threads it through turn_ids — the node never
-    # recomputes it. The len-1 fallback covers direct-graph invocations only
-    # (tests, pre-B1b checkpoints), where the tail is the user request.
-    offset = ids.get("messages_offset")
-    if not isinstance(offset, int):
-        offset = len(state["messages"]) - 1
+    # recomputes it. resolve_offset's fallback covers direct-graph invocations
+    # only (tests, pre-B1b checkpoints), where the tail is the user request.
+    offset = resolve_offset(ids.get("messages_offset"), state["messages"])
     # user_text is the turn's QUESTION even on a resume: the replayed node
     # still splits the original user ModelRequest off the messages tail (the
     # clarify answer rides Command(resume), never messages) — so the record

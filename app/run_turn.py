@@ -6,12 +6,13 @@ exactly this stream (ADR 0016). Per turn it:
 1. Ensures the ``counselle.sessions`` row exists (created with the request's
    source config or the settings defaults), and touches it on completion.
 2. Detects a parked clarify on the thread — the last turn record's
-   ``status == "awaiting_input"`` (B1b; the parked-record write clears
-   ``tasks[*].interrupts``, kept only as the pre-B1b fallback) — if parked,
-   the user's text is the **answer** and the graph resumes via
-   ``Command(resume=text)`` (the parked ``message_id`` is reused in ``meta``);
-   otherwise the text becomes a new serialized user ``ModelRequest`` appended
-   to the prior messages (the agent node's tail convention, app/agent_node.py).
+   ``status == "awaiting_input"`` is the SOLE signal (B1b; the parked-record
+   write empties ``tasks[*].interrupts``, so there is no OR-on-interrupt
+   fallback — audit BC-14) — if parked, the user's text is the **answer** and
+   the graph resumes via ``Command(resume=text)`` (the parked ``message_id`` is
+   reused in ``meta``); otherwise the text becomes a new serialized user
+   ``ModelRequest`` appended to the prior messages (the agent node's tail
+   convention, app/agent_node.py).
 3. Streams with ``stream_mode=["custom", "updates"]``: custom ``delta``/``viz``
    chunks become ``delta``/``viz`` events live; an ``__interrupt__`` update
    becomes ``clarify`` + ``done(awaiting_input)``; a completed run ends with
@@ -31,6 +32,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
@@ -39,14 +41,13 @@ from langgraph.types import Command
 from pydantic_ai.messages import (
     ModelMessagesTypeAdapter,
     ModelRequest,
-    ModelResponse,
-    TextPart,
     UserPromptPart,
 )
 
 from app.graph import GraphDeps
-from app.records import Emission, append_or_replace, build_turn_record, now_iso
+from app.records import Emission
 from app.sessions import get_session, touch_session
+from app.turn_persistence import build_terminal_update, parked_record
 from config.settings import get_settings
 from domain.events import (
     Event,
@@ -145,37 +146,112 @@ async def _write_failure_record(
     snapshot = await graph.aget_state(config)
     messages = list(snapshot.values.get("messages") or []) if snapshot else []
     records = list(snapshot.values.get("turn_records") or []) if snapshot else []
-    messages_dirty = False
-    if fallback_messages is not None and len(messages) < len(fallback_messages):
+    restored_fallback = fallback_messages is not None and len(messages) < len(fallback_messages)
+    if restored_fallback:
         # The run died before the input checkpoint landed — restore the turn's
         # input so the record's offset points at a real user message.
-        messages = list(fallback_messages)
-        messages_dirty = True
-    if messages_offset is None:
-        messages_offset = max(len(messages) - 1, 0)
-    if prose and messages and messages[-1].get("kind") == "request":
-        # Empty-partial rule: no prose streamed (or no request to anchor it)
-        # → no ModelResponse append.
-        partial = ModelResponse(parts=[TextPart(content=prose)])
-        messages = messages + list(ModelMessagesTypeAdapter.dump_python([partial], mode="json"))
-        messages_dirty = True
-    record = build_turn_record(
-        emissions,
+        messages = list(fallback_messages or [])
+    # Resolve the offset against the pre-append messages (the caller's explicit
+    # value wins; the None fallback is the pre-refactor max(len-1, 0)) so the
+    # anchor is byte-identical regardless of whether the partial later appends.
+    offset = messages_offset if messages_offset is not None else max(len(messages) - 1, 0)
+    # The single terminal-persistence owner (audit H1): the empty-partial rule,
+    # the record build, and the record anchoring all live in build_terminal_update.
+    update = build_terminal_update(
+        messages=messages,
+        records=records,
+        emissions=emissions,
         ids=ids,
         status="error",
         sources=registry_dump,
         user_text=user_text,
+        messages_offset=offset,
         error={"message": _USER_SAFE_ERROR, "trace_id": trace_id},
-        ts=now_iso(),
-        messages_offset=messages_offset,
     )
-    update: dict[str, Any] = {"turn_records": append_or_replace(records, record)}
-    if messages_dirty:
-        update["messages"] = messages
+    if restored_fallback:
+        # Equivalence with the pre-refactor code: a fallback restore ALWAYS
+        # persists the restored messages, even when the empty-partial rule
+        # appended nothing (build_terminal_update only sets "messages" when the
+        # partial changed it).
+        update.setdefault("messages", messages)
     await graph.aupdate_state(config, update)
 
 
-async def run_turn(  # noqa: C901 — the one stream switch; splitting hides the protocol
+@dataclass
+class _TurnInput:
+    """The assembled graph input for one turn (resume vs new — audit M3)."""
+
+    graph_input: Any
+    turn_ids: dict[str, Any]
+    messages_offset: int
+
+
+class _ResumePrewriteError(Exception):
+    """The resume pre-run ``aupdate_state`` failed (audit BC-11).
+
+    Distinguishes a resume pre-write failure from any other prepare failure: the
+    caller turns this into an ``ev_error`` and returns WITHOUT writing a record,
+    leaving the thread parked so the student can retry the answer. Every OTHER
+    prepare failure (e.g. ``_ensure_session``) keeps today's error-record path.
+    """
+
+
+async def _prepare_turn_input(
+    graph: Any,
+    deps: GraphDeps,
+    settings: Any,
+    *,
+    session_id: str,
+    user_text: str,
+    source_config: SourceConfig | None,
+    snapshot: Any,
+    parked: dict[str, Any] | None,
+    turn_ids: dict[str, Any],
+) -> _TurnInput:
+    """Build the graph input for this turn: resume (parked) vs new.
+
+    Parked detection is the caller's (the record via ``parked_record``); a
+    resume reuses the parked ``message_id`` and carries its ``messages_offset``
+    forward, a new turn appends the serialized user ``ModelRequest``. The
+    pre-run resume ``aupdate_state`` lives here too — its failure raises
+    :class:`_ResumePrewriteError` (the BC-11 path: the caller turns it into an
+    ``ev_error`` + return, leaving the thread parked).
+    """
+    effective_config = await _ensure_session(deps.app_pool, session_id, source_config, settings)
+    if parked is not None:
+        # The student's text answers the pending clarify (notes §7). The answer
+        # rides Command(resume) and never enters messages, so it also rides
+        # turn_ids into the node's record (story 25). The aupdate_state-before-
+        # resume mechanic is spike-1c-proven. The replacement record must keep
+        # the ORIGINAL question's index: carry the parked record's
+        # messages_offset forward (G3 anchor).
+        parked_offset = parked.get("messages_offset")
+        if isinstance(parked_offset, int):
+            messages_offset = parked_offset
+        else:
+            prior_messages = list(snapshot.values.get("messages") or []) if snapshot else []
+            messages_offset = max(len(prior_messages) - 1, 0)
+        turn_ids = {**turn_ids, "messages_offset": messages_offset}
+        try:
+            await graph.aupdate_state(
+                {"configurable": {"thread_id": session_id}},
+                {"turn_ids": {**turn_ids, "resume_text": user_text}},
+            )
+        except Exception as exc:
+            raise _ResumePrewriteError from exc
+        return _TurnInput(Command(resume=user_text), turn_ids, messages_offset)
+    prior = list(snapshot.values.get("messages") or []) if snapshot else []
+    messages_offset = len(prior)
+    turn_ids = {**turn_ids, "messages_offset": messages_offset}
+    graph_input = {
+        "messages": prior + _serialized_user_message(user_text),
+        "source_config": effective_config.model_dump(mode="json"),
+        "turn_ids": turn_ids,
+    }
+    return _TurnInput(graph_input, turn_ids, messages_offset)
+
+
+async def run_turn(
     session_id: str,
     user_text: str,
     source_config: SourceConfig | None = None,
@@ -203,19 +279,13 @@ async def run_turn(  # noqa: C901 — the one stream switch; splitting hides the
     prior_records: list[dict[str, Any]] = (
         list(snapshot.values.get("turn_records") or []) if snapshot else []
     )
-    # Parked-detection (B0 spike 1): the turn record is the source of truth —
-    # the parked-record write empties tasks[*].interrupts — with the old
-    # interrupts check kept as the fallback for pre-B1b parked threads.
-    parked_record = (
-        prior_records[-1]
-        if prior_records and prior_records[-1].get("status") == "awaiting_input"
-        else None
-    )
-    parked = parked_record is not None or bool(
-        snapshot and any(task.interrupts for task in snapshot.tasks)
-    )
-    if parked_record is not None:
-        message_id = str(parked_record["message_id"])
+    # Parked-detection (B0 spike 1 / BC-14): the turn record is the SOLE source
+    # of truth — the parked-record write empties tasks[*].interrupts, so there
+    # is no OR-on-interrupt fallback (a torn write could leave a stale interrupt
+    # the now-cancelled record already disclaims).
+    parked = parked_record(prior_records)
+    if parked is not None:
+        message_id = str(parked["message_id"])
     # B2: a parked thread where the next POST is NOT a resume (e.g. a cancel
     # races in) can ghost the parked record — B2's turn registry single-flight
     # lock owns concurrent-turn lifecycle; no guard here.
@@ -223,7 +293,7 @@ async def run_turn(  # noqa: C901 — the one stream switch; splitting hides the
     # PARKED record's user_text (the live user_text is the clarify ANSWER,
     # which rides clarify.answer, never the user bubble).
     record_user_text: str | None = (
-        parked_record.get("user_text") if parked_record is not None else user_text
+        parked.get("user_text") if parked is not None else user_text
     )
     yield ev_meta(trace_id, session_id, settings.model_counselor, message_id, user_message_id)
 
@@ -238,33 +308,33 @@ async def run_turn(  # noqa: C901 — the one stream switch; splitting hides the
     try:
         if prefetch_exc is not None:
             raise prefetch_exc
-        effective_config = await _ensure_session(deps.app_pool, session_id, source_config, settings)
-
-        if parked:
-            # The student's text answers the pending clarify (notes §7). The
-            # answer rides Command(resume) and never enters messages, so it
-            # also rides turn_ids into the node's record (story 25). The
-            # aupdate_state-before-resume mechanic is spike-1c-proven.
-            # The replacement record must keep the ORIGINAL question's index:
-            # carry the parked record's messages_offset forward (G3 anchor).
-            parked_offset = parked_record.get("messages_offset") if parked_record else None
-            if isinstance(parked_offset, int):
-                messages_offset = parked_offset
-            else:
-                prior_messages = list(snapshot.values.get("messages") or []) if snapshot else []
-                messages_offset = max(len(prior_messages) - 1, 0)
-            turn_ids = {**turn_ids, "messages_offset": messages_offset}
-            await graph.aupdate_state(config, {"turn_ids": {**turn_ids, "resume_text": user_text}})
-            graph_input = Command(resume=user_text)
-        else:
-            prior = list(snapshot.values.get("messages") or []) if snapshot else []
-            messages_offset = len(prior)
-            turn_ids = {**turn_ids, "messages_offset": messages_offset}
-            graph_input = {
-                "messages": prior + _serialized_user_message(user_text),
-                "source_config": effective_config.model_dump(mode="json"),
-                "turn_ids": turn_ids,
-            }
+        try:
+            turn_input = await _prepare_turn_input(
+                graph,
+                deps,
+                settings,
+                session_id=session_id,
+                user_text=user_text,
+                source_config=source_config,
+                snapshot=snapshot,
+                parked=parked,
+                turn_ids=turn_ids,
+            )
+        except _ResumePrewriteError:
+            # BC-11: the resume pre-write failed — leave the thread parked (the
+            # awaiting_input record stays last), write NO record, end with error
+            # so the student can retry the answer.
+            logger.exception(
+                "resume pre-write failed — leaving the thread parked "
+                "(trace_id=%s, session_id=%s)",
+                trace_id,
+                session_id,
+            )
+            yield ev_error(_USER_SAFE_ERROR, trace_id)
+            return
+        graph_input = turn_input.graph_input
+        turn_ids = turn_input.turn_ids
+        messages_offset = turn_input.messages_offset
 
         interrupted = False
         clarify_dump: dict[str, Any] | None = None
@@ -325,26 +395,26 @@ async def run_turn(  # noqa: C901 — the one stream switch; splitting hides the
             yield ev_done("awaiting_input")
             # The parked turn record (G2/G4) — written after done per spike 1:
             # the write sticks, interrupts clear (detection moves onto the
-            # record), Command(resume) still works. Guarded: the interrupts
-            # fallback above keeps resume working even if this write fails.
+            # record), Command(resume) still works. Routed through the single
+            # terminal-persistence owner (audit H1) — but the parked write only
+            # ever touches turn_records, never messages (messages=[] makes the
+            # empty-partial rule a no-op).
             try:
-                record = build_turn_record(
-                    emissions,
+                update = build_terminal_update(
+                    messages=[],
+                    records=prior_records,
+                    emissions=emissions,
                     ids=turn_ids,
                     status="awaiting_input",
                     sources=last_registry_dump,
                     user_text=record_user_text,
+                    messages_offset=messages_offset,
                     clarify={"spec": clarify_dump, "answer": None} if clarify_dump else None,
-                    ts=now_iso(),
-                    messages_offset=messages_offset if messages_offset is not None else 0,
                 )
-                await graph.aupdate_state(
-                    config, {"turn_records": append_or_replace(prior_records, record)}
-                )
+                await graph.aupdate_state(config, {"turn_records": update["turn_records"]})
             except Exception:
                 logger.error(
-                    "parked turn-record write failed (trace_id=%s, session_id=%s)"
-                    " — resume still works via the interrupt fallback",
+                    "parked turn-record write failed (trace_id=%s, session_id=%s)",
                     trace_id,
                     session_id,
                     exc_info=True,

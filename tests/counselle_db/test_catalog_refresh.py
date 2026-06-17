@@ -6,6 +6,7 @@ monkeypatched to simulate failures after initial load.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock
@@ -103,4 +104,38 @@ async def test_maybe_refresh_does_not_retry_immediately_on_second_call(
 
     assert reload_calls[0] == 1, (
         f"expected exactly 1 reload attempt, got {reload_calls[0]} — backoff not applied"
+    )
+
+
+async def test_concurrent_maybe_refresh_reloads_exactly_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """N concurrent stale callers trigger exactly ONE _reload (audit M1).
+
+    The first waiter reloads; the rest see the fresh loaded_at on the
+    double-check under the lock and short-circuit (no thundering herd).
+    """
+    catalog = _make_catalog_with_data()
+    catalog.loaded_at = datetime.now(UTC) - _REFRESH_INTERVAL - timedelta(seconds=1)
+
+    reload_calls = [0]
+    gate = asyncio.Event()
+
+    async def slow_reload(self: Any) -> None:
+        reload_calls[0] += 1
+        # Hold the lock so every other caller is forced to wait on it, proving
+        # the double-check (not just timing) is what short-circuits them.
+        await gate.wait()
+        self.loaded_at = datetime.now(UTC)
+
+    monkeypatch.setattr(Catalog, "_reload", slow_reload)
+
+    tasks = [asyncio.create_task(catalog.maybe_refresh()) for _ in range(8)]
+    # Let the first waiter enter _reload and the rest queue on the lock.
+    await asyncio.sleep(0)
+    gate.set()
+    await asyncio.gather(*tasks)
+
+    assert reload_calls[0] == 1, (
+        f"expected exactly 1 reload across concurrent callers, got {reload_calls[0]}"
     )

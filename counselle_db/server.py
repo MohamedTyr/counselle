@@ -8,14 +8,11 @@ docstrings here are the agent-facing contracts (ARCHITECTURE §8, ADRs 0004/0005
 Run over stdio: ``uv run python -m counselle_db.server``.
 """
 
-import asyncio
-import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
-import asyncpg
 import structlog
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
@@ -25,7 +22,6 @@ from config.settings import get_settings
 from counselle_db import service
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
-from counselle_db.reconcile import reconcile_field_index
 from counselle_db.search_fields import FieldHit, search_fields
 from counselle_db.service_find import FindCriteria
 
@@ -39,43 +35,21 @@ class AppState:
     catalog: Catalog
 
 
-async def _reconcile_forever(app_pool: asyncpg.Pool, interval_minutes: int) -> None:
-    """Periodic field_index reconcile (ADR 0008) — failures never kill the server."""
-    while True:
-        await asyncio.sleep(interval_minutes * 60)
-        try:
-            await reconcile_field_index(app_pool)
-        except Exception:
-            logger.exception("periodic field_index reconcile failed — keyword fallback serves")
-
-
 @asynccontextmanager
 async def _lifespan(_server: FastMCP) -> AsyncIterator[AppState]:
-    """Open the pools + load the catalog at startup; reconcile field_index; close on shutdown."""
+    """Open the read pool + load the catalog at startup; close on shutdown.
+
+    The MCP child READS the field index (search_fields' vector path); it does not
+    maintain it. The single reconcile owner is the API process (audit H4) — see
+    ``counselle_db/reconcile.py`` and ``api/main.py``.
+    """
     settings = get_settings()
     # stdout is the JSON-RPC channel — route all structlog output to stderr.
     setup_logging(settings.log_level)
     pool = await create_pool()
     try:
-        # Second pool on the app role: counselle.field_index writes need counselle_app.
-        app_pool = await create_pool(dsn=settings.db_app_dsn)
-        try:
-            catalog = await Catalog.load(pool)
-            try:  # Non-fatal: with no index, search_fields' keyword fallback still serves.
-                await reconcile_field_index(app_pool)
-            except Exception:
-                logger.exception("startup field_index reconcile failed — keyword fallback serves")
-            reconcile_task = asyncio.create_task(
-                _reconcile_forever(app_pool, settings.reconcile_interval_minutes)
-            )
-            try:
-                yield AppState(catalog=catalog)
-            finally:
-                reconcile_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await reconcile_task
-        finally:
-            await app_pool.close()
+        catalog = await Catalog.load(pool)
+        yield AppState(catalog=catalog)
     finally:
         await pool.close()
 

@@ -1,4 +1,4 @@
-"""Tests for api/usage.py — cost estimation, event enrichment, turn_complete log."""
+"""Tests for app/usage.py — cost estimation, event enrichment, turn_complete log."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from api.usage import enrich_usage_event, estimate_cost, log_turn_complete
+from app.usage import enrich_usage_event, estimate_cost, log_turn_complete
 from domain.events import Event, UsageData, ev_usage
 
 # ---------------------------------------------------------------------------
@@ -162,9 +162,9 @@ class TestLogTurnComplete:
     def test_emits_one_structured_line_with_required_fields(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        with caplog.at_level(logging.INFO, logger="api.usage"):
+        with caplog.at_level(logging.INFO, logger="app.usage"):
             log_turn_complete(
-                logging.getLogger("api.usage"),
+                logging.getLogger("app.usage"),
                 session_id="sess-123",
                 trace_id="trace-abc",
                 usage={"input_tokens": 100, "output_tokens": 50, "tool_calls": 3},
@@ -177,9 +177,9 @@ class TestLogTurnComplete:
         assert record.message == "turn_complete"
 
     def test_none_cost_accepted(self, caplog: pytest.LogCaptureFixture) -> None:
-        with caplog.at_level(logging.INFO, logger="api.usage"):
+        with caplog.at_level(logging.INFO, logger="app.usage"):
             log_turn_complete(
-                logging.getLogger("api.usage"),
+                logging.getLogger("app.usage"),
                 session_id="sess-xyz",
                 trace_id="trace-xyz",
                 usage={"input_tokens": 0, "output_tokens": 0, "tool_calls": 0},
@@ -189,9 +189,9 @@ class TestLogTurnComplete:
         assert len(caplog.records) == 1
 
     def test_extra_fields_are_set_on_record(self, caplog: pytest.LogCaptureFixture) -> None:
-        with caplog.at_level(logging.INFO, logger="api.usage"):
+        with caplog.at_level(logging.INFO, logger="app.usage"):
             log_turn_complete(
-                logging.getLogger("api.usage"),
+                logging.getLogger("app.usage"),
                 session_id="s1",
                 trace_id="t1",
                 usage={"input_tokens": 200, "output_tokens": 100, "tool_calls": 1},

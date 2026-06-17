@@ -27,11 +27,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from domain.events import DoneStatus
+
 #: Cheap stopgap narrowing — the full per-kind discriminated union is deferred to B2.
 Emission = tuple[Literal["delta", "viz", "step", "thinking"], Any]
 
-#: The four terminal statuses a turn record can carry (typo-proof at call sites).
-TurnStatus = Literal["complete", "awaiting_input", "cancelled", "error"]
+#: The terminal statuses a turn record can carry: the wire ``DoneStatus`` set
+#: (``complete``/``awaiting_input``/``cancelled``) plus ``error`` (record-only,
+#: never on the wire) — defined in terms of the wire vocabulary so the two can
+#: never drift (audit M7). Typo-proof at call sites.
+TurnStatus = DoneStatus | Literal["error"]
 
 
 def now_iso() -> str:

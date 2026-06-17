@@ -35,6 +35,7 @@ from api.deps import EnvelopeError, owned_session, require_json
 from api.ratelimit import message_rate_limit
 from api.sse import SSE_HEADERS, encode_sse
 from api.users_db import UserDB
+from app.chat_deletion import cancel_and_drop_threads
 from app.feedback import clear_feedback, feedback_for_session, set_feedback
 from app.sessions import (
     create_session,
@@ -477,11 +478,13 @@ async def delete_session_route(
     """Delete one chat: cancel any live turn FIRST, drop its checkpoint thread,
     then the row — the me.py honest pattern (abort 500 if the thread fails,
     row intact/retryable)."""
-    from api.routes.me import _cancel_and_drop_threads
-
     sid = str(session_id)
     pool = request.app.state.runtime.app_pool
-    failed = await _cancel_and_drop_threads(request, [sid])
+    failed = await cancel_and_drop_threads(
+        request.app.state.turn_registry,
+        request.app.state.runtime.checkpointer,
+        [sid],
+    )
     if failed:
         logger.error("session delete aborted — checkpoint thread survived", session_id=sid)
         raise EnvelopeError(500, "Deleting this chat didn't fully complete — please try again.")

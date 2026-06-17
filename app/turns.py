@@ -50,10 +50,15 @@ from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
-from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse, TextPart
-
-from app.records import Emission, append_or_replace, build_turn_record, now_iso
+from app.records import Emission, TurnStatus
 from app.run_turn import _USER_SAFE_ERROR, run_turn
+from app.turn_persistence import (
+    AGENT_NODE,
+    build_terminal_update,
+    is_parked,
+    parked_record,
+    resolve_offset,
+)
 from app.usage import enrich_usage_event, log_turn_complete
 from domain.events import Event, ev_done, ev_error
 from domain.specs import SourceConfig
@@ -70,11 +75,6 @@ _USER_SAFE_FELL_BEHIND = (
 _EVENT_OVERHEAD_BYTES = 256
 
 CancelOutcome = Literal["cancelled", "unparked", "idle"]
-
-#: The LangGraph agent node name — MUST match ``app.graph``'s
-#: ``add_node("agent", ...)``. Used as the ``as_node=`` anchor when we rewrite
-#: history / unpark an interrupt (the graph must believe the agent ran).
-_AGENT_NODE = "agent"
 
 
 class StreamActive(Exception):
@@ -697,7 +697,7 @@ class TurnRegistry:
         turn.buffer.append(ev_error(_USER_SAFE_TIMEOUT, turn.trace_id))
 
     async def _persist_partial_guarded(
-        self, turn: _Turn, *, status: str, error: dict[str, Any] | None
+        self, turn: _Turn, *, status: TurnStatus, error: dict[str, Any] | None
     ) -> None:
         """Best-effort partial persistence — a write failure (or a DB HANG)
         must never block the terminal event or hold the single-flight claim
@@ -737,19 +737,16 @@ class TurnRegistry:
         )
 
     async def _persist_partial(
-        self, turn: _Turn, *, status: str, error: dict[str, Any] | None
+        self, turn: _Turn, *, status: TurnStatus, error: dict[str, Any] | None
     ) -> None:
         """One ``aupdate_state``: partial prose (empty-partial rule) + record.
 
-        Mirrors ``run_turn._write_failure_record``'s rules from the registry's
-        vantage (it only sees wire events): emissions rebuild the record; the
-        source snapshot is the state registry (cumulative, G2); a cancel during
-        a clarify RESUME replaces the parked record (same ``message_id``) with
-        the answer frozen into ``clarify.answer``.
-
-        KEEP IN SYNC with ``app.run_turn._write_failure_record`` — the two write
-        the partial-turn record under different vantages; a change to the record
-        shape or the empty-partial rule in one must land in the other.
+        The registry's vantage of the single terminal-persistence owner
+        (``app.turn_persistence.build_terminal_update``, audit H1): it only sees
+        wire events, so emissions rebuild the record; the source snapshot is the
+        state registry (cumulative, G2); a cancel during a clarify RESUME
+        replaces the parked record (same ``message_id``) with the answer frozen
+        into ``clarify.answer`` (the ``_partial_anchor`` logic below).
         """
         if turn.ids is None:
             # Cancelled before meta: nothing streamed, no G1 identity to anchor
@@ -762,30 +759,20 @@ class TurnRegistry:
         messages = list(values.get("messages") or [])
         records = list(values.get("turn_records") or [])
         registry_dump = list(values.get("source_registry") or [])
-        prose = "".join(text for kind, text in turn.emissions if kind == "delta")
         user_text, offset, clarify, synthesized = _partial_anchor(turn, messages, records)
-
-        update: dict[str, Any] = {}
-        if prose and messages and messages[-1].get("kind") == "request":
-            # The prose invariant: messages keep exactly what streamed. No
-            # prose (or no request to anchor it) → skip (the empty-partial rule).
-            partial = ModelResponse(parts=[TextPart(content=prose)])
-            update["messages"] = messages + list(
-                ModelMessagesTypeAdapter.dump_python([partial], mode="json")
-            )
-        record = build_turn_record(
-            turn.emissions,
+        update = build_terminal_update(
+            messages=messages,
+            records=records,
+            emissions=turn.emissions,
             ids=turn.ids,
-            status=status,  # type: ignore[arg-type]  # callers pass TurnStatus literals
+            status=status,
             sources=registry_dump,
             user_text=user_text,
+            messages_offset=offset,
             error=error,
             clarify=clarify,
-            ts=now_iso(),
-            messages_offset=offset if isinstance(offset, int) else max(len(messages) - 1, 0),
             synthesized_answer=synthesized,
         )
-        update["turn_records"] = append_or_replace(records, record)
         await self._graph.aupdate_state(config, update)
 
     async def _unpark_if_parked(self, session_id: str) -> bool:
@@ -793,7 +780,7 @@ class TurnRegistry:
         clarify record — its ``status`` becomes ``"cancelled"`` (so
         parked-detection releases) while ``clarify.answer`` stays null (the
         question was never answered). Spike-1-proven:
-        ``aupdate_state(..., as_node=_AGENT_NODE)`` empties the interrupts and
+        ``aupdate_state(..., as_node=AGENT_NODE)`` empties the interrupts and
         clears ``next`` — the next plain message runs a fresh turn."""
         config = {"configurable": {"thread_id": session_id}}
         try:
@@ -804,17 +791,15 @@ class TurnRegistry:
         if snapshot is None:
             return False
         records = list((snapshot.values or {}).get("turn_records") or [])
-        parked_record = (
-            records[-1] if records and records[-1].get("status") == "awaiting_input" else None
-        )
+        parked = parked_record(records)
         has_interrupt = any(
             task.interrupts for task in (getattr(snapshot, "tasks", None) or ())
         )
-        if parked_record is None and not has_interrupt:
+        if parked is None and not has_interrupt:
             return False
         update: dict[str, Any] = {}
-        if parked_record is not None:
-            frozen = {**parked_record, "status": "cancelled"}
+        if parked is not None:
+            frozen = {**parked, "status": "cancelled"}
             update["turn_records"] = records[:-1] + [frozen]
         else:
             # An interrupt with no parked record to freeze — still clear it, but
@@ -823,7 +808,7 @@ class TurnRegistry:
                 "unparking an interrupt with no parked record (session_id=%s)", session_id
             )
         try:
-            await self._graph.aupdate_state(config, update, as_node=_AGENT_NODE)
+            await self._graph.aupdate_state(config, update, as_node=AGENT_NODE)
         except Exception:
             logger.exception("unpark aupdate_state failed (session_id=%s)", session_id)
             return False
@@ -850,16 +835,17 @@ class TurnRegistry:
         index, offset = _resolve_edit_target(records, messages, replace_message_id, session_id)
         surviving = records[:index]
         registry_dump = list(surviving[-1].get("sources") or []) if surviving else []
-        parked = bool(
-            records and records[-1].get("status") == "awaiting_input"
-        ) or any(task.interrupts for task in (getattr(snapshot, "tasks", None) or ()))
+        # The turn record is the sole parked signal (audit BC-14): no
+        # OR-on-interrupt — a torn write could leave a stale interrupt that the
+        # record (now cancelled) already disclaims.
+        parked = is_parked(records)
         update: dict[str, Any] = {
             "messages": messages[:offset],
             "turn_records": surviving,
             "source_registry": registry_dump,
         }
         if parked:
-            await self._graph.aupdate_state(config, update, as_node=_AGENT_NODE)
+            await self._graph.aupdate_state(config, update, as_node=AGENT_NODE)
         else:
             await self._graph.aupdate_state(config, update)
 
@@ -877,26 +863,21 @@ def _partial_anchor(
     tail user request (or past-the-end when the input never landed).
     """
     ids = turn.ids or {}
+    # The resume-replace predicate: parked AND this turn reused the parked
+    # message_id (the base parked test is is_parked; the id-match distinguishes
+    # a cancel mid-resume from a fresh-turn cancel). The offset fallback is the
+    # parked record's anchor, else resolve_offset's tail-request rule.
     parked = (
         records[-1]
-        if records
-        and records[-1].get("status") == "awaiting_input"
-        and records[-1].get("message_id") == ids.get("message_id")
+        if is_parked(records) and records[-1].get("message_id") == ids.get("message_id")
         else None
     )
     if parked is not None:
-        offset = parked.get("messages_offset")
-        if not isinstance(offset, int):
-            offset = max(len(messages) - 1, 0)
+        offset = resolve_offset(parked.get("messages_offset"), messages)
         spec = (parked.get("clarify") or {}).get("spec")
         clarify = {"spec": spec, "answer": turn.user_text} if spec else None
         return parked.get("user_text"), offset, clarify, True
-    offset = (
-        len(messages) - 1
-        if messages and messages[-1].get("kind") == "request"
-        else len(messages)
-    )
-    return turn.user_text, offset, None, False
+    return turn.user_text, resolve_offset(None, messages), None, False
 
 
 def _resolve_edit_target(

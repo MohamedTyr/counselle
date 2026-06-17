@@ -237,8 +237,11 @@ def get_settings() -> Settings:
         raise RuntimeError("\n".join(lines)) from exc
 
 
-# NOTE: get_settings/load_prompt/load_yaml_asset caches are coupled — tests that clear
-# one must clear all three (load_* key only on `name`, not on assets_dir).
+# NOTE: get_settings/load_prompt/load_yaml_asset caches are coupled — the asset
+# loaders key on `name` only but read get_settings().assets_dir, so clearing one
+# without the others would serve stale assets after an assets_dir change. Always
+# clear them together via reset_config_caches() (audit L4); never call a single
+# .cache_clear() on these three.
 @lru_cache
 def load_prompt(name: str) -> str:
     """Load an agent prompt from ``config/assets/prompts/<name>.md`` (ADR 0018)."""
@@ -252,3 +255,12 @@ def load_yaml_asset(name: str) -> Any:
     path = get_settings().assets_dir / f"{name}.yaml"
     with path.open(encoding="utf-8") as handle:
         return yaml.safe_load(handle)
+
+
+def reset_config_caches() -> None:
+    """Clear all three coupled config caches together (the assets caches key on
+    ``name`` only but read ``get_settings().assets_dir`` — clearing one without the
+    others would serve stale assets after an assets_dir change; audit L4)."""
+    get_settings.cache_clear()
+    load_prompt.cache_clear()
+    load_yaml_asset.cache_clear()

@@ -131,9 +131,8 @@ def built_prompt() -> str:
     import app.prompt as prompt_mod
     import config.settings as cfg_mod
 
-    # Clear caches that are keyed on the prompt name / asset name
-    cfg_mod.load_prompt.cache_clear()
-    cfg_mod.load_yaml_asset.cache_clear()
+    # Clear the coupled config caches together (prompt/asset/settings — audit L4).
+    cfg_mod.reset_config_caches()
 
     # Also clear static_map cache
     import counselle_db.static_map as sm_mod

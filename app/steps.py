@@ -39,7 +39,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlparse
 
 from pydantic_ai.messages import (
@@ -122,11 +122,24 @@ class StepMapper:
 
     # -- call time --------------------------------------------------------
 
+    def _kind_for(self, tool_name: str) -> StepKind:
+        """The step kind for a tool: the labels-asset kind, else the db_tool default.
+
+        The single owner of the "unknown tool ⇒ db_tool" rule (audit L5) — the
+        ``("kind", "db_tool")`` default literal lives here and nowhere else.
+        """
+        row = self._tools.get(tool_name) or self._default
+        return cast("StepKind", row.get("kind", "db_tool"))
+
     def map_call(self, tool_name: str, args: dict[str, Any]) -> MappedStep:
+        # The label keeps its own row lookup (the _unknown marker rides the label
+        # path); the kind routes through _kind_for so the default lives once. The
+        # _unknown row is {**self._default, ...}, so its .get("kind", "db_tool")
+        # resolves identically to _kind_for(tool_name).
         row = self._tools.get(tool_name) or {**self._default, "_unknown": True}
         label_args = self._label_args(tool_name, args)
         label = str(row.get("label", "Working")).format_map(_SafeDict(label_args))
-        return MappedStep(kind=row.get("kind", "db_tool"), tier=row.get("tier"), label=label)
+        return MappedStep(kind=self._kind_for(tool_name), tier=row.get("tier"), label=label)
 
     def error_label(self, mapped: MappedStep, *, retry: bool) -> str:
         """The per-failure-class label for a step that ended in error."""
@@ -156,7 +169,7 @@ class StepMapper:
         construction, so no field is ever set behind validation's back (house
         immutability rule).
         """
-        kind: StepKind = (self._tools.get(tool_name) or self._default).get("kind", "db_tool")
+        kind: StepKind = self._kind_for(tool_name)
         kwargs: dict[str, Any] = {"duration_ms": duration_ms}
         if kind in ("web_search", "edu_search", "reddit_search"):
             kwargs["query"] = _str_or_none(args.get("query"))
@@ -241,7 +254,7 @@ class StepMapper:
         school unitids from ``args`` (the call), resolving each to its website
         domain → favicon. ``None`` (never ``[]``) so ``ev_step`` drops the field.
         """
-        kind: StepKind = (self._tools.get(tool_name) or self._default).get("kind", "db_tool")
+        kind: StepKind = self._kind_for(tool_name)
         if kind in ("web_search", "edu_search", "reddit_search"):
             return self._search_sources(kind, content)
         if kind in ("db_tool", "sql", "viz"):

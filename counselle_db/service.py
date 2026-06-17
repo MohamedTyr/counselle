@@ -74,18 +74,20 @@ _CANDIDATES_HINT = (
     "the student means, or ask them if it is genuinely ambiguous."
 )
 
-_SCHOOL_SQL = "SELECT unitid, name, city, state, control, level FROM schools WHERE unitid = $1"
-_SEARCH_SQL = (
-    "SELECT unitid, name, city, state, control, level FROM schools "
-    "WHERE name ILIKE '%' || $1 || '%' ORDER BY name LIMIT 10"
-)
+#: The SchoolBasics column list — the single source for every schools SELECT.
+#: Must match SchoolBasics.model_fields (the _school_basics builder, below).
+_SCHOOL_COLUMNS = "unitid, name, city, state, control, level"
+_SCHOOL_SELECT = f"SELECT {_SCHOOL_COLUMNS} FROM schools"
+
+_SCHOOL_SQL = f"{_SCHOOL_SELECT} WHERE unitid = $1"
+_SEARCH_SQL = f"{_SCHOOL_SELECT} WHERE name ILIKE '%' || $1 || '%' ORDER BY name LIMIT 10"
 # Trigram fallback when ILIKE finds nothing — catches punctuation/word-order
 # variants ("Alabama A&M" vs "Alabama A & M", "UNC Chapel Hill") so we never
 # falsely tell a student a school is not in the database (honesty carve-out).
 # pg_trgm similarity() handles whole-name closeness; word_similarity() handles
 # partial-name queries. Thresholds tuned against the live DB (Phase 7).
 _FUZZY_SEARCH_SQL = (
-    "SELECT unitid, name, city, state, control, level, "
+    f"SELECT {_SCHOOL_COLUMNS}, "
     "GREATEST(similarity(name, $1), word_similarity($1, name)) AS score "
     "FROM schools "
     "WHERE similarity(name, $1) >= 0.4 OR word_similarity($1, name) >= 0.7 "
@@ -410,8 +412,7 @@ async def compare_schools(
         raise ServiceError(f"compare 1–{_COMPARE_MAX_FIELDS} fields, got {len(field_keys)}")
     school_rows = await fetch(
         catalog.pool,
-        "SELECT unitid, name, city, state, control, level FROM schools"
-        " WHERE unitid = ANY($1::int[])",
+        f"{_SCHOOL_SELECT} WHERE unitid = ANY($1::int[])",
         unitids,
     )
     basics = {row["unitid"]: _school_basics(row) for row in school_rows}

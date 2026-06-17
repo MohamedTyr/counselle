@@ -9,9 +9,10 @@ The diff itself is a pure function (:func:`plan_reconcile`) so it unit-tests
 without a database; the DB I/O around it stays thin.
 """
 
+import asyncio
 import hashlib
 from collections.abc import Mapping, Sequence
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import asyncpg
 import structlog
@@ -136,6 +137,44 @@ async def _apply_plan(conn: asyncpg.Connection, plan: ReconcilePlan) -> None:
         )
     if plan.to_delete:
         await conn.execute(_DELETE_SQL, plan.to_delete)
+
+
+async def reconcile_once(
+    app_pool: asyncpg.Pool, on_result: Any = None, on_error: Any = None
+) -> None:
+    """One reconcile pass; never raises (keyword fallback serves when the index lags).
+
+    The optional callbacks let the API record health state: ``on_result(delta)``
+    on success, ``on_error(exc)`` on failure. With no ``on_error`` the failure is
+    logged here instead.
+
+    NOTE: single-writer by design (audit H4). The API process is the ONLY
+    reconcile owner; the MCP child reads the index, it doesn't maintain it. A
+    future multi-replica deploy needs a Postgres advisory lock around
+    ``_apply_plan`` (e.g. ``pg_try_advisory_lock``) — that is the coordination
+    seam where a second writer would otherwise race the upsert/delete.
+    """
+    try:
+        result = await reconcile_field_index(app_pool)
+        if on_result is not None:
+            on_result(result)
+    except Exception as exc:
+        if on_error is not None:
+            on_error(exc)
+        else:
+            logger.exception("field_index reconcile failed — keyword fallback serves")
+
+
+async def reconcile_forever(
+    app_pool: asyncpg.Pool,
+    interval_minutes: int,
+    on_result: Any = None,
+    on_error: Any = None,
+) -> None:
+    """Periodic reconcile (ADR 0008) — the one loop body (audit H4)."""
+    while True:
+        await asyncio.sleep(interval_minutes * 60)
+        await reconcile_once(app_pool, on_result, on_error)
 
 
 async def main_once() -> dict[str, int]:

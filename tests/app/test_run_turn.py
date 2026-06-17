@@ -769,6 +769,146 @@ async def test_error_turn_without_prose_appends_no_partial_response() -> None:
     assert all(m["kind"] == "request" for m in values["messages"])
 
 
+# ---------------------------------------------------------------------------
+# (j) H1 / M3: _write_failure_record fallback restore + _prepare_turn_input
+#     (direct unit tests over the real signatures, with a fake graph)
+# ---------------------------------------------------------------------------
+
+
+class _CapturingGraph:
+    """Captures the aupdate_state payload; returns a fixed snapshot from
+    aget_state. Duck-types the two graph calls _write_failure_record makes."""
+
+    def __init__(self, snapshot_values: dict[str, Any]) -> None:
+        self._snapshot_values = snapshot_values
+        self.updates: list[dict[str, Any]] = []
+
+    async def aget_state(self, config: Any, *args: Any, **kwargs: Any) -> Any:
+        class _Snap:
+            values = self._snapshot_values
+
+        return _Snap()
+
+    async def aupdate_state(self, config: Any, values: Any = None, *a: Any, **k: Any) -> Any:
+        self.updates.append(values)
+        return None
+
+
+async def test_write_failure_record_fallback_restore_writes_messages() -> None:
+    """The fallback-restore equivalence subtlety (audit H1): when the input
+    checkpoint never landed (fallback_messages LONGER than the snapshot's
+    messages) AND no prose streamed, build_terminal_update appends nothing — yet
+    the restored messages MUST still be persisted (update.setdefault fired). The
+    aupdate_state payload carries the restored "messages" key regardless."""
+    from app.run_turn import _write_failure_record
+
+    # Snapshot is EMPTY (the user-message checkpoint never landed); the fallback
+    # carries the turn's input (one user request) — longer than the snapshot.
+    fallback = _serialized_user_message_for_test("tell me about duke")
+    graph = _CapturingGraph({"messages": [], "turn_records": []})
+
+    await _write_failure_record(
+        graph,
+        {"configurable": {"thread_id": "s-restore"}},
+        emissions=[],  # NO prose streamed → empty-partial rule appends nothing
+        ids={"message_id": "m-1", "user_message_id": "u-1"},
+        user_text="tell me about duke",
+        trace_id="t-1",
+        messages_offset=None,
+        fallback_messages=fallback,
+        registry_dump=[],
+    )
+
+    assert len(graph.updates) == 1
+    payload = graph.updates[0]
+    # The error record was written…
+    assert payload["turn_records"][-1]["status"] == "error"
+    # …AND despite no partial append, the restored messages were persisted.
+    assert "messages" in payload, "fallback restore must persist messages even with no partial"
+    assert payload["messages"] == fallback
+
+
+def _serialized_user_message_for_test(text: str) -> list[dict[str, Any]]:
+    from pydantic_ai.messages import ModelMessagesTypeAdapter, UserPromptPart
+
+    req = ModelRequest(parts=[UserPromptPart(content=text)])
+    return list(ModelMessagesTypeAdapter.dump_python([req], mode="json"))
+
+
+async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None:
+    """_prepare_turn_input (audit M3) yields a resume Command(resume=…) graph
+    input when the prior records show a parked (awaiting_input) tail and reuses
+    the parked message_id's offset; it yields a new-turn dict input when not
+    parked."""
+    from langgraph.types import Command
+
+    from app.run_turn import _prepare_turn_input, _ResumePrewriteError
+    from app.turn_persistence import parked_record
+
+    rig = Rig(_fn_model(_clarify_then_answer))
+
+    # --- parked branch: a parked record at the tail → resume Command ---
+    parked_rec: dict[str, Any] = {
+        "message_id": "m-parked",
+        "user_message_id": "u-0",
+        "status": "awaiting_input",
+        "user_text": "Is NYU good?",
+        "messages_offset": 3,
+    }
+    parked_records: list[dict[str, Any]] = [parked_rec]
+
+    class _Snap:
+        values: dict[str, Any] = {
+            "messages": [{"kind": "request"}],
+            "turn_records": parked_records,
+        }
+
+    parked = parked_record(parked_records)
+    assert parked is not None
+    turn_ids = {"message_id": "m-parked", "user_message_id": "u-1"}
+    resume_input = await _prepare_turn_input(
+        rig.graph,
+        rig.deps,
+        rig.settings,
+        session_id="prep-resume",
+        user_text="cost",
+        source_config=_ALL_OFF,
+        snapshot=_Snap(),
+        parked=parked,
+        turn_ids=turn_ids,
+    )
+    assert isinstance(resume_input.graph_input, Command)
+    # The answer rides Command(resume=…), never the messages list.
+    assert resume_input.graph_input.resume == "cost"
+    # The parked record's offset is carried forward (the original question index).
+    assert resume_input.messages_offset == 3
+
+    # --- new-turn branch: no parked record → a new-turn dict input ---
+    class _SnapNew:
+        values = {"messages": [{"kind": "response"}], "turn_records": []}
+
+    new_input = await _prepare_turn_input(
+        rig.graph,
+        rig.deps,
+        rig.settings,
+        session_id="prep-new",
+        user_text="hi",
+        source_config=_ALL_OFF,
+        snapshot=_SnapNew(),
+        parked=None,
+        turn_ids={"message_id": "m-new", "user_message_id": "u-new"},
+    )
+    assert not isinstance(new_input.graph_input, Command)
+    assert isinstance(new_input.graph_input, dict)
+    # The new turn appends the serialized user ModelRequest to the prior messages.
+    assert new_input.graph_input["messages"][-1]["kind"] == "request"
+    assert new_input.messages_offset == 1  # appended after the one prior message
+
+    # Reference the imported sentinel so the import is not flagged as unused; it
+    # is the BC-11 raise path exercised by test_turn_persistence's integration test.
+    assert issubclass(_ResumePrewriteError, Exception)
+
+
 async def test_record_state_carries_no_secrets() -> None:
     """Receipts-no-secrets sweep over the persisted record: nothing from the
     settings/credentials surface may reach the checkpointed turn record."""
