@@ -47,37 +47,7 @@ function persist(): void {
   saveToStorage(chats);
 }
 
-// ── Read ─────────────────────────────────────────────────────────────────────
-
-export function listChats(): ChatRecord[] {
-  return [...chats];
-}
-
-export function getChat(conversationId: string): ChatRecord | undefined {
-  return chats.find((c) => c.conversationId === conversationId);
-}
-
 // ── Write (immutable-update style) ───────────────────────────────────────────
-
-export function renameChat(conversationId: string, newTitle: string): ChatRecord {
-  const idx = chats.findIndex((c) => c.conversationId === conversationId);
-  if (idx === -1) {
-    throw new Error(`Chat ${conversationId} not found`);
-  }
-  const updated: ChatRecord = {
-    ...chats[idx],
-    title: newTitle.trim() || 'Untitled',
-    updatedAt: new Date().toISOString(),
-  };
-  chats = [...chats.slice(0, idx), updated, ...chats.slice(idx + 1)];
-  persist();
-  return updated;
-}
-
-export function deleteChat(conversationId: string): void {
-  chats = chats.filter((c) => c.conversationId !== conversationId);
-  persist();
-}
 
 export function createChat(title: string): ChatRecord {
   const now = new Date().toISOString();
@@ -91,9 +61,4 @@ export function createChat(title: string): ChatRecord {
   chats = [newChat, ...chats];
   persist();
   return newChat;
-}
-
-export function clearAllChats(): void {
-  chats = [];
-  persist();
 }

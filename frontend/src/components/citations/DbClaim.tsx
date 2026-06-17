@@ -19,22 +19,17 @@ import type { ReactNode } from 'react';
 import * as HoverCard from '@radix-ui/react-hover-card';
 import { cn } from '@librechat/client/utils';
 import CounselleMark from '@/components/citations/CounselleMark';
-import { useRevealDb, type HighlightStyle } from '@/components/citations/RevealDbContext';
+import { useRevealState } from '@/components/citations/RevealStateContext';
 import { useSources } from '@/components/citations/SourcesContext';
 import { isDbSource } from '@/components/citations/sourceName';
 
-function highlightClass(style: HighlightStyle): string {
-  const wash =
-    'rounded-[0.3em] bg-[color-mix(in_oklab,var(--brand-purple)_14%,transparent)] ' +
-    '[box-decoration-break:clone] [-webkit-box-decoration-break:clone] ' +
-    'px-[0.18em] py-[0.04em] -mx-[0.04em]';
-  const underline =
-    '[text-decoration-line:underline] [text-decoration-thickness:2px] [text-underline-offset:3px] ' +
-    '[text-decoration-color:color-mix(in_oklab,var(--brand-purple)_60%,transparent)]';
-  if (style === 'wash') return wash;
-  if (style === 'underline') return underline;
-  return `${wash} ${underline}`;
-}
+// Production locks the 'wash' treatment (FE-CITATIONS-CONTEXT-SPRAWL — the
+// preview-only style switch is gone, so RevealDbContext collapsed into
+// RevealStateContext). The calm brand wash that lights a verified DB clause.
+const WASH_CLASS =
+  'rounded-[0.3em] bg-[color-mix(in_oklab,var(--brand-purple)_14%,transparent)] ' +
+  '[box-decoration-break:clone] [-webkit-box-decoration-break:clone] ' +
+  'px-[0.18em] py-[0.04em] -mx-[0.04em]';
 
 export default function DbClaim({
   children,
@@ -44,7 +39,7 @@ export default function DbClaim({
   // react-markdown forwards hProperties.index as string | number; coerce below.
   index?: string | number;
 }) {
-  const { revealed, style } = useRevealDb();
+  const { revealed } = useRevealState();
   const sources = useSources();
 
   // Honesty gate: light up only a streamed DB source, and only when revealed.
@@ -70,7 +65,7 @@ export default function DbClaim({
       aria-label="From Counselle's verified data"
       className={cn(
         'transition-[background-color,text-decoration-color] duration-200 ease-out motion-reduce:transition-none',
-        highlightClass(style),
+        WASH_CLASS,
         'cursor-default rounded-[0.3em] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-purple)]',
       )}
     >

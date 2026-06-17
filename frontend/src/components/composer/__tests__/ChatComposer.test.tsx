@@ -13,6 +13,8 @@
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { ChatFormProvider } from '~/Providers';
 
@@ -26,6 +28,7 @@ const ctx = {
 };
 vi.mock('@/app/ChatContext', () => ({
   useChatContext: () => ctx,
+  sourceConfigKey: (sessionId: string) => ['sourceConfig', sessionId],
 }));
 
 // useAutoSave is the ported draft-restore hook; its debounce/localStorage churn
@@ -38,10 +41,13 @@ import ChatComposer from '@/components/composer/ChatComposer';
 
 function Harness() {
   const methods = useForm<{ text: string }>({ defaultValues: { text: '' } });
+  const [client] = useState(() => new QueryClient());
   return (
-    <ChatFormProvider {...methods}>
-      <ChatComposer />
-    </ChatFormProvider>
+    <QueryClientProvider client={client}>
+      <ChatFormProvider {...methods}>
+        <ChatComposer />
+      </ChatFormProvider>
+    </QueryClientProvider>
   );
 }
 

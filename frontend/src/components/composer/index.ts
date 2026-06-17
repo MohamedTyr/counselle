@@ -9,4 +9,4 @@ import './composer.css';
 export { CounselleComposer } from './CounselleComposer';
 export type { CounselleComposerProps } from './CounselleComposer';
 export type { SourceId } from './SourcesControl';
-export type { SourceConfig } from '@/api/mock/sourceStore';
+export type { SourceConfig } from '@/api/sourceConfigStore';

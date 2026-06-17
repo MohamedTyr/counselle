@@ -9,7 +9,7 @@
  * nothing on the wire ever sees `webSearch`. ChatContext builds the wire body
  * via `toWire` right at the `sendMessage`/`createSession` call.
  */
-import { SUBREDDITS, type SourceConfig, type Subreddit } from './mock/sourceStore';
+import { SUBREDDITS, type SourceConfig, type Subreddit } from './sourceConfigStore';
 
 /** The wire shape — backend names (`domain/specs.py SourceConfig`). */
 export type SourceConfigWire = {

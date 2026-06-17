@@ -3,8 +3,9 @@
  * reveal flag.
  *
  * `MessageRender` owns the flag as plain React state and shares it, via this
- * context, with BOTH its message body (→ MessageContent → RevealDbProvider) and
- * its action-row SubRow (→ RevealDbToggle). A `setState` re-renders MessageRender
+ * context, with BOTH its message body (→ MessageContent → DbClaim, which reads
+ * `revealed` here directly) and its action-row SubRow (→ RevealDbToggle). A
+ * `setState` re-renders MessageRender
  * from the inside, so the prop-only `areMessageRenderPropsEqual` memo never gets
  * in the way — no Jotai, no per-message atom accumulation.
  *

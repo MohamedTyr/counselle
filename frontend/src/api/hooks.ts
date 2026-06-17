@@ -15,7 +15,7 @@ import {
 import { fetchConfig, type ConfigData } from './http/config';
 import { setFeedback, type WireRating } from './http/feedback';
 import { fromWire } from './source-config';
-import { setDefaultSourceConfig } from './mock/sourceStore';
+import { setDefaultSourceConfig } from './sourceConfigStore';
 
 export const QueryKeys = {
   chats: 'chats' as const,

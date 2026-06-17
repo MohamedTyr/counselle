@@ -4,10 +4,75 @@ Cloned from **danny-avila/LibreChat** (MIT — see `LICENSE` in this directory).
 
 - **Pinned commit:** `197a1dc4e263a7925f8e86a2a691ac4d7aa31829`
 - **Vendored:** 2026-06-11
-- Re-syncs are deliberate tasks against this commit. Never restyle a file in
-  `vendor/` — every change here is a *subtraction* (feature MVP2 doesn't have)
-  or a *props rewire*, recorded below. Tailwind classes and JSX structure stay
-  byte-identical.
+- Never restyle a file in `vendor/` — every change here is a *subtraction*
+  (feature MVP2 doesn't have) or a *props rewire*, recorded below. Tailwind
+  classes and JSX structure stay byte-identical.
+
+## Ownership status (FORK, not a re-pullable mirror)
+
+This tree began as a verbatim vendoring of danny-avila/LibreChat at
+`197a1dc4` (MIT). It is **no longer a clean mirror** — it is an **adapted,
+owned fork**. 30 files under `vendor/` import Counselle code (`@/...`) and
+carry hand-written `Subtractions / rewires` headers. A wholesale upstream
+re-pull is therefore NOT a cheap operation and is explicitly out of scope:
+re-syncing would require re-applying every rewire below by hand.
+
+Treat these files as **Counselle-owned code that happens to descend from
+LibreChat**: review them, test them, and refactor them like our own. The
+`197a1dc4` pin records provenance and the MIT license obligation — it is not a
+promise of upgradeability. If a future upstream feature is wanted, cherry-pick
+that file deliberately; do not attempt a tree-wide resync.
+
+### Files coupled to Counselle code (`@/...` imports)
+
+Generated from `grep -rln "from '@/" src/vendor --include=*.ts --include=*.tsx`
+(30 files, the authoritative coupling surface), grouped by the `@/` symbol they
+depend on.
+
+**`@/app/ChatContext` (the chat turn loop + `ChatMessage`/`AskProps` types):**
+- `app/common/index.ts` (type-only — repointed to `@/api/projectTranscript`)
+- `app/components/Chat/Messages/Content/MessageContent.tsx`
+- `app/components/Chat/Messages/Content/Container.tsx`
+- `app/components/Chat/Messages/ui/MessageRender.tsx`
+- `app/components/Chat/Messages/Message.tsx`
+- `app/components/Chat/Messages/MessagesView.tsx`
+- `app/components/Chat/Messages/HoverButtons.tsx`
+- `app/components/Chat/Landing.tsx`
+- `app/components/Chat/Input/ConversationStarters.tsx`
+- `app/components/Chat/Messages/Content/markdownConfig.ts`
+- `app/hooks/Input/useTextarea.ts`
+- `app/hooks/Messages/useMessageActions.tsx`
+- `app/hooks/Messages/useMessageActions.test.tsx`
+- `app/components/Conversations/Convo.tsx`
+- `app/components/Conversations/ConvoOptions/ConvoOptions.tsx`
+
+**`@/app/state` (jotai atoms — active conversation / panel / prefs):**
+- `app/components/Chat/Footer.tsx`
+- `app/components/Chat/Menus/OpenSidebar.tsx`
+- `app/components/UnifiedSidebar/UnifiedSidebar.tsx`
+- `app/components/UnifiedSidebar/ExpandedPanel.tsx`
+- `app/components/UnifiedSidebar/ConversationsSection.tsx`
+- `app/routes/Root.tsx`
+- (also read by several ChatContext-coupled files above)
+
+**`@/api/hooks` (TanStack Query over `/v1`):**
+- `app/components/UnifiedSidebar/ConversationsSection.tsx`
+- `app/components/Nav/SettingsTabs/Data/ClearChats.tsx`
+- (also used by several files above)
+
+**`@/app/auth` + `@/api/http/auth` (the real cookie-JWT auth path):**
+- `app/components/Auth/LoginForm.tsx`
+- `app/components/Auth/Registration.tsx`
+- `app/components/Auth/SocialLoginRender.tsx`
+- `app/components/Nav/AccountSettings.tsx`
+- `app/components/Nav/SettingsTabs/Account/Account.tsx`
+- `app/components/Nav/SettingsTabs/Account/DeleteAccount.tsx`
+- `app/components/Nav/SettingsTabs/General/General.tsx`
+- `app/routes/Layouts/Startup.tsx`
+
+**Citation / timeline / clarify / composer honesty surfaces:**
+- (single-import wires from the message-render files above into
+  `@/components/{citations,cards,timeline,clarify,composer}`)
 
 ## Directory map
 
@@ -66,7 +131,7 @@ Sibling files copied verbatim from upstream `client/`:
 | `components/Chat/Input/StopButton.tsx` | `client/src/components/Chat/Input/StopButton.tsx` | verbatim |
 | `components/Chat/Input/CollapseChat.tsx` | `client/src/components/Chat/Input/CollapseChat.tsx` | verbatim |
 | `components/Chat/Input/ConversationStarters.tsx` | `client/src/components/Chat/Input/ConversationStarters.tsx` | adapted (see below); B5c: starters from `GET /v1/config` (async) |
-| `components/Chat/Input/ChatForm.tsx` | `client/src/components/Chat/Input/ChatForm.tsx` | stripped + rewired (see below) |
+| `components/Chat/Input/ChatForm.tsx` | `client/src/components/Chat/Input/ChatForm.tsx` | **deleted** (Phase 5 / FE-DEAD-CHATFORM): `ChatComposer` mounts in its place — `ChatForm.tsx` was an unimported dead parallel copy |
 | `components/Chat/Landing.tsx` | `client/src/components/Chat/Landing.tsx` | stripped + rewired (see below); B5c: greeting/season_note from `GET /v1/config` (async + loading fade) |
 | `components/Chat/Header.tsx` | `client/src/components/Chat/Header.tsx` | stripped (see below) |
 | `components/Chat/Footer.tsx` | `client/src/components/Chat/Footer.tsx` | stripped: GTM/markdown/config links out; static `APP_FOOTER` constant (B5c: not served by `/v1/config`); container classes + separator byte-identical |
@@ -95,6 +160,9 @@ Sibling files copied verbatim from upstream `client/`:
   trigger re-styled with upstream AttachFileMenu's trigger classes (it had
   copied the Send button's filled circle); removed the Ariakit-only
   `.popover-ui` class that kept the Radix popover at `display:none`.
+  (Phase 5 / FE-DEAD-CHATFORM: this file was **deleted** as a cascade —
+  `ChatForm.tsx` was its only importer; the active composer renders
+  `CounselleComposer`, which has its own source-control UI.)
 
 ### Subtractions per file
 
@@ -153,9 +221,9 @@ Sibling files copied verbatim from upstream `client/`:
 
 | File | Description |
 |---|---|
-| `src/components/source-control/SourceDropdown.tsx` | Radix Popover — Database (fixed on), Web/edu/Reddit toggles, Reddit subreddit checkboxes; per-conversation persistence in `localStorage` at `counselle:sourceConfig:<conversationId>` |
+| `src/components/source-control/SourceDropdown.tsx` | **deleted** (Phase 5 / FE-DEAD-CHATFORM): dead after `ChatForm.tsx` removal — the live composer is `CounselleComposer` with its own source UI |
 | `src/api/mock/fixtures/config.ts` | `APP_CONFIG`: greeting, season_note, 4 conversation_starters |
-| `src/api/mock/sourceStore.ts` | `getSourceConfig` / `updateSourceConfig` — typed source config store with defaults |
+| `src/api/sourceConfigStore.ts` | `getSourceConfig` / `updateSourceConfig` — production source-config client store (Phase 5 / FE-MOCK-MISLABEL: moved out of `api/mock/`) |
 
 ## app/ — FE-3 (messages & streaming)
 
@@ -216,8 +284,7 @@ Sibling files copied verbatim from upstream `client/`:
 | `src/api/transport.ts` | The Transport seam (sendMessage/attach/cancel/transcript) — FE-7 swaps MockTransport for HTTP without touching anything above |
 | `src/api/mock/transport.ts` | MockTransport: fixture replay with latency theater, cancel → done(cancelled), attach replays the in-memory ring |
 | `src/api/mock/fixtures/turns/` | dossier / simple / error / cancelled event fixtures (§27 schemas verbatim) + `deltas()` chunker |
-| `src/api/mock/messagesStore.ts` | Per-chat persisted transcripts (localStorage, version-gated); truncateFrom (PRD decision 4), updateEntryText |
-| `src/api/mock/feedbackStore.ts` | Thumbs feedback persistence (PRD decision 10) |
+| `src/api/mock/messagesStore.ts` | Per-chat persisted transcripts (localStorage, version-gated) for the `VITE_TRANSPORT=mock` contract harness. Phase 5 / FE-DEADCODE-MOCK trimmed it to `getTranscript` (+ `checkVersion`) — the write helpers (`appendEntry`/`truncateFrom`/`updateEntryText`/`deleteTranscript`/`clearAllTranscripts`) were dead and removed |
 | `src/app/useQuestionAnchoredScroll.ts` | Question-anchored scrolling (PRD decision 8): sent question pins to top (spacer grows so short chats can anchor), no bottom-chasing, ↓ pill via their ScrollToBottom |
 | `src/components/viz/VizPlaceholder.tsx` | FE-3 labeled card for in-stream viz blocks (FE-4 renders them properly) |
 
@@ -229,16 +296,18 @@ semantic pairs. Vendor-file deltas (each marked `FE-4:` inline):
 
 | File | Change |
 |---|---|
-| `components/Chat/Messages/Content/MessageContent.tsx` | ReasoningTrace above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn). **B5d:** ClarifyWidget gains `answer={message.clarifyAnswer}` (frozen widget seeds from the persisted answer). **feat/message-ui-polish:** the collapsed sources affordance moved OUT of the prose body into the action row (now `MessageSources` in `MessageRender`) — `SourcesFooter` removed; the dead-air cover folded into ReasoningTrace's header (`ThinkingShimmer` removed). The assistant answer region is wrapped in `AnswerContexts` (`DejargonProvider` + `CitationActivateProvider` + `RevealDbProvider` locked to the `'wash'` style); user bubbles pass through with none. `revealed` flows in from `MessageRender`'s `RevealStateContext`; an inline pill's `activate` opens the sources panel jumped to that source (`cited`/`dbSchools` shared with `MessageSources`) |
+| `components/Chat/Messages/Content/MessageContent.tsx` | ReasoningTrace above the prose; SourcesContext.Provider around the assistant body (inline `[n]` chips resolve); VizPlaceholder → VizCard; ClarifyWidget (frozen unless the live awaiting turn). **B5d:** ClarifyWidget gains `answer={message.clarifyAnswer}` (frozen widget seeds from the persisted answer). **feat/message-ui-polish:** the collapsed sources affordance moved OUT of the prose body into the action row (now `MessageSources` in `MessageRender`) — `SourcesFooter` removed; the dead-air cover folded into ReasoningTrace's header (`ThinkingShimmer` removed). The assistant answer region is wrapped in `AnswerContexts` (`DejargonProvider` + `CitationActivateProvider`); user bubbles pass through with none. `DbClaim` reads `revealed` directly from `MessageRender`'s `RevealStateContext` and locks the `'wash'` highlight (Phase 5 / FE-CITATIONS-CONTEXT-SPRAWL collapsed the former `RevealDbContext`); an inline pill's `activate` opens the sources panel jumped to that source (`cited`/`dbSchools` shared with `MessageSources`) |
 | `components/Chat/Messages/ui/MessageRender.tsx` | **feat/message-ui-polish:** owns per-message reveal state (`useState` → `RevealStateProvider` around both user and assistant turns, since the shared MessageContent path calls `useRevealState()` unconditionally). The action row (assistant only) renders `RevealDbToggle` — gated on `dbIndicesForMessage(msg).size > 0` (no DB-cited clauses → no toggle) — beside `MessageSources` in the `SubRow` |
 | `components/Chat/Messages/Content/markdownConfig.ts` | + `remarkCitations` remark plugin → `'citation-ref': InlineCitationMarkdown` (a DB-sourced figure renders nothing inline; an external claim renders a named `SourcePill` — the old numbered `CitationRefMarkdown`/`TierChip` chip is gone); + `remarkDbSpans` (runs AFTER `remarkCitations`, keying off its `citationRef` nodes to wrap DB-cited clauses) → `'db-claim': DbClaim` (the truthful reveal) |
 | `hooks/Input/useTextarea.ts` | placeholder swaps to "Pick one, or just type…" while a clarify is open (`awaitingClarify` from ChatContext) |
 
 ## app/ — FE-5A (auth)
 
-Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
+Mock auth (PRD stories 1–7): originally no backend — `src/api/mock/authStore.ts`
 (localStorage `counselle:mock:auth`) + jotai `sessionUserAtom`
-(`src/app/auth.ts`). Login/register accept anything and succeed instantly.
+(`src/app/auth.ts`). Login/register accepted anything and succeeded instantly.
+**Superseded by B5b's real cookie-JWT path; `authStore.ts` was deleted in
+Phase 5 / FE-DEADCODE-MOCK (zero production importers).**
 
 ### Vendored verbatim (byte-identical)
 
@@ -280,7 +349,7 @@ Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
 
 | File | Description |
 |---|---|
-| `src/api/mock/authStore.ts` | `MockUser` + `getSessionUser`/`login`/`register`/`loginWithGoogle`/`logout`/`updateUser`/`deleteAccount` (clears all `counselle:mock:*` keys) |
+| `src/api/mock/authStore.ts` | **deleted** (Phase 5 / FE-DEADCODE-MOCK): superseded by B5b's real `/v1/me` auth; had zero production importers |
 | `src/app/auth.ts` | jotai `sessionUserAtom` (hydrated from the store) + `useAuthUser()` |
 | `src/api/mock/fixtures/auth.ts` | `startupConfigFixture` — the minimal fields the vendored Auth components read |
 
@@ -385,8 +454,7 @@ Mock auth (PRD stories 1–7): no backend — `src/api/mock/authStore.ts`
 | File | Description |
 |---|---|
 | `src/components/source-control/DefaultSources.tsx` | "Default sources" settings rows — Database fixed on, Web/.edu/Reddit toggles via the vendored ToggleSwitch; writes `counselle:sourceDefaults` |
-| `src/api/mock/sourceStore.ts` | + `getDefaultSourceConfig()` / `setDefaultSourceConfig()`; `getSourceConfig` for a chat with no stored config now falls back to the user defaults instead of the hardcoded constant |
-| `src/api/mock/messagesStore.ts` | + `clearAllTranscripts()` |
+| `src/api/sourceConfigStore.ts` | + `getDefaultSourceConfig()` / `setDefaultSourceConfig()`; `getSourceConfig` for a chat with no stored config now falls back to the user defaults instead of the hardcoded constant (Phase 5 / FE-MOCK-MISLABEL moved this file out of `api/mock/`) |
 
 ## app/ — B5b (real auth + account surface)
 
@@ -450,8 +518,7 @@ file imports them.
 | `src/api/appFooter.ts` (new) | the static `APP_FOOTER` brand copy (replaces the deleted `mock/fixtures/config.ts`) |
 | `src/api/hooks.ts` | `useChatsQuery`/rename/delete now real (`http/sessions`); `useUpdateFeedbackMutation` real (`http/feedback`, `thumbsUp↔up` map); `useConfigQuery` new (seeds default source config via `setDefaultSourceConfig(fromWire(...))` on success); `useCreateChatMutation` **removed** (dead — the new-chat flow goes through `ChatContext.transport.createSession`); `+ QueryKeys.config` |
 | `src/api/transport.ts` | `SendMessageBody.source_config` + `CreatedSession.source_config` + `createSession()` tightened to `SourceConfigWire`; `transcript()` now returns `SessionTranscript` (`{entries, sourceConfig}`) so chat-open seeds the dropdown |
-| `src/api/mock/sourceStore.ts` | `SUBREDDITS` corrected (C3) to the concrete yaml menu (`ApplyingToCollege, chanceme, financialaid, premed, csMajors`; `{school}` excluded) |
+| `src/api/sourceConfigStore.ts` | `SUBREDDITS` corrected (C3) to the concrete yaml menu (`ApplyingToCollege, chanceme, financialaid, premed, csMajors`; `{school}` excluded). Phase 5 / FE-MOCK-MISLABEL moved this file out of `api/mock/` |
 | `src/api/types.ts` | `ChatSummary` gains `isGenerating: boolean` |
-| `src/app/ChatContext.tsx` | every `sendMessage` carries `source_config: toWire(getSourceConfig(convoId))`; `createSession` passes the default config; chat-open seeds the dropdown via `updateSourceConfig(convoId, fromWire(serverConfig))` |
-| `src/components/source-control/SourceDropdown.tsx` | re-reads `getSourceConfig` on popover open (picks up the server-seeded config written at chat open) |
+| `src/app/ChatContext.tsx` | every `sendMessage` carries `source_config: toWire(...)`; `createSession` passes the default config; chat-open seeds the dropdown from server truth. (Phase 5 / FE-SOURCECFG-DUAL: the per-session source config now lives in the React Query cache keyed `['sourceConfig', sessionId]`, seeded from the transcript fetch — `loadTranscript` no longer writes localStorage, and the composer reads the cache reactively instead of imperative re-reads) |
 | `src/api/mock/fixtures/config.ts` | **deleted** (config now from `/v1/config`; footer moved to `appFooter.ts`) |

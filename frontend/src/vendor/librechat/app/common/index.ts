@@ -1,7 +1,10 @@
 // ~/common — shared types used by vendored sidebar components.
 import type { ComponentType, MouseEventHandler, RefObject, Dispatch, SetStateAction } from 'react';
 import type { TStartupConfig } from 'librechat-data-provider';
-import type { ChatMessage, AskProps } from '@/app/ChatContext';
+// FE-COUPLING (Phase 5): point at the PURE projection module, not the provider
+// — these are pure types; depending on @/app/ChatContext pulled the whole
+// streaming provider into a vendored types file.
+import type { ChatMessage, AskProps } from '@/api/projectTranscript';
 // (TranslationKeys imported below in the FE-5 settings-types section)
 
 // ── FE-5A: auth layout outlet context — upstream common/types.ts:600,

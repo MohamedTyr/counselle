@@ -3,14 +3,13 @@ import { ThemeSelector } from '@librechat/client';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Clipboard, RefreshCw, ThumbsDown, ThumbsUp } from 'lucide-react';
-import { cn } from '@librechat/client/utils';
 import type { RenderSpec, SourceEntry, CitationEnvelope } from '@/api/protocol';
 import { useIsDesktop } from '@/app/useMediaQuery';
 import VizCard from '@/components/cards/VizCard';
 import { DejargonProvider } from '@/components/citations/dejargon';
 import { CitationActivateProvider } from '@/components/citations/CitationActivateContext';
 import RevealDbToggle from '@/components/citations/RevealDbToggle';
-import { RevealDbProvider, type HighlightStyle } from '@/components/citations/RevealDbContext';
+import { RevealStateProvider } from '@/components/citations/RevealStateContext';
 import SourcesStrip from '@/components/citations/SourcesStrip';
 import { SourcesPanel, SourcesSheet } from '@/components/citations/SourcesPanel';
 import { displaySourceCount } from '@/components/citations/SourcesList';
@@ -255,51 +254,10 @@ function AnswerBody({ sourcesSlot }: { sourcesSlot: ReactNode }) {
   );
 }
 
-// Preview-only knob: compare the three highlight treatments from real pixels.
-// Production locks one and drops this control.
-const STYLE_OPTIONS: { value: HighlightStyle; label: string }[] = [
-  { value: 'wash', label: 'Wash' },
-  { value: 'underline', label: 'Underline' },
-  { value: 'both', label: 'Wash + underline' },
-];
-
-function StylePicker({
-  value,
-  onChange,
-}: {
-  value: HighlightStyle;
-  onChange: (next: HighlightStyle) => void;
-}) {
-  return (
-    <div className="inline-flex items-center gap-2 text-[12px] text-text-tertiary">
-      <span className="uppercase tracking-[0.08em]">Highlight style</span>
-      <div className="inline-flex rounded-lg border border-border-light p-0.5">
-        {STYLE_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            aria-pressed={value === opt.value}
-            className={cn(
-              'rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors',
-              value === opt.value
-                ? 'bg-surface-hover text-text-primary'
-                : 'text-text-tertiary hover:text-text-secondary',
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function MessagePreview(): ReactNode {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const [highlightStyle, setHighlightStyle] = useState<HighlightStyle>('wash');
   const isDesktop = useIsDesktop();
   const close = () => setOpen(false);
 
@@ -325,7 +283,7 @@ export default function MessagePreview(): ReactNode {
   return (
     <DejargonProvider value={true}>
       <CitationActivateProvider value={activate}>
-        <RevealDbProvider value={{ revealed, style: highlightStyle }}>
+        <RevealStateProvider value={{ revealed, setRevealed }}>
           <div className="relative min-h-dvh w-full bg-surface-primary text-text-primary">
             <div className="mx-auto flex max-w-3xl flex-col gap-8 p-8">
               <header className="flex items-center justify-between">
@@ -346,7 +304,6 @@ export default function MessagePreview(): ReactNode {
                   number, no chip, no dataset name. Outside pages (a school&rsquo;s site, a
                   publication, a Reddit thread) still wear a named pill.
                 </p>
-                <StylePicker value={highlightStyle} onChange={setHighlightStyle} />
               </div>
 
               <div className="md:max-w-[47rem]">
@@ -392,7 +349,7 @@ export default function MessagePreview(): ReactNode {
             />
           )}
           </div>
-        </RevealDbProvider>
+        </RevealStateProvider>
       </CitationActivateProvider>
     </DejargonProvider>
   );

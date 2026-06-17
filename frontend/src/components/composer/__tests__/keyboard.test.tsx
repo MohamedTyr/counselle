@@ -11,7 +11,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CounselleComposer } from '@/components/composer/CounselleComposer';
-import { SUBREDDITS } from '@/api/mock/sourceStore';
+import { SUBREDDITS } from '@/api/sourceConfigStore';
 
 function renderComposer(over: Partial<React.ComponentProps<typeof CounselleComposer>> = {}) {
   const onSend = vi.fn();

@@ -10,7 +10,7 @@
  */
 import { useCallback, useState } from 'react';
 import ToggleSwitch from '~/components/Nav/SettingsTabs/ToggleSwitch';
-import { getDefaultSourceConfig, type SourceConfig } from '@/api/mock/sourceStore';
+import { getDefaultSourceConfig, type SourceConfig } from '@/api/sourceConfigStore';
 import { usePersistDefaultSources } from '@/app/settingsSync';
 
 export default function DefaultSources() {

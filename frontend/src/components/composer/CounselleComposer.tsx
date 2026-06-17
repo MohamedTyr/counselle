@@ -15,7 +15,7 @@ import React from 'react';
 import { ArrowUp, Paperclip, Square, StopCircle, Mic, BrainCog } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@librechat/client/utils';
-import type { SourceConfig } from '@/api/mock/sourceStore';
+import type { SourceConfig } from '@/api/sourceConfigStore';
 import { SourcesControl, type SourceId } from './SourcesControl';
 import { Button } from './primitives';
 import {
@@ -54,7 +54,6 @@ export interface CounselleComposerProps {
   active: Set<SourceId>; // controlled sources
   subs: string[]; // controlled subreddits (r/-prefixed)
   onSourcesChange: (patch: Partial<SourceConfig>) => void;
-  onSourcesReread?: () => void; // fired when the popover opens
 }
 export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, CounselleComposerProps>(
   function CounselleComposer(props, ref) {
@@ -70,7 +69,6 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
       active,
       subs,
       onSourcesChange,
-      onSourcesReread,
     } = props;
     const [files, setFiles] = React.useState<File[]>([]);
     const [filePreview, setFilePreview] = React.useState<string | null>(null);
@@ -234,10 +232,7 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
               {/* Counselle adaptation: sources dropdown (was Search) */}
               <SourcesControl
                 open={sourcesOpen}
-                setOpen={(v) => {
-                  setSourcesOpen(v);
-                  if (v) onSourcesReread?.();
-                }}
+                setOpen={setSourcesOpen}
                 active={active}
                 setActive={(next) =>
                   onSourcesChange({

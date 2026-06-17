@@ -2,7 +2,9 @@
  * ChatComposer — the integration container that wires the (controlled,
  * app-agnostic) `CounselleComposer` to the real app: the chat turn loop
  * (`useChatContext`), the react-hook-form `text` field (`useChatFormContext`),
- * the per-conversation source store, and the enter-to-send preference.
+ * the per-session source config (the single reactive React Query cache keyed
+ * `['sourceConfig', sessionId]`, seeded by ChatContext from the transcript
+ * fetch — FE-SOURCECFG-DUAL), and the enter-to-send preference.
  *
  * It is the new owner of the submit / autosave / autofocus logic that used to
  * live in the vendored `ChatForm`. Mounted by `ChatView` in place of
@@ -12,19 +14,16 @@
  *
  * Serves: the chat page composer (landing + in-conversation).
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useWatch } from 'react-hook-form';
 import { useAtomValue } from 'jotai';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@librechat/client/utils';
 import { useChatFormContext } from '~/Providers';
 import { useAutoSave } from '~/hooks/Input/useAutoSave';
-import { useChatContext } from '@/app/ChatContext';
+import { useChatContext, sourceConfigKey } from '@/app/ChatContext';
 import { enterToSendAtom } from '@/app/state';
-import {
-  getSourceConfig,
-  updateSourceConfig,
-  type SourceConfig,
-} from '@/api/mock/sourceStore';
+import { getDefaultSourceConfig, type SourceConfig } from '@/api/sourceConfigStore';
 import { CounselleComposer, type SourceId } from '@/components/composer';
 
 /**
@@ -63,6 +62,7 @@ export default function ChatComposer({
 }: ChatComposerProps) {
   const { conversationId, isSubmitting, submitMessage, stopGenerating, awaitingClarify } =
     useChatContext();
+  const queryClient = useQueryClient();
 
   // RHF is the single source of truth for the composer text (kept from ChatForm).
   const methods = useChatFormContext();
@@ -100,26 +100,28 @@ export default function ChatComposer({
     }
   }, [text, isSubmitting, methods, submitMessage]);
 
-  // Source state: read the conversation's config from the store, re-read on
-  // conversation switch and again when the dropdown opens (ported from
-  // SourceDropdown's two effects — the popover-open re-read picks up the
-  // server-seeded config ChatContext writes on chat open).
-  const [config, setConfig] = useState<SourceConfig>(() => getSourceConfig(conversationId));
-
-  useEffect(() => {
-    setConfig(getSourceConfig(conversationId));
-  }, [conversationId]);
+  // Source state (FE-SOURCECFG-DUAL): the per-session config is the single
+  // reactive React Query cache value — seeded by ChatContext's transcript fetch
+  // and updated optimistically on toggle. No local `useState` mirror, no
+  // imperative re-read effects. A new chat (or a session not yet seeded) falls
+  // back to the user's default config. The query has no network of its own
+  // (`enabled:false`); the cache IS the source of truth.
+  const { data: config = getDefaultSourceConfig() } = useQuery<SourceConfig>(
+    sourceConfigKey(conversationId ?? 'new'),
+    () => getDefaultSourceConfig(),
+    { enabled: false, staleTime: Infinity },
+  );
 
   const handleSourcesChange = useCallback(
     (patch: Partial<SourceConfig>) => {
-      setConfig(updateSourceConfig(conversationId, patch));
+      // Optimistic cache write; the value is sent on the next `sendMessage`
+      // (the backend upserts per send — the existing persistence path).
+      const key = sourceConfigKey(conversationId ?? 'new');
+      const current = queryClient.getQueryData<SourceConfig>(key) ?? getDefaultSourceConfig();
+      queryClient.setQueryData<SourceConfig>(key, { ...current, ...patch });
     },
-    [conversationId],
+    [conversationId, queryClient],
   );
-
-  const handleSourcesReread = useCallback(() => {
-    setConfig(getSourceConfig(conversationId));
-  }, [conversationId]);
 
   const enterToSend = useAtomValue(enterToSendAtom);
   const placeholder = awaitingClarify ? CLARIFY_PLACEHOLDER : DEFAULT_PLACEHOLDER;
@@ -151,7 +153,6 @@ export default function ChatComposer({
         active={active}
         subs={config.selectedSubreddits}
         onSourcesChange={handleSourcesChange}
-        onSourcesReread={handleSourcesReread}
         onSend={onSend}
         onStop={stopGenerating}
       />

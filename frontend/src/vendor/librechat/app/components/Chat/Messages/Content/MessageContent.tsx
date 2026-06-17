@@ -32,8 +32,6 @@ import SourcesContext from '@/components/citations/SourcesContext';
 // that the new citation grammar reads, plus the panel-open atom + helpers.
 import { DejargonProvider } from '@/components/citations/dejargon';
 import { CitationActivateProvider } from '@/components/citations/CitationActivateContext';
-import { RevealDbProvider } from '@/components/citations/RevealDbContext';
-import { useRevealState } from '@/components/citations/RevealStateContext';
 import {
   citedSourcesForMessage,
   dbSourcesForMessage,
@@ -89,18 +87,18 @@ export const ErrorMessage = ({
 
 /**
  * feat/message-ui-polish: wraps the assistant answer region in the new citation
- * grammar's three contexts (dejargon on, citation-activate, reveal-db locked to
- * 'wash'). For user turns it's a pass-through — bubbles stay free of providers.
+ * grammar's contexts (dejargon on, citation-activate). The reveal flag is read
+ * from `RevealStateContext` directly (provided by MessageRender) — DbClaim locks
+ * the 'wash' treatment, so the former RevealDbProvider layer is gone
+ * (FE-CITATIONS-CONTEXT-SPRAWL). For user turns it's a pass-through.
  */
 function AnswerContexts({
   assistant,
   activate,
-  revealed,
   children,
 }: {
   assistant: boolean;
   activate: (entry: SourceEntry) => void;
-  revealed: boolean;
   children: React.ReactNode;
 }) {
   if (!assistant) {
@@ -108,9 +106,7 @@ function AnswerContexts({
   }
   return (
     <DejargonProvider value={true}>
-      <CitationActivateProvider value={activate}>
-        <RevealDbProvider value={{ revealed, style: 'wash' }}>{children}</RevealDbProvider>
-      </CitationActivateProvider>
+      <CitationActivateProvider value={activate}>{children}</CitationActivateProvider>
     </DejargonProvider>
   );
 }
@@ -160,11 +156,11 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   const clarifyFrozen = !(isLatestMessage && message.turnStatus === 'awaiting_input');
   const sources = message.sources ?? [];
 
-  // feat/message-ui-polish: the per-message reveal flag (owned by MessageRender)
-  // and the inline-pill activate handler. An inline pill opens the sources panel
-  // jumped to its source; `cited`/`dbSchools` are computed the SAME way
-  // MessageSources does (shared helpers) so the strip and the panel agree.
-  const { revealed } = useRevealState();
+  // feat/message-ui-polish: the inline-pill activate handler. An inline pill
+  // opens the sources panel jumped to its source; `cited`/`dbSchools` are
+  // computed the SAME way MessageSources does (shared helpers) so the strip and
+  // the panel agree. (The reveal flag is read directly inside DbClaim via
+  // RevealStateContext — FE-CITATIONS-CONTEXT-SPRAWL.)
   const openSources = useSetAtom(openSourcesPanelAtom);
   // The panel opened from an inline pill must agree with the panel opened from
   // the strip (MessageSources): the same DB-entries + external-cited list, the
@@ -202,12 +198,13 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
         )}
       {/* FE-4: inline citation chips resolve against the turn's sources.
           feat/message-ui-polish: for ASSISTANT turns the citation grammar reads
-          three more contexts — dejargon (friendly source names), citation-
-          activate (inline pill → open the panel at that source), and reveal-db
-          (locked to the 'wash' highlight; `revealed` flows from MessageRender's
-          RevealStateContext). User bubbles get none of these. */}
+          two more contexts — dejargon (friendly source names) and citation-
+          activate (inline pill → open the panel at that source). DbClaim locks
+          the 'wash' highlight and reads `revealed` directly from MessageRender's
+          RevealStateContext (FE-CITATIONS-CONTEXT-SPRAWL). User bubbles get
+          none of these. */}
       <SourcesContext.Provider value={sources}>
-        <AnswerContexts assistant={!isCreatedByUser} activate={activate} revealed={revealed}>
+        <AnswerContexts assistant={!isCreatedByUser} activate={activate}>
           <div
             className={cn(
               'markdown prose message-content dark:prose-invert light w-full break-words',

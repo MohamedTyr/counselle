@@ -14,7 +14,7 @@
  * (scrollableRef/contentRef/messagesEndRef/showScrollButton/handleSmoothToRef/
  * debouncedHandleScroll).
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import throttle from 'lodash/throttle';
 import { useChatContext } from './ChatContext';
 
@@ -47,9 +47,8 @@ export default function useQuestionAnchoredScroll() {
     setShowScrollButton(distanceFromBottom > BOTTOM_THRESHOLD_PX);
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedHandleScroll = useCallback(
-    throttle(() => updateScrollButton(), SCROLL_HANDLER_THROTTLE_MS),
+  const debouncedHandleScroll = useMemo(
+    () => throttle(() => updateScrollButton(), SCROLL_HANDLER_THROTTLE_MS),
     [updateScrollButton],
   );
 

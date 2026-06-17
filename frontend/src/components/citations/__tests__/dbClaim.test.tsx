@@ -10,7 +10,7 @@ import { describe, expect, test } from 'vitest';
 import type { Citation, SourceEntry } from '@/api/protocol';
 import DbClaim from '@/components/citations/DbClaim';
 import { SourcesProvider } from '@/components/citations/SourcesContext';
-import { RevealDbProvider } from '@/components/citations/RevealDbContext';
+import { RevealStateProvider } from '@/components/citations/RevealStateContext';
 
 function citation(over: Partial<Citation> = {}): Citation {
   return { source: 'cds', tier: 'official', vintage: 'CDS 2025-26', ...over };
@@ -27,9 +27,9 @@ function renderClaim(opts: {
 }) {
   return render(
     <SourcesProvider value={opts.sources}>
-      <RevealDbProvider value={{ revealed: opts.revealed, style: 'wash' }}>
+      <RevealStateProvider value={{ revealed: opts.revealed, setRevealed: () => {} }}>
         <DbClaim index={opts.index}>cited clause</DbClaim>
-      </RevealDbProvider>
+      </RevealStateProvider>
     </SourcesProvider>,
   );
 }

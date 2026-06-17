@@ -13,10 +13,11 @@
  * - The `event:` line is redundant with the json `type` — we trust the json.
  * - The `id:` value is the internal Last-Event-ID cursor (GET attach reconnect).
  *
- * A malformed frame is skipped with a `console.warn` (the stream survives); a
+ * A malformed frame is skipped with a `logger.warn` (the stream survives); a
  * network/decode failure propagates as the caller's thrown error.
  */
 import type { ProtocolEvent, ProtocolEventType } from '@/api/protocol';
+import { logger } from '@/lib/logger';
 import { TransportError } from './errors';
 
 const KNOWN_TYPES: ReadonlySet<ProtocolEventType> = new Set<ProtocolEventType>([
@@ -107,20 +108,20 @@ function parseFrame(block: string): SseFrame | null {
   try {
     parsed = JSON.parse(payload);
   } catch {
-    console.warn('[sse] dropped a frame with unparseable data');
+    logger.warn('[sse] dropped a frame with unparseable data');
     return null;
   }
   if (typeof parsed !== 'object' || parsed === null) {
-    console.warn('[sse] dropped a non-object frame');
+    logger.warn('[sse] dropped a non-object frame');
     return null;
   }
   const obj = parsed as Record<string, unknown>;
   if (!isKnownType(obj.type)) {
-    console.warn(`[sse] dropped a frame with unknown type: ${String(obj.type)}`);
+    logger.warn(`[sse] dropped a frame with unknown type: ${String(obj.type)}`);
     return null;
   }
   if (!validatePayload(obj.type, obj)) {
-    console.warn(`[sse] dropped a malformed ${obj.type} frame (missing identity field)`);
+    logger.warn(`[sse] dropped a malformed ${obj.type} frame (missing identity field)`);
     return null;
   }
   // Trust boundary: the body comes from our same-origin, authed backend. We

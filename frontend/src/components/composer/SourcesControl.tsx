@@ -11,7 +11,7 @@
  *   - Reddit expands to selectable subreddit chips (echoes the composer's pills).
  * The rotating-icon wow is preserved on each row's icon.
  *
- * `SUBREDDITS`/`Subreddit` come from the app's source store (`@/api/mock/sourceStore`);
+ * `SUBREDDITS`/`Subreddit` come from the app's source store (`@/api/sourceConfigStore`);
  * `SourceId` is the composer-local union the bar speaks in.
  */
 import React from 'react';
@@ -20,7 +20,7 @@ import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { Globe, Database, GraduationCap, Users, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@librechat/client/utils';
-import { SUBREDDITS, type Subreddit } from '@/api/mock/sourceStore';
+import { SUBREDDITS, type Subreddit } from '@/api/sourceConfigStore';
 
 export type SourceId = 'web' | 'edu' | 'reddit';
 

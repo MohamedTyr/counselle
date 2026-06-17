@@ -14,7 +14,7 @@ import {
   getSourceConfig,
   updateSourceConfig,
   type SourceConfig,
-} from '@/api/mock/sourceStore';
+} from '@/api/sourceConfigStore';
 import { toWire } from '@/api/source-config';
 
 function config(over: Partial<SourceConfig> = {}): SourceConfig {

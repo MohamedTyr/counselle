@@ -1,7 +1,8 @@
 /**
  * RevealDbToggle — the opt-in control under a message: "show what's from
  * Counselle". Off by default; pressing it lights every DB-grounded claim in the
- * answer (RevealDbContext). A quiet ghost control sized to sit in the action row
+ * answer (the per-message RevealStateContext flag). A quiet ghost control sized
+ * to sit in the action row
  * beside the sources strip, not a loud switch.
  */
 import { Highlighter } from 'lucide-react';

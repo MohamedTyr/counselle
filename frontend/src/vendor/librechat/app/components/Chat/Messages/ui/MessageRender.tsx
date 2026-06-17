@@ -80,9 +80,11 @@ function areMessageRenderPropsEqual(prev: MessageRenderProps, next: MessageRende
     prevMsg.unfinished === nextMsg.unfinished &&
     prevMsg.isCreatedByUser === nextMsg.isCreatedByUser &&
     prevMsg.content === nextMsg.content &&
-    // `activities` is a fresh array each render; compare contents (it's tiny and
-    // append-mostly) so a new/changed step label still re-renders the trace.
-    prevMsg.activities?.join('\x00') === nextMsg.activities?.join('\x00') &&
+    // `activities` is reference-stable for an unchanged `state.timeline`
+    // (FE-TYPE-DERIVED-STORED: a WeakMap memo keyed on the timeline identity in
+    // projectTranscript.ts), so a `===` is exact: same timeline → same array →
+    // skip; a new/changed step label produces a new timeline → new array → re-render.
+    prevMsg.activities === nextMsg.activities &&
     prevMsg.streamError === nextMsg.streamError &&
     prevMsg.feedback?.rating === nextMsg.feedback?.rating &&
     // The sources strip lives in the action row; re-render when the turn's
@@ -256,9 +258,9 @@ const MessageRender = memo(function MessageRender({
             // centered. MessageSources self-hides when the turn cited none.
             <SubRow classes="text-xs items-center">
               {hoverButtons}
-              {/* feat/message-ui-polish: the reveal toggle (locked to the 'wash'
-                  style via RevealDbProvider) sits beside the sources strip;
-                  active/onToggle come from the per-message RevealStateContext. */}
+              {/* feat/message-ui-polish: the reveal toggle (DbClaim locks the
+                  'wash' treatment) sits beside the sources strip; active/onToggle
+                  come from the per-message RevealStateContext. */}
               {showRevealToggle && (
                 <RevealDbToggle active={revealed} onToggle={() => setRevealed(!revealed)} />
               )}

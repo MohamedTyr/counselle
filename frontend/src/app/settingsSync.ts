@@ -22,7 +22,7 @@ import type { UserSettings } from '@/api/http/auth';
 import {
   setDefaultSourceConfig,
   type SourceConfig,
-} from '@/api/mock/sourceStore';
+} from '@/api/sourceConfigStore';
 import { toWire } from '@/api/source-config';
 
 const VALID_THEMES = ['light', 'dark', 'system'];

@@ -15,7 +15,7 @@ import remarkCitations from '@/components/citations/remarkCitations';
 import remarkDbSpans from '@/components/citations/remarkDbSpans';
 import DbClaim from '@/components/citations/DbClaim';
 import { SourcesProvider } from '@/components/citations/SourcesContext';
-import { RevealDbProvider } from '@/components/citations/RevealDbContext';
+import { RevealStateProvider } from '@/components/citations/RevealStateContext';
 
 function DbClaimStub({
   index,
@@ -141,14 +141,14 @@ function entry(index: number, source: Citation['source']): SourceEntry {
 function renderGated(source: string, sources: SourceEntry[]) {
   return render(
     <SourcesProvider value={sources}>
-      <RevealDbProvider value={{ revealed: true, style: 'wash' }}>
+      <RevealStateProvider value={{ revealed: true, setRevealed: () => {} }}>
         <ReactMarkdown
           remarkPlugins={[remarkCitations, remarkDbSpans]}
           components={{ 'db-claim': DbClaim, 'citation-ref': CitationStub } as never}
         >
           {source}
         </ReactMarkdown>
-      </RevealDbProvider>
+      </RevealStateProvider>
     </SourcesProvider>,
   );
 }

@@ -1,8 +1,11 @@
 /**
- * Per-conversation source config store.
- * State: database always-on, web/edu/reddit toggles, reddit subreddit selection.
- * Persisted per conversation in localStorage.
- * FE-7 will move this to the real backend; shape stays the same.
+ * Source-config client store — the per-conversation source toggles
+ * (database always-on; web/edu/reddit; subreddit selection) and the
+ * user's DEFAULT config for new chats (Settings → General).
+ *
+ * This is PRODUCTION client state, not a mock. localStorage is the LOCAL
+ * cache / default surface; the server is the source of truth per session
+ * (see source-config.ts toWire/fromWire and ChatContext's transcript seed).
  */
 
 const STORAGE_KEY_PREFIX = 'counselle:sourceConfig:';
