@@ -102,6 +102,45 @@ function appendDelta(state: TurnState, text: string): TurnState {
   return { ...state, blocks: [...blocks, { kind: 'markdown', text }] };
 }
 
+function appendViz(state: TurnState, spec: RenderSpec): TurnState {
+  const signature = vizSignature(spec);
+  const exists = state.blocks.some(
+    (block) => block.kind === 'viz' && vizSignature(block.spec) === signature,
+  );
+  if (exists) {
+    return state;
+  }
+  return { ...state, blocks: [...state.blocks, { kind: 'viz', spec }] };
+}
+
+function vizSignature(spec: RenderSpec): string {
+  return JSON.stringify({
+    type: spec.type,
+    schools: spec.schools.map((school) => ({
+      unitid: school.unitid,
+      name: school.name,
+    })),
+    rows: spec.rows.map((row) => ({
+      label: row.label,
+      cells: row.cells.map((cell) => ({
+        field: cell.field,
+        display: cell.display,
+        raw: cell.raw ?? null,
+        unit: cell.unit ?? null,
+        available: cell.available,
+        citation: {
+          source: cell.citation.source,
+          tier: cell.citation.tier,
+          vintage: cell.citation.vintage,
+          caveat: cell.citation.caveat ?? null,
+          raw_table: cell.citation.raw_table ?? null,
+          url: cell.citation.url ?? null,
+        },
+      })),
+    })),
+  });
+}
+
 function mergeStep(state: TurnState, step: StepData): TurnState {
   const idx = state.steps.findIndex((s) => s.step_id === step.step_id);
   if (idx === -1) {
@@ -159,7 +198,7 @@ export function reduce(state: TurnState, event: ProtocolEvent): TurnState {
       };
     }
     case 'viz':
-      return { ...state, blocks: [...state.blocks, { kind: 'viz', spec: event.data }] };
+      return appendViz(state, event.data);
     case 'clarify':
       return { ...state, clarify: event.data };
     case 'sources':
