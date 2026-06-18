@@ -15,10 +15,15 @@ from uuid import uuid4
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
+from pydantic_ai import FinalResultEvent
+from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
     ModelMessage,
     ModelRequest,
     ModelResponse,
+    PartStartEvent,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -33,15 +38,18 @@ from pydantic_ai.models.test import TestModel
 
 import app.agent_node
 import app.graph
+import app.viz
 from app.deps import AppDeps
 from app.graph import build_graph
 from app.records import prose_of
 from app.run_turn import run_turn
 from app.state import TemporalContext
+from app.steps import EmissionRouter
 from app.toolset import ToolDeps
+from domain.envelope import Citation, CitationEnvelope
 from domain.events import Event
 from domain.season import Season
-from domain.specs import SourceConfig
+from domain.specs import RenderSpec, SchoolRef, SourceConfig, VizRow
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -231,11 +239,36 @@ def _text(events: list[Event]) -> str:
     return "".join(event.data["text"] for event in events if event.type == "delta")
 
 
+def _thinking(events: list[Event]) -> str:
+    return "".join(event.data["text"] for event in events if event.type == "thinking")
+
+
 def _done_status(events: list[Event]) -> str:
     return str(next(event.data["status"] for event in events if event.type == "done"))
 
 
 _ALL_OFF = SourceConfig(web=False, reddit=False, edu=False)
+
+
+def _viz_cell(field: str, raw: int = 42) -> CitationEnvelope:
+    return CitationEnvelope(
+        field=field,
+        label=field,
+        display=str(raw),
+        raw=raw,
+        available=True,
+        unit="number",
+        citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024", raw_table=field),
+    )
+
+
+def _viz_spec(field: str, *, title: str = "Rendered card") -> RenderSpec:
+    return RenderSpec(
+        type="comparison_table",
+        title=title,
+        schools=[SchoolRef(unitid=1, name="A University")],
+        rows=[VizRow(label=field, cells=[_viz_cell(field)])],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -647,6 +680,514 @@ async def test_complete_turn_writes_the_node_record() -> None:
     assert record["error"] is None and record["clarify"] is None
 
 
+def _two_viz_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("Final answer after the cards.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["admissions.rate"],
+                    "title": "Card one",
+                },
+            ),
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["cost.net_price"],
+                    "title": "Card two",
+                },
+            ),
+        ]
+    )
+
+
+def _viz_marker_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    returns = (
+        [part for part in last.parts if isinstance(part, ToolReturnPart)]
+        if isinstance(last, ModelRequest)
+        else []
+    )
+    if returns:
+        marker = _placement_marker(returns[0])
+        return ModelResponse(parts=[TextPart(f"Intro before card. {marker} Outro after card.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["admissions.rate"],
+                    "title": "Inline card",
+                },
+            )
+        ]
+    )
+
+
+def _stray_viz_marker_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    return ModelResponse(parts=[TextPart("Plain answer [[viz:1]] with no card.")])
+
+
+def _split_stray_viz_marker_model() -> FunctionModel:
+    def response(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(part, ToolReturnPart) for part in last.parts
+        ):
+            return ModelResponse(parts=[TextPart("Plain [[viz:1]] with no card.")])
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
+
+    async def stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | DeltaToolCalls]:
+        model_response = response(messages, info)
+        for index, part in enumerate(model_response.parts):
+            if isinstance(part, TextPart):
+                yield "Plain [[vi"
+                yield "z:1]] with no card."
+            elif isinstance(part, ToolCallPart):
+                yield {
+                    index: DeltaToolCall(
+                        name=part.tool_name,
+                        json_args=part.args_as_json_str(),
+                    )
+                }
+
+    return FunctionModel(response, stream_function=stream)
+
+
+def _split_no_viz_text_model(chunks: list[str]) -> FunctionModel:
+    def response(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(part, ToolReturnPart) for part in last.parts
+        ):
+            return ModelResponse(parts=[TextPart("".join(chunks))])
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
+
+    async def stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | DeltaToolCalls]:
+        model_response = response(messages, info)
+        for index, part in enumerate(model_response.parts):
+            if isinstance(part, TextPart):
+                for chunk in chunks:
+                    yield chunk
+            elif isinstance(part, ToolCallPart):
+                yield {
+                    index: DeltaToolCall(
+                        name=part.tool_name,
+                        json_args=part.args_as_json_str(),
+                    )
+                }
+
+    return FunctionModel(response, stream_function=stream)
+
+
+def _placement_marker(part: ToolReturnPart) -> str:
+    assert isinstance(part.content, dict)
+    marker = part.content["placement_marker"]
+    assert isinstance(marker, str)
+    return marker
+
+
+async def test_viz_marker_places_card_between_final_text_segments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return _viz_spec("admissions.rate", title="Inline card")
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_viz_marker_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "place the card inline", _ALL_OFF)
+
+    types = _types(events)
+    delta_positions = [index for index, event in enumerate(events) if event.type == "delta"]
+    viz_position = types.index("viz")
+    assert len(delta_positions) == 2
+    assert delta_positions[0] < viz_position < delta_positions[1]
+    assert _text(events) == "Intro before card.  Outro after card."
+    assert "[[viz:" not in _text(events)
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert [part["type"] for part in record["parts"]] == ["text", "viz", "text"]
+    assert record["parts"][0]["text"] == "Intro before card. "
+    assert record["parts"][2]["text"] == " Outro after card."
+    assert all("[[viz:" not in part.get("text", "") for part in record["parts"])
+
+    from app.transcript import extract_transcript
+
+    transcript = extract_transcript(values["messages"], values["turn_records"])
+    assistant = transcript[-1]
+    assert assistant["text"] == _text(events)
+    assert assistant["parts"] == record["parts"]
+
+
+async def test_no_viz_final_answer_strips_stray_marker_text() -> None:
+    rig = Rig(_fn_model(_stray_viz_marker_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "answer plainly", _ALL_OFF)
+
+    assert "viz" not in _types(events)
+    assert _text(events) == "Plain answer  with no card."
+    assert "[[viz:" not in _text(events)
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert [part["type"] for part in record["parts"]] == ["text"]
+    assert record["parts"][0]["text"] == "Plain answer  with no card."
+
+
+async def test_no_viz_final_answer_strips_split_marker_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_feed_text = EmissionRouter._feed_text
+
+    def start_final_before_split_text(router: Any, text: str) -> None:
+        if text and not router.final_answer_started:
+            router._start_final_answer()
+        original_feed_text(router, text)
+
+    monkeypatch.setattr(
+        EmissionRouter,
+        "_feed_text",
+        start_final_before_split_text,
+    )
+    rig = Rig(_split_stray_viz_marker_model())
+    session_id = str(uuid4())
+
+    events = await rig.turn(
+        session_id,
+        "answer plainly after a search",
+        SourceConfig(web=True, reddit=False, edu=False),
+    )
+
+    assert "viz" not in _types(events)
+    assert _text(events) == "Plain  with no card."
+    assert "[[viz:" not in _text(events)
+    assert "z:1]]" not in _text(events)
+
+
+@pytest.mark.parametrize(
+    ("chunks", "expected"),
+    [
+        (["Plain [[viz:1]]", "] with no card."], "Plain  with no card."),
+        (["Plain [[viz:abc]]", "] with no card."], "Plain  with no card."),
+    ],
+)
+async def test_no_viz_final_answer_strips_extra_closing_marker_junk(
+    monkeypatch: pytest.MonkeyPatch,
+    chunks: list[str],
+    expected: str,
+) -> None:
+    original_feed_text = EmissionRouter._feed_text
+
+    def start_final_before_split_text(router: Any, text: str) -> None:
+        if text and not router.final_answer_started:
+            router._start_final_answer()
+        original_feed_text(router, text)
+
+    monkeypatch.setattr(
+        EmissionRouter,
+        "_feed_text",
+        start_final_before_split_text,
+    )
+    rig = Rig(_split_no_viz_text_model(chunks))
+    session_id = str(uuid4())
+
+    events = await rig.turn(
+        session_id,
+        "answer plainly after a search",
+        SourceConfig(web=True, reddit=False, edu=False),
+    )
+
+    assert "viz" not in _types(events)
+    assert _text(events) == expected
+    assert "[[viz:" not in _text(events)
+    assert "] with no card." not in _text(events)
+
+
+def test_final_writer_strips_late_markers_after_early_flush() -> None:
+    spec = {"type": "stat_block", "title": "Card"}
+    emitted: list[dict[str, Any]] = []
+    writer = app.agent_node._FinalContentPlacementWriter([spec], emitted.append)
+
+    writer.start_final()
+    writer.write({"type": "delta", "text": "Intro [[viz:1]]"})
+    writer.write({"type": "thinking", "text": "interleaved"})
+    writer.write({"type": "delta", "text": " Late [[viz:1]]"})
+    writer.write({"type": "delta", "text": "] text with no leaked marker."})
+    writer.flush_final()
+
+    assert emitted == [
+        {"type": "delta", "text": "Intro "},
+        {"type": "viz", "spec": spec},
+        {"type": "thinking", "text": "interleaved"},
+        {"type": "delta", "text": " Late "},
+        {"type": "delta", "text": " text with no leaked marker."},
+    ]
+
+
+async def test_viz_without_marker_falls_back_after_final_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = [
+        _viz_spec("admissions.rate", title="Card one"),
+        _viz_spec("cost.net_price", title="Card two"),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_two_viz_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "compare these", _ALL_OFF)
+
+    types = _types(events)
+    step_end_positions = [
+        index
+        for index, event in enumerate(events)
+        if event.type == "step" and event.data["status"] == "end"
+    ]
+    viz_positions = [index for index, event in enumerate(events) if event.type == "viz"]
+    first_delta = types.index("delta")
+    assert len(viz_positions) == 2
+    assert step_end_positions and max(step_end_positions) < viz_positions[0]
+    assert first_delta < viz_positions[0]
+    assert _text(events) == "Final answer after the cards."
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert [part["type"] for part in record["parts"]] == ["text", "viz", "viz"]
+    assert prose_of(record["parts"]) == "Final answer after the cards."
+
+
+async def test_event_order_final_answer_streams_staged_cards_after_answer_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await test_viz_without_marker_falls_back_after_final_answer(monkeypatch)
+
+
+async def test_duplicate_render_viz_final_flush_persists_one_viz_part(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = [
+        _viz_spec("admissions.rate", title="First title"),
+        _viz_spec("admissions.rate", title="Second title"),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_two_viz_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "compare these", _ALL_OFF)
+
+    assert _types(events).count("viz") == 1
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    viz_parts = [part for part in record["parts"] if part["type"] == "viz"]
+    assert len(viz_parts) == 1
+    assert viz_parts[0]["spec"]["title"] == "First title"
+    assert len(values["viz_emitted"]) == 1
+
+
+async def test_record_exact_final_content_stream_record_and_transcript(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = [
+        _viz_spec("admissions.rate", title="First title"),
+        _viz_spec("admissions.rate", title="Second title"),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_two_viz_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "compare these", _ALL_OFF)
+
+    stream_viz = [event.data for event in events if event.type == "viz"]
+    assert len(stream_viz) == 1
+    assert _text(events) == "Final answer after the cards."
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["parts"] == [
+        {"type": "text", "text": "Final answer after the cards."},
+        {"type": "viz", "spec": stream_viz[0]},
+    ]
+    assert prose_of(record["parts"]) == _text(events)
+
+    from app.transcript import extract_transcript
+
+    transcript = extract_transcript(values["messages"], values["turn_records"])
+    assistant = transcript[-1]
+    assert assistant["text"] == _text(events)
+    assert assistant["parts"] == record["parts"]
+    assert [part["type"] for part in assistant["parts"]] == ["text", "viz"]
+
+
+def _render_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    returns = (
+        [part for part in last.parts if isinstance(part, ToolReturnPart)]
+        if isinstance(last, ModelRequest)
+        else []
+    )
+    if returns:
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name="ask_student",
+                    args={
+                        "question": "Which comparison matters?",
+                        "header": "Pick one",
+                        "options": [
+                            {"label": "Cost", "hint": "net price and aid"},
+                            {"label": "Admissions", "hint": "selectivity"},
+                        ],
+                    },
+                )
+            ]
+        )
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["admissions.rate"],
+                    "title": "Early card",
+                },
+            )
+        ]
+    )
+
+
+async def test_clarify_no_early_viz_or_answer_persisted_when_before_final_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return _viz_spec("admissions.rate", title="Early card")
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_render_then_clarify))
+
+    session_id = str(uuid4())
+    events = await rig.turn(session_id, "show me a comparison", _ALL_OFF)
+
+    assert _done_status(events) == "awaiting_input"
+    assert "clarify" in _types(events)
+    assert "viz" not in _types(events)
+    assert _text(events) == ""
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "awaiting_input"
+    assert record["parts"] == []
+    assert record["clarify"]["spec"]["question"] == "Which comparison matters?"
+    assert "Which comparison matters?" in events[-2].data["question"]
+
+
+def _narrate_render_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("Final answer only.")])
+    return ModelResponse(
+        parts=[
+            TextPart("I will check the cited data before answering."),
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["admissions.rate"],
+                    "title": "Card",
+                },
+            ),
+        ]
+    )
+
+
+async def test_no_early_answer_persists_only_final_prose(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return _viz_spec("admissions.rate", title="Card")
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_narrate_render_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "show me a comparison", _ALL_OFF)
+
+    assert "I will check the cited data before answering." in _thinking(events)
+    assert _text(events) == "Final answer only."
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert prose_of(record["parts"]) == "Final answer only."
+
+
 async def test_budget_turn_record_and_prose_invariant() -> None:
     def endless_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
@@ -667,6 +1208,139 @@ async def test_budget_turn_record_and_prose_invariant() -> None:
     assert prose == _text(events)
     assert "tool budget" in prose
     assert "web search" in record["receipt"]
+
+
+def _render_then_hit_budget(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) for part in last.parts
+    ):
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["admissions.rate"],
+                    "title": "Hidden until final",
+                },
+            )
+        ]
+    )
+
+
+async def test_budget_before_final_staged_viz_does_not_leak(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return _viz_spec("admissions.rate", title="Hidden until final")
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    settings = FakeSettings()
+    settings.max_tool_rounds = 1
+    rig = Rig(_fn_model(_render_then_hit_budget), settings=settings)
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "show me a comparison", _WEB_ONLY)
+
+    assert _types(events).count("viz") == 0
+    assert _text(events).count("tool budget") == 1
+    assert _done_status(events) == "complete"
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert [part["type"] for part in record["parts"]] == ["text"]
+    assert prose_of(record["parts"]).count("tool budget") == 1
+    assert values["viz_emitted"] == []
+
+
+class _BudgetAfterFinalStream:
+    def __init__(self, tools: dict[str, Any]) -> None:
+        self._tools = tools
+
+    async def __aenter__(self) -> _BudgetAfterFinalStream:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    async def __aiter__(self) -> AsyncIterator[Any]:
+        call = ToolCallPart(
+            tool_name="render_viz",
+            args={
+                "type": "comparison_table",
+                "unitids": [1],
+                "field_keys": ["admissions.rate"],
+                "title": "Visible card",
+            },
+            tool_call_id="viz-after-final",
+        )
+        yield FunctionToolCallEvent(part=call)
+        result = await self._tools["render_viz"].function(
+            "comparison_table", [1], ["admissions.rate"], "Visible card"
+        )
+        yield FunctionToolResultEvent(
+            ToolReturnPart(
+                tool_name="render_viz",
+                content=result,
+                tool_call_id="viz-after-final",
+            )
+        )
+        yield FinalResultEvent(tool_name=None, tool_call_id=None)
+        yield PartStartEvent(index=0, part=TextPart(content="Partial final answer."))
+        raise UsageLimitExceeded("forced budget after final start")
+
+
+class _BudgetAfterFinalAgent:
+    def __init__(self, *args: Any, tools: list[Any], **kwargs: Any) -> None:
+        self._tools = {tool.name: tool for tool in tools}
+
+    async def __aenter__(self) -> _BudgetAfterFinalAgent:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    def run_stream_events(self, *args: Any, **kwargs: Any) -> _BudgetAfterFinalStream:
+        return _BudgetAfterFinalStream(self._tools)
+
+
+async def test_budget_after_final_partial_preserves_visible_viz_and_prose(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return _viz_spec("admissions.rate", title="Visible card")
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(app.agent_node, "Agent", _BudgetAfterFinalAgent)
+    rig = Rig(TestModel(call_tools=[], custom_output_text="unused"))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "show me a comparison", _ALL_OFF)
+
+    types = _types(events)
+    assert types.count("viz") == 1
+    assert types.index("delta") < types.index("viz")
+    assert _text(events).count("Partial final answer.") == 1
+    assert _text(events).count("tool budget") == 1
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert [part["type"] for part in record["parts"]] == ["text", "viz", "text"]
+    assert prose_of(record["parts"]) == _text(events)
+    assert len(values["viz_emitted"]) == 1
 
 
 async def test_empty_prose_budget_turn_appends_no_model_response(
@@ -737,9 +1411,7 @@ async def test_clarify_park_writes_record_and_resume_replaces_it() -> None:
     assert prose == _text(events_2)
 
 
-async def test_error_turn_writes_record_and_preserves_streamed_prose() -> None:
-    """A model that streams >threshold prose then dies mid-run: the error
-    record persists AND messages keep exactly the streamed prose."""
+async def test_error_turn_writes_record_without_streamed_pre_final_prose() -> None:
     long_prose = "Duke's engineering program is excellent. " * 8  # > 240 chars
 
     def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -757,7 +1429,9 @@ async def test_error_turn_writes_record_and_preserves_streamed_prose() -> None:
     assert "error" in _types(events)
     trace_id = events[0].data["trace_id"]
     streamed = _text(events)
-    assert streamed  # prose crossed the threshold and streamed live
+    thinking = "".join(event.data["text"] for event in events if event.type == "thinking")
+    assert long_prose.strip() in thinking
+    assert streamed == ""
 
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
@@ -765,9 +1439,10 @@ async def test_error_turn_writes_record_and_preserves_streamed_prose() -> None:
     assert record["error"]["trace_id"] == trace_id
     assert record["error"]["message"]
     assert record["message_id"] == events[0].data["message_id"]
-    # The prose invariant on the error path.
     prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
     assert prose == streamed
+    assert long_prose.strip() in "".join(record["thinking"])
+    assert all(message["kind"] == "request" for message in values["messages"])
 
 
 async def test_error_turn_without_prose_appends_no_partial_response() -> None:

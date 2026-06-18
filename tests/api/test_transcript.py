@@ -26,10 +26,19 @@ from pydantic_ai.models.function import AgentInfo
 
 import app.agent_node
 import app.graph
+import app.viz
 from app.state import TemporalContext
 from app.transcript import extract_transcript
 from domain.season import Season
-from tests.app.test_run_turn import _ALL_OFF, _WEB_ONLY, Rig, _fn_model, _text
+from domain.specs import RenderSpec
+from tests.app.test_run_turn import (
+    _ALL_OFF,
+    _WEB_ONLY,
+    Rig,
+    _fn_model,
+    _text,
+    _viz_spec,
+)
 
 _TEMPORAL = TemporalContext(
     today="2026-06-10",
@@ -200,6 +209,67 @@ async def test_transcript_steps_and_receipt_round_trip() -> None:
     assert [s["status"] for s in record["steps"]] == ["end"]
     assert record["steps"][0]["kind"] == "web_search"
     assert assistant["sources"][0]["index"] == 1
+
+
+def _inline_viz_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    returns = (
+        [part for part in last.parts if isinstance(part, ToolReturnPart)]
+        if isinstance(last, ModelRequest)
+        else []
+    )
+    if returns:
+        marker = _placement_marker(returns[0])
+        return ModelResponse(parts=[TextPart(f"Intro before card. {marker} Outro after card.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["admissions.rate"],
+                    "title": "Inline card",
+                },
+            )
+        ]
+    )
+
+
+def _placement_marker(part: ToolReturnPart) -> str:
+    assert isinstance(part.content, dict)
+    marker = part.content["placement_marker"]
+    assert isinstance(marker, str)
+    return marker
+
+
+async def test_transcript_final_content_has_inline_viz_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return _viz_spec("admissions.rate", title="Inline card")
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_inline_viz_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "place the card inline", _ALL_OFF)
+    transcript = await _transcript_of(rig, session_id)
+
+    assistant = transcript[-1]
+    assert assistant["text"] == _text(events)
+    assert assistant["text"] == "Intro before card.  Outro after card."
+    assert "[[viz:" not in assistant["text"]
+    assert [part["type"] for part in assistant["parts"]] == ["text", "viz", "text"]
+    assert assistant["parts"][0]["text"] == "Intro before card. "
+    assert assistant["parts"][2]["text"] == " Outro after card."
+    assert all("[[viz:" not in part.get("text", "") for part in assistant["parts"])
 
 
 async def test_two_independent_complete_turns_each_render_own_prose() -> None:

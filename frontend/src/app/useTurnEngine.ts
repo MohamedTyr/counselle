@@ -34,6 +34,7 @@ import {
   persistErroredTurn,
   persistTerminalTurn,
   reconcileMetaIds,
+  upsertAssistantMessage,
 } from '@/api/streamReconcile';
 import { turnErrorOf, type TurnError } from '@/api/errorMessages';
 import { CANCEL_WAIT_TIMEOUT_MS } from '@/config';
@@ -152,24 +153,28 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
       stream: AsyncIterable<ProtocolEvent>,
       initialUserMessageId: string,
       reconcileTempUserId: boolean,
+      initialAssistant?: { messageId: string; hasBackendId: boolean },
     ): Promise<boolean> => {
       const tempAssistantId = `temp-asst-${crypto.randomUUID()}`;
       let state = initialTurnState();
-      let assistantMessageId = tempAssistantId;
+      let assistantMessageId = initialAssistant?.messageId ?? tempAssistantId;
       let userMessageId = initialUserMessageId;
-      let hasBackendId = false;
+      let hasBackendId = initialAssistant?.hasBackendId ?? false;
       let metaSeen = false;
       cancelledRef.current = false;
       cancelInFlightRef.current = false;
-      const publishTurn = () =>
-        setTurn({
+      const publishTurn = () => {
+        const nextTurn = {
           conversationId: convoId,
           assistantMessageId,
           userMessageId,
           parentMessageId: userMessageId,
           hasBackendId,
           state,
-        });
+        };
+        turnRef.current = nextTurn;
+        setTurn(nextTurn);
+      };
       publishTurn();
       try {
         for await (const event of stream) {
@@ -205,7 +210,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
           hasBackendId,
           state,
         );
-        setPersisted((prev) => [...prev, done]);
+        setPersisted((prev) => upsertAssistantMessage(prev, done));
         // The sidebar title may now exist (cheap-model title) — refresh the list.
         void queryClient.invalidateQueries([QueryKeys.chats]);
         return metaSeen;
@@ -223,13 +228,14 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
             state,
             turnErrorOf(error).message,
           );
-          setPersisted((prev) => [...prev, card]);
+          setPersisted((prev) => upsertAssistantMessage(prev, card));
           // Accepted-then-failed: the error card renders; do not re-throw.
           return true;
         }
         // Pre-meta failure: re-throw so the send path can keep the composer text.
         throw error;
       } finally {
+        turnRef.current = null;
         setTurn(null);
       }
     },
@@ -313,10 +319,20 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
           yield next.value;
         }
       }
-      const lastUser = [...persistedRef.current].reverse().find((m) => m.isCreatedByUser);
+      const lastUser = [...persistedRef.current]
+        .reverse()
+        .find((m) => m.isCreatedByUser && m.conversationId === convoId);
+      const tailMessage = persistedRef.current[persistedRef.current.length - 1];
       const seedUserId = lastUser?.messageId ?? `temp-user-${crypto.randomUUID()}`;
+      const seedAssistant =
+        tailMessage !== undefined &&
+        !tailMessage.isCreatedByUser &&
+        tailMessage.conversationId === convoId &&
+        tailMessage.hasBackendId === true
+          ? { messageId: tailMessage.messageId, hasBackendId: true }
+          : undefined;
       try {
-        await consumeStream(convoId, replay(), seedUserId, false);
+        await consumeStream(convoId, replay(), seedUserId, false, seedAssistant);
       } catch {
         // Pre-meta attach failure — `consumeStream` already surfaced the error
         // via `setTurnError`. The loaded transcript stays; never fabricate.

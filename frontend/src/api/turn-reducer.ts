@@ -61,6 +61,7 @@ export type TurnState = {
   meta: MetaData | null;
   /** Ordered content blocks; markdown accumulates into the last open block. */
   blocks: ContentBlock[];
+  vizSignatures: ReadonlySet<string>;
   /** Steps in arrival order, start/end pairs merged by step_id. */
   steps: TurnStep[];
   /** Thinking lines in arrival order (§27.2). */
@@ -79,6 +80,7 @@ export function initialTurnState(): TurnState {
   return {
     meta: null,
     blocks: [],
+    vizSignatures: new Set(),
     steps: [],
     thinking: [],
     timeline: [],
@@ -100,6 +102,46 @@ function appendDelta(state: TurnState, text: string): TurnState {
     return { ...state, blocks: [...blocks.slice(0, -1), updated] };
   }
   return { ...state, blocks: [...blocks, { kind: 'markdown', text }] };
+}
+
+function appendViz(state: TurnState, spec: RenderSpec): TurnState {
+  const signature = vizSignature(spec);
+  if (state.vizSignatures.has(signature)) {
+    return state;
+  }
+  return {
+    ...state,
+    blocks: [...state.blocks, { kind: 'viz', spec }],
+    vizSignatures: new Set([...state.vizSignatures, signature]),
+  };
+}
+
+function vizSignature(spec: RenderSpec): string {
+  return JSON.stringify({
+    type: spec.type,
+    schools: spec.schools.map((school) => ({
+      unitid: school.unitid,
+      name: school.name,
+    })),
+    rows: spec.rows.map((row) => ({
+      label: row.label,
+      cells: row.cells.map((cell) => ({
+        field: cell.field,
+        display: cell.display,
+        raw: cell.raw ?? null,
+        unit: cell.unit ?? null,
+        available: cell.available,
+        citation: {
+          source: cell.citation.source,
+          tier: cell.citation.tier,
+          vintage: cell.citation.vintage,
+          caveat: cell.citation.caveat ?? null,
+          raw_table: cell.citation.raw_table ?? null,
+          url: cell.citation.url ?? null,
+        },
+      })),
+    })),
+  });
 }
 
 function mergeStep(state: TurnState, step: StepData): TurnState {
@@ -159,7 +201,7 @@ export function reduce(state: TurnState, event: ProtocolEvent): TurnState {
       };
     }
     case 'viz':
-      return { ...state, blocks: [...state.blocks, { kind: 'viz', spec: event.data }] };
+      return appendViz(state, event.data);
     case 'clarify':
       return { ...state, clarify: event.data };
     case 'sources':

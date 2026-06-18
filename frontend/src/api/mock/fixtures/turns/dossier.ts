@@ -1,7 +1,7 @@
 /**
  * The dossier turn — the full-fat fixture: db lookups, web search, Reddit,
  * thinking lines, a long multi-block markdown answer (headings, table, list,
- * code), one viz event, sources, usage, done.
+ * code), staged viz events, sources, usage, done.
  *
  * Events follow architecture.md §27 verbatim; FE-7 reconciles against the
  * backend's exported fixtures.
@@ -479,7 +479,6 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
       },
     },
   },
-  ...deltas(INTRO),
   {
     v: 1,
     type: 'step',
@@ -504,9 +503,6 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
       detail: { viz_type: 'stat_block', schools: ['New York University'], duration_ms: 410 },
     },
   },
-  { v: 1, type: 'viz', data: STAT_BLOCK },
-  ...deltas(AFTER_VIZ),
-  ...deltas(COMPARE_PROSE),
   {
     v: 1,
     type: 'step',
@@ -535,6 +531,10 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
       },
     },
   },
+  ...deltas(INTRO),
+  { v: 1, type: 'viz', data: STAT_BLOCK },
+  ...deltas(AFTER_VIZ),
+  ...deltas(COMPARE_PROSE),
   { v: 1, type: 'viz', data: COMPARISON },
   ...deltas(CLOSING),
   { v: 1, type: 'sources', data: { sources: SOURCES } },

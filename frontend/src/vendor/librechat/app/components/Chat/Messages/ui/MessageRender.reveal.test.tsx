@@ -1,11 +1,7 @@
-/**
- * Regression for the DB reveal action-row gate. The toggle must appear for
- * rendered DB-backed viz values, not only DB-cited prose.
- */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 import type { ChatMessage } from '@/app/ChatContext';
-import type { Citation, CitationEnvelope, RenderSpec } from '@/api/protocol';
+import type { Citation, CitationEnvelope, RenderSpec, SourceEntry } from '@/api/protocol';
 import MessageRender from './MessageRender';
 
 vi.mock('~/hooks', () => ({
@@ -25,15 +21,20 @@ vi.mock('~/hooks/Messages/useMessageActions', () => ({
   }),
 }));
 
-vi.mock('@/app/ChatContext', () => ({
-  useChatContext: () => ({
-    ask: vi.fn(),
-    regenerate: vi.fn(),
-    latestMessageId: 'm1',
-    isSubmitting: false,
-    conversationId: 'c1',
-  }),
-}));
+vi.mock('@/app/ChatContext', async () => {
+  const actual = await vi.importActual<typeof import('@/app/ChatContext')>('@/app/ChatContext');
+  return {
+    ...actual,
+    useChatContext: () => ({
+      ask: vi.fn(),
+      regenerate: vi.fn(),
+      latestMessageId: 'm1',
+      isSubmitting: false,
+      conversationId: 'c1',
+      submitMessage: vi.fn(),
+    }),
+  };
+});
 
 vi.mock('~/components/Chat/Messages/HoverButtons', () => ({
   default: () => <div data-testid="hover-buttons" />,
@@ -41,6 +42,14 @@ vi.mock('~/components/Chat/Messages/HoverButtons', () => ({
 
 function citation(over: Partial<Citation> = {}): Citation {
   return { source: 'cds', tier: 'official', vintage: 'CDS 2025-26', ...over };
+}
+
+function source(index: number, sourceName: Citation['source'] = 'ipeds'): SourceEntry {
+  return {
+    index,
+    label: sourceName === 'ipeds' ? 'Counselle data' : 'School site',
+    citation: citation({ source: sourceName }),
+  };
 }
 
 function env(over: Partial<CitationEnvelope> = {}): CitationEnvelope {
@@ -95,6 +104,26 @@ function renderMessage(msg: ChatMessage, props: { isSubmitting?: boolean } = {})
 }
 
 describe('MessageRender DB reveal toggle', () => {
+  test('DB-cited assistant prose shows toggle and toggles pressed state', () => {
+    renderMessage(
+      message({
+        text: 'Admission rate is 42% [1].',
+        content: [{ kind: 'markdown', text: 'Admission rate is 42% [1].' }],
+        sources: [source(1, 'ipeds')],
+      }),
+    );
+
+    const toggle = screen.getByRole('button', { name: /show what's from counselle/i });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(toggle);
+
+    expect(screen.getByRole('button', { name: /hide/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   test('completed viz-only DB answer shows toggle and reveals DB card cells', () => {
     const { container } = renderMessage(
       message({ content: [{ kind: 'viz', spec: comparison(env({ display: '$74,310' })) }] }),
@@ -113,7 +142,17 @@ describe('MessageRender DB reveal toggle', () => {
   });
 
   test('external-only and unavailable-only content hide the toggle', () => {
-    const external = renderMessage(
+    const externalProse = renderMessage(
+      message({
+        text: 'Admission rate is discussed here [1].',
+        content: [{ kind: 'markdown', text: 'Admission rate is discussed here [1].' }],
+        sources: [source(1, 'edu')],
+      }),
+    );
+    expect(screen.queryByRole('button', { name: /show what's from counselle/i })).toBeNull();
+    externalProse.unmount();
+
+    const externalViz = renderMessage(
       message({
         content: [
           {
@@ -129,7 +168,7 @@ describe('MessageRender DB reveal toggle', () => {
       }),
     );
     expect(screen.queryByRole('button', { name: /show what's from counselle/i })).toBeNull();
-    external.unmount();
+    externalViz.unmount();
 
     renderMessage(
       message({

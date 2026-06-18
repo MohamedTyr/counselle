@@ -8,10 +8,14 @@
     },
     {
       "role": "assistant",
-      "text": "Duke's housing is consistently well reviewed by students [1]. The acceptance-rate snapshot above puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper.",
+      "text": "Duke's housing is consistently well reviewed by students [1].  The acceptance-rate snapshot puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper.",
       "ts": "2026-01-01T00:00:00+00:00",
       "message_id": "id-2",
       "parts": [
+        {
+          "type": "text",
+          "text": "Duke's housing is consistently well reviewed by students [1]. "
+        },
         {
           "type": "viz",
           "spec": {
@@ -53,7 +57,7 @@
         },
         {
           "type": "text",
-          "text": "Duke's housing is consistently well reviewed by students [1]. The acceptance-rate snapshot above puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper."
+          "text": " The acceptance-rate snapshot puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper."
         }
       ],
       "step_record": {
@@ -129,7 +133,7 @@
       "status": "complete",
       "usage": {
         "input_tokens": 150,
-        "output_tokens": 61,
+        "output_tokens": 62,
         "est_cost_usd": null,
         "tool_calls": 2
       }

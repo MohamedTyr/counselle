@@ -27,6 +27,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from app.viz_signature import viz_payload_signature
 from domain.events import DoneStatus
 
 #: Cheap stopgap narrowing — the full per-kind discriminated union is deferred to B2.
@@ -37,6 +38,20 @@ Emission = tuple[Literal["delta", "viz", "step", "thinking"], Any]
 #: never on the wire) — defined in terms of the wire vocabulary so the two can
 #: never drift (audit M7). Typo-proof at call sites.
 TurnStatus = DoneStatus | Literal["error"]
+
+
+class FinalEmissionDeduper:
+    def __init__(self) -> None:
+        self._seen_viz: set[str] = set()
+
+    def keep(self, kind: str, payload: Any) -> bool:
+        if kind != "viz":
+            return True
+        signature = viz_payload_signature(payload)
+        if signature in self._seen_viz:
+            return False
+        self._seen_viz.add(signature)
+        return True
 
 
 def now_iso() -> str:
@@ -54,11 +69,14 @@ def build_parts(emissions: list[Emission]) -> list[dict[str, Any]]:
     """
     parts: list[dict[str, Any]] = []
     segment: list[str] = []
+    deduper = FinalEmissionDeduper()
     for kind, payload in emissions:
         if kind == "delta":
             if payload:
                 segment.append(payload)
         elif kind == "viz":
+            if not deduper.keep(kind, payload):
+                continue
             if segment:
                 parts.append({"type": "text", "text": "".join(segment)})
                 segment = []

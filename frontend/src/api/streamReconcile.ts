@@ -39,6 +39,22 @@ export function reconcileMetaIds(
   return { next, matched };
 }
 
+export function upsertAssistantMessage(
+  prev: ChatMessage[],
+  assistant: ChatMessage,
+): ChatMessage[] {
+  const replaceIndex = prev.findIndex(
+    (message) =>
+      !message.isCreatedByUser &&
+      message.conversationId === assistant.conversationId &&
+      message.messageId === assistant.messageId,
+  );
+  if (replaceIndex === -1) {
+    return [...prev, assistant];
+  }
+  return prev.map((message, index) => (index === replaceIndex ? assistant : message));
+}
+
 /**
  * Build the terminal (completed) assistant card from reducer state, stamping the
  * reconciled backend-id flag. The server already persisted it; a reload

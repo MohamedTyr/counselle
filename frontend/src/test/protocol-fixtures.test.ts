@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { DOSSIER_EVENTS } from '@/api/mock/fixtures/turns/dossier';
 import type {
   ClarifySpec,
   ProtocolEvent,
@@ -215,6 +216,19 @@ function eventsOf(payload: unknown, key: string): unknown[] {
   return events as unknown[];
 }
 
+function indexesOf(events: ProtocolEvent[], type: ProtocolEvent['type']): number[] {
+  return events.flatMap((event, index) => (event.type === type ? [index] : []));
+}
+
+function lastWorkIndex(events: ProtocolEvent[]): number {
+  return events.reduce((last, event, index) => {
+    if (event.type === 'step' || event.type === 'thinking') {
+      return index;
+    }
+    return last;
+  }, -1);
+}
+
 // ── the fixtures ─────────────────────────────────────────────────────────────
 
 describe('golden protocol fixtures (shared with the backend)', () => {
@@ -228,6 +242,40 @@ describe('golden protocol fixtures (shared with the backend)', () => {
     }
     const done = events.at(-1);
     expect(done?.type === 'done' && done.data.status).toBe('complete');
+  });
+
+  test('turn_full: final answer fixture order keeps work before inline viz and prose', () => {
+    const events = eventsOf(load('turn_full'), 'events').map(assertEvent);
+    const workEnd = lastWorkIndex(events);
+    const [firstViz] = indexesOf(events, 'viz');
+    const deltaIndexes = indexesOf(events, 'delta');
+    const [firstDelta] = deltaIndexes;
+    const deltaAfterViz = deltaIndexes.find((index) => index > firstViz);
+    const firstFinalContent = Math.min(firstDelta, firstViz);
+
+    expect(workEnd).toBeGreaterThan(0);
+    expect(firstFinalContent).toBeGreaterThan(workEnd);
+    expect(firstDelta).toBeLessThan(firstViz);
+    expect(firstViz).toBeGreaterThan(workEnd);
+    expect(deltaAfterViz).toBeGreaterThan(firstViz);
+    expect(events.filter((event) => event.type === 'viz')).toHaveLength(1);
+  });
+
+  test('mock dossier final answer fixture order keeps work before inline cards and prose', () => {
+    const events = DOSSIER_EVENTS.map(assertEvent);
+    const workEnd = lastWorkIndex(events);
+    const [firstViz] = indexesOf(events, 'viz');
+    const deltaIndexes = indexesOf(events, 'delta');
+    const [firstDelta] = deltaIndexes;
+    const deltaAfterViz = deltaIndexes.find((index) => index > firstViz);
+    const firstFinalContent = Math.min(firstDelta, firstViz);
+
+    expect(workEnd).toBeGreaterThan(0);
+    expect(firstFinalContent).toBeGreaterThan(workEnd);
+    expect(firstDelta).toBeLessThan(firstViz);
+    expect(firstViz).toBeGreaterThan(workEnd);
+    expect(deltaAfterViz).toBeGreaterThan(firstViz);
+    expect(events.filter((event) => event.type === 'viz')).toHaveLength(2);
   });
 
   test('turn_clarify: park + resume, the resume reuses the parked message_id', () => {

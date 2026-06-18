@@ -45,7 +45,7 @@ from pydantic_ai.messages import (
 )
 
 from app.graph import GraphDeps
-from app.records import Emission
+from app.records import Emission, FinalEmissionDeduper
 from app.sessions import get_session, touch_session
 from app.turn_persistence import build_terminal_update, parked_record
 from config.settings import get_settings
@@ -299,6 +299,7 @@ async def run_turn(
 
     turn_ids: dict[str, Any] = {"message_id": message_id, "user_message_id": user_message_id}
     emissions: list[Emission] = []
+    final_emissions = FinalEmissionDeduper()
     # The last source_registry/usage dumps from the updates stream — the FIX 2
     # fallback AND the parked/error records' sources snapshot.
     last_registry_dump: list[Any] = []
@@ -360,6 +361,8 @@ async def run_turn(
                         emissions.append(("thinking", text))
                         yield ev_thinking(text)
                 elif kind == "viz" and (spec := chunk.get("spec")) is not None:
+                    if not final_emissions.keep(kind, spec):
+                        continue
                     emissions.append(("viz", spec))
                     yield ev_viz(RenderSpec.model_validate(spec))
             elif mode == "updates" and isinstance(chunk, dict):

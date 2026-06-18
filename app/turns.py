@@ -50,7 +50,7 @@ from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
-from app.records import Emission, TurnStatus
+from app.records import Emission, FinalEmissionDeduper, TurnStatus
 from app.run_turn import _USER_SAFE_ERROR, run_turn
 from app.turn_persistence import (
     AGENT_NODE,
@@ -210,6 +210,7 @@ class _Turn:
     trace_id: str = ""
     ids: dict[str, Any] | None = None  # {message_id, user_message_id} from meta
     emissions: list[Emission] = field(default_factory=list)
+    final_emissions: FinalEmissionDeduper = field(default_factory=FinalEmissionDeduper)
     last_usage: dict[str, Any] | None = None
     cancel_requested: bool = False
     finalized: bool = False
@@ -444,7 +445,9 @@ class TurnRegistry:
                     )
                     async with aclosing(events) as stream:
                         async for event in stream:
-                            turn.buffer.append(self._observe(turn, event))
+                            observed = self._observe(turn, event)
+                            if observed is not None:
+                                turn.buffer.append(observed)
             except TimeoutError:
                 await self._handle_timeout(turn, timeout_s)
             except asyncio.CancelledError:
@@ -477,7 +480,7 @@ class TurnRegistry:
                 self._finalize(turn)
             self._log_complete(turn, start_mono)
 
-    def _observe(self, turn: _Turn, event: Event) -> Event:
+    def _observe(self, turn: _Turn, event: Event) -> Event | None:
         """Track identity/emissions/usage from the stream; enrich usage events.
 
         INVARIANT (BC-07): this runs on the SINGLE producer loop in ``_drive``
@@ -504,6 +507,8 @@ class TurnRegistry:
         elif kind == "step":
             turn.emissions.append(("step", event.data))
         elif kind == "viz":
+            if not turn.final_emissions.keep(kind, event.data):
+                return None
             turn.emissions.append(("viz", event.data))
         elif kind == "usage":
             try:
@@ -771,7 +776,7 @@ class TurnRegistry:
             clarify=clarify,
             synthesized_answer=synthesized,
         )
-        await self._graph.aupdate_state(config, update)
+        await self._graph.aupdate_state(config, update, as_node=AGENT_NODE)
 
     async def _unpark_if_parked(self, session_id: str) -> bool:
         """Cancel-on-parked (G4/G5): clear the interrupt and freeze the parked

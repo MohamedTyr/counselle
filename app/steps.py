@@ -20,12 +20,12 @@ Two pieces, both pure of I/O:
      return ``{"error": …}`` dicts) and a model-input problem surfaces as a
      ``RetryPromptPart``; both must show ``status:"error"`` — a failed search
      never gets a green check.
-  3. **Thinking routing** (B0 spike 2): a per-model-response text buffer with
-     ``PartEndEvent.next_part_kind`` as the deterministic flush signal —
-     under-threshold text ending at a tool call flushes as ``thinking``;
-     crossing the threshold flushes as ``delta`` and streams live thereafter.
-     Native Gemini thought summaries (``ThinkingPart``) are a second
-     ``thinking`` feed, emitted per completed paragraph.
+  3. **Final-answer gated routing**: model text is work narration until the
+     stream proves the final answer has started. Pre-final text flushes as
+     ``thinking`` at tool/non-text boundaries; final-answer prose is the only
+     text routed to ``delta``. Native Gemini thought summaries
+     (``ThinkingPart``) are a second ``thinking`` feed, emitted per completed
+     paragraph.
 
   :meth:`EmissionRouter.close` is the terminal closure: at clarify/error/
   budget every open step is closed synthetically so nothing shimmers forever
@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
 
+from pydantic_ai import FinalResultEvent
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
@@ -54,6 +55,7 @@ from pydantic_ai.messages import (
     ThinkingPart,
     ThinkingPartDelta,
 )
+from pydantic_ai.run import AgentRunResultEvent
 
 from domain.events import StepData, StepDetail, StepKind, StepSource, StepTier, ev_step
 from domain.urls import favicon_url, registrable_domain
@@ -385,15 +387,18 @@ class EmissionRouter:
     #: call to one must paint no step — no search happened; the model's
     #: tool-not-found retry is internal noise, not student-visible work.
     unmounted: frozenset[str] = frozenset()
+    on_final_start: Callable[[], None] | None = None
 
     step_records: list[dict[str, Any]] = field(default_factory=list)
     thinking_lines: list[str] = field(default_factory=list)
+    final_answer_started: bool = field(default=False, init=False)
 
     _open: dict[str, _OpenStep] = field(default_factory=dict)
     _counter: int = 0
     _text_buf: str = ""
-    _live: bool = False
     _thinking_buf: str = ""
+    _thinking_streamed_len: int = 0
+    _final_candidate: bool = False
     _closed: bool = False
 
     # -- the one entry point ------------------------------------------------
@@ -401,7 +406,11 @@ class EmissionRouter:
     def handle(self, event: Any) -> None:
         if self._closed:
             return  # late events must never write to a closed stream
-        if isinstance(event, PartStartEvent):
+        if isinstance(event, FinalResultEvent):
+            self._handle_final_result()
+        elif isinstance(event, AgentRunResultEvent):
+            self._handle_run_result()
+        elif isinstance(event, PartStartEvent):
             if isinstance(event.part, TextPart):
                 self._feed_text(event.part.content or "")
             elif isinstance(event.part, ThinkingPart):
@@ -416,11 +425,6 @@ class EmissionRouter:
                 self._end_text_part(getattr(event, "next_part_kind", None))
             elif isinstance(event.part, ThinkingPart):
                 self._flush_thinking()
-            if getattr(event, "next_part_kind", None) is None:
-                # Model response over: the thinking threshold is per response,
-                # so the next response's text must be re-buffered, not streamed
-                # live just because the prior one crossed the threshold.
-                self._live = False
         elif isinstance(event, FunctionToolCallEvent):
             self._start_step(event)
         elif isinstance(event, FunctionToolResultEvent):
@@ -437,9 +441,13 @@ class EmissionRouter:
         self._closed = True
         self._flush_thinking()
         if self._text_buf:
-            # End of the run: whatever is buffered is final-answer prose.
-            self.writer({"type": "delta", "text": self._text_buf})
-            self._text_buf = ""
+            if self.final_answer_started or (reason == "complete" and self._final_candidate):
+                if not self.final_answer_started and self._unstreamed_text():
+                    self._start_final_answer()
+                self._flush_text_delta()
+            else:
+                self._flush_text_as_thinking()
+        self._final_candidate = False
         status: Literal["end", "error"] = "end" if reason in ("complete", "interrupt") else "error"
         for open_step in list(self._open.values()):
             self._emit_step(
@@ -455,34 +463,95 @@ class EmissionRouter:
 
     # -- text / thinking routing ---------------------------------------------
 
+    def _handle_final_result(self) -> None:
+        if self.final_answer_started:
+            return
+        if self._text_buf:
+            if self._thinking_streamed_len:
+                text = self._unstreamed_text()
+                self._clear_text_buffer()
+                self._start_final_answer()
+                if text:
+                    self.writer({"type": "delta", "text": text})
+                return
+            self._final_candidate = True
+            return
+        self._start_final_answer()
+
+    def _handle_run_result(self) -> None:
+        if self.final_answer_started or not self._text_buf:
+            return
+        if not self._unstreamed_text():
+            self._clear_text_buffer()
+            return
+        self._start_final_answer()
+        self._flush_text_delta()
+
+    def _start_final_answer(self) -> None:
+        if self.final_answer_started:
+            return
+        self.final_answer_started = True
+        self._final_candidate = False
+        if self.on_final_start is not None:
+            self.on_final_start()
+
     def _feed_text(self, text: str) -> None:
         if not text:
             return
-        if self._live:
+        if self.final_answer_started:
             self.writer({"type": "delta", "text": text})
             return
         self._text_buf += text
+        if self._final_candidate:
+            return
         if len(self._text_buf) >= self.threshold:
-            self.writer({"type": "delta", "text": self._text_buf})
-            self._text_buf = ""
-            self._live = True
+            self._emit_unstreamed_text_as_thinking()
 
     def _end_text_part(self, next_part_kind: Any) -> None:
-        if self._live or not self._text_buf:
+        if not self._text_buf:
             return
         if next_part_kind == "text":
             return  # a continuation text part follows — keep buffering
-        if next_part_kind is None:
-            # Response over: the held text is (the start of) the answer.
-            self.writer({"type": "delta", "text": self._text_buf})
+        if self.final_answer_started or (self._final_candidate and next_part_kind is None):
+            if not self.final_answer_started and self._unstreamed_text():
+                self._start_final_answer()
+            self._flush_text_delta()
         else:
             # 'tool-call', 'thinking', 'builtin-tool-call', 'file', any future
             # kind: the model moved on to non-text work before answering, so
-            # under-threshold text here is narration — same semantics as a
-            # tool call. Defaulting unknown kinds to thinking beats defaulting
-            # to delta: a wrongly-streamed half-thought would lie to a student.
-            self._emit_thinking(self._text_buf)
+            # text here is narration. Defaulting unknown kinds to thinking beats
+            # defaulting to delta: a wrongly-streamed half-thought would lie to
+            # a student.
+            self._flush_text_as_thinking()
+            self._final_candidate = False
+
+    def _flush_text_delta(self) -> None:
+        if not self._text_buf:
+            return
+        text = self._unstreamed_text()
+        self._clear_text_buffer()
+        if text:
+            self.writer({"type": "delta", "text": text})
+
+    def _unstreamed_text(self) -> str:
+        return self._text_buf[self._thinking_streamed_len :]
+
+    def _clear_text_buffer(self) -> None:
         self._text_buf = ""
+        self._thinking_streamed_len = 0
+        self._final_candidate = False
+
+    def _emit_unstreamed_text_as_thinking(self) -> None:
+        text = self._text_buf[self._thinking_streamed_len :]
+        if not text:
+            return
+        self._emit_thinking(text)
+        self._thinking_streamed_len = len(self._text_buf)
+
+    def _flush_text_as_thinking(self) -> None:
+        self._emit_unstreamed_text_as_thinking()
+        self._text_buf = ""
+        self._thinking_streamed_len = 0
 
     def _feed_thinking(self, text: str) -> None:
         if not text:
@@ -509,11 +578,10 @@ class EmissionRouter:
 
     def _start_step(self, event: FunctionToolCallEvent) -> None:
         # A new tool batch means the prior model response is over.
-        self._live = False
         if self._text_buf:
             # Safety net: pending under-threshold text before a step is narration.
-            self._emit_thinking(self._text_buf)
-            self._text_buf = ""
+            self._flush_text_as_thinking()
+        self._final_candidate = False
         part = event.part
         if part.tool_name == _EXCLUDED_TOOL:
             return  # interrupt-backed: the clarify event is its UI

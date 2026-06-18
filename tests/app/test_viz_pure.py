@@ -39,11 +39,16 @@ def envelope(field: str, *, available: bool = True) -> CitationEnvelope:
     )
 
 
-def spec_with_cells(cells: list[CitationEnvelope]) -> RenderSpec:
+def spec_with_cells(
+    cells: list[CitationEnvelope],
+    *,
+    school: SchoolRef | None = None,
+    title: str = "A vs B",
+) -> RenderSpec:
     return RenderSpec(
         type="comparison_table",
-        title="A vs B",
-        schools=[SchoolRef(unitid=1, name="A")],
+        title=title,
+        schools=[school or SchoolRef(unitid=1, name="A")],
         rows=[VizRow(label="row", cells=cells)],
     )
 
@@ -286,6 +291,7 @@ async def test_render_viz_returns_service_errors_without_emitting(
     result = await render_viz(fake_catalog(), SourceRegistry(), emitted, "stat_block", [1], ["x"])
 
     assert result == {"ok": False, "error": "bad request"}
+    assert "placement_marker" not in result
     assert emitted == []
 
 
@@ -308,7 +314,43 @@ async def test_render_viz_returns_honest_db_error_without_emitting(
 
     assert result["ok"] is False
     assert "do not invent values" in result["error"]
+    assert "placement_marker" not in result
     assert emitted == []
+
+
+async def test_render_viz_returns_placement_marker(monkeypatch: pytest.MonkeyPatch) -> None:
+    specs = [
+        spec_with_cells([envelope("x")]),
+        spec_with_cells([envelope("y")]),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    emitted: list[dict[str, object]] = []
+    monkeypatch.setattr(viz, "_build_spec", fake_build_spec)
+
+    first = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["x"]
+    )
+    second = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["y"]
+    )
+
+    assert first == {
+        "ok": True,
+        "viz": "comparison_table rendered with 1 values",
+        "sources": ["[1]"],
+        "placement_marker": "[[viz:1]]",
+    }
+    assert second["placement_marker"] == "[[viz:2]]"
+    assert len(emitted) == 2
 
 
 async def test_render_viz_emits_available_spec(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -330,3 +372,106 @@ async def test_render_viz_emits_available_spec(monkeypatch: pytest.MonkeyPatch) 
 
     assert result["ok"] is True
     assert len(emitted) == 1
+
+
+async def test_render_viz_stages_once_for_equivalent_successful_specs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = [
+        spec_with_cells([envelope("x")], title="First title"),
+        spec_with_cells([envelope("x")], title="Second title"),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    registry = SourceRegistry()
+    emitted: list[dict[str, object]] = []
+    monkeypatch.setattr(viz, "_build_spec", fake_build_spec)
+
+    first = await render_viz(
+        fake_catalog(), registry, emitted, "comparison_table", [1], ["x"]
+    )
+    second = await render_viz(
+        fake_catalog(), registry, emitted, "comparison_table", [1], ["x"]
+    )
+
+    assert first["ok"] is True
+    assert second["ok"] is True
+    assert first["sources"] == ["[1]"]
+    assert second["sources"] == ["[1]"]
+    assert first["placement_marker"] == "[[viz:1]]"
+    assert second["placement_marker"] == "[[viz:1]]"
+    assert len(emitted) == 1
+    assert emitted[0]["title"] == "First title"
+
+
+async def test_render_viz_stages_distinct_specs_separately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = [
+        spec_with_cells([envelope("x")]),
+        spec_with_cells([envelope("y")]),
+        spec_with_cells([envelope("x")], school=SchoolRef(unitid=2, name="B")),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    emitted: list[dict[str, object]] = []
+    monkeypatch.setattr(viz, "_build_spec", fake_build_spec)
+
+    first = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["x"]
+    )
+    second = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["y"]
+    )
+    third = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [2], ["x"]
+    )
+
+    assert first["ok"] is True
+    assert second["ok"] is True
+    assert third["ok"] is True
+    assert first["placement_marker"] == "[[viz:1]]"
+    assert second["placement_marker"] == "[[viz:2]]"
+    assert third["placement_marker"] == "[[viz:3]]"
+    assert len(emitted) == 3
+
+
+async def test_render_viz_unavailable_spec_stages_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return spec_with_cells([envelope("x", available=False)])
+
+    emitted: list[dict[str, object]] = []
+    monkeypatch.setattr(viz, "_build_spec", fake_build_spec)
+
+    result = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["x"]
+    )
+
+    assert result["ok"] is False
+    assert "do not invent values" in result["error"]
+    assert "placement_marker" not in result
+    assert emitted == []

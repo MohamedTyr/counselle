@@ -25,7 +25,14 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelMessagesTypeAdapter,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 import app.agent_node
@@ -42,7 +49,16 @@ from app.turns import (
     TurnRegistry,
     _RingBuffer,
 )
-from domain.events import Event, ev_delta, ev_done
+from domain.events import (
+    Event,
+    UsageData,
+    ev_delta,
+    ev_done,
+    ev_meta,
+    ev_sources,
+    ev_usage,
+    ev_viz,
+)
 from domain.specs import SourceConfig
 from tests.app.test_run_turn import (
     _ALL_OFF,
@@ -53,10 +69,9 @@ from tests.app.test_run_turn import (
     _clarify_then_answer,
     _fn_model,
     _search_then_answer,
+    _viz_spec,
 )
 
-# A first chunk that crosses the thinking threshold (240 chars) so prose
-# streams live as deltas before any gate.
 _LONG_CHUNK = "Duke University's residential experience is widely praised by students. " * 5
 
 
@@ -97,18 +112,16 @@ def _gated_model(gate: asyncio.Event, *chunks_before: str, after: str = "") -> F
 
 
 class Collector:
-    """Drains an attach handle in the background; wakes on the first delta."""
-
     def __init__(self, stream: AsyncIterator[tuple[Event, int]]) -> None:
         self.items: list[tuple[Event, int]] = []
-        self.first_delta = asyncio.Event()
+        self.first_visible = asyncio.Event()
         self.task = asyncio.create_task(self._run(stream))
 
     async def _run(self, stream: AsyncIterator[tuple[Event, int]]) -> None:
         async for event, seq in stream:
             self.items.append((event, seq))
-            if event.type == "delta":
-                self.first_delta.set()
+            if event.type in ("delta", "thinking", "step"):
+                self.first_visible.set()
 
     async def done(self) -> list[tuple[Event, int]]:
         await self.task
@@ -166,7 +179,7 @@ async def test_disconnect_survival_second_consumer_replays_identically() -> None
     session_id = str(uuid4())
 
     first = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(first.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(first.first_visible.wait(), timeout=3)
 
     # The first consumer "disconnects" — the detached turn keeps running.
     first.task.cancel()
@@ -201,7 +214,7 @@ async def test_exact_replay_from_last_event_id_mid_stream() -> None:
     session_id = str(uuid4())
 
     first = Collector(await registry.start(session_id, "hi", _ALL_OFF))
-    await asyncio.wait_for(first.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(first.first_visible.wait(), timeout=3)
     seen = len(first.items)
     assert seen >= 2  # meta + ≥1 delta
     last_seq = first.items[-1][1]
@@ -214,6 +227,50 @@ async def test_exact_replay_from_last_event_id_mid_stream() -> None:
     assert [seq for _, seq in pairs] == list(range(last_seq + 1, last_seq + 1 + len(pairs)))
     full = await first.done()
     assert full[seen:] == pairs[: len(full) - seen]
+
+
+async def test_replay_duplicate_final_chunks_keeps_one_answer_and_one_viz() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    spec_1 = _viz_spec("admissions.rate", title="First title")
+    spec_2 = _viz_spec("admissions.rate", title="Second title")
+    gate = asyncio.Event()
+
+    async def duplicate_final_stream(*args: Any, **kwargs: Any) -> AsyncIterator[Event]:
+        yield ev_meta("trace-1", "session-1", "model", "assistant-1", "user-1")
+        yield ev_viz(spec_1)
+        yield ev_viz(spec_2)
+        yield ev_delta("Final answer after the card.")
+        await gate.wait()
+        yield ev_sources([])
+        yield ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=duplicate_final_stream,
+    )
+    session_id = str(uuid4())
+
+    handle = await registry.start(session_id, "compare these", _ALL_OFF)
+    first = Collector(handle)
+    await asyncio.wait_for(first.first_visible.wait(), timeout=3)
+
+    replay = registry.attach(session_id)
+    gate.set()
+    replayed = await _drain(replay)
+    full = await first.done()
+
+    assert [(event.type, seq) for event, seq in replayed] == [
+        (event.type, seq) for event, seq in full
+    ]
+    assert [seq for _, seq in replayed] == list(range(len(replayed)))
+    assert [event.type for event, _ in replayed].count("viz") == 1
+    assert _prose(replayed) == "Final answer after the card."
+
+    turn = registry._turns.get(session_id)
+    assert turn is None
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +320,7 @@ async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None
     session_id = str(uuid4())
 
     collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     outcome = await registry.cancel(session_id)
     assert outcome == "cancelled"
@@ -274,20 +331,18 @@ async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None
     assert types.count("done") == 1
     assert pairs[-1][0].data["status"] == "cancelled"
     assert "error" not in types
+    thinking = "".join(e.data["text"] for e, _ in pairs if e.type == "thinking")
+    assert _LONG_CHUNK.strip() in thinking
     streamed = _prose(pairs)
-    assert streamed  # prose crossed the threshold and streamed live
+    assert streamed == ""
 
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
     assert record["status"] == "cancelled"
     assert record["user_text"] == "duke dorms?"
     assert prose_of(record["parts"]) == streamed
-    # The prose invariant: the partial ModelResponse carries exactly what streamed.
-    last = values["messages"][-1]
-    assert last["kind"] == "response"
-    assert "".join(
-        p.get("content", "") for p in last["parts"] if p.get("part_kind") == "text"
-    ) == streamed
+    assert _LONG_CHUNK.strip() in "".join(record["thinking"])
+    assert all(message["kind"] == "request" for message in values["messages"])
     assert registry.is_generating(session_id) is False
 
 
@@ -352,6 +407,74 @@ async def test_cancel_before_prose_skips_the_model_response_append() -> None:
     assert record["status"] == "cancelled"
     assert record["parts"] == []
     assert record["user_text"] == "hi"
+
+
+async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
+    gate = asyncio.Event()
+    visible = "Final partial that the student already saw. "
+    hidden = "This text must not be fabricated after cancel."
+    rig = Rig(_fn_model(_search_then_answer))
+    session_id = str(uuid4())
+
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        messages = list(
+            ModelMessagesTypeAdapter.dump_python(
+                [ModelRequest(parts=[UserPromptPart(content=user_text)])],
+                mode="json",
+            )
+        )
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {"messages": messages, "turn_records": [], "source_registry": []},
+            as_node="agent",
+        )
+        yield ev_meta("trace-final-cancel", session_id, "test-model", "m-final", "u-final")
+        yield ev_delta(visible)
+        await gate.wait()
+        yield ev_delta(hidden)
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=fake_run_turn,
+    )
+    collector = Collector(await registry.start(session_id, "duke dorms?", _WEB_ONLY))
+    await _eventually(
+        lambda: any(event.type == "delta" for event, _ in collector.items),
+        timeout=3,
+    )
+
+    assert await registry.cancel(session_id) == "cancelled"
+    pairs = await collector.done()
+
+    types = [event.type for event, _ in pairs]
+    assert types.count("done") == 1
+    assert pairs[-1][0].data["status"] == "cancelled"
+    streamed = _prose(pairs)
+    assert streamed == visible
+    assert hidden not in streamed
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "cancelled"
+    assert prose_of(record["parts"]) == visible
+    prose_messages = [
+        part.get("content", "")
+        for message in values["messages"]
+        if message.get("kind") == "response"
+        for part in message.get("parts", [])
+        if part.get("part_kind") == "text"
+    ]
+    assert prose_messages == [visible]
 
 
 async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
@@ -660,7 +783,7 @@ async def test_aclose_drains_in_flight_turns_and_lands_their_writes() -> None:
     session_id = str(uuid4())
 
     collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     await registry.aclose()
 
@@ -705,7 +828,7 @@ async def test_aclose_with_a_live_turn_over_a_parked_session_drains_and_frees() 
     registry2 = _registry(rig2)
     live_sid = str(uuid4())
     collector = Collector(await registry2.start(live_sid, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     await registry2.aclose()  # drains the live turn; must not raise
 
@@ -732,7 +855,7 @@ async def test_external_task_cancel_still_emits_terminal_error() -> None:
     session_id = str(uuid4())
 
     collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     # Cancel the bare turn task directly — bypassing registry.cancel, so
     # cancel_requested stays False (an abrupt shutdown cancelling the task).
@@ -887,7 +1010,7 @@ async def test_per_turn_consumer_cap_raises_too_many_consumers() -> None:
 
     handle1 = await registry.start(session_id, "hi", _ALL_OFF)  # consumer 1 (starter)
     c1 = Collector(handle1)
-    await asyncio.wait_for(c1.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(c1.first_visible.wait(), timeout=3)
     handle2 = registry.attach(session_id)  # consumer 2
     c2 = Collector(handle2)
     await _eventually(lambda: registry._turns[session_id].consumers >= 2)
@@ -983,7 +1106,7 @@ async def test_undriven_handle_does_not_leak_a_consumer_slot() -> None:
     session_id = str(uuid4())
 
     c1 = Collector(await registry.start(session_id, "hi", _ALL_OFF))
-    await asyncio.wait_for(c1.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(c1.first_visible.wait(), timeout=3)
     turn = registry._turns[session_id]
     await _eventually(lambda: turn.consumers >= 1)
     before = turn.consumers
@@ -1014,7 +1137,7 @@ async def test_concurrent_cancel_produces_exactly_one_terminal_and_one_persist()
     session_id = str(uuid4())
 
     collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     persist_calls = 0
     original = registry._persist_partial
@@ -1055,7 +1178,7 @@ async def test_external_cancel_racing_our_cancel_yields_single_terminal() -> Non
     session_id = str(uuid4())
 
     collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     turn = registry._turns[session_id]
     assert turn.task is not None
@@ -1109,11 +1232,11 @@ async def test_foreign_last_event_id_full_replays_not_silent_skip() -> None:
     gate = asyncio.Event()
     rig.deps.model_factory = lambda: _gated_model(gate, _LONG_CHUNK, after=" done.")
     c1 = Collector(await registry.start(session_id, "harvard?", _ALL_OFF))
-    await asyncio.wait_for(c1.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(c1.first_visible.wait(), timeout=3)
 
     reattached = registry.attach(session_id, last_event_id=top_seq + 5)
     c2 = Collector(reattached)
-    await asyncio.wait_for(c2.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(c2.first_visible.wait(), timeout=3)
     # The reattached consumer replays from the head: first seq is 0 and it sees
     # the new turn's meta (no silent skip).
     assert c2.items[0][1] == 0
@@ -1136,7 +1259,7 @@ async def test_caught_up_cursor_waits_then_follows_live() -> None:
     session_id = str(uuid4())
 
     first = Collector(await registry.start(session_id, "hi", _ALL_OFF))
-    await asyncio.wait_for(first.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(first.first_visible.wait(), timeout=3)
     last_seq = first.items[-1][1]
 
     reattached = registry.attach(session_id, last_event_id=last_seq)
@@ -1212,7 +1335,7 @@ async def test_partial_persist_db_hang_still_finalizes_and_frees_the_claim() -> 
     registry._graph.aupdate_state = hang
 
     collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     # The cancel must NOT hang despite the wedged DB.
     outcome = await asyncio.wait_for(registry.cancel(session_id), timeout=2)
@@ -1238,7 +1361,7 @@ async def test_partial_persist_timeout_does_not_emit_double_terminal() -> None:
     registry._graph.aupdate_state = hang
 
     collector = Collector(await registry.start(session_id, "hi", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     await asyncio.wait_for(registry.cancel(session_id), timeout=2)
     pairs = await collector.done()
@@ -1259,7 +1382,7 @@ async def test_aclose_terminates_active_turn_with_error_not_cancelled() -> None:
     session_id = str(uuid4())
 
     collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
-    await asyncio.wait_for(collector.first_delta.wait(), timeout=3)
+    await asyncio.wait_for(collector.first_visible.wait(), timeout=3)
 
     await registry.aclose()
 
