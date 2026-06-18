@@ -18,7 +18,7 @@ Deferred: **net-price-by-income bars** (#4) and **admissions-factor weight grid*
 - **Official / DB-backed numeric** → tool-fetched, deterministic, precise. (All three in-scope viz.)
 - **Community / qualitative** (Reddit, deep-research synthesis) → LLM-passed → rendered as an explicitly **community-tier qualitative card**, **never** a quantified chart. No fabricated "73% of redditors…" precision.
 
-**Mechanism:** one tool — `render_viz(type, selection)`, `type ∈ {comparison_table, stat_block, score_band}`, `selection` = schools + field_keys (+ test for the band). It calls `counselle_db.service` **directly in-process** — never through the MCP child (eng-review D2; the MCP child is the seam for the LLM's tool loop only) — gets back **citation envelopes**, wraps them with `type`, and returns one **render spec (JSON)** whose cells *are* envelopes. The server forwards the spec to the frontend **out-of-band** as a viz event; the LLM receives only a small acknowledgment, not the numbers to repeat. The frontend has three **dumb components** that draw `display` + an official/community chip (from `tier`) and render `available:false` as "not available". Visualizations appear in **tool-call order** interleaved with the prose (no anchoring machinery).
+**Mechanism:** one tool — `render_viz(type, selection)`, `type ∈ {comparison_table, stat_block, score_band}`, `selection` = schools + field_keys (+ test for the band). It calls `counselle_db.service` **directly in-process** — never through the MCP child (eng-review D2; the MCP child is the seam for the LLM's tool loop only) — gets back **citation envelopes**, wraps them with `type`, and returns one **render spec (JSON)** whose cells *are* envelopes. The backend stages successful specs, dedupes equivalent ones, and emits the batch once when final-answer mode begins; the LLM receives only a small acknowledgment, not the numbers to repeat. The frontend has three **dumb components** that draw `display` + an official/community chip (from `tier`) and render `available:false` as "not available". Visualizations arrive in first-seen tool order within that final flush. No placeholder anchoring machinery was added.
 
 **Field ownership per viz:**
 - **#1 stat block & #2 comparison → the LLM picks the fields contextually** (what matters for *this* chat, not a fixed dump — otherwise it's a static page, not a thinking partner).
@@ -38,10 +38,11 @@ Deferred: **net-price-by-income bars** (#4) and **admissions-factor weight grid*
 - **Fixed-template dossier (code picks all ~90 fields)** — rejected: a complete dump is a static page; the chat's value is showing what matters for the current context.
 - **Concept→field resolver + dangerous-sibling flagging to guarantee field choice** — rejected as enterprise over-engineering; the eval set catches wrong-field picks at far lower cost.
 - **Quantified community sentiment chart** — rejected: false precision on a community source = lying to a student.
-- **Per-viz anchoring / placeholder tokens for placement** — rejected: tool-call order is sufficient (low-value-and-hard otherwise).
+- **Per-viz anchoring / placeholder tokens for placement** — rejected: the final-answer flush preserves first-seen tool order without extra anchoring machinery (low-value-and-hard otherwise).
 
 ## Consequences
 - A **minimal viz renderer** (three components) is in scope, because score bands need a drawing surface. Tables/stat-blocks also degrade to Markdown where no renderer exists.
 - A new `render_viz` tool joins the agent's toolset; it is a thin wrapper over `counselle_db.service` (in-process, not through the MCP child).
 - The eval set (ADR 0009 / ARCHITECTURE §19) gains a **field-selection-accuracy** dimension.
 - Supersedes the visualization open questions in ARCHITECTURE §13 and §19 and the PRD "Visualizations" open question.
+- Post-MVP2 correction: the earlier interleaved/tool-call-order placement is historical context; the live protocol batches viz specs at final-answer start.

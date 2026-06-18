@@ -24,11 +24,11 @@ Envelope (every event, both sides agree today): `{ v: 1, type: <string>, data: <
 
 | field | type | req | producer | consumer |
 |---|---|---|---|---|
-| `text` | `string` | required | `DeltaData` (final-answer prose only from B1a — interstitial text reroutes to `thinking`) | `turn-reducer.ts appendDelta` | EXISTING |
+| `text` | `string` | required | `DeltaData` (final-answer prose only from B1a — pre-final text reroutes to `thinking` regardless of length) | `turn-reducer.ts appendDelta` | EXISTING |
 
 ### 1.3 `viz`
 
-`data` **is** the `RenderSpec` directly, no wrapper (`ev_viz` dumps the spec): `{ v: number, type: 'stat_block'|'comparison_table'|'score_band', title: string, schools: SchoolRef[], rows: VizRow[], band?: ScoreBand|null }` with `SchoolRef = {unitid: number, name: string}`, `VizRow = {label: string, cells: CitationEnvelope[]}`, `ScoreBand = {test: 'sat'|'act'|'both'}`. `CitationEnvelope = {v, field, label, display, raw?, available, unit?, citation}`. Producer `domain/specs.py RenderSpec`; consumer `turn-reducer.ts` → `components/cards/*`. EXISTING, byte-identical both sides. (Tier inside `citation` — see conflict C1.)
+`data` **is** the `RenderSpec` directly, no wrapper (`ev_viz` dumps the spec): `{ v: number, type: 'stat_block'|'comparison_table'|'score_band', title: string, schools: SchoolRef[], rows: VizRow[], band?: ScoreBand|null }` with `SchoolRef = {unitid: number, name: string}`, `VizRow = {label: string, cells: CitationEnvelope[]}`, `ScoreBand = {test: 'sat'|'act'|'both'}`. `CitationEnvelope = {v, field, label, display, raw?, available, unit?, citation}`. Producer `domain/specs.py RenderSpec`; consumer `turn-reducer.ts` → `components/cards/*`. The backend stages successful render specs during work, dedupes equivalent ones, and emits the batch once when final-answer mode begins; within that batch first-seen tool order is preserved. No placeholder anchoring. EXISTING, byte-identical both sides. (Tier inside `citation` — see conflict C1.)
 
 ### 1.4 `clarify`
 
