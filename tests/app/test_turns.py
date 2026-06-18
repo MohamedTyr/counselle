@@ -25,7 +25,14 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelMessagesTypeAdapter,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 import app.agent_node
@@ -42,7 +49,16 @@ from app.turns import (
     TurnRegistry,
     _RingBuffer,
 )
-from domain.events import Event, ev_delta, ev_done
+from domain.events import (
+    Event,
+    UsageData,
+    ev_delta,
+    ev_done,
+    ev_meta,
+    ev_sources,
+    ev_usage,
+    ev_viz,
+)
 from domain.specs import SourceConfig
 from tests.app.test_run_turn import (
     _ALL_OFF,
@@ -53,6 +69,7 @@ from tests.app.test_run_turn import (
     _clarify_then_answer,
     _fn_model,
     _search_then_answer,
+    _viz_spec,
 )
 
 _LONG_CHUNK = "Duke University's residential experience is widely praised by students. " * 5
@@ -212,6 +229,50 @@ async def test_exact_replay_from_last_event_id_mid_stream() -> None:
     assert full[seen:] == pairs[: len(full) - seen]
 
 
+async def test_replay_duplicate_final_chunks_keeps_one_answer_and_one_viz() -> None:
+    rig = Rig(_fn_model(_search_then_answer))
+    spec_1 = _viz_spec("admissions.rate", title="First title")
+    spec_2 = _viz_spec("admissions.rate", title="Second title")
+    gate = asyncio.Event()
+
+    async def duplicate_final_stream(*args: Any, **kwargs: Any) -> AsyncIterator[Event]:
+        yield ev_meta("trace-1", "session-1", "model", "assistant-1", "user-1")
+        yield ev_viz(spec_1)
+        yield ev_viz(spec_2)
+        yield ev_delta("Final answer after the card.")
+        await gate.wait()
+        yield ev_sources([])
+        yield ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=duplicate_final_stream,
+    )
+    session_id = str(uuid4())
+
+    handle = await registry.start(session_id, "compare these", _ALL_OFF)
+    first = Collector(handle)
+    await asyncio.wait_for(first.first_visible.wait(), timeout=3)
+
+    replay = registry.attach(session_id)
+    gate.set()
+    replayed = await _drain(replay)
+    full = await first.done()
+
+    assert [(event.type, seq) for event, seq in replayed] == [
+        (event.type, seq) for event, seq in full
+    ]
+    assert [seq for _, seq in replayed] == list(range(len(replayed)))
+    assert [event.type for event, _ in replayed].count("viz") == 1
+    assert _prose(replayed) == "Final answer after the card."
+
+    turn = registry._turns.get(session_id)
+    assert turn is None
+
+
 # ---------------------------------------------------------------------------
 # Single-flight
 # ---------------------------------------------------------------------------
@@ -346,6 +407,74 @@ async def test_cancel_before_prose_skips_the_model_response_append() -> None:
     assert record["status"] == "cancelled"
     assert record["parts"] == []
     assert record["user_text"] == "hi"
+
+
+async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
+    gate = asyncio.Event()
+    visible = "Final partial that the student already saw. "
+    hidden = "This text must not be fabricated after cancel."
+    rig = Rig(_fn_model(_search_then_answer))
+    session_id = str(uuid4())
+
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        messages = list(
+            ModelMessagesTypeAdapter.dump_python(
+                [ModelRequest(parts=[UserPromptPart(content=user_text)])],
+                mode="json",
+            )
+        )
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {"messages": messages, "turn_records": [], "source_registry": []},
+            as_node="agent",
+        )
+        yield ev_meta("trace-final-cancel", session_id, "test-model", "m-final", "u-final")
+        yield ev_delta(visible)
+        await gate.wait()
+        yield ev_delta(hidden)
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=fake_run_turn,
+    )
+    collector = Collector(await registry.start(session_id, "duke dorms?", _WEB_ONLY))
+    await _eventually(
+        lambda: any(event.type == "delta" for event, _ in collector.items),
+        timeout=3,
+    )
+
+    assert await registry.cancel(session_id) == "cancelled"
+    pairs = await collector.done()
+
+    types = [event.type for event, _ in pairs]
+    assert types.count("done") == 1
+    assert pairs[-1][0].data["status"] == "cancelled"
+    streamed = _prose(pairs)
+    assert streamed == visible
+    assert hidden not in streamed
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "cancelled"
+    assert prose_of(record["parts"]) == visible
+    prose_messages = [
+        part.get("content", "")
+        for message in values["messages"]
+        if message.get("kind") == "response"
+        for part in message.get("parts", [])
+        if part.get("part_kind") == "text"
+    ]
+    assert prose_messages == [visible]
 
 
 async def test_cancel_mid_resume_replaces_the_parked_record() -> None:

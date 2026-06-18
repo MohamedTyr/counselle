@@ -26,10 +26,20 @@ from pydantic_ai.models.function import AgentInfo
 
 import app.agent_node
 import app.graph
+import app.viz
 from app.state import TemporalContext
 from app.transcript import extract_transcript
 from domain.season import Season
-from tests.app.test_run_turn import _ALL_OFF, _WEB_ONLY, Rig, _fn_model, _text
+from domain.specs import RenderSpec
+from tests.app.test_run_turn import (
+    _ALL_OFF,
+    _WEB_ONLY,
+    Rig,
+    _fn_model,
+    _text,
+    _two_viz_then_answer,
+    _viz_spec,
+)
 
 _TEMPORAL = TemporalContext(
     today="2026-06-10",
@@ -200,6 +210,37 @@ async def test_transcript_steps_and_receipt_round_trip() -> None:
     assert [s["status"] for s in record["steps"]] == ["end"]
     assert record["steps"][0]["kind"] == "web_search"
     assert assistant["sources"][0]["index"] == 1
+
+
+async def test_transcript_final_content_has_one_answer_and_one_viz(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    specs = [
+        _viz_spec("admissions.rate", title="First title"),
+        _viz_spec("admissions.rate", title="Second title"),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_two_viz_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "compare these", _ALL_OFF)
+    transcript = await _transcript_of(rig, session_id)
+
+    assistant = transcript[-1]
+    assert assistant["text"] == _text(events)
+    assert assistant["text"] == "Final answer after the cards."
+    assert [part["type"] for part in assistant["parts"]] == ["viz", "text"]
+    assert assistant["parts"][1]["text"] == assistant["text"]
 
 
 async def test_two_independent_complete_turns_each_render_own_prose() -> None:

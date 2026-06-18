@@ -20,6 +20,7 @@ from app.records import (
     derive_receipt,
     prose_of,
 )
+from domain.envelope import Citation, CitationEnvelope
 
 # ---------------------------------------------------------------------------
 # derive_receipt — the §7 contract table
@@ -28,6 +29,29 @@ from app.records import (
 
 def _step(step_id: str, kind: str, status: str = "end") -> dict[str, Any]:
     return {"step_id": step_id, "status": status, "kind": kind, "label": "x", "tier": None}
+
+
+def _viz_spec(title: str) -> dict[str, Any]:
+    cell = CitationEnvelope(
+        field="admissions.rate",
+        label="admissions.rate",
+        display="42",
+        raw=42,
+        available=True,
+        unit="number",
+        citation=Citation(
+            source="ipeds",
+            tier="official",
+            vintage="IPEDS 2024",
+            raw_table="admissions.rate",
+        ),
+    )
+    return {
+        "type": "comparison_table",
+        "title": title,
+        "schools": [{"unitid": 1, "name": "A University"}],
+        "rows": [{"label": "admissions.rate", "cells": [cell.model_dump(mode="json")]}],
+    }
 
 
 @pytest.mark.parametrize(
@@ -130,6 +154,18 @@ def test_parts_skip_empty_deltas_and_ignore_steps_thinking() -> None:
 def test_parts_viz_only_turn() -> None:
     spec = {"type": "stat_block"}
     assert build_parts([("viz", spec)]) == [{"type": "viz", "spec": spec}]
+
+
+def test_parts_dedupes_equivalent_viz_specs_by_data_not_title() -> None:
+    first = _viz_spec("First title")
+    second = _viz_spec("Second title")
+
+    parts = build_parts([("viz", first), ("viz", second), ("delta", "Final answer.")])
+
+    assert parts == [
+        {"type": "viz", "spec": first},
+        {"type": "text", "text": "Final answer."},
+    ]
 
 
 # ---------------------------------------------------------------------------

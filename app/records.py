@@ -24,10 +24,12 @@ Design points (decided in the ship plan, not here):
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 from domain.events import DoneStatus
+from domain.specs import RenderSpec
 
 #: Cheap stopgap narrowing — the full per-kind discriminated union is deferred to B2.
 Emission = tuple[Literal["delta", "viz", "step", "thinking"], Any]
@@ -37,6 +39,56 @@ Emission = tuple[Literal["delta", "viz", "step", "thinking"], Any]
 #: never on the wire) — defined in terms of the wire vocabulary so the two can
 #: never drift (audit M7). Typo-proof at call sites.
 TurnStatus = DoneStatus | Literal["error"]
+
+
+def _json_fallback(value: Any) -> str:
+    return repr(value)
+
+
+def viz_signature(payload: Any) -> str:
+    try:
+        spec = RenderSpec.model_validate(payload)
+    except Exception:
+        return json.dumps(payload, default=_json_fallback, separators=(",", ":"), sort_keys=True)
+
+    signature = {
+        "type": spec.type,
+        "schools": [
+            {"unitid": school.unitid, "name": school.name} for school in spec.schools
+        ],
+        "rows": [
+            {
+                "label": row.label,
+                "cells": [
+                    {
+                        "field": cell.field,
+                        "display": cell.display,
+                        "raw": cell.raw,
+                        "unit": cell.unit,
+                        "available": cell.available,
+                        "citation": cell.citation.model_dump(mode="json"),
+                    }
+                    for cell in row.cells
+                ],
+            }
+            for row in spec.rows
+        ],
+    }
+    return json.dumps(signature, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+class FinalEmissionDeduper:
+    def __init__(self) -> None:
+        self._seen_viz: set[str] = set()
+
+    def keep(self, kind: str, payload: Any) -> bool:
+        if kind != "viz":
+            return True
+        signature = viz_signature(payload)
+        if signature in self._seen_viz:
+            return False
+        self._seen_viz.add(signature)
+        return True
 
 
 def now_iso() -> str:
@@ -54,11 +106,14 @@ def build_parts(emissions: list[Emission]) -> list[dict[str, Any]]:
     """
     parts: list[dict[str, Any]] = []
     segment: list[str] = []
+    deduper = FinalEmissionDeduper()
     for kind, payload in emissions:
         if kind == "delta":
             if payload:
                 segment.append(payload)
         elif kind == "viz":
+            if not deduper.keep(kind, payload):
+                continue
             if segment:
                 parts.append({"type": "text", "text": "".join(segment)})
                 segment = []

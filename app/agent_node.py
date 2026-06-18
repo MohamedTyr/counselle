@@ -26,7 +26,8 @@ Design (notes-p4-apis §1/§3/§4/§6/§7):
 - **Streaming:** text reaches the client mid-run via the LangGraph custom
   stream (``get_stream_writer()``, notes §7). The first chunk of a text part
   arrives inside ``PartStartEvent`` (not as a delta) — both are forwarded.
-  ``render_viz`` writes a ``viz`` chunk the moment the spec is built.
+  ``render_viz`` stages specs locally; staged cards flush once when final
+  answer prose starts.
 """
 
 from __future__ import annotations
@@ -145,10 +146,9 @@ def _make_render_viz_tool(
     catalog: Any,
     registry: SourceRegistry,
     viz_list: list[dict[str, Any]],
-    writer: Any,
 ) -> Tool[Any]:
     """The per-turn render_viz wrapper: closes over (catalog, registry, viz_list)
-    and streams the spec as a ``viz`` custom chunk the moment it is appended."""
+    and stages successful specs for the final-answer flush."""
 
     async def render_viz(
         type: viz_mod.VizType,
@@ -156,15 +156,29 @@ def _make_render_viz_tool(
         field_keys: list[str] | None = None,
         title: str | None = None,
     ) -> dict[str, Any]:
-        result = await viz_mod.render_viz(
+        return await viz_mod.render_viz(
             catalog, registry, viz_list, type, unitids, field_keys, title
         )
-        if result.get("ok"):
-            writer({"type": "viz", "spec": viz_list[-1]})
-        return result
 
     render_viz.__doc__ = viz_mod.render_viz.__doc__  # the LLM-facing contract, verbatim
     return Tool(render_viz, takes_ctx=False)
+
+
+def _make_final_viz_flusher(
+    viz_list: list[dict[str, Any]],
+    writer: Callable[[dict[str, Any]], None],
+) -> Callable[[], None]:
+    flushed = False
+
+    def flush() -> None:
+        nonlocal flushed
+        if flushed:
+            return
+        flushed = True
+        for spec in viz_list:
+            writer({"type": "viz", "spec": spec})
+
+    return flush
 
 
 def _make_ask_student_tool() -> Tool[Any]:
@@ -267,7 +281,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     extra_tools: list[Tool[Any]] = [
-        _make_render_viz_tool(deps.catalog, registry, viz_list, writer),
+        _make_render_viz_tool(deps.catalog, registry, viz_list),
         _make_ask_student_tool(),
         Tool(make_load_skill_tool(), takes_ctx=False),
     ]
@@ -305,6 +319,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         mapper=StepMapper(load_yaml_asset("step_labels"), resolve_name, resolve_domain),
         threshold=settings.thinking_threshold_chars,  # CFG-07: Settings-sourced
         unmounted=GATEABLE_TOOLS - {tool.name for tool in tools},
+        on_final_start=_make_final_viz_flusher(viz_list, writer),
     )
 
     # --- the run; only UsageLimitExceeded is caught (GraphInterrupt MUST fly,
@@ -382,10 +397,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         synthesized_answer=synthesized,
     )
 
+    emitted_viz = [payload for kind, payload in emissions if kind == "viz"]
     return {
         "messages": messages_out,
         "source_registry": registry.dump(),
-        "viz_emitted": viz_list,
+        "viz_emitted": emitted_viz,
         "usage": usage.model_dump(mode="json"),
         "pending_clarify": None,
         "turn_records": append_or_replace(prior_records, record),
