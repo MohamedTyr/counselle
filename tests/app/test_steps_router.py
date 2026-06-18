@@ -1,20 +1,25 @@
 """Unit tests for the EmissionRouter (app/steps.py) — B1a. No DB, no LLM.
 
 Drives the router with hand-constructed pydantic-ai stream events and asserts
-the writer-chunk protocol: thinking routing (the 240-char threshold +
-``next_part_kind`` flush signal), step pairing on ``tool_call_id`` (parallel
-calls), the ask_student exclusion, result-shape error detection, and terminal
-closure (``close``) semantics.
+the writer-chunk protocol: final-result-gated answer deltas, pre-final
+thinking routing, step pairing on ``tool_call_id`` (parallel calls), the
+ask_student exclusion, result-shape error detection, and terminal closure
+(``close``) semantics.
 """
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Callable
 from typing import Any, Literal
 
 import pytest
+from pydantic_ai import Agent, FinalResultEvent
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
     PartDeltaEvent,
     PartEndEvent,
     PartStartEvent,
@@ -26,11 +31,14 @@ from pydantic_ai.messages import (
     ToolCallPart,
     ToolReturnPart,
 )
+from pydantic_ai.models.function import AgentInfo, DeltaToolCall, DeltaToolCalls, FunctionModel
+from pydantic_ai.run import AgentRunResult, AgentRunResultEvent
 
 from app.steps import THINKING_THRESHOLD_CHARS, EmissionRouter, StepMapper
 from config.settings import load_yaml_asset
 
 _SCHOOL_NAMES = {198419: "Duke University"}
+Chunk = dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +84,10 @@ def _text_end(next_part_kind: Literal['tool-call'] | None) -> PartEndEvent:
     return PartEndEvent(index=0, part=TextPart(content=""), next_part_kind=next_part_kind)
 
 
+def _final() -> FinalResultEvent:
+    return FinalResultEvent(tool_name=None, tool_call_id=None)
+
+
 def _call(tool: str, args: dict[str, Any], call_id: str) -> FunctionToolCallEvent:
     return FunctionToolCallEvent(part=ToolCallPart(tool_name=tool, args=args, tool_call_id=call_id))
 
@@ -94,6 +106,14 @@ def _retry_result(
     )
 
 
+def _marking_writer(chunks: list[Chunk], marks: list[str]) -> Callable[[Chunk], None]:
+    def write(chunk: Chunk) -> None:
+        chunks.append(chunk)
+        marks.append(str(chunk["type"]))
+
+    return write
+
+
 # ---------------------------------------------------------------------------
 # The simple flow: narration → step pair → live answer
 # ---------------------------------------------------------------------------
@@ -107,6 +127,7 @@ def test_simple_flow_narration_step_pair_then_live_answer(rig: Rig) -> None:
         _text_end("tool-call"),
         _call("get_values", {"unitid": 198419, "field_keys": ["admissions.sat_25"]}, "c1"),
         _result("get_values", [{"field": "admissions.sat_25"}], "c1"),
+        _final(),
         _text_start(long_tail),
         _text_delta(" And more."),
         _text_end(None),
@@ -121,27 +142,126 @@ def test_simple_flow_narration_step_pair_then_live_answer(rig: Rig) -> None:
     assert steps[0]["step_id"] == steps[1]["step_id"]
     assert "Duke University" in steps[0]["label"]
     assert steps[1]["detail"]["duration_ms"] >= 0
-    # Threshold crossing flushed as delta, then live streaming.
     deltas = [chunk["text"] for chunk in rig.of_type("delta")]
     assert deltas == [long_tail, " And more."]
 
 
-def test_threshold_one_below_held_one_more_char_flushes_live(rig: Rig) -> None:
-    rig.feed(_text_start("x" * (THINKING_THRESHOLD_CHARS - 1)))
+def test_pre_final_long_text_never_streams_as_delta(rig: Rig) -> None:
+    pre_final = "x" * (THINKING_THRESHOLD_CHARS + 1)
 
-    assert rig.of_type("delta") == []  # 239 chars: held
+    rig.feed(_text_start(pre_final))
 
-    rig.feed(_text_delta("x"))
+    assert rig.of_type("delta") == []
 
-    assert [chunk["text"] for chunk in rig.of_type("delta")] == ["x" * THINKING_THRESHOLD_CHARS]
-    rig.feed(_text_delta("live now"))
-    assert rig.of_type("delta")[-1]["text"] == "live now"  # streamed immediately
+    rig.feed(_text_end("tool-call"))
+
+    assert rig.of_type("delta") == []
+    assert [chunk["text"] for chunk in rig.of_type("thinking")] == [pre_final]
+
+
+def test_final_result_event_starts_answer_once_before_first_delta() -> None:
+    chunks: list[dict[str, Any]] = []
+    marks: list[str] = []
+    router = EmissionRouter(
+        writer=_marking_writer(chunks, marks),
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        on_final_start=lambda: marks.append("final-start"),
+    )
+
+    router.handle(_final())
+    router.handle(_text_start("Final answer."))
+    router.handle(_text_delta(" More."))
+    router.handle(_text_end(None))
+    router.handle(_final())
+
+    assert marks == ["final-start", "delta", "delta"]
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
+        "Final answer.",
+        " More.",
+    ]
+
+
+def test_final_result_event_waits_for_text_part_end_before_buffered_delta() -> None:
+    chunks: list[dict[str, Any]] = []
+    marks: list[str] = []
+    router = EmissionRouter(
+        writer=_marking_writer(chunks, marks),
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        on_final_start=lambda: marks.append("final-start"),
+    )
+
+    router.handle(_text_start("First final chunk."))
+    assert chunks == []
+
+    router.handle(_final())
+    router.handle(_text_delta(" Still final."))
+    assert chunks == []
+
+    router.handle(_text_end(None))
+
+    assert marks == ["final-start", "delta"]
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
+        "First final chunk. Still final.",
+    ]
+
+
+def test_late_final_result_event_does_not_duplicate_visible_thinking() -> None:
+    chunks: list[dict[str, Any]] = []
+    router = EmissionRouter(
+        writer=chunks.append,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        threshold=10,
+    )
+
+    router.handle(_text_start("visible thinking"))
+    router.handle(_final())
+    router.handle(_text_delta(" final suffix"))
+    router.handle(_text_end(None))
+
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
+        "visible thinking"
+    ]
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
+        " final suffix"
+    ]
+
+
+def test_agent_run_result_event_fallback_flushes_buffered_final_text_once() -> None:
+    chunks: list[dict[str, Any]] = []
+    marks: list[str] = []
+    router = EmissionRouter(
+        writer=_marking_writer(chunks, marks),
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        on_final_start=lambda: marks.append("final-start"),
+    )
+
+    router.handle(_text_start("Final answer buffered by a late final marker."))
+    router.handle(AgentRunResultEvent(result=AgentRunResult(output="")))
+
+    assert marks == ["final-start", "delta"]
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
+        "Final answer buffered by a late final marker."
+    ]
+
+
+def test_agent_run_result_event_does_not_duplicate_visible_thinking() -> None:
+    chunks: list[dict[str, Any]] = []
+    router = EmissionRouter(
+        writer=chunks.append,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        threshold=10,
+    )
+
+    router.handle(_text_start("visible thinking"))
+    router.handle(AgentRunResultEvent(result=AgentRunResult(output="")))
+
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
+        "visible thinking"
+    ]
+    assert [chunk for chunk in chunks if chunk["type"] == "delta"] == []
 
 
 def test_router_honors_threshold() -> None:
-    """CFG-07: the router honors a custom ``threshold`` (the field the Settings
-    value flows into). Under-threshold pre-tool text routes to thinking;
-    at/over the threshold streams live as delta."""
     chunks: list[dict[str, Any]] = []
     router = EmissionRouter(
         writer=chunks.append,
@@ -155,10 +275,9 @@ def test_router_honors_threshold() -> None:
     assert [c["text"] for c in chunks if c["type"] == "thinking"] == ["hi io"]
     assert [c for c in chunks if c["type"] == "delta"] == []
 
-    # A 12-char start crosses the 10-char threshold → streams live as delta.
     chunks.clear()
     router.handle(_text_start("x" * 12))
-    assert [c["text"] for c in chunks if c["type"] == "delta"] == ["x" * 12]
+    assert [c for c in chunks if c["type"] == "delta"] == []
 
 
 def test_router_threshold_default_is_module_constant() -> None:
@@ -171,26 +290,83 @@ def test_router_threshold_default_is_module_constant() -> None:
 
 
 def test_response_end_flushes_held_text_as_delta_not_thinking(rig: Rig) -> None:
-    rig.feed(_text_start("Short final answer."), _text_end(None))
+    rig.feed(_final(), _text_start("Short final answer."), _text_end(None))
 
     assert [chunk["text"] for chunk in rig.of_type("delta")] == ["Short final answer."]
     assert rig.of_type("thinking") == []
 
 
-def test_live_streaming_resets_per_model_response(rig: Rig) -> None:
-    """The threshold buffer applies per model response: a second response's
-    under-threshold text is held again, not streamed live because the prior
-    response crossed the threshold."""
-    rig.feed(_text_start("x" * (THINKING_THRESHOLD_CHARS + 5)), _text_end(None))
+def test_final_answer_phase_continues_streaming_text(rig: Rig) -> None:
+    rig.feed(_final(), _text_start("x" * (THINKING_THRESHOLD_CHARS + 5)), _text_end(None))
     deltas_after_first = len(rig.of_type("delta"))
 
     rig.feed(_text_start("Short second response."))
 
-    assert len(rig.of_type("delta")) == deltas_after_first  # held, not live
+    assert len(rig.of_type("delta")) == deltas_after_first + 1
 
     rig.feed(_text_end(None))
 
     assert rig.of_type("delta")[-1]["text"] == "Short second response."
+
+
+@pytest.mark.asyncio
+async def test_final_result_event_orders_before_text_delta_with_function_model() -> None:
+    def model_fn(messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        last = messages[-1]
+        returned = (
+            [part for part in last.parts if isinstance(part, ToolReturnPart)]
+            if isinstance(last, ModelRequest)
+            else []
+        )
+        if returned:
+            return ModelResponse(parts=[TextPart("Final answer after tool.")])
+        return ModelResponse(
+            parts=[
+                TextPart("I will look this up first."),
+                ToolCallPart(tool_name="lookup", args={"query": "Duke"}),
+            ]
+        )
+
+    async def stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | DeltaToolCalls]:
+        response = model_fn(messages, info)
+        for index, part in enumerate(response.parts):
+            if isinstance(part, TextPart):
+                yield part.content
+            elif isinstance(part, ToolCallPart):
+                yield {index: DeltaToolCall(name=part.tool_name, json_args=part.args_as_json_str())}
+
+    async def lookup(query: str) -> str:
+        return f"looked up {query}"
+
+    chunks: list[dict[str, Any]] = []
+    raw_order: list[str] = []
+    router = EmissionRouter(
+        writer=chunks.append,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+    )
+    agent = Agent(FunctionModel(model_fn, stream_function=stream), tools=[lookup])
+
+    async with agent.run_stream_events("compare Duke") as events:
+        async for event in events:
+            if isinstance(event, PartStartEvent) and isinstance(event.part, TextPart):
+                raw_order.append(f"text:{event.part.content}")
+            elif isinstance(event, FinalResultEvent):
+                raw_order.append("FinalResultEvent")
+            elif isinstance(event, AgentRunResultEvent):
+                raw_order.append("AgentRunResultEvent")
+            router.handle(event)
+
+    final_text_marker = "text:Final answer after tool."
+    final_text_index = raw_order.index(final_text_marker)
+    assert "FinalResultEvent" in raw_order[:final_text_index]
+
+    thinking_texts = [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"]
+    delta_texts = [chunk["text"] for chunk in chunks if chunk["type"] == "delta"]
+    assert "I will look this up first." in thinking_texts
+    assert "I will look this up first." not in delta_texts
+    assert "Final answer after tool." in delta_texts
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +473,9 @@ def test_retry_result_leaves_row_count_unset(rig: Rig) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_close_interrupt_ends_open_step_with_original_label_and_flushes_text(rig: Rig) -> None:
+def test_close_interrupt_ends_open_step_with_original_label_and_flushes_text_as_thinking(
+    rig: Rig,
+) -> None:
     rig.feed(
         _call("search_web", {"query": "duke dorms"}, "c1"),
         _text_start("Partial answer held in the buffer"),
@@ -305,14 +483,37 @@ def test_close_interrupt_ends_open_step_with_original_label_and_flushes_text(rig
 
     rig.router.close("interrupt")
 
-    # The pending under-threshold text flushed as delta (final-answer prose).
-    assert [chunk["text"] for chunk in rig.of_type("delta")] == [
+    assert [chunk["text"] for chunk in rig.of_type("thinking")] == [
         "Partial answer held in the buffer"
     ]
+    assert rig.of_type("delta") == []
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "end"]
     assert steps[1]["label"] == steps[0]["label"]  # original label, no error suffix
     assert steps[1]["detail"] is None
+
+
+@pytest.mark.parametrize("reason", ["interrupt", "error", "budget"])
+def test_close_before_final_result_never_calls_on_final_start_or_emits_delta(
+    reason: Literal["interrupt", "error", "budget"],
+) -> None:
+    chunks: list[dict[str, Any]] = []
+    final_starts: list[str] = []
+    router = EmissionRouter(
+        writer=chunks.append,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        on_final_start=lambda: final_starts.append("final-start"),
+    )
+
+    router.handle(_text_start("Pending pre-final text."))
+
+    router.close(reason)
+
+    assert final_starts == []
+    assert [chunk for chunk in chunks if chunk["type"] == "delta"] == []
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
+        "Pending pre-final text."
+    ]
 
 
 @pytest.mark.parametrize("reason", ["error", "budget"])

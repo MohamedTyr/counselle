@@ -737,9 +737,7 @@ async def test_clarify_park_writes_record_and_resume_replaces_it() -> None:
     assert prose == _text(events_2)
 
 
-async def test_error_turn_writes_record_and_preserves_streamed_prose() -> None:
-    """A model that streams >threshold prose then dies mid-run: the error
-    record persists AND messages keep exactly the streamed prose."""
+async def test_error_turn_writes_record_without_streamed_pre_final_prose() -> None:
     long_prose = "Duke's engineering program is excellent. " * 8  # > 240 chars
 
     def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -757,7 +755,9 @@ async def test_error_turn_writes_record_and_preserves_streamed_prose() -> None:
     assert "error" in _types(events)
     trace_id = events[0].data["trace_id"]
     streamed = _text(events)
-    assert streamed  # prose crossed the threshold and streamed live
+    thinking = "".join(event.data["text"] for event in events if event.type == "thinking")
+    assert long_prose.strip() in thinking
+    assert streamed == ""
 
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
@@ -765,9 +765,10 @@ async def test_error_turn_writes_record_and_preserves_streamed_prose() -> None:
     assert record["error"]["trace_id"] == trace_id
     assert record["error"]["message"]
     assert record["message_id"] == events[0].data["message_id"]
-    # The prose invariant on the error path.
     prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
     assert prose == streamed
+    assert long_prose.strip() in "".join(record["thinking"])
+    assert all(message["kind"] == "request" for message in values["messages"])
 
 
 async def test_error_turn_without_prose_appends_no_partial_response() -> None:
