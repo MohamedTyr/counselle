@@ -928,7 +928,28 @@ async def test_no_viz_final_answer_strips_extra_closing_marker_junk(
     assert "] with no card." not in _text(events)
 
 
-async def test_viz_without_marker_falls_back_before_final_answer(
+def test_final_writer_strips_late_markers_after_early_flush() -> None:
+    spec = {"type": "stat_block", "title": "Card"}
+    emitted: list[dict[str, Any]] = []
+    writer = app.agent_node._FinalContentPlacementWriter([spec], emitted.append)
+
+    writer.start_final()
+    writer.write({"type": "delta", "text": "Intro [[viz:1]]"})
+    writer.write({"type": "thinking", "text": "interleaved"})
+    writer.write({"type": "delta", "text": " Late [[viz:1]]"})
+    writer.write({"type": "delta", "text": "] text with no leaked marker."})
+    writer.flush_final()
+
+    assert emitted == [
+        {"type": "delta", "text": "Intro "},
+        {"type": "viz", "spec": spec},
+        {"type": "thinking", "text": "interleaved"},
+        {"type": "delta", "text": " Late "},
+        {"type": "delta", "text": " text with no leaked marker."},
+    ]
+
+
+async def test_viz_without_marker_falls_back_after_final_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     specs = [
@@ -961,19 +982,19 @@ async def test_viz_without_marker_falls_back_before_final_answer(
     first_delta = types.index("delta")
     assert len(viz_positions) == 2
     assert step_end_positions and max(step_end_positions) < viz_positions[0]
-    assert viz_positions[-1] < first_delta
+    assert first_delta < viz_positions[0]
     assert _text(events) == "Final answer after the cards."
 
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
-    assert [part["type"] for part in record["parts"]] == ["viz", "viz", "text"]
+    assert [part["type"] for part in record["parts"]] == ["text", "viz", "viz"]
     assert prose_of(record["parts"]) == "Final answer after the cards."
 
 
-async def test_event_order_final_answer_streams_staged_cards_before_answer_delta(
+async def test_event_order_final_answer_streams_staged_cards_after_answer_delta(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    await test_viz_without_marker_falls_back_before_final_answer(monkeypatch)
+    await test_viz_without_marker_falls_back_after_final_answer(monkeypatch)
 
 
 async def test_duplicate_render_viz_final_flush_persists_one_viz_part(
@@ -1038,8 +1059,8 @@ async def test_record_exact_final_content_stream_record_and_transcript(
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
     assert record["parts"] == [
-        {"type": "viz", "spec": stream_viz[0]},
         {"type": "text", "text": "Final answer after the cards."},
+        {"type": "viz", "spec": stream_viz[0]},
     ]
     assert prose_of(record["parts"]) == _text(events)
 
@@ -1049,7 +1070,7 @@ async def test_record_exact_final_content_stream_record_and_transcript(
     assistant = transcript[-1]
     assert assistant["text"] == _text(events)
     assert assistant["parts"] == record["parts"]
-    assert [part["type"] for part in assistant["parts"]] == ["viz", "text"]
+    assert [part["type"] for part in assistant["parts"]] == ["text", "viz"]
 
 
 def _render_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -1312,12 +1333,12 @@ async def test_budget_after_final_partial_preserves_visible_viz_and_prose(
 
     types = _types(events)
     assert types.count("viz") == 1
-    assert types.index("viz") < types.index("delta")
+    assert types.index("delta") < types.index("viz")
     assert _text(events).count("Partial final answer.") == 1
     assert _text(events).count("tool budget") == 1
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
-    assert [part["type"] for part in record["parts"]] == ["viz", "text"]
+    assert [part["type"] for part in record["parts"]] == ["text", "viz", "text"]
     assert prose_of(record["parts"]) == _text(events)
     assert len(values["viz_emitted"]) == 1
 

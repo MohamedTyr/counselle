@@ -156,6 +156,7 @@ def _make_render_viz_tool(
     catalog: Any,
     registry: SourceRegistry,
     viz_list: list[dict[str, Any]],
+    viz_signature_indexes: dict[str, int],
 ) -> Tool[Any]:
     """The per-turn render_viz wrapper: closes over (catalog, registry, viz_list)
     and stages successful specs for the final-answer flush."""
@@ -167,7 +168,14 @@ def _make_render_viz_tool(
         title: str | None = None,
     ) -> dict[str, Any]:
         return await viz_mod.render_viz(
-            catalog, registry, viz_list, type, unitids, field_keys, title
+            catalog,
+            registry,
+            viz_list,
+            type,
+            unitids,
+            field_keys,
+            title,
+            viz_signature_indexes,
         )
 
     render_viz.__doc__ = viz_mod.render_viz.__doc__  # the LLM-facing contract, verbatim
@@ -202,7 +210,7 @@ class _FinalContentPlacementWriter:
                     self._text_chunks.append(text)
                 return
             self.flush_final()
-        elif self._final_started and not self._flushed and chunk.get("type") == "delta":
+        elif self._final_started and chunk.get("type") == "delta":
             stripped = self._stripper.feed(str(chunk.get("text") or ""))
             if stripped:
                 self._writer({"type": "delta", "text": stripped})
@@ -211,6 +219,8 @@ class _FinalContentPlacementWriter:
 
     def flush_final(self) -> None:
         if self._flushed:
+            if self._final_started and (stripped := self._stripper.flush()):
+                self._writer({"type": "delta", "text": stripped})
             return
         if not self._final_started:
             return
@@ -324,6 +334,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     source_config = SourceConfig.model_validate(state["source_config"])
     history, user_text = _split_user_message(state["messages"])
     viz_list: list[dict[str, Any]] = []
+    viz_signature_indexes: dict[str, int] = {}
     final_writer = _FinalContentPlacementWriter(viz_list, recording_writer)
     writer = final_writer.write
     today = date.fromisoformat(state["temporal"]["today"])
@@ -331,7 +342,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     extra_tools: list[Tool[Any]] = [
-        _make_render_viz_tool(deps.catalog, registry, viz_list),
+        _make_render_viz_tool(deps.catalog, registry, viz_list, viz_signature_indexes),
         _make_ask_student_tool(),
         Tool(make_load_skill_tool(), takes_ctx=False),
     ]

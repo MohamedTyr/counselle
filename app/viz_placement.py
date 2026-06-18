@@ -121,7 +121,7 @@ def chunks_from_viz_markers(final_text: str, staged_specs: Sequence[Any]) -> lis
     fallback_chunks: list[Emission] = [
         ("viz", spec) for index, spec in enumerate(specs) if index not in emitted_indexes
     ]
-    return [*fallback_chunks, *placed_chunks]
+    return [*placed_chunks, *fallback_chunks]
 
 
 def _incomplete_marker_end(text: str, marker_body_start: int) -> int:

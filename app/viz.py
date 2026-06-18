@@ -9,12 +9,12 @@ acknowledgment with citation markers — **numbers never transit the LLM's
 tokens**, success or error.
 """
 
-import json
 from typing import Any, Literal
 
 import structlog
 
 from app.sources import SourceRegistry
+from app.viz_signature import render_spec_signature, viz_payload_signature
 from counselle_db.catalog import Catalog
 from counselle_db.models import FieldKeyError, ResolveMatch, ServiceError
 from counselle_db.service import compare_schools, get_values, resolve_school
@@ -163,48 +163,29 @@ def _viz_result_from_spec(
     )
 
 
-def _render_spec_signature(spec: RenderSpec) -> str:
-    payload = {
-        "type": spec.type,
-        "schools": [
-            {
-                "unitid": school.unitid,
-                "name": school.name,
-            }
-            for school in spec.schools
-        ],
-        "rows": [
-            {
-                "label": row.label,
-                "cells": [
-                    {
-                        "field": cell.field,
-                        "display": cell.display,
-                        "raw": cell.raw,
-                        "unit": cell.unit,
-                        "available": cell.available,
-                        "citation": cell.citation.model_dump(mode="json"),
-                    }
-                    for cell in row.cells
-                ],
-            }
-            for row in spec.rows
-        ],
-    }
-    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-
-
 def _placement_marker(index: int) -> str:
     return f"[[viz:{index}]]"
 
 
-def _stage_render_spec(viz_emitted: list[dict[str, Any]], spec: RenderSpec) -> str | None:
+def _stage_render_spec(
+    viz_emitted: list[dict[str, Any]],
+    spec: RenderSpec,
+    signature_indexes: dict[str, int] | None = None,
+) -> str | None:
     if not any(cell.available for row in spec.rows for cell in row.cells):
         return None
 
-    signature = _render_spec_signature(spec)
+    signature = render_spec_signature(spec)
+    if signature_indexes is not None:
+        if index := signature_indexes.get(signature):
+            return _placement_marker(index)
+        viz_emitted.append(spec.model_dump(mode="json"))
+        index = len(viz_emitted)
+        signature_indexes[signature] = index
+        return _placement_marker(index)
+
     for index, staged in enumerate(viz_emitted, start=1):
-        if signature == _render_spec_signature(RenderSpec.model_validate(staged)):
+        if signature == viz_payload_signature(staged):
             return _placement_marker(index)
 
     viz_emitted.append(spec.model_dump(mode="json"))
@@ -219,6 +200,7 @@ async def render_viz(
     unitids: list[int],
     field_keys: list[str] | None = None,
     title: str | None = None,
+    viz_signature_indexes: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Render a visualization for the student; values are fetched, never typed.
 
@@ -251,7 +233,7 @@ async def render_viz(
         }
     result, spec_to_emit = _viz_result_from_spec(spec, registry)
     if spec_to_emit is not None:
-        placement_marker = _stage_render_spec(viz_emitted, spec)
+        placement_marker = _stage_render_spec(viz_emitted, spec, viz_signature_indexes)
         if placement_marker is not None:
             result = {**result, "placement_marker": placement_marker}
     return result

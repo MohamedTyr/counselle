@@ -24,12 +24,11 @@ Design points (decided in the ship plan, not here):
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from app.viz_signature import viz_payload_signature
 from domain.events import DoneStatus
-from domain.specs import RenderSpec
 
 #: Cheap stopgap narrowing — the full per-kind discriminated union is deferred to B2.
 Emission = tuple[Literal["delta", "viz", "step", "thinking"], Any]
@@ -41,42 +40,6 @@ Emission = tuple[Literal["delta", "viz", "step", "thinking"], Any]
 TurnStatus = DoneStatus | Literal["error"]
 
 
-def _json_fallback(value: Any) -> str:
-    return repr(value)
-
-
-def viz_signature(payload: Any) -> str:
-    try:
-        spec = RenderSpec.model_validate(payload)
-    except Exception:
-        return json.dumps(payload, default=_json_fallback, separators=(",", ":"), sort_keys=True)
-
-    signature = {
-        "type": spec.type,
-        "schools": [
-            {"unitid": school.unitid, "name": school.name} for school in spec.schools
-        ],
-        "rows": [
-            {
-                "label": row.label,
-                "cells": [
-                    {
-                        "field": cell.field,
-                        "display": cell.display,
-                        "raw": cell.raw,
-                        "unit": cell.unit,
-                        "available": cell.available,
-                        "citation": cell.citation.model_dump(mode="json"),
-                    }
-                    for cell in row.cells
-                ],
-            }
-            for row in spec.rows
-        ],
-    }
-    return json.dumps(signature, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-
-
 class FinalEmissionDeduper:
     def __init__(self) -> None:
         self._seen_viz: set[str] = set()
@@ -84,7 +47,7 @@ class FinalEmissionDeduper:
     def keep(self, kind: str, payload: Any) -> bool:
         if kind != "viz":
             return True
-        signature = viz_signature(payload)
+        signature = viz_payload_signature(payload)
         if signature in self._seen_viz:
             return False
         self._seen_viz.add(signature)
