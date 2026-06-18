@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import type { ProtocolEvent, RenderSpec, TranscriptAssistantEntry } from '@/api/protocol';
 import type { ContentBlock, TurnState } from '@/api/turn-reducer';
-import { initialTurnState, reduce, reduceTranscriptEntry } from '@/api/turn-reducer';
+import {
+  initialTurnState,
+  reduce,
+  reduceTranscriptEntry,
+  transcriptEntryToEvents,
+} from '@/api/turn-reducer';
 
 function spec(overrides: Partial<RenderSpec> = {}): RenderSpec {
   return {
@@ -101,6 +106,34 @@ describe('visualization reducer idempotency', () => {
     expect(vizBlocks(state)).toHaveLength(1);
   });
 
+  test('attach replay with overlapping live and persisted viz frames keeps one card', () => {
+    const liveSpec = spec({ title: 'Live card title' });
+    const replaySpec = spec({
+      title: 'Replay card title',
+      schools: [
+        { unitid: 100, name: 'North College', domain: 'northcollege.edu' },
+        { unitid: 200, name: 'South University', domain: null },
+      ],
+    });
+    const liveState = reduceEvents([
+      { v: 1, type: 'delta', data: { text: 'Live intro.' } },
+      vizEvent(liveSpec),
+    ]);
+    const replayEvents = transcriptEntryToEvents(
+      assistantEntry([
+        { type: 'text', text: 'Replayed intro.' },
+        { type: 'viz', spec: replaySpec },
+        { type: 'viz', spec: replaySpec },
+        { type: 'text', text: 'Replayed closing.' },
+      ]),
+    );
+
+    const attachedState = replayEvents.reduce(reduce, liveState);
+
+    expect(vizBlocks(attachedState)).toHaveLength(1);
+    expect(vizBlocks(attachedState)[0].spec.title).toBe('Live card title');
+  });
+
   test('same data different titles dedupes', () => {
     const first = spec({ title: 'Admissions snapshot' });
     const second = spec({ title: 'Different heading' });
@@ -158,5 +191,59 @@ describe('visualization reducer idempotency', () => {
     const state = reduceEvents([vizEvent(first), vizEvent(second)]);
 
     expect(vizBlocks(state)).toHaveLength(2);
+  });
+
+  test('renders one card for duplicate equivalent viz events', () => {
+    const first = spec({ title: 'Original card title' });
+    const duplicate = spec({ title: 'Duplicate render title' });
+
+    const state = reduceEvents([
+      { v: 1, type: 'delta', data: { text: 'Final answer intro.' } },
+      vizEvent(first),
+      vizEvent(duplicate),
+      { v: 1, type: 'done', data: { status: 'complete' } },
+    ]);
+
+    expect(state.blocks.filter((block) => block.kind === 'markdown')).toHaveLength(1);
+    expect(vizBlocks(state)).toHaveLength(1);
+    expect(vizBlocks(state)[0].spec.title).toBe('Original card title');
+  });
+
+  test('renders distinct cards for semantically different viz specs', () => {
+    const first = spec({ title: 'Admissions card' });
+    const second = spec({
+      title: 'Cost card',
+      rows: [
+        {
+          label: 'Net price',
+          cells: [
+            {
+              v: 1,
+              field: 'cost.net_price',
+              label: 'Net price',
+              display: '$24,000',
+              raw: 24000,
+              available: true,
+              unit: 'usd',
+              citation: {
+                source: 'scorecard',
+                tier: 'official',
+                vintage: 'Scorecard 2024',
+                caveat: null,
+                raw_table: null,
+                url: null,
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const state = reduceEvents([vizEvent(first), vizEvent(second)]);
+
+    expect(vizBlocks(state).map((block) => block.spec.title)).toEqual([
+      'Admissions card',
+      'Cost card',
+    ]);
   });
 });

@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { DOSSIER_EVENTS } from '@/api/mock/fixtures/turns/dossier';
 import type {
   ClarifySpec,
   ProtocolEvent,
@@ -215,6 +216,21 @@ function eventsOf(payload: unknown, key: string): unknown[] {
   return events as unknown[];
 }
 
+function firstIndex(events: ProtocolEvent[], type: ProtocolEvent['type']): number {
+  const index = events.findIndex((event) => event.type === type);
+  expect(index, `missing ${type}`).toBeGreaterThanOrEqual(0);
+  return index;
+}
+
+function lastWorkIndex(events: ProtocolEvent[]): number {
+  return events.reduce((last, event, index) => {
+    if (event.type === 'step' || event.type === 'thinking') {
+      return index;
+    }
+    return last;
+  }, -1);
+}
+
 // ── the fixtures ─────────────────────────────────────────────────────────────
 
 describe('golden protocol fixtures (shared with the backend)', () => {
@@ -228,6 +244,31 @@ describe('golden protocol fixtures (shared with the backend)', () => {
     }
     const done = events.at(-1);
     expect(done?.type === 'done' && done.data.status).toBe('complete');
+  });
+
+  test('turn_full: final answer fixture order keeps work before final viz and prose', () => {
+    const events = eventsOf(load('turn_full'), 'events').map(assertEvent);
+    const workEnd = lastWorkIndex(events);
+    const firstViz = firstIndex(events, 'viz');
+    const firstDelta = firstIndex(events, 'delta');
+
+    expect(workEnd).toBeGreaterThan(0);
+    expect(firstViz).toBeGreaterThan(workEnd);
+    expect(firstDelta).toBeGreaterThan(workEnd);
+    expect(firstViz).toBeLessThan(firstDelta);
+    expect(events.filter((event) => event.type === 'viz')).toHaveLength(1);
+  });
+
+  test('mock dossier final answer fixture order keeps work before staged cards and prose', () => {
+    const events = DOSSIER_EVENTS.map(assertEvent);
+    const workEnd = lastWorkIndex(events);
+    const firstViz = firstIndex(events, 'viz');
+    const firstDelta = firstIndex(events, 'delta');
+
+    expect(firstViz).toBeGreaterThan(workEnd);
+    expect(firstDelta).toBeGreaterThan(workEnd);
+    expect(firstViz).toBeLessThan(firstDelta);
+    expect(events.filter((event) => event.type === 'viz')).toHaveLength(2);
   });
 
   test('turn_clarify: park + resume, the resume reuses the parked message_id', () => {

@@ -26,10 +26,12 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from pydantic_ai import FinalResultEvent
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
+    PartStartEvent,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -137,6 +139,7 @@ def _dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelRespon
     if "search_web" in returned:
         return ModelResponse(
             parts=[
+                TextPart("Let me look at Duke's housing first."),
                 ToolCallPart(
                     tool_name="render_viz",
                     args={
@@ -149,7 +152,40 @@ def _dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelRespon
         )
     return ModelResponse(
         parts=[
-            TextPart("Let me look at Duke's housing first."),  # pre-tool → thinking
+            ToolCallPart(tool_name="search_web", args={"query": "Duke University dorms"}),
+        ]
+    )
+
+
+def _transcript_dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    returned = _returned_tools(messages)
+    if "render_viz" in returned:
+        return ModelResponse(
+            parts=[
+                TextPart(
+                    "Duke's housing is consistently well reviewed by students [1]. "
+                    "The acceptance-rate snapshot above puts the campus in context — "
+                    "selective, residential, and heavily first-year focused. "
+                    "Ask me about specific dorms whenever you want to go deeper."
+                )
+            ]
+        )
+    if "search_web" in returned:
+        return ModelResponse(
+            parts=[
+                TextPart("Let me look at Duke's housing first."),
+                ToolCallPart(
+                    tool_name="render_viz",
+                    args={
+                        "type": "stat_block",
+                        "unitids": [198419],
+                        "field_keys": ["admissions.acceptance_rate"],
+                    },
+                )
+            ]
+        )
+    return ModelResponse(
+        parts=[
             ToolCallPart(tool_name="search_web", args={"query": "Duke University dorms"}),
         ]
     )
@@ -181,18 +217,48 @@ def _clarify_model(messages: list[ModelMessage], info: AgentInfo) -> ModelRespon
     )
 
 
-def _hanging_model(prose: str) -> FunctionModel:
-    """Streams *prose* then hangs forever — the cancel target."""
-    import asyncio
+class _HangingFinalModel:
+    def __init__(self, prose: str) -> None:
+        self.prose = prose
 
-    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        return ModelResponse(parts=[TextPart(prose)])
 
-    async def stream(messages: Any, info: AgentInfo) -> AsyncIterator[str]:
-        yield prose
+class _HangingFinalStream:
+    def __init__(self, prose: str) -> None:
+        self.prose = prose
+
+    async def __aenter__(self) -> _HangingFinalStream:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    def __aiter__(self) -> AsyncIterator[Any]:
+        return self._events()
+
+    async def _events(self) -> AsyncIterator[Any]:
+        import asyncio
+
+        yield FinalResultEvent(tool_name=None, tool_call_id=None)
+        yield PartStartEvent(index=0, part=TextPart(content=self.prose))
         await asyncio.Event().wait()
 
-    return FunctionModel(fn, stream_function=stream)
+
+class _HangingFinalAgent:
+    def __init__(self, model: _HangingFinalModel, *args: Any, **kwargs: Any) -> None:
+        self.model = model
+
+    async def __aenter__(self) -> _HangingFinalAgent:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    def run_stream_events(self, *args: Any, **kwargs: Any) -> _HangingFinalStream:
+        return _HangingFinalStream(self.model.prose)
+
+
+def _hanging_model(prose: str) -> _HangingFinalModel:
+    return _HangingFinalModel(prose)
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +334,7 @@ async def _registry_turn(
 async def test_golden_full_turn_events() -> None:
     """The full dossier turn: thinking + steps + viz + sources + usage."""
     rig = Rig(_fn_model(_dossier_model))
+    rig.settings.thinking_threshold_chars = 1_000
     registry = TurnRegistry(deps=rig.deps, graph=rig.graph, settings=rig.settings)
     session_id = str(uuid4())
 
@@ -275,6 +342,12 @@ async def test_golden_full_turn_events() -> None:
 
     types = [event.type for event in events]
     assert {"meta", "thinking", "step", "viz", "delta", "sources", "usage", "done"} <= set(types)
+    work_end = max(
+        index
+        for index, event in enumerate(events)
+        if event.type in {"step", "thinking"}
+    )
+    assert work_end < types.index("viz") < types.index("delta")
     _check_or_regen("turn_full", {"events": normalize(_dump(events))})
 
 
@@ -301,7 +374,7 @@ async def test_golden_clarify_turn_events_park_and_resume() -> None:
     _check_or_regen("turn_clarify", payload)
 
 
-async def test_golden_cancelled_turn_events() -> None:
+async def test_golden_cancelled_turn_events(monkeypatch: pytest.MonkeyPatch) -> None:
     """A cancelled turn: prose, then the single-shot done(cancelled)."""
     import asyncio
 
@@ -312,6 +385,7 @@ async def test_golden_cancelled_turn_events() -> None:
         "Students consistently rate the community feel above the buildings "
         "themselves, which matters more than any amenity list."
     )
+    monkeypatch.setattr(app.agent_node, "Agent", _HangingFinalAgent)
     rig = Rig(_hanging_model(prose))
     registry = TurnRegistry(deps=rig.deps, graph=rig.graph, settings=rig.settings)
     session_id = str(uuid4())
@@ -335,12 +409,13 @@ async def test_golden_cancelled_turn_events() -> None:
     _check_or_regen("turn_cancelled", {"events": normalize(_dump(collected))})
 
 
-async def test_golden_full_fidelity_transcript() -> None:
+async def test_golden_full_fidelity_transcript(monkeypatch: pytest.MonkeyPatch) -> None:
     """One session, three turns — dossier, clarify park + resume, cancelled —
     serialized through the transcript read (wire-contract §2)."""
     import asyncio
 
     rig = Rig(_fn_model(_dossier_model))
+    rig.settings.thinking_threshold_chars = 1_000
     registry = TurnRegistry(deps=rig.deps, graph=rig.graph, settings=rig.settings)
     session_id = str(uuid4())
 
@@ -350,31 +425,31 @@ async def test_golden_full_fidelity_transcript() -> None:
     await _registry_turn(rig, registry, session_id, "Is it right for me?", _OFF)
     await _registry_turn(rig, registry, session_id, "Cost", _OFF)
 
-    rig.deps.model_factory = lambda: _hanging_model(
-        # > the 240-char thinking threshold, so it streams live as deltas
-        # before the cancel lands (the same constraint a real turn has).
-        "Cost-wise, Duke meets full demonstrated need for every admitted "
-        "student, and around half the class receives some form of aid. The "
-        "sticker price looks intimidating, but the net price for aided "
-        "families is dramatically lower, and there are no loans in the aid "
-        "packages for families under the income thresholds."
-    )
-    got_delta = asyncio.Event()
-    drained = asyncio.Event()
+    with monkeypatch.context() as cancel_patch:
+        cancel_patch.setattr(app.agent_node, "Agent", _HangingFinalAgent)
+        rig.deps.model_factory = lambda: _hanging_model(
+            "Cost-wise, Duke meets full demonstrated need for every admitted "
+            "student, and around half the class receives some form of aid. The "
+            "sticker price looks intimidating, but the net price for aided "
+            "families is dramatically lower, and there are no loans in the aid "
+            "packages for families under the income thresholds."
+        )
+        got_delta = asyncio.Event()
+        drained = asyncio.Event()
 
-    async def consume(handle: Any) -> None:
-        async for event, _seq in handle:
-            if event.type == "delta":
-                got_delta.set()
-        drained.set()
+        async def consume(handle: Any) -> None:
+            async for event, _seq in handle:
+                if event.type == "delta":
+                    got_delta.set()
+            drained.set()
 
-    task = asyncio.create_task(
-        consume(await registry.start(session_id, "What does it cost?", _OFF))
-    )
-    await asyncio.wait_for(got_delta.wait(), timeout=3)
-    assert await registry.cancel(session_id) == "cancelled"
-    await task
-    assert drained.is_set()
+        task = asyncio.create_task(
+            consume(await registry.start(session_id, "What does it cost?", _OFF))
+        )
+        await asyncio.wait_for(got_delta.wait(), timeout=3)
+        assert await registry.cancel(session_id) == "cancelled"
+        await task
+        assert drained.is_set()
 
     snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
     transcript = extract_transcript(
