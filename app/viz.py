@@ -9,6 +9,7 @@ acknowledgment with citation markers — **numbers never transit the LLM's
 tokens**, success or error.
 """
 
+import json
 from typing import Any, Literal
 
 import structlog
@@ -162,6 +163,52 @@ def _viz_result_from_spec(
     )
 
 
+def _render_spec_signature(spec: RenderSpec) -> str:
+    payload = {
+        "type": spec.type,
+        "schools": [
+            {
+                "unitid": school.unitid,
+                "name": school.name,
+            }
+            for school in spec.schools
+        ],
+        "rows": [
+            {
+                "label": row.label,
+                "cells": [
+                    {
+                        "field": cell.field,
+                        "display": cell.display,
+                        "raw": cell.raw,
+                        "unit": cell.unit,
+                        "available": cell.available,
+                        "citation": cell.citation.model_dump(mode="json"),
+                    }
+                    for cell in row.cells
+                ],
+            }
+            for row in spec.rows
+        ],
+    }
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def _stage_render_spec(viz_emitted: list[dict[str, Any]], spec: RenderSpec) -> bool:
+    if not any(cell.available for row in spec.rows for cell in row.cells):
+        return False
+
+    signature = _render_spec_signature(spec)
+    staged_signatures = {
+        _render_spec_signature(RenderSpec.model_validate(staged)) for staged in viz_emitted
+    }
+    if signature in staged_signatures:
+        return False
+
+    viz_emitted.append(spec.model_dump(mode="json"))
+    return True
+
+
 async def render_viz(
     catalog: Catalog,
     registry: SourceRegistry,
@@ -199,5 +246,5 @@ async def render_viz(
         }
     result, spec_to_emit = _viz_result_from_spec(spec, registry)
     if spec_to_emit is not None:
-        viz_emitted.append(spec_to_emit)
+        _stage_render_spec(viz_emitted, spec)
     return result
