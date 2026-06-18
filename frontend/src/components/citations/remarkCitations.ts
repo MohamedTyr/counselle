@@ -14,8 +14,9 @@ import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
 import type { Parent, Root, Text } from 'mdast';
 import type { Node } from 'unist';
-import type { CitationEnvelope, RenderSpec, SourceEntry } from '@/api/protocol';
-import { uniqueSourceByIndex } from '@/components/citations/sourceIndex';
+import type { RenderSpec, SourceEntry } from '@/api/protocol';
+import { uniqueSourcesByIndexes } from '@/components/citations/sourceIndex';
+import { isRevealableDbCell, renderedCellsForSpec } from '@/components/citations/renderedCells';
 import { isDbSource } from '@/components/citations/sourceName';
 
 const CITATION_PATTERN = /\[(\d{1,2})\]/g;
@@ -99,10 +100,9 @@ export function dbIndicesForMessage(message: {
 }): Set<number> {
   const cited = citedIndexesForMessage(message.content, message.text ?? '');
   const out = new Set<number>();
-  for (const index of cited) {
-    const entry = uniqueSourceByIndex(message.sources, index);
-    if (entry !== undefined && isDbSource(entry.citation.source)) {
-      out.add(index);
+  for (const entry of uniqueSourcesByIndexes(message.sources, cited)) {
+    if (isDbSource(entry.citation.source)) {
+      out.add(entry.index);
     }
   }
   return out;
@@ -125,25 +125,7 @@ export function citedSourcesForMessage(message: {
     return [];
   }
   const indexes = citedIndexesForMessage(message.content, message.text ?? '');
-  return sources.filter(
-    (source) => indexes.has(source.index) && uniqueSourceByIndex(sources, source.index) === source,
-  );
-}
-
-function isDbVizCell(cell: CitationEnvelope | undefined): boolean {
-  return cell?.available === true && isDbSource(cell.citation.source);
-}
-
-function renderedCellsForSourceSpec(spec: RenderSpec): Array<CitationEnvelope | undefined> {
-  const rows = spec.rows ?? [];
-  if (spec.type === 'stat_block') {
-    return rows.map((row) => row.cells[0]);
-  }
-  if (spec.type === 'comparison_table') {
-    const schoolCount = spec.schools?.length ?? 0;
-    return rows.flatMap((row) => row.cells.slice(0, schoolCount));
-  }
-  return rows.map((row) => row.cells[0]);
+  return uniqueSourcesByIndexes(sources, indexes);
 }
 
 function hasDbVizCellsForSources(message: {
@@ -153,7 +135,7 @@ function hasDbVizCellsForSources(message: {
     (block) =>
       block.kind === 'viz' &&
       block.spec !== undefined &&
-      renderedCellsForSourceSpec(block.spec).some(isDbVizCell),
+      renderedCellsForSpec(block.spec).some(isRevealableDbCell),
   );
 }
 
@@ -167,11 +149,8 @@ export function dbSourcesForMessage(message: {
 }): SourceEntry[] {
   const sources = message.sources ?? [];
   const cited = citedIndexesForMessage(message.content, message.text ?? '');
-  const dbEntries = sources.filter(
-    (source) =>
-      cited.has(source.index) &&
-      isDbSource(source.citation.source) &&
-      uniqueSourceByIndex(sources, source.index) === source,
+  const dbEntries = uniqueSourcesByIndexes(sources, cited).filter((source) =>
+    isDbSource(source.citation.source),
   );
   if (dbEntries.length > 0) {
     return dbEntries;

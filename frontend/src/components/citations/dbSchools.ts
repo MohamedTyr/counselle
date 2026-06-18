@@ -15,34 +15,37 @@
  * truthful "…from our own college database." subline instead of inventing names.
  */
 import type { ChatMessage } from '@/app/ChatContext';
-import type { CitationEnvelope, RenderSpec } from '@/api/protocol';
+import type { RenderSpec } from '@/api/protocol';
 import { dbSourcesForMessage } from '@/components/citations/remarkCitations';
-import { isDbSource, schoolFromDbLabel } from '@/components/citations/sourceName';
-
-function isDbCell(cell: CitationEnvelope | undefined): boolean {
-  return cell?.available === true && isDbSource(cell.citation.source);
-}
+import {
+  isRevealableDbCell,
+  renderedCellsForSpec,
+} from '@/components/citations/renderedCells';
+import { schoolFromDbLabel } from '@/components/citations/sourceName';
 
 function addDbVizSchools(spec: RenderSpec, push: (name: string) => void): void {
+  const schools = spec.schools ?? [];
+
   if (spec.type === 'stat_block') {
-    const school = spec.schools[0];
-    if (school !== undefined && (spec.rows ?? []).some((row) => isDbCell(row.cells[0]))) {
+    const school = schools[0];
+    if (school !== undefined && renderedCellsForSpec(spec).some(isRevealableDbCell)) {
       push(school.name);
     }
     return;
   }
 
   if (spec.type === 'comparison_table') {
-    spec.schools.forEach((school, index) => {
-      if ((spec.rows ?? []).some((row) => isDbCell(row.cells[index]))) {
+    schools.forEach((school, index) => {
+      if ((spec.rows ?? []).some((row) => isRevealableDbCell(row.cells[index]))) {
         push(school.name);
       }
     });
     return;
   }
 
-  if ((spec.rows ?? []).some((row) => isDbCell(row.cells[0]))) {
-    spec.schools.forEach((school) => push(school.name));
+  const school = schools[0];
+  if (school !== undefined && renderedCellsForSpec(spec).some(isRevealableDbCell)) {
+    push(school.name);
   }
 }
 

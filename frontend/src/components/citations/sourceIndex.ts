@@ -20,3 +20,32 @@ export function uniqueSourceByIndex(
   }
   return found;
 }
+
+export function uniqueSourcesByIndexes(
+  sources: ReadonlyArray<SourceEntry> | undefined,
+  indexes: ReadonlySet<number>,
+): SourceEntry[] {
+  if (sources === undefined || sources.length === 0 || indexes.size === 0) {
+    return [];
+  }
+
+  const firstByIndex = new Map<number, SourceEntry>();
+  const duplicateIndexes = new Set<number>();
+  for (const entry of sources) {
+    if (!indexes.has(entry.index)) {
+      continue;
+    }
+    if (firstByIndex.has(entry.index)) {
+      duplicateIndexes.add(entry.index);
+      continue;
+    }
+    firstByIndex.set(entry.index, entry);
+  }
+
+  return sources.filter(
+    (entry) =>
+      indexes.has(entry.index) &&
+      firstByIndex.get(entry.index) === entry &&
+      !duplicateIndexes.has(entry.index),
+  );
+}
