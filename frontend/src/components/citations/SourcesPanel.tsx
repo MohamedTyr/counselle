@@ -22,9 +22,9 @@ type SourcesViewProps = {
   activeIndex?: number | null;
   /** Schools the figures cover, for the Counselle card subline. */
   dbSchools?: string[];
-  /** Whether the answer used Counselle's own data (viz card OR DB source entry)
-   *  — the authoritative signal from the panel payload (FE-H4). Drives the
-   *  header count and the "Counselle data" card, never a prose `[n]` scan. */
+  /** Whether the answer visibly used Counselle's own data (DB-cited prose or
+   *  DB-backed card cells). Drives the header count and the "Counselle data"
+   *  card, never a stray cumulative DB source row. */
   dbUsed: boolean;
   onClose: () => void;
 };

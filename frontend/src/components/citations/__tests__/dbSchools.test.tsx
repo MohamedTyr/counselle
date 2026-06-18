@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'vitest';
 import type { ChatMessage } from '@/app/ChatContext';
-import type { Citation, RenderSpec, SourceEntry } from '@/api/protocol';
+import type { Citation, CitationEnvelope, RenderSpec, SourceEntry } from '@/api/protocol';
 import { dbSchoolsForMessage } from '@/components/citations/dbSchools';
 
 function citation(over: Partial<Citation> = {}): Citation {
@@ -20,13 +20,25 @@ function sourceEntry(index: number, label: string, source: Citation['source']): 
   return { index, label, citation: citation({ source }) };
 }
 
+function cell(source: Citation['source'] = 'cds'): CitationEnvelope {
+  return {
+    v: 1,
+    field: 'adm.acceptance_rate',
+    label: 'Acceptance rate',
+    display: '9.4%',
+    raw: 0.094,
+    available: true,
+    citation: citation({ source }),
+  };
+}
+
 function vizSpec(names: string[]): RenderSpec {
   return {
     v: 1,
     type: 'comparison_table',
     title: 'Admissions',
     schools: names.map((name, i) => ({ unitid: 100 + i, name })),
-    rows: [],
+    rows: [{ label: 'Acceptance rate', cells: names.map(() => cell()) }],
   };
 }
 
@@ -69,6 +81,28 @@ describe('dbSchoolsForMessage', () => {
       sources: [dbEntry(1, 'NYU — Common Data Set 2025-26')],
     });
     expect(dbSchoolsForMessage(msg)).toEqual(['NYU']);
+  });
+
+  test('does not derive schools from an uncited stray DB source', () => {
+    const msg = message({
+      content: [{ kind: 'markdown', text: 'Per the school site [1].' }],
+      sources: [
+        sourceEntry(1, 'NYU admissions', 'edu'),
+        dbEntry(2, 'NYU — Common Data Set 2025-26'),
+      ],
+    });
+    expect(dbSchoolsForMessage(msg)).toEqual([]);
+  });
+
+  test('does not derive schools from a duplicated cited DB index', () => {
+    const msg = message({
+      content: [{ kind: 'markdown', text: 'Ambiguous claim [1].' }],
+      sources: [
+        sourceEntry(1, 'NYU admissions', 'edu'),
+        dbEntry(1, 'NYU — Common Data Set 2025-26'),
+      ],
+    });
+    expect(dbSchoolsForMessage(msg)).toEqual([]);
   });
 
   test('drops DB sources whose label has no school name (null)', () => {
@@ -115,5 +149,35 @@ describe('dbSchoolsForMessage', () => {
       sources: [dbEntry(1, 'NYU — Common Data Set 2025-26')],
     });
     expect(dbSchoolsForMessage(msg)).toEqual(['Stanford']);
+  });
+
+  test('malformed viz specs without schools do not throw or invent names', () => {
+    const spec = {
+      v: 1,
+      type: 'comparison_table',
+      title: 'Broken',
+      rows: [{ label: 'Acceptance rate', cells: [cell()] }],
+    } as unknown as RenderSpec;
+    const msg = message({ content: [{ kind: 'viz', spec }] });
+    expect(dbSchoolsForMessage(msg)).toEqual([]);
+  });
+
+  test('unknown viz specs only attribute the first rendered school', () => {
+    const spec = {
+      ...vizSpec(['NYU', 'Yale']),
+      type: 'future_card',
+    } as unknown as RenderSpec;
+    const msg = message({ content: [{ kind: 'viz', spec }] });
+    expect(dbSchoolsForMessage(msg)).toEqual(['NYU']);
+  });
+
+  test('unknown viz specs do not attribute hidden DB cells to other schools', () => {
+    const spec = {
+      ...vizSpec(['NYU', 'Yale']),
+      type: 'future_card',
+      rows: [{ label: 'Acceptance rate', cells: [cell('web'), cell('cds')] }],
+    } as unknown as RenderSpec;
+    const msg = message({ content: [{ kind: 'viz', spec }] });
+    expect(dbSchoolsForMessage(msg)).toEqual([]);
   });
 });

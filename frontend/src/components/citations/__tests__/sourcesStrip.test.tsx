@@ -60,6 +60,20 @@ describe('SourcesStrip', () => {
     expect(screen.getByText('2 sources')).toBeInTheDocument();
   });
 
+  test('citedIndexes filter fails closed on duplicate source indexes', () => {
+    const { container } = render(
+      <SourcesStrip
+        sources={[
+          webEntry(1, 'https://usnews.com/a'),
+          webEntry(1, 'https://forbes.com/b'),
+        ]}
+        citedIndexes={new Set([1])}
+        onOpen={() => {}}
+      />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
   test('singular label when the count is one', () => {
     render(
       <SourcesStrip sources={[webEntry(1, 'https://usnews.com/a')]} onOpen={() => {}} />,

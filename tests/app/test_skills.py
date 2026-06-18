@@ -172,6 +172,14 @@ def test_build_system_prompt_school_count(built_prompt: str) -> None:
     assert "2,746" not in built_prompt, "stale hardcoded count leaked into the prompt"
 
 
+def test_prompt_requires_db_markers_for_reveal(built_prompt: str) -> None:
+    """DB-derived prose needs markers even when the frontend hides DB chips."""
+    assert "Database citation markers are still required in prose" in built_prompt
+    assert "what came from Counselle" in built_prompt
+    assert "Do not use DB markers for web, .edu, or Reddit claims" in built_prompt
+    assert "cite those claims with their own external markers instead" in built_prompt
+
+
 def test_prompt_is_non_trivially_long(built_prompt: str) -> None:
     # A fully-assembled prompt should be well over 1000 characters
     assert len(built_prompt) > 1000, f"Built prompt suspiciously short: {len(built_prompt)} chars"

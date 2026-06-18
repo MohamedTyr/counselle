@@ -165,8 +165,8 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   // The panel opened from an inline pill must agree with the panel opened from
   // the strip (MessageSources): the same DB-entries + external-cited list, the
   // same authoritative `dbUsed` signal (FE-H4). The pill scans prose `[n]` for
-  // which source to jump to (correct — a pill IS a prose marker), but the panel
-  // CONTENTS are single-sourced the same way the strip derives them.
+  // which source to jump to (correct — a pill IS a prose marker), while DB panel
+  // inclusion is tied to visible DB-cited prose or DB-backed card cells.
   const externalCited = useMemo(
     () => citedSourcesForMessage(message).filter((s) => !isDbSource(s.citation.source)),
     [message],

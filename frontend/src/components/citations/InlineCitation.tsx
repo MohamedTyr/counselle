@@ -16,6 +16,7 @@ import type { SourceEntry } from '@/api/protocol';
 import SourcePill from '@/components/citations/SourcePill';
 import { useCitationActivate } from '@/components/citations/CitationActivateContext';
 import { useSources } from '@/components/citations/SourcesContext';
+import { uniqueSourceByIndex } from '@/components/citations/sourceIndex';
 import { isDbSource } from '@/components/citations/sourceName';
 
 interface InlineCitationProps {
@@ -25,7 +26,7 @@ interface InlineCitationProps {
 export default function InlineCitation({ index }: InlineCitationProps) {
   const sources = useSources();
   const activate = useCitationActivate();
-  const entry: SourceEntry | undefined = sources.find((s) => s.index === index);
+  const entry: SourceEntry | undefined = uniqueSourceByIndex(sources, index);
 
   if (!entry || isDbSource(entry.citation.source)) {
     return null;
