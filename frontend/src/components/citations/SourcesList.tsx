@@ -25,7 +25,7 @@ interface SourcesListProps {
   /** Whether to show the "Counselle data" card. Decoupled from `dbEntries`
    *  presence (FE-H4) so a viz-only answer — which has zero DB source rows but
    *  DID use Counselle data — still surfaces the card. Defaults to "has DB
-   *  entries" for back-compat callers; `MessageSources` passes the authoritative
+   *  entries" for back-compat callers; `MessageSources` passes the visible-content
    *  `usedDbData` signal. */
   showDbCard?: boolean;
 }
@@ -33,9 +33,8 @@ interface SourcesListProps {
 /**
  * Counts what the panel header shows: one "Counselle data" entry (when the
  * answer used DB data) + each external page. DB inclusion is the caller's
- * authoritative `dbUsed` signal (`usedDbData`) — NOT a prose `[n]` scan and NOT
- * the presence of DB source rows (a viz-only answer has none but still used
- * Counselle data). External rows are passed in already filtered (FE-H4).
+ * authoritative `dbUsed` signal (`usedDbData`) — NOT the presence of stray DB
+ * source rows. External rows are passed in already filtered (FE-H4).
  */
 export function displaySourceCount(externals: SourceEntry[], dbUsed: boolean): number {
   return (dbUsed ? 1 : 0) + externals.length;

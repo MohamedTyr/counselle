@@ -32,8 +32,8 @@ export default function MessageSources({ message }: { message: ChatMessage }) {
     () => citedSourcesForMessage(message).filter((s) => !isDbSource(s.citation.source)),
     [message],
   );
-  // Counselle data: authoritative signal (viz card OR DB source entry), NOT the
-  // prose `[n]` scan — DB facts carry no inline marker.
+  // Counselle data: authoritative visible-content signal (DB-cited prose OR a
+  // DB-backed card cell), never a stray cumulative DB source row.
   const dbUsed = useMemo(() => usedDbData(message), [message]);
   const dbEntries = useMemo(() => dbSourcesForMessage(message), [message]);
   // School names for the panel's Counselle-data card subline.

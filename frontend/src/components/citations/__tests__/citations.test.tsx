@@ -103,6 +103,37 @@ describe('remarkCitations (the plugin the markdown pipeline depends on)', () => 
     // [2] inside inline code is not transformed (stays literal text).
     expect(screen.getByText('code [2] stays')).toBeInTheDocument();
   });
+
+  test('suppresses an inline pill when a cited source index is duplicated', async () => {
+    const { default: ReactMarkdown } = await import('react-markdown');
+    const { default: remarkCitations } = await import('@/components/citations/remarkCitations');
+    const { InlineCitationMarkdown } = await import('@/components/citations/InlineCitation');
+    render(
+      <SourcesProvider
+        value={[
+          sourceEntry({
+            index: 1,
+            label: 'admissions.nyu.edu',
+            citation: citation({ source: 'edu', tier: 'official', url: 'https://admissions.nyu.edu' }),
+          }),
+          sourceEntry({
+            index: 1,
+            label: 'CDS 2025-26',
+            citation: citation({ source: 'cds', tier: 'official', url: null }),
+          }),
+        ]}
+      >
+        <ReactMarkdown
+          remarkPlugins={[remarkCitations]}
+          components={{ 'citation-ref': InlineCitationMarkdown } as never}
+        >
+          {'Ambiguous claim [1].'}
+        </ReactMarkdown>
+      </SourcesProvider>,
+    );
+    expect(screen.queryByText('admissions.nyu.edu')).not.toBeInTheDocument();
+    expect(document.body).toHaveTextContent('Ambiguous claim .');
+  });
 });
 
 describe('citedIndexesIn — the §5 footer-filter grammar (single-sourced with the chips)', () => {

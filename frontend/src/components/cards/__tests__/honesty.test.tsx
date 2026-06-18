@@ -7,6 +7,8 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 import type { Citation, CitationEnvelope, RenderSpec } from '@/api/protocol';
 import VizCard from '@/components/cards/VizCard';
+import { DejargonProvider } from '@/components/citations/dejargon';
+import { RevealStateProvider } from '@/components/citations/RevealStateContext';
 
 function citation(over: Partial<Citation> = {}): Citation {
   return {
@@ -128,6 +130,154 @@ describe('tier chips always match the envelope tier', () => {
   });
 });
 
+function renderWithReveal(specArg: RenderSpec, revealed: boolean, dejargon = false) {
+  return render(
+    <RevealStateProvider value={{ revealed, setRevealed: () => {} }}>
+      <DejargonProvider value={dejargon}>
+        <VizCard spec={specArg} expandable={false} />
+      </DejargonProvider>
+    </RevealStateProvider>,
+  );
+}
+
+function revealedVizCells(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll('[data-db-viz-cell][data-revealed]'));
+}
+
+describe('reveal highlights only DB-backed card values', () => {
+  test('comparison table reveals DB cells but not external cells', () => {
+    const { container } = renderWithReveal(
+      spec({
+        type: 'comparison_table',
+        schools: [
+          { unitid: 1, name: 'School A' },
+          { unitid: 2, name: 'School B' },
+        ],
+        rows: [
+          {
+            label: 'Acceptance rate',
+            cells: [
+              env({ display: '12.5%' }),
+              env({
+                display: 'External value',
+                citation: citation({ source: 'web', tier: 'official', vintage: 'Fetched today' }),
+              }),
+            ],
+          },
+        ],
+      }),
+      true,
+    );
+
+    const revealed = revealedVizCells(container);
+    expect(revealed).toHaveLength(1);
+    expect(revealed[0]).toHaveTextContent('12.5%');
+    expect(screen.getByText('External value').closest('[data-revealed]')).toBeNull();
+    expect(screen.getByText('CDS').closest('[data-revealed]')).toBeNull();
+    expect(screen.getByText('web').closest('[data-revealed]')).toBeNull();
+  });
+
+  test('unavailable cells and reveal-off cells do not reveal', () => {
+    const { container: unavailable } = renderWithReveal(
+      spec({ rows: [{ label: 'Missing', cells: [naEnv()] }] }),
+      true,
+    );
+    expect(revealedVizCells(unavailable)).toHaveLength(0);
+
+    const { container: off } = renderWithReveal(
+      spec({ rows: [{ label: 'Acceptance rate', cells: [env()] }] }),
+      false,
+    );
+    expect(revealedVizCells(off)).toHaveLength(0);
+  });
+
+  test('stat block values reveal in dejargon and legacy modes', () => {
+    const legacy = renderWithReveal(spec({ rows: [{ label: 'Acceptance rate', cells: [env()] }] }), true);
+    expect(revealedVizCells(legacy.container)).toHaveLength(1);
+    expect(screen.getByText('CDS').closest('[data-revealed]')).toBeNull();
+    legacy.unmount();
+
+    const dejargon = renderWithReveal(
+      spec({ rows: [{ label: 'Acceptance rate', cells: [env()] }] }),
+      true,
+      true,
+    );
+    expect(revealedVizCells(dejargon.container)).toHaveLength(1);
+  });
+
+  test('unknown-card fallback reveals only the visible DB value', () => {
+    const futureSpec = {
+      ...spec({
+        rows: [
+          { label: 'Visible', cells: [env({ display: '42' })] },
+          {
+            label: 'External',
+            cells: [
+              env({
+                display: 'External fallback',
+                citation: citation({ source: 'web', tier: 'official' }),
+              }),
+            ],
+          },
+        ],
+      }),
+      type: 'future_thing',
+    } as unknown as RenderSpec;
+
+    const { container } = renderWithReveal(futureSpec, true);
+    const revealed = revealedVizCells(container);
+    expect(revealed).toHaveLength(1);
+    expect(revealed[0]).toHaveTextContent('42');
+  });
+});
+
+describe('stat block Counselle-verified badge is honest', () => {
+  test('appears for all-DB available rows in inline dejargon mode', () => {
+    renderWithReveal(
+      spec({
+        rows: [
+          { label: 'Acceptance rate', cells: [env()] },
+          { label: 'Yield', cells: [env({ display: '45%' })] },
+        ],
+      }),
+      false,
+      true,
+    );
+    expect(screen.getByText('Counselle-verified')).toBeInTheDocument();
+  });
+
+  test('does not appear for mixed, external-only, unavailable-only, or panel stat blocks', () => {
+    const mixed = renderWithReveal(
+      spec({
+        rows: [
+          { label: 'Acceptance rate', cells: [env()] },
+          {
+            label: 'External',
+            cells: [env({ citation: citation({ source: 'web', tier: 'official' }) })],
+          },
+        ],
+      }),
+      false,
+      true,
+    );
+    expect(screen.queryByText('Counselle-verified')).not.toBeInTheDocument();
+    mixed.unmount();
+
+    const unavailable = renderWithReveal(spec({ rows: [{ label: 'Missing', cells: [naEnv()] }] }), false, true);
+    expect(screen.queryByText('Counselle-verified')).not.toBeInTheDocument();
+    unavailable.unmount();
+
+    render(
+      <RevealStateProvider value={{ revealed: false, setRevealed: () => {} }}>
+        <DejargonProvider value={true}>
+          <VizCard spec={spec({ rows: [{ label: 'Acceptance rate', cells: [env()] }] })} variant="panel" />
+        </DejargonProvider>
+      </RevealStateProvider>,
+    );
+    expect(screen.queryByText('Counselle-verified')).not.toBeInTheDocument();
+  });
+});
+
 describe('comparison table never winner-highlights', () => {
   test('a clearly larger value gets the identical cell treatment', () => {
     const { container } = render(
@@ -200,7 +350,7 @@ describe('unknown card type → markdown fallback (the degrade rule)', () => {
 
     render(<VizCard spec={futureSpec} />);
     expect(screen.getByText('A future card')).toBeInTheDocument();
-    expect(screen.getByText('Some metric: 42')).toBeInTheDocument();
+    expect(document.body).toHaveTextContent('Some metric: 42');
     expect(screen.getByText('Missing metric: not available')).toBeInTheDocument();
   });
 });

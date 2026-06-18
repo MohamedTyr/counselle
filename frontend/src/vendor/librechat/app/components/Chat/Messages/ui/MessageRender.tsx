@@ -33,7 +33,7 @@ import MessageSources from '@/components/citations/MessageSources';
 // (→ MessageContent) and the action-row toggle, plus the toggle + its gate.
 import { RevealStateProvider } from '@/components/citations/RevealStateContext';
 import RevealDbToggle from '@/components/citations/RevealDbToggle';
-import { dbIndicesForMessage } from '@/components/citations/remarkCitations';
+import { hasRevealableDbContent } from '@/components/citations/dbReveal';
 
 type MessageRenderProps = {
   /**
@@ -78,6 +78,7 @@ function areMessageRenderPropsEqual(prev: MessageRenderProps, next: MessageRende
     prevMsg.text === nextMsg.text &&
     prevMsg.error === nextMsg.error &&
     prevMsg.unfinished === nextMsg.unfinished &&
+    prevMsg.turnStatus === nextMsg.turnStatus &&
     prevMsg.isCreatedByUser === nextMsg.isCreatedByUser &&
     prevMsg.content === nextMsg.content &&
     // `activities` is reference-stable for an unchanged `state.timeline`
@@ -123,14 +124,15 @@ const MessageRender = memo(function MessageRender({
   // MessageRender from the inside, so the prop-only memo is not an obstacle.
   const [revealed, setRevealed] = useState(false);
 
-  // feat/message-ui-polish: the reveal toggle shows only when the answer has at
-  // least one DB-cited clause (behavior 7) — no DB citations → no toggle.
-  // Memoized so the per-render regex scan over content blocks + sources runs
-  // only when the message actually changes, not on every reveal-toggle click.
+  // The reveal toggle is an alternate provenance mode for settled answers:
+  // DB-cited prose clauses and DB-backed card cells can light up. Do not use
+  // cumulative sources alone here; eligibility is current-message visible data.
   const isUser = msg?.isCreatedByUser === true;
+  const isSettled = msg?.turnStatus === 'complete' || msg?.turnStatus === 'cancelled';
+  const hasErrored = msg?.error === true || msg?.streamError !== undefined;
   const showRevealToggle = useMemo(
-    () => !!msg && !isUser && dbIndicesForMessage(msg).size > 0,
-    [isUser, msg],
+    () => !!msg && !isUser && isSettled && !hasErrored && hasRevealableDbContent(msg),
+    [hasErrored, isSettled, isUser, msg],
   );
 
   const messageId = msg?.messageId ?? '';

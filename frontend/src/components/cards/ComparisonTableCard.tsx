@@ -25,6 +25,7 @@ import SchoolHeader from '@/components/cards/SchoolHeader';
 import VizFrame from '@/components/cards/VizFrame';
 import type { VizVariant } from '@/components/cards/vizVariant';
 import CitationPopover from '@/components/citations/CitationPopover';
+import DbRevealValue from '@/components/citations/DbRevealValue';
 import SourceTag from '@/components/citations/SourceTag';
 import { tierLabel } from '@/components/citations/TierChip';
 
@@ -58,7 +59,9 @@ function ComparisonCell({ cell }: { cell: CitationEnvelope | undefined }) {
   return (
     <td className={VALUE_CELL_CLASS}>
       <div className="flex flex-col items-start gap-1.5">
-        <span className={VALUE_TEXT_CLASS}>{cell.display}</span>
+        <DbRevealValue cell={cell} className="inline-block">
+          <span className={VALUE_TEXT_CLASS}>{cell.display}</span>
+        </DbRevealValue>
         <CitationPopover citation={cell.citation}>
           <SourceTag tier={cell.citation.tier}>{tierLabel(cell.citation.source)}</SourceTag>
         </CitationPopover>

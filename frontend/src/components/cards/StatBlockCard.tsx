@@ -27,6 +27,8 @@ import { sectionLabel } from '@/components/cards/vizTitle';
 import type { VizVariant } from '@/components/cards/vizVariant';
 import CitationPopover from '@/components/citations/CitationPopover';
 import CounselleVerifiedBadge from '@/components/citations/CounselleVerifiedBadge';
+import DbRevealValue from '@/components/citations/DbRevealValue';
+import { isRevealableDbCell } from '@/components/citations/dbReveal';
 import SourceTag from '@/components/citations/SourceTag';
 import { tierLabel } from '@/components/citations/TierChip';
 import { useDejargon } from '@/components/citations/dejargon';
@@ -87,13 +89,19 @@ function StatValue({ cell }: { cell: CitationEnvelope | undefined }) {
     return <NotAvailableValue />;
   }
   if (dejargon) {
-    return <DejargonValue cell={cell} />;
+    return (
+      <DbRevealValue cell={cell}>
+        <DejargonValue cell={cell} />
+      </DbRevealValue>
+    );
   }
   // Legacy: value and source share one line (wrapping only when the value is
   // long qualitative prose) — the dense fact-sheet read, not a stacked column.
   return (
     <span className="inline-flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
-      <span className={VALUE_CLASS}>{cell.display}</span>
+      <DbRevealValue cell={cell}>
+        <span className={VALUE_CLASS}>{cell.display}</span>
+      </DbRevealValue>
       <CitationPopover citation={cell.citation}>
         <SourceTag tier={cell.citation.tier}>{tierLabel(cell.citation.source)}</SourceTag>
       </CitationPopover>
@@ -111,6 +119,10 @@ export default function StatBlockCard({
   const dejargon = useDejargon();
   const isPanel = variant === 'panel';
   const school = spec.schools[0];
+  const renderedCells = (spec.rows ?? []).map((row) => row.cells[0]);
+  const availableCells = renderedCells.filter((cell) => cell?.available === true);
+  const allAvailableCellsAreDb =
+    availableCells.length > 0 && availableCells.every((cell) => isRevealableDbCell(cell));
   const list = (
     <dl className={isPanel ? 'divide-y divide-border-light' : 'space-y-px'}>
       {/* `rows` is guarded (`?? []`) so a malformed spec degrades to an empty
@@ -140,7 +152,7 @@ export default function StatBlockCard({
   // On card hover the ExpandToPanelButton fades in at the same top-right corner,
   // so the badge slides left to clear it instead of letting the two icons overlap.
   const verified =
-    dejargon && !isPanel ? (
+    dejargon && !isPanel && allAvailableCellsAreDb ? (
       <CounselleVerifiedBadge className="mt-0.5 shrink-0 transition-transform duration-150 ease-out group-hover/viz:-translate-x-8 motion-reduce:transition-none" />
     ) : null;
 
