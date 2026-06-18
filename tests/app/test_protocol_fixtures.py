@@ -22,7 +22,7 @@ import json
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -36,7 +36,7 @@ from pydantic_ai.messages import (
     ToolCallPart,
     ToolReturnPart,
 )
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.models.function import AgentInfo
 
 import app.agent_node
 import app.graph
@@ -427,13 +427,13 @@ async def test_golden_full_fidelity_transcript(monkeypatch: pytest.MonkeyPatch) 
 
     with monkeypatch.context() as cancel_patch:
         cancel_patch.setattr(app.agent_node, "Agent", _HangingFinalAgent)
-        rig.deps.model_factory = lambda: _hanging_model(
+        rig.deps.model_factory = cast(Any, lambda: _hanging_model(
             "Cost-wise, Duke meets full demonstrated need for every admitted "
             "student, and around half the class receives some form of aid. The "
             "sticker price looks intimidating, but the net price for aided "
             "families is dramatically lower, and there are no loans in the aid "
             "packages for families under the income thresholds."
-        )
+        ))
         got_delta = asyncio.Event()
         drained = asyncio.Event()
 
