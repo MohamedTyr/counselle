@@ -34,6 +34,7 @@ import {
   persistErroredTurn,
   persistTerminalTurn,
   reconcileMetaIds,
+  upsertAssistantMessage,
 } from '@/api/streamReconcile';
 import { turnErrorOf, type TurnError } from '@/api/errorMessages';
 import { CANCEL_WAIT_TIMEOUT_MS } from '@/config';
@@ -205,7 +206,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
           hasBackendId,
           state,
         );
-        setPersisted((prev) => [...prev, done]);
+        setPersisted((prev) => upsertAssistantMessage(prev, done));
         // The sidebar title may now exist (cheap-model title) — refresh the list.
         void queryClient.invalidateQueries([QueryKeys.chats]);
         return metaSeen;
@@ -223,7 +224,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
             state,
             turnErrorOf(error).message,
           );
-          setPersisted((prev) => [...prev, card]);
+          setPersisted((prev) => upsertAssistantMessage(prev, card));
           // Accepted-then-failed: the error card renders; do not re-throw.
           return true;
         }

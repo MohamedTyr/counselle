@@ -9,6 +9,7 @@ import {
   persistErroredTurn,
   persistTerminalTurn,
   reconcileMetaIds,
+  upsertAssistantMessage,
 } from '@/api/streamReconcile';
 import type { ChatMessage } from '@/api/projectTranscript';
 import { initialTurnState, type TurnState } from '@/api/turn-reducer';
@@ -24,6 +25,21 @@ function user(messageId: string): ChatMessage {
     error: false,
     unfinished: false,
     ts: null,
+  };
+}
+
+function assistant(messageId: string, conversationId = 'c1'): ChatMessage {
+  return {
+    messageId,
+    conversationId,
+    parentMessageId: 'user-1',
+    text: 'old',
+    isCreatedByUser: false,
+    sender: 'assistant',
+    error: false,
+    unfinished: false,
+    ts: '2026-06-18T00:00:00.000Z',
+    turnStatus: 'streaming',
   };
 }
 
@@ -47,6 +63,64 @@ describe('reconcileMetaIds — temp user-id swap (G1)', () => {
     // logger.warn forwards to console.warn in DEV (the test env).
     expect(warn).toHaveBeenCalledOnce();
     warn.mockRestore();
+  });
+});
+
+describe('upsertAssistantMessage — terminal assistant card upsert', () => {
+  test('upsert replaces existing assistant card in place for completed streams', () => {
+    const state: TurnState = { ...initialTurnState(), status: 'complete' };
+    const terminal = persistTerminalTurn('c1', 'asst-1', 'user-1', true, state);
+    const other = assistant('asst-other');
+    const prev = [user('user-1'), assistant('asst-1'), other];
+
+    const next = upsertAssistantMessage(prev, terminal);
+
+    expect(next).toHaveLength(3);
+    expect(next[0]).toBe(prev[0]);
+    expect(next[1]).toBe(terminal);
+    expect(next[2]).toBe(other);
+    expect(next.map((m) => m.messageId)).toEqual(['user-1', 'asst-1', 'asst-other']);
+    expect(next.filter((m) => m.messageId === 'asst-1')).toHaveLength(1);
+  });
+
+  test('upsert replaces existing assistant card in place for accepted-then-failed streams', () => {
+    const state: TurnState = { ...initialTurnState(), status: 'streaming' };
+    const terminal = persistErroredTurn('c1', 'asst-1', 'user-1', true, state, 'boom');
+    const prev = [user('user-1'), assistant('asst-1'), assistant('asst-other')];
+
+    const next = upsertAssistantMessage(prev, terminal);
+
+    expect(next).toHaveLength(3);
+    expect(next[1]).toBe(terminal);
+    expect(next[1].turnStatus).toBe('error');
+    expect(next.filter((m) => m.messageId === 'asst-1')).toHaveLength(1);
+  });
+
+  test('upsert does not replace user or other conversation assistant matches', () => {
+    const state: TurnState = { ...initialTurnState(), status: 'complete' };
+    const terminal = persistTerminalTurn('c1', 'shared-id', 'user-1', true, state);
+    const sameIdUser = user('shared-id');
+    const otherConversationAssistant = assistant('shared-id', 'c2');
+    const prev = [sameIdUser, otherConversationAssistant];
+
+    const next = upsertAssistantMessage(prev, terminal);
+
+    expect(next).toHaveLength(3);
+    expect(next[0]).toBe(sameIdUser);
+    expect(next[1]).toBe(otherConversationAssistant);
+    expect(next[2]).toBe(terminal);
+  });
+
+  test('upsert appends when absent', () => {
+    const state: TurnState = { ...initialTurnState(), status: 'complete' };
+    const terminal = persistTerminalTurn('c1', 'asst-new', 'user-1', true, state);
+    const prev = [user('user-1'), assistant('asst-old')];
+
+    const next = upsertAssistantMessage(prev, terminal);
+
+    expect(next).toHaveLength(3);
+    expect(next.slice(0, 2)).toEqual(prev);
+    expect(next[2]).toBe(terminal);
   });
 });
 
