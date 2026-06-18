@@ -40,8 +40,6 @@ class StreamingVizMarkerStripper:
                         out.append(char)
                         continue
                     self._saw_closing_bracket = False
-                    if char == "]":
-                        self._saw_closing_bracket = True
                     continue
                 if char == "]":
                     self._saw_closing_bracket = True

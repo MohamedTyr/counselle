@@ -132,6 +132,7 @@ describe('visualization reducer idempotency', () => {
     const state = reduceEvents([vizEvent(renderSpec), vizEvent(renderSpec)]);
 
     expect(vizBlocks(state)).toHaveLength(1);
+    expect(state.vizSignatures.size).toBe(1);
   });
 
   test('transcript duplicate equivalent viz parts replay to one block', () => {
