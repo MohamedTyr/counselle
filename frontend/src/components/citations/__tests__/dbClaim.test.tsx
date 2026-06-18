@@ -48,8 +48,8 @@ describe('DbClaim highlights only a streamed DB source under reveal', () => {
     });
     const span = claim(container);
     expect(span).toHaveAttribute('data-revealed', '');
+    expect(span.tagName).toBe('BUTTON');
     expect(span).toHaveAttribute('aria-label', "From Counselle's verified data");
-    expect(span).toHaveAttribute('role', 'button');
   });
 
   test('DB source but revealed=false ⇒ inert', () => {
@@ -84,6 +84,20 @@ describe('DbClaim highlights only a streamed DB source under reveal', () => {
     expect(span.textContent).toBe('cited clause');
   });
 
+  test('duplicate source index + revealed ⇒ inert', () => {
+    const { container } = renderClaim({
+      index: 1,
+      sources: [
+        sourceEntry({ index: 1, citation: citation({ source: 'web' }) }),
+        sourceEntry({ index: 1, citation: citation({ source: 'cds' }) }),
+      ],
+      revealed: true,
+    });
+    const span = claim(container);
+    expect(span).not.toHaveAttribute('data-revealed');
+    expect(span.textContent).toBe('cited clause');
+  });
+
   test('index entirely undefined (no prop) + revealed ⇒ inert', () => {
     const { container } = renderClaim({
       index: undefined,
@@ -105,7 +119,7 @@ describe('DbClaim highlights only a streamed DB source under reveal', () => {
       });
       const span = claim(container);
       expect(span).toHaveAttribute('data-revealed', '');
-      expect(span).toHaveAttribute('role', 'button');
+      expect(span.tagName).toBe('BUTTON');
     },
   );
 });

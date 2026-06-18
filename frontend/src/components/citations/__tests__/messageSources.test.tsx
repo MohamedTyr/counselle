@@ -1,7 +1,7 @@
 /**
  * FE-H4 — "Counselle data" inclusion/count must be driven by the AUTHORITATIVE
- * signals (a viz block, or a DB-class source entry), never by the prose `[n]`
- * scan (DB facts deliberately carry no inline marker). These assert that the
+ * signals (DB-backed card cells or DB-cited prose), never by stray cumulative
+ * source rows. These assert that the
  * strip count, the panel header count, the panel Counselle card, and the
  * `dbSchools` subline are all single-sourced off the SAME `usedDbData` signal —
  * so a viz-only DB answer shows "Counselle data" while a pure-external answer
@@ -9,7 +9,7 @@
  */
 import { describe, expect, test } from 'vitest';
 import type { ChatMessage } from '@/app/ChatContext';
-import type { Citation, RenderSpec, SourceEntry } from '@/api/protocol';
+import type { Citation, CitationEnvelope, RenderSpec, SourceEntry } from '@/api/protocol';
 import {
   citedSourcesForMessage,
   dbSourcesForMessage,
@@ -40,13 +40,25 @@ function sourceEntry(
   };
 }
 
+function dbCell(): CitationEnvelope {
+  return {
+    v: 1,
+    field: 'adm.acceptance_rate',
+    label: 'Acceptance rate',
+    display: '9.4%',
+    raw: 0.094,
+    available: true,
+    citation: citation({ source: 'cds', tier: 'official' }),
+  };
+}
+
 function vizSpec(names: string[]): RenderSpec {
   return {
     v: 1,
     type: 'comparison_table',
     title: 'Admissions',
     schools: names.map((name, i) => ({ unitid: 100 + i, name })),
-    rows: [],
+    rows: [{ label: 'Acceptance rate', cells: names.map(() => dbCell()) }],
   };
 }
 
@@ -111,15 +123,50 @@ describe('FE-H4 — DB inclusion is authoritative, not a prose [n] scan', () => 
     expect(s.stripCount).toBe(1); // the one web source only, no card
   });
 
-  test('DB source entry but no [n] and no viz ⇒ Counselle data still shows', () => {
+  test('DB source entry but no [n] and no viz ⇒ no Counselle data card', () => {
     const msg = message({
       content: [{ kind: 'markdown', text: 'NYU admits about a tenth of applicants.' }],
+      sources: [sourceEntry(1, 'cds')],
+    });
+    const s = surfaces(msg);
+    expect(s.dbUsed).toBe(false);
+    expect(s.dbEntries).toHaveLength(0);
+    expect(s.stripCount).toBe(0);
+  });
+
+  test('DB source entry cited in prose ⇒ Counselle data shows', () => {
+    const msg = message({
+      content: [{ kind: 'markdown', text: 'NYU admits about a tenth of applicants [1].' }],
       sources: [sourceEntry(1, 'cds')],
     });
     const s = surfaces(msg);
     expect(s.dbUsed).toBe(true);
     expect(s.dbEntries).toHaveLength(1);
     expect(s.stripCount).toBe(1);
+  });
+
+  test('stray DB source beside an external citation does not add Counselle data', () => {
+    const msg = message({
+      content: [{ kind: 'markdown', text: 'Per the school site [1].' }],
+      sources: [sourceEntry(1, 'edu'), sourceEntry(2, 'scorecard')],
+    });
+    const s = surfaces(msg);
+    expect(s.dbUsed).toBe(false);
+    expect(s.dbEntries).toHaveLength(0);
+    expect(s.externalCited).toHaveLength(1);
+    expect(s.stripCount).toBe(1);
+  });
+
+  test('duplicate cited index suppresses both external and DB attribution', () => {
+    const msg = message({
+      content: [{ kind: 'markdown', text: 'Ambiguous claim [1].' }],
+      sources: [sourceEntry(1, 'edu'), sourceEntry(1, 'scorecard')],
+    });
+    const s = surfaces(msg);
+    expect(s.dbUsed).toBe(false);
+    expect(s.dbEntries).toHaveLength(0);
+    expect(s.externalCited).toHaveLength(0);
+    expect(s.stripCount).toBe(0);
   });
 
   test('mixed: one web [1] cited in prose + one viz block ⇒ count 2, one external, card shown', () => {
@@ -145,6 +192,10 @@ describe('FE-H4 — DB inclusion is authoritative, not a prose [n] scan', () => 
       }),
       message({
         content: [{ kind: 'markdown', text: 'NYU admits a tenth.' }],
+        sources: [sourceEntry(1, 'cds')],
+      }),
+      message({
+        content: [{ kind: 'markdown', text: 'NYU admits a tenth [1].' }],
         sources: [sourceEntry(1, 'cds')],
       }),
       message({

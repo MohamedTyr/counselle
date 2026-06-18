@@ -69,6 +69,14 @@ describe('dbIndicesForMessage', () => {
     expect(dbIndicesForMessage(msg).size).toBe(0);
   });
 
+  test('empty when a cited source index is duplicated', () => {
+    const msg: Msg = {
+      content: [{ kind: 'markdown', text: 'Ambiguous claim [1].' }],
+      sources: [entry(1, 'edu'), entry(1, 'cds')],
+    };
+    expect(dbIndicesForMessage(msg).size).toBe(0);
+  });
+
   test('empty when there are no citations at all', () => {
     const msg: Msg = {
       content: [{ kind: 'markdown', text: 'Plain prose, no markers.' }],

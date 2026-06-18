@@ -15,7 +15,36 @@
  * truthful "…from our own college database." subline instead of inventing names.
  */
 import type { ChatMessage } from '@/app/ChatContext';
-import { schoolFromDbLabel } from '@/components/citations/sourceName';
+import type { CitationEnvelope, RenderSpec } from '@/api/protocol';
+import { dbSourcesForMessage } from '@/components/citations/remarkCitations';
+import { isDbSource, schoolFromDbLabel } from '@/components/citations/sourceName';
+
+function isDbCell(cell: CitationEnvelope | undefined): boolean {
+  return cell?.available === true && isDbSource(cell.citation.source);
+}
+
+function addDbVizSchools(spec: RenderSpec, push: (name: string) => void): void {
+  if (spec.type === 'stat_block') {
+    const school = spec.schools[0];
+    if (school !== undefined && (spec.rows ?? []).some((row) => isDbCell(row.cells[0]))) {
+      push(school.name);
+    }
+    return;
+  }
+
+  if (spec.type === 'comparison_table') {
+    spec.schools.forEach((school, index) => {
+      if ((spec.rows ?? []).some((row) => isDbCell(row.cells[index]))) {
+        push(school.name);
+      }
+    });
+    return;
+  }
+
+  if ((spec.rows ?? []).some((row) => isDbCell(row.cells[0]))) {
+    spec.schools.forEach((school) => push(school.name));
+  }
+}
 
 export function dbSchoolsForMessage(message: ChatMessage): string[] {
   const ordered: string[] = [];
@@ -30,8 +59,9 @@ export function dbSchoolsForMessage(message: ChatMessage): string[] {
   // 1. Viz blocks carry the authoritative school set per figure.
   for (const block of message.content ?? []) {
     if (block.kind === 'viz') {
-      for (const school of block.spec.schools) {
-        push(school.name);
+      const spec = (block as { spec?: RenderSpec }).spec;
+      if (spec !== undefined) {
+        addDbVizSchools(spec, push);
       }
     }
   }
@@ -39,10 +69,10 @@ export function dbSchoolsForMessage(message: ChatMessage): string[] {
     return ordered;
   }
 
-  // 2. Fallback: recover names from CDS source labels only (non-null). CDS
+  // 2. Fallback: recover names from the fail-closed DB prose subset only. CDS
   //    labels lead with the school; IPEDS/Scorecard labels do not, so their
   //    em-dash heads must never masquerade as a school name (honesty).
-  for (const entry of message.sources ?? []) {
+  for (const entry of dbSourcesForMessage(message)) {
     if (entry.citation.source !== 'cds') {
       continue;
     }

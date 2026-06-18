@@ -14,7 +14,8 @@ import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
 import type { Parent, Root, Text } from 'mdast';
 import type { Node } from 'unist';
-import type { SourceEntry } from '@/api/protocol';
+import type { CitationEnvelope, RenderSpec, SourceEntry } from '@/api/protocol';
+import { uniqueSourceByIndex } from '@/components/citations/sourceIndex';
 import { isDbSource } from '@/components/citations/sourceName';
 
 const CITATION_PATTERN = /\[(\d{1,2})\]/g;
@@ -98,9 +99,10 @@ export function dbIndicesForMessage(message: {
 }): Set<number> {
   const cited = citedIndexesForMessage(message.content, message.text ?? '');
   const out = new Set<number>();
-  for (const entry of message.sources ?? []) {
-    if (cited.has(entry.index) && isDbSource(entry.citation.source)) {
-      out.add(entry.index);
+  for (const index of cited) {
+    const entry = uniqueSourceByIndex(message.sources, index);
+    if (entry !== undefined && isDbSource(entry.citation.source)) {
+      out.add(index);
     }
   }
   return out;
@@ -123,22 +125,54 @@ export function citedSourcesForMessage(message: {
     return [];
   }
   const indexes = citedIndexesForMessage(message.content, message.text ?? '');
-  return sources.filter((s) => indexes.has(s.index));
+  return sources.filter(
+    (source) => indexes.has(source.index) && uniqueSourceByIndex(sources, source.index) === source,
+  );
 }
 
-/**
- * The DB source entries an answer actually used — DB facts carry NO inline
- * `[n]` (figures live in viz cards / the panel), so DB inclusion is derived
- * from the authoritative signals, NOT the prose `[n]` scan: (a) any viz block,
- * or (b) any DB-class source entry on the message. Returns the DB SourceEntry
- * subset (may be empty). Single-sourced so the strip count, panel header,
- * panel card, and dbSchools cannot disagree (honesty — FE-H4).
- */
+function isDbVizCell(cell: CitationEnvelope | undefined): boolean {
+  return cell?.available === true && isDbSource(cell.citation.source);
+}
+
+function renderedCellsForSourceSpec(spec: RenderSpec): Array<CitationEnvelope | undefined> {
+  const rows = spec.rows ?? [];
+  if (spec.type === 'stat_block') {
+    return rows.map((row) => row.cells[0]);
+  }
+  if (spec.type === 'comparison_table') {
+    const schoolCount = spec.schools?.length ?? 0;
+    return rows.flatMap((row) => row.cells.slice(0, schoolCount));
+  }
+  return rows.map((row) => row.cells[0]);
+}
+
+function hasDbVizCellsForSources(message: {
+  content?: ReadonlyArray<{ kind: string; spec?: RenderSpec }>;
+}): boolean {
+  return (message.content ?? []).some(
+    (block) =>
+      block.kind === 'viz' &&
+      block.spec !== undefined &&
+      renderedCellsForSourceSpec(block.spec).some(isDbVizCell),
+  );
+}
+
+/** DB source entries this message actually cited in prose. Stray cumulative DB
+ * rows do not enter the panel; DB-backed viz cards are handled by `usedDbData()`
+ * as a separate visible-content signal. */
 export function dbSourcesForMessage(message: {
-  content?: ReadonlyArray<{ kind: string }>;
+  content?: ReadonlyArray<{ kind: string; text?: string }>;
+  text?: string;
   sources?: ReadonlyArray<SourceEntry>;
 }): SourceEntry[] {
-  const dbEntries = (message.sources ?? []).filter((s) => isDbSource(s.citation.source));
+  const sources = message.sources ?? [];
+  const cited = citedIndexesForMessage(message.content, message.text ?? '');
+  const dbEntries = sources.filter(
+    (source) =>
+      cited.has(source.index) &&
+      isDbSource(source.citation.source) &&
+      uniqueSourceByIndex(sources, source.index) === source,
+  );
   if (dbEntries.length > 0) {
     return dbEntries;
   }
@@ -150,15 +184,16 @@ export function dbSourcesForMessage(message: {
   return [];
 }
 
-/** Did this answer use Counselle's own data? (viz card OR a DB source entry.) */
+/** Did this answer visibly use Counselle's own data? (DB-cited prose OR DB cell.) */
 export function usedDbData(message: {
-  content?: ReadonlyArray<{ kind: string }>;
+  content?: ReadonlyArray<{ kind: string; text?: string; spec?: RenderSpec }>;
+  text?: string;
   sources?: ReadonlyArray<SourceEntry>;
 }): boolean {
-  if ((message.sources ?? []).some((s) => isDbSource(s.citation.source))) {
+  if (dbSourcesForMessage(message).length > 0) {
     return true;
   }
-  return (message.content ?? []).some((b) => b.kind === 'viz');
+  return hasDbVizCellsForSources(message);
 }
 
 type CitationRefNode = {

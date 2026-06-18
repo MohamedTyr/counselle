@@ -19,17 +19,11 @@ import type { ReactNode } from 'react';
 import * as HoverCard from '@radix-ui/react-hover-card';
 import { cn } from '@librechat/client/utils';
 import CounselleMark from '@/components/citations/CounselleMark';
+import { DB_REVEAL_WASH_CLASS } from '@/components/citations/revealStyles';
 import { useRevealState } from '@/components/citations/RevealStateContext';
 import { useSources } from '@/components/citations/SourcesContext';
+import { uniqueSourceByIndex } from '@/components/citations/sourceIndex';
 import { isDbSource } from '@/components/citations/sourceName';
-
-// Production locks the 'wash' treatment (FE-CITATIONS-CONTEXT-SPRAWL — the
-// preview-only style switch is gone, so RevealDbContext collapsed into
-// RevealStateContext). The calm brand wash that lights a verified DB clause.
-const WASH_CLASS =
-  'rounded-[0.3em] bg-[color-mix(in_oklab,var(--brand-purple)_14%,transparent)] ' +
-  '[box-decoration-break:clone] [-webkit-box-decoration-break:clone] ' +
-  'px-[0.18em] py-[0.04em] -mx-[0.04em]';
 
 export default function DbClaim({
   children,
@@ -43,10 +37,11 @@ export default function DbClaim({
   const sources = useSources();
 
   // Honesty gate: light up only a streamed DB source, and only when revealed.
-  // Undefined entry (source not yet streamed) or an external source ⇒ inert.
+  // Undefined entry (source not yet streamed), duplicate index, or an external
+  // source => inert.
   const claimIndex = index === undefined ? undefined : Number(index);
   const entry =
-    claimIndex === undefined ? undefined : sources.find((s) => s.index === claimIndex);
+    claimIndex === undefined ? undefined : uniqueSourceByIndex(sources, claimIndex);
   const canHighlight = entry !== undefined && isDbSource(entry.citation.source);
   const isHighlighted = canHighlight && revealed;
 
@@ -54,28 +49,29 @@ export default function DbClaim({
     return <span data-db-claim="">{children}</span>;
   }
 
-  // Revealed claims act as the HoverCard trigger, so they must be reachable by
-  // keyboard and announced as interactive — Radix opens the card on focus too.
-  const span = (
-    <span
+  // Revealed claims act as the HoverCard trigger. A real inline button keeps
+  // the reassurance reachable by keyboard focus; the sources panel remains the
+  // durable provenance surface for opening full source details.
+  const trigger = (
+    <button
+      type="button"
       data-db-claim=""
       data-revealed=""
-      role="button"
-      tabIndex={0}
       aria-label="From Counselle's verified data"
       className={cn(
+        'inline border-0 bg-transparent p-0 text-inherit [font:inherit]',
         'transition-[background-color,text-decoration-color] duration-200 ease-out motion-reduce:transition-none',
-        WASH_CLASS,
+        DB_REVEAL_WASH_CLASS,
         'cursor-default rounded-[0.3em] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-purple)]',
       )}
     >
       {children}
-    </span>
+    </button>
   );
 
   return (
     <HoverCard.Root openDelay={140} closeDelay={80}>
-      <HoverCard.Trigger asChild>{span}</HoverCard.Trigger>
+      <HoverCard.Trigger asChild>{trigger}</HoverCard.Trigger>
       <HoverCard.Portal>
         <HoverCard.Content
           side="top"

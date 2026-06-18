@@ -13,6 +13,7 @@
 import { cn } from '@librechat/client/utils';
 import type { SourceEntry } from '@/api/protocol';
 import SourceFavicon from '@/components/citations/SourceFavicon';
+import { uniqueSourceByIndex } from '@/components/citations/sourceIndex';
 
 /** How many logos to overlap in the stack; the label carries the true count. */
 const MAX_BADGES = 3;
@@ -53,7 +54,12 @@ export default function SourcesStrip({
   onOpen,
 }: SourcesStripProps) {
   const cited =
-    citedIndexes !== undefined ? sources.filter((s) => citedIndexes.has(s.index)) : sources;
+    citedIndexes !== undefined
+      ? sources.filter(
+          (source) =>
+            citedIndexes.has(source.index) && uniqueSourceByIndex(sources, source.index) === source,
+        )
+      : sources;
   // A DB-only answer has zero external favicons but still cites sources, so the
   // strip must appear so the student can open the panel's Counselle card. Gate
   // on the EFFECTIVE count (the full cited set when `displayCount` is supplied),

@@ -16,6 +16,7 @@ import VizFrame from '@/components/cards/VizFrame';
 import StatBlockCard from '@/components/cards/StatBlockCard';
 import ComparisonTableCard from '@/components/cards/ComparisonTableCard';
 import ExpandToPanelButton from '@/components/artifact/ExpandToPanelButton';
+import DbRevealValue from '@/components/citations/DbRevealValue';
 
 function MarkdownFallbackCard({ spec, variant }: { spec: RenderSpec; variant: VizVariant }) {
   return (
@@ -25,7 +26,12 @@ function MarkdownFallbackCard({ spec, variant }: { spec: RenderSpec; variant: Vi
             titled card rather than throw (FE-H5). */}
         {(spec.rows ?? []).map((row, i) => (
           <div key={`${row.label}-${i}`} className="text-sm text-text-primary [overflow-wrap:anywhere]">
-            {row.label}: {row.cells[0]?.available ? row.cells[0].display : 'not available'}
+            {row.label}:{' '}
+            {row.cells[0]?.available ? (
+              <DbRevealValue cell={row.cells[0]}>{row.cells[0].display}</DbRevealValue>
+            ) : (
+              'not available'
+            )}
           </div>
         ))}
       </div>
