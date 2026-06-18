@@ -531,11 +531,11 @@ export const DOSSIER_EVENTS: ProtocolEvent[] = [
       },
     },
   },
-  { v: 1, type: 'viz', data: STAT_BLOCK },
-  { v: 1, type: 'viz', data: COMPARISON },
   ...deltas(INTRO),
+  { v: 1, type: 'viz', data: STAT_BLOCK },
   ...deltas(AFTER_VIZ),
   ...deltas(COMPARE_PROSE),
+  { v: 1, type: 'viz', data: COMPARISON },
   ...deltas(CLOSING),
   { v: 1, type: 'sources', data: { sources: SOURCES } },
   {

@@ -291,6 +291,7 @@ async def test_render_viz_returns_service_errors_without_emitting(
     result = await render_viz(fake_catalog(), SourceRegistry(), emitted, "stat_block", [1], ["x"])
 
     assert result == {"ok": False, "error": "bad request"}
+    assert "placement_marker" not in result
     assert emitted == []
 
 
@@ -313,7 +314,43 @@ async def test_render_viz_returns_honest_db_error_without_emitting(
 
     assert result["ok"] is False
     assert "do not invent values" in result["error"]
+    assert "placement_marker" not in result
     assert emitted == []
+
+
+async def test_render_viz_returns_placement_marker(monkeypatch: pytest.MonkeyPatch) -> None:
+    specs = [
+        spec_with_cells([envelope("x")]),
+        spec_with_cells([envelope("y")]),
+    ]
+
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return specs.pop(0)
+
+    emitted: list[dict[str, object]] = []
+    monkeypatch.setattr(viz, "_build_spec", fake_build_spec)
+
+    first = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["x"]
+    )
+    second = await render_viz(
+        fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["y"]
+    )
+
+    assert first == {
+        "ok": True,
+        "viz": "comparison_table rendered with 1 values",
+        "sources": ["[1]"],
+        "placement_marker": "[[viz:1]]",
+    }
+    assert second["placement_marker"] == "[[viz:2]]"
+    assert len(emitted) == 2
 
 
 async def test_render_viz_emits_available_spec(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -369,6 +406,8 @@ async def test_render_viz_stages_once_for_equivalent_successful_specs(
     assert second["ok"] is True
     assert first["sources"] == ["[1]"]
     assert second["sources"] == ["[1]"]
+    assert first["placement_marker"] == "[[viz:1]]"
+    assert second["placement_marker"] == "[[viz:1]]"
     assert len(emitted) == 1
     assert emitted[0]["title"] == "First title"
 
@@ -407,6 +446,9 @@ async def test_render_viz_stages_distinct_specs_separately(
     assert first["ok"] is True
     assert second["ok"] is True
     assert third["ok"] is True
+    assert first["placement_marker"] == "[[viz:1]]"
+    assert second["placement_marker"] == "[[viz:2]]"
+    assert third["placement_marker"] == "[[viz:3]]"
     assert len(emitted) == 3
 
 
@@ -431,4 +473,5 @@ async def test_render_viz_unavailable_spec_stages_nothing(
 
     assert result["ok"] is False
     assert "do not invent values" in result["error"]
+    assert "placement_marker" not in result
     assert emitted == []

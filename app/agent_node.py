@@ -62,6 +62,7 @@ from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
 from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
 from app.turn_persistence import partial_messages, resolve_offset
+from app.viz_placement import StreamingVizMarkerStripper, chunks_from_viz_markers
 from config.settings import get_settings, load_yaml_asset
 from domain.events import UsageData
 from domain.specs import SourceConfig
@@ -83,6 +84,15 @@ def _close_router_safely(router: EmissionRouter, reason: CloseReason) -> None:
         router.close(reason)
     except Exception:
         logger.warning("router.close(%r) raised — continuing", reason, exc_info=True)
+
+
+def _close_router_and_flush_final_safely(
+    router: EmissionRouter,
+    final_writer: _FinalContentPlacementWriter,
+    reason: CloseReason,
+) -> None:
+    _close_router_safely(router, reason)
+    final_writer.flush_final()
 
 #: The clean cut-off message when the run hits settings.max_tool_rounds (notes §6).
 _TOOL_BUDGET_MESSAGE = (
@@ -164,21 +174,59 @@ def _make_render_viz_tool(
     return Tool(render_viz, takes_ctx=False)
 
 
-def _make_final_viz_flusher(
-    viz_list: list[dict[str, Any]],
-    writer: Callable[[dict[str, Any]], None],
-) -> Callable[[], None]:
-    flushed = False
+class _FinalContentPlacementWriter:
+    def __init__(
+        self,
+        staged_specs: list[dict[str, Any]],
+        writer: Callable[[dict[str, Any]], None],
+    ) -> None:
+        self._staged_specs = staged_specs
+        self._writer = writer
+        self._final_started = False
+        self._buffering = False
+        self._flushed = False
+        self._text_chunks: list[str] = []
+        self._stripper = StreamingVizMarkerStripper()
 
-    def flush() -> None:
-        nonlocal flushed
-        if flushed:
+    def start_final(self) -> None:
+        if self._final_started or self._flushed:
             return
-        flushed = True
-        for spec in viz_list:
-            writer({"type": "viz", "spec": spec})
+        self._final_started = True
+        self._buffering = bool(self._staged_specs)
 
-    return flush
+    def write(self, chunk: dict[str, Any]) -> None:
+        if self._buffering and not self._flushed:
+            kind = chunk.get("type")
+            if kind == "delta":
+                if (text := chunk.get("text")) is not None:
+                    self._text_chunks.append(text)
+                return
+            self.flush_final()
+        elif self._final_started and not self._flushed and chunk.get("type") == "delta":
+            stripped = self._stripper.feed(str(chunk.get("text") or ""))
+            if stripped:
+                self._writer({"type": "delta", "text": stripped})
+            return
+        self._writer(chunk)
+
+    def flush_final(self) -> None:
+        if self._flushed:
+            return
+        if not self._final_started:
+            return
+        self._buffering = False
+        self._flushed = True
+        if not self._staged_specs:
+            if stripped := self._stripper.flush():
+                self._writer({"type": "delta", "text": stripped})
+            return
+        final_text = "".join(self._text_chunks)
+        self._text_chunks = []
+        for kind, payload in chunks_from_viz_markers(final_text, self._staged_specs):
+            if kind == "delta":
+                self._writer({"type": "delta", "text": payload})
+            elif kind == "viz":
+                self._writer({"type": "viz", "spec": payload})
 
 
 def _make_ask_student_tool() -> Tool[Any]:
@@ -269,13 +317,15 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     """One counselor turn: rebuild from state, run the agent, return the delta."""
     settings = getattr(deps, "settings", None) or get_settings()
     emissions: list[Emission] = []
-    writer = _make_recording_writer(get_stream_writer(), emissions)
+    recording_writer = _make_recording_writer(get_stream_writer(), emissions)
 
     # --- rebuild per-turn objects from state (replay-safe, module docstring) ---
     registry = SourceRegistry(state.get("source_registry") or [])
     source_config = SourceConfig.model_validate(state["source_config"])
     history, user_text = _split_user_message(state["messages"])
     viz_list: list[dict[str, Any]] = []
+    final_writer = _FinalContentPlacementWriter(viz_list, recording_writer)
+    writer = final_writer.write
     today = date.fromisoformat(state["temporal"]["today"])
 
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
@@ -319,7 +369,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         mapper=StepMapper(load_yaml_asset("step_labels"), resolve_name, resolve_domain),
         threshold=settings.thinking_threshold_chars,  # CFG-07: Settings-sourced
         unmounted=GATEABLE_TOOLS - {tool.name for tool in tools},
-        on_final_start=_make_final_viz_flusher(viz_list, writer),
+        on_final_start=final_writer.start_final,
     )
 
     # --- the run; only UsageLimitExceeded is caught (GraphInterrupt MUST fly,
@@ -343,18 +393,19 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
                 if isinstance(event, AgentRunResultEvent):
                     result = event.result
     except UsageLimitExceeded:
-        _close_router_safely(router, "budget")
+        _close_router_and_flush_final_safely(router, final_writer, "budget")
         writer({"type": "delta", "text": _TOOL_BUDGET_MESSAGE})
     except GraphInterrupt:
-        _close_router_safely(router, "interrupt")
+        _close_router_and_flush_final_safely(router, final_writer, "interrupt")
         raise
     except Exception:
-        _close_router_safely(router, "error")
+        _close_router_and_flush_final_safely(router, final_writer, "error")
         raise
     else:
         # Deliberately NOT guarded: a close() failure on the happy path is a
         # real turn failure (the final flush/steps never reached the student).
         router.close("complete")
+        final_writer.flush_final()
 
     if result is not None:
         messages_out = ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")

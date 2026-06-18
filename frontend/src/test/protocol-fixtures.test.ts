@@ -216,10 +216,8 @@ function eventsOf(payload: unknown, key: string): unknown[] {
   return events as unknown[];
 }
 
-function firstIndex(events: ProtocolEvent[], type: ProtocolEvent['type']): number {
-  const index = events.findIndex((event) => event.type === type);
-  expect(index, `missing ${type}`).toBeGreaterThanOrEqual(0);
-  return index;
+function indexesOf(events: ProtocolEvent[], type: ProtocolEvent['type']): number[] {
+  return events.flatMap((event, index) => (event.type === type ? [index] : []));
 }
 
 function lastWorkIndex(events: ProtocolEvent[]): number {
@@ -246,28 +244,37 @@ describe('golden protocol fixtures (shared with the backend)', () => {
     expect(done?.type === 'done' && done.data.status).toBe('complete');
   });
 
-  test('turn_full: final answer fixture order keeps work before final viz and prose', () => {
+  test('turn_full: final answer fixture order keeps work before inline viz and prose', () => {
     const events = eventsOf(load('turn_full'), 'events').map(assertEvent);
     const workEnd = lastWorkIndex(events);
-    const firstViz = firstIndex(events, 'viz');
-    const firstDelta = firstIndex(events, 'delta');
+    const [firstViz] = indexesOf(events, 'viz');
+    const deltaIndexes = indexesOf(events, 'delta');
+    const [firstDelta] = deltaIndexes;
+    const deltaAfterViz = deltaIndexes.find((index) => index > firstViz);
+    const firstFinalContent = Math.min(firstDelta, firstViz);
 
     expect(workEnd).toBeGreaterThan(0);
+    expect(firstFinalContent).toBeGreaterThan(workEnd);
+    expect(firstDelta).toBeLessThan(firstViz);
     expect(firstViz).toBeGreaterThan(workEnd);
-    expect(firstDelta).toBeGreaterThan(workEnd);
-    expect(firstViz).toBeLessThan(firstDelta);
+    expect(deltaAfterViz).toBeGreaterThan(firstViz);
     expect(events.filter((event) => event.type === 'viz')).toHaveLength(1);
   });
 
-  test('mock dossier final answer fixture order keeps work before staged cards and prose', () => {
+  test('mock dossier final answer fixture order keeps work before inline cards and prose', () => {
     const events = DOSSIER_EVENTS.map(assertEvent);
     const workEnd = lastWorkIndex(events);
-    const firstViz = firstIndex(events, 'viz');
-    const firstDelta = firstIndex(events, 'delta');
+    const [firstViz] = indexesOf(events, 'viz');
+    const deltaIndexes = indexesOf(events, 'delta');
+    const [firstDelta] = deltaIndexes;
+    const deltaAfterViz = deltaIndexes.find((index) => index > firstViz);
+    const firstFinalContent = Math.min(firstDelta, firstViz);
 
+    expect(workEnd).toBeGreaterThan(0);
+    expect(firstFinalContent).toBeGreaterThan(workEnd);
+    expect(firstDelta).toBeLessThan(firstViz);
     expect(firstViz).toBeGreaterThan(workEnd);
-    expect(firstDelta).toBeGreaterThan(workEnd);
-    expect(firstViz).toBeLessThan(firstDelta);
+    expect(deltaAfterViz).toBeGreaterThan(firstViz);
     expect(events.filter((event) => event.type === 'viz')).toHaveLength(2);
   });
 

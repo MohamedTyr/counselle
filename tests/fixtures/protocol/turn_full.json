@@ -86,6 +86,13 @@
     },
     {
       "v": 1,
+      "type": "delta",
+      "data": {
+        "text": "Duke's housing is consistently well reviewed by students [1]. "
+      }
+    },
+    {
+      "v": 1,
       "type": "viz",
       "data": {
         "v": 1,
@@ -128,7 +135,7 @@
       "v": 1,
       "type": "delta",
       "data": {
-        "text": "Duke's housing is consistently well reviewed by students [1]. The acceptance-rate snapshot above puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper."
+        "text": " The acceptance-rate snapshot puts the campus in context \u2014 selective, residential, and heavily first-year focused. Ask me about specific dorms whenever you want to go deeper."
       }
     },
     {
@@ -170,7 +177,7 @@
       "type": "usage",
       "data": {
         "input_tokens": 150,
-        "output_tokens": 61,
+        "output_tokens": 62,
         "est_cost_usd": null,
         "tool_calls": 2
       }

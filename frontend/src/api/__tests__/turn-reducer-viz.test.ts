@@ -3,6 +3,7 @@ import type { ProtocolEvent, RenderSpec, TranscriptAssistantEntry } from '@/api/
 import type { ContentBlock, TurnState } from '@/api/turn-reducer';
 import {
   initialTurnState,
+  proseOf,
   reduce,
   reduceTranscriptEntry,
   transcriptEntryToEvents,
@@ -74,6 +75,10 @@ function vizBlocks(state: TurnState): Array<Extract<ContentBlock, { kind: 'viz' 
   return state.blocks.filter((block): block is Extract<ContentBlock, { kind: 'viz' }> => block.kind === 'viz');
 }
 
+function blockKinds(state: TurnState): ContentBlock['kind'][] {
+  return state.blocks.map((block) => block.kind);
+}
+
 function assistantEntry(parts: TranscriptAssistantEntry['parts']): TranscriptAssistantEntry {
   return {
     role: 'assistant',
@@ -85,6 +90,42 @@ function assistantEntry(parts: TranscriptAssistantEntry['parts']): TranscriptAss
 }
 
 describe('visualization reducer idempotency', () => {
+  test('live inline viz order preserves markdown viz markdown blocks', () => {
+    const state = reduceEvents([
+      { v: 1, type: 'delta', data: { text: 'Intro' } },
+      vizEvent(spec()),
+      { v: 1, type: 'delta', data: { text: 'Outro' } },
+    ]);
+
+    expect(blockKinds(state)).toEqual(['markdown', 'viz', 'markdown']);
+    expect(state.blocks).toMatchObject([
+      { kind: 'markdown', text: 'Intro' },
+      { kind: 'viz' },
+      { kind: 'markdown', text: 'Outro' },
+    ]);
+    expect(proseOf(state)).toBe('Intro\n\nOutro');
+    expect(proseOf(state)).not.toContain('[[viz:');
+  });
+
+  test('transcript inline viz order preserves markdown viz markdown blocks', () => {
+    const state = reduceTranscriptEntry(
+      assistantEntry([
+        { type: 'text', text: 'Intro' },
+        { type: 'viz', spec: spec() },
+        { type: 'text', text: 'Outro' },
+      ]),
+    );
+
+    expect(blockKinds(state)).toEqual(['markdown', 'viz', 'markdown']);
+    expect(state.blocks).toMatchObject([
+      { kind: 'markdown', text: 'Intro' },
+      { kind: 'viz' },
+      { kind: 'markdown', text: 'Outro' },
+    ]);
+    expect(proseOf(state)).toBe('Intro\n\nOutro');
+    expect(proseOf(state)).not.toContain('[[viz:');
+  });
+
   test('duplicate live viz events append one block', () => {
     const renderSpec = spec();
 

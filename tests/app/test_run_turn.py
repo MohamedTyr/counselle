@@ -44,6 +44,7 @@ from app.graph import build_graph
 from app.records import prose_of
 from app.run_turn import run_turn
 from app.state import TemporalContext
+from app.steps import EmissionRouter
 from app.toolset import ToolDeps
 from domain.envelope import Citation, CitationEnvelope
 from domain.events import Event
@@ -709,7 +710,225 @@ def _two_viz_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Model
     )
 
 
-async def test_viz_final_flush_streams_staged_cards_before_final_answer(
+def _viz_marker_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    returns = (
+        [part for part in last.parts if isinstance(part, ToolReturnPart)]
+        if isinstance(last, ModelRequest)
+        else []
+    )
+    if returns:
+        marker = _placement_marker(returns[0])
+        return ModelResponse(parts=[TextPart(f"Intro before card. {marker} Outro after card.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="render_viz",
+                args={
+                    "type": "comparison_table",
+                    "unitids": [1],
+                    "field_keys": ["admissions.rate"],
+                    "title": "Inline card",
+                },
+            )
+        ]
+    )
+
+
+def _stray_viz_marker_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    return ModelResponse(parts=[TextPart("Plain answer [[viz:1]] with no card.")])
+
+
+def _split_stray_viz_marker_model() -> FunctionModel:
+    def response(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(part, ToolReturnPart) for part in last.parts
+        ):
+            return ModelResponse(parts=[TextPart("Plain [[viz:1]] with no card.")])
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
+
+    async def stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | DeltaToolCalls]:
+        model_response = response(messages, info)
+        for index, part in enumerate(model_response.parts):
+            if isinstance(part, TextPart):
+                yield "Plain [[vi"
+                yield "z:1]] with no card."
+            elif isinstance(part, ToolCallPart):
+                yield {
+                    index: DeltaToolCall(
+                        name=part.tool_name,
+                        json_args=part.args_as_json_str(),
+                    )
+                }
+
+    return FunctionModel(response, stream_function=stream)
+
+
+def _split_no_viz_text_model(chunks: list[str]) -> FunctionModel:
+    def response(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(part, ToolReturnPart) for part in last.parts
+        ):
+            return ModelResponse(parts=[TextPart("".join(chunks))])
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
+
+    async def stream(
+        messages: list[ModelMessage], info: AgentInfo
+    ) -> AsyncIterator[str | DeltaToolCalls]:
+        model_response = response(messages, info)
+        for index, part in enumerate(model_response.parts):
+            if isinstance(part, TextPart):
+                for chunk in chunks:
+                    yield chunk
+            elif isinstance(part, ToolCallPart):
+                yield {
+                    index: DeltaToolCall(
+                        name=part.tool_name,
+                        json_args=part.args_as_json_str(),
+                    )
+                }
+
+    return FunctionModel(response, stream_function=stream)
+
+
+def _placement_marker(part: ToolReturnPart) -> str:
+    assert isinstance(part.content, dict)
+    marker = part.content["placement_marker"]
+    assert isinstance(marker, str)
+    return marker
+
+
+async def test_viz_marker_places_card_between_final_text_segments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_build_spec(
+        _catalog: object,
+        _type: str,
+        _unitids: list[int],
+        _field_keys: list[str] | None,
+        _title: str | None,
+    ) -> RenderSpec:
+        return _viz_spec("admissions.rate", title="Inline card")
+
+    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    rig = Rig(_fn_model(_viz_marker_then_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "place the card inline", _ALL_OFF)
+
+    types = _types(events)
+    delta_positions = [index for index, event in enumerate(events) if event.type == "delta"]
+    viz_position = types.index("viz")
+    assert len(delta_positions) == 2
+    assert delta_positions[0] < viz_position < delta_positions[1]
+    assert _text(events) == "Intro before card.  Outro after card."
+    assert "[[viz:" not in _text(events)
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert [part["type"] for part in record["parts"]] == ["text", "viz", "text"]
+    assert record["parts"][0]["text"] == "Intro before card. "
+    assert record["parts"][2]["text"] == " Outro after card."
+    assert all("[[viz:" not in part.get("text", "") for part in record["parts"])
+
+    from app.transcript import extract_transcript
+
+    transcript = extract_transcript(values["messages"], values["turn_records"])
+    assistant = transcript[-1]
+    assert assistant["text"] == _text(events)
+    assert assistant["parts"] == record["parts"]
+
+
+async def test_no_viz_final_answer_strips_stray_marker_text() -> None:
+    rig = Rig(_fn_model(_stray_viz_marker_answer))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "answer plainly", _ALL_OFF)
+
+    assert "viz" not in _types(events)
+    assert _text(events) == "Plain answer  with no card."
+    assert "[[viz:" not in _text(events)
+
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert [part["type"] for part in record["parts"]] == ["text"]
+    assert record["parts"][0]["text"] == "Plain answer  with no card."
+
+
+async def test_no_viz_final_answer_strips_split_marker_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_feed_text = EmissionRouter._feed_text
+
+    def start_final_before_split_text(router: Any, text: str) -> None:
+        if text and not router.final_answer_started:
+            router._start_final_answer()
+        original_feed_text(router, text)
+
+    monkeypatch.setattr(
+        EmissionRouter,
+        "_feed_text",
+        start_final_before_split_text,
+    )
+    rig = Rig(_split_stray_viz_marker_model())
+    session_id = str(uuid4())
+
+    events = await rig.turn(
+        session_id,
+        "answer plainly after a search",
+        SourceConfig(web=True, reddit=False, edu=False),
+    )
+
+    assert "viz" not in _types(events)
+    assert _text(events) == "Plain  with no card."
+    assert "[[viz:" not in _text(events)
+    assert "z:1]]" not in _text(events)
+
+
+@pytest.mark.parametrize(
+    ("chunks", "expected"),
+    [
+        (["Plain [[viz:1]]", "] with no card."], "Plain  with no card."),
+        (["Plain [[viz:abc]]", "] with no card."], "Plain  with no card."),
+    ],
+)
+async def test_no_viz_final_answer_strips_extra_closing_marker_junk(
+    monkeypatch: pytest.MonkeyPatch,
+    chunks: list[str],
+    expected: str,
+) -> None:
+    original_feed_text = EmissionRouter._feed_text
+
+    def start_final_before_split_text(router: Any, text: str) -> None:
+        if text and not router.final_answer_started:
+            router._start_final_answer()
+        original_feed_text(router, text)
+
+    monkeypatch.setattr(
+        EmissionRouter,
+        "_feed_text",
+        start_final_before_split_text,
+    )
+    rig = Rig(_split_no_viz_text_model(chunks))
+    session_id = str(uuid4())
+
+    events = await rig.turn(
+        session_id,
+        "answer plainly after a search",
+        SourceConfig(web=True, reddit=False, edu=False),
+    )
+
+    assert "viz" not in _types(events)
+    assert _text(events) == expected
+    assert "[[viz:" not in _text(events)
+    assert "] with no card." not in _text(events)
+
+
+async def test_viz_without_marker_falls_back_before_final_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     specs = [
@@ -754,7 +973,7 @@ async def test_viz_final_flush_streams_staged_cards_before_final_answer(
 async def test_event_order_final_answer_streams_staged_cards_before_answer_delta(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    await test_viz_final_flush_streams_staged_cards_before_final_answer(monkeypatch)
+    await test_viz_without_marker_falls_back_before_final_answer(monkeypatch)
 
 
 async def test_duplicate_render_viz_final_flush_persists_one_viz_part(

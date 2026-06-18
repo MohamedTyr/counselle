@@ -19,9 +19,12 @@ def test_prompt_contains_final_answer_and_viz_guardrails() -> None:
     assert "once per distinct visualization" in prompt
 
 
-def test_prompt_does_not_add_hidden_visualization_protocol() -> None:
+def test_prompt_contains_viz_placement_marker_contract() -> None:
     prompt = _render_prompt().lower()
 
-    forbidden = ("placeholder", "[viz:", "artifact token", "hidden token")
-    for phrase in forbidden:
-        assert phrase not in prompt
+    assert "placement_marker" in prompt
+    assert "exact returned" in prompt
+    assert "[[viz:" in prompt
+    assert "wherever the visualization should appear" in prompt
+    assert "do not alter it" in prompt
+    assert "hidden from the student" in prompt

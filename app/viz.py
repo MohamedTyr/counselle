@@ -194,19 +194,21 @@ def _render_spec_signature(spec: RenderSpec) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
-def _stage_render_spec(viz_emitted: list[dict[str, Any]], spec: RenderSpec) -> bool:
+def _placement_marker(index: int) -> str:
+    return f"[[viz:{index}]]"
+
+
+def _stage_render_spec(viz_emitted: list[dict[str, Any]], spec: RenderSpec) -> str | None:
     if not any(cell.available for row in spec.rows for cell in row.cells):
-        return False
+        return None
 
     signature = _render_spec_signature(spec)
-    staged_signatures = {
-        _render_spec_signature(RenderSpec.model_validate(staged)) for staged in viz_emitted
-    }
-    if signature in staged_signatures:
-        return False
+    for index, staged in enumerate(viz_emitted, start=1):
+        if signature == _render_spec_signature(RenderSpec.model_validate(staged)):
+            return _placement_marker(index)
 
     viz_emitted.append(spec.model_dump(mode="json"))
-    return True
+    return _placement_marker(len(viz_emitted))
 
 
 async def render_viz(
@@ -224,8 +226,11 @@ async def render_viz(
     tool fetches the exact cited values from the database and shows them to
     the student directly. You never see (and must never invent) the numbers:
     on success you get only ``{"ok": true, "viz": "<type> rendered with N
-    values", "sources": ["[3]", ...]}`` — cite those markers next to the
-    prose that refers to the visualization.
+    values", "sources": ["[3]", ...], "placement_marker": "[[viz:1]]"}``.
+    In your final answer, put the exact returned ``placement_marker`` wherever
+    the visualization should appear. Do not alter it, do not wrap it in code,
+    and do not explain it; it is hidden from the student. Cite the returned
+    ``sources`` in the prose around the card.
 
     Types: ``comparison_table`` (N schools × your field_keys),
     ``stat_block`` (ONE school × your field_keys).
@@ -246,5 +251,7 @@ async def render_viz(
         }
     result, spec_to_emit = _viz_result_from_spec(spec, registry)
     if spec_to_emit is not None:
-        _stage_render_spec(viz_emitted, spec)
+        placement_marker = _stage_render_spec(viz_emitted, spec)
+        if placement_marker is not None:
+            result = {**result, "placement_marker": placement_marker}
     return result

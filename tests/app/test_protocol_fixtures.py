@@ -122,15 +122,28 @@ def _returned_tools(messages: list[ModelMessage]) -> set[str]:
     }
 
 
+def _returned_tool_content(messages: list[ModelMessage], tool_name: str) -> dict[str, Any]:
+    last = messages[-1]
+    if not isinstance(last, ModelRequest):
+        return {}
+    for part in last.parts:
+        if isinstance(part, ToolReturnPart) and part.tool_name == tool_name:
+            assert isinstance(part.content, dict)
+            return part.content
+    return {}
+
+
 def _dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     """search_web → render_viz → cited answer (steps + viz + sources + usage)."""
     returned = _returned_tools(messages)
     if "render_viz" in returned:
+        marker = _returned_tool_content(messages, "render_viz")["placement_marker"]
         return ModelResponse(
             parts=[
                 TextPart(
                     "Duke's housing is consistently well reviewed by students [1]. "
-                    "The acceptance-rate snapshot above puts the campus in context — "
+                    f"{marker} "
+                    "The acceptance-rate snapshot puts the campus in context — "
                     "selective, residential, and heavily first-year focused. "
                     "Ask me about specific dorms whenever you want to go deeper."
                 )
@@ -160,11 +173,13 @@ def _dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelRespon
 def _transcript_dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     returned = _returned_tools(messages)
     if "render_viz" in returned:
+        marker = _returned_tool_content(messages, "render_viz")["placement_marker"]
         return ModelResponse(
             parts=[
                 TextPart(
                     "Duke's housing is consistently well reviewed by students [1]. "
-                    "The acceptance-rate snapshot above puts the campus in context — "
+                    f"{marker} "
+                    "The acceptance-rate snapshot puts the campus in context — "
                     "selective, residential, and heavily first-year focused. "
                     "Ask me about specific dorms whenever you want to go deeper."
                 )
@@ -347,7 +362,13 @@ async def test_golden_full_turn_events() -> None:
         for index, event in enumerate(events)
         if event.type in {"step", "thinking"}
     )
-    assert work_end < types.index("viz") < types.index("delta")
+    delta_positions = [index for index, event in enumerate(events) if event.type == "delta"]
+    viz_position = types.index("viz")
+    assert len(delta_positions) == 2
+    assert work_end < delta_positions[0] < viz_position < delta_positions[1]
+    assert "[[viz:" not in "".join(
+        event.data["text"] for event in events if event.type == "delta"
+    )
     _check_or_regen("turn_full", {"events": normalize(_dump(events))})
 
 
@@ -460,6 +481,10 @@ async def test_golden_full_fidelity_transcript(monkeypatch: pytest.MonkeyPatch) 
     assistant_entries = [e for e in transcript if e["role"] == "assistant"]
     assert len(assistant_entries) == 3
     assert all("step_record" in e and "parts" in e and "status" in e for e in assistant_entries)
+    dossier_entry = assistant_entries[0]
+    assert [part["type"] for part in dossier_entry["parts"]] == ["text", "viz", "text"]
+    assert "[[viz:" not in dossier_entry["text"]
+    assert all("[[viz:" not in part.get("text", "") for part in dossier_entry["parts"])
     clarify_entry = assistant_entries[1]
     assert clarify_entry["clarify"]["answer"] == "Cost"
     synthesized = [e for e in transcript if e.get("synthesized")]
