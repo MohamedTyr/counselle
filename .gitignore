@@ -10,6 +10,7 @@ dist/
 .gstack/
 .playwright-mcp/
 .hypothesis/
+.local/
 
 # Eval runs are regenerated output; one baseline report stays committed,
 # new dated reports do not.
