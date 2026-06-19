@@ -33,6 +33,12 @@ plans/.local/
 # Design-iteration screenshot scratch dropped in the repo root (06-M3).
 /*.png
 
+# Root-level generated agent reports/audits. Canonical docs belong under docs/,
+# specs/, or plans/; one-off chat/audit artifacts should not sit in the index.
+/*AUDIT*.md
+/*REPORT*.md
+/*ONBOARDING*.md
+
 # Coverage artifacts (06-L8 adds pytest-cov; don't commit run output).
 .coverage
 .coverage.*

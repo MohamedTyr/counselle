@@ -122,6 +122,9 @@ When in doubt, do the simplest thing that works and ship it.
 
 ## House rules
 
+- Verify before editing: do not assume file paths, imports, functions, settings, schemas, routes, or framework boilerplate exist. Search/read the current code first, then change it.
+- Search before adding: before creating a new helper, service, component, endpoint, config knob, migration, or test fixture, search for an existing equivalent and extend it when that is the simpler fit.
+- Use Context7 for current docs: before implementing against a library, framework, SDK, API, CLI, or cloud service, fetch the latest relevant official docs/examples through Context7. If Context7 cannot resolve it, fall back to official docs on the web.
 - Files < 800 lines, functions < 50 lines; many small modules; organize by feature.
 - Parameterized SQL only (never f-string SQL) — inherited from pipeline ADR 0001.
 - Never log secrets. Secrets in `.env`/config only.
