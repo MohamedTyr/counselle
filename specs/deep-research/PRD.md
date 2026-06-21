@@ -137,13 +137,19 @@ MVP deep research does not include:
 
 ## Trigger Rules
 
-Use conservative routing.
+Use conservative routing and explicit user confirmation.
 
-Deep research should trigger when either:
+Deep research may be proposed when either:
 
+- The user selects the BrainCog response-mode control and chooses
+  "Deep research" before sending the next message.
 - The user explicitly asks for "deep research", a "sourced report", a
   "comprehensive comparison", or an "application strategy report".
 - The question is clearly complex enough to need planned multi-source work.
+
+Selecting the BrainCog mode is a next-message setting, not a permanent chat
+mode. After the user sends that message, the composer returns to the normal
+mode unless the user selects deep research again.
 
 Auto-trigger examples:
 
@@ -167,9 +173,24 @@ research. Ask only for missing inputs that materially change the research:
 schools, major, cycle/year, applicant type, aid/budget constraint, region, or
 allowed sources.
 
+Deep research never starts silently. Manual selection, explicit phrasing, and
+conservative routing all lead to a research-plan confirmation before expensive
+work begins.
+
 ## User Experience
 
 Deep research runs in the same chat surface.
+
+The manual trigger lives in the existing composer controls:
+
+1. User opens the BrainCog response-mode menu.
+2. User selects "Deep research".
+3. The next message is visibly armed for deep research.
+4. Counselle shows a compact research-plan confirmation before running.
+5. User starts or cancels the research run.
+
+The confirmation summarizes the planned work, schools or topics in scope,
+enabled source types, and any known limits. It is not a new route or modal.
 
 Progress appears through the existing timeline:
 
@@ -436,9 +457,11 @@ Regression:
 
 ### Phase 1: PRD and Docs
 
-- Keep this PRD in `plans/deep-research/` while the feature is active work.
-- Add an implementation plan next to it if the work is split across sessions.
-- Graduate final docs to `specs/deep-research/` only after build and evals pass.
+- Keep this approved PRD in `specs/deep-research/`.
+- Use `plans/` only for temporary implementation scratch while the feature is
+  actively being built.
+- Graduate any finalized execution plan back to `specs/deep-research/` after
+  build and evals pass.
 
 ### Phase 2: Settings and Routing
 
@@ -557,12 +580,12 @@ Eval additions:
   after direct Tavily research is working.
 - Whether verifier should start on the cheap model or use the strong model for
   policy/deadline-heavy claims.
-- Whether the UI needs a visible "Deep research" toggle later. MVP can rely on
-  explicit user language and conservative routing.
 
 ## Assumptions
 
-- Conservative auto-triggering is the MVP default.
+- BrainCog -> response mode -> Deep research is the approved manual trigger.
+- Conservative auto-triggering is an allowed proposal path, but still requires
+  research-plan confirmation before work starts.
 - Existing frontend protocol support for `step.kind = "research"` is enough for
   the first version.
 - Counselle's source registry remains the final citation authority.

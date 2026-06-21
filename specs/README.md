@@ -20,7 +20,7 @@ A feature that only ever gets an execution plan can have just `plan/`; one that 
 |--------|-----------|-------|
 | [`mvp1/`](mvp1/) | The MVP1 agent — `PRD.md` (stories 1–58) + `plan/` (phases 0–7). | Shipped |
 | [`mvp2/`](mvp2/) | The MVP2 full-stack app — `PRD.md`, `architecture.md` (the HOW, merged into `docs/ARCHITECTURE.md` Part II), and `plan/` (ship-plan, wire-contract, frontend-plan, the FE-6 audit). | Shipped (B0–B5; deploy/hardening B6–B7 deferred) |
-| [`deep-research/`](deep-research/) | The deferred deep-research feature (PRD stories 39–41) — `plan.md` stub. | Deferred, not started |
+| [`deep-research/`](deep-research/) | The deferred deep-research feature (PRD stories 39–41) — approved `PRD.md` plus the original `plan.md` stub. | Scoped; implementation not started |
 
 ## The lifecycle (how a plan gets here)
 
