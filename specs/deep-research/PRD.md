@@ -141,15 +141,15 @@ Use conservative routing and explicit user confirmation.
 
 Deep research may be proposed when either:
 
-- The user selects the BrainCog response-mode control and chooses
+- The user opens the response-mode control and chooses
   "Deep research" before sending the next message.
 - The user explicitly asks for "deep research", a "sourced report", a
   "comprehensive comparison", or an "application strategy report".
 - The question is clearly complex enough to need planned multi-source work.
 
-Selecting the BrainCog mode is a next-message setting, not a permanent chat
-mode. After the user sends that message, the composer returns to the normal
-mode unless the user selects deep research again.
+Selecting deep research is a next-message setting, not a permanent chat mode.
+After the user sends that message, the composer returns to the normal mode
+unless the user selects deep research again.
 
 Auto-trigger examples:
 
@@ -183,7 +183,7 @@ Deep research runs in the same chat surface.
 
 The manual trigger lives in the existing composer controls:
 
-1. User opens the BrainCog response-mode menu.
+1. User opens the response-mode menu.
 2. User selects "Deep research".
 3. The next message is visibly armed for deep research.
 4. Counselle shows a compact research-plan confirmation before running.
@@ -583,7 +583,7 @@ Eval additions:
 
 ## Assumptions
 
-- BrainCog -> response mode -> Deep research is the approved manual trigger.
+- Response-mode control -> Deep research is the approved manual trigger.
 - Conservative auto-triggering is an allowed proposal path, but still requires
   research-plan confirmation before work starts.
 - Existing frontend protocol support for `step.kind = "research"` is enough for
