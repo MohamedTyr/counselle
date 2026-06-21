@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Counselle Deep research mode prototype</title>
+  <style>:root{--bg:#1f2020;--sidebar:#171717;--surface:#1f1f21;--surface-2:#292a2c;--surface-3:#141515;--border:rgba(255,255,255,0.105);--border-soft:rgba(255,255,255,0.065);--text:#f1f2f3;--muted:#a7aab1;--faint:#6f747d;--teal:#2dd4bf;--teal-strong:#14b8a6;--teal-bg:rgba(20,184,166,0.105);--teal-border:rgba(45,212,191,0.28);--official:#93c5fd;--official-bg:rgba(59,130,246,0.115);--official-border:rgba(96,165,250,0.32);--community:#fbbf24;--community-bg:rgba(245,158,11,0.105);--community-border:rgba(245,158,11,0.34);--font:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--shadow:0 22px 70px rgba(0,0,0,0.42);}*{box-sizing:border-box;}[hidden]{display:none !important;}html,body{height:100%;}body{margin:0;overflow:hidden;background:#0f0f10;color:var(--text);font:14px/1.45 var(--font);letter-spacing:0;}button{font:inherit;color:inherit;cursor:pointer;}.prototype-bar{height:42px;display:flex;align-items:center;gap:14px;padding:0 16px;background:#080909;border-bottom:1px solid rgba(255,255,255,0.08);color:var(--faint);position:relative;z-index:10;}.prototype-title{text-transform:uppercase;letter-spacing:0.18em;font-size:11px;white-space:nowrap;color:#5f666f;}.step-tabs{display:flex;gap:6px;overflow-x:auto;}.step-tab{border:1px solid transparent;background:transparent;color:#737985;border-radius:7px;padding:4px 9px;font-size:12px;white-space:nowrap;}.step-tab[aria-selected="true"]{background:rgba(20,184,166,0.16);border-color:var(--teal-border);color:var(--teal);}.prototype-note{margin-left:auto;font-size:11px;color:#555b64;}.workspace{height:calc(100vh - 42px);display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);background:var(--bg);}.sidebar{background:var(--sidebar);border-right:1px solid var(--border-soft);display:flex;flex-direction:column;min-width:0;}.sidebar-head{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 28px;}.brand{font-size:18px;font-weight:700;}.icon-row{display:flex;gap:12px;color:var(--muted);}.ghost-icon{width:24px;height:24px;border:0;background:transparent;color:var(--muted);border-radius:6px;display:grid;place-items:center;}.ghost-icon:hover{background:rgba(255,255,255,0.055);color:var(--text);}.search{margin:0 20px 10px;height:36px;border:1px solid var(--border-soft);background:#2f2f30;border-radius:8px;color:var(--muted);display:flex;align-items:center;gap:9px;padding:0 12px;font-size:14px;}.sidebar-label{padding:0 28px;color:#d7dde6;font-size:12px;font-weight:700;}.sidebar-fill{flex:1;}.profile{height:64px;border-top:1px solid var(--border-soft);display:flex;align-items:center;gap:12px;padding:0 28px;}.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#333536;border:1px solid rgba(255,255,255,0.12);font-weight:700;}.app{min-width:0;overflow:hidden;display:flex;flex-direction:column;background:radial-gradient(860px 560px at 52% 72%,rgba(45,212,191,0.105),transparent 76%),linear-gradient(180deg,#202121,#1f2020);}.app-top{height:64px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex:none;}.thread-title{color:#89919d;font-size:13px;}.top-actions{display:flex;align-items:center;gap:10px;}.tiny-eye{color:#7f8793;}.mode-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--teal-border);background:var(--teal-bg);color:var(--teal);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;white-space:nowrap;}.view{display:none;min-height:0;flex:1;position:relative;}.view.active{display:flex;}.home{flex-direction:column;justify-content:center;align-items:center;padding:56px 28px 0;}.home h1{margin:0 0 40px;font-size:clamp(27px,2.05vw,36px);line-height:1.12;font-weight:760;text-align:center;}.deep-nudge{margin-top:-18px;margin-bottom:34px;display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(45,212,191,0.18);background:rgba(20,184,166,0.055);color:#a7ffef;border-radius:999px;padding:8px 14px;font-size:13px;}.deep-nudge small{color:#98a7ad;font-size:12px;}.composer-wrap{width:min(760px,calc(100vw - 520px));min-width:520px;position:absolute;left:50%;bottom:72px;transform:translateX(-50%);}.composer{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);}.composer.active{border-color:rgba(45,212,191,0.34);}.composer-strip{display:none;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid rgba(45,212,191,0.16);background:rgba(20,184,166,0.055);color:var(--teal);font-size:12px;font-weight:700;}.composer.active .composer-strip{display:flex;}.composer-input{min-height:62px;padding:16px 16px 6px;color:#858b95;font-size:16px;}.composer-tools{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 13px;}.tool-left,.suggestions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}.tool-btn,.suggestion,.send{border:1px solid var(--border-soft);background:rgba(255,255,255,0.025);color:var(--muted);border-radius:9px;height:32px;display:inline-flex;align-items:center;gap:7px;padding:0 11px;font-size:13px;}.tool-btn.research{color:var(--teal);border-color:var(--teal-border);background:var(--teal-bg);font-weight:700;}.tool-count{min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:6px;background:rgba(255,255,255,0.07);font-size:11px;color:#cfd4da;}.send{width:34px;padding:0;justify-content:center;border-radius:999px;background:var(--teal-strong);color:#fff;border-color:transparent;font-size:18px;}.suggestions{justify-content:center;margin-top:15px;}.suggestion{height:34px;border-radius:10px;padding:0 14px;}.footer-note{margin-top:12px;color:#aeb7c3;opacity:0.82;text-align:center;font-size:12px;}.source-popover{position:absolute;left:40px;bottom:calc(100% + 12px);width:260px;border:1px solid var(--border);background:#151516;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,0.62);padding:14px;z-index:5;}.source-head{display:flex;align-items:center;justify-content:space-between;color:var(--text);font-size:13px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);margin-bottom:8px;}.source-head small{color:#636872;font-size:10px;}.source-row{min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:12px;color:#d6d9df;font-size:13px;}.switch{width:29px;height:17px;border-radius:999px;background:#eceff3;position:relative;flex:none;}.switch:after{content:"";width:13px;height:13px;border-radius:50%;position:absolute;top:2px;right:2px;background:#222;}.subreddits{display:flex;gap:6px;flex-wrap:wrap;padding-top:9px;}.tag{border-radius:999px;padding:4px 8px;background:rgba(255,255,255,0.07);color:#d7dbe0;font-size:11px;}.chat{flex-direction:column;min-width:0;}.messages{flex:1;overflow:auto;padding:32px 28px 230px;}.message-column{width:min(760px,100%);margin:0 auto;}.user-bubble{margin-left:auto;max-width:480px;background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:12px 15px;line-height:1.42;}.assistant{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;margin-top:24px;}.bot-avatar{width:25px;height:25px;margin-top:2px;border-radius:50%;display:grid;place-items:center;background:rgba(20,184,166,0.18);color:var(--teal);font-size:12px;font-weight:800;}.assistant-meta{display:flex;align-items:center;gap:8px;margin-bottom:11px;color:var(--muted);font-size:13px;}.panel{border:1px solid var(--border);background:rgba(25,25,26,0.96);border-radius:12px;overflow:hidden;}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 15px;border-bottom:1px solid var(--border-soft);background:rgba(20,184,166,0.055);}.panel-title{display:flex;align-items:center;gap:9px;color:var(--teal);font-weight:760;}.panel-sub{color:var(--faint);font-size:11px;}.plan-list{padding:12px 16px 14px;display:grid;gap:11px;}.phase{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:start;padding:3px 0;}.phase-num,.phase-dot{width:21px;height:21px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,0.055);color:var(--muted);font-size:11px;font-weight:700;}.phase-dot.done{color:var(--teal);background:rgba(45,212,191,0.12);}.phase-dot.active{color:var(--teal);background:rgba(45,212,191,0.16);animation:pulse 1.45s ease-in-out infinite;}.phase strong{display:block;font-size:13px;color:var(--text);}.phase small{color:var(--faint);font-size:11px;}.plan-foot{border-top:1px solid var(--border-soft);padding:11px 15px;color:var(--faint);font-size:12px;}.actions{display:flex;gap:10px;margin-top:14px;}.primary,.secondary{border-radius:9px;height:36px;padding:0 16px;border:1px solid transparent;font-weight:750;font-size:13px;}.primary{background:var(--teal-strong);color:white;}.secondary{background:transparent;color:var(--muted);border-color:var(--border);}.timeline-head{border:0;width:100%;background:transparent;color:var(--text);padding:13px 15px;display:flex;align-items:center;gap:10px;text-align:left;border-bottom:1px solid var(--border-soft);}.timeline-head span:nth-child(2){flex:1;font-weight:750;}.timeline-head small{color:var(--faint);}.timeline-body{padding:13px 16px 8px;display:grid;gap:4px;}.phase.running{margin:1px -7px;padding:8px 7px;border-radius:10px;background:rgba(20,184,166,0.075);}.status{align-self:center;border-radius:999px;padding:3px 7px;font-size:10px;color:var(--faint);}.status.running{color:var(--teal);background:var(--teal-bg);}.progress{height:2px;background:rgba(255,255,255,0.08);margin:8px 15px 14px;border-radius:99px;overflow:hidden;}.progress div{height:100%;width:38%;background:linear-gradient(90deg,var(--teal-strong),var(--teal));}.report{color:#e6e8ec;line-height:1.6;}.report-section{margin:0 0 22px;}.section-title{display:flex;align-items:center;gap:9px;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.075em;font-size:12px;font-weight:820;}.section-title:before{content:"";width:3px;height:17px;border-radius:99px;background:currentColor;}.official{color:var(--official);}.community{color:var(--community);}.teal{color:var(--teal);}.neutral{color:var(--muted);}.cite{display:inline-grid;place-items:center;min-width:17px;height:17px;margin:0 2px;border-radius:5px;background:var(--official-bg);border:1px solid var(--official-border);color:var(--official);font-size:10px;vertical-align:text-top;}.cite.community{background:var(--community-bg);border-color:var(--community-border);color:var(--community);}table{width:100%;border-collapse:collapse;background:rgba(255,255,255,0.025);border-radius:10px;overflow:hidden;margin-top:9px;font-size:13px;}th,td{padding:10px 12px;border-bottom:1px solid var(--border-soft);text-align:right;}th:first-child,td:first-child{text-align:left;color:var(--muted);}th{color:var(--muted);font-weight:700;background:rgba(255,255,255,0.025);}tr:last-child td{border-bottom:0;}.sentiment-card{border:1px solid var(--community-border);background:var(--community-bg);border-radius:10px;padding:11px 12px;margin:8px 0;color:#ece6d6;}.sentiment-card small{color:var(--community);}.bullets{padding:0;margin:0;list-style:none;display:grid;gap:8px;}.bullets li{display:grid;grid-template-columns:16px minmax(0,1fr);gap:8px;color:#d6d9df;}.source-strip{border-top:1px solid var(--border-soft);padding-top:14px;display:flex;gap:7px;flex-wrap:wrap;color:var(--faint);}.source-pill{border:1px solid var(--official-border);background:var(--official-bg);color:var(--official);border-radius:999px;padding:5px 8px;font-size:11px;font-weight:750;}.source-pill.community{border-color:var(--community-border);background:var(--community-bg);color:var(--community);}.rail-layout{display:grid;grid-template-columns:minmax(0,1fr) 354px;width:100%;min-height:0;}.rail{border-left:1px solid var(--border);background:var(--surface-3);display:flex;flex-direction:column;min-height:0;}.rail-head{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--border-soft);font-weight:780;font-size:13px;}.rail-body{overflow:auto;padding:16px 14px;}.rail-group{margin-bottom:18px;}.rail-label{display:flex;align-items:center;gap:8px;color:var(--official);text-transform:uppercase;font-size:11px;letter-spacing:0.075em;font-weight:820;margin-bottom:8px;}.rail-label.community{color:var(--community);}.source-card{border:1px solid var(--official-border);background:var(--official-bg);border-radius:10px;padding:11px 12px;margin-bottom:8px;}.source-card.db{border-color:var(--teal-border);background:var(--teal-bg);}.source-card.community{border-color:var(--community-border);background:var(--community-bg);}.source-card.web{border-color:var(--border-soft);background:rgba(255,255,255,0.025);}.source-card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;}.source-index{display:inline-flex;align-items:center;gap:6px;color:var(--official);font-size:10px;font-weight:820;}.source-card.db .source-index{color:var(--teal);}.source-card.community .source-index{color:var(--community);}.source-card.web .source-index{color:var(--faint);}.source-card strong{display:block;font-size:12px;}.source-card small{display:block;color:var(--faint);margin-top:3px;}.rail-note{margin-top:auto;border-top:1px solid var(--border-soft);padding:14px 18px;color:var(--faint);font-size:11px;}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(45,212,191,0.18);}50%{box-shadow:0 0 0 5px rgba(45,212,191,0);}}@media (max-width:1100px){.workspace{grid-template-columns:250px minmax(0,1fr);}.composer-wrap{width:min(680px,calc(100vw - 310px));min-width:0;}.rail-layout{grid-template-columns:1fr;}.rail{display:none;}}@media (max-width:760px){.prototype-note{display:none;}.workspace{grid-template-columns:1fr;}.sidebar{display:none;}.composer-wrap{width:calc(100vw - 32px);min-width:0;}.messages{padding-inline:16px;}}</style>
+  <style> .prototype-bar{position:fixed;left:50%;top:8px;height:34px;width:auto;transform:translateX(-50%);border:1px solid rgba(255,255,255,0.08);border-radius:999px;background:rgba(8,9,9,0.84);box-shadow:0 10px 35px rgba(0,0,0,0.35);backdrop-filter:blur(12px);padding:0 8px;}.prototype-title,.prototype-note{display:none;}.workspace{height:100vh;}.app-top{display:none;}.home{justify-content:flex-start;padding-top:38vh;background:radial-gradient(760px 520px at 53% 57%,rgba(45,212,191,0.14),transparent 78%),linear-gradient(180deg,#212121,#202020);}.home h1{margin-bottom:28px;font-size:clamp(28px,1.85vw,34px);font-weight:720;}.home .composer-wrap{top:49%;bottom:auto;}.home .footer-note{position:static;margin-top:clamp(190px,25vh,280px);z-index:2;}.composer{background:#202024;border-color:rgba(255,255,255,0.16);box-shadow:0 18px 55px rgba(0,0,0,0.24);}.composer-input{min-height:52px;font-size:16px;color:#a8adb6;}.tool-btn,.suggestion{background:rgba(255,255,255,0.025);border-color:rgba(255,255,255,0.12);}.send{background:#a8aaad;color:#202124;}.composer.active .send{background:var(--teal-strong);color:#fff;}.deep-nudge{margin-bottom:24px;transform:scale(0.96);transform-origin:center;}.source-popover{left:42px;width:232px;background:#171717;border-color:rgba(255,255,255,0.11);}.chat .composer-wrap{top:auto;bottom:28px;}@media (max-width:760px){.home .footer-note{left:0;}}</style>
+  <style>
+    :root {
+      --bg: #212121;
+      --sidebar: #171717;
+      --surface: #1f2023;
+      --surface-2: #2f2f2f;
+      --surface-3: #141414;
+      --border: #444444;
+      --border-soft: rgba(255, 255, 255, 0.06);
+      --text: #ececec;
+      --muted: #b4b7be;
+      --faint: #6b7280;
+      --teal: #2dd4bf;
+      --teal-strong: #14b8a6;
+      --teal-bg: rgba(20, 184, 166, 0.1);
+      --teal-border: rgba(45, 212, 191, 0.34);
+      --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    body { background: #212121; color: var(--text); }
+    .svg-icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      display: inline-block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .svg-icon.sm { width: 14px; height: 14px; }
+    .svg-icon.xs { width: 12px; height: 12px; stroke-width: 2.2; }
+    .workspace {
+      position: fixed;
+      inset: 0;
+      height: 100vh !important;
+      grid-template-columns: 388px minmax(0, 1fr);
+      background: #212121;
+    }
+    .prototype-bar {
+      z-index: 200;
+      top: 9px !important;
+      height: 28px !important;
+      border-radius: 8px !important;
+      border-color: rgba(255,255,255,0.055) !important;
+      background: rgba(13,13,13,0.62) !important;
+      box-shadow: none !important;
+      opacity: .38;
+      transition: opacity .15s ease;
+    }
+    .prototype-bar:hover { opacity: 1; }
+    .step-tabs { gap: 2px; }
+    .step-tab {
+      height: 20px;
+      padding: 0 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      color: #6f7783;
+    }
+    .step-tab[aria-selected="true"] {
+      background: rgba(20,184,166,.12);
+      border-color: rgba(45,212,191,.26);
+      color: #2dd4bf;
+    }
+    .sidebar {
+      background: #171717;
+      border-right: 1px solid rgba(255,255,255,.06);
+    }
+    .sidebar-head { height: 50px; padding: 0 27px 0 48px; }
+    .brand { font-size: 20px; line-height: 1; font-weight: 700; color: #f4f4f5; }
+    .icon-row { gap: 14px; }
+    .ghost-icon { width: 22px; height: 22px; color: #b8bcc4; }
+    .search {
+      margin: 0 20px 10px 20px;
+      height: 36px;
+      border-color: rgba(255,255,255,.08);
+      background: #2f2f2f;
+      color: #d1d5db;
+      padding: 0 11px;
+      gap: 11px;
+    }
+    .search span:last-child { color: #f3f4f6; font-size: 14px; }
+    .sidebar-label {
+      padding: 0 28px 0 48px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      color: #f3f4f6;
+      font-size: 12px;
+      line-height: 20px;
+    }
+    .chat-history {
+      padding: 8px 28px 0 48px;
+      color: var(--text-primary);
+    }
+    .history-date {
+      margin-bottom: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .history-item {
+      font-size: 14px;
+      line-height: 20px;
+      color: var(--text-primary);
+    }
+    .profile { height: 64px; padding: 0 48px; }
+    .app {
+      position: relative;
+      background: #212121;
+    }
+    .app::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(900px 650px at 50% 56%, rgba(45,212,191,.145), rgba(45,212,191,.045) 34%, transparent 75%);
+      opacity: .9;
+      mask-image: radial-gradient(90% 82% at 50% 42%, black 0%, black 42%, transparent 88%);
+    }
+    .app::after { display: none; }
+    .view { z-index: 1; }
+    .home {
+      padding-top: 35.35vh;
+      background: transparent !important;
+    }
+    .home h1 {
+      margin: 0;
+      font-size: clamp(28px, 1.78vw, 34px);
+      line-height: 1.08;
+      font-weight: 650;
+      letter-spacing: -.02em;
+      color: #f4f4f5;
+    }
+    .deep-nudge { display: none !important; }
+    .composer-wrap {
+      width: min(752px, calc(100vw - 560px));
+      min-width: 520px;
+      z-index: 3;
+    }
+    .home .composer-wrap { top: 43.15%; bottom: auto; }
+    .composer {
+      padding: 8px;
+      overflow: visible;
+      border-radius: 24px;
+      border: 1px solid #444444;
+      background: #1f2023;
+      box-shadow: 0 8px 30px rgba(0,0,0,.24);
+    }
+    .composer.active {
+      border-color: rgba(45,212,191,.34);
+      box-shadow: 0 8px 30px rgba(0,0,0,.24);
+    }
+    .composer-strip {
+      margin: -8px -8px 8px;
+      height: 30px;
+      padding: 0 14px;
+      border-radius: 24px 24px 0 0;
+      border-bottom: 1px solid rgba(45,212,191,.16);
+      background: rgba(20,184,166,.055);
+      font-size: 12px;
+    }
+    .composer-input {
+      min-height: 48px;
+      padding: 10px 9px 0;
+      color: #a5a8b1;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    .composer-tools {
+      padding: 4px 3px 0;
+      align-items: center;
+    }
+    .tool-left { gap: 8px; }
+    .tool-btn {
+      height: 32px;
+      border-radius: 999px;
+      border-color: transparent;
+      background: transparent;
+      color: #9ca3af;
+      padding: 0 8px;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .tool-btn:hover,
+    .tool-btn.is-open {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.15);
+      color: #f3f4f6;
+    }
+    .tool-btn.icon-only {
+      width: 32px;
+      padding: 0;
+      justify-content: center;
+    }
+    .tool-btn.mode-active {
+      border-color: rgba(255,255,255,.15);
+      background: rgba(255,255,255,.08);
+      color: #f3f4f6;
+    }
+    .tool-btn.source-trigger {
+      padding: 0 7px;
+      gap: 4px;
+    }
+    .tool-divider {
+      width: 1px;
+      height: 22px;
+      margin: 0 3px;
+      background: rgba(255,255,255,.08);
+    }
+    .tool-btn.research {
+      color: #2dd4bf;
+      border-color: rgba(45,212,191,.24);
+      background: rgba(20,184,166,.085);
+      font-weight: 650;
+    }
+    .tool-count {
+      min-width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background: rgba(255,255,255,.07);
+      color: #d1d5db;
+      font-size: 11px;
+    }
+    .send,
+    .composer.active .send {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 0;
+      background: #a8aaad;
+      color: #1f2023;
+    }
+    .send .svg-icon { width: 18px; height: 18px; stroke-width: 2.15; }
+    .suggestions {
+      margin-top: 32px;
+      gap: 10px;
+    }
+    .suggestion {
+      height: 34px;
+      border-radius: 8px;
+      border-color: rgba(255,255,255,.13);
+      background: rgba(31,32,35,.45);
+      color: #d1d5db;
+      padding: 0 12px;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .suggestion .svg-icon { color: #9ca3af; }
+    .footer-note {
+      color: #f4f4f5;
+      opacity: 1;
+      font-size: 12px;
+      line-height: 16px;
+    }
+    .home .footer-note {
+      position: static !important;
+      margin-top: clamp(340px, 36vh, 400px) !important;
+      white-space: nowrap;
+      z-index: 4;
+    }
+    .source-popover {
+      left: 14px;
+      top: -168px;
+      bottom: auto;
+      width: 232px;
+      border-radius: 16px;
+      border-color: rgba(255,255,255,.06);
+      background: #171819;
+      padding: 6px;
+      box-shadow: 0 16px 50px -12px rgba(0,0,0,.7);
+    }
+    .mode-popover {
+      position: absolute;
+      left: 55px;
+      top: -154px;
+      width: 286px;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 16px;
+      background: #171819;
+      box-shadow: 0 16px 50px -12px rgba(0,0,0,.7);
+      z-index: 5;
+    }
+    .mode-menu-title {
+      padding: 7px 10px 6px;
+      color: #8b93a1;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .mode-option {
+      width: 100%;
+      min-height: 50px;
+      display: grid;
+      grid-template-columns: 24px minmax(0,1fr) 18px;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 9px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: #d1d5db;
+      text-align: left;
+    }
+    .mode-option:hover { background: rgba(255,255,255,.045); }
+    .mode-option-icon {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      color: #9ca3af;
+    }
+    .mode-option-copy strong,
+    .mode-option-copy small {
+      display: block;
+    }
+    .mode-option-copy strong {
+      color: #e5e7eb;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .mode-option-copy small {
+      margin-top: 1px;
+      color: #7f8793;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .mode-option-check {
+      color: #9ca3af;
+      opacity: .9;
+    }
+    .mode-popover-note {
+      margin: 5px 9px 4px;
+      padding-top: 7px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      color: #6f7680;
+      font-size: 10px;
+    }
+    .source-head {
+      min-height: 34px;
+      padding: 0 10px;
+      margin: 0 0 4px;
+      border-bottom: 0;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+    .source-head span,
+    .source-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .source-head small { font-size: 10px; color: #555b64; }
+    .source-row {
+      min-height: 25px;
+      padding: 0 10px;
+      border-radius: 8px;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+    .source-row:hover { background: rgba(255,255,255,.045); }
+    .switch { width: 26px; height: 15px; background: rgba(255,255,255,.85); }
+    .switch::after { width: 11px; height: 11px; top: 2px; right: 2px; background: #171819; }
+    .subreddits { gap: 6px; padding: 8px 10px 7px; }
+    .tag {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.075);
+      color: #d1d5db;
+      font-size: 11px;
+      line-height: 18px;
+    }
+    .chat .composer-wrap {
+      width: min(752px, calc(100vw - 560px));
+      bottom: 28px;
+    }
+    .mode-chip { border-radius: 999px; }
+    @media (max-width: 1100px) {
+      .workspace { grid-template-columns: 320px minmax(0, 1fr); }
+      .composer-wrap, .chat .composer-wrap { width: min(752px, calc(100vw - 380px)); }
+      .home .footer-note { white-space: normal; }
+    }
+    @media (max-width: 760px) {
+      .workspace { grid-template-columns: 1fr; }
+      .composer-wrap, .chat .composer-wrap { width: calc(100vw - 32px); min-width: 0; }
+      .prototype-bar { display: none; }
+    }
+  </style>
+  <style>
+    @font-face {
+      font-display: swap;
+      font-family: Inter;
+      font-style: normal;
+      font-weight: 400;
+      src: url("../../../frontend/public/fonts/Inter-Regular.woff2") format("woff2");
+    }
+    @font-face {
+      font-display: swap;
+      font-family: Inter;
+      font-style: normal;
+      font-weight: 600;
+      src: url("../../../frontend/public/fonts/Inter-SemiBold.woff2") format("woff2");
+    }
+    @font-face {
+      font-display: swap;
+      font-family: Inter;
+      font-style: normal;
+      font-weight: 700;
+      src: url("../../../frontend/public/fonts/Inter-Bold.woff2") format("woff2");
+    }
+    :root {
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --surface-primary: #0d0d0d;
+      --surface-primary-alt: #171717;
+      --surface-secondary: #212121;
+      --surface-tertiary: #2f2f2f;
+      --surface-hover: rgba(255,255,255,.055);
+      --border-light: #2f2f2f;
+      --border-medium: #424242;
+      --text-primary: #f3f4f6;
+      --text-secondary: #d1d5db;
+      --text-tertiary: #8b93a1;
+    }
+    .app::before {
+      background: radial-gradient(980px 620px at 51% 41%, rgba(45,212,191,.08), rgba(45,212,191,.025) 36%, transparent 84%);
+      opacity: .72;
+    }
+    .chat .app::before,
+    .view.chat::before { opacity: .36; }
+    .mode-chip,
+    .tool-btn.research,
+    .composer-strip,
+    .primary {
+      color: #2dd4bf;
+      border-color: rgba(45,212,191,.22);
+      background: rgba(20,184,166,.07);
+    }
+    .mode-chip {
+      padding: 4px 9px;
+      font-weight: 600;
+      text-transform: none;
+    }
+    .messages {
+      padding-top: 26px;
+      background: transparent;
+    }
+    .message-column {
+      width: min(55rem, calc(100vw - 520px));
+      max-width: 100%;
+    }
+    .assistant {
+      display: block;
+      margin-top: 26px;
+    }
+    .bot-avatar,
+    .assistant-meta {
+      display: none;
+    }
+    .assistant > div > p {
+      color: var(--text-primary);
+      line-height: 1.74;
+      margin: 0 0 14px;
+    }
+    .panel {
+      border-color: var(--border-light);
+      background: rgba(23,23,23,.94);
+      border-radius: 12px;
+      box-shadow: none;
+    }
+    .panel-head {
+      background: transparent;
+      border-bottom-color: var(--border-light);
+      padding: 12px 14px;
+    }
+    .panel-title {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .response-kicker {
+      margin: 0 0 10px;
+      color: var(--text-tertiary);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .panel-sub,
+    .phase small,
+    .plan-foot,
+    .timeline-head small,
+    .status {
+      color: var(--text-tertiary);
+    }
+    .phase-dot.done,
+    .phase-dot.active {
+      color: var(--text-secondary);
+      background: rgba(255,255,255,.055);
+    }
+    .phase.running {
+      background: rgba(255,255,255,.035);
+    }
+    .status.running {
+      color: var(--text-secondary);
+      background: rgba(255,255,255,.055);
+    }
+    .progress div {
+      background: var(--text-secondary);
+    }
+    .report {
+      color: var(--text-primary);
+      font-size: 1rem;
+      line-height: 1.74;
+    }
+    .report-section {
+      margin: 0 0 1.05em;
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 1.6em 0 .55em;
+      padding-top: .9em;
+      border-top: 1px solid var(--border-light);
+      color: var(--text-primary) !important;
+      font-size: 1.12rem;
+      font-weight: 700;
+      letter-spacing: -.012em;
+      line-height: 1.3;
+      text-transform: none;
+    }
+    .report-section:first-child .section-title {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    .section-title::before {
+      display: none;
+    }
+    .report p {
+      margin: 0 0 1.05em;
+    }
+    .cite {
+      min-width: 16px;
+      height: 16px;
+      padding: 0 .32em;
+      border-radius: .3rem;
+      background: transparent;
+      border-color: var(--official-border);
+      color: var(--official-text, #93c5fd);
+      font-size: .66rem;
+      font-weight: 600;
+      vertical-align: super;
+    }
+    .cite.community {
+      background: transparent;
+      border-color: var(--community-border);
+      color: var(--community-text, #fcd34d);
+    }
+    table {
+      margin: 1.1em 0 1.25em;
+      border-collapse: collapse;
+      background: transparent;
+      border-radius: 0;
+      overflow: visible;
+      font-size: .9375rem;
+      font-variant-numeric: tabular-nums;
+    }
+    th {
+      padding: 0 .85em .5em;
+      background: transparent;
+      border-bottom: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    td {
+      padding: .62em .85em;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--text-primary);
+      background: transparent;
+      line-height: 1.45;
+    }
+    th:first-child,
+    td:first-child {
+      padding-left: 0;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    tr:last-child td {
+      border-bottom: 0;
+    }
+    .bullets {
+      margin: .55em 0 1.05em;
+      gap: .5em;
+    }
+    .bullets li {
+      color: var(--text-secondary);
+      line-height: 1.74;
+      grid-template-columns: 14px minmax(0,1fr);
+    }
+    .bullets li > span:first-child {
+      color: var(--text-tertiary);
+    }
+    .sentiment-card {
+      margin: 1em 0;
+      padding: .7em .95em;
+      border: 1px solid var(--border-light);
+      border-radius: .5rem;
+      background: var(--surface-primary-alt);
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .sentiment-card small {
+      color: var(--text-tertiary);
+    }
+    .source-strip {
+      align-items: center;
+      margin-top: 1.15em;
+      padding-top: .75em;
+      border-top: 1px solid var(--border-light);
+      color: var(--text-tertiary);
+      gap: 8px;
+      font-size: 13px;
+    }
+    .source-pill {
+      border-color: var(--border-light);
+      background: transparent;
+      color: var(--text-secondary);
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .source-pill.community {
+      border-color: var(--community-border);
+      background: transparent;
+      color: var(--community-text, #fcd34d);
+    }
+    .sources-strip-button {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 8px;
+      margin-left: -8px;
+      padding: 4px 8px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-tertiary);
+      font-size: 15px;
+      transition: background .15s ease, color .15s ease;
+    }
+    .sources-strip-button:hover {
+      background: var(--surface-hover);
+      color: var(--text-secondary);
+    }
+    .sources-dot-stack {
+      display: inline-flex;
+      align-items: center;
+    }
+    .sources-dot {
+      width: 22px;
+      height: 22px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      border: 1px solid var(--border-light);
+      background: var(--surface-primary-alt);
+      color: var(--text-secondary);
+      box-shadow: 0 0 0 2px var(--bg);
+    }
+    .sources-dot + .sources-dot {
+      margin-left: -8px;
+    }
+    .rail-layout {
+      grid-template-columns: minmax(0,1fr) 384px;
+    }
+    .rail {
+      background: var(--surface-primary);
+      border-left-color: var(--border-light);
+    }
+    .rail-head {
+      height: 57px;
+      padding: 0 20px;
+      border-bottom-color: var(--border-light);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .rail-body {
+      padding: 12px 8px;
+    }
+    .rail-group {
+      margin: 0 0 10px;
+    }
+    .rail-label {
+      margin: 12px 10px 6px;
+      color: var(--text-tertiary) !important;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .source-card {
+      display: block;
+      margin: 0;
+      padding: 9px 12px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-primary);
+    }
+    .source-card + .source-card {
+      margin-top: 1px;
+    }
+    .source-card:hover {
+      background: var(--surface-hover);
+    }
+    .source-card.db {
+      margin: 0 0 7px;
+      padding: 12px;
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      background: var(--surface-secondary);
+    }
+    .source-card.community,
+    .source-card.web {
+      border: 0;
+      background: transparent;
+    }
+    .source-card-top {
+      margin-bottom: 2px;
+    }
+    .source-index,
+    .source-card.db .source-index,
+    .source-card.community .source-index,
+    .source-card.web .source-index {
+      color: var(--text-tertiary);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: none;
+    }
+    .source-card strong {
+      font-size: 13px;
+      line-height: 1.35;
+      color: var(--text-primary);
+    }
+    .source-card small {
+      color: var(--text-tertiary);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .rail-note {
+      color: var(--text-tertiary);
+      border-top-color: var(--border-light);
+      padding: 14px 18px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+    <symbol id="i-graduation" viewBox="0 0 24 24"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c2.8 2 9.2 2 12 0v-5"/><path d="M22 10v6"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.8 1.8 0 0 0-1-1.6 1.8 1.8 0 0 0-2 .4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.8 1.8 0 0 0 1.6-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4H9a1.8 1.8 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.8 1.8 0 0 0 1 1.6 1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2V9a1.8 1.8 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.8 1.8 0 0 0-1.5 1Z"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 2h6"/><path d="M10 2v6l-5.4 9.4A3 3 0 0 0 7.2 22h9.6a3 3 0 0 0 2.6-4.6L14 8V2"/><path d="M7.5 15h9"/></symbol>
+    <symbol id="i-brain-cog" viewBox="0 0 24 24"><path d="m10.852 14.772-.383.923"/><path d="m10.852 9.228-.383-.923"/><path d="m13.148 14.772.382.924"/><path d="m13.531 8.305-.383.923"/><path d="m14.772 10.852.923-.383"/><path d="m14.772 13.148.923.383"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 0 0-5.63-1.446 3 3 0 0 0-.368 1.571 4 4 0 0 0-2.525 5.771"/><path d="M17.998 5.125a4 4 0 0 1 2.525 5.771"/><path d="M19.505 10.294a4 4 0 0 1-1.5 7.706"/><path d="M4.032 17.483A4 4 0 0 0 11.464 20c.18-.311.892-.311 1.072 0a4 4 0 0 0 7.432-2.516"/><path d="M4.5 10.291A4 4 0 0 0 6 18"/><path d="M6.002 5.125a3 3 0 0 0 .4 1.375"/><path d="m9.228 10.852-.923-.383"/><path d="m9.228 13.148-.923.383"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></symbol>
+    <symbol id="i-arrow-left-right" viewBox="0 0 24 24"><path d="M8 7h12M14 17H4"/><path d="m16 3 4 4-4 4M8 13l-4 4 4 4"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/><path d="M3 7h17a1 1 0 0 1 1 1v3h-5a2 2 0 0 0 0 4h5"/><path d="M16 11h.01"/></symbol>
+    <symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3 6 2 2 4-4"/><path d="M11 6h10"/><path d="m3 14 2 2 4-4"/><path d="M11 14h10"/><path d="M11 20h10"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+    <symbol id="i-loader" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  </svg>
+  <header class="prototype-bar" aria-label="Prototype controls">
+    <div class="prototype-title">Deep research prototype</div>
+    <nav class="step-tabs" aria-label="Screens">
+      <button class="step-tab" data-step="idle" aria-selected="true">1 Idle</button>
+      <button class="step-tab" data-step="sources">2 Sources</button>
+      <button class="step-tab" data-step="mode">3 Mode</button>
+      <button class="step-tab" data-step="armed">4 Armed</button>
+      <button class="step-tab" data-step="plan">5 Plan</button>
+      <button class="step-tab" data-step="running">6 Running</button>
+      <button class="step-tab" data-step="report">7 Report</button>
+      <button class="step-tab" data-step="rail">8 Rail</button>
+    </nav>
+    <div class="prototype-note">Static HTML - mock data - source semantics preserved</div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Counselle sidebar">
+      <div class="sidebar-head">
+        <div class="brand">Counselle</div>
+        <div class="icon-row">
+          <button class="ghost-icon" aria-label="New note"><svg class="svg-icon sm"><use href="#i-edit"></use></svg></button>
+          <button class="ghost-icon" aria-label="Toggle sidebar"><svg class="svg-icon sm"><use href="#i-panel"></use></svg></button>
+        </div>
+      </div>
+      <div class="search"><svg class="svg-icon sm"><use href="#i-search"></use></svg><span>Search messages</span></div>
+      <div class="sidebar-label">CHATS <svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg></div>
+      <div class="chat-history">
+        <div class="history-date">Today</div>
+        <div class="history-item">New chat</div>
+      </div>
+      <div class="sidebar-fill"></div>
+      <div class="profile"><div class="avatar">L</div><span>Local Dev</span></div>
+    </aside>
+
+    <main class="app">
+      <div class="app-top">
+        <div class="thread-title" data-thread-title></div>
+        <div class="top-actions">
+          <span class="tiny-eye"><svg class="svg-icon sm"><use href="#i-eye"></use></svg></span>
+          <span class="tiny-eye"><svg class="svg-icon sm"><use href="#i-settings"></use></svg></span>
+        </div>
+      </div>
+
+      <section class="view home active" data-view="idle">
+        <h1>How can I help with college research today?</h1>
+        <div class="composer-wrap">
+          <div class="composer">
+            <div class="composer-input">Message Counselle</div>
+            <div class="composer-tools">
+              <div class="tool-left">
+                <button class="tool-btn source-trigger" data-jump="sources" aria-label="Sources">
+                  <svg class="svg-icon sm"><use href="#i-globe"></use></svg>
+                  <svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg>
+                </button>
+                <span class="tool-divider" aria-hidden="true"></span>
+                <button class="tool-btn icon-only" data-jump="mode" aria-label="Response mode"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></button>
+              </div>
+              <button class="send" aria-label="Send"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button>
+            </div>
+          </div>
+          <div class="suggestions">
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-arrow-left-right"></use></svg> Compare</button>
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-target"></use></svg> What it takes</button>
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-graduation"></use></svg> Best for</button>
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-wallet"></use></svg> Cost &amp; aid</button>
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-list-checks"></use></svg> Build list</button>
+          </div>
+          <div class="footer-note">Counselle can make mistakes - every number is cited; check the source. &nbsp; Data: CDS &middot; IPEDS &middot; College Scorecard</div>
+        </div>
+      </section>
+
+      <section class="view home" data-view="sources">
+        <h1>How can I help with college research today?</h1>
+        <div class="composer-wrap">
+          <div class="source-popover">
+            <div class="source-head"><span><svg class="svg-icon sm"><use href="#i-database"></use></svg> Verified data</span><small>Always on</small></div>
+            <div class="source-row"><span class="source-label"><svg class="svg-icon sm"><use href="#i-globe"></use></svg> Web</span><span class="switch"></span></div>
+            <div class="source-row"><span class="source-label"><svg class="svg-icon sm"><use href="#i-graduation"></use></svg> .edu sites</span><span class="switch"></span></div>
+            <div class="source-row"><span class="source-label"><svg class="svg-icon sm"><use href="#i-users"></use></svg> Reddit</span><span class="switch"></span></div>
+            <div class="subreddits">
+              <span class="tag">ApplyingToCollege</span><span class="tag">chanceme</span><span class="tag">financialaid</span><span class="tag">premed</span><span class="tag">csMajors</span>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="composer-input">Message Counselle</div>
+            <div class="composer-tools">
+              <div class="tool-left">
+                <button class="tool-btn is-open"><svg class="svg-icon sm"><use href="#i-globe"></use></svg> Sources <span class="tool-count">4</span><svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg></button>
+                <span class="tool-divider" aria-hidden="true"></span>
+                <button class="tool-btn icon-only" data-jump="mode" aria-label="Response mode"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></button>
+              </div>
+              <button class="send" aria-label="Send"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button>
+            </div>
+          </div>
+          <div class="suggestions">
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-arrow-left-right"></use></svg> Compare</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-target"></use></svg> What it takes</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-graduation"></use></svg> Best for</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-wallet"></use></svg> Cost &amp; aid</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-list-checks"></use></svg> Build list</button>
+          </div>
+          <div class="footer-note">Counselle can make mistakes - every number is cited; check the source. &nbsp; Data: CDS &middot; IPEDS &middot; College Scorecard</div>
+        </div>
+      </section>
+
+      <section class="view home" data-view="mode">
+        <h1>How can I help with college research today?</h1>
+        <div class="composer-wrap">
+          <div class="mode-popover" role="menu" aria-label="Response mode">
+            <div class="mode-menu-title">Response mode</div>
+            <button class="mode-option" data-jump="idle" role="menuitem">
+              <span class="mode-option-icon"><svg class="svg-icon sm"><use href="#i-message"></use></svg></span>
+              <span class="mode-option-copy"><strong>Standard</strong><small>Fast answers for everyday questions</small></span>
+              <span class="mode-option-check"><svg class="svg-icon xs"><use href="#i-check"></use></svg></span>
+            </button>
+            <button class="mode-option" data-jump="armed" role="menuitem">
+              <span class="mode-option-icon"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></span>
+              <span class="mode-option-copy"><strong>Deep research</strong><small>Planned, multi-source report with verification</small></span>
+              <span></span>
+            </button>
+            <div class="mode-popover-note">Deep research applies to your next message.</div>
+          </div>
+          <div class="composer">
+            <div class="composer-input">Message Counselle</div>
+            <div class="composer-tools">
+              <div class="tool-left">
+                <button class="tool-btn source-trigger" data-jump="sources" aria-label="Sources">
+                  <svg class="svg-icon sm"><use href="#i-globe"></use></svg>
+                  <svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg>
+                </button>
+                <span class="tool-divider" aria-hidden="true"></span>
+                <button class="tool-btn icon-only is-open" aria-label="Response mode open"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></button>
+              </div>
+              <button class="send" aria-label="Send"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button>
+            </div>
+          </div>
+          <div class="suggestions">
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-arrow-left-right"></use></svg> Compare</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-target"></use></svg> What it takes</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-graduation"></use></svg> Best for</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-wallet"></use></svg> Cost &amp; aid</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-list-checks"></use></svg> Build list</button>
+          </div>
+          <div class="footer-note">Counselle can make mistakes - every number is cited; check the source. &nbsp; Data: CDS &middot; IPEDS &middot; College Scorecard</div>
+        </div>
+      </section>
+
+      <section class="view home" data-view="armed">
+        <h1>How can I help with college research today?</h1>
+        <div class="composer-wrap">
+          <div class="composer">
+            <div class="composer-input">Ask for a sourced research report...</div>
+            <div class="composer-tools">
+              <div class="tool-left">
+                <button class="tool-btn source-trigger" data-jump="sources" aria-label="Sources">
+                  <svg class="svg-icon sm"><use href="#i-globe"></use></svg>
+                  <svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg>
+                </button>
+                <span class="tool-divider" aria-hidden="true"></span>
+                <button class="tool-btn mode-active" data-jump="mode" aria-label="Deep research enabled">
+                  <svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg>
+                  <span>Deep research</span>
+                </button>
+              </div>
+              <button class="send" data-jump="plan" aria-label="Send with deep research"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button>
+            </div>
+          </div>
+          <div class="suggestions">
+            <button class="suggestion"><svg class="svg-icon sm"><use href="#i-arrow-left-right"></use></svg> Compare</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-target"></use></svg> What it takes</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-graduation"></use></svg> Best for</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-wallet"></use></svg> Cost &amp; aid</button><button class="suggestion"><svg class="svg-icon sm"><use href="#i-list-checks"></use></svg> Build list</button>
+          </div>
+          <div class="footer-note">Counselle can make mistakes - every number is cited; check the source. &nbsp; Data: CDS &middot; IPEDS &middot; College Scorecard</div>
+        </div>
+      </section>
+
+      <section class="view chat" data-view="plan">
+        <div class="messages"><div class="message-column">
+          <div class="user-bubble">What are the job outcomes for CS graduates from Georgia Tech vs. Carnegie Mellon? I want salary data, placement outcomes, and student perspectives.</div>
+          <div class="assistant"><div class="bot-avatar">C</div><div>
+            <div class="assistant-meta"><span>Counselle</span><span class="mode-chip">Deep research</span></div>
+            <p>I will run a bounded, source-gated deep research pass. Review the plan before I start.</p>
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">Deep research plan</div><div class="panel-sub">2-4 min &middot; 8 phases &middot; deep</div></div>
+              <div class="plan-list">
+                <div class="phase"><div class="phase-num">1</div><div><strong>Planning research</strong><small>Resolve schools, question scope, and evidence needs.</small></div></div>
+                <div class="phase"><div class="phase-num">2</div><div><strong>Checking Counselle data</strong><small>Use CDS, IPEDS, Scorecard, programs, and outcome envelopes first.</small></div></div>
+                <div class="phase"><div class="phase-num">3</div><div><strong>Searching official sources</strong><small>Career outcome pages and current school publications.</small></div></div>
+                <div class="phase"><div class="phase-num">4</div><div><strong>Searching web</strong><small>Supporting context when official sources are incomplete.</small></div></div>
+                <div class="phase"><div class="phase-num">5</div><div><strong>Checking student sentiment</strong><small>Reddit only as qualitative signal.</small></div></div>
+                <div class="phase"><div class="phase-num">6</div><div><strong>Extracting relevant pages</strong><small>Pull citations for pages selected by source gates.</small></div></div>
+                <div class="phase"><div class="phase-num">7</div><div><strong>Verifying evidence</strong><small>Check numbers, dates, policy statements, and recommendations.</small></div></div>
+                <div class="phase"><div class="phase-num">8</div><div><strong>Writing report</strong><small>Separate facts, official findings, sentiment, unknowns, and next steps.</small></div></div>
+              </div>
+              <div class="plan-foot">Sources: Counselle data &middot; .edu pages &middot; web &middot; Reddit sentiment. Disabled sources are not called.</div>
+            </div>
+            <div class="actions"><button class="primary" data-jump="running">Run deep research</button><button class="secondary">Cancel</button></div>
+          </div></div>
+        </div></div>
+        <div class="composer-wrap"><div class="composer"><div class="composer-input">Ask a follow-up or run the research plan above...</div><div class="composer-tools"><div class="tool-left"><button class="tool-btn"><svg class="svg-icon sm"><use href="#i-globe"></use></svg> Sources <span class="tool-count">4</span><svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg></button><span class="tool-divider" aria-hidden="true"></span><button class="tool-btn icon-only mode-active" data-jump="mode" aria-label="Deep research enabled"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></button></div><button class="send" data-jump="running"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button></div></div><div class="footer-note">Counselle can make mistakes - every number is cited; check the source.</div></div>
+      </section>
+
+      <section class="view chat" data-view="running">
+        <div class="messages"><div class="message-column">
+          <div class="user-bubble">What are the job outcomes for CS graduates from Georgia Tech vs. Carnegie Mellon? I want salary data, placement outcomes, and student perspectives.</div>
+          <div class="assistant"><div class="bot-avatar">C</div><div>
+            <div class="assistant-meta"><span>Counselle</span><span class="mode-chip"><svg class="svg-icon xs"><use href="#i-loader"></use></svg> Deep research running</span></div>
+            <div class="response-kicker">Deep research running</div>
+            <div class="panel">
+              <button class="timeline-head" type="button"><span class="phase-dot active"><svg class="svg-icon xs"><use href="#i-loader"></use></svg></span><span>Searching official sources...</span><small>3 of 8 complete &middot; about 2 min left</small><svg class="svg-icon xs" style="transform: rotate(180deg);"><use href="#i-chevron-down"></use></svg></button>
+              <div class="timeline-body">
+                <div class="phase"><div class="phase-dot done"><svg class="svg-icon xs"><use href="#i-check"></use></svg></div><div><strong>Planning research</strong><small>Structured 8-phase plan.</small></div><span class="status">done</span></div>
+                <div class="phase"><div class="phase-dot done"><svg class="svg-icon xs"><use href="#i-check"></use></svg></div><div><strong>Checking Counselle data</strong><small>Placement and cost envelopes found for both schools.</small></div><span class="status">done</span></div>
+                <div class="phase running"><div class="phase-dot active"><svg class="svg-icon xs"><use href="#i-loader"></use></svg></div><div><strong>Searching official sources</strong><small>Career outcome reports and school publications.</small></div><span class="status running">running</span></div>
+                <div class="phase"><div class="phase-dot">4</div><div><strong>Searching web</strong><small>Pending source-gated search.</small></div></div>
+                <div class="phase"><div class="phase-dot">5</div><div><strong>Checking student sentiment</strong><small>Pending Reddit-only sentiment scan.</small></div></div>
+                <div class="phase"><div class="phase-dot">6</div><div><strong>Extracting relevant pages</strong><small>Pending citation extraction.</small></div></div>
+                <div class="phase"><div class="phase-dot">7</div><div><strong>Verifying evidence</strong><small>Pending claim checks.</small></div></div>
+                <div class="phase"><div class="phase-dot">8</div><div><strong>Writing report</strong><small>Pending synthesis.</small></div></div>
+              </div>
+              <div class="progress"><div></div></div>
+            </div>
+          </div></div>
+        </div></div>
+        <div class="composer-wrap"><div class="composer"><div class="composer-input">Deep research in progress...</div><div class="composer-tools"><div class="tool-left"><button class="tool-btn"><svg class="svg-icon sm"><use href="#i-globe"></use></svg> Sources <span class="tool-count">4</span><svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg></button><span class="tool-divider" aria-hidden="true"></span><button class="tool-btn icon-only mode-active" aria-label="Deep research running"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></button></div><button class="send" data-jump="report"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button></div></div><div class="footer-note">Counselle can make mistakes - every number is cited; check the source.</div></div>
+      </section>
+
+      <section class="view chat" data-view="report">
+        <div class="messages"><div class="message-column">
+          <div class="user-bubble">What are the job outcomes for CS graduates from Georgia Tech vs. Carnegie Mellon? I want salary data, placement outcomes, and student perspectives.</div>
+          <div class="assistant"><div class="bot-avatar">C</div><div>
+            <div class="assistant-meta"><span>Counselle</span><span class="mode-chip"><svg class="svg-icon xs"><use href="#i-check"></use></svg> Deep research &middot; 8 sources</span></div>
+            <div class="response-kicker">Deep research report &middot; 8 sources</div>
+            <article class="report">
+              <section class="report-section"><div class="section-title teal">Short recommendation</div><p>CMU appears stronger for raw placement signal and research-heavy CS recruiting. Georgia Tech appears stronger on cost-to-outcome value, especially for students targeting broad software engineering roles. Every numeric claim remains tied to a cited source envelope before it appears in the final answer.</p></section>
+              <section class="report-section"><div class="section-title official">DB-backed facts <span class="cite">1</span></div><table><thead><tr><th>Metric</th><th>CMU CS</th><th>Georgia Tech CS</th></tr></thead><tbody><tr><td>Median starting salary</td><td>Verified value</td><td>Verified value</td></tr><tr><td>Completion / employment window</td><td>Cited envelope</td><td>Cited envelope</td></tr><tr><td>Program cost context</td><td>Higher estimate</td><td>Lower estimate</td></tr><tr><td>Research / graduate track</td><td>Cited share</td><td>Cited share</td></tr></tbody></table></section>
+              <section class="report-section"><div class="section-title official">Current official findings <span class="cite">2</span><span class="cite">3</span><span class="cite">4</span></div><ul class="bullets"><li><span>&rsaquo;</span><span>Official career reports are used for current placement language, not Reddit summaries.</span></li><li><span>&rsaquo;</span><span>School-published outcome pages are cited separately from Counselle normalized data.</span></li><li><span>&rsaquo;</span><span>When official pages and database vintages disagree, the conflict is surfaced instead of hidden.</span></li></ul></section>
+              <section class="report-section"><div class="section-title community">Student sentiment <span class="cite community">6</span><span class="cite community">7</span></div><div class="sentiment-card">"CMU is often discussed as the prestige-heavy choice when cost is not the constraint." <span class="cite community">6</span><br><small>Reddit sentiment only - not factual proof.</small></div><div class="sentiment-card">"Georgia Tech is often framed as the rational value choice for CS outcomes." <span class="cite community">7</span><br><small>Community signal, separated from verified facts.</small></div></section>
+              <section class="report-section"><div class="section-title neutral">Unknowns and conflicts</div><ul class="bullets"><li><span>!</span><span>Some salary datasets are self-reported and may skew toward respondents with stronger outcomes.</span></li><li><span>!</span><span>Not every source breaks out outcomes by specialization, such as AI/ML, systems, or HCI.</span></li><li><span>!</span><span>Geography can compress or inflate salary comparisons.</span></li></ul></section>
+              <section class="report-section"><div class="section-title teal">Next steps</div><ul class="bullets"><li><span>&rsaquo;</span><span>Ask both schools for current net-price estimates.</span></li><li><span>&rsaquo;</span><span>Compare specialization-specific placement pages before deciding.</span></li><li><span>&rsaquo;</span><span>Use community sentiment only to identify questions to ask current students.</span></li></ul></section>
+              <div class="source-strip"><button class="sources-strip-button" data-jump="rail"><span class="sources-dot-stack"><span class="sources-dot"><svg class="svg-icon xs"><use href="#i-graduation"></use></svg></span><span class="sources-dot"><svg class="svg-icon xs"><use href="#i-globe"></use></svg></span><span class="sources-dot"><svg class="svg-icon xs"><use href="#i-users"></use></svg></span></span><span>8 sources</span></button></div>
+            </article>
+          </div></div>
+        </div></div>
+        <div class="composer-wrap"><div class="composer"><div class="composer-input">Ask a follow-up...</div><div class="composer-tools"><div class="tool-left"><button class="tool-btn" data-jump="rail"><svg class="svg-icon sm"><use href="#i-globe"></use></svg> Sources <span class="tool-count">8</span><svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg></button><span class="tool-divider" aria-hidden="true"></span><button class="tool-btn icon-only" data-jump="mode" aria-label="Response mode"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></button></div><button class="send" data-jump="rail"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button></div></div><div class="footer-note">Counselle can make mistakes - every number is cited; check the source.</div></div>
+      </section>
+
+      <section class="view chat" data-view="rail">
+        <div class="rail-layout">
+          <div class="chat" style="display:flex;">
+            <div class="messages"><div class="message-column">
+              <div class="user-bubble">What are the job outcomes for CS graduates from Georgia Tech vs. Carnegie Mellon? I want salary data, placement outcomes, and student perspectives.</div>
+              <div class="assistant"><div class="bot-avatar">C</div><div><div class="assistant-meta"><span>Counselle</span><span class="mode-chip"><svg class="svg-icon xs"><use href="#i-check"></use></svg> Deep research &middot; 8 sources</span></div><div class="response-kicker">Deep research report &middot; 8 sources</div><article class="report">
+                <section class="report-section"><div class="section-title teal">Short recommendation</div><p>CMU appears stronger for raw placement signal and research-heavy CS recruiting. Georgia Tech appears stronger on cost-to-outcome value. The rail shows exactly which evidence tier supports each claim.</p></section>
+                <section class="report-section"><div class="section-title official">Official findings <span class="cite">2</span><span class="cite">3</span><span class="cite">4</span></div><ul class="bullets"><li><span>&rsaquo;</span><span>Official outcome pages and Counselle data are separated from general web sources.</span></li><li><span>&rsaquo;</span><span>Reddit appears only under community sentiment.</span></li></ul></section>
+                <section class="report-section"><div class="section-title community">Student sentiment <span class="cite community">6</span><span class="cite community">7</span></div><div class="sentiment-card">Community quotes are visually warm and marked qualitative, never treated as verified facts.</div></section>
+                <div class="source-strip"><button class="sources-strip-button"><span class="sources-dot-stack"><span class="sources-dot"><svg class="svg-icon xs"><use href="#i-graduation"></use></svg></span><span class="sources-dot"><svg class="svg-icon xs"><use href="#i-globe"></use></svg></span><span class="sources-dot"><svg class="svg-icon xs"><use href="#i-users"></use></svg></span></span><span>8 sources</span></button></div>
+              </article></div></div>
+            </div></div>
+            <div class="composer-wrap"><div class="composer"><div class="composer-input">Ask a follow-up...</div><div class="composer-tools"><div class="tool-left"><button class="tool-btn is-open"><svg class="svg-icon sm"><use href="#i-globe"></use></svg> Sources <span class="tool-count">8</span><svg class="svg-icon xs"><use href="#i-chevron-down"></use></svg></button><span class="tool-divider" aria-hidden="true"></span><button class="tool-btn icon-only" data-jump="mode" aria-label="Response mode"><svg class="svg-icon sm"><use href="#i-brain-cog"></use></svg></button></div><button class="send"><svg class="svg-icon"><use href="#i-arrow-up"></use></svg></button></div></div><div class="footer-note">Counselle can make mistakes - every number is cited; check the source.</div></div>
+          </div>
+          <aside class="rail" aria-label="Sources and verification">
+            <div class="rail-head"><span>8 sources</span><span>&times;</span></div>
+            <div class="rail-body">
+              <div class="rail-group"><div class="rail-label"><svg class="svg-icon sm"><use href="#i-database"></use></svg> Official &amp; verified</div>
+                <div class="source-card db"><div class="source-card-top"><span class="source-index">1 DB</span><span><svg class="svg-icon xs"><use href="#i-check"></use></svg></span></div><strong>Counselle data</strong><small>Normalized CDS, IPEDS, and Scorecard envelopes.</small></div>
+                <div class="source-card"><div class="source-card-top"><span class="source-index">2 EDU</span><span><svg class="svg-icon xs"><use href="#i-check"></use></svg></span></div><strong>CMU career outcomes</strong><small>Official school career center page.</small></div>
+                <div class="source-card"><div class="source-card-top"><span class="source-index">3 EDU</span><span><svg class="svg-icon xs"><use href="#i-check"></use></svg></span></div><strong>Georgia Tech outcomes</strong><small>Official assessment or career publication.</small></div>
+                <div class="source-card"><div class="source-card-top"><span class="source-index">4 IPEDS</span><span><svg class="svg-icon xs"><use href="#i-check"></use></svg></span></div><strong>IPEDS / Scorecard context</strong><small>Government dataset shown under existing DB/web source grammar.</small></div>
+              </div>
+              <div class="rail-group"><div class="rail-label community"><svg class="svg-icon sm"><use href="#i-users"></use></svg> Community sentiment</div>
+                <div class="source-card community"><div class="source-card-top"><span class="source-index">6 Reddit</span><span>sentiment only</span></div><strong>r/cscareerquestions</strong><small>Student opinion, never proof for numbers or policy.</small></div>
+                <div class="source-card community"><div class="source-card-top"><span class="source-index">7 Reddit</span><span>sentiment only</span></div><strong>r/ApplyingToCollege</strong><small>Qualitative signal for follow-up questions.</small></div>
+              </div>
+              <div class="rail-group"><div class="rail-label" style="color: var(--faint);"><svg class="svg-icon sm"><use href="#i-globe"></use></svg> Web</div>
+                <div class="source-card web"><div class="source-card-top"><span class="source-index">8 WEB</span><span>supporting</span></div><strong>Third-party alumni context</strong><small>Supporting context, cannot override official or DB sources.</small></div>
+              </div>
+            </div>
+            <div class="rail-note">Official sources are verified against primary records. Community sources are student opinion only.</div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const tabs = [...document.querySelectorAll(".step-tab")];
+    const views = [...document.querySelectorAll(".view")];
+    const title = document.querySelector("[data-thread-title]");
+    const ordered = ["idle", "sources", "mode", "armed", "plan", "running", "report", "rail"];
+
+    function setStep(step) {
+      views.forEach(view => view.classList.toggle("active", view.dataset.view === step));
+      tabs.forEach(tab => tab.setAttribute("aria-selected", tab.dataset.step === step ? "true" : "false"));
+      const activeChat = ["plan", "running", "report", "rail"].includes(step);
+      title.textContent = activeChat ? "CS job outcomes: Georgia Tech vs. Carnegie Mellon" : "";
+      window.location.hash = step;
+    }
+
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-step], [data-jump]");
+      if (!button) return;
+      setStep(button.dataset.step || button.dataset.jump);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const current = tabs.findIndex(tab => tab.getAttribute("aria-selected") === "true");
+      if (event.key === "ArrowRight") setStep(ordered[Math.min(current + 1, ordered.length - 1)]);
+      if (event.key === "ArrowLeft") setStep(ordered[Math.max(current - 1, 0)]);
+    });
+
+    const initial = location.hash.replace("#", "");
+    if (ordered.includes(initial)) setStep(initial);
+  </script>
+</body>
+</html>
