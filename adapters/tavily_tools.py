@@ -40,6 +40,7 @@ __all__ = [
     "search_web",
     "search_school_site",
     "search_reddit",
+    "extract_urls",
     "_registrable_domain",
     "_safe_error",
     "_subreddits_allowed",
@@ -290,6 +291,47 @@ async def search_school_site(
 # ---------------------------------------------------------------------------
 # Tool 3 — search_reddit
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Tool 0 — extract_urls (research pipeline only)
+# ---------------------------------------------------------------------------
+
+
+async def extract_urls(
+    client: AsyncTavilyClient,
+    urls: list[str],
+    today: date,
+    *,
+    source: str = "web",
+) -> list[dict[str, Any]]:
+    """Extract content from URLs via Tavily. Returns citation-shaped dicts.
+
+    Used by the research gather_external node to read full page content.
+    The response field from Tavily is ``raw_content`` (not ``content``).
+    Returns an empty list on any failure — the caller should continue.
+    """
+    if not urls:
+        return []
+    try:
+        result = await client.extract(urls=urls)
+        results = result.get("results") or []
+        items = []
+        for r in results:
+            if not r.get("url"):
+                continue
+            citation = _citation_for_web_result(r["url"], today)
+            items.append(
+                {
+                    "title": r.get("url", ""),
+                    "url": r["url"],
+                    "snippet": (r.get("raw_content") or "")[:300],
+                    "citation": citation.model_dump(),
+                }
+            )
+        return items
+    except Exception:
+        return []
+
 
 _SCHOOL_TEMPLATE_SLOT = "{school}"
 

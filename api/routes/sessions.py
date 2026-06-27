@@ -82,6 +82,8 @@ class MessageBody(BaseModel):
     # Accepted for forward-compat (clarify event id); ignored beyond validation.
     # run_turn detects parked interrupts autonomously — see module docstring.
     in_reply_to: str | None = None
+    # Deep research: when True the prepare node arms the research subgraph.
+    deep_research: bool = False
 
 
 class TranscriptEntry(BaseModel):
@@ -249,6 +251,7 @@ async def post_message(
             body.source_config,
             user_id=str(user.id),
             replace_message_id=body.replace_message_id,
+            deep_research=body.deep_research,
         )
     except StreamActive:
         return _error_json(  # type: ignore[return-value]

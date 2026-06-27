@@ -75,6 +75,32 @@ tools:
     tier: null
     label: "Consulting the “{name}” playbook"
 
+research_phases:
+  - id: planning
+    label: "Planning research"
+    sublabel: "Scoping schools and topics"
+  - id: db_check
+    label: "Checking Counselle data"
+    sublabel: "Reading authoritative database"
+  - id: official_search
+    label: "Searching official sources"
+    sublabel: "Querying .edu and government sites"
+  - id: web_search
+    label: "Searching the web"
+    sublabel: "Finding recent information"
+  - id: community_search
+    label: "Checking student sentiment"
+    sublabel: "Reading Reddit discussions"
+  - id: extract
+    label: "Extracting relevant pages"
+    sublabel: "Reading full page content"
+  - id: verify
+    label: "Verifying evidence"
+    sublabel: "Cross-checking sources"
+  - id: synthesize
+    label: "Writing report"
+    sublabel: "Composing cited answer"
+
 # Any tool not in the table maps here — a generic step, never nothing.
 default:
   kind: db_tool

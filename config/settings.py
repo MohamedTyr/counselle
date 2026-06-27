@@ -121,6 +121,23 @@ class Settings(BaseSettings):
     source_edu_default: bool = True
     search_max_results: int = 5
 
+    # --- Deep research (disabled by default — flip via env to test) ---
+    deep_research_enabled: bool = False
+    deep_research_max_wall_clock_s: int = 90
+    deep_research_soft_timeout_s: int = 75
+    deep_research_max_schools: int = 4
+    deep_research_max_tavily_searches: int = 8
+    deep_research_max_tavily_extract_urls: int = 12
+    deep_research_max_final_sources: int = 12
+    deep_research_max_verified_claims: int = 30
+    deep_research_max_parallel_tasks: int = 4
+    deep_research_max_est_cost_usd: float = 1.00
+    deep_research_use_gptr: bool = False
+    # Research model tiers (None → fallback via property)
+    model_research_fast: str | None = None
+    model_research_smart: str | None = None
+    model_research_verifier: str | None = None
+
     # --- GCP ---
     # Auth: the pipeline's Vertex express-mode API key (genai.Client(vertexai=True,
     # api_key=...)) — mirrored from the pipeline repo. Service-account auth via the
@@ -201,6 +218,18 @@ class Settings(BaseSettings):
                 f"must be at least {_MIN_JWT_SECRET_BYTES} bytes (pyjwt 2.13 warns below)"
             )
         return value
+
+    @property
+    def effective_model_research_fast(self) -> str:
+        return self.model_research_fast or self.model_cheap
+
+    @property
+    def effective_model_research_smart(self) -> str:
+        return self.model_research_smart or self.model_counselor
+
+    @property
+    def effective_model_research_verifier(self) -> str:
+        return self.model_research_verifier or self.model_cheap
 
     @property
     def effective_oauth_state_secret(self) -> str:

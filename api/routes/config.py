@@ -74,5 +74,6 @@ async def get_config(
             "season_note": copy["season_note"],
             "conversation_starters": starters,
             "default_source_config": _default_source_config(user, settings),
+            "deep_research_enabled": settings.deep_research_enabled,
         }
     )

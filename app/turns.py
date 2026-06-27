@@ -283,6 +283,7 @@ class TurnRegistry:
         *,
         user_id: str | None = None,
         replace_message_id: str | None = None,
+        deep_research: bool = False,
     ) -> AsyncIterator[tuple[Event, int]]:
         """Claim the session, spawn the detached turn, return an attach handle.
 
@@ -325,7 +326,10 @@ class TurnRegistry:
         except BaseException:
             self._turns.pop(session_id, None)
             raise
-        turn.task = asyncio.create_task(self._drive(turn, source_config), name=f"turn-{session_id}")
+        turn.task = asyncio.create_task(
+            self._drive(turn, source_config, deep_research=deep_research),
+            name=f"turn-{session_id}",
+        )
         # The starter's consumer slot is claimed on the generator's FIRST
         # iteration (inside _follow), not here — a handle that is created but
         # never driven (client RST before ASGI starts the body) must not leak
@@ -427,7 +431,13 @@ class TurnRegistry:
 
     # -- the detached task ----------------------------------------------------
 
-    async def _drive(self, turn: _Turn, source_config: SourceConfig | None) -> None:
+    async def _drive(
+        self,
+        turn: _Turn,
+        source_config: SourceConfig | None,
+        *,
+        deep_research: bool = False,
+    ) -> None:
         start_mono = time.monotonic()
         timeout_s = self._settings.turn_timeout_s
         try:
@@ -441,6 +451,7 @@ class TurnRegistry:
                             source_config,
                             deps=self._deps,
                             graph=self._graph,
+                            deep_research=deep_research,
                         ),
                     )
                     async with aclosing(events) as stream:
