@@ -31,7 +31,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { useQueryClient } from '@tanstack/react-query';
-import { activeConversationIdAtom } from '@/app/state';
+import { activeConversationIdAtom, deepResearchArmedAtom } from '@/app/state';
 import { transport } from '@/api/selectTransport';
 import { fromWire } from '@/api/source-config';
 import {
@@ -120,6 +120,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [conversationId, setConversationId] = useAtom(activeConversationIdAtom);
+  const [deepResearchArmed, setDeepResearchArmed] = useAtom(deepResearchArmedAtom);
   const [persisted, setPersisted] = useState<ChatMessage[]>([]);
   const [abortScroll, setAbortScroll] = useState(false);
   /** A transcript-load failure for the open conversation (honest error, not a
@@ -196,6 +197,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   });
 
   const { turn, attachTurn, clearTurnState } = engine;
+
+  const handleSubmitMessage = useCallback(
+    async (text: string, replaceMessageId?: string): Promise<boolean> => {
+      const armed = deepResearchArmed;
+      setDeepResearchArmed(false);
+      return engine.submitMessage(text, replaceMessageId, { deepResearch: armed });
+    },
+    [deepResearchArmed, setDeepResearchArmed, engine.submitMessage],
+  );
 
   // Reload persisted messages when the open conversation changes. On open we
   // reattach FIRST (pick up an in-flight turn another tab/page-load started),
@@ -289,7 +299,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // stable), so this memo changes ~never.
   const actionsValue = useMemo<ChatActionsValue>(
     () => ({
-      submitMessage: engine.submitMessage,
+      submitMessage: handleSubmitMessage,
       ask: engine.ask,
       regenerate: engine.regenerate,
       stopGenerating: engine.stopGenerating,
@@ -299,7 +309,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setAbortScroll,
     }),
     [
-      engine.submitMessage,
+      handleSubmitMessage,
       engine.ask,
       engine.regenerate,
       engine.stopGenerating,

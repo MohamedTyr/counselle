@@ -18,6 +18,8 @@ export type SendMessageBody = {
   source_config?: SourceConfigWire;
   /** G3 (B2): a prior user_message_id — edit & regenerate via history rewrite. */
   replace_message_id?: string;
+  /** True when the user has armed "Deep research" for this send. */
+  deep_research?: boolean;
 };
 
 /** POST /v1/sessions — the new-chat flow mints a real session id before sending. */

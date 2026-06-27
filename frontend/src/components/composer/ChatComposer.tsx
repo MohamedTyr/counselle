@@ -22,7 +22,8 @@ import { cn } from '@librechat/client/utils';
 import { useChatFormContext } from '~/Providers';
 import { useAutoSave } from '~/hooks/Input/useAutoSave';
 import { useChatContext, sourceConfigKey } from '@/app/ChatContext';
-import { enterToSendAtom } from '@/app/state';
+import { enterToSendAtom, deepResearchArmedAtom } from '@/app/state';
+import { useDeepResearchEnabled } from '@/api/hooks';
 import { getDefaultSourceConfig, type SourceConfig } from '@/api/sourceConfigStore';
 import { CounselleComposer, type SourceId } from '@/components/composer';
 
@@ -33,6 +34,7 @@ import { CounselleComposer, type SourceId } from '@/components/composer';
  */
 const DEFAULT_PLACEHOLDER = 'Message Counselle';
 const CLARIFY_PLACEHOLDER = 'Pick one, or just type…';
+const RESEARCH_PLACEHOLDER = 'Ask for a sourced research report…';
 
 /**
  * `centerFormOnLanding` is frozen `true` upstream; ChatView passes it down so
@@ -124,7 +126,13 @@ export default function ChatComposer({
   );
 
   const enterToSend = useAtomValue(enterToSendAtom);
-  const placeholder = awaitingClarify ? CLARIFY_PLACEHOLDER : DEFAULT_PLACEHOLDER;
+  const deepResearchArmed = useAtomValue(deepResearchArmedAtom);
+  const deepResearchEnabled = useDeepResearchEnabled();
+  const placeholder = awaitingClarify
+    ? CLARIFY_PLACEHOLDER
+    : deepResearchArmed
+    ? RESEARCH_PLACEHOLDER
+    : DEFAULT_PLACEHOLDER;
 
   const active = useMemo(() => toActiveSet(config), [config]);
 
@@ -155,6 +163,7 @@ export default function ChatComposer({
         onSourcesChange={handleSourcesChange}
         onSend={onSend}
         onStop={stopGenerating}
+        deepResearchEnabled={deepResearchEnabled}
       />
     </div>
   );

@@ -75,7 +75,7 @@ export interface TurnEngine {
   turn: LiveTurn | null;
   isSubmitting: boolean;
   turnError: TurnError | null;
-  submitMessage: (text: string, replaceMessageId?: string) => Promise<boolean>;
+  submitMessage: (text: string, replaceMessageId?: string, opts?: { deepResearch?: boolean }) => Promise<boolean>;
   ask: (props: AskProps) => void;
   regenerate: (message: ChatMessage) => void;
   stopGenerating: () => void;
@@ -86,6 +86,7 @@ export interface TurnEngine {
     tempUserMessageId: string,
     text: string,
     replaceMessageId?: string,
+    deepResearch?: boolean,
   ) => Promise<void>;
   /** Cleared by the provider's newConversation (it resets the projection). */
   clearTurnState: () => void;
@@ -248,6 +249,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
       tempUserMessageId: string,
       text: string,
       replaceMessageId?: string,
+      deepResearch?: boolean,
     ): Promise<void> => {
       // Story 17: every send carries the conversation's current source config
       // (wire shape, mapped at the seam). The backend upserts it per send, so
@@ -257,6 +259,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
         text,
         source_config: toWire(getSourceConfig(convoId)),
         ...(replaceMessageId !== undefined ? { replace_message_id: replaceMessageId } : {}),
+        ...(deepResearch ? { deep_research: true } : {}),
       };
       try {
         await consumeStream(convoId, transport.sendMessage(convoId, body), tempUserMessageId, true);
@@ -342,7 +345,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
   );
 
   const startSend = useCallback(
-    async (text: string, replaceMessageId?: string): Promise<void> => {
+    async (text: string, replaceMessageId?: string, opts?: { deepResearch?: boolean }): Promise<void> => {
       if (turnRef.current !== null) {
         return;
       }
@@ -379,7 +382,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
       // Re-engage scroll-follow so the view follows the streaming answer even if
       // the user had scrolled up before sending (matches pre-Phase-5 behavior).
       setAbortScroll(false);
-      await runTurn(activeId, tempUserId, text, replaceMessageId);
+      await runTurn(activeId, tempUserId, text, replaceMessageId, opts?.deepResearch);
     },
     [
       navigate,
@@ -434,7 +437,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
   }, []);
 
   const submitMessage = useCallback(
-    async (text: string, replaceMessageId?: string): Promise<boolean> => {
+    async (text: string, replaceMessageId?: string, opts?: { deepResearch?: boolean }): Promise<boolean> => {
       setPendingText(null);
       // Send-mid-stream: cancel the running turn and wait for it to terminate
       // before opening a new one (no two concurrent turns). If it didn't clear,
@@ -448,7 +451,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
         }
       }
       try {
-        await startSend(text, replaceMessageId);
+        await startSend(text, replaceMessageId, opts);
         return true;
       } catch (error: unknown) {
         // 409 → a turn is already streaming: cancel-then-retry-once.
@@ -459,7 +462,7 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
               await transport.cancel(convoId);
               setTurnError(null);
               setPendingText(null);
-              await startSend(text, replaceMessageId);
+              await startSend(text, replaceMessageId, opts);
               return true;
             } catch (retryError: unknown) {
               setTurnError(turnErrorOf(retryError));

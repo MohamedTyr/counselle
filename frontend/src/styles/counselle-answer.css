@@ -214,3 +214,20 @@
   padding: 0.04em 0.32em;
   border-radius: 0.3rem;
 }
+
+/* Deep research report — sentiment note callout box.
+   Styled as a warm amber inset: qualitative signal, not authoritative data. */
+.counselle-answer .sentiment-note:not(:where([class~='not-prose'] *)) {
+  border-radius: 0.5rem;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #92400e;
+  margin: 0.75em 0;
+}
+.dark .counselle-answer .sentiment-note:not(:where([class~='not-prose'] *)) {
+  border-color: #92400e;
+  background: #451a03;
+  color: #fde68a;
+}

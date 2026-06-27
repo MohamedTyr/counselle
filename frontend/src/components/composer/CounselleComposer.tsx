@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@librechat/client/utils';
 import type { SourceConfig } from '@/api/sourceConfigStore';
 import { SourcesControl, type SourceId } from './SourcesControl';
+import { ResponseModeControl } from './ResponseModeControl';
 import { Button } from './primitives';
 import {
   PromptInput,
@@ -54,6 +55,8 @@ export interface CounselleComposerProps {
   active: Set<SourceId>; // controlled sources
   subs: string[]; // controlled subreddits (r/-prefixed)
   onSourcesChange: (patch: Partial<SourceConfig>) => void;
+  /** Show the ResponseModeControl pill (hidden when deep_research_enabled=false). */
+  deepResearchEnabled?: boolean;
 }
 export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, CounselleComposerProps>(
   function CounselleComposer(props, ref) {
@@ -69,6 +72,7 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
       active,
       subs,
       onSourcesChange,
+      deepResearchEnabled = false,
     } = props;
     const [files, setFiles] = React.useState<File[]>([]);
     const [filePreview, setFilePreview] = React.useState<string | null>(null);
@@ -289,6 +293,13 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
                   )}
                 </AnimatePresence>
               </button>
+
+              {deepResearchEnabled && (
+                <>
+                  <span className="h-5 w-px bg-gray-200 dark:bg-white/10 ml-1 mr-1" />
+                  <ResponseModeControl disabled={isLoading} />
+                </>
+              )}
             </div>
           </div>
 

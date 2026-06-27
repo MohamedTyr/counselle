@@ -16,6 +16,8 @@ export interface ConfigData {
   conversation_starters: string[];
   /** Off the wire it may be absent/malformed; `fromWire` tolerates `undefined`. */
   default_source_config: SourceConfigWire | undefined;
+  /** Feature flag — the ResponseModeControl is hidden when false (default). */
+  deep_research_enabled: boolean;
 }
 
 /** GET /v1/config → the season-keyed home-screen config (authed cookie). */
@@ -37,5 +39,6 @@ export async function fetchConfig(): Promise<ConfigData> {
     season_note: typeof data.season_note === 'string' ? data.season_note : null,
     conversation_starters: starters,
     default_source_config: data.default_source_config,
+    deep_research_enabled: data.deep_research_enabled === true,
   };
 }

@@ -10,6 +10,9 @@
  *
  * Frozen: the same card, inert — the transcript record of what was asked
  * (PRD 25).
+ *
+ * Deep research: when `spec.header === 'Deep research'`, routes to a plan
+ * confirmation panel (ResearchPlanPanel) instead of the normal chip widget.
  */
 import { useState } from 'react';
 import type { ClarifySpec } from '@/api/protocol';
@@ -110,8 +113,9 @@ function deriveSelection(
   return { labels, other: others.length > 0 ? others.join(', ') : null };
 }
 
-export default function ClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
-  // Frozen: seed selection from the persisted answer (shows what was chosen).
+// ── Standard chip widget ─────────────────────────────────────────────────────
+
+function StandardClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
   const seeded = frozen ? deriveSelection(spec, answer) : { labels: [], other: null };
   const [selected, setSelected] = useState<string[]>(seeded.labels);
   const [otherOpen, setOtherOpen] = useState(seeded.other !== null);
@@ -128,8 +132,6 @@ export default function ClarifyWidget({ spec, frozen, onAnswer, answer }: Clarif
     }
   };
 
-  // Frozen chips reflect the persisted selection (single or multi); the live
-  // widget only tracks multi-select selection in `selected`.
   const isChipSelected = (label: string) =>
     frozen ? seeded.labels.includes(label) : spec.multi_select && selected.includes(label);
 
@@ -180,4 +182,83 @@ export default function ClarifyWidget({ spec, frozen, onAnswer, answer }: Clarif
       {otherOpen && !frozen && <OtherInput onAnswer={onAnswer} />}
     </div>
   );
+}
+
+// ── Deep research plan panel ─────────────────────────────────────────────────
+
+const RESEARCH_PHASES = [
+  { num: 1, label: 'Planning research', sub: 'Resolve schools, question scope, and evidence needs.' },
+  { num: 2, label: 'Checking Counselle data', sub: 'Use CDS, IPEDS, Scorecard, programs, and outcome envelopes first.' },
+  { num: 3, label: 'Searching official sources', sub: 'Career outcome pages and current school publications.' },
+  { num: 4, label: 'Searching web', sub: 'Supporting context when official sources are incomplete.' },
+  { num: 5, label: 'Checking student sentiment', sub: 'Reddit only as qualitative signal.' },
+  { num: 6, label: 'Extracting relevant pages', sub: 'Pull citations for pages selected by source gates.' },
+  { num: 7, label: 'Verifying evidence', sub: 'Check numbers, dates, policy statements, and recommendations.' },
+  { num: 8, label: 'Writing report', sub: 'Separate facts, official findings, sentiment, unknowns, and next steps.' },
+];
+
+function ResearchPlanPanel({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
+  const runOption = spec.options[0];
+  const cancelOption = spec.options[1];
+
+  return (
+    <div className="not-prose my-3 rounded-xl border border-border-light bg-surface-primary-alt p-4">
+      <div className="text-xs uppercase tracking-wide text-text-secondary">{spec.header}</div>
+      <p className="mt-1 text-sm text-text-secondary">{spec.question}</p>
+      <div className="mt-3 rounded-xl border border-border-light bg-surface-primary p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-semibold text-text-primary">Deep research plan</span>
+          <span className="text-xs text-text-secondary">2–4 min · 8 phases</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {RESEARCH_PHASES.map((p) => (
+            <div key={p.num} className="flex items-start gap-2">
+              <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-surface-secondary text-[11px] font-medium text-text-secondary">
+                {p.num}
+              </span>
+              <div>
+                <span className="text-[13px] font-medium text-text-primary">{p.label}</span>
+                <span className="ml-1.5 text-[12px] text-text-secondary">{p.sub}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] text-text-secondary">
+          Sources: Counselle data · .edu pages · web · Reddit sentiment. Disabled sources are not called.
+        </p>
+      </div>
+      {!frozen && runOption !== undefined && cancelOption !== undefined && (
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => onAnswer(runOption.label)}
+            className="min-h-[44px] flex-1 rounded-xl bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
+          >
+            {runOption.label}
+          </button>
+          <button
+            type="button"
+            onClick={() => onAnswer(cancelOption.label)}
+            className="min-h-[44px] rounded-xl border border-border-light px-4 text-sm font-medium text-text-primary hover:bg-surface-hover"
+          >
+            {cancelOption.label}
+          </button>
+        </div>
+      )}
+      {frozen && answer != null && (
+        <p className="mt-3 text-sm text-text-secondary">
+          You chose: <strong>{answer}</strong>
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Router ───────────────────────────────────────────────────────────────────
+
+export default function ClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
+  if (spec.header === 'Deep research') {
+    return <ResearchPlanPanel spec={spec} frozen={frozen} onAnswer={onAnswer} answer={answer} />;
+  }
+  return <StandardClarifyWidget spec={spec} frozen={frozen} onAnswer={onAnswer} answer={answer} />;
 }
