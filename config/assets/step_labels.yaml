@@ -80,25 +80,28 @@ research_phases:
     label: "Planning research"
     sublabel: "Scoping schools and topics"
   - id: db_check
-    label: "Checking Counselle data"
-    sublabel: "Reading authoritative database"
+    label: "Checking school data"
+    sublabel: "Reading trusted database sources"
   - id: official_search
-    label: "Searching official sources"
-    sublabel: "Querying .edu and government sites"
+    label: "Checking official pages"
+    sublabel: "Reading school-owned policy pages"
   - id: web_search
-    label: "Searching the web"
-    sublabel: "Finding recent information"
+    label: "Checking current web sources"
+    sublabel: "Finding recent supporting context"
+  - id: gptr_research
+    label: "Checking extra sources"
+    sublabel: "Adding bounded external context"
   - id: community_search
-    label: "Checking student sentiment"
+    label: "Reading student sentiment"
     sublabel: "Reading Reddit discussions"
   - id: extract
-    label: "Extracting relevant pages"
-    sublabel: "Reading full page content"
+    label: "Reading selected pages"
+    sublabel: "Pulling source details"
   - id: verify
-    label: "Verifying evidence"
-    sublabel: "Cross-checking sources"
+    label: "Cross-checking claims"
+    sublabel: "Separating facts from weak evidence"
   - id: synthesize
-    label: "Writing report"
+    label: "Writing your report"
     sublabel: "Composing cited answer"
 
 # Any tool not in the table maps here — a generic step, never nothing.

@@ -6,17 +6,26 @@ the step-construction logic in each node.
 
 from __future__ import annotations
 
-from typing import Any
-from uuid import uuid4
+from typing import Any, Literal
 
-from domain.events import StepData
+from domain.events import StepData, StepStatus, ev_step
+
+_STATUS_MAP: dict[str, StepStatus] = {
+    "running": "start",
+    "complete": "end",
+    "error": "error",
+    "start": "start",
+    "end": "end",
+}
+
+ResearchStepStatus = Literal["running", "complete", "error", "start", "end"]
 
 
 def research_step(
     writer: Any,
     emissions: list[Any],
     phase_id: str,
-    status: str,
+    status: ResearchStepStatus,
     label: str,
     detail: str | None = None,
     sources: list[Any] | None = None,
@@ -32,15 +41,16 @@ def research_step(
         detail: Optional detail string.
         sources: Optional source chips list.
     """
+    step_status = _STATUS_MAP[status]
     step = StepData(
-        step_id=f"research_{phase_id}_{uuid4().hex[:8]}",
+        step_id=f"research_{phase_id}",
         kind="research",
         tier=None,
         label=label,
-        status=status,  # type: ignore[arg-type]
+        status=step_status,
         detail=None,
         sources=None,
     )
-    data = step.model_dump(mode="json")
+    data = ev_step(step).data
     writer({"type": "step", "data": data})
     emissions.append(("step", data))

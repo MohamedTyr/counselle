@@ -59,7 +59,7 @@ async def research_gather_db_node(state: Any, deps: Any) -> dict[str, Any]:
     plan = research.get("plan") or {}
     schools = plan.get("schools") or []
 
-    research_step(writer, emissions, "db_check", "running", "Checking Counselle data")
+    research_step(writer, emissions, "db_check", "running", "Checking school data")
 
     db_evidence: list[Any] = []
     try:
@@ -71,7 +71,7 @@ async def research_gather_db_node(state: Any, deps: Any) -> dict[str, Any]:
                     db_evidence.extend(annotated)
                 else:
                     db_evidence.append(annotated)
-        research_step(writer, emissions, "db_check", "complete", "Checking Counselle data")
+        research_step(writer, emissions, "db_check", "complete", "Checking school data")
     except Exception:
         logger.warning("DB gather failed — continuing with partial data", exc_info=True)
         caps = dict(research.get("caps") or {})
@@ -82,7 +82,7 @@ async def research_gather_db_node(state: Any, deps: Any) -> dict[str, Any]:
             emissions,
             "db_check",
             "error",
-            "Checking Counselle data",
+            "Checking school data",
             detail="Database unavailable",
         )
 

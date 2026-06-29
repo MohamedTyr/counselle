@@ -198,7 +198,7 @@ def ev_viz(spec: RenderSpec) -> Event:
 
 
 def ev_clarify(spec: ClarifySpec) -> Event:
-    return Event(type="clarify", data=spec.model_dump())
+    return Event(type="clarify", data=spec.model_dump(exclude_none=True))
 
 
 def ev_sources(sources: list[SourceEntry]) -> Event:

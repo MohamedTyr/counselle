@@ -17,11 +17,12 @@ from typing import Any
 
 from langgraph.config import get_stream_writer
 from pydantic_ai import Agent
-from pydantic_ai.models.google import GoogleModel
-from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
+from app.research.caps import soft_timeout_hit
+from app.research.llm import build_research_model
 from app.research.models import VerifiedClaim
 from app.research.steps import research_step
+from app.research.usage import record_model_usage
 from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ def _build_evidence_text(
     """Summarize evidence into a compact text for the verifier."""
     lines: list[str] = ["EVIDENCE:"]
 
-    db_items = db_evidence[:20]
+    db_items = db_evidence[: _evidence_context_limit(max_claims, floor=30, multiplier=2)]
     if db_items:
         lines.append("\nDB (authoritative):")
         for item in db_items:
@@ -63,7 +64,7 @@ def _build_evidence_text(
                 if field or value:
                     lines.append(f"  {marker} {field}: {value}")
 
-    web_items = web_evidence[:20]
+    web_items = web_evidence[: _evidence_context_limit(max_claims, floor=60, multiplier=4)]
     if web_items:
         lines.append("\nWeb/Official/Reddit:")
         for item in web_items:
@@ -76,6 +77,11 @@ def _build_evidence_text(
 
     lines.append(f"\nExtract up to {max_claims} key claims and verify them.")
     return "\n".join(lines)
+
+
+def _evidence_context_limit(max_claims: int, *, floor: int, multiplier: int) -> int:
+    """Bound verifier context while avoiding first-school-only evidence slices."""
+    return min(100, max(floor, max_claims * multiplier))
 
 
 def _parse_verified_claims(raw: str, max_claims: int) -> list[VerifiedClaim]:
@@ -95,6 +101,70 @@ def _parse_verified_claims(raw: str, max_claims: int) -> list[VerifiedClaim]:
     return []
 
 
+def _fallback_evidence_notes(
+    db_evidence: list[Any],
+    web_evidence: list[Any],
+    max_claims: int,
+) -> list[VerifiedClaim]:
+    """Create conservative evidence notes when the verifier returns nothing.
+
+    These are deliberately not "verified" claims. They keep the report grounded
+    in registered sources while preserving the confidence boundary: a single
+    official/web item is `unsupported`, and Reddit remains `sentiment_only`.
+    """
+    notes: list[VerifiedClaim] = []
+    for item in [*db_evidence, *web_evidence]:
+        if len(notes) >= max_claims:
+            break
+        if not isinstance(item, dict):
+            continue
+        marker = item.get("marker")
+        if not isinstance(marker, str) or not marker.startswith("["):
+            continue
+
+        citation = item.get("citation") or {}
+        source = citation.get("source") if isinstance(citation, dict) else None
+        tier = citation.get("tier") if isinstance(citation, dict) else None
+        title = str(item.get("title") or item.get("label") or "Source evidence").strip()
+        snippet = _clean_note_text(item.get("snippet") or item.get("display") or item.get("value"))
+        if not snippet:
+            continue
+
+        if source == "reddit" or tier == "community":
+            notes.append(
+                VerifiedClaim(
+                    claim=f"Student/community sentiment source: {snippet}",
+                    status="sentiment_only",
+                    support_markers=[marker],
+                    note=(
+                        "Community source; use only as qualitative sentiment, "
+                        "not policy or numbers."
+                    ),
+                )
+            )
+        else:
+            notes.append(
+                VerifiedClaim(
+                    claim=f"{title}: {snippet}",
+                    status="unsupported",
+                    support_markers=[marker],
+                    note=(
+                        "Single-source evidence; cite as limited evidence, "
+                        "not as independently verified."
+                    ),
+                )
+            )
+    return notes
+
+
+def _clean_note_text(value: Any) -> str:
+    """Compact a snippet/value for inclusion in verifier fallback notes."""
+    if not isinstance(value, str):
+        return ""
+    text = " ".join(value.split())
+    return text[:240]
+
+
 async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
     """Cross-check evidence and produce a list of verified claims."""
     settings = get_settings()
@@ -106,30 +176,35 @@ async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
     web_evidence = list(research.get("web_evidence") or [])
     max_claims = settings.deep_research_max_verified_claims
 
-    research_step(writer, emissions, "verify", "running", "Verifying evidence")
+    research_step(writer, emissions, "verify", "running", "Cross-checking claims")
 
     verification: list[VerifiedClaim] = []
+    if soft_timeout_hit(research, settings):
+        research_step(writer, emissions, "verify", "complete", "Cross-checking claims")
+        research["verification"] = []
+        research["emissions"] = emissions
+        return {"research": research}
+
     try:
         evidence_text = _build_evidence_text(db_evidence, web_evidence, max_claims)
         plan = research.get("plan") or {}
         user_text = plan.get("user_text") or ""
 
         verifier_model_str = settings.effective_model_research_verifier
-        bare_model = verifier_model_str.split(":", 1)[-1]
-
-        if not settings.vertex_api_key:
-            raise RuntimeError("COUNSELLE_VERTEX_API_KEY not set")
 
         agent: Agent[None, str] = Agent(
-            GoogleModel(
-                bare_model,
-                provider=GoogleCloudProvider(api_key=settings.vertex_api_key),
-            ),
+            build_research_model(verifier_model_str, settings),
             system_prompt=_VERIFY_SYSTEM,
         )
 
         prompt = f"Question: {user_text}\n\n{evidence_text}\n\nReturn JSON array only."
         result = await agent.run(prompt)
+        record_model_usage(
+            research,
+            result.usage,
+            model_name=verifier_model_str,
+            settings=settings,
+        )
         raw_output = str(result.output)
         # Strip markdown fences if present.
         if "```" in raw_output:
@@ -137,10 +212,13 @@ async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
             if raw_output.startswith("json"):
                 raw_output = raw_output[4:]
         verification = _parse_verified_claims(raw_output, max_claims)
+        if not verification:
+            verification = _fallback_evidence_notes(db_evidence, web_evidence, max_claims)
     except Exception:
         logger.warning("verification step failed — continuing without verification", exc_info=True)
+        verification = _fallback_evidence_notes(db_evidence, web_evidence, max_claims)
 
-    research_step(writer, emissions, "verify", "complete", "Verifying evidence")
+    research_step(writer, emissions, "verify", "complete", "Cross-checking claims")
 
     research["verification"] = [c.model_dump(mode="json") for c in verification]
     research["emissions"] = emissions

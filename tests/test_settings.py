@@ -95,6 +95,7 @@ class TestDefaults:
         assert settings.source_reddit_default is True
         assert settings.source_edu_default is True
         assert settings.search_max_results == 5
+        assert settings.deep_research_gptr_timeout_s == 30
         # GCP
         assert settings.google_cloud_project is None
         assert settings.google_cloud_location == "us-central1"

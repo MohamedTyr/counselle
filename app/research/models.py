@@ -26,7 +26,7 @@ class ResearchCaps(BaseModel):
     started_at: str  # ISO datetime
     tavily_searches_used: int = 0
     tavily_extracts_used: int = 0
-    est_cost_usd: float = 0.0
+    est_cost_usd: float | None = None
     soft_timeout_hit: bool = False
     db_unavailable: bool = False
     external_unavailable: bool = False

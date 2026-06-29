@@ -35,6 +35,7 @@ _SECRET_FIELDS = frozenset(
         "db_ro_dsn",
         "db_app_dsn",
         "tavily_api_key",
+        "gemini_api_key",
         "vertex_api_key",
         "jwt_secret",
         "google_oauth_client_secret",
@@ -116,6 +117,16 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("COUNSELLE_TAVILY_API_KEY", "TAVILY_API_KEY"),
     )
+    # GPT-Researcher's documented Google GenAI path uses GOOGLE_API_KEY. Keep it
+    # separate from the Vertex express-mode key used by Counselle's main agent.
+    gemini_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "COUNSELLE_GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            "GEMINI_API_KEY",
+        ),
+    )
     source_web_default: bool = True
     source_reddit_default: bool = True
     source_edu_default: bool = True
@@ -133,6 +144,7 @@ class Settings(BaseSettings):
     deep_research_max_parallel_tasks: int = 4
     deep_research_max_est_cost_usd: float = 1.00
     deep_research_use_gptr: bool = False
+    deep_research_gptr_timeout_s: int = 30
     # Research model tiers (None → fallback via property)
     model_research_fast: str | None = None
     model_research_smart: str | None = None

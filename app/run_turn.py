@@ -373,7 +373,7 @@ async def run_turn(
                 if "__interrupt__" in chunk:
                     interrupt = chunk["__interrupt__"][0]
                     spec = ClarifySpec.model_validate(interrupt.value)
-                    clarify_dump = spec.model_dump(mode="json")
+                    clarify_dump = spec.model_dump(mode="json", exclude_none=True)
                     yield ev_clarify(spec)
                     interrupted = True
                 # Capture registry and usage from the node's state update so we

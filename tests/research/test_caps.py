@@ -6,8 +6,19 @@ No live calls — all mocked.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from typing import Any
+
+from app.research.caps import elapsed_seconds, remaining_time_seconds, soft_timeout_hit
 from app.research.models import ResearchCaps, VerifiedClaim
-from app.research.synthesize import _LIMITATION_NOTE, _aggregate_usage, _build_synthesis_prompt
+from app.research.synthesize import (
+    _LIMITATION_NOTE,
+    _aggregate_usage,
+    _build_partial_report,
+    _build_synthesis_prompt,
+)
+from app.research.usage import record_model_usage
 
 
 def _make_caps(**kwargs: bool | int | float | str) -> ResearchCaps:
@@ -34,6 +45,93 @@ class TestSoftTimeoutFlag:
             "time limit" in lower or "soft" in lower or "missing" in lower
         )
 
+    def test_today_is_available_to_synthesizer(self) -> None:
+        caps = _make_caps()
+        prompt = _build_synthesis_prompt(
+            "test question",
+            [],
+            caps,
+            False,
+            False,
+            today="2026-06-27",
+        )
+        assert "**Today:** 2026-06-27" in prompt
+
+    def test_soft_timeout_helper_marks_elapsed_runs(self) -> None:
+        started = datetime(2026, 6, 27, tzinfo=UTC)
+        research: dict[str, Any] = {"caps": {"started_at": started.isoformat()}}
+        settings = SimpleNamespace(deep_research_soft_timeout_s=75)
+
+        hit = soft_timeout_hit(
+            research,
+            settings,
+            now=started + timedelta(seconds=76),
+        )
+
+        assert hit is True
+        assert research["caps"]["soft_timeout_hit"] is True
+
+    def test_soft_timeout_helper_leaves_fresh_runs_open(self) -> None:
+        started = datetime(2026, 6, 27, tzinfo=UTC)
+        research: dict[str, Any] = {"caps": {"started_at": started.isoformat()}}
+        settings = SimpleNamespace(deep_research_soft_timeout_s=75)
+
+        hit = soft_timeout_hit(
+            research,
+            settings,
+            now=started + timedelta(seconds=10),
+        )
+
+        assert hit is False
+        assert "soft_timeout_hit" not in research["caps"]
+
+    def test_elapsed_and_remaining_time_helpers(self) -> None:
+        started = datetime(2026, 6, 27, tzinfo=UTC)
+        research: dict[str, Any] = {"caps": {"started_at": started.isoformat()}}
+
+        assert elapsed_seconds(research, now=started + timedelta(seconds=12)) == 12
+        assert (
+            remaining_time_seconds(
+                research,
+                100,
+                reserve_s=10,
+                cap_s=30,
+                now=started + timedelta(seconds=50),
+            )
+            == 30
+        )
+        assert (
+            remaining_time_seconds(
+                research,
+                100,
+                reserve_s=10,
+                cap_s=30,
+                now=started + timedelta(seconds=95),
+            )
+            == 0
+        )
+
+    def test_partial_report_is_clean_and_cited(self) -> None:
+        report = _build_partial_report(
+            "Compare MIT and Stanford.",
+            [
+                VerifiedClaim(
+                    claim="MIT requires SAT or ACT scores.",
+                    status="unsupported",
+                    support_markers=["[1]"],
+                    note="Official source.",
+                )
+            ],
+            db_unavailable=False,
+            external_unavailable=False,
+            reason="The research run used its time budget.",
+        )
+
+        assert report.startswith("## Partial report")
+        assert "Limited evidence: MIT requires SAT or ACT scores. [1]" in report
+        assert "This took too long" not in report
+        assert "| Feature" not in report
+
 
 class TestDbUnavailableFlag:
     def test_db_unavailable_in_prompt(self) -> None:
@@ -51,16 +149,51 @@ class TestDbUnavailableFlag:
 
 class TestAggregateUsage:
     def test_returns_usage_dict(self) -> None:
-        research: dict[str, object] = {"caps": {"est_cost_usd": 0.05}}
+        research: dict[str, object] = {
+            "usage": {
+                "input_tokens": 120,
+                "output_tokens": 30,
+                "tool_calls": 1,
+                "est_cost_usd": 0.05,
+            }
+        }
         result = _aggregate_usage(research, None)
-        assert "input_tokens" in result
-        assert "output_tokens" in result
-        assert "tool_calls" in result
+        assert result["input_tokens"] == 120
+        assert result["output_tokens"] == 30
+        assert result["tool_calls"] == 1
         assert result["est_cost_usd"] == 0.05
 
-    def test_zero_cost_when_no_caps(self) -> None:
+    def test_unknown_cost_when_no_usage(self) -> None:
         result = _aggregate_usage({}, None)
-        assert result["est_cost_usd"] == 0.0
+        assert result["input_tokens"] == 0
+        assert result["output_tokens"] == 0
+        assert result["tool_calls"] == 0
+        assert result["est_cost_usd"] is None
+
+    def test_record_model_usage_accumulates_tokens_and_known_cost(self) -> None:
+        research: dict[str, object] = {}
+        settings = SimpleNamespace(
+            model_prices={"gemini-2.5-flash": (0.30, 2.50)},
+        )
+
+        record_model_usage(
+            research,
+            SimpleNamespace(input_tokens=1000, output_tokens=100, tool_calls=0),
+            model_name="google-vertex:gemini-2.5-flash",
+            settings=settings,
+        )
+        record_model_usage(
+            research,
+            SimpleNamespace(input_tokens=500, output_tokens=50, tool_calls=1),
+            model_name="google-vertex:gemini-2.5-flash",
+            settings=settings,
+        )
+
+        result = _aggregate_usage(research, None)
+        assert result["input_tokens"] == 1500
+        assert result["output_tokens"] == 150
+        assert result["tool_calls"] == 1
+        assert result["est_cost_usd"] == 0.000825
 
 
 class TestVerifiedClaim:

@@ -223,6 +223,100 @@ class TestSearchSchoolSite:
         assert client.calls[0]["include_domains"] == ["mit.edu"]
 
     @pytest.mark.asyncio
+    async def test_prefers_admissions_url_over_broad_website(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from domain.envelope import Citation, CitationEnvelope
+
+        website_env = CitationEnvelope(
+            field="institution.website",
+            label="Website",
+            display="https://web.mit.edu",
+            raw="https://web.mit.edu",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+        admissions_env = CitationEnvelope(
+            field="institution.admissions_url",
+            label="Admissions URL",
+            display="https://mitadmissions.org/apply/",
+            raw="https://mitadmissions.org/apply/",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+
+        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
+            assert keys == [
+                "institution.admissions_url",
+                "institution.financial_aid_url",
+                "institution.net_price_calculator",
+                "institution.website",
+            ]
+            return [website_env, admissions_env]
+
+        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
+
+        client = StubTavilyClient([_make_result("https://mitadmissions.org/apply/firstyear")])
+        result = await search_school_site(
+            client,
+            FakeCatalog(),
+            166683,
+            "MIT undergraduate SAT ACT test policy",
+            today=TODAY,
+            max_results=MAX_RESULTS,
+        )
+        assert "results" in result
+        assert client.calls[0]["include_domains"] == ["mitadmissions.org"]
+
+    @pytest.mark.asyncio
+    async def test_financial_query_prefers_net_price_host(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from domain.envelope import Citation, CitationEnvelope
+
+        website_env = CitationEnvelope(
+            field="institution.website",
+            label="Website",
+            display="https://www.stanford.edu",
+            raw="https://www.stanford.edu",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+        admissions_env = CitationEnvelope(
+            field="institution.admissions_url",
+            label="Admissions URL",
+            display="https://admission.stanford.edu",
+            raw="https://admission.stanford.edu",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+        net_price_env = CitationEnvelope(
+            field="institution.net_price_calculator",
+            label="Net price calculator URL",
+            display="https://financialaid.stanford.edu/undergrad/how/calculator/",
+            raw="https://financialaid.stanford.edu/undergrad/how/calculator/",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+
+        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
+            return [website_env, admissions_env, net_price_env]
+
+        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
+
+        client = StubTavilyClient([_make_result("https://financialaid.stanford.edu/")])
+        result = await search_school_site(
+            client,
+            FakeCatalog(),
+            243744,
+            "Stanford undergraduate financial aid policy",
+            today=TODAY,
+            max_results=MAX_RESULTS,
+        )
+        assert "results" in result
+        assert client.calls[0]["include_domains"] == ["financialaid.stanford.edu"]
+
+    @pytest.mark.asyncio
     async def test_returns_error_when_no_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from domain.envelope import Citation, CitationEnvelope
 
