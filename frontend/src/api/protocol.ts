@@ -74,12 +74,32 @@ export type RenderSpec = {
 
 export type ClarifyOption = { label: string; hint: string };
 
+export type ResearchPlanTask = {
+  label: string;
+  reason: string;
+  sources: Array<'db' | 'official' | 'web' | 'reddit'>;
+  queries: string[];
+};
+
+export type ResearchPlanSpec = {
+  summary: string;
+  planner?: 'model' | 'fallback';
+  planner_note?: string | null;
+  schools: string[];
+  topics: string[];
+  tasks: ResearchPlanTask[];
+  source_policy: string[];
+  limitations: string[];
+  max_runtime_seconds: number;
+};
+
 export type ClarifySpec = {
   v: number;
   question: string;
   header: string;
   multi_select: boolean;
   options: ClarifyOption[];
+  research_plan?: ResearchPlanSpec | null;
 };
 
 // ── Event payloads ───────────────────────────────────────────────────────────

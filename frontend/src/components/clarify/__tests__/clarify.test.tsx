@@ -28,13 +28,31 @@ function spec(over: Partial<ClarifySpec> = {}): ClarifySpec {
 function researchSpec(over: Partial<ClarifySpec> = {}): ClarifySpec {
   return {
     v: 1,
-    question: 'Research CS programs at MIT and Stanford.',
+    question: 'Review the plan below, then choose Run deep research or Cancel.',
     header: 'Deep research',
     multi_select: false,
     options: [
       { label: 'Run deep research', hint: '' },
       { label: 'Cancel', hint: '' },
     ],
+    research_plan: {
+      summary: 'Compare MIT and Stanford for CS admissions, aid, and testing.',
+      planner: 'model',
+      planner_note: null,
+      schools: ['Massachusetts Institute of Technology', 'Stanford University'],
+      topics: ['CS admissions', 'Financial aid', 'Testing policy'],
+      tasks: [
+        {
+          label: 'Check official admissions policies',
+          reason: 'Current testing policy needs school-owned sources.',
+          sources: ['official'],
+          queries: ['MIT Stanford admissions test policy'],
+        },
+      ],
+      source_policy: ['Reddit only for qualitative sentiment.'],
+      limitations: ['Unsupported claims will be labeled.'],
+      max_runtime_seconds: 90,
+    },
     ...over,
   };
 }
@@ -77,12 +95,20 @@ describe('frozen clarify widget seeds from the persisted answer', () => {
 });
 
 describe('deep research plan panel', () => {
-  test('renders the phase list and action buttons when not frozen', () => {
+  test('renders the backend-provided structured plan and action buttons', () => {
     render(
       <ClarifyWidget spec={researchSpec()} frozen={false} onAnswer={vi.fn()} />,
     );
-    expect(screen.getByText('Deep research plan')).toBeInTheDocument();
-    expect(screen.getByText('8 phases', { exact: false })).toBeInTheDocument();
+    expect(
+      screen.getByText('Compare MIT and Stanford for CS admissions, aid, and testing.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Massachusetts Institute of Technology')).toBeInTheDocument();
+    expect(screen.getByText('Stanford University')).toBeInTheDocument();
+    expect(screen.getByText('Check official admissions policies')).toBeInTheDocument();
+    expect(screen.getByText('Reddit only for qualitative sentiment.')).toBeInTheDocument();
+    expect(screen.getByText('Maximum runtime: 90 seconds.')).toBeInTheDocument();
+    expect(screen.getByText('Review before running')).toBeInTheDocument();
+    expect(screen.queryByText('8 phases', { exact: false })).toBeNull();
     expect(screen.getByText('Run deep research')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
   });
@@ -107,15 +133,47 @@ describe('deep research plan panel', () => {
         spec={researchSpec()}
         frozen
         answer="Run deep research"
+        turnStatus="complete"
         onAnswer={vi.fn()}
       />,
     );
     expect(screen.queryByRole('button', { name: 'Run deep research' })).toBeNull();
-    expect(screen.getByText('Run deep research')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+  });
+
+  test('frozen panel shows running status while the resumed research turn streams', () => {
+    render(
+      <ClarifyWidget
+        spec={researchSpec()}
+        frozen
+        answer="Run deep research"
+        turnStatus="streaming"
+        onAnswer={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Running')).toBeInTheDocument();
   });
 
   test('does not render chip buttons (routes away from standard widget)', () => {
     render(<ClarifyWidget spec={researchSpec()} frozen={false} onAnswer={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Other' })).toBeNull();
+  });
+
+  test('labels fallback plans instead of presenting them as model-planned', () => {
+    render(
+      <ClarifyWidget
+        spec={researchSpec({
+          research_plan: {
+            ...researchSpec().research_plan!,
+            planner: 'fallback',
+            planner_note: 'The model planner was unavailable, so this is a bounded fallback plan.',
+          },
+        })}
+        frozen={false}
+        onAnswer={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/bounded fallback plan/i)).toBeInTheDocument();
   });
 });

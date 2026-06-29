@@ -12,8 +12,7 @@
  * Upstream source: npx shadcn@latest add https://21st.dev/r/easemize/ai-prompt-box
  */
 import React from 'react';
-import { ArrowUp, Paperclip, Square, StopCircle, Mic, BrainCog } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowUp, Paperclip, Square, StopCircle, Mic } from 'lucide-react';
 import { cn } from '@librechat/client/utils';
 import type { SourceConfig } from '@/api/sourceConfigStore';
 import { SourcesControl, type SourceId } from './SourcesControl';
@@ -57,6 +56,8 @@ export interface CounselleComposerProps {
   onSourcesChange: (patch: Partial<SourceConfig>) => void;
   /** Show the ResponseModeControl pill (hidden when deep_research_enabled=false). */
   deepResearchEnabled?: boolean;
+  /** Disable free typing while a button-only gate, such as Run/Cancel, is active. */
+  inputDisabled?: boolean;
 }
 export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, CounselleComposerProps>(
   function CounselleComposer(props, ref) {
@@ -73,12 +74,12 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
       subs,
       onSourcesChange,
       deepResearchEnabled = false,
+      inputDisabled = false,
     } = props;
     const [files, setFiles] = React.useState<File[]>([]);
     const [filePreview, setFilePreview] = React.useState<string | null>(null);
     const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
     const [isRecording, setIsRecording] = React.useState(false);
-    const [thinking, setThinking] = React.useState(false);
     const [sourcesOpen, setSourcesOpen] = React.useState(false);
     const uploadInputRef = React.useRef<HTMLInputElement>(null);
     const promptBoxRef = React.useRef<HTMLDivElement>(null);
@@ -169,6 +170,7 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
         value={value}
         onValueChange={onValueChange}
         isLoading={isLoading}
+        disabled={inputDisabled || isRecording}
         enterToSend={enterToSend}
         onSubmit={handleSubmit}
         className={cn(
@@ -178,7 +180,6 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
           isRecording && 'border-red-500/70 dark:border-red-500/70',
           className,
         )}
-        disabled={isRecording}
         ref={promptBoxRef}
         onPaste={handlePaste}
         onDragOver={handleDragOver}
@@ -190,7 +191,7 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
             upload channel lands. */}
 
         <div className={cn('transition-all duration-300', isRecording ? 'h-0 overflow-hidden opacity-0' : 'opacity-100')}>
-          <PromptInputTextarea ref={ref} placeholder={thinking ? 'Think deeply…' : placeholder} className="text-base" />
+          <PromptInputTextarea ref={ref} placeholder={placeholder} className="text-base" />
         </div>
 
         {/* Voice affordance gated off (FE-M3): no voice channel exists. */}
@@ -259,41 +260,6 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
                 )}
               />
 
-              {/* Think pill — kept verbatim from upstream (future thinking mode) */}
-              <button
-                type="button"
-                onClick={() => setThinking((prev) => !prev)}
-                className={cn(
-                  'rounded-full transition-all flex items-center gap-1 px-2 py-1 border h-8',
-                  thinking
-                    ? 'ml-2.5 bg-[#8B5CF6]/15 border-[#8B5CF6] text-[#8B5CF6]'
-                    : 'ml-0 bg-transparent border-transparent text-gray-500 hover:text-gray-700 dark:text-[#9CA3AF] dark:hover:text-[#D1D5DB]',
-                )}
-              >
-                <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                  <motion.div
-                    animate={{ rotate: thinking ? 360 : 0, scale: thinking ? 1.1 : 1 }}
-                    whileHover={{ rotate: thinking ? 360 : 15, scale: 1.1, transition: { type: 'spring', stiffness: 300, damping: 10 } }}
-                    transition={{ type: 'spring', stiffness: 260, damping: 25 }}
-                  >
-                    <BrainCog className={cn('w-4 h-4', thinking ? 'text-[#8B5CF6]' : 'text-inherit')} />
-                  </motion.div>
-                </div>
-                <AnimatePresence>
-                  {thinking && (
-                    <motion.span
-                      initial={{ width: 0, opacity: 0 }}
-                      animate={{ width: 'auto', opacity: 1 }}
-                      exit={{ width: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="text-xs overflow-hidden whitespace-nowrap text-[#8B5CF6] flex-shrink-0"
-                    >
-                      Think
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </button>
-
               {deepResearchEnabled && (
                 <>
                   <span className="h-5 w-px bg-gray-200 dark:bg-white/10 ml-1 mr-1" />
@@ -317,7 +283,8 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
             <Button
               variant="default"
               size="icon"
-              disabled={!isLoading && !(VOICE_ENABLED && isRecording) && !hasContent}
+              disabled={inputDisabled || (!isLoading && !(VOICE_ENABLED && isRecording) && !hasContent)}
+              aria-disabled={inputDisabled}
               className={cn(
                 'h-8 w-8 rounded-full transition-all duration-200',
                 // idle + hasContent use the (theme-aware) filled default variant;
@@ -329,6 +296,7 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
                 // fallback is gated off (FE-M3) — with VOICE_ENABLED false the
                 // button is disabled rather than entering a recording UI that
                 // submits nothing.
+                if (inputDisabled) return;
                 if (VOICE_ENABLED && isRecording) setIsRecording(false);
                 else if (isLoading) onStop?.();
                 else if (hasContent) handleSubmit();

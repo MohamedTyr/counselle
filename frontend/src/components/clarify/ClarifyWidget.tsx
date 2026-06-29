@@ -14,8 +14,9 @@
  * Deep research: when `spec.header === 'Deep research'`, routes to a plan
  * confirmation panel (ResearchPlanPanel) instead of the normal chip widget.
  */
-import { useState } from 'react';
-import type { ClarifySpec } from '@/api/protocol';
+import { useState, type ReactNode } from 'react';
+import type { ClarifySpec, ResearchPlanSpec } from '@/api/protocol';
+import type { TurnStatus } from '@/api/turn-reducer';
 import { cn } from '~/utils';
 
 type ClarifyWidgetProps = {
@@ -26,6 +27,7 @@ type ClarifyWidgetProps = {
    *  student chose. Seeds the frozen widget's selection so it shows what was
    *  chosen (PRD 25). null/undefined = unanswered (live parked or never resumed). */
   answer?: string | null;
+  turnStatus?: TurnStatus;
 };
 
 type ChipProps = {
@@ -184,71 +186,209 @@ function StandardClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidget
   );
 }
 
-// ── Deep research plan panel ─────────────────────────────────────────────────
+// ── Deep research confirmation panel ─────────────────────────────────────────
 
-const RESEARCH_PHASES = [
-  { num: 1, label: 'Planning research', sub: 'Resolve schools, question scope, and evidence needs.' },
-  { num: 2, label: 'Checking Counselle data', sub: 'Use CDS, IPEDS, Scorecard, programs, and outcome envelopes first.' },
-  { num: 3, label: 'Searching official sources', sub: 'Career outcome pages and current school publications.' },
-  { num: 4, label: 'Searching web', sub: 'Supporting context when official sources are incomplete.' },
-  { num: 5, label: 'Checking student sentiment', sub: 'Reddit only as qualitative signal.' },
-  { num: 6, label: 'Extracting relevant pages', sub: 'Pull citations for pages selected by source gates.' },
-  { num: 7, label: 'Verifying evidence', sub: 'Check numbers, dates, policy statements, and recommendations.' },
-  { num: 8, label: 'Writing report', sub: 'Separate facts, official findings, sentiment, unknowns, and next steps.' },
-];
+const SOURCE_LABELS: Record<string, string> = {
+  db: 'Counselle data',
+  official: 'Official',
+  web: 'Web',
+  reddit: 'Reddit',
+};
 
-function ResearchPlanPanel({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
+function PlanSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="border-t border-border-light pt-4 first:border-t-0 first:pt-0">
+      <h4 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">{title}</h4>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
+function ResearchPlanDetails({ plan }: { plan: ResearchPlanSpec }) {
+  return (
+    <div className="mt-4 space-y-4">
+      <PlanSection title="Scope">
+        <p className="max-w-[76ch] text-[15px] leading-7 text-text-primary">{plan.summary}</p>
+        {plan.planner === 'fallback' && (
+          <p className="mt-2 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1.5 text-xs leading-5 text-amber-700 dark:text-amber-300">
+            {plan.planner_note ?? 'Using a bounded fallback plan because model planning is unavailable.'}
+          </p>
+        )}
+        {plan.schools.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {plan.schools.map((school) => (
+              <span
+                key={school}
+                className="rounded-md bg-surface-secondary px-2 py-1 text-xs text-text-primary"
+              >
+                {school}
+              </span>
+            ))}
+          </div>
+        )}
+      </PlanSection>
+
+      {plan.topics.length > 0 && (
+        <PlanSection title="Questions">
+          <ul className="grid gap-1.5 text-sm leading-6 text-text-primary sm:grid-cols-2">
+            {plan.topics.map((topic) => (
+              <li key={topic} className="min-w-0 rounded-md bg-surface-secondary px-2.5 py-1.5">
+                {topic}
+              </li>
+            ))}
+          </ul>
+        </PlanSection>
+      )}
+
+      {plan.tasks.length > 0 && (
+        <details className="border-t border-border-light pt-4">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary hover:text-text-primary">
+            Detailed work plan
+          </summary>
+          <ol className="mt-3 space-y-3 text-sm text-text-primary">
+            {plan.tasks.map((task, index) => (
+                <li key={`${task.label}-${index}`} className="grid grid-cols-[24px_1fr] gap-3">
+                  <span className="mt-0.5 grid size-6 place-items-center rounded-full border border-border-light text-[11px] tabular-nums text-text-secondary">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-medium leading-6">{task.label}</div>
+                    <div className="mt-0.5 text-xs leading-5 text-text-secondary">{task.reason}</div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {task.sources.map((source) => (
+                        <span
+                          key={source}
+                          className="rounded-md border border-border-light px-1.5 py-0.5 text-[11px] text-text-secondary"
+                        >
+                          {SOURCE_LABELS[source] ?? source}
+                        </span>
+                      ))}
+                    </div>
+                    {task.queries.length > 0 && (
+                      <details className="mt-1.5">
+                        <summary className="cursor-pointer text-[11px] leading-5 text-text-secondary hover:text-text-primary">
+                          Search details
+                        </summary>
+                        <div className="mt-1 space-y-1 text-[11px] leading-5 text-text-secondary">
+                          {task.queries.slice(0, 3).map((query) => (
+                            <div key={query} className="min-w-0 break-words">
+                              {query}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </li>
+              ))}
+          </ol>
+        </details>
+      )}
+
+      {plan.source_policy.length > 0 && (
+        <PlanSection title="Source rules">
+          <ul className="space-y-1.5 text-xs leading-5 text-text-secondary">
+            {plan.source_policy.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </PlanSection>
+      )}
+
+      {plan.limitations.length > 0 && (
+        <PlanSection title="Limits">
+          <ul className="space-y-1.5 text-xs leading-5 text-text-secondary">
+            {plan.limitations.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+            <li>Maximum runtime: {plan.max_runtime_seconds} seconds.</li>
+          </ul>
+        </PlanSection>
+      )}
+    </div>
+  );
+}
+
+function researchPlanStatus({
+  frozen,
+  answer,
+  turnStatus,
+}: {
+  frozen: boolean;
+  answer?: string | null;
+  turnStatus?: TurnStatus;
+}): { label: string; tone: 'ready' | 'running' | 'done' | 'cancelled' } {
+  const declined =
+    answer !== undefined &&
+    answer !== null &&
+    /cancel|skip|no|stop/i.test(answer);
+  if (!frozen) {
+    return { label: 'Review before running', tone: 'ready' };
+  }
+  if (declined || turnStatus === 'cancelled') {
+    return { label: 'Cancelled', tone: 'cancelled' };
+  }
+  if (turnStatus === 'streaming' || turnStatus === 'idle') {
+    return { label: 'Running', tone: 'running' };
+  }
+  if (turnStatus === 'complete') {
+    return { label: 'Completed', tone: 'done' };
+  }
+  if (turnStatus === 'error') {
+    return { label: 'Stopped', tone: 'cancelled' };
+  }
+  return { label: 'Plan saved', tone: 'done' };
+}
+
+function ResearchPlanPanel({ spec, frozen, onAnswer, answer, turnStatus }: ClarifyWidgetProps) {
   const runOption = spec.options[0];
   const cancelOption = spec.options[1];
+  const plan = spec.research_plan;
+  const status = researchPlanStatus({ frozen, answer, turnStatus });
 
   return (
-    <div className="not-prose my-3 rounded-xl border border-border-light bg-surface-primary-alt p-4">
-      <div className="text-xs uppercase tracking-wide text-text-secondary">{spec.header}</div>
-      <p className="mt-1 text-sm text-text-secondary">{spec.question}</p>
-      <div className="mt-3 rounded-xl border border-border-light bg-surface-primary p-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-semibold text-text-primary">Deep research plan</span>
-          <span className="text-xs text-text-secondary">2–4 min · 8 phases</span>
+    <div className="not-prose my-3 rounded-xl border border-border-light bg-surface-primary-alt p-4 shadow-[0_1px_0_rgba(0,0,0,0.02)]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
+            {spec.header}
+          </div>
+          <div className="mt-1 text-sm font-semibold text-text-primary">Research plan</div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          {RESEARCH_PHASES.map((p) => (
-            <div key={p.num} className="flex items-start gap-2">
-              <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-surface-secondary text-[11px] font-medium text-text-secondary">
-                {p.num}
-              </span>
-              <div>
-                <span className="text-[13px] font-medium text-text-primary">{p.label}</span>
-                <span className="ml-1.5 text-[12px] text-text-secondary">{p.sub}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-text-secondary">
-          Sources: Counselle data · .edu pages · web · Reddit sentiment. Disabled sources are not called.
-        </p>
+        <span
+          className={cn(
+            'shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium',
+            status.tone === 'ready' && 'border-border-light text-text-secondary',
+            status.tone === 'running' && 'border-teal-500/40 bg-teal-500/10 text-teal-700 dark:text-teal-300',
+            status.tone === 'done' && 'border-[var(--official-border)] bg-[var(--official-surface)] text-[var(--official-text)]',
+            status.tone === 'cancelled' && 'border-border-light text-text-secondary',
+          )}
+        >
+          {status.label}
+        </span>
       </div>
+      {plan !== undefined && plan !== null ? (
+        <ResearchPlanDetails plan={plan} />
+      ) : (
+        <p className="mt-2 max-w-[72ch] text-sm leading-6 text-text-primary">{spec.question}</p>
+      )}
       {!frozen && runOption !== undefined && cancelOption !== undefined && (
         <div className="mt-3 flex gap-2">
           <button
             type="button"
             onClick={() => onAnswer(runOption.label)}
-            className="min-h-[44px] flex-1 rounded-xl bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
+            className="min-h-[44px] flex-1 rounded-xl bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
           >
             {runOption.label}
           </button>
           <button
             type="button"
             onClick={() => onAnswer(cancelOption.label)}
-            className="min-h-[44px] rounded-xl border border-border-light px-4 text-sm font-medium text-text-primary hover:bg-surface-hover"
+            className="min-h-[44px] rounded-xl border border-border-light px-4 text-sm font-medium text-text-primary hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-xheavy"
           >
             {cancelOption.label}
           </button>
         </div>
-      )}
-      {frozen && answer != null && (
-        <p className="mt-3 text-sm text-text-secondary">
-          You chose: <strong>{answer}</strong>
-        </p>
       )}
     </div>
   );
@@ -256,9 +396,17 @@ function ResearchPlanPanel({ spec, frozen, onAnswer, answer }: ClarifyWidgetProp
 
 // ── Router ───────────────────────────────────────────────────────────────────
 
-export default function ClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
+export default function ClarifyWidget({ spec, frozen, onAnswer, answer, turnStatus }: ClarifyWidgetProps) {
   if (spec.header === 'Deep research') {
-    return <ResearchPlanPanel spec={spec} frozen={frozen} onAnswer={onAnswer} answer={answer} />;
+    return (
+      <ResearchPlanPanel
+        spec={spec}
+        frozen={frozen}
+        onAnswer={onAnswer}
+        answer={answer}
+        turnStatus={turnStatus}
+      />
+    );
   }
   return <StandardClarifyWidget spec={spec} frozen={frozen} onAnswer={onAnswer} answer={answer} />;
 }

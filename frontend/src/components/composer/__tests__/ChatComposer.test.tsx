@@ -25,6 +25,7 @@ const ctx = {
   submitMessage: vi.fn(async (_text: string) => true),
   stopGenerating: vi.fn(),
   awaitingClarify: false,
+  awaitingResearchPlan: false,
 };
 vi.mock('@/app/ChatContext', () => ({
   useChatContext: () => ctx,
@@ -72,6 +73,7 @@ beforeEach(() => {
   ctx.conversationId = 'convo-test';
   ctx.isSubmitting = false;
   ctx.awaitingClarify = false;
+  ctx.awaitingResearchPlan = false;
   ctx.submitMessage = vi.fn(async (_text: string) => true);
   ctx.stopGenerating = vi.fn();
 });
@@ -176,6 +178,18 @@ describe('awaitingClarify placeholder (behavior 19)', () => {
   test('default placeholder when not awaiting clarify', () => {
     render(<Harness />);
     expect(getTextarea().getAttribute('placeholder')).toBe('Message Counselle');
+  });
+
+  test('research plan gate disables free typing and submit', () => {
+    ctx.awaitingClarify = true;
+    ctx.awaitingResearchPlan = true;
+    render(<Harness />);
+    expect(getTextarea()).toBeDisabled();
+    expect(getTextarea().getAttribute('placeholder')).toBe(
+      'Use Run deep research or Cancel above…',
+    );
+    fireEvent.keyDown(getTextarea(), { key: 'Enter' });
+    expect(ctx.submitMessage).not.toHaveBeenCalled();
   });
 });
 

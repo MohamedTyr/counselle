@@ -34,6 +34,7 @@ import { CounselleComposer, type SourceId } from '@/components/composer';
  */
 const DEFAULT_PLACEHOLDER = 'Message Counselle';
 const CLARIFY_PLACEHOLDER = 'Pick one, or just type…';
+const RESEARCH_GATE_PLACEHOLDER = 'Use Run deep research or Cancel above…';
 const RESEARCH_PLACEHOLDER = 'Ask for a sourced research report…';
 
 /**
@@ -62,8 +63,14 @@ export default function ChatComposer({
   centerFormOnLanding = false,
   textAreaRef: externalTextAreaRef,
 }: ChatComposerProps) {
-  const { conversationId, isSubmitting, submitMessage, stopGenerating, awaitingClarify } =
-    useChatContext();
+  const {
+    conversationId,
+    isSubmitting,
+    submitMessage,
+    stopGenerating,
+    awaitingClarify,
+    awaitingResearchPlan,
+  } = useChatContext();
   const queryClient = useQueryClient();
 
   // RHF is the single source of truth for the composer text (kept from ChatForm).
@@ -92,7 +99,7 @@ export default function ChatComposer({
   // ChatForm.onSubmit — a failed send must not lose what the student typed).
   const onSend = useCallback(async () => {
     const trimmed = (text ?? '').trim();
-    if (!trimmed || isSubmitting) {
+    if (!trimmed || isSubmitting || awaitingResearchPlan) {
       return;
     }
     methods.reset({ text: '' });
@@ -100,7 +107,7 @@ export default function ChatComposer({
     if (!accepted) {
       methods.reset({ text: trimmed });
     }
-  }, [text, isSubmitting, methods, submitMessage]);
+  }, [text, isSubmitting, awaitingResearchPlan, methods, submitMessage]);
 
   // Source state (FE-SOURCECFG-DUAL): the per-session config is the single
   // reactive React Query cache value — seeded by ChatContext's transcript fetch
@@ -128,11 +135,13 @@ export default function ChatComposer({
   const enterToSend = useAtomValue(enterToSendAtom);
   const deepResearchArmed = useAtomValue(deepResearchArmedAtom);
   const deepResearchEnabled = useDeepResearchEnabled();
-  const placeholder = awaitingClarify
-    ? CLARIFY_PLACEHOLDER
-    : deepResearchArmed
-    ? RESEARCH_PLACEHOLDER
-    : DEFAULT_PLACEHOLDER;
+  const placeholder = awaitingResearchPlan
+    ? RESEARCH_GATE_PLACEHOLDER
+    : awaitingClarify
+      ? CLARIFY_PLACEHOLDER
+      : deepResearchArmed
+        ? RESEARCH_PLACEHOLDER
+        : DEFAULT_PLACEHOLDER;
 
   const active = useMemo(() => toActiveSet(config), [config]);
 
@@ -158,6 +167,7 @@ export default function ChatComposer({
         isLoading={isSubmitting}
         enterToSend={enterToSend}
         placeholder={placeholder}
+        inputDisabled={awaitingResearchPlan}
         active={active}
         subs={config.selectedSubreddits}
         onSourcesChange={handleSourcesChange}

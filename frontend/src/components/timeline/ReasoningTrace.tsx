@@ -365,8 +365,14 @@ function TraceHeader({
   // WALL-CLOCK, not summed tool-time. A turn that ran live this session has
   // `elapsed` frozen at completion (true duration, incl. model time); prefer it.
   // Only a reloaded turn (never live → elapsed 0) falls back to `durationMs`.
-  const dur = formatDurationMs(elapsed > 0 ? elapsed : (durationMs ?? 0));
-  const doneText = `Thought for ${dur}`;
+  const settledDurationMs = elapsed > 0 ? elapsed : (durationMs ?? 0);
+  const dur = formatDurationMs(settledDurationMs);
+  const doneText =
+    status === 'awaiting_input'
+      ? 'Waiting for your choice'
+      : settledDurationMs < 1000
+        ? 'Worked briefly'
+        : `Thought for ${dur}`;
   const label = !live ? doneText : open ? 'Working' : shown;
   const ariaLabel = live ? 'Agent thinking — expand to see the steps' : `${doneText} — expand`;
 

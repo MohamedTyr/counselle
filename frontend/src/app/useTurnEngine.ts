@@ -26,6 +26,7 @@ import type { SourceConfig } from '@/api/sourceConfigStore';
 import {
   initialTurnState,
   reduce,
+  type TimelineEntry,
   type TurnState,
 } from '@/api/turn-reducer';
 import type { ProtocolEvent } from '@/api/protocol';
@@ -75,7 +76,11 @@ export interface TurnEngine {
   turn: LiveTurn | null;
   isSubmitting: boolean;
   turnError: TurnError | null;
-  submitMessage: (text: string, replaceMessageId?: string, opts?: { deepResearch?: boolean }) => Promise<boolean>;
+  submitMessage: (
+    text: string,
+    replaceMessageId?: string,
+    opts?: { deepResearch?: boolean; suppressUserEcho?: boolean; resumeFromMessage?: ChatMessage },
+  ) => Promise<boolean>;
   ask: (props: AskProps) => void;
   regenerate: (message: ChatMessage) => void;
   stopGenerating: () => void;
@@ -87,9 +92,41 @@ export interface TurnEngine {
     text: string,
     replaceMessageId?: string,
     deepResearch?: boolean,
+    reconcileTempUserId?: boolean,
+    initialAssistant?: { messageId: string; hasBackendId: boolean; state?: TurnState },
   ) => Promise<void>;
   /** Cleared by the provider's newConversation (it resets the projection). */
   clearTurnState: () => void;
+}
+
+function seedTurnStateFromMessage(message: ChatMessage): TurnState {
+  const timeline = message.timeline ?? [];
+  const steps =
+    timeline.length > 0
+      ? timeline.flatMap((entry) => (entry.type === 'step' ? [entry.step] : []))
+      : (message.stepRecord?.steps ?? []);
+  const thinking =
+    timeline.length > 0
+      ? timeline.flatMap((entry) => (entry.type === 'thinking' ? [entry.text] : []))
+      : (message.stepRecord?.thinking ?? []);
+  const seededTimeline =
+    timeline.length > 0
+      ? timeline
+      : ([
+          ...steps.map((step) => ({ type: 'step' as const, step })),
+          ...thinking.map((text, index) => ({ type: 'thinking' as const, id: `think-${index}`, text })),
+        ] satisfies TimelineEntry[]);
+
+  return {
+    ...initialTurnState(),
+    blocks: message.content ?? (message.text.length > 0 ? [{ kind: 'markdown', text: message.text }] : []),
+    steps,
+    thinking,
+    timeline: seededTimeline,
+    clarify: message.clarify ?? null,
+    sources: message.sources ?? [],
+    status: 'idle',
+  };
 }
 
 export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
@@ -154,10 +191,10 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
       stream: AsyncIterable<ProtocolEvent>,
       initialUserMessageId: string,
       reconcileTempUserId: boolean,
-      initialAssistant?: { messageId: string; hasBackendId: boolean },
+      initialAssistant?: { messageId: string; hasBackendId: boolean; state?: TurnState },
     ): Promise<boolean> => {
       const tempAssistantId = `temp-asst-${crypto.randomUUID()}`;
-      let state = initialTurnState();
+      let state = initialAssistant?.state ?? initialTurnState();
       let assistantMessageId = initialAssistant?.messageId ?? tempAssistantId;
       let userMessageId = initialUserMessageId;
       let hasBackendId = initialAssistant?.hasBackendId ?? false;
@@ -250,6 +287,8 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
       text: string,
       replaceMessageId?: string,
       deepResearch?: boolean,
+      reconcileTempUserId = true,
+      initialAssistant?: { messageId: string; hasBackendId: boolean; state?: TurnState },
     ): Promise<void> => {
       // Story 17: every send carries the conversation's current source config
       // (wire shape, mapped at the seam). The backend upserts it per send, so
@@ -262,7 +301,13 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
         ...(deepResearch ? { deep_research: true } : {}),
       };
       try {
-        await consumeStream(convoId, transport.sendMessage(convoId, body), tempUserMessageId, true);
+        await consumeStream(
+          convoId,
+          transport.sendMessage(convoId, body),
+          tempUserMessageId,
+          reconcileTempUserId,
+          initialAssistant,
+        );
       } catch (error: unknown) {
         // Pre-stream failure: keep the composer text for inline retry. No
         // fabricated entry — the optimistic user echo is dropped on retry.
@@ -345,7 +390,11 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
   );
 
   const startSend = useCallback(
-    async (text: string, replaceMessageId?: string, opts?: { deepResearch?: boolean }): Promise<void> => {
+    async (
+      text: string,
+      replaceMessageId?: string,
+      opts?: { deepResearch?: boolean; suppressUserEcho?: boolean; resumeFromMessage?: ChatMessage },
+    ): Promise<void> => {
       if (turnRef.current !== null) {
         return;
       }
@@ -368,13 +417,14 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
       // user message: the optimistic echo would duplicate the kept user bubble,
       // so we add no echo — the post-turn transcript re-read is the truth.
       let tempUserId = `temp-user-${crypto.randomUUID()}`;
-      if (replaceMessageId === undefined) {
+      const shouldEchoUser = replaceMessageId === undefined && opts?.suppressUserEcho !== true;
+      if (shouldEchoUser) {
         const ts = new Date().toISOString();
         setPersisted((prev) => [
           ...prev,
           userMessage(activeId as string, tempUserId, prev[prev.length - 1]?.messageId ?? null, text, ts),
         ]);
-      } else {
+      } else if (replaceMessageId !== undefined) {
         // On a replace the meta reconcile has nothing to swap; pass the canonical
         // id so the live turn parents correctly until the transcript re-read.
         tempUserId = replaceMessageId;
@@ -382,7 +432,21 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
       // Re-engage scroll-follow so the view follows the streaming answer even if
       // the user had scrolled up before sending (matches pre-Phase-5 behavior).
       setAbortScroll(false);
-      await runTurn(activeId, tempUserId, text, replaceMessageId, opts?.deepResearch);
+      await runTurn(
+        activeId,
+        tempUserId,
+        text,
+        replaceMessageId,
+        opts?.deepResearch,
+        replaceMessageId !== undefined || shouldEchoUser,
+        opts?.resumeFromMessage !== undefined
+          ? {
+              messageId: opts.resumeFromMessage.messageId,
+              hasBackendId: opts.resumeFromMessage.hasBackendId === true,
+              state: seedTurnStateFromMessage(opts.resumeFromMessage),
+            }
+          : undefined,
+      );
     },
     [
       navigate,
@@ -437,7 +501,11 @@ export function useTurnEngine(deps: UseTurnEngineDeps): TurnEngine {
   }, []);
 
   const submitMessage = useCallback(
-    async (text: string, replaceMessageId?: string, opts?: { deepResearch?: boolean }): Promise<boolean> => {
+    async (
+      text: string,
+      replaceMessageId?: string,
+      opts?: { deepResearch?: boolean; suppressUserEcho?: boolean; resumeFromMessage?: ChatMessage },
+    ): Promise<boolean> => {
       setPendingText(null);
       // Send-mid-stream: cancel the running turn and wait for it to terminate
       // before opening a new one (no two concurrent turns). If it didn't clear,

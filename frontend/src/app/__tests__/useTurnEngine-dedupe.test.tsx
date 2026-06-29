@@ -98,6 +98,69 @@ function assistant(messageId: string, conversationId = 'c1'): ChatMessage {
   };
 }
 
+function researchPlanAssistant(messageId: string): ChatMessage {
+  return {
+    ...assistant(messageId),
+    text: '',
+    turnStatus: 'awaiting_input',
+    clarify: {
+      v: 1,
+      question: 'Review the plan.',
+      header: 'Deep research',
+      multi_select: false,
+      options: [
+        { label: 'Run deep research', hint: '' },
+        { label: 'Cancel', hint: '' },
+      ],
+      research_plan: {
+        summary: 'Compare MIT and Stanford for CS admissions, aid, and testing.',
+        planner: 'model',
+        planner_note: null,
+        schools: ['Massachusetts Institute of Technology', 'Stanford University'],
+        topics: ['CS admissions', 'Financial aid', 'Testing policy'],
+        tasks: [
+          {
+            label: 'Check official admissions policies',
+            reason: 'Current testing policy needs school-owned sources.',
+            sources: ['official'],
+            queries: ['MIT Stanford testing policy'],
+          },
+        ],
+        source_policy: ['Use official school sources for current policy.'],
+        limitations: ['Unsupported claims will be labeled.'],
+        max_runtime_seconds: 90,
+      },
+    },
+    stepRecord: {
+      steps: [
+        {
+          step_id: 'research_planning',
+          status: 'end',
+          kind: 'research',
+          label: 'Planning research',
+          tier: 'official',
+          detail: null,
+        },
+      ],
+      thinking: [],
+      receipt: '1 step',
+    },
+    timeline: [
+      {
+        type: 'step',
+        step: {
+          step_id: 'research_planning',
+          status: 'end',
+          kind: 'research',
+          label: 'Planning research',
+          tier: 'official',
+          detail: null,
+        },
+      },
+    ],
+  };
+}
+
 function meta(messageId = 'asst-1'): ProtocolEvent {
   return {
     v: 1,
@@ -326,6 +389,40 @@ describe('useTurnEngine terminal assistant idempotency', () => {
         text: 'final',
         turnStatus: 'complete',
       });
+    });
+  });
+
+  test('resume from a research plan keeps the plan on the completed assistant card', async () => {
+    transportMocks.sendMessage.mockReturnValueOnce(
+      stream([meta('asst-plan'), delta('final report'), done()]),
+    );
+    const planMessage = researchPlanAssistant('asst-plan');
+
+    const { result } = renderHook(() => useHarness([user('user-1'), planMessage]), {
+      wrapper,
+    });
+
+    await act(async () => {
+      await result.current.engine.submitMessage('Run deep research', undefined, {
+        suppressUserEcho: true,
+        resumeFromMessage: planMessage,
+      });
+    });
+
+    await waitFor(() => {
+      const cards = assistantCards(result.current.messages);
+      expect(cards).toHaveLength(1);
+      expect(cards[0]).toMatchObject({
+        messageId: 'asst-plan',
+        text: 'final report',
+        turnStatus: 'complete',
+      });
+      expect(cards[0].clarify?.research_plan?.summary).toBe(
+        'Compare MIT and Stanford for CS admissions, aid, and testing.',
+      );
+      expect(cards[0].timeline?.map((entry) => entry.type === 'step' ? entry.step.label : entry.text)).toContain(
+        'Planning research',
+      );
     });
   });
 });

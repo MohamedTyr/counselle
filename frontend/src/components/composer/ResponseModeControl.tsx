@@ -1,5 +1,5 @@
 /**
- * ResponseModeControl — a brain-cog pill that lets the user arm "Deep research"
+ * ResponseModeControl — a mode pill that lets the user arm "Deep research"
  * for their next send. Modelled after SourcesControl: rounded-full pill, motion
  * icon, slide-out label, Radix Popover with the same styling tokens.
  *
@@ -8,7 +8,7 @@
  */
 import React from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { BrainCog, MessageSquare, Check } from 'lucide-react';
+import { FileSearch, MessageSquare, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAtom } from 'jotai';
 import { cn } from '@librechat/client/utils';
@@ -21,6 +21,7 @@ interface ResponseModeControlProps {
 export const ResponseModeControl: React.FC<ResponseModeControlProps> = ({ disabled }) => {
   const [armed, setArmed] = useAtom(deepResearchArmedAtom);
   const [open, setOpen] = React.useState(false);
+  const TriggerIcon = armed ? FileSearch : MessageSquare;
 
   const selectMode = (mode: 'standard' | 'research') => {
     setArmed(mode === 'research');
@@ -33,7 +34,8 @@ export const ResponseModeControl: React.FC<ResponseModeControlProps> = ({ disabl
         <button
           type="button"
           disabled={disabled}
-          aria-label={armed ? 'Deep research enabled' : 'Response mode'}
+          aria-label={armed ? 'Response mode: Deep research' : 'Response mode: Standard'}
+          title={armed ? 'Deep research mode' : 'Response mode'}
           className={cn(
             'rounded-full transition-all flex items-center gap-1 px-2 py-1 border h-8',
             armed
@@ -45,10 +47,10 @@ export const ResponseModeControl: React.FC<ResponseModeControlProps> = ({ disabl
         >
           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
             <motion.div
-              animate={{ rotate: open ? 360 : 0, scale: (open || armed) ? 1.1 : 1 }}
+              animate={{ scale: (open || armed) ? 1.08 : 1 }}
               transition={{ type: 'spring', stiffness: 260, damping: 25 }}
             >
-              <BrainCog className="w-4 h-4 text-inherit" />
+              <TriggerIcon className="w-4 h-4 text-inherit" />
             </motion.div>
           </div>
           <AnimatePresence>
@@ -60,7 +62,7 @@ export const ResponseModeControl: React.FC<ResponseModeControlProps> = ({ disabl
                 transition={{ duration: 0.2 }}
                 className="text-xs overflow-hidden whitespace-nowrap flex-shrink-0"
               >
-                Deep research
+                Research
               </motion.span>
             )}
           </AnimatePresence>
@@ -103,7 +105,7 @@ export const ResponseModeControl: React.FC<ResponseModeControlProps> = ({ disabl
             onClick={() => selectMode('research')}
             className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
           >
-            <BrainCog className="h-4 w-4 flex-shrink-0 text-teal-500" />
+            <FileSearch className="h-4 w-4 flex-shrink-0 text-teal-500" />
             <div className="flex-1">
               <div className="text-[13px] font-medium text-gray-800 dark:text-gray-200">Deep research</div>
               <div className="text-[11px] text-gray-400 dark:text-gray-500">Planned, multi-source report with verification</div>

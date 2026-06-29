@@ -59,6 +59,12 @@ describe('ReasoningTrace', () => {
     expect(screen.getByText('usnews.com')).toBeInTheDocument();
   });
 
+  test('an awaiting-input turn does not show a zero-duration thought receipt', () => {
+    render(<ReasoningTrace timeline={timeline} status="awaiting_input" durationMs={0} />);
+    expect(screen.getByText('Waiting for your choice')).toBeInTheDocument();
+    expect(screen.queryByText(/Thought for 0/)).toBeNull();
+  });
+
   test('a broken favicon hides without dropping the chip label', () => {
     render(<ReasoningTrace timeline={timeline} status="complete" />);
     fireEvent.click(screen.getByRole('button'));
@@ -136,14 +142,14 @@ describe('ReasoningTrace activity ticker (dwell)', () => {
       />,
     );
 
-    // Turn finishes: header switches to the settled "Thought for Ns"; the ticker
+    // Turn finishes: header switches to the settled receipt; the ticker
     // must not later drain a queued activity over it.
     rerender(<ReasoningTrace timeline={timeline} status="complete" />);
-    expect(screen.getByText(/Thought for/)).toBeInTheDocument();
+    expect(screen.getByText('Worked briefly')).toBeInTheDocument();
     act(() => {
       vi.advanceTimersByTime(2000);
     });
-    expect(screen.getByText(/Thought for/)).toBeInTheDocument();
+    expect(screen.getByText('Worked briefly')).toBeInTheDocument();
     expect(screen.queryByText('Pulling MIT')).toBeNull();
   });
 });
