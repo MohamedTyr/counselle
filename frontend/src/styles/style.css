@@ -318,7 +318,7 @@ html {
   font-family: Inter;
   font-style: normal;
   font-weight: 400;
-  src: url('$fonts/Inter-Regular.woff2') format('woff2');
+  src: url('/fonts/Inter-Regular.woff2') format('woff2');
   size-adjust: 94%;
 }
 
@@ -327,7 +327,7 @@ html {
   font-family: Inter;
   font-style: italic;
   font-weight: 400;
-  src: url('$fonts/Inter-Italic.woff2') format('woff2');
+  src: url('/fonts/Inter-Italic.woff2') format('woff2');
   size-adjust: 94%;
 }
 
@@ -336,7 +336,7 @@ html {
   font-family: Inter;
   font-style: normal;
   font-weight: 500;
-  src: url('$fonts/Inter-SemiBold.woff2') format('woff2');
+  src: url('/fonts/Inter-SemiBold.woff2') format('woff2');
   size-adjust: 94%;
 }
 
@@ -345,7 +345,7 @@ html {
   font-family: Inter;
   font-style: italic;
   font-weight: 500;
-  src: url('$fonts/Inter-SemiBoldItalic.woff2') format('woff2');
+  src: url('/fonts/Inter-SemiBoldItalic.woff2') format('woff2');
   size-adjust: 94%;
 }
 
@@ -354,7 +354,7 @@ html {
   font-family: Inter;
   font-style: normal;
   font-weight: 600;
-  src: url('$fonts/Inter-Bold.woff2') format('woff2');
+  src: url('/fonts/Inter-Bold.woff2') format('woff2');
   size-adjust: 94%;
 }
 
@@ -363,7 +363,7 @@ html {
   font-family: Inter;
   font-style: italic;
   font-weight: 600;
-  src: url('$fonts/Inter-BoldItalic.woff2') format('woff2');
+  src: url('/fonts/Inter-BoldItalic.woff2') format('woff2');
   size-adjust: 94%;
 }
 
@@ -372,7 +372,7 @@ html {
   font-family: Roboto Mono;
   font-style: normal;
   font-weight: 400;
-  src: url('$fonts/roboto-mono-latin-400-normal.woff2') format('woff2');
+  src: url('/fonts/roboto-mono-latin-400-normal.woff2') format('woff2');
 }
 
 @font-face {
@@ -380,7 +380,7 @@ html {
   font-family: Roboto Mono;
   font-style: normal;
   font-weight: 700;
-  src: url('$fonts/roboto-mono-latin-700-normal.woff2') format('woff2');
+  src: url('/fonts/roboto-mono-latin-700-normal.woff2') format('woff2');
 }
 
 @font-face {
@@ -388,7 +388,7 @@ html {
   font-family: Roboto Mono;
   font-style: italic;
   font-weight: 400;
-  src: url('$fonts/roboto-mono-latin-400-italic.woff2') format('woff2');
+  src: url('/fonts/roboto-mono-latin-400-italic.woff2') format('woff2');
 }
 
 /*
@@ -2993,7 +2993,7 @@ html {
    the matching row briefly glows so the eye lands on it. */
 @keyframes source-flash {
   0% {
-    background-color: color-mix(in oklab, var(--brand-purple) 18%, transparent);
+    background-color: rgba(171, 104, 255, 0.18);
   }
   100% {
     background-color: transparent;
