@@ -7,6 +7,7 @@ caps.external_unavailable and continues — partial is honest.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import date
@@ -109,13 +110,17 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                         break
                     query = queries[query_index]
                     try:
-                        result = await search_school_site(
+                        result = await _bounded_external_call(
+                            search_school_site,
                             client,
                             deps.catalog,
                             unitid,
                             query,
                             today=today,
                             max_results=max_results,
+                            research=research,
+                            settings=settings,
+                            caps=caps,
                         )
                         searches_used += 1
                         result = _tag_research_context(
@@ -144,15 +149,22 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
             )
             try:
                 web_queries = plan_queries.get("web") or [user_text]
-                result = await search_web(
+                result = await _bounded_external_call(
+                    search_web,
                     client,
                     web_queries[0],
                     today=today,
                     max_results=max_results,
+                    research=research,
+                    settings=settings,
+                    caps=caps,
+                )
+                result["results"] = _filter_school_related_results(
+                    result.get("results") or [], schools
                 )
                 searches_used += 1
                 result["results"] = _preserve_extracted_citations(
-                    result.get("results") or [], _citation_by_url(web_evidence)
+                    result.get("results") or [], _metadata_by_url(web_evidence)
                 )
                 annotated = registry.annotate_search_results(result)
                 web_evidence.extend(annotated.get("results") or [])
@@ -178,13 +190,17 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 default_subs = [s for s in subreddit_menu if "{school}" not in str(s)][:3]
                 if not default_subs:
                     default_subs = ["ApplyingToCollege"]
-                result = await search_reddit(
+                result = await _bounded_external_call(
+                    search_reddit,
                     client,
                     (plan_queries.get("reddit") or [user_text])[0],
                     default_subs,
                     allowed=subreddit_menu,
                     today=today,
                     max_results=max_results,
+                    research=research,
+                    settings=settings,
+                    caps=caps,
                 )
                 searches_used += 1
                 annotated = registry.annotate_search_results(result)
@@ -236,8 +252,11 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 caps["gptr_unavailable"] = gptr_result["unavailable"]
             if cost := gptr_result.get("cost_usd"):
                 _add_external_cost(research, caps, float(cost))
+            gptr_raw_results = _filter_school_related_results(
+                gptr_result.get("results") or [], schools
+            )
             gptr_results = _preserve_extracted_citations(
-                gptr_result.get("results") or [], _citation_by_url(web_evidence)
+                gptr_raw_results, _metadata_by_url(web_evidence)
             )
             annotated = registry.annotate_search_results(
                 {"results": gptr_results}
@@ -258,9 +277,18 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 research_step(
                     writer, emissions, "extract", "running", "Reading selected pages"
                 )
-                citation_by_url = _citation_by_url(web_evidence)
-                extracted = await extract_urls(client, top_urls, today)
-                extracted = _preserve_extracted_citations(extracted, citation_by_url)
+                metadata_by_url = _metadata_by_url(web_evidence)
+                extracted = await _bounded_external_call(
+                    extract_urls,
+                    client,
+                    top_urls,
+                    today,
+                    research=research,
+                    settings=settings,
+                    caps=caps,
+                    cap_s=15,
+                )
+                extracted = _preserve_extracted_citations(extracted, metadata_by_url)
                 extracts_used += len(top_urls)
                 annotated_extracted = registry.annotate_search_results(
                     {"results": extracted}
@@ -359,6 +387,32 @@ def _coverage_key(item: dict[str, Any]) -> tuple[str, str]:
     return (school, topic or "general")
 
 
+def _filter_school_related_results(
+    results: list[Any],
+    schools: list[Any],
+) -> list[Any]:
+    """Keep supplemental results that mention at least one requested school."""
+    if not schools:
+        return results
+    school_aliases = [
+        alias
+        for school in schools
+        for alias in _school_aliases(str(school))
+    ]
+    if not school_aliases:
+        return results
+    filtered: list[Any] = []
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        text = " ".join(
+            str(item.get(key) or "") for key in ("title", "snippet", "url")
+        ).lower()
+        if any(_contains_school_alias(text, alias) for alias in school_aliases):
+            filtered.append(item)
+    return filtered
+
+
 def _topic_from_text(text: str) -> str:
     lower = text.lower()
     if any(token in lower for token in ("financial", "aid", "cost", "tuition", "scholarship")):
@@ -374,9 +428,9 @@ def _topic_from_text(text: str) -> str:
     return "general"
 
 
-def _citation_by_url(evidence: list[Any]) -> dict[str, dict[str, Any]]:
-    """First registered citation for each URL, used to preserve official tiering."""
-    citations: dict[str, dict[str, Any]] = {}
+def _metadata_by_url(evidence: list[Any]) -> dict[str, dict[str, Any]]:
+    """First registered URL metadata, used to preserve tiering and coverage tags."""
+    metadata_by_url: dict[str, dict[str, Any]] = {}
     for item in evidence:
         if not isinstance(item, dict):
             continue
@@ -386,22 +440,32 @@ def _citation_by_url(evidence: list[Any]) -> dict[str, dict[str, Any]]:
             isinstance(url, str)
             and url
             and isinstance(citation, dict)
-            and url not in citations
+            and url not in metadata_by_url
         ):
-            citations[url] = citation
-    return citations
+            metadata: dict[str, Any] = {"citation": citation}
+            if item.get("_research_school"):
+                metadata["_research_school"] = item["_research_school"]
+            if item.get("_research_topic"):
+                metadata["_research_topic"] = item["_research_topic"]
+            metadata_by_url[url] = metadata
+    return metadata_by_url
 
 
 def _preserve_extracted_citations(
     extracted: list[dict[str, Any]],
-    citation_by_url: dict[str, dict[str, Any]],
+    metadata_by_url: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Keep school-site citations from search results on extracted page content."""
     preserved: list[dict[str, Any]] = []
     for item in extracted:
         url = item.get("url")
-        if isinstance(url, str) and url in citation_by_url:
-            preserved.append({**item, "citation": citation_by_url[url]})
+        if isinstance(url, str) and url in metadata_by_url:
+            metadata = metadata_by_url[url]
+            if {"source", "tier", "vintage"} <= metadata.keys():
+                # Backward-compatible path for tests/callers passing citation dicts.
+                preserved.append({**item, "citation": metadata})
+            else:
+                preserved.append({**item, **metadata})
         else:
             preserved.append(item)
     return preserved
@@ -439,6 +503,32 @@ def _add_external_cost(research: dict[str, Any], caps: dict[str, Any], cost: flo
     usage["est_cost_usd"] = float(current or 0.0) + cost
     research["usage"] = usage
     caps["est_cost_usd"] = usage["est_cost_usd"]
+
+
+async def _bounded_external_call(
+    func: Any,
+    *args: Any,
+    research: dict[str, Any],
+    settings: Any,
+    caps: dict[str, Any],
+    cap_s: float = 12,
+    **kwargs: Any,
+) -> Any:
+    """Run one external search/extract call inside the remaining research budget."""
+    timeout = remaining_time_seconds(
+        research,
+        float(settings.deep_research_soft_timeout_s),
+        reserve_s=10,
+        cap_s=cap_s,
+    )
+    if timeout < 1:
+        caps["external_timeout"] = True
+        raise TimeoutError("external research budget exhausted")
+    try:
+        return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout)
+    except TimeoutError:
+        caps["external_timeout"] = True
+        raise
 
 
 def _queries_by_source(plan: dict[str, Any]) -> dict[str, list[str]]:
@@ -532,7 +622,9 @@ def _topic_official_queries(school_name: str, topics: list[str]) -> list[str]:
         queries.append(f"{school_name} undergraduate admissions requirements")
 
     if has_aid:
-        queries.append(f"{school_name} undergraduate financial aid policy")
+        queries.append(
+            f"{school_name} undergraduate financial aid grants cost of attendance"
+        )
     if has_test:
         queries.append(f"{school_name} undergraduate SAT ACT test policy")
     if has_program and not has_admissions:
@@ -555,7 +647,16 @@ def _school_aliases(school_name: str) -> set[str]:
     ]
     if meaningful:
         aliases.add(" ".join(word.lower() for word in meaningful))
+        aliases.add(meaningful[0].lower())
         acronym = "".join(word[0] for word in meaningful).lower()
         if len(acronym) > 1:
             aliases.add(acronym)
     return {alias for alias in aliases if alias}
+
+
+def _contains_school_alias(text: str, alias: str) -> bool:
+    if not alias:
+        return False
+    if len(alias) <= 4:
+        return bool(re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", text))
+    return alias in text

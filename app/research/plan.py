@@ -139,6 +139,7 @@ def _candidate_school_mentions(text: str) -> list[str]:
     seen: set[str] = set()
 
     abbreviations: dict[str, str] = load_yaml_asset("abbreviations")
+    abbreviation_keys = {alias.lower() for alias in abbreviations}
     for alias in sorted(abbreviations, key=len, reverse=True):
         if re.search(rf"(?<!\w){re.escape(alias)}(?!\w)", text):
             seen.add(alias.lower())
@@ -149,10 +150,26 @@ def _candidate_school_mentions(text: str) -> list[str]:
         for candidate in [name, *_SCHOOL_CONNECTOR_SPLIT_RE.split(name)]:
             candidate = candidate.strip()
             key = candidate.lower()
-            if candidate and candidate not in _NON_SCHOOL_CANDIDATES and key not in seen:
+            if (
+                candidate
+                and candidate not in _NON_SCHOOL_CANDIDATES
+                and key not in seen
+                and not _unconfigured_acronym(candidate, abbreviation_keys)
+            ):
                 seen.add(key)
                 candidates.append(candidate)
     return candidates
+
+
+def _unconfigured_acronym(candidate: str, abbreviation_keys: set[str]) -> bool:
+    """Reject test/policy acronyms while preserving configured school aliases."""
+    compact = re.sub(r"[^A-Za-z]", "", candidate)
+    return (
+        bool(compact)
+        and compact.isupper()
+        and len(compact) <= 4
+        and candidate.lower() not in abbreviation_keys
+    )
 
 
 async def _parse_schools(text: str, max_schools: int, deps: Any) -> list[str]:

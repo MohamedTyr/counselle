@@ -276,19 +276,18 @@ async def search_school_site(
     results = resp.get("results", [])
 
     def _citation_for_school_result(url: str) -> Citation:
-        # On-domain ⇒ the school's own official site. Off-domain (include_domains
-        # is a relevance bias, not a hard guarantee) ⇒ re-tier honestly via the
-        # web-result rule so a third-party host is never stamped "official".
-        if _registrable_domain(url) in domains:
-            return Citation(
-                source="edu",
-                tier="official",
-                vintage=school_site_vintage,
-                url=url,
-            )
-        return _citation_for_web_result(url, today)
+        return Citation(
+            source="edu",
+            tier="official",
+            vintage=school_site_vintage,
+            url=url,
+        )
 
-    items = [_result_to_item(r, _citation_for_school_result(r.get("url", ""))) for r in results]
+    items = [
+        _result_to_item(r, _citation_for_school_result(r.get("url", "")))
+        for r in results
+        if _registrable_domain(r.get("url", "")) in domains
+    ]
     return {"results": items}
 
 

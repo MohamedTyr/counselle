@@ -109,15 +109,12 @@ def _build_partial_report(
     external_unavailable: bool,
     reason: str,
 ) -> str:
-    """Deterministic clean fallback when synthesis cannot finish in time."""
+    """Deterministic clean fallback when synthesis cannot finish."""
+    intro = _partial_intro(reason)
     lines = [
         "## Partial report",
         "",
-        (
-            "I could not finish the full write-up before the time limit, but I did "
-            "preserve the evidence checked so far. Treat this as partial, not a "
-            "complete comparison."
-        ),
+        intro,
         "",
         "## Question",
         "",
@@ -152,13 +149,38 @@ def _build_partial_report(
             "",
             "## Next check",
             "",
-            (
-                "Run the same research again with a larger time budget, or ask for one "
-                "narrower slice such as test policy only or financial aid only."
-            ),
+            _partial_next_check(reason),
         ]
     )
     return "\n".join(lines)
+
+
+def _partial_intro(reason: str) -> str:
+    lower = reason.lower()
+    if "time" in lower or "budget" in lower:
+        return (
+            "I could not finish the full write-up before the time limit, but I did "
+            "preserve the evidence checked so far. Treat this as partial, not a "
+            "complete comparison."
+        )
+    return (
+        "I could not finish the full write-up in this run, but I did preserve "
+        "the evidence checked so far. Treat this as partial, not a complete "
+        "comparison."
+    )
+
+
+def _partial_next_check(reason: str) -> str:
+    lower = reason.lower()
+    if "model" in lower or "quota" in lower or "httperror" in lower:
+        return (
+            "Retry after the model provider quota or availability issue clears, "
+            "or ask for one narrower slice such as test policy only or financial aid only."
+        )
+    return (
+        "Run the same research again with a larger time budget, or ask for one "
+        "narrower slice such as test policy only or financial aid only."
+    )
 
 
 def _claim_summary(claim: VerifiedClaim) -> str:

@@ -92,7 +92,10 @@ def test_official_queries_are_scoped_to_the_resolved_school() -> None:
         "Massachusetts Institute of Technology computer science undergraduate "
         "admissions requirements"
     )
-    assert "Massachusetts Institute of Technology undergraduate financial aid policy" in queries
+    assert (
+        "Massachusetts Institute of Technology undergraduate financial aid grants cost "
+        "of attendance"
+    ) in queries
     assert "Massachusetts Institute of Technology undergraduate SAT ACT test policy" in queries
     assert (
         "Massachusetts Institute of Technology undergraduate admissions requirements"
@@ -185,11 +188,40 @@ async def test_default_official_budget_keeps_aid_and_testing_for_each_school() -
     assert called_queries == [
         "MIT computer science undergraduate admissions requirements",
         "Stanford computer science undergraduate admissions requirements",
-        "MIT undergraduate financial aid policy",
-        "Stanford undergraduate financial aid policy",
+        "MIT undergraduate financial aid grants cost of attendance",
+        "Stanford undergraduate financial aid grants cost of attendance",
         "MIT undergraduate SAT ACT test policy",
         "Stanford undergraduate SAT ACT test policy",
     ]
+
+
+def test_filter_school_related_results_removes_unrelated_school_pages() -> None:
+    from app.research.gather_external import _filter_school_related_results
+
+    results = [
+        {
+            "title": "MIT admissions",
+            "url": "https://mitadmissions.org/apply",
+            "snippet": "MIT first-year application requirements.",
+        },
+        {
+            "title": "Sattler admission requirements",
+            "url": "https://sattler.edu/admissions",
+            "snippet": "Sattler College admissions, SAT details, and technology policies.",
+        },
+        {
+            "title": "Stanford testing",
+            "url": "https://admission.stanford.edu/apply/testing.html",
+            "snippet": "Stanford ACT or SAT requirements.",
+        },
+    ]
+
+    filtered = _filter_school_related_results(
+        results,
+        ["Massachusetts Institute of Technology", "Stanford University"],
+    )
+
+    assert [item["title"] for item in filtered] == ["MIT admissions", "Stanford testing"]
 
 
 def test_preserve_extracted_citations_keeps_school_site_official_tiering() -> None:
@@ -221,6 +253,46 @@ def test_preserve_extracted_citations_keeps_school_site_official_tiering() -> No
     )
 
     assert preserved[0]["citation"] == citation
+
+
+def test_preserve_extracted_citations_keeps_research_context_tags() -> None:
+    from app.research.gather_external import _preserve_extracted_citations
+
+    url = "https://financialaid.stanford.edu/undergrad"
+    citation = {
+        "source": "edu",
+        "tier": "official",
+        "vintage": "Retrieved Jun 28, 2026 (school's official site)",
+        "url": url,
+    }
+    extracted = [
+        {
+            "title": url,
+            "url": url,
+            "snippet": "Stanford undergraduate financial aid details.",
+            "citation": {
+                "source": "web",
+                "tier": "community",
+                "vintage": "Retrieved Jun 28, 2026 (live web)",
+                "url": url,
+            },
+        }
+    ]
+
+    preserved = _preserve_extracted_citations(
+        extracted,
+        {
+            url: {
+                "citation": citation,
+                "_research_school": "Stanford University",
+                "_research_topic": "aid",
+            }
+        },
+    )
+
+    assert preserved[0]["citation"] == citation
+    assert preserved[0]["_research_school"] == "Stanford University"
+    assert preserved[0]["_research_topic"] == "aid"
 
 
 def test_top_urls_balances_extraction_across_school_topic_groups() -> None:

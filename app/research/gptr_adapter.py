@@ -8,7 +8,9 @@ verification, and synthesis stay in Counselle code.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date
@@ -48,6 +50,30 @@ async def gather_via_gptr(
     if unavailable:
         return {"results": [], "cost_usd": None, "unavailable": unavailable}
 
+    timeout = _gptr_timeout(settings, timeout_s)
+    return await _run_gptr_subprocess(
+        query,
+        source_config,
+        settings,
+        domains=domains,
+        today=today,
+        timeout=timeout,
+    )
+
+
+async def _gather_via_gptr_direct(
+    query: str,
+    source_config: SourceConfig,
+    settings: Any,
+    *,
+    domains: list[str] | None,
+    today: date,
+) -> dict[str, Any]:
+    """Run GPT-Researcher in the current process.
+
+    The public adapter runs this in a child process so the caller can enforce a
+    hard timeout even when GPT-Researcher or an underlying SDK blocks.
+    """
     try:
         from gpt_researcher import GPTResearcher
     except Exception:
@@ -67,8 +93,7 @@ async def gather_via_gptr(
                     verbose=False,
                     max_subtopics=1,
                 )
-                timeout = _gptr_timeout(settings, timeout_s)
-                await asyncio.wait_for(researcher.conduct_research(), timeout=timeout)
+                await researcher.conduct_research()
                 results = _results_from_researcher(
                     researcher,
                     report="",
@@ -82,6 +107,86 @@ async def gather_via_gptr(
         return {"results": [], "cost_usd": None, "unavailable": type(exc).__name__}
 
     return {"results": results, "cost_usd": float(cost) if cost else None, "unavailable": None}
+
+
+async def _run_gptr_subprocess(
+    query: str,
+    source_config: SourceConfig,
+    settings: Any,
+    *,
+    domains: list[str] | None,
+    today: date,
+    timeout: float,
+) -> dict[str, Any]:
+    """Run GPTR in a killable worker process with secrets passed over stdin."""
+    request = {
+        "query": query,
+        "source_config": source_config.model_dump(mode="json"),
+        "settings": _gptr_settings_payload(settings),
+        "domains": domains or [],
+        "today": today.isoformat(),
+    }
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "app.research.gptr_worker",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, _stderr = await asyncio.wait_for(
+            proc.communicate(json.dumps(request).encode("utf-8")),
+            timeout=timeout,
+        )
+    except TimeoutError:
+        proc.kill()
+        await proc.communicate()
+        return {"results": [], "cost_usd": None, "unavailable": "TimeoutError"}
+
+    if proc.returncode != 0:
+        return {"results": [], "cost_usd": None, "unavailable": "worker_failed"}
+    result = _parse_worker_json(stdout)
+    if result is None:
+        return {"results": [], "cost_usd": None, "unavailable": "worker_bad_output"}
+    return result
+
+
+def _parse_worker_json(stdout: bytes) -> dict[str, Any] | None:
+    """Parse the last JSON line so noisy dependencies cannot corrupt output."""
+    for line in reversed(stdout.decode("utf-8", errors="replace").splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            return data
+    return None
+
+
+def _gptr_settings_payload(settings: Any) -> dict[str, Any]:
+    """Minimal settings snapshot for the worker; never log the returned dict."""
+    return {
+        "deep_research_use_gptr": bool(getattr(settings, "deep_research_use_gptr", False)),
+        "tavily_api_key": getattr(settings, "tavily_api_key", None),
+        "gemini_api_key": getattr(settings, "gemini_api_key", None),
+        "vertex_api_key": getattr(settings, "vertex_api_key", None),
+        "google_cloud_project": getattr(settings, "google_cloud_project", None),
+        "google_cloud_location": getattr(settings, "google_cloud_location", None),
+        "effective_model_research_fast": str(settings.effective_model_research_fast),
+        "effective_model_research_smart": str(settings.effective_model_research_smart),
+        "effective_model_research_verifier": str(settings.effective_model_research_verifier),
+        "search_max_results": int(getattr(settings, "search_max_results", 5)),
+        "deep_research_max_final_sources": int(
+            getattr(settings, "deep_research_max_final_sources", 12)
+        ),
+        "deep_research_gptr_timeout_s": int(
+            getattr(settings, "deep_research_gptr_timeout_s", 30)
+        ),
+    }
 
 
 def _gptr_timeout(settings: Any, timeout_s: float | None = None) -> float:

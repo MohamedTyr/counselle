@@ -22,6 +22,17 @@ def test_candidate_school_mentions_splits_connected_schools() -> None:
     assert "Keep" not in mentions
 
 
+def test_candidate_school_mentions_does_not_treat_sat_as_school() -> None:
+    mentions = _candidate_school_mentions(
+        "MIT and Stanford comparison for current SAT/ACT policy."
+    )
+
+    assert "MIT" in mentions
+    assert "Stanford" in mentions
+    assert "SAT" not in mentions
+    assert "ACT" not in mentions
+
+
 def test_plan_summary_uses_enabled_sources_and_setting_cap() -> None:
     summary = _format_plan_summary(
         ["Massachusetts Institute of Technology", "Stanford University"],

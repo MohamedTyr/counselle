@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from app.research.verify import _build_evidence_text, _fallback_evidence_notes
+from app.research.verify import (
+    _build_evidence_text,
+    _fallback_evidence_notes,
+    _parse_verified_claims,
+)
 
 
 def test_fallback_evidence_notes_keep_single_source_claims_limited() -> None:
@@ -68,21 +72,59 @@ def test_build_evidence_text_keeps_second_school_sources_beyond_first_twenty() -
     web_evidence = [
         {
             "marker": f"[{index}]",
-            "title": "MIT source",
-            "snippet": "MIT-only source",
+            "title": "MIT admissions source",
+            "snippet": "MIT admissions-only source",
             "citation": {"source": "edu"},
         }
-        for index in range(1, 26)
+        for index in range(1, 76)
     ]
     web_evidence.append(
         {
-            "marker": "[26]",
+            "marker": "[76]",
             "title": "Stanford financial aid",
             "snippet": "Stanford financial aid source",
             "citation": {"source": "edu"},
         }
     )
 
-    evidence_text = _build_evidence_text([], web_evidence, max_claims=10)
+    evidence_text = _build_evidence_text(
+        [],
+        web_evidence,
+        max_claims=10,
+        schools=["Massachusetts Institute of Technology", "Stanford University"],
+    )
 
     assert "Stanford financial aid source" in evidence_text
+
+
+def test_parse_verified_claims_rejects_empty_or_unknown_markers() -> None:
+    claims = _parse_verified_claims(
+        """
+        [
+          {
+            "claim": "MIT requires test scores.",
+            "status": "verified",
+            "support_markers": ["[1]"],
+            "note": null
+          },
+          {
+            "claim": "Stanford has a policy with no citation.",
+            "status": "verified",
+            "support_markers": [],
+            "note": null
+          },
+          {
+            "claim": "Unknown marker should not pass.",
+            "status": "verified",
+            "support_markers": ["[99]"],
+            "note": null
+          }
+        ]
+        """,
+        max_claims=10,
+        allowed_markers={"[1]", "[2]"},
+    )
+
+    assert len(claims) == 1
+    assert claims[0].claim == "MIT requires test scores."
+    assert claims[0].support_markers == ["[1]"]

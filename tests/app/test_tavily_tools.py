@@ -405,36 +405,31 @@ class TestSearchSchoolSite:
         assert "school's official site" in citation["vintage"]
 
     @pytest.mark.asyncio
-    async def test_off_domain_result_is_retiered_community(
+    async def test_off_domain_result_is_dropped(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # DS-02: include_domains is a bias, not a guarantee. An off-domain result
-        # (a third-party host) must be re-tiered honestly, never stamped official.
+        # Tavily include_domains is a bias, not a guarantee. School-site search
+        # is the official-source path, so off-domain results are dropped instead
+        # of leaking in as third-party evidence.
         self._patch_duke_domain(monkeypatch)
         client = StubTavilyClient([_make_result("https://collegeconfidential.com/duke")])
         result = await search_school_site(
             client, FakeCatalog(), 198419, "early decision", today=TODAY, max_results=MAX_RESULTS
         )
-        citation = result["results"][0]["citation"]
-        assert citation["tier"] == "community"
-        assert citation["source"] == "web"
-        assert citation["tier"] != "official"
-        assert "verify on the school's official site" in citation["caveat"]
+        assert result["results"] == []
 
     @pytest.mark.asyncio
-    async def test_off_domain_gov_result_is_official_web(
+    async def test_off_domain_gov_result_is_dropped(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # DS-02: an off-domain .gov result re-derives correctly to official/web —
-        # the tier comes from the actual URL, not the school stamp.
+        # Even official-looking non-school domains do not belong in the
+        # school-site search result set.
         self._patch_duke_domain(monkeypatch)
         client = StubTavilyClient([_make_result("https://nces.ed.gov/ipeds")])
         result = await search_school_site(
             client, FakeCatalog(), 198419, "outcomes", today=TODAY, max_results=MAX_RESULTS
         )
-        citation = result["results"][0]["citation"]
-        assert citation["tier"] == "official"
-        assert citation["source"] == "web"
+        assert result["results"] == []
 
 
 # ---------------------------------------------------------------------------

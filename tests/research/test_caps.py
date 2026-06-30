@@ -132,6 +132,18 @@ class TestSoftTimeoutFlag:
         assert "This took too long" not in report
         assert "| Feature" not in report
 
+    def test_partial_report_distinguishes_model_failure_from_timeout(self) -> None:
+        report = _build_partial_report(
+            "Compare MIT and Stanford.",
+            [],
+            db_unavailable=False,
+            external_unavailable=False,
+            reason="The final write-up stopped before completion (ModelHTTPError).",
+        )
+
+        assert "before the time limit" not in report
+        assert "model provider quota or availability issue" in report
+
 
 class TestDbUnavailableFlag:
     def test_db_unavailable_in_prompt(self) -> None:
