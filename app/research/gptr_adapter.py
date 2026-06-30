@@ -12,7 +12,7 @@ import json
 import os
 import sys
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import date
 from typing import Any, Literal
 from urllib.parse import urlparse
@@ -85,24 +85,25 @@ async def _gather_via_gptr_direct(
     try:
         async with _GPTR_ENV_LOCK:
             with _temporary_env(env):
-                researcher = GPTResearcher(
-                    query=query,
-                    report_type="research_report",
-                    report_source="web",
-                    query_domains=query_domains,
-                    verbose=False,
-                    max_subtopics=1,
-                )
-                await researcher.conduct_research()
-                results = _results_from_researcher(
-                    researcher,
-                    report="",
-                    source_config=source_config,
-                    official_domains=domains or [],
-                    today=today,
-                    limit=int(getattr(settings, "deep_research_max_final_sources", 12)),
-                )
-                cost = researcher.get_costs()
+                with _gptr_vertex_express_patch(settings):
+                    researcher = GPTResearcher(
+                        query=query,
+                        report_type="research_report",
+                        report_source="web",
+                        query_domains=query_domains,
+                        verbose=False,
+                        max_subtopics=1,
+                    )
+                    await researcher.conduct_research()
+                    results = _results_from_researcher(
+                        researcher,
+                        report="",
+                        source_config=source_config,
+                        official_domains=domains or [],
+                        today=today,
+                        limit=int(getattr(settings, "deep_research_max_final_sources", 12)),
+                    )
+                    cost = researcher.get_costs()
     except Exception as exc:
         return {"results": [], "cost_usd": None, "unavailable": type(exc).__name__}
 
@@ -220,12 +221,12 @@ def _gptr_env(settings: Any) -> dict[str, str]:
     if _gptr_requires_vertex_backend(settings):
         key = getattr(settings, "vertex_api_key", None)
         if key:
-            env["GOOGLE_API_KEY"] = str(key)
-            env["GEMINI_API_KEY"] = str(key)
-        env["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
-        project = _gptr_google_cloud_project(settings)
-        if project:
-            env["GOOGLE_CLOUD_PROJECT"] = project
+            env["COUNSELLE_GPTR_VERTEX_API_KEY"] = str(key)
+        env["COUNSELLE_GPTR_VERTEX_EXPRESS"] = "true"
+        fallback_key = _gptr_gemini_api_key(settings) or (str(key) if key else None)
+        if fallback_key:
+            env["GOOGLE_API_KEY"] = fallback_key
+            env["GEMINI_API_KEY"] = fallback_key
         location = getattr(settings, "google_cloud_location", None)
         if location:
             env["GOOGLE_CLOUD_LOCATION"] = str(location)
@@ -241,8 +242,6 @@ def _gptr_config_unavailable(settings: Any) -> str | None:
     if _gptr_requires_vertex_backend(settings):
         if not _gptr_vertex_credentials_available(settings):
             return "missing_model_key"
-        if not _gptr_google_cloud_project(settings):
-            return "missing_google_cloud_project"
         return None
 
     if _gptr_uses_google_genai(settings) and not _gptr_gemini_api_key(settings):
@@ -277,10 +276,7 @@ def _raw_gptr_model(settings: Any, name: str) -> str:
 
 
 def _gptr_vertex_credentials_available(settings: Any) -> bool:
-    return bool(
-        getattr(settings, "vertex_api_key", None)
-        or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    )
+    return bool(getattr(settings, "vertex_api_key", None))
 
 
 def _gptr_gemini_api_key(settings: Any) -> str | None:
@@ -292,19 +288,125 @@ def _gptr_gemini_api_key(settings: Any) -> str | None:
     return str(value) if value else None
 
 
-def _gptr_google_cloud_project(settings: Any) -> str | None:
-    value = (
-        getattr(settings, "google_cloud_project", None)
-        or os.environ.get("GOOGLE_CLOUD_PROJECT")
-        or os.environ.get("GCP_PROJECT")
-    )
-    return str(value) if value else None
-
-
 def _gptr_model(model_setting: str) -> str:
     if model_setting.startswith("google-vertex:"):
         return f"google_genai:{model_setting.split(':', 1)[1]}"
     return model_setting
+
+
+@contextmanager
+def _gptr_vertex_express_patch(settings: Any) -> Iterator[None]:
+    """Make GPTR's LangChain LLM seam use Google GenAI Vertex express mode.
+
+    GPT-Researcher constructs LLMs through ``GenericLLMProvider.from_provider``.
+    The installed LangChain Google provider can use Vertex with API keys, but its
+    Vertex backend still requires ``GOOGLE_CLOUD_PROJECT``/ADC. Counselle's
+    supported local/prototype auth path is Vertex express mode:
+    ``genai.Client(vertexai=True, api_key=...)``. Patch only the child-process
+    GPTR provider seam, only for Vertex-configured research models.
+    """
+    if not _gptr_requires_vertex_backend(settings):
+        with nullcontext():
+            yield
+        return
+
+    try:
+        from gpt_researcher.llm_provider.generic.base import GenericLLMProvider
+    except Exception:
+        yield
+        return
+
+    original_descriptor = GenericLLMProvider.__dict__["from_provider"]
+    original = GenericLLMProvider.from_provider
+
+    def from_provider(
+        cls: type[Any],
+        /,
+        provider: str,
+        chat_log: str | None = None,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Any:
+        if provider == "google_genai" and os.environ.get("COUNSELLE_GPTR_VERTEX_EXPRESS"):
+            llm = _VertexExpressChat(
+                model=str(kwargs.get("model") or "gemini-2.5-flash"),
+                api_key=str(
+                    os.environ.get("COUNSELLE_GPTR_VERTEX_API_KEY")
+                    or getattr(settings, "vertex_api_key", "")
+                ),
+                temperature=kwargs.get("temperature"),
+                max_tokens=kwargs.get("max_tokens"),
+            )
+            return cls(llm, chat_log=chat_log, verbose=verbose)
+        return original(provider, chat_log=chat_log, verbose=verbose, **kwargs)
+
+    GenericLLMProvider.from_provider = classmethod(from_provider)
+    try:
+        yield
+    finally:
+        GenericLLMProvider.from_provider = original_descriptor
+
+
+class _VertexExpressChat:
+    """Small LangChain-compatible chat wrapper over google-genai express auth."""
+
+    def __init__(
+        self,
+        *,
+        model: str,
+        api_key: str,
+        temperature: Any = None,
+        max_tokens: Any = None,
+    ) -> None:
+        from google import genai
+
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.client = genai.Client(vertexai=True, api_key=api_key)
+
+    def invoke(self, messages: Any, *_args: Any, **_kwargs: Any) -> Any:
+        from google.genai import types
+        from langchain_core.messages import AIMessage
+
+        config_kwargs: dict[str, Any] = {}
+        if self.temperature is not None:
+            config_kwargs["temperature"] = self.temperature
+        if self.max_tokens is not None:
+            config_kwargs["max_output_tokens"] = self.max_tokens
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=_gptr_vertex_contents(messages),
+            config=types.GenerateContentConfig(**config_kwargs) if config_kwargs else None,
+        )
+        return AIMessage(content=response.text or "")
+
+    async def ainvoke(self, messages: Any, *_args: Any, **kwargs: Any) -> Any:
+        return await asyncio.to_thread(self.invoke, messages, **kwargs)
+
+    async def astream(self, messages: Any, *_args: Any, **kwargs: Any) -> Any:
+        yield await self.ainvoke(messages, **kwargs)
+
+
+def _gptr_vertex_contents(messages: Any) -> str:
+    """Flatten GPTR/LangChain messages into text for google-genai."""
+    if isinstance(messages, str):
+        return messages
+    if isinstance(messages, dict):
+        return str(messages.get("content") or messages)
+    if isinstance(messages, list):
+        parts: list[str] = []
+        for item in messages:
+            if isinstance(item, dict):
+                role = item.get("role")
+                content = item.get("content")
+            else:
+                role = getattr(item, "type", None) or getattr(item, "role", None)
+                content = getattr(item, "content", item)
+            if content:
+                parts.append(f"{role or 'message'}: {content}")
+        return "\n".join(parts)
+    return str(messages)
 
 
 def _results_from_researcher(

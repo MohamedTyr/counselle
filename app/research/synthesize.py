@@ -89,10 +89,18 @@ def _build_synthesis_prompt(
         lines.append("\n*Note: External search was unavailable; web sources may be missing.*")
     if caps.soft_timeout_hit:
         lines.append("\n*Note: Research hit the soft time limit; some sources may be missing.*")
+    if caps.verification_unavailable:
+        lines.append(
+            "\n*Note: Automated cross-checking did not complete "
+            f"({caps.verification_unavailable}); treat the evidence notes as "
+            "conservative source-grounded notes, not fully verified claims.*"
+        )
 
     lines.append(
         "\nWrite the report now. Use the citation markers from the evidence notes. "
         "When a note is UNSUPPORTED, phrase it as limited single-source evidence. "
+        "When verification was unavailable, state that limitation in the evidence "
+        "coverage section. "
         "Do not say no evidence was provided if evidence notes are listed. "
         "If the requested comparison cannot be completed, still organize the answer "
         "around the requested schools/topics and mark missing items explicitly. "

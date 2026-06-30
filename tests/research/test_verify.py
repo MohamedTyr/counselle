@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from app.research.verify import (
     _build_evidence_text,
     _fallback_evidence_notes,
     _parse_verified_claims,
+    research_verify_node,
 )
 
 
@@ -48,7 +55,7 @@ def test_fallback_evidence_notes_never_promote_reddit_to_fact() -> None:
     assert claims[0].support_markers == ["[2]"]
 
 
-def test_fallback_evidence_notes_keep_general_community_sources_sentiment_only() -> None:
+def test_fallback_evidence_notes_do_not_treat_general_web_as_sentiment() -> None:
     claims = _fallback_evidence_notes(
         db_evidence=[],
         web_evidence=[
@@ -63,9 +70,9 @@ def test_fallback_evidence_notes_keep_general_community_sources_sentiment_only()
     )
 
     assert len(claims) == 1
-    assert claims[0].status == "sentiment_only"
+    assert claims[0].status == "unsupported"
     assert claims[0].support_markers == ["[3]"]
-    assert "not policy or numbers" in (claims[0].note or "")
+    assert "Single-source evidence" in (claims[0].note or "")
 
 
 def test_build_evidence_text_keeps_second_school_sources_beyond_first_twenty() -> None:
@@ -128,3 +135,57 @@ def test_parse_verified_claims_rejects_empty_or_unknown_markers() -> None:
     assert len(claims) == 1
     assert claims[0].claim == "MIT requires test scores."
     assert claims[0].support_markers == ["[1]"]
+
+
+@pytest.mark.asyncio
+async def test_verify_timeout_is_recorded_and_step_is_not_green() -> None:
+    events: list[dict[str, Any]] = []
+    settings = SimpleNamespace(
+        deep_research_max_verified_claims=4,
+        deep_research_max_wall_clock_s=100,
+        deep_research_soft_timeout_s=75,
+        effective_model_research_verifier="google_genai:gemini-2.5-flash",
+    )
+
+    class FakeAgent:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def run(self, _prompt: str) -> object:
+            return object()
+
+    state = {
+        "research": {
+            "plan": {
+                "user_text": "Does MIT require tests?",
+                "schools": ["Massachusetts Institute of Technology"],
+            },
+            "caps": {},
+            "emissions": [],
+            "db_evidence": [],
+            "web_evidence": [
+                {
+                    "marker": "[1]",
+                    "title": "Tests & scores | MIT Admissions",
+                    "snippet": "MIT requires the SAT or ACT.",
+                    "citation": {"source": "edu", "tier": "official"},
+                }
+            ],
+        }
+    }
+
+    with (
+        patch("app.research.verify.get_settings", return_value=settings),
+        patch("app.research.verify.get_stream_writer", return_value=events.append),
+        patch("app.research.verify.build_research_model", return_value=object()),
+        patch("app.research.verify.Agent", FakeAgent),
+        patch("app.research.verify.asyncio.wait_for", new_callable=AsyncMock) as wait_for,
+    ):
+        wait_for.side_effect = TimeoutError
+
+        result = await research_verify_node(state, SimpleNamespace())
+
+    research = result["research"]
+    assert research["caps"]["verification_unavailable"] == "timeout"
+    assert research["verification"][0]["status"] == "unsupported"
+    assert events[-1]["data"]["status"] == "error"

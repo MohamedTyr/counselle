@@ -36,12 +36,12 @@ async def _fetch_school_data(school_name: str, deps: Any) -> list[Any]:
         if not isinstance(result, ResolveMatch):
             return []
         dossier = await get_dossier(catalog, result.school.unitid)
-        # Collect all envelopes from all sections
+        # Collect all envelopes from all sections.
         envelopes: list[Any] = []
         if hasattr(dossier, "sections"):
             for section in dossier.sections:
-                if hasattr(section, "fields"):
-                    envelopes.extend(section.fields)
+                if hasattr(section, "values"):
+                    envelopes.extend(section.values)
         return envelopes
     except Exception:
         logger.debug("failed to fetch school data for %r", school_name, exc_info=True)

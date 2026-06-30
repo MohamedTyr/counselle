@@ -30,3 +30,4 @@ class ResearchCaps(BaseModel):
     soft_timeout_hit: bool = False
     db_unavailable: bool = False
     external_unavailable: bool = False
+    verification_unavailable: str | None = None

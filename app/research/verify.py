@@ -23,7 +23,7 @@ from pydantic_ai import Agent
 from app.research.caps import remaining_time_seconds, soft_timeout_hit
 from app.research.llm import build_research_model
 from app.research.models import VerifiedClaim
-from app.research.steps import research_step
+from app.research.steps import ResearchStepStatus, research_step
 from app.research.usage import record_model_usage
 from config.settings import get_settings
 
@@ -33,7 +33,7 @@ _VERIFY_SYSTEM = (
     "You are a fact-checking assistant for a college admissions counselor.\n\n"
     "Your job is to review a list of evidence items about schools and verify claims.\n\n"
     "Rules (STRICT):\n"
-    "1. Reddit/community evidence → status 'sentiment_only' only. "
+    "1. Reddit evidence → status 'sentiment_only' only. "
     "Never extract numbers, dates, or policy facts from Reddit.\n"
     "2. DB (database) evidence is authoritative for historical statistics. "
     "Never mark DB facts as 'conflict' unless a more recent official source contradicts it.\n"
@@ -148,20 +148,19 @@ def _fallback_evidence_notes(
 
         citation = item.get("citation") or {}
         source = citation.get("source") if isinstance(citation, dict) else None
-        tier = citation.get("tier") if isinstance(citation, dict) else None
         title = str(item.get("title") or item.get("label") or "Source evidence").strip()
         snippet = _clean_note_text(item.get("snippet") or item.get("display") or item.get("value"))
         if not snippet:
             continue
 
-        if source == "reddit" or tier == "community":
+        if source == "reddit":
             notes.append(
                 VerifiedClaim(
-                    claim=f"Student/community sentiment source: {snippet}",
+                    claim=f"Student sentiment source: {snippet}",
                     status="sentiment_only",
                     support_markers=[marker_str],
                     note=(
-                        "Community source; use only as qualitative sentiment, "
+                        "Reddit source; use only as qualitative sentiment, "
                         "not policy or numbers."
                     ),
                 )
@@ -411,7 +410,10 @@ async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
 
     verification: list[VerifiedClaim] = []
     if soft_timeout_hit(research, settings):
-        research_step(writer, emissions, "verify", "complete", "Cross-checking claims")
+        caps = dict(research.get("caps") or {})
+        caps["verification_unavailable"] = "soft_timeout"
+        research["caps"] = caps
+        research_step(writer, emissions, "verify", "error", "Cross-checking claims")
         research["verification"] = []
         research["emissions"] = emissions
         return {"research": research}
@@ -438,41 +440,63 @@ async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
             cap_s=20,
         )
         if timeout_s < 5:
+            caps = dict(research.get("caps") or {})
+            caps["verification_unavailable"] = "time_budget_exhausted"
+            research["caps"] = caps
             verification = _fallback_evidence_notes(db_evidence, web_evidence, max_claims, schools)
         else:
-            result = await asyncio.wait_for(agent.run(prompt), timeout=timeout_s)
-            record_model_usage(
-                research,
-                result.usage,
-                model_name=verifier_model_str,
-                settings=settings,
-            )
-            raw_output = str(result.output)
-            # Strip markdown fences if present.
-            if "```" in raw_output:
-                raw_output = raw_output.split("```")[1]
-                if raw_output.startswith("json"):
-                    raw_output = raw_output[4:]
-            verification = _parse_verified_claims(raw_output, max_claims, allowed_markers)
-            if not verification:
+            try:
+                result = await asyncio.wait_for(agent.run(prompt), timeout=timeout_s)
+            except TimeoutError:
+                caps = dict(research.get("caps") or {})
+                caps["verification_unavailable"] = "timeout"
+                research["caps"] = caps
                 verification = _fallback_evidence_notes(
                     db_evidence, web_evidence, max_claims, schools
                 )
             else:
-                verification = _supplement_with_unused_evidence_notes(
-                    verification,
-                    db_evidence,
-                    web_evidence,
-                    max_claims,
-                    schools,
+                record_model_usage(
+                    research,
+                    result.usage,
+                    model_name=verifier_model_str,
+                    settings=settings,
                 )
+                raw_output = str(result.output)
+                # Strip markdown fences if present.
+                if "```" in raw_output:
+                    raw_output = raw_output.split("```")[1]
+                    if raw_output.startswith("json"):
+                        raw_output = raw_output[4:]
+                verification = _parse_verified_claims(raw_output, max_claims, allowed_markers)
+                if not verification:
+                    caps = dict(research.get("caps") or {})
+                    caps["verification_unavailable"] = "no_supported_claims"
+                    research["caps"] = caps
+                    verification = _fallback_evidence_notes(
+                        db_evidence, web_evidence, max_claims, schools
+                    )
+                else:
+                    verification = _supplement_with_unused_evidence_notes(
+                        verification,
+                        db_evidence,
+                        web_evidence,
+                        max_claims,
+                        schools,
+                    )
     except Exception:
         logger.warning("verification step failed — continuing without verification", exc_info=True)
         plan = research.get("plan") or {}
         schools = [str(s).strip() for s in (plan.get("schools") or []) if str(s).strip()]
+        caps = dict(research.get("caps") or {})
+        caps["verification_unavailable"] = "error"
+        research["caps"] = caps
         verification = _fallback_evidence_notes(db_evidence, web_evidence, max_claims, schools)
 
-    research_step(writer, emissions, "verify", "complete", "Cross-checking claims")
+    caps = dict(research.get("caps") or {})
+    verify_status: ResearchStepStatus = (
+        "error" if caps.get("verification_unavailable") else "complete"
+    )
+    research_step(writer, emissions, "verify", verify_status, "Cross-checking claims")
 
     research["verification"] = [c.model_dump(mode="json") for c in verification]
     research["emissions"] = emissions

@@ -45,6 +45,13 @@ class TestSoftTimeoutFlag:
             "time limit" in lower or "soft" in lower or "missing" in lower
         )
 
+    def test_verification_unavailable_in_prompt(self) -> None:
+        caps = _make_caps(verification_unavailable="timeout")
+        prompt = _build_synthesis_prompt("test question", [], caps, False, False)
+        lower = prompt.lower()
+        assert "cross-checking did not complete" in lower
+        assert "not fully verified claims" in lower
+
     def test_today_is_available_to_synthesizer(self) -> None:
         caps = _make_caps()
         prompt = _build_synthesis_prompt(
