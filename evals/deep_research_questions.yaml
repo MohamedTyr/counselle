@@ -13,6 +13,21 @@
 #
 # Scenario-specific cases can add their own required env below.
 #
+# COUNSELLE_DEEP_RESEARCH_VERIFICATION_TIMEOUT_SCENARIO and
+# COUNSELLE_DEEP_RESEARCH_GPTR_UNAVAILABLE_SCENARIO are skip-gates ONLY — no
+# code reads them to simulate anything. To actually exercise those two cases
+# live, pair the gate with a REAL, small override of the setting that governs
+# the real condition, e.g.:
+#   COUNSELLE_DEEP_RESEARCH_VERIFICATION_TIMEOUT_SCENARIO=true \
+#   COUNSELLE_DEEP_RESEARCH_SOFT_TIMEOUT_S=1 \
+#     uv run python -m evals.deep_research_runner --only verification-timeout-caveat
+#   COUNSELLE_DEEP_RESEARCH_GPTR_UNAVAILABLE_SCENARIO=true \
+#   COUNSELLE_DEEP_RESEARCH_GPTR_TIMEOUT_S=1 \
+#     uv run python -m evals.deep_research_runner --only gptr-unavailable-fallback
+# (verified live, 2026-07-01 — a bare-flags run without the real override
+# either skips or silently runs the non-degraded path and fails on the wrong
+# checks).
+#
 # `sources_present` checks assert against a DB-tier citation that the LOCAL dev
 # contract DB (scripts/load_dev_contract_db.py, on docs/deep-research-prototype)
 # can actually populate: it loads public Scorecard/IPEDS bulk downloads, but the
@@ -109,6 +124,13 @@
     step_kinds_absent: [reddit_search]
 
 - id: verification-timeout-caveat
+  # A genuine soft-timeout hit (verified live: run with a real, tiny
+  # COUNSELLE_DEEP_RESEARCH_SOFT_TIMEOUT_S override, not just the scenario
+  # flag below) makes research_synthesize_node use its deterministic
+  # `_build_partial_report` fallback UNCONDITIONALLY (app/research/synthesize.py
+  # :372) — the normal 7-section contract (Bottom line/Evidence coverage/...)
+  # cannot fire once soft_timeout_hit is true; that's a coherent, intentional
+  # bailout, not a bug. Assert the partial-report's own guaranteed headers.
   question: "Deep research MIT and Stanford CS admissions, aid, and test policy with a deliberately tight verification budget."
   source_config:
     web: true
@@ -122,8 +144,8 @@
     scope_clarify: false
     plan_clarify: true
     sections:
-      - Evidence coverage
-      - Unknowns/conflicts
+      - Partial report
+      - Still incomplete
     text_contains:
       - verification
     caps_keys_present: [verification_unavailable]

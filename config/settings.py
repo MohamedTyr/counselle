@@ -132,8 +132,8 @@ class Settings(BaseSettings):
     source_edu_default: bool = True
     search_max_results: int = 5
 
-    # --- Deep research (disabled by default — flip via env to test) ---
-    deep_research_enabled: bool = False
+    # --- Deep research ---
+    deep_research_enabled: bool = True
     deep_research_max_wall_clock_s: int = 90
     deep_research_soft_timeout_s: int = 75
     deep_research_max_schools: int = 4
