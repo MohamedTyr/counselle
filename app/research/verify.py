@@ -15,6 +15,8 @@ import asyncio
 import json
 import logging
 import re
+from dataclasses import dataclass
+from math import ceil
 from typing import Any
 
 from langgraph.config import get_stream_writer
@@ -40,8 +42,11 @@ _VERIFY_SYSTEM = (
     "3. Official .edu pages are authoritative for current-cycle policy (deadlines, requirements).\n"
     "4. Web/unofficial sources may support but CANNOT override DB or official sources "
     "unless you mark 'conflict'.\n"
-    "5. Only mark 'verified' when multiple independent sources agree.\n"
-    "6. Mark 'unsupported' for claims in only one source with no corroboration.\n\n"
+    "5. Mark 'verified' when a claim is supported by DB evidence, an official (.edu/.gov) "
+    "source, or when multiple independent sources agree. A single DB or official citation "
+    "is sufficient on its own — do not require corroboration for DB or official evidence.\n"
+    "6. Mark 'unsupported' only for claims found solely in general/community web sources "
+    "(not DB, not official) with no corroboration.\n\n"
     "7. Every returned claim must include at least one support_marker copied "
     "exactly from the evidence. Omit claims that have no marker.\n\n"
     'Return a JSON array: [{"claim": str, "status": str, '
@@ -49,6 +54,20 @@ _VERIFY_SYSTEM = (
 )
 
 _MARKER_RE = re.compile(r"^\[\d+\]$")
+
+
+@dataclass
+class _EvidenceChunk:
+    db_evidence: list[Any]
+    web_evidence: list[Any]
+    max_claims: int
+
+
+@dataclass
+class _VerifierChunkResult:
+    claims: list[VerifiedClaim]
+    unavailable: str | None = None
+    usage: Any = None
 
 
 def _build_evidence_text(
@@ -91,6 +110,43 @@ def _build_evidence_text(
     return "\n".join(lines)
 
 
+def _verification_chunks(
+    db_evidence: list[Any],
+    web_evidence: list[Any],
+    *,
+    max_claims: int,
+    schools: list[str],
+    max_parallel: int,
+) -> list[_EvidenceChunk]:
+    db_items = _balanced_evidence_items(
+        db_evidence,
+        _evidence_context_limit(max_claims, floor=30, multiplier=2),
+        schools,
+    )
+    web_items = _balanced_evidence_items(
+        web_evidence,
+        _evidence_context_limit(max_claims, floor=60, multiplier=4),
+        schools,
+    )
+    combined: list[tuple[str, dict[str, Any]]] = [
+        *[("db", item) for item in db_items],
+        *[("web", item) for item in web_items],
+    ]
+    if not combined:
+        return [_EvidenceChunk([], [], max_claims)]
+
+    chunk_count = min(3, max(1, max_parallel), len(combined))
+    chunk_claims = max(1, ceil(max_claims / chunk_count))
+    chunks = [_EvidenceChunk([], [], chunk_claims) for _ in range(chunk_count)]
+    for index, (kind, item) in enumerate(combined):
+        chunk = chunks[index % chunk_count]
+        if kind == "db":
+            chunk.db_evidence.append(item)
+        else:
+            chunk.web_evidence.append(item)
+    return chunks
+
+
 def _evidence_context_limit(max_claims: int, *, floor: int, multiplier: int) -> int:
     """Bound verifier context while avoiding first-school-only evidence slices."""
     return min(100, max(floor, max_claims * multiplier))
@@ -131,11 +187,13 @@ def _fallback_evidence_notes(
     max_claims: int,
     schools: list[str] | None = None,
 ) -> list[VerifiedClaim]:
-    """Create conservative evidence notes when the verifier returns nothing.
+    """Create evidence notes when the verifier LLM is unavailable or returns nothing.
 
-    These are deliberately not "verified" claims. They keep the report grounded
-    in registered sources while preserving the confidence boundary: a single
-    official/web item is `unsupported`, and Reddit remains `sentiment_only`.
+    Per the deep-research verification policy, DB and official-source evidence
+    is authoritative on its own — it does not need a second corroborating
+    source to be "verified". Only general/community web evidence without DB or
+    official backing gets the single-source-caution `unsupported` status.
+    Reddit remains `sentiment_only`.
     """
     notes: list[VerifiedClaim] = []
     for item in _balanced_evidence_items([*db_evidence, *web_evidence], max_claims, schools):
@@ -146,8 +204,8 @@ def _fallback_evidence_notes(
             continue
         marker_str = str(marker)
 
-        citation = item.get("citation") or {}
-        source = citation.get("source") if isinstance(citation, dict) else None
+        source = _source_of(item)
+        tier = _tier_of(item)
         title = str(item.get("title") or item.get("label") or "Source evidence").strip()
         snippet = _clean_note_text(item.get("snippet") or item.get("display") or item.get("value"))
         if not snippet:
@@ -165,6 +223,15 @@ def _fallback_evidence_notes(
                     ),
                 )
             )
+        elif tier == "official":
+            notes.append(
+                VerifiedClaim(
+                    claim=f"{title}: {snippet}",
+                    status="verified",
+                    support_markers=[marker_str],
+                    note="Counselle database or official-source evidence.",
+                )
+            )
         else:
             notes.append(
                 VerifiedClaim(
@@ -172,8 +239,8 @@ def _fallback_evidence_notes(
                     status="unsupported",
                     support_markers=[marker_str],
                     note=(
-                        "Single-source evidence; cite as limited evidence, "
-                        "not as independently verified."
+                        "Single-source, non-official evidence; cite as limited "
+                        "evidence, not as independently verified."
                     ),
                 )
             )
@@ -206,6 +273,90 @@ def _supplement_with_unused_evidence_notes(
         supplemented.append(note)
         used_markers.update(note_markers)
     return supplemented
+
+
+def _merge_verified_claims(
+    results: list[_VerifierChunkResult],
+    *,
+    max_claims: int,
+) -> list[VerifiedClaim]:
+    merged: list[VerifiedClaim] = []
+    seen: set[tuple[str, str, tuple[str, ...]]] = set()
+    for result in results:
+        for claim in result.claims:
+            key = (claim.claim, claim.status, tuple(claim.support_markers))
+            if key in seen:
+                continue
+            merged.append(claim)
+            seen.add(key)
+            if len(merged) >= max_claims:
+                return merged
+    return merged
+
+
+def _verification_unavailable_reason(results: list[_VerifierChunkResult]) -> str | None:
+    unavailable = [result.unavailable for result in results if result.unavailable]
+    if not unavailable:
+        return None
+    if len(unavailable) == len(results):
+        if all(reason == "timeout" for reason in unavailable):
+            return "timeout"
+        if all(reason == "no_supported_claims" for reason in unavailable):
+            return "no_supported_claims"
+        return "error" if any(reason == "error" for reason in unavailable) else unavailable[0]
+    if "timeout" in unavailable:
+        return "partial_timeout"
+    if "error" in unavailable:
+        return "partial_error"
+    return "partial_no_supported_claims"
+
+
+def _reconcile_claims_with_evidence(
+    claims: list[VerifiedClaim],
+    db_evidence: list[Any],
+    web_evidence: list[Any],
+) -> list[VerifiedClaim]:
+    """The one code-level gate on claim status vs. actual source/tier.
+
+    Every claim — whether produced by the verifier LLM, the mechanical
+    fallback, or the unused-evidence supplement — funnels through here before
+    it is ever persisted. This is deliberate: the honesty invariants below
+    must never depend on the model (or a future code path) remembering to
+    follow the verifier prompt's rules. Two invariants, both drawn from the
+    deep-research verification policy:
+
+    1. Reddit can never back a factual claim. If every support marker for a
+       claim resolves to a Reddit source, force ``sentiment_only`` regardless
+       of what status the model returned.
+    2. A DB or official-tier citation needs no corroboration. If a claim has
+       at least one DB/official support marker, it is never left
+       ``unsupported`` — DB/official evidence upgrades straight to
+       ``verified``.
+    """
+    tier_by_marker: dict[str, tuple[str | None, str | None]] = {}
+    for item in (*db_evidence, *web_evidence):
+        if not isinstance(item, dict):
+            continue
+        marker = item.get("marker")
+        if isinstance(marker, str) and marker not in tier_by_marker:
+            tier_by_marker[marker] = (_source_of(item), _tier_of(item))
+
+    reconciled: list[VerifiedClaim] = []
+    for claim in claims:
+        lookups = [tier_by_marker.get(m, (None, None)) for m in claim.support_markers]
+        sources = {source for source, _ in lookups if source}
+        tiers = {tier for _, tier in lookups if tier}
+
+        status = claim.status
+        if sources and sources <= {"reddit"}:
+            status = "sentiment_only"
+        elif status == "unsupported" and "official" in tiers:
+            status = "verified"
+
+        reconciled.append(
+            claim if status == claim.status else claim.model_copy(update={"status": status})
+        )
+    return reconciled
 
 
 def _evidence_markers(*groups: list[Any]) -> set[str]:
@@ -272,30 +423,53 @@ def _balanced_evidence_items(
 
 
 def _best_items_by_marker(items: list[Any]) -> list[dict[str, Any]]:
-    """Choose the richest snippet for each registered citation marker."""
-    best_by_marker: dict[str, dict[str, Any]] = {}
-    order: list[str] = []
+    """Dedupe near-identical retrievals while keeping distinct facts per marker.
+
+    A citation marker identifies one *source* (one CDS/Scorecard vintage, one
+    URL), not one fact. DB sources routinely carry dozens of distinct field
+    values under a single citation, and search/extract can return the same URL
+    twice. Dedupe on (marker, fact identity) so repeated retrievals of the same
+    fact collapse, but distinct facts sharing a marker are never discarded.
+    """
+    best_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    order: list[tuple[str, str]] = []
     for item in items:
         if not isinstance(item, dict):
             continue
         marker = item.get("marker")
         if not _valid_marker(marker):
             continue
-        marker_key = str(marker)
-        if marker_key not in best_by_marker:
-            best_by_marker[marker_key] = item
-            order.append(marker_key)
+        key = (str(marker), _fact_identity(item))
+        if key not in best_by_key:
+            best_by_key[key] = item
+            order.append(key)
             continue
-        if _evidence_score(item) > _evidence_score(best_by_marker[marker_key]):
-            best_by_marker[marker_key] = item
-    return [best_by_marker[marker] for marker in order]
+        if _evidence_score(item) > _evidence_score(best_by_key[key]):
+            best_by_key[key] = item
+    return [best_by_key[key] for key in order]
+
+
+def _fact_identity(item: dict[str, Any]) -> str:
+    """Distinguish distinct facts that share one citation marker.
+
+    DB evidence carries one fact per ``field_key`` under a shared per-dataset
+    citation; search/extract evidence carries one fact per ``url``. Fall back
+    to the display text so items with neither still dedupe sanely.
+    """
+    for key in ("field_key", "url", "title", "display", "snippet"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
 
 
 def _evidence_score(item: dict[str, Any]) -> int:
     """Prefer evidence with fuller text and preserved research context."""
     evidence_text = item.get("snippet") or item.get("display") or item.get("value")
     text_score = len(_clean_note_text(evidence_text))
-    context_score = int(bool(item.get("_research_school"))) + int(bool(item.get("_research_topic")))
+    context_score = int(bool(item.get("school") or item.get("_research_school"))) + int(
+        bool(item.get("topic") or item.get("_research_topic"))
+    )
     return text_score + (context_score * 25)
 
 
@@ -303,19 +477,16 @@ def _evidence_coverage_key(
     item: dict[str, Any],
     schools: list[str],
 ) -> tuple[str, str, str]:
-    citation = item.get("citation") or {}
-    source = citation.get("source") if isinstance(citation, dict) else None
     return (
-        str(source or "db").lower(),
+        str(_source_of(item) or "db").lower(),
         _school_bucket(item, schools),
         _topic_bucket(item),
     )
 
 
 def _evidence_prefix(item: dict[str, Any], marker: Any, schools: list[str] | None) -> str:
-    citation = item.get("citation") or {}
-    source = citation.get("source") if isinstance(citation, dict) else "db"
-    tier = citation.get("tier") if isinstance(citation, dict) else None
+    source = _source_of(item) or "db"
+    tier = _tier_of(item)
     source_label = str(source or "db")
     if tier:
         source_label = f"{source_label}/{tier}"
@@ -326,7 +497,7 @@ def _evidence_prefix(item: dict[str, Any], marker: Any, schools: list[str] | Non
 
 
 def _school_bucket(item: dict[str, Any], schools: list[str]) -> str:
-    explicit = item.get("_research_school")
+    explicit = item.get("school") or item.get("_research_school")
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip().lower()
     text = _evidence_text(item)
@@ -338,7 +509,7 @@ def _school_bucket(item: dict[str, Any], schools: list[str]) -> str:
 
 
 def _topic_bucket(item: dict[str, Any]) -> str:
-    explicit = item.get("_research_topic")
+    explicit = item.get("topic") or item.get("_research_topic")
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip().lower()
     text = _evidence_text(item)
@@ -355,10 +526,48 @@ def _topic_bucket(item: dict[str, Any]) -> str:
     return "general"
 
 
+def _source_of(item: dict[str, Any]) -> str | None:
+    source = item.get("source")
+    if isinstance(source, str):
+        return source
+    citation = item.get("citation")
+    if isinstance(citation, dict) and isinstance(citation.get("source"), str):
+        return str(citation["source"])
+    provenance = item.get("provenance")
+    nested = provenance.get("citation") if isinstance(provenance, dict) else None
+    if isinstance(nested, dict) and isinstance(nested.get("source"), str):
+        return str(nested["source"])
+    return None
+
+
+def _tier_of(item: dict[str, Any]) -> str | None:
+    tier = item.get("tier")
+    if isinstance(tier, str):
+        return tier
+    citation = item.get("citation")
+    if isinstance(citation, dict) and isinstance(citation.get("tier"), str):
+        return str(citation["tier"])
+    provenance = item.get("provenance")
+    nested = provenance.get("citation") if isinstance(provenance, dict) else None
+    if isinstance(nested, dict) and isinstance(nested.get("tier"), str):
+        return str(nested["tier"])
+    return None
+
+
 def _evidence_text(item: dict[str, Any]) -> str:
     return " ".join(
         str(item.get(key) or "")
-        for key in ("title", "snippet", "url", "label", "display", "value", "field_key")
+        for key in (
+            "title",
+            "snippet",
+            "url",
+            "label",
+            "display",
+            "value",
+            "field_key",
+            "school",
+            "topic",
+        )
     ).lower()
 
 
@@ -395,6 +604,71 @@ def _clean_note_text(value: Any) -> str:
     return text[:240]
 
 
+async def _run_verifier_chunk(
+    chunk: _EvidenceChunk,
+    *,
+    user_text: str,
+    schools: list[str],
+    allowed_markers: set[str],
+    verifier_model_str: str,
+    settings: Any,
+    timeout_s: float,
+) -> _VerifierChunkResult:
+    agent: Agent[None, str] = Agent(
+        build_research_model(verifier_model_str, settings),
+        system_prompt=_VERIFY_SYSTEM,
+    )
+    evidence_text = _build_evidence_text(
+        chunk.db_evidence,
+        chunk.web_evidence,
+        chunk.max_claims,
+        schools,
+    )
+    prompt = f"Question: {user_text}\n\n{evidence_text}\n\nReturn JSON array only."
+    try:
+        result = await asyncio.wait_for(agent.run(prompt), timeout=timeout_s)
+    except TimeoutError:
+        return _VerifierChunkResult(
+            _fallback_evidence_notes(
+                chunk.db_evidence,
+                chunk.web_evidence,
+                chunk.max_claims,
+                schools,
+            ),
+            unavailable="timeout",
+        )
+    except Exception:
+        logger.debug("verification chunk failed", exc_info=True)
+        return _VerifierChunkResult(
+            _fallback_evidence_notes(
+                chunk.db_evidence,
+                chunk.web_evidence,
+                chunk.max_claims,
+                schools,
+            ),
+            unavailable="error",
+        )
+
+    raw_output = str(result.output)
+    if "```" in raw_output:
+        raw_output = raw_output.split("```")[1]
+        if raw_output.startswith("json"):
+            raw_output = raw_output[4:]
+    claims = _parse_verified_claims(raw_output, chunk.max_claims, allowed_markers)
+    if not claims:
+        return _VerifierChunkResult(
+            _fallback_evidence_notes(
+                chunk.db_evidence,
+                chunk.web_evidence,
+                chunk.max_claims,
+                schools,
+            ),
+            unavailable="no_supported_claims",
+            usage=result.usage,
+        )
+    return _VerifierChunkResult(claims, usage=result.usage)
+
+
 async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
     """Cross-check evidence and produce a list of verified claims."""
     settings = get_settings()
@@ -422,17 +696,10 @@ async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
         plan = research.get("plan") or {}
         user_text = plan.get("user_text") or ""
         schools = [str(s).strip() for s in (plan.get("schools") or []) if str(s).strip()]
-        evidence_text = _build_evidence_text(db_evidence, web_evidence, max_claims, schools)
         allowed_markers = _evidence_markers(db_evidence, web_evidence)
 
         verifier_model_str = settings.effective_model_research_verifier
 
-        agent: Agent[None, str] = Agent(
-            build_research_model(verifier_model_str, settings),
-            system_prompt=_VERIFY_SYSTEM,
-        )
-
-        prompt = f"Question: {user_text}\n\n{evidence_text}\n\nReturn JSON array only."
         timeout_s = remaining_time_seconds(
             research,
             float(settings.deep_research_max_wall_clock_s),
@@ -445,44 +712,59 @@ async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
             research["caps"] = caps
             verification = _fallback_evidence_notes(db_evidence, web_evidence, max_claims, schools)
         else:
-            try:
-                result = await asyncio.wait_for(agent.run(prompt), timeout=timeout_s)
-            except TimeoutError:
+            chunks = _verification_chunks(
+                db_evidence,
+                web_evidence,
+                max_claims=max_claims,
+                schools=schools,
+                max_parallel=int(getattr(settings, "deep_research_max_parallel_tasks", 3)),
+            )
+            chunk_results = await asyncio.gather(
+                *[
+                    _run_verifier_chunk(
+                        chunk,
+                        user_text=user_text,
+                        schools=schools,
+                        allowed_markers=allowed_markers,
+                        verifier_model_str=verifier_model_str,
+                        settings=settings,
+                        timeout_s=timeout_s,
+                    )
+                    for chunk in chunks
+                ]
+            )
+            for chunk_result in chunk_results:
+                if chunk_result.usage is not None:
+                    record_model_usage(
+                        research,
+                        chunk_result.usage,
+                        model_name=verifier_model_str,
+                        settings=settings,
+                    )
+            reason = _verification_unavailable_reason(chunk_results)
+            if reason:
                 caps = dict(research.get("caps") or {})
-                caps["verification_unavailable"] = "timeout"
+                caps["verification_unavailable"] = reason
                 research["caps"] = caps
-                verification = _fallback_evidence_notes(
-                    db_evidence, web_evidence, max_claims, schools
+            verification = _merge_verified_claims(chunk_results, max_claims=max_claims)
+            if verification:
+                verification = _supplement_with_unused_evidence_notes(
+                    verification,
+                    db_evidence,
+                    web_evidence,
+                    max_claims,
+                    schools,
                 )
             else:
-                record_model_usage(
-                    research,
-                    result.usage,
-                    model_name=verifier_model_str,
-                    settings=settings,
+                caps = dict(research.get("caps") or {})
+                caps["verification_unavailable"] = reason or "no_supported_claims"
+                research["caps"] = caps
+                verification = _fallback_evidence_notes(
+                    db_evidence,
+                    web_evidence,
+                    max_claims,
+                    schools,
                 )
-                raw_output = str(result.output)
-                # Strip markdown fences if present.
-                if "```" in raw_output:
-                    raw_output = raw_output.split("```")[1]
-                    if raw_output.startswith("json"):
-                        raw_output = raw_output[4:]
-                verification = _parse_verified_claims(raw_output, max_claims, allowed_markers)
-                if not verification:
-                    caps = dict(research.get("caps") or {})
-                    caps["verification_unavailable"] = "no_supported_claims"
-                    research["caps"] = caps
-                    verification = _fallback_evidence_notes(
-                        db_evidence, web_evidence, max_claims, schools
-                    )
-                else:
-                    verification = _supplement_with_unused_evidence_notes(
-                        verification,
-                        db_evidence,
-                        web_evidence,
-                        max_claims,
-                        schools,
-                    )
     except Exception:
         logger.warning("verification step failed — continuing without verification", exc_info=True)
         plan = research.get("plan") or {}
@@ -498,6 +780,7 @@ async def research_verify_node(state: Any, deps: Any) -> dict[str, Any]:
     )
     research_step(writer, emissions, "verify", verify_status, "Cross-checking claims")
 
+    verification = _reconcile_claims_with_evidence(verification, db_evidence, web_evidence)
     research["verification"] = [c.model_dump(mode="json") for c in verification]
     research["emissions"] = emissions
     return {"research": research}

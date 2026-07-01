@@ -8,13 +8,16 @@ is honest; a hard fail is not.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from langgraph.config import get_stream_writer
+from pydantic import BaseModel, ValidationError
 
+from app.research.models import EvidenceItem
 from app.research.steps import research_step
 from app.sources import SourceRegistry
 from counselle_db.service import get_dossier
+from domain.events import StepDetail, StepSource
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,7 @@ async def _fetch_school_data(school_name: str, deps: Any) -> list[Any]:
         if hasattr(dossier, "sections"):
             for section in dossier.sections:
                 if hasattr(section, "values"):
-                    envelopes.extend(section.values)
+                    envelopes.extend(_plain_envelope(value) for value in section.values)
         return envelopes
     except Exception:
         logger.debug("failed to fetch school data for %r", school_name, exc_info=True)
@@ -59,19 +62,34 @@ async def research_gather_db_node(state: Any, deps: Any) -> dict[str, Any]:
     plan = research.get("plan") or {}
     schools = plan.get("schools") or []
 
-    research_step(writer, emissions, "db_check", "running", "Checking school data")
+    research_step(
+        writer,
+        emissions,
+        "db_check",
+        "running",
+        "Checking school data",
+        kind="db_tool",
+        tier="official",
+    )
 
-    db_evidence: list[Any] = []
+    db_evidence: list[dict[str, Any]] = []
     try:
         for school_name in schools:
             envelopes = await _fetch_school_data(school_name, deps)
             if envelopes:
                 annotated = registry.annotate_envelopes(envelopes)
-                if isinstance(annotated, list):
-                    db_evidence.extend(annotated)
-                else:
-                    db_evidence.append(annotated)
-        research_step(writer, emissions, "db_check", "complete", "Checking school data")
+                db_evidence.extend(_evidence_items_from_envelopes(annotated, school_name))
+        research_step(
+            writer,
+            emissions,
+            "db_check",
+            "complete",
+            "Checking school data",
+            detail=StepDetail(row_count=len(db_evidence), schools=[str(s) for s in schools]),
+            sources=[StepSource(label=str(s)) for s in schools],
+            kind="db_tool",
+            tier="official",
+        )
     except Exception:
         logger.warning("DB gather failed — continuing with partial data", exc_info=True)
         caps = dict(research.get("caps") or {})
@@ -84,6 +102,8 @@ async def research_gather_db_node(state: Any, deps: Any) -> dict[str, Any]:
             "error",
             "Checking school data",
             detail="Database unavailable",
+            kind="db_tool",
+            tier="official",
         )
 
     research["db_evidence"] = db_evidence
@@ -92,3 +112,90 @@ async def research_gather_db_node(state: Any, deps: Any) -> dict[str, Any]:
         "source_registry": registry.dump(),
         "research": research,
     }
+
+
+def _evidence_items_from_envelopes(payload: Any, school: str | None) -> list[dict[str, Any]]:
+    """Flatten annotated citation envelopes into msgpack-safe EvidenceItem dicts."""
+    items: list[dict[str, Any]] = []
+    for envelope in _walk_dicts(payload):
+        citation = envelope.get("citation")
+        if not _citation_shaped(citation):
+            continue
+        citation = cast(dict[str, Any], citation)
+        marker = envelope.get("marker")
+        if not isinstance(marker, str):
+            continue
+        field_key = _str_or_none(envelope.get("field") or envelope.get("field_key"))
+        display = _str_or_none(envelope.get("display") or envelope.get("value"))
+        try:
+            item = EvidenceItem(
+                marker=marker,
+                source=citation["source"],
+                tier=citation["tier"],
+                school=school,
+                topic=_db_topic(field_key, envelope.get("label"), display),
+                title=_str_or_none(envelope.get("label")) or field_key,
+                snippet=display,
+                url=_str_or_none(citation.get("url")),
+                field_key=field_key,
+                display=display,
+                vintage=str(citation["vintage"]),
+                retrieved_at=None,
+                provenance={
+                    "kind": "db_envelope",
+                    "citation": citation,
+                    "available": envelope.get("available"),
+                    "raw": envelope.get("raw"),
+                    "unit": envelope.get("unit"),
+                    "raw_table": citation.get("raw_table"),
+                    "caveat": citation.get("caveat"),
+                },
+            )
+        except ValidationError:
+            logger.debug("skipping malformed DB evidence envelope", exc_info=True)
+            continue
+        items.append(item.model_dump(mode="json"))
+    return items
+
+
+def _plain_envelope(value: Any) -> Any:
+    """State/source-registry boundary: Pydantic envelopes become plain dicts."""
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    return value
+
+
+def _walk_dicts(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, dict):
+        found = [value]
+        for child in value.values():
+            found.extend(_walk_dicts(child))
+        return found
+    if isinstance(value, list):
+        nested: list[dict[str, Any]] = []
+        for child in value:
+            nested.extend(_walk_dicts(child))
+        return nested
+    return []
+
+
+def _citation_shaped(value: Any) -> bool:
+    return isinstance(value, dict) and {"source", "tier", "vintage"} <= value.keys()
+
+
+def _db_topic(field_key: str | None, label: Any, display: str | None) -> str:
+    text = " ".join(str(part or "").lower() for part in (field_key, label, display))
+    if any(token in text for token in ("financial", "aid", "cost", "tuition", "scholarship")):
+        return "aid"
+    if any(token in text for token in ("sat", "act", "test", "testing", "optional")):
+        return "testing"
+    if any(token in text for token in ("admission", "admit", "acceptance", "application")):
+        return "admissions"
+    if any(token in text for token in ("program", "major", "computer science", "cip")):
+        return "program"
+    return "general"
+
+
+def _str_or_none(value: Any) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None

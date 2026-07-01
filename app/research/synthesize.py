@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -50,8 +51,9 @@ _SYNTHESIZE_SYSTEM = (
     "- If evidence is unavailable for some schools or topics, say exactly which ones are missing\n"
     "- Do not end with a generic 'consult websites' cop-out; give targeted next checks instead\n"
     "- Ends with a brief recommendation based only on verified evidence\n\n"
-    "Format: markdown with ## sections. Prefer these sections when applicable: "
-    "Bottom line, Evidence coverage, Comparison, Unknowns, Next checks. "
+    "Format: markdown with these ## sections, omitting only sections with no evidence: "
+    "Bottom line, Evidence coverage, DB-backed facts, Current official findings, "
+    "Student sentiment, Unknowns/conflicts, Next checks. "
     "Aim for 300-650 words."
 )
 
@@ -59,6 +61,89 @@ _LIMITATION_NOTE = (
     "\n\n---\n*Note: This research ran under time constraints and may be incomplete. "
     "Verify key facts on the schools' official websites.*"
 )
+
+_SECTION_RE = re.compile(r"^#{2,4}\s+(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def _ensure_required_sections(
+    report_text: str,
+    *,
+    db_evidence: list[Any],
+    web_evidence: list[Any],
+    verification: list[VerifiedClaim],
+) -> str:
+    """Append deterministic honesty sections when the model omits them."""
+    headers = {
+        match.group(1).strip("*_` ").strip().lower()
+        for match in _SECTION_RE.finditer(report_text)
+    }
+    additions: list[str] = []
+    if not _has_header(headers, "db-backed facts"):
+        additions.extend(
+            [
+                "## DB-backed facts",
+                "",
+                _db_section_text(db_evidence),
+            ]
+        )
+    if not _has_header(headers, "student sentiment"):
+        additions.extend(
+            [
+                "## Student sentiment",
+                "",
+                _sentiment_section_text(web_evidence, verification),
+            ]
+        )
+    if not additions:
+        return report_text
+    return f"{report_text.rstrip()}\n\n" + "\n".join(additions)
+
+
+def _has_header(headers: set[str], target: str) -> bool:
+    return any(header == target or header.startswith(f"{target}:") for header in headers)
+
+
+def _db_section_text(db_evidence: list[Any]) -> str:
+    if db_evidence:
+        return (
+            "Counselle database evidence was retrieved for this request; treat "
+            "those cited values as the authoritative historical/statistical facts."
+        )
+    return "No Counselle database evidence was available for this request."
+
+
+def _sentiment_section_text(
+    web_evidence: list[Any],
+    verification: list[VerifiedClaim],
+) -> str:
+    if _has_sentiment_evidence(web_evidence, verification):
+        return (
+            "Student-sentiment evidence was retrieved; use it only as qualitative "
+            "context, not as policy, deadline, or numeric fact."
+        )
+    return "No Reddit or student-sentiment evidence was found."
+
+
+def _has_sentiment_evidence(
+    web_evidence: list[Any],
+    verification: list[VerifiedClaim],
+) -> bool:
+    if any(claim.status == "sentiment_only" for claim in verification):
+        return True
+    for item in web_evidence:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("source")
+        citation = item.get("citation")
+        provenance = item.get("provenance")
+        nested = provenance.get("citation") if isinstance(provenance, dict) else None
+        if source == "reddit":
+            return True
+        if isinstance(citation, dict) and citation.get("source") == "reddit":
+            return True
+        if isinstance(nested, dict) and nested.get("source") == "reddit":
+            return True
+    return False
 
 
 def _build_synthesis_prompt(
@@ -100,7 +185,9 @@ def _build_synthesis_prompt(
         "\nWrite the report now. Use the citation markers from the evidence notes. "
         "When a note is UNSUPPORTED, phrase it as limited single-source evidence. "
         "When verification was unavailable, state that limitation in the evidence "
-        "coverage section. "
+        "coverage section before making any recommendation. "
+        "Use the section names: Bottom line, Evidence coverage, DB-backed facts, "
+        "Current official findings, Student sentiment, Unknowns/conflicts, Next checks. "
         "Do not say no evidence was provided if evidence notes are listed. "
         "If the requested comparison cannot be completed, still organize the answer "
         "around the requested schools/topics and mark missing items explicitly. "
@@ -237,6 +324,8 @@ async def research_synthesize_node(state: Any, deps: Any) -> dict[str, Any]:
     verification = [
         VerifiedClaim.model_validate(c) for c in (research.get("verification") or [])
     ]
+    db_evidence = list(research.get("db_evidence") or [])
+    web_evidence = list(research.get("web_evidence") or [])
     caps_dict = research.get("caps") or {}
     caps = ResearchCaps.model_validate(caps_dict)
 
@@ -287,6 +376,13 @@ async def research_synthesize_node(state: Any, deps: Any) -> dict[str, Any]:
                 settings=settings,
             )
 
+        report_text = _ensure_required_sections(
+            report_text,
+            db_evidence=db_evidence,
+            web_evidence=web_evidence,
+            verification=verification,
+        )
+
         if timed_out:
             report_text += _LIMITATION_NOTE
 
@@ -303,6 +399,12 @@ async def research_synthesize_node(state: Any, deps: Any) -> dict[str, Any]:
             db_unavailable=bool(caps_dict.get("db_unavailable")),
             external_unavailable=bool(caps_dict.get("external_unavailable")),
             reason=f"The final write-up stopped before completion ({type(exc).__name__}).",
+        )
+        report_text = _ensure_required_sections(
+            report_text,
+            db_evidence=db_evidence,
+            web_evidence=web_evidence,
+            verification=verification,
         )
         writer({"type": "delta", "text": report_text})
         emissions.append(("delta", report_text))

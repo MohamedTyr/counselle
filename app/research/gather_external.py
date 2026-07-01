@@ -11,9 +11,10 @@ import asyncio
 import logging
 import re
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from langgraph.config import get_stream_writer
+from pydantic import ValidationError
 
 from adapters.tavily_tools import (
     extract_urls,
@@ -24,12 +25,15 @@ from adapters.tavily_tools import (
 )
 from app.research.caps import remaining_time_seconds, soft_timeout_hit
 from app.research.gptr_adapter import gather_via_gptr
+from app.research.models import EvidenceItem
 from app.research.steps import research_step
 from app.sources import SourceRegistry
 from config.settings import get_settings
 from counselle_db.models import ResolveMatch
 from counselle_db.service import resolve_school
+from domain.events import StepDetail, StepSource
 from domain.specs import SourceConfig
+from domain.urls import favicon_url, registrable_domain
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +64,7 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
     max_extracts = settings.deep_research_max_tavily_extract_urls
     max_results = settings.search_max_results
 
-    web_evidence: list[Any] = []
+    web_evidence: list[dict[str, Any]] = []
 
     if soft_timeout_hit(research, settings):
         research["web_evidence"] = web_evidence
@@ -79,18 +83,42 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
 
         plan_queries = _queries_by_source(plan)
 
-        # Official school-site search — scoped through the school's DB website.
-        if (
-            source_config.edu
-            and searches_used < max_searches
-            and not soft_timeout_hit(research, settings)
-        ):
+        evidence_lock = asyncio.Lock()
+        search_count_lock = asyncio.Lock()
+        parallel_limit = max(1, int(getattr(settings, "deep_research_max_parallel_tasks", 4)))
+        semaphore = asyncio.Semaphore(parallel_limit)
+        official_done = asyncio.Event()
+        phase_tasks: list[Any] = []
+
+        official_budget = 0
+        if source_config.edu and searches_used < max_searches:
             official_budget = _official_search_budget(max_searches, searches_used, source_config)
-            official_search_limit = searches_used + official_budget
-            if official_budget > 0:
-                research_step(
-                    writer, emissions, "official_search", "running", "Checking official pages"
-                )
+        supplemental_slots = max(0, max_searches - searches_used - official_budget)
+        web_slot = bool(source_config.web and supplemental_slots > 0)
+        if web_slot:
+            supplemental_slots -= 1
+        reddit_slot = bool(source_config.reddit and supplemental_slots > 0)
+
+        async def run_official_phase() -> None:
+            nonlocal searches_used
+            if (
+                official_budget <= 0
+                or soft_timeout_hit(research, settings)
+                or _cost_ceiling_hit(research, caps, settings)
+            ):
+                return
+            research_step(
+                writer,
+                emissions,
+                "official_search",
+                "running",
+                "Checking official pages",
+                kind="edu_search",
+                tier="official",
+            )
+            official_phase_evidence: list[dict[str, Any]] = []
+            official_queries_run: list[str] = []
+            local_searches = 0
             per_school_query_limit = _per_school_query_limit(official_budget, 0, schools)
             planned_searches: list[tuple[str, int, list[str]]] = []
             for school_name in schools:
@@ -103,10 +131,7 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 for school_name, unitid, queries in planned_searches:
                     if query_index >= len(queries):
                         continue
-                    if (
-                        searches_used >= official_search_limit
-                        or soft_timeout_hit(research, settings)
-                    ):
+                    if local_searches >= official_budget or soft_timeout_hit(research, settings):
                         break
                     query = queries[query_index]
                     try:
@@ -122,39 +147,63 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                             settings=settings,
                             caps=caps,
                         )
-                        searches_used += 1
-                        result = _tag_research_context(
-                            result,
-                            school=school_name,
-                            query=query,
-                        )
-                        annotated = registry.annotate_search_results(result)
-                        results_list = annotated.get("results") or []
-                        web_evidence.extend(results_list)
                     except Exception:
                         logger.debug("official search failed for %r", school_name, exc_info=True)
-            if official_budget > 0:
-                research_step(
-                    writer, emissions, "official_search", "complete", "Checking official pages"
-                )
-
-        # General web search — one broad query, source-gated.
-        if (
-            source_config.web
-            and searches_used < max_searches
-            and not soft_timeout_hit(research, settings)
-        ):
+                        continue
+                    local_searches += 1
+                    result = _tag_research_context(result, school=school_name, query=query)
+                    async with evidence_lock:
+                        annotated = registry.annotate_search_results(result)
+                        evidence = _evidence_items_from_search_results(
+                            annotated.get("results") or [],
+                            retrieved_at=today_str,
+                            default_school=school_name,
+                            default_topic=_topic_from_text(query),
+                        )
+                        web_evidence.extend(evidence)
+                    official_phase_evidence.extend(evidence)
+                    official_queries_run.append(query)
+            async with search_count_lock:
+                searches_used += local_searches
             research_step(
-                writer, emissions, "web_search", "running", "Checking current web sources"
+                writer,
+                emissions,
+                "official_search",
+                "complete",
+                "Checking official pages",
+                detail=_search_detail(official_queries_run, official_phase_evidence),
+                sources=_step_sources_from_evidence(official_phase_evidence, reddit_labels=False),
+                kind="edu_search",
+                tier="official",
             )
+
+        async def run_web_phase() -> None:
+            nonlocal searches_used
+            if (
+                not web_slot
+                or soft_timeout_hit(research, settings)
+                or _cost_ceiling_hit(research, caps, settings)
+            ):
+                return
+            research_step(
+                writer,
+                emissions,
+                "web_search",
+                "running",
+                "Checking current web sources",
+                kind="web_search",
+            )
+            web_phase_evidence: list[dict[str, Any]] = []
+            web_query = ""
             try:
-                web_queries = plan_queries.get("web") or [user_text]
+                web_query = (plan_queries.get("web") or [user_text])[0]
                 result = await _bounded_external_call(
                     search_web,
                     client,
-                    web_queries[0],
+                    web_query,
                     today=today,
                     max_results=max_results,
+                    exclude_domains=["reddit.com"],
                     research=research,
                     settings=settings,
                     caps=caps,
@@ -162,27 +211,53 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 result["results"] = _filter_school_related_results(
                     result.get("results") or [], schools
                 )
-                searches_used += 1
-                result["results"] = _preserve_extracted_citations(
-                    result.get("results") or [], _metadata_by_url(web_evidence)
-                )
-                annotated = registry.annotate_search_results(result)
-                web_evidence.extend(annotated.get("results") or [])
+                async with search_count_lock:
+                    searches_used += 1
+                if source_config.edu and official_budget > 0:
+                    await official_done.wait()
+                async with evidence_lock:
+                    result["results"] = _preserve_extracted_citations(
+                        result.get("results") or [], _metadata_by_url(web_evidence)
+                    )
+                    annotated = registry.annotate_search_results(result)
+                    web_phase_evidence = _evidence_items_from_search_results(
+                        annotated.get("results") or [],
+                        retrieved_at=today_str,
+                        default_topic=_topic_from_text(web_query),
+                    )
+                    web_evidence.extend(web_phase_evidence)
             except Exception:
                 logger.debug("web search failed", exc_info=True)
             research_step(
-                writer, emissions, "web_search", "complete", "Checking current web sources"
+                writer,
+                emissions,
+                "web_search",
+                "complete",
+                "Checking current web sources",
+                detail=_search_detail([web_query] if web_query else [], web_phase_evidence),
+                sources=_step_sources_from_evidence(web_phase_evidence, reddit_labels=False),
+                kind="web_search",
             )
 
-        # Reddit community search — source-gated.
-        if (
-            source_config.reddit
-            and searches_used < max_searches
-            and not soft_timeout_hit(research, settings)
-        ):
+        async def run_reddit_phase() -> None:
+            nonlocal searches_used
+            if (
+                not reddit_slot
+                or soft_timeout_hit(research, settings)
+                or _cost_ceiling_hit(research, caps, settings)
+            ):
+                return
             research_step(
-                writer, emissions, "community_search", "running", "Reading student sentiment"
+                writer,
+                emissions,
+                "community_search",
+                "running",
+                "Reading student sentiment",
+                kind="reddit_search",
+                tier="community",
             )
+            reddit_phase_evidence: list[dict[str, Any]] = []
+            reddit_query = ""
             try:
                 from config.settings import load_yaml_asset
 
@@ -190,10 +265,11 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 default_subs = [s for s in subreddit_menu if "{school}" not in str(s)][:3]
                 if not default_subs:
                     default_subs = ["ApplyingToCollege"]
+                reddit_query = (plan_queries.get("reddit") or [user_text])[0]
                 result = await _bounded_external_call(
                     search_reddit,
                     client,
-                    (plan_queries.get("reddit") or [user_text])[0],
+                    reddit_query,
                     default_subs,
                     allowed=subreddit_menu,
                     today=today,
@@ -202,22 +278,40 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                     settings=settings,
                     caps=caps,
                 )
-                searches_used += 1
-                annotated = registry.annotate_search_results(result)
-                web_evidence.extend(annotated.get("results") or [])
+                async with search_count_lock:
+                    searches_used += 1
+                async with evidence_lock:
+                    annotated = registry.annotate_search_results(result)
+                    reddit_phase_evidence = _evidence_items_from_search_results(
+                        annotated.get("results") or [],
+                        retrieved_at=today_str,
+                        default_topic="sentiment",
+                    )
+                    web_evidence.extend(reddit_phase_evidence)
             except Exception:
                 logger.debug("reddit search failed", exc_info=True)
             research_step(
-                writer, emissions, "community_search", "complete", "Reading student sentiment"
+                writer,
+                emissions,
+                "community_search",
+                "complete",
+                "Reading student sentiment",
+                detail=_search_detail(
+                    [reddit_query] if reddit_query else [], reddit_phase_evidence
+                ),
+                sources=_step_sources_from_evidence(reddit_phase_evidence, reddit_labels=True),
+                kind="reddit_search",
+                tier="community",
             )
 
-        # GPT-Researcher is supplemental. Run it only after direct gated retrieval
-        # has had the first claim on the budget.
-        if (
-            settings.deep_research_use_gptr
-            and (source_config.web or source_config.edu)
-            and not soft_timeout_hit(research, settings)
-        ):
+        async def run_gptr_phase() -> None:
+            if (
+                not settings.deep_research_use_gptr
+                or not (source_config.web or source_config.edu)
+                or soft_timeout_hit(research, settings)
+                or _cost_ceiling_hit(research, caps, settings)
+            ):
+                return
             official_domains = await _official_domains(deps, schools)
             research_step(
                 writer,
@@ -225,57 +319,104 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 "gptr_research",
                 "running",
                 "Checking extra sources",
+                kind="web_search",
             )
+            gptr_query = (plan_queries.get("web") or plan_queries.get("official") or [user_text])[0]
             gptr_budget_s = remaining_time_seconds(
                 research,
                 float(settings.deep_research_soft_timeout_s),
                 reserve_s=15,
                 cap_s=float(getattr(settings, "deep_research_gptr_timeout_s", 30)),
             )
-            gptr_result: dict[str, Any]
             if gptr_budget_s < 5:
-                gptr_result = {
+                gptr_result: dict[str, Any] = {
                     "results": [],
                     "cost_usd": None,
                     "unavailable": "time_budget_exhausted",
                 }
             else:
-                gptr_result = await gather_via_gptr(
-                    (plan_queries.get("web") or plan_queries.get("official") or [user_text])[0],
-                    source_config,
-                    settings,
-                    domains=official_domains,
-                    today=today,
-                    timeout_s=gptr_budget_s,
-                )
+                try:
+                    gptr_result = await gather_via_gptr(
+                        gptr_query,
+                        source_config,
+                        settings,
+                        domains=official_domains,
+                        today=today,
+                        timeout_s=gptr_budget_s,
+                    )
+                except Exception as exc:
+                    logger.debug("gptr gather failed", exc_info=True)
+                    gptr_result = {
+                        "results": [],
+                        "cost_usd": None,
+                        "unavailable": type(exc).__name__,
+                    }
             if gptr_result.get("unavailable"):
                 caps["gptr_unavailable"] = gptr_result["unavailable"]
             if cost := gptr_result.get("cost_usd"):
                 _add_external_cost(research, caps, float(cost))
+                _cost_ceiling_hit(research, caps, settings)
             gptr_raw_results = _filter_school_related_results(
                 gptr_result.get("results") or [], schools
             )
-            gptr_results = _preserve_extracted_citations(
-                gptr_raw_results, _metadata_by_url(web_evidence)
-            )
-            annotated = registry.annotate_search_results(
-                {"results": gptr_results}
-            )
-            web_evidence.extend(annotated.get("results") or [])
+            if source_config.edu and official_budget > 0:
+                await official_done.wait()
+            async with evidence_lock:
+                gptr_results = _preserve_extracted_citations(
+                    gptr_raw_results, _metadata_by_url(web_evidence)
+                )
+                annotated = registry.annotate_search_results({"results": gptr_results})
+                gptr_phase_evidence = _evidence_items_from_search_results(
+                    annotated.get("results") or [],
+                    retrieved_at=today_str,
+                    default_topic=_topic_from_text(gptr_query),
+                )
+                web_evidence.extend(gptr_phase_evidence)
             research_step(
                 writer,
                 emissions,
                 "gptr_research",
                 "complete",
                 "Checking extra sources",
+                detail=_search_detail([gptr_query], gptr_phase_evidence),
+                sources=_step_sources_from_evidence(gptr_phase_evidence, reddit_labels=False),
+                kind="web_search",
             )
 
+        async def run_official_phase_done() -> None:
+            try:
+                await run_official_phase()
+            finally:
+                official_done.set()
+
+        if source_config.edu:
+            phase_tasks.append(_run_limited(semaphore, run_official_phase_done()))
+        else:
+            official_done.set()
+        if source_config.web:
+            phase_tasks.append(_run_limited(semaphore, run_web_phase()))
+        if source_config.reddit:
+            phase_tasks.append(_run_limited(semaphore, run_reddit_phase()))
+        if settings.deep_research_use_gptr:
+            phase_tasks.append(_run_limited(semaphore, run_gptr_phase()))
+        if phase_tasks:
+            await asyncio.gather(*phase_tasks)
+
         # URL extraction — collect top URLs, then extract.
-        if extracts_used < max_extracts and not soft_timeout_hit(research, settings):
+        if (
+            extracts_used < max_extracts
+            and not soft_timeout_hit(research, settings)
+            and not _cost_ceiling_hit(research, caps, settings)
+        ):
             top_urls = _top_urls(web_evidence, max_extracts - extracts_used)
             if top_urls:
                 research_step(
-                    writer, emissions, "extract", "running", "Reading selected pages"
+                    writer,
+                    emissions,
+                    "extract",
+                    "running",
+                    "Reading selected pages",
+                    kind="web_search",
                 )
                 metadata_by_url = _metadata_by_url(web_evidence)
                 extracted = await _bounded_external_call(
@@ -293,9 +434,26 @@ async def research_gather_external_node(state: Any, deps: Any) -> dict[str, Any]
                 annotated_extracted = registry.annotate_search_results(
                     {"results": extracted}
                 ).get("results") or []
-                web_evidence.extend(annotated_extracted)
+                extracted_evidence = _evidence_items_from_search_results(
+                    annotated_extracted,
+                    retrieved_at=today_str,
+                )
+                web_evidence.extend(extracted_evidence)
                 research_step(
-                    writer, emissions, "extract", "complete", "Reading selected pages"
+                    writer,
+                    emissions,
+                    "extract",
+                    "complete",
+                    "Reading selected pages",
+                    detail=StepDetail(
+                        query=f"{len(top_urls)} selected URLs",
+                        result_count=len(extracted_evidence),
+                        domains=_domains_from_evidence(extracted_evidence),
+                    ),
+                    sources=_step_sources_from_evidence(
+                        extracted_evidence, reddit_labels=False
+                    ),
+                    kind="web_search",
                 )
 
     except Exception:
@@ -348,6 +506,11 @@ def _top_urls(evidence: list[Any], limit: int) -> list[str]:
     return urls
 
 
+async def _run_limited(semaphore: asyncio.Semaphore, coro: Any) -> Any:
+    async with semaphore:
+        return await coro
+
+
 def _tag_research_context(
     payload: dict[str, Any],
     *,
@@ -375,8 +538,8 @@ def _tag_research_context(
 
 
 def _coverage_key(item: dict[str, Any]) -> tuple[str, str]:
-    school = str(item.get("_research_school") or "general").lower()
-    topic = str(item.get("_research_topic") or "").lower()
+    school = str(item.get("school") or item.get("_research_school") or "general").lower()
+    topic = str(item.get("topic") or item.get("_research_topic") or "").lower()
     if not topic:
         topic = _topic_from_text(
             " ".join(
@@ -387,11 +550,151 @@ def _coverage_key(item: dict[str, Any]) -> tuple[str, str]:
     return (school, topic or "general")
 
 
+def _evidence_items_from_search_results(
+    results: list[Any],
+    *,
+    retrieved_at: str,
+    default_school: str | None = None,
+    default_topic: str | None = None,
+) -> list[dict[str, Any]]:
+    """Convert annotated Tavily/GPTR result dicts to EvidenceItem state dicts."""
+    evidence: list[dict[str, Any]] = []
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        citation = result.get("citation")
+        marker = result.get("marker")
+        if not _citation_shaped(citation) or not isinstance(marker, str):
+            continue
+        citation = cast(dict[str, Any], citation)
+        title = _str_or_none(result.get("title"))
+        snippet = _str_or_none(result.get("snippet"))
+        url = _str_or_none(result.get("url") or citation.get("url"))
+        school = _str_or_none(result.get("_research_school")) or default_school
+        topic = _str_or_none(result.get("_research_topic")) or default_topic
+        if topic is None:
+            topic = _topic_from_text(
+                " ".join(str(result.get(k) or "") for k in ("title", "snippet", "url"))
+            )
+        try:
+            item = EvidenceItem(
+                marker=marker,
+                source=citation["source"],
+                tier=citation["tier"],
+                school=school,
+                topic=topic,
+                title=title,
+                snippet=snippet,
+                url=url,
+                field_key=None,
+                display=snippet,
+                vintage=str(citation["vintage"]),
+                retrieved_at=retrieved_at,
+                provenance={
+                    "kind": "search_result",
+                    "citation": citation,
+                    "caveat": citation.get("caveat"),
+                    "raw_table": citation.get("raw_table"),
+                },
+            )
+        except ValidationError:
+            logger.debug("skipping malformed external evidence item", exc_info=True)
+            continue
+        evidence.append(item.model_dump(mode="json"))
+    return evidence
+
+
+def _search_detail(queries: list[str], evidence: list[dict[str, Any]]) -> StepDetail:
+    query = None
+    cleaned_queries = [query for query in queries if query]
+    if len(cleaned_queries) == 1:
+        query = cleaned_queries[0]
+    elif cleaned_queries:
+        query = f"{len(cleaned_queries)} searches"
+    return StepDetail(
+        query=query,
+        domains=_domains_from_evidence(evidence),
+        result_count=len(evidence),
+    )
+
+
+def _step_sources_from_evidence(
+    evidence: list[dict[str, Any]],
+    *,
+    reddit_labels: bool,
+) -> list[StepSource] | None:
+    out: list[StepSource] = []
+    seen: set[str] = set()
+    for item in evidence:
+        url = item.get("url")
+        if not isinstance(url, str) or not url or url in seen:
+            continue
+        if not url.lower().startswith(("http://", "https://")):
+            continue
+        seen.add(url)
+        host = registrable_domain(url)
+        title = _str_or_none(item.get("title"))
+        label = title if reddit_labels and title else (host or title or url)
+        out.append(
+            StepSource(
+                label=label,
+                favicon=favicon_url(host) if host else None,
+                url=url,
+            )
+        )
+        if len(out) >= 8:
+            break
+    return out or None
+
+
+def _domains_from_evidence(evidence: list[dict[str, Any]]) -> list[str] | None:
+    domains: list[str] = []
+    for item in evidence:
+        url = item.get("url")
+        if not isinstance(url, str):
+            continue
+        host = registrable_domain(url)
+        if host and host not in domains:
+            domains.append(host)
+    return domains or None
+
+
+def _citation_from_evidence(item: dict[str, Any]) -> dict[str, Any] | None:
+    provenance = item.get("provenance")
+    citation = provenance.get("citation") if isinstance(provenance, dict) else None
+    if _citation_shaped(citation):
+        return citation
+    if not {"source", "tier", "vintage"} <= item.keys():
+        return None
+    citation = {
+        "source": item["source"],
+        "tier": item["tier"],
+        "vintage": item["vintage"],
+    }
+    if item.get("url"):
+        citation["url"] = item["url"]
+    return citation
+
+
+def _citation_shaped(value: Any) -> bool:
+    return isinstance(value, dict) and {"source", "tier", "vintage"} <= value.keys()
+
+
+def _str_or_none(value: Any) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
 def _filter_school_related_results(
     results: list[Any],
     schools: list[Any],
 ) -> list[Any]:
     """Keep supplemental results that mention at least one requested school."""
+    results = [
+        item
+        for item in results
+        if not (isinstance(item, dict) and _is_reddit_url(_str_or_none(item.get("url"))))
+    ]
     if not schools:
         return results
     school_aliases = [
@@ -411,6 +714,13 @@ def _filter_school_related_results(
         if any(_contains_school_alias(text, alias) for alias in school_aliases):
             filtered.append(item)
     return filtered
+
+
+def _is_reddit_url(url: str | None) -> bool:
+    if not url:
+        return False
+    host = registrable_domain(url)
+    return host == "reddit.com"
 
 
 def _topic_from_text(text: str) -> str:
@@ -435,18 +745,20 @@ def _metadata_by_url(evidence: list[Any]) -> dict[str, dict[str, Any]]:
         if not isinstance(item, dict):
             continue
         url = item.get("url")
-        citation = item.get("citation")
-        if (
-            isinstance(url, str)
-            and url
-            and isinstance(citation, dict)
-            and url not in metadata_by_url
-        ):
+        top_level_citation = item.get("citation")
+        citation = (
+            top_level_citation
+            if _citation_shaped(top_level_citation)
+            else _citation_from_evidence(item)
+        )
+        if isinstance(url, str) and url and citation is not None and url not in metadata_by_url:
             metadata: dict[str, Any] = {"citation": citation}
-            if item.get("_research_school"):
-                metadata["_research_school"] = item["_research_school"]
-            if item.get("_research_topic"):
-                metadata["_research_topic"] = item["_research_topic"]
+            school = item.get("school") or item.get("_research_school")
+            topic = item.get("topic") or item.get("_research_topic")
+            if school:
+                metadata["_research_school"] = school
+            if topic:
+                metadata["_research_topic"] = topic
             metadata_by_url[url] = metadata
     return metadata_by_url
 
@@ -503,6 +815,38 @@ def _add_external_cost(research: dict[str, Any], caps: dict[str, Any], cost: flo
     usage["est_cost_usd"] = float(current or 0.0) + cost
     research["usage"] = usage
     caps["est_cost_usd"] = usage["est_cost_usd"]
+
+
+def _cost_ceiling_hit(
+    research: dict[str, Any],
+    caps: dict[str, Any],
+    settings: Any,
+) -> bool:
+    """Mark and return whether estimated research cost has reached its ceiling."""
+    ceiling = getattr(settings, "deep_research_max_est_cost_usd", None)
+    if ceiling is None:
+        return False
+    current = _current_est_cost(research, caps)
+    if current is None or current < float(ceiling):
+        return False
+    caps["cost_ceiling_hit"] = True
+    research["caps"] = {**dict(research.get("caps") or {}), **caps}
+    return True
+
+
+def _current_est_cost(research: dict[str, Any], caps: dict[str, Any]) -> float | None:
+    usage = research.get("usage")
+    for value in (
+        caps.get("est_cost_usd"),
+        usage.get("est_cost_usd") if isinstance(usage, dict) else None,
+    ):
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 async def _bounded_external_call(

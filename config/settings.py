@@ -143,7 +143,7 @@ class Settings(BaseSettings):
     deep_research_max_verified_claims: int = 30
     deep_research_max_parallel_tasks: int = 4
     deep_research_max_est_cost_usd: float = 1.00
-    deep_research_use_gptr: bool = False
+    deep_research_use_gptr: bool = True
     deep_research_gptr_timeout_s: int = 30
     # Research model tiers (None → fallback via property)
     model_research_fast: str | None = None
