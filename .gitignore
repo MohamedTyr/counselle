@@ -24,6 +24,7 @@ plans/.local/
 # is not vendored into the product repo (no ADR sanctions vendoring it here).
 .agents/
 .claude/
+.cursor/
 
 # Nested git worktrees live under .worktrees/ — duplicated source trees that
 # pollute every recursive grep/mypy/ruff walk. Keep them out of the index and
