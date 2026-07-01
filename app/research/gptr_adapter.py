@@ -8,13 +8,14 @@ verification, and synthesis stay in Counselle code.
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
 import os
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from datetime import date
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlparse
 
 from domain.envelope import Citation
@@ -46,6 +47,8 @@ async def gather_via_gptr(
         return {"results": [], "cost_usd": None, "unavailable": "no_official_domains"}
     if not getattr(settings, "tavily_api_key", None):
         return {"results": [], "cost_usd": None, "unavailable": "missing_tavily_key"}
+    if importlib.util.find_spec("gpt_researcher") is None:
+        return {"results": [], "cost_usd": None, "unavailable": "package_not_installed"}
     unavailable = _gptr_config_unavailable(settings)
     if unavailable:
         return {"results": [], "cost_usd": None, "unavailable": unavailable}
@@ -318,6 +321,7 @@ def _gptr_vertex_express_patch(settings: Any) -> Iterator[None]:
 
     original_descriptor = GenericLLMProvider.__dict__["from_provider"]
     original = GenericLLMProvider.from_provider
+    memory_patches = _patch_gptr_vertex_memory(settings)
 
     def from_provider(
         cls: type[Any],
@@ -345,6 +349,8 @@ def _gptr_vertex_express_patch(settings: Any) -> Iterator[None]:
         yield
     finally:
         GenericLLMProvider.from_provider = original_descriptor
+        for module, original_memory in memory_patches:
+            module.Memory = original_memory
 
 
 class _VertexExpressChat:
@@ -386,6 +392,84 @@ class _VertexExpressChat:
 
     async def astream(self, messages: Any, *_args: Any, **kwargs: Any) -> Any:
         yield await self.ainvoke(messages, **kwargs)
+
+
+class _VertexExpressEmbeddings:
+    """LangChain-compatible embedding wrapper over google-genai express auth."""
+
+    def __init__(self, *, model: str, api_key: str) -> None:
+        from google import genai
+
+        self.model = model
+        self.client = genai.Client(vertexai=True, api_key=api_key)
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        from google.genai import types
+
+        response = self.client.models.embed_content(
+            model=self.model,
+            contents=cast(Any, texts),
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
+        )
+        return [
+            list(embedding.values or [])
+            for embedding in (response.embeddings or [])
+        ]
+
+    def embed_query(self, text: str) -> list[float]:
+        from google.genai import types
+
+        response = self.client.models.embed_content(
+            model=self.model,
+            contents=text,
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
+        )
+        embeddings = response.embeddings or []
+        if not embeddings:
+            return []
+        return list(embeddings[0].values or [])
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        return await asyncio.to_thread(self.embed_documents, texts)
+
+    async def aembed_query(self, text: str) -> list[float]:
+        return await asyncio.to_thread(self.embed_query, text)
+
+
+def _patch_gptr_vertex_memory(settings: Any) -> list[tuple[Any, Any]]:
+    """Patch GPTR's imported Memory class to avoid ADC-only embedding clients."""
+    try:
+        import gpt_researcher.agent as agent_module
+        import gpt_researcher.memory.embeddings as embeddings_module
+    except Exception:
+        return []
+
+    patches: list[tuple[Any, Any]] = []
+    original_memory = embeddings_module.Memory
+
+    class VertexExpressMemory:
+        def __init__(self, embedding_provider: str, model: str, **kwargs: Any) -> None:
+            if (
+                embedding_provider == "google_genai"
+                and os.environ.get("COUNSELLE_GPTR_VERTEX_EXPRESS")
+            ):
+                api_key = str(
+                    os.environ.get("COUNSELLE_GPTR_VERTEX_API_KEY")
+                    or getattr(settings, "vertex_api_key", "")
+                )
+                self._embeddings = _VertexExpressEmbeddings(model=model, api_key=api_key)
+                return
+            self._embeddings = original_memory(
+                embedding_provider, model, **kwargs
+            ).get_embeddings()
+
+        def get_embeddings(self) -> Any:
+            return self._embeddings
+
+    for module in (agent_module, embeddings_module):
+        patches.append((module, module.Memory))
+        module.Memory = VertexExpressMemory
+    return patches
 
 
 def _gptr_vertex_contents(messages: Any) -> str:
@@ -443,7 +527,7 @@ def _results_from_researcher(
         snippet = _snippet(source, report)
         citation = Citation(
             source=source_name,
-            tier="official",
+            tier="official" if source_name == "edu" else "community",
             vintage=f"GPT-Researcher/Tavily {today.isoformat()}",
             url=url,
             caveat="Supplemental GPT-Researcher context; verified before use.",
@@ -476,6 +560,8 @@ def _snippet(source: dict[str, Any], report: str) -> str:
 
 
 def _url_allowed(url: str, source_config: SourceConfig, official_domains: list[str]) -> bool:
+    if _domain_allowed(url, ["reddit.com"]):
+        return False
     if source_config.web:
         return True
     return bool(source_config.edu and _domain_allowed(url, official_domains))
