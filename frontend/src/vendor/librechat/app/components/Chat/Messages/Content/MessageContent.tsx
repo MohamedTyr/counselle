@@ -203,7 +203,6 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
           header too (absorbing the old ThinkingShimmer), so it mounts when the
           turn is live OR has timeline entries. */}
       {!isCreatedByUser &&
-        !(isResearchPlanClarify && message.turnStatus === 'awaiting_input') &&
         (message.isThinking === true || (message.timeline?.length ?? 0) > 0) && (
           <ReasoningTrace
             timeline={message.timeline ?? []}

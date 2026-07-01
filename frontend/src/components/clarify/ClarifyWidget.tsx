@@ -17,6 +17,7 @@
 import { useState, type ReactNode } from 'react';
 import type { ClarifySpec, ResearchPlanSpec } from '@/api/protocol';
 import type { TurnStatus } from '@/api/turn-reducer';
+import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from '@/components/ai-elements/task';
 import { cn } from '~/utils';
 
 type ClarifyWidgetProps = {
@@ -241,48 +242,57 @@ function ResearchPlanDetails({ plan }: { plan: ResearchPlanSpec }) {
       )}
 
       {plan.tasks.length > 0 && (
-        <details className="border-t border-border-light pt-4">
-          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary hover:text-text-primary">
-            Detailed work plan
-          </summary>
-          <ol className="mt-3 space-y-3 text-sm text-text-primary">
+        <PlanSection title="Detailed work plan">
+          <div className="space-y-3">
             {plan.tasks.map((task, index) => (
-                <li key={`${task.label}-${index}`} className="grid grid-cols-[24px_1fr] gap-3">
-                  <span className="mt-0.5 grid size-6 place-items-center rounded-full border border-border-light text-[11px] tabular-nums text-text-secondary">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="font-medium leading-6">{task.label}</div>
-                    <div className="mt-0.5 text-xs leading-5 text-text-secondary">{task.reason}</div>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {task.sources.map((source) => (
-                        <span
-                          key={source}
-                          className="rounded-md border border-border-light px-1.5 py-0.5 text-[11px] text-text-secondary"
-                        >
-                          {SOURCE_LABELS[source] ?? source}
-                        </span>
-                      ))}
-                    </div>
-                    {task.queries.length > 0 && (
-                      <details className="mt-1.5">
-                        <summary className="cursor-pointer text-[11px] leading-5 text-text-secondary hover:text-text-primary">
-                          Search details
-                        </summary>
-                        <div className="mt-1 space-y-1 text-[11px] leading-5 text-text-secondary">
-                          {task.queries.slice(0, 3).map((query) => (
-                            <div key={query} className="min-w-0 break-words">
-                              {query}
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                </li>
-              ))}
-          </ol>
-        </details>
+              <Task key={`${task.label}-${index}`} defaultOpen className="rounded-md">
+                <TaskTrigger
+                  title={task.label}
+                  className="w-full"
+                  aria-label={`${task.label} task details`}
+                >
+                  <button
+                    type="button"
+                    className="group flex w-full items-start gap-3 rounded-md text-left"
+                  >
+                    <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-border-light text-[11px] tabular-nums text-text-secondary">
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium leading-6 text-text-primary">
+                        {task.label}
+                      </span>
+                      <span className="block text-xs leading-5 text-text-secondary">
+                        {task.reason}
+                      </span>
+                    </span>
+                  </button>
+                </TaskTrigger>
+                <TaskContent className="ml-9">
+                  <TaskItem className="flex flex-wrap gap-1.5">
+                    {task.sources.map((source) => (
+                      <TaskItemFile key={source}>{SOURCE_LABELS[source] ?? source}</TaskItemFile>
+                    ))}
+                  </TaskItem>
+                  {task.queries.length > 0 && (
+                    <details className="mt-1.5">
+                      <summary className="cursor-pointer text-[11px] leading-5 text-text-secondary hover:text-text-primary">
+                        Search details
+                      </summary>
+                      <div className="mt-1 space-y-1 text-[11px] leading-5 text-text-secondary">
+                        {task.queries.slice(0, 3).map((query) => (
+                          <div key={query} className="min-w-0 break-words">
+                            {query}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </TaskContent>
+              </Task>
+            ))}
+          </div>
+        </PlanSection>
       )}
 
       {plan.source_policy.length > 0 && (
@@ -296,7 +306,7 @@ function ResearchPlanDetails({ plan }: { plan: ResearchPlanSpec }) {
       )}
 
       {plan.limitations.length > 0 && (
-        <PlanSection title="Limits">
+        <PlanSection title="Verification and source limits">
           <ul className="space-y-1.5 text-xs leading-5 text-text-secondary">
             {plan.limitations.map((item) => (
               <li key={item}>{item}</li>
@@ -309,19 +319,39 @@ function ResearchPlanDetails({ plan }: { plan: ResearchPlanSpec }) {
   );
 }
 
+function ResearchPlanLoading() {
+  return (
+    <div className="mt-4 space-y-4" role="status" aria-live="polite" aria-label="Preparing research plan">
+      <div className="space-y-2">
+        <div className="h-3 w-24 rounded bg-surface-secondary" />
+        <div className="h-4 w-11/12 rounded bg-surface-secondary" />
+        <div className="h-4 w-8/12 rounded bg-surface-secondary" />
+      </div>
+      <div className="space-y-2 border-t border-border-light pt-4">
+        <div className="h-3 w-32 rounded bg-surface-secondary" />
+        <div className="h-9 rounded-md bg-surface-secondary" />
+        <div className="h-9 rounded-md bg-surface-secondary" />
+      </div>
+    </div>
+  );
+}
+
 function researchPlanStatus({
   frozen,
   answer,
   turnStatus,
+  cancelLabel,
 }: {
   frozen: boolean;
   answer?: string | null;
   turnStatus?: TurnStatus;
+  cancelLabel?: string;
 }): { label: string; tone: 'ready' | 'running' | 'done' | 'cancelled' } {
   const declined =
     answer !== undefined &&
     answer !== null &&
-    /cancel|skip|no|stop/i.test(answer);
+    cancelLabel !== undefined &&
+    answer.trim() === cancelLabel;
   if (!frozen) {
     return { label: 'Review before running', tone: 'ready' };
   }
@@ -341,10 +371,12 @@ function researchPlanStatus({
 }
 
 function ResearchPlanPanel({ spec, frozen, onAnswer, answer, turnStatus }: ClarifyWidgetProps) {
-  const runOption = spec.options[0];
-  const cancelOption = spec.options[1];
+  const runOption =
+    spec.options.find((option) => /run deep research/i.test(option.label)) ?? spec.options[0];
+  const cancelOption =
+    spec.options.find((option) => /cancel|skip/i.test(option.label)) ?? spec.options[1];
   const plan = spec.research_plan;
-  const status = researchPlanStatus({ frozen, answer, turnStatus });
+  const status = researchPlanStatus({ frozen, answer, turnStatus, cancelLabel: cancelOption?.label });
 
   return (
     <div className="not-prose my-3 rounded-xl border border-border-light bg-surface-primary-alt p-4 shadow-[0_1px_0_rgba(0,0,0,0.02)]">
@@ -356,6 +388,7 @@ function ResearchPlanPanel({ spec, frozen, onAnswer, answer, turnStatus }: Clari
           <div className="mt-1 text-sm font-semibold text-text-primary">Research plan</div>
         </div>
         <span
+          aria-live="polite"
           className={cn(
             'shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium',
             status.tone === 'ready' && 'border-border-light text-text-secondary',
@@ -369,11 +402,13 @@ function ResearchPlanPanel({ spec, frozen, onAnswer, answer, turnStatus }: Clari
       </div>
       {plan !== undefined && plan !== null ? (
         <ResearchPlanDetails plan={plan} />
+      ) : !frozen ? (
+        <ResearchPlanLoading />
       ) : (
         <p className="mt-2 max-w-[72ch] text-sm leading-6 text-text-primary">{spec.question}</p>
       )}
       {!frozen && runOption !== undefined && cancelOption !== undefined && (
-        <div className="mt-3 flex gap-2">
+        <div className="sticky bottom-2 z-10 mt-3 flex gap-2 rounded-xl border border-border-light bg-surface-primary-alt p-2 shadow-sm sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
           <button
             type="button"
             onClick={() => onAnswer(runOption.label)}

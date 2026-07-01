@@ -56,7 +56,7 @@ export interface CounselleComposerProps {
   onSourcesChange: (patch: Partial<SourceConfig>) => void;
   /** Show the ResponseModeControl pill (hidden when deep_research_enabled=false). */
   deepResearchEnabled?: boolean;
-  /** Disable free typing while a button-only gate, such as Run/Cancel, is active. */
+  /** Mark submit as blocked by a higher-level gate without disabling typing. */
   inputDisabled?: boolean;
 }
 export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, CounselleComposerProps>(
@@ -170,7 +170,7 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
         value={value}
         onValueChange={onValueChange}
         isLoading={isLoading}
-        disabled={inputDisabled || isRecording}
+        disabled={isRecording}
         enterToSend={enterToSend}
         onSubmit={handleSubmit}
         className={cn(
@@ -283,8 +283,8 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
             <Button
               variant="default"
               size="icon"
-              disabled={inputDisabled || (!isLoading && !(VOICE_ENABLED && isRecording) && !hasContent)}
-              aria-disabled={inputDisabled}
+              disabled={!isLoading && !(VOICE_ENABLED && isRecording) && !hasContent}
+              aria-disabled={inputDisabled || undefined}
               className={cn(
                 'h-8 w-8 rounded-full transition-all duration-200',
                 // idle + hasContent use the (theme-aware) filled default variant;
@@ -296,7 +296,10 @@ export const CounselleComposer = React.forwardRef<HTMLTextAreaElement, Counselle
                 // fallback is gated off (FE-M3) — with VOICE_ENABLED false the
                 // button is disabled rather than entering a recording UI that
                 // submits nothing.
-                if (inputDisabled) return;
+                if (inputDisabled) {
+                  handleSubmit();
+                  return;
+                }
                 if (VOICE_ENABLED && isRecording) setIsRecording(false);
                 else if (isLoading) onStop?.();
                 else if (hasContent) handleSubmit();
