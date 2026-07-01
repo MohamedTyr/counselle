@@ -1,13 +1,22 @@
-"""The research_plan node — scope resolution + user confirmation gate.
+"""Scope resolution + plan confirmation — two graph nodes, one interrupt each.
 
-Responsibilities:
-1. Extract user text from messages.
-2. Heuristically parse school names (capped at deep_research_max_schools).
-3. Set started_at in caps.
-4. Emit "Planning research" step.
-5. Interrupt with a confirmation ClarifySpec showing the plan.
-6. On resume: branch="run" (affirmative) or "cancel" (declined).
-7. Cancel path returns all terminal keys so run_turn emits sources/usage/done.
+``research_scope_node``:
+1. Extract user text from messages, heuristically parse school names.
+2. Set started_at in caps, emit "Planning research" (running).
+3. If the request is too broad and schoolless, interrupt with a scope
+   clarify; on resume, augment user_text with the answer and re-parse.
+4. Persist the resolved user_text/schools into ``research`` state and branch
+   "scoped" (or "cancel" if the scope clarify was declined).
+
+``research_plan_confirm_node``:
+1. Read the resolved user_text/schools from ``research`` state (not messages).
+2. Build the research plan, interrupt with a Run/Cancel confirmation.
+3. On resume: branch="run" (affirmative) or "cancel" (declined).
+4. Cancel path returns all terminal keys so run_turn emits sources/usage/done.
+
+These are separate nodes rather than two sequential ``interrupt()`` calls in
+one function — see ``research_scope_node``'s docstring for the bug that
+caused (a live-caught, real regression, not hypothetical).
 """
 
 from __future__ import annotations
@@ -515,8 +524,24 @@ async def _build_research_plan(
     return _fallback_plan(user_text, schools, source_config, max_wall_clock_s)
 
 
-async def research_plan_node(state: Any, deps: Any) -> dict[str, Any]:
-    """Resolve scope, confirm with the student, then branch run or cancel."""
+async def research_scope_node(state: Any, deps: Any) -> dict[str, Any]:
+    """Resolve the student's research scope; park on a scope clarify if the
+    request is too broad to run honestly.
+
+    This is its own graph node — not folded into ``research_plan_confirm_node``
+    — on purpose. The two used to be sequential ``interrupt()`` calls inside
+    ONE node function. That was fragile: LangGraph re-runs a node's function
+    from the top on every resume, replaying past ``interrupt()`` calls with
+    their cached answers in order. When a turn needed BOTH gates (broad
+    schoolless request -> scope clarify -> plan-confirm clarify -> Run), the
+    resume answering the SECOND interrupt ("Run deep research") was instead
+    fed into the STILL-replaying FIRST interrupt call, corrupting the resolved
+    scope and re-parking on a generic plan instead of running (live-caught,
+    2026-07-01 — reproduced both via the eval harness and a real UI click).
+    Splitting the two gates across a real graph edge means each node resumes
+    across exactly one interrupt, which is the case LangGraph resume actually
+    guarantees unambiguously.
+    """
     settings = get_settings()
     writer = get_stream_writer()
 
@@ -532,7 +557,6 @@ async def research_plan_node(state: Any, deps: Any) -> dict[str, Any]:
 
     research_step(writer, emissions, "planning", "running", "Planning research")
 
-    source_config = SourceConfig.model_validate(state.get("source_config") or {})
     schools = await _parse_schools(user_text, settings.deep_research_max_schools, deps)
 
     if _needs_scope_clarification(user_text, schools):
@@ -543,6 +567,37 @@ async def research_plan_node(state: Any, deps: Any) -> dict[str, Any]:
             return _cancel_path(state, writer, emissions, research, messages, user_text)
         user_text = _augment_user_text_with_scope(user_text, scope_answer)
         schools = await _parse_schools(user_text, settings.deep_research_max_schools, deps)
+
+    # Persist the resolved scope into graph state (not a local variable) so
+    # research_plan_confirm_node reads it directly instead of re-deriving it
+    # from raw messages — the messages list is never updated with clarify
+    # answers, so re-deriving here would silently lose the scope answer.
+    research["emissions"] = emissions
+    research["user_text"] = user_text
+    research["schools"] = schools
+    research["branch"] = "scoped"
+    return {"research": research}
+
+
+async def research_plan_confirm_node(state: Any, deps: Any) -> dict[str, Any]:
+    """Build the plan from the already-resolved scope, confirm with the
+    student, then branch run or cancel.
+
+    Reads ``research["user_text"]``/``research["schools"]`` as persisted by
+    ``research_scope_node`` rather than re-deriving them from raw messages, so
+    this node's own ``interrupt()`` is the only one in its execution — see
+    ``research_scope_node``'s docstring for why that matters.
+    """
+    settings = get_settings()
+    writer = get_stream_writer()
+
+    research = dict(state.get("research") or {})
+    emissions: list[Emission] = list(research.get("emissions") or [])
+    messages = list(state.get("messages") or [])
+
+    user_text = str(research.get("user_text") or _extract_user_text(messages))
+    schools = list(research.get("schools") or [])
+    source_config = SourceConfig.model_validate(state.get("source_config") or {})
 
     today = (state.get("temporal") or {}).get("today")
     research_plan = await _build_research_plan(

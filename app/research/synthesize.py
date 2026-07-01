@@ -62,7 +62,22 @@ _LIMITATION_NOTE = (
     "Verify key facts on the schools' official websites.*"
 )
 
-_SECTION_RE = re.compile(r"^#{2,4}\s+(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
+_HEADING_LEVELS = r"#{2,4}"
+_SECTION_RE = re.compile(rf"^{_HEADING_LEVELS}\s+(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def section_present(report_text: str, name: str) -> bool:
+    """True when ``report_text`` has a heading matching ``name`` at any accepted level.
+
+    Exported so the eval harness (``evals/deep_research_runner.py``) checks
+    sections against the SAME heading-level contract this node actually
+    enforces (``_ensure_required_sections`` below), instead of hardcoding its
+    own regex that can silently drift out of sync.
+    """
+    pattern = re.compile(
+        rf"^{_HEADING_LEVELS}\s+{re.escape(name)}\b", re.IGNORECASE | re.MULTILINE
+    )
+    return bool(pattern.search(report_text))
 
 
 def _ensure_required_sections(

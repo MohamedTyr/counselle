@@ -12,6 +12,14 @@
 #   uv run python -m evals.deep_research_runner
 #
 # Scenario-specific cases can add their own required env below.
+#
+# `sources_present` checks assert against a DB-tier citation that the LOCAL dev
+# contract DB (scripts/load_dev_contract_db.py, on docs/deep-research-prototype)
+# can actually populate: it loads public Scorecard/IPEDS bulk downloads, but the
+# Common Data Set (`cds`) has no public bulk source and is only ever populated
+# by the real data pipeline's per-school scraper. Assert `scorecard` here, not
+# `cds`, so this suite is runnable against the dev bootstrap DB rather than
+# depending on data this repo has no way to produce locally.
 
 - id: mit-stanford-cs-aid-testing
   question: "Deep research report comparing MIT and Stanford for undergraduate computer science admissions, financial aid, and current test policy."
@@ -33,7 +41,7 @@
       - Current official findings
       - Unknowns/conflicts
       - Next checks
-    sources_present: [cds, edu]
+    sources_present: [scorecard, edu]
     step_kinds_present: [db_tool, edu_search, web_search, reddit_search]
     step_ids_present:
       - research_db_check
@@ -41,7 +49,12 @@
       - research_web_search
 
 - id: broad-schoolless-scope-gate
-  question: "Do deep research on the best colleges for a CS applicant who needs strong aid."
+  # No school names and no scope-signal terms (major/aid/applicant/region/policy/
+  # selectivity — see app/research/plan.py:_SCOPE_SIGNAL_TERMS) on purpose: the
+  # gate only fires below _MIN_SCOPE_SIGNALS, so a prompt carrying 2+ of those
+  # terms (e.g. an explicit major AND aid need) is legitimately scoped enough
+  # to skip straight to planning — that's the real, working threshold, not a bug.
+  question: "Do deep research on the best colleges for me."
   scope_answer: "Compare MIT, Stanford, and Carnegie Mellon for undergraduate computer science admissions, financial aid, and current test policy."
   source_config:
     web: true
@@ -54,7 +67,7 @@
     scope_clarify: true
     plan_clarify: true
     min_citations: 3
-    sources_present: [cds, edu]
+    sources_present: [scorecard, edu]
     sources_absent: [reddit]
     step_kinds_present: [db_tool, edu_search, web_search]
 
@@ -71,7 +84,7 @@
     scope_clarify: false
     plan_clarify: true
     min_citations: 3
-    sources_present: [cds, edu]
+    sources_present: [scorecard, edu]
     sources_absent: [reddit]
     step_kinds_present: [db_tool, edu_search, web_search]
     step_kinds_absent: [reddit_search]
@@ -90,7 +103,7 @@
     scope_clarify: false
     plan_clarify: true
     min_citations: 3
-    sources_present: [cds, edu]
+    sources_present: [scorecard, edu]
     sources_absent: [web, reddit]
     step_kinds_present: [db_tool, edu_search]
     step_kinds_absent: [reddit_search]
@@ -129,7 +142,7 @@
     scope_clarify: false
     plan_clarify: true
     min_citations: 3
-    sources_present: [cds, edu]
+    sources_present: [scorecard, edu]
     step_ids_present:
       - research_gptr_research
 
@@ -147,6 +160,6 @@
     scope_clarify: false
     plan_clarify: true
     min_citations: 2
-    sources_present: [cds, edu]
+    sources_present: [scorecard, edu]
     step_kinds_present: [db_tool, edu_search, web_search]
     caps_keys_present: [gptr_unavailable]

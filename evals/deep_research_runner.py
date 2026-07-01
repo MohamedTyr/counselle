@@ -30,6 +30,7 @@ import yaml
 
 from app.agent_node import model_name_from_setting
 from app.deps import Runtime, build_runtime
+from app.research.synthesize import section_present
 from app.run_turn import run_turn
 from app.sessions import create_session
 from config.logging import setup_logging
@@ -258,9 +259,8 @@ def _score_sections(
     checks: dict[str, Any],
 ) -> None:
     for section in expects.get("sections") or []:
-        pattern = re.compile(rf"^##\s+{re.escape(str(section))}\b", re.IGNORECASE | re.MULTILINE)
         checks[f"section:{section}"] = _check(
-            bool(pattern.search(capture.prose)),
+            section_present(capture.prose, str(section)),
             f"looked for section {section!r}",
         )
 

@@ -15,6 +15,13 @@ dist/
 # new dated reports do not.
 evals/report-*.json
 !evals/report-2026-06-17.json
+evals/deep-research-report-*.json
+evals/deep-research-report-*.md
+
+# Public bulk raw downloads for the local dev contract DB bootstrap — large,
+# regenerable, and already covered by data/raw/ elsewhere; ignore the parent
+# too so an empty/partial data/ dir doesn't show as untracked.
+data/
 
 # Personal, never-committed local planning scratch (see plans/README.md).
 plans/.local/

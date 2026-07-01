@@ -1,9 +1,14 @@
 """The turn graph: ``prepare`` → (route) → ``agent`` → END
-OR ``prepare`` → ``research_plan`` → ... → END (deep research subgraph).
+OR ``prepare`` → ``research_scope`` → ``research_plan`` → ... → END (deep
+research subgraph).
 
 Deep research is disabled by default (``settings.deep_research_enabled = False``).
 The routing function checks the flag, the arm signal, and falls back to a
 lightweight heuristic before routing to normal chat.
+
+``research_scope`` and ``research_plan`` are two separate nodes/interrupts,
+not one — see ``app/research/plan.py``'s module docstring for why chaining two
+``interrupt()`` calls in a single node was a real, live-caught bug.
 """
 
 from __future__ import annotations
@@ -24,7 +29,7 @@ from pydantic_ai.messages import (
 from app.agent_node import run_agent_node
 from app.research.gather_db import research_gather_db_node
 from app.research.gather_external import research_gather_external_node
-from app.research.plan import research_plan_node
+from app.research.plan import research_plan_confirm_node, research_scope_node
 from app.research.routing import explicit_deep_research, looks_like_research
 from app.research.synthesize import research_synthesize_node
 from app.research.verify import research_verify_node
@@ -35,6 +40,7 @@ from counselle_db.catalog import CalendarEntry, Catalog
 from counselle_db.service import get_data_calendar
 from domain.season import Season, SeasonWindow, admission_season
 
+RESEARCH_SCOPE_NODE = "research_scope"
 RESEARCH_PLAN_NODE = "research_plan"
 RESEARCH_GATHER_DB_NODE = "research_gather_db"
 RESEARCH_GATHER_EXTERNAL_NODE = "research_gather_external"
@@ -99,8 +105,11 @@ def build_graph(
     async def agent(state: TurnState) -> dict[str, Any]:
         return await run_agent_node(state, deps)
 
-    async def research_plan(state: TurnState) -> dict[str, Any]:
-        return await research_plan_node(state, deps)
+    async def research_scope(state: TurnState) -> dict[str, Any]:
+        return await research_scope_node(state, deps)
+
+    async def research_plan_confirm(state: TurnState) -> dict[str, Any]:
+        return await research_plan_confirm_node(state, deps)
 
     async def research_gather_db(state: TurnState) -> dict[str, Any]:
         return await research_gather_db_node(state, deps)
@@ -129,13 +138,16 @@ def build_graph(
             return "research"
         return "agent"
 
-    def _plan_branch(state: TurnState) -> str:
+    def _research_branch(state: TurnState) -> str:
+        """Shared by both research conditional edges (scope -> plan-confirm ->
+        gather); each node writes its own branch value into research.branch."""
         return (state.get("research") or {}).get("branch") or "cancel"
 
     graph = StateGraph(TurnState)
     graph.add_node("prepare", prepare)
     graph.add_node(AGENT_NODE, agent)
-    graph.add_node(RESEARCH_PLAN_NODE, research_plan)
+    graph.add_node(RESEARCH_SCOPE_NODE, research_scope)
+    graph.add_node(RESEARCH_PLAN_NODE, research_plan_confirm)
     graph.add_node(RESEARCH_GATHER_DB_NODE, research_gather_db)
     graph.add_node(RESEARCH_GATHER_EXTERNAL_NODE, research_gather_external)
     graph.add_node(RESEARCH_VERIFY_NODE, research_verify)
@@ -145,11 +157,16 @@ def build_graph(
     graph.add_conditional_edges(
         "prepare",
         _route,
-        {"agent": AGENT_NODE, "research": RESEARCH_PLAN_NODE},
+        {"agent": AGENT_NODE, "research": RESEARCH_SCOPE_NODE},
+    )
+    graph.add_conditional_edges(
+        RESEARCH_SCOPE_NODE,
+        _research_branch,
+        {"scoped": RESEARCH_PLAN_NODE, "cancel": END},
     )
     graph.add_conditional_edges(
         RESEARCH_PLAN_NODE,
-        _plan_branch,
+        _research_branch,
         {"run": RESEARCH_GATHER_DB_NODE, "cancel": END},
     )
     graph.add_edge(RESEARCH_GATHER_DB_NODE, RESEARCH_GATHER_EXTERNAL_NODE)
