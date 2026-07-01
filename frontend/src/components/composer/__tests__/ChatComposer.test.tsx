@@ -180,16 +180,17 @@ describe('awaitingClarify placeholder (behavior 19)', () => {
     expect(getTextarea().getAttribute('placeholder')).toBe('Message Counselle');
   });
 
-  test('research plan gate disables free typing and submit', () => {
+  test('research plan gate keeps typing live and nudges on submit', () => {
     ctx.awaitingClarify = true;
     ctx.awaitingResearchPlan = true;
     render(<Harness />);
-    expect(getTextarea()).toBeDisabled();
+    expect(getTextarea()).not.toBeDisabled();
     expect(getTextarea().getAttribute('placeholder')).toBe(
       'Use Run deep research or Cancel above…',
     );
     fireEvent.keyDown(getTextarea(), { key: 'Enter' });
     expect(ctx.submitMessage).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Use Run deep research or Cancel above');
   });
 });
 

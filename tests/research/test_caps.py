@@ -51,6 +51,21 @@ class TestSoftTimeoutFlag:
         lower = prompt.lower()
         assert "cross-checking did not complete" in lower
         assert "not fully verified claims" in lower
+        assert "before making any recommendation" in lower
+
+    def test_synthesis_prompt_pins_production_report_sections(self) -> None:
+        caps = _make_caps()
+        prompt = _build_synthesis_prompt("test question", [], caps, False, False)
+        for section in (
+            "Bottom line",
+            "Evidence coverage",
+            "DB-backed facts",
+            "Current official findings",
+            "Student sentiment",
+            "Unknowns/conflicts",
+            "Next checks",
+        ):
+            assert section in prompt
 
     def test_today_is_available_to_synthesizer(self) -> None:
         caps = _make_caps()

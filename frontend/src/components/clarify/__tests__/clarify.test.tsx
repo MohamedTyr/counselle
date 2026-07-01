@@ -106,11 +106,35 @@ describe('deep research plan panel', () => {
     expect(screen.getByText('Stanford University')).toBeInTheDocument();
     expect(screen.getByText('Check official admissions policies')).toBeInTheDocument();
     expect(screen.getByText('Reddit only for qualitative sentiment.')).toBeInTheDocument();
+    expect(screen.getByText('Verification and source limits')).toBeInTheDocument();
     expect(screen.getByText('Maximum runtime: 90 seconds.')).toBeInTheDocument();
     expect(screen.getByText('Review before running')).toBeInTheDocument();
     expect(screen.queryByText('8 phases', { exact: false })).toBeNull();
     expect(screen.getByText('Run deep research')).toBeInTheDocument();
     expect(screen.getByText('Cancel')).toBeInTheDocument();
+  });
+
+  test('keeps detailed queries collapsed until the user expands them', () => {
+    render(<ClarifyWidget spec={researchSpec()} frozen={false} onAnswer={vi.fn()} />);
+
+    expect(screen.getByText('Search details')).toBeInTheDocument();
+    expect(screen.getByText('MIT Stanford admissions test policy')).not.toBeVisible();
+
+    fireEvent.click(screen.getByText('Search details'));
+
+    expect(screen.getByText('MIT Stanford admissions test policy')).toBeVisible();
+  });
+
+  test('shows a loading skeleton before the plan arrives', () => {
+    render(
+      <ClarifyWidget
+        spec={researchSpec({ research_plan: null })}
+        frozen={false}
+        onAnswer={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('status', { name: 'Preparing research plan' })).toBeInTheDocument();
   });
 
   test('calls onAnswer with the run option label when Run is clicked', () => {

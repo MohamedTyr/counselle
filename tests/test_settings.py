@@ -95,6 +95,8 @@ class TestDefaults:
         assert settings.source_reddit_default is True
         assert settings.source_edu_default is True
         assert settings.search_max_results == 5
+        assert settings.deep_research_enabled is False
+        assert settings.deep_research_use_gptr is True
         assert settings.deep_research_gptr_timeout_s == 30
         # GCP
         assert settings.google_cloud_project is None

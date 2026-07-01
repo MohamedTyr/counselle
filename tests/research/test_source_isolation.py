@@ -61,6 +61,8 @@ def _mock_settings(tavily_key: str | None = "tvly-test", *, gptr: bool = False) 
     settings.deep_research_max_final_sources = 12
     settings.deep_research_soft_timeout_s = 75
     settings.deep_research_gptr_timeout_s = 30
+    settings.deep_research_max_est_cost_usd = 1.00
+    settings.deep_research_max_parallel_tasks = 4
     settings.search_max_results = 5
     settings.tavily_api_key = tavily_key
     settings.vertex_api_key = None
@@ -436,6 +438,28 @@ async def test_reddit_disabled_no_reddit_call() -> None:
 
 
 @pytest.mark.asyncio
+async def test_web_search_excludes_reddit_even_when_reddit_enabled() -> None:
+    source_config = SourceConfig(web=True, reddit=True, edu=False)
+    state = _make_state(source_config)
+
+    with (
+        patch(_GET_SETTINGS_PATH, return_value=_mock_settings()),
+        patch(_GET_WRITER_PATH, return_value=_no_op_writer),
+        patch(_MAKE_CLIENT_PATH, return_value=MagicMock()),
+        patch(_SEARCH_SCHOOL_SITE_PATH, new_callable=AsyncMock, return_value={"results": []}),
+        patch(_SEARCH_WEB_PATH, new_callable=AsyncMock, return_value={"results": []}) as mock_web,
+        patch(_SEARCH_REDDIT_PATH, new_callable=AsyncMock, return_value={"results": []}),
+        patch(_EXTRACT_PATH, new_callable=AsyncMock, return_value=[]),
+    ):
+        from app.research.gather_external import research_gather_external_node
+
+        await research_gather_external_node(state, MagicMock())
+
+    assert mock_web.await_args is not None
+    assert mock_web.await_args.kwargs["exclude_domains"] == ["reddit.com"]
+
+
+@pytest.mark.asyncio
 async def test_web_disabled_no_extra_web_call() -> None:
     """When SourceConfig.web=False, the general web search phase is skipped."""
     source_config = SourceConfig(web=False, reddit=False, edu=True)
@@ -549,6 +573,10 @@ async def test_gptr_flag_runs_bounded_helper_and_records_cost() -> None:
     mock_gptr.assert_awaited_once()
     evidence = result["research"]["web_evidence"]
     assert evidence[0]["marker"] == "[1]"
+    assert evidence[0]["source"] == "web"
+    assert evidence[0]["tier"] == "official"
+    assert evidence[0]["title"] == "MIT admissions"
+    assert "citation" not in evidence[0]
     assert result["research"]["usage"]["est_cost_usd"] == 0.01
 
 
@@ -579,3 +607,46 @@ async def test_gptr_unavailable_is_recorded_and_direct_search_continues() -> Non
     assert result["research"]["caps"]["gptr_unavailable"] == "missing_model_key"
     assert result["research"]["caps"]["db_unavailable"] is False
     mock_web.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_cost_ceiling_skips_later_extraction_after_gptr_cost() -> None:
+    source_config = SourceConfig(web=True, reddit=False, edu=False)
+    state = _make_state(source_config)
+    settings = _mock_settings(gptr=True)
+    settings.deep_research_max_est_cost_usd = 0.01
+    gptr_result = {
+        "results": [
+            {
+                "title": "MIT admissions",
+                "url": "https://mit.edu/admissions",
+                "snippet": "Admissions context",
+                "citation": {
+                    "source": "web",
+                    "tier": "community",
+                    "vintage": "GPT-Researcher/Tavily 2026-06-27",
+                    "url": "https://mit.edu/admissions",
+                },
+            }
+        ],
+        "cost_usd": 0.02,
+        "unavailable": None,
+    }
+
+    with (
+        patch(_GET_SETTINGS_PATH, return_value=settings),
+        patch(_GET_WRITER_PATH, return_value=_no_op_writer),
+        patch(_MAKE_CLIENT_PATH, return_value=MagicMock()),
+        patch(_GATHER_GPTR_PATH, new_callable=AsyncMock, return_value=gptr_result),
+        patch(_SEARCH_SCHOOL_SITE_PATH, new_callable=AsyncMock, return_value={"results": []}),
+        patch(_SEARCH_WEB_PATH, new_callable=AsyncMock, return_value={"results": []}),
+        patch(_SEARCH_REDDIT_PATH, new_callable=AsyncMock, return_value={"results": []}),
+        patch(_EXTRACT_PATH, new_callable=AsyncMock, return_value=[]) as mock_extract,
+    ):
+        from app.research.gather_external import research_gather_external_node
+
+        result = await research_gather_external_node(state, MagicMock())
+
+    assert result["research"]["caps"]["cost_ceiling_hit"] is True
+    assert result["research"]["usage"]["est_cost_usd"] == 0.02
+    mock_extract.assert_not_called()

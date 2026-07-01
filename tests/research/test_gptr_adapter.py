@@ -13,6 +13,7 @@ from app.research.gptr_adapter import (
     _gptr_timeout,
     _gptr_vertex_express_patch,
     _results_from_researcher,
+    _url_allowed,
     gather_via_gptr,
 )
 from domain.specs import SourceConfig
@@ -159,6 +160,20 @@ async def test_gptr_vertex_without_project_runs_worker(
     worker.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_gptr_missing_package_is_unavailable() -> None:
+    with patch("app.research.gptr_adapter.importlib.util.find_spec", return_value=None):
+        result = await gather_via_gptr(
+            "MIT testing policy",
+            SourceConfig(web=False, reddit=False, edu=True),
+            _settings(),
+            domains=["mitadmissions.org"],
+            today=date(2026, 6, 28),
+        )
+
+    assert result == {"results": [], "cost_usd": None, "unavailable": "package_not_installed"}
+
+
 def test_vertex_express_patch_intercepts_google_genai_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -181,6 +196,23 @@ def test_vertex_express_patch_intercepts_google_genai_provider(
     assert GenericLLMProvider.__dict__["from_provider"] is original
 
 
+def test_vertex_express_patch_intercepts_google_genai_embeddings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import gpt_researcher.agent as agent_module
+
+    monkeypatch.setenv("COUNSELLE_GPTR_VERTEX_EXPRESS", "true")
+    monkeypatch.setenv("COUNSELLE_GPTR_VERTEX_API_KEY", "vertex-key")
+    settings = _settings(google_cloud_project=None)
+    original = agent_module.Memory
+
+    with _gptr_vertex_express_patch(settings):
+        memory = agent_module.Memory("google_genai", "models/gemini-embedding-001")
+        assert memory.get_embeddings().__class__.__name__ == "_VertexExpressEmbeddings"
+
+    assert agent_module.Memory is original
+
+
 def test_results_respect_official_only_domain_filter() -> None:
     results = _results_from_researcher(
         FakeResearcher(),
@@ -193,6 +225,7 @@ def test_results_respect_official_only_domain_filter() -> None:
 
     assert [item["url"] for item in results] == ["https://mit.edu/admissions"]
     assert results[0]["citation"]["source"] == "edu"
+    assert results[0]["citation"]["tier"] == "official"
     assert "Supplemental GPT-Researcher" in results[0]["citation"]["caveat"]
 
 
@@ -211,3 +244,14 @@ def test_results_allow_general_web_when_enabled() -> None:
         "https://example.com/mit",
     }
     assert {item["citation"]["source"] for item in results} == {"web"}
+    assert {item["citation"]["tier"] for item in results} == {"community"}
+
+
+def test_gptr_never_allows_reddit_urls_as_web() -> None:
+    source_config = SourceConfig(web=True, reddit=True, edu=True)
+
+    assert _url_allowed(
+        "https://www.reddit.com/r/ApplyingToCollege/comments/example",
+        source_config,
+        official_domains=["mit.edu"],
+    ) is False
