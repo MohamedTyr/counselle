@@ -1,0 +1,152 @@
+# Deep research eval set.
+#
+# This runner exercises the multi-turn flow, not the one-turn MVP1 eval runner:
+# request -> optional scope clarify -> backend research-plan clarify -> Run
+# resume -> final cited report.
+#
+# All cases are live-gated by env so routine eval/test commands do not spend
+# Tavily/LLM budget accidentally. Run with:
+#
+#   COUNSELLE_RUN_DEEP_RESEARCH_EVALS=true \
+#   COUNSELLE_DEEP_RESEARCH_ENABLED=true \
+#   uv run python -m evals.deep_research_runner
+#
+# Scenario-specific cases can add their own required env below.
+
+- id: mit-stanford-cs-aid-testing
+  question: "Deep research report comparing MIT and Stanford for undergraduate computer science admissions, financial aid, and current test policy."
+  source_config:
+    web: true
+    edu: true
+    reddit: true
+  skip_unless_env:
+    COUNSELLE_RUN_DEEP_RESEARCH_EVALS: "true"
+    COUNSELLE_DEEP_RESEARCH_ENABLED: "true"
+  expects:
+    scope_clarify: false
+    plan_clarify: true
+    min_citations: 4
+    sections:
+      - Bottom line
+      - Evidence coverage
+      - DB-backed facts
+      - Current official findings
+      - Unknowns/conflicts
+      - Next checks
+    sources_present: [cds, edu]
+    step_kinds_present: [db_tool, edu_search, web_search, reddit_search]
+    step_ids_present:
+      - research_db_check
+      - research_official_search
+      - research_web_search
+
+- id: broad-schoolless-scope-gate
+  question: "Do deep research on the best colleges for a CS applicant who needs strong aid."
+  scope_answer: "Compare MIT, Stanford, and Carnegie Mellon for undergraduate computer science admissions, financial aid, and current test policy."
+  source_config:
+    web: true
+    edu: true
+    reddit: false
+  skip_unless_env:
+    COUNSELLE_RUN_DEEP_RESEARCH_EVALS: "true"
+    COUNSELLE_DEEP_RESEARCH_ENABLED: "true"
+  expects:
+    scope_clarify: true
+    plan_clarify: true
+    min_citations: 3
+    sources_present: [cds, edu]
+    sources_absent: [reddit]
+    step_kinds_present: [db_tool, edu_search, web_search]
+
+- id: reddit-disabled-isolation
+  question: "Run a sourced report on MIT student culture and admissions tradeoffs, but do not use Reddit."
+  source_config:
+    web: true
+    edu: true
+    reddit: false
+  skip_unless_env:
+    COUNSELLE_RUN_DEEP_RESEARCH_EVALS: "true"
+    COUNSELLE_DEEP_RESEARCH_ENABLED: "true"
+  expects:
+    scope_clarify: false
+    plan_clarify: true
+    min_citations: 3
+    sources_present: [cds, edu]
+    sources_absent: [reddit]
+    step_kinds_present: [db_tool, edu_search, web_search]
+    step_kinds_absent: [reddit_search]
+    caps_keys_absent: [reddit_unavailable]
+
+- id: web-disabled-db-official-only
+  question: "Deep research MIT and Stanford current undergraduate admissions and test policies using only Counselle data and official school sources."
+  source_config:
+    web: false
+    edu: true
+    reddit: false
+  skip_unless_env:
+    COUNSELLE_RUN_DEEP_RESEARCH_EVALS: "true"
+    COUNSELLE_DEEP_RESEARCH_ENABLED: "true"
+  expects:
+    scope_clarify: false
+    plan_clarify: true
+    min_citations: 3
+    sources_present: [cds, edu]
+    sources_absent: [web, reddit]
+    step_kinds_present: [db_tool, edu_search]
+    step_kinds_absent: [reddit_search]
+
+- id: verification-timeout-caveat
+  question: "Deep research MIT and Stanford CS admissions, aid, and test policy with a deliberately tight verification budget."
+  source_config:
+    web: true
+    edu: true
+    reddit: false
+  skip_unless_env:
+    COUNSELLE_RUN_DEEP_RESEARCH_EVALS: "true"
+    COUNSELLE_DEEP_RESEARCH_ENABLED: "true"
+    COUNSELLE_DEEP_RESEARCH_VERIFICATION_TIMEOUT_SCENARIO: "true"
+  expects:
+    scope_clarify: false
+    plan_clarify: true
+    sections:
+      - Evidence coverage
+      - Unknowns/conflicts
+    text_contains:
+      - verification
+    caps_keys_present: [verification_unavailable]
+
+- id: gptr-enabled-supplement
+  question: "Deep research Stanford undergraduate computer science admissions and current test policy with supplemental GPT-Researcher enabled."
+  source_config:
+    web: true
+    edu: true
+    reddit: false
+  skip_unless_env:
+    COUNSELLE_RUN_DEEP_RESEARCH_EVALS: "true"
+    COUNSELLE_DEEP_RESEARCH_ENABLED: "true"
+    COUNSELLE_DEEP_RESEARCH_USE_GPTR: "true"
+  expects:
+    scope_clarify: false
+    plan_clarify: true
+    min_citations: 3
+    sources_present: [cds, edu]
+    step_ids_present:
+      - research_gptr_research
+
+- id: gptr-unavailable-fallback
+  question: "Deep research MIT current admissions and test policy while GPT-Researcher is intentionally unavailable."
+  source_config:
+    web: true
+    edu: true
+    reddit: false
+  skip_unless_env:
+    COUNSELLE_RUN_DEEP_RESEARCH_EVALS: "true"
+    COUNSELLE_DEEP_RESEARCH_ENABLED: "true"
+    COUNSELLE_DEEP_RESEARCH_GPTR_UNAVAILABLE_SCENARIO: "true"
+  expects:
+    scope_clarify: false
+    plan_clarify: true
+    min_citations: 2
+    sources_present: [cds, edu]
+    step_kinds_present: [db_tool, edu_search, web_search]
+    caps_keys_present: [gptr_unavailable]
