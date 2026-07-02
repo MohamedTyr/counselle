@@ -1,8 +1,12 @@
 /**
  * SourceFavicon — the source mark for a citation (Reddit, a school, the federal
- * data sites, the Common Data Set). Renders a neutral tile carrying the
- * source-tier glyph; the tier owns colour, the glyph hints at WHICH authority.
+ * data sites, the Common Data Set). Renders the site's real favicon through our
+ * own same-origin proxy (``/v1/favicon`` — see ``domain/urls.py``), falling back
+ * to a neutral tile carrying the source-tier glyph when no host is resolvable
+ * or the image fails to load; the tier owns colour, the glyph hints at WHICH
+ * authority.
  */
+import { useState } from 'react';
 import { cn } from '@librechat/client/utils';
 import type { Citation } from '@/api/protocol';
 import { isSafeUrl } from '@/api/url';
@@ -27,6 +31,14 @@ export function citationDomain(citation: Citation): string | null {
   return KNOWN_DOMAINS[citation.source] ?? null;
 }
 
+/** Our own same-origin favicon proxy (``api/routes/favicon.py``) — the browser
+ *  never talks to a third-party CDN directly, so this carries none of FE-H1's
+ *  original leak (which host of every source a student reads) and isn't
+ *  blockable the way a known third-party tracker domain is. */
+function faviconSrc(host: string, size = 64): string {
+  return `/v1/favicon?host=${encodeURIComponent(host)}&sz=${size}`;
+}
+
 type SourceFaviconProps = {
   citation: Citation;
   /** Tailwind size box (e.g. 'h-8 w-8'). */
@@ -34,29 +46,44 @@ type SourceFaviconProps = {
   className?: string;
 };
 
-// The source-tier glyph is the source mark. We deliberately do NOT fetch a
-// remote favicon from a third party (the old Google favicon endpoint): doing so
-// would ship the host of every source a student reads to that third party — a
-// privacy leak this product's trust posture forbids (FE-H1). If a first-party
-// favicon channel ever lands (a backend proxy / bytes in the source envelope,
-// Phase 6/CFG-04), wire it here; until then the glyph is the honest, zero-leak
-// default.
 export default function SourceFavicon({
   citation,
   sizeClass = 'h-8 w-8',
   className,
 }: SourceFaviconProps) {
   const Icon = sourceIcon(citation.source);
+  const host = citationDomain(citation);
+  const [broken, setBroken] = useState(false);
+  const showFavicon = host != null && !broken;
+
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full border border-border-light bg-surface-primary-alt text-text-tertiary',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-light bg-surface-primary-alt text-text-tertiary',
         sizeClass,
         className,
       )}
     >
-      <Icon className="h-[55%] w-[55%]" />
+      {showFavicon ? (
+        <img
+          src={faviconSrc(host)}
+          alt=""
+          loading="lazy"
+          // A deliberate inset (not h-full/object-cover): many real favicons
+          // (MIT's, notably) fill their square edge-to-edge with no padding
+          // of their own, so an edge-to-edge render bleeds into the badge's
+          // ring — and when several overlap in SourcesStrip's stacked
+          // avatars, identical edge-to-edge marks visually chain into what
+          // reads as one smeared shape instead of distinct circular badges.
+          // object-contain (not -cover) also avoids cropping non-square
+          // marks the proxy might ever return.
+          className="h-[78%] w-[78%] object-contain"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <Icon className="h-[55%] w-[55%]" />
+      )}
     </span>
   );
 }
