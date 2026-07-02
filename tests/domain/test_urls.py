@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from domain.urls import FAVICON_CDN_BASE, favicon_url, registrable_domain
+from domain.urls import FAVICON_PROXY_PATH, favicon_url, registrable_domain
 
 
 @pytest.mark.parametrize(
@@ -27,9 +27,11 @@ def test_registrable_domain(url: str, expected: str | None) -> None:
     assert registrable_domain(url) == expected
 
 
-def test_favicon_url_builds_from_base_and_host() -> None:
-    assert favicon_url("mit.edu") == f"{FAVICON_CDN_BASE}?domain=mit.edu&sz=64"
-    assert favicon_url("mit.edu", size=32) == f"{FAVICON_CDN_BASE}?domain=mit.edu&sz=32"
+def test_favicon_url_builds_from_proxy_path_and_host() -> None:
+    # Points at our own same-origin proxy (api/routes/favicon.py), not the CDN
+    # directly — see domain/urls.py's module docstring for why.
+    assert favicon_url("mit.edu") == f"{FAVICON_PROXY_PATH}?host=mit.edu&sz=64"
+    assert favicon_url("mit.edu", size=32) == f"{FAVICON_PROXY_PATH}?host=mit.edu&sz=32"
 
 
 def test_favicon_url_none_for_empty_host() -> None:
@@ -39,5 +41,5 @@ def test_favicon_url_none_for_empty_host() -> None:
 
 def test_favicon_url_encodes_host() -> None:
     # The host is URL-encoded into the query — a stray '&'/'?'/space can't
-    # inject extra query params into the CDN URL.
-    assert favicon_url("a b&c.edu") == f"{FAVICON_CDN_BASE}?domain=a%20b%26c.edu&sz=64"
+    # inject extra query params into the proxy URL.
+    assert favicon_url("a b&c.edu") == f"{FAVICON_PROXY_PATH}?host=a%20b%26c.edu&sz=64"

@@ -44,3 +44,4 @@ plans/.local/
 .coverage.*
 htmlcov/
 coverage.xml
+.playwright-cli/

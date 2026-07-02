@@ -30,9 +30,9 @@ describe('SourcesStrip', () => {
         onOpen={() => {}}
       />,
     );
-    // Each source renders a glyph-tile badge (FE-H1 dropped the remote <img>
-    // favicon; the source mark is now an aria-hidden tile carrying an SVG glyph).
-    expect(container.querySelectorAll('span[aria-hidden="true"] > svg')).toHaveLength(2);
+    // Each source renders a real favicon via the same-origin proxy (a
+    // resolvable host means an <img>, not the fallback SVG glyph).
+    expect(container.querySelectorAll('span[aria-hidden="true"] > img')).toHaveLength(2);
   });
 
   test('displayCount overrides the label without changing favicons', () => {
@@ -44,7 +44,7 @@ describe('SourcesStrip', () => {
       />,
     );
     expect(screen.getByText('3 sources')).toBeInTheDocument();
-    expect(container.querySelectorAll('span[aria-hidden="true"] > svg')).toHaveLength(1);
+    expect(container.querySelectorAll('span[aria-hidden="true"] > img')).toHaveLength(1);
   });
 
   test('without displayCount the label falls back to the favicon count', () => {

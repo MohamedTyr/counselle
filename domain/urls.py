@@ -11,17 +11,28 @@ domain, or a search result's URL).
 (``app/steps.py``); the viz-card school logos use a separate, richer multi-CDN
 chain in ``frontend/src/components/cards/schoolLogo.ts`` (the backend emits only
 the ``domain`` string).
+
+``favicon_url`` points at our OWN ``/v1/favicon`` proxy (``api/routes/favicon.py``),
+not directly at the CDN: browser extensions/ad-blockers commonly intercept
+third-party favicon-CDN requests (``google.com/s2/favicons`` is on several
+blocklists) and silently swap in a blank image — a *valid* image, so the client's
+``onError`` never fires and the chip renders empty with no signal anything went
+wrong. Routing through our own origin removes that third-party request entirely;
+the proxy is the one that talks to ``FAVICON_CDN_BASE``, server-side.
 """
 
 from __future__ import annotations
 
 from urllib.parse import quote, urlsplit
 
-#: The favicon CDN. Google's s2 service returns a site's favicon for any host,
-#: with a graceful generic-globe fallback; the client hides a missing image on
-#: ``onError`` so a blocked/empty CDN degrades to a label-only chip, never a
-#: broken render. One swappable constant — the *host* is always dynamic.
+#: The upstream favicon CDN, fetched server-side only (``api/routes/favicon.py``).
+#: Google's s2 service returns a site's favicon for any host, with a graceful
+#: generic-globe fallback. One swappable constant — the *host* is always dynamic.
 FAVICON_CDN_BASE = "https://www.google.com/s2/favicons"
+
+#: Our own same-origin proxy path — see the module docstring for why the client
+#: never talks to ``FAVICON_CDN_BASE`` directly.
+FAVICON_PROXY_PATH = "/v1/favicon"
 
 
 def registrable_domain(url: str) -> str | None:
@@ -51,8 +62,8 @@ def registrable_domain(url: str) -> str | None:
 
 
 def favicon_url(host: str, *, size: int = 64) -> str | None:
-    """The CDN favicon URL for a host, or ``None`` for an empty host."""
+    """Our own same-origin proxy URL for a host's favicon, or ``None`` if empty."""
     host = host.strip()
     if not host:
         return None
-    return f"{FAVICON_CDN_BASE}?domain={quote(host, safe='')}&sz={size}"
+    return f"{FAVICON_PROXY_PATH}?host={quote(host, safe='')}&sz={size}"

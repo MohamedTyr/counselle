@@ -26,9 +26,16 @@ import { cn } from '~/utils';
 
 const SCHOOL_KINDS: StepKind[] = ['db_tool', 'sql', 'viz'];
 
-/** Only an https favicon reaches the <img> src (defensive: refuse data:/js:). */
+/** Only our own favicon proxy path or an https URL reaches the <img> src
+ *  (defensive: refuse data:/js:). The backend now emits the proxy path
+ *  (``/v1/favicon?...`` — same-origin, so ad-blockers can't target it as a
+ *  third-party tracker); the absolute-https branch stays as a defensive
+ *  fallback shape, not the emitted one. */
 function safeFavicon(favicon: string | null | undefined): string | undefined {
-  return favicon != null && favicon.startsWith('https://') ? favicon : undefined;
+  if (favicon == null) return undefined;
+  return favicon.startsWith('https://') || favicon.startsWith('/v1/favicon?')
+    ? favicon
+    : undefined;
 }
 
 /** The bare host for the preview's secondary line ("usnews.com"). */
@@ -48,14 +55,18 @@ function Favicon({ favicon, size }: { favicon: string | null | undefined; size: 
   }
   return (
     <span
-      className="shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-black/10"
+      className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/10"
       style={{ width: size, height: size }}
     >
       <img
         src={src}
         alt=""
         loading="lazy"
-        className="size-full scale-110 object-cover"
+        // A deliberate inset, not size-full/object-cover: some real favicons
+        // (MIT's, notably) fill their square edge-to-edge with no padding of
+        // their own, which reads as cramped right up against the ring at
+        // this size. object-contain also avoids cropping non-square marks.
+        className="h-[78%] w-[78%] object-contain"
         onError={() => setBroken(true)}
       />
     </span>
