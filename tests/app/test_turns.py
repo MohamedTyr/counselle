@@ -423,6 +423,7 @@ async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
         *,
         deps: Any,
         graph: Any,
+        deep_research: bool = False,
     ) -> AsyncIterator[Event]:
         messages = list(
             ModelMessagesTypeAdapter.dump_python(

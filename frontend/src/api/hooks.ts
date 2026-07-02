@@ -49,6 +49,12 @@ export function useConfigQuery() {
   });
 }
 
+/** Convenience selector for the deep-research feature flag. */
+export function useDeepResearchEnabled(): boolean {
+  const { data } = useConfigQuery();
+  return data?.deep_research_enabled === true;
+}
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 type RenameChatVars = { conversationId: string; title: string };

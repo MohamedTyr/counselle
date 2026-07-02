@@ -43,6 +43,9 @@ export const enterToSendAtom = atomWithStorage<boolean>('enterToSend', true, und
   getOnInit: true,
 });
 
+/** True when the user has armed "Deep research" for their next send. Reset after send. */
+export const deepResearchArmedAtom = atom<boolean>(false);
+
 // ── Artifact panel ──────────────────────────────────────────────────────────
 
 /**

@@ -45,6 +45,29 @@ class ClarifyOption(BaseModel):
     hint: str
 
 
+class ResearchPlanTask(BaseModel):
+    """One concrete task in a deep-research confirmation plan."""
+
+    label: str
+    reason: str
+    sources: list[Literal["db", "official", "web", "reddit"]]
+    queries: list[str] = Field(default_factory=list)
+
+
+class ResearchPlanSpec(BaseModel):
+    """Structured backend-owned plan shown before a deep-research run."""
+
+    summary: str
+    planner: Literal["model", "fallback"] = "model"
+    planner_note: str | None = None
+    schools: list[str]
+    topics: list[str]
+    tasks: list[ResearchPlanTask]
+    source_policy: list[str]
+    limitations: list[str]
+    max_runtime_seconds: int
+
+
 class ClarifySpec(BaseModel):
     """One focused clarifying question, 2-4 options, never an intake form.
 
@@ -57,6 +80,7 @@ class ClarifySpec(BaseModel):
     header: str
     multi_select: bool
     options: list[ClarifyOption] = Field(min_length=2, max_length=4)
+    research_plan: ResearchPlanSpec | None = None
 
 
 class SchoolRef(BaseModel):

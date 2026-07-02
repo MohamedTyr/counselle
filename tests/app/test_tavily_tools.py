@@ -223,6 +223,100 @@ class TestSearchSchoolSite:
         assert client.calls[0]["include_domains"] == ["mit.edu"]
 
     @pytest.mark.asyncio
+    async def test_prefers_admissions_url_over_broad_website(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from domain.envelope import Citation, CitationEnvelope
+
+        website_env = CitationEnvelope(
+            field="institution.website",
+            label="Website",
+            display="https://web.mit.edu",
+            raw="https://web.mit.edu",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+        admissions_env = CitationEnvelope(
+            field="institution.admissions_url",
+            label="Admissions URL",
+            display="https://mitadmissions.org/apply/",
+            raw="https://mitadmissions.org/apply/",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+
+        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
+            assert keys == [
+                "institution.admissions_url",
+                "institution.financial_aid_url",
+                "institution.net_price_calculator",
+                "institution.website",
+            ]
+            return [website_env, admissions_env]
+
+        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
+
+        client = StubTavilyClient([_make_result("https://mitadmissions.org/apply/firstyear")])
+        result = await search_school_site(
+            client,
+            FakeCatalog(),
+            166683,
+            "MIT undergraduate SAT ACT test policy",
+            today=TODAY,
+            max_results=MAX_RESULTS,
+        )
+        assert "results" in result
+        assert client.calls[0]["include_domains"] == ["mitadmissions.org"]
+
+    @pytest.mark.asyncio
+    async def test_financial_query_prefers_net_price_host(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from domain.envelope import Citation, CitationEnvelope
+
+        website_env = CitationEnvelope(
+            field="institution.website",
+            label="Website",
+            display="https://www.stanford.edu",
+            raw="https://www.stanford.edu",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+        admissions_env = CitationEnvelope(
+            field="institution.admissions_url",
+            label="Admissions URL",
+            display="https://admission.stanford.edu",
+            raw="https://admission.stanford.edu",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+        net_price_env = CitationEnvelope(
+            field="institution.net_price_calculator",
+            label="Net price calculator URL",
+            display="https://financialaid.stanford.edu/undergrad/how/calculator/",
+            raw="https://financialaid.stanford.edu/undergrad/how/calculator/",
+            available=True,
+            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
+        )
+
+        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
+            return [website_env, admissions_env, net_price_env]
+
+        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
+
+        client = StubTavilyClient([_make_result("https://financialaid.stanford.edu/")])
+        result = await search_school_site(
+            client,
+            FakeCatalog(),
+            243744,
+            "Stanford undergraduate financial aid policy",
+            today=TODAY,
+            max_results=MAX_RESULTS,
+        )
+        assert "results" in result
+        assert client.calls[0]["include_domains"] == ["financialaid.stanford.edu"]
+
+    @pytest.mark.asyncio
     async def test_returns_error_when_no_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from domain.envelope import Citation, CitationEnvelope
 
@@ -311,36 +405,31 @@ class TestSearchSchoolSite:
         assert "school's official site" in citation["vintage"]
 
     @pytest.mark.asyncio
-    async def test_off_domain_result_is_retiered_community(
+    async def test_off_domain_result_is_dropped(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # DS-02: include_domains is a bias, not a guarantee. An off-domain result
-        # (a third-party host) must be re-tiered honestly, never stamped official.
+        # Tavily include_domains is a bias, not a guarantee. School-site search
+        # is the official-source path, so off-domain results are dropped instead
+        # of leaking in as third-party evidence.
         self._patch_duke_domain(monkeypatch)
         client = StubTavilyClient([_make_result("https://collegeconfidential.com/duke")])
         result = await search_school_site(
             client, FakeCatalog(), 198419, "early decision", today=TODAY, max_results=MAX_RESULTS
         )
-        citation = result["results"][0]["citation"]
-        assert citation["tier"] == "community"
-        assert citation["source"] == "web"
-        assert citation["tier"] != "official"
-        assert "verify on the school's official site" in citation["caveat"]
+        assert result["results"] == []
 
     @pytest.mark.asyncio
-    async def test_off_domain_gov_result_is_official_web(
+    async def test_off_domain_gov_result_is_dropped(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # DS-02: an off-domain .gov result re-derives correctly to official/web —
-        # the tier comes from the actual URL, not the school stamp.
+        # Even official-looking non-school domains do not belong in the
+        # school-site search result set.
         self._patch_duke_domain(monkeypatch)
         client = StubTavilyClient([_make_result("https://nces.ed.gov/ipeds")])
         result = await search_school_site(
             client, FakeCatalog(), 198419, "outcomes", today=TODAY, max_results=MAX_RESULTS
         )
-        citation = result["results"][0]["citation"]
-        assert citation["tier"] == "official"
-        assert citation["source"] == "web"
+        assert result["results"] == []
 
 
 # ---------------------------------------------------------------------------

@@ -75,6 +75,35 @@ tools:
     tier: null
     label: "Consulting the “{name}” playbook"
 
+research_phases:
+  - id: planning
+    label: "Planning research"
+    sublabel: "Scoping schools and topics"
+  - id: db_check
+    label: "Checking school data"
+    sublabel: "Reading trusted database sources"
+  - id: official_search
+    label: "Checking official pages"
+    sublabel: "Reading school-owned policy pages"
+  - id: web_search
+    label: "Checking current web sources"
+    sublabel: "Finding recent supporting context"
+  - id: gptr_research
+    label: "Checking extra sources"
+    sublabel: "Adding bounded external context"
+  - id: community_search
+    label: "Reading student sentiment"
+    sublabel: "Reading Reddit discussions"
+  - id: extract
+    label: "Reading selected pages"
+    sublabel: "Pulling source details"
+  - id: verify
+    label: "Cross-checking claims"
+    sublabel: "Separating facts from weak evidence"
+  - id: synthesize
+    label: "Writing your report"
+    sublabel: "Composing cited answer"
+
 # Any tool not in the table maps here — a generic step, never nothing.
 default:
   kind: db_tool

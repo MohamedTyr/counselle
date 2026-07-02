@@ -35,6 +35,7 @@ _SECRET_FIELDS = frozenset(
         "db_ro_dsn",
         "db_app_dsn",
         "tavily_api_key",
+        "gemini_api_key",
         "vertex_api_key",
         "jwt_secret",
         "google_oauth_client_secret",
@@ -116,10 +117,39 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("COUNSELLE_TAVILY_API_KEY", "TAVILY_API_KEY"),
     )
+    # GPT-Researcher's documented Google GenAI path uses GOOGLE_API_KEY. Keep it
+    # separate from the Vertex express-mode key used by Counselle's main agent.
+    gemini_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "COUNSELLE_GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            "GEMINI_API_KEY",
+        ),
+    )
     source_web_default: bool = True
     source_reddit_default: bool = True
     source_edu_default: bool = True
     search_max_results: int = 5
+
+    # --- Deep research ---
+    deep_research_enabled: bool = True
+    deep_research_max_wall_clock_s: int = 90
+    deep_research_planner_timeout_s: int = 60
+    deep_research_soft_timeout_s: int = 75
+    deep_research_max_schools: int = 4
+    deep_research_max_tavily_searches: int = 8
+    deep_research_max_tavily_extract_urls: int = 12
+    deep_research_max_final_sources: int = 12
+    deep_research_max_verified_claims: int = 30
+    deep_research_max_parallel_tasks: int = 4
+    deep_research_max_est_cost_usd: float = 1.00
+    deep_research_use_gptr: bool = True
+    deep_research_gptr_timeout_s: int = 30
+    # Research model tiers (None → fallback via property)
+    model_research_fast: str | None = None
+    model_research_smart: str | None = None
+    model_research_verifier: str | None = None
 
     # --- GCP ---
     # Auth: the pipeline's Vertex express-mode API key (genai.Client(vertexai=True,
@@ -201,6 +231,18 @@ class Settings(BaseSettings):
                 f"must be at least {_MIN_JWT_SECRET_BYTES} bytes (pyjwt 2.13 warns below)"
             )
         return value
+
+    @property
+    def effective_model_research_fast(self) -> str:
+        return self.model_research_fast or self.model_cheap
+
+    @property
+    def effective_model_research_smart(self) -> str:
+        return self.model_research_smart or self.model_counselor
+
+    @property
+    def effective_model_research_verifier(self) -> str:
+        return self.model_research_verifier or self.model_cheap
 
     @property
     def effective_oauth_state_secret(self) -> str:

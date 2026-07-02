@@ -73,6 +73,10 @@ class TurnState(TypedDict, total=False):
       ``user_message_id``, and on a clarify resume ``resume_text`` — the
       answer rides ``Command(resume)`` and never enters ``messages``, so
       this is the node's only way to persist it into the record).
+    - ``deep_research_armed``: set by ``_prepare_turn_input`` for new turns
+      when the caller requests deep research; persists in state across resume.
+    - ``research``: namespace for all research-node shared data — plan,
+      db_evidence, web_evidence, verification, caps, emissions, branch.
     """
 
     messages: list[dict[str, Any]]
@@ -84,3 +88,5 @@ class TurnState(TypedDict, total=False):
     temporal: dict[str, Any]
     turn_records: list[dict[str, Any]]
     turn_ids: dict[str, Any] | None
+    deep_research_armed: bool
+    research: dict[str, Any]

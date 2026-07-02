@@ -14,7 +14,7 @@
  *
  * Serves: the chat page composer (landing + in-conversation).
  */
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useWatch } from 'react-hook-form';
 import { useAtomValue } from 'jotai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,7 +22,8 @@ import { cn } from '@librechat/client/utils';
 import { useChatFormContext } from '~/Providers';
 import { useAutoSave } from '~/hooks/Input/useAutoSave';
 import { useChatContext, sourceConfigKey } from '@/app/ChatContext';
-import { enterToSendAtom } from '@/app/state';
+import { enterToSendAtom, deepResearchArmedAtom } from '@/app/state';
+import { useDeepResearchEnabled } from '@/api/hooks';
 import { getDefaultSourceConfig, type SourceConfig } from '@/api/sourceConfigStore';
 import { CounselleComposer, type SourceId } from '@/components/composer';
 
@@ -33,6 +34,8 @@ import { CounselleComposer, type SourceId } from '@/components/composer';
  */
 const DEFAULT_PLACEHOLDER = 'Message Counselle';
 const CLARIFY_PLACEHOLDER = 'Pick one, or just type…';
+const RESEARCH_GATE_PLACEHOLDER = 'Use Run deep research or Cancel above…';
+const RESEARCH_PLACEHOLDER = 'Ask for a sourced research report…';
 
 /**
  * `centerFormOnLanding` is frozen `true` upstream; ChatView passes it down so
@@ -60,8 +63,14 @@ export default function ChatComposer({
   centerFormOnLanding = false,
   textAreaRef: externalTextAreaRef,
 }: ChatComposerProps) {
-  const { conversationId, isSubmitting, submitMessage, stopGenerating, awaitingClarify } =
-    useChatContext();
+  const {
+    conversationId,
+    isSubmitting,
+    submitMessage,
+    stopGenerating,
+    awaitingClarify,
+    awaitingResearchPlan,
+  } = useChatContext();
   const queryClient = useQueryClient();
 
   // RHF is the single source of truth for the composer text (kept from ChatForm).
@@ -70,6 +79,7 @@ export default function ChatComposer({
 
   const localTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const textAreaRef = externalTextAreaRef ?? localTextAreaRef;
+  const [researchGateNudge, setResearchGateNudge] = useState(false);
 
   // Draft autosave — ported verbatim from ChatForm: save the old conversation's
   // draft and restore the new one on conversation switch.
@@ -85,11 +95,21 @@ export default function ChatComposer({
     textAreaRef.current?.focus();
   }, [conversationId]);
 
+  useEffect(() => {
+    if (!awaitingResearchPlan) {
+      setResearchGateNudge(false);
+    }
+  }, [awaitingResearchPlan]);
+
   // Submit: clear the field synchronously BEFORE the await, restore the text
   // only if the send was rejected before stream start (copied from
   // ChatForm.onSubmit — a failed send must not lose what the student typed).
   const onSend = useCallback(async () => {
     const trimmed = (text ?? '').trim();
+    if (awaitingResearchPlan) {
+      setResearchGateNudge(true);
+      return;
+    }
     if (!trimmed || isSubmitting) {
       return;
     }
@@ -98,7 +118,7 @@ export default function ChatComposer({
     if (!accepted) {
       methods.reset({ text: trimmed });
     }
-  }, [text, isSubmitting, methods, submitMessage]);
+  }, [text, isSubmitting, awaitingResearchPlan, methods, submitMessage]);
 
   // Source state (FE-SOURCECFG-DUAL): the per-session config is the single
   // reactive React Query cache value — seeded by ChatContext's transcript fetch
@@ -124,7 +144,15 @@ export default function ChatComposer({
   );
 
   const enterToSend = useAtomValue(enterToSendAtom);
-  const placeholder = awaitingClarify ? CLARIFY_PLACEHOLDER : DEFAULT_PLACEHOLDER;
+  const deepResearchArmed = useAtomValue(deepResearchArmedAtom);
+  const deepResearchEnabled = useDeepResearchEnabled();
+  const placeholder = awaitingResearchPlan
+    ? RESEARCH_GATE_PLACEHOLDER
+    : awaitingClarify
+      ? CLARIFY_PLACEHOLDER
+      : deepResearchArmed
+        ? RESEARCH_PLACEHOLDER
+        : DEFAULT_PLACEHOLDER;
 
   const active = useMemo(() => toActiveSet(config), [config]);
 
@@ -136,7 +164,7 @@ export default function ChatComposer({
   return (
     <div
       className={cn(
-        'mx-auto flex w-full flex-row gap-3 transition-[max-width] duration-300 sm:px-2',
+        'relative mx-auto flex w-full flex-row gap-3 transition-[max-width] duration-300 sm:px-2',
         MAXIMIZE_CHAT_SPACE ? 'max-w-full' : 'md:max-w-3xl xl:max-w-4xl',
         centerFormOnLanding && isNewConvo && !isSubmitting
           ? 'transition-all duration-200 sm:mb-12'
@@ -155,7 +183,17 @@ export default function ChatComposer({
         onSourcesChange={handleSourcesChange}
         onSend={onSend}
         onStop={stopGenerating}
+        deepResearchEnabled={deepResearchEnabled}
       />
+      {awaitingResearchPlan && researchGateNudge && (
+        <div
+          className="absolute -top-8 left-4 rounded-md border border-border-light bg-surface-primary px-2 py-1 text-xs text-text-secondary shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          Use Run deep research or Cancel above
+        </div>
+      )}
     </div>
   );
 }

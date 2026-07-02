@@ -207,6 +207,7 @@ async def _prepare_turn_input(
     snapshot: Any,
     parked: dict[str, Any] | None,
     turn_ids: dict[str, Any],
+    deep_research: bool = False,
 ) -> _TurnInput:
     """Build the graph input for this turn: resume (parked) vs new.
 
@@ -247,6 +248,7 @@ async def _prepare_turn_input(
         "messages": prior + _serialized_user_message(user_text),
         "source_config": effective_config.model_dump(mode="json"),
         "turn_ids": turn_ids,
+        "deep_research_armed": deep_research,
     }
     return _TurnInput(graph_input, turn_ids, messages_offset)
 
@@ -258,6 +260,7 @@ async def run_turn(
     *,
     deps: GraphDeps,
     graph: Any,
+    deep_research: bool = False,
 ) -> AsyncIterator[Event]:
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -320,6 +323,7 @@ async def run_turn(
                 snapshot=snapshot,
                 parked=parked,
                 turn_ids=turn_ids,
+                deep_research=deep_research,
             )
         except _ResumePrewriteError:
             # BC-11: the resume pre-write failed — leave the thread parked (the
@@ -369,7 +373,7 @@ async def run_turn(
                 if "__interrupt__" in chunk:
                     interrupt = chunk["__interrupt__"][0]
                     spec = ClarifySpec.model_validate(interrupt.value)
-                    clarify_dump = spec.model_dump(mode="json")
+                    clarify_dump = spec.model_dump(mode="json", exclude_none=True)
                     yield ev_clarify(spec)
                     interrupted = True
                 # Capture registry and usage from the node's state update so we

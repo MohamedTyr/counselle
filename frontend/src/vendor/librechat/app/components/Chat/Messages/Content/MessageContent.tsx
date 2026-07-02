@@ -154,6 +154,11 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
   // FE-4: the clarify widget is live (interactive) only on the latest message
   // of a turn parked awaiting input — every other render is the frozen record.
   const clarifyFrozen = !(isLatestMessage && message.turnStatus === 'awaiting_input');
+  const isResearchPlanClarify =
+    !isCreatedByUser &&
+    message.clarify?.header === 'Deep research' &&
+    message.clarify.research_plan !== undefined &&
+    message.clarify.research_plan !== null;
   const sources = message.sources ?? [];
 
   // feat/message-ui-polish: the inline-pill activate handler. An inline pill
@@ -183,6 +188,16 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
 
   return (
     <Container message={message}>
+      {!isCreatedByUser && isResearchPlanClarify && message.clarify !== undefined && (
+        <ClarifyWidget
+          key={`research-plan-${message.clarifyAnswer ?? 'live'}`}
+          spec={message.clarify}
+          frozen={clarifyFrozen}
+          answer={message.clarifyAnswer}
+          turnStatus={message.turnStatus}
+          onAnswer={submitMessage}
+        />
+      )}
       {/* feat/reasoning-experience: the collapsed thinking-phase trace renders
           ABOVE the prose (PRD stories 13–16). It owns the dead-air "Thinking…"
           header too (absorbing the old ThinkingShimmer), so it mounts when the
@@ -221,7 +236,7 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
             {content}
           </div>
           {/* FE-4: the clarifying-question widget, inline where the agent paused (PRD 23–25). */}
-          {!isCreatedByUser && message.clarify !== undefined && (
+          {!isCreatedByUser && message.clarify !== undefined && !isResearchPlanClarify && (
             <ClarifyWidget
               // Remount on a live→frozen / answer change so `selected`/`otherOpen`
               // (seeded once at mount) re-seed cleanly instead of going stale.
@@ -229,6 +244,7 @@ const DisplayMessage = ({ text, isCreatedByUser, message, showCursor }: TDisplay
               spec={message.clarify}
               frozen={clarifyFrozen}
               answer={message.clarifyAnswer}
+              turnStatus={message.turnStatus}
               onAnswer={submitMessage}
             />
           )}

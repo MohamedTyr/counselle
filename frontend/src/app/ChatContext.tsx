@@ -31,7 +31,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { useQueryClient } from '@tanstack/react-query';
-import { activeConversationIdAtom } from '@/app/state';
+import { activeConversationIdAtom, deepResearchArmedAtom } from '@/app/state';
 import { transport } from '@/api/selectTransport';
 import { fromWire } from '@/api/source-config';
 import {
@@ -81,6 +81,9 @@ type ChatContextValue = {
   /** True while the open conversation's latest turn is parked on a clarifying
    *  question (PRD 23–25) — typing is answering; the composer swaps placeholder. */
   awaitingClarify: boolean;
+  /** True for the Deep research Run/Cancel gate. Free typing is not a valid
+   *  resume there because arbitrary text would otherwise mean "run". */
+  awaitingResearchPlan: boolean;
   /** Vendored scroll hooks read/set this (user scroll detaches auto-follow). */
   abortScroll: boolean;
   setAbortScroll: (value: boolean) => void;
@@ -110,16 +113,34 @@ type ChatDataValue = Pick<
   | 'turnError'
   | 'transcriptError'
   | 'awaitingClarify'
+  | 'awaitingResearchPlan'
   | 'abortScroll'
 >;
 
 const ChatActionsContext = createContext<ChatActionsValue | undefined>(undefined);
 const ChatDataContext = createContext<ChatDataValue | undefined>(undefined);
 
+export function activeLatestMessage(messages: ChatMessage[]): ChatMessage | null {
+  const awaitingAssistant = [...messages]
+    .reverse()
+    .find(
+      (message) =>
+        !message.isCreatedByUser &&
+        message.turnStatus === 'awaiting_input' &&
+        message.clarify !== undefined,
+    );
+  return awaitingAssistant ?? (messages.length > 0 ? messages[messages.length - 1] : null);
+}
+
+export function visibleChatMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.filter((message) => message.synthesized !== true);
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [conversationId, setConversationId] = useAtom(activeConversationIdAtom);
+  const [deepResearchArmed, setDeepResearchArmed] = useAtom(deepResearchArmedAtom);
   const [persisted, setPersisted] = useState<ChatMessage[]>([]);
   const [abortScroll, setAbortScroll] = useState(false);
   /** A transcript-load failure for the open conversation (honest error, not a
@@ -163,7 +184,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       try {
         const { entries, sourceConfig } = await transport.transcript(convoId);
         if (conversationIdRef.current === convoId) {
-          setPersisted(messagesFromTranscript(convoId, entries));
+          setPersisted(visibleChatMessages(messagesFromTranscript(convoId, entries)));
           // Seed the source dropdown from server truth (B5c): the session's
           // persisted config is the single reactive source (FE-SOURCECFG-DUAL)
           // — write it into the query cache, not localStorage.
@@ -251,8 +272,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // ── Projection: persisted + the live streaming message ─────────────────────
 
   const messages = useMemo<ChatMessage[]>(() => {
+    const visiblePersisted = visibleChatMessages(persisted);
     if (turn === null || turn.conversationId !== conversationId) {
-      return persisted;
+      return visiblePersisted;
     }
     const live = assistantMessage(
       turn.conversationId,
@@ -270,11 +292,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     // copy of the live id in `persisted`. Drop it so the live turn renders exactly
     // once (no duplicate React key / double render); filter-and-append also keeps
     // the chronological order (question → answer echo → resumed response).
-    const deduped = persisted.filter((m) => m.messageId !== turn.assistantMessageId);
+    const deduped = visiblePersisted.filter((m) => m.messageId !== turn.assistantMessageId);
     return [...deduped, live];
   }, [persisted, turn, conversationId]);
 
-  const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const latestMessage = activeLatestMessage(messages);
 
   // The open conversation is awaiting a clarify answer when its latest turn —
   // live or just-persisted (the stream ends at done(awaiting_input)) — parked
@@ -284,12 +306,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     !latestMessage.isCreatedByUser &&
     latestMessage.turnStatus === 'awaiting_input' &&
     latestMessage.clarify !== undefined;
+  const awaitingResearchPlan =
+    awaitingClarify &&
+    latestMessage?.clarify?.header === 'Deep research' &&
+    latestMessage.clarify.research_plan !== undefined &&
+    latestMessage.clarify.research_plan !== null;
+
+  const handleSubmitMessage = useCallback(
+    async (text: string, replaceMessageId?: string): Promise<boolean> => {
+      const armed = deepResearchArmed;
+      setDeepResearchArmed(false);
+      return engine.submitMessage(text, replaceMessageId, {
+        deepResearch: armed,
+        suppressUserEcho: awaitingClarify,
+        resumeFromMessage: awaitingClarify ? (latestMessage ?? undefined) : undefined,
+      });
+    },
+    [awaitingClarify, deepResearchArmed, latestMessage, setDeepResearchArmed, engine.submitMessage],
+  );
 
   // (E) Stable callbacks — deps are only callback identities (all useCallback-
   // stable), so this memo changes ~never.
   const actionsValue = useMemo<ChatActionsValue>(
     () => ({
-      submitMessage: engine.submitMessage,
+      submitMessage: handleSubmitMessage,
       ask: engine.ask,
       regenerate: engine.regenerate,
       stopGenerating: engine.stopGenerating,
@@ -299,7 +339,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setAbortScroll,
     }),
     [
-      engine.submitMessage,
+      handleSubmitMessage,
       engine.ask,
       engine.regenerate,
       engine.stopGenerating,
@@ -321,6 +361,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       turnError: engine.turnError,
       transcriptError,
       awaitingClarify,
+      awaitingResearchPlan,
       abortScroll,
     }),
     [
@@ -331,6 +372,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       engine.turnError,
       transcriptError,
       awaitingClarify,
+      awaitingResearchPlan,
       abortScroll,
     ],
   );

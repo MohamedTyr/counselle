@@ -40,6 +40,7 @@ __all__ = [
     "search_web",
     "search_school_site",
     "search_reddit",
+    "extract_urls",
     "_registrable_domain",
     "_safe_error",
     "_subreddits_allowed",
@@ -225,29 +226,33 @@ async def search_school_site(
     """Search the school's own .edu (or official) domain via Tavily.
 
     Resolves the school's website domain from the DB by calling
-    ``counselle_db.service.get_values`` for ``institution.website`` and
-    ``institution.admissions_url``, then passes ``include_domains=[domain]``
-    to Tavily.
+    ``counselle_db.service.get_values`` for ``institution.admissions_url``,
+    ``institution.financial_aid_url``, ``institution.net_price_calculator``,
+    and ``institution.website``. The query decides which official host is most
+    useful: admissions/test queries prefer the admissions host, aid/cost queries
+    prefer the financial-aid or net-price host, and the broad website host is
+    only the fallback.
 
     If neither URL is available in the DB returns ``{"error": ..., "retryable": False}``.
     All other failures return ``{"error": ..., "retryable": True}``.
     """
-    domain: str | None = None
+    domains: list[str] = []
     try:
         envelopes = await _get_values_impl(
-            catalog, unitid, ["institution.website", "institution.admissions_url"]
+            catalog,
+            unitid,
+            [
+                "institution.admissions_url",
+                "institution.financial_aid_url",
+                "institution.net_price_calculator",
+                "institution.website",
+            ],
         )
-        for env in envelopes:
-            raw_url = getattr(env, "raw", None) or getattr(env, "display", None)
-            if raw_url and str(raw_url) not in ("", "not available"):
-                candidate = _registrable_domain(str(raw_url))
-                if candidate:
-                    domain = candidate
-                    break
+        domains = _school_search_domains(envelopes, query)
     except Exception as exc:
         return _safe_error(exc)
 
-    if not domain:
+    if not domains:
         return {"error": "school website unknown", "retryable": False}
 
     school_site_vintage = f"Retrieved {today:%b %d, %Y} (school's official site)"
@@ -256,7 +261,7 @@ async def search_school_site(
             query,
             search_depth="basic",
             max_results=max_results,
-            include_domains=[domain],
+            include_domains=domains,
             include_answer=False,
         )
     except (
@@ -271,25 +276,117 @@ async def search_school_site(
     results = resp.get("results", [])
 
     def _citation_for_school_result(url: str) -> Citation:
-        # On-domain ⇒ the school's own official site. Off-domain (include_domains
-        # is a relevance bias, not a hard guarantee) ⇒ re-tier honestly via the
-        # web-result rule so a third-party host is never stamped "official".
-        if _registrable_domain(url) == domain:
-            return Citation(
-                source="edu",
-                tier="official",
-                vintage=school_site_vintage,
-                url=url,
-            )
-        return _citation_for_web_result(url, today)
+        return Citation(
+            source="edu",
+            tier="official",
+            vintage=school_site_vintage,
+            url=url,
+        )
 
-    items = [_result_to_item(r, _citation_for_school_result(r.get("url", ""))) for r in results]
+    items = [
+        _result_to_item(r, _citation_for_school_result(r.get("url", "")))
+        for r in results
+        if _registrable_domain(r.get("url", "")) in domains
+    ]
     return {"results": items}
+
+
+def _school_search_domains(envelopes: list[Any], query: str) -> list[str]:
+    """Pick official hosts for a school-site query from DB URL envelopes."""
+    grouped: dict[str, list[str]] = {"admissions": [], "aid": [], "website": []}
+    for env in envelopes:
+        field = getattr(env, "field", "")
+        raw_url = getattr(env, "raw", None) or getattr(env, "display", None)
+        if raw_url is None or str(raw_url).strip().lower() in {"", "not available"}:
+            continue
+        domain = _registrable_domain(str(raw_url))
+        if domain is None:
+            continue
+        if field == "institution.admissions_url":
+            grouped["admissions"].append(domain)
+        elif field in {"institution.financial_aid_url", "institution.net_price_calculator"}:
+            grouped["aid"].append(domain)
+        elif field == "institution.website":
+            grouped["website"].append(domain)
+
+    if _query_is_financial_aid(query):
+        return _unique_domains(grouped["aid"] or grouped["website"] or grouped["admissions"])
+    return _unique_domains(grouped["admissions"] or grouped["website"] or grouped["aid"])
+
+
+def _query_is_financial_aid(query: str) -> bool:
+    """True when an official query is about cost or aid rather than admissions mechanics."""
+    lower = query.lower()
+    return any(
+        token in lower
+        for token in (
+            "aid",
+            "financial",
+            "tuition",
+            "cost",
+            "net price",
+            "scholarship",
+            "fafsa",
+            "css profile",
+        )
+    )
+
+
+def _unique_domains(domains: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for domain in domains:
+        if domain in seen:
+            continue
+        seen.add(domain)
+        unique.append(domain)
+    return unique
 
 
 # ---------------------------------------------------------------------------
 # Tool 3 — search_reddit
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Tool 0 — extract_urls (research pipeline only)
+# ---------------------------------------------------------------------------
+
+
+async def extract_urls(
+    client: AsyncTavilyClient,
+    urls: list[str],
+    today: date,
+    *,
+    source: str = "web",
+) -> list[dict[str, Any]]:
+    """Extract content from URLs via Tavily. Returns citation-shaped dicts.
+
+    Used by the research gather_external node to read full page content.
+    The response field from Tavily is ``raw_content`` (not ``content``).
+    Returns an empty list on any failure — the caller should continue.
+    """
+    if not urls:
+        return []
+    try:
+        result = await client.extract(urls=urls)
+        results = result.get("results") or []
+        items = []
+        for r in results:
+            if not r.get("url"):
+                continue
+            citation = _citation_for_web_result(r["url"], today)
+            items.append(
+                {
+                    "title": r.get("url", ""),
+                    "url": r["url"],
+                    "snippet": (r.get("raw_content") or "")[:300],
+                    "citation": citation.model_dump(),
+                }
+            )
+        return items
+    except Exception:
+        return []
+
 
 _SCHOOL_TEMPLATE_SLOT = "{school}"
 
