@@ -67,7 +67,6 @@ _NON_SCHOOL_CANDIDATES = frozenset(
         "Research",
     }
 )
-_PLANNER_TIMEOUT_S = 12
 _MAX_PLAN_TASKS = 6
 _MIN_SCOPE_SIGNALS = 2
 
@@ -461,6 +460,10 @@ def _sanitize_plan(
     )
 
 
+def _planner_timeout_s(settings: Any) -> float:
+    return max(1.0, float(getattr(settings, "deep_research_planner_timeout_s", 60)))
+
+
 async def _model_plan(
     *,
     user_text: str,
@@ -486,7 +489,7 @@ async def _model_plan(
             f"Enabled sources: {enabled}\n"
             f"Max runtime seconds: {max_wall_clock_s}\n"
         )
-        result = await asyncio.wait_for(agent.run(prompt), timeout=_PLANNER_TIMEOUT_S)
+        result = await asyncio.wait_for(agent.run(prompt), timeout=_planner_timeout_s(settings))
         record_model_usage(research, result.usage, model_name=model_setting, settings=settings)
         data = result.output.model_dump(mode="json")
         return _sanitize_plan(

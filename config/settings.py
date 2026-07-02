@@ -135,6 +135,7 @@ class Settings(BaseSettings):
     # --- Deep research ---
     deep_research_enabled: bool = True
     deep_research_max_wall_clock_s: int = 90
+    deep_research_planner_timeout_s: int = 60
     deep_research_soft_timeout_s: int = 75
     deep_research_max_schools: int = 4
     deep_research_max_tavily_searches: int = 8
