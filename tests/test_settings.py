@@ -105,6 +105,7 @@ class TestDefaults:
         assert settings.sse_keepalive_s == 15
         assert settings.protocol_version == 1
         assert settings.workspace_event_queue_size == 256
+        assert settings.workspace_writes_per_minute == 240
         # Chat / auth knobs promoted in Phase 6
         assert settings.thinking_threshold_chars == 240  # CFG-07
         assert settings.password_min_length == 8  # CFG-03

@@ -37,6 +37,7 @@ _RATE_LIMITER_ATTR = "rate_limiter"
 
 _USER_SAFE_TURNS = "You've sent a lot of messages — please slow down and try again shortly."
 _USER_SAFE_AUTH = "Too many attempts — please wait a moment and try again."
+_USER_SAFE_WORKSPACE = "Too many workspace updates — please slow down and try again shortly."
 
 
 class SlidingWindowLimiter:
@@ -98,6 +99,10 @@ class SlidingWindowLimiter:
         """Per-IP auth window. Returns ``Retry-After`` seconds when over, else None."""
         return self._check(f"auth:{ip}", attempts, window_s, time.monotonic())
 
+    def check_workspace(self, user_id: str, *, per_minute: int) -> float | None:
+        """Per-user workspace write cap. Returns retry seconds when over."""
+        return self._check(f"workspace:m:{user_id}", per_minute, 60.0, time.monotonic())
+
     def reset(self) -> None:
         """Clear all counters (test seam)."""
         self._hits.clear()
@@ -115,6 +120,9 @@ class _NoopLimiter(SlidingWindowLimiter):
         return None
 
     def check_auth(self, ip: str, *, attempts: int, window_s: float) -> float | None:
+        return None
+
+    def check_workspace(self, user_id: str, *, per_minute: int) -> float | None:
         return None
 
 
@@ -167,3 +175,15 @@ async def auth_rate_limit(request: Request) -> None:
     )
     if retry is not None:
         raise EnvelopeError(429, _USER_SAFE_AUTH, headers=_retry_after_header(retry))
+
+
+async def workspace_write_rate_limit(
+    request: Request, user: UserDB = Depends(current_active_user)
+) -> None:
+    """Per-user cap for workspace mutations (429 + Retry-After)."""
+    settings = request.app.state.settings
+    retry = get_limiter(request).check_workspace(
+        str(user.id), per_minute=settings.workspace_writes_per_minute
+    )
+    if retry is not None:
+        raise EnvelopeError(429, _USER_SAFE_WORKSPACE, headers=_retry_after_header(retry))

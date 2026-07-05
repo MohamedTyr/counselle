@@ -48,8 +48,17 @@ from api.auth import (
 from api.auth_security import auth_origin_protect
 from api.context import install_middleware
 from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter, auth_rate_limit
+from api.routes import (
+    activities,
+    applications,
+    essays,
+    me,
+    sessions,
+    system,
+    tasks,
+    workspace_events,
+)
 from api.routes import config as config_routes
-from api.routes import me, sessions, system
 from api.supervision import McpSupervisor
 from app.deps import build_runtime
 from app.titles import make_auto_titler
@@ -219,4 +228,9 @@ def create_app() -> FastAPI:
     app.include_router(system.router, prefix="/v1")
     app.include_router(me.router, prefix="/v1")
     app.include_router(config_routes.router, prefix="/v1")
+    app.include_router(applications.router, prefix="/v1")
+    app.include_router(tasks.router, prefix="/v1")
+    app.include_router(essays.router, prefix="/v1")
+    app.include_router(activities.router, prefix="/v1")
+    app.include_router(workspace_events.router, prefix="/v1")
     return app

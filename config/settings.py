@@ -176,6 +176,7 @@ class Settings(BaseSettings):
 
     # --- Workspace ---
     workspace_event_queue_size: int = 256
+    workspace_writes_per_minute: int = 240
 
     # --- Auth (B3, ADR 0021) ---
     # REQUIRED: the JWT signing secret (≥32 bytes — pyjwt 2.13 warns below).
