@@ -3,7 +3,7 @@
 Status: IMPLEMENTED (backend + frontend + reviews + tests green; live full-stack
 turn pending pipeline DB restart — see §8)
 Branch: feat/reasoning-experience (worktree)
-Design target: `mockups/thinking-phase.html` (approved, merged to main)
+Design target: historical thinking-phase mockup (approved, merged to main; local HTML artifact removed during repo cleanup)
 
 ## 1. Problem statement
 

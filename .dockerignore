@@ -11,6 +11,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .hypothesis/
+artifacts/
 dist/
 *.egg-info/
 .coverage
@@ -18,9 +19,15 @@ dist/
 htmlcov/
 coverage.xml
 
-# Frontend source — the backend runtime image does not serve the SPA build here
-# (same-origin serving is a deferred B6 concern). node_modules is huge.
+# Frontend source/prototypes/backups — the backend runtime image does not serve
+# the SPA build here (same-origin serving is a deferred B6 concern).
 frontend/
+frontend.backup-*/
+mvp3-frontend/
+node_modules/
+build/
+test-results/
+playwright-report/
 
 # Not needed at runtime: tests, plans, specs, docs, design mockups, eval reports
 tests/
@@ -39,3 +46,10 @@ evals/report-*
 
 # Design-iteration screenshot scratch
 *.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.mp4
+*.mov
+*.webm

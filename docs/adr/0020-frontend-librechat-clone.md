@@ -1,6 +1,6 @@
 # ADR 0020 — Frontend: LibreChat-cloned design system & components on React/Vite/Tailwind
 
-**Status:** Accepted
+**Status:** Superseded by ADR 0026 for active frontend work.
 
 ## Context
 The full-stack app needs a ChatGPT-grade web app (see `specs/mvp2/PRD.md`). Designing a chat product's design system and commodity components (sidebar, composer, message rendering, settings) from scratch is the highest-risk, lowest-differentiation work in the project. The product decision: clone the look of LibreChat — an MIT-licensed, mature open-source chat UI — exactly (colors, fonts, spacing, components), but recomposed for our product ("a house from the castle's bricks"). Counselle's differentiating surfaces (activity timeline, cited cards, clarify widget) don't exist in LibreChat and must be built.

@@ -62,7 +62,7 @@ cd frontend && npm run typecheck && npm test
 | `docs/DEPLOY.md` | The deployment guide and its open gotchas (env matrix, DB provisioning, the `--forwarded-allow-ips` trap). **Deploy itself is deferred** — this is the plan, not a tested runbook |
 | `docs/research/agent-stack-evaluation.md` | The frontier-tech survey behind the stack choice: agent frameworks, model-provider abstraction, and the agent-skills ecosystem, with scorecards and the verdict |
 | `docs/research/deep-research-bakeoff.md` | The 4-way quality-vs-cost comparison of open-source deep-research systems (Alibaba DeepResearch, STORM, dzhng/deep-research, GPT-Researcher) and the verdict |
-| `docs/adr/README.md` | **Index of all 25 ADRs** (number, title, one-line summary). Start here for decisions |
+| `docs/adr/README.md` | **Index of all 26 ADRs** (number, title, one-line summary). Start here for decisions |
 | `docs/adr/` | One file per architectural decision (context → decision → rationale → alternatives → consequences). Do not silently break an ADR |
 | `specs/mvp1/plan/` | The MVP1 implementation plan (archived): `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7) |
 | `specs/deep-research/plan.md` | Stub plan for the deferred deep-research follow-up (PRD stories 39–41) |
@@ -128,6 +128,8 @@ When in doubt, do the simplest thing that works and ship it.
 - Files < 800 lines, functions < 50 lines; many small modules; organize by feature.
 - Parameterized SQL only (never f-string SQL) — inherited from pipeline ADR 0001.
 - Never log secrets. Secrets in `.env`/config only.
+- Generated artifacts go in `artifacts/` only. Screenshots, Playwright captures, videos, logs, design exports, one-off HTML prototypes, temporary reports, and similar scratch output must stay in the repo-root `artifacts/` folder, which is local and gitignored. Do not drop artifacts in the repo root, `docs/`, `specs/`, `mockups/`, app source, or package folders unless they are intentionally promoted into a reviewed, permanent source/documentation asset.
+- Frontend visual changes must go through the design system first. Prefer semantic tokens, shared primitives, and existing component APIs over one-off hardcoded colors, spacing, radii, or layout values in feature components. Keep UI changes clean, maintainable, DRY, and easy to evolve.
 - The value-reading rules (`docs/DATABASE_GUIDE.md` §6, R1–R12) are the spec for the normalization engine — implement them in code and test them hard.
 - Plan before non-trivial work; keep `specs/mvp1/PRD.md`, `docs/ARCHITECTURE.md`, and the ADRs current as decisions change.
 
@@ -138,9 +140,9 @@ This is principle 2 (never reinvent the wheel) made concrete for UI. **Before bu
 1. **Search the shadcn MCP first, always.** Use the `shadcn` MCP (`search_items_in_registries` / `view_items_in_registries` / `get_item_examples_from_registries`) before writing any component. If it exists, use it.
 2. **We're building an AI application — check `@ai-elements` first.** The [AI Elements](https://elements.ai-sdk.dev/docs) registry (`@ai-elements`) ships AI-native components (conversation, message, reasoning, prompt-input, sources, …) built on shadcn. Prefer it for anything chat/agent/AI-shaped. Then fall back to `@shadcn` for plain primitives (button, tooltip, dialog, …).
 3. **If the 21st.dev `magic` MCP is available, search it too, and use whichever is better.** `magic` is user/global-scoped (not committed to this repo), so it may not be present for everyone — treat it as optional: when it exists, compare its result against the shadcn/AI-Elements option and pick the better fit; when it doesn't, skip it silently.
-4. **Only build custom when nothing fits.** Counselle's differentiating honesty surfaces (activity timeline, cited cards, clarify widget) are built new on the cloned tokens — see ADR 0020. Everything commodity should come from a registry.
+4. **Only build custom when nothing fits.** Counselle's differentiating honesty surfaces (activity timeline, cited cards, clarify widget) are built new on the MVP3 design system — see ADR 0026. Everything commodity should come from a registry.
 
-Registries are configured in `frontend/components.json` (`@ai-elements`, `@shadcn`). The shadcn MCP only auto-discovers them when run from `frontend/`; install components from there:
+Registries are available from `frontend/`: `@ai-elements` is configured in `frontend/components.json`, and `@shadcn` is built into the shadcn CLI/MCP. The shadcn MCP only auto-discovers project registries when run from `frontend/`; install components from there:
 
 ```bash
 cd frontend && npx shadcn@latest add @ai-elements/conversation   # or @shadcn/button

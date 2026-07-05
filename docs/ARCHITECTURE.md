@@ -568,8 +568,8 @@ The agent service was built API-first precisely so the full-stack app layer woul
 ```
               ┌──────────────────────────────────┐   ┌──────────────────────┐
    browser    │  Counselle web app  (frontend/)  │   │  marketing landing   │
-              │  React SPA — LibreChat-cloned    │   │  page (one static    │
-              │  parts + Counselle components    │   │  file, served at /)  │
+              │  React SPA — MVP3 workspace      │   │  page (one static    │
+              │  shell + protocol client         │   │  file, served at /)  │
               └────────────────┬─────────────────┘   └──────────┬───────────┘
                                │  same origin: /v1/* (REST + SSE), cookie auth
               ┌────────────────▼────────────────────────────────▼───────────┐
@@ -587,7 +587,7 @@ The agent service was built API-first precisely so the full-stack app layer woul
 1. **Still one backend deployable.** No second service, no BFF, no gateway, no Redis, no message bus. Auth is `api/`-layer middleware and routes; chat CRUD is routes over rows that already exist (ADR 0019); rate limiting is middleware. The dependency rule (ADR 0017) absorbs all of it.
 2. **Every addition lands on a reserved seam.** Auth fills the optional principal (Part I, §6). Chat history reads rows the checkpointer already writes (Part I, §7). New event types ride the additive-within-v1 rule (Part I, §6). If any addition ever requires changing `domain/` or breaking v1 semantics — stop and write the ADR (the Part I, §23 discipline).
 3. **The frontend is a pure client.** It speaks only the versioned protocol. The service still doesn't know or care what renders it.
-4. **Clone, don't design.** The UI's design system and core chat components are cloned from LibreChat (MIT) — tokens wholesale, components vendored (§31, ADR 0020). We design only what LibreChat doesn't have: the honesty surfaces (timeline, cards, citations, clarify).
+4. **MVP3 frontend reset.** The active frontend is rebuilt from the MVP3 design system and workspace shell; ADR 0020's LibreChat clone is historical and superseded by ADR 0026. The backend protocol client remains the same `/v1` same-origin client.
 5. **Same origin, one container.** The SPA and the landing page are served by the FastAPI service (§33, ADR 0023) — no CORS, trivial cookie auth, one TLS cert, one deploy.
 
 **Seam inventory:** several foundations already existed in the agent service and required no new work for the full-stack app — the SSE `id:` field on every event (`api/sse.py`), `sessions.updated_at` + the per-turn touch (`migrations/0001_sessions.sql`, `app/sessions.py`), the in-process single-flight guard (`api/routes/sessions.py`), the unvalidated-principal seam (`api/context.py`), the `Containerfile`, `.env.example`, and the yoyo migration chain. The genuinely new machinery added in Part II: the **turn registry** (§27.3), step/thinking emission (§27.1–27.2), auth, the chat-management routes, and the frontend.
@@ -746,7 +746,21 @@ Five design questions resolved here as architecture (ADR 0022 carries the decisi
 
 ## 31. The frontend
 
-(ADR 0020.) The PRD's centerpiece. The strategy in one line: **LibreChat is the castle; we build a house from its bricks** — clone the design system and the chat-commodity components exactly, leave their product's parts, and build the Counselle-only components in the same visual language.
+**Current direction (ADR 0026):** the active frontend is being rebuilt from the
+MVP3 design system and workspace shell. ADR 0020's LibreChat clone is now the
+historical MVP2 implementation record, not the rule for new frontend work. The
+old backed-up frontend remains useful only as a reference for the `/v1` backend
+client contract: auth, same-origin cookies, SSE transport, transcript projection,
+and turn reduction.
+
+The first rebuilt module is the workspace shell: app bootstrap, provider stack,
+router, frame, sidebar primitive, and product sidebar composition. Feature pages
+and the backend client seam are imported after that shell is verified.
+
+### 31.0 Historical MVP2 frontend
+
+The notes below describe the shipped MVP2 LibreChat clone and remain here as
+historical context until the MVP3 frontend sections fully replace them.
 
 ### 31.1 The stack (locked by the clone decision)
 

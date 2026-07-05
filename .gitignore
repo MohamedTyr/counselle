@@ -5,11 +5,16 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+node_modules/
 dist/
+build/
+test-results/
+playwright-report/
 *.egg-info/
 .gstack/
 .playwright-mcp/
 .hypothesis/
+artifacts/
 
 # Eval runs are regenerated output; one baseline report stays committed,
 # new dated reports do not.
@@ -32,6 +37,14 @@ plans/.local/
 
 # Design-iteration screenshot scratch dropped in the repo root (06-M3).
 /*.png
+/mvp3-frontend/*.png
+/screenshots/
+/captures/
+
+# One-off static prototypes and their screenshot galleries are local design
+# artifacts, not source.
+/mockups/
+/specs/**/prototype/screenshots/
 
 # Root-level generated agent reports/audits. Canonical docs belong under docs/,
 # specs/, or plans/; one-off chat/audit artifacts should not sit in the index.
