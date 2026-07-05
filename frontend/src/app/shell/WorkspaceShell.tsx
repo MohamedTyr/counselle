@@ -11,7 +11,7 @@ export function WorkspaceShell() {
     <SidebarProvider>
       <div className="relative flex h-dvh w-full">
         <AppSidebar />
-        <SidebarInset className="flex min-w-0 flex-col overflow-hidden md:m-2 md:ml-0 md:rounded-xl md:shadow-sm">
+        <SidebarInset className="flex min-w-0 flex-col overflow-hidden md:mr-2 md:mb-2 md:ml-0 md:rounded-xl md:shadow-sm">
           <header className="flex h-14 shrink-0 items-center gap-3 px-4 md:hidden">
             <SidebarTrigger />
             <span className="font-semibold">Counselle</span>

@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router"
 
 import { WorkspaceShell } from "@/app/shell/WorkspaceShell"
 import { RouteSurface } from "@/app/routes/RouteSurface"
+import { SchoolsPage } from "@/pages/schools-page"
 
 export function createAppRouter() {
   return createBrowserRouter([
@@ -23,7 +24,7 @@ export function createAppRouter() {
         },
         {
           path: "schools",
-          element: <RouteSurface title="Schools" />,
+          element: <SchoolsPage />,
         },
         {
           path: "activities",
