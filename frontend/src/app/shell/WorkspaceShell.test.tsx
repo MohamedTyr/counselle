@@ -1,19 +1,12 @@
 import {
   fireEvent,
-  render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import App from "@/App";
-import { createAppRouter } from "@/app/router";
-
-function renderApp(path = "/") {
-  window.history.replaceState(null, "", path);
-  return render(<App routerInstance={createAppRouter()} />);
-}
+import { renderApp } from "@/test/render-app";
 
 function sidebarElement() {
   const sidebar = document.querySelector('[data-slot="sidebar"]');
@@ -36,7 +29,15 @@ function sidebarMenuButtonFor(link: HTMLElement) {
 }
 
 async function waitForTasksRoute() {
-  await waitFor(() => expect(window.location.pathname).toBe("/tasks"));
+  await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+}
+
+async function waitForDesktopSidebar() {
+  await waitFor(() => {
+    expect(document.querySelector('[data-slot="sidebar"]')).toBeInstanceOf(
+      HTMLElement,
+    );
+  });
 }
 
 describe("workspace shell", () => {
@@ -51,13 +52,14 @@ describe("workspace shell", () => {
     renderApp("/");
 
     await waitForTasksRoute();
-    expect(screen.getByRole("link", { name: "Counselle" })).toBeVisible();
+    expect(await screen.findByRole("link", { name: "Counselle" })).toBeVisible();
   });
 
   it("navigates top-level workspace routes from the sidebar", async () => {
     const user = userEvent.setup();
-    renderApp("/tasks");
+    renderApp("/app/tasks");
     await waitForTasksRoute();
+    await waitForDesktopSidebar();
 
     const sidebar = sidebarElement();
     await user.click(within(sidebar).getByRole("link", { name: "Schools" }));
@@ -65,18 +67,36 @@ describe("workspace shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Application workspace" }),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/schools");
+    expect(window.location.pathname).toBe("/app/schools");
 
     await user.click(within(sidebar).getByRole("link", { name: "Essays" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Essays" }),
+      await screen.findByRole("heading", { name: "Essay workspace" }),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/essays");
+    expect(window.location.pathname).toBe("/app/essays");
+  });
+
+  it("renders the real activities route from the sidebar", async () => {
+    const user = userEvent.setup();
+    renderApp("/app/tasks");
+    await waitForTasksRoute();
+    await waitForDesktopSidebar();
+
+    const sidebar = sidebarElement();
+    await user.click(within(sidebar).getByRole("link", { name: "Activities" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Activities" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add activity" }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/app/activities");
   });
 
   it("marks the active sidebar route", async () => {
-    renderApp("/schools");
+    renderApp("/app/schools");
 
     const schoolsLink = await screen.findByRole("link", { name: "Schools" });
     const tasksLink = screen.getByRole("link", { name: "Tasks" });
@@ -93,7 +113,8 @@ describe("workspace shell", () => {
 
   it("collapses the desktop sidebar", async () => {
     const user = userEvent.setup();
-    renderApp("/tasks");
+    renderApp("/app/tasks");
+    await waitForDesktopSidebar();
 
     const sidebar = sidebarElement();
     expect(sidebar).toHaveAttribute("data-state", "expanded");
@@ -107,7 +128,8 @@ describe("workspace shell", () => {
 
   it("restores the persisted desktop sidebar state", async () => {
     const user = userEvent.setup();
-    const view = renderApp("/tasks");
+    const view = renderApp("/app/tasks");
+    await waitForDesktopSidebar();
 
     const sidebar = sidebarElement();
     await user.click(
@@ -117,7 +139,8 @@ describe("workspace shell", () => {
     expect(document.cookie).toContain("sidebar_state=false");
 
     view.unmount();
-    renderApp("/tasks");
+    renderApp("/app/tasks");
+    await waitForDesktopSidebar();
 
     expect(sidebarElement()).toHaveAttribute("data-state", "collapsed");
     expect(screen.getByRole("link", { name: "Counselle" })).toBeInTheDocument();
@@ -125,8 +148,9 @@ describe("workspace shell", () => {
 
   it("keeps the shell mounted while route content changes", async () => {
     const user = userEvent.setup();
-    renderApp("/tasks");
+    renderApp("/app/tasks");
     await waitForTasksRoute();
+    await waitForDesktopSidebar();
 
     const sidebar = sidebarElement();
     await user.click(
@@ -140,13 +164,14 @@ describe("workspace shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Application workspace" }),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/schools");
+    expect(window.location.pathname).toBe("/app/schools");
     expect(sidebarElement()).toBe(sidebar);
     expect(sidebarElement()).toHaveAttribute("data-state", "collapsed");
   });
 
   it("does not steal editor shortcuts from editable controls", async () => {
-    renderApp("/tasks");
+    renderApp("/app/tasks");
+    await waitForDesktopSidebar();
 
     const sidebar = sidebarElement();
     const editor = document.createElement("input");
@@ -161,7 +186,8 @@ describe("workspace shell", () => {
   });
 
   it("toggles the desktop sidebar by keyboard and ignores key repeat", async () => {
-    renderApp("/tasks");
+    renderApp("/app/tasks");
+    await waitForDesktopSidebar();
 
     const sidebar = sidebarElement();
     expect(sidebar).toHaveAttribute("data-state", "expanded");
@@ -179,10 +205,12 @@ describe("workspace shell", () => {
     const user = userEvent.setup();
     window.innerWidth = 390;
 
-    renderApp("/tasks");
+    renderApp("/app/tasks");
     await waitForTasksRoute();
 
-    await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Toggle Sidebar" }),
+    );
 
     const dialogs = await screen.findAllByRole("dialog", { hidden: true });
     const mobileSidebar = dialogs.find((dialog) =>
@@ -197,10 +225,12 @@ describe("workspace shell", () => {
     window.innerWidth = 390;
     document.cookie = "sidebar_state=false; path=/; max-age=604800";
 
-    renderApp("/tasks");
+    renderApp("/app/tasks");
     await waitForTasksRoute();
 
-    await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Toggle Sidebar" }),
+    );
 
     const dialogs = await screen.findAllByRole("dialog", { hidden: true });
     const mobileSidebar = dialogs.find((dialog) =>
@@ -216,7 +246,7 @@ describe("workspace shell", () => {
     const user = userEvent.setup();
     window.innerWidth = 390;
 
-    renderApp("/schools");
+    renderApp("/app/schools");
     await screen.findByRole("heading", { name: "Application workspace" });
 
     await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
@@ -225,7 +255,7 @@ describe("workspace shell", () => {
     });
     await user.click(brandLinks[0]!);
 
-    await waitFor(() => expect(window.location.pathname).toBe("/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
     await waitFor(() => {
       expect(
         screen.queryByRole("dialog", { hidden: true }),

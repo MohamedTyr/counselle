@@ -114,6 +114,38 @@
   --workspace-neutral-pill-fg: #c9c4bb;
   --workspace-error-pill-bg: #3b2723;
   --workspace-error-pill-fg: #e7b9ae;
+  --activity-list-surface: var(--workspace-task-lane-surface);
+  --activity-list-border: var(--workspace-border);
+  --activity-row-surface: var(--workspace-task-card-surface);
+  --activity-row-hover: var(--workspace-task-card-hover);
+  --activity-row-border: var(--workspace-task-card-border);
+  --activity-row-shadow:
+    0 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
+    0 1px 2px color-mix(in oklch, var(--shell-background) 62%, transparent);
+  --activity-control-surface: var(--workspace-input);
+  --activity-control-hover: var(--workspace-surface-hover);
+  --activity-control-border: var(--workspace-border);
+  --activity-chip-surface: var(--workspace-surface-raised);
+  --activity-chip-hover: var(--workspace-surface-hover);
+  --activity-chip-border: var(--workspace-border-soft);
+  --activity-chip-selected-surface: var(--workspace-surface-active);
+  --activity-chip-selected-border: var(--workspace-border);
+  --activity-warning-bg: var(--workspace-warning-pill-bg);
+  --activity-danger-bg: var(--workspace-error-pill-bg);
+  --essay-library-card-hover: var(--workspace-task-card-hover);
+  --essay-library-card-border: var(--workspace-task-card-border);
+  --essay-library-card-frame: var(--workspace-surface-raised);
+  --essay-editor-chrome-surface: var(--shell-background);
+  --essay-editor-header-surface: var(--workspace-surface-raised);
+  --essay-editor-header-border: var(--workspace-border-soft);
+  --essay-editor-header-shadow:
+    0 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
+    0 1px 2px color-mix(in oklch, var(--shell-background) 62%, transparent);
+  --essay-editor-toolbar-surface: var(--workspace-surface-raised);
+  --essay-editor-toolbar-border: var(--workspace-border);
+  --essay-editor-toolbar-active: var(--workspace-surface-active);
+  --essay-editor-toolbar-shadow: 0 8px 18px
+    color-mix(in oklch, var(--shell-background) 70%, transparent);
   --background: var(--shell-background);
   --foreground: var(--workspace-foreground);
   --card: var(--workspace-surface-raised);
@@ -124,6 +156,10 @@
   --document-foreground: oklch(0.16 0.002 250);
   --document-muted: oklch(0.34 0.003 250);
   --document-border: oklch(0.895 0.003 250);
+  --essay-document-surface: var(--document);
+  --essay-document-foreground: var(--document-foreground);
+  --essay-document-muted: var(--document-muted);
+  --essay-document-border: var(--document-border);
   --primary: var(--workspace-primary);
   --primary-foreground: var(--workspace-primary-foreground);
   --secondary: var(--workspace-surface-raised);
@@ -248,6 +284,10 @@
   --document-foreground: oklch(0.16 0.002 250);
   --document-muted: oklch(0.34 0.003 250);
   --document-border: oklch(0.84 0.003 250);
+  --essay-document-surface: var(--document);
+  --essay-document-foreground: var(--document-foreground);
+  --essay-document-muted: var(--document-muted);
+  --essay-document-border: var(--document-border);
   --primary: var(--workspace-primary);
   --primary-foreground: var(--workspace-primary-foreground);
   --secondary: var(--workspace-surface-raised);
@@ -285,6 +325,80 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  .essay-editor-shell .ProseMirror {
+    min-height: 740px;
+    outline: none;
+  }
+
+  .essay-editor-shell .ProseMirror > * + * {
+    margin-top: 1.15rem;
+  }
+
+  .essay-editor-shell .ProseMirror h1 {
+    color: var(--essay-document-foreground);
+    font-family: var(--font-document);
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0 0 2.25rem;
+    text-align: center;
+  }
+
+  .essay-editor-shell .ProseMirror h2 {
+    color: var(--essay-document-foreground);
+    font-family: var(--font-document);
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.45;
+    margin-top: 1.8rem;
+  }
+
+  .essay-editor-shell .ProseMirror p,
+  .essay-editor-shell .ProseMirror li,
+  .essay-editor-shell .ProseMirror blockquote {
+    color: var(--essay-document-foreground);
+    font-family: var(--font-document);
+    font-size: 1rem;
+    line-height: 1.95;
+  }
+
+  .essay-editor-shell .ProseMirror ul,
+  .essay-editor-shell .ProseMirror ol {
+    padding-left: 1.35rem;
+  }
+
+  .essay-editor-shell .ProseMirror ul {
+    list-style: disc;
+  }
+
+  .essay-editor-shell .ProseMirror ol {
+    list-style: decimal;
+  }
+
+  .essay-editor-shell .ProseMirror blockquote {
+    border-left: 2px solid var(--essay-document-border);
+    color: var(--essay-document-muted);
+    padding-left: 1rem;
+  }
+
+  .essay-editor-shell .ProseMirror strong {
+    font-weight: 700;
+  }
+
+  .essay-editor-shell .ProseMirror em {
+    font-style: italic;
+  }
+
+  .essay-editor-shell .ProseMirror p.is-editor-empty:first-child::before {
+    color: var(--essay-document-muted);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
   }
 }
 

@@ -45,6 +45,7 @@ from api.auth import (
     google_oauth_client,
     oauth_backend,
 )
+from api.auth_security import auth_origin_protect
 from api.context import install_middleware
 from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter, auth_rate_limit
 from api.routes import config as config_routes
@@ -157,27 +158,27 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
     — story 49), and — when Google creds are set — the OAuth router whose
     callback sets the cookie and 302s the SPA.
     """
-    # B4: per-IP rate limit on the brute-forceable surfaces. The auth router
-    # carries login + logout; logout is harmless to limit (a logged-in user won't
-    # hit the window). The reset router carries forgot + reset-password; both are
-    # spam-worth limiting. Register-router stays unlimited (account creation is
-    # email-verified and lower-risk).
+    auth_post_dependencies = [Depends(auth_origin_protect), Depends(auth_rate_limit)]
+    # B4/B8: per-IP rate limit on every auth state-changing surface. Login/reset
+    # are brute-forceable or spam-worthy; register also needs abuse protection
+    # before the cookie-backed auth UI ships. The origin guard blocks login CSRF.
     app.include_router(
         fastapi_users.get_auth_router(auth_backend),
         prefix="/v1/auth",
         tags=["auth"],
-        dependencies=[Depends(auth_rate_limit)],
+        dependencies=auth_post_dependencies,
     )
     app.include_router(
         fastapi_users.get_register_router(UserRead, UserCreate),
         prefix="/v1/auth",
         tags=["auth"],
+        dependencies=auth_post_dependencies,
     )
     app.include_router(
         fastapi_users.get_reset_password_router(),
         prefix="/v1/auth",
         tags=["auth"],
-        dependencies=[Depends(auth_rate_limit)],
+        dependencies=auth_post_dependencies,
     )
     app.include_router(
         fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/v1/auth", tags=["auth"]

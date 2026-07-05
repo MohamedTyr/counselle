@@ -33,7 +33,9 @@ _PW = "correct-horse-battery-staple"
 
 def _client(app: FastAPI) -> httpx.AsyncClient:
     return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        headers={"Origin": "http://test"},
     )
 
 
@@ -102,6 +104,64 @@ async def test_wrong_password_returns_400(auth_app: FastAPI) -> None:
         assert resp.status_code == 400
     finally:
         await delete_user_by_email(auth_app.state.runtime.app_pool, email)
+
+
+async def test_cross_origin_auth_posts_are_rejected(auth_app: FastAPI) -> None:
+    email = f"csrf-{uuid.uuid4().hex}@counselle-test.com"
+    try:
+        async with _client(auth_app) as c:
+            register = await c.post(
+                "/v1/auth/register",
+                headers={"Origin": "https://attacker.example"},
+                json={"email": email, "password": _PW, "name": "Ada"},
+            )
+            login = await c.post(
+                "/v1/auth/login",
+                headers={"Origin": "https://attacker.example"},
+                data={"username": email, "password": _PW},
+            )
+
+        assert register.status_code == 403
+        assert login.status_code == 403
+    finally:
+        await delete_user_by_email(auth_app.state.runtime.app_pool, email)
+
+
+async def test_headerless_auth_post_is_rejected(auth_app: FastAPI) -> None:
+    email = f"headerless-{uuid.uuid4().hex}@counselle-test.com"
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=auth_app),
+            base_url="http://test",
+        ) as c:
+            resp = await c.post(
+                "/v1/auth/register",
+                json={"email": email, "password": _PW, "name": "Ada"},
+            )
+
+        assert resp.status_code == 403
+    finally:
+        await delete_user_by_email(auth_app.state.runtime.app_pool, email)
+
+
+async def test_register_429_when_window_exhausted(
+    auth_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(auth_app.state.settings, "auth_attempts_per_window", 2, raising=False)
+    monkeypatch.setattr(auth_app.state.settings, "auth_window_seconds", 60, raising=False)
+    emails = [f"limited-{index}-{uuid.uuid4().hex}@counselle-test.com" for index in range(3)]
+    try:
+        statuses = []
+        for email in emails:
+            resp = await _register(auth_app, email)
+            statuses.append(resp.status_code)
+
+        assert statuses[:2] == [201, 201]
+        assert statuses[2] == 429
+    finally:
+        auth_app.state.rate_limiter.reset()
+        for email in emails:
+            await delete_user_by_email(auth_app.state.runtime.app_pool, email)
 
 
 async def test_oauth_only_user_password_login_returns_400(auth_app: FastAPI) -> None:

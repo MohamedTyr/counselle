@@ -1,4 +1,9 @@
 import "@testing-library/jest-dom/vitest"
+import { afterEach } from "vitest"
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 const localStorageStore = new Map<string, string>()
 const localStorageMock: Storage = {

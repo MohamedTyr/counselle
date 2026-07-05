@@ -46,7 +46,7 @@ export function MainNav({ routes }: MainNavProps) {
       {routes.map((route) => {
         const isOpen = !isCollapsed && openCollapsible === route.id;
         const hasSubRoutes = Boolean(route.subs?.length);
-        const routeEnd = route.link === "/tasks";
+        const routeEnd = route.link === "/app/tasks";
         const isRouteActive = routeEnd
           ? location.pathname === route.link
           : location.pathname === route.link ||
