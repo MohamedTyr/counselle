@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router"
 import { WorkspaceShell } from "@/app/shell/WorkspaceShell"
 import { RouteSurface } from "@/app/routes/RouteSurface"
 import { SchoolsPage } from "@/pages/schools-page"
+import { TasksPage } from "@/pages/tasks-page"
 
 export function createAppRouter() {
   return createBrowserRouter([
@@ -16,7 +17,7 @@ export function createAppRouter() {
         },
         {
           path: "tasks",
-          element: <RouteSurface title="Tasks" />,
+          element: <TasksPage />,
         },
         {
           path: "calendar",

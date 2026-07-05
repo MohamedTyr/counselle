@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 
+import { PageHeader } from "@/components/workspace/PageHeader"
 import { Button } from "@/components/ui/button"
 import type { School } from "@/domain/school"
 import {
@@ -130,23 +131,15 @@ export function SchoolsPage({ schools }: { schools: School[] }) {
         className="workspace-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10"
         ref={scrollAreaRef}
       >
-        <div className="relative -mx-6 flex items-center px-6 py-4 md:-mx-10 md:px-10">
-          <div className="flex w-full flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex min-w-0 flex-col">
-              <h1 className="text-xl leading-none font-semibold tracking-tight">
-                Application workspace
-              </h1>
-            </div>
+        <PageHeader
+          actions={
             <Button variant="outline">
               <Plus data-icon="inline-start" />
               Add school
             </Button>
-          </div>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute bottom-0 left-0 right-5 border-b"
-          />
-        </div>
+          }
+          title="Application workspace"
+        />
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">

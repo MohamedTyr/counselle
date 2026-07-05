@@ -35,6 +35,10 @@ function sidebarMenuButtonFor(link: HTMLElement) {
   return button;
 }
 
+async function waitForTasksRoute() {
+  await waitFor(() => expect(window.location.pathname).toBe("/tasks"));
+}
+
 describe("workspace shell", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -46,17 +50,14 @@ describe("workspace shell", () => {
   it("redirects the default route into the workspace shell", async () => {
     renderApp("/");
 
-    expect(
-      await screen.findByRole("heading", { name: "Tasks" }),
-    ).toBeInTheDocument();
-    await waitFor(() => expect(window.location.pathname).toBe("/tasks"));
+    await waitForTasksRoute();
     expect(screen.getByRole("link", { name: "Counselle" })).toBeVisible();
   });
 
   it("navigates top-level workspace routes from the sidebar", async () => {
     const user = userEvent.setup();
     renderApp("/tasks");
-    await screen.findByRole("heading", { name: "Tasks" });
+    await waitForTasksRoute();
 
     const sidebar = sidebarElement();
     await user.click(within(sidebar).getByRole("link", { name: "Schools" }));
@@ -125,7 +126,7 @@ describe("workspace shell", () => {
   it("keeps the shell mounted while route content changes", async () => {
     const user = userEvent.setup();
     renderApp("/tasks");
-    await screen.findByRole("heading", { name: "Tasks" });
+    await waitForTasksRoute();
 
     const sidebar = sidebarElement();
     await user.click(
@@ -179,7 +180,7 @@ describe("workspace shell", () => {
     window.innerWidth = 390;
 
     renderApp("/tasks");
-    await screen.findByRole("heading", { name: "Tasks" });
+    await waitForTasksRoute();
 
     await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
 
@@ -197,7 +198,7 @@ describe("workspace shell", () => {
     document.cookie = "sidebar_state=false; path=/; max-age=604800";
 
     renderApp("/tasks");
-    await screen.findByRole("heading", { name: "Tasks" });
+    await waitForTasksRoute();
 
     await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
 

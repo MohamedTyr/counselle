@@ -80,6 +80,13 @@
   --workspace-surface-raised: #211f1d;
   --workspace-surface-hover: #252422;
   --workspace-surface-active: #2b2926;
+  --workspace-task-lane-surface: #1e1c1a;
+  --workspace-task-card-surface: #242220;
+  --workspace-task-card-hover: #292724;
+  --workspace-task-card-border: #302e2b;
+  --workspace-task-card-shadow: 0 1px 0
+      color-mix(in oklch, var(--foreground) 7%, transparent),
+    0 1px 2px color-mix(in oklch, var(--shell-background) 64%, transparent);
   --workspace-border: #2b2a28;
   --workspace-border-soft: #242323;
   --workspace-input: #302d29;
@@ -135,17 +142,17 @@
   --sidebar-accent-foreground: var(--shell-sidebar-hover-foreground);
   --sidebar-border: var(--shell-sidebar-border);
   --sidebar-ring: var(--workspace-ring);
-  --task-todo-surface: var(--workspace-surface);
+  --task-todo-surface: var(--workspace-task-lane-surface);
   --task-todo-header: var(--workspace-surface-raised);
-  --task-todo-card: var(--workspace-surface-raised);
-  --task-todo-card-hover: var(--workspace-surface-hover);
+  --task-todo-card: var(--workspace-task-card-surface);
+  --task-todo-card-hover: var(--workspace-task-card-hover);
   --task-todo-border: var(--workspace-border);
-  --task-todo-card-border: transparent;
+  --task-todo-card-border: var(--workspace-task-card-border);
   --task-todo-muted: var(--workspace-muted-foreground);
   --task-todo-pill-bg: var(--workspace-neutral-pill-bg);
   --task-todo-pill-fg: var(--workspace-neutral-pill-fg);
   --task-todo-dot: var(--workspace-muted-foreground);
-  --task-doing-surface: var(--workspace-surface);
+  --task-doing-surface: var(--workspace-task-lane-surface);
   --task-doing-header: var(--workspace-surface-raised);
   --task-doing-card: var(--task-todo-card);
   --task-doing-card-hover: var(--task-todo-card-hover);
@@ -155,7 +162,7 @@
   --task-doing-pill-bg: var(--workspace-info-pill-bg);
   --task-doing-pill-fg: var(--workspace-info-pill-fg);
   --task-doing-dot: #8aa7bd;
-  --task-waiting-surface: var(--workspace-surface);
+  --task-waiting-surface: var(--workspace-task-lane-surface);
   --task-waiting-header: var(--workspace-surface-raised);
   --task-waiting-card: var(--task-todo-card);
   --task-waiting-card-hover: var(--task-todo-card-hover);
@@ -167,7 +174,7 @@
   --task-waiting-dot: #c7aa69;
   --activity-warning-fg: var(--workspace-warning-pill-fg);
   --activity-danger-fg: var(--workspace-danger-foreground);
-  --task-done-surface: var(--workspace-surface);
+  --task-done-surface: var(--workspace-task-lane-surface);
   --task-done-header: var(--workspace-surface-raised);
   --task-done-card: var(--task-todo-card);
   --task-done-card-hover: var(--task-todo-card-hover);
@@ -195,6 +202,24 @@
   --task-category-other-bg: var(--workspace-neutral-pill-bg);
   --task-category-other-fg: var(--workspace-neutral-pill-fg);
   --task-category-other-border: var(--workspace-border);
+  --task-drag-preview-background: color-mix(
+    in oklch,
+    var(--card),
+    var(--ring) 14%
+  );
+  --task-drag-preview-border: transparent;
+  --task-drag-preview-shadow: 0 8px 18px
+    color-mix(in oklch, var(--shell-background) 70%, transparent);
+  --task-card-selected-background: color-mix(
+    in oklch,
+    var(--lane-card),
+    var(--foreground) 8%
+  );
+  --task-card-selected-hover-background: color-mix(
+    in oklch,
+    var(--lane-card),
+    var(--foreground) 11%
+  );
   --destructive-foreground: var(--workspace-danger-foreground);
   --info: #8aa7bd;
   --info-foreground: var(--workspace-info-pill-fg);
