@@ -66,6 +66,15 @@ class ApplicationView(Application):
     essays: Rollup
 
 
+class SchoolSearchResult(_Model):
+    unitid: int
+    name: str
+    city: str | None = None
+    state: str | None = None
+    website_url: str | None = None
+    on_list: bool = False
+
+
 class ApplicationCreate(_Model):
     unitid: int
     list_type: ListType
@@ -132,6 +141,16 @@ class TaskPatch(_Model):
     reminder_at: datetime | None = None
 
 
+class SeededWorkspaceIds(_Model):
+    task_ids: list[UUID]
+    essay_ids: list[UUID]
+
+
+class ApplicationAddResult(_Model):
+    application: ApplicationView
+    seeded: SeededWorkspaceIds
+
+
 class Essay(_Model):
     id: UUID
     user_id: UUID
@@ -146,6 +165,10 @@ class Essay(_Model):
     comments: list[dict[str, Any]] = Field(default_factory=list)
     suggestions: list[dict[str, Any]] = Field(default_factory=list)
     archived_via_application: UUID | None = None
+    school_name: str | None = None
+    school_city: str | None = None
+    school_state: str | None = None
+    deadline: date | None = None
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None = None
@@ -165,6 +188,10 @@ class EssaySummary(_Model):
     comment_count: int = 0
     suggestion_count: int = 0
     archived_via_application: UUID | None = None
+    school_name: str | None = None
+    school_city: str | None = None
+    school_state: str | None = None
+    deadline: date | None = None
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None = None
@@ -274,6 +301,12 @@ class ChangeEvent(_Model):
     v: Literal[1] = 1
     type: str
     data: ChangeEventData
+
+
+class ApplicationDetail(_Model):
+    application: ApplicationView
+    tasks: list[Task]
+    essays: list[EssaySummary]
 
 
 class WorkspaceSeedTask(_Model):

@@ -56,6 +56,7 @@ __all__ = [
     "national_benchmark",
     "query_database",
     "resolve_school",
+    "search_school_names",
 ]
 
 #: Protocol sanity caps for compare_schools — not tuning knobs (phase-2 Slice C #4).
@@ -296,6 +297,27 @@ async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
     return ResolveCandidates(
         candidates=[_school_basics(row) for row in ordered], hint=_CANDIDATES_HINT
     )
+
+
+async def search_school_names(
+    catalog: Catalog, query: str, *, limit: int = 8
+) -> list[SchoolBasics]:
+    """Typeahead-oriented school name search over the pipeline catalog.
+
+    This is the public wrapper around the existing name-match path used by
+    ``resolve_school``: abbreviation expansion, ILIKE first pass, trigram
+    fallback, and main-campus-first ordering.
+    """
+    query = query.strip()
+    if not query:
+        return []
+    expanded = _expand_abbreviation(query)
+    rows = await fetch(catalog.pool, _SEARCH_SQL, expanded)
+    if not rows:
+        rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
+    ordered = sorted(rows, key=lambda row: (_campus_rank(row["name"]), row["name"]))
+    capped = max(1, min(limit, 20))
+    return [_school_basics(row) for row in ordered[:capped]]
 
 
 # --- get_values ---------------------------------------------------------------
