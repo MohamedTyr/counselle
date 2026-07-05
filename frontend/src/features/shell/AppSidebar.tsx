@@ -18,12 +18,19 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <div className="flex h-full flex-col gap-4 px-[var(--shell-sidebar-inset-inline)] py-[var(--shell-sidebar-inset-block)]">
+      <div
+        className={cn(
+          "flex h-full flex-col gap-4 py-[var(--shell-sidebar-inset-block)]",
+          isCollapsed
+            ? "items-center px-[var(--shell-sidebar-collapsed-inset-inline)]"
+            : "px-[var(--shell-sidebar-inset-inline)]",
+        )}
+      >
         <SidebarHeader
           className={cn(
             "flex p-0",
             isCollapsed
-              ? "flex-row items-center justify-between gap-y-4 md:flex-col md:items-start md:justify-start"
+              ? "flex-row items-center justify-between gap-y-4 md:flex-col md:justify-start"
               : "flex-row items-center justify-between",
           )}
         >

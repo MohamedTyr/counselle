@@ -69,8 +69,10 @@
   --shell-sidebar-hover-background: #252422;
   --shell-sidebar-hover-foreground: #d6d5d4;
   --shell-sidebar-inset-inline: 1rem;
+  --shell-sidebar-collapsed-inset-inline: 0.5rem;
   --shell-sidebar-inset-block: 1rem;
   --shell-divider: #242323;
+  --shell-sidebar-border: #2b2a28;
   --background: var(--shell-background);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -106,7 +108,7 @@
   --sidebar-primary-foreground: var(--shell-sidebar-foreground);
   --sidebar-accent: var(--shell-sidebar-hover-background);
   --sidebar-accent-foreground: var(--shell-sidebar-hover-foreground);
-  --sidebar-border: var(--shell-divider);
+  --sidebar-border: var(--shell-sidebar-border);
   --sidebar-ring: oklch(0.708 0 0);
   --task-todo-surface: oklch(0.965 0.004 255);
   --task-todo-header: oklch(0.935 0.005 255);
@@ -211,7 +213,7 @@
   --sidebar-primary-foreground: var(--shell-sidebar-foreground);
   --sidebar-accent: var(--shell-sidebar-hover-background);
   --sidebar-accent-foreground: var(--shell-sidebar-hover-foreground);
-  --sidebar-border: var(--shell-divider);
+  --sidebar-border: var(--shell-sidebar-border);
   --sidebar-ring: oklch(0.556 0 0);
   --task-todo-surface: oklch(0.18 0.006 255 / 82%);
   --task-todo-header: oklch(0.24 0.008 255 / 74%);
