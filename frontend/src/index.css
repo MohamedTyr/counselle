@@ -84,9 +84,18 @@
   --workspace-task-card-surface: #242220;
   --workspace-task-card-hover: #292724;
   --workspace-task-card-border: #302e2b;
-  --workspace-task-card-shadow: 0 1px 0
-      color-mix(in oklch, var(--foreground) 7%, transparent),
+  --workspace-task-card-shadow:
+    0 1px 0 color-mix(in oklch, var(--foreground) 7%, transparent),
     0 1px 2px color-mix(in oklch, var(--shell-background) 64%, transparent);
+  --workspace-upcoming-task-card-surface: #252320;
+  --workspace-upcoming-task-card-hover: #2a2723;
+  --workspace-upcoming-task-card-border: #36312b;
+  --workspace-upcoming-task-card-hover-border: #403a33;
+  --workspace-upcoming-task-card-highlight: color-mix(
+    in oklch,
+    var(--foreground) 8%,
+    transparent
+  );
   --workspace-border: #2b2a28;
   --workspace-border-soft: #242323;
   --workspace-input: #302d29;

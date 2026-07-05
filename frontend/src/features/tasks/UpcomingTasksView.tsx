@@ -146,7 +146,7 @@ export function UpcomingTaskItem({
       aria-label={`Open ${task.title} details`}
       className={cn(
         laneThemeClass[task.status],
-        "group/upcoming grid cursor-pointer grid-cols-1 gap-3 rounded-xl bg-[color:var(--lane-card)] p-3 transition-[background-color,box-shadow] outline-none hover:bg-[color:var(--lane-card-hover)] focus-visible:ring-3 focus-visible:ring-ring/45 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start",
+        "group/upcoming grid cursor-pointer grid-cols-1 gap-3 rounded-xl border border-[color:var(--workspace-upcoming-task-card-border)] bg-[color:var(--workspace-upcoming-task-card-surface)] p-3 shadow-[inset_0_1px_0_var(--workspace-upcoming-task-card-highlight)] transition-[background-color,border-color] outline-none hover:border-[color:var(--workspace-upcoming-task-card-hover-border)] hover:bg-[color:var(--workspace-upcoming-task-card-hover)] focus-visible:ring-3 focus-visible:ring-ring/45 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start",
       )}
       onClick={() => onOpenTask(task.id)}
       onKeyDown={handleKeyDown}
