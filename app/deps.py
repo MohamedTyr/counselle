@@ -25,7 +25,9 @@ from pydantic_ai.models import Model
 from app.checkpointer import build_checkpointer
 from app.graph import GraphDeps, build_graph
 from app.toolset import ToolDeps, build_mcp_toolset, make_tool_deps
-from config.settings import get_settings
+from app.workspace.changes import WorkspaceEventBus
+from app.workspace.models import WorkspaceSeedingTemplate
+from config.settings import get_settings, load_yaml_asset
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
 
@@ -49,6 +51,8 @@ class AppDeps(GraphDeps):
     mcp_toolset: MCPToolset | None = None
     model_factory: Callable[[], Model] | None = None
     on_failure: Callable[[], None] | None = field(default=None)
+    workspace_events: WorkspaceEventBus | None = None
+    workspace_seeding_template: WorkspaceSeedingTemplate | None = None
 
 
 @dataclass
@@ -72,6 +76,9 @@ class Runtime:
 async def build_runtime(settings: Any = None) -> Runtime:
     """Production wiring: pools, catalog, checkpointer, MCP toolset, graph."""
     settings = settings or get_settings()
+    workspace_seeding_template = WorkspaceSeedingTemplate.model_validate(
+        load_yaml_asset("workspace_seeding")
+    )
     ro_pool = await create_pool()
     try:
         catalog = await Catalog.load(ro_pool)
@@ -91,6 +98,8 @@ async def build_runtime(settings: Any = None) -> Runtime:
         settings=settings,
         tool_deps=make_tool_deps(settings, catalog),
         mcp_toolset=build_mcp_toolset(settings),
+        workspace_events=WorkspaceEventBus(queue_size=settings.workspace_event_queue_size),
+        workspace_seeding_template=workspace_seeding_template,
     )
     graph = build_graph(checkpointer, deps)
     return Runtime(

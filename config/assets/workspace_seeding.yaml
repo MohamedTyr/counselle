@@ -1,0 +1,9 @@
+tasks:
+  - {title: "Complete the Common App sections for this school", category: form, priority: high}
+  - {title: "Request recommendation letters", category: lor, priority: high}
+  - {title: "Request transcript from your school", category: form, priority: med}
+  - {title: "Send test scores (if you're submitting them)", category: form, priority: med}
+  - {title: "Research program + confirm application requirements", category: research, priority: med}
+  - {title: "Final review before submitting", category: other, priority: high, days_before_deadline: 3}
+essays:
+  - {title: "Supplemental essay", essay_type: Supplement, status: "Not started"}

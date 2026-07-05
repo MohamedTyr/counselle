@@ -174,6 +174,9 @@ class Settings(BaseSettings):
     # domain/ in Phase 1; bump only with an architecture discussion.
     protocol_version: int = 1
 
+    # --- Workspace ---
+    workspace_event_queue_size: int = 256
+
     # --- Auth (B3, ADR 0021) ---
     # REQUIRED: the JWT signing secret (≥32 bytes — pyjwt 2.13 warns below).
     jwt_secret: str
