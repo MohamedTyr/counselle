@@ -1,0 +1,511 @@
+@layer theme {
+  :root {
+    --calendar-surface: oklch(0.965 0 0);
+    --calendar-panel: oklch(0.985 0 0);
+    --calendar-panel-soft: oklch(0.955 0 0);
+    --calendar-grid-border: oklch(0.86 0 0);
+    --calendar-day-hover: oklch(0.945 0 0);
+    --calendar-day-selected: oklch(0.925 0 0);
+    --calendar-hard-bg: oklch(0.92 0.028 28);
+    --calendar-hard-hover: oklch(0.89 0.034 28);
+    --calendar-hard-accent: oklch(0.52 0.11 28);
+    --calendar-hard-marker: oklch(0.58 0.13 28);
+    --calendar-due-bg: oklch(0.91 0.03 78);
+    --calendar-due-hover: oklch(0.88 0.038 78);
+    --calendar-due-accent: oklch(0.55 0.09 78);
+    --calendar-due-marker: oklch(0.62 0.11 78);
+    --calendar-work-bg: oklch(0.91 0.012 154);
+    --calendar-work-hover: oklch(0.88 0.018 154);
+    --calendar-work-accent: oklch(0.48 0.04 154);
+    --calendar-work-marker: oklch(0.55 0.055 154);
+    --calendar-time-bg: oklch(0.965 0 0);
+    --calendar-time-header: oklch(0.98 0 0 / 94%);
+    --calendar-time-line: oklch(0.86 0 0);
+    --calendar-time-rail: oklch(0.48 0 0);
+    --calendar-time-now: oklch(0.62 0.2 25);
+    --calendar-time-now-fg: oklch(1 0 0);
+    --calendar-time-event-bg: oklch(0.93 0 0);
+    --calendar-time-event-border: oklch(0.78 0 0);
+    --calendar-time-event-accent: oklch(0.46 0.03 154);
+    --calendar-time-event-fg: oklch(0.2 0 0);
+    --calendar-time-drop-bg: oklch(0.6 0.08 154 / 10%);
+    --calendar-time-drop-line: oklch(0.62 0.08 154);
+  }
+
+  .dark {
+    --calendar-surface: oklch(0.17 0 0 / 94%);
+    --calendar-panel: oklch(0.18 0 0 / 96%);
+    --calendar-panel-soft: oklch(0.215 0 0 / 84%);
+    --calendar-grid-border: oklch(1 0 0 / 5.5%);
+    --calendar-day-hover: oklch(1 0 0 / 4%);
+    --calendar-day-selected: oklch(1 0 0 / 7%);
+    --calendar-hard-bg: #2a1919;
+    --calendar-hard-hover: #321d1d;
+    --calendar-hard-accent: #b85b52;
+    --calendar-hard-marker: #d06f65;
+    --calendar-due-bg: #292318;
+    --calendar-due-hover: #31291c;
+    --calendar-due-accent: #b88a35;
+    --calendar-due-marker: #d09c42;
+    --calendar-work-bg: #1f2422;
+    --calendar-work-hover: #252b28;
+    --calendar-work-accent: #7c907f;
+    --calendar-work-marker: #93a797;
+    --calendar-time-bg: oklch(0.16 0 0 / 96%);
+    --calendar-time-header: oklch(0.18 0 0 / 96%);
+    --calendar-time-line: oklch(1 0 0 / 5.5%);
+    --calendar-time-rail: oklch(0.66 0 0);
+    --calendar-time-now: oklch(0.64 0.22 25);
+    --calendar-time-now-fg: oklch(1 0 0);
+    --calendar-time-event-bg: oklch(0.245 0 0);
+    --calendar-time-event-border: oklch(1 0 0 / 10%);
+    --calendar-time-event-accent: oklch(0.72 0.035 154);
+    --calendar-time-event-fg: oklch(0.92 0 0);
+    --calendar-time-drop-bg: oklch(0.62 0.052 154 / 11%);
+    --calendar-time-drop-line: oklch(0.68 0.052 154);
+  }
+}
+
+@layer components {
+  .calendar-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+  }
+
+  @media (min-width: 1280px) {
+    .calendar-layout {
+      align-items: start;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+    }
+  }
+
+  .calendar-main-surface,
+  .calendar-day-panel {
+    background: var(--calendar-panel);
+    border-radius: var(--radius-xl);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 4%),
+      0 18px 42px oklch(0 0 0 / 10%);
+  }
+
+  .calendar-main-surface {
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.85rem;
+  }
+
+  .calendar-day-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-height: calc(100dvh - 9.25rem);
+    min-height: 420px;
+    overflow: auto;
+    padding: 1rem;
+  }
+
+  .calendar-mode-dot,
+  .calendar-panel-dot {
+    background: var(--calendar-mode-marker);
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .calendar-mode-dot {
+    height: 0.5rem;
+    width: 0.5rem;
+  }
+
+  .calendar-panel-dot {
+    height: 0.55rem;
+    width: 0.55rem;
+  }
+
+  [data-calendar-mode="hard_deadlines"] {
+    --calendar-mode-marker: var(--calendar-hard-marker);
+  }
+
+  [data-calendar-mode="task_due_dates"] {
+    --calendar-mode-marker: var(--calendar-due-marker);
+  }
+
+  [data-calendar-mode="work_plan"] {
+    --calendar-mode-marker: var(--calendar-work-marker);
+  }
+
+  .calendar-sx {
+    --sx-border: 0;
+    --sx-color-background: transparent;
+    --sx-color-neutral: var(--muted-foreground);
+    --sx-color-on-background: var(--foreground);
+    --sx-color-on-surface: var(--foreground);
+    --sx-color-outline-variant: var(--calendar-grid-border);
+    --sx-color-primary: var(--calendar-due-marker);
+    --sx-color-on-primary: var(--foreground);
+    --sx-color-surface: transparent;
+    --sx-color-surface-container: var(--calendar-panel-soft);
+    --sx-color-surface-container-low: var(--calendar-panel-soft);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  .calendar-sx .sx-react-calendar-wrapper,
+  .calendar-sx .sx__calendar-wrapper,
+  .calendar-sx .sx__calendar {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    height: 100%;
+    width: 100%;
+  }
+
+  .calendar-sx .sx__calendar-header {
+    display: none;
+  }
+
+  .calendar-sx .sx__month-grid-wrapper {
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.48rem;
+    height: auto;
+  }
+
+  .calendar-sx .sx__month-grid-week {
+    border: 0;
+    display: grid;
+    flex: none;
+    gap: 0.48rem;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .calendar-sx .sx__month-grid-day {
+    background: color-mix(
+      in oklab,
+      var(--calendar-panel-soft) 52%,
+      transparent
+    );
+    border: 1px solid var(--calendar-grid-border);
+    border-radius: var(--radius-lg);
+    min-height: clamp(86px, 10dvh, 108px);
+    overflow: hidden;
+    padding: 0.42rem 0.3rem 0.45rem;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      opacity 160ms ease;
+  }
+
+  .calendar-sx .sx__month-grid-day:not(:last-child) {
+    border-inline-end: 1px solid var(--calendar-grid-border);
+  }
+
+  .calendar-sx .sx__month-grid-day:hover {
+    background: var(--calendar-day-hover);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 4%);
+  }
+
+  .calendar-sx .sx__month-grid-day.is-selected {
+    background: var(--calendar-day-selected);
+    border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
+  }
+
+  .calendar-sx .sx__month-grid-day.calendar-sx-drop-target {
+    background: color-mix(in oklab, var(--calendar-work-bg) 78%, transparent);
+    border-color: color-mix(
+      in oklab,
+      var(--calendar-work-accent) 34%,
+      transparent
+    );
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--calendar-work-accent) 18%, transparent);
+  }
+
+  .calendar-sx .sx__month-grid-day__header {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-height: 1.65rem;
+    padding-inline: 0.08rem;
+  }
+
+  .calendar-sx .sx__month-grid-day__header-day-name {
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.1;
+    text-transform: none;
+  }
+
+  .calendar-sx-date-label {
+    align-items: center;
+    color: var(--foreground);
+    display: flex;
+    font-size: 0.75rem;
+    font-weight: 600;
+    justify-content: space-between;
+    line-height: 1.2;
+    width: 100%;
+  }
+
+  .calendar-sx .sx__month-grid-day__header-date.sx__is-today,
+  .calendar-sx-date-label.is-today {
+    background: color-mix(in oklab, var(--calendar-due-bg) 42%, transparent);
+    border-radius: var(--radius-sm);
+    color: var(--foreground);
+    padding: 0.1rem 0.28rem;
+  }
+
+  .calendar-sx-hard-dot {
+    align-items: center;
+    background: color-mix(
+      in oklab,
+      var(--calendar-hard-marker) 78%,
+      transparent
+    );
+    border-radius: 999px;
+    color: var(--foreground);
+    display: inline-flex;
+    font-size: 0.63rem;
+    font-weight: 600;
+    height: 0.98rem;
+    justify-content: center;
+    line-height: 1;
+    min-width: 0.98rem;
+    padding-inline: 0.24rem;
+  }
+
+  .calendar-sx .sx__month-grid-day__events {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    margin-top: 0.15rem;
+  }
+
+  .calendar-sx .sx__month-grid-cell {
+    height: auto;
+    min-height: 0;
+  }
+
+  .calendar-sx .sx__month-grid-event {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0;
+    color: inherit;
+    display: block;
+    font-size: inherit;
+    min-width: 0;
+    overflow: visible;
+    padding: 0;
+    white-space: normal;
+  }
+
+  .calendar-sx .sx__month-grid-event:focus-visible {
+    outline: 1px solid color-mix(in oklab, var(--foreground) 22%, transparent);
+    outline-offset: 2px;
+  }
+
+  .calendar-sx .sx__month-grid-day__events-more {
+    border-radius: var(--radius-sm);
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    line-height: 1.3;
+    margin: 0.1rem 0 0;
+    padding: 0.1rem 0.35rem;
+    width: fit-content;
+  }
+
+  .calendar-sx .sx__month-grid-day__events-more:hover {
+    background: var(--calendar-day-hover);
+    color: var(--foreground);
+  }
+
+  .calendar-sx-event-card {
+    --calendar-event-bg: var(--calendar-work-bg);
+    --calendar-event-hover: var(--calendar-work-hover);
+    --calendar-event-accent: var(--calendar-work-accent);
+    background: var(--calendar-event-bg);
+    border-left: 3px solid var(--calendar-event-accent);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+    padding: 0.36rem 0.48rem 0.38rem 0.52rem;
+    transition:
+      background-color 160ms ease,
+      box-shadow 160ms ease,
+      opacity 160ms ease;
+  }
+
+  .calendar-sx-event-card:hover {
+    background: var(--calendar-event-hover);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 5%);
+  }
+
+  .calendar-sx-event-card--hard_deadline {
+    --calendar-event-bg: var(--calendar-hard-bg);
+    --calendar-event-hover: var(--calendar-hard-hover);
+    --calendar-event-accent: var(--calendar-hard-accent);
+  }
+
+  .calendar-sx-event-card--task_due {
+    --calendar-event-bg: var(--calendar-due-bg);
+    --calendar-event-hover: var(--calendar-due-hover);
+    --calendar-event-accent: var(--calendar-due-accent);
+  }
+
+  .calendar-sx-event-card--task_work {
+    --calendar-event-bg: var(--calendar-work-bg);
+    --calendar-event-hover: var(--calendar-work-hover);
+    --calendar-event-accent: var(--calendar-work-accent);
+  }
+
+  .calendar-sx-event-card.is-done {
+    opacity: 0.58;
+  }
+
+  .calendar-sx-event-card-title,
+  .calendar-sx-event-card-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .calendar-sx-event-card-title {
+    color: var(--foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .calendar-sx-event-card-subtitle {
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+    line-height: 1.25;
+  }
+
+  .calendar-sx .sx__list-wrapper {
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    height: auto;
+    overflow: visible;
+  }
+
+  .calendar-sx .sx__list-day {
+    background: color-mix(
+      in oklab,
+      var(--calendar-panel-soft) 58%,
+      transparent
+    );
+    border: 1px solid var(--calendar-grid-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .calendar-sx .sx__list-day-header {
+    background: color-mix(in oklab, var(--foreground) 3%, transparent);
+    padding: 0.55rem 0.75rem;
+    position: static;
+  }
+
+  .calendar-sx .sx__list-day-date {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .calendar-sx .sx__list-day-events {
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.55rem;
+  }
+
+  .calendar-sx .sx__list-event {
+    background: color-mix(in oklab, var(--background) 22%, transparent);
+    border: 0 !important;
+    border-radius: var(--radius-md);
+    gap: 0.65rem;
+    padding: 0.62rem 0.68rem;
+  }
+
+  .calendar-sx .sx__list-event-color-line {
+    align-self: stretch;
+    border-radius: 999px;
+    height: auto;
+    min-height: 1.65rem;
+  }
+
+  .calendar-sx .sx__list-event-content {
+    align-items: center;
+    gap: 0.75rem;
+    justify-content: flex-start;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .calendar-sx .sx__list-event-title {
+    color: var(--foreground);
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .calendar-sx .sx__list-event-times {
+    color: var(--muted-foreground);
+    display: none;
+    font-size: 0.72rem;
+    min-width: 3.5rem;
+  }
+
+  .calendar-sx .sx__list-no-events {
+    color: var(--muted-foreground);
+    inset: auto;
+    position: static;
+    transform: none;
+    padding: 2rem;
+  }
+
+  .calendar-panel-event,
+  .calendar-planning-task {
+    align-items: flex-start;
+    background: var(--calendar-panel-soft);
+    border-radius: var(--radius-md);
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 0.65rem 0.7rem;
+  }
+
+  .calendar-needs-planning {
+    background: color-mix(in oklab, var(--calendar-due-bg) 54%, transparent);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem;
+  }
+
+  .calendar-deadline-warning {
+    background: color-mix(in oklab, var(--calendar-hard-bg) 72%, transparent);
+    border-color: color-mix(
+      in oklab,
+      var(--calendar-hard-accent) 24%,
+      transparent
+    );
+    color: var(--foreground);
+  }
+}
