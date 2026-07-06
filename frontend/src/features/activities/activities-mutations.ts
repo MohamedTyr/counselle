@@ -6,7 +6,7 @@ import {
   type Activity,
   type Honor,
 } from "@/domain/activity";
-import { createDemoId, createTimestamp } from "@/domain/time";
+import { createClientId, createTimestamp } from "@/lib/time";
 import { renumber } from "@/features/activities/activities-reorder";
 import type { SectionStats } from "@/features/activities/activities-types";
 
@@ -56,7 +56,7 @@ export function insertAt<T extends Identified>(
 export function createActivity(
   length: number,
   timestamp = createTimestamp(),
-  id = createDemoId("activity"),
+  id = createClientId("activity"),
 ): Activity {
   return {
     created_at: timestamp,
@@ -75,7 +75,7 @@ export function createActivity(
 export function createHonor(
   length: number,
   timestamp = createTimestamp(),
-  id = createDemoId("honor"),
+  id = createClientId("honor"),
 ): Honor {
   return {
     created_at: timestamp,

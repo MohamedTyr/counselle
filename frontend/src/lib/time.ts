@@ -1,22 +1,16 @@
-export const demoNowIso = "2026-07-01T12:00:00"
-export const demoTodayIso = demoNowIso
-export const demoActivityNowIso = demoNowIso
+let clientIdSequence = 0
 
-export const todayDate = new Date(demoTodayIso)
-
-let demoIdSequence = 0
-
-export function getDemoNowDate() {
-  return new Date(demoNowIso)
+export function getNowDate() {
+  return new Date()
 }
 
-export function createTimestamp(date: Date = getDemoNowDate()) {
+export function createTimestamp(date: Date = getNowDate()) {
   return date.toISOString()
 }
 
-export function createDemoId(prefix: string) {
-  demoIdSequence += 1
-  return `${prefix}-${getDemoNowDate().getTime()}-${demoIdSequence}`
+export function createClientId(prefix: string) {
+  clientIdSequence += 1
+  return `${prefix}-${getNowDate().getTime()}-${clientIdSequence}`
 }
 
 export function formatRelativeTime(iso: string) {

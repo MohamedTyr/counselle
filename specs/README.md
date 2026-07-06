@@ -19,7 +19,8 @@ A feature that only ever gets an execution plan can have just `plan/`; one that 
 | Folder | What it is | State |
 |--------|-----------|-------|
 | [`mvp1/`](mvp1/) | The MVP1 agent — `PRD.md` (stories 1–58) + `plan/` (phases 0–7). | Shipped |
-| [`mvp2/`](mvp2/) | The MVP2 full-stack app — `PRD.md`, `architecture.md` (the HOW, merged into `docs/ARCHITECTURE.md` Part II), and `plan/` (ship-plan, wire-contract, frontend-plan, the FE-6 audit). | Shipped (B0–B5; deploy/hardening B6–B7 deferred) |
+| [`mvp2/`](mvp2/) | The MVP2 full-stack app — `PRD.md`, `architecture.md` (the HOW, merged into `docs/ARCHITECTURE.md` Part II), and `plan/` (ship-plan, wire-contract, frontend-plan, the FE-6 audit). | Shipped (B0–B5, B7 hardening; B6 deploy deferred) |
+| [`mvp3/`](mvp3/) | The MVP3 workspace — `workspace-design.md`, `feature-showcase.md`, and `plan/workspace-implementation-plan.md` for the persistent Schools/Tasks/Essays/Activities workspace and agent-ready service seam. | Workspace shipped |
 | [`deep-research/`](deep-research/) | The deferred deep-research feature (PRD stories 39–41) — approved `PRD.md` plus the original `plan.md` stub. | Scoped; implementation not started |
 
 ## The lifecycle (how a plan gets here)

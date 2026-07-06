@@ -60,7 +60,7 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
-import { todayDate } from "@/domain/time";
+import { getNowDate } from "@/lib/time";
 
 export function UpcomingDateMeta({
   onUpdateTask,
@@ -408,6 +408,7 @@ export function UpcomingPlanningPanel({
 }) {
   const sortedTasks = sortPlanningTasks(tasks);
   const nextTasks = sortedTasks.slice(0, 3);
+  const todayDate = getNowDate();
   const thisWeekCount = tasks.filter((task) => {
     const planningDate = getPlanningDate(task);
 

@@ -1,5 +1,5 @@
 import type { Task, TaskStatus } from "@/domain/task"
-import { todayDate } from "@/domain/time"
+import { getNowDate } from "@/lib/time"
 import type { UpcomingGroup } from "@/features/tasks/task-types"
 import {
   assigneeLabel,
@@ -15,12 +15,15 @@ import {
 } from "@/features/tasks/task-dates"
 import { sortPlanningTasks } from "@/features/tasks/task-sort"
 
-export function isTaskInUpcomingView(task: Task) {
+export function isTaskInUpcomingView(
+  task: Task,
+  referenceDate: Date = getNowDate()
+) {
   if (task.status === "done") {
     return false
   }
 
-  return task.planned_for ? !isTaskPlannedForToday(task) : true
+  return task.planned_for ? !isTaskPlannedForToday(task, referenceDate) : true
 }
 
 export function getColumnTasks(tasks: Task[], status: TaskStatus) {
@@ -45,8 +48,13 @@ export function getSearchableTaskText(task: Task) {
     .toLowerCase()
 }
 
-export function getUpcomingGroups(tasks: Task[]) {
-  const activeTasks = sortPlanningTasks(tasks.filter(isTaskInUpcomingView))
+export function getUpcomingGroups(
+  tasks: Task[],
+  referenceDate: Date = getNowDate()
+) {
+  const activeTasks = sortPlanningTasks(
+    tasks.filter((task) => isTaskInUpcomingView(task, referenceDate))
+  )
   const overdueTasks: Task[] = []
   const tomorrowTasks: Task[] = []
   const thisWeekTasks: Task[] = []
@@ -66,7 +74,7 @@ export function getUpcomingGroups(tasks: Task[]) {
     }
 
     const workDate = new Date(task.planned_for)
-    const dayDiff = getCalendarDayDiff(workDate, todayDate)
+    const dayDiff = getCalendarDayDiff(workDate, referenceDate)
 
     if (dayDiff < 0) {
       overdueTasks.push(task)

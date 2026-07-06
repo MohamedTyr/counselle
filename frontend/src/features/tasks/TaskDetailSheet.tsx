@@ -37,7 +37,7 @@ import type {
   TaskPriority,
   TaskStatus,
 } from "@/domain/task";
-import { createTimestamp } from "@/domain/time";
+import { createTimestamp } from "@/lib/time";
 import {
   assigneeBadgeVariant,
   assigneeLabel,

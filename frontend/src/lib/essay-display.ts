@@ -1,6 +1,6 @@
 import type { BadgeProps } from "@/components/ui/badge";
 import type { Essay, EssayStatus } from "@/domain/essay";
-import { formatRelativeTime } from "@/domain/time";
+import { formatRelativeTime } from "@/lib/time";
 
 export const essayStatusVariant: Record<
   EssayStatus,

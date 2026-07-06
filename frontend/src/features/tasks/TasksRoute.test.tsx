@@ -9,6 +9,28 @@ import {
   workspaceApplicationFixture,
   workspaceTaskFixture,
 } from "@/test/render-app"
+import { getTodayPlannedForValue } from "@/features/tasks/task-dates"
+
+const { nextClientId, testNowIso } = vi.hoisted(() => {
+  let clientIdSequence = 0
+
+  return {
+    nextClientId: (prefix: string) => {
+      clientIdSequence += 1
+      return `${prefix}-1783348800000-${clientIdSequence}`
+    },
+    testNowIso: "2026-07-06T12:00:00.000Z",
+  }
+})
+
+vi.mock("@/lib/time", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/time")>()),
+  createClientId: (prefix: string) => nextClientId(prefix),
+  createTimestamp: (date: Date = new Date(testNowIso)) => date.toISOString(),
+  getNowDate: () => new Date(testNowIso),
+}))
+
+const testNow = new Date(testNowIso)
 
 function task(overrides: Partial<Task> & Pick<Task, "id" | "title">): Task {
   const { id, title, ...rest } = overrides
@@ -24,7 +46,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "title">): Task {
 const georgiaTechTask = task({
   application_id: null,
   id: "20000000-0000-4000-8000-000000000001",
-  planned_for: "2026-07-01T09:00:00.000Z",
+  planned_for: getTodayPlannedForValue(testNow),
   status: "todo",
   title: "Revise Georgia Tech scholarship essay",
 })
@@ -32,7 +54,7 @@ const berkeleyTask = task({
   application_id: null,
   due_at: "2026-07-05T23:59:00.000Z",
   id: "20000000-0000-4000-8000-000000000002",
-  planned_for: "2026-07-01T09:00:00.000Z",
+  planned_for: getTodayPlannedForValue(testNow),
   status: "doing",
   title: "Submit CSS Profile correction for Berkeley",
 })
@@ -152,15 +174,22 @@ describe("TasksPage", () => {
   })
 
   it("renders the plan-with-agent button disabled with a tooltip", async () => {
+    const user = userEvent.setup()
     await renderTasks()
 
-    const planButton = screen.getByRole("button", { name: /Plan with agent/ })
+    const planButton = screen.getByRole("button", {
+      name: "Plan with agent unavailable: Counselle agent — coming soon",
+    })
 
-    expect(planButton).toBeDisabled()
-    expect(planButton).toHaveAttribute(
-      "title",
-      "Counselle agent — coming soon",
-    )
+    expect(planButton).not.toBeDisabled()
+    expect(planButton).toHaveAttribute("aria-disabled", "true")
+    expect(planButton).toHaveAttribute("title", "Counselle agent — coming soon")
+    await user.hover(planButton)
+    expect(
+      await screen.findByRole("tooltip", {
+        name: "Counselle agent — coming soon",
+      }),
+    ).toBeInTheDocument()
   })
 
   it("renders the first-run empty state when there are no tasks", async () => {

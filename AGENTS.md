@@ -20,6 +20,8 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 **B7 hardening shipped (2026-06-17).** The tests/docs hardening work is implemented, including the routine coverage command, regression pins, and the 2026-06-17 live eval re-baseline.
 
+**MVP3 workspace shipped (2026-07-06).** The rebuilt frontend now has a persistent, auth-scoped workspace for Schools, Tasks, Essays, and Activities. Workspace mutations go through `app/workspace/`, write actor-attributed change rows, and publish workspace change events so HTTP calls and future Counselle-agent actions share the same path. The graduated design and plan live in `specs/mvp3/`; ADR 0027 records the service/event decision.
+
 ## Commands
 
 ```bash
@@ -62,13 +64,15 @@ cd frontend && npm run typecheck && npm test
 | `docs/DEPLOY.md` | The deployment guide and its open gotchas (env matrix, DB provisioning, the `--forwarded-allow-ips` trap). **Deploy itself is deferred** — this is the plan, not a tested runbook |
 | `docs/research/agent-stack-evaluation.md` | The frontier-tech survey behind the stack choice: agent frameworks, model-provider abstraction, and the agent-skills ecosystem, with scorecards and the verdict |
 | `docs/research/deep-research-bakeoff.md` | The 4-way quality-vs-cost comparison of open-source deep-research systems (Alibaba DeepResearch, STORM, dzhng/deep-research, GPT-Researcher) and the verdict |
-| `docs/adr/README.md` | **Index of all 26 ADRs** (number, title, one-line summary). Start here for decisions |
+| `docs/adr/README.md` | **Index of all 27 ADRs** (number, title, one-line summary). Start here for decisions |
 | `docs/adr/` | One file per architectural decision (context → decision → rationale → alternatives → consequences). Do not silently break an ADR |
 | `specs/mvp1/plan/` | The MVP1 implementation plan (archived): `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7) |
 | `specs/deep-research/plan.md` | Stub plan for the deferred deep-research follow-up (PRD stories 39–41) |
 | `specs/mvp2/architecture.md` | The MVP2 design spec (the HOW) — merged into `docs/ARCHITECTURE.md` Part II; kept as the planning-era artifact |
 | `specs/mvp2/plan/ship-plan.md` | The MVP2 execution plan (phases B0–B7): the backend delta, the §0.1 spec-gap resolutions (G1–G5), the §0.2 wire-contract summary, FE‑7 hookup, deployment, the evals/docs close-out — plus §5, the recorded B0 spike decisions |
 | `specs/mvp2/plan/wire-contract.md` | The FE↔BE wire contract, field by field (B0 spike 4 output): SSE event shapes incl. `step`/`thinking`, the transcript wire shape, `/v1/config`, source-config mapping, sources/citation rules, Last-Event-ID, the receipt format, and the resolved conflicts |
+| `specs/mvp3/workspace-design.md` | The MVP3 workspace design: why the workspace exists, evaluated approaches, the selected service/event architecture, open questions resolved in the plan, and the agent seam |
+| `specs/mvp3/plan/workspace-implementation-plan.md` | The shipped MVP3 workspace implementation plan: backend schema/services/events, frontend wiring for Schools/Tasks/Essays/Activities, and Phase 9 close-out criteria |
 | `TODOS.md` | Deferred work with full context (the session-TTL cleanup job, sessions-list load-more, the B2 turn-lifecycle corners, the community-card viz type). CI was proposed and explicitly declined — don't re-propose it |
 
 ## The three principles (inherited from the data pipeline, they apply here too)

@@ -52,7 +52,11 @@ import type {
 import { useIsResizing } from "@/features/tasks/useIsResizing";
 import { useTaskDrag } from "@/features/tasks/useTaskDrag";
 import { useTaskSelection } from "@/features/tasks/useTaskSelection";
-import { isTaskPlannedForToday } from "@/features/tasks/task-dates";
+import {
+  formatTodayPageTitle,
+  isTaskPlannedForToday,
+} from "@/features/tasks/task-dates";
+import { getNowDate } from "@/lib/time";
 import { Plus, Search } from "lucide-react";
 
 function TasksSkeleton() {
@@ -102,6 +106,7 @@ export function TasksPage() {
     reduceMotion || isResizing ? false : "position";
   const taskSelection = useTaskSelection();
   const activeTaskId = searchParams.get("task");
+  const todayDate = getNowDate();
 
   const tasks = useMemo(
     () => (tasksQuery.data ?? []).map(taskFromApi),
@@ -233,16 +238,16 @@ export function TasksPage() {
     [searchQuery, tasks],
   );
   const todayTasks = useMemo(
-    () => filteredTasks.filter(isTaskPlannedForToday),
-    [filteredTasks],
+    () => filteredTasks.filter((task) => isTaskPlannedForToday(task, todayDate)),
+    [filteredTasks, todayDate],
   );
   const upcomingTasks = useMemo(
-    () => filteredTasks.filter(isTaskInUpcomingView),
-    [filteredTasks],
+    () => filteredTasks.filter((task) => isTaskInUpcomingView(task, todayDate)),
+    [filteredTasks, todayDate],
   );
   const upcomingGroups = useMemo(
-    () => getUpcomingGroups(upcomingTasks),
-    [upcomingTasks],
+    () => getUpcomingGroups(upcomingTasks, todayDate),
+    [todayDate, upcomingTasks],
   );
   const currentViewTasks =
     view === "today"
@@ -258,7 +263,7 @@ export function TasksPage() {
   ).length;
   const pageTitle =
     view === "today"
-      ? "Today, Jul 1"
+      ? formatTodayPageTitle(todayDate)
       : view === "upcoming"
         ? "Upcoming"
         : "All tasks";

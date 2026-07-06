@@ -1,7 +1,6 @@
 import type { Activity, Honor } from "@/domain/activity";
-import { demoActivityNowIso } from "@/domain/time";
 
-export const todayIso = demoActivityNowIso;
+export const todayIso = "2026-07-01T12:00:00";
 
 export const initialActivities: Activity[] = [
   {

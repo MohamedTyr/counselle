@@ -1,5 +1,5 @@
 import type { Task, TaskStatus } from "@/domain/task"
-import { createDemoId, createTimestamp } from "@/domain/time"
+import { createClientId, createTimestamp } from "@/lib/time"
 import type { TaskView, UpdateTask } from "@/features/tasks/task-types"
 import { getTodayPlannedForValue } from "@/features/tasks/task-dates"
 
@@ -18,7 +18,7 @@ export function getTaskStatusPatch(
 export function createNewTask(
   view: TaskView,
   timestamp = createTimestamp(),
-  id = createDemoId("task")
+  id = createClientId("task")
 ): Task {
   return {
     id,
@@ -28,7 +28,8 @@ export function createNewTask(
     assignee: "student",
     created_at: timestamp,
     updated_at: timestamp,
-    planned_for: view === "today" ? getTodayPlannedForValue() : undefined,
+    planned_for:
+      view === "today" ? getTodayPlannedForValue(new Date(timestamp)) : undefined,
     priority: "med",
   }
 }

@@ -757,6 +757,38 @@ The first rebuilt module is the workspace shell: app bootstrap, provider stack,
 router, frame, sidebar primitive, and product sidebar composition. Feature pages
 and the backend client seam are imported after that shell is verified.
 
+### Workspace module
+
+The workspace is the persistent student planning surface over the agent service.
+It contains four connected pages: Schools, Tasks, Essays, and Activities. The
+frontend reads and mutates the workspace through `/v1` routes, while the backend
+keeps the actual business rules in `app/workspace/` service functions. Routes
+are thin adapters: they authenticate the user, pass explicit pools, `user_id`,
+`actor`, and `event_bus`, and translate service errors into API envelopes.
+
+Counselle owns the workspace data in the `counselle.*` schema. The pipeline
+database remains read-only and is used only as the school catalog contract:
+school search and application displays resolve identity from the catalog, but
+student-owned workspace objects live in Counselle tables. Add-school is one
+workspace mutation: it creates the application and seeds editable starter tasks
+and essay slots from versioned workspace assets. Deadlines are user-entered
+unless a value is explicitly owned by the workspace; sparse pipeline deadline
+coverage is not treated as a source of truth.
+
+Every workspace mutation records an actor-attributed row in
+`counselle.workspace_changes` and publishes a thin post-commit event through
+`Runtime.deps.workspace_events`. The event is an invalidation hint, not a state
+payload; clients refetch the affected query keys. The same service call shape is
+used by HTTP today and by future Counselle-agent tools, so agent-authored changes
+produce the same audit rows and live UI updates as student-authored changes.
+SSE reconnect uses `Last-Event-ID` replay from the table, and the scale-out path
+is Postgres-backed fan-out rather than a second workspace vocabulary.
+
+Activities and honors enforce the Common App-shaped workspace limits in both the
+API model and UI. Public Common App resources confirm the activities count and
+activity field caps; the UI wording stays generic where live first-year form
+access is required to verify exact active-cycle wording.
+
 ### 31.0 Historical MVP2 frontend
 
 The notes below describe the shipped MVP2 LibreChat clone and remain here as

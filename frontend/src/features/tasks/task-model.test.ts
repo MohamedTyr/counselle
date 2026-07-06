@@ -11,6 +11,7 @@ import { sortAllTasks, sortPlanningTasks } from "@/features/tasks/task-sort"
 import { parseTaskDragPayload } from "@/features/tasks/useTaskDrag"
 
 const timestamp = "2026-07-01T12:00:00.000Z"
+const referenceDate = new Date(timestamp)
 
 function task(overrides: Partial<Task> & Pick<Task, "id" | "title">): Task {
   const { id, title, ...rest } = overrides
@@ -29,12 +30,20 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "title">): Task {
 }
 
 describe("task date labels", () => {
-  it("labels planned dates against the fixed demo today", () => {
+  it("labels planned dates against an explicit reference date", () => {
     expect(formatPlannedDateLabel()).toBe("Unplanned")
-    expect(formatPlannedDateLabel("2026-06-30T09:00:00")).toBe("Yesterday")
-    expect(formatPlannedDateLabel("2026-07-01T09:00:00")).toBe("Today")
-    expect(formatPlannedDateLabel("2026-07-02T09:00:00")).toBe("Tomorrow")
-    expect(formatPlannedDateLabel("2026-07-08T09:00:00")).toBe("Jul 8")
+    expect(formatPlannedDateLabel("2026-06-30T09:00:00", referenceDate)).toBe(
+      "Yesterday"
+    )
+    expect(formatPlannedDateLabel("2026-07-01T09:00:00", referenceDate)).toBe(
+      "Today"
+    )
+    expect(formatPlannedDateLabel("2026-07-02T09:00:00", referenceDate)).toBe(
+      "Tomorrow"
+    )
+    expect(formatPlannedDateLabel("2026-07-08T09:00:00", referenceDate)).toBe(
+      "Jul 8"
+    )
   })
 })
 
@@ -74,9 +83,11 @@ describe("task filtering and grouping", () => {
   })
 
   it("keeps done tasks out of the upcoming view", () => {
-    expect(tasks.filter(isTaskInUpcomingView).map((item) => item.id)).toEqual([
-      "aid",
-    ])
+    expect(
+      tasks
+        .filter((item) => isTaskInUpcomingView(item, referenceDate))
+        .map((item) => item.id)
+    ).toEqual(["aid"])
   })
 
   it("groups tasks by status immutably", () => {
@@ -88,24 +99,27 @@ describe("task filtering and grouping", () => {
   })
 
   it("builds upcoming groups from planned and unplanned work", () => {
-    const groups = getUpcomingGroups([
-      task({
-        id: "overdue",
-        planned_for: "2026-06-30T09:00:00",
-        title: "Overdue",
-      }),
-      task({
-        id: "tomorrow",
-        planned_for: "2026-07-02T09:00:00",
-        title: "Tomorrow",
-      }),
-      task({
-        due_at: "2026-07-08T23:59:00",
-        id: "needs-planning",
-        title: "Needs planning",
-      }),
-      task({ id: "unscheduled", title: "Unscheduled" }),
-    ])
+    const groups = getUpcomingGroups(
+      [
+        task({
+          id: "overdue",
+          planned_for: "2026-06-30T09:00:00",
+          title: "Overdue",
+        }),
+        task({
+          id: "tomorrow",
+          planned_for: "2026-07-02T09:00:00",
+          title: "Tomorrow",
+        }),
+        task({
+          due_at: "2026-07-08T23:59:00",
+          id: "needs-planning",
+          title: "Needs planning",
+        }),
+        task({ id: "unscheduled", title: "Unscheduled" }),
+      ],
+      referenceDate
+    )
 
     expect(groups.find((group) => group.id === "overdue")?.tasks[0]?.id).toBe(
       "overdue"
@@ -169,7 +183,7 @@ describe("task sorting", () => {
 })
 
 describe("task mutations", () => {
-  it("creates new tasks from the demo clock", () => {
+  it("creates new tasks from an explicit timestamp", () => {
     const todayTask = createNewTask("today", timestamp, "task-id")
     const upcomingTask = createNewTask("upcoming", timestamp, "task-id-2")
 

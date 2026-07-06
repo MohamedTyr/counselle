@@ -1,5 +1,5 @@
 import type { Task } from "@/domain/task"
-import { todayDate } from "@/domain/time"
+import { getNowDate } from "@/lib/time"
 
 export function formatShortDate(value?: string) {
   if (!value) {
@@ -45,25 +45,31 @@ export function getDateKey(value: Date) {
   return `${year}-${month}-${day}`
 }
 
-export function getTodayPlannedForValue() {
-  const date = new Date(todayDate)
+export function getTodayPlannedForValue(referenceDate: Date = getNowDate()) {
+  const date = new Date(referenceDate)
   date.setHours(9, 0, 0, 0)
   return date.toISOString()
 }
 
-export function isTaskPlannedForToday(task: Task) {
+export function isTaskPlannedForToday(
+  task: Task,
+  referenceDate: Date = getNowDate()
+) {
   return task.planned_for
-    ? getDateKey(new Date(task.planned_for)) === getDateKey(todayDate)
+    ? getDateKey(new Date(task.planned_for)) === getDateKey(referenceDate)
     : false
 }
 
-export function formatPlannedDateLabel(value?: string) {
+export function formatPlannedDateLabel(
+  value?: string,
+  referenceDate: Date = getNowDate()
+) {
   if (!value) {
     return "Unplanned"
   }
 
   const plannedDate = new Date(value)
-  const dayDiff = getCalendarDayDiff(plannedDate, todayDate)
+  const dayDiff = getCalendarDayDiff(plannedDate, referenceDate)
 
   if (dayDiff === 0) {
     return "Today"
@@ -108,6 +114,13 @@ export function formatReminderLabel(value?: string) {
   return value ? formatShortDate(value) : "None"
 }
 
+export function formatTodayPageTitle(referenceDate: Date = getNowDate()) {
+  return `Today, ${new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+  }).format(referenceDate)}`
+}
+
 export function mergeDateWithTime(
   selectedDate: Date,
   currentValue: string | undefined,
@@ -127,14 +140,14 @@ export function mergeDateWithTime(
   return nextDate.toISOString()
 }
 
-export function getDueState(task: Task) {
+export function getDueState(task: Task, referenceDate: Date = getNowDate()) {
   if (!task.due_at) {
     return "none"
   }
 
   const dueDate = new Date(task.due_at)
   const diffDays = Math.ceil(
-    (dueDate.getTime() - todayDate.getTime()) / 86_400_000
+    (dueDate.getTime() - referenceDate.getTime()) / 86_400_000
   )
 
   if (diffDays < 0) {

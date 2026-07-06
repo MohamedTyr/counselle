@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from "react"
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { MoreHorizontal, School, Sparkles, Trash2 } from "lucide-react"
 
 import type { ApplicationView } from "@/api/workspace/types"
@@ -33,14 +33,38 @@ export function PlanWithAgentButton({
   size?: ButtonProps["size"]
   variant?: ButtonProps["variant"]
 }) {
+  const unavailableReason = "Counselle agent — coming soon"
+  const accessibleLabel = `Plan with agent unavailable: ${unavailableReason}`
+
+  const preventUnavailableActivation = (
+    event: KeyboardEvent<HTMLButtonElement> | MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const preventUnavailableKeyboardActivation = (
+    event: KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    if (event.key === "Enter" || event.key === " ") {
+      preventUnavailableActivation(event)
+    }
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          className={className}
-          disabled
+          aria-disabled="true"
+          aria-label={accessibleLabel}
+          className={cn(
+            "aria-disabled:cursor-not-allowed aria-disabled:opacity-64",
+            className,
+          )}
+          onClick={preventUnavailableActivation}
+          onKeyDown={preventUnavailableKeyboardActivation}
           size={size}
-          title="Counselle agent — coming soon"
+          title={unavailableReason}
           type="button"
           variant={variant}
         >
@@ -48,7 +72,7 @@ export function PlanWithAgentButton({
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Counselle agent — coming soon</TooltipContent>
+      <TooltipContent>{unavailableReason}</TooltipContent>
     </Tooltip>
   )
 }
