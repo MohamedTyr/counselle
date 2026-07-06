@@ -8,6 +8,7 @@ import {
   useCreateTask,
   useUpdateApplication,
   useUpdateEssay,
+  useUpdateTask,
 } from "@/api/workspace/hooks"
 import { workspaceKeys } from "@/api/workspace/keys"
 import type {
@@ -15,6 +16,7 @@ import type {
   ApplicationView,
   Essay,
   EssaySummary,
+  Task,
 } from "@/api/workspace/types"
 import {
   createTestQueryClient,
@@ -88,6 +90,58 @@ describe("workspace mutation hooks", () => {
         ),
       })
     })
+  })
+
+  it("optimistically sets completed_at when a single task update marks it done", async () => {
+    const queryClient = createTestQueryClient()
+    const openTask: Task = { ...workspaceTaskFixture, completed_at: null }
+    queryClient.setQueryData(workspaceKeys.tasks.list(), [openTask])
+    const deferred = deferredResponse()
+    vi.stubGlobal("fetch", vi.fn(() => deferred.promise))
+
+    const { result } = renderHook(() => useUpdateTask(), {
+      wrapper: wrapper(queryClient),
+    })
+
+    act(() => {
+      result.current.mutate({ id: openTask.id, patch: { status: "done" } })
+    })
+
+    await waitFor(() => {
+      const tasks = queryClient.getQueryData<Task[]>(workspaceKeys.tasks.list())
+      expect(tasks?.[0]?.status).toBe("done")
+      expect(tasks?.[0]?.completed_at).not.toBeNull()
+    })
+
+    deferred.resolve(jsonResponse({ ...openTask, status: "done" }))
+  })
+
+  it("optimistically clears completed_at when a task is moved out of done", async () => {
+    const queryClient = createTestQueryClient()
+    const doneTask: Task = {
+      ...workspaceTaskFixture,
+      status: "done",
+      completed_at: "2026-01-01T00:00:00.000Z",
+    }
+    queryClient.setQueryData(workspaceKeys.tasks.list(), [doneTask])
+    const deferred = deferredResponse()
+    vi.stubGlobal("fetch", vi.fn(() => deferred.promise))
+
+    const { result } = renderHook(() => useUpdateTask(), {
+      wrapper: wrapper(queryClient),
+    })
+
+    act(() => {
+      result.current.mutate({ id: doneTask.id, patch: { status: "todo" } })
+    })
+
+    await waitFor(() => {
+      const tasks = queryClient.getQueryData<Task[]>(workspaceKeys.tasks.list())
+      expect(tasks?.[0]?.status).toBe("todo")
+      expect(tasks?.[0]?.completed_at).toBeNull()
+    })
+
+    deferred.resolve(jsonResponse({ ...doneTask, status: "todo", completed_at: null }))
   })
 
   it("rolls back optimistic application list and detail patches on error", async () => {

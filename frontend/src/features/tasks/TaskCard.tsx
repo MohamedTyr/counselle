@@ -1,7 +1,9 @@
 import type { DragEvent, KeyboardEvent, MouseEvent } from "react";
 import { motion } from "motion/react";
 
+import type { ApplicationView } from "@/api/workspace/types";
 import type { Task, TaskStatus } from "@/domain/task";
+import { TaskDeleteMenu, TaskSchoolChip } from "@/features/tasks/task-actions";
 import type { TaskLayoutMode, UpdateTask } from "@/features/tasks/task-types";
 import {
   InlineTaskCategoryBadge,
@@ -11,10 +13,12 @@ import {
 import { cn } from "@/lib/utils";
 
 type TaskCardProps = {
+  applicationsById: ReadonlyMap<string, ApplicationView>;
   isDragging: boolean;
   isSelected: boolean;
   layoutMode: TaskLayoutMode;
   onClick: (event: MouseEvent<HTMLElement>, taskId: string) => void;
+  onDeleteTask: (taskId: string) => void;
   onDragEnd: () => void;
   onDragStart: (
     event: DragEvent<HTMLElement>,
@@ -29,10 +33,12 @@ type TaskCardProps = {
 };
 
 export function TaskCard({
+  applicationsById,
   isDragging,
   isSelected,
   layoutMode,
   onClick,
+  onDeleteTask,
   onDragEnd,
   onDragStart,
   onOpen,
@@ -100,7 +106,21 @@ export function TaskCard({
             />
           </h3>
           <InlineTaskCategoryBadge onUpdateTask={onUpdateTask} task={task} />
+          <TaskDeleteMenu
+            onDeleteTask={onDeleteTask}
+            taskId={task.id}
+            taskTitle={task.title}
+          />
         </div>
+
+        {task.application_id ? (
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+            <TaskSchoolChip
+              applicationId={task.application_id}
+              applicationsById={applicationsById}
+            />
+          </div>
+        ) : null}
 
         {task.notes ? (
           <InlineTaskText

@@ -1,6 +1,7 @@
 import type { DragEvent, MouseEvent, PointerEvent, RefObject } from "react"
 import { AnimatePresence, motion } from "motion/react"
 
+import type { ApplicationView } from "@/api/workspace/types"
 import type { Task, TaskStatus } from "@/domain/task"
 import { TaskColumn } from "@/features/tasks/TaskColumn"
 import { todayColumns } from "@/features/tasks/task-config"
@@ -13,6 +14,7 @@ import { getSelectionStyle } from "@/features/tasks/useTaskSelection"
 import { cn } from "@/lib/utils"
 
 export function TaskBoard({
+  applicationsById,
   dragOverColumn,
   draggingTaskIds,
   groupedTasks,
@@ -20,6 +22,7 @@ export function TaskBoard({
   onCardDragEnd,
   onClickTask,
   onColumnDragLeave,
+  onDeleteTask,
   onDragOver,
   onDragStart,
   onDrop,
@@ -34,6 +37,7 @@ export function TaskBoard({
   selectionBox,
   selectionSurfaceRef,
 }: {
+  applicationsById: ReadonlyMap<string, ApplicationView>
   dragOverColumn: TaskStatus | null
   draggingTaskIds: ReadonlySet<string>
   groupedTasks: Record<TaskStatus, Task[]>
@@ -41,6 +45,7 @@ export function TaskBoard({
   onCardDragEnd: () => void
   onClickTask: (event: MouseEvent<HTMLElement>, taskId: string) => void
   onColumnDragLeave: () => void
+  onDeleteTask: (taskId: string) => void
   onDragOver: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void
   onDragStart: (
     event: DragEvent<HTMLElement>,
@@ -74,6 +79,7 @@ export function TaskBoard({
     >
       {todayColumns.map((column) => (
         <TaskColumn
+          applicationsById={applicationsById}
           column={column}
           dragOverColumn={dragOverColumn}
           draggingTaskIds={draggingTaskIds}
@@ -82,6 +88,7 @@ export function TaskBoard({
           onCardDragEnd={onCardDragEnd}
           onClickTask={onClickTask}
           onColumnDragLeave={onColumnDragLeave}
+          onDeleteTask={onDeleteTask}
           onDragOver={onDragOver}
           onDragStart={onDragStart}
           onDrop={onDrop}

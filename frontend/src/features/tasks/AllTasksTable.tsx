@@ -16,7 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { ApplicationView } from "@/api/workspace/types";
 import type { Task } from "@/domain/task";
+import { TaskDeleteMenu, TaskSchoolChip } from "@/features/tasks/task-actions";
 import {
   allTaskColumns,
   allTasksTableWidth,
@@ -186,10 +188,14 @@ function AllTaskReminderValue({
 }
 
 function AllTaskTitleCell({
+  applicationsById,
+  onDeleteTask,
   onOpenTask,
   onUpdateTask,
   task,
 }: {
+  applicationsById: ReadonlyMap<string, ApplicationView>;
+  onDeleteTask: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
   onUpdateTask: UpdateTask;
   task: Task;
@@ -213,6 +219,14 @@ function AllTaskTitleCell({
             value={task.notes}
           />
         ) : null}
+        {task.application_id ? (
+          <div className="mt-1">
+            <TaskSchoolChip
+              applicationId={task.application_id}
+              applicationsById={applicationsById}
+            />
+          </div>
+        ) : null}
       </div>
       <Button
         aria-label={`Open ${task.title} details`}
@@ -224,15 +238,25 @@ function AllTaskTitleCell({
       >
         <ExternalLink aria-hidden="true" />
       </Button>
+      <TaskDeleteMenu
+        className="opacity-70 hover:opacity-100 focus-visible:opacity-100"
+        onDeleteTask={onDeleteTask}
+        taskId={task.id}
+        taskTitle={task.title}
+      />
     </div>
   );
 }
 
 function AllTasksMobileItem({
+  applicationsById,
+  onDeleteTask,
   onOpenTask,
   onUpdateTask,
   task,
 }: {
+  applicationsById: ReadonlyMap<string, ApplicationView>;
+  onDeleteTask: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
   onUpdateTask: UpdateTask;
   task: Task;
@@ -286,11 +310,20 @@ function AllTasksMobileItem({
           ) : null}
         </span>
         <InlineTaskStatusBadge onUpdateTask={onUpdateTask} task={task} />
+        <TaskDeleteMenu
+          onDeleteTask={onDeleteTask}
+          taskId={task.id}
+          taskTitle={task.title}
+        />
       </span>
 
       <span className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
         <InlineTaskCategoryBadge onUpdateTask={onUpdateTask} task={task} />
         <InlineTaskPriorityBadge onUpdateTask={onUpdateTask} task={task} />
+        <TaskSchoolChip
+          applicationId={task.application_id}
+          applicationsById={applicationsById}
+        />
       </span>
 
       <span className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -318,10 +351,14 @@ function AllTasksMobileItem({
 }
 
 export function AllTasksTable({
+  applicationsById,
+  onDeleteTask,
   onOpenTask,
   onUpdateTask,
   tasks,
 }: {
+  applicationsById: ReadonlyMap<string, ApplicationView>;
+  onDeleteTask: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
   onUpdateTask: UpdateTask;
   tasks: Task[];
@@ -389,6 +426,8 @@ export function AllTasksTable({
                 >
                   <TableCell className="overflow-hidden py-3">
                     <AllTaskTitleCell
+                      applicationsById={applicationsById}
+                      onDeleteTask={onDeleteTask}
                       onOpenTask={onOpenTask}
                       onUpdateTask={onUpdateTask}
                       task={task}
@@ -451,7 +490,9 @@ export function AllTasksTable({
         ) : (
           sortedTasks.map((task) => (
             <AllTasksMobileItem
+              applicationsById={applicationsById}
               key={task.id}
+              onDeleteTask={onDeleteTask}
               onOpenTask={onOpenTask}
               onUpdateTask={onUpdateTask}
               task={task}

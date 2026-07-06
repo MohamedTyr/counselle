@@ -167,9 +167,10 @@ export function createWorkspaceFetchPreset(
 ): FetchHandler {
   let applications = preset.applications ?? [workspaceApplicationFixture]
   let archivedApplications: ApplicationView[] = []
+  let tasks = preset.tasks ?? [workspaceTaskFixture]
+  let archivedTasks: Task[] = []
   const data = {
     schoolSearch: preset.schoolSearch ?? [workspaceSchoolSearchFixture],
-    tasks: preset.tasks ?? [workspaceTaskFixture],
     essays: preset.essays ?? [workspaceEssayFixture],
     activities: preset.activities ?? [workspaceActivityFixture],
     honors: preset.honors ?? [workspaceHonorFixture],
@@ -251,14 +252,103 @@ export function createWorkspaceFetchPreset(
         applications.find((item) => item.id === applicationId) ?? applications[0]
       return jsonResponse({
         application,
-        tasks: data.tasks,
+        tasks,
         essays: data.essays,
       })
     }
-    if (url.endsWith("/v1/tasks")) return jsonResponse(data.tasks)
+    if (url.endsWith("/v1/tasks/bulk-status")) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        ids: string[]
+        status: Task["status"]
+      }
+      const movingIds = new Set(body.ids)
+      const timestamp = new Date().toISOString()
+      tasks = tasks.map((task) =>
+        movingIds.has(task.id)
+          ? {
+              ...task,
+              status: body.status,
+              completed_at:
+                body.status === "done" ? (task.completed_at ?? timestamp) : null,
+            }
+          : task,
+      )
+      return jsonResponse(tasks.filter((task) => movingIds.has(task.id)))
+    }
+    if (url.endsWith("/v1/tasks/bulk-archive")) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { ids: string[] }
+      const removingIds = new Set(body.ids)
+      const timestamp = new Date().toISOString()
+      const archived = tasks
+        .filter((task) => removingIds.has(task.id))
+        .map((task) => ({ ...task, archived_at: timestamp }))
+      archivedTasks = [
+        ...archived,
+        ...archivedTasks.filter((task) => !removingIds.has(task.id)),
+      ]
+      tasks = tasks.filter((task) => !removingIds.has(task.id))
+      return jsonResponse(archived)
+    }
+    if (url.endsWith("/v1/tasks")) {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body ?? "{}"))
+        const task: Task = {
+          ...workspaceTaskFixture,
+          id: crypto.randomUUID(),
+          application_id: body.application_id ?? null,
+          essay_id: body.essay_id ?? null,
+          title: body.title,
+          notes: body.notes ?? null,
+          status: body.status ?? "todo",
+          category: body.category ?? "other",
+          priority: body.priority ?? "med",
+          assignee: body.assignee ?? "student",
+          needs_input: body.needs_input ?? false,
+          due_at: body.due_at ?? null,
+          planned_for: body.planned_for ?? null,
+          reminder_at: body.reminder_at ?? null,
+          completed_at: null,
+          archived_via_application: null,
+        }
+        tasks = [task, ...tasks]
+        return jsonResponse(task)
+      }
+
+      return jsonResponse(tasks)
+    }
     if (url.includes("/v1/tasks/")) {
-      if (init?.method === "DELETE") return emptyResponse()
-      return jsonResponse(data.tasks[0])
+      const taskId = url.split("/v1/tasks/")[1]?.split("/")[0]
+      if (init?.method === "DELETE") {
+        const archivedTask = tasks.find((task) => task.id === taskId)
+        tasks = tasks.filter((task) => task.id !== taskId)
+        if (archivedTask) {
+          archivedTasks = [
+            { ...archivedTask, archived_at: new Date().toISOString() },
+            ...archivedTasks.filter((task) => task.id !== taskId),
+          ]
+        }
+        return emptyResponse()
+      }
+      if (url.endsWith("/restore")) {
+        const restoredTask = archivedTasks.find((task) => task.id === taskId)
+        if (restoredTask) {
+          const restored = { ...restoredTask, archived_at: null }
+          tasks = [restored, ...tasks.filter((task) => task.id !== taskId)]
+          archivedTasks = archivedTasks.filter((task) => task.id !== taskId)
+          return jsonResponse(restored)
+        }
+        return jsonResponse(tasks[0])
+      }
+      if (init?.method === "PATCH") {
+        const patch = JSON.parse(String(init.body ?? "{}"))
+        tasks = tasks.map((task) =>
+          task.id === taskId ? { ...task, ...patch } : task,
+        )
+        return jsonResponse(
+          tasks.find((task) => task.id === taskId) ?? tasks[0],
+        )
+      }
+      return jsonResponse(tasks.find((task) => task.id === taskId) ?? tasks[0])
     }
     if (url.endsWith("/v1/essays")) return jsonResponse(data.essays)
     if (url.includes("/v1/essays/")) {

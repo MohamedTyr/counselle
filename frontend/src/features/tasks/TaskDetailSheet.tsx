@@ -1,11 +1,13 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
 
+import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import {
   Sheet,
+  SheetFooter,
   SheetHeader,
   SheetPanel,
   SheetPopup,
@@ -55,7 +58,16 @@ import {
 } from "@/features/tasks/task-dates";
 import type { EditableTaskField } from "@/features/tasks/task-types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, CircleAlert, Sparkles, UserRound } from "lucide-react";
+import {
+  Archive,
+  CalendarIcon,
+  CircleAlert,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
+
+const noSchoolValue = "none";
+const noEssayValue = "none";
 
 export function TaskAssigneeBadge({ task }: { task: Task }) {
   const needsCounselleInput = task.assignee === "counselle" && task.needs_input;
@@ -331,11 +343,17 @@ export function TaskDatePickerInput({
 }
 
 export function TaskDetailSheet({
+  applications,
+  essays,
+  onDeleteTask,
   onUpdateTask,
   onOpenChange,
   open,
   task,
 }: {
+  applications: ApplicationView[];
+  essays: EssaySummary[];
+  onDeleteTask: (taskId: string) => void;
   onUpdateTask: (
     taskId: string,
     patch: Partial<Task>,
@@ -349,6 +367,23 @@ export function TaskDetailSheet({
     null,
   );
   const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const schoolOptions = useMemo(
+    () => [
+      { label: "No school", value: noSchoolValue },
+      ...applications.map((application) => ({
+        label: application.school_name,
+        value: application.id,
+      })),
+    ],
+    [applications],
+  );
+  const essayOptions = useMemo(
+    () => [
+      { label: "No essay", value: noEssayValue },
+      ...essays.map((essay) => ({ label: essay.title, value: essay.id })),
+    ],
+    [essays],
+  );
 
   useEffect(() => {
     if (!focusedField) {
@@ -614,6 +649,31 @@ export function TaskDetailSheet({
                 value={task.needs_input ? "true" : "false"}
               />
             </TaskPropertyRow>
+            <TaskPropertyRow field="application_id" label="School">
+              <TaskPropertySelect
+                ariaLabel="Linked school"
+                onChange={(value) =>
+                  updateTask({
+                    application_id:
+                      value === noSchoolValue ? undefined : value,
+                  })
+                }
+                options={schoolOptions}
+                value={task.application_id ?? noSchoolValue}
+              />
+            </TaskPropertyRow>
+            <TaskPropertyRow field="essay_id" label="Essay">
+              <TaskPropertySelect
+                ariaLabel="Linked essay"
+                onChange={(value) =>
+                  updateTask({
+                    essay_id: value === noEssayValue ? undefined : value,
+                  })
+                }
+                options={essayOptions}
+                value={task.essay_id ?? noEssayValue}
+              />
+            </TaskPropertyRow>
             <TaskPropertyRow
               editing={focusedField === "planned_for"}
               field="planned_for"
@@ -706,6 +766,20 @@ export function TaskDetailSheet({
             </TaskPropertyRow>
           </dl>
         </SheetPanel>
+
+        <SheetFooter>
+          <Button
+            onClick={() => {
+              onDeleteTask(task.id);
+              onOpenChange(false);
+            }}
+            type="button"
+            variant="destructive-outline"
+          >
+            <Archive data-icon="inline-start" />
+            Delete
+          </Button>
+        </SheetFooter>
       </SheetPopup>
     </Sheet>
   );

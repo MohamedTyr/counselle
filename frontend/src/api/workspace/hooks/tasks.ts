@@ -79,8 +79,20 @@ export function useUpdateTask() {
         workspaceKeys.tasks.list(),
       )
       const previousTask = previous?.find((task) => task.id === id)
+      const timestamp = nowIso()
+      const optimisticPatch =
+        patch.status !== undefined
+          ? {
+              ...patch,
+              completed_at:
+                patch.status === "done"
+                  ? (previousTask?.completed_at ?? timestamp)
+                  : null,
+              updated_at: timestamp,
+            }
+          : { ...patch, updated_at: timestamp }
       context.client.setQueryData<Task[]>(workspaceKeys.tasks.list(), (current) =>
-        patchById(current, id, { ...patch, updated_at: nowIso() }),
+        patchById(current, id, optimisticPatch),
       )
       return {
         previous,

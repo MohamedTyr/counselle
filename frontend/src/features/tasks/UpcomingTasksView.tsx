@@ -1,6 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
+import type { ApplicationView } from "@/api/workspace/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { Task, TaskStatus } from "@/domain/task";
+import {
+  PlanWithAgentButton,
+  TaskDeleteMenu,
+  TaskSchoolChip,
+} from "@/features/tasks/task-actions";
 import { laneThemeClass } from "@/features/tasks/task-config";
 import {
   formatPlannedDateLabel,
@@ -108,10 +114,14 @@ export function UpcomingDateMeta({
 }
 
 export function UpcomingTaskItem({
+  applicationsById,
+  onDeleteTask,
   onOpenTask,
   onUpdateTask,
   task,
 }: {
+  applicationsById: ReadonlyMap<string, ApplicationView>;
+  onDeleteTask: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
   onUpdateTask: UpdateTask;
   task: Task;
@@ -176,10 +186,19 @@ export function UpcomingTaskItem({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
+        <TaskSchoolChip
+          applicationId={task.application_id}
+          applicationsById={applicationsById}
+        />
         <InlineTaskCategoryBadge
           badgeClassName="h-7 min-w-7 rounded-md px-[calc(--spacing(2)-1px)] text-sm sm:h-6 sm:min-w-6 sm:text-xs"
           onUpdateTask={onUpdateTask}
           task={task}
+        />
+        <TaskDeleteMenu
+          onDeleteTask={onDeleteTask}
+          taskId={task.id}
+          taskTitle={task.title}
         />
         <Button
           aria-label={`Mark ${task.title} done`}
@@ -251,15 +270,19 @@ function getUpcomingEmptyCopy(groupId: string) {
 }
 
 export function UpcomingSection({
+  applicationsById,
   group,
   layoutMode,
+  onDeleteTask,
   onNewTask,
   onOpenTask,
   onUpdateTask,
   reduceMotion,
 }: {
+  applicationsById: ReadonlyMap<string, ApplicationView>;
   group: UpcomingGroup;
   layoutMode: TaskLayoutMode;
+  onDeleteTask: (taskId: string) => void;
   onNewTask: () => void;
   onOpenTask: (taskId: string) => void;
   onUpdateTask: UpdateTask;
@@ -302,6 +325,8 @@ export function UpcomingSection({
                 }}
               >
                 <UpcomingTaskItem
+                  applicationsById={applicationsById}
+                  onDeleteTask={onDeleteTask}
                   onOpenTask={onOpenTask}
                   onUpdateTask={onUpdateTask}
                   task={task}
@@ -373,12 +398,10 @@ export function TaskViewTabLabel({
 }
 
 export function UpcomingPlanningPanel({
-  onPlanWithAgent,
   onOpenTask,
   onUpdateTask,
   tasks,
 }: {
-  onPlanWithAgent: () => void;
   onOpenTask: (taskId: string) => void;
   onUpdateTask: UpdateTask;
   tasks: Task[];
@@ -460,15 +483,7 @@ export function UpcomingPlanningPanel({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button
-                  onClick={onPlanWithAgent}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Sparkles aria-hidden="true" data-icon="inline-start" />
-                  Plan with agent
-                </Button>
+                <PlanWithAgentButton size="sm" />
               </EmptyContent>
             </Empty>
           ) : null}
@@ -498,19 +513,21 @@ export function UpcomingPlanningPanel({
 }
 
 export function UpcomingTasksView({
+  applicationsById,
   groups,
   layoutMode,
+  onDeleteTask,
   onNewTask,
-  onPlanWithAgent,
   onOpenTask,
   onUpdateTask,
   reduceMotion,
   tasks,
 }: {
+  applicationsById: ReadonlyMap<string, ApplicationView>;
   groups: UpcomingGroup[];
   layoutMode: TaskLayoutMode;
+  onDeleteTask: (taskId: string) => void;
   onNewTask: () => void;
-  onPlanWithAgent: () => void;
   onOpenTask: (taskId: string) => void;
   onUpdateTask: UpdateTask;
   reduceMotion: boolean;
@@ -521,9 +538,11 @@ export function UpcomingTasksView({
       <div className="flex min-w-0 flex-col gap-3">
         {groups.map((group) => (
           <UpcomingSection
+            applicationsById={applicationsById}
             group={group}
             key={group.id}
             layoutMode={layoutMode}
+            onDeleteTask={onDeleteTask}
             onNewTask={onNewTask}
             onOpenTask={onOpenTask}
             onUpdateTask={onUpdateTask}
@@ -533,7 +552,6 @@ export function UpcomingTasksView({
       </div>
 
       <UpcomingPlanningPanel
-        onPlanWithAgent={onPlanWithAgent}
         onOpenTask={onOpenTask}
         onUpdateTask={onUpdateTask}
         tasks={tasks}

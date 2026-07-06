@@ -30,9 +30,11 @@ export type TodayColumn = {
 
 export type TaskLayoutMode = false | "position"
 export type EditableTaskField =
+  | "application_id"
   | "assignee"
   | "category"
   | "due_at"
+  | "essay_id"
   | "needs_input"
   | "notes"
   | "planned_for"

@@ -6,12 +6,7 @@ import {
   groupTasksByStatus,
   isTaskInUpcomingView,
 } from "@/features/tasks/task-filters"
-import {
-  createAgentPlanTask,
-  createNewTask,
-  moveTasksToStatus,
-  updateTaskById,
-} from "@/features/tasks/task-mutations"
+import { createNewTask } from "@/features/tasks/task-mutations"
 import { sortAllTasks, sortPlanningTasks } from "@/features/tasks/task-sort"
 import { parseTaskDragPayload } from "@/features/tasks/useTaskDrag"
 
@@ -174,59 +169,9 @@ describe("task sorting", () => {
 })
 
 describe("task mutations", () => {
-  const baseTasks = [
-    task({
-      id: "first",
-      status: "todo",
-      title: "First",
-      updated_at: "2026-06-01T09:00:00.000Z",
-    }),
-    task({
-      completed_at: "2026-06-15T09:00:00.000Z",
-      id: "second",
-      status: "done",
-      title: "Second",
-      updated_at: "2026-06-01T09:00:00.000Z",
-    }),
-  ]
-
-  it("moves tasks to a status without mutating unchanged records", () => {
-    const nextTasks = moveTasksToStatus(baseTasks, ["first"], "done", timestamp)
-
-    expect(nextTasks).not.toBe(baseTasks)
-    expect(nextTasks[0]).not.toBe(baseTasks[0])
-    expect(nextTasks[1]).toBe(baseTasks[1])
-    expect(nextTasks[0]).toMatchObject({
-      completed_at: timestamp,
-      status: "done",
-      updated_at: timestamp,
-    })
-  })
-
-  it("returns the original array when a move changes nothing", () => {
-    expect(moveTasksToStatus(baseTasks, ["second"], "done", timestamp)).toBe(
-      baseTasks
-    )
-  })
-
-  it("patches a task and respects touch=false", () => {
-    const nextTasks = updateTaskById(
-      baseTasks,
-      "first",
-      { title: "Changed" },
-      { timestamp, touch: false }
-    )
-
-    expect(nextTasks[0]).toMatchObject({
-      title: "Changed",
-      updated_at: "2026-06-01T09:00:00.000Z",
-    })
-  })
-
-  it("creates new user and agent tasks from the demo clock", () => {
+  it("creates new tasks from the demo clock", () => {
     const todayTask = createNewTask("today", timestamp, "task-id")
     const upcomingTask = createNewTask("upcoming", timestamp, "task-id-2")
-    const agentTask = createAgentPlanTask("today", timestamp, "agent-id")
 
     expect(todayTask).toMatchObject({
       id: "task-id",
@@ -235,12 +180,6 @@ describe("task mutations", () => {
     })
     expect(getDateKey(new Date(todayTask.planned_for ?? ""))).toBe("2026-07-01")
     expect(upcomingTask.planned_for).toBeUndefined()
-    expect(agentTask).toMatchObject({
-      assignee: "counselle",
-      id: "agent-id",
-      planned_for: expect.any(String),
-      title: "Let Counselle plan the next application sprint",
-    })
   })
 })
 

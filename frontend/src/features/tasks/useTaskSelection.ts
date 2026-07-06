@@ -105,7 +105,7 @@ export function useTaskSelection() {
     const target = event.target as HTMLElement
     const isInteractiveTarget = Boolean(
       target.closest(
-        "[data-task-id],button,a,input,textarea,select,[role='button']"
+        "[data-task-id],button,a,input,textarea,select,[role='button'],[role='menuitem'],[data-slot^='dropdown-menu']"
       )
     )
 

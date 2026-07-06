@@ -1,0 +1,118 @@
+import type { MouseEvent, ReactNode } from "react"
+import { MoreHorizontal, School, Sparkles, Trash2 } from "lucide-react"
+
+import type { ApplicationView } from "@/api/workspace/types"
+import { Badge } from "@/components/ui/badge"
+import { Button, buttonVariants, type ButtonProps } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
+
+/**
+ * The agent cannot yet plan tasks (Decision D2, MVP3 workspace plan): the
+ * button stays visible as an affordance but is disabled with a tooltip
+ * instead of fabricating fake agent-authored tasks.
+ */
+export function PlanWithAgentButton({
+  children = "Plan with agent",
+  className,
+  size,
+  variant = "outline",
+}: {
+  children?: ReactNode
+  className?: string
+  size?: ButtonProps["size"]
+  variant?: ButtonProps["variant"]
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          className={className}
+          disabled
+          size={size}
+          title="Counselle agent — coming soon"
+          type="button"
+          variant={variant}
+        >
+          <Sparkles aria-hidden="true" data-icon="inline-start" />
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Counselle agent — coming soon</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function stopPropagation(event: MouseEvent) {
+  event.stopPropagation()
+}
+
+export function TaskSchoolChip({
+  applicationId,
+  applicationsById,
+}: {
+  applicationId?: string
+  applicationsById: ReadonlyMap<string, ApplicationView>
+}) {
+  const application = applicationId
+    ? applicationsById.get(applicationId)
+    : undefined
+
+  if (!application) {
+    return null
+  }
+
+  return (
+    <Badge className="max-w-full gap-1" variant="outline">
+      <School aria-hidden="true" className="size-3" />
+      <span className="truncate">{application.school_name}</span>
+    </Badge>
+  )
+}
+
+export function TaskDeleteMenu({
+  className,
+  onDeleteTask,
+  taskId,
+  taskTitle,
+}: {
+  className?: string
+  onDeleteTask: (taskId: string) => void
+  taskId: string
+  taskTitle: string
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Actions for ${taskTitle}`}
+        className={cn(
+          buttonVariants({ size: "icon-xs", variant: "ghost" }),
+          "shrink-0 text-muted-foreground",
+          className,
+        )}
+        onClick={stopPropagation}
+      >
+        <MoreHorizontal aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36" onClick={stopPropagation}>
+        <DropdownMenuItem
+          onClick={() => onDeleteTask(taskId)}
+          variant="destructive"
+        >
+          <Trash2 aria-hidden="true" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

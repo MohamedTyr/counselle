@@ -9,6 +9,7 @@ import {
   anonymousFetch,
   authErrorFetch,
   authUserFixture,
+  defaultAuthenticatedFetch,
   emptyResponse,
   jsonResponse,
   renderApp,
@@ -210,7 +211,7 @@ describe("auth routes", () => {
       if (url.endsWith("/v1/auth/logout") && init?.method === "POST") {
         return jsonResponse({}, { status: 500 })
       }
-      return jsonResponse({})
+      return defaultAuthenticatedFetch(input, init)
     })
     const user = userEvent.setup()
     renderApp("/app/tasks", { fetchHandler: fetchMock })

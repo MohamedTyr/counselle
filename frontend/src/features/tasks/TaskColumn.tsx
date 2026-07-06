@@ -1,6 +1,7 @@
 import type { DragEvent, MouseEvent } from "react"
 import { AnimatePresence } from "motion/react"
 
+import type { ApplicationView } from "@/api/workspace/types"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import type { Task, TaskStatus } from "@/domain/task"
@@ -14,6 +15,7 @@ import type {
 import { cn } from "@/lib/utils"
 
 type TaskColumnProps = {
+  applicationsById: ReadonlyMap<string, ApplicationView>
   column: TodayColumn
   dragOverColumn: TaskStatus | null
   draggingTaskIds: ReadonlySet<string>
@@ -21,6 +23,7 @@ type TaskColumnProps = {
   onCardDragEnd: () => void
   onClickTask: (event: MouseEvent<HTMLElement>, taskId: string) => void
   onColumnDragLeave: () => void
+  onDeleteTask: (taskId: string) => void
   onDragOver: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void
   onDragStart: (
     event: DragEvent<HTMLElement>,
@@ -37,6 +40,7 @@ type TaskColumnProps = {
 }
 
 export function TaskColumn({
+  applicationsById,
   column,
   dragOverColumn,
   draggingTaskIds = emptyTaskIdSet,
@@ -44,6 +48,7 @@ export function TaskColumn({
   onCardDragEnd,
   onClickTask,
   onColumnDragLeave,
+  onDeleteTask,
   onDragOver,
   onDragStart,
   onDrop,
@@ -94,11 +99,13 @@ export function TaskColumn({
         <AnimatePresence initial={false}>
           {tasks.map((task) => (
             <TaskCard
+              applicationsById={applicationsById}
               isDragging={draggingTaskIds.has(task.id)}
               isSelected={selectedTaskIds.has(task.id)}
               key={task.id}
               layoutMode={layoutMode}
               onClick={onClickTask}
+              onDeleteTask={onDeleteTask}
               onDragEnd={onCardDragEnd}
               onDragStart={onDragStart}
               onOpen={onOpenTask}
