@@ -12,7 +12,11 @@ import { visit } from "unist-util-visit";
 
 import type { AssistantChatMessage } from "./model";
 
-const CITATION_PATTERN = /\[(\d{1,3})\]/g;
+// Exported (not just module-local) so any markdown-rendering layer that needs
+// to materialize `[n]` markers into inline citation nodes shares the EXACT
+// same grammar as `citedIndexesIn` below — a renderer can never cite a marker
+// this parser wouldn't have counted, and vice versa.
+export const CITATION_PATTERN = /\[(\d{1,3})\]/g;
 const DB_SOURCES: ReadonlySet<string> = new Set(["cds", "ipeds", "scorecard"]);
 const markdownParser = unified().use(remarkParse).use(remarkGfm);
 
@@ -252,7 +256,13 @@ function hostOf(citation: Citation): string | null {
   }
 
   try {
-    return new URL(citation.url).hostname.replace(/^www\./, "");
+    const parsed = new URL(citation.url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return null;
+    }
+
+    const host = parsed.hostname.replace(/^www\./, "");
+    return host.length > 0 ? host : null;
   } catch {
     return null;
   }
@@ -265,4 +275,38 @@ export function friendlySourceName(citation: Citation): string {
   }
 
   return hostOf(citation) ?? "Source";
+}
+
+export function safeExternalUrl(url: string | null | undefined): string | undefined {
+  if (url === null || url === undefined) {
+    return undefined;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? parsed.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function sourceRank(entry: SourceEntry): number {
+  if (entry.citation.source === "edu" || entry.citation.tier === "official") {
+    return 0;
+  }
+
+  if (entry.citation.source === "reddit" || entry.citation.tier === "community") {
+    return 2;
+  }
+
+  return 1;
+}
+
+export function sortSourcesByTrust(sources: SourceEntry[]): SourceEntry[] {
+  return [...sources].sort((left, right) => {
+    const rank = sourceRank(left) - sourceRank(right);
+    return rank === 0 ? left.index - right.index : rank;
+  });
 }

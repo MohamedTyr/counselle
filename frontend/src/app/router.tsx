@@ -8,7 +8,7 @@ import { EssaysWorkspaceProvider } from "@/features/essays/EssaysWorkspaceContex
 import { LoginRoute } from "@/features/auth/LoginRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
 import { AiPage } from "@/pages/ai-page";
-import { AiConversationPendingRoute } from "@/features/ai-composer/AiConversationPendingRoute";
+import { AiChatRoute } from "@/features/ai-chat/AiChatRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
 import { EssayEditorPage } from "@/pages/essay-editor-page";
 import { EssaysPage } from "@/pages/essays-page";
@@ -52,7 +52,7 @@ export function createAppRouter() {
             },
             {
               path: "ai/:sessionId",
-              element: <AiConversationPendingRoute />,
+              element: <AiChatRoute />,
             },
             {
               path: "tasks",
