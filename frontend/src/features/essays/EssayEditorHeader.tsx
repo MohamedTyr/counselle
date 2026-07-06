@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { EssayStatus, Essay } from "@/domain/essay";
+import { formatEssayDeadline } from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
 
 const statusDotClassName: Record<EssayStatus, string> = {
@@ -75,7 +76,8 @@ export function EssayStatusIndicator({ status }: { status: EssayStatus }) {
 }
 
 export function EssayContextTrail({ essay }: { essay: Essay }) {
-  const trail = [essay.school, essay.type, `Due ${essay.deadline}`];
+  const deadlineLabel = formatEssayDeadline(essay.deadline);
+  const trail = [essay.schoolName, essay.type, deadlineLabel];
 
   return (
     <nav aria-label="Essay context" className="mt-1.5">
@@ -107,14 +109,14 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
       <div className="flex flex-col gap-0.5 text-sm leading-5 text-muted-foreground sm:hidden">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate font-medium text-foreground/75">
-            {essay.school}
+            {essay.schoolName}
           </span>
           <span aria-hidden="true" className="shrink-0 text-border">
             /
           </span>
           <span className="truncate">{essay.type}</span>
         </div>
-        <span className="whitespace-nowrap">Due {essay.deadline}</span>
+        <span className="whitespace-nowrap">{deadlineLabel}</span>
       </div>
     </nav>
   );

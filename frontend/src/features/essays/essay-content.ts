@@ -1,4 +1,10 @@
 import type { Essay } from "@/domain/essay";
+
+export const emptyTiptapDocument = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+} as const;
+
 export const commonAppPrompt =
   "Some students have a background, identity, interest, or talent that is so meaningful they believe their application would be incomplete without it. Share your story.";
 
@@ -7,31 +13,6 @@ export function countWords(text: string) {
     .trim()
     .split(/\s+/)
     .filter((word) => word.length > 0).length;
-}
-
-export function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-export function getInitialEssayContent(essay: Essay) {
-  const lines =
-    essay.previewLines.length > 0
-      ? essay.previewLines
-      : ["Start with the most specific moment, image, or decision first."];
-
-  return `
-    <h1>${escapeHtml(essay.previewTitle || essay.title)}</h1>
-    ${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
-  `;
-}
-
-export function estimateInitialWordCount(content: string) {
-  return countWords(content.replace(/<[^>]*>/g, " "));
 }
 
 export function getSchoolFallback(school: string) {
@@ -49,13 +30,21 @@ export function getSchoolFallback(school: string) {
 }
 
 export function getEssayPrompt(essay: Essay) {
-  if (essay.id === "common-app-main") {
-    return commonAppPrompt;
+  if (essay.prompt) {
+    return essay.prompt;
   }
 
   if (essay.type === "Personal statement") {
-    return "Draft the personal statement around a concrete story, then connect the reflection back to the applicant's values and future work.";
+    return commonAppPrompt;
   }
 
-  return `${essay.school} ${essay.type.toLowerCase()}: respond directly to the prompt, use school-specific details, and keep the answer inside the listed word limit.`;
+  return `${essay.schoolName} ${essay.type.toLowerCase()}: respond directly to the prompt, use school-specific details, and keep the answer inside the listed word limit.`;
+}
+
+export function getPreviewLines(preview: string) {
+  return preview
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 5);
 }

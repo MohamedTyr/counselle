@@ -2,6 +2,7 @@ import { FileText } from "lucide-react";
 import { motion } from "motion/react";
 
 import type { Essay } from "@/domain/essay";
+import { getPreviewLines } from "@/features/essays/essay-content";
 
 type EssayDocumentPreviewProps = {
   essay: Essay;
@@ -12,7 +13,8 @@ export function EssayDocumentPreview({
   essay,
   layoutId,
 }: EssayDocumentPreviewProps) {
-  const hasContent = essay.previewLines.length > 0;
+  const previewLines = getPreviewLines(essay.preview);
+  const hasContent = previewLines.length > 0;
 
   return (
     <motion.div
@@ -23,10 +25,10 @@ export function EssayDocumentPreview({
       {hasContent ? (
         <div className="mx-auto flex h-full max-w-[30rem] flex-col overflow-hidden">
           <h3 className="mb-5 truncate text-center text-[8px] leading-tight font-semibold">
-            {essay.previewTitle}
+            {essay.title}
           </h3>
           <div className="flex flex-col gap-2.5 overflow-hidden">
-            {essay.previewLines.map((line) => (
+            {previewLines.map((line) => (
               <p
                 className="text-[7.5px] leading-[1.78] text-(--essay-document-muted)"
                 key={line}

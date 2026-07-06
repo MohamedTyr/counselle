@@ -3,7 +3,7 @@ import { ArrowLeft, Clock3, MessageSquareText, Save } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   EssayContextTrail,
@@ -14,45 +14,56 @@ import {
 import { EssayEditorToolbar } from "@/features/essays/EssayEditorToolbar";
 import { emptyToolbarState } from "@/features/essays/essay-toolbar-config";
 import {
-  countWords,
-  estimateInitialWordCount,
   getEssayPrompt,
-  getInitialEssayContent,
   getSchoolFallback,
 } from "@/features/essays/essay-content";
+import type { EssayEditorUpdate } from "@/features/essays/useEssayEditor";
 import type { EssayEditorPageProps } from "@/features/essays/essays-types";
+import { useEssayAutosave } from "@/features/essays/useEssayAutosave";
 import { useEssayEditor } from "@/features/essays/useEssayEditor";
 import { getEssayActivityLabel } from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
 
 export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
-  const initialContent = getInitialEssayContent(essay);
-  const [wordCount, setWordCount] = useState(() =>
-    estimateInitialWordCount(initialContent),
-  );
-  const [saveState, setSaveState] = useState<"saved" | "unsaved">("saved");
-  const [modifiedLabel, setModifiedLabel] = useState(() =>
-    getEssayActivityLabel(essay),
-  );
+  const [wordCount, setWordCount] = useState(essay.wordCount);
+  const autosave = useEssayAutosave(essay.id, {
+    content: essay.content,
+    wordCount: essay.wordCount,
+  });
   const shouldReduceMotion = useReducedMotion();
   const prompt = getEssayPrompt(essay);
-  const schoolFallback = getSchoolFallback(essay.school);
-  const hasWordLimit = essay.wordLimit > 0;
-  const isOverLimit = hasWordLimit && wordCount > essay.wordLimit;
+  const schoolFallback = getSchoolFallback(essay.schoolName);
+  const hasWordLimit = essay.wordLimit !== null && essay.wordLimit > 0;
+  const displayedWordCount = autosave.isDirty ? wordCount : essay.wordCount;
+  const isOverLimit =
+    hasWordLimit && displayedWordCount > (essay.wordLimit ?? 0);
+  const modifiedLabel = autosave.isDirty
+    ? "Unsaved changes"
+    : getEssayActivityLabel(essay);
+
+  function handleUpdate(update: EssayEditorUpdate) {
+    setWordCount(update.wordCount);
+    autosave.queueSave(update.content, update.wordCount);
+  }
+
+  function handleBlur(update: EssayEditorUpdate) {
+    setWordCount(update.wordCount);
+    autosave.flush();
+  }
 
   const { editor, toolbarState } = useEssayEditor({
-    initialContent,
-    onUpdate: (text) => {
-      setWordCount(countWords(text));
-      setSaveState("unsaved");
-      setModifiedLabel("Unsaved changes");
-    },
+    content: essay.content,
+    onBlur: handleBlur,
+    onUpdate: handleUpdate,
+    syncContent: !autosave.isDirty,
   });
 
-  function handleSave() {
-    setSaveState("saved");
-    setModifiedLabel("Modified just now");
-  }
+  const saveLabel =
+    autosave.saveState === "error"
+      ? "Retry"
+      : autosave.saveState === "saving"
+        ? "Saving"
+        : "Saved";
 
   return (
     <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-(--essay-editor-chrome-surface)">
@@ -77,7 +88,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 <ArrowLeft />
               </Button>
               <Avatar className="size-11 rounded-lg ring-1 ring-border/80">
-                <AvatarImage alt="" src={essay.logoUrl} />
                 <AvatarFallback className="rounded-lg text-xs font-semibold">
                   {schoolFallback}
                 </AvatarFallback>
@@ -102,7 +112,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                   )}
                 >
                   <span className="font-semibold text-foreground">
-                    {wordCount}
+                    {displayedWordCount}
                   </span>
                   <span>
                     {hasWordLimit ? `/${essay.wordLimit} words` : " words"}
@@ -125,15 +135,18 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 <Button
                   className={cn(
                     "h-8",
-                    saveState === "saved" &&
+                    autosave.saveState === "saved" &&
                       "text-muted-foreground hover:text-foreground",
                   )}
-                  onClick={handleSave}
+                  disabled={autosave.saveState === "saving"}
+                  onClick={
+                    autosave.saveState === "error" ? autosave.retry : undefined
+                  }
                   type="button"
-                  variant={saveState === "saved" ? "ghost" : "default"}
+                  variant={autosave.saveState === "error" ? "default" : "ghost"}
                 >
                   <Save aria-hidden="true" data-icon="inline-start" />
-                  {saveState === "saved" ? "Saved" : "Save"}
+                  {saveLabel}
                 </Button>
               </div>
             </div>

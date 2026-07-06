@@ -9,6 +9,7 @@ import type {
   Activity,
   ApplicationView,
   ChangeEvent,
+  Essay,
   EssaySummary,
   Honor,
   SchoolSearchResult,
@@ -107,9 +108,9 @@ export const workspaceEssayFixture: EssaySummary = {
   essay_type: "Supplement",
   status: "Not started",
   prompt: null,
-  preview: "",
-  word_count: 0,
-  word_limit: null,
+  preview: "Harvard engineering changed how I think about community.",
+  word_count: 8,
+  word_limit: 250,
   comment_count: 0,
   suggestion_count: 0,
   archived_via_application: null,
@@ -120,6 +121,26 @@ export const workspaceEssayFixture: EssaySummary = {
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
+}
+
+export const workspaceEssayDetailFixture: Essay = {
+  ...workspaceEssayFixture,
+  content: {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          {
+            type: "text",
+            text: "Harvard engineering changed how I think about community.",
+          },
+        ],
+      },
+    ],
+  },
+  comments: [],
+  suggestions: [],
 }
 
 export const workspaceActivityFixture: Activity = {
@@ -158,6 +179,7 @@ export type WorkspaceFetchPreset = Partial<{
   schoolSearch: SchoolSearchResult[]
   tasks: Task[]
   essays: EssaySummary[]
+  essayDetails: Essay[]
   activities: Activity[]
   honors: Honor[]
 }>
@@ -169,9 +191,16 @@ export function createWorkspaceFetchPreset(
   let archivedApplications: ApplicationView[] = []
   let tasks = preset.tasks ?? [workspaceTaskFixture]
   let archivedTasks: Task[] = []
+  let essays = preset.essays ?? [workspaceEssayFixture]
+  const essayDetails = new Map<string, Essay>(
+    (preset.essayDetails ?? [workspaceEssayDetailFixture]).map((essay) => [
+      essay.id,
+      essay,
+    ]),
+  )
+  let archivedEssays: Essay[] = []
   const data = {
     schoolSearch: preset.schoolSearch ?? [workspaceSchoolSearchFixture],
-    essays: preset.essays ?? [workspaceEssayFixture],
     activities: preset.activities ?? [workspaceActivityFixture],
     honors: preset.honors ?? [workspaceHonorFixture],
   }
@@ -253,7 +282,7 @@ export function createWorkspaceFetchPreset(
       return jsonResponse({
         application,
         tasks,
-        essays: data.essays,
+        essays,
       })
     }
     if (url.endsWith("/v1/tasks/bulk-status")) {
@@ -350,10 +379,100 @@ export function createWorkspaceFetchPreset(
       }
       return jsonResponse(tasks.find((task) => task.id === taskId) ?? tasks[0])
     }
-    if (url.endsWith("/v1/essays")) return jsonResponse(data.essays)
+    if (url.endsWith("/v1/essays")) {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body ?? "{}"))
+        const now = new Date().toISOString()
+        const application = applications.find(
+          (item) => item.id === (body.application_id ?? null),
+        )
+        const essay: Essay = {
+          ...workspaceEssayDetailFixture,
+          id: crypto.randomUUID(),
+          application_id: body.application_id ?? null,
+          title: body.title,
+          essay_type: body.essay_type ?? "Supplement",
+          status: body.status ?? "Not started",
+          prompt: body.prompt ?? null,
+          preview: "",
+          word_count: body.word_count ?? 0,
+          word_limit: body.word_limit ?? null,
+          comment_count: 0,
+          suggestion_count: 0,
+          school_name: application?.school_name ?? null,
+          school_city: application?.school_city ?? null,
+          school_state: application?.school_state ?? null,
+          deadline: application?.deadline ?? null,
+          content: body.content ?? { type: "doc", content: [{ type: "paragraph" }] },
+          comments: [],
+          suggestions: [],
+          created_at: now,
+          updated_at: now,
+          archived_at: null,
+        }
+        essayDetails.set(essay.id, essay)
+        essays = [essay, ...essays]
+        return jsonResponse(essay)
+      }
+
+      return jsonResponse(essays)
+    }
     if (url.includes("/v1/essays/")) {
-      if (init?.method === "DELETE") return emptyResponse()
-      return jsonResponse({ ...data.essays[0], content: {}, comments: [], suggestions: [] })
+      const essayId = url.split("/v1/essays/")[1]?.split("/")[0] ?? ""
+      if (init?.method === "DELETE") {
+        const archived = essayDetails.get(essayId)
+        essays = essays.filter((essay) => essay.id !== essayId)
+        if (archived) {
+          archivedEssays = [
+            { ...archived, archived_at: new Date().toISOString() },
+            ...archivedEssays.filter((essay) => essay.id !== essayId),
+          ]
+        }
+        return emptyResponse()
+      }
+      if (url.endsWith("/restore")) {
+        const restored = archivedEssays.find((essay) => essay.id === essayId)
+        if (restored) {
+          const active = { ...restored, archived_at: null }
+          essayDetails.set(essayId, active)
+          essays = [active, ...essays.filter((essay) => essay.id !== essayId)]
+          archivedEssays = archivedEssays.filter((essay) => essay.id !== essayId)
+          return jsonResponse(active)
+        }
+        return jsonResponse(essays[0])
+      }
+      if (url.endsWith("/duplicate")) {
+        const source = essayDetails.get(essayId) ?? workspaceEssayDetailFixture
+        const copy: Essay = {
+          ...source,
+          id: crypto.randomUUID(),
+          title: `${source.title} copy`,
+          status: "Drafting",
+          comment_count: 0,
+          suggestion_count: 0,
+          comments: [],
+          suggestions: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          archived_at: null,
+        }
+        essayDetails.set(copy.id, copy)
+        essays = [copy, ...essays]
+        return jsonResponse(copy)
+      }
+      if (init?.method === "PATCH") {
+        const patch = JSON.parse(String(init.body ?? "{}"))
+        const current = essayDetails.get(essayId) ?? workspaceEssayDetailFixture
+        const updated: Essay = {
+          ...current,
+          ...patch,
+          updated_at: new Date().toISOString(),
+        }
+        essayDetails.set(essayId, updated)
+        essays = essays.map((essay) => (essay.id === essayId ? updated : essay))
+        return jsonResponse(updated)
+      }
+      return jsonResponse(essayDetails.get(essayId) ?? workspaceEssayDetailFixture)
     }
     if (url.endsWith("/v1/activities")) return jsonResponse(data.activities)
     if (url.includes("/v1/activities/")) {
@@ -447,6 +566,19 @@ export function defaultAuthenticatedFetch(
   }
   if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture])
   if (url.endsWith("/v1/essays")) return jsonResponse([workspaceEssayFixture])
+  if (url.includes("/v1/essays/")) {
+    if (init?.method === "DELETE") return emptyResponse()
+    if (url.endsWith("/restore") || url.endsWith("/duplicate")) {
+      return jsonResponse(workspaceEssayFixture)
+    }
+    if (init?.method === "PATCH") {
+      return jsonResponse({
+        ...workspaceEssayDetailFixture,
+        ...JSON.parse(String(init.body ?? "{}")),
+      })
+    }
+    return jsonResponse(workspaceEssayDetailFixture)
+  }
   if (url.endsWith("/v1/activities")) {
     return jsonResponse([workspaceActivityFixture])
   }

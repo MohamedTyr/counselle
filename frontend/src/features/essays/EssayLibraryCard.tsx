@@ -1,4 +1,5 @@
 import {
+  Archive,
   Clock3,
   Copy,
   MessageSquareText,
@@ -7,7 +8,7 @@ import {
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardPanel } from "@/components/ui/card";
@@ -21,11 +22,16 @@ import {
 import type { Essay } from "@/domain/essay";
 import { EssayDocumentPreview } from "@/features/essays/EssayDocumentPreview";
 import { getSchoolFallback } from "@/features/essays/essay-content";
-import { essayStatusVariant, getEssayActivityLabel } from "@/lib/essay-display";
+import {
+  essayStatusVariant,
+  formatEssayDeadline,
+  getEssayActivityLabel,
+} from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
 
 type EssayLibraryCardProps = {
   essay: Essay;
+  onArchiveEssay?: (essay: Essay) => void;
   onDuplicateEssay?: (essay: Essay) => void;
   onMarkReady?: (essay: Essay) => void;
   onOpenEssay?: (essay: Essay) => void;
@@ -34,13 +40,8 @@ type EssayLibraryCardProps = {
 function EssaySchoolLogo({ essay }: { essay: Essay }) {
   return (
     <Avatar className="size-10 rounded-lg after:rounded-lg">
-      <AvatarImage
-        alt={`${essay.school} logo`}
-        className="rounded-lg"
-        src={essay.logoUrl}
-      />
       <AvatarFallback className="rounded-lg text-xs">
-        {getSchoolFallback(essay.school)}
+        {getSchoolFallback(essay.schoolName)}
       </AvatarFallback>
     </Avatar>
   );
@@ -48,13 +49,16 @@ function EssaySchoolLogo({ essay }: { essay: Essay }) {
 
 export function EssayLibraryCard({
   essay,
+  onArchiveEssay,
   onDuplicateEssay,
   onMarkReady,
   onOpenEssay,
 }: EssayLibraryCardProps) {
   const shouldReduceMotion = useReducedMotion();
   const wordLabel =
-    essay.wordLimit > 0 ? `${essay.wordCount}/${essay.wordLimit}` : "No limit";
+    essay.wordLimit && essay.wordLimit > 0
+      ? `${essay.wordCount}/${essay.wordLimit}`
+      : `${essay.wordCount} words`;
   const canMarkReady = essay.status !== "Ready" && essay.status !== "Submitted";
 
   function handleOpenEssay() {
@@ -143,17 +147,29 @@ export function EssayLibraryCard({
                     >
                       Ready
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={() => onArchiveEssay?.(essay)}
+                    >
+                      <Archive />
+                      Archive
+                    </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             <div className="mt-1 flex w-full items-center gap-2 text-xs text-muted-foreground">
-              <span className="flex min-w-0 items-center gap-1">
-                <Clock3 aria-hidden="true" />
-                <span className="truncate">{getEssayActivityLabel(essay)}</span>
-              </span>
-              <span className="ml-auto flex items-center gap-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="flex min-w-0 items-center gap-1">
+                  <Clock3 aria-hidden="true" />
+                  <span className="truncate">{getEssayActivityLabel(essay)}</span>
+                </span>
+                <span className="truncate">
+                  {essay.schoolName} · {formatEssayDeadline(essay.deadline)}
+                </span>
+              </div>
+              <span className="ml-auto flex shrink-0 items-center gap-3">
                 <span className="flex items-center gap-1">
                   <MessageSquareText aria-hidden="true" />
                   {essay.comments}

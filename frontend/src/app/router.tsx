@@ -1,10 +1,9 @@
-import { createBrowserRouter, Navigate, Outlet } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 
 import { GuestOnly } from "@/app/auth/GuestOnly";
 import { RequireAuth } from "@/app/auth/RequireAuth";
 import { WorkspaceShell } from "@/app/shell/WorkspaceShell";
 import { RouteSurface } from "@/app/routes/RouteSurface";
-import { EssaysWorkspaceProvider } from "@/features/essays/EssaysWorkspaceContext";
 import { LoginRoute } from "@/features/auth/LoginRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
@@ -61,21 +60,12 @@ export function createAppRouter() {
               element: <ActivitiesPage />,
             },
             {
-              element: (
-                <EssaysWorkspaceProvider>
-                  <Outlet />
-                </EssaysWorkspaceProvider>
-              ),
-              children: [
-                {
-                  path: "essays",
-                  element: <EssaysPage />,
-                },
-                {
-                  path: "essays/:essayId",
-                  element: <EssayEditorPage />,
-                },
-              ],
+              path: "essays",
+              element: <EssaysPage />,
+            },
+            {
+              path: "essays/:essayId",
+              element: <EssayEditorPage />,
             },
             {
               path: "*",

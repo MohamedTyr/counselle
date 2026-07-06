@@ -1,28 +1,52 @@
 import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
 import { FontFamily, TextStyle } from "@tiptap/extension-text-style";
-import { useEditor, useEditorState } from "@tiptap/react";
+import { useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
+import type { TiptapContent } from "@/api/workspace/types";
+import { countWords } from "@/features/essays/essay-content";
 import {
   emptyToolbarState,
   type ToolbarState,
 } from "@/features/essays/essay-toolbar-config";
 
-type UseEssayEditorOptions = {
-  initialContent: string;
-  onUpdate: (text: string) => void;
+export type EssayEditorUpdate = {
+  content: TiptapContent;
+  text: string;
+  wordCount: number;
 };
 
+type UseEssayEditorOptions = {
+  content: TiptapContent;
+  onBlur: (update: EssayEditorUpdate) => void;
+  onUpdate: (update: EssayEditorUpdate) => void;
+  syncContent: boolean;
+};
+
+function editorUpdate(editor: Editor): EssayEditorUpdate {
+  const text = editor.getText();
+
+  return {
+    content: editor.getJSON() as TiptapContent,
+    text,
+    wordCount: countWords(text),
+  };
+}
+
 export function useEssayEditor({
-  initialContent,
+  content,
+  onBlur,
   onUpdate,
+  syncContent,
 }: UseEssayEditorOptions) {
+  const contentKey = useMemo(() => JSON.stringify(content), [content]);
   const editor = useEditor({
-    content: initialContent,
+    content,
     editorProps: {
       attributes: {
+        "aria-label": "Essay body",
         class: "essay-editor-content",
       },
     },
@@ -42,8 +66,11 @@ export function useEssayEditor({
       }),
     ],
     immediatelyRender: false,
+    onBlur: ({ editor }) => {
+      onBlur(editorUpdate(editor));
+    },
     onUpdate: ({ editor }) => {
-      onUpdate(editor.getText());
+      onUpdate(editorUpdate(editor));
     },
   });
 
@@ -69,12 +96,12 @@ export function useEssayEditor({
   });
 
   useEffect(() => {
-    if (!editor) {
+    if (!editor || !syncContent) {
       return;
     }
 
-    editor.commands.setContent(initialContent, { emitUpdate: false });
-  }, [editor, initialContent]);
+    editor.commands.setContent(content, { emitUpdate: false });
+  }, [content, contentKey, editor, syncContent]);
 
   return { editor, toolbarState };
 }
