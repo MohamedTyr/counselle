@@ -53,7 +53,9 @@ function delta(text: string): ProtocolEvent {
   return { v: 1, type: "delta", data: { text } };
 }
 
-function done(status: "complete" | "cancelled" = "complete"): ProtocolEvent {
+function done(
+  status: "complete" | "cancelled" | "awaiting_input" = "complete",
+): ProtocolEvent {
   return { v: 1, type: "done", data: { status } };
 }
 
@@ -131,7 +133,7 @@ function createTransport(overrides: Partial<ChatTransport> = {}): ChatTransport 
     renameSession: vi.fn(),
     deleteSession: vi.fn(),
     sendMessage: vi.fn(() => stream([meta(), delta("final"), done()])),
-    attachStream: vi.fn(async () => ({ active: false })),
+    attachStream: vi.fn(async () => ({ active: false as const })),
     streamFirstMessage: vi.fn(),
     cancelActiveTurn: vi.fn(),
     setMessageFeedback: vi.fn(),
@@ -693,7 +695,7 @@ describe("useTurnEngine", () => {
   });
 
   test("attachActiveTurn threads an AbortSignal into attachStream", async () => {
-    const attachStream = vi.fn(async () => ({
+    const attachStream = vi.fn<ChatTransport["attachStream"]>(async () => ({
       active: true,
       stream: stream([meta("a1", "u1"), delta("final"), done()]),
     }));
@@ -705,7 +707,10 @@ describe("useTurnEngine", () => {
     });
 
     expect(attachStream).toHaveBeenCalledTimes(1);
-    const attachInput = attachStream.mock.calls[0][0];
+    const attachInput = attachStream.mock.calls[0]?.[0];
+    if (attachInput === undefined) {
+      throw new Error("attachStream was not called");
+    }
     expect(attachInput.signal).toBeInstanceOf(AbortSignal);
   });
 

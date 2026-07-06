@@ -20,10 +20,7 @@ import { ChatSessionRow } from "./ChatSessionRow";
 const SESSION_LIST_INPUT = { limit: 50 } as const;
 
 function activeSessionIdFromPath(pathname: string) {
-  return matchPath<{ sessionId: string }>(
-    { path: "/app/ai/:sessionId", end: true },
-    pathname,
-  )?.params.sessionId;
+  return matchPath({ path: "/app/ai/:sessionId", end: true }, pathname)?.params.sessionId;
 }
 
 function matchesSearch(title: string | null, searchQuery: string) {

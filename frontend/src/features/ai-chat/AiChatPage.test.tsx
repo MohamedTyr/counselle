@@ -13,19 +13,23 @@ import { createTestQueryClient } from "@/test/render-app";
 
 import { AiChatPage } from "./AiChatPage";
 
-const fakeTransport = vi.hoisted(() => ({
-  getChatConfig: vi.fn(),
-  createSession: vi.fn(),
-  listSessions: vi.fn(),
-  getSession: vi.fn(),
-  renameSession: vi.fn(),
-  deleteSession: vi.fn(),
-  sendMessage: vi.fn(),
-  attachStream: vi.fn(async () => ({ active: false }) as const),
-  streamFirstMessage: vi.fn(),
-  cancelActiveTurn: vi.fn(async () => undefined),
-  setMessageFeedback: vi.fn(async () => undefined),
-})) as unknown as ChatTransport & Record<string, ReturnType<typeof vi.fn>>;
+type MockedChatTransport = {
+  [K in keyof ChatTransport]: ReturnType<typeof vi.fn<ChatTransport[K]>>;
+};
+
+const fakeTransport: MockedChatTransport = vi.hoisted(() => ({
+  getChatConfig: vi.fn<ChatTransport["getChatConfig"]>(),
+  createSession: vi.fn<ChatTransport["createSession"]>(),
+  listSessions: vi.fn<ChatTransport["listSessions"]>(),
+  getSession: vi.fn<ChatTransport["getSession"]>(),
+  renameSession: vi.fn<ChatTransport["renameSession"]>(),
+  deleteSession: vi.fn<ChatTransport["deleteSession"]>(),
+  sendMessage: vi.fn<ChatTransport["sendMessage"]>(),
+  attachStream: vi.fn<ChatTransport["attachStream"]>(async () => ({ active: false as const })),
+  streamFirstMessage: vi.fn<ChatTransport["streamFirstMessage"]>(),
+  cancelActiveTurn: vi.fn<ChatTransport["cancelActiveTurn"]>(async () => undefined),
+  setMessageFeedback: vi.fn<ChatTransport["setMessageFeedback"]>(async () => undefined),
+}));
 
 // `@/api/chat/hooks`' react-query `useChatSession` (session query) and
 // `useMessageFeedback` both call the `chatTransport` singleton directly

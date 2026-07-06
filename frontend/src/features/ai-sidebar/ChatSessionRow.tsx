@@ -18,7 +18,7 @@ type ChatSessionRowProps = {
   active: boolean;
   isBusy: boolean;
   onDelete: (sessionId: string) => void;
-  onRename: (sessionId: string, title: string) => void;
+  onRename: (sessionId: string, title: string) => Promise<boolean>;
   session: ChatSessionSummary;
 };
 
@@ -79,7 +79,7 @@ export function ChatSessionRow({
       <ChatSessionActions
         isBusy={isBusy}
         onDelete={() => onDelete(session.sessionId)}
-        onRename={(title) => onRename(session.sessionId, title)}
+        onRename={async (title) => onRename(session.sessionId, title)}
         title={title}
       />
     </SidebarMenuItem>

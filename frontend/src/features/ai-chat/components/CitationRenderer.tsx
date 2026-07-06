@@ -8,7 +8,10 @@ import {
   InlineCitationCardBody,
   InlineCitationCardTrigger,
 } from "@/components/ai-elements/inline-citation";
-import { MessageResponse } from "@/components/ai-elements/message";
+import {
+  MessageResponse,
+  type MessageResponseProps,
+} from "@/components/ai-elements/message";
 
 import {
   friendlySourceName,
@@ -98,11 +101,16 @@ export function CitationRenderer({
   onCitationOpen,
 }: CitationRendererProps) {
   const components = useMemo(
-    () => ({
-      "citation-ref": ({ index }: { index: string | number }) => (
-        <CitationChip index={Number(index)} onOpen={onCitationOpen} sources={sources} />
-      ),
-    }),
+    () =>
+      ({
+        "citation-ref": ({ index }: { index?: unknown }) => (
+          <CitationChip
+            index={typeof index === "number" ? index : Number(index)}
+            onOpen={onCitationOpen}
+            sources={sources}
+          />
+        ),
+      }) as unknown as MessageResponseProps["components"],
     [onCitationOpen, sources],
   );
 

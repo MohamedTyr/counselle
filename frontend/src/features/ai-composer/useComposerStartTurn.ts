@@ -35,7 +35,7 @@ export function useComposerStartTurn({
   const submittingRef = useRef(false)
 
   const submit = useCallback(
-    async (text: string, sourceConfig: SourceConfig) => {
+    async (text: string, sourceConfig: SourceConfig): Promise<StartTurnResult> => {
       const trimmed = text.trim()
       if (trimmed.length === 0 || submittingRef.current) {
         return { ok: false }
