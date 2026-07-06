@@ -6,6 +6,7 @@ import {
 
 import { queryClient as defaultQueryClient } from "@/app/query-client"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 type AppProvidersProps = PropsWithChildren<{
@@ -20,6 +21,7 @@ export function AppProviders({
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>{children}</TooltipProvider>
+        <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
   )

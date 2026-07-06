@@ -1,9 +1,7 @@
-import { AUTH_REQUEST_TIMEOUT_MS } from "@/config"
-import { BASE } from "@/api/http/constants"
+import { safeFetch } from "@/api/http/client"
 import {
   errorFromResponse,
   isTransportError,
-  TransportError,
 } from "@/api/http/errors"
 
 export class AuthError extends Error {
@@ -77,21 +75,9 @@ async function authError(response: Response): Promise<Error> {
   return errorFromResponse(response)
 }
 
-async function safeFetch(input: string, init: RequestInit): Promise<Response> {
-  try {
-    return await fetch(input, {
-      ...init,
-      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
-    })
-  } catch (cause) {
-    throw new TransportError("network", "Could not reach the server.", { cause })
-  }
-}
-
 export async function fetchMe(): Promise<MeData | null> {
-  const response = await safeFetch(`${BASE}/me`, {
+  const response = await safeFetch("/me", {
     method: "GET",
-    credentials: "same-origin",
   })
   if (response.status === 401) {
     return null
@@ -107,10 +93,9 @@ export async function login(input: LoginInput): Promise<void> {
   form.set("username", input.email)
   form.set("password", input.password)
 
-  const response = await safeFetch(`${BASE}/auth/login`, {
+  const response = await safeFetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    credentials: "same-origin",
     body: form.toString(),
   })
   if (!response.ok) {
@@ -119,10 +104,9 @@ export async function login(input: LoginInput): Promise<void> {
 }
 
 export async function register(input: RegisterInput): Promise<void> {
-  const response = await safeFetch(`${BASE}/auth/register`, {
+  const response = await safeFetch("/auth/register", {
     method: "POST",
     headers: JSON_HEADERS,
-    credentials: "same-origin",
     body: JSON.stringify(input),
   })
   if (!response.ok) {
@@ -131,9 +115,8 @@ export async function register(input: RegisterInput): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
-  const response = await safeFetch(`${BASE}/auth/logout`, {
+  const response = await safeFetch("/auth/logout", {
     method: "POST",
-    credentials: "same-origin",
   })
   if (!response.ok) {
     throw await authError(response)

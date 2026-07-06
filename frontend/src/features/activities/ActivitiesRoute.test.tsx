@@ -11,7 +11,7 @@ import { vi } from "vitest";
 
 import type { Activity } from "@/domain/activity";
 import { ActivitiesPage } from "@/features/activities/ActivitiesRoute";
-import { UndoToast } from "@/features/activities/UndoToast";
+import { UndoToast } from "@/components/undo-toast";
 
 function renderActivities({
   activities,
@@ -271,7 +271,7 @@ describe("ActivitiesPage", () => {
     expect(screen.getByRole("textbox", { name: "Position" })).toHaveValue("");
   });
 
-  it("deletes an activity and restores it with undo", async () => {
+  it("uses the shared undo surface for fixture-backed activity restore", async () => {
     const user = userEvent.setup();
     renderActivities();
 
@@ -355,11 +355,7 @@ describe("ActivitiesPage", () => {
       <UndoToast
         onDismiss={vi.fn()}
         onUndo={vi.fn()}
-        pending={{
-          index: 0,
-          item: makeActivity(0),
-          kind: "activity",
-        }}
+        pending={{ label: "Activity" }}
         reduceMotion
       />,
     );

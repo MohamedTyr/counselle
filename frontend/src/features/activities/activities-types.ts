@@ -9,11 +9,6 @@ export type ActivitiesPageProps = {
   onHonorsChange?: Dispatch<SetStateAction<Honor[]>>;
 };
 
-export type PendingDelete =
-  | { kind: "activity"; item: Activity; index: number }
-  | { kind: "honor"; item: Honor; index: number }
-  | null;
-
 export type ActivitiesTab = "activities" | "honors";
 
 export type SectionStats = {

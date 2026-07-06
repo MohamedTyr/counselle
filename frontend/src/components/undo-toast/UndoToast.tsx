@@ -1,7 +1,22 @@
-import { Button } from "@/components/ui/button";
-import type { PendingDelete } from "@/features/activities/activities-types";
-import { Check, Undo2 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { Check, Undo2 } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+
+import { Button } from "@/components/ui/button"
+
+export type UndoToastPending = {
+  kind?: string
+  label?: string
+} | null
+
+function pendingLabel(pending: UndoToastPending) {
+  if (!pending) {
+    return ""
+  }
+  if (pending.label) {
+    return pending.label
+  }
+  return pending.kind === "honor" ? "Honor" : "Activity"
+}
 
 export function UndoToast({
   onDismiss,
@@ -9,10 +24,10 @@ export function UndoToast({
   pending,
   reduceMotion,
 }: {
-  onDismiss: () => void;
-  onUndo: () => void;
-  pending: PendingDelete;
-  reduceMotion: boolean;
+  onDismiss: () => void
+  onUndo: () => void
+  pending: UndoToastPending
+  reduceMotion: boolean
 }) {
   return (
     <AnimatePresence>
@@ -28,9 +43,7 @@ export function UndoToast({
             className="pointer-events-auto flex items-center gap-3 rounded-xl border bg-popover px-4 py-2.5 text-sm text-popover-foreground shadow-lg"
             role="status"
           >
-            <span>
-              {pending.kind === "activity" ? "Activity" : "Honor"} deleted
-            </span>
+            <span>{pendingLabel(pending)} deleted</span>
             <Button
               className="h-7"
               onClick={onUndo}
@@ -55,5 +68,5 @@ export function UndoToast({
         </motion.div>
       ) : null}
     </AnimatePresence>
-  );
+  )
 }

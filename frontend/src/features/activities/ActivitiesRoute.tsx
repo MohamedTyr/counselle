@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
+import { UndoToast } from "@/components/undo-toast";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import {
   Empty,
@@ -19,7 +20,6 @@ import {
   type Honor,
 } from "@/domain/activity";
 import { initialActivities, initialHonors } from "@/fixtures/activities";
-import { UNDO_WINDOW_MS } from "@/features/activities/activities-config";
 import {
   createActivity,
   createHonor,
@@ -34,18 +34,15 @@ import {
   reorderById,
   swapByIndex,
 } from "@/features/activities/activities-reorder";
-import type {
-  ActivitiesPageProps,
-  PendingDelete,
-} from "@/features/activities/activities-types";
+import type { ActivitiesPageProps } from "@/features/activities/activities-types";
 import { ActivityDrawer } from "@/features/activities/ActivityDrawer";
 import { ActivityRow } from "@/features/activities/ActivityRow";
 import { HonorDrawer } from "@/features/activities/HonorDrawer";
 import { HonorRow } from "@/features/activities/HonorRow";
 import { SectionStatus } from "@/features/activities/SectionStatus";
-import { UndoToast } from "@/features/activities/UndoToast";
 import { useActivitiesDeepLink } from "@/features/activities/useActivitiesDeepLink";
 import { useReorderDrag } from "@/features/activities/useReorderDrag";
+import { useUndoableDelete } from "@/hooks/useUndoableDelete";
 import { Award, ListChecks, Plus } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
@@ -74,8 +71,11 @@ export function ActivitiesPage({
     visibleTab,
   } = useActivitiesDeepLink({ activities, honors });
 
-  const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
-  const deleteTimeoutRef = useRef<number | undefined>(undefined);
+  const archivedActivityRef = useRef<{
+    index: number;
+    item: Activity;
+  } | null>(null);
+  const archivedHonorRef = useRef<{ index: number; item: Honor } | null>(null);
   const activityDragSnapshotRef = useRef<Activity[] | null>(null);
   const honorDragSnapshotRef = useRef<Honor[] | null>(null);
   const reduceMotion = useReducedMotion();
@@ -91,8 +91,6 @@ export function ActivitiesPage({
     [activities],
   );
   const honorStats = useMemo(() => getHonorStats(honors), [honors]);
-
-  useEffect(() => () => window.clearTimeout(deleteTimeoutRef.current), []);
 
   function updateActivity(id: string, patch: Partial<Activity>) {
     setActivities((current) => updateItemById(current, id, patch));
@@ -154,18 +152,64 @@ export function ActivitiesPage({
     setHonors((current) => renumber(swapByIndex(current, index, direction)));
   }
 
-  function scheduleDeleteCleanup() {
-    window.clearTimeout(deleteTimeoutRef.current);
-    deleteTimeoutRef.current = window.setTimeout(
-      () => setPendingDelete(null),
-      UNDO_WINDOW_MS,
-    );
-  }
+  // Phase 4 transitional adapter: Activities stays fixture-backed until Phase 8,
+  // but delete/undo already uses the shared archive/restore hook surface.
+  const activityUndo = useUndoableDelete<Activity>({
+    archiveMutation: {
+      mutate: (id, options) => {
+        const removed = removeById(activities, id);
+        if (!removed) {
+          options?.onError?.(new Error("Activity not found"));
+          return;
+        }
+        archivedActivityRef.current = removed;
+        setActivities(removed.next);
+      },
+    },
+    getLabel: () => "Activity",
+    restoreMutation: {
+      mutate: (id) => {
+        const archived = archivedActivityRef.current;
+        if (!archived || archived.item.id !== id) {
+          return;
+        }
+        setActivities((current) =>
+          insertAt(current, archived.item, archived.index),
+        );
+        archivedActivityRef.current = null;
+      },
+    },
+  });
+
+  const honorUndo = useUndoableDelete<Honor>({
+    archiveMutation: {
+      mutate: (id, options) => {
+        const removed = removeById(honors, id);
+        if (!removed) {
+          options?.onError?.(new Error("Honor not found"));
+          return;
+        }
+        archivedHonorRef.current = removed;
+        setHonors(removed.next);
+      },
+    },
+    getLabel: () => "Honor",
+    restoreMutation: {
+      mutate: (id) => {
+        const archived = archivedHonorRef.current;
+        if (!archived || archived.item.id !== id) {
+          return;
+        }
+        setHonors((current) => insertAt(current, archived.item, archived.index));
+        archivedHonorRef.current = null;
+      },
+    },
+  });
 
   function deleteActivity(id: string) {
-    const removed = removeById(activities, id);
+    const activity = activities.find((item) => item.id === id);
 
-    if (!removed) {
+    if (!activity) {
       return;
     }
 
@@ -173,19 +217,15 @@ export function ActivitiesPage({
       closeActivity();
     }
 
-    setActivities(removed.next);
-    setPendingDelete({
-      index: removed.index,
-      item: removed.item,
-      kind: "activity",
-    });
-    scheduleDeleteCleanup();
+    archivedHonorRef.current = null;
+    honorUndo.clearPending();
+    activityUndo.archive(activity);
   }
 
   function deleteHonor(id: string) {
-    const removed = removeById(honors, id);
+    const honor = honors.find((item) => item.id === id);
 
-    if (!removed) {
+    if (!honor) {
       return;
     }
 
@@ -193,32 +233,27 @@ export function ActivitiesPage({
       closeHonor();
     }
 
-    setHonors(removed.next);
-    setPendingDelete({
-      index: removed.index,
-      item: removed.item,
-      kind: "honor",
-    });
-    scheduleDeleteCleanup();
+    archivedActivityRef.current = null;
+    activityUndo.clearPending();
+    honorUndo.archive(honor);
   }
 
   function undoDelete() {
-    if (!pendingDelete) {
+    if (activityUndo.pending) {
+      activityUndo.undo();
       return;
     }
 
-    if (pendingDelete.kind === "activity") {
-      const restored = pendingDelete;
-      setActivities((current) =>
-        insertAt(current, restored.item, restored.index),
-      );
-    } else {
-      const restored = pendingDelete;
-      setHonors((current) => insertAt(current, restored.item, restored.index));
+    if (honorUndo.pending) {
+      honorUndo.undo();
     }
+  }
 
-    window.clearTimeout(deleteTimeoutRef.current);
-    setPendingDelete(null);
+  function dismissUndo() {
+    archivedActivityRef.current = null;
+    archivedHonorRef.current = null;
+    activityUndo.clearPending();
+    honorUndo.clearPending();
   }
 
   function addActivity() {
@@ -456,12 +491,9 @@ export function ActivitiesPage({
       />
 
       <UndoToast
-        onDismiss={() => {
-          window.clearTimeout(deleteTimeoutRef.current);
-          setPendingDelete(null);
-        }}
+        onDismiss={dismissUndo}
         onUndo={undoDelete}
-        pending={pendingDelete}
+        pending={activityUndo.pending ?? honorUndo.pending}
         reduceMotion={!!reduceMotion}
       />
     </section>
