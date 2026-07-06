@@ -424,6 +424,14 @@ export function defaultAuthenticatedFetch(
   if (url.endsWith("/v1/auth/logout") && init?.method === "POST") {
     return emptyResponse()
   }
+  if (url.endsWith("/v1/config")) {
+    return jsonResponse({
+      greeting: "Where should we begin?",
+      season_note: null,
+      conversation_starters: [],
+      default_source_config: null,
+    })
+  }
   if (url.includes("/v1/schools/search")) {
     return jsonResponse([workspaceSchoolSearchFixture])
   }

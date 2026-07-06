@@ -7,6 +7,8 @@ import { RouteSurface } from "@/app/routes/RouteSurface";
 import { EssaysWorkspaceProvider } from "@/features/essays/EssaysWorkspaceContext";
 import { LoginRoute } from "@/features/auth/LoginRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
+import { AiPage } from "@/pages/ai-page";
+import { AiConversationPendingRoute } from "@/features/ai-composer/AiConversationPendingRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
 import { EssayEditorPage } from "@/pages/essay-editor-page";
 import { EssaysPage } from "@/pages/essays-page";
@@ -42,7 +44,15 @@ export function createAppRouter() {
           children: [
             {
               index: true,
-              element: <Navigate replace to="/app/tasks" />,
+              element: <Navigate replace to="/app/ai" />,
+            },
+            {
+              path: "ai",
+              element: <AiPage />,
+            },
+            {
+              path: "ai/:sessionId",
+              element: <AiConversationPendingRoute />,
             },
             {
               path: "tasks",
