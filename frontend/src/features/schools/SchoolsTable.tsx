@@ -26,7 +26,8 @@ import {
   EssaysValue,
   ListTypeBadge,
   ProgressValue,
-  SchoolLink,
+  SchoolIdentity,
+  SchoolWebsiteLink,
   StatusBadge,
 } from "@/features/schools/school-cells"
 import { cn } from "@/lib/utils"
@@ -102,6 +103,7 @@ export function SchoolsTable({
   columnWidths,
   onColumnResizeKeyDown,
   onColumnResizeStart,
+  onOpenSchool,
   onSort,
   schools,
   sortState,
@@ -116,6 +118,7 @@ export function SchoolsTable({
     event: ReactPointerEvent<HTMLButtonElement>,
     column: TableColumn
   ) => void
+  onOpenSchool: (schoolId: string) => void
   onSort: (columnId: ColumnId) => void
   schools: School[]
   sortState: SortState
@@ -163,9 +166,16 @@ export function SchoolsTable({
             </TableRow>
           ) : (
             schools.map((school) => (
-              <TableRow key={school.id}>
+              <TableRow
+                className="cursor-pointer"
+                key={school.id}
+                onClick={() => onOpenSchool(school.id)}
+              >
                 <TableCell className="overflow-hidden">
-                  <SchoolLink school={school} />
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <SchoolIdentity onOpen={onOpenSchool} school={school} />
+                    <SchoolWebsiteLink school={school} />
+                  </div>
                 </TableCell>
                 <TableCell className="overflow-hidden">
                   <StatusBadge status={school.status} />

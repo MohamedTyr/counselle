@@ -1,40 +1,53 @@
-export type ApplicationStatus =
-  | "Considering"
-  | "Applying"
-  | "Submitted"
-  | "Accepted"
-  | "Rejected"
-  | "Waitlisted"
-  | "Withdrawn"
+import type {
+  ApplicationStatus,
+  ApplicationView,
+  ListType,
+  Rollup,
+  Round,
+} from "@/api/workspace/types"
 
-export type ListType = "Reach" | "Target" | "Safety"
-export type Round =
-  | "EA"
-  | "ED"
-  | "RD"
-  | "Rolling"
-  | "Priority"
-  | "Scholarship deadline"
 export type DeadlineUrgency = "close" | "upcoming" | "normal"
 
-export type Progress = {
-  completed: number
-  total: number
-}
+export type { ApplicationStatus, ListType, Round }
+export type Progress = Rollup
 
 export type School = {
   id: string
-  name: string
-  shortName: string
+  unitid: number
+  schoolName: string
   location: string
-  websiteUrl: string
-  logoUrl: string
+  websiteUrl: string | null
   status: ApplicationStatus
   listType: ListType
   round: Round
-  nextDeadline: string
-  nextDeadlineDate: string
-  deadlineUrgency: DeadlineUrgency
+  deadline: string | null
   progress: Progress
   essays: Progress
+}
+
+export function formatSchoolLocation({
+  school_city: city,
+  school_state: state,
+}: Pick<ApplicationView, "school_city" | "school_state">) {
+  if (city && state) {
+    return `${city}, ${state}`
+  }
+
+  return city ?? state ?? "Location unavailable"
+}
+
+export function schoolFromApplication(application: ApplicationView): School {
+  return {
+    id: application.id,
+    unitid: application.school_unitid,
+    schoolName: application.school_name,
+    location: formatSchoolLocation(application),
+    websiteUrl: application.website_url,
+    status: application.status,
+    listType: application.list_type,
+    round: application.round,
+    deadline: application.deadline,
+    progress: application.progress,
+    essays: application.essays,
+  }
 }

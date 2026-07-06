@@ -4,6 +4,7 @@ import {
   roundSortRank,
   statusSortRank,
 } from "@/features/schools/schools-config"
+import { getDeadlineTime } from "@/features/schools/schools-deadline"
 import type { ColumnId, SortState } from "@/features/schools/schools-types"
 
 export function compareText(first: string, second: string) {
@@ -20,10 +21,6 @@ export function getProgressRatio(progress: Progress) {
   }
 
   return progress.completed / progress.total
-}
-
-export function getDeadlineTime(school: School) {
-  return Date.parse(school.nextDeadlineDate)
 }
 
 export function compareProgress(first: Progress, second: Progress) {
@@ -51,7 +48,7 @@ export function compareSchoolsByColumn(
   columnId: ColumnId
 ) {
   if (columnId === "school") {
-    return compareText(first.name, second.name)
+    return compareText(first.schoolName, second.schoolName)
   }
 
   if (columnId === "status") {
@@ -76,7 +73,10 @@ export function compareSchoolsByColumn(
   }
 
   if (columnId === "nextDeadline") {
-    return compareNumber(getDeadlineTime(first), getDeadlineTime(second))
+    return compareNumber(
+      getDeadlineTime(first.deadline),
+      getDeadlineTime(second.deadline),
+    )
   }
 
   if (columnId === "progress") {
@@ -97,6 +97,6 @@ export function sortSchools(schoolsToSort: School[], sortState: SortState) {
       return columnComparison
     }
 
-    return compareText(first.name, second.name)
+    return compareText(first.schoolName, second.schoolName)
   })
 }

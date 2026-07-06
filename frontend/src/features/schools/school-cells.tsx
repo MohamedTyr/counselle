@@ -12,41 +12,91 @@ import {
   listTypeVariant,
   statusVariant,
 } from "@/features/schools/schools-config"
+import {
+  formatDeadline,
+  getDeadlineUrgency,
+} from "@/features/schools/schools-deadline"
 import { getProgressRatio } from "@/features/schools/schools-sort"
 import { cn } from "@/lib/utils"
 
-export function SchoolLogo({ school }: { school: School }) {
+function getSchoolInitials(name: string) {
+  const words = name
+    .split(/\s+/)
+    .map((word) => word.replace(/[^A-Za-z0-9]/g, ""))
+    .filter(Boolean)
+
+  if (words.length === 0) {
+    return "?"
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+}
+
+function faviconUrlFromWebsite(websiteUrl: string | null) {
+  if (!websiteUrl) {
+    return undefined
+  }
+
+  try {
+    const hostname = new URL(websiteUrl).hostname
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
+  } catch {
+    return undefined
+  }
+}
+
+export function SchoolAvatar({
+  name,
+  websiteUrl,
+}: {
+  name: string
+  websiteUrl: string | null
+}) {
   return (
     <Avatar size="lg" className="rounded-lg">
       <AvatarImage
-        alt={`${school.name} logo`}
+        alt=""
         className="rounded-lg"
-        src={school.logoUrl}
+        src={faviconUrlFromWebsite(websiteUrl)}
       />
-      <AvatarFallback className="rounded-lg">{school.shortName}</AvatarFallback>
+      <AvatarFallback className="rounded-lg">
+        {getSchoolInitials(name)}
+      </AvatarFallback>
     </Avatar>
   )
 }
 
-export function SchoolLink({
+export function SchoolLogo({ school }: { school: School }) {
+  return <SchoolAvatar name={school.schoolName} websiteUrl={school.websiteUrl} />
+}
+
+export function SchoolIdentity({
   school,
   layout = "table",
+  onOpen,
 }: {
   school: School
   layout?: "table" | "mobile"
+  onOpen: (schoolId: string) => void
 }) {
   const isMobile = layout === "mobile"
 
   return (
-    <a
-      aria-label={`Open ${school.name} website`}
+    <button
+      aria-label={`Open ${school.schoolName} details`}
       className={cn(
-        "group/school flex min-w-0 items-center gap-3 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        isMobile && "flex-1"
+        "group/school flex min-w-0 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        isMobile && "flex-1",
       )}
-      href={school.websiteUrl}
-      rel="noreferrer"
-      target="_blank"
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpen(school.id)
+      }}
+      type="button"
     >
       <SchoolLogo school={school} />
       <span className="flex min-w-0 flex-col gap-1">
@@ -57,17 +107,32 @@ export function SchoolLink({
           )}
         >
           <span className={isMobile ? "leading-tight" : "truncate"}>
-            {school.name}
+            {school.schoolName}
           </span>
-          <ExternalLink
-            aria-hidden="true"
-            className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover/school:opacity-100 group-focus-visible/school:opacity-100"
-          />
         </span>
         <span className="truncate text-xs text-muted-foreground">
           {school.location}
         </span>
       </span>
+    </button>
+  )
+}
+
+export function SchoolWebsiteLink({ school }: { school: School }) {
+  if (!school.websiteUrl) {
+    return null
+  }
+
+  return (
+    <a
+      aria-label={`Open ${school.schoolName} website`}
+      className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      href={school.websiteUrl}
+      onClick={(event) => event.stopPropagation()}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <ExternalLink aria-hidden="true" className="size-4" />
     </a>
   )
 }
@@ -81,13 +146,19 @@ export function ListTypeBadge({ listType }: { listType: ListType }) {
 }
 
 export function DeadlineValue({ school }: { school: School }) {
-  if (school.deadlineUrgency === "close") {
-    return <Badge variant="error">{school.nextDeadline}</Badge>
+  const deadline = formatDeadline(school.deadline)
+
+  if (getDeadlineUrgency(school.deadline) === "close") {
+    return <Badge variant="error">{deadline}</Badge>
+  }
+
+  if (!school.deadline) {
+    return <span className="text-sm text-muted-foreground">{deadline}</span>
   }
 
   return (
     <span className="text-sm text-foreground tabular-nums">
-      {school.nextDeadline}
+      {deadline}
     </span>
   )
 }

@@ -22,6 +22,7 @@ export const workspaceKeys = {
     all: () => [...workspaceKeys.all, "honors"] as const,
     list: () => [...workspaceKeys.honors.all(), "list"] as const,
   },
+  schoolSearchAll: () => [...workspaceKeys.all, "schools", "search"] as const,
   schoolSearch: (q: string) =>
-    [...workspaceKeys.all, "schools", "search", q.trim()] as const,
+    [...workspaceKeys.schoolSearchAll(), q.trim()] as const,
 }

@@ -7,7 +7,8 @@ import {
   EssaysValue,
   ListTypeBadge,
   ProgressValue,
-  SchoolLink,
+  SchoolIdentity,
+  SchoolWebsiteLink,
   StatusBadge,
 } from "@/features/schools/school-cells"
 
@@ -26,12 +27,36 @@ function MobileMetric({
   )
 }
 
-function SchoolMobileCard({ school }: { school: School }) {
+function SchoolMobileCard({
+  onOpenSchool,
+  school,
+}: {
+  onOpenSchool: (schoolId: string) => void
+  school: School
+}) {
   return (
-    <article className="rounded-xl border bg-card p-4 shadow-xs">
+    <article
+      className="rounded-xl border bg-card p-4 shadow-xs"
+      onClick={() => onOpenSchool(school.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onOpenSchool(school.id)
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <div className="flex items-start justify-between gap-3">
-        <SchoolLink layout="mobile" school={school} />
-        <StatusBadge status={school.status} />
+        <SchoolIdentity
+          layout="mobile"
+          onOpen={onOpenSchool}
+          school={school}
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusBadge status={school.status} />
+          <SchoolWebsiteLink school={school} />
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
@@ -55,7 +80,13 @@ function SchoolMobileCard({ school }: { school: School }) {
   )
 }
 
-export function SchoolMobileList({ schools }: { schools: School[] }) {
+export function SchoolMobileList({
+  onOpenSchool,
+  schools,
+}: {
+  onOpenSchool: (schoolId: string) => void
+  schools: School[]
+}) {
   return (
     <div className="flex flex-col gap-3 md:hidden">
       {schools.length === 0 ? (
@@ -64,7 +95,11 @@ export function SchoolMobileList({ schools }: { schools: School[] }) {
         </div>
       ) : (
         schools.map((school) => (
-          <SchoolMobileCard key={school.id} school={school} />
+          <SchoolMobileCard
+            key={school.id}
+            onOpenSchool={onOpenSchool}
+            school={school}
+          />
         ))
       )}
     </div>

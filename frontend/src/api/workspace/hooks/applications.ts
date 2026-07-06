@@ -19,6 +19,7 @@ import {
   replaceTempById,
 } from "@/api/workspace/optimistic"
 import type {
+  ApplicationCreate,
   ApplicationDetail,
   ApplicationPatch,
   ApplicationView,
@@ -28,6 +29,10 @@ import type { Snapshot, TempSnapshot } from "@/api/workspace/hooks/shared"
 
 type ApplicationUpdateSnapshot = Snapshot<ApplicationView[]> & {
   previousDetail: ApplicationDetail | undefined
+}
+
+type AddApplicationVariables = ApplicationCreate & {
+  optimisticSchool?: SchoolSearchResult
 }
 
 export function useSchoolSearch(query: string, limit = 8) {
@@ -55,7 +60,11 @@ export function useApplication(applicationId: string | null) {
 
 export function useAddApplication() {
   return useMutation({
-    mutationFn: addApplication,
+    mutationFn: (variables: AddApplicationVariables) => {
+      const { optimisticSchool, ...input } = variables
+      void optimisticSchool
+      return addApplication(input)
+    },
     onMutate: async (input, context): Promise<TempSnapshot<ApplicationView[]>> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.applications.list(),
@@ -63,7 +72,7 @@ export function useAddApplication() {
       const previous = context.client.getQueryData<ApplicationView[]>(
         workspaceKeys.applications.list(),
       )
-      const optimistic = tempApplication(input)
+      const optimistic = tempApplication(input, input.optimisticSchool)
       context.client.setQueryData<ApplicationView[]>(
         workspaceKeys.applications.list(),
         (current) => insertAtStart(current, optimistic),
@@ -79,10 +88,22 @@ export function useAddApplication() {
         workspaceKeys.applications.list(),
         (current) => replaceTempById(current, snapshot.tempId, result.application),
       )
+      context.client.setQueriesData<SchoolSearchResult[]>(
+        { queryKey: workspaceKeys.schoolSearchAll() },
+        (current) =>
+          current?.map((school) =>
+            school.unitid === result.application.school_unitid
+              ? { ...school, on_list: true }
+              : school,
+          ),
+      )
     },
     onSettled: (_data, _error, _input, _snapshot, context) => {
       void context.client.invalidateQueries({
         queryKey: workspaceKeys.applications.list(),
+      })
+      void context.client.invalidateQueries({
+        queryKey: workspaceKeys.schoolSearchAll(),
       })
       void context.client.invalidateQueries({ queryKey: workspaceKeys.tasks.list() })
       void context.client.invalidateQueries({ queryKey: workspaceKeys.essays.list() })

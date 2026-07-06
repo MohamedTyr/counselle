@@ -1,5 +1,10 @@
 import type { School } from "@/domain/school"
 import {
+  formatDeadline,
+  getDeadlineUrgency,
+  getDeadlineTime,
+} from "@/features/schools/schools-deadline"
+import {
   filterSchools,
   isDeadlineSoon,
   matchesListTypeFilter,
@@ -16,21 +21,24 @@ function school(overrides: Partial<School> & Pick<School, "id">): School {
 
   return {
     id,
-    name: `School ${id}`,
-    shortName: id.slice(0, 2).toUpperCase(),
+    unitid: 1,
+    schoolName: `School ${id}`,
     location: "Somewhere, US",
     websiteUrl: "https://example.edu",
-    logoUrl: "https://example.edu/favicon.ico",
     status: "Considering",
     listType: "Target",
     round: "RD",
-    nextDeadline: "Jan 5, 2027",
-    nextDeadlineDate: "2027-01-05",
-    deadlineUrgency: "normal",
+    deadline: "2027-01-05",
     progress: { completed: 0, total: 0 },
     essays: { completed: 0, total: 0 },
     ...rest,
   }
+}
+
+function dateDaysFromNow(days: number) {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
 }
 
 describe("school filtering", () => {
@@ -41,13 +49,13 @@ describe("school filtering", () => {
       id: "close",
       status: "Considering",
       listType: "Safety",
-      deadlineUrgency: "close",
+      deadline: dateDaysFromNow(5),
     }),
     school({
       id: "upcoming",
       status: "Considering",
       listType: "Safety",
-      deadlineUrgency: "upcoming",
+      deadline: dateDaysFromNow(30),
     }),
   ]
 
@@ -93,6 +101,26 @@ describe("school filtering", () => {
   })
 })
 
+describe("school deadline derivations", () => {
+  const referenceDate = new Date("2026-07-06T12:00:00Z")
+
+  it("formats missing and present deadlines", () => {
+    expect(formatDeadline(null)).toBe("No deadline")
+    expect(formatDeadline("2027-01-05")).toContain("2027")
+  })
+
+  it("derives urgency from deadline distance", () => {
+    expect(getDeadlineUrgency("2026-07-12", referenceDate)).toBe("close")
+    expect(getDeadlineUrgency("2026-08-12", referenceDate)).toBe("upcoming")
+    expect(getDeadlineUrgency("2027-01-05", referenceDate)).toBe("normal")
+    expect(getDeadlineUrgency(null, referenceDate)).toBe("normal")
+  })
+
+  it("sorts missing deadlines last", () => {
+    expect(getDeadlineTime(null)).toBe(Number.POSITIVE_INFINITY)
+  })
+})
+
 describe("school progress derivations", () => {
   it("returns a zero ratio when there is no total", () => {
     expect(getProgressRatio({ completed: 0, total: 0 })).toBe(0)
@@ -116,25 +144,22 @@ describe("school sorting", () => {
   const schools = [
     school({
       id: "b-late",
-      name: "Beta University",
-      nextDeadline: "Mar 1, 2027",
-      nextDeadlineDate: "2027-03-01",
+      schoolName: "Beta University",
+      deadline: "2027-03-01",
       status: "Submitted",
       progress: { completed: 1, total: 4 },
     }),
     school({
       id: "a-early",
-      name: "Alpha College",
-      nextDeadline: "Jan 5, 2027",
-      nextDeadlineDate: "2027-01-05",
+      schoolName: "Alpha College",
+      deadline: "2027-01-05",
       status: "Applying",
       progress: { completed: 3, total: 4 },
     }),
     school({
       id: "c-mid",
-      name: "Gamma Institute",
-      nextDeadline: "Feb 1, 2027",
-      nextDeadlineDate: "2027-02-01",
+      schoolName: "Gamma Institute",
+      deadline: "2027-02-01",
       status: "Considering",
       progress: { completed: 2, total: 4 },
     }),
@@ -171,8 +196,8 @@ describe("school sorting", () => {
 
   it("falls back to name order when the column values tie", () => {
     const tied = [
-      school({ id: "z", name: "Zeta", status: "Applying" }),
-      school({ id: "a", name: "Aria", status: "Applying" }),
+      school({ id: "z", schoolName: "Zeta", status: "Applying" }),
+      school({ id: "a", schoolName: "Aria", status: "Applying" }),
     ]
 
     expect(

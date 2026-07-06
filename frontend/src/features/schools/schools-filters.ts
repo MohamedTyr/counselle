@@ -1,12 +1,14 @@
 import type { School } from "@/domain/school"
+import { getDeadlineUrgency } from "@/features/schools/schools-deadline"
 import type {
   ListTypeFilter,
   ViewFilter,
 } from "@/features/schools/schools-types"
 
 export function isDeadlineSoon(school: School) {
+  const deadlineUrgency = getDeadlineUrgency(school.deadline)
   return (
-    school.deadlineUrgency === "close" || school.deadlineUrgency === "upcoming"
+    deadlineUrgency === "close" || deadlineUrgency === "upcoming"
   )
 }
 

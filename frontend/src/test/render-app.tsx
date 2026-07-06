@@ -165,8 +165,9 @@ export type WorkspaceFetchPreset = Partial<{
 export function createWorkspaceFetchPreset(
   preset: WorkspaceFetchPreset = {},
 ): FetchHandler {
+  let applications = preset.applications ?? [workspaceApplicationFixture]
+  let archivedApplications: ApplicationView[] = []
   const data = {
-    applications: preset.applications ?? [workspaceApplicationFixture],
     schoolSearch: preset.schoolSearch ?? [workspaceSchoolSearchFixture],
     tasks: preset.tasks ?? [workspaceTaskFixture],
     essays: preset.essays ?? [workspaceEssayFixture],
@@ -177,12 +178,79 @@ export function createWorkspaceFetchPreset(
   return (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.includes("/v1/schools/search")) return jsonResponse(data.schoolSearch)
-    if (url.endsWith("/v1/applications")) return jsonResponse(data.applications)
+    if (url.endsWith("/v1/applications")) {
+      if (init?.method === "POST") {
+        const inputBody = JSON.parse(String(init.body ?? "{}"))
+        const searchResult = data.schoolSearch.find(
+          (school) => school.unitid === inputBody.unitid,
+        )
+        const application: ApplicationView = {
+          ...workspaceApplicationFixture,
+          id: "10000000-0000-4000-8000-000000000099",
+          school_unitid: inputBody.unitid,
+          school_name: searchResult?.name ?? "Added School",
+          school_city: searchResult?.city ?? null,
+          school_state: searchResult?.state ?? null,
+          website_url: searchResult?.website_url ?? null,
+          list_type: inputBody.list_type,
+          round: inputBody.round,
+          deadline: inputBody.deadline ?? null,
+        }
+        applications = [application, ...applications]
+        return jsonResponse({
+          application,
+          seeded: { task_ids: [], essay_ids: [] },
+        })
+      }
+
+      return jsonResponse(applications)
+    }
     if (url.includes("/v1/applications/")) {
-      if (init?.method === "DELETE") return emptyResponse()
-      if (url.endsWith("/restore")) return emptyResponse()
+      const applicationId = url.split("/v1/applications/")[1]?.split("/")[0]
+      if (init?.method === "DELETE") {
+        const archivedApplication = applications.find(
+          (application) => application.id === applicationId,
+        )
+        applications = applications.filter((application) => application.id !== applicationId)
+        if (archivedApplication) {
+          archivedApplications = [
+            { ...archivedApplication, archived_at: new Date().toISOString() },
+            ...archivedApplications.filter(
+              (application) => application.id !== applicationId,
+            ),
+          ]
+        }
+        return emptyResponse()
+      }
+      if (url.endsWith("/restore")) {
+        const restoredApplication = archivedApplications.find(
+          (application) => application.id === applicationId,
+        )
+        if (restoredApplication) {
+          applications = [
+            { ...restoredApplication, archived_at: null },
+            ...applications.filter((application) => application.id !== applicationId),
+          ]
+          archivedApplications = archivedApplications.filter(
+            (application) => application.id !== applicationId,
+          )
+        }
+        return emptyResponse()
+      }
+      if (init?.method === "PATCH") {
+        const patch = JSON.parse(String(init.body ?? "{}"))
+        applications = applications.map((application) =>
+          application.id === applicationId ? { ...application, ...patch } : application,
+        )
+        return jsonResponse(
+          applications.find((application) => application.id === applicationId) ??
+            applications[0],
+        )
+      }
+      const application =
+        applications.find((item) => item.id === applicationId) ?? applications[0]
       return jsonResponse({
-        application: data.applications[0],
+        application,
         tasks: data.tasks,
         essays: data.essays,
       })
@@ -266,6 +334,33 @@ export function defaultAuthenticatedFetch(
   if (url.endsWith("/v1/auth/logout") && init?.method === "POST") {
     return emptyResponse()
   }
+  if (url.includes("/v1/schools/search")) {
+    return jsonResponse([workspaceSchoolSearchFixture])
+  }
+  if (url.endsWith("/v1/applications")) {
+    return jsonResponse([workspaceApplicationFixture])
+  }
+  if (url.includes("/v1/applications/")) {
+    if (init?.method === "DELETE") return emptyResponse()
+    if (url.endsWith("/restore")) return emptyResponse()
+    if (init?.method === "PATCH") {
+      return jsonResponse({
+        ...workspaceApplicationFixture,
+        ...JSON.parse(String(init.body ?? "{}")),
+      })
+    }
+    return jsonResponse({
+      application: workspaceApplicationFixture,
+      tasks: [workspaceTaskFixture],
+      essays: [workspaceEssayFixture],
+    })
+  }
+  if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture])
+  if (url.endsWith("/v1/essays")) return jsonResponse([workspaceEssayFixture])
+  if (url.endsWith("/v1/activities")) {
+    return jsonResponse([workspaceActivityFixture])
+  }
+  if (url.endsWith("/v1/honors")) return jsonResponse([workspaceHonorFixture])
   return jsonResponse({})
 }
 
@@ -282,7 +377,7 @@ function createDefaultAuthenticatedFetch() {
       loggedOut = true
       return emptyResponse()
     }
-    return jsonResponse({})
+    return defaultAuthenticatedFetch(input, init)
   }
 }
 

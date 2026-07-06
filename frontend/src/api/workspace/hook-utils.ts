@@ -12,6 +12,7 @@ import type {
   EssaySummary,
   Honor,
   HonorCreate,
+  SchoolSearchResult,
   Task,
   TaskCreate,
 } from "@/api/workspace/types"
@@ -50,16 +51,19 @@ export function handleMutationError(
   toast.error(workspaceErrorMessage(error))
 }
 
-export function tempApplication(input: ApplicationCreate): ApplicationView {
+export function tempApplication(
+  input: ApplicationCreate,
+  school?: SchoolSearchResult,
+): ApplicationView {
   const timestamp = nowIso()
   return {
     id: `temp-${crypto.randomUUID()}`,
     user_id: "optimistic",
     school_unitid: input.unitid,
-    school_name: `School ${input.unitid}`,
-    school_city: null,
-    school_state: null,
-    website_url: null,
+    school_name: school?.name ?? `School ${input.unitid}`,
+    school_city: school?.city ?? null,
+    school_state: school?.state ?? null,
+    website_url: school?.website_url ?? null,
     status: "Considering",
     list_type: input.list_type,
     round: input.round,
