@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query";
 
 import {
   archiveActivity,
@@ -13,22 +13,33 @@ import {
   restoreHonor,
   updateActivity,
   updateHonor,
-} from "@/api/workspace/activities"
-import { tempActivity, tempHonor } from "@/api/workspace/hook-utils"
+} from "@/api/workspace/activities";
+import { tempActivity, tempHonor } from "@/api/workspace/hook-utils";
 import {
   useArchiveFromList,
   useCreateInList,
+  useQueuedUpdateInList,
   useReorderList,
   useRestoreToList,
-  useUpdateInList,
-} from "@/api/workspace/hooks/shared"
-import { workspaceKeys } from "@/api/workspace/keys"
+} from "@/api/workspace/hooks/shared";
+import { workspaceKeys } from "@/api/workspace/keys";
+import type { Activity, Honor } from "@/api/workspace/types";
+
+function insertBySortOrder<TItem extends { id: string; sort_order: number }>(
+  current: TItem[] | undefined,
+  item: TItem,
+) {
+  return [
+    item,
+    ...(current ?? []).filter((entry) => entry.id !== item.id),
+  ].sort((a, b) => a.sort_order - b.sort_order);
+}
 
 export function useActivities() {
   return useQuery({
     queryKey: workspaceKeys.activities.list(),
     queryFn: listActivities,
-  })
+  });
 }
 
 export function useCreateActivity() {
@@ -36,27 +47,35 @@ export function useCreateActivity() {
     workspaceKeys.activities.list(),
     createActivity,
     (input, current) => tempActivity(input, (current?.length ?? 0) + 1),
-  )
+  );
 }
 
 export function useUpdateActivity() {
-  return useUpdateInList(workspaceKeys.activities.list(), updateActivity)
+  return useQueuedUpdateInList(workspaceKeys.activities.list(), updateActivity);
 }
 
 export function useArchiveActivity() {
-  return useArchiveFromList(workspaceKeys.activities.list(), archiveActivity)
+  return useArchiveFromList(workspaceKeys.activities.list(), archiveActivity);
 }
 
 export function useRestoreActivity() {
-  return useRestoreToList(workspaceKeys.activities.list(), restoreActivity)
+  return useRestoreToList<Activity>(
+    workspaceKeys.activities.list(),
+    restoreActivity,
+    [],
+    insertBySortOrder,
+  );
 }
 
 export function useReorderActivities() {
-  return useReorderList(workspaceKeys.activities.list(), reorderActivities)
+  return useReorderList(workspaceKeys.activities.list(), reorderActivities);
 }
 
 export function useHonors() {
-  return useQuery({ queryKey: workspaceKeys.honors.list(), queryFn: listHonors })
+  return useQuery({
+    queryKey: workspaceKeys.honors.list(),
+    queryFn: listHonors,
+  });
 }
 
 export function useCreateHonor() {
@@ -64,21 +83,26 @@ export function useCreateHonor() {
     workspaceKeys.honors.list(),
     createHonor,
     (input, current) => tempHonor(input, (current?.length ?? 0) + 1),
-  )
+  );
 }
 
 export function useUpdateHonor() {
-  return useUpdateInList(workspaceKeys.honors.list(), updateHonor)
+  return useQueuedUpdateInList(workspaceKeys.honors.list(), updateHonor);
 }
 
 export function useArchiveHonor() {
-  return useArchiveFromList(workspaceKeys.honors.list(), archiveHonor)
+  return useArchiveFromList(workspaceKeys.honors.list(), archiveHonor);
 }
 
 export function useRestoreHonor() {
-  return useRestoreToList(workspaceKeys.honors.list(), restoreHonor)
+  return useRestoreToList<Honor>(
+    workspaceKeys.honors.list(),
+    restoreHonor,
+    [],
+    insertBySortOrder,
+  );
 }
 
 export function useReorderHonors() {
-  return useReorderList(workspaceKeys.honors.list(), reorderHonors)
+  return useReorderList(workspaceKeys.honors.list(), reorderHonors);
 }

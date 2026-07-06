@@ -1,10 +1,10 @@
-import { render } from "@testing-library/react"
-import { vi } from "vitest"
+import { render } from "@testing-library/react";
+import { vi } from "vitest";
 
-import App from "@/App"
-import { createAppRouter } from "@/app/router"
-import { createQueryClient } from "@/app/query-client"
-import type { MeData } from "@/api/http/auth"
+import App from "@/App";
+import { createAppRouter } from "@/app/router";
+import { createQueryClient } from "@/app/query-client";
+import type { MeData } from "@/api/http/auth";
 import type {
   Activity,
   ApplicationView,
@@ -14,7 +14,7 @@ import type {
   Honor,
   SchoolSearchResult,
   Task,
-} from "@/api/workspace/types"
+} from "@/api/workspace/types";
 
 export const authUserFixture: MeData = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -23,16 +23,23 @@ export const authUserFixture: MeData = {
   has_password: true,
   google_connected: false,
   settings: {},
-}
+};
 
-type FetchHandler = (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>
+type FetchHandler = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Response | Promise<Response>;
 
 type RenderAppOptions = {
-  fetchHandler?: FetchHandler
+  fetchHandler?: FetchHandler;
+};
+
+function sortBySortOrder<TItem extends { sort_order: number }>(items: TItem[]) {
+  return [...items].sort((a, b) => a.sort_order - b.sort_order);
 }
 
 export function createTestQueryClient() {
-  return createQueryClient()
+  return createQueryClient();
 }
 
 export function jsonResponse(body: unknown, init?: ResponseInit) {
@@ -43,11 +50,11 @@ export function jsonResponse(body: unknown, init?: ResponseInit) {
       "Content-Type": "application/json",
       ...init?.headers,
     },
-  })
+  });
 }
 
 export function emptyResponse(init?: ResponseInit) {
-  return new Response(null, { status: 204, ...init })
+  return new Response(null, { status: 204, ...init });
 }
 
 export const workspaceApplicationFixture: ApplicationView = {
@@ -67,7 +74,7 @@ export const workspaceApplicationFixture: ApplicationView = {
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
-}
+};
 
 export const workspaceSchoolSearchFixture: SchoolSearchResult = {
   unitid: 166027,
@@ -76,7 +83,7 @@ export const workspaceSchoolSearchFixture: SchoolSearchResult = {
   state: "MA",
   website_url: "https://www.harvard.edu",
   on_list: false,
-}
+};
 
 export const workspaceTaskFixture: Task = {
   id: "20000000-0000-4000-8000-000000000001",
@@ -98,7 +105,7 @@ export const workspaceTaskFixture: Task = {
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
-}
+};
 
 export const workspaceEssayFixture: EssaySummary = {
   id: "30000000-0000-4000-8000-000000000001",
@@ -121,7 +128,7 @@ export const workspaceEssayFixture: EssaySummary = {
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
-}
+};
 
 export const workspaceEssayDetailFixture: Essay = {
   ...workspaceEssayFixture,
@@ -141,7 +148,7 @@ export const workspaceEssayDetailFixture: Essay = {
   },
   comments: [],
   suggestions: [],
-}
+};
 
 export const workspaceActivityFixture: Activity = {
   id: "40000000-0000-4000-8000-000000000001",
@@ -160,7 +167,7 @@ export const workspaceActivityFixture: Activity = {
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
-}
+};
 
 export const workspaceHonorFixture: Honor = {
   id: "50000000-0000-4000-8000-000000000001",
@@ -172,48 +179,51 @@ export const workspaceHonorFixture: Honor = {
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
-}
+};
 
 export type WorkspaceFetchPreset = Partial<{
-  applications: ApplicationView[]
-  schoolSearch: SchoolSearchResult[]
-  tasks: Task[]
-  essays: EssaySummary[]
-  essayDetails: Essay[]
-  activities: Activity[]
-  honors: Honor[]
-}>
+  applications: ApplicationView[];
+  schoolSearch: SchoolSearchResult[];
+  tasks: Task[];
+  essays: EssaySummary[];
+  essayDetails: Essay[];
+  activities: Activity[];
+  honors: Honor[];
+}>;
 
 export function createWorkspaceFetchPreset(
   preset: WorkspaceFetchPreset = {},
 ): FetchHandler {
-  let applications = preset.applications ?? [workspaceApplicationFixture]
-  let archivedApplications: ApplicationView[] = []
-  let tasks = preset.tasks ?? [workspaceTaskFixture]
-  let archivedTasks: Task[] = []
-  let essays = preset.essays ?? [workspaceEssayFixture]
+  let applications = preset.applications ?? [workspaceApplicationFixture];
+  let archivedApplications: ApplicationView[] = [];
+  let tasks = preset.tasks ?? [workspaceTaskFixture];
+  let archivedTasks: Task[] = [];
+  let essays = preset.essays ?? [workspaceEssayFixture];
   const essayDetails = new Map<string, Essay>(
     (preset.essayDetails ?? [workspaceEssayDetailFixture]).map((essay) => [
       essay.id,
       essay,
     ]),
-  )
-  let archivedEssays: Essay[] = []
+  );
+  let archivedEssays: Essay[] = [];
+  let activities = preset.activities ?? [workspaceActivityFixture];
+  let archivedActivities: Activity[] = [];
+  let honors = preset.honors ?? [workspaceHonorFixture];
+  let archivedHonors: Honor[] = [];
   const data = {
     schoolSearch: preset.schoolSearch ?? [workspaceSchoolSearchFixture],
-    activities: preset.activities ?? [workspaceActivityFixture],
-    honors: preset.honors ?? [workspaceHonorFixture],
-  }
+  };
 
   return (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    if (url.includes("/v1/schools/search")) return jsonResponse(data.schoolSearch)
+    const url = String(input);
+    if (url.includes("/v1/schools/search"))
+      return jsonResponse(data.schoolSearch);
     if (url.endsWith("/v1/applications")) {
       if (init?.method === "POST") {
-        const inputBody = JSON.parse(String(init.body ?? "{}"))
+        const inputBody = JSON.parse(String(init.body ?? "{}"));
         const searchResult = data.schoolSearch.find(
           (school) => school.unitid === inputBody.unitid,
-        )
+        );
         const application: ApplicationView = {
           ...workspaceApplicationFixture,
           id: "10000000-0000-4000-8000-000000000099",
@@ -225,102 +235,112 @@ export function createWorkspaceFetchPreset(
           list_type: inputBody.list_type,
           round: inputBody.round,
           deadline: inputBody.deadline ?? null,
-        }
-        applications = [application, ...applications]
+        };
+        applications = [application, ...applications];
         return jsonResponse({
           application,
           seeded: { task_ids: [], essay_ids: [] },
-        })
+        });
       }
 
-      return jsonResponse(applications)
+      return jsonResponse(applications);
     }
     if (url.includes("/v1/applications/")) {
-      const applicationId = url.split("/v1/applications/")[1]?.split("/")[0]
+      const applicationId = url.split("/v1/applications/")[1]?.split("/")[0];
       if (init?.method === "DELETE") {
         const archivedApplication = applications.find(
           (application) => application.id === applicationId,
-        )
-        applications = applications.filter((application) => application.id !== applicationId)
+        );
+        applications = applications.filter(
+          (application) => application.id !== applicationId,
+        );
         if (archivedApplication) {
           archivedApplications = [
             { ...archivedApplication, archived_at: new Date().toISOString() },
             ...archivedApplications.filter(
               (application) => application.id !== applicationId,
             ),
-          ]
+          ];
         }
-        return emptyResponse()
+        return emptyResponse();
       }
       if (url.endsWith("/restore")) {
         const restoredApplication = archivedApplications.find(
           (application) => application.id === applicationId,
-        )
+        );
         if (restoredApplication) {
           applications = [
             { ...restoredApplication, archived_at: null },
-            ...applications.filter((application) => application.id !== applicationId),
-          ]
+            ...applications.filter(
+              (application) => application.id !== applicationId,
+            ),
+          ];
           archivedApplications = archivedApplications.filter(
             (application) => application.id !== applicationId,
-          )
+          );
         }
-        return emptyResponse()
+        return emptyResponse();
       }
       if (init?.method === "PATCH") {
-        const patch = JSON.parse(String(init.body ?? "{}"))
+        const patch = JSON.parse(String(init.body ?? "{}"));
         applications = applications.map((application) =>
-          application.id === applicationId ? { ...application, ...patch } : application,
-        )
+          application.id === applicationId
+            ? { ...application, ...patch }
+            : application,
+        );
         return jsonResponse(
-          applications.find((application) => application.id === applicationId) ??
-            applications[0],
-        )
+          applications.find(
+            (application) => application.id === applicationId,
+          ) ?? applications[0],
+        );
       }
       const application =
-        applications.find((item) => item.id === applicationId) ?? applications[0]
+        applications.find((item) => item.id === applicationId) ??
+        applications[0];
       return jsonResponse({
         application,
         tasks,
         essays,
-      })
+      });
     }
     if (url.endsWith("/v1/tasks/bulk-status")) {
       const body = JSON.parse(String(init?.body ?? "{}")) as {
-        ids: string[]
-        status: Task["status"]
-      }
-      const movingIds = new Set(body.ids)
-      const timestamp = new Date().toISOString()
+        ids: string[];
+        status: Task["status"];
+      };
+      const movingIds = new Set(body.ids);
+      const timestamp = new Date().toISOString();
       tasks = tasks.map((task) =>
         movingIds.has(task.id)
           ? {
               ...task,
               status: body.status,
               completed_at:
-                body.status === "done" ? (task.completed_at ?? timestamp) : null,
+                body.status === "done"
+                  ? (task.completed_at ?? timestamp)
+                  : null,
             }
           : task,
-      )
-      return jsonResponse(tasks.filter((task) => movingIds.has(task.id)))
+      );
+      return jsonResponse(tasks.filter((task) => movingIds.has(task.id)));
     }
     if (url.endsWith("/v1/tasks/bulk-archive")) {
-      const body = JSON.parse(String(init?.body ?? "{}")) as { ids: string[] }
-      const removingIds = new Set(body.ids)
-      const timestamp = new Date().toISOString()
+      const body = JSON.parse(String(init?.body ?? "{}")) as { ids: string[] };
+      const removingIds = new Set(body.ids);
+      const timestamp = new Date().toISOString();
       const archived = tasks
         .filter((task) => removingIds.has(task.id))
-        .map((task) => ({ ...task, archived_at: timestamp }))
+        .map((task) => ({ ...task, archived_at: timestamp }));
       archivedTasks = [
         ...archived,
         ...archivedTasks.filter((task) => !removingIds.has(task.id)),
-      ]
-      tasks = tasks.filter((task) => !removingIds.has(task.id))
-      return jsonResponse(archived)
+      ];
+      tasks = tasks.filter((task) => !removingIds.has(task.id));
+      return jsonResponse(archived);
     }
     if (url.endsWith("/v1/tasks")) {
       if (init?.method === "POST") {
-        const body = JSON.parse(String(init.body ?? "{}"))
+        const body = JSON.parse(String(init.body ?? "{}"));
         const task: Task = {
           ...workspaceTaskFixture,
           id: crypto.randomUUID(),
@@ -338,54 +358,54 @@ export function createWorkspaceFetchPreset(
           reminder_at: body.reminder_at ?? null,
           completed_at: null,
           archived_via_application: null,
-        }
-        tasks = [task, ...tasks]
-        return jsonResponse(task)
+        };
+        tasks = [task, ...tasks];
+        return jsonResponse(task);
       }
 
-      return jsonResponse(tasks)
+      return jsonResponse(tasks);
     }
     if (url.includes("/v1/tasks/")) {
-      const taskId = url.split("/v1/tasks/")[1]?.split("/")[0]
+      const taskId = url.split("/v1/tasks/")[1]?.split("/")[0];
       if (init?.method === "DELETE") {
-        const archivedTask = tasks.find((task) => task.id === taskId)
-        tasks = tasks.filter((task) => task.id !== taskId)
+        const archivedTask = tasks.find((task) => task.id === taskId);
+        tasks = tasks.filter((task) => task.id !== taskId);
         if (archivedTask) {
           archivedTasks = [
             { ...archivedTask, archived_at: new Date().toISOString() },
             ...archivedTasks.filter((task) => task.id !== taskId),
-          ]
+          ];
         }
-        return emptyResponse()
+        return emptyResponse();
       }
       if (url.endsWith("/restore")) {
-        const restoredTask = archivedTasks.find((task) => task.id === taskId)
+        const restoredTask = archivedTasks.find((task) => task.id === taskId);
         if (restoredTask) {
-          const restored = { ...restoredTask, archived_at: null }
-          tasks = [restored, ...tasks.filter((task) => task.id !== taskId)]
-          archivedTasks = archivedTasks.filter((task) => task.id !== taskId)
-          return jsonResponse(restored)
+          const restored = { ...restoredTask, archived_at: null };
+          tasks = [restored, ...tasks.filter((task) => task.id !== taskId)];
+          archivedTasks = archivedTasks.filter((task) => task.id !== taskId);
+          return jsonResponse(restored);
         }
-        return jsonResponse(tasks[0])
+        return jsonResponse(tasks[0]);
       }
       if (init?.method === "PATCH") {
-        const patch = JSON.parse(String(init.body ?? "{}"))
+        const patch = JSON.parse(String(init.body ?? "{}"));
         tasks = tasks.map((task) =>
           task.id === taskId ? { ...task, ...patch } : task,
-        )
+        );
         return jsonResponse(
           tasks.find((task) => task.id === taskId) ?? tasks[0],
-        )
+        );
       }
-      return jsonResponse(tasks.find((task) => task.id === taskId) ?? tasks[0])
+      return jsonResponse(tasks.find((task) => task.id === taskId) ?? tasks[0]);
     }
     if (url.endsWith("/v1/essays")) {
       if (init?.method === "POST") {
-        const body = JSON.parse(String(init.body ?? "{}"))
-        const now = new Date().toISOString()
+        const body = JSON.parse(String(init.body ?? "{}"));
+        const now = new Date().toISOString();
         const application = applications.find(
           (item) => item.id === (body.application_id ?? null),
-        )
+        );
         const essay: Essay = {
           ...workspaceEssayDetailFixture,
           id: crypto.randomUUID(),
@@ -403,46 +423,51 @@ export function createWorkspaceFetchPreset(
           school_city: application?.school_city ?? null,
           school_state: application?.school_state ?? null,
           deadline: application?.deadline ?? null,
-          content: body.content ?? { type: "doc", content: [{ type: "paragraph" }] },
+          content: body.content ?? {
+            type: "doc",
+            content: [{ type: "paragraph" }],
+          },
           comments: [],
           suggestions: [],
           created_at: now,
           updated_at: now,
           archived_at: null,
-        }
-        essayDetails.set(essay.id, essay)
-        essays = [essay, ...essays]
-        return jsonResponse(essay)
+        };
+        essayDetails.set(essay.id, essay);
+        essays = [essay, ...essays];
+        return jsonResponse(essay);
       }
 
-      return jsonResponse(essays)
+      return jsonResponse(essays);
     }
     if (url.includes("/v1/essays/")) {
-      const essayId = url.split("/v1/essays/")[1]?.split("/")[0] ?? ""
+      const essayId = url.split("/v1/essays/")[1]?.split("/")[0] ?? "";
       if (init?.method === "DELETE") {
-        const archived = essayDetails.get(essayId)
-        essays = essays.filter((essay) => essay.id !== essayId)
+        const archived = essayDetails.get(essayId);
+        essays = essays.filter((essay) => essay.id !== essayId);
         if (archived) {
           archivedEssays = [
             { ...archived, archived_at: new Date().toISOString() },
             ...archivedEssays.filter((essay) => essay.id !== essayId),
-          ]
+          ];
         }
-        return emptyResponse()
+        return emptyResponse();
       }
       if (url.endsWith("/restore")) {
-        const restored = archivedEssays.find((essay) => essay.id === essayId)
+        const restored = archivedEssays.find((essay) => essay.id === essayId);
         if (restored) {
-          const active = { ...restored, archived_at: null }
-          essayDetails.set(essayId, active)
-          essays = [active, ...essays.filter((essay) => essay.id !== essayId)]
-          archivedEssays = archivedEssays.filter((essay) => essay.id !== essayId)
-          return jsonResponse(active)
+          const active = { ...restored, archived_at: null };
+          essayDetails.set(essayId, active);
+          essays = [active, ...essays.filter((essay) => essay.id !== essayId)];
+          archivedEssays = archivedEssays.filter(
+            (essay) => essay.id !== essayId,
+          );
+          return jsonResponse(active);
         }
-        return jsonResponse(essays[0])
+        return jsonResponse(essays[0]);
       }
       if (url.endsWith("/duplicate")) {
-        const source = essayDetails.get(essayId) ?? workspaceEssayDetailFixture
+        const source = essayDetails.get(essayId) ?? workspaceEssayDetailFixture;
         const copy: Essay = {
           ...source,
           id: crypto.randomUUID(),
@@ -455,182 +480,349 @@ export function createWorkspaceFetchPreset(
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           archived_at: null,
-        }
-        essayDetails.set(copy.id, copy)
-        essays = [copy, ...essays]
-        return jsonResponse(copy)
+        };
+        essayDetails.set(copy.id, copy);
+        essays = [copy, ...essays];
+        return jsonResponse(copy);
       }
       if (init?.method === "PATCH") {
-        const patch = JSON.parse(String(init.body ?? "{}"))
-        const current = essayDetails.get(essayId) ?? workspaceEssayDetailFixture
+        const patch = JSON.parse(String(init.body ?? "{}"));
+        const current =
+          essayDetails.get(essayId) ?? workspaceEssayDetailFixture;
         const updated: Essay = {
           ...current,
           ...patch,
           updated_at: new Date().toISOString(),
-        }
-        essayDetails.set(essayId, updated)
-        essays = essays.map((essay) => (essay.id === essayId ? updated : essay))
-        return jsonResponse(updated)
+        };
+        essayDetails.set(essayId, updated);
+        essays = essays.map((essay) =>
+          essay.id === essayId ? updated : essay,
+        );
+        return jsonResponse(updated);
       }
-      return jsonResponse(essayDetails.get(essayId) ?? workspaceEssayDetailFixture)
+      return jsonResponse(
+        essayDetails.get(essayId) ?? workspaceEssayDetailFixture,
+      );
     }
-    if (url.endsWith("/v1/activities")) return jsonResponse(data.activities)
+    if (url.endsWith("/v1/activities")) {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body ?? "{}"));
+        const now = new Date().toISOString();
+        const activity: Activity = {
+          ...workspaceActivityFixture,
+          id: crypto.randomUUID(),
+          sort_order: activities.length + 1,
+          activity_type: body.activity_type ?? "",
+          position: body.position ?? "",
+          organization: body.organization ?? "",
+          description: body.description ?? "",
+          grades: body.grades ?? [],
+          timing: body.timing ?? [],
+          hours_per_week: body.hours_per_week ?? null,
+          weeks_per_year: body.weeks_per_year ?? null,
+          continue_in_college: body.continue_in_college ?? null,
+          story: body.story ?? null,
+          created_at: now,
+          updated_at: now,
+          archived_at: null,
+        };
+        activities = [...activities, activity];
+        return jsonResponse(activity);
+      }
+
+      return jsonResponse(activities);
+    }
+    if (url.endsWith("/v1/activities/order") && init?.method === "PUT") {
+      const body = JSON.parse(String(init.body ?? "{}")) as { ids: string[] };
+      const order = new Map(body.ids.map((id, index) => [id, index + 1]));
+      activities = body.ids
+        .map((id) => activities.find((activity) => activity.id === id))
+        .filter((activity): activity is Activity => Boolean(activity))
+        .map((activity) => ({
+          ...activity,
+          sort_order: order.get(activity.id) ?? activity.sort_order,
+        }));
+      return jsonResponse(activities);
+    }
     if (url.includes("/v1/activities/")) {
-      if (init?.method === "DELETE") return emptyResponse()
-      return jsonResponse(data.activities[0])
+      const activityId = url.split("/v1/activities/")[1]?.split("/")[0];
+      if (init?.method === "DELETE") {
+        const archived = activities.find(
+          (activity) => activity.id === activityId,
+        );
+        activities = activities.filter(
+          (activity) => activity.id !== activityId,
+        );
+        if (archived) {
+          archivedActivities = [
+            { ...archived, archived_at: new Date().toISOString() },
+            ...archivedActivities.filter(
+              (activity) => activity.id !== activityId,
+            ),
+          ];
+        }
+        return emptyResponse();
+      }
+      if (url.endsWith("/restore")) {
+        const restored = archivedActivities.find(
+          (activity) => activity.id === activityId,
+        );
+        if (restored) {
+          const active = { ...restored, archived_at: null };
+          activities = sortBySortOrder([
+            active,
+            ...activities.filter((activity) => activity.id !== activityId),
+          ]);
+          archivedActivities = archivedActivities.filter(
+            (activity) => activity.id !== activityId,
+          );
+          return jsonResponse(active);
+        }
+        return jsonResponse(activities[0]);
+      }
+      if (init?.method === "PATCH") {
+        const patch = JSON.parse(String(init.body ?? "{}"));
+        activities = activities.map((activity) =>
+          activity.id === activityId
+            ? { ...activity, ...patch, updated_at: new Date().toISOString() }
+            : activity,
+        );
+        return jsonResponse(
+          activities.find((activity) => activity.id === activityId) ??
+            activities[0],
+        );
+      }
+      return jsonResponse(
+        activities.find((activity) => activity.id === activityId) ??
+          activities[0],
+      );
     }
-    if (url.endsWith("/v1/honors")) return jsonResponse(data.honors)
+    if (url.endsWith("/v1/honors")) {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body ?? "{}"));
+        const now = new Date().toISOString();
+        const honor: Honor = {
+          ...workspaceHonorFixture,
+          id: crypto.randomUUID(),
+          sort_order: honors.length + 1,
+          title: body.title ?? "",
+          grades: body.grades ?? [],
+          levels: body.levels ?? [],
+          created_at: now,
+          updated_at: now,
+          archived_at: null,
+        };
+        honors = [...honors, honor];
+        return jsonResponse(honor);
+      }
+
+      return jsonResponse(honors);
+    }
+    if (url.endsWith("/v1/honors/order") && init?.method === "PUT") {
+      const body = JSON.parse(String(init.body ?? "{}")) as { ids: string[] };
+      const order = new Map(body.ids.map((id, index) => [id, index + 1]));
+      honors = body.ids
+        .map((id) => honors.find((honor) => honor.id === id))
+        .filter((honor): honor is Honor => Boolean(honor))
+        .map((honor) => ({
+          ...honor,
+          sort_order: order.get(honor.id) ?? honor.sort_order,
+        }));
+      return jsonResponse(honors);
+    }
     if (url.includes("/v1/honors/")) {
-      if (init?.method === "DELETE") return emptyResponse()
-      return jsonResponse(data.honors[0])
+      const honorId = url.split("/v1/honors/")[1]?.split("/")[0];
+      if (init?.method === "DELETE") {
+        const archived = honors.find((honor) => honor.id === honorId);
+        honors = honors.filter((honor) => honor.id !== honorId);
+        if (archived) {
+          archivedHonors = [
+            { ...archived, archived_at: new Date().toISOString() },
+            ...archivedHonors.filter((honor) => honor.id !== honorId),
+          ];
+        }
+        return emptyResponse();
+      }
+      if (url.endsWith("/restore")) {
+        const restored = archivedHonors.find((honor) => honor.id === honorId);
+        if (restored) {
+          const active = { ...restored, archived_at: null };
+          honors = sortBySortOrder([
+            active,
+            ...honors.filter((honor) => honor.id !== honorId),
+          ]);
+          archivedHonors = archivedHonors.filter(
+            (honor) => honor.id !== honorId,
+          );
+          return jsonResponse(active);
+        }
+        return jsonResponse(honors[0]);
+      }
+      if (init?.method === "PATCH") {
+        const patch = JSON.parse(String(init.body ?? "{}"));
+        honors = honors.map((honor) =>
+          honor.id === honorId
+            ? { ...honor, ...patch, updated_at: new Date().toISOString() }
+            : honor,
+        );
+        return jsonResponse(
+          honors.find((honor) => honor.id === honorId) ?? honors[0],
+        );
+      }
+      return jsonResponse(
+        honors.find((honor) => honor.id === honorId) ?? honors[0],
+      );
     }
-    return defaultAuthenticatedFetch(input, init)
-  }
+    return defaultAuthenticatedFetch(input, init);
+  };
 }
 
 export class MockWorkspaceEventSource {
-  static instances: MockWorkspaceEventSource[] = []
+  static instances: MockWorkspaceEventSource[] = [];
 
-  readonly listeners = new Map<string, Set<EventListener>>()
-  onerror: ((event: Event) => void) | null = null
-  readonly url: string
-  readonly withCredentials: boolean | undefined
-  closed = false
+  readonly listeners = new Map<string, Set<EventListener>>();
+  onerror: ((event: Event) => void) | null = null;
+  readonly url: string;
+  readonly withCredentials: boolean | undefined;
+  closed = false;
 
   constructor(url: string | URL, init?: EventSourceInit) {
-    this.url = String(url)
-    this.withCredentials = init?.withCredentials
-    MockWorkspaceEventSource.instances.push(this)
+    this.url = String(url);
+    this.withCredentials = init?.withCredentials;
+    MockWorkspaceEventSource.instances.push(this);
   }
 
   addEventListener(type: string, listener: EventListener) {
-    const listeners = this.listeners.get(type) ?? new Set<EventListener>()
-    listeners.add(listener)
-    this.listeners.set(type, listeners)
+    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
   }
 
   removeEventListener(type: string, listener: EventListener) {
-    this.listeners.get(type)?.delete(listener)
+    this.listeners.get(type)?.delete(listener);
   }
 
   close() {
-    this.closed = true
+    this.closed = true;
   }
 
   emit(type: ChangeEvent["type"], data: ChangeEvent) {
-    const event = new MessageEvent(type, { data: JSON.stringify(data) })
-    this.listeners.get(type)?.forEach((listener) => listener(event))
+    const event = new MessageEvent(type, { data: JSON.stringify(data) });
+    this.listeners.get(type)?.forEach((listener) => listener(event));
   }
 
   emitError() {
-    this.onerror?.(new Event("error"))
+    this.onerror?.(new Event("error"));
   }
 }
 
 export function installMockEventSource() {
-  MockWorkspaceEventSource.instances = []
-  vi.stubGlobal("EventSource", MockWorkspaceEventSource)
+  MockWorkspaceEventSource.instances = [];
+  vi.stubGlobal("EventSource", MockWorkspaceEventSource);
 }
 
 export function defaultAuthenticatedFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ) {
-  const url = String(input)
+  const url = String(input);
   if (url.endsWith("/v1/me")) {
-    return jsonResponse(authUserFixture)
+    return jsonResponse(authUserFixture);
   }
   if (url.endsWith("/v1/auth/logout") && init?.method === "POST") {
-    return emptyResponse()
+    return emptyResponse();
   }
   if (url.includes("/v1/schools/search")) {
-    return jsonResponse([workspaceSchoolSearchFixture])
+    return jsonResponse([workspaceSchoolSearchFixture]);
   }
   if (url.endsWith("/v1/applications")) {
-    return jsonResponse([workspaceApplicationFixture])
+    return jsonResponse([workspaceApplicationFixture]);
   }
   if (url.includes("/v1/applications/")) {
-    if (init?.method === "DELETE") return emptyResponse()
-    if (url.endsWith("/restore")) return emptyResponse()
+    if (init?.method === "DELETE") return emptyResponse();
+    if (url.endsWith("/restore")) return emptyResponse();
     if (init?.method === "PATCH") {
       return jsonResponse({
         ...workspaceApplicationFixture,
         ...JSON.parse(String(init.body ?? "{}")),
-      })
+      });
     }
     return jsonResponse({
       application: workspaceApplicationFixture,
       tasks: [workspaceTaskFixture],
       essays: [workspaceEssayFixture],
-    })
+    });
   }
-  if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture])
-  if (url.endsWith("/v1/essays")) return jsonResponse([workspaceEssayFixture])
+  if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture]);
+  if (url.endsWith("/v1/essays")) return jsonResponse([workspaceEssayFixture]);
   if (url.includes("/v1/essays/")) {
-    if (init?.method === "DELETE") return emptyResponse()
+    if (init?.method === "DELETE") return emptyResponse();
     if (url.endsWith("/restore") || url.endsWith("/duplicate")) {
-      return jsonResponse(workspaceEssayFixture)
+      return jsonResponse(workspaceEssayFixture);
     }
     if (init?.method === "PATCH") {
       return jsonResponse({
         ...workspaceEssayDetailFixture,
         ...JSON.parse(String(init.body ?? "{}")),
-      })
+      });
     }
-    return jsonResponse(workspaceEssayDetailFixture)
+    return jsonResponse(workspaceEssayDetailFixture);
   }
   if (url.endsWith("/v1/activities")) {
-    return jsonResponse([workspaceActivityFixture])
+    return jsonResponse([workspaceActivityFixture]);
   }
-  if (url.endsWith("/v1/honors")) return jsonResponse([workspaceHonorFixture])
-  return jsonResponse({})
+  if (url.endsWith("/v1/honors")) return jsonResponse([workspaceHonorFixture]);
+  return jsonResponse({});
 }
 
 function createDefaultAuthenticatedFetch() {
-  let loggedOut = false
+  let loggedOut = false;
   return (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
+    const url = String(input);
     if (url.endsWith("/v1/me")) {
       return loggedOut
         ? jsonResponse({ detail: "Unauthorized" }, { status: 401 })
-        : jsonResponse(authUserFixture)
+        : jsonResponse(authUserFixture);
     }
     if (url.endsWith("/v1/auth/logout") && init?.method === "POST") {
-      loggedOut = true
-      return emptyResponse()
+      loggedOut = true;
+      return emptyResponse();
     }
-    return defaultAuthenticatedFetch(input, init)
-  }
+    return defaultAuthenticatedFetch(input, init);
+  };
 }
 
 export function anonymousFetch(input: RequestInfo | URL) {
-  const url = String(input)
+  const url = String(input);
   if (url.endsWith("/v1/me")) {
-    return jsonResponse({ detail: "Unauthorized" }, { status: 401 })
+    return jsonResponse({ detail: "Unauthorized" }, { status: 401 });
   }
-  return jsonResponse({})
+  return jsonResponse({});
 }
 
 export function authErrorFetch(input: RequestInfo | URL) {
-  const url = String(input)
+  const url = String(input);
   if (url.endsWith("/v1/me")) {
-    return jsonResponse({ error: { message: "Server failed" } }, { status: 500 })
+    return jsonResponse(
+      { error: { message: "Server failed" } },
+      { status: 500 },
+    );
   }
-  return jsonResponse({})
+  return jsonResponse({});
 }
 
 export function renderApp(path = "/", options: RenderAppOptions = {}) {
-  window.history.replaceState(null, "", path)
-  const queryClient = createTestQueryClient()
-  installMockEventSource()
+  window.history.replaceState(null, "", path);
+  const queryClient = createTestQueryClient();
+  installMockEventSource();
   vi.stubGlobal(
     "fetch",
     vi.fn(options.fetchHandler ?? createDefaultAuthenticatedFetch()),
-  )
+  );
   return {
     queryClient,
     ...render(
       <App queryClient={queryClient} routerInstance={createAppRouter()} />,
     ),
-  }
+  };
 }

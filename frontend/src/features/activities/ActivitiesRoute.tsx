@@ -1,6 +1,26 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useReducedMotion } from "motion/react";
 
+import {
+  useActivities,
+  useArchiveActivity,
+  useArchiveHonor,
+  useCreateActivity,
+  useCreateHonor,
+  useHonors,
+  useReorderActivities,
+  useReorderHonors,
+  useRestoreActivity,
+  useRestoreHonor,
+  useUpdateActivity,
+  useUpdateHonor,
+} from "@/api/workspace/hooks";
+import type {
+  Activity as ApiActivity,
+  ActivityPatch,
+  Honor as ApiHonor,
+  HonorPatch,
+} from "@/api/workspace/types";
 import { Button } from "@/components/ui/button";
 import { UndoToast } from "@/components/undo-toast";
 import { PageHeader } from "@/components/workspace/PageHeader";
@@ -12,29 +32,31 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import {
   MAX_ACTIVITIES,
   MAX_HONORS,
   type Activity,
+  type ActivityType,
+  type Grade,
   type Honor,
+  type RecognitionLevel,
+  type Timing,
+  activityTypeOptions,
+  gradeOptions,
+  levelOptions,
+  timingOptions,
 } from "@/domain/activity";
-import { initialActivities, initialHonors } from "@/fixtures/activities";
 import {
-  createActivity,
-  createHonor,
   getActivityStats,
   getHonorStats,
-  insertAt,
-  removeById,
-  updateItemById,
 } from "@/features/activities/activities-mutations";
 import {
   renumber,
   reorderById,
   swapByIndex,
 } from "@/features/activities/activities-reorder";
-import type { ActivitiesPageProps } from "@/features/activities/activities-types";
 import { ActivityDrawer } from "@/features/activities/ActivityDrawer";
 import { ActivityRow } from "@/features/activities/ActivityRow";
 import { HonorDrawer } from "@/features/activities/HonorDrawer";
@@ -46,19 +68,162 @@ import { useUndoableDelete } from "@/hooks/useUndoableDelete";
 import { Award, ListChecks, Plus } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
-export function ActivitiesPage({
-  activities: controlledActivities,
-  onActivitiesChange,
-  honors: controlledHonors,
-  onHonorsChange,
-}: ActivitiesPageProps = {}) {
-  const [localActivities, setLocalActivities] =
-    useState<Activity[]>(initialActivities);
-  const [localHonors, setLocalHonors] = useState<Honor[]>(initialHonors);
-  const activities = controlledActivities ?? localActivities;
-  const setActivities = onActivitiesChange ?? setLocalActivities;
-  const honors = controlledHonors ?? localHonors;
-  const setHonors = onHonorsChange ?? setLocalHonors;
+const activityTypes = new Set(
+  activityTypeOptions.map((option) => option.value),
+);
+const grades = new Set(gradeOptions.map((option) => option.value));
+const timingValues = new Set(timingOptions.map((option) => option.value));
+const recognitionLevels = new Set(levelOptions.map((option) => option.value));
+
+function isActivityType(value: string): value is ActivityType {
+  return activityTypes.has(value as ActivityType);
+}
+
+function isGrade(value: string): value is Grade {
+  return grades.has(value as Grade);
+}
+
+function isTiming(value: string): value is Timing {
+  return timingValues.has(value as Timing);
+}
+
+function isRecognitionLevel(value: string): value is RecognitionLevel {
+  return recognitionLevels.has(value as RecognitionLevel);
+}
+
+function sortApiRows<TItem extends { sort_order: number }>(items: TItem[]) {
+  return [...items].sort((a, b) => a.sort_order - b.sort_order);
+}
+
+function activityFromApi(activity: ApiActivity, index: number): Activity {
+  return {
+    id: activity.id,
+    order: index + 1,
+    type: isActivityType(activity.activity_type)
+      ? activity.activity_type
+      : "Other Club/Activity",
+    position: activity.position,
+    organization: activity.organization,
+    description: activity.description,
+    grades: activity.grades.filter(isGrade),
+    timing: activity.timing.filter(isTiming),
+    hours_per_week: activity.hours_per_week ?? undefined,
+    weeks_per_year: activity.weeks_per_year ?? undefined,
+    continue_in_college: activity.continue_in_college ?? undefined,
+    story: activity.story ?? undefined,
+    created_at: activity.created_at,
+    updated_at: activity.updated_at,
+  };
+}
+
+function honorFromApi(honor: ApiHonor, index: number): Honor {
+  return {
+    id: honor.id,
+    order: index + 1,
+    title: honor.title,
+    grades: honor.grades.filter(isGrade),
+    levels: honor.levels.filter(isRecognitionLevel),
+    created_at: honor.created_at,
+    updated_at: honor.updated_at,
+  };
+}
+
+function activityPatchToApi(patch: Partial<Activity>): ActivityPatch {
+  const next: ActivityPatch = {};
+
+  if ("type" in patch) next.activity_type = patch.type;
+  if ("position" in patch) next.position = patch.position;
+  if ("organization" in patch) next.organization = patch.organization;
+  if ("description" in patch) next.description = patch.description;
+  if ("grades" in patch) next.grades = patch.grades;
+  if ("timing" in patch) next.timing = patch.timing;
+  if ("hours_per_week" in patch) {
+    next.hours_per_week = patch.hours_per_week ?? null;
+  }
+  if ("weeks_per_year" in patch) {
+    next.weeks_per_year = patch.weeks_per_year ?? null;
+  }
+  if ("continue_in_college" in patch) {
+    next.continue_in_college = patch.continue_in_college ?? null;
+  }
+  if ("story" in patch) next.story = patch.story ?? null;
+
+  return next;
+}
+
+function honorPatchToApi(patch: Partial<Honor>): HonorPatch {
+  const next: HonorPatch = {};
+
+  if ("title" in patch) next.title = patch.title;
+  if ("grades" in patch) next.grades = patch.grades;
+  if ("levels" in patch) next.levels = patch.levels;
+
+  return next;
+}
+
+function ActivityListSkeleton() {
+  return (
+    <div className="rounded-xl border border-[color:var(--activity-list-border)] bg-[color:var(--activity-list-surface)] p-1.5">
+      <div className="flex flex-col gap-1.5">
+        {Array.from({ length: 3 }, (_, index) => (
+          <Skeleton className="h-24 w-full rounded-xl" key={index} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListError({
+  label,
+  onRetry,
+}: {
+  label: "activities" | "honors";
+  onRetry: () => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <div className="max-w-md space-y-3">
+        <h2 className="font-heading text-lg font-medium">
+          Could not load {label}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          The workspace could not reach your {label} list.
+        </p>
+        <Button onClick={onRetry} type="button">
+          Try again
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function ActivitiesPage() {
+  const activitiesQuery = useActivities();
+  const honorsQuery = useHonors();
+  const createActivityMutation = useCreateActivity();
+  const createHonorMutation = useCreateHonor();
+  const updateActivityMutation = useUpdateActivity();
+  const updateHonorMutation = useUpdateHonor();
+  const archiveActivityMutation = useArchiveActivity();
+  const archiveHonorMutation = useArchiveHonor();
+  const restoreActivityMutation = useRestoreActivity();
+  const restoreHonorMutation = useRestoreHonor();
+  const reorderActivitiesMutation = useReorderActivities();
+  const reorderHonorsMutation = useReorderHonors();
+  const [activityPreview, setActivityPreview] = useState<Activity[] | null>(
+    null,
+  );
+  const [honorPreview, setHonorPreview] = useState<Honor[] | null>(null);
+  const fetchedActivities = useMemo(
+    () => sortApiRows(activitiesQuery.data ?? []).map(activityFromApi),
+    [activitiesQuery.data],
+  );
+  const fetchedHonors = useMemo(
+    () => sortApiRows(honorsQuery.data ?? []).map(honorFromApi),
+    [honorsQuery.data],
+  );
+  const activities = activityPreview ?? fetchedActivities;
+  const honors = honorPreview ?? fetchedHonors;
 
   const {
     activeActivityId,
@@ -71,13 +236,6 @@ export function ActivitiesPage({
     visibleTab,
   } = useActivitiesDeepLink({ activities, honors });
 
-  const archivedActivityRef = useRef<{
-    index: number;
-    item: Activity;
-  } | null>(null);
-  const archivedHonorRef = useRef<{ index: number; item: Honor } | null>(null);
-  const activityDragSnapshotRef = useRef<Activity[] | null>(null);
-  const honorDragSnapshotRef = useRef<Honor[] | null>(null);
   const reduceMotion = useReducedMotion();
   const layout: false | "position" = reduceMotion ? false : "position";
 
@@ -93,117 +251,77 @@ export function ActivitiesPage({
   const honorStats = useMemo(() => getHonorStats(honors), [honors]);
 
   function updateActivity(id: string, patch: Partial<Activity>) {
-    setActivities((current) => updateItemById(current, id, patch));
+    updateActivityMutation.mutate({ id, patch: activityPatchToApi(patch) });
   }
 
   function updateHonor(id: string, patch: Partial<Honor>) {
-    setHonors((current) => updateItemById(current, id, patch));
+    updateHonorMutation.mutate({ id, patch: honorPatchToApi(patch) });
   }
 
   const activityDrag = useReorderDrag(
     (draggingId, targetId) =>
-      setActivities((current) =>
-        renumber(reorderById(current, draggingId, targetId)),
+      setActivityPreview((current) =>
+        renumber(reorderById(current ?? activities, draggingId, targetId)),
       ),
     {
       onCancel: () => {
-        if (activityDragSnapshotRef.current) {
-          setActivities(activityDragSnapshotRef.current);
-          activityDragSnapshotRef.current = null;
-        }
+        setActivityPreview(null);
       },
       onCommit: () => {
-        activityDragSnapshotRef.current = null;
+        const reordered = activityPreview ?? activities;
+        reorderActivitiesMutation.mutate(
+          reordered.map((activity) => activity.id),
+          { onSettled: () => setActivityPreview(null) },
+        );
       },
       onStart: () => {
-        activityDragSnapshotRef.current = activities;
+        setActivityPreview(activities);
       },
     },
   );
 
   const honorDrag = useReorderDrag(
     (draggingId, targetId) =>
-      setHonors((current) =>
-        renumber(reorderById(current, draggingId, targetId)),
+      setHonorPreview((current) =>
+        renumber(reorderById(current ?? honors, draggingId, targetId)),
       ),
     {
       onCancel: () => {
-        if (honorDragSnapshotRef.current) {
-          setHonors(honorDragSnapshotRef.current);
-          honorDragSnapshotRef.current = null;
-        }
+        setHonorPreview(null);
       },
       onCommit: () => {
-        honorDragSnapshotRef.current = null;
+        const reordered = honorPreview ?? honors;
+        reorderHonorsMutation.mutate(
+          reordered.map((honor) => honor.id),
+          { onSettled: () => setHonorPreview(null) },
+        );
       },
       onStart: () => {
-        honorDragSnapshotRef.current = honors;
+        setHonorPreview(honors);
       },
     },
   );
 
   function moveActivity(index: number, direction: -1 | 1) {
-    setActivities((current) =>
-      renumber(swapByIndex(current, index, direction)),
-    );
+    const next = renumber(swapByIndex(activities, index, direction));
+    reorderActivitiesMutation.mutate(next.map((activity) => activity.id));
   }
 
   function moveHonor(index: number, direction: -1 | 1) {
-    setHonors((current) => renumber(swapByIndex(current, index, direction)));
+    const next = renumber(swapByIndex(honors, index, direction));
+    reorderHonorsMutation.mutate(next.map((honor) => honor.id));
   }
 
-  // Phase 4 transitional adapter: Activities stays fixture-backed until Phase 8,
-  // but delete/undo already uses the shared archive/restore hook surface.
   const activityUndo = useUndoableDelete<Activity>({
-    archiveMutation: {
-      mutate: (id, options) => {
-        const removed = removeById(activities, id);
-        if (!removed) {
-          options?.onError?.(new Error("Activity not found"));
-          return;
-        }
-        archivedActivityRef.current = removed;
-        setActivities(removed.next);
-      },
-    },
+    archiveMutation: archiveActivityMutation,
     getLabel: () => "Activity",
-    restoreMutation: {
-      mutate: (id) => {
-        const archived = archivedActivityRef.current;
-        if (!archived || archived.item.id !== id) {
-          return;
-        }
-        setActivities((current) =>
-          insertAt(current, archived.item, archived.index),
-        );
-        archivedActivityRef.current = null;
-      },
-    },
+    restoreMutation: restoreActivityMutation,
   });
 
   const honorUndo = useUndoableDelete<Honor>({
-    archiveMutation: {
-      mutate: (id, options) => {
-        const removed = removeById(honors, id);
-        if (!removed) {
-          options?.onError?.(new Error("Honor not found"));
-          return;
-        }
-        archivedHonorRef.current = removed;
-        setHonors(removed.next);
-      },
-    },
+    archiveMutation: archiveHonorMutation,
     getLabel: () => "Honor",
-    restoreMutation: {
-      mutate: (id) => {
-        const archived = archivedHonorRef.current;
-        if (!archived || archived.item.id !== id) {
-          return;
-        }
-        setHonors((current) => insertAt(current, archived.item, archived.index));
-        archivedHonorRef.current = null;
-      },
-    },
+    restoreMutation: restoreHonorMutation,
   });
 
   function deleteActivity(id: string) {
@@ -217,7 +335,6 @@ export function ActivitiesPage({
       closeActivity();
     }
 
-    archivedHonorRef.current = null;
     honorUndo.clearPending();
     activityUndo.archive(activity);
   }
@@ -233,7 +350,6 @@ export function ActivitiesPage({
       closeHonor();
     }
 
-    archivedActivityRef.current = null;
     activityUndo.clearPending();
     honorUndo.archive(honor);
   }
@@ -250,32 +366,36 @@ export function ActivitiesPage({
   }
 
   function dismissUndo() {
-    archivedActivityRef.current = null;
-    archivedHonorRef.current = null;
     activityUndo.clearPending();
     honorUndo.clearPending();
   }
 
-  function addActivity() {
+  async function addActivity() {
     if (activities.length >= MAX_ACTIVITIES) {
       return;
     }
 
-    const activity = createActivity(activities.length);
-
-    setActivities((current) => [...current, activity]);
-    openActivity(activity.id);
+    try {
+      const activity = await createActivityMutation.mutateAsync({
+        activity_type: "Other Club/Activity",
+      });
+      openActivity(activity.id);
+    } catch {
+      // Mutation hook owns optimistic rollback and error toast behavior.
+    }
   }
 
-  function addHonor() {
+  async function addHonor() {
     if (honors.length >= MAX_HONORS) {
       return;
     }
 
-    const honor = createHonor(honors.length);
-
-    setHonors((current) => [...current, honor]);
-    openHonor(honor.id);
+    try {
+      const honor = await createHonorMutation.mutateAsync({});
+      openHonor(honor.id);
+    } catch {
+      // Mutation hook owns optimistic rollback and error toast behavior.
+    }
   }
 
   const activitiesFull = activities.length >= MAX_ACTIVITIES;
@@ -291,8 +411,16 @@ export function ActivitiesPage({
       : honorsFull
         ? "Common App limit reached"
         : "Add honor";
+  const activeListUnavailable =
+    visibleTab === "activities"
+      ? activitiesQuery.isLoading || activitiesQuery.isError
+      : honorsQuery.isLoading || honorsQuery.isError;
   const activeAddDisabled =
-    visibleTab === "activities" ? activitiesFull : honorsFull;
+    visibleTab === "activities"
+      ? activitiesFull ||
+        activeListUnavailable ||
+        createActivityMutation.isPending
+      : honorsFull || activeListUnavailable || createHonorMutation.isPending;
   const handleActiveAdd = visibleTab === "activities" ? addActivity : addHonor;
 
   return (
@@ -337,7 +465,7 @@ export function ActivitiesPage({
               />
               <Button
                 disabled={activeAddDisabled}
-                onClick={handleActiveAdd}
+                onClick={() => void handleActiveAdd()}
                 className="h-8 w-fit px-3 text-sm"
                 size="sm"
                 type="button"
@@ -350,7 +478,14 @@ export function ActivitiesPage({
           </div>
 
           <TabsPanel className="flex flex-col gap-4" value="activities">
-            {activities.length === 0 ? (
+            {activitiesQuery.isLoading ? (
+              <ActivityListSkeleton />
+            ) : activitiesQuery.isError ? (
+              <ListError
+                label="activities"
+                onRetry={() => void activitiesQuery.refetch()}
+              />
+            ) : activities.length === 0 ? (
               <Empty className="min-h-56 rounded-xl border border-dashed bg-muted/20 py-12">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -362,7 +497,12 @@ export function ActivitiesPage({
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={addActivity} size="sm" type="button">
+                  <Button
+                    disabled={createActivityMutation.isPending}
+                    onClick={() => void addActivity()}
+                    size="sm"
+                    type="button"
+                  >
                     <Plus aria-hidden="true" data-icon="inline-start" />
                     Add activity
                   </Button>
@@ -396,7 +536,7 @@ export function ActivitiesPage({
                 {!activitiesFull ? (
                   <button
                     className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[color:var(--activity-row-border)] py-3 text-xs text-muted-foreground transition-colors hover:bg-[color:var(--activity-row-hover)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none"
-                    onClick={addActivity}
+                    onClick={() => void addActivity()}
                     type="button"
                   >
                     <Plus aria-hidden="true" className="size-3.5" />
@@ -412,7 +552,14 @@ export function ActivitiesPage({
           </TabsPanel>
 
           <TabsPanel className="flex flex-col gap-4" value="honors">
-            {honors.length === 0 ? (
+            {honorsQuery.isLoading ? (
+              <ActivityListSkeleton />
+            ) : honorsQuery.isError ? (
+              <ListError
+                label="honors"
+                onRetry={() => void honorsQuery.refetch()}
+              />
+            ) : honors.length === 0 ? (
               <Empty className="min-h-48 rounded-xl border border-dashed bg-muted/20 py-10">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -424,7 +571,12 @@ export function ActivitiesPage({
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={addHonor} size="sm" type="button">
+                  <Button
+                    disabled={createHonorMutation.isPending}
+                    onClick={() => void addHonor()}
+                    size="sm"
+                    type="button"
+                  >
                     <Plus aria-hidden="true" data-icon="inline-start" />
                     Add honor
                   </Button>

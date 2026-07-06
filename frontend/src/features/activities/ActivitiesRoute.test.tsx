@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -6,49 +7,135 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router";
 import { vi } from "vitest";
 
-import type { Activity } from "@/domain/activity";
-import { ActivitiesPage } from "@/features/activities/ActivitiesRoute";
+import type {
+  Activity as ApiActivity,
+  Honor as ApiHonor,
+} from "@/api/workspace/types";
 import { UndoToast } from "@/components/undo-toast";
+import {
+  createWorkspaceFetchPreset,
+  jsonResponse,
+  renderApp,
+  workspaceActivityFixture,
+  workspaceHonorFixture,
+} from "@/test/render-app";
+
+const activityFixtures: ApiActivity[] = [
+  {
+    ...workspaceActivityFixture,
+    id: "robotics-founder",
+    sort_order: 1,
+    activity_type: "Robotics",
+    position: "Founder & President",
+    organization: "Robotics Club, Al-Noor High School",
+    description:
+      "Led 12-member team to national finals; built the training program that runs every season.",
+    grades: ["10", "11", "12"],
+    timing: ["school_year"],
+    hours_per_week: 12,
+    weeks_per_year: 30,
+    continue_in_college: true,
+    story:
+      "Started the club, mentored younger students, and raised entry fees.",
+    created_at: "2026-06-12T09:00:00",
+    updated_at: "2026-07-01T18:20:00",
+  },
+  {
+    ...workspaceActivityFixture,
+    id: "refugee-tutor",
+    sort_order: 2,
+    activity_type: "Community Service (Volunteer)",
+    position: "Volunteer Tutor",
+    organization: "Ma'an Refugee Learning Center",
+    description: "",
+    grades: ["11", "12"],
+    timing: ["all_year"],
+    hours_per_week: 4,
+    weeks_per_year: 45,
+    continue_in_college: false,
+    story: "Tutor math and English on Saturday mornings.",
+    created_at: "2026-05-30T10:00:00",
+    updated_at: "2026-06-28T14:05:00",
+  },
+  {
+    ...workspaceActivityFixture,
+    id: "physics-research",
+    sort_order: 3,
+    activity_type: "Research",
+    position: "Research Intern",
+    organization: "Department of Physics, National University",
+    description:
+      "Ran spectroscopy measurements and cleaned the dataset for a graduate study on thin-film solar cells, then co-wrote the methods section.",
+    grades: ["11", "12"],
+    timing: ["break"],
+    hours_per_week: 20,
+    weeks_per_year: 8,
+    continue_in_college: true,
+    story: "Eight-week summer internship after Grade 11.",
+    created_at: "2026-06-18T11:30:00",
+    updated_at: "2026-07-02T09:15:00",
+  },
+];
+
+const honorFixtures: ApiHonor[] = [
+  {
+    ...workspaceHonorFixture,
+    id: "physics-olympiad",
+    sort_order: 1,
+    title: "National Physics Olympiad - Silver Medal",
+    grades: ["11"],
+    levels: ["national", "state_regional"],
+    created_at: "2026-06-12T09:10:00",
+    updated_at: "2026-06-30T17:00:00",
+  },
+  {
+    ...workspaceHonorFixture,
+    id: "principals-list",
+    sort_order: 2,
+    title: "Principal's Honor List",
+    grades: ["10", "11", "12"],
+    levels: ["school"],
+    created_at: "2026-06-12T09:12:00",
+    updated_at: "2026-06-30T17:02:00",
+  },
+];
 
 function renderActivities({
-  activities,
-  path = "/activities",
+  activities = activityFixtures,
+  honors = honorFixtures,
+  fetchHandler = createWorkspaceFetchPreset({
+    activities,
+    honors,
+  }),
+  path = "/app/activities",
 }: {
-  activities?: Activity[];
+  activities?: ApiActivity[];
+  fetchHandler?: Parameters<typeof renderApp>[1]["fetchHandler"];
+  honors?: ApiHonor[];
   path?: string;
 } = {}) {
-  const router = createMemoryRouter(
-    [
-      {
-        element: <ActivitiesPage activities={activities} />,
-        path: "/activities",
-      },
-    ],
-    { initialEntries: [path] },
-  );
-
-  const view = render(<RouterProvider router={router} />);
-
-  return { router, view };
+  return renderApp(path, { fetchHandler });
 }
 
-function makeActivity(index: number): Activity {
+function makeApiActivity(index: number): ApiActivity {
   return {
-    created_at: "2026-06-01T09:00:00.000Z",
+    ...workspaceActivityFixture,
+    id: `activity-${index}`,
+    sort_order: index + 1,
+    activity_type: "Other Club/Activity",
+    position: `Activity ${index}`,
+    organization: `Organization ${index}`,
     description: `Completed activity ${index} with measurable impact.`,
     grades: ["11"],
-    hours_per_week: 2,
-    id: `activity-${index}`,
-    order: index + 1,
-    organization: `Organization ${index}`,
-    position: `Activity ${index}`,
     timing: ["school_year"],
-    type: "Other Club/Activity",
-    updated_at: "2026-06-01T09:00:00.000Z",
+    hours_per_week: 2,
     weeks_per_year: 10,
+    continue_in_college: false,
+    story: null,
+    created_at: "2026-06-01T09:00:00.000Z",
+    updated_at: "2026-06-01T09:00:00.000Z",
   };
 }
 
@@ -61,12 +148,24 @@ function dataTransferMock() {
   };
 }
 
+function fetchMock() {
+  return vi.mocked(globalThis.fetch);
+}
+
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
 describe("ActivitiesPage", () => {
-  it("renders the activities workspace with shared header and status controls", () => {
+  it("renders the activities workspace with shared header and status controls", async () => {
     renderActivities();
 
     expect(
-      screen.getByRole("heading", { name: "Activities" }),
+      await screen.findByRole("heading", { name: "Activities" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Activities/ })).toHaveAttribute(
       "data-active",
@@ -82,13 +181,13 @@ describe("ActivitiesPage", () => {
     const user = userEvent.setup();
     renderActivities();
 
-    await user.click(screen.getByRole("tab", { name: /Honors/ }));
+    await user.click(await screen.findByRole("tab", { name: /Honors/ }));
 
     expect(
       screen.getByRole("button", { name: "Add honor" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
+      await screen.findByRole("button", {
         name: /Honor 1: National Physics Olympiad - Silver Medal/,
       }),
     ).toBeInTheDocument();
@@ -96,10 +195,10 @@ describe("ActivitiesPage", () => {
 
   it("opens and edits an activity drawer from a row", async () => {
     const user = userEvent.setup();
-    const { router } = renderActivities();
+    renderActivities();
 
     await user.click(
-      screen.getByRole("button", {
+      await screen.findByRole("button", {
         name: /Activity 1: Founder & President/,
       }),
     );
@@ -107,24 +206,134 @@ describe("ActivitiesPage", () => {
     expect(
       await screen.findByRole("textbox", { name: "Position" }),
     ).toHaveValue("Founder & President");
-    expect(router.state.location.search).toBe("?activity=robotics-founder");
+    expect(window.location.search).toBe("?activity=robotics-founder");
 
     const description = screen.getByRole("textbox", { name: "Description" });
     fireEvent.change(description, { target: { value: "x".repeat(151) } });
 
-    expect(screen.getAllByText("151/150 · 1 over")).not.toEqual([]);
+    await waitFor(() => {
+      expect(screen.getAllByText("151/150 · 1 over")).not.toEqual([]);
+    });
+    await waitFor(() => {
+      expect(fetchMock()).toHaveBeenCalledWith(
+        "/v1/activities/robotics-founder",
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
 
     const hours = screen.getByRole("textbox", { name: "Hours per week" });
     fireEvent.change(hours, { target: { value: "0" } });
 
-    expect(hours).toHaveValue("1");
+    await waitFor(() => expect(hours).toHaveValue("1"));
+  });
+
+  it("normalizes invalid backend enum values before rendering", async () => {
+    const user = userEvent.setup();
+    renderActivities({
+      activities: [
+        {
+          ...activityFixtures[0],
+          activity_type: "Made Up Activity",
+          grades: ["11", "college"],
+          timing: ["weekends"],
+        },
+      ],
+      honors: [
+        {
+          ...honorFixtures[0],
+          grades: ["10", "college"],
+          levels: ["national", "planetary"],
+        },
+      ],
+    });
+
+    expect(await screen.findByText("Grade 11")).toBeInTheDocument();
+    expect(screen.getByText("No timing")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Activity 1: Founder & President/,
+      }),
+    );
+
+    expect(screen.getByLabelText("Activity type")).toHaveTextContent(
+      "Other Club/Activity",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("tab", { name: /Honors/ }));
+
+    expect(await screen.findByText("National")).toBeInTheDocument();
+    expect(screen.getByText("Grade 10")).toBeInTheDocument();
+  });
+
+  it("does not let an older activity PATCH response overwrite newer input", async () => {
+    const user = userEvent.setup();
+    const olderPatch = deferredResponse();
+    let currentActivity = activityFixtures[0];
+    const preset = createWorkspaceFetchPreset({
+      activities: activityFixtures,
+      honors: honorFixtures,
+    });
+    const handler = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/v1/activities")) {
+        return jsonResponse([currentActivity, ...activityFixtures.slice(1)]);
+      }
+
+      if (
+        url.endsWith("/v1/activities/robotics-founder") &&
+        init?.method === "PATCH"
+      ) {
+        const patch = JSON.parse(String(init.body ?? "{}"));
+        if (patch.position === "First edit") {
+          return olderPatch.promise;
+        }
+        currentActivity = {
+          ...currentActivity,
+          ...patch,
+          updated_at: "2026-07-02T00:00:00Z",
+        };
+        return jsonResponse(currentActivity);
+      }
+
+      return preset(input, init);
+    };
+
+    renderActivities({ fetchHandler: handler });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Activity 1: Founder & President/,
+      }),
+    );
+
+    const position = await screen.findByRole("textbox", { name: "Position" });
+    fireEvent.change(position, { target: { value: "First edit" } });
+    fireEvent.change(position, { target: { value: "Second edit" } });
+
+    await waitFor(() => expect(position).toHaveValue("Second edit"));
+
+    await act(async () => {
+      olderPatch.resolve(
+        jsonResponse({
+          ...activityFixtures[0],
+          position: "First edit",
+          updated_at: "2026-07-01T00:00:00Z",
+        }),
+      );
+      await olderPatch.promise;
+    });
+
+    await waitFor(() => expect(position).toHaveValue("Second edit"));
   });
 
   it("opens rows from the keyboard", async () => {
     const user = userEvent.setup();
     renderActivities();
 
-    const row = screen.getByRole("button", {
+    const row = await screen.findByRole("button", {
       name: /Activity 1: Founder & President/,
     });
 
@@ -140,9 +349,9 @@ describe("ActivitiesPage", () => {
     const user = userEvent.setup();
     renderActivities();
 
-    await user.click(screen.getByRole("tab", { name: /Honors/ }));
+    await user.click(await screen.findByRole("tab", { name: /Honors/ }));
     await user.click(
-      screen.getByRole("button", {
+      await screen.findByRole("button", {
         name: /Honor 1: National Physics Olympiad - Silver Medal/,
       }),
     );
@@ -157,10 +366,101 @@ describe("ActivitiesPage", () => {
     );
   });
 
-  it("does not keep drag armed after clicking a reorder grip without dragging", () => {
+  it("shows skeletons and supports retry when an activities query fails", async () => {
+    let activitiesCalls = 0;
+    const handler = (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/v1/activities")) {
+        activitiesCalls += 1;
+        return activitiesCalls === 1
+          ? jsonResponse({ error: { message: "Failed" } }, { status: 500 })
+          : jsonResponse(activityFixtures);
+      }
+      return createWorkspaceFetchPreset({
+        activities: activityFixtures,
+        honors: honorFixtures,
+      })(input);
+    };
+
+    renderActivities({ fetchHandler: handler });
+
+    expect(
+      await screen.findByText("Could not load activities"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      await screen.findByRole("button", {
+        name: /Activity 1: Founder & President/,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("covers honors loading, error, and empty states", async () => {
+    const user = userEvent.setup();
+    const honorsLoading = deferredResponse();
+
+    const loadingView = renderActivities({
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (url.endsWith("/v1/honors")) {
+          return honorsLoading.promise;
+        }
+        return createWorkspaceFetchPreset({
+          activities: activityFixtures,
+          honors: honorFixtures,
+        })(input, init);
+      },
+    });
+
+    await user.click(await screen.findByRole("tab", { name: /Honors/ }));
+    expect(screen.getByRole("button", { name: "Add honor" })).toBeDisabled();
+
+    await act(async () => {
+      honorsLoading.resolve(jsonResponse(honorFixtures));
+      await honorsLoading.promise;
+    });
+    loadingView.unmount();
+
+    let honorCalls = 0;
+    const errorView = renderActivities({
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (url.endsWith("/v1/honors")) {
+          honorCalls += 1;
+          return honorCalls === 1
+            ? jsonResponse({ error: { message: "Failed" } }, { status: 500 })
+            : jsonResponse(honorFixtures);
+        }
+        return createWorkspaceFetchPreset({
+          activities: activityFixtures,
+          honors: honorFixtures,
+        })(input, init);
+      },
+    });
+
+    await user.click(await screen.findByRole("tab", { name: /Honors/ }));
+    expect(
+      await screen.findByText("Could not load honors"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByRole("button", {
+        name: /Honor 1: National Physics Olympiad - Silver Medal/,
+      }),
+    ).toBeInTheDocument();
+    errorView.unmount();
+
+    renderActivities({ honors: [] });
+    await user.click(await screen.findByRole("tab", { name: /Honors/ }));
+    expect(await screen.findByText("No honors yet")).toBeInTheDocument();
+  });
+
+  it("does not keep drag armed after clicking a reorder grip without dragging", async () => {
     renderActivities();
 
-    const grip = screen.getByRole("button", {
+    const grip = await screen.findByRole("button", {
       name: "Reorder Founder & President",
     });
     const row = document.querySelector('[data-activity-id="robotics-founder"]');
@@ -175,10 +475,10 @@ describe("ActivitiesPage", () => {
     expect(dataTransfer.setData).not.toHaveBeenCalled();
   });
 
-  it("restores the original activity order when a drag is canceled", () => {
+  it("restores the original activity order when a drag is canceled", async () => {
     renderActivities();
 
-    const grip = screen.getByRole("button", {
+    const grip = await screen.findByRole("button", {
       name: "Reorder Founder & President",
     });
     const firstRow = document.querySelector(
@@ -207,10 +507,10 @@ describe("ActivitiesPage", () => {
     ).toHaveAccessibleName(/Activity 1: Founder & President/);
   });
 
-  it("keeps the previewed activity order after a successful drop", () => {
+  it("persists activity drag reorder through the workspace order endpoint", async () => {
     renderActivities();
 
-    const grip = screen.getByRole("button", {
+    const grip = await screen.findByRole("button", {
       name: "Reorder Founder & President",
     });
     const firstRow = document.querySelector(
@@ -233,6 +533,91 @@ describe("ActivitiesPage", () => {
     expect(
       screen.getAllByRole("button", { name: /Activity \d:/ })[0],
     ).toHaveAccessibleName(/Activity 1: Volunteer Tutor/);
+    await waitFor(() => {
+      expect(fetchMock()).toHaveBeenCalledWith(
+        "/v1/activities/order",
+        expect.objectContaining({
+          body: JSON.stringify({
+            ids: ["refugee-tutor", "robotics-founder", "physics-research"],
+          }),
+          method: "PUT",
+        }),
+      );
+    });
+  });
+
+  it("persists honor move up and down through the honors order endpoint", async () => {
+    const user = userEvent.setup();
+    renderActivities();
+
+    await user.click(await screen.findByRole("tab", { name: /Honors/ }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Honor 2: Principal's Honor List/,
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Move up" }));
+
+    await waitFor(() => {
+      expect(fetchMock()).toHaveBeenCalledWith(
+        "/v1/honors/order",
+        expect.objectContaining({
+          body: JSON.stringify({
+            ids: ["principals-list", "physics-olympiad"],
+          }),
+          method: "PUT",
+        }),
+      );
+    });
+  });
+
+  it("rolls activity and honor reorders back when the server rejects them", async () => {
+    const user = userEvent.setup();
+    const handler = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (
+        (url.endsWith("/v1/activities/order") ||
+          url.endsWith("/v1/honors/order")) &&
+        init?.method === "PUT"
+      ) {
+        return jsonResponse({ error: { message: "Failed" } }, { status: 500 });
+      }
+      return createWorkspaceFetchPreset({
+        activities: activityFixtures,
+        honors: honorFixtures,
+      })(input, init);
+    };
+
+    renderActivities({ fetchHandler: handler });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Actions for Founder & President",
+      }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Move down" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("button", { name: /Activity \d:/ })[0],
+      ).toHaveAccessibleName(/Activity 1: Founder & President/);
+    });
+
+    await user.click(screen.getByRole("tab", { name: /Honors/ }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Actions for National Physics Olympiad - Silver Medal",
+      }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Move down" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("button", { name: /Honor \d:/ })[0],
+      ).toHaveAccessibleName(
+        /Honor 1: National Physics Olympiad - Silver Medal/,
+      );
+    });
   });
 
   it("reports clipboard failures without claiming success", async () => {
@@ -247,7 +632,7 @@ describe("ActivitiesPage", () => {
     renderActivities();
 
     await user.click(
-      screen.getByRole("button", {
+      await screen.findByRole("button", {
         name: /Activity 1: Founder & President/,
       }),
     );
@@ -263,20 +648,53 @@ describe("ActivitiesPage", () => {
     const user = userEvent.setup();
     renderActivities();
 
-    await user.click(screen.getByRole("button", { name: "Add activity" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Add activity" }),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Untitled activity" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Position" })).toHaveValue("");
+    expect(
+      await screen.findByRole("textbox", { name: "Position" }),
+    ).toHaveValue("");
   });
 
-  it("uses the shared undo surface for fixture-backed activity restore", async () => {
+  it("rolls back failed activity creation", async () => {
+    const user = userEvent.setup();
+    renderActivities({
+      activities: [],
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (url.endsWith("/v1/activities") && init?.method === "POST") {
+          return jsonResponse(
+            { error: { message: "Failed" } },
+            { status: 500 },
+          );
+        }
+        return createWorkspaceFetchPreset({
+          activities: [],
+          honors: honorFixtures,
+        })(input, init);
+      },
+    });
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add activity" }),
+    );
+
+    expect(await screen.findByText("No activities yet")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Untitled activity" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("archives an activity and restores it through undo", async () => {
     const user = userEvent.setup();
     renderActivities();
 
     await user.click(
-      screen.getByRole("button", {
+      await screen.findByRole("button", {
         name: /Activity 1: Founder & President/,
       }),
     );
@@ -290,9 +708,19 @@ describe("ActivitiesPage", () => {
         }),
       ).not.toBeInTheDocument();
     });
+    expect(fetchMock()).toHaveBeenCalledWith(
+      "/v1/activities/robotics-founder",
+      expect.objectContaining({ method: "DELETE" }),
+    );
 
     await user.click(screen.getByRole("button", { name: "Undo" }));
 
+    await waitFor(() => {
+      expect(fetchMock()).toHaveBeenCalledWith(
+        "/v1/activities/robotics-founder/restore",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
     expect(
       await screen.findByRole("button", {
         name: /Activity 1: Founder & President/,
@@ -300,21 +728,139 @@ describe("ActivitiesPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("disables activity creation at the Common App limit", () => {
+  it("restores a middle activity to its sort order", async () => {
+    const user = userEvent.setup();
+    renderActivities();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Activity 2: Volunteer Tutor/,
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /Activity 2: Volunteer Tutor/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    await waitFor(() => {
+      const rows = screen.getAllByRole("button", { name: /Activity \d:/ });
+      expect(rows[0]).toHaveAccessibleName(/Activity 1: Founder & President/);
+      expect(rows[1]).toHaveAccessibleName(/Activity 2: Volunteer Tutor/);
+      expect(rows[2]).toHaveAccessibleName(/Activity 3: Research Intern/);
+    });
+  });
+
+  it("waits for activity archive to settle before restoring from immediate undo", async () => {
+    const user = userEvent.setup();
+    const calls: string[] = [];
+    const deleteResponse = deferredResponse();
+    const preset = createWorkspaceFetchPreset({
+      activities: activityFixtures,
+      honors: honorFixtures,
+    });
+
     renderActivities({
-      activities: Array.from({ length: 10 }, (_, index) => makeActivity(index)),
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (
+          url.endsWith("/v1/activities/robotics-founder") &&
+          init?.method === "DELETE"
+        ) {
+          calls.push("delete-start");
+          return deleteResponse.promise;
+        }
+        if (url.endsWith("/v1/activities/robotics-founder/restore")) {
+          calls.push(
+            calls.includes("delete-resolve")
+              ? "restore-after-delete"
+              : "restore-before-delete",
+          );
+        }
+        return preset(input, init);
+      },
+    });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Activity 1: Founder & President/,
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText("Activity deleted")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    expect(calls).not.toContain("restore-before-delete");
+
+    await act(async () => {
+      calls.push("delete-resolve");
+      deleteResponse.resolve(new Response(null, { status: 204 }));
+      await deleteResponse.promise;
+    });
+
+    await waitFor(() => expect(calls).toContain("restore-after-delete"));
+  });
+
+  it("rolls back failed activity delete", async () => {
+    const user = userEvent.setup();
+    renderActivities({
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (
+          url.endsWith("/v1/activities/robotics-founder") &&
+          init?.method === "DELETE"
+        ) {
+          return jsonResponse(
+            { error: { message: "Failed" } },
+            { status: 500 },
+          );
+        }
+        return createWorkspaceFetchPreset({
+          activities: activityFixtures,
+          honors: honorFixtures,
+        })(input, init);
+      },
+    });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Activity 1: Founder & President/,
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+    expect(
+      await screen.findByRole("button", {
+        name: /Activity 1: Founder & President/,
+      }),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Undo" }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("disables activity creation at the Common App limit", async () => {
+    renderActivities({
+      activities: Array.from({ length: 10 }, (_, index) =>
+        makeApiActivity(index),
+      ),
     });
 
     expect(
-      screen.getByRole("button", { name: "Common App limit reached" }),
+      await screen.findByRole("button", { name: "Common App limit reached" }),
     ).toBeDisabled();
     expect(screen.queryByText(/open slot/)).not.toBeInTheDocument();
   });
 
   it("opens valid activity deep links and clears params on close", async () => {
     const user = userEvent.setup();
-    const { router } = renderActivities({
-      path: "/activities?activity=robotics-founder",
+    renderActivities({
+      path: "/app/activities?activity=robotics-founder",
     });
 
     expect(
@@ -323,12 +869,12 @@ describe("ActivitiesPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Close" }));
 
-    await waitFor(() => expect(router.state.location.search).toBe(""));
+    await waitFor(() => expect(window.location.search).toBe(""));
   });
 
   it("opens valid honor deep links and ignores invalid ids", async () => {
-    const { view } = renderActivities({
-      path: "/activities?honor=physics-olympiad",
+    const { unmount } = renderActivities({
+      path: "/app/activities?honor=physics-olympiad",
     });
 
     expect(
@@ -337,8 +883,9 @@ describe("ActivitiesPage", () => {
       }),
     ).toBeInTheDocument();
 
-    view.unmount();
-    renderActivities({ path: "/activities?activity=missing" });
+    unmount();
+    renderActivities({ path: "/app/activities?activity=missing" });
+    await screen.findByRole("heading", { name: "Activities" });
 
     const dialogs = screen.queryAllByRole("dialog", { hidden: true });
     expect(
