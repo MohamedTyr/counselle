@@ -1,0 +1,309 @@
+import { TransportError } from "@/api/http/errors";
+import {
+  protocolEventTypes,
+  type DoneStatus,
+  type ProtocolEvent,
+  type ProtocolEventType,
+  type SourceName,
+  type StepKind,
+  type SseFrame,
+  type Tier,
+} from "@/api/chat/types";
+
+const knownEventTypes = new Set<ProtocolEventType>(protocolEventTypes);
+const maxBufferLength = 5 * 1024 * 1024;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isProtocolEventType(value: unknown): value is ProtocolEventType {
+  return (
+    typeof value === "string" && knownEventTypes.has(value as ProtocolEventType)
+  );
+}
+
+const sourceNames = new Set<SourceName>([
+  "ipeds",
+  "scorecard",
+  "cds",
+  "web",
+  "edu",
+  "reddit",
+]);
+const tiers = new Set<Tier>(["official", "community"]);
+const doneStatuses = new Set<DoneStatus>([
+  "complete",
+  "awaiting_input",
+  "cancelled",
+]);
+const stepKinds = new Set<StepKind>([
+  "db_tool",
+  "sql",
+  "web_search",
+  "edu_search",
+  "reddit_search",
+  "viz",
+  "skill",
+  "research",
+]);
+
+function isCitation(value: unknown) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.source === "string" &&
+    sourceNames.has(value.source as SourceName) &&
+    typeof value.tier === "string" &&
+    tiers.has(value.tier as Tier) &&
+    isNonEmptyString(value.vintage)
+  );
+}
+
+function isCitationEnvelope(value: unknown) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isNumber(value.v) &&
+    typeof value.field === "string" &&
+    typeof value.label === "string" &&
+    typeof value.display === "string" &&
+    typeof value.available === "boolean" &&
+    isCitation(value.citation)
+  );
+}
+
+function isSchoolRef(value: unknown) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return isNumber(value.unitid) && isNonEmptyString(value.name);
+}
+
+function isVizRow(value: unknown) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.label === "string" &&
+    Array.isArray(value.cells) &&
+    value.cells.every(isCitationEnvelope)
+  );
+}
+
+function isClarifyOption(value: unknown) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return typeof value.label === "string" && typeof value.hint === "string";
+}
+
+function isSourceEntry(value: unknown) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isNumber(value.index) &&
+    isCitation(value.citation) &&
+    typeof value.label === "string"
+  );
+}
+
+function isStepTier(value: unknown) {
+  return value === null || value === "official" || value === "community";
+}
+
+function hasIdentityFields(type: ProtocolEventType, data: unknown) {
+  if (!isRecord(data)) {
+    return false;
+  }
+  switch (type) {
+    case "meta":
+      return (
+        isNonEmptyString(data.trace_id) &&
+        isNonEmptyString(data.message_id) &&
+        isNonEmptyString(data.user_message_id) &&
+        isNonEmptyString(data.session_id) &&
+        isNonEmptyString(data.model)
+      );
+    case "step":
+      return (
+        isNonEmptyString(data.step_id) &&
+        (data.status === "start" ||
+          data.status === "end" ||
+          data.status === "error") &&
+        typeof data.kind === "string" &&
+        stepKinds.has(data.kind as StepKind) &&
+        typeof data.label === "string" &&
+        isStepTier(data.tier) &&
+        (data.detail === null || isRecord(data.detail)) &&
+        (!("sources" in data) ||
+          (Array.isArray(data.sources) && data.sources.every(isRecord)))
+      );
+    case "done":
+      return (
+        typeof data.status === "string" &&
+        doneStatuses.has(data.status as DoneStatus)
+      );
+    case "error":
+      return isNonEmptyString(data.message);
+    case "delta":
+    case "thinking":
+      return typeof data.text === "string";
+    case "viz":
+      return (
+        typeof data.v === "number" &&
+        typeof data.type === "string" &&
+        typeof data.title === "string" &&
+        Array.isArray(data.schools) &&
+        data.schools.every(isSchoolRef) &&
+        Array.isArray(data.rows) &&
+        data.rows.every(isVizRow)
+      );
+    case "clarify":
+      return (
+        typeof data.v === "number" &&
+        typeof data.question === "string" &&
+        typeof data.header === "string" &&
+        typeof data.multi_select === "boolean" &&
+        Array.isArray(data.options) &&
+        data.options.every(isClarifyOption)
+      );
+    case "sources":
+      return Array.isArray(data.sources) && data.sources.every(isSourceEntry);
+    case "usage":
+      return (
+        typeof data.input_tokens === "number" &&
+        typeof data.output_tokens === "number" &&
+        typeof data.tool_calls === "number"
+      );
+    default:
+      return false;
+  }
+}
+
+function coerceProtocolEvent(value: unknown): ProtocolEvent {
+  if (!isRecord(value) || !isProtocolEventType(value.type)) {
+    throw new TransportError("server", "Stream returned an unknown event.");
+  }
+  if (!hasIdentityFields(value.type, value.data)) {
+    throw new TransportError(
+      "server",
+      `Stream returned a malformed ${value.type} event.`,
+    );
+  }
+  return {
+    v: typeof value.v === "number" ? value.v : undefined,
+    type: value.type,
+    data: isRecord(value.data) ? value.data : {},
+  } as ProtocolEvent;
+}
+
+function parseFrame(block: string): SseFrame<ProtocolEvent> | null {
+  let id: string | undefined;
+  let event: string | undefined;
+  const dataLines: string[] = [];
+
+  for (const rawLine of block.split("\n")) {
+    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+    if (line.length === 0 || line.startsWith(":")) {
+      continue;
+    }
+    if (line.startsWith("id:")) {
+      id = line.slice(3).trimStart();
+      continue;
+    }
+    if (line.startsWith("event:")) {
+      event = line.slice(6).trimStart();
+      continue;
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  }
+
+  if (dataLines.length === 0) {
+    return null;
+  }
+
+  try {
+    const data = coerceProtocolEvent(
+      JSON.parse(dataLines.join("\n")) as unknown,
+    );
+    return { id, event, data };
+  } catch (cause) {
+    if (cause instanceof TransportError) {
+      throw cause;
+    }
+    throw new TransportError("server", "Stream returned malformed JSON.", {
+      cause,
+    });
+  }
+}
+
+export async function* parseSseStream(
+  body: ReadableStream<Uint8Array>,
+): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      if (buffer.length > maxBufferLength) {
+        await reader.cancel().catch(() => undefined);
+        throw new TransportError(
+          "server",
+          "Stream exceeded the maximum allowed size.",
+        );
+      }
+
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary !== -1) {
+        const frame = parseFrame(buffer.slice(0, boundary));
+        buffer = buffer.slice(boundary + 2);
+        if (frame) {
+          yield frame;
+        }
+        boundary = buffer.indexOf("\n\n");
+      }
+    }
+
+    buffer += decoder.decode();
+    const tail = buffer.replace(/\r\n/g, "\n").trim();
+    if (tail.length > 0) {
+      const frame = parseFrame(tail);
+      if (frame) {
+        yield frame;
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}
+
+export async function consumeSseStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent?: (event: ProtocolEvent, frame: SseFrame<ProtocolEvent>) => void,
+): Promise<void> {
+  for await (const frame of parseSseStream(body)) {
+    onEvent?.(frame.data, frame);
+  }
+}

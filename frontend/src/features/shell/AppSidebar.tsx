@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { CounselleLogo } from "@/features/shell/CounselleLogo";
 import { MainNav } from "@/features/shell/MainNav";
+import { ChatSessionList } from "@/features/ai-sidebar/ChatSessionList";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
@@ -72,6 +73,7 @@ export function AppSidebar() {
         </SidebarHeader>
         <SidebarContent className="gap-4 p-0">
           <MainNav routes={shellRoutes} />
+          {!isCollapsed && <ChatSessionList />}
         </SidebarContent>
         <SidebarFooter className="mt-auto p-0">
           {logoutError && !isCollapsed && (

@@ -22,6 +22,8 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@ai-elements": "https://elements.ai-sdk.dev/api/registry/{name}.json"
+    "@ai-elements": "https://elements.ai-sdk.dev/api/registry/{name}.json",
+    "@coss": "https://coss.com/ui/r/{name}.json",
+    "@kokonutui": "https://kokonutui.com/r/{name}.json"
   }
 }

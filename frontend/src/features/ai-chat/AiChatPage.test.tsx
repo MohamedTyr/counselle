@@ -1,0 +1,468 @@
+import { QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
+import type {
+  ChatSession,
+  ChatTransport,
+  ProtocolEvent,
+  SseFrame,
+} from "@/api/chat/types";
+import { createTestQueryClient } from "@/test/render-app";
+
+import { AiChatPage } from "./AiChatPage";
+
+type MockedChatTransport = {
+  [K in keyof ChatTransport]: ReturnType<typeof vi.fn<ChatTransport[K]>>;
+};
+
+const fakeTransport: MockedChatTransport = vi.hoisted(() => ({
+  getChatConfig: vi.fn<ChatTransport["getChatConfig"]>(),
+  createSession: vi.fn<ChatTransport["createSession"]>(),
+  listSessions: vi.fn<ChatTransport["listSessions"]>(),
+  getSession: vi.fn<ChatTransport["getSession"]>(),
+  renameSession: vi.fn<ChatTransport["renameSession"]>(),
+  deleteSession: vi.fn<ChatTransport["deleteSession"]>(),
+  sendMessage: vi.fn<ChatTransport["sendMessage"]>(),
+  attachStream: vi.fn<ChatTransport["attachStream"]>(async () => ({ active: false as const })),
+  streamFirstMessage: vi.fn<ChatTransport["streamFirstMessage"]>(),
+  cancelActiveTurn: vi.fn<ChatTransport["cancelActiveTurn"]>(async () => undefined),
+  setMessageFeedback: vi.fn<ChatTransport["setMessageFeedback"]>(async () => undefined),
+}));
+
+// `@/api/chat/hooks`' react-query `useChatSession` (session query) and
+// `useMessageFeedback` both call the `chatTransport` singleton directly
+// (they are not parameterized by the `transport` prop threaded through
+// `useTurnEngine`) — mock the module so both the query layer and the turn
+// engine observe the same fake backend.
+vi.mock("@/api/chat/transport", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/chat/transport")>();
+  return { ...actual, chatTransport: fakeTransport };
+});
+
+function session(overrides: Partial<ChatSession> = {}): ChatSession {
+  return {
+    sessionId: "s1",
+    title: "Financial aid options",
+    createdAt: "2026-07-06T12:00:00Z",
+    updatedAt: "2026-07-06T12:00:01Z",
+    sourceConfig: BUILT_IN_SOURCE_CONFIG,
+    isGenerating: false,
+    transcript: [],
+    ...overrides,
+  };
+}
+
+function meta(overrides: Partial<{ messageId: string; userMessageId: string }> = {}): ProtocolEvent {
+  return {
+    v: 1,
+    type: "meta",
+    data: {
+      trace_id: "trace-1",
+      session_id: "s1",
+      model: "test-model",
+      message_id: overrides.messageId ?? "assistant-1",
+      user_message_id: overrides.userMessageId ?? "user-1",
+    },
+  };
+}
+
+function delta(text: string): ProtocolEvent {
+  return { v: 1, type: "delta", data: { text } };
+}
+
+function done(status: "complete" | "cancelled" | "awaiting_input" = "complete"): ProtocolEvent {
+  return { v: 1, type: "done", data: { status } };
+}
+
+function clarify(): ProtocolEvent {
+  return {
+    v: 1,
+    type: "clarify",
+    data: {
+      v: 1,
+      question: "Which path interests you?",
+      header: "Narrow it down",
+      multi_select: false,
+      options: [
+        { label: "Financial aid", hint: "Grants & loans" },
+        { label: "Scholarships", hint: "Merit-based" },
+      ],
+    },
+  };
+}
+
+async function* replay(events: ProtocolEvent[]): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
+  for (const event of events) {
+    yield { data: event };
+  }
+}
+
+/** A stream the test can push events into on demand — for scenarios (cancel,
+ *  clarify) where the assistant's turn must stay open until the test drives
+ *  it forward. */
+function controllableStream() {
+  const queue: ProtocolEvent[] = [];
+  let resolveNext: (() => void) | null = null;
+  let closed = false;
+
+  const push = (event: ProtocolEvent) => {
+    queue.push(event);
+    resolveNext?.();
+  };
+  const close = () => {
+    closed = true;
+    resolveNext?.();
+  };
+
+  async function* stream(): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
+    for (;;) {
+      if (queue.length > 0) {
+        const event = queue.shift();
+        if (event) {
+          yield { data: event };
+        }
+        continue;
+      }
+      if (closed) {
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        resolveNext = resolve;
+      });
+    }
+  }
+
+  return { stream: stream(), push, close };
+}
+
+function renderPage(sessionId = "s1") {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AiChatPage sessionId={sessionId} transport={fakeTransport} />
+    </QueryClientProvider>,
+  );
+}
+
+describe("AiChatPage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakeTransport.attachStream.mockResolvedValue({ active: false });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("hydrates a persisted transcript", async () => {
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          { role: "user", message_id: "user-1", text: "How does aid work?", ts: null },
+          {
+            role: "assistant",
+            message_id: "assistant-1",
+            text: "Aid depends on need.",
+            status: "complete",
+            ts: null,
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText("How does aid work?")).toBeInTheDocument();
+    expect(screen.getByText("Aid depends on need.")).toBeInTheDocument();
+  });
+
+  test("empty active session renders the empty state plus a usable composer", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+
+    renderPage();
+
+    expect(await screen.findByText("No messages yet")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Message Counselle")).toBeInTheDocument();
+  });
+
+  test("transcript load failure shows a recoverable banner with retry, not a crash", async () => {
+    fakeTransport.getSession
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce(session());
+
+    renderPage();
+
+    expect(await screen.findByText(/couldn't load this conversation/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("No messages yet")).toBeInTheDocument();
+  });
+
+  test("sending a follow-up appends an optimistic user bubble and streams the assistant answer", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage.mockReturnValue(
+      replay([meta(), delta("Here's how aid works."), done()]),
+    );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    fireEvent.change(textarea, { target: { value: "Tell me about aid" } });
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    expect(await screen.findByText("Tell me about aid")).toBeInTheDocument();
+    expect(await screen.findByText("Here's how aid works.")).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "s1", text: "Tell me about aid" }),
+    );
+  });
+
+  test("Shift+Enter inserts a newline instead of sending", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    fireEvent.change(textarea, { target: { value: "line one" } });
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+
+    expect(fakeTransport.sendMessage).not.toHaveBeenCalled();
+  });
+
+  test("reattaching an active stream on open does not duplicate the assistant bubble", async () => {
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [{ role: "user", message_id: "user-1", text: "Question", ts: null }],
+      }),
+    );
+    fakeTransport.attachStream.mockResolvedValue({
+      active: true,
+      stream: replay([meta({ userMessageId: "user-1" }), delta("Answer continues"), done()]),
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      const assistants = screen.getAllByText(/Answer continues/);
+      expect(assistants).toHaveLength(1);
+    });
+  });
+
+  test("stopping an active stream calls cancel and renders the cancelled message", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    const controlled = controllableStream();
+    fakeTransport.sendMessage.mockReturnValue(controlled.stream);
+    fakeTransport.cancelActiveTurn.mockImplementation(async () => {
+      controlled.push(done("cancelled"));
+      controlled.close();
+    });
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
+      target: { value: "Tell me about aid" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), { key: "Enter" });
+
+    controlled.push(meta());
+    controlled.push(delta("Partial answer"));
+
+    const stopButton = await screen.findByRole("button", { name: "Stop" });
+    fireEvent.click(stopButton);
+
+    expect(fakeTransport.cancelActiveTurn).toHaveBeenCalledWith("s1");
+    expect(await screen.findByText("You stopped this response.")).toBeInTheDocument();
+  });
+
+  test("clarify: an inline widget appears, and a normal composer submission answers it", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage
+      .mockReturnValueOnce(replay([meta(), clarify(), done("awaiting_input")]))
+      .mockReturnValueOnce(
+        replay([meta({ messageId: "assistant-2" }), delta("Great, let's talk aid."), done()]),
+      );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
+      target: { value: "Help me choose" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), { key: "Enter" });
+
+    expect(await screen.findByText("Which path interests you?")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Pick one, or just type...")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Financial aid"));
+
+    expect(await screen.findByText("Great, let's talk aid.")).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ text: "Financial aid" }),
+    );
+  });
+
+  test("feedback: clicking thumbs up persists through the feedback endpoint", async () => {
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          { role: "user", message_id: "user-1", text: "Question", ts: null },
+          {
+            role: "assistant",
+            message_id: "assistant-1",
+            text: "Answer",
+            status: "complete",
+            ts: null,
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+    await screen.findByText("Answer");
+
+    fireEvent.click(screen.getByRole("button", { name: "Good response" }));
+
+    await waitFor(() =>
+      expect(fakeTransport.setMessageFeedback).toHaveBeenCalledWith({
+        sessionId: "s1",
+        messageId: "assistant-1",
+        rating: "up",
+      }),
+    );
+  });
+
+  test("inline citation opens the shared sources rail focused on that source", async () => {
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          { role: "user", message_id: "user-1", text: "Question", ts: null },
+          {
+            role: "assistant",
+            message_id: "assistant-1",
+            text: "Answer [1]",
+            status: "complete",
+            sources: [
+              {
+                index: 1,
+                citation: {
+                  source: "web",
+                  tier: "official",
+                  vintage: "2026",
+                  url: "https://example.com/source",
+                },
+                label: "Example",
+              },
+            ],
+            ts: null,
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+    fireEvent.click(await screen.findByText("example.com"));
+
+    expect(await screen.findByRole("heading", { name: "1 source" })).toBeInTheDocument();
+    expect(document.getElementById("source-row-1")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+  });
+
+  test("regenerate rewrites from the parent user message id", async () => {
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          { role: "user", message_id: "user-1", text: "Original question", ts: null },
+          {
+            role: "assistant",
+            message_id: "assistant-1",
+            text: "Original answer",
+            status: "complete",
+            ts: null,
+          },
+        ],
+      }),
+    );
+    fakeTransport.sendMessage.mockReturnValue(
+      replay([meta({ messageId: "assistant-2", userMessageId: "user-1" }), delta("New answer"), done()]),
+    );
+
+    renderPage();
+    await screen.findByText("Original answer");
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+
+    await waitFor(() =>
+      expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "Original question",
+          replaceMessageId: "user-1",
+        }),
+      ),
+    );
+  });
+
+  test("active send cancels the running turn before sending the next one", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    const first = controllableStream();
+    fakeTransport.sendMessage.mockReturnValueOnce(first.stream);
+    fakeTransport.cancelActiveTurn.mockImplementation(async () => {
+      first.close();
+    });
+    fakeTransport.sendMessage.mockReturnValueOnce(
+      replay([meta({ messageId: "assistant-2" }), delta("Second answer"), done()]),
+    );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    fireEvent.change(textarea, { target: { value: "First question" } });
+    fireEvent.keyDown(textarea, { key: "Enter" });
+    first.push(meta());
+
+    await waitFor(() => expect(fakeTransport.sendMessage).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(textarea, { target: { value: "Second question" } });
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    await waitFor(() => expect(fakeTransport.cancelActiveTurn).toHaveBeenCalled());
+    expect(await screen.findByText("Second answer")).toBeInTheDocument();
+  });
+
+  test("selecting a subreddit subset is preserved on the next send", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage.mockReturnValue(replay([meta(), delta("ok"), done()]));
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    // Reddit is on by default (BUILT_IN_SOURCE_CONFIG) — the subreddit menu
+    // toggle is already visible without needing to enable Reddit first.
+    fireEvent.click(screen.getByRole("button", { name: "Choose subreddits" }));
+
+    const menu = await screen.findByText("Communities");
+    const scope = menu.closest("div") ?? document.body;
+    fireEvent.click(within(scope.parentElement ?? scope).getByText("chanceme"));
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    fireEvent.change(textarea, { target: { value: "Reddit question" } });
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceConfig: expect.objectContaining({
+            reddit: true,
+            selectedSubreddits: expect.not.arrayContaining(["r/chanceme"]),
+          }),
+        }),
+      ),
+    );
+  });
+});

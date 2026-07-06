@@ -1,4 +1,5 @@
 import {
+  Bot,
   CalendarClock,
   ClipboardCheck,
   LibraryBig,
@@ -9,6 +10,12 @@ import {
 import type { ShellRoute } from "@/features/shell/MainNav"
 
 export const shellRoutes: ShellRoute[] = [
+  {
+    id: "ai",
+    title: "AI",
+    icon: <Bot />,
+    link: "/app/ai",
+  },
   {
     id: "schools",
     title: "Schools",
