@@ -62,6 +62,10 @@ export type UseTurnEngineOptions = {
   cancelWaitTimeoutMs?: number;
   onSessionCreated?: (sessionId: string) => void;
   onTranscriptRefreshNeeded?: (sessionId: string) => void;
+  onSourceConfigCommitted?: (
+    sessionId: string,
+    sourceConfig: SourceConfig,
+  ) => void;
   onSendStart?: () => void;
 };
 
@@ -102,6 +106,7 @@ export function useTurnEngine({
   cancelWaitTimeoutMs = DEFAULT_CANCEL_WAIT_TIMEOUT_MS,
   onSessionCreated,
   onTranscriptRefreshNeeded,
+  onSourceConfigCommitted,
   onSendStart,
 }: UseTurnEngineOptions): UseTurnEngineResult {
   const queryClient = useQueryClient();
@@ -273,13 +278,14 @@ export function useTurnEngine({
       replaceMessageId?: string,
     ) => {
       const controller = beginTurnAbort();
+      const committedSourceConfig = sourceConfigRef.current;
       try {
         await consumeStream({
           activeSessionId,
           stream: transport.sendMessage({
             sessionId: activeSessionId,
             text,
-            sourceConfig: sourceConfigRef.current,
+            sourceConfig: committedSourceConfig,
             replaceMessageId,
             signal: controller.signal,
           }),
@@ -287,6 +293,7 @@ export function useTurnEngine({
           reconcileTempUserId: true,
           replaceMessageId,
         });
+        onSourceConfigCommitted?.(activeSessionId, committedSourceConfig);
       } catch (error) {
         setPendingSend({ text, replaceMessageId });
         throw error;
@@ -296,7 +303,13 @@ export function useTurnEngine({
         onTranscriptRefreshNeeded?.(activeSessionId);
       }
     },
-    [beginTurnAbort, consumeStream, onTranscriptRefreshNeeded, transport],
+    [
+      beginTurnAbort,
+      consumeStream,
+      onSourceConfigCommitted,
+      onTranscriptRefreshNeeded,
+      transport,
+    ],
   );
 
   const startSend = useCallback(

@@ -13,7 +13,10 @@ import type {
 } from "@/api/chat/types";
 import { createTestQueryClient } from "@/test/render-app";
 
-import { useChatSession } from "./useChatSession";
+import {
+  clearChatSessionSourceConfigCacheForTests,
+  useChatSession,
+} from "./useChatSession";
 
 type SessionQueryState = {
   data?: ChatSession;
@@ -40,12 +43,20 @@ vi.mock("@/api/chat/hooks", () => ({
 }));
 
 function session(sessionId: string, answer: string): ChatSession {
+  return sessionWithSourceConfig(sessionId, answer, BUILT_IN_SOURCE_CONFIG);
+}
+
+function sessionWithSourceConfig(
+  sessionId: string,
+  answer: string,
+  sourceConfig: ChatSession["sourceConfig"],
+): ChatSession {
   return {
     sessionId,
     title: null,
     createdAt: "2026-07-06T12:00:00Z",
     updatedAt: "2026-07-06T12:00:01Z",
-    sourceConfig: BUILT_IN_SOURCE_CONFIG,
+    sourceConfig,
     isGenerating: false,
     transcript: [
       {
@@ -126,6 +137,7 @@ function wrapper({ children }: PropsWithChildren) {
 
 describe("useChatSession", () => {
   beforeEach(() => {
+    clearChatSessionSourceConfigCacheForTests();
     mockedQuery.useChatSessionQuery.mockImplementation(
       () => mockedQuery.state,
     );
@@ -278,5 +290,120 @@ describe("useChatSession", () => {
         "Second answer",
       ),
     );
+  });
+
+  test("keeps unsent source choices scoped to their session across route remounts", async () => {
+    const transport = createTransport();
+    mockedQuery.state = successQuery(session("s1", "First answer"));
+
+    const first = renderHook(
+      ({ sessionId }) => useChatSession({ sessionId, transport }),
+      {
+        initialProps: { sessionId: "s1" },
+        wrapper,
+      },
+    );
+
+    await waitFor(() =>
+      expect(first.result.current.messages.map((message) => message.text)).toContain(
+        "First answer",
+      ),
+    );
+
+    act(() => {
+      first.result.current.setSourceConfig({
+        ...BUILT_IN_SOURCE_CONFIG,
+        webSearch: false,
+        selectedSubreddits: ["r/ApplyingToCollege"],
+      });
+    });
+
+    expect(first.result.current.sourceConfig).toMatchObject({
+      webSearch: false,
+      selectedSubreddits: ["r/ApplyingToCollege"],
+    });
+
+    first.unmount();
+    mockedQuery.state = successQuery(session("s2", "Second answer"));
+
+    const second = renderHook(
+      ({ sessionId }) => useChatSession({ sessionId, transport }),
+      {
+        initialProps: { sessionId: "s2" },
+        wrapper,
+      },
+    );
+
+    await waitFor(() =>
+      expect(second.result.current.messages.map((message) => message.text)).toContain(
+        "Second answer",
+      ),
+    );
+
+    expect(second.result.current.sourceConfig).toEqual(BUILT_IN_SOURCE_CONFIG);
+
+    second.unmount();
+    mockedQuery.state = successQuery(session("s1", "First answer"));
+
+    const remounted = renderHook(
+      ({ sessionId }) => useChatSession({ sessionId, transport }),
+      {
+        initialProps: { sessionId: "s1" },
+        wrapper,
+      },
+    );
+
+    await waitFor(() =>
+      expect(remounted.result.current.sourceConfig).toMatchObject({
+        webSearch: false,
+        selectedSubreddits: ["r/ApplyingToCollege"],
+      }),
+    );
+
+    remounted.unmount();
+  });
+
+  test("lets backend source config win again after a local override is sent", async () => {
+    const transport = createTransport();
+    transport.sendMessage = vi.fn(() =>
+      replayStream([delta("Sent answer"), done()]),
+    );
+    mockedQuery.state = successQuery(session("s1", "First answer"));
+
+    const { result, rerender } = renderHook(
+      ({ sessionId }) => useChatSession({ sessionId, transport }),
+      {
+        initialProps: { sessionId: "s1" },
+        wrapper,
+      },
+    );
+
+    await waitFor(() =>
+      expect(result.current.messages.map((message) => message.text)).toContain(
+        "First answer",
+      ),
+    );
+
+    act(() => {
+      result.current.setSourceConfig({
+        ...BUILT_IN_SOURCE_CONFIG,
+        webSearch: false,
+      });
+    });
+
+    await act(async () => {
+      await result.current.submitMessage("Use these sources");
+    });
+
+    const serverConfig = {
+      ...BUILT_IN_SOURCE_CONFIG,
+      eduSources: false,
+    };
+    mockedQuery.state = successQuery(
+      sessionWithSourceConfig("s1", "Updated answer", serverConfig),
+    );
+    rerender({ sessionId: "s1" });
+
+    await waitFor(() => expect(result.current.sourceConfig).toEqual(serverConfig));
   });
 });

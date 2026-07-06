@@ -120,6 +120,49 @@ describe("chatTransport", () => {
     );
   });
 
+  it("rejects malformed session list payloads instead of showing an empty fake list", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({}));
+
+    await expect(chatTransport.listSessions()).rejects.toMatchObject({
+      kind: "server",
+      message: "Session list response was malformed.",
+    });
+  });
+
+  it("rejects malformed rows inside a session list payload", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({ sessions: [{}], next_cursor: null }),
+    );
+
+    await expect(chatTransport.listSessions()).rejects.toMatchObject({
+      kind: "server",
+      message: "Session list response was malformed.",
+    });
+  });
+
+  it("rejects malformed source config inside a session list row", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        sessions: [
+          {
+            session_id: "session-1",
+            title: "Aid",
+            created_at: "2026-07-06T10:00:00Z",
+            updated_at: "2026-07-06T10:10:00Z",
+            source_config: { web: "yes" },
+            is_generating: false,
+          },
+        ],
+        next_cursor: null,
+      }),
+    );
+
+    await expect(chatTransport.listSessions()).rejects.toMatchObject({
+      kind: "server",
+      message: "Session list response was malformed.",
+    });
+  });
+
   it("hydrates a session transcript", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       jsonResponse({
@@ -136,6 +179,63 @@ describe("chatTransport", () => {
     await expect(chatTransport.getSession("session-1")).resolves.toMatchObject({
       sessionId: "session-1",
       transcript: [{ role: "user", text: "Hi" }],
+    });
+  });
+
+  it("hydrates a malformed session detail payload without crashing the chat route", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        session_id: "session-1",
+        title: null,
+        created_at: "2026-07-06T10:00:00Z",
+        updated_at: "2026-07-06T10:10:00Z",
+        source_config: null,
+        is_generating: false,
+      }),
+    );
+
+    await expect(chatTransport.getSession("session-1")).resolves.toMatchObject({
+      sessionId: "session-1",
+      transcript: [],
+    });
+  });
+
+  it("rejects malformed session detail metadata instead of showing an empty fake chat", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({}));
+
+    await expect(chatTransport.getSession("session-1")).rejects.toMatchObject({
+      kind: "server",
+      message: "Session response did not match the requested conversation.",
+    });
+  });
+
+  it("rejects session detail payloads that only include id and transcript", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({ session_id: "session-1", transcript: [] }),
+    );
+
+    await expect(chatTransport.getSession("session-1")).rejects.toMatchObject({
+      kind: "server",
+      message: "Session response did not match the requested conversation.",
+    });
+  });
+
+  it("rejects malformed source config inside session detail metadata", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        session_id: "session-1",
+        title: null,
+        created_at: "2026-07-06T10:00:00Z",
+        updated_at: "2026-07-06T10:10:00Z",
+        source_config: {},
+        is_generating: false,
+        transcript: [],
+      }),
+    );
+
+    await expect(chatTransport.getSession("session-1")).rejects.toMatchObject({
+      kind: "server",
+      message: "Session response did not match the requested conversation.",
     });
   });
 

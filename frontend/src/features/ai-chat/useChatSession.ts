@@ -34,6 +34,49 @@ type LocalSessionState = {
   transcriptError: TranscriptError | null;
 };
 
+const sessionSourceConfigCache = new Map<string, SourceConfig>();
+
+function copySourceConfig(config: SourceConfig): SourceConfig {
+  return {
+    ...config,
+    selectedSubreddits: [...config.selectedSubreddits],
+  };
+}
+
+function readCachedSourceConfig(sessionId: string): SourceConfig | null {
+  const cached = sessionSourceConfigCache.get(sessionId);
+  return cached === undefined ? null : copySourceConfig(cached);
+}
+
+function writeCachedSourceConfig(
+  sessionId: string,
+  sourceConfig: SourceConfig | null,
+) {
+  if (sourceConfig === null) {
+    sessionSourceConfigCache.delete(sessionId);
+    return;
+  }
+
+  sessionSourceConfigCache.set(sessionId, copySourceConfig(sourceConfig));
+}
+
+function sameSourceConfig(left: SourceConfig | null, right: SourceConfig) {
+  return (
+    left !== null &&
+    left.webSearch === right.webSearch &&
+    left.eduSources === right.eduSources &&
+    left.reddit === right.reddit &&
+    left.selectedSubreddits.length === right.selectedSubreddits.length &&
+    left.selectedSubreddits.every(
+      (subreddit, index) => subreddit === right.selectedSubreddits[index],
+    )
+  );
+}
+
+export function clearChatSessionSourceConfigCacheForTests() {
+  sessionSourceConfigCache.clear();
+}
+
 export function useChatSession({
   sessionId,
   transport = chatTransport,
@@ -68,7 +111,13 @@ export function useChatSession({
 
   const isLocalSession = localState.sessionId === sessionId;
   const persistedMessages = isLocalSession ? localState.persistedMessages : [];
-  const sourceConfig = isLocalSession ? localState.sourceConfig : null;
+  const cachedSourceConfig = useMemo(
+    () => readCachedSourceConfig(sessionId),
+    [sessionId],
+  );
+  const sourceConfig = isLocalSession
+    ? localState.sourceConfig
+    : cachedSourceConfig;
   const transcriptError = isLocalSession ? localState.transcriptError : null;
 
   useEffect(() => {
@@ -77,6 +126,9 @@ export function useChatSession({
     }
 
     const data = sessionQuery.data;
+    const cached = readCachedSourceConfig(data.sessionId);
+    const nextSourceConfig = cached ?? copySourceConfig(data.sourceConfig);
+
     // Set state synchronously here (not via queueMicrotask). The attach
     // effect below is gated on `isLocalSession`, so it only runs once this
     // hydration has actually landed in state and triggered a re-render --
@@ -90,7 +142,7 @@ export function useChatSession({
         data.sessionId,
         data.transcript,
       ),
-      sourceConfig: data.sourceConfig,
+      sourceConfig: nextSourceConfig,
       transcriptError: null,
     });
   }, [sessionQuery.data]);
@@ -108,7 +160,9 @@ export function useChatSession({
                 ? previous.persistedMessages
                 : [],
             sourceConfig:
-              previous.sessionId === sessionId ? previous.sourceConfig : null,
+              previous.sessionId === sessionId
+                ? previous.sourceConfig
+                : readCachedSourceConfig(sessionId),
             transcriptError: transcriptErrorOf(error),
           }));
         }
@@ -153,12 +207,15 @@ export function useChatSession({
           previous.sessionId === sessionId ? previous.persistedMessages : [];
         const nextMessages =
           typeof action === "function" ? action(previousMessages) : action;
+        const previousSourceConfig =
+          previous.sessionId === sessionId
+            ? previous.sourceConfig
+            : readCachedSourceConfig(sessionId);
 
         return {
           sessionId,
           persistedMessages: nextMessages,
-          sourceConfig:
-            previous.sessionId === sessionId ? previous.sourceConfig : null,
+          sourceConfig: previousSourceConfig,
           transcriptError:
             previous.sessionId === sessionId ? previous.transcriptError : null,
         };
@@ -179,9 +236,12 @@ export function useChatSession({
         }
 
         const previousSourceConfig =
-          previous.sessionId === sessionId ? previous.sourceConfig : null;
+          previous.sessionId === sessionId
+            ? previous.sourceConfig
+            : readCachedSourceConfig(sessionId);
         const nextSourceConfig =
           typeof action === "function" ? action(previousSourceConfig) : action;
+        writeCachedSourceConfig(sessionId, nextSourceConfig);
 
         return {
           sessionId,
@@ -198,6 +258,31 @@ export function useChatSession({
     [sessionId],
   );
 
+  const clearCommittedSourceConfig = useCallback(
+    (activeSessionId: string, committedSourceConfig: SourceConfig) => {
+      const cached = readCachedSourceConfig(activeSessionId);
+      if (!sameSourceConfig(cached, committedSourceConfig)) {
+        return;
+      }
+
+      writeCachedSourceConfig(activeSessionId, null);
+      setLocalState((previous) => {
+        if (
+          previous.sessionId !== activeSessionId ||
+          !sameSourceConfig(previous.sourceConfig, committedSourceConfig)
+        ) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          sourceConfig: copySourceConfig(committedSourceConfig),
+        };
+      });
+    },
+    [],
+  );
+
   const engine = useTurnEngine({
     sessionId,
     sourceConfig: effectiveSourceConfig,
@@ -205,6 +290,7 @@ export function useChatSession({
     setPersistedMessages,
     transport,
     onTranscriptRefreshNeeded: refreshTranscript,
+    onSourceConfigCommitted: clearCommittedSourceConfig,
     onSendStart,
   });
   const { attachActiveTurn } = engine;

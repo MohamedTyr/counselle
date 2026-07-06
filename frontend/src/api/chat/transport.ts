@@ -78,6 +78,41 @@ function messageFromProtocolError(data: ProtocolEvent["data"]) {
     : "The response failed while streaming.";
 }
 
+function isSessionRowWire(value: unknown): value is SessionRowWire {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+
+  const row = value as Partial<SessionRowWire>;
+  return (
+    typeof row.session_id === "string" &&
+    (typeof row.title === "string" || row.title === null) &&
+    typeof row.created_at === "string" &&
+    typeof row.updated_at === "string" &&
+    typeof row.is_generating === "boolean" &&
+    isSourceConfigWire(row.source_config)
+  );
+}
+
+function isSourceConfigWire(value: unknown): value is SourceConfigWire | null {
+  if (value === null) {
+    return true;
+  }
+  if (typeof value !== "object") {
+    return false;
+  }
+
+  const config = value as Partial<SourceConfigWire>;
+  return (
+    typeof config.web === "boolean" &&
+    typeof config.edu === "boolean" &&
+    typeof config.reddit === "boolean" &&
+    (config.reddit_subreddits === null ||
+      (Array.isArray(config.reddit_subreddits) &&
+        config.reddit_subreddits.every((item) => typeof item === "string")))
+  );
+}
+
 function rowToSummary(row: SessionRowWire): ChatSessionSummary {
   return {
     sessionId: row.session_id,
@@ -89,11 +124,39 @@ function rowToSummary(row: SessionRowWire): ChatSessionSummary {
   };
 }
 
-function detailToSession(row: SessionDetailWire): ChatSession {
+function detailToSession(
+  row: Partial<SessionDetailWire>,
+  fallbackSessionId: string,
+): ChatSession {
+  if (!isSessionRowWire(row) || row.session_id !== fallbackSessionId) {
+    throw new TransportError(
+      "server",
+      "Session response did not match the requested conversation.",
+    );
+  }
+
   return {
-    ...rowToSummary(row),
-    transcript: row.transcript,
+    ...rowToSummary(row as SessionRowWire),
+    transcript: Array.isArray(row.transcript) ? row.transcript : [],
   };
+}
+
+function listRows(value: unknown): SessionRowWire[] {
+  if (!Array.isArray(value)) {
+    throw new TransportError(
+      "server",
+      "Session list response was malformed.",
+    );
+  }
+
+  if (!value.every(isSessionRowWire)) {
+    throw new TransportError(
+      "server",
+      "Session list response was malformed.",
+    );
+  }
+
+  return value;
 }
 
 async function* streamFrames(
@@ -166,14 +229,16 @@ export const chatTransport: ChatTransport = {
     }
     const wire = await requestJson<SessionListWire>(`/sessions?${params}`);
     return {
-      sessions: wire.sessions.map(rowToSummary),
-      nextCursor: wire.next_cursor,
+      sessions: listRows(wire.sessions).map((row) => rowToSummary(row)),
+      nextCursor: typeof wire.next_cursor === "string" ? wire.next_cursor : null,
     };
   },
 
   async getSession(sessionId): Promise<ChatSession> {
-    const wire = await requestJson<SessionDetailWire>(sessionPath(sessionId));
-    return detailToSession(wire);
+    const wire = await requestJson<Partial<SessionDetailWire>>(
+      sessionPath(sessionId),
+    );
+    return detailToSession(wire, sessionId);
   },
 
   async renameSession(sessionId, title) {

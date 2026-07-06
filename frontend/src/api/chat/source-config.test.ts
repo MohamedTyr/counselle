@@ -22,7 +22,7 @@ describe("source config adapter", () => {
     })
   })
 
-  it("collapses the full subreddit menu to null on the wire", () => {
+  it("collapses the full visible subreddit menu to null so backend keeps agent-internal search slots", () => {
     expect(
       toWireSourceConfig({
         ...BUILT_IN_SOURCE_CONFIG,
@@ -45,6 +45,17 @@ describe("source config adapter", () => {
       reddit: false,
       selectedSubreddits: [...FULL_SUBREDDIT_MENU],
     })
+  })
+
+  it("does not expose the backend-internal school subreddit slot in UI state", () => {
+    expect(
+      fromWireSourceConfig({
+        web: true,
+        edu: true,
+        reddit: true,
+        reddit_subreddits: ["ApplyingToCollege", "{school}", "csMajors"],
+      }).selectedSubreddits,
+    ).toEqual(["r/ApplyingToCollege", "r/csMajors"])
   })
 
   it("drops unknown subreddit keys from wire data", () => {

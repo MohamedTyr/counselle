@@ -1,5 +1,8 @@
 import type { SourceConfig, SourceConfigWire, Subreddit } from "@/api/chat/types"
 
+// Frontend-visible subreddit toggles only. The backend may expand a `null`
+// reddit_subreddits value to an internal `{school}` search slot; that pseudo
+// subreddit is agent behavior, not a user-facing filter.
 export const FULL_SUBREDDIT_MENU: readonly Subreddit[] = [
   "r/ApplyingToCollege",
   "r/chanceme",
