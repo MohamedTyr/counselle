@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { defaultRemarkPlugins } from "streamdown";
 
 import type { SourceEntry } from "@/api/chat/types";
@@ -95,7 +95,7 @@ function CitationChip({
   );
 }
 
-export function CitationRenderer({
+function CitationRendererComponent({
   markdown,
   sources,
   onCitationOpen,
@@ -124,3 +124,5 @@ export function CitationRenderer({
     </MessageResponse>
   );
 }
+
+export const CitationRenderer = memo(CitationRendererComponent);

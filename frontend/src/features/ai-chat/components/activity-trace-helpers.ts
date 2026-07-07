@@ -1,4 +1,9 @@
-import type { KnownStepKind, StepData, StepKind, StepSource } from "@/api/chat/types";
+import type {
+  KnownStepKind,
+  StepData,
+  StepKind,
+  StepSource,
+} from "@/api/chat/types";
 
 import type { TurnStatus } from "../turn-reducer";
 
@@ -26,6 +31,7 @@ export const KIND_PRESENTATION: Readonly<Record<KnownStepKind, KindPresentation>
   viz: DEFAULT_KIND_PRESENTATION,
   skill: DEFAULT_KIND_PRESENTATION,
   research: DEFAULT_KIND_PRESENTATION,
+  write_plan: DEFAULT_KIND_PRESENTATION,
 };
 
 function presentationForKind(kind: StepKind): KindPresentation {
@@ -36,11 +42,16 @@ export function isSearchKind(kind: StepKind): boolean {
   return presentationForKind(kind).resultNoun !== null;
 }
 
-/** DB/sql/viz internals stay hidden — `receiptText` only ever reveals a
- *  receipt for a search-kind step (see `isSearchKind` above), so those kinds
- *  never leak a field/table name through this path. */
+function formatList(label: string, values: string[]): string | null {
+  const clean = values.map((value) => value.trim()).filter(Boolean);
+  return clean.length > 0 ? `${label}: ${clean.join(", ")}` : null;
+}
+
+/** DB/sql/viz internals stay hidden — `receiptText` only reveals a safe
+ *  subset of StepDetail. Field keys, raw row counts, tool names, and timings
+ *  stay out of the student-facing run surface. */
 export function receiptText(step: StepData): string | null {
-  if (!isSearchKind(step.kind) || step.status !== "end") {
+  if ((step.status !== "end" && step.status !== "error") || step.kind === "write_plan") {
     return null;
   }
 
@@ -50,7 +61,13 @@ export function receiptText(step: StepData): string | null {
   }
 
   const parts: string[] = [];
-  if (detail.query !== undefined && detail.query !== "") {
+  if (detail.error !== undefined && detail.error !== "") {
+    parts.push(detail.error);
+  }
+  if (detail.summary !== undefined && detail.summary !== "") {
+    parts.push(detail.summary);
+  }
+  if (isSearchKind(step.kind) && detail.query !== undefined && detail.query !== "") {
     parts.push(`"${detail.query}"`);
   }
 
@@ -59,8 +76,43 @@ export function receiptText(step: StepData): string | null {
     const noun = resultNoun;
     parts.push(`${detail.result_count} ${noun}${detail.result_count === 1 ? "" : "s"}`);
   }
+  if (typeof detail.value_count === "number") {
+    parts.push(`${detail.value_count} ${detail.value_count === 1 ? "value" : "values"}`);
+  }
+  if (detail.viz_type !== undefined && detail.viz_type !== "") {
+    parts.push(detail.viz_type.replaceAll("_", " "));
+  }
+  if (detail.schools !== undefined) {
+    const schools = formatList("Schools", detail.schools);
+    if (schools !== null) {
+      parts.push(schools);
+    }
+  }
+  if (detail.domains !== undefined) {
+    const domains = formatList("Domains", detail.domains);
+    if (domains !== null) {
+      parts.push(domains);
+    }
+  }
+  if (detail.next_actions !== undefined) {
+    const actions = formatList("Next", detail.next_actions);
+    if (actions !== null) {
+      parts.push(actions);
+    }
+  }
 
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+export function latestPlanStep(timeline: Array<{ type: string; step?: StepData }>): StepData | null {
+  for (let index = timeline.length - 1; index >= 0; index -= 1) {
+    const entry = timeline[index];
+    if (entry.type === "step" && entry.step?.kind === "write_plan") {
+      return entry.step;
+    }
+  }
+
+  return null;
 }
 
 export const MAX_VISIBLE_SOURCE_CHIPS = 4;

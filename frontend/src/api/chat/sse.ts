@@ -153,8 +153,10 @@ function isStepDetail(value: unknown) {
 
   return (
     (!("query" in value) || typeof value.query === "string") &&
+    (!("summary" in value) || typeof value.summary === "string") &&
     (!("domains" in value) || isStringArray(value.domains)) &&
     (!("result_count" in value) || isNumber(value.result_count)) &&
+    (!("value_count" in value) || isNumber(value.value_count)) &&
     (!("duration_ms" in value) || isNumber(value.duration_ms)) &&
     (!("tool" in value) || typeof value.tool === "string") &&
     (!("field_keys" in value) || isStringArray(value.field_keys)) &&
@@ -163,7 +165,9 @@ function isStepDetail(value: unknown) {
     (!("schools" in value) || isStringArray(value.schools)) &&
     (!("items" in value) || isPlanItems(value.items)) &&
     (!("completed" in value) || isNumber(value.completed)) &&
-    (!("total" in value) || isNumber(value.total))
+    (!("total" in value) || isNumber(value.total)) &&
+    (!("next_actions" in value) || isStringArray(value.next_actions)) &&
+    (!("error" in value) || typeof value.error === "string")
   );
 }
 

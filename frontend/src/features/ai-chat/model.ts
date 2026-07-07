@@ -115,7 +115,7 @@ export function assistantMessage(
     activities,
     timeline: state.timeline,
     receipt: record?.receipt,
-    durationMs: deriveDurationMs(state.steps),
+    durationMs: deriveDurationMs(state),
     sources: state.sources.length > 0 ? state.sources : undefined,
     clarify: state.clarify ?? undefined,
     turnStatus: state.status,

@@ -137,12 +137,16 @@ describe("parseSseStream", () => {
             label: "Updated the plan",
             tier: null,
             detail: {
+              summary: "Plan updated",
+              value_count: 2,
               items: [
                 { content: "Resolve schools", status: "completed" },
                 { content: "Compare costs", status: "in_progress" },
               ],
               completed: 1,
               total: 2,
+              next_actions: ["Compare costs"],
+              error: "safe retry guidance",
             },
           },
           "1",
@@ -160,12 +164,16 @@ describe("parseSseStream", () => {
         label: "Updated the plan",
         tier: null,
         detail: {
+          summary: "Plan updated",
+          value_count: 2,
           items: [
             { content: "Resolve schools", status: "completed" },
             { content: "Compare costs", status: "in_progress" },
           ],
           completed: 1,
           total: 2,
+          next_actions: ["Compare costs"],
+          error: "safe retry guidance",
         },
       },
     });

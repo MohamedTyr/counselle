@@ -13,7 +13,7 @@ import { isTransportError, TransportError } from "@/api/http/errors";
 
 import {
   initialTurnState,
-  reduceTurn,
+  reduceLiveTurn,
   type TurnState,
 } from "./turn-reducer";
 import { userMessage, assistantMessage, type ChatMessage } from "./model";
@@ -213,7 +213,7 @@ export function useTurnEngine({
             userMessageId = backendUserId;
           }
 
-          state = reduceTurn(state, event);
+          state = reduceLiveTurn(state, event);
           publish();
         }
 

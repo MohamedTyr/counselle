@@ -42,6 +42,8 @@ export type TurnState = {
   usage: UsageData | null;
   status: TurnStatus;
   error: ErrorData | null;
+  startedAtMs: number | null;
+  completedAtMs: number | null;
 };
 
 export function initialTurnState(): TurnState {
@@ -57,6 +59,8 @@ export function initialTurnState(): TurnState {
     usage: null,
     status: "idle",
     error: null,
+    startedAtMs: null,
+    completedAtMs: null,
   };
 }
 
@@ -206,6 +210,39 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
   }
 }
 
+const ARRIVAL_START_EVENTS = new Set<ProtocolEvent["type"]>([
+  "meta",
+  "delta",
+  "step",
+  "thinking",
+  "viz",
+  "clarify",
+  "sources",
+  "usage",
+]);
+
+export function reduceLiveTurn(
+  state: TurnState,
+  event: ProtocolEvent,
+  arrivedAtMs = Date.now(),
+): TurnState {
+  const startedAtMs =
+    state.startedAtMs === null && ARRIVAL_START_EVENTS.has(event.type)
+      ? arrivedAtMs
+      : state.startedAtMs;
+  const reduced = reduceTurn({ ...state, startedAtMs }, event);
+
+  if (event.type === "done" || event.type === "error") {
+    return {
+      ...reduced,
+      startedAtMs: reduced.startedAtMs ?? arrivedAtMs,
+      completedAtMs: arrivedAtMs,
+    };
+  }
+
+  return reduced;
+}
+
 function doneStatusToTurnStatus(status: DoneStatus): TurnStatus {
   if (status === "complete") {
     return "complete";
@@ -270,13 +307,17 @@ export function deriveReceipt(
   return labels.join(" · ");
 }
 
-export function deriveDurationMs(steps: TurnStep[]): number | undefined {
-  const total = steps.reduce(
-    (sum, step) => sum + (step.detail?.duration_ms ?? 0),
-    0,
-  );
+export function deriveDurationMs(state: TurnState): number | undefined {
+  if (state.startedAtMs === null || state.completedAtMs === null) {
+    const fallbackTotal = state.steps.reduce(
+      (sum, step) => sum + (step.detail?.duration_ms ?? 0),
+      0,
+    );
 
-  return total > 0 ? total : undefined;
+    return fallbackTotal > 0 ? fallbackTotal : undefined;
+  }
+
+  return Math.max(0, state.completedAtMs - state.startedAtMs);
 }
 
 export function toStepRecord(state: TurnState): StepRecord | undefined {

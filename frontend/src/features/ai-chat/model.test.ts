@@ -146,4 +146,54 @@ describe("assistantMessage activities", () => {
     expect(first.activities).toBe(second.activities);
     expect(first.activities).toEqual(["Reading CDS", "Thinking…"]);
   });
+
+  test("duration uses live arrival timing, not summed tool durations", () => {
+    const state: TurnState = {
+      ...initialTurnState(),
+      startedAtMs: 1_000,
+      completedAtMs: 2_500,
+      status: "complete",
+      steps: [
+        {
+          step_id: "s1",
+          label: "Slow backend detail",
+          status: "end",
+          kind: "db_tool",
+          tier: null,
+          detail: { duration_ms: 10_000 },
+        },
+      ],
+    };
+
+    const message = assistantMessage("c1", "a1", "u1", state, null);
+
+    expect(message.durationMs).toBe(1_500);
+  });
+
+  test("duration falls back to persisted step durations for historical transcript replay", () => {
+    const messages = messagesFromTranscript("c1", [
+      {
+        role: "assistant",
+        text: "Done.",
+        ts: null,
+        message_id: "a1",
+        step_record: {
+          receipt: "1 lookup",
+          thinking: [],
+          steps: [
+            {
+              step_id: "s1",
+              label: "Reading",
+              status: "end",
+              kind: "db_tool",
+              tier: null,
+              detail: { duration_ms: 4200 },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(messages[0]).toMatchObject({ kind: "assistant", durationMs: 4200 });
+  });
 });

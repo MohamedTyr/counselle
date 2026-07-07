@@ -1,5 +1,5 @@
 import { CheckIcon, CopyIcon, RotateCcwIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 
 import {
   Message,
@@ -9,12 +9,16 @@ import {
 } from "@/components/ai-elements/message";
 import { cn } from "@/lib/utils";
 
-import { ActivityTrace } from "./ActivityTrace";
+import { AgentRunView } from "./AgentRunView";
 import { CitationRenderer } from "./CitationRenderer";
 import { ClarifyWidget } from "./ClarifyWidget";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
 import { VizBlock } from "./VizBlock";
-import type { AssistantChatMessage, ChatMessage as ChatMessageModel, FeedbackRating } from "../model";
+import type {
+  AssistantChatMessage,
+  ChatMessage as ChatMessageModel,
+  FeedbackRating,
+} from "../model";
 
 export type ChatMessageProps = {
   message: ChatMessageModel;
@@ -58,11 +62,16 @@ function AssistantBody({
   onOpenCitation?: (index: number) => void;
   clarifyFrozen: boolean;
 }) {
+  const showRunView =
+    message.timeline !== undefined &&
+    (message.timeline.length > 0 ||
+      message.turnStatus === "streaming" ||
+      message.turnStatus === "idle");
+
   return (
     <>
-      {message.timeline !== undefined && message.timeline.length > 0 && (
-        <ActivityTrace
-          activities={message.activities}
+      {showRunView && (
+        <AgentRunView
           durationMs={message.durationMs}
           status={message.turnStatus ?? "complete"}
           timeline={message.timeline}
@@ -102,7 +111,7 @@ function AssistantBody({
   );
 }
 
-export function ChatMessage({
+function ChatMessageComponent({
   message,
   canRegenerate = false,
   onRegenerate,
@@ -181,3 +190,5 @@ export function ChatMessage({
     </Message>
   );
 }
+
+export const ChatMessage = memo(ChatMessageComponent);

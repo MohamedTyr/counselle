@@ -10,6 +10,7 @@ import type {
 import {
   initialTurnState,
   proseOf,
+  reduceLiveTurn,
   reduceTranscriptEntry,
   reduceTurn,
   transcriptEntryToEvents,
@@ -231,6 +232,23 @@ describe("turn reducer", () => {
       },
     ]);
     expect(state.timeline.filter((entry) => entry.type === "step")).toHaveLength(1);
+  });
+
+  test("live reducer records arrival wall-clock duration", () => {
+    let state = initialTurnState();
+    state = reduceLiveTurn(
+      state,
+      stepEvent({
+        step_id: "s1",
+        status: "start",
+        detail: { duration_ms: 10_000 },
+      }),
+      1_000,
+    );
+    state = reduceLiveTurn(state, { v: 1, type: "done", data: { status: "complete" } }, 2_500);
+
+    expect(state.startedAtMs).toBe(1_000);
+    expect(state.completedAtMs).toBe(2_500);
   });
 
   test("unknown additive protocol events are ignored", () => {

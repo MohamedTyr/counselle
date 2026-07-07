@@ -91,7 +91,8 @@ export type KnownStepKind =
   | "reddit_search"
   | "viz"
   | "skill"
-  | "research";
+  | "research"
+  | "write_plan";
 
 export type StepKind = KnownStepKind | (string & {});
 
@@ -99,8 +100,10 @@ export type StepTier = "official" | "community" | null;
 
 export type StepDetail = {
   query?: string;
+  summary?: string;
   domains?: string[];
   result_count?: number;
+  value_count?: number;
   duration_ms?: number;
   tool?: string;
   field_keys?: string[];
@@ -113,6 +116,8 @@ export type StepDetail = {
   }>;
   completed?: number;
   total?: number;
+  next_actions?: string[];
+  error?: string;
 };
 
 export type StepSource = {
