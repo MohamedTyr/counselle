@@ -1,11 +1,10 @@
-"""Eng-review D6: the clarify interrupt survives instance disposal (ADR 0019).
+"""Eng-review D6: checkpointed agent turns survive instance disposal (ADR 0019).
 
 The regression test behind the manual kill-the-process demo: graph instance A
-on the REAL Postgres checkpointer parks on ``ask_student``; A is disposed
-(checkpointer connection closed); a FRESH instance B on the same DSN resumes
-the same ``thread_id`` with the student's answer and completes — and the
-answer demonstrably reached the model (it appears in the model's reply AND as
-the ``ask_student`` tool return in the persisted messages).
+on the REAL Postgres checkpointer completes an Agent V1 turn without
+``ask_student`` mounted; A is disposed (checkpointer connection closed); a
+FRESH instance B on the same DSN continues the same ``thread_id`` and the model
+can see the persisted prior turn.
 
 Hermetic everywhere except the thing under test: the LLM is a ``FunctionModel``,
 ``prepare``'s temporal context and the prompt builder are patched (no catalog,
@@ -25,11 +24,9 @@ import pytest
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from pydantic_ai.messages import (
     ModelMessage,
-    ModelRequest,
     ModelResponse,
     TextPart,
     ToolCallPart,
-    ToolReturnPart,
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, DeltaToolCalls, FunctionModel
 
@@ -73,16 +70,20 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
-def _clarify_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-    """Ask one clarify question; once answered, echo the answer back in prose."""
-    last = messages[-1]
-    returns = (
-        [part for part in last.parts if isinstance(part, ToolReturnPart)]
-        if isinstance(last, ModelRequest)
-        else []
-    )
-    if returns:
-        return ModelResponse(parts=[TextPart(f"Focusing on {returns[0].content}.")])
+def _ask_student_probe_then_continue(
+    messages: list[ModelMessage], info: AgentInfo
+) -> ModelResponse:
+    """Would ask one clarify question if mounted; otherwise continue normally."""
+    if "ask_student" not in {tool.name for tool in info.function_tools}:
+        prior_text = [
+            part.content
+            for message in messages[:-1]
+            for part in getattr(message, "parts", [])
+            if isinstance(part, TextPart)
+        ]
+        if "Initial answer without clarify." in prior_text:
+            return ModelResponse(parts=[TextPart("Continuing after restart.")])
+        return ModelResponse(parts=[TextPart("Initial answer without clarify.")])
     return ModelResponse(
         parts=[
             ToolCallPart(
@@ -101,20 +102,20 @@ def _clarify_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Model
 
 
 def _fn_model() -> FunctionModel:
-    """The clarify FunctionModel with the stream variant the node's
+    """The probe FunctionModel with the stream variant the node's
     ``run_stream_events`` requires (notes-p4-apis §10)."""
 
     async def stream(
         messages: list[ModelMessage], info: AgentInfo
     ) -> AsyncIterator[str | DeltaToolCalls]:
-        response = _clarify_then_answer(messages, info)
+        response = _ask_student_probe_then_continue(messages, info)
         for index, part in enumerate(response.parts):
             if isinstance(part, TextPart):
                 yield part.content
             elif isinstance(part, ToolCallPart):
                 yield {index: DeltaToolCall(name=part.tool_name, json_args=part.args_as_json_str())}
 
-    return FunctionModel(_clarify_then_answer, stream_function=stream)
+    return FunctionModel(_ask_student_probe_then_continue, stream_function=stream)
 
 
 async def _make_instance(settings: Any) -> tuple[Any, AppDeps, AsyncPostgresSaver]:
@@ -160,32 +161,30 @@ async def _delete_thread(conn: Any, thread_id: str) -> None:
         )
 
 
-async def test_clarify_interrupt_survives_instance_disposal_and_resumes() -> None:
+async def test_agent_turn_survives_instance_disposal_without_ask_student() -> None:
     settings = get_settings()
     assert settings.checkpointer == "postgres"
     session_id = str(uuid4())
 
-    # --- instance A: park on the clarify interrupt, then dispose ---
+    # --- instance A: complete an Agent V1 turn, then dispose ---
     graph_a, deps_a, saver_a = await _make_instance(settings)
     try:
         events_1 = await _collect(graph_a, deps_a, session_id, "Is NYU good?")
     finally:
         await saver_a.conn.close()  # dispose A: the connection is gone
 
-    clarify = next(event for event in events_1 if event.type == "clarify")
-    assert clarify.data["question"] == "What matters most to you?"
-    assert _done_status(events_1) == "awaiting_input"
+    assert "clarify" not in [event.type for event in events_1]
+    assert _done_status(events_1) == "complete"
+    assert "Initial answer without clarify." in _text(events_1)
 
-    # --- instance B: FRESH saver + graph on the same DSN resumes the thread ---
+    # --- instance B: FRESH saver + graph on the same DSN continues the thread ---
     graph_b, deps_b, saver_b = await _make_instance(settings)
     try:
-        events_2 = await _collect(graph_b, deps_b, session_id, "cost")
+        events_2 = await _collect(graph_b, deps_b, session_id, "continue")
 
         assert "error" not in [event.type for event in events_2]
         assert _done_status(events_2) == "complete"
-        # The resumed answer demonstrably reached the model: it shaped the reply...
-        assert "Focusing on cost." in _text(events_2)
-        # ...and it is persisted as the ask_student tool return in the messages.
+        assert "Continuing after restart." in _text(events_2)
         state = await graph_b.aget_state({"configurable": {"thread_id": session_id}})
         returns = [
             part
@@ -193,7 +192,7 @@ async def test_clarify_interrupt_survives_instance_disposal_and_resumes() -> Non
             for part in message.get("parts", [])
             if part.get("part_kind") == "tool-return" and part.get("tool_name") == "ask_student"
         ]
-        assert [part["content"] for part in returns] == ["cost"]
+        assert returns == []
         # Sanity: the reply with the marker-free prose still carries no stray markers.
         assert not re.findall(r"\[\d+\]", _text(events_2))
     finally:

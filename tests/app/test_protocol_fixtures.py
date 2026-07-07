@@ -206,15 +206,9 @@ def _transcript_dossier_model(messages: list[ModelMessage], info: AgentInfo) -> 
     )
 
 
-def _clarify_model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-    returned = _returned_tools(messages)
-    if "ask_student" in returned:
-        last = messages[-1]
-        assert isinstance(last, ModelRequest)
-        answer = next(
-            part.content for part in last.parts if isinstance(part, ToolReturnPart)
-        )
-        return ModelResponse(parts=[TextPart(f"Focusing on {answer}, then.")])
+def _ask_student_probe_model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    if "ask_student" not in {tool.name for tool in info.function_tools}:
+        return ModelResponse(parts=[TextPart("Proceeding without a clarify event.")])
     return ModelResponse(
         parts=[
             ToolCallPart(
@@ -286,7 +280,7 @@ _ID_FIELDS = {"trace_id", "session_id", "message_id", "user_message_id", "step_i
 def normalize(obj: Any, ids: dict[str, str] | None = None) -> Any:
     """Deterministic fixture form: every id field maps to a stable token in
     first-seen order (the SAME raw id always maps to the SAME token — so a
-    clarify resume's reused message_id stays visibly reused), timestamps and
+    reused message_ids stay visibly reused), timestamps and
     durations zero out. Returns a new structure; never mutates."""
     if ids is None:
         ids = {}
@@ -372,27 +366,17 @@ async def test_golden_full_turn_events() -> None:
     _check_or_regen("turn_full", {"events": normalize(_dump(events))})
 
 
-async def test_golden_clarify_turn_events_park_and_resume() -> None:
-    """The clarify pair: park (clarify + done(awaiting_input)) then resume —
-    one shared id map so the resume's reused message_id stays visibly equal."""
-    rig = Rig(_fn_model(_clarify_model))
+async def test_agent_v1_no_clarify_turn_events() -> None:
+    """Agent V1 does not mount ask_student, so the probe completes normally."""
+    rig = Rig(_fn_model(_ask_student_probe_model))
     registry = TurnRegistry(deps=rig.deps, graph=rig.graph, settings=rig.settings)
     session_id = str(uuid4())
 
-    park = await _registry_turn(rig, registry, session_id, "Is NYU good?", _OFF)
-    resume = await _registry_turn(rig, registry, session_id, "Cost", _OFF)
+    events = await _registry_turn(rig, registry, session_id, "Is NYU good?", _OFF)
 
-    assert park[-1].data["status"] == "awaiting_input"
-    assert resume[-1].data["status"] == "complete"
-
-    ids: dict[str, str] = {}
-    payload = {
-        "park": normalize(_dump(park), ids),
-        "resume": normalize(_dump(resume), ids),
-    }
-    # The reuse property must survive normalization (G1/G4).
-    assert payload["park"][0]["data"]["message_id"] == payload["resume"][0]["data"]["message_id"]
-    _check_or_regen("turn_clarify", payload)
+    assert "clarify" not in [event.type for event in events]
+    assert events[-1].data["status"] == "complete"
+    _check_or_regen("turn_no_clarify", {"events": normalize(_dump(events))})
 
 
 async def test_golden_cancelled_turn_events(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -431,7 +415,7 @@ async def test_golden_cancelled_turn_events(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 async def test_golden_full_fidelity_transcript(monkeypatch: pytest.MonkeyPatch) -> None:
-    """One session, three turns — dossier, clarify park + resume, cancelled —
+    """One session, three turns — dossier, ask-student probe, cancelled —
     serialized through the transcript read (wire-contract §2)."""
     import asyncio
 
@@ -442,9 +426,8 @@ async def test_golden_full_fidelity_transcript(monkeypatch: pytest.MonkeyPatch) 
 
     await _registry_turn(rig, registry, session_id, "Tell me about Duke", _WEB)
 
-    rig.deps.model_factory = lambda: _fn_model(_clarify_model)
+    rig.deps.model_factory = lambda: _fn_model(_ask_student_probe_model)
     await _registry_turn(rig, registry, session_id, "Is it right for me?", _OFF)
-    await _registry_turn(rig, registry, session_id, "Cost", _OFF)
 
     with monkeypatch.context() as cancel_patch:
         cancel_patch.setattr(app.agent_node, "Agent", _HangingFinalAgent)
@@ -486,9 +469,9 @@ async def test_golden_full_fidelity_transcript(monkeypatch: pytest.MonkeyPatch) 
     assert "[[viz:" not in dossier_entry["text"]
     assert all("[[viz:" not in part.get("text", "") for part in dossier_entry["parts"])
     clarify_entry = assistant_entries[1]
-    assert clarify_entry["clarify"]["answer"] == "Cost"
+    assert "clarify" not in clarify_entry
+    assert "Proceeding without a clarify event." in clarify_entry["text"]
     synthesized = [e for e in transcript if e.get("synthesized")]
-    assert len(synthesized) == 1
+    assert synthesized == []
     assert assistant_entries[2]["status"] == "cancelled"
-
     _check_or_regen("transcript", {"transcript": normalize(transcript)})

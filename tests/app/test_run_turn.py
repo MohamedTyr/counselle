@@ -41,7 +41,7 @@ import app.graph
 import app.viz
 from app.deps import AppDeps
 from app.graph import build_graph
-from app.records import prose_of
+from app.records import build_turn_record, prose_of
 from app.run_turn import run_turn
 from app.state import TemporalContext
 from app.steps import EmissionRouter
@@ -323,7 +323,7 @@ async def test_endless_tool_caller_is_cut_off_with_a_clean_error_delta() -> None
 # ---------------------------------------------------------------------------
 
 
-async def test_reddit_disabled_toolset_lacks_search_reddit() -> None:
+async def test_toolset_lacks_disabled_sources_and_ask_student() -> None:
     seen: list[str] = []
 
     def record_tools(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -336,7 +336,8 @@ async def test_reddit_disabled_toolset_lacks_search_reddit() -> None:
 
     assert "search_reddit" not in seen
     assert {"search_web", "search_school_site"} <= set(seen)
-    assert {"render_viz", "ask_student", "load_skill"} <= set(seen)
+    assert {"render_viz", "load_skill"} <= set(seen)
+    assert "ask_student" not in seen
 
 
 # ---------------------------------------------------------------------------
@@ -371,19 +372,13 @@ async def test_registry_indices_stable_across_two_turns() -> None:
 
 
 # ---------------------------------------------------------------------------
-# (e) clarify interrupt round-trip (memory checkpointer)
+# (e) Agent V1 does not mount ask_student
 # ---------------------------------------------------------------------------
 
 
-def _clarify_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-    last = messages[-1]
-    returns = (
-        [part for part in last.parts if isinstance(part, ToolReturnPart)]
-        if isinstance(last, ModelRequest)
-        else []
-    )
-    if returns:
-        return ModelResponse(parts=[TextPart(f"Focusing on {returns[0].content}.")])
+def _ask_student_probe(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    if "ask_student" not in {tool.name for tool in info.function_tools}:
+        return ModelResponse(parts=[TextPart("I will proceed without asking first.")])
     return ModelResponse(
         parts=[
             ToolCallPart(
@@ -401,26 +396,139 @@ def _clarify_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Model
     )
 
 
-async def test_clarify_parks_then_resume_feeds_answer_to_the_model() -> None:
-    rig = Rig(_fn_model(_clarify_then_answer))
+async def test_ask_student_not_mounted_so_agent_continues_without_clarify() -> None:
+    rig = Rig(_fn_model(_ask_student_probe))
     session_id = str(uuid4())
 
-    events_1 = await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
+    events = await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
 
-    clarify = next(e for e in events_1 if e.type == "clarify")
-    assert clarify.data["question"] == "What matters most to you?"
-    assert len(clarify.data["options"]) == 2
-    assert _done_status(events_1) == "awaiting_input"
-    assert "sources" not in _types(events_1)  # parked turn ends right after done
+    assert "clarify" not in _types(events)
+    assert _done_status(events) == "complete"
+    assert "I will proceed without asking first." in _text(events)
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["status"] == "complete"
+    assert record["clarify"] is None
 
-    events_2 = await rig.turn(session_id, "cost", _ALL_OFF)
 
-    assert _done_status(events_2) == "complete"
-    assert "Focusing on cost." in _text(events_2)  # the answer reached the model
-    assert (
-        next(e for e in events_1 if e.type == "meta").data["trace_id"]
-        != next(e for e in events_2 if e.type == "meta").data["trace_id"]
+async def test_legacy_parked_clarify_answer_runs_v1_and_preserves_record_shape() -> None:
+    seen_prompts: list[str] = []
+
+    def answer_compat_prompt(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        last = messages[-1]
+        assert isinstance(last, ModelRequest)
+        prompt = next(
+            part.content for part in last.parts if getattr(part, "part_kind", None) == "user-prompt"
+        )
+        seen_prompts.append(str(prompt))
+        return ModelResponse(parts=[TextPart("Focusing on cost.")])
+
+    rig = Rig(_fn_model(answer_compat_prompt))
+    session_id = str(uuid4())
+    config: Any = {"configurable": {"thread_id": session_id}}
+    parked = build_turn_record(
+        [],
+        ids={"message_id": "m-parked", "user_message_id": "u-parked"},
+        status="awaiting_input",
+        sources=[],
+        user_text="Is NYU good?",
+        clarify={
+            "spec": {
+                "v": 1,
+                "question": "What matters most to you?",
+                "header": "Pick one",
+                "multi_select": False,
+                "options": [
+                    {"label": "Cost", "hint": "affordability and aid"},
+                    {"label": "Academics", "hint": "programs and rigor"},
+                ],
+            },
+            "answer": None,
+        },
+        messages_offset=0,
     )
+    await rig.graph.aupdate_state(
+        config,
+        {
+            "messages": _serialized_user_message_for_test("Is NYU good?"),
+            "turn_records": [parked],
+            "source_registry": [],
+        },
+        as_node="agent",
+    )
+
+    events = await rig.turn(session_id, "cost", _ALL_OFF)
+
+    assert "clarify" not in _types(events)
+    assert _done_status(events) == "complete"
+    assert seen_prompts
+    assert "Is NYU good?" in seen_prompts[-1]
+    assert "What matters most to you?" in seen_prompts[-1]
+    assert "Pick one" in seen_prompts[-1]
+    assert "Cost: affordability and aid" in seen_prompts[-1]
+    assert "Academics: programs and rigor" in seen_prompts[-1]
+    assert "cost" in seen_prompts[-1]
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert len(values["turn_records"]) == 1
+    assert record["message_id"] == "m-parked"
+    assert record["user_text"] == "Is NYU good?"
+    assert record["clarify"]["answer"] == "cost"
+    assert record["clarify"]["spec"]["question"] == "What matters most to you?"
+    assert record["synthesized_answer"] is True
+    assert prose_of(record["parts"]) == "Focusing on cost."
+
+
+async def test_legacy_parked_clarify_failure_preserves_accepted_answer() -> None:
+    def always_raises(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        raise RuntimeError("agent node exploded")
+
+    rig = Rig(_fn_model(always_raises))
+    session_id = str(uuid4())
+    config: Any = {"configurable": {"thread_id": session_id}}
+    parked = build_turn_record(
+        [],
+        ids={"message_id": "m-parked", "user_message_id": "u-parked"},
+        status="awaiting_input",
+        sources=[],
+        user_text="Should I ED to NYU?",
+        clarify={
+            "spec": {
+                "v": 1,
+                "question": "Which factor should I optimize for?",
+                "header": "Choose focus",
+                "multi_select": False,
+                "options": [
+                    {"label": "Cost", "hint": "aid and net price"},
+                    {"label": "Fit", "hint": "campus and academics"},
+                ],
+            },
+            "answer": None,
+        },
+        messages_offset=0,
+    )
+    await rig.graph.aupdate_state(
+        config,
+        {
+            "messages": _serialized_user_message_for_test("Should I ED to NYU?"),
+            "turn_records": [parked],
+            "source_registry": [],
+        },
+        as_node="agent",
+    )
+
+    events = await rig.turn(session_id, "the first one", _ALL_OFF)
+
+    assert "error" in _types(events)
+    values = await _state_values(rig, session_id)
+    assert len(values["turn_records"]) == 1
+    record = values["turn_records"][-1]
+    assert record["status"] == "error"
+    assert record["message_id"] == "m-parked"
+    assert record["user_text"] == "Should I ED to NYU?"
+    assert record["clarify"]["answer"] == "the first one"
+    assert record["clarify"]["spec"]["question"] == "Which factor should I optimize for?"
+    assert record["synthesized_answer"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -570,8 +678,17 @@ async def test_disabled_sources_make_search_step_kinds_impossible() -> None:
     assert not (kinds & _SEARCH_STEP_KINDS), f"disabled source surfaced a step: {kinds}"
 
 
-def _search_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-    """One sibling tool call alongside ask_student in the same response."""
+def _search_unless_ask_student_mounted(
+    messages: list[ModelMessage], info: AgentInfo
+) -> ModelResponse:
+    """Would ask the student if mounted; Agent V1 should search and continue."""
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("I checked the available search result.")])
+    if "ask_student" not in {tool.name for tool in info.function_tools}:
+        return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
     return ModelResponse(
         parts=[
             ToolCallPart(tool_name="search_web", args={"query": "dorms"}),
@@ -590,18 +707,15 @@ def _search_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> Model
     )
 
 
-async def test_clarify_turn_has_no_ask_student_step_and_siblings_close_clean() -> None:
-    rig = Rig(_fn_model(_search_then_clarify))
+async def test_unmounted_ask_student_produces_no_clarify_and_search_steps_close() -> None:
+    rig = Rig(_fn_model(_search_unless_ask_student_mounted))
 
     events = await rig.turn(str(uuid4()), "Is NYU good?", _WEB_ONLY)
 
-    assert "clarify" in _types(events)
-    assert _done_status(events) == "awaiting_input"
+    assert "clarify" not in _types(events)
+    assert _done_status(events) == "complete"
     steps = _steps(events)
-    # ask_student never surfaces on the timeline (would map to the default row).
     assert not any("ask_student" in step["label"] for step in steps)
-    # The sibling step opened before the interrupt is closed — with status end,
-    # never error (the work is superseded, not failed) — before the stream ends.
     _assert_every_step_start_has_a_terminal(events)
     terminals = [step for step in steps if step["status"] != "start"]
     assert terminals and all(step["status"] == "end" for step in terminals)
@@ -1073,7 +1187,9 @@ async def test_record_exact_final_content_stream_record_and_transcript(
     assert [part["type"] for part in assistant["parts"]] == ["text", "viz"]
 
 
-def _render_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+def _render_then_continue_without_clarify(
+    messages: list[ModelMessage], info: AgentInfo
+) -> ModelResponse:
     last = messages[-1]
     returns = (
         [part for part in last.parts if isinstance(part, ToolReturnPart)]
@@ -1081,6 +1197,8 @@ def _render_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> Model
         else []
     )
     if returns:
+        if "ask_student" not in {tool.name for tool in info.function_tools}:
+            return ModelResponse(parts=[TextPart("Final answer after the early card.")])
         return ModelResponse(
             parts=[
                 ToolCallPart(
@@ -1111,7 +1229,7 @@ def _render_then_clarify(messages: list[ModelMessage], info: AgentInfo) -> Model
     )
 
 
-async def test_clarify_no_early_viz_or_answer_persisted_when_before_final_answer(
+async def test_unmounted_ask_student_allows_staged_viz_to_flush_with_final_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def fake_build_spec(
@@ -1124,21 +1242,20 @@ async def test_clarify_no_early_viz_or_answer_persisted_when_before_final_answer
         return _viz_spec("admissions.rate", title="Early card")
 
     monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
-    rig = Rig(_fn_model(_render_then_clarify))
+    rig = Rig(_fn_model(_render_then_continue_without_clarify))
 
     session_id = str(uuid4())
     events = await rig.turn(session_id, "show me a comparison", _ALL_OFF)
 
-    assert _done_status(events) == "awaiting_input"
-    assert "clarify" in _types(events)
-    assert "viz" not in _types(events)
-    assert _text(events) == ""
+    assert _done_status(events) == "complete"
+    assert "clarify" not in _types(events)
+    assert "viz" in _types(events)
+    assert _text(events) == "Final answer after the early card."
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
-    assert record["status"] == "awaiting_input"
-    assert record["parts"] == []
-    assert record["clarify"]["spec"]["question"] == "Which comparison matters?"
-    assert "Which comparison matters?" in events[-2].data["question"]
+    assert record["status"] == "complete"
+    assert record["clarify"] is None
+    assert [part["type"] for part in record["parts"]] == ["text", "viz"]
 
 
 def _narrate_render_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -1366,49 +1483,25 @@ async def test_empty_prose_budget_turn_appends_no_model_response(
     assert values["turn_records"][-1]["status"] == "complete"
 
 
-async def test_clarify_park_writes_record_and_resume_replaces_it() -> None:
-    rig = Rig(_fn_model(_clarify_then_answer))
+async def test_ask_student_absence_writes_complete_non_clarify_record() -> None:
+    rig = Rig(_fn_model(_ask_student_probe))
     session_id = str(uuid4())
 
-    events_1 = await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
-    meta_1 = events_1[0].data
-
-    values = await _state_values(rig, session_id)
-    parked = values["turn_records"][-1]
-    assert parked["status"] == "awaiting_input"
-    assert parked["message_id"] == meta_1["message_id"]
-    assert parked["clarify"]["spec"]["question"] == "What matters most to you?"
-    assert parked["clarify"]["answer"] is None
-    assert parked["user_text"] == "Is NYU good?"  # the parked record anchors the question
-    assert parked["usage"] is None
-    # Every persisted step is terminal — nothing parked mid-shimmer.
-    assert all(s["status"] in ("end", "error") for s in parked["steps"])
-
-    events_2 = await rig.turn(session_id, "cost", _ALL_OFF)
-    meta_2 = events_2[0].data
-
-    # meta on resume reuses the parked assistant message_id (G1/G4)…
-    assert meta_2["message_id"] == meta_1["message_id"]
-    # …with a fresh user_message_id for the answer bubble.
-    assert meta_2["user_message_id"] != meta_1["user_message_id"]
-    assert _done_status(events_2) == "complete"
+    events = await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
+    meta = events[0].data
 
     values = await _state_values(rig, session_id)
     records = values["turn_records"]
-    # The resumed record REPLACED the parked one — same id, one record.
     assert len(records) == 1
     record = records[0]
     assert record["status"] == "complete"
-    assert record["message_id"] == meta_1["message_id"]
-    assert record["user_message_id"] == meta_2["user_message_id"]
-    assert record["clarify"]["answer"] == "cost"
-    assert record["clarify"]["spec"]["question"] == "What matters most to you?"
-    assert record["synthesized_answer"] is True
-    # The replacement record stays self-contained: the ORIGINAL question (the
-    # answer rides clarify.answer, never the user bubble).
+    assert record["message_id"] == meta["message_id"]
+    assert record["user_message_id"] == meta["user_message_id"]
+    assert record["clarify"] is None
+    assert record["synthesized_answer"] is False
     assert record["user_text"] == "Is NYU good?"
     prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
-    assert prose == _text(events_2)
+    assert prose == _text(events)
 
 
 async def test_error_turn_writes_record_without_streamed_pre_final_prose() -> None:
@@ -1529,30 +1622,27 @@ def _serialized_user_message_for_test(text: str) -> list[dict[str, Any]]:
 
 
 async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None:
-    """_prepare_turn_input (audit M3) yields a resume Command(resume=…) graph
-    input when the prior records show a parked (awaiting_input) tail and reuses
-    the parked message_id's offset; it yields a new-turn dict input when not
-    parked."""
-    from langgraph.types import Command
-
+    """_prepare_turn_input (audit M3) yields an Agent V1 compatibility prompt
+    when the prior records show a parked (awaiting_input) tail and reuses the
+    parked message_id's offset; it yields a new-turn dict input when not parked."""
     from app.run_turn import _prepare_turn_input, _ResumePrewriteError
     from app.turn_persistence import parked_record
 
-    rig = Rig(_fn_model(_clarify_then_answer))
+    rig = Rig(_fn_model(_ask_student_probe))
 
-    # --- parked branch: a parked record at the tail → resume Command ---
+    # --- parked branch: a parked record at the tail → V1 compatibility prompt ---
     parked_rec: dict[str, Any] = {
         "message_id": "m-parked",
         "user_message_id": "u-0",
         "status": "awaiting_input",
         "user_text": "Is NYU good?",
-        "messages_offset": 3,
+        "messages_offset": 1,
     }
     parked_records: list[dict[str, Any]] = [parked_rec]
 
     class _Snap:
         values: dict[str, Any] = {
-            "messages": [{"kind": "request"}],
+            "messages": [{"kind": "request", "parts": []}, {"kind": "request", "parts": []}],
             "turn_records": parked_records,
         }
 
@@ -1570,11 +1660,15 @@ async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None
         parked=parked,
         turn_ids=turn_ids,
     )
-    assert isinstance(resume_input.graph_input, Command)
-    # The answer rides Command(resume=…), never the messages list.
-    assert resume_input.graph_input.resume == "cost"
+    assert isinstance(resume_input.graph_input, dict)
+    # The answer is fed back to Agent V1 explicitly; no legacy Command resume.
+    compat_prompt = resume_input.graph_input["messages"][-1]["parts"][0]["content"]
+    assert "Is NYU good?" in compat_prompt
+    assert "cost" in compat_prompt
+    assert "Do not ask another clarifying question" in compat_prompt
     # The parked record's offset is carried forward (the original question index).
-    assert resume_input.messages_offset == 3
+    assert resume_input.messages_offset == 1
+    assert resume_input.graph_input["messages"][0] == _Snap.values["messages"][0]
 
     # --- new-turn branch: no parked record → a new-turn dict input ---
     class _SnapNew:
@@ -1591,7 +1685,6 @@ async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None
         parked=None,
         turn_ids={"message_id": "m-new", "user_message_id": "u-new"},
     )
-    assert not isinstance(new_input.graph_input, Command)
     assert isinstance(new_input.graph_input, dict)
     # The new turn appends the serialized user ModelRequest to the prior messages.
     assert new_input.graph_input["messages"][-1]["kind"] == "request"

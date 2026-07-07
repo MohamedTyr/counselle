@@ -11,13 +11,17 @@ Source: DATABASE_GUIDE §14.1, §7, §11, §12; ARCHITECTURE §11.
 
 A student asks about one school in any depth — "tell me about Duke", "what's MIT like", "can you give me a full breakdown of UCLA". Also use it when building one school's side of a multi-school comparison before rendering the table.
 
+## Agent voice and shape
+
+Make the dossier useful as work product, not a casual chat reply. Lead with the most decision-relevant takeaway, then use compact section headings and cited bullets. Keep the order below unless the student asked for a narrower slice. Explain admissions terms inline only when they affect interpretation.
+
 ## Step 1 — Resolve the school
 
-Call `resolve_school(name_or_unitid)`. It returns: `unitid`, `name`, `city`, `state`, `control`, `coverage_tier` (`base` | `cds_pdf_only` | `cds_extracted`), and a `not_in_db` flag.
+Call `resolve_school(name_or_unitid)` and branch on its `status`. On a found school, use the returned identity fields and `coverage_tier` (`base` | `cds_pdf_only` | `cds_extracted`).
 
-If `not_in_db` is true: stop immediately. Tell the student the school is not in the database. Do not proceed. Do not fabricate data.
+If the status says the school is not in the database: stop immediately. Tell the student the school is not in the database. Do not proceed. Do not fabricate data.
 
-If the name matches multiple campuses (e.g. "Ohio State", "University of Michigan"): ask which campus before proceeding. One question only.
+If the name matches multiple campuses, do not use a clarify tool call in Agent V1. Use the most likely campus only when responsible, state the campus assumption, and continue. If no responsible default exists, explain the ambiguity and avoid school-specific facts.
 
 ## Step 2 — Note the coverage tier and set expectations
 
@@ -39,7 +43,7 @@ For programs and diversity (Section D sub-data and Section E):
 
 ## Step 4 — Present sections in order
 
-Present the dossier in this order. Each section heading matches the shortlist:
+Present the dossier in this order. Each section heading matches the shortlist. If a section has little data, keep it brief and say what is not available instead of padding:
 
 **A — Admissions & Selectivity**
 Lead with the accept rate (prefer Scorecard `admissions.acceptance_rate` over IPEDS). Add test policy and score ranges. If cds_extracted: add factor weights, GPA distribution, ED/EA dates. Describe the SAT/ACT middle-50% ranges from the field values (keep SAT EBRW and Math separate — never a composite), and teach the middle-50% meaning when you show them.

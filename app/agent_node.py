@@ -5,7 +5,7 @@ Design (notes-p4-apis §1/§3/§4/§6/§7):
 - **Per-turn objects rebuild from state** at the top of every execution: the
   source registry from ``state["source_registry"]``, the source config, the
   message history. On an ``interrupt()`` resume LangGraph RE-EXECUTES this node
-  from the start — the whole PydanticAI run replays (model re-billed, pre-clarify
+  from the start — the whole PydanticAI run replays (model re-billed, prior
   tools re-run). That is the documented LangGraph pattern; it is correct here
   precisely because nothing per-turn lives outside state + locals.
 - **User message convention:** the runner (``app/run_turn.py``) appends the new
@@ -14,15 +14,10 @@ Design (notes-p4-apis §1/§3/§4/§6/§7):
   ``messages[:-1]`` is the ``message_history``, the tail's prompt text is the
   ``user_prompt``. One state key, one convention, replay-safe (the tail is still
   there on re-execution).
-- **Clarify:** ``ask_student`` calls ``langgraph.types.interrupt()``. It is
-  mounted through a thin **async** wrapper so pydantic-ai runs it in the node's
-  own task (a sync tool would go to a worker thread) — the config ContextVar
-  stays visible and the raised ``GraphInterrupt`` propagates straight out of the
-  run. Nothing here catches broad exceptions around the run; only
-  ``UsageLimitExceeded`` is caught (the tool-budget bound, notes §6). If the
-  model ever issued parallel tool calls each containing an interrupt, resume
-  matching could misorder — accepted MVP1 risk; the prompt enforces one clarify
-  round per turn.
+- **Clarify:** Agent V1 does not mount ``ask_student`` in the PydanticAI toolset.
+  The legacy interrupt plumbing still exists below this node, so
+  ``GraphInterrupt`` is allowed to propagate if a lower-level path raises it,
+  but the V1 agent is expected to make reasonable assumptions and continue.
 - **Streaming:** text reaches the client mid-run via the LangGraph custom
   stream (``get_stream_writer()``, notes §7). The first chunk of a text part
   arrives inside ``PartStartEvent`` (not as a delta) — both are forwarded.
@@ -54,7 +49,6 @@ from pydantic_ai.run import AgentRunResultEvent
 from pydantic_ai.usage import UsageLimits
 
 from app import viz as viz_mod
-from app.clarify import ask_student
 from app.prompt import build_system_prompt
 from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.skills import make_load_skill_tool
@@ -77,8 +71,8 @@ def _close_router_safely(router: EmissionRouter, reason: CloseReason) -> None:
     """Best-effort router closure inside an except block.
 
     A ``close()`` failure here must never mask the original exception — on the
-    GraphInterrupt path the re-raise is honesty-critical (the clarify must
-    park the turn), so closing the timeline is strictly best-effort.
+    GraphInterrupt path the re-raise is lifecycle-critical for legacy/lower-level
+    interrupt callers, so closing the timeline is strictly best-effort.
     """
     try:
         router.close(reason)
@@ -239,28 +233,6 @@ class _FinalContentPlacementWriter:
                 self._writer({"type": "viz", "spec": payload})
 
 
-def _make_ask_student_tool() -> Tool[Any]:
-    """``ask_student`` behind an async shim so it runs in the node's own task.
-
-    pydantic-ai executes *sync* tools in a worker thread; ``interrupt()`` must
-    run where LangGraph's config ContextVar lives and its ``GraphInterrupt``
-    must unwind the node's task — so the shim is async and calls the sync
-    implementation inline (it never blocks: ``interrupt()`` raises).
-    """
-
-    async def ask_student_async(
-        question: str,
-        header: str,
-        options: list[dict[str, Any]] | None = None,
-        multi_select: bool = False,
-    ) -> str:
-        return ask_student(question, header, options, multi_select)
-
-    ask_student_async.__doc__ = ask_student.__doc__
-    ask_student_async.__name__ = "ask_student"
-    return Tool(ask_student_async, takes_ctx=False)
-
-
 def _make_recording_writer(
     writer: Any, emissions: list[Emission]
 ) -> Callable[[dict[str, Any]], None]:
@@ -324,7 +296,7 @@ def _resume_clarify(
 
 
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
-    """One counselor turn: rebuild from state, run the agent, return the delta."""
+    """One agent turn: rebuild from state, run the agent, return the delta."""
     settings = getattr(deps, "settings", None) or get_settings()
     emissions: list[Emission] = []
     recording_writer = _make_recording_writer(get_stream_writer(), emissions)
@@ -343,7 +315,6 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     extra_tools: list[Tool[Any]] = [
         _make_render_viz_tool(deps.catalog, registry, viz_list, viz_signature_indexes),
-        _make_ask_student_tool(),
         Tool(make_load_skill_tool(), takes_ctx=False),
     ]
     tools = build_tools(source_config, tool_deps, registry, today, extra_tools=extra_tools)
@@ -383,8 +354,8 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         on_final_start=final_writer.start_final,
     )
 
-    # --- the run; only UsageLimitExceeded is caught (GraphInterrupt MUST fly,
-    #     but the router closes open steps first so nothing shimmers forever) ---
+    # --- the run; only UsageLimitExceeded is handled locally. GraphInterrupt
+    #     still flies for legacy/lower-level callers, after open steps close. ---
     messages_out = state["messages"]
     usage = UsageData(input_tokens=0, output_tokens=0, tool_calls=0)
     result = None
@@ -441,17 +412,21 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # recomputes it. resolve_offset's fallback covers direct-graph invocations
     # only (tests, pre-B1b checkpoints), where the tail is the user request.
     offset = resolve_offset(ids.get("messages_offset"), state["messages"])
-    # user_text is the turn's QUESTION even on a resume: the replayed node
-    # still splits the original user ModelRequest off the messages tail (the
-    # clarify answer rides Command(resume), never messages) — so the record
-    # stays self-contained and the read can render the question id-less next
-    # to the synthesized answer bubble.
+    record_user_text = (
+        str(prior_records[-1].get("user_text") or user_text)
+        if synthesized and prior_records
+        else user_text
+    )
+    # user_text is the turn's QUESTION even on a synthesized legacy clarify
+    # continuation. Agent V1 may feed a compatibility prompt to the model, but
+    # the persisted record stays self-contained around the original question so
+    # the read can render it id-less next to the synthesized answer bubble.
     record = build_turn_record(
         emissions,
         ids=ids,
         status="complete",
         sources=registry.dump(),
-        user_text=user_text,
+        user_text=record_user_text,
         usage=usage.model_dump(mode="json"),
         clarify=clarify,
         ts=now_iso(),

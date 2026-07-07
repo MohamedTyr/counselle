@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Callable
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -37,9 +37,10 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 import app.agent_node
 import app.graph
-from app.records import prose_of
+from app.records import build_turn_record, prose_of
 from app.state import TemporalContext
 from app.transcript import extract_transcript
+from app.turn_persistence import AGENT_NODE
 from app.turns import (
     InvalidEditTarget,
     NoActiveTurn,
@@ -66,7 +67,6 @@ from tests.app.test_run_turn import (
     _WEB_ONLY,
     FakeSettings,
     Rig,
-    _clarify_then_answer,
     _fn_model,
     _search_then_answer,
     _viz_spec,
@@ -107,6 +107,16 @@ def _gated_model(gate: asyncio.Event, *chunks_before: str, after: str = "") -> F
         await gate.wait()
         if after:
             yield after
+
+    return FunctionModel(fn, stream_function=stream)
+
+
+def _plain_model(text: str = "Fresh answer.") -> FunctionModel:
+    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[TextPart(text)])
+
+    async def stream(messages: Any, info: AgentInfo) -> AsyncIterator[str]:
+        yield text
 
     return FunctionModel(fn, stream_function=stream)
 
@@ -165,6 +175,97 @@ def _events(pairs: list[tuple[Event, int]]) -> list[Event]:
 
 def _prose(pairs: list[tuple[Event, int]]) -> str:
     return "".join(e.data["text"] for e in _events(pairs) if e.type == "delta")
+
+
+def _clarify_spec() -> dict[str, Any]:
+    return {
+        "question": "What matters most to you?",
+        "header": "Pick one",
+        "options": [
+            {"label": "Cost", "hint": "affordability and aid"},
+            {"label": "Academics", "hint": "programs and rigor"},
+        ],
+        "multi_select": False,
+    }
+
+
+def _serialized_user_messages(text: str) -> list[dict[str, Any]]:
+    return cast(
+        "list[dict[str, Any]]",
+        ModelMessagesTypeAdapter.dump_python(
+            [ModelRequest(parts=[UserPromptPart(content=text)])],
+            mode="json",
+        ),
+    )
+
+
+async def _seed_parked_turn(
+    rig: Rig, session_id: str, user_text: str = "Is NYU good?"
+) -> dict[str, Any]:
+    ids = {"message_id": str(uuid4()), "user_message_id": str(uuid4())}
+    record = build_turn_record(
+        [],
+        ids=ids,
+        status="awaiting_input",
+        sources=[],
+        user_text=user_text,
+        messages_offset=0,
+        clarify={"spec": _clarify_spec(), "answer": None},
+    )
+    await rig.graph.aupdate_state(
+        {"configurable": {"thread_id": session_id}},
+        {
+            "messages": _serialized_user_messages(user_text),
+            "turn_records": [record],
+            "source_registry": [],
+        },
+    )
+    return record
+
+
+def _resume_parked_run_turn(
+    *, gate: asyncio.Event | None = None
+) -> Callable[..., AsyncIterator[Event]]:
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        config = {"configurable": {"thread_id": session_id}}
+        snapshot = await graph.aget_state(config)
+        records = list((snapshot.values or {}).get("turn_records") or [])
+        parked = records[-1]
+        message_id = parked["message_id"]
+        user_message_id = str(uuid4())
+        yield ev_meta("trace-resume", session_id, "test-model", message_id, user_message_id)
+        if gate is not None:
+            await gate.wait()
+        text = f"Focusing on {user_text}."
+        yield ev_delta(text)
+        record = build_turn_record(
+            [("delta", text)],
+            ids={"message_id": message_id, "user_message_id": user_message_id},
+            status="complete",
+            sources=[],
+            user_text=parked.get("user_text"),
+            usage={"input_tokens": 1, "output_tokens": 1, "tool_calls": 0},
+            messages_offset=parked.get("messages_offset", 0),
+            clarify={"spec": (parked.get("clarify") or {}).get("spec"), "answer": user_text},
+            synthesized_answer=True,
+        )
+        await graph.aupdate_state(
+            config,
+            {"turn_records": records[:-1] + [record]},
+            as_node=AGENT_NODE,
+        )
+        yield ev_sources([])
+        yield ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
+        yield ev_done("complete")
+
+    return fake_run_turn
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +331,7 @@ async def test_exact_replay_from_last_event_id_mid_stream() -> None:
 
 
 async def test_replay_duplicate_final_chunks_keeps_one_answer_and_one_viz() -> None:
-    rig = Rig(_fn_model(_search_then_answer))
+    rig = Rig(_plain_model())
     spec_1 = _viz_spec("admissions.rate", title="First title")
     spec_2 = _viz_spec("admissions.rate", title="Second title")
     gate = asyncio.Event()
@@ -293,19 +394,23 @@ async def test_double_send_raises_stream_active() -> None:
         await _drain(handle)
 
 
-async def test_awaiting_input_releases_lock_for_the_answering_post() -> None:
-    rig = Rig(_fn_model(_clarify_then_answer))
-    registry = _registry(rig)
+async def test_seeded_awaiting_input_releases_lock_for_the_answering_post() -> None:
+    rig = Rig(_plain_model())
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=_resume_parked_run_turn(),
+    )
     session_id = str(uuid4())
 
-    pairs_1 = await _run_full_turn(registry, session_id, "Is NYU good?")
-    assert pairs_1[-1][0].data["status"] == "awaiting_input"
+    await _seed_parked_turn(rig, session_id)
     assert registry.is_generating(session_id) is False  # the lock released
 
     # The answering POST is NOT 409'd and resumes to completion.
-    pairs_2 = await _run_full_turn(registry, session_id, "cost")
-    assert pairs_2[-1][0].data["status"] == "complete"
-    assert "Focusing on cost." in _prose(pairs_2)
+    pairs = await _run_full_turn(registry, session_id, "cost")
+    assert pairs[-1][0].data["status"] == "complete"
+    assert "Focusing on cost." in _prose(pairs)
 
 
 # ---------------------------------------------------------------------------
@@ -360,11 +465,11 @@ async def test_cancel_after_done_is_idle_noop() -> None:
 
 
 async def test_cancel_on_parked_unparks_and_freezes_clarify_unanswered() -> None:
-    rig = Rig(_fn_model(_clarify_then_answer))
+    rig = Rig(_plain_model())
     registry = _registry(rig)
     session_id = str(uuid4())
 
-    await _run_full_turn(registry, session_id, "Is NYU good?")
+    await _seed_parked_turn(rig, session_id)
 
     assert await registry.cancel(session_id) == "unparked"
 
@@ -374,15 +479,15 @@ async def test_cancel_on_parked_unparks_and_freezes_clarify_unanswered() -> None
     assert record["status"] == "cancelled"
     assert record["clarify"]["answer"] is None
     assert record["clarify"]["spec"]["question"] == "What matters most to you?"
-    # The interrupt is cleared (spike-1 mechanic b).
+    # The parked state is cleared (spike-1 mechanic b).
     assert not any(task.interrupts for task in snapshot.tasks)
 
     # The next plain message runs a FRESH turn (it would have been swallowed
-    # as a clarify answer otherwise): the model asks its clarify again.
+    # as a clarify answer otherwise). Agent V1 continues without a clarify event.
     pairs = await _run_full_turn(registry, session_id, "Is Duke good?")
     types = [e.type for e, _ in pairs]
-    assert "clarify" in types
-    assert pairs[-1][0].data["status"] == "awaiting_input"
+    assert "clarify" not in types
+    assert pairs[-1][0].data["status"] == "complete"
     values = await _state_values(rig, session_id)
     assert values["turn_records"][-1]["user_text"] == "Is Duke good?"
 
@@ -480,27 +585,19 @@ async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
 async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
     """Cancel during a clarify RESUME: the parked record is replaced (same
     message_id) with the answer frozen into clarify.answer."""
-    rig = Rig(_fn_model(_clarify_then_answer))
-    registry = _registry(rig)
+    rig = Rig(_fn_model(_search_then_answer))
+    gate = asyncio.Event()
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=_resume_parked_run_turn(gate=gate),
+    )
     session_id = str(uuid4())
 
-    pairs_1 = await _run_full_turn(registry, session_id, "Is NYU good?")
-    meta_1 = pairs_1[0][0].data
-    parked = (await _state_values(rig, session_id))["turn_records"][-1]
+    parked = await _seed_parked_turn(rig, session_id)
+    meta_1 = parked
     assert parked["status"] == "awaiting_input"
-
-    # Resume with a model that hangs mid-resume: swap the registry's rig model
-    # by hanging the answering response.
-    gate = asyncio.Event()
-
-    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        return _clarify_then_answer(messages, info)
-
-    async def stream(messages: Any, info: AgentInfo) -> AsyncIterator[str]:
-        await gate.wait()
-        yield "never"
-
-    rig.deps.model_factory = lambda: FunctionModel(fn, stream_function=stream)
 
     collector = Collector(await registry.start(session_id, "cost", _ALL_OFF))
     await _eventually(lambda: len(collector.items) >= 1)  # meta (reused id)
@@ -589,11 +686,11 @@ async def test_parked_turn_is_not_attachable_but_record_is_durable() -> None:
     """Parked-interrupt durability: after done(awaiting_input) the task is
     gone (attach → NoActiveTurn → 204 → transcript), and the transcript
     carries the parked clarify record."""
-    rig = Rig(_fn_model(_clarify_then_answer))
+    rig = Rig(_fn_model(_search_then_answer))
     registry = _registry(rig)
     session_id = str(uuid4())
 
-    await _run_full_turn(registry, session_id, "Is NYU good?")
+    await _seed_parked_turn(rig, session_id)
 
     with pytest.raises(NoActiveTurn):
         registry.attach(session_id)
@@ -680,28 +777,27 @@ async def test_rewrite_of_the_first_message_restores_an_empty_registry() -> None
 
 
 async def test_parked_edit_clears_the_interrupt_and_runs_fresh() -> None:
-    rig = Rig(_fn_model(_clarify_then_answer))
+    rig = Rig(_plain_model())
     registry = _registry(rig)
     session_id = str(uuid4())
 
-    pairs_1 = await _run_full_turn(registry, session_id, "Is NYU good?")
-    parked_user_id = pairs_1[0][0].data["user_message_id"]
+    parked = await _seed_parked_turn(rig, session_id)
+    parked_user_id = parked["user_message_id"]
 
     # Edit the parked turn's own question — the rewrite must unpark (G4).
     pairs_2 = await _run_full_turn(
         registry, session_id, "Is Duke good?", replace_message_id=parked_user_id
     )
 
-    # The new text ran as a FRESH question (parks on its own clarify), not as
-    # the old clarify's answer.
-    assert "clarify" in [e.type for e, _ in pairs_2]
+    # The new text ran as a FRESH question, not as the old clarify's answer.
+    assert "clarify" not in [e.type for e, _ in pairs_2]
+    assert pairs_2[-1][0].data["status"] == "complete"
     values = await _state_values(rig, session_id)
     records = values["turn_records"]
     assert len(records) == 1
     assert records[0]["user_text"] == "Is Duke good?"
     snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
-    # Parked again on the NEW turn's clarify — but only one parked record.
-    assert records[0]["status"] == "awaiting_input"
+    assert records[0]["status"] == "complete"
     assert snapshot is not None
 
 
@@ -752,11 +848,16 @@ async def test_rewrite_pre_mvp2_history_raises_invalid_edit_target() -> None:
 
 
 async def test_rewrite_synthesized_answer_bubble_raises_invalid_edit_target() -> None:
-    rig = Rig(_fn_model(_clarify_then_answer))
-    registry = _registry(rig)
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=_resume_parked_run_turn(),
+    )
     session_id = str(uuid4())
 
-    await _run_full_turn(registry, session_id, "Is NYU good?")
+    await _seed_parked_turn(rig, session_id)
     await _run_full_turn(registry, session_id, "cost")  # the resume
 
     record = (await _state_values(rig, session_id))["turn_records"][-1]
@@ -808,10 +909,10 @@ async def test_aclose_with_a_live_turn_over_a_parked_session_drains_and_frees() 
     live turn: the live turn's partial lands and the parked session — once its
     own cancel runs — is frozen `cancelled` with the interrupt cleared."""
     # A parked session (task already gone, record durable).
-    rig = Rig(_fn_model(_clarify_then_answer))
+    rig = Rig(_fn_model(_search_then_answer))
     registry = _registry(rig)
     parked_sid = str(uuid4())
-    await _run_full_turn(registry, parked_sid, "Is NYU good?")  # parks
+    await _seed_parked_turn(rig, parked_sid)
 
     # Cancel-on-parked is the exact mechanism aclose runs per session: freeze
     # the record cancelled, clear the interrupt.

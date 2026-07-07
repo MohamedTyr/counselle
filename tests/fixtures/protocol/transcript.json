@@ -141,24 +141,18 @@
     {
       "role": "user",
       "text": "Is it right for me?",
-      "ts": null
-    },
-    {
-      "role": "user",
-      "text": "Cost",
       "ts": "2026-01-01T00:00:00+00:00",
-      "message_id": "id-5",
-      "synthesized": true
+      "message_id": "id-5"
     },
     {
       "role": "assistant",
-      "text": "Focusing on Cost, then.",
+      "text": "Proceeding without a clarify event.",
       "ts": "2026-01-01T00:00:00+00:00",
       "message_id": "id-6",
       "parts": [
         {
           "type": "text",
-          "text": "Focusing on Cost, then."
+          "text": "Proceeding without a clarify event."
         }
       ],
       "step_record": {
@@ -196,29 +190,10 @@
       ],
       "status": "complete",
       "usage": {
-        "input_tokens": 100,
-        "output_tokens": 32,
+        "input_tokens": 50,
+        "output_tokens": 6,
         "est_cost_usd": null,
-        "tool_calls": 1
-      },
-      "clarify": {
-        "spec": {
-          "v": 1,
-          "question": "What matters most to you?",
-          "header": "Pick one",
-          "multi_select": false,
-          "options": [
-            {
-              "label": "Cost",
-              "hint": "affordability and aid"
-            },
-            {
-              "label": "Academics",
-              "hint": "programs and rigor"
-            }
-          ]
-        },
-        "answer": "Cost"
+        "tool_calls": 0
       }
     },
     {

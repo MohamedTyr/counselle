@@ -1,0 +1,46 @@
+{
+  "events": [
+    {
+      "v": 1,
+      "type": "meta",
+      "data": {
+        "trace_id": "id-1",
+        "session_id": "id-2",
+        "model": "google-vertex:gemini-2.5-pro",
+        "message_id": "id-3",
+        "user_message_id": "id-4"
+      }
+    },
+    {
+      "v": 1,
+      "type": "delta",
+      "data": {
+        "text": "Proceeding without a clarify event."
+      }
+    },
+    {
+      "v": 1,
+      "type": "sources",
+      "data": {
+        "sources": []
+      }
+    },
+    {
+      "v": 1,
+      "type": "usage",
+      "data": {
+        "input_tokens": 50,
+        "output_tokens": 6,
+        "est_cost_usd": null,
+        "tool_calls": 0
+      }
+    },
+    {
+      "v": 1,
+      "type": "done",
+      "data": {
+        "status": "complete"
+      }
+    }
+  ]
+}

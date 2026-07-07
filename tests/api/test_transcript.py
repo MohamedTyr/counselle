@@ -15,6 +15,7 @@ from uuid import uuid4
 import pytest
 from pydantic_ai.messages import (
     ModelMessage,
+    ModelMessagesTypeAdapter,
     ModelRequest,
     ModelResponse,
     TextPart,
@@ -27,6 +28,7 @@ from pydantic_ai.models.function import AgentInfo
 import app.agent_node
 import app.graph
 import app.viz
+from app.records import build_turn_record
 from app.state import TemporalContext
 from app.transcript import extract_transcript
 from domain.season import Season
@@ -73,37 +75,54 @@ async def _transcript_of(rig: Rig, session_id: str) -> list[dict[str, Any]]:
     )
 
 
-def _scripted(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-    """Turn 1: plain answer. Turn 2: clarify. Resume: answer with the choice."""
-    last = messages[-1]
-    returns = (
-        [part for part in last.parts if isinstance(part, ToolReturnPart)]
-        if isinstance(last, ModelRequest)
-        else []
-    )
-    if returns:
-        return ModelResponse(parts=[TextPart(f"Focusing on {returns[0].content}.")])
-    user_turns = sum(
-        1
-        for m in messages
-        if isinstance(m, ModelRequest) and any(isinstance(p, UserPromptPart) for p in m.parts)
-    )
-    if user_turns <= 1:
-        return ModelResponse(parts=[TextPart("Duke is strong in engineering.")])
-    return ModelResponse(
-        parts=[
-            ToolCallPart(
-                tool_name="ask_student",
-                args={
-                    "question": "What matters most to you?",
-                    "header": "Pick one",
-                    "options": [
-                        {"label": "Cost", "hint": "affordability and aid"},
-                        {"label": "Academics", "hint": "programs and rigor"},
-                    ],
-                },
+def _messages(*texts: str) -> list[dict[str, Any]]:
+    messages: list[dict[str, Any]] = []
+    for text in texts:
+        messages.extend(
+            ModelMessagesTypeAdapter.dump_python(
+                [ModelRequest(parts=[UserPromptPart(content=text)])],
+                mode="json",
             )
-        ]
+        )
+    return messages
+
+
+def _clarify_spec() -> dict[str, Any]:
+    return {
+        "v": 1,
+        "question": "What matters most to you?",
+        "header": "Pick one",
+        "multi_select": False,
+        "options": [
+            {"label": "Cost", "hint": "affordability and aid"},
+            {"label": "Academics", "hint": "programs and rigor"},
+        ],
+    }
+
+
+def _record(
+    *,
+    message_id: str,
+    user_message_id: str,
+    user_text: str,
+    status: str = "complete",
+    text: str = "",
+    clarify: dict[str, Any] | None = None,
+    messages_offset: int = 0,
+    synthesized_answer: bool = False,
+    usage: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return build_turn_record(
+        [("delta", text)] if text else [],
+        ids={"message_id": message_id, "user_message_id": user_message_id},
+        status=status,  # type: ignore[arg-type]
+        sources=[],
+        user_text=user_text,
+        usage=usage,
+        clarify=clarify,
+        ts="2026-06-12T00:00:00+00:00",
+        messages_offset=messages_offset,
+        synthesized_answer=synthesized_answer,
     )
 
 
@@ -113,26 +132,40 @@ def _scripted(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
 
 
 async def test_transcript_wire_shape_complete_clarify_resume() -> None:
-    rig = Rig(_fn_model(_scripted))
-    session_id = str(uuid4())
+    messages = _messages("tell me about duke", "Is NYU good?")
+    records = [
+        _record(
+            message_id="m-1",
+            user_message_id="u-1",
+            user_text="tell me about duke",
+            text="Duke is strong in engineering.",
+            messages_offset=0,
+            usage={"input_tokens": 1, "output_tokens": 1, "tool_calls": 0},
+        ),
+        _record(
+            message_id="m-2",
+            user_message_id="u-2",
+            user_text="Is NYU good?",
+            text="Focusing on cost.",
+            clarify={"spec": _clarify_spec(), "answer": "cost"},
+            messages_offset=1,
+            synthesized_answer=True,
+            usage={"input_tokens": 1, "output_tokens": 1, "tool_calls": 0},
+        ),
+    ]
 
-    events_1 = await rig.turn(session_id, "tell me about duke", _ALL_OFF)
-    await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
-    events_3 = await rig.turn(session_id, "cost", _ALL_OFF)
-
-    transcript = await _transcript_of(rig, session_id)
+    transcript = extract_transcript(messages, records)
     assert [e["role"] for e in transcript] == ["user", "assistant", "user", "user", "assistant"]
     user_1, assistant_1, question_2, answer_2, assistant_2 = transcript
 
     # Turn 1 — the complete turn.
-    meta_1 = events_1[0].data
     assert user_1 == {
         "role": "user",
         "text": "tell me about duke",
         "ts": assistant_1["ts"],
-        "message_id": meta_1["user_message_id"],
+        "message_id": "u-1",
     }
-    assert assistant_1["message_id"] == meta_1["message_id"]
+    assert assistant_1["message_id"] == "m-1"
     assert assistant_1["status"] == "complete"
     assert assistant_1["text"] == "Duke is strong in engineering."
     assert assistant_1["parts"] == [{"type": "text", "text": "Duke is strong in engineering."}]
@@ -144,7 +177,6 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
 
     # Turn 2+3 — the clarify turn, resumed: ONE assistant entry (the resumed
     # record replaced the parked one, same message_id).
-    meta_3 = events_3[0].data
     # The original question renders id-less (its parked-era record was replaced).
     assert question_2 == {"role": "user", "text": "Is NYU good?", "ts": None}
     # The synthesized answer bubble (G4): first-class, never an edit target.
@@ -152,10 +184,10 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
         "role": "user",
         "text": "cost",
         "ts": assistant_2["ts"],
-        "message_id": meta_3["user_message_id"],
+        "message_id": "u-2",
         "synthesized": True,
     }
-    assert assistant_2["message_id"] == meta_3["message_id"]
+    assert assistant_2["message_id"] == "m-2"
     assert assistant_2["status"] == "complete"
     assert assistant_2["clarify"] == {
         "spec": {
@@ -170,27 +202,41 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
         },
         "answer": "cost",
     }
-    assert assistant_2["text"] == _text(events_3)
+    assert assistant_2["text"] == "Focusing on cost."
     assert assistant_2["parts"] == [{"type": "text", "text": assistant_2["text"]}]
 
 
 async def test_transcript_parked_turn_entry() -> None:
-    rig = Rig(_fn_model(_scripted))
-    session_id = str(uuid4())
+    messages = _messages("tell me about duke", "Is NYU good?")
+    records = [
+        _record(
+            message_id="m-1",
+            user_message_id="u-1",
+            user_text="tell me about duke",
+            text="Duke is strong in engineering.",
+            messages_offset=0,
+            usage={"input_tokens": 1, "output_tokens": 1, "tool_calls": 0},
+        ),
+        _record(
+            message_id="m-2",
+            user_message_id="u-2",
+            user_text="Is NYU good?",
+            status="awaiting_input",
+            clarify={"spec": _clarify_spec(), "answer": None},
+            messages_offset=1,
+        ),
+    ]
 
-    await rig.turn(session_id, "tell me about duke", _ALL_OFF)
-    events_2 = await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
-
-    transcript = await _transcript_of(rig, session_id)
+    transcript = extract_transcript(messages, records)
     assert [e["role"] for e in transcript] == ["user", "assistant", "user", "assistant"]
     parked = transcript[-1]
     assert parked["status"] == "awaiting_input"
-    assert parked["message_id"] == events_2[0].data["message_id"]
+    assert parked["message_id"] == "m-2"
     assert parked["clarify"]["answer"] is None
     assert parked["clarify"]["spec"]["question"] == "What matters most to you?"
     assert "usage" not in parked  # the parked record has no usage yet
     # The parked user entry is first-class (the turn's own ids).
-    assert transcript[2]["message_id"] == events_2[0].data["user_message_id"]
+    assert transcript[2]["message_id"] == "u-2"
     assert transcript[2]["text"] == "Is NYU good?"
 
 
@@ -311,42 +357,24 @@ async def test_first_ever_turn_is_a_clarify_offset_is_sane() -> None:
     """The first message of a brand-new session triggers a clarify: the parked
     record's messages_offset must point at the real (only) user message, and the
     transcript must render the question (the first-turn-clarify offset edge)."""
-    rig = Rig(_fn_model(_scripted_clarify_first))
-    session_id = str(uuid4())
-
-    events = await rig.turn(session_id, "Is NYU good?", _ALL_OFF)
-
-    snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
-    record = list(snapshot.values.get("turn_records") or [])[-1]
-    messages = list(snapshot.values.get("messages") or [])
+    messages = _messages("Is NYU good?")
+    record = _record(
+        message_id="m-1",
+        user_message_id="u-1",
+        user_text="Is NYU good?",
+        status="awaiting_input",
+        clarify={"spec": _clarify_spec(), "answer": None},
+        messages_offset=0,
+    )
     assert record["status"] == "awaiting_input"
     assert 0 <= record["messages_offset"] < len(messages)
 
-    transcript = await _transcript_of(rig, session_id)
+    transcript = extract_transcript(messages, [record])
     # A still-parked turn's user entry is first-class (its own ids + ts).
     assert transcript[0]["role"] == "user"
     assert transcript[0]["text"] == "Is NYU good?"
-    assert transcript[0]["message_id"] == events[0].data["user_message_id"]
+    assert transcript[0]["message_id"] == "u-1"
     assert transcript[1]["status"] == "awaiting_input"
-
-
-def _scripted_clarify_first(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-    """Clarifies on the very first turn (no prior history)."""
-    return ModelResponse(
-        parts=[
-            ToolCallPart(
-                tool_name="ask_student",
-                args={
-                    "question": "What matters most to you?",
-                    "header": "Pick one",
-                    "options": [
-                        {"label": "Cost", "hint": "affordability and aid"},
-                        {"label": "Academics", "hint": "programs and rigor"},
-                    ],
-                },
-            )
-        ]
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -412,57 +440,41 @@ def _always_answers(messages: list[ModelMessage], info: AgentInfo) -> ModelRespo
 
 
 # ---------------------------------------------------------------------------
-# The pre-clarify-text repro (python HIGH#1): the model streams text BEFORE
-# ask_student. Pre-fix, the record's offset parts sliced a diverged messages
-# prose after resume — garbling the assistant text (observed: "Let me narrow
-# thi"). Self-contained records (FIX 1) + authoritative offsets (FIX 3) fix it.
+# The pre-clarify-text repro (python HIGH#1): older parked records could have
+# streamed text before asking for clarification. Pre-fix, transcript prose after
+# resume could be sliced from diverged provider messages and become garbled
+# (observed: "Let me narrow thi"). Self-contained records (FIX 1) +
+# authoritative offsets (FIX 3) fix it.
 # ---------------------------------------------------------------------------
 
 
-def _pre_clarify_text_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-    last = messages[-1]
-    returns = (
-        [part for part in last.parts if isinstance(part, ToolReturnPart)]
-        if isinstance(last, ModelRequest)
-        else []
+def test_pre_clarify_text_resume_keeps_question_and_prose_intact() -> None:
+    messages = _messages(
+        "Is NYU good?",
+        "Is NYU good?\n\nThe student answered the earlier clarification prompt with:\ncost",
     )
-    if returns:
-        return ModelResponse(parts=[TextPart(f"Focusing on {returns[0].content}.")])
-    return ModelResponse(
-        parts=[
-            TextPart("Let me narrow this down first. "),
-            ToolCallPart(
-                tool_name="ask_student",
-                args={
-                    "question": "What matters most to you?",
-                    "header": "Pick one",
-                    "options": [
-                        {"label": "Cost", "hint": "affordability and aid"},
-                        {"label": "Academics", "hint": "programs and rigor"},
-                    ],
-                },
-            ),
-        ]
-    )
+    streamed = "Focusing on cost."
+    records = [
+        _record(
+            message_id="m-1",
+            user_message_id="u-2",
+            user_text="Is NYU good?",
+            text=streamed,
+            clarify={"spec": _clarify_spec(), "answer": "cost"},
+            messages_offset=0,
+            synthesized_answer=True,
+            usage={"input_tokens": 1, "output_tokens": 1, "tool_calls": 0},
+        )
+    ]
 
-
-async def test_pre_clarify_text_resume_keeps_question_and_prose_intact() -> None:
-    rig = Rig(_fn_model(_pre_clarify_text_then_answer))
-    session_id = str(uuid4())
-
-    await rig.turn(session_id, "Is NYU good?", _ALL_OFF)  # parks with pre-clarify text
-    events_2 = await rig.turn(session_id, "cost", _ALL_OFF)  # resume
-
-    transcript = await _transcript_of(rig, session_id)
+    transcript = extract_transcript(messages, records)
     assert [e["role"] for e in transcript] == ["user", "user", "assistant"]
     question, answer, assistant = transcript
     # The turn's user question is still correct after the resume.
     assert question == {"role": "user", "text": "Is NYU good?", "ts": None}
     assert answer["text"] == "cost" and answer.get("synthesized") is True
-    # The assistant prose is intact: exactly what streamed on the resume —
+    # The assistant prose is intact: exactly what the record persisted —
     # never a slice of the (diverged) messages prose.
-    streamed = _text(events_2)
-    assert streamed  # the resumed run streamed real prose
     assert assistant["text"] == streamed
     assert assistant["parts"] == [{"type": "text", "text": streamed}]
     assert assistant["status"] == "complete"

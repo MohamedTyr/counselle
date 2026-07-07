@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     thinking_threshold_chars: int = 240
 
     # --- Rate limiting (B4: in-process sliding windows; api/ratelimit.py) ---
-    # Per-user message caps (a clarify answer spends a token — a resume is a send).
+    # Per-user message caps; each message send spends a token.
     turns_per_hour: int = 60
     turns_per_day: int = 300
     # Per-IP auth caps (login + forgot-password) — password-brute / reset-spam guard.

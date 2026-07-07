@@ -8,9 +8,10 @@ exactly this stream (ADR 0016). Per turn it:
 2. Detects a parked clarify on the thread — the last turn record's
    ``status == "awaiting_input"`` is the SOLE signal (B1b; the parked-record
    write empties ``tasks[*].interrupts``, so there is no OR-on-interrupt
-   fallback — audit BC-14) — if parked, the user's text is the **answer** and
-   the graph resumes via ``Command(resume=text)`` (the parked ``message_id`` is
-   reused in ``meta``); otherwise the text becomes a new serialized user
+   fallback — audit BC-14). Agent V1 no longer mounts ``ask_student``, so a
+   parked answer is migrated into a fresh V1 prompt that includes the original
+   question, the parked clarify prompt/options, and the student's clarification
+   answer while reusing the parked ``message_id``. Otherwise the text becomes a new serialized user
    ``ModelRequest`` appended to the prior messages (the agent node's tail
    convention, app/agent_node.py).
 3. Streams with ``stream_mode=["custom", "updates"]``: custom ``delta``/``viz``
@@ -37,7 +38,6 @@ from typing import Any
 from uuid import uuid4
 
 import asyncpg
-from langgraph.types import Command
 from pydantic_ai.messages import (
     ModelMessagesTypeAdapter,
     ModelRequest,
@@ -47,7 +47,7 @@ from pydantic_ai.messages import (
 from app.graph import GraphDeps
 from app.records import Emission, FinalEmissionDeduper
 from app.sessions import get_session, touch_session
-from app.turn_persistence import build_terminal_update, parked_record
+from app.turn_persistence import AGENT_NODE, build_terminal_update, parked_record
 from config.settings import get_settings
 from domain.events import (
     Event,
@@ -115,6 +115,59 @@ def _serialized_user_message(user_text: str) -> list[dict[str, Any]]:
     return list(ModelMessagesTypeAdapter.dump_python([request], mode="json"))
 
 
+def _parked_compat_prompt(parked: dict[str, Any], answer: str) -> str:
+    question = str(parked.get("user_text") or "the previous question")
+    clarify = parked.get("clarify")
+    spec = clarify.get("spec") if isinstance(clarify, dict) else None
+    clarify_lines: list[str] = []
+    if isinstance(spec, dict):
+        if spec.get("header"):
+            clarify_lines.append(f"Header: {spec['header']}")
+        if spec.get("question"):
+            clarify_lines.append(f"Question: {spec['question']}")
+        options = spec.get("options")
+        if isinstance(options, list) and options:
+            clarify_lines.append("Options:")
+            for option in options:
+                if not isinstance(option, dict):
+                    continue
+                label = str(option.get("label") or "").strip()
+                hint = str(option.get("hint") or "").strip()
+                if label and hint:
+                    clarify_lines.append(f"- {label}: {hint}")
+                elif label:
+                    clarify_lines.append(f"- {label}")
+    clarify_context = (
+        "The earlier clarification prompt was:\n"
+        + "\n".join(clarify_lines)
+        + "\n\n"
+        if clarify_lines
+        else ""
+    )
+    return (
+        f"{question}\n\n"
+        f"{clarify_context}"
+        "The student answered the earlier clarification prompt with:\n"
+        f"{answer}\n\n"
+        "Continue using that answer as the relevant assumption. Do not ask another "
+        "clarifying question."
+    )
+
+
+def _parked_resume_clarify(
+    parked: dict[str, Any] | None, answer: str | None
+) -> tuple[dict[str, Any] | None, bool]:
+    if parked is None or answer is None:
+        return None, False
+    clarify = parked.get("clarify")
+    if not isinstance(clarify, dict):
+        return None, True
+    spec = clarify.get("spec")
+    if spec is None:
+        return None, True
+    return {"spec": spec, "answer": answer}, True
+
+
 async def _write_failure_record(
     graph: Any,
     config: dict[str, Any],
@@ -126,6 +179,7 @@ async def _write_failure_record(
     messages_offset: int | None,
     fallback_messages: list[dict[str, Any]] | None,
     registry_dump: list[Any],
+    parked_resume: dict[str, Any] | None = None,
 ) -> None:
     """Best-effort error persistence (G2): the error turn record plus — when
     prose streamed — a partial ``ModelResponse`` so ``messages`` keeps exactly
@@ -157,6 +211,9 @@ async def _write_failure_record(
     offset = messages_offset if messages_offset is not None else max(len(messages) - 1, 0)
     # The single terminal-persistence owner (audit H1): the empty-partial rule,
     # the record build, and the record anchoring all live in build_terminal_update.
+    clarify, synthesized_answer = _parked_resume_clarify(
+        parked_resume, ids.get("resume_text") if isinstance(ids.get("resume_text"), str) else None
+    )
     update = build_terminal_update(
         messages=messages,
         records=records,
@@ -167,6 +224,8 @@ async def _write_failure_record(
         user_text=user_text,
         messages_offset=offset,
         error={"message": _USER_SAFE_ERROR, "trace_id": trace_id},
+        clarify=clarify,
+        synthesized_answer=synthesized_answer,
     )
     if restored_fallback:
         # Equivalence with the pre-refactor code: a fallback restore ALWAYS
@@ -208,38 +267,46 @@ async def _prepare_turn_input(
     parked: dict[str, Any] | None,
     turn_ids: dict[str, Any],
 ) -> _TurnInput:
-    """Build the graph input for this turn: resume (parked) vs new.
+    """Build the graph input for this turn: parked-compat continuation vs new.
 
     Parked detection is the caller's (the record via ``parked_record``); a
-    resume reuses the parked ``message_id`` and carries its ``messages_offset``
-    forward, a new turn appends the serialized user ``ModelRequest``. The
-    pre-run resume ``aupdate_state`` lives here too — its failure raises
+    parked continuation reuses the parked ``message_id`` and carries its
+    ``messages_offset`` forward, a new turn appends the serialized user
+    ``ModelRequest``. The pre-run parked-answer ``aupdate_state`` lives here
+    too — its failure raises
     :class:`_ResumePrewriteError` (the BC-11 path: the caller turns it into an
     ``ev_error`` + return, leaving the thread parked).
     """
     effective_config = await _ensure_session(deps.app_pool, session_id, source_config, settings)
     if parked is not None:
-        # The student's text answers the pending clarify (notes §7). The answer
-        # rides Command(resume) and never enters messages, so it also rides
-        # turn_ids into the node's record (story 25). The aupdate_state-before-
-        # resume mechanic is spike-1c-proven. The replacement record must keep
-        # the ORIGINAL question's index: carry the parked record's
-        # messages_offset forward (G3 anchor).
+        # Agent V1 does not mount ask_student, so do not replay the old
+        # interrupt continuation. Feed the student's answer back to the current
+        # agent as an explicit compatibility prompt, while preserving the
+        # parked record's id/offset so the transcript still replaces the parked
+        # assistant entry and renders the answer as synthesized.
         parked_offset = parked.get("messages_offset")
+        prior_messages = list(snapshot.values.get("messages") or []) if snapshot else []
         if isinstance(parked_offset, int):
             messages_offset = parked_offset
         else:
-            prior_messages = list(snapshot.values.get("messages") or []) if snapshot else []
             messages_offset = max(len(prior_messages) - 1, 0)
-        turn_ids = {**turn_ids, "messages_offset": messages_offset}
+        turn_ids = {**turn_ids, "messages_offset": messages_offset, "resume_text": user_text}
         try:
             await graph.aupdate_state(
                 {"configurable": {"thread_id": session_id}},
-                {"turn_ids": {**turn_ids, "resume_text": user_text}},
+                {"turn_ids": turn_ids},
+                as_node=AGENT_NODE,
             )
         except Exception as exc:
             raise _ResumePrewriteError from exc
-        return _TurnInput(Command(resume=user_text), turn_ids, messages_offset)
+        base_messages = prior_messages[:messages_offset]
+        compat_prompt = _parked_compat_prompt(parked, user_text)
+        graph_input = {
+            "messages": base_messages + _serialized_user_message(compat_prompt),
+            "source_config": effective_config.model_dump(mode="json"),
+            "turn_ids": turn_ids,
+        }
+        return _TurnInput(graph_input, turn_ids, messages_offset)
     prior = list(snapshot.values.get("messages") or []) if snapshot else []
     messages_offset = len(prior)
     turn_ids = {**turn_ids, "messages_offset": messages_offset}
@@ -398,8 +465,8 @@ async def run_turn(
             yield ev_done("awaiting_input")
             # The parked turn record (G2/G4) — written after done per spike 1:
             # the write sticks, interrupts clear (detection moves onto the
-            # record), Command(resume) still works. Routed through the single
-            # terminal-persistence owner (audit H1) — but the parked write only
+            # record). Routed through the single terminal-persistence owner
+            # (audit H1) — but the parked write only
             # ever touches turn_records, never messages (messages=[] makes the
             # empty-partial rule a no-op).
             try:
@@ -475,6 +542,7 @@ async def run_turn(
                 if isinstance(graph_input, dict)
                 else None,
                 registry_dump=last_registry_dump,
+                parked_resume=parked,
             )
         except Exception:
             logger.warning(

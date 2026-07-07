@@ -4,8 +4,8 @@ A small ``deque``-per-key sliding window keyed off ``time.monotonic`` — no
 library (KISS). Two surfaces use it:
 
 - **messages** — per-user (``user.id``), enforcing ``turns_per_hour`` AND
-  ``turns_per_day``. Over → 429 + ``Retry-After``. A clarify answer is a normal
-  message send, so it spends a token (no exemption).
+  ``turns_per_day``. Over → 429 + ``Retry-After``. Every message send spends a
+  token (no exemption).
 - **auth** — per-IP (uvicorn's resolved ``request.client.host`` — the real client
   IP, since the deploy runs with ``--forwarded-allow-ips`` so uvicorn parses the
   proxy chain itself; we never read ``X-Forwarded-For`` directly, which would be

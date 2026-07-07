@@ -12,6 +12,9 @@ export default defineConfig({
   },
   server: {
     port: Number(process.env.VITE_DEV_PORT ?? 5173),
+    fs: {
+      allow: [path.resolve(__dirname, "..")],
+    },
     proxy: {
       "/v1": process.env.VITE_API_PROXY_TARGET ?? "http://localhost:8000",
     },

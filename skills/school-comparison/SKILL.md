@@ -11,11 +11,17 @@ Source: DATABASE_GUIDE §14.2, §14.3, §11; ARCHITECTURE §17.
 
 A student asks to compare two or more schools: "Compare Duke and Harvard on cost", "Which of these schools has better outcomes: UNC, UVA, or William & Mary?", "Duke vs Princeton — selectivity and financial aid."
 
-Maximum 6 schools in one comparison. If a student names more, ask which 6 matter most.
+Maximum 6 schools in one comparison. If a student names more, compare the first 6 named unless the wording clearly prioritizes a different subset, state that assumption, and continue.
+
+## Agent comparison etiquette
+
+Make the comparison decision-useful, not exhaustive. Put the table first or immediately after one framing sentence, then give a short synthesis of tradeoffs. If the student did not specify dimensions, default to cost + selectivity + outcomes because that is the most generally useful admissions comparison. State the default briefly and continue.
 
 ## Step 1 — Resolve all schools
 
 Call `resolve_school` for each school name. Collect all unitids. If any school is not in the database, say so for that school and proceed with the rest. Do not fabricate data for missing schools.
+
+If a name resolves to multiple campuses, do not use a clarify tool call in Agent V1. Use the most likely campus only when responsible, state the campus assumption, and continue. If no responsible default exists for that school, exclude it from the table and explain why.
 
 ## Step 2 — Identify the comparison intent
 
@@ -38,7 +44,7 @@ Determine which dimensions the student cares about. Map intent to field presets:
 **Campus life / vibe**
 - Combination of `enrollment.undergrad_total`, `demographics.*`, `students.share_first_gen` + Reddit search for community context.
 
-If the student has not specified a dimension and a clarifying question would materially change the field selection, ask (one question, 2–4 options). If a reasonable default exists (e.g. a general "compare" question defaults to cost + selectivity + outcomes), use it.
+If the student has not specified a dimension, use the default: cost + selectivity + outcomes. If the request implies a dimension but uses vague wording like "better fit," choose fields that best match the implied intent, state the assumption, and continue.
 
 ## Step 3 — Fetch the comparison data
 

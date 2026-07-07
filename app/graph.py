@@ -3,9 +3,9 @@
 - ``prepare`` rebuilds the temporal context every turn: today's date, the
   admissions season (``domain.season`` over the ``season_calendar`` asset), and
   the live per-source data calendar (``counselle_db.service.get_data_calendar``).
-- ``agent`` is one PydanticAI run with the tool loop (``app.agent_node`` —
-  stubbed until Slice F). Clarify is NOT a node: the ``ask_student`` tool calls
-  ``langgraph.types.interrupt()`` inside the agent node (notes-p4-apis §7).
+- ``agent`` is one PydanticAI run with the tool loop (``app.agent_node``).
+  Agent V1 does not mount a clarify tool; the graph stays ``prepare`` →
+  ``agent`` → END.
 
 Convention: ``thread_id = session_id`` — invoke with
 ``{"configurable": {"thread_id": session_id}}``; the checkpointer makes every

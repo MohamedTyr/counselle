@@ -119,6 +119,32 @@ def test_unknown_skill_does_not_raise() -> None:
     assert isinstance(result, str)
 
 
+def test_dossier_skill_contains_agent_voice_and_order_guidance() -> None:
+    mod = _fresh_skills()
+    body = mod.load_skill("dossier-assembly")
+
+    assert "Agent voice and shape" in body
+    assert "work product" in body
+    assert "Lead with the most decision-relevant takeaway" in body
+    assert "Keep the order below" in body
+    assert "branch on its `status`" in body
+    assert "not_in_db" not in body
+    assert "state the campus assumption, and continue" in body
+    assert "Each section heading matches the shortlist" in body
+
+
+def test_comparison_skill_contains_agent_defaults_and_etiquette() -> None:
+    mod = _fresh_skills()
+    body = mod.load_skill("school-comparison")
+
+    assert "Agent comparison etiquette" in body
+    assert "cost + selectivity + outcomes" in body
+    assert "State the default briefly and continue" in body
+    assert "state the campus assumption, and continue" in body
+    assert "compare the first 6 named" in body
+    assert "do not use a clarify tool call" in body
+
+
 # ---------------------------------------------------------------------------
 # 5–7. build_system_prompt fills every slot; no un-filled template residue;
 #       contains fake temporal string; contains a subreddit line

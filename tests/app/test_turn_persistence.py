@@ -421,6 +421,42 @@ def test_agent_node_matches_the_compiled_graph_node() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _clarify_spec() -> dict[str, Any]:
+    return {
+        "v": 1,
+        "question": "What matters most to you?",
+        "header": "Pick one",
+        "multi_select": False,
+        "options": [
+            {"label": "Cost", "hint": "affordability and aid"},
+            {"label": "Academics", "hint": "programs and rigor"},
+        ],
+    }
+
+
+async def _seed_parked_turn(
+    rig: Any, session_id: str, user_text: str = "Is NYU good?"
+) -> dict[str, Any]:
+    record = build_turn_record(
+        [],
+        ids={"message_id": "m-parked", "user_message_id": "u-parked"},
+        status="awaiting_input",
+        sources=[],
+        user_text=user_text,
+        clarify={"spec": _clarify_spec(), "answer": None},
+        messages_offset=0,
+    )
+    await rig.graph.aupdate_state(
+        {"configurable": {"thread_id": session_id}},
+        {"messages": [_request(user_text)], "turn_records": [record], "source_registry": []},
+    )
+    return record
+
+
+def _plain_answer_model(messages: list[Any], info: Any) -> ModelResponse:
+    return ModelResponse(parts=[TextPart("Focusing on cost.")])
+
+
 def _types(events: list[Any]) -> list[str]:
     return [event.type for event in events]
 
@@ -432,16 +468,14 @@ async def test_bc11_failed_resume_prewrite_leaves_the_thread_parked(
     error AND leaves the parked awaiting_input record last (thread still
     parked) — write NO error record. A subsequent normal message is then
     detected as a resume, not a new turn."""
-    from tests.app.test_run_turn import Rig, _clarify_then_answer, _fn_model
+    from tests.app.test_run_turn import Rig, _fn_model
 
-    rig = Rig(_fn_model(_clarify_then_answer))
+    rig = Rig(_fn_model(_plain_answer_model))
     session_id = "bc11-" + "s"
 
-    # Turn 1 parks on a clarify.
-    events_1 = await rig.turn(session_id, "Is NYU good?")
-    assert next(e.data["status"] for e in events_1 if e.type == "done") == "awaiting_input"
+    # Seed a legacy parked clarify record.
     config: Any = {"configurable": {"thread_id": session_id}}
-    parked_before = (await rig.graph.aget_state(config)).values["turn_records"][-1]
+    parked_before = await _seed_parked_turn(rig, session_id)
     assert parked_before["status"] == "awaiting_input"
 
     # Wedge ONLY the resume pre-write (the turn_ids+resume_text aupdate_state).
@@ -468,12 +502,12 @@ async def test_bc11_failed_resume_prewrite_leaves_the_thread_parked(
     assert records_after[-1]["message_id"] == parked_before["message_id"]
     assert len(records_after) == 1  # no orphaned error record appended
 
-    # Unwedge: a subsequent normal message is detected as a RESUME (reuses the
-    # parked message_id), not a fresh turn.
+    # Unwedge: a subsequent normal message is handled as a parked compatibility
+    # continuation (reuses the parked message_id), not a fresh turn.
     rig.graph.aupdate_state = original  # type: ignore[method-assign]  # restore
     events_3 = await rig.turn(session_id, "cost")
     meta_3 = next(e.data for e in events_3 if e.type == "meta")
-    assert meta_3["message_id"] == parked_before["message_id"]  # resume, not new turn
+    assert meta_3["message_id"] == parked_before["message_id"]
     assert next(e.data["status"] for e in events_3 if e.type == "done") == "complete"
 
 
@@ -503,26 +537,26 @@ async def test_bc14_cancelled_record_runs_a_fresh_turn_not_a_resume(
 ) -> None:
     """A thread whose last record is cancelled (the unpark froze it) is NOT
     parked: the record is the sole signal, so the next message runs a FRESH
-    turn (its own clarify), never swallowed as a stale clarify answer."""
-    from tests.app.test_run_turn import Rig, _clarify_then_answer, _fn_model
+    Agent V1 turn, never swallowed as a stale clarify answer."""
+    from tests.app.test_run_turn import Rig, _fn_model
 
-    rig = Rig(_fn_model(_clarify_then_answer))
+    rig = Rig(_fn_model(_plain_answer_model))
     session_id = "bc14-s"
     config: Any = {"configurable": {"thread_id": session_id}}
 
     # Park, then freeze the record to cancelled via the overwrite channel.
-    await rig.turn(session_id, "Is NYU good?")
-    snap = await rig.graph.aget_state(config)
-    records = list(snap.values["turn_records"])
+    await _seed_parked_turn(rig, session_id)
+    records = list((await rig.graph.aget_state(config)).values["turn_records"])
     parked_id = records[-1]["message_id"]
     records[-1] = {**records[-1], "status": "cancelled"}
-    await rig.graph.aupdate_state(config, {"turn_records": records})
+    await rig.graph.aupdate_state(config, {"turn_records": records}, as_node=AGENT_NODE)
     frozen = (await rig.graph.aget_state(config)).values["turn_records"][-1]
     assert frozen["status"] == "cancelled"
 
     # The next message runs a FRESH turn (record wins — not a resume).
     events = await rig.turn(session_id, "Is Duke good?")
-    assert "clarify" in _types(events)
+    assert "clarify" not in _types(events)
+    assert next(e.data["status"] for e in events if e.type == "done") == "complete"
     new_record = (await rig.graph.aget_state(config)).values["turn_records"][-1]
     assert new_record["user_text"] == "Is Duke good?"
     assert new_record["message_id"] != parked_id  # a new turn id, not the resumed one

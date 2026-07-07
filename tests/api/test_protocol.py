@@ -31,11 +31,9 @@ import pytest
 from fastapi import FastAPI
 from pydantic_ai.messages import (
     ModelMessage,
-    ModelRequest,
     ModelResponse,
     TextPart,
     ToolCallPart,
-    ToolReturnPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
@@ -255,22 +253,16 @@ async def test_happy_path_sources_event_always_present(live_app: FastAPI) -> Non
 
 
 # ---------------------------------------------------------------------------
-# Test 3: Clarify path
+# Test 3: Agent V1 does not mount ask_student
 # ---------------------------------------------------------------------------
 
 
-def _clarify_model() -> FunctionModel:
-    """FunctionModel that calls ask_student on the first turn, then answers."""
+def _ask_student_probe_model() -> FunctionModel:
+    """FunctionModel that would ask the student if ask_student were mounted."""
 
     def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        last = messages[-1]
-        returns = (
-            [p for p in last.parts if isinstance(p, ToolReturnPart)]
-            if isinstance(last, ModelRequest)
-            else []
-        )
-        if returns:
-            return ModelResponse(parts=[TextPart(f"Focusing on {returns[0].content}.")])
+        if "ask_student" not in {tool.name for tool in info.function_tools}:
+            return ModelResponse(parts=[TextPart("Proceeding without a clarify event.")])
         return ModelResponse(
             parts=[
                 ToolCallPart(
@@ -290,36 +282,22 @@ def _clarify_model() -> FunctionModel:
     return _fn_model(fn)
 
 
-async def test_clarify_path_parks_and_resumes() -> None:
-    """Test 3: ask_student → clarify + done{awaiting_input}; resume → done{complete}."""
-    rt, orig = await _build_test_runtime(model_factory=_clarify_model)
+async def test_agent_v1_does_not_emit_clarify_from_ask_student_path() -> None:
+    """Test 3: ask_student is not mounted, so the agent completes normally."""
+    rt, orig = await _build_test_runtime(model_factory=_ask_student_probe_model)
     app = _build_live_app(rt)
     session_id = await _create_session(app)
 
     try:
-        # First POST → parks on clarify
-        raw1 = await _stream_message(app, session_id, "Tell me about NYU")
-        events1 = parse_sse_stream(raw1)
-        types1 = _event_types(events1)
+        raw = await _stream_message(app, session_id, "Tell me about NYU")
+        events = parse_sse_stream(raw)
+        types = _event_types(events)
 
-        assert "clarify" in types1, f"expected clarify event, got: {types1}"
-        done1 = _done_event(events1)
-        assert done1["data"]["data"]["status"] == "awaiting_input"
-
-        # Second POST with in_reply_to → resumes and completes
-        raw2 = await _stream_message(
-            app,
-            session_id,
-            "cost",
-            extra={"in_reply_to": "some-clarify-event-id"},
-        )
-        events2 = parse_sse_stream(raw2)
-        done2 = _done_event(events2)
-        assert done2["data"]["data"]["status"] == "complete"
-
-        # The model's answer reflects the resumed student answer
-        delta_text = "".join(ev["data"]["data"]["text"] for ev in events2 if ev["type"] == "delta")
-        assert "Focusing on cost." in delta_text
+        assert "clarify" not in types, f"Agent V1 must not emit clarify events: {types}"
+        done = _done_event(events)
+        assert done["data"]["data"]["status"] == "complete"
+        delta_text = "".join(ev["data"]["data"]["text"] for ev in events if ev["type"] == "delta")
+        assert "Proceeding without a clarify event." in delta_text
     finally:
         await delete_session(rt.app_pool, session_id)
         await orig.aclose()
