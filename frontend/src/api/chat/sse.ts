@@ -183,6 +183,14 @@ function isStepSource(value: unknown) {
   );
 }
 
+function isToolUi(value: unknown) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+
+  return isNonEmptyString(value.widget) && isPlainRecord(value.data);
+}
+
 function hasIdentityFields(type: ProtocolEventType, data: unknown) {
   if (!isRecord(data)) {
     return false;
@@ -207,7 +215,8 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
         isStepTier(data.tier) &&
         (data.detail === null || isStepDetail(data.detail)) &&
         (!("sources" in data) ||
-          (Array.isArray(data.sources) && data.sources.every(isStepSource)))
+          (Array.isArray(data.sources) && data.sources.every(isStepSource))) &&
+        (!("ui" in data) || isToolUi(data.ui))
       );
     case "done":
       return typeof data.status === "string";

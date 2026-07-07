@@ -85,6 +85,38 @@ def test_overflow_runs_after_annotation() -> None:
     assert full["results"][0]["marker"] == "[1]"
 
 
+def test_tool_ui_is_demoted_to_public_receipt_before_model_result() -> None:
+    payload = {
+        "ok": True,
+        "ui": {"widget": "task_added", "data": {"task_id": "t1", "title": "Visit Duke"}},
+    }
+
+    result = process_tool_result(payload, ToolMiddlewareContext(), tool_name="write_plan")
+
+    assert "ui" not in result
+    assert result["public_receipt"]["ui"] == {
+        "widget": "task_added",
+        "data": {"task_id": "t1", "title": "Visit Duke"},
+    }
+    assert result["ok"] is True
+
+
+def test_invalid_tool_ui_is_stripped_from_model_result() -> None:
+    payload = {"ok": True, "ui": {"widget": "task_added", "data": "not an object"}}
+
+    result = process_tool_result(payload, ToolMiddlewareContext(), tool_name="write_plan")
+
+    assert result == {"ok": True}
+
+
+def test_blank_tool_ui_widget_is_stripped_from_model_result() -> None:
+    payload = {"ok": True, "ui": {"widget": "  ", "data": {"title": "Visit Duke"}}}
+
+    result = process_tool_result(payload, ToolMiddlewareContext(), tool_name="write_plan")
+
+    assert result == {"ok": True}
+
+
 def test_render_viz_result_keeps_agent_values_when_large() -> None:
     store = ToolResultStore()
     rows = [

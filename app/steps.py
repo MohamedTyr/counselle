@@ -60,7 +60,16 @@ from pydantic_ai.messages import (
 from pydantic_ai.run import AgentRunResultEvent
 
 from app.tool_specs import ToolSpec, build_tool_specs
-from domain.events import StepData, StepDetail, StepKind, StepSource, StepTier, ev_step
+from domain.events import (
+    StepData,
+    StepDetail,
+    StepKind,
+    StepSource,
+    StepTier,
+    ToolUi,
+    ev_step,
+    tool_ui_from_payload,
+)
 from domain.urls import favicon_url, registrable_domain
 
 logger = logging.getLogger(__name__)
@@ -307,6 +316,21 @@ class StepMapper:
             return self._school_sources(args)
         return None
 
+    def ui_for(self, tool_name: str, args: dict[str, Any], content: Any) -> ToolUi | None:
+        """The completed step's structured UI payload, if a tool exposed one.
+
+        ``ui`` is never read from the raw top-level tool result. The middleware
+        demotes it to ``public_receipt.ui`` before the result reaches the model,
+        and overflow reduction preserves that public receipt in the compact
+        envelope.
+        """
+        del tool_name, args
+        receipt = _public_receipt_content(content)
+        if receipt is None:
+            return None
+        ui = receipt.get("ui")
+        return tool_ui_from_payload(ui)
+
     def _search_sources(self, kind: StepKind, content: Any) -> list[StepSource] | None:
         results = content.get("results") if isinstance(content, dict) else None
         if not isinstance(results, list):
@@ -383,6 +407,16 @@ def _receipt_from_mapper(
 
 def _overflow_receipt(content: Any) -> dict[str, Any] | None:
     if not isinstance(content, dict) or content.get("status") != "overflow":
+        return None
+    receipt = content.get("public_receipt")
+    return receipt if isinstance(receipt, dict) else None
+
+
+def _public_receipt_content(content: Any) -> dict[str, Any] | None:
+    receipt = _overflow_receipt(content)
+    if receipt is not None:
+        return receipt
+    if not isinstance(content, dict):
         return None
     receipt = content.get("public_receipt")
     return receipt if isinstance(receipt, dict) else None
@@ -766,6 +800,7 @@ class EmissionRouter:
             if errored
             else self.mapper.sources_for(open_step.tool_name, open_step.args, content)
         )
+        ui = None if errored else self.mapper.ui_for(open_step.tool_name, open_step.args, content)
         self._emit_step(
             open_step.step_id,
             "error" if errored else "end",
@@ -775,6 +810,7 @@ class EmissionRouter:
             else open_step.mapped.label,
             detail=detail,
             sources=sources,
+            ui=ui,
         )
 
     def _emit_step(
@@ -786,6 +822,7 @@ class EmissionRouter:
         label: str,
         detail: StepDetail | None,
         sources: list[StepSource] | None = None,
+        ui: ToolUi | None = None,
     ) -> None:
         step = StepData(
             step_id=step_id,
@@ -795,6 +832,7 @@ class EmissionRouter:
             tier=mapped.tier,
             detail=detail,
             sources=sources,
+            ui=ui,
         )
         # ev_step (domain/events.py) is the one owner of the wire shaping
         # (detail None-dropping); building both the stream chunk AND the

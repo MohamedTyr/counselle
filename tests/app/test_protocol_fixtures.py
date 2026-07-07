@@ -45,7 +45,7 @@ from app.state import TemporalContext
 from app.transcript import extract_transcript
 from app.turns import TurnRegistry
 from domain.envelope import Citation, CitationEnvelope
-from domain.events import Event
+from domain.events import Event, StepData, StepDetail, ToolUi, ev_step
 from domain.specs import RenderSpec, SchoolRef, SourceConfig, VizRow
 from tests.app.test_run_turn import _TEMPORAL, Rig, _fn_model
 
@@ -53,6 +53,25 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "protocol"
 
 _WEB = SourceConfig(web=True, reddit=False, edu=False)
 _OFF = SourceConfig(web=False, reddit=False, edu=False)
+
+
+def test_step_event_contract_allows_optional_tool_ui() -> None:
+    event = ev_step(
+        StepData(
+            step_id="s1",
+            status="end",
+            kind="write_plan",
+            label="Updating the plan",
+            tier=None,
+            detail=StepDetail(completed=1, total=1),
+            ui=ToolUi(widget="task_added", data={"task_id": "t1", "title": "Visit Duke"}),
+        )
+    )
+
+    assert event.data["ui"] == {
+        "widget": "task_added",
+        "data": {"task_id": "t1", "title": "Visit Duke"},
+    }
 
 
 @pytest.fixture(autouse=True)

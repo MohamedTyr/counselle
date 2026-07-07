@@ -72,6 +72,46 @@ describe("ChatMessage", () => {
     expect(onFeedback).toHaveBeenCalledWith("thumbsDown");
   });
 
+  test("assistant message renders registered tool widgets inline between prose beats", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          segments: [
+            { type: "narration", id: "n1", text: "I'll add that to your task list." },
+            {
+              type: "tool",
+              step: {
+                step_id: "task-1",
+                status: "end",
+                kind: "skill",
+                label: "Adding a task",
+                tier: null,
+                detail: null,
+                ui: {
+                  widget: "task_added",
+                  data: {
+                    title: "Submit Duke financial aid forms",
+                    school: "Duke University",
+                    due_date: "2026-11-15",
+                    status: "todo",
+                  },
+                },
+              },
+            },
+            { type: "answer", text: "I added it to your workspace." },
+          ],
+          blocks: [{ kind: "markdown", text: "I added it to your workspace." }],
+          text: "I added it to your workspace.",
+        })}
+      />,
+    );
+
+    expect(screen.getByText("I'll add that to your task list.")).toBeInTheDocument();
+    expect(screen.getByText("Task added")).toBeInTheDocument();
+    expect(screen.getByText("Submit Duke financial aid forms")).toBeInTheDocument();
+    expect(screen.getByText("I added it to your workspace.")).toBeInTheDocument();
+  });
+
   test("copy action copies the assistant's rendered text", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

@@ -18,6 +18,8 @@ from uuid import uuid4
 
 from pydantic_core import to_json
 
+from domain.events import tool_ui_from_payload
+
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07|\x1b[^[\]()]")
 
 
@@ -187,6 +189,11 @@ def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
         "handle": handle,
     }
     if isinstance(value, Mapping):
+        existing_receipt = value.get("public_receipt")
+        if isinstance(existing_receipt, Mapping):
+            ui = tool_ui_from_payload(existing_receipt.get("ui"))
+            if ui is not None:
+                receipt["ui"] = ui.model_dump()
         results = value.get("results")
         if isinstance(results, list):
             receipt["result_count"] = len(results)

@@ -126,6 +126,11 @@ export type StepSource = {
   url?: string;
 };
 
+export type ToolUi = {
+  widget: string;
+  data: Record<string, unknown>;
+};
+
 export type StepData = {
   step_id: string;
   status: "start" | "end" | "error";
@@ -134,6 +139,7 @@ export type StepData = {
   tier: StepTier;
   detail: StepDetail | null;
   sources?: StepSource[];
+  ui?: ToolUi;
 };
 
 export type NarrationData = { text: string };

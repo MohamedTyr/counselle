@@ -307,6 +307,41 @@ describe("turn reducer", () => {
     ]);
   });
 
+  test("step end-event ui payload merges onto the started tool segment", () => {
+    let state = initialTurnState();
+    state = reduceTurn(state, stepEvent({ step_id: "task-1", status: "start" }));
+    state = reduceTurn(
+      state,
+      stepEvent({
+        step_id: "task-1",
+        status: "end",
+        kind: "skill",
+        label: "Adding a task",
+        ui: {
+          widget: "task_added",
+          data: {
+            title: "Submit Duke financial aid forms",
+            school: "Duke University",
+          },
+        },
+      }),
+    );
+
+    const toolSegments = state.segments.filter((segment) => segment.type === "tool");
+    expect(toolSegments).toHaveLength(1);
+    expect(toolSegments[0].step).toMatchObject({
+      step_id: "task-1",
+      status: "end",
+      ui: {
+        widget: "task_added",
+        data: {
+          title: "Submit Duke financial aid forms",
+          school: "Duke University",
+        },
+      },
+    });
+  });
+
   test("live reducer records arrival wall-clock duration", () => {
     let state = initialTurnState();
     state = reduceLiveTurn(

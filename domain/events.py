@@ -4,9 +4,10 @@ Every event is ``{v: 1, type, data}`` — one envelope, every consumer. Clients
 ignore unknown event types (forward compatibility); breaking changes bump ``v``.
 """
 
+from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from domain.envelope import Citation
 from domain.specs import ClarifySpec, RenderSpec
@@ -119,6 +120,41 @@ class StepSource(BaseModel):
     url: str | None = None
 
 
+class ToolUi(BaseModel):
+    """Structured public UI payload for a completed tool step.
+
+    The raw tool result's top-level ``ui`` key is stripped before the model sees
+    it; the step event receives this copy from ``public_receipt.ui``.
+    """
+
+    widget: str
+    data: dict[str, Any]
+
+    @field_validator("widget")
+    @classmethod
+    def widget_must_be_non_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("widget must be non-blank")
+        return value
+
+
+def valid_tool_ui(value: Any) -> bool:
+    """Return True for tool UI payloads that can cross the step-event seam."""
+    return (
+        isinstance(value, Mapping)
+        and isinstance(value.get("widget"), str)
+        and bool(value["widget"].strip())
+        and isinstance(value.get("data"), Mapping)
+    )
+
+
+def tool_ui_from_payload(value: Any) -> ToolUi | None:
+    """Build a validated ToolUi from a public receipt payload."""
+    if not valid_tool_ui(value):
+        return None
+    return ToolUi(widget=str(value["widget"]), data=dict(value["data"]))
+
+
 class StepData(BaseModel):
     """One unit of agent work: a start/end pair the activity timeline renders."""
 
@@ -132,6 +168,7 @@ class StepData(BaseModel):
     #: so ``ev_step`` drops it on the wire — an empty list would serialize as
     #: ``[]`` (FE optional is ``?:``, not ``[]``).
     sources: list[StepSource] | None = None
+    ui: ToolUi | None = None
 
 
 class NarrationData(BaseModel):
@@ -222,6 +259,9 @@ def ev_step(step: StepData) -> Event:
         # None-drop): the FE optionals are `?:`, not null — a null favicon
         # would crash the chip's `favicon.startsWith` guard.
         data["sources"] = [{k: v for k, v in s.items() if v is not None} for s in data["sources"]]
+    if data["ui"] is None:
+        # FE optional (`ui?:`) — drop entirely rather than send null.
+        del data["ui"]
     return Event(type="step", data=data)
 
 

@@ -53,6 +53,37 @@ def test_oversized_search_result_preserves_public_receipt_metadata() -> None:
     ]
 
 
+def test_oversized_result_preserves_public_receipt_ui() -> None:
+    store = ToolResultStore()
+    payload = {
+        "rows": [{"value": "x" * 2000}],
+        "public_receipt": {
+            "ui": {"widget": "task_added", "data": {"task_id": "t1", "title": "Visit Duke"}}
+        },
+    }
+
+    result = reduce_tool_result(payload, store, max_chars=200)
+
+    assert result["status"] == "overflow"
+    assert result["public_receipt"]["ui"] == {
+        "widget": "task_added",
+        "data": {"task_id": "t1", "title": "Visit Duke"},
+    }
+
+
+def test_oversized_result_does_not_preserve_blank_public_receipt_ui_widget() -> None:
+    store = ToolResultStore()
+    payload = {
+        "rows": [{"value": "x" * 2000}],
+        "public_receipt": {"ui": {"widget": "", "data": {"title": "Visit Duke"}}},
+    }
+
+    result = reduce_tool_result(payload, store, max_chars=200)
+
+    assert result["status"] == "overflow"
+    assert "ui" not in result["public_receipt"]
+
+
 def test_oversized_binary_result_spills_by_byte_length() -> None:
     store = ToolResultStore()
     payload = b"x" * 500

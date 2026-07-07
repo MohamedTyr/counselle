@@ -99,6 +99,30 @@ describe("parseSseStream", () => {
       },
     ],
     [
+      "step",
+      {
+        step_id: "s1",
+        status: "end",
+        kind: "db_tool",
+        label: "Reading",
+        tier: null,
+        detail: null,
+        ui: { widget: "", data: {} },
+      },
+    ],
+    [
+      "step",
+      {
+        step_id: "s1",
+        status: "end",
+        kind: "db_tool",
+        label: "Reading",
+        tier: null,
+        detail: null,
+        ui: { widget: "task_added", data: [] },
+      },
+    ],
+    [
       "viz",
       {
         v: 1,
@@ -215,6 +239,13 @@ describe("parseSseStream", () => {
               url: "https://duke.edu",
             },
           ],
+          ui: {
+            widget: "task_added",
+            data: {
+              title: "Submit Duke financial aid forms",
+              school: "Duke University",
+            },
+          },
         }),
       ),
     );
@@ -229,6 +260,13 @@ describe("parseSseStream", () => {
             url: "https://duke.edu",
           },
         ],
+        ui: {
+          widget: "task_added",
+          data: {
+            title: "Submit Duke financial aid forms",
+            school: "Duke University",
+          },
+        },
       },
     });
   });

@@ -421,6 +421,93 @@ def test_parallel_calls_pair_results_by_tool_call_id(rig: Rig) -> None:
     assert end_a["detail"]["duration_ms"] >= 0
 
 
+def test_step_end_includes_ui_from_public_receipt(rig: Rig) -> None:
+    rig.feed(
+        _call("write_plan", {}, "c1"),
+        _result(
+            "write_plan",
+            {
+                "public_receipt": {
+                    "completed": 1,
+                    "total": 1,
+                    "ui": {
+                        "widget": "task_added",
+                        "data": {"task_id": "t1", "title": "Visit Duke"},
+                    },
+                }
+            },
+            "c1",
+        ),
+    )
+
+    end = rig.steps()[1]
+    assert end["ui"] == {
+        "widget": "task_added",
+        "data": {"task_id": "t1", "title": "Visit Duke"},
+    }
+    assert end["detail"]["completed"] == 1
+    assert end["detail"]["total"] == 1
+
+
+def test_step_end_includes_ui_from_overflow_public_receipt(rig: Rig) -> None:
+    rig.feed(
+        _call("search_web", {"query": "duke dorms"}, "c1"),
+        _result(
+            "search_web",
+            {
+                "status": "overflow",
+                "public_receipt": {
+                    "result_count": 1,
+                    "source_results": [
+                        {"url": "https://admissions.duke.edu/dorms", "title": "Duke dorms"}
+                    ],
+                    "ui": {
+                        "widget": "search_results",
+                        "data": {"query": "duke dorms", "count": 1},
+                    },
+                },
+            },
+            "c1",
+        ),
+    )
+
+    end = rig.steps()[1]
+    assert end["ui"] == {
+        "widget": "search_results",
+        "data": {"query": "duke dorms", "count": 1},
+    }
+    assert end["detail"]["result_count"] == 1
+    assert end["sources"] == [
+        {
+            "label": "admissions.duke.edu",
+            "favicon": "https://www.google.com/s2/favicons?domain=admissions.duke.edu&sz=64",
+            "url": "https://admissions.duke.edu/dorms",
+        }
+    ]
+
+
+def test_step_end_does_not_read_raw_top_level_ui(rig: Rig) -> None:
+    rig.feed(
+        _call("write_plan", {}, "c1"),
+        _result("write_plan", {"ui": {"widget": "task_added", "data": {}}}, "c1"),
+    )
+
+    assert "ui" not in rig.steps()[1]
+
+
+def test_step_end_does_not_emit_blank_public_receipt_ui_widget(rig: Rig) -> None:
+    rig.feed(
+        _call("write_plan", {}, "c1"),
+        _result(
+            "write_plan",
+            {"public_receipt": {"ui": {"widget": " ", "data": {"title": "Visit Duke"}}}},
+            "c1",
+        ),
+    )
+
+    assert "ui" not in rig.steps()[1]
+
+
 def test_unmounted_tool_call_paints_no_step() -> None:
     """Story 17: a hallucinated call to a source-gated tool that is NOT mounted
     this turn must emit nothing — no search happened, so no step may paint."""
