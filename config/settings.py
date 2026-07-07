@@ -65,7 +65,8 @@ class Settings(BaseSettings):
     # B4 auto-titles: the cheap model that names a chat from its first exchange
     # (one no-tools call, fire-and-forget; failure leaves the derived default).
     model_title: str = "google-vertex:gemini-2.5-flash"
-    max_tool_rounds: int = 12  # agent tool-loop bound (eng-review)
+    agent_max_model_requests: int = 80
+    agent_max_total_tokens: int = 2_000_000
     # OFF by design: the live timeline shows ONE intent line per round of work,
     # authored by the model's "Narrate As You Work" sentence (model-agnostic, the
     # only `thinking` feed). Native Gemini thought summaries would dump the model's
@@ -142,9 +143,9 @@ class Settings(BaseSettings):
     # Ring-buffer capacity in events, sized to a full worst-case turn so
     # overflow is effectively unreachable (a consumer that still falls off the
     # head is terminated with an `error` event — never silently skipped).
-    stream_buffer_size: int = 20_000
+    agent_stream_buffer_size: int = 100_000
     # Process-wide byte budget shared across EVERY live turn's ring buffer.
-    # The real OOM guard: stream_buffer_size bounds one turn's event COUNT,
+    # The real OOM guard: agent_stream_buffer_size bounds one turn's event COUNT,
     # this bounds the TOTAL bytes held by all in-flight buffers. When a new
     # event would push the global total over budget, the oldest events across
     # the appending buffer are evicted (head-only) — a consumer that then
@@ -160,7 +161,9 @@ class Settings(BaseSettings):
     persist_partial_timeout_s: float = 5.0
     # Watchdog: a turn exceeding this terminates with `error` (G5 — never
     # done(cancelled): the student didn't press stop), partial persisted.
-    turn_timeout_s: int = 180
+    agent_turn_timeout_s: int = 3600
+    agent_mcp_read_timeout_s: float = 60.0
+    agent_tool_result_max_chars: int = 8_000
     # GET /v1/sessions/{id}/stream reattach endpoint (off → always 204).
     reattach_enabled: bool = True
     # Global backstop on concurrent detached turns across all sessions — a

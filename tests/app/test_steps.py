@@ -28,6 +28,7 @@ FUNCTION_TOOLS = {
     "render_viz",
     "load_skill",
     "write_plan",
+    "read_tool_result",
 }
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
@@ -114,6 +115,7 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
         None,
         ["plan"],
     ),
+    ("read_tool_result", {"handle": "tool-result-1"}, "db_tool", None, ["oversized"]),
 ]
 
 

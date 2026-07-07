@@ -60,6 +60,9 @@ class TurnState(TypedDict, total=False):
       ``[n]`` handed to the model this turn.
     - ``viz_emitted``: ``RenderSpec.model_dump()`` dicts emitted this turn.
     - ``usage``: ``domain.events.UsageData.model_dump()`` for the turn.
+    - ``tool_result_store``: opaque, msgpack-plain payloads spilled by the tool
+      overflow middleware; keys are handles that ``read_tool_result`` can read
+      on later turns in the same session.
     - ``temporal``: :class:`TemporalContext` dump — rebuilt by ``prepare``
       every turn, never stale.
     - ``turn_records``: one record per assistant turn (``app/records.py``,
@@ -81,6 +84,7 @@ class TurnState(TypedDict, total=False):
     source_registry: list[dict[str, Any]]
     viz_emitted: list[dict[str, Any]]
     usage: dict[str, Any]
+    tool_result_store: dict[str, Any]
     temporal: dict[str, Any]
     turn_records: list[dict[str, Any]]
     turn_ids: dict[str, Any] | None

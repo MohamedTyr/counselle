@@ -37,6 +37,7 @@ from pydantic_ai.mcp import CallToolFunc, MCPToolset, ToolResult
 
 from adapters import tavily_tools
 from app.sources import SourceRegistry
+from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from domain.specs import SourceConfig
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -93,15 +94,16 @@ async def annotate_mcp_result(
     result = await call_tool(name, args)
     registry = getattr(ctx.deps, "registry", None)
     if isinstance(registry, SourceRegistry):
-        return registry.annotate_envelopes(result)  # type: ignore[no-any-return]
-    return result
+        result = registry.annotate_envelopes(result)
+    overflow = getattr(ctx.deps, "tool_overflow", None)
+    return process_tool_result(result, overflow)  # type: ignore[no-any-return]
 
 
 # Bound the MCP child's long-lived stdio connection — a dead child would
 # otherwise hang tool calls forever (read_timeout_seconds=None by default).
 # 30 s is generous for any single DB-backed tool call; change only if a
 # tool starts timing out legitimately in production.
-_MCP_READ_TIMEOUT_SECONDS: float = 30.0
+_DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS: float = 60.0
 
 # Explicit allowlist of env vars forwarded to the counselle-db MCP child.
 # NEVER forward the Tavily key — the MCP child is read-only DB-only code
@@ -143,7 +145,7 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
     must NOT receive the Tavily key or other credentials unrelated to DB access.
     DSN overrides from the .env-loaded settings are always injected.
 
-    ``read_timeout`` is bounded to ``_MCP_READ_TIMEOUT_SECONDS`` so a dead
+    ``read_timeout`` is bounded by settings so a dead
     child process does not hang the caller forever.
     """
     env: dict[str, str] = {
@@ -152,6 +154,7 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
     # Settings-driven DSN overrides always win (may differ from raw env).
     env["COUNSELLE_DB_RO_DSN"] = settings.db_ro_dsn
     env["COUNSELLE_DB_APP_DSN"] = settings.db_app_dsn
+    read_timeout = settings.agent_mcp_read_timeout_s
     return MCPToolset(
         StdioTransport(
             command="uv",
@@ -161,7 +164,7 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
         ),
         id="counselle-db",
         process_tool_call=annotate_mcp_result,
-        read_timeout=_MCP_READ_TIMEOUT_SECONDS,
+        read_timeout=read_timeout,
     )
 
 
@@ -183,6 +186,7 @@ def build_tools(
     registry: SourceRegistry,
     today: date,
     extra_tools: Sequence[Tool[Any]] | None = None,
+    tool_overflow: ToolMiddlewareContext | None = None,
 ) -> list[Tool[Any]]:
     """Assemble the per-request function tools from the source config.
 
@@ -197,14 +201,24 @@ def build_tools(
         # Reddit off must mean NO reddit content anywhere — including via the
         # open web search (gating in code, not prompt; ADR 0013).
         excludes = None if source_config.reddit else ["reddit.com"]
-        tools.append(_make_search_web(client, registry, today, deps.search_max_results, excludes))
+        tools.append(
+            _make_search_web(
+                client, registry, today, deps.search_max_results, excludes, tool_overflow
+            )
+        )
     if source_config.edu:
         tools.append(
-            _make_search_school_site(client, deps.catalog, registry, today, deps.search_max_results)
+            _make_search_school_site(
+                client, deps.catalog, registry, today, deps.search_max_results, tool_overflow
+            )
         )
     if source_config.reddit:
         allowed = _allowed_subreddits(deps.subreddit_menu, source_config.reddit_subreddits)
-        tools.append(_make_search_reddit(client, registry, today, deps.search_max_results, allowed))
+        tools.append(
+            _make_search_reddit(
+                client, registry, today, deps.search_max_results, allowed, tool_overflow
+            )
+        )
     tools.extend(extra_tools or [])
     return tools
 
@@ -228,6 +242,7 @@ def _make_search_web(
     today: date,
     max_results: int,
     exclude_domains: list[str] | None = None,
+    tool_overflow: ToolMiddlewareContext | None = None,
 ) -> Tool[Any]:
     async def search_web(query: str) -> dict[str, Any]:
         """Search the live web (no domain filter) for current information.
@@ -242,13 +257,19 @@ def _make_search_web(
         payload = await tavily_tools.search_web(
             client, query, today=today, max_results=max_results, exclude_domains=exclude_domains
         )
-        return registry.annotate_search_results(payload)  # type: ignore[no-any-return]
+        result = registry.annotate_search_results(payload)
+        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
 
     return Tool(search_web, takes_ctx=False)
 
 
 def _make_search_school_site(
-    client: Any, catalog: Any, registry: SourceRegistry, today: date, max_results: int
+    client: Any,
+    catalog: Any,
+    registry: SourceRegistry,
+    today: date,
+    max_results: int,
+    tool_overflow: ToolMiddlewareContext | None = None,
 ) -> Tool[Any]:
     async def search_school_site(unitid: int, query: str) -> dict[str, Any]:
         """Search a school's own official website (its .edu domain).
@@ -264,13 +285,19 @@ def _make_search_school_site(
         payload = await tavily_tools.search_school_site(
             client, catalog, unitid, query, today=today, max_results=max_results
         )
-        return registry.annotate_search_results(payload)  # type: ignore[no-any-return]
+        result = registry.annotate_search_results(payload)
+        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
 
     return Tool(search_school_site, takes_ctx=False)
 
 
 def _make_search_reddit(
-    client: Any, registry: SourceRegistry, today: date, max_results: int, allowed: list[str]
+    client: Any,
+    registry: SourceRegistry,
+    today: date,
+    max_results: int,
+    allowed: list[str],
+    tool_overflow: ToolMiddlewareContext | None = None,
 ) -> Tool[Any]:
     async def search_reddit(query: str, subreddits: list[str]) -> dict[str, Any]:
         """Search Reddit for community sentiment — lived experience, never verified fact.
@@ -286,6 +313,7 @@ def _make_search_reddit(
         payload = await tavily_tools.search_reddit(
             client, query, subreddits, allowed=allowed, today=today, max_results=max_results
         )
-        return registry.annotate_search_results(payload)  # type: ignore[no-any-return]
+        result = registry.annotate_search_results(payload)
+        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
 
     return Tool(search_reddit, takes_ctx=False)

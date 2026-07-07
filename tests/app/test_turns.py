@@ -624,7 +624,7 @@ async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
 async def test_watchdog_timeout_terminates_with_error_not_cancelled() -> None:
     gate = asyncio.Event()  # never set
     settings = FakeSettings()
-    settings.turn_timeout_s = 0.1
+    settings.agent_turn_timeout_s = 0.1
     rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -651,7 +651,7 @@ async def test_consumer_falling_off_the_head_is_terminated_with_error() -> None:
     gate = asyncio.Event()
     chunks = [_LONG_CHUNK] + ["chunk " * 50 for _ in range(8)]
     settings = FakeSettings()
-    settings.stream_buffer_size = 2
+    settings.agent_stream_buffer_size = 2
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -1012,7 +1012,7 @@ async def test_fall_off_error_seq_reflects_buffer_base_not_stale_position() -> N
     gate = asyncio.Event()
     chunks = [_LONG_CHUNK] + ["chunk " * 50 for _ in range(8)]
     settings = FakeSettings()
-    settings.stream_buffer_size = 2
+    settings.agent_stream_buffer_size = 2
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -1088,9 +1088,9 @@ async def test_registry_raises_without_phase1_settings_fields() -> None:
 
     class _MissingField:
         max_concurrent_turns = 50
-        stream_buffer_size = 20_000
+        agent_stream_buffer_size = 20_000
         max_consumers_per_turn = 8
-        turn_timeout_s = 180
+        agent_turn_timeout_s = 180
         model_counselor = "x"
         persist_partial_timeout_s = 5.0
         # stream_buffer_bytes deliberately absent
@@ -1137,7 +1137,7 @@ async def test_byte_budget_evicts_oldest_when_over_budget() -> None:
     gate = asyncio.Event()  # never set — the model streams then parks
     chunks = [_LONG_CHUNK] + ["chunk " * 80 for _ in range(8)]
     settings = FakeSettings()
-    settings.stream_buffer_size = 20_000  # event cap never fires
+    settings.agent_stream_buffer_size = 20_000  # event cap never fires
     settings.stream_buffer_bytes = 2_000  # the byte budget bites
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
     registry = _registry(rig)

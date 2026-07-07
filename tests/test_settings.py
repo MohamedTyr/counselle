@@ -75,7 +75,8 @@ class TestDefaults:
         assert settings.model_counselor == "google-vertex:gemini-2.5-pro"
         assert settings.model_cheap == "google-vertex:gemini-2.5-flash"
         assert settings.model_clarifier == "google-vertex:gemini-2.5-flash"
-        assert settings.max_tool_rounds == 12
+        assert settings.agent_max_model_requests == 80
+        assert settings.agent_max_total_tokens == 2_000_000
         # Database
         assert settings.db_statement_timeout_ms == 8000
         assert settings.db_row_cap == 500
@@ -103,6 +104,10 @@ class TestDefaults:
         assert settings.api_port == 8000
         assert settings.cors_origins == []  # 06-L1: default-empty (prod same-origin)
         assert settings.sse_keepalive_s == 15
+        assert settings.agent_stream_buffer_size == 100_000
+        assert settings.agent_turn_timeout_s == 3600
+        assert settings.agent_mcp_read_timeout_s == 60.0
+        assert settings.agent_tool_result_max_chars == 8_000
         assert settings.protocol_version == 1
         assert settings.workspace_event_queue_size == 256
         assert settings.workspace_writes_per_minute == 240

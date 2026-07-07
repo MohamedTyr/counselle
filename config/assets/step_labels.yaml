@@ -78,6 +78,10 @@ tools:
     kind: write_plan
     tier: null
     label: "Updating the plan"
+  read_tool_result:
+    kind: db_tool
+    tier: null
+    label: "Reading an oversized tool result"
 
 # Any tool not in the table maps here — a generic step, never nothing.
 default:

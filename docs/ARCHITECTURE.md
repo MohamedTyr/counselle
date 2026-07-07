@@ -421,7 +421,7 @@ Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, opti
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_summaries` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2; **default off** by design — the live timeline shows one model-authored intent line per round of work, not the model's full multi-paragraph reasoning; see `config/settings.py`); `max_tool_rounds`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
+| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_summaries` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2; **default off** by design — the live timeline shows one model-authored intent line per round of work, not the model's full multi-paragraph reasoning; see `config/settings.py`); `agent_max_model_requests`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
 | Database | pipeline DSN (`counselle_ro`), statement timeout, row cap, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Discovery | embedding model + version, reconcile interval |
@@ -884,7 +884,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | Email | `email_provider` (`Literal["console"]` today; `smtp`/`resend` stubbed), `email_from` |
 | Rate limit | `turns_per_hour`, `turns_per_day` (per-user); `auth_attempts_per_window`, `auth_window_seconds` (per-IP, on login + forgot-password) |
 | Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, `thinking_threshold_chars` |
-| Streaming | `stream_buffer_size` (resume ring buffer), `stream_buffer_bytes` (process-wide buffer byte budget), `persist_partial_timeout_s`, `reattach_enabled`, `turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
+| Streaming | `agent_stream_buffer_size` (resume ring buffer), `stream_buffer_bytes` (process-wide buffer byte budget), `persist_partial_timeout_s`, `reattach_enabled`, `agent_turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
 | Frontend | static bundle dir, serve on/off — planned per §33; in dev `frontend/` runs on the Vite dev server proxying `/v1` to the API |
 
 **Data assets added (`config/assets/`):** `starter_prompts.yaml` (the home-screen chips, one per signature capability), `greeting_templates.yaml` (keyed by `admission_season` phase — the season-aware greeting reuses Part I, §16's machinery), `step_labels.yaml` (§27.1), the title prompt, email templates.

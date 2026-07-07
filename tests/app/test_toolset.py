@@ -16,7 +16,7 @@ from pydantic_ai.mcp import MCPToolset
 
 from app.sources import SourceRegistry
 from app.toolset import (
-    _MCP_READ_TIMEOUT_SECONDS,
+    _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS,
     ToolDeps,
     _allowed_subreddits,
     annotate_mcp_result,
@@ -232,6 +232,7 @@ class TestMcpToolset:
         settings = SimpleNamespace(
             db_ro_dsn="postgresql://ro@localhost:5432/pipeline",
             db_app_dsn="postgresql://app@localhost:5432/pipeline",
+            agent_mcp_read_timeout_s=60.0,
         )
 
         toolset = build_mcp_toolset(settings)
@@ -259,6 +260,7 @@ class TestMcpToolset:
         settings = SimpleNamespace(
             db_ro_dsn="postgresql://ro@localhost:5432/pipeline",
             db_app_dsn="postgresql://app@localhost:5432/pipeline",
+            agent_mcp_read_timeout_s=60.0,
         )
 
         toolset = build_mcp_toolset(settings)
@@ -268,9 +270,9 @@ class TestMcpToolset:
         assert read_timeout_val is not None, "_session_kwargs must carry read_timeout_seconds"
         # Accept either float or timedelta (depends on fastmcp version).
         if isinstance(read_timeout_val, timedelta):
-            assert read_timeout_val.total_seconds() == _MCP_READ_TIMEOUT_SECONDS
+            assert read_timeout_val.total_seconds() == _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS
         else:
-            assert float(read_timeout_val) == _MCP_READ_TIMEOUT_SECONDS
+            assert float(read_timeout_val) == _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS
 
     def test_build_mcp_toolset_does_not_forward_tavily_key(
         self, monkeypatch: pytest.MonkeyPatch
@@ -281,6 +283,7 @@ class TestMcpToolset:
         settings = SimpleNamespace(
             db_ro_dsn="postgresql://ro@localhost:5432/pipeline",
             db_app_dsn="postgresql://app@localhost:5432/pipeline",
+            agent_mcp_read_timeout_s=60.0,
         )
 
         toolset = build_mcp_toolset(settings)

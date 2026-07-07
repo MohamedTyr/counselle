@@ -22,7 +22,7 @@ Lifecycle semantics (G3/G4/G5, all decided in the ship plan):
 - ``start`` — single-flight per session (active turn → :class:`StreamActive`
   → the route maps 409). ``replace_message_id`` set → the G3 history rewrite
   runs FIRST (under the held claim), then the new text runs as a normal turn.
-- watchdog — ``turn_timeout_s`` exceeded → terminate with ``error`` (never
+- watchdog — ``agent_turn_timeout_s`` exceeded → terminate with ``error`` (never
   ``done(cancelled)`` — the student didn't press stop), partial persisted.
 - ``cancel`` — active: await the task's CancelledError propagation, THEN one
   ``aupdate_state`` (partial ``ModelResponse`` if prose streamed — the
@@ -313,7 +313,7 @@ class TurnRegistry:
         if len(self._turns) >= max_turns:
             raise TooManyTurns(session_id)
         buffer = _RingBuffer(
-            self._settings.stream_buffer_size,
+            self._settings.agent_stream_buffer_size,
             on_charge=self._charge_bytes,
             on_refund=self._refund_bytes,
         )
@@ -429,7 +429,7 @@ class TurnRegistry:
 
     async def _drive(self, turn: _Turn, source_config: SourceConfig | None) -> None:
         start_mono = time.monotonic()
-        timeout_s = self._settings.turn_timeout_s
+        timeout_s = self._settings.agent_turn_timeout_s
         try:
             try:
                 async with asyncio.timeout(timeout_s):

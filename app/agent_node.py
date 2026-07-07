@@ -52,9 +52,11 @@ from app import viz as viz_mod
 from app.plan_tool import make_write_plan_tool
 from app.prompt import build_system_prompt
 from app.records import Emission, append_or_replace, build_turn_record, now_iso
-from app.skills import make_load_skill_tool
+from app.skills import load_skill
 from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
+from app.tool_middleware import ToolMiddlewareContext, process_tool_result
+from app.tool_overflow import ToolResultStore
 from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
 from app.turn_persistence import partial_messages, resolve_offset
 from app.viz_placement import StreamingVizMarkerStripper, chunks_from_viz_markers
@@ -89,7 +91,7 @@ def _close_router_and_flush_final_safely(
     _close_router_safely(router, reason)
     final_writer.flush_final()
 
-#: The clean cut-off message when the run hits settings.max_tool_rounds (notes §6).
+#: The clean cut-off message when the run hits a request/token budget.
 _TOOL_BUDGET_MESSAGE = (
     "\n\nI hit my tool budget for this turn, so I'm stopping here — this is what "
     "I have so far. Ask me to continue and I'll pick up where I left off."
@@ -105,6 +107,7 @@ class TurnDeps:
     """
 
     registry: SourceRegistry
+    tool_overflow: ToolMiddlewareContext | None = None
 
 
 def model_name_from_setting(model_setting: str) -> str:
@@ -152,6 +155,7 @@ def _make_render_viz_tool(
     registry: SourceRegistry,
     viz_list: list[dict[str, Any]],
     viz_signature_indexes: dict[str, int],
+    tool_overflow: ToolMiddlewareContext | None,
 ) -> Tool[Any]:
     """The per-turn render_viz wrapper: closes over (catalog, registry, viz_list)
     and stages successful specs for the final-answer flush."""
@@ -162,7 +166,7 @@ def _make_render_viz_tool(
         field_keys: list[str] | None = None,
         title: str | None = None,
     ) -> dict[str, Any]:
-        return await viz_mod.render_viz(
+        result = await viz_mod.render_viz(
             catalog,
             registry,
             viz_list,
@@ -172,9 +176,42 @@ def _make_render_viz_tool(
             title,
             viz_signature_indexes,
         )
+        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
 
     render_viz.__doc__ = viz_mod.render_viz.__doc__  # the LLM-facing contract, verbatim
     return Tool(render_viz, takes_ctx=False)
+
+
+def _make_load_skill_tool(tool_overflow: ToolMiddlewareContext | None) -> Tool[Any]:
+    async def load_skill_tool(name: str) -> Any:
+        """Load one admissions workflow skill by name.
+
+        Use this before specialized work like dossier assembly, school
+        comparison, essay brainstorming, or activity framing. The skill body is
+        returned only when requested, so the agent can keep context focused.
+
+        Args:
+            name: The skill name from the system prompt's available-skill list.
+        """
+        return process_tool_result(load_skill(name), tool_overflow)
+
+    load_skill_tool.__name__ = "load_skill"
+    return Tool(load_skill_tool, takes_ctx=False)
+
+
+def _make_read_tool_result_tool(store: ToolResultStore) -> Tool[Any]:
+    async def read_tool_result(handle: str) -> Any:
+        """Read back a full oversized tool result spilled earlier in this run.
+
+        Use this only when an overflow summary says the complete payload is
+        needed. Pass the exact handle from the overflow result.
+
+        Args:
+            handle: The spilled tool-result handle.
+        """
+        return store.read(handle)
+
+    return Tool(read_tool_result, takes_ctx=False)
 
 
 class _FinalContentPlacementWriter:
@@ -311,15 +348,30 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     final_writer = _FinalContentPlacementWriter(viz_list, recording_writer)
     writer = final_writer.write
     today = date.fromisoformat(state["temporal"]["today"])
+    overflow_store = ToolResultStore(state.get("tool_result_store") or {})
+    tool_overflow = ToolMiddlewareContext(
+        overflow_store=overflow_store,
+        max_result_chars=settings.agent_tool_result_max_chars,
+    )
 
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     extra_tools: list[Tool[Any]] = [
         Tool(make_write_plan_tool(), takes_ctx=False),
-        _make_render_viz_tool(deps.catalog, registry, viz_list, viz_signature_indexes),
-        Tool(make_load_skill_tool(), takes_ctx=False),
+        _make_render_viz_tool(
+            deps.catalog, registry, viz_list, viz_signature_indexes, tool_overflow
+        ),
+        _make_read_tool_result_tool(overflow_store),
+        _make_load_skill_tool(tool_overflow),
     ]
-    tools = build_tools(source_config, tool_deps, registry, today, extra_tools=extra_tools)
+    tools = build_tools(
+        source_config,
+        tool_deps,
+        registry,
+        today,
+        extra_tools=extra_tools,
+        tool_overflow=tool_overflow,
+    )
     mcp_toolset = getattr(deps, "mcp_toolset", None)
 
     model_factory = getattr(deps, "model_factory", None) or (
@@ -343,7 +395,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         toolsets=[mcp_toolset] if mcp_toolset is not None else None,
         model_settings=model_settings,
     )
-    limits = UsageLimits(request_limit=settings.max_tool_rounds)  # notes §6
+    limits = UsageLimits(
+        request_limit=settings.agent_max_model_requests,
+        total_tokens_limit=settings.agent_max_total_tokens,
+    )
 
     # --- the emission router (steps/thinking/delta — ARCHITECTURE §27.1–27.2) ---
     resolve_name = getattr(deps.catalog, "school_name", None) or (lambda unitid: None)
@@ -368,7 +423,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             agent.run_stream_events(
                 user_text,
                 message_history=history or None,
-                deps=TurnDeps(registry=registry),
+                deps=TurnDeps(registry=registry, tool_overflow=tool_overflow),
                 usage_limits=limits,
             ) as stream,
         ):
@@ -442,6 +497,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         "source_registry": registry.dump(),
         "viz_emitted": emitted_viz,
         "usage": usage.model_dump(mode="json"),
+        "tool_result_store": overflow_store.dump(),
         "pending_clarify": None,
         "turn_records": append_or_replace(prior_records, record),
     }

@@ -60,7 +60,8 @@ class FakeSettings:
     """The slice of Settings the runner + node + registry read."""
 
     model_counselor = "google-vertex:gemini-2.5-pro"
-    max_tool_rounds = 12
+    agent_max_model_requests = 80
+    agent_max_total_tokens = 2_000_000
     vertex_api_key = None
     source_web_default = True
     source_reddit_default = True
@@ -68,13 +69,15 @@ class FakeSettings:
     search_max_results = 5
     thinking_threshold_chars = 240  # CFG-07: agent_node reads this at router build
     # Turn-registry knobs (CFG-02: the registry reads these directly, no getattr
-    # fallback). The existing per-test overrides (settings.stream_buffer_size = 2,
+    # fallback). The existing per-test overrides (settings.agent_stream_buffer_size = 2,
     # etc.) now override a real default instead of a non-existent attribute.
     max_concurrent_turns: int = 50
-    stream_buffer_size: int = 20_000
+    agent_stream_buffer_size: int = 100_000
     max_consumers_per_turn: int = 8
     # float-typed so tests can drop it to 0.1 to fire the watchdog fast.
-    turn_timeout_s: float = 180
+    agent_turn_timeout_s: float = 3600
+    agent_mcp_read_timeout_s: float = 60.0
+    agent_tool_result_max_chars: int = 8_000
     # Phase-1 fields (BC-01 / BC-08) — also read directly after CFG-02 removes
     # their getattr fallbacks; the stub MUST carry them or __init__ /
     # _persist_partial_guarded raise AttributeError.
@@ -299,7 +302,7 @@ async def test_simple_turn_streams_deltas_persists_messages_creates_session() ->
 
 
 # ---------------------------------------------------------------------------
-# (b) tool-loop bound (settings.max_tool_rounds)
+# (b) tool-loop bound (settings.agent_max_model_requests)
 # ---------------------------------------------------------------------------
 
 
@@ -308,12 +311,27 @@ async def test_endless_tool_caller_is_cut_off_with_a_clean_error_delta() -> None
         return ModelResponse(parts=[ToolCallPart(tool_name="load_skill", args={"name": "x"})])
 
     settings = FakeSettings()
-    settings.max_tool_rounds = 2
+    settings.agent_max_model_requests = 2
     rig = Rig(_fn_model(endless), settings=settings)
 
     events = await rig.turn(str(uuid4()), "hi", _ALL_OFF)
 
     assert "error" not in _types(events)  # clean delta, not a crash
+    assert "tool budget" in _text(events)
+    assert _done_status(events) == "complete"
+
+
+async def test_token_budget_is_wired_to_the_same_budget_path() -> None:
+    def answers(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[TextPart("ok")])
+
+    settings = FakeSettings()
+    settings.agent_max_total_tokens = 1
+    rig = Rig(_fn_model(answers), settings=settings)
+
+    events = await rig.turn(str(uuid4()), "hi", _ALL_OFF)
+
+    assert "error" not in _types(events)
     assert "tool budget" in _text(events)
     assert _done_status(events) == "complete"
 
@@ -336,7 +354,7 @@ async def test_toolset_lacks_disabled_sources_and_ask_student() -> None:
 
     assert "search_reddit" not in seen
     assert {"search_web", "search_school_site"} <= set(seen)
-    assert {"write_plan", "render_viz", "load_skill"} <= set(seen)
+    assert {"write_plan", "render_viz", "load_skill", "read_tool_result"} <= set(seen)
     assert "ask_student" not in seen
 
 
@@ -383,6 +401,153 @@ async def test_write_plan_tool_produces_visible_step_receipt() -> None:
         {"content": "Check the school data", "status": "completed"},
         {"content": "Draft the recommendation", "status": "in_progress"},
     ]
+
+
+def _overflow_then_read_back(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest):
+        returns = [part for part in last.parts if isinstance(part, ToolReturnPart)]
+        if returns and returns[-1].tool_name == "read_tool_result":
+            return ModelResponse(parts=[TextPart("I read the full spilled result.")])
+        if returns and returns[-1].tool_name == "load_skill":
+            content = returns[-1].content
+            assert isinstance(content, dict)
+            handle = content["result_for_agent"]["handle"]
+            return ModelResponse(
+                parts=[ToolCallPart(tool_name="read_tool_result", args={"handle": handle})]
+            )
+    return ModelResponse(parts=[ToolCallPart(tool_name="load_skill", args={"name": "huge"})])
+
+
+def _overflow_without_read_back(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) and part.tool_name == "load_skill"
+        for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("I stored the large result.")])
+    return ModelResponse(parts=[ToolCallPart(tool_name="load_skill", args={"name": "huge"})])
+
+
+def _read_known_handle(handle: str) -> Callable[[list[ModelMessage], AgentInfo], ModelResponse]:
+    def read_known_handle(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        last = messages[-1]
+        if isinstance(last, ModelRequest) and any(
+            isinstance(part, ToolReturnPart) and part.tool_name == "read_tool_result"
+            for part in last.parts
+        ):
+            return ModelResponse(parts=[TextPart("I read the old spilled result.")])
+        return ModelResponse(
+            parts=[ToolCallPart(tool_name="read_tool_result", args={"handle": handle})]
+        )
+
+    return read_known_handle
+
+
+def _read_missing_handle(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) and part.tool_name == "read_tool_result"
+        for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("I handled the missing result.")])
+    return ModelResponse(
+        parts=[ToolCallPart(tool_name="read_tool_result", args={"handle": "missing"})]
+    )
+
+
+async def test_oversized_tool_result_is_reduced_and_read_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    huge = "Admissions detail. " * 1_000
+    monkeypatch.setattr(app.agent_node, "load_skill", lambda name: huge)
+    settings = FakeSettings()
+    settings.agent_tool_result_max_chars = 300
+    rig = Rig(_fn_model(_overflow_then_read_back), settings=settings)
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "Use a large skill", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    assert _text(events) == "I read the full spilled result."
+    step_labels = [event.data["label"] for event in events if event.type == "step"]
+    assert "Consulting the “huge” playbook" in step_labels
+    assert "Reading an oversized tool result" in step_labels
+    values = await _state_values(rig, session_id)
+    tool_returns = [
+        part
+        for message in values["messages"]
+        if message["kind"] == "request"
+        for part in message.get("parts", [])
+        if part.get("part_kind") == "tool-return"
+    ]
+    load_return = next(part for part in tool_returns if part["tool_name"] == "load_skill")
+    read_return = next(part for part in tool_returns if part["tool_name"] == "read_tool_result")
+    assert load_return["content"]["status"] == "overflow"
+    assert huge not in str(load_return["content"])
+    assert read_return["content"] == huge
+
+
+async def test_oversized_tool_result_handle_survives_later_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    huge = "Admissions detail. " * 1_000
+    monkeypatch.setattr(app.agent_node, "load_skill", lambda name: huge)
+    settings = FakeSettings()
+    settings.agent_tool_result_max_chars = 300
+    rig = Rig(_fn_model(_overflow_without_read_back), settings=settings)
+    session_id = str(uuid4())
+
+    first_events = await rig.turn(session_id, "Load a large skill", _ALL_OFF)
+
+    assert _done_status(first_events) == "complete"
+    first_values = await _state_values(rig, session_id)
+    tool_returns = [
+        part
+        for message in first_values["messages"]
+        if message["kind"] == "request"
+        for part in message.get("parts", [])
+        if part.get("part_kind") == "tool-return"
+    ]
+    load_return = next(part for part in tool_returns if part["tool_name"] == "load_skill")
+    handle = load_return["content"]["result_for_agent"]["handle"]
+    assert handle in first_values["tool_result_store"]
+
+    rig.deps.model_factory = lambda: _fn_model(_read_known_handle(handle))
+    second_events = await rig.turn(session_id, "Read the prior spill", _ALL_OFF)
+
+    assert _done_status(second_events) == "complete"
+    assert _text(second_events) == "I read the old spilled result."
+    second_values = await _state_values(rig, session_id)
+    second_tool_returns = [
+        part
+        for message in second_values["messages"]
+        if message["kind"] == "request"
+        for part in message.get("parts", [])
+        if part.get("part_kind") == "tool-return"
+    ]
+    read_return = next(
+        part
+        for part in reversed(second_tool_returns)
+        if part["tool_name"] == "read_tool_result"
+    )
+    assert read_return["content"] == huge
+
+
+async def test_missing_tool_result_handle_closes_step_as_error() -> None:
+    rig = Rig(_fn_model(_read_missing_handle))
+
+    events = await rig.turn(str(uuid4()), "Read a missing spill", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    steps = [
+        event.data
+        for event in events
+        if event.type == "step"
+        and event.data["label"].startswith("Reading an oversized tool result")
+    ]
+    assert [step["status"] for step in steps] == ["start", "error"]
+    assert steps[-1]["label"] == "Reading an oversized tool result — failed"
 
 
 # ---------------------------------------------------------------------------
@@ -771,7 +936,7 @@ async def test_budget_cutoff_closes_steps_and_streams_the_budget_delta() -> None
         return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
 
     settings = FakeSettings()
-    settings.max_tool_rounds = 1
+    settings.agent_max_model_requests = 1
     rig = Rig(_fn_model(endless_searcher), settings=settings)
 
     events = await rig.turn(str(uuid4()), "hi", _WEB_ONLY)
@@ -1355,7 +1520,7 @@ async def test_budget_turn_record_and_prose_invariant() -> None:
         return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
 
     settings = FakeSettings()
-    settings.max_tool_rounds = 1
+    settings.agent_max_model_requests = 1
     rig = Rig(_fn_model(endless_searcher), settings=settings)
     session_id = str(uuid4())
 
@@ -1407,7 +1572,7 @@ async def test_budget_before_final_staged_viz_does_not_leak(
 
     monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
     settings = FakeSettings()
-    settings.max_tool_rounds = 1
+    settings.agent_max_model_requests = 1
     rig = Rig(_fn_model(_render_then_hit_budget), settings=settings)
     session_id = str(uuid4())
 
@@ -1516,7 +1681,7 @@ async def test_empty_prose_budget_turn_appends_no_model_response(
 
     monkeypatch.setattr(app.agent_node, "_TOOL_BUDGET_MESSAGE", "")
     settings = FakeSettings()
-    settings.max_tool_rounds = 1
+    settings.agent_max_model_requests = 1
     rig = Rig(_fn_model(endless_searcher), settings=settings)
     session_id = str(uuid4())
 
