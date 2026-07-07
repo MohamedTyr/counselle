@@ -147,6 +147,46 @@ describe("assistantMessage", () => {
     expect(message.stepRecord?.thinking).toEqual(["pondering"]);
   });
 
+  test("raw thinking segments render but do not enter the legacy step record", () => {
+    const state: TurnState = {
+      ...initialTurnState(),
+      status: "complete",
+      segments: [
+        { type: "narration", id: "narration-0", text: "Checking aid data." },
+        { type: "thinking", id: "thinking-0", text: "Native reasoning summary." },
+      ],
+    };
+
+    const message = assistantMessage("c1", "a1", "u1", state, null);
+
+    expect(message.segments).toEqual(state.segments);
+    expect(message.stepRecord?.thinking).toEqual(["Checking aid data."]);
+  });
+
+  test("legacy transcript thinking displays as narration until ordered segments land", () => {
+    const messages = messagesFromTranscript("c1", [
+      {
+        role: "assistant",
+        text: "Done.",
+        ts: null,
+        message_id: "a1",
+        step_record: {
+          receipt: "",
+          thinking: ["Reading official costs."],
+          steps: [],
+        },
+      },
+    ]);
+
+    expect(messages[0]).toMatchObject({
+      kind: "assistant",
+      segments: [
+        { type: "narration", id: "narration-0", text: "Reading official costs." },
+        { type: "answer", text: "Done." },
+      ],
+    });
+  });
+
   test("duration uses live arrival timing, not summed tool durations", () => {
     const state: TurnState = {
       ...initialTurnState(),

@@ -22,10 +22,12 @@ Two pieces, both pure of I/O:
      never gets a green check.
   3. **Final-answer gated routing**: model text is work narration until the
      stream proves the final answer has started. Pre-final text flushes as
-     ``thinking`` at tool/non-text boundaries; final-answer prose is the only
-     text routed to ``delta``. Native Gemini thought summaries
-     (``ThinkingPart``) are a second ``thinking`` feed, emitted per completed
-     paragraph.
+     ``narration`` (the agent's loud talk, shown inline) at tool/non-text
+     boundaries; final-answer prose is the only text routed to ``delta``.
+     Native Gemini thought summaries (``ThinkingPart``) are a separate
+     ``thinking`` feed — raw reasoning, collapsed by default, emitted per
+     completed paragraph. The two feeds never mix: ``thinking`` is
+     native-reasoning-only.
 
   :meth:`EmissionRouter.close` is the terminal closure: at clarify/error/
   budget every open step is closed synthetically so nothing shimmers forever
@@ -504,11 +506,13 @@ class _OpenStep:
 
 @dataclass
 class EmissionRouter:
-    """pydantic-ai stream events → ``delta``/``thinking``/``step`` writer chunks.
+    """pydantic-ai stream events → ``delta``/``narration``/``thinking``/``step``
+    writer chunks.
 
-    After the run, ``step_records`` holds every step's final state and
-    ``thinking_lines`` every thinking line — B1b persists them in the turn
-    record; B1a only streams.
+    After the run, ``step_records`` holds every step's final state,
+    ``narration_lines`` every narration (loud-talk) line, and
+    ``thinking_lines`` every NATIVE raw-reasoning line — B1b persists them in
+    the turn record; B1a only streams.
     """
 
     writer: Callable[[dict[str, Any]], None]
@@ -521,6 +525,7 @@ class EmissionRouter:
     on_final_start: Callable[[], None] | None = None
 
     step_records: list[dict[str, Any]] = field(default_factory=list)
+    narration_lines: list[str] = field(default_factory=list)
     thinking_lines: list[str] = field(default_factory=list)
     final_answer_started: bool = field(default=False, init=False)
 
@@ -528,7 +533,7 @@ class EmissionRouter:
     _counter: int = 0
     _text_buf: str = ""
     _thinking_buf: str = ""
-    _thinking_streamed_len: int = 0
+    _narration_streamed_len: int = 0
     _final_candidate: bool = False
     _closed: bool = False
 
@@ -577,7 +582,7 @@ class EmissionRouter:
                     self._start_final_answer()
                 self._flush_text_delta()
             else:
-                self._flush_text_as_thinking()
+                self._flush_text_as_narration()
         self._final_candidate = False
         status: Literal["end", "error"] = "end" if reason in ("complete", "interrupt") else "error"
         for open_step in list(self._open.values()):
@@ -598,11 +603,11 @@ class EmissionRouter:
         if self.final_answer_started:
             return
         if self._text_buf:
-            if self._thinking_streamed_len:
+            if self._narration_streamed_len:
                 text = self._unstreamed_text()
                 self._clear_text_buffer()
                 if text:
-                    self._emit_thinking(text)
+                    self._emit_narration(text)
                 self._final_candidate = True
                 return
             self._final_candidate = True
@@ -636,7 +641,7 @@ class EmissionRouter:
         if self._final_candidate:
             return
         if len(self._text_buf) >= self.threshold:
-            self._emit_unstreamed_text_as_thinking()
+            self._emit_unstreamed_text_as_narration()
 
     def _end_text_part(self, next_part_kind: Any) -> None:
         if not self._text_buf:
@@ -650,10 +655,10 @@ class EmissionRouter:
         else:
             # 'tool-call', 'thinking', 'builtin-tool-call', 'file', any future
             # kind: the model moved on to non-text work before answering, so
-            # text here is narration. Defaulting unknown kinds to thinking beats
+            # text here is narration. Defaulting unknown kinds to narration beats
             # defaulting to delta: a wrongly-streamed half-thought would lie to
             # a student.
-            self._flush_text_as_thinking()
+            self._flush_text_as_narration()
             self._final_candidate = False
 
     def _flush_text_delta(self) -> None:
@@ -665,24 +670,24 @@ class EmissionRouter:
             self.writer({"type": "delta", "text": text})
 
     def _unstreamed_text(self) -> str:
-        return self._text_buf[self._thinking_streamed_len :]
+        return self._text_buf[self._narration_streamed_len :]
 
     def _clear_text_buffer(self) -> None:
         self._text_buf = ""
-        self._thinking_streamed_len = 0
+        self._narration_streamed_len = 0
         self._final_candidate = False
 
-    def _emit_unstreamed_text_as_thinking(self) -> None:
-        text = self._text_buf[self._thinking_streamed_len :]
+    def _emit_unstreamed_text_as_narration(self) -> None:
+        text = self._text_buf[self._narration_streamed_len :]
         if not text:
             return
-        self._emit_thinking(text)
-        self._thinking_streamed_len = len(self._text_buf)
+        self._emit_narration(text)
+        self._narration_streamed_len = len(self._text_buf)
 
-    def _flush_text_as_thinking(self) -> None:
-        self._emit_unstreamed_text_as_thinking()
+    def _flush_text_as_narration(self) -> None:
+        self._emit_unstreamed_text_as_narration()
         self._text_buf = ""
-        self._thinking_streamed_len = 0
+        self._narration_streamed_len = 0
 
     def _feed_thinking(self, text: str) -> None:
         if not text:
@@ -705,13 +710,20 @@ class EmissionRouter:
         self.writer({"type": "thinking", "text": line})
         self.thinking_lines.append(line)
 
+    def _emit_narration(self, text: str) -> None:
+        line = text.strip()
+        if not line:
+            return
+        self.writer({"type": "narration", "text": line})
+        self.narration_lines.append(line)
+
     # -- steps ----------------------------------------------------------------
 
     def _start_step(self, event: FunctionToolCallEvent) -> None:
         # A new tool batch means the prior model response is over.
         if self._text_buf:
             # Safety net: pending under-threshold text before a step is narration.
-            self._flush_text_as_thinking()
+            self._flush_text_as_narration()
         self._final_candidate = False
         part = event.part
         if part.tool_name == _EXCLUDED_TOOL:

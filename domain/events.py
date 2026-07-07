@@ -14,7 +14,17 @@ from domain.specs import ClarifySpec, RenderSpec
 PROTOCOL_VERSION = 1
 
 EventType = Literal[
-    "meta", "delta", "step", "thinking", "viz", "clarify", "sources", "usage", "done", "error"
+    "meta",
+    "delta",
+    "step",
+    "narration",
+    "thinking",
+    "viz",
+    "clarify",
+    "sources",
+    "usage",
+    "done",
+    "error",
 ]
 
 StepStatus = Literal["start", "end", "error"]
@@ -124,8 +134,19 @@ class StepData(BaseModel):
     sources: list[StepSource] | None = None
 
 
+class NarrationData(BaseModel):
+    """The agent's loud talk — model prose said out loud while still working
+    (before/between tool calls). Shown inline as a visible prose beat, in
+    stream order. Replaces routing this text into ``thinking``."""
+
+    text: str
+
+
 class ThinkingData(BaseModel):
-    """A short reasoning line interleaved in the timeline (§27.2)."""
+    """A native raw-reasoning line (Gemini thought summaries via
+    ``include_thoughts``), interleaved in the timeline. ONLY emitted when
+    ``thinking_summaries`` is on — collapsed by default, never shown as
+    prose. Never carries narration; see :class:`NarrationData` for that."""
 
     text: str
 
@@ -202,6 +223,10 @@ def ev_step(step: StepData) -> Event:
         # would crash the chip's `favicon.startsWith` guard.
         data["sources"] = [{k: v for k, v in s.items() if v is not None} for s in data["sources"]]
     return Event(type="step", data=data)
+
+
+def ev_narration(text: str) -> Event:
+    return Event(type="narration", data=NarrationData(text=text).model_dump())
 
 
 def ev_thinking(text: str) -> Event:

@@ -504,6 +504,8 @@ class TurnRegistry:
             turn.emissions.append(("delta", event.data["text"]))
         elif kind == "thinking":
             turn.emissions.append(("thinking", event.data["text"]))
+        elif kind == "narration":
+            turn.emissions.append(("narration", event.data["text"]))
         elif kind == "step":
             turn.emissions.append(("step", event.data))
         elif kind == "viz":

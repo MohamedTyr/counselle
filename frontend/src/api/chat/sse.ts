@@ -214,6 +214,7 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
     case "error":
       return isNonEmptyString(data.message);
     case "delta":
+    case "narration":
     case "thinking":
       return typeof data.text === "string";
     case "viz":

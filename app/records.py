@@ -7,10 +7,11 @@ checkpointer.
 
 Design points (decided in the ship plan, not here):
 
-- **One builder, two feeds.** The agent node and ``run_turn`` both observe the
-  same ordered emission stream (``("delta", text) | ("viz", spec) |
-  ("step", data) | ("thinking", text)`` tuples); :func:`build_turn_record`
-  turns it into the record regardless of which writer calls it.
+- **One builder, split text feeds.** The agent node and ``run_turn`` both observe
+  the same ordered emission stream (``("delta", text) | ("viz", spec) |
+  ("step", data) | ("narration", text) | ("thinking", text)`` tuples);
+  :func:`build_turn_record` turns it into the record regardless of which writer
+  calls it.
 - **The record is self-contained.** ``parts[]`` carries the materialized prose
   (``{"type": "text", "text"}``) — never offsets into ``messages``. The
   transcript read must NEVER reconstruct prose by slicing ``messages``: the
@@ -31,7 +32,7 @@ from app.viz_signature import viz_payload_signature
 from domain.events import DoneStatus
 
 #: Cheap stopgap narrowing — the full per-kind discriminated union is deferred to B2.
-Emission = tuple[Literal["delta", "viz", "step", "thinking"], Any]
+Emission = tuple[Literal["delta", "viz", "step", "thinking", "narration"], Any]
 
 #: The terminal statuses a turn record can carry: the wire ``DoneStatus`` set
 #: (``complete``/``awaiting_input``/``cancelled``) plus ``error`` (record-only,
@@ -161,6 +162,7 @@ def build_turn_record(
         for kind, payload in emissions
         if kind == "step" and payload.get("status") != "start"
     ]
+    narration = [payload for kind, payload in emissions if kind == "narration"]
     thinking = [payload for kind, payload in emissions if kind == "thinking"]
     return {
         "message_id": ids["message_id"],
@@ -168,6 +170,7 @@ def build_turn_record(
         "user_text": user_text,
         "parts": build_parts(emissions),
         "steps": steps,
+        "narration": narration,
         "thinking": thinking,
         "receipt": derive_receipt(steps, thinking),
         "sources": sources,

@@ -246,6 +246,10 @@ def _thinking(events: list[Event]) -> str:
     return "".join(event.data["text"] for event in events if event.type == "thinking")
 
 
+def _narration(events: list[Event]) -> str:
+    return "".join(event.data["text"] for event in events if event.type == "narration")
+
+
 def _done_status(events: list[Event]) -> str:
     return str(next(event.data["status"] for event in events if event.type == "done"))
 
@@ -1508,7 +1512,7 @@ async def test_no_early_answer_persists_only_final_prose(
 
     events = await rig.turn(session_id, "show me a comparison", _ALL_OFF)
 
-    assert "I will check the cited data before answering." in _thinking(events)
+    assert "I will check the cited data before answering." in _narration(events)
     assert _text(events) == "Final answer only."
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
@@ -1732,8 +1736,7 @@ async def test_error_turn_writes_record_without_streamed_pre_final_prose() -> No
     assert "error" in _types(events)
     trace_id = events[0].data["trace_id"]
     streamed = _text(events)
-    thinking = "".join(event.data["text"] for event in events if event.type == "thinking")
-    assert long_prose.strip() in thinking
+    assert long_prose.strip() in _narration(events)
     assert streamed == ""
 
     values = await _state_values(rig, session_id)
@@ -1744,7 +1747,7 @@ async def test_error_turn_writes_record_without_streamed_pre_final_prose() -> No
     assert record["message_id"] == events[0].data["message_id"]
     prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
     assert prose == streamed
-    assert long_prose.strip() in "".join(record["thinking"])
+    assert long_prose.strip() in "".join(record["narration"])
     assert all(message["kind"] == "request" for message in values["messages"])
 
 

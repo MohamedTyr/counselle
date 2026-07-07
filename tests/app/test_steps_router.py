@@ -2,9 +2,9 @@
 
 Drives the router with hand-constructed pydantic-ai stream events and asserts
 the writer-chunk protocol: final-result-gated answer deltas, pre-final
-thinking routing, step pairing on ``tool_call_id`` (parallel calls), the
-ask_student exclusion, result-shape error detection, and terminal closure
-(``close``) semantics.
+narration routing, native thinking (``ThinkingPart``) routing, step pairing on
+``tool_call_id`` (parallel calls), the ask_student exclusion, result-shape
+error detection, and terminal closure (``close``) semantics.
 """
 
 from __future__ import annotations
@@ -133,9 +133,9 @@ def test_simple_flow_narration_step_pair_then_live_answer(rig: Rig) -> None:
         _text_end(None),
     )
 
-    # The under-threshold pre-tool text became one thinking chunk, never a delta.
-    thinking = rig.of_type("thinking")
-    assert [chunk["text"] for chunk in thinking] == ["Let me pull Duke's numbers."]
+    # The under-threshold pre-tool text became one narration chunk, never a delta.
+    narration = rig.of_type("narration")
+    assert [chunk["text"] for chunk in narration] == ["Let me pull Duke's numbers."]
     # One start/end pair, same step_id, the Duke label on both.
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "end"]
@@ -156,7 +156,7 @@ def test_pre_final_long_text_never_streams_as_delta(rig: Rig) -> None:
     rig.feed(_text_end("tool-call"))
 
     assert rig.of_type("delta") == []
-    assert [chunk["text"] for chunk in rig.of_type("thinking")] == [pre_final]
+    assert [chunk["text"] for chunk in rig.of_type("narration")] == [pre_final]
 
 
 def test_final_result_event_starts_answer_once_before_first_delta() -> None:
@@ -205,7 +205,7 @@ def test_final_result_event_waits_for_text_part_end_before_buffered_delta() -> N
     ]
 
 
-def test_late_final_result_event_does_not_duplicate_visible_thinking() -> None:
+def test_late_final_result_event_does_not_duplicate_visible_narration() -> None:
     chunks: list[dict[str, Any]] = []
     router = EmissionRouter(
         writer=chunks.append,
@@ -213,20 +213,20 @@ def test_late_final_result_event_does_not_duplicate_visible_thinking() -> None:
         threshold=10,
     )
 
-    router.handle(_text_start("visible thinking"))
+    router.handle(_text_start("visible narration"))
     router.handle(_final())
     router.handle(_text_delta(" final suffix"))
     router.handle(_text_end(None))
 
-    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
-        "visible thinking"
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "narration"] == [
+        "visible narration"
     ]
     assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
         " final suffix"
     ]
 
 
-def test_late_final_result_after_streamed_thinking_keeps_tail_as_thinking() -> None:
+def test_late_final_result_after_streamed_narration_keeps_tail_as_narration() -> None:
     chunks: list[dict[str, Any]] = []
     router = EmissionRouter(
         writer=chunks.append,
@@ -234,7 +234,7 @@ def test_late_final_result_after_streamed_thinking_keeps_tail_as_thinking() -> N
         threshold=10,
     )
 
-    router.handle(_text_start("visible thinking"))
+    router.handle(_text_start("visible narration"))
     router.handle(_text_delta(" tail before final marker"))
     router.handle(_final())
     router.handle(_text_end(None))
@@ -242,8 +242,8 @@ def test_late_final_result_after_streamed_thinking_keeps_tail_as_thinking() -> N
     router.handle(_text_end(None))
     router.close("complete")
 
-    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
-        "visible thinking",
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "narration"] == [
+        "visible narration",
         "tail before final marker",
     ]
     assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
@@ -269,7 +269,7 @@ def test_agent_run_result_event_fallback_flushes_buffered_final_text_once() -> N
     ]
 
 
-def test_agent_run_result_event_does_not_duplicate_visible_thinking() -> None:
+def test_agent_run_result_event_does_not_duplicate_visible_narration() -> None:
     chunks: list[dict[str, Any]] = []
     router = EmissionRouter(
         writer=chunks.append,
@@ -277,11 +277,11 @@ def test_agent_run_result_event_does_not_duplicate_visible_thinking() -> None:
         threshold=10,
     )
 
-    router.handle(_text_start("visible thinking"))
+    router.handle(_text_start("visible narration"))
     router.handle(AgentRunResultEvent(result=AgentRunResult(output="")))
 
-    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
-        "visible thinking"
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "narration"] == [
+        "visible narration"
     ]
     assert [chunk for chunk in chunks if chunk["type"] == "delta"] == []
 
@@ -294,10 +294,10 @@ def test_router_honors_threshold() -> None:
         threshold=10,
     )
 
-    # 5 chars then a tool call → under threshold → thinking, never delta.
+    # 5 chars then a tool call -> under threshold -> narration, never delta.
     router.handle(_text_start("hi io"))  # 5 chars
     router.handle(_text_end("tool-call"))
-    assert [c["text"] for c in chunks if c["type"] == "thinking"] == ["hi io"]
+    assert [c["text"] for c in chunks if c["type"] == "narration"] == ["hi io"]
     assert [c for c in chunks if c["type"] == "delta"] == []
 
     chunks.clear()
@@ -387,9 +387,9 @@ async def test_final_result_event_orders_before_text_delta_with_function_model()
     final_text_index = raw_order.index(final_text_marker)
     assert "FinalResultEvent" in raw_order[:final_text_index]
 
-    thinking_texts = [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"]
+    narration_texts = [chunk["text"] for chunk in chunks if chunk["type"] == "narration"]
     delta_texts = [chunk["text"] for chunk in chunks if chunk["type"] == "delta"]
-    assert "I will look this up first." in thinking_texts
+    assert "I will look this up first." in narration_texts
     assert "I will look this up first." not in delta_texts
     assert "Final answer after tool." in delta_texts
 
@@ -498,7 +498,7 @@ def test_retry_result_leaves_row_count_unset(rig: Rig) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_close_interrupt_ends_open_step_with_original_label_and_flushes_text_as_thinking(
+def test_close_interrupt_ends_open_step_with_original_label_and_flushes_text_as_narration(
     rig: Rig,
 ) -> None:
     rig.feed(
@@ -508,7 +508,7 @@ def test_close_interrupt_ends_open_step_with_original_label_and_flushes_text_as_
 
     rig.router.close("interrupt")
 
-    assert [chunk["text"] for chunk in rig.of_type("thinking")] == [
+    assert [chunk["text"] for chunk in rig.of_type("narration")] == [
         "Partial answer held in the buffer"
     ]
     assert rig.of_type("delta") == []
@@ -536,7 +536,7 @@ def test_close_before_final_result_never_calls_on_final_start_or_emits_delta(
 
     assert final_starts == []
     assert [chunk for chunk in chunks if chunk["type"] == "delta"] == []
-    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "narration"] == [
         "Pending pre-final text."
     ]
 
@@ -611,7 +611,7 @@ def test_thinking_deltas_accumulate_into_paragraphs(rig: Rig) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_step_records_hold_terminal_states_only_and_thinking_lines_accumulate(rig: Rig) -> None:
+def test_step_records_hold_terminal_states_only_and_narration_lines_accumulate(rig: Rig) -> None:
     rig.feed(
         _text_start("Checking the database."),
         _text_end("tool-call"),
@@ -624,4 +624,5 @@ def test_step_records_hold_terminal_states_only_and_thinking_lines_accumulate(ri
 
     statuses = [record["status"] for record in rig.router.step_records]
     assert statuses == ["end", "error"]  # no 'start' entries
-    assert rig.router.thinking_lines == ["Checking the database."]
+    assert rig.router.narration_lines == ["Checking the database."]
+    assert rig.router.thinking_lines == []

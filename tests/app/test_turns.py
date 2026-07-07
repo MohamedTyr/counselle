@@ -56,6 +56,7 @@ from domain.events import (
     ev_delta,
     ev_done,
     ev_meta,
+    ev_narration,
     ev_sources,
     ev_usage,
     ev_viz,
@@ -130,7 +131,7 @@ class Collector:
     async def _run(self, stream: AsyncIterator[tuple[Event, int]]) -> None:
         async for event, seq in stream:
             self.items.append((event, seq))
-            if event.type in ("delta", "thinking", "step"):
+            if event.type in ("delta", "narration", "thinking", "step"):
                 self.first_visible.set()
 
     async def done(self) -> list[tuple[Event, int]]:
@@ -263,6 +264,27 @@ def _resume_parked_run_turn(
         )
         yield ev_sources([])
         yield ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
+        yield ev_done("complete")
+
+    return fake_run_turn
+
+
+def _gated_narration_run_turn(
+    gate: asyncio.Event, *chunks: str
+) -> Callable[..., AsyncIterator[Event]]:
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        yield ev_meta("trace-buffer", session_id, "test-model", str(uuid4()), str(uuid4()))
+        for chunk in chunks:
+            yield ev_narration(chunk)
+        await gate.wait()
+        yield ev_delta("done")
         yield ev_done("complete")
 
     return fake_run_turn
@@ -436,8 +458,8 @@ async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None
     assert types.count("done") == 1
     assert pairs[-1][0].data["status"] == "cancelled"
     assert "error" not in types
-    thinking = "".join(e.data["text"] for e, _ in pairs if e.type == "thinking")
-    assert _LONG_CHUNK.strip() in thinking
+    narration = "".join(e.data["text"] for e, _ in pairs if e.type == "narration")
+    assert _LONG_CHUNK.strip() in narration
     streamed = _prose(pairs)
     assert streamed == ""
 
@@ -446,7 +468,7 @@ async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None
     assert record["status"] == "cancelled"
     assert record["user_text"] == "duke dorms?"
     assert prose_of(record["parts"]) == streamed
-    assert _LONG_CHUNK.strip() in "".join(record["thinking"])
+    assert _LONG_CHUNK.strip() in "".join(record["narration"])
     assert all(message["kind"] == "request" for message in values["messages"])
     assert registry.is_generating(session_id) is False
 
@@ -653,7 +675,12 @@ async def test_consumer_falling_off_the_head_is_terminated_with_error() -> None:
     settings = FakeSettings()
     settings.agent_stream_buffer_size = 2
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
-    registry = _registry(rig)
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=_gated_narration_run_turn(gate, *chunks),
+    )
     session_id = str(uuid4())
 
     handle = await registry.start(session_id, "hi", _ALL_OFF)
@@ -1014,7 +1041,12 @@ async def test_fall_off_error_seq_reflects_buffer_base_not_stale_position() -> N
     settings = FakeSettings()
     settings.agent_stream_buffer_size = 2
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
-    registry = _registry(rig)
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=_gated_narration_run_turn(gate, *chunks),
+    )
     session_id = str(uuid4())
 
     handle = await registry.start(session_id, "hi", _ALL_OFF)
@@ -1140,7 +1172,12 @@ async def test_byte_budget_evicts_oldest_when_over_budget() -> None:
     settings.agent_stream_buffer_size = 20_000  # event cap never fires
     settings.stream_buffer_bytes = 2_000  # the byte budget bites
     rig = Rig(_gated_model(gate, *chunks), settings=settings)
-    registry = _registry(rig)
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=_gated_narration_run_turn(gate, *chunks),
+    )
     session_id = str(uuid4())
 
     handle = await registry.start(session_id, "hi", _ALL_OFF)

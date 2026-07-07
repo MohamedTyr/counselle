@@ -29,10 +29,7 @@ export type TurnStep = StepData;
 /**
  * One beat in the chronological run surface, in stream arrival order.
  * `narration` is the agent's loud talk (shown inline); `thinking` is native
- * raw reasoning (collapsed by default). Phase 1 feeds `narration` from
- * today's `thinking` wire event (the backend hasn't split them yet) — real
- * `thinking` segments stay unpopulated until the backend emits a genuine
- * `narration` event.
+ * raw reasoning (collapsed by default).
  */
 export type Segment =
   | { type: "narration"; id: string; text: string }
@@ -144,6 +141,10 @@ function narrationSegmentCount(segments: Segment[]): number {
   return segments.filter((segment) => segment.type === "narration").length;
 }
 
+function thinkingSegmentCount(segments: Segment[]): number {
+  return segments.filter((segment) => segment.type === "thinking").length;
+}
+
 export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
   switch (event.type) {
     case "meta":
@@ -155,15 +156,20 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
       };
     case "step":
       return { ...state, segments: mergeToolSegment(state.segments, event.data) };
-    case "thinking": {
-      // Phase 1: the wire still labels narration as `thinking` — the router
-      // split lands in Phase 2. Each chunk is its own beat (unfused), same
-      // cadence the backend already emits at (per completed paragraph/round).
+    case "narration": {
       const id = `narration-${narrationSegmentCount(state.segments)}`;
 
       return {
         ...state,
         segments: [...state.segments, { type: "narration", id, text: event.data.text }],
+      };
+    }
+    case "thinking": {
+      const id = `thinking-${thinkingSegmentCount(state.segments)}`;
+
+      return {
+        ...state,
+        segments: [...state.segments, { type: "thinking", id, text: event.data.text }],
       };
     }
     case "viz":
@@ -187,6 +193,7 @@ const ARRIVAL_START_EVENTS = new Set<ProtocolEvent["type"]>([
   "meta",
   "delta",
   "step",
+  "narration",
   "thinking",
   "viz",
   "clarify",
@@ -251,10 +258,8 @@ export function stepsOf(state: TurnState): StepData[] {
     .map((segment) => segment.step);
 }
 
-/** The narration lines said out loud this turn (Phase 1: fed by the
- * mislabeled `thinking` wire event — becomes the real `narration` feed once
- * the backend splits it in Phase 2). Mirrors the persisted receipt's
- * `thinking` bucket so `deriveReceipt` stays byte-compatible. */
+/** The narration lines said out loud this turn. Mirrors the persisted
+ * receipt's legacy `thinking` bucket until ordered transcript segments land. */
 export function narrationTextsOf(state: TurnState): string[] {
   return state.segments
     .filter(
@@ -364,8 +369,15 @@ export function transcriptEntryToEvents(
       events.push({ v: 1, type: "step", data: step });
     }
 
-    for (const text of entry.step_record.thinking) {
-      events.push({ v: 1, type: "thinking", data: { text } });
+    const narration = entry.step_record.narration ?? entry.step_record.thinking;
+    for (const text of narration) {
+      events.push({ v: 1, type: "narration", data: { text } });
+    }
+
+    if (entry.step_record.narration !== undefined) {
+      for (const text of entry.step_record.thinking) {
+        events.push({ v: 1, type: "thinking", data: { text } });
+      }
     }
   }
 

@@ -341,7 +341,7 @@ async def _registry_turn(
 
 
 async def test_golden_full_turn_events() -> None:
-    """The full dossier turn: thinking + steps + viz + sources + usage."""
+    """The full dossier turn: narration + steps + viz + sources + usage."""
     rig = Rig(_fn_model(_dossier_model))
     rig.settings.thinking_threshold_chars = 1_000
     registry = TurnRegistry(deps=rig.deps, graph=rig.graph, settings=rig.settings)
@@ -350,11 +350,11 @@ async def test_golden_full_turn_events() -> None:
     events = await _registry_turn(rig, registry, session_id, "Tell me about Duke", _WEB)
 
     types = [event.type for event in events]
-    assert {"meta", "thinking", "step", "viz", "delta", "sources", "usage", "done"} <= set(types)
+    assert {"meta", "narration", "step", "viz", "delta", "sources", "usage", "done"} <= set(types)
     work_end = max(
         index
         for index, event in enumerate(events)
-        if event.type in {"step", "thinking"}
+        if event.type in {"step", "narration"}
     )
     delta_positions = [index for index, event in enumerate(events) if event.type == "delta"]
     viz_position = types.index("viz")

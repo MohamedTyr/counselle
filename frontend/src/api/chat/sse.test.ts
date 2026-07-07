@@ -41,6 +41,24 @@ describe("parseSseStream", () => {
     ]);
   });
 
+  it("accepts narration as a first-class protocol event", async () => {
+    const frames = await collect(
+      streamOf(frame("narration", { text: "Checking official data." }, "13")),
+    );
+
+    expect(frames).toEqual([
+      {
+        id: "13",
+        event: "narration",
+        data: {
+          v: 1,
+          type: "narration",
+          data: { text: "Checking official data." },
+        },
+      },
+    ]);
+  });
+
   it("rejects malformed identity-bearing frames", async () => {
     await expect(
       collect(
@@ -54,6 +72,7 @@ describe("parseSseStream", () => {
 
   it.each([
     ["delta", {}],
+    ["narration", {}],
     ["thinking", {}],
     ["step", { step_id: "s1", status: "start" }],
     [

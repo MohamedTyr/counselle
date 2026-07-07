@@ -293,6 +293,8 @@ def _make_recording_writer(
                 emissions.append(("step", data))
         elif kind == "thinking" and (text := chunk.get("text")) is not None:
             emissions.append(("thinking", text))
+        elif kind == "narration" and (text := chunk.get("text")) is not None:
+            emissions.append(("narration", text))
         writer(chunk)
 
     return recording

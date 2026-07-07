@@ -1,5 +1,6 @@
 import { parseSseStream } from "@/api/chat/sse";
 import type { ProtocolEvent, TranscriptEntry } from "@/api/chat/types";
+import { reduceTranscriptEntry } from "@/features/ai-chat/turn-reducer";
 import transcriptRaw from "../../../tests/fixtures/protocol/transcript.json?raw";
 import turnCancelledRaw from "../../../tests/fixtures/protocol/turn_cancelled.json?raw";
 import turnFullRaw from "../../../tests/fixtures/protocol/turn_full.json?raw";
@@ -64,5 +65,33 @@ describe("shared protocol fixtures", () => {
         (entry) => entry.role === "user" && entry.synthesized === true,
       ),
     ).toBe(false);
+  });
+
+  it("replays fixture transcript narration distinctly from native thinking", () => {
+    const turnFull = JSON.parse(turnFullRaw) as { events: ProtocolEvent[] };
+    const transcript = JSON.parse(transcriptRaw) as { transcript: TranscriptEntry[] };
+    const liveNarration = turnFull.events.find(
+      (event): event is Extract<ProtocolEvent, { type: "narration" }> =>
+        event.type === "narration",
+    );
+    const assistant = transcript.transcript.find(
+      (entry) =>
+        entry.role === "assistant" &&
+        entry.step_record?.narration?.includes(liveNarration?.data.text ?? ""),
+    );
+
+    expect(liveNarration?.data.text).toBe("Let me look at Duke's housing first.");
+    expect(assistant?.role).toBe("assistant");
+    if (assistant?.role !== "assistant") {
+      throw new Error("fixture transcript is missing replayable narration");
+    }
+
+    const state = reduceTranscriptEntry(assistant);
+    expect(
+      state.segments.some(
+        (segment) =>
+          segment.type === "narration" && segment.text === liveNarration?.data.text,
+      ),
+    ).toBe(true);
   });
 });

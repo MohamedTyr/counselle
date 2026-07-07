@@ -194,6 +194,7 @@ _IDS = {"message_id": "m-1", "user_message_id": "u-1"}
 def test_record_carries_ids_status_ts_offset_and_end_state_steps() -> None:
     emissions: list[Emission] = [
         ("step", _step("s1", "web_search", status="start")),
+        ("narration", "let me search"),
         ("thinking", "let me search"),
         ("step", _step("s1", "web_search", status="end")),
         ("delta", "Found it [1]."),
@@ -216,6 +217,7 @@ def test_record_carries_ids_status_ts_offset_and_end_state_steps() -> None:
     assert record["messages_offset"] == 4
     # steps keep end-state events only — start frames are live-stream-only.
     assert [s["status"] for s in record["steps"]] == ["end"]
+    assert record["narration"] == ["let me search"]
     assert record["thinking"] == ["let me search"]
     assert record["receipt"] == "1 web search"
     assert record["sources"] == [{"index": 1}]

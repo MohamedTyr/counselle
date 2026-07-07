@@ -136,12 +136,15 @@ export type StepData = {
   sources?: StepSource[];
 };
 
+export type NarrationData = { text: string };
+
 export type ThinkingData = { text: string };
 
 export type ProtocolEvent =
   | { v?: number; type: "meta"; data: MetaData }
   | { v?: number; type: "delta"; data: DeltaData }
   | { v?: number; type: "step"; data: StepData }
+  | { v?: number; type: "narration"; data: NarrationData }
   | { v?: number; type: "thinking"; data: ThinkingData }
   | { v?: number; type: "viz"; data: RenderSpec }
   | { v?: number; type: "clarify"; data: ClarifySpec }
@@ -156,6 +159,7 @@ export const protocolEventTypes = [
   "meta",
   "delta",
   "step",
+  "narration",
   "thinking",
   "viz",
   "clarify",
@@ -167,6 +171,7 @@ export const protocolEventTypes = [
 
 export type StepRecord = {
   steps: StepData[];
+  narration?: string[];
   thinking: string[];
   receipt: string;
 };

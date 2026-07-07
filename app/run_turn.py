@@ -59,6 +59,7 @@ from domain.events import (
     ev_done,
     ev_error,
     ev_meta,
+    ev_narration,
     ev_sources,
     ev_step,
     ev_thinking,
@@ -427,6 +428,10 @@ async def run_turn(
                     if (text := chunk.get("text")) is not None:
                         emissions.append(("thinking", text))
                         yield ev_thinking(text)
+                elif kind == "narration":
+                    if (text := chunk.get("text")) is not None:
+                        emissions.append(("narration", text))
+                        yield ev_narration(text)
                 elif kind == "viz" and (spec := chunk.get("spec")) is not None:
                     if not final_emissions.keep(kind, spec):
                         continue

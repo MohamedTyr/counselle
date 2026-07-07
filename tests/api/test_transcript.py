@@ -169,7 +169,12 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
     assert assistant_1["status"] == "complete"
     assert assistant_1["text"] == "Duke is strong in engineering."
     assert assistant_1["parts"] == [{"type": "text", "text": "Duke is strong in engineering."}]
-    assert assistant_1["step_record"] == {"steps": [], "thinking": [], "receipt": ""}
+    assert assistant_1["step_record"] == {
+        "steps": [],
+        "narration": [],
+        "thinking": [],
+        "receipt": "",
+    }
     assert assistant_1["sources"] == []
     assert assistant_1["usage"]["input_tokens"] >= 0
     assert assistant_1["ts"]
@@ -431,6 +436,28 @@ def test_invalid_first_record_offset_clamps_fallback_and_still_serves_records() 
     # …and the record-backed entries still follow, self-contained.
     assert transcript[-1]["text"] == "world"
     assert transcript[-1]["message_id"] == "m-1"
+    assert "narration" not in transcript[-1]["step_record"]
+
+
+def test_transcript_step_record_bridges_narration_and_native_thinking() -> None:
+    record = build_turn_record(
+        [
+            ("narration", "Checking the official data."),
+            ("thinking", "Native thought summary."),
+            ("delta", "Done."),
+        ],
+        ids={"message_id": "m-1", "user_message_id": "u-1"},
+        status="complete",
+        sources=[],
+        user_text="hello",
+        messages_offset=0,
+    )
+
+    transcript = extract_transcript([], [record])
+    assistant = transcript[-1]
+
+    assert assistant["step_record"]["narration"] == ["Checking the official data."]
+    assert assistant["step_record"]["thinking"] == ["Native thought summary."]
 
 
 def _always_answers(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:

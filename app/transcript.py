@@ -105,17 +105,21 @@ def _assistant_entry_for_record(
     ``feedback`` key (preserving pre-MVP2 behavior).
     """
     parts = list(record.get("parts") or [])
+    step_record: dict[str, Any] = {
+        "steps": record.get("steps") or [],
+        "thinking": record.get("thinking") or [],
+        "receipt": record.get("receipt") or "",
+    }
+    if "narration" in record:
+        step_record["narration"] = record.get("narration") or []
+
     entry: dict[str, Any] = {
         "role": "assistant",
         "text": prose_of(parts),
         "ts": record.get("ts"),
         "message_id": record.get("message_id"),
         "parts": parts,
-        "step_record": {
-            "steps": record.get("steps") or [],
-            "thinking": record.get("thinking") or [],
-            "receipt": record.get("receipt") or "",
-        },
+        "step_record": step_record,
         "sources": record.get("sources") or [],
         "status": record.get("status"),
     }

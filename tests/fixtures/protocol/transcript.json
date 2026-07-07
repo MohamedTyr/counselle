@@ -98,10 +98,11 @@
             }
           }
         ],
-        "thinking": [
+        "thinking": [],
+        "receipt": "1 web search \u00b7 1 visualization",
+        "narration": [
           "Let me look at Duke's housing first."
-        ],
-        "receipt": "1 web search \u00b7 1 visualization"
+        ]
       },
       "sources": [
         {
@@ -159,7 +160,8 @@
       "step_record": {
         "steps": [],
         "thinking": [],
-        "receipt": ""
+        "receipt": "",
+        "narration": []
       },
       "sources": [
         {
@@ -217,7 +219,8 @@
       "step_record": {
         "steps": [],
         "thinking": [],
-        "receipt": ""
+        "receipt": "",
+        "narration": []
       },
       "sources": [
         {

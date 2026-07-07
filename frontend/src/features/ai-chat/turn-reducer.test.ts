@@ -186,11 +186,11 @@ describe("turn reducer", () => {
 
   test("narration entries get stable unique ids while interleaved with tool segments", () => {
     let state = initialTurnState();
-    state = reduceTurn(state, { v: 1, type: "thinking", data: { text: "a" } });
+    state = reduceTurn(state, { v: 1, type: "narration", data: { text: "a" } });
     state = reduceTurn(state, stepEvent({ step_id: "s1", status: "start" }));
-    state = reduceTurn(state, { v: 1, type: "thinking", data: { text: "b" } });
+    state = reduceTurn(state, { v: 1, type: "narration", data: { text: "b" } });
     state = reduceTurn(state, stepEvent({ step_id: "s1", status: "end" }));
-    state = reduceTurn(state, { v: 1, type: "thinking", data: { text: "a" } });
+    state = reduceTurn(state, { v: 1, type: "narration", data: { text: "a" } });
 
     expect(
       state.segments
@@ -200,6 +200,80 @@ describe("turn reducer", () => {
       { id: "narration-0", text: "a" },
       { id: "narration-1", text: "b" },
       { id: "narration-2", text: "a" },
+    ]);
+  });
+
+  test("thinking entries stay distinct from visible narration", () => {
+    const state = reduceEvents([
+      { v: 1, type: "narration", data: { text: "Checking the official site." } },
+      { v: 1, type: "thinking", data: { text: "Native thought summary." } },
+    ]);
+
+    expect(state.segments).toEqual([
+      {
+        type: "narration",
+        id: "narration-0",
+        text: "Checking the official site.",
+      },
+      {
+        type: "thinking",
+        id: "thinking-0",
+        text: "Native thought summary.",
+      },
+    ]);
+  });
+
+  test("legacy transcript step_record thinking replays as visible narration", () => {
+    const events = transcriptEntryToEvents({
+      role: "assistant",
+      text: "Done.",
+      ts: null,
+      step_record: {
+        steps: [],
+        thinking: ["Checking the CDS.", "Comparing the aid figures."],
+        receipt: "",
+      },
+    });
+
+    expect(events.slice(0, 2)).toEqual([
+      { v: 1, type: "narration", data: { text: "Checking the CDS." } },
+      {
+        v: 1,
+        type: "narration",
+        data: { text: "Comparing the aid figures." },
+      },
+    ]);
+
+    const state = events.reduce(reduceTurn, initialTurnState());
+    expect(
+      state.segments
+        .filter((segment) => segment.type === "narration")
+        .map((segment) => segment.text),
+    ).toEqual(["Checking the CDS.", "Comparing the aid figures."]);
+  });
+
+  test("transcript narration replays separately from native thinking", () => {
+    const events = transcriptEntryToEvents({
+      role: "assistant",
+      text: "Done.",
+      ts: null,
+      step_record: {
+        steps: [],
+        narration: ["Checking the CDS."],
+        thinking: ["Native thought summary."],
+        receipt: "",
+      },
+    });
+
+    expect(events.slice(0, 2)).toEqual([
+      { v: 1, type: "narration", data: { text: "Checking the CDS." } },
+      { v: 1, type: "thinking", data: { text: "Native thought summary." } },
+    ]);
+
+    const state = events.reduce(reduceTurn, initialTurnState());
+    expect(state.segments.slice(0, 2)).toEqual([
+      { type: "narration", id: "narration-0", text: "Checking the CDS." },
+      { type: "thinking", id: "thinking-0", text: "Native thought summary." },
     ]);
   });
 
