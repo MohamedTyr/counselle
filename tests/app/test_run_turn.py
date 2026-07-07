@@ -691,6 +691,7 @@ async def test_legacy_parked_clarify_answer_runs_v1_and_preserves_record_shape()
     assert record["clarify"]["spec"]["question"] == "What matters most to you?"
     assert record["synthesized_answer"] is True
     assert prose_of(record["parts"]) == "Focusing on cost."
+    assert record["segments"] == [{"kind": "delta", "text": "Focusing on cost."}]
 
 
 async def test_legacy_parked_clarify_failure_preserves_accepted_answer() -> None:
@@ -1006,6 +1007,9 @@ async def test_complete_turn_writes_the_node_record() -> None:
     assert record["sources"] == values["source_registry"]
     assert record["usage"]["tool_calls"] >= 1
     assert record["error"] is None and record["clarify"] is None
+    assert [segment["kind"] for segment in record["segments"]] == ["step", "delta"]
+    assert record["segments"][0]["data"]["status"] == "end"
+    assert record["segments"][1]["text"] == _text(events)
 
 
 def _two_viz_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -1354,6 +1358,9 @@ async def test_duplicate_render_viz_final_flush_persists_one_viz_part(
     viz_parts = [part for part in record["parts"] if part["type"] == "viz"]
     assert len(viz_parts) == 1
     assert viz_parts[0]["spec"]["title"] == "First title"
+    viz_segments = [segment for segment in record["segments"] if segment["kind"] == "viz"]
+    assert len(viz_segments) == 1
+    assert viz_segments[0]["spec"]["title"] == "First title"
     assert len(values["viz_emitted"]) == 1
 
 
@@ -1671,6 +1678,12 @@ async def test_budget_after_final_partial_preserves_visible_viz_and_prose(
     record = values["turn_records"][-1]
     assert [part["type"] for part in record["parts"]] == ["text", "viz", "text"]
     assert prose_of(record["parts"]) == _text(events)
+    assert [segment["kind"] for segment in record["segments"]] == [
+        "step",
+        "delta",
+        "viz",
+        "delta",
+    ]
     assert len(values["viz_emitted"]) == 1
 
 
@@ -1748,6 +1761,7 @@ async def test_error_turn_writes_record_without_streamed_pre_final_prose() -> No
     prose = _turn_prose_from_messages(values["messages"], record["messages_offset"])
     assert prose == streamed
     assert long_prose.strip() in "".join(record["narration"])
+    assert record["segments"] == [{"kind": "narration", "text": long_prose.strip()}]
     assert all(message["kind"] == "request" for message in values["messages"])
 
 

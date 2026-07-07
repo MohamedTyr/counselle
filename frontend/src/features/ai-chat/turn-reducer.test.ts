@@ -277,6 +277,42 @@ describe("turn reducer", () => {
     ]);
   });
 
+  test("ordered transcript segments take precedence over legacy fields and map delta", () => {
+    const events = transcriptEntryToEvents({
+      role: "assistant",
+      text: "Legacy text.",
+      ts: null,
+      segments: [
+        { kind: "narration", text: "Ordered narration." },
+        { kind: "delta", text: "Ordered answer." },
+      ],
+      step_record: {
+        steps: [stepEvent({ step_id: "legacy-step", status: "end" }).data],
+        narration: ["Legacy narration."],
+        thinking: ["Legacy thinking."],
+        receipt: "",
+      },
+      parts: [{ type: "text", text: "Legacy part." }],
+      status: "complete",
+    });
+
+    expect(events).toEqual([
+      { v: 1, type: "narration", data: { text: "Ordered narration." } },
+      { v: 1, type: "delta", data: { text: "Ordered answer." } },
+      { v: 1, type: "done", data: { status: "complete" } },
+    ]);
+
+    const state = events.reduce(reduceTurn, initialTurnState());
+    expect(state.segments).toEqual([
+      {
+        type: "narration",
+        id: "narration-0",
+        text: "Ordered narration.",
+      },
+      { type: "answer", text: "Ordered answer." },
+    ]);
+  });
+
   test("step end-event sources merge onto the started step in place", () => {
     let state = initialTurnState();
     state = reduceTurn(state, stepEvent({ step_id: "s1", status: "start" }));

@@ -9,6 +9,7 @@ import type {
   StepData,
   StepRecord,
   TranscriptAssistantEntry,
+  TranscriptSegment,
   UsageData,
 } from "@/api/chat/types";
 
@@ -364,31 +365,35 @@ export function transcriptEntryToEvents(
 ): ProtocolEvent[] {
   const events: ProtocolEvent[] = [];
 
-  if (entry.step_record !== undefined) {
-    for (const step of entry.step_record.steps) {
-      events.push({ v: 1, type: "step", data: step });
-    }
+  if (entry.segments !== undefined) {
+    events.push(...transcriptSegmentsToEvents(entry.segments));
+  } else {
+    if (entry.step_record !== undefined) {
+      for (const step of entry.step_record.steps) {
+        events.push({ v: 1, type: "step", data: step });
+      }
 
-    const narration = entry.step_record.narration ?? entry.step_record.thinking;
-    for (const text of narration) {
-      events.push({ v: 1, type: "narration", data: { text } });
-    }
+      const narration = entry.step_record.narration ?? entry.step_record.thinking;
+      for (const text of narration) {
+        events.push({ v: 1, type: "narration", data: { text } });
+      }
 
-    if (entry.step_record.narration !== undefined) {
-      for (const text of entry.step_record.thinking) {
-        events.push({ v: 1, type: "thinking", data: { text } });
+      if (entry.step_record.narration !== undefined) {
+        for (const text of entry.step_record.thinking) {
+          events.push({ v: 1, type: "thinking", data: { text } });
+        }
       }
     }
-  }
 
-  const parts = entry.parts ?? [{ type: "text" as const, text: entry.text }];
-  for (const part of parts) {
-    if (part.type === "text" && part.text.length > 0) {
-      events.push({ v: 1, type: "delta", data: { text: part.text } });
-    }
+    const parts = entry.parts ?? [{ type: "text" as const, text: entry.text }];
+    for (const part of parts) {
+      if (part.type === "text" && part.text.length > 0) {
+        events.push({ v: 1, type: "delta", data: { text: part.text } });
+      }
 
-    if (part.type === "viz") {
-      events.push({ v: 1, type: "viz", data: part.spec });
+      if (part.type === "viz") {
+        events.push({ v: 1, type: "viz", data: part.spec });
+      }
     }
   }
 
@@ -422,6 +427,23 @@ export function transcriptEntryToEvents(
   }
 
   return events;
+}
+
+function transcriptSegmentsToEvents(segments: TranscriptSegment[]): ProtocolEvent[] {
+  return segments.map((segment) => {
+    switch (segment.kind) {
+      case "narration":
+        return { v: 1, type: "narration", data: { text: segment.text } };
+      case "thinking":
+        return { v: 1, type: "thinking", data: { text: segment.text } };
+      case "step":
+        return { v: 1, type: "step", data: segment.data };
+      case "delta":
+        return { v: 1, type: "delta", data: { text: segment.text } };
+      case "viz":
+        return { v: 1, type: "viz", data: segment.spec };
+    }
+  });
 }
 
 export function reduceTranscriptEntry(

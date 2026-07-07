@@ -94,4 +94,37 @@ describe("shared protocol fixtures", () => {
       ),
     ).toBe(true);
   });
+
+  it("preserves ordered segments from the shared transcript fixture", () => {
+    const transcript = JSON.parse(transcriptRaw) as { transcript: TranscriptEntry[] };
+    const assistant = transcript.transcript.find(
+      (entry) =>
+        entry.role === "assistant" &&
+        entry.segments?.some((segment) => segment.kind === "viz"),
+    );
+
+    expect(assistant?.role).toBe("assistant");
+    if (assistant?.role !== "assistant") {
+      throw new Error("fixture transcript is missing ordered assistant segments");
+    }
+
+    expect(assistant.segments?.map((segment) => segment.kind)).toEqual([
+      "step",
+      "narration",
+      "step",
+      "delta",
+      "viz",
+      "delta",
+    ]);
+
+    const state = reduceTranscriptEntry(assistant);
+    expect(state.segments.map((segment) => segment.type)).toEqual([
+      "tool",
+      "narration",
+      "tool",
+      "answer",
+      "viz",
+      "answer",
+    ]);
+  });
 });

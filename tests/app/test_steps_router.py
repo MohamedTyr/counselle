@@ -205,7 +205,7 @@ def test_final_result_event_waits_for_text_part_end_before_buffered_delta() -> N
     ]
 
 
-def test_late_final_result_event_does_not_duplicate_visible_narration() -> None:
+def test_late_final_result_event_flushes_buffered_text_as_one_final_delta() -> None:
     chunks: list[dict[str, Any]] = []
     router = EmissionRouter(
         writer=chunks.append,
@@ -218,15 +218,13 @@ def test_late_final_result_event_does_not_duplicate_visible_narration() -> None:
     router.handle(_text_delta(" final suffix"))
     router.handle(_text_end(None))
 
-    assert [chunk["text"] for chunk in chunks if chunk["type"] == "narration"] == [
-        "visible narration"
-    ]
+    assert [chunk for chunk in chunks if chunk["type"] == "narration"] == []
     assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
-        " final suffix"
+        "visible narration final suffix"
     ]
 
 
-def test_late_final_result_after_streamed_narration_keeps_tail_as_narration() -> None:
+def test_late_final_result_after_already_streamed_narration_keeps_tail_as_narration() -> None:
     chunks: list[dict[str, Any]] = []
     router = EmissionRouter(
         writer=chunks.append,
@@ -235,6 +233,9 @@ def test_late_final_result_after_streamed_narration_keeps_tail_as_narration() ->
     )
 
     router.handle(_text_start("visible narration"))
+    # Phase 4 removed threshold-only early narration, but the late-final guard
+    # still protects any text already emitted as narration by another route.
+    router._emit_unstreamed_text_as_narration()
     router.handle(_text_delta(" tail before final marker"))
     router.handle(_final())
     router.handle(_text_end(None))
@@ -269,7 +270,7 @@ def test_agent_run_result_event_fallback_flushes_buffered_final_text_once() -> N
     ]
 
 
-def test_agent_run_result_event_does_not_duplicate_visible_narration() -> None:
+def test_agent_run_result_event_does_not_duplicate_already_streamed_narration() -> None:
     chunks: list[dict[str, Any]] = []
     router = EmissionRouter(
         writer=chunks.append,
@@ -278,6 +279,7 @@ def test_agent_run_result_event_does_not_duplicate_visible_narration() -> None:
     )
 
     router.handle(_text_start("visible narration"))
+    router._emit_unstreamed_text_as_narration()
     router.handle(AgentRunResultEvent(result=AgentRunResult(output="")))
 
     assert [chunk["text"] for chunk in chunks if chunk["type"] == "narration"] == [

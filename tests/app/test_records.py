@@ -16,6 +16,7 @@ from app.records import (
     TurnStatus,
     append_or_replace,
     build_parts,
+    build_segments,
     build_turn_record,
     derive_receipt,
     prose_of,
@@ -169,6 +170,56 @@ def test_parts_dedupes_equivalent_viz_specs_by_data_not_title() -> None:
 
 
 # ---------------------------------------------------------------------------
+# build_segments — chronological reload surface
+# ---------------------------------------------------------------------------
+
+
+def test_segments_keep_chronology_coalesce_deltas_and_update_steps() -> None:
+    start = _step("s1", "web_search", status="start")
+    end = _step("s1", "web_search", status="end")
+    segments = build_segments(
+        [
+            ("narration", "Checking first."),
+            ("step", start),
+            ("delta", "Hello "),
+            ("delta", "world"),
+            ("thinking", "Native thought."),
+            ("step", end),
+            ("delta", "!"),
+        ]
+    )
+
+    assert segments == [
+        {"kind": "narration", "text": "Checking first."},
+        {"kind": "step", "data": end},
+        {"kind": "delta", "text": "Hello world"},
+        {"kind": "thinking", "text": "Native thought."},
+        {"kind": "delta", "text": "!"},
+    ]
+
+
+def test_segments_dedupes_viz_without_splitting_delta_run() -> None:
+    first = _viz_spec("First title")
+    second = _viz_spec("Second title")
+
+    segments = build_segments(
+        [
+            ("delta", "A"),
+            ("viz", first),
+            ("delta", "B"),
+            ("viz", second),
+            ("delta", "C"),
+        ]
+    )
+
+    assert segments == [
+        {"kind": "delta", "text": "A"},
+        {"kind": "viz", "spec": first},
+        {"kind": "delta", "text": "BC"},
+    ]
+
+
+# ---------------------------------------------------------------------------
 # prose_of — the one source for "the assistant's text"
 # ---------------------------------------------------------------------------
 
@@ -225,6 +276,12 @@ def test_record_carries_ids_status_ts_offset_and_end_state_steps() -> None:
     assert record["clarify"] is None
     assert record["synthesized_answer"] is False
     assert record["parts"] == [{"type": "text", "text": "Found it [1]."}]
+    assert record["segments"] == [
+        {"kind": "step", "data": emissions[3][1]},
+        {"kind": "narration", "text": "let me search"},
+        {"kind": "thinking", "text": "let me search"},
+        {"kind": "delta", "text": "Found it [1]."},
+    ]
     assert prose_of(record["parts"]) == "Found it [1]."
 
 

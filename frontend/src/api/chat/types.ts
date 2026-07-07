@@ -193,6 +193,13 @@ export type TranscriptUserEntry = {
 export type AssistantContentPart =
   { type: "text"; text: string } | { type: "viz"; spec: RenderSpec };
 
+export type TranscriptSegment =
+  | { kind: "narration"; text: string }
+  | { kind: "thinking"; text: string }
+  | { kind: "step"; data: StepData }
+  | { kind: "delta"; text: string }
+  | { kind: "viz"; spec: RenderSpec };
+
 export type TranscriptAssistantEntry = {
   role: "assistant";
   text: string;
@@ -200,6 +207,7 @@ export type TranscriptAssistantEntry = {
   message_id?: string;
   step_record?: StepRecord;
   parts?: AssistantContentPart[];
+  segments?: TranscriptSegment[];
   clarify?: { spec: ClarifySpec; answer: string | null };
   sources?: SourceEntry[];
   usage?: UsageData;

@@ -674,8 +674,6 @@ class EmissionRouter:
         self._text_buf += text
         if self._final_candidate:
             return
-        if len(self._text_buf) >= self.threshold:
-            self._emit_unstreamed_text_as_narration()
 
     def _end_text_part(self, next_part_kind: Any) -> None:
         if not self._text_buf:

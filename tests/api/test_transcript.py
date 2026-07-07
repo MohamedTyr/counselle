@@ -169,6 +169,9 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
     assert assistant_1["status"] == "complete"
     assert assistant_1["text"] == "Duke is strong in engineering."
     assert assistant_1["parts"] == [{"type": "text", "text": "Duke is strong in engineering."}]
+    assert assistant_1["segments"] == [
+        {"kind": "delta", "text": "Duke is strong in engineering."}
+    ]
     assert assistant_1["step_record"] == {
         "steps": [],
         "narration": [],

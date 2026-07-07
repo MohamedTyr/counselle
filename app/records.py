@@ -18,6 +18,10 @@ Design points (decided in the ship plan, not here):
   streamed deltas and the persisted model history can legitimately diverge
   (thinking-classified text parts, clarify replays), and the record is the
   honesty surface — it stores exactly what the student saw.
+- **``segments[]`` is the chronological replay surface.** It is msgpack-plain
+  (plain dicts only), keeps narration/thinking/answer/viz/step order, coalesces
+  adjacent answer deltas, and updates a step's first start segment in place when
+  the matching terminal step arrives.
 - **The receipt format is the FE contract** (wire-contract §7): the
   ``deriveReceipt`` activity line from ``turn-reducer.ts``, implemented
   server-side so persisted receipts equal what the FE derived live.
@@ -85,6 +89,54 @@ def build_parts(emissions: list[Emission]) -> list[dict[str, Any]]:
     if segment:
         parts.append({"type": "text", "text": "".join(segment)})
     return parts
+
+
+def build_segments(emissions: list[Emission]) -> list[dict[str, Any]]:
+    """Walk emissions in stream order → ordered replay ``segments[]``.
+
+    ``segments`` is not a replacement for compatibility fields. ``parts`` stays
+    answer-only, ``steps`` stays terminal-only, and ``segments`` carries the
+    full visible chronology for reload/replay. A step segment is inserted at
+    the first ``start`` event and updated in place by the later ``end``/``error``
+    event with the same ``step_id``.
+    """
+    segments: list[dict[str, Any]] = []
+    delta_segment: list[str] = []
+    step_index_by_id: dict[str, int] = {}
+    deduper = FinalEmissionDeduper()
+
+    def flush_delta() -> None:
+        nonlocal delta_segment
+        if delta_segment:
+            segments.append({"kind": "delta", "text": "".join(delta_segment)})
+            delta_segment = []
+
+    for kind, payload in emissions:
+        if kind == "delta":
+            if payload:
+                delta_segment.append(payload)
+            continue
+        if kind == "viz" and not deduper.keep(kind, payload):
+            continue
+
+        flush_delta()
+        if kind in ("narration", "thinking"):
+            if payload:
+                segments.append({"kind": kind, "text": payload})
+        elif kind == "viz":
+            segments.append({"kind": "viz", "spec": payload})
+        elif kind == "step":
+            step_id = str(payload.get("step_id", ""))
+            index = step_index_by_id.get(step_id)
+            segment = {"kind": "step", "data": payload}
+            if index is None:
+                step_index_by_id[step_id] = len(segments)
+                segments.append(segment)
+            else:
+                segments[index] = segment
+
+    flush_delta()
+    return segments
 
 
 def prose_of(parts: list[dict[str, Any]]) -> str:
@@ -169,6 +221,7 @@ def build_turn_record(
         "user_message_id": ids["user_message_id"],
         "user_text": user_text,
         "parts": build_parts(emissions),
+        "segments": build_segments(emissions),
         "steps": steps,
         "narration": narration,
         "thinking": thinking,

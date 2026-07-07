@@ -123,6 +123,8 @@ def _assistant_entry_for_record(
         "sources": record.get("sources") or [],
         "status": record.get("status"),
     }
+    if "segments" in record:
+        entry["segments"] = list(record.get("segments") or [])
     if record.get("usage") is not None:
         entry["usage"] = record["usage"]
     if record.get("status") == "error" and record.get("error") is not None:
