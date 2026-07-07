@@ -11,6 +11,7 @@ Run over stdio: ``uv run python -m counselle_db.server``.
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from functools import wraps
 from typing import Any
 
 import structlog
@@ -66,7 +67,57 @@ async def _catalog(ctx: AppContext) -> Catalog:
     return catalog
 
 
+_SECRETISH_ERROR_TEXT = (
+    "postgresql://",
+    "mysql://",
+    "password",
+    "api_key",
+    "secret",
+    "token",
+    "dsn",
+)
+
+
+def _safe_root_cause(message: str) -> str:
+    lowered = message.lower()
+    if any(needle in lowered for needle in _SECRETISH_ERROR_TEXT):
+        return "database tool failed without a shareable error message"
+    return message
+
+
+def _tool_error_payload(message: str) -> dict[str, Any]:
+    return {
+        "error": "tool_error",
+        "root_cause": _safe_root_cause(message),
+        "safe_retry": (
+            "Adjust the tool arguments using the root_cause, then retry once if "
+            "the request still needs this data."
+        ),
+        "stop_condition": (
+            "If the root cause says the data is unavailable or the request is "
+            "outside the database contract, say so instead of retrying."
+        ),
+    }
+
+
+def tool_errors(fn: Any) -> Any:
+    """Return D6-shaped tool errors for expected service-layer failures."""
+
+    @wraps(fn)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await fn(*args, **kwargs)
+        except service.ServiceError as exc:
+            return _tool_error_payload(str(exc))
+        except Exception as exc:
+            logger.warning("mcp_tool_unexpected_error", tool=fn.__name__, exc_info=True)
+            return _tool_error_payload(f"database tool failed: {exc}")
+
+    return wrapper
+
+
 @mcp.tool()
+@tool_errors
 async def resolve_school(query: str, ctx: AppContext) -> dict[str, Any]:
     """Resolve a school name, abbreviation, or unitid to one school.
 
@@ -79,6 +130,7 @@ async def resolve_school(query: str, ctx: AppContext) -> dict[str, Any]:
 
 
 @mcp.tool()
+@tool_errors
 async def get_values(unitid: int, field_keys: list[str], ctx: AppContext) -> list[dict[str, Any]]:
     """Fetch specific fields for one school as citation envelopes.
 
@@ -92,6 +144,7 @@ async def get_values(unitid: int, field_keys: list[str], ctx: AppContext) -> lis
 
 
 @mcp.tool()
+@tool_errors
 async def get_dossier(
     unitid: int, ctx: AppContext, sections: list[str] | None = None
 ) -> dict[str, Any]:
@@ -106,6 +159,7 @@ async def get_dossier(
 
 
 @mcp.tool()
+@tool_errors
 async def compare_schools(
     unitids: list[int], field_keys: list[str], ctx: AppContext
 ) -> dict[str, Any]:
@@ -120,6 +174,7 @@ async def compare_schools(
 
 
 @mcp.tool()
+@tool_errors
 async def find_schools(criteria: FindCriteria, ctx: AppContext) -> list[dict[str, Any]]:
     """Filter and rank schools across the whole database.
 
@@ -135,6 +190,7 @@ async def find_schools(criteria: FindCriteria, ctx: AppContext) -> list[dict[str
 
 
 @mcp.tool()
+@tool_errors
 async def national_benchmark(field_key: str, ctx: AppContext) -> dict[str, Any]:
     """National distribution for one numeric field: median, mean, p25, p75, n.
 
@@ -146,6 +202,7 @@ async def national_benchmark(field_key: str, ctx: AppContext) -> dict[str, Any]:
 
 
 @mcp.tool()
+@tool_errors
 async def get_programs(
     unitid: int, ctx: AppContext, cip_prefix: str | None = None, credlev: int = 3
 ) -> list[dict[str, Any]]:
@@ -160,6 +217,7 @@ async def get_programs(
 
 
 @mcp.tool()
+@tool_errors
 async def get_diversity(unitid: int, ctx: AppContext) -> dict[str, Any] | None:
     """Undergraduate enrollment by race/ethnicity and sex (IPEDS fall enrollment).
 
@@ -171,6 +229,7 @@ async def get_diversity(unitid: int, ctx: AppContext) -> dict[str, Any] | None:
 
 
 @mcp.tool()
+@tool_errors
 async def query_database(
     sql: str, ctx: AppContext, params: list[Any] | None = None
 ) -> dict[str, Any]:
@@ -188,6 +247,7 @@ async def query_database(
 
 
 @mcp.tool()
+@tool_errors
 async def get_data_calendar(ctx: AppContext) -> list[dict[str, Any]]:
     """Each data source's vintage and knowledge cutoff (IPEDS, Scorecard, CDS).
 
@@ -199,6 +259,7 @@ async def get_data_calendar(ctx: AppContext) -> list[dict[str, Any]]:
 
 
 @mcp.tool(name="search_fields")
+@tool_errors
 async def discover_fields(
     query: str,
     ctx: AppContext,

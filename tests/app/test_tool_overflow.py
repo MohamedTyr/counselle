@@ -33,6 +33,26 @@ def test_oversized_tool_result_spills_to_store_and_returns_reference() -> None:
     assert store.read(handle) is payload
 
 
+def test_oversized_search_result_preserves_public_receipt_metadata() -> None:
+    store = ToolResultStore()
+    payload = {
+        "results": [
+            {"title": "A", "url": "https://www.duke.edu/a", "snippet": "x" * 500},
+            {"title": "B", "url": "https://admissions.duke.edu/b", "snippet": "y" * 500},
+        ]
+    }
+
+    result = reduce_tool_result(payload, store, max_chars=200)
+
+    assert result["status"] == "overflow"
+    assert result["public_receipt"]["result_count"] == 2
+    assert result["public_receipt"]["domains"] == ["duke.edu", "admissions.duke.edu"]
+    assert result["public_receipt"]["source_results"] == [
+        {"url": "https://www.duke.edu/a", "title": "A"},
+        {"url": "https://admissions.duke.edu/b", "title": "B"},
+    ]
+
+
 def test_oversized_binary_result_spills_by_byte_length() -> None:
     store = ToolResultStore()
     payload = b"x" * 500

@@ -57,6 +57,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.run import AgentRunResultEvent
 
+from app.tool_specs import ToolSpec, build_tool_specs
 from domain.events import StepData, StepDetail, StepKind, StepSource, StepTier, ev_step
 from domain.urls import favicon_url, registrable_domain
 
@@ -120,6 +121,7 @@ class StepMapper:
         resolve_school_domain: Callable[[int], str | None] | None = None,
     ) -> None:
         self._tools: dict[str, Any] = labels.get("tools") or {}
+        self._specs: dict[str, ToolSpec] = build_tool_specs(labels, _receipt_from_mapper)
         self._default: dict[str, Any] = labels.get("default") or {}
         self._errors: dict[str, str] = labels.get("errors") or {}
         self._viz_labels: dict[str, str] = labels.get("viz_labels") or {}
@@ -135,18 +137,29 @@ class StepMapper:
         The single owner of the "unknown tool ⇒ db_tool" rule (audit L5) — the
         ``("kind", "db_tool")`` default literal lives here and nowhere else.
         """
-        row = self._tools.get(tool_name) or self._default
-        return cast("StepKind", row.get("kind", "db_tool"))
+        spec = self._specs.get(tool_name)
+        if spec is not None:
+            return spec.kind
+        return cast("StepKind", self._default.get("kind", "db_tool"))
 
     def map_call(self, tool_name: str, args: dict[str, Any]) -> MappedStep:
         # The label keeps its own row lookup (the _unknown marker rides the label
         # path); the kind routes through _kind_for so the default lives once. The
         # _unknown row is {**self._default, ...}, so its .get("kind", "db_tool")
         # resolves identically to _kind_for(tool_name).
-        row = self._tools.get(tool_name) or {**self._default, "_unknown": True}
+        spec = self._specs.get(tool_name)
+        row = (
+            {"kind": spec.kind, "tier": spec.tier, "label": spec.label}
+            if spec is not None
+            else {**self._default, "_unknown": True}
+        )
         label_args = self._label_args(tool_name, args)
         label = str(row.get("label", "Working")).format_map(_SafeDict(label_args))
-        return MappedStep(kind=self._kind_for(tool_name), tier=row.get("tier"), label=label)
+        return MappedStep(
+            kind=self._kind_for(tool_name),
+            tier=cast("StepTier | None", row.get("tier")),
+            label=label,
+        )
 
     def error_label(self, mapped: MappedStep, *, retry: bool) -> str:
         """The per-failure-class label for a step that ended in error."""
@@ -176,14 +189,30 @@ class StepMapper:
         construction, so no field is ever set behind validation's back (house
         immutability rule).
         """
+        spec = self._specs.get(tool_name)
+        if spec is not None:
+            return spec.receipt(tool_name, args, content, duration_ms, self)
+        return _receipt_from_mapper(tool_name, args, content, duration_ms, self)
+
+    def _detail_for_known_kind(
+        self, tool_name: str, args: dict[str, Any], content: Any, duration_ms: int
+    ) -> StepDetail:
         kind: StepKind = self._kind_for(tool_name)
         kwargs: dict[str, Any] = {"duration_ms": duration_ms}
         if kind in ("web_search", "edu_search", "reddit_search"):
             kwargs["query"] = _str_or_none(args.get("query"))
+            receipt = _overflow_receipt(content)
             results = content.get("results") if isinstance(content, dict) else None
             if isinstance(results, list):
                 kwargs["result_count"] = len(results)
                 kwargs["domains"] = _domains_of(results)
+            elif receipt is not None:
+                result_count = receipt.get("result_count")
+                if isinstance(result_count, int):
+                    kwargs["result_count"] = result_count
+                domains = receipt.get("domains")
+                if isinstance(domains, list):
+                    kwargs["domains"] = [str(domain) for domain in domains if domain]
             elif isinstance(content, dict) and "error" not in content:
                 # Success-but-no-results (shape drift): show "0 results" explicitly
                 # rather than omit the count — a completed search that found nothing
@@ -200,6 +229,7 @@ class StepMapper:
             kwargs.update(_plan_detail_kwargs(content))
         else:  # db_tool, skill, unknown
             kwargs.update(self._db_tool_detail_kwargs(tool_name, args, content))
+        kwargs.update(_error_detail_kwargs(content))
         return StepDetail(**kwargs)
 
     def _db_tool_detail_kwargs(
@@ -211,6 +241,8 @@ class StepMapper:
             "query": _str_or_none(args.get("query") or args.get("name")),
             "row_count": _row_count_of(content),
         }
+        if tool_name == "get_values" and kwargs["row_count"] is not None:
+            kwargs["value_count"] = kwargs["row_count"]
         keys = args.get("field_keys")
         if isinstance(keys, list) and keys:
             kwargs["field_keys"] = [str(key) for key in keys]
@@ -265,7 +297,7 @@ class StepMapper:
         """
         kind: StepKind = self._kind_for(tool_name)
         if kind in ("web_search", "edu_search", "reddit_search"):
-            return self._search_sources(kind, content)
+            return self._search_sources(kind, _search_source_content(content))
         if kind in ("db_tool", "sql", "viz"):
             return self._school_sources(args)
         return None
@@ -332,6 +364,72 @@ def _join_names(names: list[str]) -> str:
     if len(names) <= 1:
         return names[0] if names else ""
     return ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def _receipt_from_mapper(
+    tool_name: str,
+    args: dict[str, Any],
+    content: Any,
+    duration_ms: int,
+    mapper: StepMapper,
+) -> StepDetail:
+    return mapper._detail_for_known_kind(tool_name, args, content, duration_ms)
+
+
+def _overflow_receipt(content: Any) -> dict[str, Any] | None:
+    if not isinstance(content, dict) or content.get("status") != "overflow":
+        return None
+    receipt = content.get("public_receipt")
+    return receipt if isinstance(receipt, dict) else None
+
+
+def _search_source_content(content: Any) -> Any:
+    receipt = _overflow_receipt(content)
+    if receipt is None:
+        return content
+    source_results = receipt.get("source_results")
+    if not isinstance(source_results, list):
+        return content
+    return {"results": source_results}
+
+
+_SECRETISH_TEXT = (
+    "postgresql://",
+    "mysql://",
+    "password",
+    "api_key",
+    "secret",
+    "token",
+    "dsn",
+)
+
+
+def _safe_receipt_text(value: Any, limit: int = 180) -> str | None:
+    text = _str_or_none(value)
+    if text is None:
+        return None
+    lowered = text.lower()
+    if any(needle in lowered for needle in _SECRETISH_TEXT):
+        return None
+    return _truncate(text, limit)
+
+
+def _error_detail_kwargs(content: Any) -> dict[str, Any]:
+    if not isinstance(content, dict) or "error" not in content:
+        return {}
+    root = _safe_receipt_text(content.get("root_cause") or content.get("error"))
+    kwargs: dict[str, Any] = {"error": root or "Tool returned an error."}
+    actions = [
+        action
+        for action in (
+            _safe_receipt_text(content.get("safe_retry")),
+            _safe_receipt_text(content.get("stop_condition")),
+        )
+        if action
+    ]
+    if actions:
+        kwargs["next_actions"] = actions
+    return kwargs
 
 
 def _str_or_none(value: Any) -> str | None:

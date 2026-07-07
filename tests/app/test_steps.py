@@ -283,6 +283,25 @@ def test_search_success_without_results_list_shows_zero(mapper: StepMapper) -> N
     assert detail.result_count == 0
 
 
+def test_detail_for_overflowed_search_uses_public_receipt(mapper: StepMapper) -> None:
+    content = {
+        "status": "overflow",
+        "public_receipt": {
+            "result_count": 2,
+            "domains": ["duke.edu", "admissions.duke.edu"],
+            "source_results": [
+                {"url": "https://duke.edu/a", "title": "Duke"},
+                {"url": "https://admissions.duke.edu/b", "title": "Admissions"},
+            ],
+        },
+    }
+
+    detail = mapper.detail_for("search_school_site", {"query": "cs admissions"}, content, 30)
+
+    assert detail.result_count == 2
+    assert detail.domains == ["duke.edu", "admissions.duke.edu"]
+
+
 def test_detail_for_errored_search_omits_result_count(mapper: StepMapper) -> None:
     # BC-13 regression: an errored search dict still omits the count (no green
     # "0 results" — the step is status:error and carries no count).
@@ -298,6 +317,23 @@ def test_detail_for_normal_search_still_counts_results(mapper: StepMapper) -> No
     detail = mapper.detail_for("search_web", {"query": "x"}, content, 30)
 
     assert detail.result_count == 2
+
+
+def test_sources_for_overflowed_search_use_public_receipt(mapper: StepMapper) -> None:
+    content = {
+        "status": "overflow",
+        "public_receipt": {
+            "source_results": [
+                {"url": "https://duke.edu/a", "title": "Duke"},
+                {"url": "https://admissions.duke.edu/b", "title": "Admissions"},
+            ],
+        },
+    }
+
+    sources = mapper.sources_for("search_school_site", {"query": "cs admissions"}, content)
+
+    assert sources is not None
+    assert [source.label for source in sources] == ["duke.edu", "admissions.duke.edu"]
 
 
 def test_detail_for_sql_kind_carries_statement_and_row_count(mapper: StepMapper) -> None:
@@ -324,6 +360,7 @@ def test_detail_for_db_tool_kind(mapper: StepMapper) -> None:
     assert detail.tool == "get_values"
     assert detail.field_keys == ["admissions.acceptance_rate", "admissions.sat_25"]
     assert detail.row_count == 2
+    assert detail.value_count == 2
     assert detail.schools == ["Duke University"]
 
 
@@ -392,3 +429,23 @@ def test_receipts_never_carry_error_message_dsn(mapper: StepMapper) -> None:
         serialized = json.dumps(detail.model_dump())
         for needle in ("postgresql://", "counselle_ro", "secret"):
             assert needle not in serialized, f"{tool}: receipt leaked {needle!r}: {serialized}"
+
+
+def test_error_receipt_carries_safe_recovery_detail(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "query_database",
+        {"sql": "SELECT * FROM missing_table"},
+        {
+            "error": "tool_error",
+            "root_cause": "relation missing_table does not exist",
+            "safe_retry": "Search fields first, then retry with a valid table.",
+            "stop_condition": "If no valid table exists, say the data is unavailable.",
+        },
+        5,
+    )
+
+    assert detail.error == "relation missing_table does not exist"
+    assert detail.next_actions == [
+        "Search fields first, then retry with a valid table.",
+        "If no valid table exists, say the data is unavailable.",
+    ]

@@ -13,6 +13,7 @@ from base64 import b64decode, b64encode
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import Any, TypeGuard
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from pydantic_core import to_json
@@ -175,12 +176,62 @@ def reduce_tool_result(value: Any, store: ToolResultStore, *, max_chars: int) ->
             "preview": truncate_text(text, preview_chars),
             "sketch": json_sketch(value),
         },
-        "public_receipt": {
-            "label": "oversized tool result",
-            "chars": chars,
-            "handle": handle,
-        },
+        "public_receipt": _public_receipt(value, chars=chars, handle=handle),
     }
+
+
+def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
+    receipt: dict[str, Any] = {
+        "label": "oversized tool result",
+        "chars": chars,
+        "handle": handle,
+    }
+    if isinstance(value, Mapping):
+        results = value.get("results")
+        if isinstance(results, list):
+            receipt["result_count"] = len(results)
+            receipt["domains"] = _domains_of(results)
+            receipt["source_results"] = _source_results(results)
+        rows = value.get("rows")
+        if isinstance(rows, list):
+            receipt["row_count"] = len(rows)
+    elif isinstance(value, list):
+        receipt["row_count"] = len(value)
+    return {key: val for key, val in receipt.items() if val not in (None, [])}
+
+
+def _domains_of(results: list[Any]) -> list[str]:
+    domains: list[str] = []
+    for result in results:
+        if not isinstance(result, Mapping):
+            continue
+        url = result.get("url")
+        if not url:
+            continue
+        host = urlparse(str(url)).netloc.removeprefix("www.")
+        if host and host not in domains:
+            domains.append(host)
+    return domains
+
+
+def _source_results(results: list[Any]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for result in results:
+        if not isinstance(result, Mapping):
+            continue
+        url = result.get("url")
+        if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        item = {"url": url}
+        title = result.get("title")
+        if isinstance(title, str) and title.strip():
+            item["title"] = title.strip()
+        out.append(item)
+    return out
 
 
 def _is_mapping(value: object) -> TypeGuard[Mapping[object, object]]:

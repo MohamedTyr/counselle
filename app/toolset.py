@@ -38,6 +38,9 @@ from pydantic_ai.mcp import CallToolFunc, MCPToolset, ToolResult
 from adapters import tavily_tools
 from app.sources import SourceRegistry
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
+from app.tool_specs import build_tool_specs, gateable_tool_names
+from config.settings import load_yaml_asset
+from domain.events import StepDetail
 from domain.specs import SourceConfig
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -92,11 +95,13 @@ async def annotate_mcp_result(
     results) pass through untouched.
     """
     result = await call_tool(name, args)
-    registry = getattr(ctx.deps, "registry", None)
-    if isinstance(registry, SourceRegistry):
-        result = registry.annotate_envelopes(result)
-    overflow = getattr(ctx.deps, "tool_overflow", None)
-    return process_tool_result(result, overflow)  # type: ignore[no-any-return]
+    middleware = getattr(ctx.deps, "tool_overflow", None)
+    if not isinstance(middleware, ToolMiddlewareContext):
+        registry = getattr(ctx.deps, "registry", None)
+        middleware = ToolMiddlewareContext(
+            registry=registry if isinstance(registry, SourceRegistry) else None
+        )
+    return process_tool_result(result, middleware, tool_name=name)  # type: ignore[no-any-return]
 
 
 # Bound the MCP child's long-lived stdio connection — a dead child would
@@ -177,7 +182,15 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
 #: mounted — and a hallucinated call to it must never paint a timeline step
 #: (story 17): the emission router suppresses calls to gateable-but-unmounted
 #: tools, because no search happened.
-GATEABLE_TOOLS: frozenset[str] = frozenset({"search_web", "search_school_site", "search_reddit"})
+def _empty_receipt(
+    _tool_name: str, _args: dict[str, Any], _content: Any, _duration_ms: int, _context: Any
+) -> StepDetail:
+    return StepDetail()
+
+
+GATEABLE_TOOLS: frozenset[str] = gateable_tool_names(
+    build_tool_specs(load_yaml_asset("step_labels"), _empty_receipt)
+)
 
 
 def build_tools(
@@ -194,6 +207,7 @@ def build_tools(
     (write_plan, render_viz, load_skill — wired by the agent node) are
     appended as-is.
     """
+    middleware = tool_overflow or ToolMiddlewareContext(registry=registry)
     tools: list[Tool[Any]] = []
     any_external = source_config.web or source_config.edu or source_config.reddit
     client = deps.tavily_client_factory() if any_external else None
@@ -203,20 +217,20 @@ def build_tools(
         excludes = None if source_config.reddit else ["reddit.com"]
         tools.append(
             _make_search_web(
-                client, registry, today, deps.search_max_results, excludes, tool_overflow
+                client, today, deps.search_max_results, excludes, middleware
             )
         )
     if source_config.edu:
         tools.append(
             _make_search_school_site(
-                client, deps.catalog, registry, today, deps.search_max_results, tool_overflow
+                client, deps.catalog, today, deps.search_max_results, middleware
             )
         )
     if source_config.reddit:
         allowed = _allowed_subreddits(deps.subreddit_menu, source_config.reddit_subreddits)
         tools.append(
             _make_search_reddit(
-                client, registry, today, deps.search_max_results, allowed, tool_overflow
+                client, today, deps.search_max_results, allowed, middleware
             )
         )
     tools.extend(extra_tools or [])
@@ -238,11 +252,10 @@ def _allowed_subreddits(menu: list[str], requested: list[str] | None) -> list[st
 
 def _make_search_web(
     client: Any,
-    registry: SourceRegistry,
     today: date,
     max_results: int,
     exclude_domains: list[str] | None = None,
-    tool_overflow: ToolMiddlewareContext | None = None,
+    middleware: ToolMiddlewareContext | None = None,
 ) -> Tool[Any]:
     async def search_web(query: str) -> dict[str, Any]:
         """Search the live web (no domain filter) for current information.
@@ -257,8 +270,7 @@ def _make_search_web(
         payload = await tavily_tools.search_web(
             client, query, today=today, max_results=max_results, exclude_domains=exclude_domains
         )
-        result = registry.annotate_search_results(payload)
-        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
+        return process_tool_result(payload, middleware, tool_name="search_web")  # type: ignore[no-any-return]
 
     return Tool(search_web, takes_ctx=False)
 
@@ -266,10 +278,9 @@ def _make_search_web(
 def _make_search_school_site(
     client: Any,
     catalog: Any,
-    registry: SourceRegistry,
     today: date,
     max_results: int,
-    tool_overflow: ToolMiddlewareContext | None = None,
+    middleware: ToolMiddlewareContext | None = None,
 ) -> Tool[Any]:
     async def search_school_site(unitid: int, query: str) -> dict[str, Any]:
         """Search a school's own official website (its .edu domain).
@@ -285,19 +296,17 @@ def _make_search_school_site(
         payload = await tavily_tools.search_school_site(
             client, catalog, unitid, query, today=today, max_results=max_results
         )
-        result = registry.annotate_search_results(payload)
-        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
+        return process_tool_result(payload, middleware, tool_name="search_school_site")  # type: ignore[no-any-return]
 
     return Tool(search_school_site, takes_ctx=False)
 
 
 def _make_search_reddit(
     client: Any,
-    registry: SourceRegistry,
     today: date,
     max_results: int,
     allowed: list[str],
-    tool_overflow: ToolMiddlewareContext | None = None,
+    middleware: ToolMiddlewareContext | None = None,
 ) -> Tool[Any]:
     async def search_reddit(query: str, subreddits: list[str]) -> dict[str, Any]:
         """Search Reddit for community sentiment — lived experience, never verified fact.
@@ -313,7 +322,6 @@ def _make_search_reddit(
         payload = await tavily_tools.search_reddit(
             client, query, subreddits, allowed=allowed, today=today, max_results=max_results
         )
-        result = registry.annotate_search_results(payload)
-        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
+        return process_tool_result(payload, middleware, tool_name="search_reddit")  # type: ignore[no-any-return]
 
     return Tool(search_reddit, takes_ctx=False)

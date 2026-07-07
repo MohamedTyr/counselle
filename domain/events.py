@@ -77,8 +77,10 @@ class StepDetail(BaseModel):
     """
 
     query: str | None = None
+    summary: str | None = None
     domains: list[str] | None = None
     result_count: int | None = None
+    value_count: int | None = None
     duration_ms: int | None = None
     tool: str | None = None
     field_keys: list[str] | None = None
@@ -88,6 +90,8 @@ class StepDetail(BaseModel):
     items: list[dict[str, str]] | None = None
     completed: int | None = None
     total: int | None = None
+    next_actions: list[str] | None = None
+    error: str | None = None
 
 
 class StepSource(BaseModel):

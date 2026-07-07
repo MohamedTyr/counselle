@@ -15,8 +15,10 @@ from pydantic_ai import Tool
 from pydantic_ai.mcp import MCPToolset
 
 from app.sources import SourceRegistry
+from app.tool_specs import build_tool_specs, gateable_tool_names
 from app.toolset import (
     _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS,
+    GATEABLE_TOOLS,
     ToolDeps,
     _allowed_subreddits,
     annotate_mcp_result,
@@ -24,6 +26,7 @@ from app.toolset import (
     build_tools,
 )
 from domain.envelope import Citation, CitationEnvelope
+from domain.events import StepDetail
 from domain.specs import SourceConfig
 
 TODAY = date(2026, 6, 10)
@@ -91,12 +94,25 @@ def _fn(tools: list[Tool[Any]], name: str) -> Any:
     return _tool(tools, name).function
 
 
+def _receipt(
+    _tool_name: str, _args: dict[str, Any], _content: Any, _duration_ms: int, _context: Any
+) -> StepDetail:
+    return StepDetail()
+
+
 # ---------------------------------------------------------------------------
 # Source gating (ADR 0013)
 # ---------------------------------------------------------------------------
 
 
 class TestSourceGating:
+    def test_gateable_tools_come_from_tool_specs(self) -> None:
+        from config.settings import load_yaml_asset
+
+        specs = build_tool_specs(load_yaml_asset("step_labels"), _receipt)
+
+        assert gateable_tool_names(specs) == GATEABLE_TOOLS
+
     def test_all_enabled_builds_all_three_tools(self) -> None:
         rig = Rig()
         tools = rig.build(_config())

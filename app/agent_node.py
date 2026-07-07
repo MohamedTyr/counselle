@@ -176,7 +176,7 @@ def _make_render_viz_tool(
             title,
             viz_signature_indexes,
         )
-        return process_tool_result(result, tool_overflow)  # type: ignore[no-any-return]
+        return process_tool_result(result, tool_overflow, tool_name="render_viz")  # type: ignore[no-any-return]
 
     render_viz.__doc__ = viz_mod.render_viz.__doc__  # the LLM-facing contract, verbatim
     return Tool(render_viz, takes_ctx=False)
@@ -193,7 +193,7 @@ def _make_load_skill_tool(tool_overflow: ToolMiddlewareContext | None) -> Tool[A
         Args:
             name: The skill name from the system prompt's available-skill list.
         """
-        return process_tool_result(load_skill(name), tool_overflow)
+        return process_tool_result(load_skill(name), tool_overflow, tool_name="load_skill")
 
     load_skill_tool.__name__ = "load_skill"
     return Tool(load_skill_tool, takes_ctx=False)
@@ -350,6 +350,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     today = date.fromisoformat(state["temporal"]["today"])
     overflow_store = ToolResultStore(state.get("tool_result_store") or {})
     tool_overflow = ToolMiddlewareContext(
+        registry=registry,
         overflow_store=overflow_store,
         max_result_chars=settings.agent_tool_result_max_chars,
     )
