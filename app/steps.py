@@ -225,6 +225,9 @@ class StepMapper:
         elif kind == "viz":
             kwargs["viz_type"] = _str_or_none(args.get("type"))
             kwargs["schools"] = self._school_names(args)
+            receipt = content.get("public_receipt") if isinstance(content, dict) else None
+            if isinstance(receipt, dict) and isinstance(receipt.get("value_count"), int):
+                kwargs["value_count"] = receipt["value_count"]
         elif kind == "write_plan":
             kwargs.update(_plan_detail_kwargs(content))
         else:  # db_tool, skill, unknown

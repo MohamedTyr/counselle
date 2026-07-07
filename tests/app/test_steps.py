@@ -366,11 +366,15 @@ def test_detail_for_db_tool_kind(mapper: StepMapper) -> None:
 
 def test_detail_for_viz_kind(mapper: StepMapper) -> None:
     detail = mapper.detail_for(
-        "render_viz", {"type": "comparison_table", "unitids": [221999]}, {"ok": True}, 10
+        "render_viz",
+        {"type": "comparison_table", "unitids": [221999]},
+        {"ok": True, "public_receipt": {"value_count": 3}},
+        10,
     )
 
     assert detail.viz_type == "comparison_table"
     assert detail.schools == ["Vanderbilt University"]
+    assert detail.value_count == 3
 
 
 def test_detail_for_write_plan_kind(mapper: StepMapper) -> None:

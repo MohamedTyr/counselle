@@ -78,6 +78,7 @@
         "label": "Building a stat card",
         "tier": null,
         "detail": {
+          "value_count": 1,
           "duration_ms": 0,
           "viz_type": "stat_block",
           "schools": []

@@ -49,6 +49,8 @@ def test_prompt_removed_old_chat_and_situational_constraints() -> None:
 def test_prompt_contains_viz_placement_marker_contract() -> None:
     prompt = _render_prompt().lower()
 
+    assert "result_for_agent" in prompt
+    assert "display strings" in prompt
     assert "placement_marker" in prompt
     assert "exact returned" in prompt
     assert "[[viz:" in prompt

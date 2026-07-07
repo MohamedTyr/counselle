@@ -1,12 +1,12 @@
-"""The ``render_viz`` tool — the LLM picks the shape, this tool fetches the numbers.
+"""The ``render_viz`` tool — the LLM picks the shape, this tool fetches cited values.
 
 ADR 0014 / ARCHITECTURE §17 (Slice D). The provenance boundary lives here:
 every cell is a :class:`CitationEnvelope` fetched **directly in-process** from
 ``counselle_db.service`` (eng-review D2 — never through the MCP child). The
 built :class:`RenderSpec` is appended to the state-owned ``viz_emitted`` list
-(streamed to the client as a ``viz`` event); the LLM receives only a small
-acknowledgment with citation markers — **numbers never transit the LLM's
-tokens**, success or error.
+(streamed to the client as a ``viz`` event); the LLM receives a compact table
+of display strings with citation markers so nearby prose can cite exactly what
+the visualization shows.
 """
 
 from typing import Any, Literal
@@ -147,20 +147,74 @@ def _viz_result_from_spec(
         return (
             {
                 "ok": False,
+                "status": "error",
+                "summary": "No values available for this visualization.",
                 "error": "no values available for this visualization — tell the student "
                 "honestly that this data is not available; do not invent values",
+                "public_receipt": {
+                    "viz_type": spec.type,
+                    "value_count": 0,
+                    "schools": [school.name for school in spec.schools],
+                },
             },
             None,
         )
-    markers = sorted({registry.register(cell.citation, cell.citation.vintage) for cell in cells})
+    cell_markers: list[str] = []
+    markers: set[int] = set()
+    for cell in cells:
+        index = registry.register(cell.citation, cell.citation.vintage)
+        markers.add(index)
+        cell_markers.append(f"[{index}]")
+    sources = [f"[{index}]" for index in sorted(markers)]
+    result_for_agent = _result_for_agent(spec, cell_markers)
     return (
         {
             "ok": True,
+            "status": "success",
+            "summary": f"{spec.type} rendered with {n_available} cited values",
             "viz": f"{spec.type} rendered with {n_available} values",
-            "sources": [f"[{index}]" for index in markers],
+            "sources": sources,
+            "result_for_agent": result_for_agent,
+            "public_receipt": {
+                "viz_type": spec.type,
+                "value_count": n_available,
+                "schools": [school.name for school in spec.schools],
+                "sources": sources,
+            },
         },
         spec.model_dump(mode="json"),
     )
+
+
+def _result_for_agent(spec: RenderSpec, cell_markers: list[str]) -> dict[str, Any]:
+    marker_iter = iter(cell_markers)
+    return {
+        "type": spec.type,
+        "title": spec.title,
+        "schools": [
+            {"unitid": school.unitid, "name": school.name}
+            for school in spec.schools
+        ],
+        "rows": [
+            {
+                "label": row.label,
+                "cells": [
+                    {
+                        "school": spec.schools[index].name
+                        if index < len(spec.schools)
+                        else None,
+                        "field": cell.field,
+                        "label": cell.label,
+                        "display": cell.display,
+                        "available": cell.available,
+                        "marker": next(marker_iter),
+                    }
+                    for index, cell in enumerate(row.cells)
+                ],
+            }
+            for row in spec.rows
+        ],
+    }
 
 
 def _placement_marker(index: int) -> str:
@@ -202,17 +256,17 @@ async def render_viz(
     title: str | None = None,
     viz_signature_indexes: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    """Render a visualization for the student; values are fetched, never typed.
+    """Render a visualization for the student with compact cited values.
 
     You pick the SHAPE — which schools, which fields, which chart type; this
     tool fetches the exact cited values from the database and shows them to
-    the student directly. You never see (and must never invent) the numbers:
-    on success you get only ``{"ok": true, "viz": "<type> rendered with N
-    values", "sources": ["[3]", ...], "placement_marker": "[[viz:1]]"}``.
+    the student directly. On success, ``result_for_agent`` contains only
+    display strings already produced by the data layer plus their citation
+    markers. Use those display strings verbatim if you discuss the values.
     In your final answer, put the exact returned ``placement_marker`` wherever
     the visualization should appear. Do not alter it, do not wrap it in code,
     and do not explain it; it is hidden from the student. Cite the returned
-    ``sources`` in the prose around the card.
+    markers in the prose around the card.
 
     Types: ``comparison_table`` (N schools × your field_keys),
     ``stat_block`` (ONE school × your field_keys).
@@ -220,13 +274,15 @@ async def render_viz(
     try:
         spec = await _build_spec(catalog, type, unitids, field_keys, title)
     except ServiceError as exc:
-        return {"ok": False, "error": str(exc)}
+        return {"ok": False, "status": "error", "summary": str(exc), "error": str(exc)}
     except Exception:
         logger.exception(
             "render_viz unexpected error building spec", type=type, unitids=unitids
         )
         return {
             "ok": False,
+            "status": "error",
+            "summary": "Visualization data unavailable.",
             "error": (
                 "visualization data unavailable — a database error occurred; do not invent values"
             ),

@@ -82,6 +82,8 @@ def test_viz_result_from_spec_all_unavailable_is_honest_error() -> None:
         spec_with_cells([envelope("x", available=False)]), SourceRegistry()
     )
     assert result["ok"] is False
+    assert result["status"] == "error"
+    assert result["public_receipt"]["value_count"] == 0
     assert "do not invent values" in result["error"]
     assert emitted is None
 
@@ -92,11 +94,36 @@ def test_viz_result_from_spec_available_cells_register_sources_and_emit_spec() -
         spec_with_cells([envelope("x", available=True), envelope("y", available=False)]),
         registry,
     )
-    assert result == {
-        "ok": True,
-        "viz": "comparison_table rendered with 1 values",
+    assert result["ok"] is True
+    assert result["status"] == "success"
+    assert result["summary"] == "comparison_table rendered with 1 cited values"
+    assert result["viz"] == "comparison_table rendered with 1 values"
+    assert result["sources"] == ["[1]"]
+    assert result["public_receipt"] == {
+        "viz_type": "comparison_table",
+        "value_count": 1,
+        "schools": ["A"],
         "sources": ["[1]"],
     }
+    agent_rows = result["result_for_agent"]["rows"]
+    assert agent_rows[0]["cells"] == [
+        {
+            "school": "A",
+            "field": "x",
+            "label": "x",
+            "display": "42",
+            "available": True,
+            "marker": "[1]",
+        },
+        {
+            "school": None,
+            "field": "y",
+            "label": "y",
+            "display": "not available",
+            "available": False,
+            "marker": "[1]",
+        },
+    ]
     assert emitted is not None
     assert emitted["type"] == "comparison_table"
     assert len(registry.entries) == 1
@@ -290,7 +317,12 @@ async def test_render_viz_returns_service_errors_without_emitting(
 
     result = await render_viz(fake_catalog(), SourceRegistry(), emitted, "stat_block", [1], ["x"])
 
-    assert result == {"ok": False, "error": "bad request"}
+    assert result == {
+        "ok": False,
+        "status": "error",
+        "summary": "bad request",
+        "error": "bad request",
+    }
     assert "placement_marker" not in result
     assert emitted == []
 
@@ -313,6 +345,8 @@ async def test_render_viz_returns_honest_db_error_without_emitting(
     result = await render_viz(fake_catalog(), SourceRegistry(), emitted, "stat_block", [1], ["x"])
 
     assert result["ok"] is False
+    assert result["status"] == "error"
+    assert result["summary"] == "Visualization data unavailable."
     assert "do not invent values" in result["error"]
     assert "placement_marker" not in result
     assert emitted == []
@@ -343,12 +377,13 @@ async def test_render_viz_returns_placement_marker(monkeypatch: pytest.MonkeyPat
         fake_catalog(), SourceRegistry(), emitted, "comparison_table", [1], ["y"]
     )
 
-    assert first == {
-        "ok": True,
-        "viz": "comparison_table rendered with 1 values",
-        "sources": ["[1]"],
-        "placement_marker": "[[viz:1]]",
-    }
+    assert first["ok"] is True
+    assert first["status"] == "success"
+    assert first["viz"] == "comparison_table rendered with 1 values"
+    assert first["sources"] == ["[1]"]
+    assert first["placement_marker"] == "[[viz:1]]"
+    assert first["result_for_agent"]["rows"][0]["cells"][0]["display"] == "42"
+    assert first["result_for_agent"]["rows"][0]["cells"][0]["marker"] == "[1]"
     assert second["placement_marker"] == "[[viz:2]]"
     assert len(emitted) == 2
 

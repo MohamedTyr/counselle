@@ -9,6 +9,7 @@ from app.sources import SourceRegistry
 from app.tool_overflow import ToolResultStore, reduce_tool_result
 
 _SEARCH_TOOLS = frozenset({"search_web", "search_school_site", "search_reddit"})
+_OVERFLOW_EXEMPT_TOOLS = frozenset({"render_viz"})
 
 
 @dataclass
@@ -61,4 +62,5 @@ def process_tool_result(
     """Apply the ordered tool-result middleware pipeline."""
     result = annotate_citations(result, context, tool_name=tool_name)
     result = error_envelope(result)
+    exempt_overflow = exempt_overflow or tool_name in _OVERFLOW_EXEMPT_TOOLS
     return overflow_spill(result, context, exempt_overflow=exempt_overflow)

@@ -83,3 +83,59 @@ def test_overflow_runs_after_annotation() -> None:
     assert result["status"] == "overflow"
     full = store.read(result["result_for_agent"]["handle"])
     assert full["results"][0]["marker"] == "[1]"
+
+
+def test_render_viz_result_keeps_agent_values_when_large() -> None:
+    store = ToolResultStore()
+    rows = [
+        {
+            "label": f"Metric {row}",
+            "cells": [
+                {
+                    "school": f"School {col}",
+                    "field": f"field.{row}.{col}",
+                    "label": f"Metric {row}",
+                    "display": f"{row * col}% cited display value",
+                    "available": True,
+                    "marker": f"[{row * 5 + col + 1}]",
+                }
+                for col in range(5)
+            ],
+        }
+        for row in range(12)
+    ]
+    payload = {
+        "ok": True,
+        "status": "success",
+        "summary": "comparison_table rendered with 60 cited values",
+        "viz": "comparison_table rendered with 60 values",
+        "sources": [f"[{index}]" for index in range(1, 61)],
+        "result_for_agent": {
+            "type": "comparison_table",
+            "title": "Large comparison",
+            "schools": [
+                {"unitid": 10_000 + index, "name": f"School {index}"}
+                for index in range(5)
+            ],
+            "rows": rows,
+        },
+        "public_receipt": {
+            "viz_type": "comparison_table",
+            "value_count": 60,
+            "schools": [f"School {index}" for index in range(5)],
+        },
+    }
+
+    result = process_tool_result(
+        payload,
+        ToolMiddlewareContext(overflow_store=store, max_result_chars=120),
+        tool_name="render_viz",
+    )
+
+    assert result["status"] == "success"
+    assert result["public_receipt"]["value_count"] == 60
+    assert result["result_for_agent"]["rows"][11]["cells"][4]["display"] == (
+        "44% cited display value"
+    )
+    assert result["result_for_agent"]["rows"][11]["cells"][4]["marker"] == "[60]"
+    assert store.dump() == {}
