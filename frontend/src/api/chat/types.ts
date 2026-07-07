@@ -83,7 +83,7 @@ export type DoneData = { status: DoneStatus };
 
 export type ErrorData = { message: string; trace_id?: string };
 
-export type StepKind =
+export type KnownStepKind =
   | "db_tool"
   | "sql"
   | "web_search"
@@ -92,6 +92,8 @@ export type StepKind =
   | "viz"
   | "skill"
   | "research";
+
+export type StepKind = KnownStepKind | (string & {});
 
 export type StepTier = "official" | "community" | null;
 

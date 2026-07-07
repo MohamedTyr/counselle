@@ -101,6 +101,24 @@ describe("ActivityTrace", () => {
     expect(screen.queryByText(/row_count/)).not.toBeInTheDocument();
   });
 
+  test("unknown step kinds still render a generic row", () => {
+    const timeline: TimelineEntry[] = [
+      {
+        type: "step",
+        step: step({
+          step_id: "plan1",
+          kind: "write_plan",
+          label: "Updated the plan",
+          detail: { completed: 1, total: 3 },
+        }),
+      },
+    ];
+    render(<ActivityTrace durationMs={500} status="complete" timeline={timeline} />);
+    fireEvent.click(screen.getByRole("button"));
+
+    expect(screen.getByText("Updated the plan")).toBeInTheDocument();
+  });
+
   test("step source chips are deduped and capped, with a +N more expander", () => {
     const timeline: TimelineEntry[] = [
       {

@@ -57,6 +57,29 @@ describe("parseSseStream", () => {
     ["thinking", {}],
     ["step", { step_id: "s1", status: "start" }],
     [
+      "step",
+      {
+        step_id: "s1",
+        status: "end",
+        kind: "db_tool",
+        label: "Reading",
+        tier: null,
+        detail: [],
+      },
+    ],
+    [
+      "step",
+      {
+        step_id: "s1",
+        status: "end",
+        kind: "db_tool",
+        label: "Reading",
+        tier: null,
+        detail: null,
+        sources: [{ url: "https://example.com" }],
+      },
+    ],
+    [
       "viz",
       {
         v: 1,
@@ -83,6 +106,100 @@ describe("parseSseStream", () => {
     await expect(collect(streamOf(frame(type, data, "1")))).rejects.toThrow(
       `malformed ${type}`,
     );
+  });
+
+  it("ignores unknown top-level event types and continues parsing later frames", async () => {
+    const frames = await collect(
+      streamOf(
+        frame("future_event", { value: true }, "1"),
+        frame("delta", { text: "still works" }, "2"),
+      ),
+    );
+
+    expect(frames).toEqual([
+      {
+        id: "2",
+        event: "delta",
+        data: { v: 1, type: "delta", data: { text: "still works" } },
+      },
+    ]);
+  });
+
+  it("preserves unknown step kinds as generic step events", async () => {
+    const frames = await collect(
+      streamOf(
+        frame(
+          "step",
+          {
+            step_id: "s1",
+            status: "end",
+            kind: "write_plan",
+            label: "Updated the plan",
+            tier: null,
+            detail: { completed: 1, total: 3 },
+          },
+          "1",
+        ),
+      ),
+    );
+
+    expect(frames[0]?.data).toEqual({
+      v: 1,
+      type: "step",
+      data: {
+        step_id: "s1",
+        status: "end",
+        kind: "write_plan",
+        label: "Updated the plan",
+        tier: null,
+        detail: { completed: 1, total: 3 },
+      },
+    });
+  });
+
+  it("preserves valid step source chips", async () => {
+    const frames = await collect(
+      streamOf(
+        frame("step", {
+          step_id: "s1",
+          status: "end",
+          kind: "db_tool",
+          label: "Reading",
+          tier: "official",
+          detail: null,
+          sources: [
+            {
+              label: "Duke University",
+              favicon: "https://duke.edu/favicon.ico",
+              url: "https://duke.edu",
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(frames[0]?.data).toMatchObject({
+      type: "step",
+      data: {
+        sources: [
+          {
+            label: "Duke University",
+            favicon: "https://duke.edu/favicon.ico",
+            url: "https://duke.edu",
+          },
+        ],
+      },
+    });
+  });
+
+  it("coerces unknown done statuses to a safe complete status", async () => {
+    const frames = await collect(streamOf(frame("done", { status: "archived" }, "1")));
+
+    expect(frames[0]?.data).toEqual({
+      v: 1,
+      type: "done",
+      data: { status: "complete" },
+    });
   });
 
   it("keeps data split across multiple data lines", async () => {

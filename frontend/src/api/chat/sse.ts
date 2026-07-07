@@ -5,7 +5,6 @@ import {
   type ProtocolEvent,
   type ProtocolEventType,
   type SourceName,
-  type StepKind,
   type SseFrame,
   type Tier,
 } from "@/api/chat/types";
@@ -15,6 +14,14 @@ const maxBufferLength = 5 * 1024 * 1024;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return (
+    isRecord(value) &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -45,17 +52,6 @@ const doneStatuses = new Set<DoneStatus>([
   "awaiting_input",
   "cancelled",
 ]);
-const stepKinds = new Set<StepKind>([
-  "db_tool",
-  "sql",
-  "web_search",
-  "edu_search",
-  "reddit_search",
-  "viz",
-  "skill",
-  "research",
-]);
-
 function isCitation(value: unknown) {
   if (!isRecord(value)) {
     return false;
@@ -119,8 +115,48 @@ function isSourceEntry(value: unknown) {
   );
 }
 
+function coerceDoneStatus(value: string): DoneStatus {
+  return doneStatuses.has(value as DoneStatus)
+    ? (value as DoneStatus)
+    : "complete";
+}
+
 function isStepTier(value: unknown) {
   return value === null || value === "official" || value === "community";
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isStepDetail(value: unknown) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+
+  return (
+    (!("query" in value) || typeof value.query === "string") &&
+    (!("domains" in value) || isStringArray(value.domains)) &&
+    (!("result_count" in value) || isNumber(value.result_count)) &&
+    (!("duration_ms" in value) || isNumber(value.duration_ms)) &&
+    (!("tool" in value) || typeof value.tool === "string") &&
+    (!("field_keys" in value) || isStringArray(value.field_keys)) &&
+    (!("row_count" in value) || isNumber(value.row_count)) &&
+    (!("viz_type" in value) || typeof value.viz_type === "string") &&
+    (!("schools" in value) || isStringArray(value.schools))
+  );
+}
+
+function isStepSource(value: unknown) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+
+  return (
+    isNonEmptyString(value.label) &&
+    (!("favicon" in value) || typeof value.favicon === "string") &&
+    (!("url" in value) || typeof value.url === "string")
+  );
 }
 
 function hasIdentityFields(type: ProtocolEventType, data: unknown) {
@@ -143,18 +179,14 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
           data.status === "end" ||
           data.status === "error") &&
         typeof data.kind === "string" &&
-        stepKinds.has(data.kind as StepKind) &&
         typeof data.label === "string" &&
         isStepTier(data.tier) &&
-        (data.detail === null || isRecord(data.detail)) &&
+        (data.detail === null || isStepDetail(data.detail)) &&
         (!("sources" in data) ||
-          (Array.isArray(data.sources) && data.sources.every(isRecord)))
+          (Array.isArray(data.sources) && data.sources.every(isStepSource)))
       );
     case "done":
-      return (
-        typeof data.status === "string" &&
-        doneStatuses.has(data.status as DoneStatus)
-      );
+      return typeof data.status === "string";
     case "error":
       return isNonEmptyString(data.message);
     case "delta":
@@ -193,7 +225,17 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
 }
 
 function coerceProtocolEvent(value: unknown): ProtocolEvent {
-  if (!isRecord(value) || !isProtocolEventType(value.type)) {
+  if (!isRecord(value)) {
+    throw new TransportError("server", "Stream returned an unknown event.");
+  }
+  if (typeof value.type === "string" && !isProtocolEventType(value.type)) {
+    return {
+      v: typeof value.v === "number" ? value.v : undefined,
+      type: value.type,
+      data: {},
+    } as unknown as ProtocolEvent;
+  }
+  if (!isProtocolEventType(value.type)) {
     throw new TransportError("server", "Stream returned an unknown event.");
   }
   if (!hasIdentityFields(value.type, value.data)) {
@@ -201,6 +243,13 @@ function coerceProtocolEvent(value: unknown): ProtocolEvent {
       "server",
       `Stream returned a malformed ${value.type} event.`,
     );
+  }
+  if (value.type === "done" && isRecord(value.data)) {
+    return {
+      v: typeof value.v === "number" ? value.v : undefined,
+      type: value.type,
+      data: { status: coerceDoneStatus(value.data.status as string) },
+    };
   }
   return {
     v: typeof value.v === "number" ? value.v : undefined,
@@ -240,6 +289,9 @@ function parseFrame(block: string): SseFrame<ProtocolEvent> | null {
     const data = coerceProtocolEvent(
       JSON.parse(dataLines.join("\n")) as unknown,
     );
+    if (!knownEventTypes.has(data.type)) {
+      return null;
+    }
     return { id, event, data };
   } catch (cause) {
     if (cause instanceof TransportError) {

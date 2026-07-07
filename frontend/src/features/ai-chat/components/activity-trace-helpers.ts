@@ -1,4 +1,4 @@
-import type { StepData, StepKind, StepSource } from "@/api/chat/types";
+import type { KnownStepKind, StepData, StepKind, StepSource } from "@/api/chat/types";
 
 import type { TurnStatus } from "../turn-reducer";
 
@@ -11,17 +11,29 @@ export function isLiveStatus(status: TurnStatus): boolean {
   return LIVE_STATUSES.has(status);
 }
 
-/** Only search steps reveal a receipt (query + result count). DB/sql/viz
- *  steps reveal nothing — internal field/table names never reach the
- *  student; the honesty line cuts the other way here (don't leak schema). */
-const SEARCH_KINDS: ReadonlySet<StepKind> = new Set([
-  "web_search",
-  "edu_search",
-  "reddit_search",
-]);
+type KindPresentation = {
+  resultNoun: "result" | "thread" | null;
+};
+
+const DEFAULT_KIND_PRESENTATION: KindPresentation = { resultNoun: null };
+
+export const KIND_PRESENTATION: Readonly<Record<KnownStepKind, KindPresentation>> = {
+  db_tool: DEFAULT_KIND_PRESENTATION,
+  sql: DEFAULT_KIND_PRESENTATION,
+  web_search: { resultNoun: "result" },
+  edu_search: { resultNoun: "result" },
+  reddit_search: { resultNoun: "thread" },
+  viz: DEFAULT_KIND_PRESENTATION,
+  skill: DEFAULT_KIND_PRESENTATION,
+  research: DEFAULT_KIND_PRESENTATION,
+};
+
+function presentationForKind(kind: StepKind): KindPresentation {
+  return KIND_PRESENTATION[kind as KnownStepKind] ?? DEFAULT_KIND_PRESENTATION;
+}
 
 export function isSearchKind(kind: StepKind): boolean {
-  return SEARCH_KINDS.has(kind);
+  return presentationForKind(kind).resultNoun !== null;
 }
 
 /** DB/sql/viz internals stay hidden — `receiptText` only ever reveals a
@@ -42,8 +54,9 @@ export function receiptText(step: StepData): string | null {
     parts.push(`"${detail.query}"`);
   }
 
-  if (typeof detail.result_count === "number") {
-    const noun = step.kind === "reddit_search" ? "thread" : "result";
+  const resultNoun = presentationForKind(step.kind).resultNoun;
+  if (typeof detail.result_count === "number" && resultNoun !== null) {
+    const noun = resultNoun;
     parts.push(`${detail.result_count} ${noun}${detail.result_count === 1 ? "" : "s"}`);
   }
 
