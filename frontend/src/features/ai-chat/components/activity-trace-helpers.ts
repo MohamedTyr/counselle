@@ -5,7 +5,7 @@ import type {
   StepSource,
 } from "@/api/chat/types";
 
-import type { TurnStatus } from "../turn-reducer";
+import type { Segment, TurnStatus } from "../turn-reducer";
 
 /** `awaiting_input` (parked on a clarify) is NOT live: the agent finished
  *  thinking and asked a question — the trace must settle, not keep
@@ -104,10 +104,10 @@ export function receiptText(step: StepData): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-export function latestPlanStep(timeline: Array<{ type: string; step?: StepData }>): StepData | null {
-  for (let index = timeline.length - 1; index >= 0; index -= 1) {
-    const entry = timeline[index];
-    if (entry.type === "step" && entry.step?.kind === "write_plan") {
+export function latestPlanStep(segments: readonly Segment[]): StepData | null {
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const entry = segments[index];
+    if (entry.type === "tool" && entry.step.kind === "write_plan") {
       return entry.step;
     }
   }
@@ -138,15 +138,4 @@ export function dedupeStepSources(sources: StepSource[] | undefined): StepSource
   }
 
   return deduped;
-}
-
-const MS_IN_S = 1000;
-
-export function formatDurationMs(ms: number): string {
-  const totalSeconds = Math.max(0, ms) / MS_IN_S;
-  if (totalSeconds < 10) {
-    return `${totalSeconds.toFixed(1)}s`;
-  }
-
-  return `${Math.round(totalSeconds)}s`;
 }

@@ -19,6 +19,10 @@ function userMessage(overrides: Partial<UserChatMessage> = {}): UserChatMessage 
 }
 
 function assistantMessage(overrides: Partial<AssistantChatMessage> = {}): AssistantChatMessage {
+  const blocks = overrides.blocks ?? [
+    { kind: "markdown" as const, text: "Aid depends on need [1]." },
+  ];
+
   return {
     kind: "assistant",
     messageId: "assistant-1",
@@ -28,7 +32,12 @@ function assistantMessage(overrides: Partial<AssistantChatMessage> = {}): Assist
     sender: "Counselle",
     ts: null,
     isCreatedByUser: false,
-    blocks: [{ kind: "markdown", text: "Aid depends on need [1]." }],
+    blocks,
+    segments: blocks.map((block) =>
+      block.kind === "markdown"
+        ? { type: "answer" as const, text: block.text }
+        : { type: "viz" as const, spec: block.spec },
+    ),
     turnStatus: "complete",
     sources: [
       {

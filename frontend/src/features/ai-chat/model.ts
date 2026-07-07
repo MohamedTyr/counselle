@@ -7,12 +7,15 @@ import type {
 } from "@/api/chat/types";
 
 import {
+  answerBlocksOf,
   deriveDurationMs,
+  narrationTextsOf,
   proseOf,
   reduceTranscriptEntry,
+  stepsOf,
   toStepRecord,
   type ContentBlock,
-  type TimelineEntry,
+  type Segment,
   type TurnState,
   type TurnStatus,
 } from "./turn-reducer";
@@ -38,11 +41,19 @@ export type UserChatMessage = ChatMessageBase & {
 export type AssistantChatMessage = ChatMessageBase & {
   kind: "assistant";
   isCreatedByUser: false;
+  /** The full chronological run surface: narration, tool, thinking, answer,
+   * and viz beats in stream order — what `AssistantBody` renders. */
+  segments: Segment[];
+  /** The final citeable answer's content only (markdown + inline viz) — what
+   * copy/citations/sources key off. A subset of `segments`, never the render
+   * order. */
   blocks: ContentBlock[];
   stepRecord?: StepRecord;
-  activities?: string[];
-  timeline?: TimelineEntry[];
   receipt?: string;
+  /** Whole-turn wall-clock duration. Not rendered by any component today —
+   * the settled "Thought for Xs" affordance moved to the per-occurrence,
+   * per-beat `ThinkingBeat` (which needs its own timing, not the turn
+   * total). Kept for telemetry and a future settled-duration display. */
   durationMs?: number;
   sources?: SourceEntry[];
   clarify?: ClarifySpec;
@@ -62,25 +73,6 @@ export type AskProps = {
   conversationId?: string | null;
 };
 
-export const THINKING_LABEL = "Thinking…";
-
-const activitiesByTimeline = new WeakMap<TimelineEntry[], string[]>();
-
-function deriveActivities(timeline: TimelineEntry[]): string[] {
-  const cached = activitiesByTimeline.get(timeline);
-  if (cached !== undefined) {
-    return cached;
-  }
-
-  const activities = timeline
-    .map((entry) => (entry.type === "step" ? entry.step.label : THINKING_LABEL))
-    .filter((label, index, labels) => index === 0 || label !== labels[index - 1]);
-
-  activitiesByTimeline.set(timeline, activities);
-
-  return activities;
-}
-
 export function assistantMessage(
   conversationId: string,
   messageId: string,
@@ -88,34 +80,33 @@ export function assistantMessage(
   state: TurnState,
   ts: string | null,
 ): AssistantChatMessage {
-  const record = toStepRecord(state);
-  const activeStep = [...state.steps]
-    .reverse()
-    .find((step) => step.status === "start");
-  const activities = deriveActivities(state.timeline);
+  const blocks = answerBlocksOf(state);
+  const steps = stepsOf(state);
+  const thinking = narrationTextsOf(state);
+  const record = toStepRecord(state, steps, thinking);
   const isLive = state.status === "streaming" || state.status === "idle";
-  const lastBlock = state.blocks.at(-1);
-  const hasProseTail = lastBlock?.kind === "markdown";
-  const isThinking =
-    isLive &&
-    activeStep === undefined &&
-    !hasProseTail &&
-    state.thinking.length === 0;
+  const hasProseTail = blocks.at(-1)?.kind === "markdown";
+  const hasActiveTool = state.segments.some(
+    (segment) => segment.type === "tool" && segment.step.status === "start",
+  );
+  const hasNarrationOrThinking = state.segments.some(
+    (segment) => segment.type === "narration" || segment.type === "thinking",
+  );
+  const isThinking = isLive && !hasActiveTool && !hasProseTail && !hasNarrationOrThinking;
 
   return {
     kind: "assistant",
     messageId,
     conversationId,
     parentMessageId,
-    text: proseOf(state),
+    text: proseOf(state, blocks),
     isCreatedByUser: false,
     sender: "Counselle",
-    blocks: state.blocks,
+    segments: state.segments,
+    blocks,
     stepRecord: record,
-    activities,
-    timeline: state.timeline,
     receipt: record?.receipt,
-    durationMs: deriveDurationMs(state),
+    durationMs: deriveDurationMs(state, steps),
     sources: state.sources.length > 0 ? state.sources : undefined,
     clarify: state.clarify ?? undefined,
     turnStatus: state.status,

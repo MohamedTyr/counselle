@@ -9,7 +9,9 @@ import {
 } from "@/components/ai-elements/message";
 import { cn } from "@/lib/utils";
 
-import { AgentRunView } from "./AgentRunView";
+import type { Segment } from "../turn-reducer";
+import { NarrationBeat, PlanChecklist, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
+import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
 import { CitationRenderer } from "./CitationRenderer";
 import { ClarifyWidget } from "./ClarifyWidget";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
@@ -51,6 +53,64 @@ function CopyAction({ text }: { text: string }) {
   );
 }
 
+function assertNeverSegment(segment: never): never {
+  throw new Error(`Unhandled segment type: ${JSON.stringify(segment)}`);
+}
+
+/** A stable React key by segment identity, not position — `narration`/
+ * `thinking` carry their own `id`, `tool` carries `step_id`; only `answer`/
+ * `viz` (which never reorder relative to each other) fall back to index. */
+function segmentKey(segment: Segment, index: number): string {
+  switch (segment.type) {
+    case "narration":
+    case "thinking":
+      return segment.id;
+    case "tool":
+      return `tool-${segment.step.step_id}`;
+    case "answer":
+    case "viz":
+      return `${segment.type}-${index}`;
+    default:
+      return assertNeverSegment(segment);
+  }
+}
+
+/** One chronological beat: narration prose, a tool call, a collapsed
+ * thinking line, the answer's cited prose, or an inline viz card — rendered
+ * in stream order (the Claude-Code-style surface, not a two-zone drawer).
+ * `write_plan` tool segments are suppressed here; the pinned `PlanChecklist`
+ * above the stream renders the latest one instead. */
+function SegmentBeat({
+  segment,
+  sources,
+  onOpenCitation,
+}: {
+  segment: Segment;
+  sources: AssistantChatMessage["sources"];
+  onOpenCitation?: (index: number) => void;
+}) {
+  switch (segment.type) {
+    case "narration":
+      return <NarrationBeat text={segment.text} />;
+    case "thinking":
+      return <ThinkingBeat id={segment.id} text={segment.text} />;
+    case "tool":
+      return segment.step.kind === "write_plan" ? null : <ToolStepBeat step={segment.step} />;
+    case "answer":
+      return segment.text.length === 0 ? null : (
+        <CitationRenderer
+          markdown={segment.text}
+          onCitationOpen={onOpenCitation}
+          sources={sources}
+        />
+      );
+    case "viz":
+      return <VizBlock spec={segment.spec} />;
+    default:
+      assertNeverSegment(segment);
+  }
+}
+
 function AssistantBody({
   message,
   onClarifyAnswer,
@@ -62,33 +122,26 @@ function AssistantBody({
   onOpenCitation?: (index: number) => void;
   clarifyFrozen: boolean;
 }) {
-  const showRunView =
-    message.timeline !== undefined &&
-    (message.timeline.length > 0 ||
-      message.turnStatus === "streaming" ||
-      message.turnStatus === "idle");
+  const planStep = latestPlanStep(message.segments);
+  const isWorking =
+    message.segments.length === 0 &&
+    message.turnStatus !== undefined &&
+    isLiveStatus(message.turnStatus);
 
   return (
     <>
-      {showRunView && (
-        <AgentRunView
-          durationMs={message.durationMs}
-          status={message.turnStatus ?? "complete"}
-          timeline={message.timeline}
+      {planStep !== null && <PlanChecklist step={planStep} />}
+      {isWorking && (
+        <p className="not-prose py-1 text-[13.5px] text-muted-foreground">Working…</p>
+      )}
+      {message.segments.map((segment, index) => (
+        <SegmentBeat
+          key={segmentKey(segment, index)}
+          onOpenCitation={onOpenCitation}
+          segment={segment}
+          sources={message.sources}
         />
-      )}
-      {message.blocks.map((block, index) =>
-        block.kind === "markdown" ? (
-          <CitationRenderer
-            key={`md-${index}`}
-            markdown={block.text}
-            onCitationOpen={onOpenCitation}
-            sources={message.sources}
-          />
-        ) : (
-          <VizBlock key={`viz-${index}`} spec={block.spec} />
-        ),
-      )}
+      ))}
       {message.turnStatus === "cancelled" && (
         <p className="not-prose text-sm text-muted-foreground italic">
           You stopped this response.

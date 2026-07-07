@@ -115,6 +115,7 @@ function assistant(messageId: string, conversationId = "s1"): ChatMessage {
     isCreatedByUser: false,
     sender: "Counselle",
     blocks: [{ kind: "markdown", text: "Old" }],
+    segments: [{ type: "answer", text: "Old" }],
     turnStatus: "complete",
     hasBackendId: true,
     ts: "2026-07-06T12:00:01Z",

@@ -8,6 +8,7 @@ import type {
 } from "@/api/chat/types";
 
 import {
+  answerBlocksOf,
   initialTurnState,
   proseOf,
   reduceLiveTurn,
@@ -104,32 +105,29 @@ function assistantEntry(
   };
 }
 
-function vizBlocks(
-  state: TurnState,
-): Array<Extract<ContentBlock, { kind: "viz" }>> {
-  return state.blocks.filter(
-    (block): block is Extract<ContentBlock, { kind: "viz" }> =>
-      block.kind === "viz",
+function vizBlocks(state: TurnState): Array<Extract<ContentBlock, { kind: "viz" }>> {
+  return answerBlocksOf(state).filter(
+    (block): block is Extract<ContentBlock, { kind: "viz" }> => block.kind === "viz",
   );
 }
 
 describe("turn reducer", () => {
-  test("live inline viz order preserves markdown viz markdown blocks", () => {
+  test("live inline viz order preserves answer/viz/answer segment order", () => {
     const state = reduceEvents([
       { v: 1, type: "delta", data: { text: "Intro" } },
       { v: 1, type: "viz", data: renderSpec() },
       { v: 1, type: "delta", data: { text: "Outro" } },
     ]);
 
-    expect(state.blocks.map((block) => block.kind)).toEqual([
-      "markdown",
+    expect(state.segments.map((segment) => segment.type)).toEqual([
+      "answer",
       "viz",
-      "markdown",
+      "answer",
     ]);
     expect(proseOf(state)).toBe("Intro\n\nOutro");
   });
 
-  test("transcript inline viz order preserves markdown viz markdown blocks", () => {
+  test("transcript inline viz order preserves answer/viz/answer segment order", () => {
     const state = reduceTranscriptEntry(
       assistantEntry([
         { type: "text", text: "Intro" },
@@ -138,15 +136,15 @@ describe("turn reducer", () => {
       ]),
     );
 
-    expect(state.blocks.map((block) => block.kind)).toEqual([
-      "markdown",
+    expect(state.segments.map((segment) => segment.type)).toEqual([
+      "answer",
       "viz",
-      "markdown",
+      "answer",
     ]);
     expect(proseOf(state)).toBe("Intro\n\nOutro");
   });
 
-  test("duplicate equivalent viz events append one block", () => {
+  test("duplicate equivalent viz events append one segment", () => {
     const first = renderSpec({ title: "Admissions snapshot" });
     const duplicate = renderSpec({ title: "Different heading" });
 
@@ -186,7 +184,7 @@ describe("turn reducer", () => {
     expect(vizBlocks(attachedState)[0].spec.title).toBe("Live card title");
   });
 
-  test("thinking entries get stable unique ids while interleaved with steps", () => {
+  test("narration entries get stable unique ids while interleaved with tool segments", () => {
     let state = initialTurnState();
     state = reduceTurn(state, { v: 1, type: "thinking", data: { text: "a" } });
     state = reduceTurn(state, stepEvent({ step_id: "s1", status: "start" }));
@@ -195,17 +193,17 @@ describe("turn reducer", () => {
     state = reduceTurn(state, { v: 1, type: "thinking", data: { text: "a" } });
 
     expect(
-      state.timeline
-        .filter((entry) => entry.type === "thinking")
-        .map((entry) => ({ id: entry.id, text: entry.text })),
+      state.segments
+        .filter((segment) => segment.type === "narration")
+        .map((segment) => ({ id: segment.id, text: segment.text })),
     ).toEqual([
-      { id: "think-0", text: "a" },
-      { id: "think-1", text: "b" },
-      { id: "think-2", text: "a" },
+      { id: "narration-0", text: "a" },
+      { id: "narration-1", text: "b" },
+      { id: "narration-2", text: "a" },
     ]);
   });
 
-  test("step end-event sources merge onto the started step", () => {
+  test("step end-event sources merge onto the started step in place", () => {
     let state = initialTurnState();
     state = reduceTurn(state, stepEvent({ step_id: "s1", status: "start" }));
     state = reduceTurn(
@@ -223,15 +221,16 @@ describe("turn reducer", () => {
       }),
     );
 
-    expect(state.steps[0].status).toBe("end");
-    expect(state.steps[0].sources).toEqual([
+    const toolSegments = state.segments.filter((segment) => segment.type === "tool");
+    expect(toolSegments).toHaveLength(1);
+    expect(toolSegments[0].step.status).toBe("end");
+    expect(toolSegments[0].step.sources).toEqual([
       {
         label: "usnews.com",
         favicon: "https://cdn/f",
         url: "https://usnews.com/x",
       },
     ]);
-    expect(state.timeline.filter((entry) => entry.type === "step")).toHaveLength(1);
   });
 
   test("live reducer records arrival wall-clock duration", () => {

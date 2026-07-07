@@ -28,6 +28,7 @@ function assistant(messageId: string, text: string): ChatMessageModel {
     ts: null,
     isCreatedByUser: false,
     blocks: [{ kind: "markdown", text }],
+    segments: [{ type: "answer", text }],
     turnStatus: "complete",
     hasBackendId: true,
   };

@@ -27,6 +27,7 @@ function assistant(messageId: string, conversationId = "s1"): ChatMessage {
     isCreatedByUser: false,
     sender: "Counselle",
     blocks: [{ kind: "markdown", text: "Answer" }],
+    segments: [{ type: "answer", text: "Answer" }],
     hasBackendId: true,
     ts: null,
   };
@@ -41,6 +42,7 @@ describe("stream reconcile", () => {
       ...assistant("a1"),
       text: "Replacement",
       blocks: [{ kind: "markdown" as const, text: "Replacement" }],
+      segments: [{ type: "answer" as const, text: "Replacement" }],
     };
 
     expect(

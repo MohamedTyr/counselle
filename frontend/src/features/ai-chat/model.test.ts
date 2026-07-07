@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { TimelineEntry } from "./turn-reducer";
+import type { Segment } from "./turn-reducer";
 import { initialTurnState, type TurnState } from "./turn-reducer";
 import { assistantMessage, messagesFromTranscript } from "./model";
 import type { TranscriptEntry } from "@/api/chat/types";
@@ -118,11 +118,11 @@ describe("messagesFromTranscript", () => {
   });
 });
 
-describe("assistantMessage activities", () => {
-  test("same timeline reference returns same activities array reference", () => {
-    const timeline: TimelineEntry[] = [
+describe("assistantMessage", () => {
+  test("segments carry the tool step and narration line in stream order", () => {
+    const segments: Segment[] = [
       {
-        type: "step",
+        type: "tool",
         step: {
           step_id: "s1",
           label: "Reading CDS",
@@ -132,19 +132,19 @@ describe("assistantMessage activities", () => {
           detail: null,
         },
       },
-      { type: "thinking", id: "t1", text: "pondering" },
+      { type: "narration", id: "narration-0", text: "pondering" },
     ];
     const state: TurnState = {
       ...initialTurnState(),
-      timeline,
+      segments,
       status: "complete",
     };
 
-    const first = assistantMessage("c1", "a1", "u1", state, null);
-    const second = assistantMessage("c1", "a1", "u1", state, null);
+    const message = assistantMessage("c1", "a1", "u1", state, null);
 
-    expect(first.activities).toBe(second.activities);
-    expect(first.activities).toEqual(["Reading CDS", "Thinking…"]);
+    expect(message.segments).toBe(segments);
+    expect(message.stepRecord?.steps).toHaveLength(1);
+    expect(message.stepRecord?.thinking).toEqual(["pondering"]);
   });
 
   test("duration uses live arrival timing, not summed tool durations", () => {
@@ -153,14 +153,17 @@ describe("assistantMessage activities", () => {
       startedAtMs: 1_000,
       completedAtMs: 2_500,
       status: "complete",
-      steps: [
+      segments: [
         {
-          step_id: "s1",
-          label: "Slow backend detail",
-          status: "end",
-          kind: "db_tool",
-          tier: null,
-          detail: { duration_ms: 10_000 },
+          type: "tool",
+          step: {
+            step_id: "s1",
+            label: "Slow backend detail",
+            status: "end",
+            kind: "db_tool",
+            tier: null,
+            detail: { duration_ms: 10_000 },
+          },
         },
       ],
     };

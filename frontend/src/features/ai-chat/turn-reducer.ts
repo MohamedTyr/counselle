@@ -26,17 +26,25 @@ export type TurnStatus =
 
 export type TurnStep = StepData;
 
-export type TimelineEntry =
-  | { type: "step"; step: StepData }
-  | { type: "thinking"; id: string; text: string };
+/**
+ * One beat in the chronological run surface, in stream arrival order.
+ * `narration` is the agent's loud talk (shown inline); `thinking` is native
+ * raw reasoning (collapsed by default). Phase 1 feeds `narration` from
+ * today's `thinking` wire event (the backend hasn't split them yet) — real
+ * `thinking` segments stay unpopulated until the backend emits a genuine
+ * `narration` event.
+ */
+export type Segment =
+  | { type: "narration"; id: string; text: string }
+  | { type: "thinking"; id: string; text: string }
+  | { type: "tool"; step: StepData }
+  | { type: "answer"; text: string }
+  | { type: "viz"; spec: RenderSpec };
 
 export type TurnState = {
   meta: MetaData | null;
-  blocks: ContentBlock[];
+  segments: Segment[];
   vizSignatures: ReadonlySet<string>;
-  steps: TurnStep[];
-  thinking: string[];
-  timeline: TimelineEntry[];
   clarify: ClarifySpec | null;
   sources: SourceEntry[];
   usage: UsageData | null;
@@ -49,11 +57,8 @@ export type TurnState = {
 export function initialTurnState(): TurnState {
   return {
     meta: null,
-    blocks: [],
+    segments: [],
     vizSignatures: new Set(),
-    steps: [],
-    thinking: [],
-    timeline: [],
     clarify: null,
     sources: [],
     usage: null,
@@ -64,23 +69,14 @@ export function initialTurnState(): TurnState {
   };
 }
 
-function appendDelta(state: TurnState, text: string): TurnState {
-  const last = state.blocks.at(-1);
+function appendAnswerText(segments: Segment[], text: string): Segment[] {
+  const last = segments.at(-1);
 
-  if (last?.kind === "markdown") {
-    return {
-      ...state,
-      blocks: [
-        ...state.blocks.slice(0, -1),
-        { kind: "markdown", text: last.text + text },
-      ],
-    };
+  if (last?.type === "answer") {
+    return [...segments.slice(0, -1), { type: "answer", text: last.text + text }];
   }
 
-  return {
-    ...state,
-    blocks: [...state.blocks, { kind: "markdown", text }],
-  };
+  return [...segments, { type: "answer", text }];
 }
 
 function vizSignature(spec: RenderSpec): string {
@@ -120,54 +116,32 @@ function appendViz(state: TurnState, spec: RenderSpec): TurnState {
 
   return {
     ...state,
-    blocks: [...state.blocks, { kind: "viz", spec }],
+    segments: [...state.segments, { type: "viz", spec }],
     vizSignatures: new Set([...state.vizSignatures, signature]),
   };
 }
 
-function replaceTimelineStep(
-  timeline: TimelineEntry[],
-  merged: StepData,
-): TimelineEntry[] {
-  const index = timeline.findIndex(
-    (entry) => entry.type === "step" && entry.step.step_id === merged.step_id,
+function mergeToolSegment(segments: Segment[], step: StepData): Segment[] {
+  const index = segments.findIndex(
+    (segment) => segment.type === "tool" && segment.step.step_id === step.step_id,
   );
 
   if (index === -1) {
-    return [...timeline, { type: "step", step: merged }];
+    return [...segments, { type: "tool", step }];
   }
 
+  const existing = segments[index] as Extract<Segment, { type: "tool" }>;
+  const merged = { ...existing.step, ...step };
+
   return [
-    ...timeline.slice(0, index),
-    { type: "step", step: merged },
-    ...timeline.slice(index + 1),
+    ...segments.slice(0, index),
+    { type: "tool", step: merged },
+    ...segments.slice(index + 1),
   ];
 }
 
-function mergeStep(state: TurnState, step: StepData): TurnState {
-  const index = state.steps.findIndex(
-    (existing) => existing.step_id === step.step_id,
-  );
-
-  if (index === -1) {
-    return {
-      ...state,
-      steps: [...state.steps, step],
-      timeline: [...state.timeline, { type: "step", step }],
-    };
-  }
-
-  const merged = { ...state.steps[index], ...step };
-
-  return {
-    ...state,
-    steps: [
-      ...state.steps.slice(0, index),
-      merged,
-      ...state.steps.slice(index + 1),
-    ],
-    timeline: replaceTimelineStep(state.timeline, merged),
-  };
+function narrationSegmentCount(segments: Segment[]): number {
+  return segments.filter((segment) => segment.type === "narration").length;
 }
 
 export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
@@ -175,22 +149,21 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
     case "meta":
       return { ...state, meta: event.data, status: "streaming" };
     case "delta":
-      return appendDelta(
-        state.status === "idle" ? { ...state, status: "streaming" } : state,
-        event.data.text,
-      );
+      return {
+        ...(state.status === "idle" ? { ...state, status: "streaming" as const } : state),
+        segments: appendAnswerText(state.segments, event.data.text),
+      };
     case "step":
-      return mergeStep(state, event.data);
+      return { ...state, segments: mergeToolSegment(state.segments, event.data) };
     case "thinking": {
-      const id = `think-${state.thinking.length}`;
+      // Phase 1: the wire still labels narration as `thinking` — the router
+      // split lands in Phase 2. Each chunk is its own beat (unfused), same
+      // cadence the backend already emits at (per completed paragraph/round).
+      const id = `narration-${narrationSegmentCount(state.segments)}`;
 
       return {
         ...state,
-        thinking: [...state.thinking, event.data.text],
-        timeline: [
-          ...state.timeline,
-          { type: "thinking", id, text: event.data.text },
-        ],
+        segments: [...state.segments, { type: "narration", id, text: event.data.text }],
       };
     }
     case "viz":
@@ -255,8 +228,49 @@ function doneStatusToTurnStatus(status: DoneStatus): TurnStatus {
   return "awaiting_input";
 }
 
-export function proseOf(state: TurnState): string {
-  return state.blocks
+/** The final citeable answer's content blocks (markdown + inline viz), in
+ * order — narration/tool/thinking beats are NOT part of this: they are
+ * shown, not part of the answer artifact (copy/citations key off this). */
+export function answerBlocksOf(state: TurnState): ContentBlock[] {
+  const blocks: ContentBlock[] = [];
+
+  for (const segment of state.segments) {
+    if (segment.type === "answer") {
+      blocks.push({ kind: "markdown", text: segment.text });
+    } else if (segment.type === "viz") {
+      blocks.push({ kind: "viz", spec: segment.spec });
+    }
+  }
+
+  return blocks;
+}
+
+export function stepsOf(state: TurnState): StepData[] {
+  return state.segments
+    .filter((segment): segment is Extract<Segment, { type: "tool" }> => segment.type === "tool")
+    .map((segment) => segment.step);
+}
+
+/** The narration lines said out loud this turn (Phase 1: fed by the
+ * mislabeled `thinking` wire event — becomes the real `narration` feed once
+ * the backend splits it in Phase 2). Mirrors the persisted receipt's
+ * `thinking` bucket so `deriveReceipt` stays byte-compatible. */
+export function narrationTextsOf(state: TurnState): string[] {
+  return state.segments
+    .filter(
+      (segment): segment is Extract<Segment, { type: "narration" }> =>
+        segment.type === "narration",
+    )
+    .map((segment) => segment.text);
+}
+
+/** Accepts an already-computed `blocks` (e.g. from `answerBlocksOf`) to avoid
+ * re-deriving it from `state.segments` when a caller already has it. */
+export function proseOf(
+  state: TurnState,
+  blocks: ContentBlock[] = answerBlocksOf(state),
+): string {
+  return blocks
     .filter(
       (block): block is Extract<ContentBlock, { kind: "markdown" }> =>
         block.kind === "markdown",
@@ -265,10 +279,7 @@ export function proseOf(state: TurnState): string {
     .join("\n\n");
 }
 
-export function deriveReceipt(
-  steps: TurnStep[],
-  thinking: string[],
-): string {
+export function deriveReceipt(steps: TurnStep[], thinking: string[]): string {
   if (steps.length === 0 && thinking.length === 0) {
     return "";
   }
@@ -307,9 +318,14 @@ export function deriveReceipt(
   return labels.join(" · ");
 }
 
-export function deriveDurationMs(state: TurnState): number | undefined {
+/** Accepts an already-computed `steps` (e.g. from `stepsOf`) to avoid
+ * re-deriving it from `state.segments` when a caller already has it. */
+export function deriveDurationMs(
+  state: TurnState,
+  steps: StepData[] = stepsOf(state),
+): number | undefined {
   if (state.startedAtMs === null || state.completedAtMs === null) {
-    const fallbackTotal = state.steps.reduce(
+    const fallbackTotal = steps.reduce(
       (sum, step) => sum + (step.detail?.duration_ms ?? 0),
       0,
     );
@@ -320,15 +336,21 @@ export function deriveDurationMs(state: TurnState): number | undefined {
   return Math.max(0, state.completedAtMs - state.startedAtMs);
 }
 
-export function toStepRecord(state: TurnState): StepRecord | undefined {
-  if (state.steps.length === 0 && state.thinking.length === 0) {
+/** Accepts already-computed `steps`/`thinking` to avoid re-deriving them from
+ * `state.segments` when a caller already has them. */
+export function toStepRecord(
+  state: TurnState,
+  steps: StepData[] = stepsOf(state),
+  thinking: string[] = narrationTextsOf(state),
+): StepRecord | undefined {
+  if (steps.length === 0 && thinking.length === 0) {
     return undefined;
   }
 
   return {
-    steps: state.steps,
-    thinking: state.thinking,
-    receipt: deriveReceipt(state.steps, state.thinking),
+    steps,
+    thinking,
+    receipt: deriveReceipt(steps, thinking),
   };
 }
 

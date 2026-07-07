@@ -1,54 +1,18 @@
 import {
   CheckCircle2Icon,
-  ChevronDownIcon,
+  ChevronRightIcon,
   CircleIcon,
   LoaderCircleIcon,
   XCircleIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 
 import type { StepData } from "@/api/chat/types";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
 import { safeExternalUrl } from "../citations";
-import type { TimelineEntry, TurnStatus } from "../turn-reducer";
-import {
-  dedupeStepSources,
-  formatDurationMs,
-  isLiveStatus,
-  latestPlanStep,
-  MAX_VISIBLE_SOURCE_CHIPS,
-  receiptText,
-} from "./activity-trace-helpers";
-
-export type AgentRunViewProps = {
-  timeline: TimelineEntry[];
-  status: TurnStatus;
-  durationMs?: number;
-};
-
-const TICK_MS = 250;
-
-function useElapsed(live: boolean): number {
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    if (!live) {
-      return undefined;
-    }
-
-    const start = Date.now();
-    const id = setInterval(() => setElapsed(Date.now() - start), TICK_MS);
-    return () => clearInterval(id);
-  }, [live]);
-
-  return elapsed;
-}
+import { dedupeStepSources, MAX_VISIBLE_SOURCE_CHIPS, receiptText } from "./activity-trace-helpers";
 
 function SourceChips({ step }: { step: StepData }) {
   const sources = dedupeStepSources(step.sources);
@@ -112,7 +76,9 @@ function StepDot({ status }: { status: StepData["status"] }) {
   );
 }
 
-function StepRow({ step }: { step: StepData }) {
+/** One tool call, rendered inline at its point in the chronological stream
+ * (running → done, per the target surface — no whole-trace drawer). */
+export function ToolStepBeat({ step }: { step: StepData }) {
   const receipt = receiptText(step);
   const labelClass = cn(
     "text-sm leading-normal",
@@ -121,7 +87,7 @@ function StepRow({ step }: { step: StepData }) {
   );
 
   return (
-    <div className="grid grid-cols-[16px_1fr] gap-3 pb-3.5">
+    <div className="not-prose grid grid-cols-[16px_1fr] gap-3 py-1.5">
       <StepDot status={step.status} />
       <div className="min-w-0">
         <span className={labelClass}>{step.label}</span>
@@ -130,18 +96,6 @@ function StepRow({ step }: { step: StepData }) {
         )}
         <SourceChips step={step} />
       </div>
-    </div>
-  );
-}
-
-function ThinkRow({ text }: { text: string }) {
-  return (
-    <div className="grid grid-cols-[16px_1fr] gap-3 pb-3.5">
-      <span
-        aria-hidden="true"
-        className="mt-1.5 size-1.5 justify-self-center rounded-full bg-muted-foreground"
-      />
-      <p className="min-w-0 text-[13.5px] text-muted-foreground italic">{text}</p>
     </div>
   );
 }
@@ -159,7 +113,10 @@ function PlanStatusIcon({ status }: { status: string }) {
   return <CircleIcon aria-hidden="true" className="mt-0.5 size-3.5" />;
 }
 
-function PlanChecklist({ step }: { step: StepData }) {
+/** The pinned plan checklist — the latest `write_plan` update only; earlier
+ * updates never render as their own rows (a plan is one evolving widget, not
+ * a log of edits). */
+export function PlanChecklist({ step }: { step: StepData }) {
   const items = step.detail?.items ?? [];
   if (items.length === 0) {
     return null;
@@ -169,7 +126,7 @@ function PlanChecklist({ step }: { step: StepData }) {
   const total = step.detail?.total ?? items.length;
 
   return (
-    <div className="mb-3 rounded-md border bg-muted/30 px-3 py-2.5">
+    <div className="not-prose mb-3 rounded-md border bg-muted/30 px-3 py-2.5">
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-foreground">Plan</span>
         <span className="text-xs tabular-nums text-muted-foreground">
@@ -194,81 +151,35 @@ function PlanChecklist({ step }: { step: StepData }) {
   );
 }
 
-function visibleTimelineEntries(timeline: TimelineEntry[]): TimelineEntry[] {
-  return timeline.filter(
-    (entry) => entry.type !== "step" || entry.step.kind !== "write_plan",
-  );
+/** The agent's loud talk — normal visible prose, not italic/muted (that
+ * styling is reserved for the collapsed raw-thinking beat below). */
+export function NarrationBeat({ text }: { text: string }) {
+  return <p className="not-prose py-1 text-[13.5px] leading-relaxed text-foreground">{text}</p>;
 }
 
-function latestActivityLabel(entries: TimelineEntry[], planStep: StepData | null): string {
-  const last = entries.at(-1);
-  if (last === undefined) {
-    return planStep !== null ? "Updating the plan" : "Starting agent run";
-  }
-  return last.type === "step" ? last.step.label : last.text;
-}
-
-export function AgentRunView({ timeline, status, durationMs }: AgentRunViewProps) {
-  const live = isLiveStatus(status);
-  const [open, setOpen] = useState(live);
-  const wasLiveRef = useRef(live);
-  const elapsed = useElapsed(live);
-  const planStep = useMemo(() => latestPlanStep(timeline), [timeline]);
-  const visibleEntries = useMemo(() => visibleTimelineEntries(timeline), [timeline]);
-
-  useEffect(() => {
-    const wasLive = wasLiveRef.current;
-    wasLiveRef.current = live;
-    if (!live || wasLive) {
-      return undefined;
-    }
-
-    const id = window.setTimeout(() => setOpen(true), 0);
-    return () => window.clearTimeout(id);
-  }, [live]);
-
-  if (timeline.length === 0 && !live) {
-    return null;
-  }
-
-  const settledDuration =
-    durationMs !== undefined ? `Thought for ${formatDurationMs(durationMs)}` : "Run trace";
-  const headerLabel = live ? latestActivityLabel(visibleEntries, planStep) : settledDuration;
-  const showStartingPlaceholder = visibleEntries.length === 0 && live && planStep === null;
+/** Native raw reasoning (only emitted when `thinking_summaries` is on) —
+ * collapsed by default, one line per occurrence, expandable inline. */
+export function ThinkingBeat({ id, text }: { id: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const contentId = `thinking-content-${id}`;
 
   return (
-    <div className="not-prose my-2">
-      <Collapsible onOpenChange={setOpen} open={open}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md py-1 text-left text-muted-foreground transition-colors hover:text-foreground">
-          <ChevronDownIcon
-            aria-hidden="true"
-            className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")}
-          />
-          <span className="min-w-0 flex-1 truncate text-[13px]">{headerLabel}</span>
-          {live && (
-            <span className="shrink-0 text-[13px] tabular-nums">
-              {formatDurationMs(elapsed)}
-            </span>
-          )}
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-2.5">
-          <div className="flex flex-col pl-0.5">
-            {planStep !== null && <PlanChecklist step={planStep} />}
-            {showStartingPlaceholder && (
-              <p className="pb-3.5 pl-7 text-[13.5px] text-muted-foreground">
-                Starting agent run
-              </p>
-            )}
-            {visibleEntries.map((entry) =>
-              entry.type === "step" ? (
-                <StepRow key={`step-${entry.step.step_id}`} step={entry.step} />
-              ) : (
-                <ThinkRow key={entry.id} text={entry.text} />
-              ),
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+    <Collapsible className="not-prose py-1" onOpenChange={setOpen} open={open}>
+      <CollapsibleTrigger
+        className="flex items-center gap-1 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+        id={contentId}
+      >
+        <ChevronRightIcon
+          aria-hidden="true"
+          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+        />
+        <span>Thought{open ? "" : " for a moment"}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent aria-labelledby={contentId}>
+        <p className="mt-1 pl-[18px] text-[13px] whitespace-pre-wrap text-muted-foreground italic">
+          {text}
+        </p>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
