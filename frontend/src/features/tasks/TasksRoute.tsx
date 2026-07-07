@@ -82,6 +82,10 @@ function isEditingSurface(target: EventTarget | null) {
   );
 }
 
+function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export function TasksPage() {
   const tasksQuery = useTasks();
   const applicationsQuery = useApplications();
@@ -109,21 +113,21 @@ export function TasksPage() {
   const todayDate = getNowDate();
 
   const tasks = useMemo(
-    () => (tasksQuery.data ?? []).map(taskFromApi),
+    () => listOrEmpty(tasksQuery.data).map(taskFromApi),
     [tasksQuery.data],
   );
-  const applications = applicationsQuery.data ?? [];
+  const applications = listOrEmpty(applicationsQuery.data);
   const applicationsById = useMemo(
     () =>
       new Map(
-        (applicationsQuery.data ?? []).map((application) => [
+        listOrEmpty(applicationsQuery.data).map((application) => [
           application.id,
           application,
         ]),
       ),
     [applicationsQuery.data],
   );
-  const essays = essaysQuery.data ?? [];
+  const essays = listOrEmpty(essaysQuery.data);
 
   const singleDeleteUndo = useUndoableDelete<Task>({
     archiveMutation: archiveTaskMutation,

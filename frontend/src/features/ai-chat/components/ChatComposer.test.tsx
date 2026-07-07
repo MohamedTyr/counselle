@@ -17,8 +17,8 @@ function renderComposer(overrides: Partial<Parameters<typeof ChatComposer>[0]> =
     value: "",
     ...overrides,
   };
-  render(<ChatComposer {...props} />);
-  return props;
+  const view = render(<ChatComposer {...props} />);
+  return { ...props, ...view };
 }
 
 describe("ChatComposer", () => {
@@ -53,6 +53,16 @@ describe("ChatComposer", () => {
     expect(props.onValueChange).toHaveBeenCalledWith("New text");
   });
 
+  test("uses the same stable composer shell as the AI landing page", () => {
+    const { container } = renderComposer();
+
+    const shell = container.querySelector("form > div");
+    expect(shell).toHaveClass("min-h-28");
+    expect(shell).toHaveClass("rounded-2xl");
+    expect(shell).toContainElement(screen.getByRole("button", { name: "Web search" }));
+    expect(shell).toContainElement(screen.getByRole("button", { name: "Send" }));
+  });
+
   test("awaitingClarify swaps the placeholder", () => {
     renderComposer({ awaitingClarify: true });
     expect(screen.getByPlaceholderText("Pick one, or just type...")).toBeInTheDocument();
@@ -66,7 +76,7 @@ describe("ChatComposer", () => {
 
   test("clicking a source toggle patches only that key", () => {
     const props = renderComposer();
-    fireEvent.click(screen.getByRole("button", { name: "Web" }));
+    fireEvent.click(screen.getByRole("button", { name: "Web search" }));
     expect(props.onSourceConfigChange).toHaveBeenCalledWith({
       ...BUILT_IN_SOURCE_CONFIG,
       webSearch: false,

@@ -46,8 +46,17 @@ type SessionListWire = {
   next_cursor: string | null;
 };
 
-type SessionDetailWire = SessionRowWire & {
-  transcript: TranscriptEntry[];
+type SessionMetadataWire = {
+  session_id: string;
+  title: string | null;
+  created_at: string;
+  updated_at?: string;
+  source_config: SourceConfigWire | null;
+  is_generating?: boolean;
+};
+
+type SessionDetailResponseWire = SessionMetadataWire & {
+  transcript?: TranscriptEntry[];
 };
 
 function withBase(path: string) {
@@ -94,6 +103,23 @@ function isSessionRowWire(value: unknown): value is SessionRowWire {
   );
 }
 
+function isSessionMetadataWire(value: unknown): value is SessionMetadataWire {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+
+  const row = value as Partial<SessionMetadataWire>;
+  return (
+    typeof row.session_id === "string" &&
+    (typeof row.title === "string" || row.title === null) &&
+    typeof row.created_at === "string" &&
+    (row.updated_at === undefined || typeof row.updated_at === "string") &&
+    (row.is_generating === undefined ||
+      typeof row.is_generating === "boolean") &&
+    isSourceConfigWire(row.source_config)
+  );
+}
+
 function isSourceConfigWire(value: unknown): value is SourceConfigWire | null {
   if (value === null) {
     return true;
@@ -125,10 +151,10 @@ function rowToSummary(row: SessionRowWire): ChatSessionSummary {
 }
 
 function detailToSession(
-  row: Partial<SessionDetailWire>,
+  row: Partial<SessionDetailResponseWire>,
   fallbackSessionId: string,
 ): ChatSession {
-  if (!isSessionRowWire(row) || row.session_id !== fallbackSessionId) {
+  if (!isSessionMetadataWire(row) || row.session_id !== fallbackSessionId) {
     throw new TransportError(
       "server",
       "Session response did not match the requested conversation.",
@@ -136,7 +162,12 @@ function detailToSession(
   }
 
   return {
-    ...rowToSummary(row as SessionRowWire),
+    sessionId: row.session_id,
+    title: row.title,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+    sourceConfig: fromWireSourceConfig(row.source_config),
+    isGenerating: row.is_generating ?? false,
     transcript: Array.isArray(row.transcript) ? row.transcript : [],
   };
 }
@@ -235,7 +266,7 @@ export const chatTransport: ChatTransport = {
   },
 
   async getSession(sessionId): Promise<ChatSession> {
-    const wire = await requestJson<Partial<SessionDetailWire>>(
+    const wire = await requestJson<Partial<SessionDetailResponseWire>>(
       sessionPath(sessionId),
     );
     return detailToSession(wire, sessionId);

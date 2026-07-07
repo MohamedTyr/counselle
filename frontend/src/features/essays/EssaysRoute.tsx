@@ -102,6 +102,10 @@ function defaultEssayTitle(type: EssayType, application?: ApplicationView) {
   return `Untitled ${type.toLowerCase()}`;
 }
 
+function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function NewEssayDialog({
   applications,
   initialType,
@@ -226,10 +230,10 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
   const archiveUndoTimeoutRef = useRef<number | undefined>(undefined);
 
   const essays = useMemo(
-    () => (essaysQuery.data ?? []).map(essayFromSummary),
+    () => listOrEmpty(essaysQuery.data).map(essayFromSummary),
     [essaysQuery.data],
   );
-  const applications = applicationsQuery.data ?? [];
+  const applications = listOrEmpty(applicationsQuery.data);
   const filteredEssays = useMemo(
     () => filterEssays(essays, filter, query),
     [essays, filter, query],

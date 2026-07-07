@@ -1,20 +1,16 @@
-import { Globe2, GraduationCap, MessageCircle, SlidersHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Globe2, GraduationCap, MessageCircle, Send, SlidersHorizontal, Square } from "lucide-react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 
-import {
-  PromptInput,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputTools,
-} from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { FULL_SUBREDDIT_MENU } from "@/api/chat/source-config";
 import type { SourceConfig, Subreddit } from "@/api/chat/types";
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_PLACEHOLDER = "Message Counselle";
@@ -35,13 +31,14 @@ export type ChatComposerProps = {
 type SourceToggle = {
   key: "webSearch" | "eduSources" | "reddit";
   label: string;
+  shortLabel: string;
   icon: typeof Globe2;
 };
 
 const sourceToggles: SourceToggle[] = [
-  { key: "webSearch", label: "Web", icon: Globe2 },
-  { key: "eduSources", label: ".edu", icon: GraduationCap },
-  { key: "reddit", label: "Reddit", icon: MessageCircle },
+  { key: "webSearch", label: "Web search", shortLabel: "Web", icon: Globe2 },
+  { key: "eduSources", label: ".edu sources", shortLabel: ".edu", icon: GraduationCap },
+  { key: "reddit", label: "Reddit communities", shortLabel: "Reddit", icon: MessageCircle },
 ];
 
 function SubredditMenu({
@@ -89,13 +86,6 @@ function SubredditMenu({
   );
 }
 
-/**
- * ChatComposer — AI Elements `PromptInput` adapted to Counselle's chat turn
- * engine. `PromptInputTextarea` already implements the required keyboard
- * contract natively (Enter sends, Shift+Enter inserts a newline, IME
- * composition guarded) — see prompt-input.tsx's `handleKeyDown` — so no
- * keyboard logic is re-implemented here.
- */
 export function ChatComposer({
   value,
   onValueChange,
@@ -108,76 +98,162 @@ export function ChatComposer({
   disabled = false,
 }: ChatComposerProps) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
+  const { textareaRef, adjustHeight } = useAutoResizeTextarea({
+    minHeight: 34,
+    maxHeight: 220,
+  });
   const placeholder = awaitingClarify ? CLARIFY_PLACEHOLDER : DEFAULT_PLACEHOLDER;
+  const canSubmit = value.trim().length > 0 && !disabled;
+  const canClickSend = canSubmit && !isSubmitting;
+  const hasValue = value.trim().length > 0;
+
+  useEffect(() => {
+    adjustHeight(value.length === 0);
+  }, [adjustHeight, value]);
+
+  function submitText(text: string) {
+    if (text.trim().length === 0 || disabled) {
+      return;
+    }
+
+    onSubmit(text);
+    adjustHeight(true);
+  }
+
+  function handleSubmit(event?: FormEvent) {
+    event?.preventDefault();
+    submitText(value);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+    if (isComposing || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    submitText(event.currentTarget.value);
+  }
 
   function patchSource(key: SourceToggle["key"]) {
     onSourceConfigChange({ ...sourceConfig, [key]: !sourceConfig[key] });
   }
 
   return (
-    <PromptInput
+    <form
       aria-label="Message Counselle"
-      onSubmit={(message, event) => {
-        event.preventDefault();
-        onSubmit(message.text);
-      }}
+      className="w-full"
+      onSubmit={handleSubmit}
     >
-      <PromptInputTextarea
-        disabled={disabled}
-        onChange={(event) => onValueChange(event.currentTarget.value)}
-        placeholder={placeholder}
-        value={value}
-      />
-      <PromptInputTools className="justify-between px-2 pb-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {sourceToggles.map((toggle) => {
-            const Icon = toggle.icon;
-            const pressed = sourceConfig[toggle.key];
-            return (
-              <Button
-                aria-label={toggle.label}
-                aria-pressed={pressed}
-                className={cn(
-                  "h-7 rounded-full px-2 text-xs font-medium",
-                  pressed ? "bg-accent text-foreground" : "text-muted-foreground",
-                )}
-                disabled={disabled}
-                key={toggle.key}
-                onClick={() => patchSource(toggle.key)}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                <Icon className="size-3.5" data-icon="inline-start" />
-                {toggle.label}
-              </Button>
-            );
-          })}
-          {sourceConfig.reddit && (
-            <Popover onOpenChange={setSourcesOpen} open={sourcesOpen}>
+      <div
+        className={cn(
+          "group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl transition-colors",
+          "bg-[#1e1d1c] text-card-foreground",
+          hasValue
+            ? "border border-[#434240] focus-within:border-[#434240]"
+            : "border border-[#383736] focus-within:border-[#434240]",
+        )}
+      >
+        <Textarea
+          aria-label="Message Counselle"
+          unstyled
+          className={cn(
+            "min-h-10 max-h-18 w-full resize-none border-0 bg-transparent px-3 pt-2.5 pb-1.5 text-base leading-5 shadow-none outline-none",
+            "placeholder:text-[var(--workspace-foreground-soft)] focus-visible:ring-0 md:px-4 md:pt-2.5",
+          )}
+          disabled={disabled}
+          onChange={(event) => {
+            onValueChange(event.target.value);
+            adjustHeight();
+          }}
+          onCompositionEnd={() => setIsComposing(false)}
+          onCompositionStart={() => setIsComposing(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          ref={textareaRef}
+          style={{ resize: "none" }}
+          value={value}
+        />
+
+        <div className="mt-auto flex min-h-12 flex-wrap items-center justify-between gap-3 border-t border-[var(--workspace-border-soft)] px-3 py-2.5 md:px-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {sourceToggles.map((toggle) => {
+              const Icon = toggle.icon;
+              const pressed = sourceConfig[toggle.key];
+              return (
+                <Button
+                  aria-label={toggle.label}
+                  aria-pressed={pressed}
+                  className={cn(
+                    "h-8 rounded-lg px-2.5 text-xs font-medium",
+                    pressed
+                      ? "border-[var(--workspace-upcoming-task-card-hover-border)] bg-[var(--workspace-surface-active)] text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                  disabled={disabled || isSubmitting}
+                  key={toggle.key}
+                  onClick={() => patchSource(toggle.key)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Icon data-icon="inline-start" />
+                  <span aria-hidden="true" className="hidden sm:inline">
+                    {toggle.label}
+                  </span>
+                  <span aria-hidden="true" className="sm:hidden">
+                    {toggle.shortLabel}
+                  </span>
+                </Button>
+              );
+            })}
+            {sourceConfig.reddit && (
+              <Popover onOpenChange={setSourcesOpen} open={sourcesOpen}>
               <PopoverTrigger
                 aria-label="Choose subreddits"
-                className="flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="flex size-8 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <SlidersHorizontal className="size-3.5" />
               </PopoverTrigger>
               <PopoverContent align="start" className="w-64" side="top">
                 <SubredditMenu
-                  onChange={(next) =>
-                    onSourceConfigChange({ ...sourceConfig, selectedSubreddits: next })
-                  }
-                  selected={sourceConfig.selectedSubreddits}
-                />
-              </PopoverContent>
-            </Popover>
+                    onChange={(next) =>
+                      onSourceConfigChange({ ...sourceConfig, selectedSubreddits: next })
+                    }
+                    selected={sourceConfig.selectedSubreddits}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+
+          {isSubmitting ? (
+            <Button
+              aria-label="Stop"
+              className="size-9 shrink-0 rounded-lg"
+              onClick={onStop}
+              size="icon"
+              type="button"
+              variant="secondary"
+            >
+              <Square data-icon="inline-start" />
+            </Button>
+          ) : (
+            <Button
+              aria-label="Send"
+              className="size-9 shrink-0 rounded-lg"
+              disabled={!canClickSend}
+              size="icon"
+              type="submit"
+            >
+              <Send data-icon="inline-start" />
+            </Button>
           )}
         </div>
-        <PromptInputSubmit
-          disabled={disabled || (!isSubmitting && value.trim().length === 0)}
-          onStop={onStop}
-          status={isSubmitting ? "streaming" : undefined}
-        />
-      </PromptInputTools>
-    </PromptInput>
+      </div>
+    </form>
   );
 }

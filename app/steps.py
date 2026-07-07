@@ -601,9 +601,9 @@ class EmissionRouter:
             if self._thinking_streamed_len:
                 text = self._unstreamed_text()
                 self._clear_text_buffer()
-                self._start_final_answer()
                 if text:
-                    self.writer({"type": "delta", "text": text})
+                    self._emit_thinking(text)
+                self._final_candidate = True
                 return
             self._final_candidate = True
             return

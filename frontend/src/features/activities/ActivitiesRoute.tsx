@@ -95,18 +95,32 @@ function sortApiRows<TItem extends { sort_order: number }>(items: TItem[]) {
   return [...items].sort((a, b) => a.sort_order - b.sort_order);
 }
 
+function textOrEmpty(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function stringArrayOrEmpty(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function activityFromApi(activity: ApiActivity, index: number): Activity {
+  const activityType = textOrEmpty(activity.activity_type);
+
   return {
     id: activity.id,
     order: index + 1,
-    type: isActivityType(activity.activity_type)
-      ? activity.activity_type
-      : "Other Club/Activity",
-    position: activity.position,
-    organization: activity.organization,
-    description: activity.description,
-    grades: activity.grades.filter(isGrade),
-    timing: activity.timing.filter(isTiming),
+    type: isActivityType(activityType) ? activityType : "Other Club/Activity",
+    position: textOrEmpty(activity.position),
+    organization: textOrEmpty(activity.organization),
+    description: textOrEmpty(activity.description),
+    grades: stringArrayOrEmpty(activity.grades).filter(isGrade),
+    timing: stringArrayOrEmpty(activity.timing).filter(isTiming),
     hours_per_week: activity.hours_per_week ?? undefined,
     weeks_per_year: activity.weeks_per_year ?? undefined,
     continue_in_college: activity.continue_in_college ?? undefined,
@@ -120,9 +134,9 @@ function honorFromApi(honor: ApiHonor, index: number): Honor {
   return {
     id: honor.id,
     order: index + 1,
-    title: honor.title,
-    grades: honor.grades.filter(isGrade),
-    levels: honor.levels.filter(isRecognitionLevel),
+    title: textOrEmpty(honor.title),
+    grades: stringArrayOrEmpty(honor.grades).filter(isGrade),
+    levels: stringArrayOrEmpty(honor.levels).filter(isRecognitionLevel),
     created_at: honor.created_at,
     updated_at: honor.updated_at,
   };
@@ -215,11 +229,11 @@ export function ActivitiesPage() {
   );
   const [honorPreview, setHonorPreview] = useState<Honor[] | null>(null);
   const fetchedActivities = useMemo(
-    () => sortApiRows(activitiesQuery.data ?? []).map(activityFromApi),
+    () => sortApiRows(listOrEmpty(activitiesQuery.data)).map(activityFromApi),
     [activitiesQuery.data],
   );
   const fetchedHonors = useMemo(
-    () => sortApiRows(honorsQuery.data ?? []).map(honorFromApi),
+    () => sortApiRows(listOrEmpty(honorsQuery.data)).map(honorFromApi),
     [honorsQuery.data],
   );
   const activities = activityPreview ?? fetchedActivities;

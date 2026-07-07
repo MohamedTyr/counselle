@@ -28,10 +28,8 @@ export function useComposerStartTurn({
   transport = chatTransport,
 }: UseComposerStartTurnOptions = {}): UseComposerStartTurnResult {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [canCancel, setCanCancel] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const activeSessionIdRef = useRef<string | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
   const submittingRef = useRef(false)
 
   const submit = useCallback(
@@ -58,45 +56,20 @@ export function useComposerStartTurn({
         return { ok: false }
       }
 
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-      setCanCancel(true)
-
-      try {
-        await transport.streamFirstMessage({
-          sessionId,
-          text: trimmed,
-          sourceConfig,
-          signal: controller.signal,
-        })
-        return { ok: true, sessionId }
-      } catch (cause) {
-        if (controller.signal.aborted) {
-          return { ok: true, sessionId }
-        }
-        setError(createUserMessage(cause, "Could not send that message."))
-        return { ok: false }
-      } finally {
-        if (abortControllerRef.current === controller) {
-          abortControllerRef.current = null
-        }
-        submittingRef.current = false
-        setIsSubmitting(false)
-        setCanCancel(false)
-        activeSessionIdRef.current = null
-      }
+      submittingRef.current = false
+      setIsSubmitting(false)
+      activeSessionIdRef.current = null
+      return { ok: true, sessionId }
     },
     [transport],
   )
 
   const cancel = useCallback(async () => {
     const sessionId = activeSessionIdRef.current
-    const controller = abortControllerRef.current
-    if (!sessionId || !controller) {
+    if (!sessionId) {
       return
     }
 
-    controller.abort()
     try {
       await transport.cancelActiveTurn(sessionId)
     } catch (cause) {
@@ -108,7 +81,7 @@ export function useComposerStartTurn({
     submit,
     cancel,
     isSubmitting,
-    canCancel,
+    canCancel: false,
     error,
   }
 }

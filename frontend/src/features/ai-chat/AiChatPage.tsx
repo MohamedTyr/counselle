@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useMessageFeedback } from "@/api/chat/hooks";
 import type { ChatTransport } from "@/api/chat/types";
@@ -13,6 +13,8 @@ import { useChatSession } from "./useChatSession";
 
 export type AiChatPageProps = {
   sessionId: string;
+  initialPrompt?: string | null;
+  onInitialPromptConsumed?: () => void;
   /** Injectable for tests; defaults to the real `chatTransport` singleton
    *  inside `useChatSession`. */
   transport?: ChatTransport;
@@ -24,9 +26,15 @@ function documentTitleFor(title: string | null | undefined): string {
     : "New chat · Counselle";
 }
 
-export function AiChatPage({ sessionId, transport }: AiChatPageProps) {
+export function AiChatPage({
+  sessionId,
+  initialPrompt = null,
+  onInitialPromptConsumed,
+  transport,
+}: AiChatPageProps) {
   const [composerValue, setComposerValue] = useState("");
   const [sourcesPayload, setSourcesPayload] = useState<MessageSourcesPayload | null>(null);
+  const consumedInitialPromptRef = useRef(false);
   const isMobile = useIsMobile();
   const feedback = useMessageFeedback();
 
@@ -73,6 +81,27 @@ export function AiChatPage({ sessionId, transport }: AiChatPageProps) {
     },
     [submitMessage],
   );
+
+  useEffect(() => {
+    if (
+      initialPrompt === null ||
+      consumedInitialPromptRef.current ||
+      isLoading ||
+      transcriptError !== null
+    ) {
+      return;
+    }
+
+    consumedInitialPromptRef.current = true;
+    onInitialPromptConsumed?.();
+    handleSubmit(initialPrompt);
+  }, [
+    handleSubmit,
+    initialPrompt,
+    isLoading,
+    onInitialPromptConsumed,
+    transcriptError,
+  ]);
 
   const handleRegenerate = useCallback(
     (message: ChatMessage) => {

@@ -1,5 +1,5 @@
-import type { EssaySummary } from "@/api/workspace/types";
-import { essayFromSummary, isEssayDueSoon } from "@/domain/essay";
+import type { Essay as ApiEssay, EssaySummary } from "@/api/workspace/types";
+import { essayFromApi, essayFromSummary, isEssayDueSoon } from "@/domain/essay";
 import {
   commonAppPrompt,
   countWords,
@@ -138,6 +138,47 @@ describe("essay API mapping", () => {
     expect(essay({ deadline: "2026-07-12" }).dueSoon).toBe(true);
 
     vi.useRealTimers();
+  });
+
+  it("normalizes sparse backend essay payloads", () => {
+    const mapped = essay({
+      comment_count: undefined,
+      essay_type: undefined,
+      preview: undefined,
+      prompt: undefined,
+      status: undefined,
+      suggestion_count: undefined,
+      title: undefined,
+      word_count: undefined,
+      word_limit: undefined,
+    } as unknown as Partial<EssaySummary>);
+
+    expect(mapped).toEqual(
+      expect.objectContaining({
+        comments: 0,
+        preview: "",
+        prompt: null,
+        status: "Not started",
+        suggestions: 0,
+        title: "Untitled essay",
+        type: "Supplement",
+        wordCount: 0,
+        wordLimit: null,
+      }),
+    );
+
+    expect(
+      essayFromApi({
+        ...summary(),
+        content: undefined,
+        preview: undefined,
+      } as unknown as ApiEssay),
+    ).toEqual(
+      expect.objectContaining({
+        content: { type: "doc", content: [{ type: "paragraph" }] },
+        preview: "",
+      }),
+    );
   });
 });
 

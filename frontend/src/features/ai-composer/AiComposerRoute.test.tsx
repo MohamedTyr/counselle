@@ -41,6 +41,31 @@ function aiFetchHandler(
     )
   }
   if (
+    url.endsWith("/v1/sessions/60000000-0000-4000-8000-000000000001") &&
+    (!init?.method || init.method === "GET")
+  ) {
+    return jsonResponse({
+      session_id: "60000000-0000-4000-8000-000000000001",
+      title: null,
+      created_at: "2026-07-06T10:00:00Z",
+      source_config: {
+        web: true,
+        edu: false,
+        reddit: true,
+        reddit_subreddits: null,
+      },
+      transcript: [],
+    })
+  }
+  if (
+    url.endsWith(
+      "/v1/sessions/60000000-0000-4000-8000-000000000001/stream",
+    ) &&
+    (!init?.method || init.method === "GET")
+  ) {
+    return new Response(null, { status: 204 })
+  }
+  if (
     url.endsWith(
       "/v1/sessions/60000000-0000-4000-8000-000000000001/messages",
     ) &&

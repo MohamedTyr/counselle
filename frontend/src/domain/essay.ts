@@ -34,8 +34,53 @@ export type EssayDetail = Essay & {
   content: TiptapContent;
 };
 
+const essayStatuses = new Set<EssayStatus>([
+  "Not started",
+  "Drafting",
+  "Needs review",
+  "Ready",
+  "Submitted",
+]);
+const essayTypes = new Set<EssayType>([
+  "Personal statement",
+  "Supplement",
+  "Scholarship",
+  "Optional",
+]);
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DUE_SOON_DAYS = 14;
+const emptyTiptapContent: TiptapContent = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};
+
+function textOrEmpty(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function textOrNull(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function numberOrZero(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function numberOrNull(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function isEssayStatus(value: unknown): value is EssayStatus {
+  return typeof value === "string" && essayStatuses.has(value as EssayStatus);
+}
+
+function isEssayType(value: unknown): value is EssayType {
+  return typeof value === "string" && essayTypes.has(value as EssayType);
+}
+
+function contentOrEmpty(value: unknown): TiptapContent {
+  return value && typeof value === "object" ? value : emptyTiptapContent;
+}
 
 function dateOnlyUtcTime(value: Date) {
   return Date.UTC(
@@ -69,9 +114,16 @@ function formatSchoolLocation(city: string | null, state: string | null) {
 }
 
 export function essayFromSummary(summary: EssaySummary): Essay {
-  const hasLinkedApplication = summary.application_id !== null;
+  const applicationId = textOrNull(summary.application_id);
+  const type = isEssayType(summary.essay_type) ? summary.essay_type : "Supplement";
+  const status = isEssayStatus(summary.status)
+    ? summary.status
+    : "Not started";
+  const deadline = textOrNull(summary.deadline);
+  const title = textOrEmpty(summary.title) || "Untitled essay";
+  const hasLinkedApplication = applicationId !== null;
   const isPersonalStatement =
-    !hasLinkedApplication && summary.essay_type === "Personal statement";
+    !hasLinkedApplication && type === "Personal statement";
   const schoolName =
     summary.school_name ??
     (isPersonalStatement
@@ -88,29 +140,29 @@ export function essayFromSummary(summary: EssaySummary): Essay {
         : "No linked school");
 
   return {
-    applicationId: summary.application_id,
-    comments: summary.comment_count,
-    deadline: summary.deadline,
-    dueSoon: isEssayDueSoon(summary.deadline),
-    id: summary.id,
-    preview: summary.preview,
-    prompt: summary.prompt,
+    applicationId,
+    comments: numberOrZero(summary.comment_count),
+    deadline,
+    dueSoon: isEssayDueSoon(deadline),
+    id: textOrEmpty(summary.id),
+    preview: textOrEmpty(summary.preview),
+    prompt: textOrNull(summary.prompt),
     schoolLocation,
     schoolName,
-    status: summary.status,
-    suggestions: summary.suggestion_count,
-    title: summary.title,
-    type: summary.essay_type,
-    updatedAt: summary.updated_at,
-    wordCount: summary.word_count,
-    wordLimit: summary.word_limit,
+    status,
+    suggestions: numberOrZero(summary.suggestion_count),
+    title,
+    type,
+    updatedAt: textOrEmpty(summary.updated_at),
+    wordCount: numberOrZero(summary.word_count),
+    wordLimit: numberOrNull(summary.word_limit),
   };
 }
 
 export function essayFromApi(essay: ApiEssay): EssayDetail {
   return {
     ...essayFromSummary(essay),
-    content: essay.content,
+    content: contentOrEmpty(essay.content),
   };
 }
 

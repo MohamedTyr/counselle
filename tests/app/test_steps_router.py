@@ -226,6 +226,31 @@ def test_late_final_result_event_does_not_duplicate_visible_thinking() -> None:
     ]
 
 
+def test_late_final_result_after_streamed_thinking_keeps_tail_as_thinking() -> None:
+    chunks: list[dict[str, Any]] = []
+    router = EmissionRouter(
+        writer=chunks.append,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        threshold=10,
+    )
+
+    router.handle(_text_start("visible thinking"))
+    router.handle(_text_delta(" tail before final marker"))
+    router.handle(_final())
+    router.handle(_text_end(None))
+    router.handle(_text_start("Actual final answer."))
+    router.handle(_text_end(None))
+    router.close("complete")
+
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "thinking"] == [
+        "visible thinking",
+        "tail before final marker",
+    ]
+    assert [chunk["text"] for chunk in chunks if chunk["type"] == "delta"] == [
+        "Actual final answer."
+    ]
+
+
 def test_agent_run_result_event_fallback_flushes_buffered_final_text_once() -> None:
     chunks: list[dict[str, Any]] = []
     marks: list[str] = []

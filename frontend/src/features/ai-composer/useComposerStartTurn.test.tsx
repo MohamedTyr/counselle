@@ -46,7 +46,7 @@ describe("useComposerStartTurn", () => {
     expect(transport.createSession).not.toHaveBeenCalled();
   });
 
-  it("creates a session before streaming the first message", async () => {
+  it("creates a session and returns it without streaming from the landing page", async () => {
     const transport = transportMock();
     const { result } = renderHook(() => useComposerStartTurn({ transport }));
 
@@ -62,24 +62,17 @@ describe("useComposerStartTurn", () => {
     expect(transport.createSession).toHaveBeenCalledWith({
       sourceConfig: BUILT_IN_SOURCE_CONFIG,
     });
-    expect(transport.streamFirstMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sessionId: "session-1",
-        text: "Compare aid at UCLA",
-        sourceConfig: BUILT_IN_SOURCE_CONFIG,
-      }),
-    );
-    expect(
-      vi.mocked(transport.createSession).mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      vi.mocked(transport.streamFirstMessage).mock.invocationCallOrder[0]!,
-    );
+    expect(transport.streamFirstMessage).not.toHaveBeenCalled();
+    expect(transport.sendMessage).not.toHaveBeenCalled();
   });
 
-  it("blocks duplicate submits while a stream is pending", async () => {
-    const stream = deferred<{ accepted: boolean }>();
+  it("blocks duplicate submits while session creation is pending", async () => {
+    const created = deferred<{
+      sessionId: string;
+      sourceConfig: typeof BUILT_IN_SOURCE_CONFIG;
+    }>();
     const transport = transportMock({
-      streamFirstMessage: vi.fn(() => stream.promise),
+      createSession: vi.fn(() => created.promise),
     });
     const { result } = renderHook(() => useComposerStartTurn({ transport }));
 
@@ -95,7 +88,10 @@ describe("useComposerStartTurn", () => {
     });
 
     expect(transport.createSession).toHaveBeenCalledTimes(1);
-    stream.resolve({ accepted: true });
+    created.resolve({
+      sessionId: "session-1",
+      sourceConfig: BUILT_IN_SOURCE_CONFIG,
+    });
     await waitFor(() => expect(result.current.isSubmitting).toBe(false));
   });
 
@@ -114,64 +110,14 @@ describe("useComposerStartTurn", () => {
     expect(result.current.error).toBe("Could not start the conversation.");
   });
 
-  it("returns false when pre-stream send fails", async () => {
-    const transport = transportMock({
-      streamFirstMessage: vi.fn().mockRejectedValue(new Error("send failed")),
-    });
-    const { result } = renderHook(() => useComposerStartTurn({ transport }));
-
-    await expect(
-      act(async () =>
-        result.current.submit("Question", BUILT_IN_SOURCE_CONFIG),
-      ),
-    ).resolves.toEqual({ ok: false });
-
-    expect(result.current.error).toBe("Could not send that message.");
-  });
-
-  it("cancels only when an active session has a stream", async () => {
-    const stream = deferred<{ accepted: boolean }>();
-    const transport = transportMock({
-      streamFirstMessage: vi.fn(() => stream.promise),
-    });
+  it("does not expose landing-page cancellation because the chat page owns the stream", async () => {
+    const transport = transportMock();
     const { result } = renderHook(() => useComposerStartTurn({ transport }));
 
     await act(async () => {
       await result.current.cancel();
     });
     expect(transport.cancelActiveTurn).not.toHaveBeenCalled();
-
-    act(() => {
-      void result.current.submit("Question", BUILT_IN_SOURCE_CONFIG);
-    });
-    await waitFor(() => expect(result.current.canCancel).toBe(true));
-
-    await act(async () => {
-      await result.current.cancel();
-    });
-
-    expect(transport.cancelActiveTurn).toHaveBeenCalledWith("session-1");
-    stream.resolve({ accepted: true });
-  });
-
-  it("maps cancel failures to hook error state", async () => {
-    const stream = deferred<{ accepted: boolean }>();
-    const transport = transportMock({
-      streamFirstMessage: vi.fn(() => stream.promise),
-      cancelActiveTurn: vi.fn().mockRejectedValue(new Error("cancel failed")),
-    });
-    const { result } = renderHook(() => useComposerStartTurn({ transport }));
-
-    act(() => {
-      void result.current.submit("Question", BUILT_IN_SOURCE_CONFIG);
-    });
-    await waitFor(() => expect(result.current.canCancel).toBe(true));
-
-    await act(async () => {
-      await result.current.cancel();
-    });
-
-    expect(result.current.error).toBe("Could not stop the response.");
-    stream.resolve({ accepted: true });
+    expect(result.current.canCancel).toBe(false);
   });
 });

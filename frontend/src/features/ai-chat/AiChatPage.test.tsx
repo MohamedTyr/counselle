@@ -11,7 +11,7 @@ import type {
 } from "@/api/chat/types";
 import { createTestQueryClient } from "@/test/render-app";
 
-import { AiChatPage } from "./AiChatPage";
+import { AiChatPage, type AiChatPageProps } from "./AiChatPage";
 
 type MockedChatTransport = {
   [K in keyof ChatTransport]: ReturnType<typeof vi.fn<ChatTransport[K]>>;
@@ -137,11 +137,14 @@ function controllableStream() {
   return { stream: stream(), push, close };
 }
 
-function renderPage(sessionId = "s1") {
+function renderPage(
+  sessionId = "s1",
+  props: Partial<Omit<AiChatPageProps, "sessionId" | "transport">> = {},
+) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <AiChatPage sessionId={sessionId} transport={fakeTransport} />
+      <AiChatPage sessionId={sessionId} transport={fakeTransport} {...props} />
     </QueryClientProvider>,
   );
 }
@@ -202,9 +205,8 @@ describe("AiChatPage", () => {
 
   test("sending a follow-up appends an optimistic user bubble and streams the assistant answer", async () => {
     fakeTransport.getSession.mockResolvedValue(session());
-    fakeTransport.sendMessage.mockReturnValue(
-      replay([meta(), delta("Here's how aid works."), done()]),
-    );
+    const controlled = controllableStream();
+    fakeTransport.sendMessage.mockReturnValue(controlled.stream);
 
     renderPage();
     await screen.findByText("No messages yet");
@@ -214,9 +216,33 @@ describe("AiChatPage", () => {
     fireEvent.keyDown(textarea, { key: "Enter" });
 
     expect(await screen.findByText("Tell me about aid")).toBeInTheDocument();
+    controlled.push(meta());
+    controlled.push(delta("Here's how aid works."));
+    controlled.push(done());
+    controlled.close();
     expect(await screen.findByText("Here's how aid works.")).toBeInTheDocument();
     expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: "s1", text: "Tell me about aid" }),
+    );
+  });
+
+  test("submits a routed initial prompt once after the empty session loads", async () => {
+    const onInitialPromptConsumed = vi.fn();
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage.mockReturnValue(
+      replay([meta(), delta("Initial answer"), done()]),
+    );
+
+    renderPage("s1", {
+      initialPrompt: "Compare aid",
+      onInitialPromptConsumed,
+    });
+
+    expect(await screen.findByText("Compare aid")).toBeInTheDocument();
+    expect(await screen.findByText("Initial answer")).toBeInTheDocument();
+    expect(onInitialPromptConsumed).toHaveBeenCalledTimes(1);
+    expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "s1", text: "Compare aid" }),
     );
   });
 

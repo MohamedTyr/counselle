@@ -45,7 +45,9 @@ export function AiComposerRoute() {
     setValue("")
     const result = await startTurn.submit(submitted, sourceConfig)
     if (result.ok) {
-      void navigate(`/app/ai/${result.sessionId}`)
+      void navigate(`/app/ai/${result.sessionId}`, {
+        state: { initialPrompt: submitted },
+      })
       return
     }
     if (!result.ok) {

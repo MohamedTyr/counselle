@@ -267,6 +267,39 @@ describe("ActivitiesPage", () => {
     expect(screen.getByText("Grade 10")).toBeInTheDocument();
   });
 
+  it("normalizes missing backend activity fields before computing status", async () => {
+    renderActivities({
+      activities: [
+        {
+          ...activityFixtures[0],
+          activity_type: undefined,
+          description: undefined,
+          grades: undefined,
+          organization: undefined,
+          position: undefined,
+          timing: undefined,
+        } as unknown as ApiActivity,
+      ],
+      honors: [
+        {
+          ...honorFixtures[0],
+          grades: undefined,
+          levels: undefined,
+          title: undefined,
+        } as unknown as ApiHonor,
+      ],
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Activities" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0 paste-ready")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /Activity 1: Untitled/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No timing")).toBeInTheDocument();
+  });
+
   it("does not let an older activity PATCH response overwrite newer input", async () => {
     const user = userEvent.setup();
     const olderPatch = deferredResponse();

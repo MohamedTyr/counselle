@@ -169,15 +169,16 @@ describe("chatTransport", () => {
         session_id: "session-1",
         title: "Aid",
         created_at: "2026-07-06T10:00:00Z",
-        updated_at: "2026-07-06T10:10:00Z",
         source_config: null,
-        is_generating: false,
         transcript: [{ role: "user", text: "Hi", ts: null, message_id: "u1" }],
       }),
     );
 
     await expect(chatTransport.getSession("session-1")).resolves.toMatchObject({
       sessionId: "session-1",
+      createdAt: "2026-07-06T10:00:00Z",
+      updatedAt: "2026-07-06T10:00:00Z",
+      isGenerating: false,
       transcript: [{ role: "user", text: "Hi" }],
     });
   });
@@ -188,9 +189,7 @@ describe("chatTransport", () => {
         session_id: "session-1",
         title: null,
         created_at: "2026-07-06T10:00:00Z",
-        updated_at: "2026-07-06T10:10:00Z",
         source_config: null,
-        is_generating: false,
       }),
     );
 

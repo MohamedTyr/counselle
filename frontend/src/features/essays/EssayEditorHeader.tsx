@@ -88,7 +88,7 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
               "flex min-w-0 items-center gap-2",
               index === trail.length - 1 && "shrink-0",
             )}
-            key={item}
+            key={`${index}-${item}`}
           >
             {index > 0 ? (
               <span aria-hidden="true" className="text-border">

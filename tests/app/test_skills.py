@@ -19,9 +19,15 @@ Covered behaviors:
 from __future__ import annotations
 
 import importlib
+import re
 import types
+from typing import Any
 
 import pytest
+
+from app.tool_specs import build_tool_specs
+from config.settings import load_yaml_asset
+from domain.events import StepDetail
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -35,6 +41,8 @@ _EXPECTED_SKILLS = {
 }
 
 _FAKE_TEMPORAL = "Today is 2026-06-10. TEST. Season: list-building."
+_CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
+_TOOL_CALL_RE = re.compile(r"^([a-z][a-z0-9_]*)\(")
 
 
 def _fresh_skills() -> types.ModuleType:
@@ -44,6 +52,23 @@ def _fresh_skills() -> types.ModuleType:
     mod._meta_cache = None
     mod._body_cache = {}
     return mod
+
+
+def _receipt(
+    _tool_name: str, _args: dict[str, Any], _content: Any, _duration_ms: int, _context: Any
+) -> StepDetail:
+    return StepDetail()
+
+
+def _tool_references(markdown: str, tool_names: set[str]) -> list[str]:
+    refs: list[str] = []
+    for code_span in _CODE_SPAN_RE.findall(markdown):
+        call = _TOOL_CALL_RE.match(code_span)
+        if call is not None:
+            refs.append(call.group(1))
+        elif code_span in tool_names:
+            refs.append(code_span)
+    return refs
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +105,18 @@ class TestAllSkillsParse:
             body = self.skills_mod.load_skill(m["name"])
             line_count = len(body.splitlines())
             assert line_count <= 120, f"skill '{m['name']}' has {line_count} lines (limit 120)"
+
+    def test_backticked_tool_references_exist_in_tool_registry(self) -> None:
+        specs = build_tool_specs(load_yaml_asset("step_labels"), _receipt)
+        tool_names = set(specs)
+        missing: list[str] = []
+        for m in self.meta:
+            body = self.skills_mod.load_skill(m["name"])
+            for reference in _tool_references(body, tool_names):
+                if reference not in tool_names:
+                    missing.append(f"{m['name']}: `{reference}`")
+
+        assert missing == []
 
 
 # ---------------------------------------------------------------------------
