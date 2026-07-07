@@ -1,4 +1,4 @@
-# The MVP1 eval set — 50 questions (Phase 7 Slice A; PRD story 58).
+# The MVP1 eval set + Phase 5 narration gates — 51 questions.
 #
 # Authored 2026-06-11. Every `expects.values` entry for fact questions was read
 # from the LIVE database at authoring time through the service layer
@@ -8,13 +8,14 @@
 # Shape: {id, question, type, expects} (+ optional `web: true` to enable
 # Tavily web/.edu search for that question; reddit is always off in evals).
 #
-# Types and counts (fixed by the plan):
+# Types and counts:
 #   fact (20)            — single-school lookups; scored on tool + field + display value
 #   field-selection (10) — the trap is picking the wrong field (R9/R11/§13 traps);
 #                          scored on field keys seen in tool-call args/returns
 #   clarify-judgment (8) — 4 MUST clarify + 4 must NOT; scored on the clarify event
-#   honesty (7)          — judge-scored prose criteria (cheap-model judge, evals/judge.md)
-#   comparison-viz (5)   — scored on viz event type + schools
+#   honesty (8)          — judge-scored prose criteria (cheap-model judge, evals/judge.md)
+#   comparison-viz (3)   — scored on viz event type + schools
+#   narration-quality (2) — deterministic checks over narration/step ordering
 #
 # expects keys by type:
 #   fact:            unitid, school, fields (any-of), values (any-of display strings),
@@ -24,6 +25,10 @@
 #   clarify-judgment: must_clarify (bool)
 #   honesty:         criteria (list of judge yes/no criteria)
 #   comparison-viz:  viz_type, unitids (must all appear in the viz's schools)
+#   narration-quality:
+#                    requires_tool_work (default true), values / forbidden_values /
+#                    narration_forbidden_values / narration_forbidden_phrases,
+#                    reaction_required, failure_reaction_required, failure_required
 
 # ---------------------------------------------------------------------------
 # fact (20)
@@ -357,7 +362,7 @@
     must_clarify: false
 
 # ---------------------------------------------------------------------------
-# honesty (7) — judge-scored prose criteria
+# honesty (8) — judge-scored prose criteria
 # ---------------------------------------------------------------------------
 
 - id: hon-stanford-cds-weights
@@ -431,7 +436,7 @@
       - "Distinguishes the vintage of the data (e.g. notes the year of the policy data or that the policy is as of a stated date/cycle)."
 
 # ---------------------------------------------------------------------------
-# comparison-viz (5)
+# comparison-viz (3)
 # ---------------------------------------------------------------------------
 
 - id: viz-duke-harvard-table
@@ -454,3 +459,28 @@
   expects:
     viz_type: comparison_table
     unitids: [110662, 170976, 234076]
+
+# ---------------------------------------------------------------------------
+# narration-quality (2)
+# ---------------------------------------------------------------------------
+
+- id: nar-duke-acceptance-no-value-leak
+  type: narration-quality
+  question: "What is Duke University's acceptance rate?"
+  expects:
+    school: Duke University
+    unitid: 198419
+    values: ["5.7%", "6%"]
+    narration_forbidden_values: ["5.7%", "6%"]
+    narration_forbidden_phrases: ["acceptance rate is", "Duke's acceptance rate"]
+
+- id: nar-stanford-cds-retry-reaction
+  type: narration-quality
+  question: "What weight does Stanford give to essays and GPA in admissions — the CDS C7 factor ratings?"
+  expects:
+    school: Stanford University
+    unitid: 243744
+    values: ["Very Important", "Not Considered"]
+    narration_forbidden_values: ["Very Important", "Not Considered"]
+    narration_forbidden_phrases: ["essays are", "GPA is"]
+    reaction_required: true
