@@ -136,7 +136,14 @@ describe("parseSseStream", () => {
             kind: "write_plan",
             label: "Updated the plan",
             tier: null,
-            detail: { completed: 1, total: 3 },
+            detail: {
+              items: [
+                { content: "Resolve schools", status: "completed" },
+                { content: "Compare costs", status: "in_progress" },
+              ],
+              completed: 1,
+              total: 2,
+            },
           },
           "1",
         ),
@@ -152,7 +159,14 @@ describe("parseSseStream", () => {
         kind: "write_plan",
         label: "Updated the plan",
         tier: null,
-        detail: { completed: 1, total: 3 },
+        detail: {
+          items: [
+            { content: "Resolve schools", status: "completed" },
+            { content: "Compare costs", status: "in_progress" },
+          ],
+          completed: 1,
+          total: 2,
+        },
       },
     });
   });

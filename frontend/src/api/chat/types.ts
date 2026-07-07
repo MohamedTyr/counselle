@@ -107,6 +107,12 @@ export type StepDetail = {
   row_count?: number;
   viz_type?: string;
   schools?: string[];
+  items?: Array<{
+    content: string;
+    status: "pending" | "in_progress" | "completed" | "cancelled";
+  }>;
+  completed?: number;
+  total?: number;
 };
 
 export type StepSource = {

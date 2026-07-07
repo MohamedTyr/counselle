@@ -129,6 +129,23 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
+function isPlanItem(value: unknown) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.content === "string" &&
+    (value.status === "pending" ||
+      value.status === "in_progress" ||
+      value.status === "completed" ||
+      value.status === "cancelled")
+  );
+}
+
+function isPlanItems(value: unknown) {
+  return Array.isArray(value) && value.every(isPlanItem);
+}
+
 function isStepDetail(value: unknown) {
   if (!isPlainRecord(value)) {
     return false;
@@ -143,7 +160,10 @@ function isStepDetail(value: unknown) {
     (!("field_keys" in value) || isStringArray(value.field_keys)) &&
     (!("row_count" in value) || isNumber(value.row_count)) &&
     (!("viz_type" in value) || typeof value.viz_type === "string") &&
-    (!("schools" in value) || isStringArray(value.schools))
+    (!("schools" in value) || isStringArray(value.schools)) &&
+    (!("items" in value) || isPlanItems(value.items)) &&
+    (!("completed" in value) || isNumber(value.completed)) &&
+    (!("total" in value) || isNumber(value.total))
   );
 }
 

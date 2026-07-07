@@ -21,7 +21,14 @@ from config.settings import load_yaml_asset
 # The function tools mounted directly on the agent (app/toolset.py +
 # app/agent_node.py). ask_student is deliberately NOT here — it is
 # interrupt-backed and excluded from the timeline.
-FUNCTION_TOOLS = {"search_web", "search_school_site", "search_reddit", "render_viz", "load_skill"}
+FUNCTION_TOOLS = {
+    "search_web",
+    "search_school_site",
+    "search_reddit",
+    "render_viz",
+    "load_skill",
+    "write_plan",
+}
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
 
@@ -100,6 +107,13 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
         ["comparison table"],
     ),
     ("load_skill", {"name": "essay-brainstorm"}, "skill", None, ["essay-brainstorm"]),
+    (
+        "write_plan",
+        {"items": [{"content": "Compare schools", "status": "in_progress"}]},
+        "write_plan",
+        None,
+        ["plan"],
+    ),
 ]
 
 
@@ -318,6 +332,33 @@ def test_detail_for_viz_kind(mapper: StepMapper) -> None:
 
     assert detail.viz_type == "comparison_table"
     assert detail.schools == ["Vanderbilt University"]
+
+
+def test_detail_for_write_plan_kind(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "write_plan",
+        {"items": [{"content": "Compare schools", "status": "in_progress"}]},
+        {
+            "status": "success",
+            "public_receipt": {
+                "items": [
+                    {"content": "Resolve schools", "status": "completed"},
+                    {"content": "Compare costs", "status": "in_progress"},
+                ],
+                "completed": 1,
+                "total": 2,
+            },
+        },
+        12,
+    )
+
+    assert detail.items == [
+        {"content": "Resolve schools", "status": "completed"},
+        {"content": "Compare costs", "status": "in_progress"},
+    ]
+    assert detail.completed == 1
+    assert detail.total == 2
+    assert detail.duration_ms == 12
 
 
 def test_receipts_never_carry_secrets(mapper: StepMapper, labels: dict[str, Any]) -> None:

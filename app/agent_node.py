@@ -49,6 +49,7 @@ from pydantic_ai.run import AgentRunResultEvent
 from pydantic_ai.usage import UsageLimits
 
 from app import viz as viz_mod
+from app.plan_tool import make_write_plan_tool
 from app.prompt import build_system_prompt
 from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.skills import make_load_skill_tool
@@ -314,6 +315,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     extra_tools: list[Tool[Any]] = [
+        Tool(make_write_plan_tool(), takes_ctx=False),
         _make_render_viz_tool(deps.catalog, registry, viz_list, viz_signature_indexes),
         Tool(make_load_skill_tool(), takes_ctx=False),
     ]

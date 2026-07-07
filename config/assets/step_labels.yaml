@@ -74,6 +74,10 @@ tools:
     kind: skill
     tier: null
     label: "Consulting the “{name}” playbook"
+  write_plan:
+    kind: write_plan
+    tier: null
+    label: "Updating the plan"
 
 # Any tool not in the table maps here — a generic step, never nothing.
 default:

@@ -19,7 +19,15 @@ EventType = Literal[
 
 StepStatus = Literal["start", "end", "error"]
 StepKind = Literal[
-    "db_tool", "sql", "web_search", "edu_search", "reddit_search", "viz", "skill", "research"
+    "db_tool",
+    "sql",
+    "web_search",
+    "edu_search",
+    "reddit_search",
+    "viz",
+    "skill",
+    "research",
+    "write_plan",
 ]
 StepTier = Literal["official", "community"]
 DoneStatus = Literal["complete", "awaiting_input", "cancelled"]
@@ -65,7 +73,7 @@ class StepDetail(BaseModel):
 
     Honesty invariant: ``field_keys`` and ``row_count`` are eng/debug-only —
     they expose DB schema internals and MUST NOT be rendered in student-facing
-    UI. The FE upholds this by convention (only search receipts are shown).
+    UI. Public plan receipts ride ``items``/``completed``/``total``.
     """
 
     query: str | None = None
@@ -77,6 +85,9 @@ class StepDetail(BaseModel):
     row_count: int | None = None
     viz_type: str | None = None
     schools: list[str] | None = None
+    items: list[dict[str, str]] | None = None
+    completed: int | None = None
+    total: int | None = None
 
 
 class StepSource(BaseModel):

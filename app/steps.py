@@ -196,6 +196,8 @@ class StepMapper:
         elif kind == "viz":
             kwargs["viz_type"] = _str_or_none(args.get("type"))
             kwargs["schools"] = self._school_names(args)
+        elif kind == "write_plan":
+            kwargs.update(_plan_detail_kwargs(content))
         else:  # db_tool, skill, unknown
             kwargs.update(self._db_tool_detail_kwargs(tool_name, args, content))
         return StepDetail(**kwargs)
@@ -343,6 +345,34 @@ def _row_count_of(content: Any) -> int | None:
     if isinstance(content, dict) and isinstance(content.get("rows"), list):
         return len(content["rows"])
     return None
+
+
+def _plan_detail_kwargs(content: Any) -> dict[str, Any]:
+    if not isinstance(content, dict):
+        return {}
+    receipt = content.get("public_receipt")
+    if not isinstance(receipt, dict):
+        return {}
+    kwargs: dict[str, Any] = {}
+    completed = receipt.get("completed")
+    total = receipt.get("total")
+    if isinstance(completed, int):
+        kwargs["completed"] = completed
+    if isinstance(total, int):
+        kwargs["total"] = total
+    items = receipt.get("items")
+    if isinstance(items, list):
+        clean_items: list[dict[str, str]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            content_text = _str_or_none(item.get("content"))
+            status = _str_or_none(item.get("status"))
+            if content_text and status:
+                clean_items.append({"content": content_text, "status": status})
+        if clean_items:
+            kwargs["items"] = clean_items
+    return kwargs
 
 
 def _domains_of(results: list[Any]) -> list[str] | None:

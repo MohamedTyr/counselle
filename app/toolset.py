@@ -18,8 +18,8 @@ Two halves:
    Per-run toolsets are additive to construction-time toolsets (notes §3), so
    these mount at ``agent.run(..., toolsets=...)`` time.
 
-``render_viz`` / ``ask_student`` / ``load_skill`` are Slice D/E — appended via
-``extra_tools`` by Slice F.
+``write_plan`` / ``render_viz`` / ``load_skill`` are appended via
+``extra_tools`` by the agent node.
 """
 
 from __future__ import annotations
@@ -186,8 +186,9 @@ def build_tools(
 ) -> list[Tool[Any]]:
     """Assemble the per-request function tools from the source config.
 
-    A disabled source's tool is never constructed. ``extra_tools`` (render_viz,
-    ask_student, load_skill — Slices D/E, wired by Slice F) are appended as-is.
+    A disabled source's tool is never constructed. ``extra_tools``
+    (write_plan, render_viz, load_skill — wired by the agent node) are
+    appended as-is.
     """
     tools: list[Tool[Any]] = []
     any_external = source_config.web or source_config.edu or source_config.reddit

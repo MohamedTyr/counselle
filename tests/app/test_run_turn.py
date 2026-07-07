@@ -336,8 +336,53 @@ async def test_toolset_lacks_disabled_sources_and_ask_student() -> None:
 
     assert "search_reddit" not in seen
     assert {"search_web", "search_school_site"} <= set(seen)
-    assert {"render_viz", "load_skill"} <= set(seen)
+    assert {"write_plan", "render_viz", "load_skill"} <= set(seen)
     assert "ask_student" not in seen
+
+
+def _plan_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) and part.tool_name == "write_plan"
+        for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("I updated the plan and then answered.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="write_plan",
+                args={
+                    "items": [
+                        {"content": "Check the school data", "status": "completed"},
+                        {"content": "Draft the recommendation", "status": "in_progress"},
+                    ]
+                },
+            )
+        ]
+    )
+
+
+async def test_write_plan_tool_produces_visible_step_receipt() -> None:
+    rig = Rig(_fn_model(_plan_then_answer))
+
+    events = await rig.turn(str(uuid4()), "Make a quick plan", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    assert _text(events) == "I updated the plan and then answered."
+    plan_steps = [
+        event.data
+        for event in events
+        if event.type == "step" and event.data["kind"] == "write_plan"
+    ]
+    assert [step["status"] for step in plan_steps] == ["start", "end"]
+    assert all(step["label"] == "Updating the plan" for step in plan_steps)
+    detail = plan_steps[-1]["detail"]
+    assert detail["completed"] == 1
+    assert detail["total"] == 2
+    assert detail["items"] == [
+        {"content": "Check the school data", "status": "completed"},
+        {"content": "Draft the recommendation", "status": "in_progress"},
+    ]
 
 
 # ---------------------------------------------------------------------------
