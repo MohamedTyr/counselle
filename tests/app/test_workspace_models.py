@@ -7,10 +7,12 @@ from pydantic import ValidationError
 
 from app.workspace.models import (
     ApplicationCreate,
+    ApplicationPatch,
     ChangeEvent,
     ChangeEventData,
     EssayCreate,
     TaskCreate,
+    TaskPatch,
 )
 from config.settings import load_yaml_asset
 
@@ -28,6 +30,37 @@ def test_workspace_models_import_and_validate_minimal_payloads() -> None:
 def test_workspace_models_reject_unknown_enums() -> None:
     with pytest.raises(ValidationError):
         TaskCreate(title="Bad task", priority="urgent")  # type: ignore[arg-type]
+
+
+def test_application_status_accepts_deferred_and_enrolled() -> None:
+    assert ApplicationPatch(status="Deferred").status == "Deferred"
+    assert ApplicationPatch(status="Enrolled").status == "Enrolled"
+
+
+def test_round_accepts_ed2_and_rea_and_rejects_scholarship_deadline() -> None:
+    assert ApplicationPatch(round="ED2").round == "ED2"
+    assert ApplicationPatch(round="REA").round == "REA"
+    with pytest.raises(ValidationError):
+        ApplicationPatch(round="Scholarship deadline")  # type: ignore[arg-type]
+
+
+def test_task_category_accepts_interview() -> None:
+    assert TaskPatch(category="interview").category == "interview"
+
+
+def test_application_patch_accepts_new_field_pass_fields() -> None:
+    patch = ApplicationPatch(
+        aid_deadline=None,
+        scholarship_deadline=None,
+        notes="Visited campus in June",
+        intended_major="Computer Science",
+        test_plan="withhold",
+    )
+    assert patch.notes == "Visited campus in June"
+    assert patch.intended_major == "Computer Science"
+    assert patch.test_plan == "withhold"
+    with pytest.raises(ValidationError):
+        ApplicationPatch(test_plan="maybe")  # type: ignore[arg-type]
 
 
 def test_change_event_shape_matches_phase_1_contract() -> None:
@@ -62,14 +95,7 @@ def test_workspace_seeding_asset_loads_and_validates() -> None:
 
     template = WorkspaceSeedingTemplate.model_validate(load_yaml_asset("workspace_seeding"))
 
-    assert [task.title for task in template.tasks] == [
-        "Complete the Common App sections for this school",
-        "Request recommendation letters",
-        "Request transcript from your school",
-        "Send test scores (if you're submitting them)",
-        "Research program + confirm application requirements",
-        "Final review before submitting",
-    ]
-    assert template.tasks[-1].days_before_deadline == 3
+    assert template.tasks == []
     assert len(template.essays) == 1
+    assert template.essays[0].title == "Supplemental essay (confirm required)"
     assert template.essays[0].essay_type == "Supplement"

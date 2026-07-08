@@ -251,6 +251,11 @@ async def update_application(
                 list_type = CASE WHEN $5 THEN $6 ELSE list_type END,
                 round = CASE WHEN $7 THEN $8 ELSE round END,
                 deadline = CASE WHEN $9 THEN $10 ELSE deadline END,
+                aid_deadline = CASE WHEN $11 THEN $12 ELSE aid_deadline END,
+                scholarship_deadline = CASE WHEN $13 THEN $14 ELSE scholarship_deadline END,
+                notes = CASE WHEN $15 THEN $16 ELSE notes END,
+                intended_major = CASE WHEN $17 THEN $18 ELSE intended_major END,
+                test_plan = CASE WHEN $19 THEN $20 ELSE test_plan END,
                 updated_at = now()
             WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
             RETURNING id
@@ -265,6 +270,16 @@ async def update_application(
             values.get("round"),
             "deadline" in values,
             values.get("deadline"),
+            "aid_deadline" in values,
+            values.get("aid_deadline"),
+            "scholarship_deadline" in values,
+            values.get("scholarship_deadline"),
+            "notes" in values,
+            values.get("notes"),
+            "intended_major" in values,
+            values.get("intended_major"),
+            "test_plan" in values,
+            values.get("test_plan"),
         )
         change_id = await record_change(
             conn,

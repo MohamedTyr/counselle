@@ -11,12 +11,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 Actor = Literal["student", "counselle"]
 ApplicationStatus = Literal[
-    "Considering", "Applying", "Submitted", "Accepted", "Rejected", "Waitlisted", "Withdrawn"
+    "Considering",
+    "Applying",
+    "Submitted",
+    "Deferred",
+    "Accepted",
+    "Enrolled",
+    "Rejected",
+    "Waitlisted",
+    "Withdrawn",
 ]
 ListType = Literal["Reach", "Target", "Safety"]
-Round = Literal["EA", "ED", "RD", "Rolling", "Priority", "Scholarship deadline"]
+Round = Literal["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"]
 TaskStatus = Literal["todo", "doing", "waiting", "done"]
-TaskCategory = Literal["essay", "lor", "aid", "research", "other", "form"]
+TaskCategory = Literal["essay", "lor", "aid", "research", "other", "form", "interview"]
+TestPlan = Literal["submit", "withhold", "undecided"]
 TaskPriority = Literal["low", "med", "high"]
 Assignee = Literal["student", "counselle"]
 EssayStatus = Literal["Not started", "Drafting", "Needs review", "Ready", "Submitted"]
@@ -47,6 +56,11 @@ class Application(_Model):
     list_type: ListType
     round: Round
     deadline: date | None = None
+    aid_deadline: date | None = None
+    scholarship_deadline: date | None = None
+    notes: str | None = None
+    intended_major: str | None = None
+    test_plan: TestPlan | None = None
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None = None
@@ -87,6 +101,11 @@ class ApplicationPatch(_Model):
     list_type: ListType | None = None
     round: Round | None = None
     deadline: date | None = None
+    aid_deadline: date | None = None
+    scholarship_deadline: date | None = None
+    notes: str | None = None
+    intended_major: str | None = None
+    test_plan: TestPlan | None = None
 
 
 class Task(_Model):
@@ -215,8 +234,9 @@ class EssayPatch(_Model):
     status: EssayStatus | None = None
     prompt: str | None = None
     content: dict[str, Any] | None = None
-    word_count: int | None = None
     word_limit: int | None = None
+    deadline: date | None = None
+    expected_updated_at: datetime | None = None
 
 
 class Activity(_Model):

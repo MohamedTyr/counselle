@@ -369,6 +369,78 @@ def test_bad_enum_stays_pydantic_422() -> None:
     assert response.status_code == 422
 
 
+def test_scholarship_deadline_round_is_rejected() -> None:
+    with TestClient(_app(), raise_server_exceptions=False) as client:
+        response = client.post(
+            "/v1/applications",
+            json={"unitid": 166027, "list_type": "Target", "round": "Scholarship deadline"},
+        )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("round_value", ["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"])
+def test_new_round_values_are_accepted(round_value: str) -> None:
+    service = AsyncMock(
+        return_value=ApplicationAddResult(
+            application=_application_view(),
+            seeded=SeededWorkspaceIds(task_ids=[], essay_ids=[]),
+        )
+    )
+    with (
+        patch("api.routes.applications.add_application", new=service),
+        TestClient(_app(), raise_server_exceptions=False) as client,
+    ):
+        response = client.post(
+            "/v1/applications",
+            json={"unitid": 166027, "list_type": "Target", "round": round_value},
+        )
+
+    assert response.status_code == 201
+
+
+@pytest.mark.parametrize(
+    "status_value",
+    [
+        "Considering",
+        "Applying",
+        "Submitted",
+        "Deferred",
+        "Accepted",
+        "Enrolled",
+        "Rejected",
+        "Waitlisted",
+        "Withdrawn",
+    ],
+)
+def test_new_status_values_are_accepted_on_patch(status_value: str) -> None:
+    service = AsyncMock(return_value=_application_view())
+    with (
+        patch("api.routes.applications.update_application", new=service),
+        TestClient(_app(), raise_server_exceptions=False) as client,
+    ):
+        response = client.patch(
+            f"/v1/applications/{_UNKNOWN_UUID}",
+            json={"status": status_value},
+        )
+
+    assert response.status_code == 200
+
+
+def test_task_category_interview_is_accepted_on_patch() -> None:
+    service = AsyncMock(return_value=_task())
+    with (
+        patch("api.routes.tasks.update_task", new=service),
+        TestClient(_app(), raise_server_exceptions=False) as client,
+    ):
+        response = client.patch(
+            f"/v1/tasks/{_UNKNOWN_UUID}",
+            json={"category": "interview"},
+        )
+
+    assert response.status_code == 200
+
+
 def test_duplicate_active_school_maps_to_409() -> None:
     with (
         patch(

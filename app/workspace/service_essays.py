@@ -18,12 +18,17 @@ from app.workspace.models import (
     EssayPatch,
     EssaySummary,
     WorkspaceNotFoundError,
+    WorkspaceValidationError,
 )
 from app.workspace.service_utils import SchoolIdentity, publish_events, school_identities
 from counselle_db.catalog import Catalog
 
+# e.* pulls in the essay's own `deadline` column; the COALESCE below is
+# listed after e.* so it overwrites that key with the effective value when
+# the row is turned into a dict (last duplicate key wins).
 _ESSAY_LIST_SQL = """
-SELECT e.*, a.deadline, a.school_unitid,
+SELECT e.*, a.school_unitid,
+       COALESCE(e.deadline, a.deadline) AS deadline,
        jsonb_array_length(e.comments) AS comment_count,
        jsonb_array_length(e.suggestions) AS suggestion_count
 FROM counselle.essays e
@@ -34,7 +39,8 @@ ORDER BY e.updated_at DESC
 """
 
 _ESSAY_GET_SQL = """
-SELECT e.*, a.deadline, a.school_unitid,
+SELECT e.*, a.school_unitid,
+       COALESCE(e.deadline, a.deadline) AS deadline,
        jsonb_array_length(e.comments) AS comment_count,
        jsonb_array_length(e.suggestions) AS suggestion_count
 FROM counselle.essays e
@@ -111,9 +117,13 @@ async def update_essay(
     data: EssayPatch,
 ) -> Essay:
     values = data.model_dump(exclude_unset=True)
+    expected_updated_at = values.pop("expected_updated_at", None)
+    if "content" in values:
+        values["word_count"] = _word_count(values["content"])
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
         current = await _require_essay(conn, user_id, essay_id)
+        _check_not_stale(current["updated_at"], expected_updated_at)
         if "application_id" in values:
             await _validate_application(conn, user_id, values["application_id"])
         row = await _update_essay_row(conn, user_id, essay_id, values) if values else current
@@ -269,6 +279,27 @@ def tiptap_preview(content: Any, *, max_chars: int = 180) -> str:
     return normalized[:max_chars]
 
 
+def _word_count(content: Any) -> int:
+    """Derive word_count server-side from Tiptap content (never caller-supplied)."""
+    text = " ".join(_tiptap_text(content))
+    normalized = re.sub(r"\s+", " ", text).strip()
+    return len(normalized.split()) if normalized else 0
+
+
+def _check_not_stale(current_updated_at: Any, expected_updated_at: Any | None) -> None:
+    """Optimistic-concurrency guard: reject a patch built against a stale read.
+
+    ``expected_updated_at`` is optional — omitting it keeps last-write-wins
+    semantics. When present, it must match the essay's current ``updated_at``
+    or the caller was working from stale state (e.g. the student's editor
+    autosaved between the agent's read and its write).
+    """
+    if expected_updated_at is not None and current_updated_at != expected_updated_at:
+        raise WorkspaceValidationError(
+            "essay was updated since expected_updated_at; refresh and retry"
+        )
+
+
 def _tiptap_text(node: Any) -> list[str]:
     if isinstance(node, dict):
         pieces = [node["text"]] if isinstance(node.get("text"), str) else []
@@ -332,6 +363,7 @@ async def _update_essay_row(
             content = CASE WHEN $13 THEN $14 ELSE content END,
             word_count = CASE WHEN $15 THEN $16 ELSE word_count END,
             word_limit = CASE WHEN $17 THEN $18 ELSE word_limit END,
+            deadline = CASE WHEN $19 THEN $20 ELSE deadline END,
             updated_at = now()
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
         RETURNING *
@@ -354,6 +386,8 @@ async def _update_essay_row(
         values.get("word_count"),
         "word_limit" in values,
         values.get("word_limit"),
+        "deadline" in values,
+        values.get("deadline"),
     )
     if row is None:
         raise WorkspaceNotFoundError()

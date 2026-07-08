@@ -8,9 +8,9 @@ from typing import Any, cast
 
 import pytest
 
-from app.workspace.models import WorkspaceSeedingTemplate
+from app.workspace.models import WorkspaceSeedingTemplate, WorkspaceValidationError
 from app.workspace.seeding import _due_at
-from app.workspace.service_essays import tiptap_preview
+from app.workspace.service_essays import _check_not_stale, _word_count, tiptap_preview
 from config.settings import load_yaml_asset
 from counselle_db import service
 from counselle_db.catalog import Catalog
@@ -25,9 +25,9 @@ def test_seed_due_at_only_when_user_deadline_exists() -> None:
 def test_workspace_seed_template_shape_is_phase_2_contract() -> None:
     template = WorkspaceSeedingTemplate.model_validate(load_yaml_asset("workspace_seeding"))
 
-    assert len(template.tasks) == 6
+    assert template.tasks == []
     assert len(template.essays) == 1
-    assert template.essays[0].title == "Supplemental essay"
+    assert template.essays[0].title == "Supplemental essay (confirm required)"
 
 
 def test_tiptap_preview_extracts_plain_text() -> None:
@@ -40,6 +40,42 @@ def test_tiptap_preview_extracts_plain_text() -> None:
     }
 
     assert tiptap_preview(content) == "Why Duke? Because fit."
+
+
+def test_word_count_is_derived_from_tiptap_content_server_side() -> None:
+    content = {
+        "type": "doc",
+        "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": "Why Duke?"}]},
+            {"type": "paragraph", "content": [{"type": "text", "text": "Because fit."}]},
+        ],
+    }
+
+    assert _word_count(content) == 4
+
+
+def test_word_count_of_empty_doc_is_zero() -> None:
+    empty = {"type": "doc", "content": [{"type": "paragraph"}]}
+
+    assert _word_count(empty) == 0
+
+
+def test_check_not_stale_allows_missing_precondition() -> None:
+    # No expected_updated_at supplied → last-write-wins, no error.
+    _check_not_stale(datetime(2027, 1, 1, tzinfo=UTC), None)
+
+
+def test_check_not_stale_allows_matching_precondition() -> None:
+    current = datetime(2027, 1, 1, tzinfo=UTC)
+    _check_not_stale(current, current)
+
+
+def test_check_not_stale_rejects_mismatched_precondition() -> None:
+    current = datetime(2027, 1, 1, tzinfo=UTC)
+    stale = datetime(2026, 12, 31, tzinfo=UTC)
+
+    with pytest.raises(WorkspaceValidationError):
+        _check_not_stale(current, stale)
 
 
 async def test_search_school_names_uses_name_path_and_main_campus_order(

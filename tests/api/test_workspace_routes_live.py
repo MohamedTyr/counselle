@@ -87,25 +87,36 @@ async def test_add_school_list_complete_task_rollup_moves(
         )
         assert create.status_code == 201, create.text
         application_id = create.json()["application"]["id"]
+        # Seeding no longer creates a starter checklist (change 11): zero
+        # tasks, one supplement essay slot.
+        assert create.json()["seeded"]["task_ids"] == []
+        assert len(create.json()["seeded"]["essay_ids"]) == 1
 
         listed = await client.get("/v1/applications")
         assert listed.status_code == 200
         applications_body = listed.json()
         assert len(applications_body) == 1
         assert applications_body[0]["id"] == application_id
-        assert applications_body[0]["progress"] == {"completed": 0, "total": 6}
+        assert applications_body[0]["progress"] == {"completed": 0, "total": 0}
 
         task_list = await client.get("/v1/tasks")
         assert task_list.status_code == 200
-        first_task_id = task_list.json()[0]["id"]
+        assert task_list.json() == []
 
-        completed = await client.patch(f"/v1/tasks/{first_task_id}", json={"status": "done"})
+        created_task = await client.post(
+            "/v1/tasks",
+            json={"application_id": application_id, "title": "Request transcript"},
+        )
+        assert created_task.status_code == 201, created_task.text
+        task_id = created_task.json()["id"]
+
+        completed = await client.patch(f"/v1/tasks/{task_id}", json={"status": "done"})
         assert completed.status_code == 200
         assert completed.json()["status"] == "done"
 
         moved = await client.get("/v1/applications")
         assert moved.status_code == 200
-        assert moved.json()[0]["progress"] == {"completed": 1, "total": 6}
+        assert moved.json()[0]["progress"] == {"completed": 1, "total": 1}
 
 
 async def test_workspace_sse_replay_returns_route_events(
