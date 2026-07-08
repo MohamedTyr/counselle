@@ -11,6 +11,7 @@ export type TaskCategory =
   | "research"
   | "other"
   | "form"
+  | "interview"
 export type TaskPriority = "low" | "med" | "high"
 export type TaskAssignee = "student" | "counselle"
 

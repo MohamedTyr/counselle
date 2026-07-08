@@ -29,14 +29,7 @@ import {
 import { SchoolAvatar } from "@/features/schools/school-cells"
 
 const listTypeOptions: ListType[] = ["Reach", "Target", "Safety"]
-const roundOptions: Round[] = [
-  "EA",
-  "ED",
-  "RD",
-  "Rolling",
-  "Priority",
-  "Scholarship deadline",
-]
+const roundOptions: Round[] = ["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"]
 
 function schoolLocation(school: SchoolSearchResult) {
   if (school.city && school.state) {

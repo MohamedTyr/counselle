@@ -4,11 +4,12 @@ import type {
   ListType,
   Rollup,
   Round,
+  TestPlan,
 } from "@/api/workspace/types"
 
 export type DeadlineUrgency = "close" | "upcoming" | "normal"
 
-export type { ApplicationStatus, ListType, Round }
+export type { ApplicationStatus, ListType, Round, TestPlan }
 export type Progress = Rollup
 
 export type School = {
@@ -21,6 +22,11 @@ export type School = {
   listType: ListType
   round: Round
   deadline: string | null
+  aidDeadline: string | null
+  scholarshipDeadline: string | null
+  notes: string | null
+  intendedMajor: string | null
+  testPlan: TestPlan | null
   progress: Progress
   essays: Progress
 }
@@ -47,6 +53,11 @@ export function schoolFromApplication(application: ApplicationView): School {
     listType: application.list_type,
     round: application.round,
     deadline: application.deadline,
+    aidDeadline: application.aid_deadline,
+    scholarshipDeadline: application.scholarship_deadline,
+    notes: application.notes,
+    intendedMajor: application.intended_major,
+    testPlan: application.test_plan,
     progress: application.progress,
     essays: application.essays,
   }

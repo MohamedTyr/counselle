@@ -56,7 +56,9 @@ export const statusVariant: Record<ApplicationStatus, BadgeVariant> = {
   Considering: "secondary",
   Applying: "info",
   Submitted: "success",
+  Deferred: "warning",
   Accepted: "success",
+  Enrolled: "success",
   Rejected: "error",
   Waitlisted: "warning",
   Withdrawn: "secondary",
@@ -72,10 +74,12 @@ export const statusSortRank: Record<ApplicationStatus, number> = {
   Considering: 1,
   Applying: 2,
   Submitted: 3,
-  Accepted: 4,
-  Waitlisted: 5,
-  Rejected: 6,
-  Withdrawn: 7,
+  Deferred: 4,
+  Accepted: 5,
+  Enrolled: 6,
+  Waitlisted: 7,
+  Rejected: 8,
+  Withdrawn: 9,
 }
 
 export const listTypeSortRank: Record<ListType, number> = {
@@ -86,9 +90,10 @@ export const listTypeSortRank: Record<ListType, number> = {
 
 export const roundSortRank: Record<Round, number> = {
   ED: 1,
-  EA: 2,
-  Priority: 3,
-  "Scholarship deadline": 4,
-  RD: 5,
-  Rolling: 6,
+  ED2: 2,
+  REA: 3,
+  EA: 4,
+  Priority: 5,
+  RD: 6,
+  Rolling: 7,
 }

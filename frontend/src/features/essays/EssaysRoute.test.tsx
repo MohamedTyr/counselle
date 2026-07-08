@@ -625,11 +625,12 @@ describe("EssayEditorPage", () => {
 
     expect(fetchHandler).toHaveBeenCalledWith(
       "/v1/essays/stanford-roommate",
-      expect.objectContaining({
-        body: expect.stringContaining("word_count"),
-        method: "PATCH",
-      }),
+      expect.objectContaining({ method: "PATCH" }),
     );
+    const [, init] = fetchHandler.mock.calls[0];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      content: tiptapDoc("Autosaved text"),
+    });
   });
 
   it("flushes autosave immediately on blur", async () => {
@@ -714,7 +715,6 @@ describe("EssayEditorPage", () => {
     expect(serializedDirectPatches).toHaveLength(2);
     expect(JSON.parse(String(serializedDirectPatches[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Second draft"),
-      word_count: 2,
     });
 
     await act(async () => {
@@ -814,7 +814,6 @@ describe("EssayEditorPage", () => {
     );
     expect(JSON.parse(String(init?.body))).toEqual({
       content: tiptapDoc("Autosaved text"),
-      word_count: 2,
     });
 
     Object.defineProperty(document, "visibilityState", {
@@ -844,7 +843,6 @@ describe("EssayEditorPage", () => {
     expect(keepaliveCalls).toHaveLength(1);
     expect(JSON.parse(String(keepaliveCalls[0]?.[1]?.body))).toEqual({
       content: tiptapDoc("Autosaved text"),
-      word_count: 2,
     });
 
     Object.defineProperty(document, "visibilityState", {
@@ -888,7 +886,6 @@ describe("EssayEditorPage", () => {
     expect(patchCalls[0]?.[1]?.keepalive).not.toBe(true);
     expect(JSON.parse(String(patchCalls[0]?.[1]?.body))).toEqual({
       content: tiptapDoc("Autosaved text"),
-      word_count: 2,
     });
 
     Object.defineProperty(document, "visibilityState", {
@@ -1245,7 +1242,6 @@ describe("EssayEditorPage", () => {
     await waitFor(() => expect(fetchHandler.mock.calls).toHaveLength(2));
     expect(JSON.parse(String(fetchHandler.mock.calls[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Second draft"),
-      word_count: 2,
     });
 
     await act(async () => {
@@ -1344,7 +1340,6 @@ describe("EssayEditorPage", () => {
     expect(fetchHandler).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(fetchHandler.mock.calls[0]?.[1]?.body))).toEqual({
       content: tiptapDoc("Second draft"),
-      word_count: 2,
     });
 
     await act(async () => {
@@ -1365,7 +1360,6 @@ describe("EssayEditorPage", () => {
     await waitFor(() => expect(fetchHandler).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(fetchHandler.mock.calls[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Baseline draft"),
-      word_count: 2,
     });
     expect(screen.getByTestId("autosave-state")).toHaveTextContent("saving");
     expect(screen.getByTestId("autosave-dirty")).toHaveTextContent("true");
@@ -1473,7 +1467,6 @@ describe("EssayEditorPage", () => {
     expect(keepaliveCalls).toHaveLength(1);
     expect(JSON.parse(String(keepaliveCalls[0]?.[1]?.body))).toEqual({
       content: tiptapDoc("Baseline draft"),
-      word_count: 2,
     });
 
     await act(async () => {
@@ -1585,12 +1578,10 @@ describe("EssayEditorPage", () => {
     expect(patchCallsBeforeResolve[0]?.[1]?.keepalive).not.toBe(true);
     expect(JSON.parse(String(patchCallsBeforeResolve[0]?.[1]?.body))).toEqual({
       content: tiptapDoc("Second draft"),
-      word_count: 2,
     });
     expect(patchCallsBeforeResolve[1]?.[1]?.keepalive).toBe(true);
     expect(JSON.parse(String(patchCallsBeforeResolve[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Baseline draft"),
-      word_count: 2,
     });
 
     await act(async () => {
@@ -1693,7 +1684,6 @@ describe("EssayEditorPage", () => {
     expect(patchCalls[1]?.[1]?.keepalive).toBe(true);
     expect(JSON.parse(String(patchCalls[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Baseline draft"),
-      word_count: 2,
     });
 
     await act(async () => {

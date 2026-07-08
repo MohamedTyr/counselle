@@ -13,10 +13,12 @@ import type {
   ApplicationStatus,
   ListType,
   Round,
+  TestPlan,
 } from "@/api/workspace/types"
 import { UndoToast } from "@/components/undo-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectItem,
@@ -49,31 +51,41 @@ const statusOptions: ApplicationStatus[] = [
   "Considering",
   "Applying",
   "Submitted",
+  "Deferred",
   "Accepted",
+  "Enrolled",
   "Rejected",
   "Waitlisted",
   "Withdrawn",
 ]
 const listTypeOptions: ListType[] = ["Reach", "Target", "Safety"]
-const roundOptions: Round[] = [
-  "EA",
-  "ED",
-  "RD",
-  "Rolling",
-  "Priority",
-  "Scholarship deadline",
+const roundOptions: Round[] = ["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"]
+type TestPlanOption = TestPlan | "none"
+const testPlanOptions: TestPlanOption[] = [
+  "none",
+  "submit",
+  "withhold",
+  "undecided",
 ]
+const testPlanLabel: Record<TestPlanOption, string> = {
+  none: "Not set",
+  submit: "Submit scores",
+  withhold: "Withhold scores",
+  undecided: "Undecided",
+}
 
 function FieldSelect<TValue extends string>({
   label,
   onChange,
   options,
   value,
+  getOptionLabel,
 }: {
   label: string
   onChange: (value: TValue) => void
   options: TValue[]
   value: TValue
+  getOptionLabel?: (option: TValue) => string
 }) {
   return (
     <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
@@ -85,7 +97,7 @@ function FieldSelect<TValue extends string>({
         <SelectPopup>
           {options.map((option) => (
             <SelectItem key={option} value={option}>
-              {option}
+              {getOptionLabel ? getOptionLabel(option) : option}
             </SelectItem>
           ))}
         </SelectPopup>
@@ -203,6 +215,82 @@ export function SchoolDetailSheet({
                     />
                   </label>
                 </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Program & scores</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
+                      Intended major
+                      <Input
+                        nativeInput
+                        onChange={(event) =>
+                          patchApplication({
+                            intended_major: event.currentTarget.value || null,
+                          })
+                        }
+                        placeholder="e.g. Computer Science"
+                        value={application.intended_major ?? ""}
+                      />
+                    </label>
+                    <FieldSelect
+                      getOptionLabel={(option) => testPlanLabel[option]}
+                      label="Test plan"
+                      onChange={(option) =>
+                        patchApplication({
+                          test_plan: option === "none" ? null : option,
+                        })
+                      }
+                      options={testPlanOptions}
+                      value={application.test_plan ?? "none"}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Financial aid</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
+                      Aid deadline
+                      <Input
+                        nativeInput
+                        onChange={(event) =>
+                          patchApplication({
+                            aid_deadline: event.currentTarget.value || null,
+                          })
+                        }
+                        type="date"
+                        value={application.aid_deadline ?? ""}
+                      />
+                    </label>
+                    <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
+                      Scholarship deadline
+                      <Input
+                        nativeInput
+                        onChange={(event) =>
+                          patchApplication({
+                            scholarship_deadline:
+                              event.currentTarget.value || null,
+                          })
+                        }
+                        type="date"
+                        value={application.scholarship_deadline ?? ""}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
+                  Notes
+                  <Textarea
+                    onChange={(event) =>
+                      patchApplication({
+                        notes: event.currentTarget.value || null,
+                      })
+                    }
+                    placeholder="Fit impressions, visit notes, portal URLs..."
+                    value={application.notes ?? ""}
+                  />
+                </label>
 
                 <div className="grid gap-3 rounded-lg border bg-card p-4 text-sm sm:grid-cols-3">
                   <div>

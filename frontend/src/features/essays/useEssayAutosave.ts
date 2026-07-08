@@ -296,7 +296,6 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       }
       updateEssay(essayId, {
         content: draft.content,
-        word_count: draft.wordCount,
       })
         .then((essay) => {
           directInFlightDraftKeyRef.current = null;
@@ -348,7 +347,6 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       }
       void updateEssayKeepalive(essayId, {
         content: draft.content,
-        word_count: draft.wordCount,
       })
         .then((essay) => {
           clearQueuedDirectDraft(draft);

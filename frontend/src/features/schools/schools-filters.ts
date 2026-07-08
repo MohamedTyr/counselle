@@ -14,7 +14,7 @@ export function isDeadlineSoon(school: School) {
 
 export function matchesViewFilter(school: School, viewFilter: ViewFilter) {
   if (viewFilter === "applying") {
-    return school.status === "Applying"
+    return school.status === "Applying" || school.status === "Deferred"
   }
 
   if (viewFilter === "submitted") {

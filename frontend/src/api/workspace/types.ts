@@ -3,18 +3,14 @@ export type ApplicationStatus =
   | "Considering"
   | "Applying"
   | "Submitted"
+  | "Deferred"
   | "Accepted"
+  | "Enrolled"
   | "Rejected"
   | "Waitlisted"
   | "Withdrawn"
 export type ListType = "Reach" | "Target" | "Safety"
-export type Round =
-  | "EA"
-  | "ED"
-  | "RD"
-  | "Rolling"
-  | "Priority"
-  | "Scholarship deadline"
+export type Round = "EA" | "ED" | "ED2" | "REA" | "RD" | "Rolling" | "Priority"
 export type TaskStatus = "todo" | "doing" | "waiting" | "done"
 export type TaskCategory =
   | "essay"
@@ -23,7 +19,9 @@ export type TaskCategory =
   | "research"
   | "other"
   | "form"
+  | "interview"
 export type TaskPriority = "low" | "med" | "high"
+export type TestPlan = "submit" | "withhold" | "undecided"
 export type Assignee = "student" | "counselle"
 export type EssayStatus =
   | "Not started"
@@ -57,6 +55,11 @@ export type Application = {
   list_type: ListType
   round: Round
   deadline: string | null
+  aid_deadline: string | null
+  scholarship_deadline: string | null
+  notes: string | null
+  intended_major: string | null
+  test_plan: TestPlan | null
   created_at: string
   updated_at: string
   archived_at: string | null
@@ -92,6 +95,11 @@ export type ApplicationPatch = Partial<{
   list_type: ListType
   round: Round
   deadline: string | null
+  aid_deadline: string | null
+  scholarship_deadline: string | null
+  notes: string | null
+  intended_major: string | null
+  test_plan: TestPlan | null
 }>
 
 export type SeededWorkspaceIds = {
@@ -205,8 +213,9 @@ export type EssayPatch = Partial<{
   status: EssayStatus
   prompt: string | null
   content: TiptapContent
-  word_count: number
   word_limit: number | null
+  deadline: string | null
+  expected_updated_at: string | null
 }>
 
 export type Activity = {

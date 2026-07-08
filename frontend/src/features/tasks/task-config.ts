@@ -40,6 +40,7 @@ export const categoryLabel: Record<TaskCategory, string> = {
   research: "Research",
   other: "Other",
   form: "Form",
+  interview: "Interview",
 }
 
 export const priorityLabel: Record<TaskPriority, string> = {
@@ -79,6 +80,7 @@ export const categoryOptions = [
   { label: categoryLabel.aid, value: "aid" },
   { label: categoryLabel.research, value: "research" },
   { label: categoryLabel.form, value: "form" },
+  { label: categoryLabel.interview, value: "interview" },
   { label: categoryLabel.other, value: "other" },
 ] as const
 
@@ -144,6 +146,8 @@ export const categoryChipClass: Record<TaskCategory, string> = {
   research:
     "border-[color:var(--task-category-research-border)] bg-[color:var(--task-category-research-bg)] text-[color:var(--task-category-research-fg)]",
   form: "border-[color:var(--task-category-form-border)] bg-[color:var(--task-category-form-bg)] text-[color:var(--task-category-form-fg)]",
+  interview:
+    "border-[color:var(--task-category-interview-border)] bg-[color:var(--task-category-interview-bg)] text-[color:var(--task-category-interview-fg)]",
   other:
     "border-[color:var(--task-category-other-border)] bg-[color:var(--task-category-other-bg)] text-[color:var(--task-category-other-fg)]",
 }

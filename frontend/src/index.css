@@ -246,6 +246,9 @@
   --task-category-form-bg: #2a2e35;
   --task-category-form-fg: #c2ccd8;
   --task-category-form-border: #414851;
+  --task-category-interview-bg: #26313f;
+  --task-category-interview-fg: #b8cfe6;
+  --task-category-interview-border: #3d4f63;
   --task-category-other-bg: var(--workspace-neutral-pill-bg);
   --task-category-other-fg: var(--workspace-neutral-pill-fg);
   --task-category-other-border: var(--workspace-border);

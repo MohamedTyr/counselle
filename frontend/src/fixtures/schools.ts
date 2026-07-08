@@ -106,7 +106,7 @@ export const schools: School[] = [
     logoUrl: "https://www.google.com/s2/favicons?domain=gatech.edu&sz=64",
     status: "Applying",
     listType: "Reach",
-    round: "Scholarship deadline",
+    round: "RD",
     nextDeadline: "Jul 4, 2026",
     nextDeadlineDate: "2026-07-04",
     deadlineUrgency: "close",
