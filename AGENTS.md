@@ -92,10 +92,14 @@ We are a **startup doing rapid prototyping**. The default engineering instinct i
 | **Easy** | ✅ do it | ✅ do it (it's cheap) |
 | **Hard** | ✅ do it (it's worth it) | ❌ **don't — drop it** |
 
+- **Reach for less code — stop at the first rung that works:** does this need to exist at all (YAGNI) → is it already in the codebase, reuse it → does the stdlib / framework / a native platform feature do it → does an already-installed dep do it → can it be a few lines. Prefer deleting code to adding it; the best change is often a smaller diff, not a bigger one. The structure rules elsewhere in this doc shape the code you *do* write — they are not license to write more of it.
+- **Short means less code, never worse code.** We get there by *doing less* — reuse, deletion, the right rung — not by cutting corners. Whatever ships is still clean, modular, separated by concern, and best-practice: readable names, small focused functions and files, clear boundaries, no copy-paste, no dead ends. A short hack that rots into tech debt is *not* lazy — it's expensive, because someone pays it down later with interest. Less surface, full quality.
 - **If it's low-value AND hard to do, fuck it — cut it.** Don't build machinery for problems that might happen. Build for the problem in front of you.
 - **Never reinvent the wheel.** If a battle-tested library/tool does it, use it. Don't hand-roll.
 - **Never write code that doesn't add much value.** No speculative abstraction, no defensive layers for edge cases that don't matter yet, no "enterprise completeness." YAGNI.
 - **The honesty carve-out still holds** (principle 3): never lie to a student. That's the *one* place we spend extra effort regardless of ease — because it's the highest-value thing we have.
+- **Optimize for rewrite cost, not diff size.** The lazy version is right when it can be *extended* later without a rewrite. Only when the shortcut would *force* a future rewrite — global state that can't become per-user (cf. `user_id` nullable-until-platform, ADR 0019), a schema welded to one provider (ADR 0011), logic fused into a route handler — pay the *small* structural cost now. The trigger is strictly "would this force a rewrite," never "might structure help someday." Good structure is cheap future-proofing; speculative features are expensive. Do the first, skip the second.
+- **Clear beats short.** "Minimal" means minimal *surface and complexity*, not fewest characters. A dense one-liner you decode at 3am is debt, not laziness. Boring and readable wins over clever and short.
 
 When in doubt, do the simplest thing that works and ship it.
 
@@ -126,8 +130,13 @@ When in doubt, do the simplest thing that works and ship it.
 
 ## House rules
 
+*Guiding rule: things that change together live together; things that change for different reasons stay apart. "Don't make someone edit 50 files for one change" is the test.*
+
 - Verify before editing: do not assume file paths, imports, functions, settings, schemas, routes, or framework boilerplate exist. Search/read the current code first, then change it.
 - Search before adding: before creating a new helper, service, component, endpoint, config knob, migration, or test fixture, search for an existing equivalent and extend it when that is the simpler fit.
+- **Change existing code by extension, with the smallest diff.** Reuse and extend what's here; don't rewrite, restructure, or rename working code you're only passing through to make a change. Before *replacing* code, understand why it's shaped that way, then replace *deliberately* — a refactor is its own change, never smuggled into an unrelated edit. (Pairs with "search before adding": that guards against re-implementing; this guards against overwriting. Refactoring genuinely-bad code is allowed — deliberately, not incidentally.)
+- **One source of truth; no magic values.** Any value a dev might reasonably tune — a limit, timeout, model id, threshold, URL, prompt, user-facing string — is named once and read from there (the ADR 0018 Settings surface or a versioned data asset), never a literal repeated across files. Values that *are* the logic and would never be "configured" stay inline. Test: *would someone change this without changing the logic?* Yes → one place; no → inline. (The frontend design-token rule below is the UI instance of this — not a second rule.)
+- **DRY is about knowledge, not shape.** Centralize a rule or fact that has one reason to change. Do **not** merge two blocks that merely look alike but change for different reasons — that false-DRY couples things that should move independently. Extract on shared meaning, not coincidence.
 - Use Context7 for current docs: before implementing against a library, framework, SDK, API, CLI, or cloud service, fetch the latest relevant official docs/examples through Context7. If Context7 cannot resolve it, fall back to official docs on the web.
 - Files < 800 lines, functions < 50 lines; many small modules; organize by feature.
 - Parameterized SQL only (never f-string SQL) — inherited from pipeline ADR 0001.
@@ -136,6 +145,15 @@ When in doubt, do the simplest thing that works and ship it.
 - Frontend visual changes must go through the design system first. Prefer semantic tokens, shared primitives, and existing component APIs over one-off hardcoded colors, spacing, radii, or layout values in feature components. Keep UI changes clean, maintainable, DRY, and easy to evolve.
 - The value-reading rules (`docs/DATABASE_GUIDE.md` §6, R1–R12) are the spec for the normalization engine — implement them in code and test them hard.
 - Plan before non-trivial work; keep `specs/mvp1/PRD.md`, `docs/ARCHITECTURE.md`, and the ADRs current as decisions change.
+
+## Writing the agent
+
+- **Prompts are versioned content, not literals in control flow.** Agent prompts live as data assets (ADR 0018, `config/assets/prompts/`), so iterating on a prompt never touches the loop. Tool *descriptions* stay as the tool's docstring next to its code — that's correct and not worth externalizing; just keep them accurate, since the description is the contract the model reads.
+- **Isolate the model call.** The LLM sits behind PydanticAI's per-agent `model=` seam (ADR 0011) and out of the pure `domain/` core (ADR 0017). Keep the surrounding logic deterministic and testable; don't scatter model calls through business logic.
+- **Tool schemas are an API.** One tool, one clear capability; tight schema; the description is the contract the model reads. No god-tool with a mode flag. Curate the action space — enough tools to be capable, few enough to not bloat context.
+- **Authz lives in the tool, never in the model.** Every workspace tool scopes to the authenticated `user_id` from turn state (`WHERE user_id = $1`), never to anything the model supplies. Authority is server-side and identity-bound.
+- **Typed output at the tool boundary.** Data tools return typed, validated structures — the citation envelope (ADR 0006) is the model to follow: decode and validate at the edge, hand the rest of the system types, not raw strings.
+- **Test tools hard, eval the agent.** Tools are ordinary code — unit-test them deterministically. Fuzzy end-to-end behavior belongs in the eval set (`evals/`, `uv run python -m evals.runner`), not brittle string assertions.
 
 ## Frontend components — search registries first, never reinvent the wheel
 
