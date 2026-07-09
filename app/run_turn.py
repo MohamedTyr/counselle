@@ -38,6 +38,7 @@ from typing import Any
 from uuid import uuid4
 
 import asyncpg
+import pydantic_ai.exceptions
 from pydantic_ai.messages import (
     ModelMessagesTypeAdapter,
     ModelRequest,
@@ -64,6 +65,7 @@ from domain.events import (
     ev_step,
     ev_thinking,
     ev_usage,
+    ev_user_message,
     ev_viz,
 )
 from domain.specs import ClarifySpec, RenderSpec, SourceConfig
@@ -71,6 +73,13 @@ from domain.specs import ClarifySpec, RenderSpec, SourceConfig
 logger = logging.getLogger(__name__)
 
 _USER_SAFE_ERROR = "Something went wrong on our side — please try that again."
+_USER_CANCELLED_CONTINUATION_MARKER = (
+    "[Request interrupted by user - the previous run was stopped; its completed "
+    "steps above are real.]"
+)
+_SERVER_ERROR_CONTINUATION_MARKER = (
+    "[Previous run ended early on the server; its completed steps above are real.]"
+)
 
 # app/sessions.py's create_session mints its own uuid; the runner must ensure a
 # row under the CALLER's session_id (= thread_id), so it carries this one
@@ -181,6 +190,8 @@ async def _write_failure_record(
     fallback_messages: list[dict[str, Any]] | None,
     registry_dump: list[Any],
     parked_resume: dict[str, Any] | None = None,
+    partial_history: list[dict[str, Any]] | None = None,
+    emissions_len_at_snapshot: int = 0,
 ) -> None:
     """Best-effort error persistence (G2): the error turn record plus — when
     prose streamed — a partial ``ModelResponse`` so ``messages`` keeps exactly
@@ -227,6 +238,8 @@ async def _write_failure_record(
         error={"message": _USER_SAFE_ERROR, "trace_id": trace_id},
         clarify=clarify,
         synthesized_answer=synthesized_answer,
+        partial_history=partial_history,
+        emissions_len_at_snapshot=emissions_len_at_snapshot,
     )
     if restored_fallback:
         # Equivalence with the pre-refactor code: a fallback restore ALWAYS
@@ -254,6 +267,30 @@ class _ResumePrewriteError(Exception):
     leaving the thread parked so the student can retry the answer. Every OTHER
     prepare failure (e.g. ``_ensure_session``) keeps today's error-record path.
     """
+
+
+def _prompt_with_interruption_marker(
+    user_text: str,
+    prior_records: list[dict[str, Any]],
+    prior_messages: list[dict[str, Any]],
+) -> str:
+    if not prior_records:
+        return user_text
+    previous = prior_records[-1]
+    if previous.get("partial_history") != "snapshot":
+        return user_text
+    status = previous.get("status")
+    if status not in {"interrupted", "cancelled", "error"}:
+        return user_text
+    offset = previous.get("messages_offset")
+    if not isinstance(offset, int) or len(prior_messages) <= offset + 1:
+        return user_text
+    marker = (
+        _USER_CANCELLED_CONTINUATION_MARKER
+        if status in {"interrupted", "cancelled"}
+        else _SERVER_ERROR_CONTINUATION_MARKER
+    )
+    return f"{marker}\n\n{user_text}"
 
 
 async def _prepare_turn_input(
@@ -309,14 +346,93 @@ async def _prepare_turn_input(
         }
         return _TurnInput(graph_input, turn_ids, messages_offset)
     prior = list(snapshot.values.get("messages") or []) if snapshot else []
+    prior_records = list(snapshot.values.get("turn_records") or []) if snapshot else []
     messages_offset = len(prior)
     turn_ids = {**turn_ids, "messages_offset": messages_offset}
+    prompt = _prompt_with_interruption_marker(user_text, prior_records, prior)
     graph_input = {
-        "messages": prior + _serialized_user_message(user_text),
+        "messages": prior + _serialized_user_message(prompt),
         "source_config": effective_config.model_dump(mode="json"),
         "turn_ids": turn_ids,
     }
     return _TurnInput(graph_input, turn_ids, messages_offset)
+
+
+async def _finish_failed_turn(
+    *,
+    deps: GraphDeps,
+    session_id: str,
+    trace_id: str,
+    graph: Any,
+    config: dict[str, Any],
+    emissions: list[Emission],
+    turn_ids: dict[str, Any],
+    record_user_text: str | None,
+    messages_offset: int | None,
+    graph_input: Any,
+    last_registry_dump: list[Any],
+    parked: dict[str, Any] | None,
+) -> None:
+    """Shared cleanup + best-effort failure-record write for a failed turn.
+
+    Called from both the ``UnexpectedModelBehavior``-specific except and the
+    generic catch-all in ``run_turn`` — extracted so the distinct logging
+    added for tool-retry-budget exhaustion doesn't duplicate this ~50-line
+    tail.
+    """
+    # Kick the MCP supervisor for prompt recovery (FIX 3) — the probe is
+    # cheap and idempotent; call guarded so it can never mask the original error.
+    on_failure = getattr(deps, "on_failure", None)
+    if on_failure is not None:
+        try:
+            on_failure()
+        except Exception:
+            logger.warning(
+                "on_failure hook raised (trace_id=%s) — ignoring", trace_id, exc_info=True
+            )
+    # The error turn record (+ streamed-prose preservation) — best-effort:
+    # a record-write failure must never mask the turn error.
+    try:
+        partial_history = None
+        emissions_len_at_snapshot = 0
+        handle_store = getattr(deps, "run_handles", None)
+        handle = handle_store.get(session_id) if handle_store is not None else None
+        if handle is not None and handle.messages_snapshot:
+            partial_history = list(handle.messages_snapshot)
+            emissions_len_at_snapshot = handle.emissions_len_at_snapshot
+        if handle is not None:
+            for message in handle.drain_steers():
+                handle.queued_at_terminal.append(message)
+                emissions.append(
+                    (
+                        "user",
+                        {
+                            "text": message.text,
+                            "user_message_id": message.user_message_id,
+                            "injected": False,
+                        },
+                    )
+                )
+        await _write_failure_record(
+            graph,
+            config,
+            emissions=emissions,
+            ids=turn_ids,
+            user_text=record_user_text,
+            trace_id=trace_id,
+            messages_offset=messages_offset,
+            fallback_messages=graph_input["messages"] if isinstance(graph_input, dict) else None,
+            registry_dump=last_registry_dump,
+            parked_resume=parked,
+            partial_history=partial_history,
+            emissions_len_at_snapshot=emissions_len_at_snapshot,
+        )
+    except Exception:
+        logger.warning(
+            "error turn-record write failed (trace_id=%s) — ignoring",
+            trace_id,
+            exc_info=True,
+        )
 
 
 async def run_turn(
@@ -365,7 +481,11 @@ async def run_turn(
     )
     yield ev_meta(trace_id, session_id, settings.model_counselor, message_id, user_message_id)
 
-    turn_ids: dict[str, Any] = {"message_id": message_id, "user_message_id": user_message_id}
+    turn_ids: dict[str, Any] = {
+        "message_id": message_id,
+        "user_message_id": user_message_id,
+        "session_id": session_id,
+    }
     emissions: list[Emission] = []
     final_emissions = FinalEmissionDeduper()
     # The last source_registry/usage dumps from the updates stream — the FIX 2
@@ -432,6 +552,20 @@ async def run_turn(
                     if (text := chunk.get("text")) is not None:
                         emissions.append(("narration", text))
                         yield ev_narration(text)
+                elif kind == "user_message":
+                    data = chunk.get("data")
+                    if isinstance(data, dict):
+                        text = str(data.get("text") or "")
+                        user_message_id = str(data.get("user_message_id") or "")
+                        injected = bool(data.get("injected"))
+                        if text and user_message_id:
+                            payload = {
+                                "text": text,
+                                "user_message_id": user_message_id,
+                                "injected": injected,
+                            }
+                            emissions.append(("user", payload))
+                            yield ev_user_message(text, user_message_id, injected=injected)
                 elif kind == "viz" and (spec := chunk.get("spec")) is not None:
                     if not final_emissions.keep(kind, spec):
                         continue
@@ -520,39 +654,47 @@ async def run_turn(
         if usage_dict:
             yield ev_usage(UsageData.model_validate(usage_dict))
         yield ev_done("complete")
+    except pydantic_ai.exceptions.UnexpectedModelBehavior as exc:
+        # Distinct from the generic catch below so a tool that exhausts its
+        # retry budget (see app/agent_node.py Agent(retries=2)) is easy to spot
+        # in logs instead of blending into an opaque traceback. User-visible
+        # behavior is unchanged — same cleanup, same _USER_SAFE_ERROR.
+        logger.error(
+            "agent tool exceeded retry budget (trace_id=%s, session_id=%s): %s",
+            trace_id,
+            session_id,
+            exc,
+            exc_info=True,
+        )
+        await _finish_failed_turn(
+            deps=deps,
+            session_id=session_id,
+            trace_id=trace_id,
+            graph=graph,
+            config=config,
+            emissions=emissions,
+            turn_ids=turn_ids,
+            record_user_text=record_user_text,
+            messages_offset=messages_offset,
+            graph_input=graph_input,
+            last_registry_dump=last_registry_dump,
+            parked=parked,
+        )
+        yield ev_error(_USER_SAFE_ERROR, trace_id)
     except Exception:
         logger.exception("turn failed (trace_id=%s, session_id=%s)", trace_id, session_id)
-        # Kick the MCP supervisor for prompt recovery (FIX 3) — the probe is
-        # cheap and idempotent; call guarded so it can never mask the original error.
-        on_failure = getattr(deps, "on_failure", None)
-        if on_failure is not None:
-            try:
-                on_failure()
-            except Exception:
-                logger.warning(
-                    "on_failure hook raised (trace_id=%s) — ignoring", trace_id, exc_info=True
-                )
-        # The error turn record (+ streamed-prose preservation) — best-effort:
-        # a record-write failure must never mask the turn error.
-        try:
-            await _write_failure_record(
-                graph,
-                config,
-                emissions=emissions,
-                ids=turn_ids,
-                user_text=record_user_text,
-                trace_id=trace_id,
-                messages_offset=messages_offset,
-                fallback_messages=graph_input["messages"]
-                if isinstance(graph_input, dict)
-                else None,
-                registry_dump=last_registry_dump,
-                parked_resume=parked,
-            )
-        except Exception:
-            logger.warning(
-                "error turn-record write failed (trace_id=%s) — ignoring",
-                trace_id,
-                exc_info=True,
-            )
+        await _finish_failed_turn(
+            deps=deps,
+            session_id=session_id,
+            trace_id=trace_id,
+            graph=graph,
+            config=config,
+            emissions=emissions,
+            turn_ids=turn_ids,
+            record_user_text=record_user_text,
+            messages_offset=messages_offset,
+            graph_input=graph_input,
+            last_registry_dump=last_registry_dump,
+            parked=parked,
+        )
         yield ev_error(_USER_SAFE_ERROR, trace_id)

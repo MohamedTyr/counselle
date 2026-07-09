@@ -33,6 +33,36 @@ def test_prompt_contains_agent_planning_and_tool_loop_guidance() -> None:
     assert "Do not dump raw JSON" in prompt
 
 
+def test_prompt_contains_agent_voice_bans() -> None:
+    prompt = _render_prompt()
+
+    assert "Do not restate the student's question" in prompt
+    assert "repeat the full search query" in prompt
+    assert "turn tool arguments into prose" in prompt
+    assert "Start the final answer with the answer itself" in prompt
+    assert "first sentence must say how the schools differ" in prompt
+    assert "\"Of course,\"" in prompt
+    assert "\"Let me pull up,\"" in prompt
+    assert "\"I've got,\"" in prompt
+    assert "\"I've pulled,\"" in prompt
+    assert "Do not explain internal data/tool availability" in prompt
+    assert "Do not narrate tool plumbing" in prompt
+    assert (
+        "Attribute claims to the actual source type or institution with citation markers"
+        in prompt
+    )
+
+
+def test_prompt_voice_examples_avoid_live_failure_openings() -> None:
+    prompt = _render_prompt().lower()
+
+    assert "let me pull duke" not in prompt
+    assert "i'll check duke's admissions numbers first" in prompt
+    assert "of course. let me pull" not in prompt
+    assert "i've got the basics" not in prompt
+    assert "i've pulled some initial numbers" not in prompt
+
+
 def test_prompt_removed_old_chat_and_situational_constraints() -> None:
     prompt = _render_prompt()
 

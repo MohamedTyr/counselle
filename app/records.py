@@ -9,7 +9,8 @@ Design points (decided in the ship plan, not here):
 
 - **One builder, split text feeds.** The agent node and ``run_turn`` both observe
   the same ordered emission stream (``("delta", text) | ("viz", spec) |
-  ("step", data) | ("narration", text) | ("thinking", text)`` tuples);
+  ("step", data) | ("narration", text) | ("thinking", text) |
+  ("user", data)`` tuples);
   :func:`build_turn_record` turns it into the record regardless of which writer
   calls it.
 - **The record is self-contained.** ``parts[]`` carries the materialized prose
@@ -36,7 +37,10 @@ from app.viz_signature import viz_payload_signature
 from domain.events import DoneStatus
 
 #: Cheap stopgap narrowing — the full per-kind discriminated union is deferred to B2.
-Emission = tuple[Literal["delta", "viz", "step", "thinking", "narration"], Any]
+Emission = tuple[
+    Literal["delta", "viz", "step", "thinking", "narration", "user"],
+    Any,
+]
 
 #: The terminal statuses a turn record can carry: the wire ``DoneStatus`` set
 #: (``complete``/``awaiting_input``/``cancelled``) plus ``error`` (record-only,
@@ -103,6 +107,7 @@ def build_segments(emissions: list[Emission]) -> list[dict[str, Any]]:
     segments: list[dict[str, Any]] = []
     delta_segment: list[str] = []
     step_index_by_id: dict[str, int] = {}
+    user_index_by_id: dict[str, int] = {}
     deduper = FinalEmissionDeduper()
 
     def flush_delta() -> None:
@@ -134,9 +139,27 @@ def build_segments(emissions: list[Emission]) -> list[dict[str, Any]]:
                 segments.append(segment)
             else:
                 segments[index] = segment
+        elif kind == "user":
+            user_message_id = str(payload.get("user_message_id", ""))
+            segment = {
+                "kind": "user",
+                "text": str(payload.get("text") or ""),
+                "user_message_id": user_message_id,
+                "injected": bool(payload.get("injected")),
+            }
+            index = user_index_by_id.get(user_message_id)
+            if index is None:
+                user_index_by_id[user_message_id] = len(segments)
+                segments.append(segment)
+            else:
+                segments[index] = segment
 
     flush_delta()
-    return segments
+    return [
+        segment
+        for segment in segments
+        if segment.get("kind") != "user" or bool(segment.get("injected"))
+    ]
 
 
 def prose_of(parts: list[dict[str, Any]]) -> str:

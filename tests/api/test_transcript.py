@@ -461,6 +461,177 @@ def test_transcript_step_record_bridges_narration_and_native_thinking() -> None:
 
     assert assistant["step_record"]["narration"] == ["Checking the official data."]
     assert assistant["step_record"]["thinking"] == ["Native thought summary."]
+    assert assistant["segments"] == [
+        {"kind": "narration", "text": "Checking the official data."},
+        {"kind": "thinking", "text": "Native thought summary."},
+        {"kind": "delta", "text": "Done."},
+    ]
+
+
+def test_transcript_reload_preserves_live_like_thinking_sequence() -> None:
+    db_start = {
+        "step_id": "s1",
+        "status": "start",
+        "kind": "db_tool",
+        "label": "Check CDS",
+        "tier": None,
+    }
+    db_end = {**db_start, "status": "end"}
+    web_start = {
+        "step_id": "s2",
+        "status": "start",
+        "kind": "web_search",
+        "label": "Check website",
+        "tier": None,
+    }
+    web_end = {**web_start, "status": "end"}
+    record = build_turn_record(
+        [
+            ("thinking", "Reading the prompt."),
+            ("step", db_start),
+            ("thinking", "Checking official data."),
+            ("step", db_end),
+            ("delta", "Duke's aid is "),
+            ("step", web_start),
+            ("step", web_end),
+            ("thinking", "Reconciling the source."),
+            ("delta", "strong."),
+        ],
+        ids={"message_id": "m-1", "user_message_id": "u-1"},
+        status="complete",
+        sources=[],
+        user_text="how is duke aid?",
+        messages_offset=0,
+    )
+
+    transcript = extract_transcript([], [record])
+    assistant = transcript[-1]
+
+    assert assistant["text"] == "Duke's aid is strong."
+    assert [segment["kind"] for segment in assistant["segments"]] == [
+        "thinking",
+        "step",
+        "thinking",
+        "delta",
+        "step",
+        "thinking",
+        "delta",
+    ]
+    thinking_texts = [
+        segment["text"] for segment in assistant["segments"] if segment["kind"] == "thinking"
+    ]
+    assert thinking_texts == [
+        "Reading the prompt.",
+        "Checking official data.",
+        "Reconciling the source.",
+    ]
+
+
+def test_transcript_synthesizes_native_thinking_segments_for_legacy_record() -> None:
+    record = {
+        "message_id": "m-1",
+        "user_message_id": "u-1",
+        "user_text": "hello",
+        "parts": [{"type": "text", "text": "Done."}],
+        "steps": [],
+        "narration": ["Checking the official data."],
+        "thinking": ["Native thought summary."],
+        "receipt": "",
+        "sources": [],
+        "usage": None,
+        "status": "complete",
+        "error": None,
+        "clarify": None,
+        "ts": "2026-06-12T00:00:00+00:00",
+        "messages_offset": 0,
+        "synthesized_answer": False,
+    }
+
+    transcript = extract_transcript([], [record])
+    assistant = transcript[-1]
+
+    assert assistant["segments"] == [
+        {"kind": "narration", "text": "Checking the official data."},
+        {"kind": "thinking", "text": "Native thought summary."},
+        {"kind": "delta", "text": "Done."},
+    ]
+
+
+def test_transcript_keeps_ambiguous_legacy_thinking_as_narration() -> None:
+    record = {
+        "message_id": "m-1",
+        "user_message_id": "u-1",
+        "user_text": "hello",
+        "parts": [{"type": "text", "text": "Done."}],
+        "steps": [],
+        "thinking": ["Legacy visible work line."],
+        "receipt": "",
+        "sources": [],
+        "usage": None,
+        "status": "complete",
+        "error": None,
+        "clarify": None,
+        "ts": "2026-06-12T00:00:00+00:00",
+        "messages_offset": 0,
+        "synthesized_answer": False,
+    }
+
+    transcript = extract_transcript([], [record])
+
+    assert transcript[-1]["segments"] == [
+        {"kind": "narration", "text": "Legacy visible work line."},
+        {"kind": "delta", "text": "Done."},
+    ]
+
+
+def test_transcript_replay_excludes_uninjected_terminal_user_message() -> None:
+    record = build_turn_record(
+        [
+            ("delta", "Done."),
+            ("user", {"text": "next thought", "user_message_id": "u-late", "injected": False}),
+        ],
+        ids={"message_id": "m-1", "user_message_id": "u-1"},
+        status="complete",
+        sources=[],
+        user_text="hello",
+        messages_offset=0,
+    )
+
+    transcript = extract_transcript([], [record])
+    assistant = transcript[-1]
+
+    assert assistant["text"] == "Done."
+    assert assistant["parts"] == [{"type": "text", "text": "Done."}]
+    assert assistant["segments"] == [{"kind": "delta", "text": "Done."}]
+    assert all(segment.get("user_message_id") != "u-late" for segment in assistant["segments"])
+
+
+def test_transcript_replay_keeps_injected_user_message() -> None:
+    record = build_turn_record(
+        [
+            ("delta", "Working."),
+            ("user", {"text": "also cost", "user_message_id": "u-steer", "injected": True}),
+            ("delta", "Done."),
+        ],
+        ids={"message_id": "m-1", "user_message_id": "u-1"},
+        status="complete",
+        sources=[],
+        user_text="hello",
+        messages_offset=0,
+    )
+
+    transcript = extract_transcript([], [record])
+
+    assert transcript[-1]["segments"] == [
+        {"kind": "delta", "text": "Working."},
+        {
+            "kind": "user",
+            "text": "also cost",
+            "user_message_id": "u-steer",
+            "injected": True,
+        },
+        {"kind": "delta", "text": "Done."},
+    ]
 
 
 def _always_answers(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:

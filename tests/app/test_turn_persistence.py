@@ -204,6 +204,96 @@ def test_build_terminal_update_omits_messages_when_no_partial() -> None:
     assert update["turn_records"][-1]["status"] == "error"
 
 
+def test_build_terminal_update_snapshot_precedes_prose_fallback() -> None:
+    messages = [_request("hi")]
+    snapshot = [_request("hi"), _response("safe snapshot")]
+    update = build_terminal_update(
+        messages=messages,
+        records=[],
+        emissions=[("delta", "prose-only fallback")],
+        ids=_IDS,
+        status="cancelled",
+        sources=[],
+        user_text="hi",
+        messages_offset=0,
+        partial_history=snapshot,
+        emissions_len_at_snapshot=0,
+    )
+
+    assert update["messages"] == snapshot
+    assert update["turn_records"][-1]["partial_history"] == "snapshot"
+    assert update["turn_records"][-1]["segments"] == [
+        {"kind": "delta", "text": "prose-only fallback"}
+    ]
+
+
+def test_build_terminal_update_appends_legal_tail_after_snapshot_offset() -> None:
+    snapshot = [_request("continue?")]
+    update = build_terminal_update(
+        messages=snapshot,
+        records=[],
+        emissions=[("delta", "committed"), ("delta", " tail")],
+        ids=_IDS,
+        status="error",
+        sources=[],
+        user_text="continue?",
+        messages_offset=0,
+        partial_history=snapshot,
+        emissions_len_at_snapshot=1,
+        error={"message": "boom", "trace_id": "t-1"},
+    )
+
+    assert "messages" in update
+    assert update["messages"][0] == snapshot[0]
+    assert update["messages"][-1]["kind"] == "response"
+    assert update["messages"][-1]["parts"][0]["content"] == " tail"
+
+
+@pytest.mark.parametrize("unsafe_tail", [_response("safe snapshot"), {"kind": "unknown"}])
+def test_build_terminal_update_does_not_append_unsafe_tail_after_snapshot(
+    unsafe_tail: dict[str, Any],
+) -> None:
+    original = [_request("continue?")]
+    snapshot = original + [unsafe_tail]
+    update = build_terminal_update(
+        messages=original,
+        records=[],
+        emissions=[("delta", "committed"), ("delta", " unsafe tail")],
+        ids=_IDS,
+        status="error",
+        sources=[],
+        user_text="continue?",
+        messages_offset=0,
+        partial_history=snapshot,
+        emissions_len_at_snapshot=1,
+        error={"message": "boom", "trace_id": "t-1"},
+    )
+
+    assert update["messages"] == snapshot
+    assert len(update["messages"]) == len(snapshot)
+    assert update["turn_records"][-1]["partial_history"] == "snapshot"
+    assert update["turn_records"][-1]["segments"] == [
+        {"kind": "delta", "text": "committed unsafe tail"}
+    ]
+
+
+def test_build_terminal_update_without_snapshot_keeps_existing_fallback() -> None:
+    messages = [_request("hi")]
+    update = build_terminal_update(
+        messages=messages,
+        records=[],
+        emissions=[("delta", "fallback")],
+        ids=_IDS,
+        status="cancelled",
+        sources=[],
+        user_text="hi",
+        messages_offset=0,
+    )
+
+    assert update["messages"][-1]["parts"][0]["content"] == "fallback"
+    assert "partial_history" not in update["turn_records"][-1]
+
+
 # ---------------------------------------------------------------------------
 # H1 parked-record write — only turn_records, never messages
 # ---------------------------------------------------------------------------

@@ -291,11 +291,13 @@ async def test_foreign_session_404_over_inventory(auth_app: FastAPI) -> None:
             c.cookies.set("counselle_auth", intruder_cookie)
             get_resp = await c.get(f"/v1/sessions/{sid}")
             msg_resp = await c.post(f"/v1/sessions/{sid}/messages", json={"text": "hi"})
+            steer_resp = await c.post(f"/v1/sessions/{sid}/steer", json={"text": "hi"})
             stream_resp = await c.get(f"/v1/sessions/{sid}/stream")
             cancel_resp = await c.post(f"/v1/sessions/{sid}/cancel")
 
         assert get_resp.status_code == 404
         assert msg_resp.status_code == 404
+        assert steer_resp.status_code == 404
         assert stream_resp.status_code == 404
         assert cancel_resp.status_code == 404
 

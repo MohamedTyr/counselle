@@ -680,7 +680,14 @@ class EmissionRouter:
             return
         if next_part_kind == "text":
             return  # a continuation text part follows — keep buffering
-        if self.final_answer_started or (self._final_candidate and next_part_kind is None):
+        if self.final_answer_started or (
+            self._final_candidate and next_part_kind in (None, "thinking")
+        ):
+            # `thinking` here is Gemini interleaving a thought pause INSIDE the
+            # final answer (include_thoughts): FinalResultEvent already marked
+            # this text as the run's output, and a thought does not un-make it
+            # the answer — demoting it to narration would render answer prose
+            # as plain un-markdown'd text, chopped at part boundaries.
             if not self.final_answer_started and self._unstreamed_text():
                 self._start_final_answer()
             self._flush_text_delta()

@@ -123,8 +123,7 @@ def _assistant_entry_for_record(
         "sources": record.get("sources") or [],
         "status": record.get("status"),
     }
-    if "segments" in record:
-        entry["segments"] = list(record.get("segments") or [])
+    entry["segments"] = _segments_for_record(record, parts)
     if record.get("usage") is not None:
         entry["usage"] = record["usage"]
     if record.get("status") == "error" and record.get("error") is not None:
@@ -135,6 +134,52 @@ def _assistant_entry_for_record(
     if rating:
         entry["feedback"] = {"rating": rating}
     return entry
+
+
+def _segments_for_record(
+    record: dict[str, Any], parts: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return the ordered replay surface for a record.
+
+    Current records persist ``segments`` directly, so this is usually a
+    pass-through. Older records may only have compatibility fields. For those,
+    synthesize the safest available replay: terminal steps first, then visible
+    work text, then answer parts. The presence of ``narration`` means
+    ``thinking`` is native model thinking; without it, historical records used
+    ``thinking`` as the visible narration bucket, so keep that legacy meaning.
+    """
+    if "segments" in record:
+        return list(record.get("segments") or [])
+
+    segments: list[dict[str, Any]] = [
+        {"kind": "step", "data": step} for step in record.get("steps") or []
+    ]
+
+    if "narration" in record:
+        segments.extend(
+            {"kind": "narration", "text": text}
+            for text in record.get("narration") or []
+            if text
+        )
+        segments.extend(
+            {"kind": "thinking", "text": text}
+            for text in record.get("thinking") or []
+            if text
+        )
+    else:
+        segments.extend(
+            {"kind": "narration", "text": text}
+            for text in record.get("thinking") or []
+            if text
+        )
+
+    for part in parts:
+        if part.get("type") == "text" and part.get("text"):
+            segments.append({"kind": "delta", "text": part["text"]})
+        elif part.get("type") == "viz":
+            segments.append({"kind": "viz", "spec": part.get("spec")})
+
+    return segments
 
 
 def _pre_mvp2_boundary(messages: list[dict[str, Any]], records: list[dict[str, Any]]) -> int:

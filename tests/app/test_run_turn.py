@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -21,12 +21,14 @@ from pydantic_ai.messages import (
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     ModelMessage,
+    ModelMessagesTypeAdapter,
     ModelRequest,
     ModelResponse,
     PartStartEvent,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
+    UserPromptPart,
 )
 from pydantic_ai.models.function import (
     AgentInfo,
@@ -35,6 +37,7 @@ from pydantic_ai.models.function import (
     FunctionModel,
 )
 from pydantic_ai.models.test import TestModel
+from pydantic_graph import End
 
 import app.agent_node
 import app.graph
@@ -42,6 +45,7 @@ import app.viz
 from app.deps import AppDeps
 from app.graph import build_graph
 from app.records import build_turn_record, prose_of
+from app.run_handle import RunHandleStore
 from app.run_turn import run_turn
 from app.state import TemporalContext
 from app.steps import EmissionRouter
@@ -67,6 +71,9 @@ class FakeSettings:
     source_reddit_default = True
     source_edu_default = True
     search_max_results = 5
+    thinking_stream = True
+    thinking_summaries: bool | None = None
+    effective_thinking_stream: bool | None = None
     thinking_threshold_chars = 240  # CFG-07: agent_node reads this at router build
     # Turn-registry knobs (CFG-02: the registry reads these directly, no getattr
     # fallback). The existing per-test overrides (settings.agent_stream_buffer_size = 2,
@@ -234,6 +241,41 @@ class Rig:
         ]
 
 
+class _ImmediateEndRun:
+    next_node = End(data=None)
+    result = None
+
+    async def __aenter__(self) -> _ImmediateEndRun:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+
+class _CapturingAgent:
+    captured_model_settings: list[Any] = []
+
+    def __init__(self, *args: Any, model_settings: Any = None, **kwargs: Any) -> None:
+        self.captured_model_settings.append(model_settings)
+
+    async def __aenter__(self) -> _CapturingAgent:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    def iter(self, *args: Any, **kwargs: Any) -> _ImmediateEndRun:
+        return _ImmediateEndRun()
+
+    @staticmethod
+    def is_model_request_node(node: Any) -> bool:
+        return False
+
+    @staticmethod
+    def is_call_tools_node(node: Any) -> bool:
+        return False
+
+
 def _types(events: list[Event]) -> list[str]:
     return [event.type for event in events]
 
@@ -278,9 +320,92 @@ def _viz_spec(field: str, *, title: str = "Rendered card") -> RenderSpec:
     )
 
 
+def _node_state(prompt: str = "hi") -> dict[str, Any]:
+    messages = ModelMessagesTypeAdapter.dump_python(
+        [ModelRequest(parts=[UserPromptPart(content=prompt)])],
+        mode="json",
+    )
+    return {
+        "messages": messages,
+        "source_registry": [],
+        "source_config": _ALL_OFF.model_dump(mode="json"),
+        "temporal": {"today": _TEMPORAL.today, "context": _TEMPORAL.context},
+        "turn_ids": {"message_id": "assistant-1", "user_message_id": "user-1"},
+        "turn_records": [],
+        "tool_result_store": {},
+    }
+
+
+async def _run_node_capturing_model_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: FakeSettings,
+) -> Any:
+    _CapturingAgent.captured_model_settings = []
+    monkeypatch.setattr(app.agent_node, "Agent", _CapturingAgent)
+    monkeypatch.setattr(app.agent_node, "get_stream_writer", lambda: lambda chunk: None)
+    monkeypatch.setattr(app.agent_node, "build_tools", lambda *args, **kwargs: [])
+
+    deps = AppDeps(
+        catalog=SimpleNamespace(school_count=0),  # type: ignore[arg-type]
+        app_pool=None,
+        settings=settings,
+        run_handles=None,
+        tool_deps=ToolDeps(
+            catalog=None,
+            search_max_results=5,
+            subreddit_menu=[],
+            tavily_client_factory=lambda: StubTavilyClient(),
+        ),
+        mcp_toolset=None,
+        model_factory=lambda: cast(Any, object()),
+    )
+
+    await app.agent_node.run_agent_node(_node_state(), deps)
+
+    assert len(_CapturingAgent.captured_model_settings) == 1
+    return _CapturingAgent.captured_model_settings[0]
+
+
+def _google_thinking_config(model_settings: Any) -> dict[str, Any] | None:
+    if model_settings is None:
+        return None
+    if isinstance(model_settings, dict):
+        value = model_settings.get("google_thinking_config")
+        return dict(value) if value is not None else None
+    value = getattr(model_settings, "google_thinking_config", None)
+    return dict(value) if value is not None else None
+
+
 # ---------------------------------------------------------------------------
 # (a) simple turn
 # ---------------------------------------------------------------------------
+
+
+async def test_agent_node_attaches_gemini_include_thoughts_from_effective_setting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    default_settings = FakeSettings()
+    default_model_settings = await _run_node_capturing_model_settings(
+        monkeypatch,
+        default_settings,
+    )
+    assert _google_thinking_config(default_model_settings) == {"include_thoughts": True}
+
+    explicit_off = FakeSettings()
+    explicit_off.effective_thinking_stream = False
+    explicit_off_model_settings = await _run_node_capturing_model_settings(
+        monkeypatch,
+        explicit_off,
+    )
+    assert explicit_off_model_settings is None
+
+    legacy_off = FakeSettings()
+    legacy_off.thinking_summaries = False
+    legacy_off_model_settings = await _run_node_capturing_model_settings(
+        monkeypatch,
+        legacy_off,
+    )
+    assert legacy_off_model_settings is None
 
 
 async def test_simple_turn_streams_deltas_persists_messages_creates_session() -> None:
@@ -384,6 +509,33 @@ def _plan_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelRes
     )
 
 
+def _two_plans_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    returns = [
+        part
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, ToolReturnPart) and part.tool_name == "write_plan"
+    ]
+    if len(returns) >= 2:
+        return ModelResponse(parts=[TextPart("I made two plan updates and answered.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="write_plan",
+                args={
+                    "items": [
+                        {
+                            "content": f"Plan checkpoint {len(returns) + 1}",
+                            "status": "completed",
+                        }
+                    ]
+                },
+            )
+        ]
+    )
+
+
 async def test_write_plan_tool_produces_visible_step_receipt() -> None:
     rig = Rig(_fn_model(_plan_then_answer))
 
@@ -404,6 +556,255 @@ async def test_write_plan_tool_produces_visible_step_receipt() -> None:
     assert detail["items"] == [
         {"content": "Check the school data", "status": "completed"},
         {"content": "Draft the recommendation", "status": "in_progress"},
+    ]
+
+
+async def test_iter_run_handle_records_replay_safe_tool_snapshots() -> None:
+    store = RunHandleStore()
+    rig = Rig(_fn_model(_two_plans_then_answer))
+    rig.deps.run_handles = store
+    session_id = str(uuid4())
+    handle = store.register(session_id)
+
+    events = await rig.turn(session_id, "Make two quick plans", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    assert handle.snapshot_seq >= 1
+    assert app.agent_node.is_provider_replayable(handle.messages_snapshot)
+    tool_calls = [
+        part
+        for message in handle.messages_snapshot
+        for part in message["parts"]
+        if part.get("part_kind") == "tool-call"
+    ]
+    tool_returns = [
+        part
+        for message in handle.messages_snapshot
+        for part in message["parts"]
+        if part.get("part_kind") == "tool-return"
+    ]
+    assert len(tool_calls) == 2
+    assert len(tool_returns) == 2
+
+
+def test_replay_snapshot_validator_rejects_dangling_tool_call() -> None:
+    messages = ModelMessagesTypeAdapter.dump_python(
+        [
+            ModelRequest(parts=[UserPromptPart(content="hi")]),
+            ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        tool_name="write_plan",
+                        args={"items": []},
+                        tool_call_id="dangling-call",
+                    )
+                ]
+            ),
+        ],
+        mode="json",
+    )
+
+    assert not app.agent_node.is_provider_replayable(messages)
+
+
+class _GoldenModelRequestNode:
+    def __init__(self, *, final: bool = False) -> None:
+        self.final = final
+
+    def stream(self, ctx: Any) -> _GoldenModelRequestNode:
+        return self
+
+    async def __aenter__(self) -> _GoldenModelRequestNode:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    async def __aiter__(self) -> AsyncIterator[Any]:
+        if self.final:
+            yield FinalResultEvent(tool_name=None, tool_call_id=None)
+            yield PartStartEvent(index=0, part=TextPart(content="Here is the final answer."))
+            return
+        yield PartStartEvent(index=0, part=TextPart(content="I'll check the plan first."))
+        yield FunctionToolCallEvent(
+            part=ToolCallPart(
+                tool_name="write_plan",
+                args={
+                    "items": [
+                        {"content": "Check school facts", "status": "completed"},
+                        {"content": "Answer the student", "status": "in_progress"},
+                    ]
+                },
+                tool_call_id="plan-call",
+            )
+        )
+
+
+class _GoldenCallToolsNode:
+    def stream(self, ctx: Any) -> _GoldenCallToolsNode:
+        return self
+
+    async def __aenter__(self) -> _GoldenCallToolsNode:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    async def __aiter__(self) -> AsyncIterator[FunctionToolResultEvent]:
+        yield FunctionToolResultEvent(
+            part=ToolReturnPart(
+                tool_name="write_plan",
+                content={
+                    "status": "success",
+                    "summary": "Plan updated.",
+                    "rendered_plan": "1. [x] Check school facts",
+                    "public_receipt": {
+                        "items": [
+                            {"content": "Check school facts", "status": "completed"},
+                            {"content": "Answer the student", "status": "in_progress"},
+                        ],
+                        "completed": 1,
+                        "total": 2,
+                    },
+                    "next_actions": ["Continue with the in-progress step."],
+                },
+                tool_call_id="plan-call",
+            )
+        )
+
+
+class _GoldenIterResult:
+    @property
+    def usage(self) -> SimpleNamespace:
+        return SimpleNamespace(input_tokens=3, output_tokens=4, tool_calls=1)
+
+    def all_messages(self) -> list[ModelMessage]:
+        return [
+            ModelRequest(parts=[UserPromptPart(content="Make a plan")]),
+            ModelResponse(parts=[TextPart(content="Here is the final answer.")]),
+        ]
+
+
+class _GoldenIterRun:
+    def __init__(self) -> None:
+        self.ctx = object()
+        self.next_node: Any = _GoldenModelRequestNode()
+        self.result: _GoldenIterResult | None = None
+
+    async def __aenter__(self) -> _GoldenIterRun:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    async def next(self, node: Any) -> Any:
+        if isinstance(node, _GoldenModelRequestNode) and not node.final:
+            return _GoldenCallToolsNode()
+        if isinstance(node, _GoldenCallToolsNode):
+            return _GoldenModelRequestNode(final=True)
+        if isinstance(node, _GoldenModelRequestNode) and node.final:
+            self.result = _GoldenIterResult()
+            return End(self.result)
+        raise AssertionError(f"unexpected golden iter node: {node!r}")
+
+    def all_messages(self) -> list[ModelMessage]:
+        return self.result.all_messages() if self.result is not None else []
+
+
+class _GoldenIterContext:
+    async def __aenter__(self) -> _GoldenIterRun:
+        return _GoldenIterRun()
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+
+class _GoldenIterAgent:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    async def __aenter__(self) -> _GoldenIterAgent:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    def iter(self, *args: Any, **kwargs: Any) -> _GoldenIterContext:
+        return _GoldenIterContext()
+
+    @staticmethod
+    def is_model_request_node(node: Any) -> bool:
+        return isinstance(node, _GoldenModelRequestNode)
+
+    @staticmethod
+    def is_call_tools_node(node: Any) -> bool:
+        return isinstance(node, _GoldenCallToolsNode)
+
+
+def _event_order_signature(events: list[Event]) -> list[dict[str, Any]]:
+    signature: list[dict[str, Any]] = []
+    for event in events:
+        data = dict(event.data)
+        if event.type == "meta":
+            data = {"model": data["model"]}
+        elif event.type == "step":
+            data = {
+                key: value
+                for key, value in data.items()
+                if key in {"status", "kind", "label", "detail"}
+                and value is not None
+            }
+            detail = data.get("detail")
+            if isinstance(detail, dict):
+                data["detail"] = {**detail, "duration_ms": 0}
+        signature.append({"type": event.type, "data": data})
+    return signature
+
+
+async def test_iter_loop_matches_run_stream_events_golden_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app.agent_node, "Agent", _GoldenIterAgent)
+    rig = Rig(TestModel(call_tools=[], custom_output_text="unused"))
+
+    events = await rig.turn(str(uuid4()), "Make a plan", _ALL_OFF)
+
+    assert _event_order_signature(events) == [
+        {"type": "meta", "data": {"model": "google-vertex:gemini-2.5-pro"}},
+        {"type": "narration", "data": {"text": "I'll check the plan first."}},
+        {
+            "type": "step",
+            "data": {"status": "start", "kind": "write_plan", "label": "Updating the plan"},
+        },
+        {
+            "type": "step",
+            "data": {
+                "status": "end",
+                "kind": "write_plan",
+                "label": "Updating the plan",
+                "detail": {
+                    "duration_ms": 0,
+                    "items": [
+                        {"content": "Check school facts", "status": "completed"},
+                        {"content": "Answer the student", "status": "in_progress"},
+                    ],
+                    "completed": 1,
+                    "total": 2,
+                },
+            },
+        },
+        {"type": "delta", "data": {"text": "Here is the final answer."}},
+        {"type": "sources", "data": {"sources": []}},
+        {
+            "type": "usage",
+            "data": {
+                "input_tokens": 3,
+                "output_tokens": 4,
+                "est_cost_usd": None,
+                "tool_calls": 1,
+            },
+        },
+        {"type": "done", "data": {"status": "complete"}},
     ]
 
 
@@ -1281,6 +1682,49 @@ def test_final_writer_strips_late_markers_after_early_flush() -> None:
     ]
 
 
+def test_final_writer_streams_staged_viz_answer_deltas_incrementally() -> None:
+    spec = {"type": "stat_block", "title": "Card"}
+    emitted: list[dict[str, Any]] = []
+    writer = app.agent_node._FinalContentPlacementWriter([spec], emitted.append)
+
+    writer.start_final()
+    writer.write({"type": "delta", "text": "First final chunk. "})
+    assert emitted == [{"type": "delta", "text": "First final chunk. "}]
+
+    writer.write({"type": "delta", "text": "Second final chunk."})
+    assert emitted == [
+        {"type": "delta", "text": "First final chunk. "},
+        {"type": "delta", "text": "Second final chunk."},
+    ]
+
+    writer.flush_final()
+
+    assert emitted == [
+        {"type": "delta", "text": "First final chunk. "},
+        {"type": "delta", "text": "Second final chunk."},
+        {"type": "viz", "spec": spec},
+    ]
+
+
+def test_final_writer_streams_text_before_split_viz_marker_immediately() -> None:
+    spec = {"type": "stat_block", "title": "Card"}
+    emitted: list[dict[str, Any]] = []
+    writer = app.agent_node._FinalContentPlacementWriter([spec], emitted.append)
+
+    writer.start_final()
+    writer.write({"type": "delta", "text": "Intro before card. [["})
+    assert emitted == [{"type": "delta", "text": "Intro before card. "}]
+
+    writer.write({"type": "delta", "text": "viz:1]] Outro after card."})
+    writer.flush_final()
+
+    assert emitted == [
+        {"type": "delta", "text": "Intro before card. "},
+        {"type": "viz", "spec": spec},
+        {"type": "delta", "text": " Outro after card."},
+    ]
+
+
 async def test_viz_without_marker_falls_back_after_final_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1636,6 +2080,91 @@ class _BudgetAfterFinalStream:
         raise UsageLimitExceeded("forced budget after final start")
 
 
+class _BudgetToolStream:
+    def __init__(self, tools: dict[str, Any]) -> None:
+        self._tools = tools
+
+    async def __aenter__(self) -> _BudgetToolStream:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    async def __aiter__(self) -> AsyncIterator[FunctionToolCallEvent | FunctionToolResultEvent]:
+        call = ToolCallPart(
+            tool_name="render_viz",
+            args={"type": "comparison", "unitids": [1], "field_keys": ["admissions.rate"]},
+            tool_call_id="viz-after-final",
+        )
+        yield FunctionToolCallEvent(part=call)
+        result = await self._tools["render_viz"].function(
+            "comparison", [1], ["admissions.rate"], None
+        )
+        yield FunctionToolResultEvent(
+            part=ToolReturnPart(
+                tool_name="render_viz",
+                content=result,
+                tool_call_id="viz-after-final",
+            )
+        )
+
+
+class _BudgetCallToolsNode:
+    def __init__(self, tools: dict[str, Any]) -> None:
+        self._tools = tools
+
+    def stream(self, ctx: Any) -> _BudgetToolStream:
+        return _BudgetToolStream(self._tools)
+
+
+class _BudgetModelNode:
+    async def __aenter__(self) -> _BudgetModelNode:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    async def __aiter__(self) -> AsyncIterator[Any]:
+        yield FinalResultEvent(tool_name=None, tool_call_id=None)
+        yield PartStartEvent(index=0, part=TextPart(content="Partial final answer."))
+        raise UsageLimitExceeded("forced budget after final start")
+
+    def stream(self, ctx: Any) -> _BudgetModelNode:
+        return self
+
+
+class _BudgetIterRun:
+    def __init__(self, tools: dict[str, Any]) -> None:
+        self.ctx = object()
+        self.next_node: Any = _BudgetCallToolsNode(tools)
+        self.result = None
+
+    async def __aenter__(self) -> _BudgetIterRun:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+    async def next(self, node: Any) -> Any:
+        if isinstance(node, _BudgetCallToolsNode):
+            return _BudgetModelNode()
+        raise AssertionError("budget test should raise before advancing final model node")
+
+    def all_messages(self) -> list[Any]:
+        return []
+
+
+class _BudgetIterContext:
+    def __init__(self, tools: dict[str, Any]) -> None:
+        self._tools = tools
+
+    async def __aenter__(self) -> _BudgetIterRun:
+        return _BudgetIterRun(self._tools)
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        return False
+
+
 class _BudgetAfterFinalAgent:
     def __init__(self, *args: Any, tools: list[Any], **kwargs: Any) -> None:
         self._tools = {tool.name: tool for tool in tools}
@@ -1648,6 +2177,17 @@ class _BudgetAfterFinalAgent:
 
     def run_stream_events(self, *args: Any, **kwargs: Any) -> _BudgetAfterFinalStream:
         return _BudgetAfterFinalStream(self._tools)
+
+    def iter(self, *args: Any, **kwargs: Any) -> _BudgetIterContext:
+        return _BudgetIterContext(self._tools)
+
+    @staticmethod
+    def is_model_request_node(node: Any) -> bool:
+        return isinstance(node, _BudgetModelNode)
+
+    @staticmethod
+    def is_call_tools_node(node: Any) -> bool:
+        return isinstance(node, _BudgetCallToolsNode)
 
 
 async def test_budget_after_final_partial_preserves_visible_viz_and_prose(
@@ -1841,6 +2381,38 @@ async def test_write_failure_record_fallback_restore_writes_messages() -> None:
     assert payload["messages"] == fallback
 
 
+async def test_write_failure_record_uses_partial_history_snapshot() -> None:
+    from app.run_turn import _write_failure_record
+
+    original = _serialized_user_message_for_test("tell me about duke")
+    snapshot_messages = original + [
+        ModelMessagesTypeAdapter.dump_python(
+            [ModelResponse(parts=[TextPart(content="snapshot answer")])],
+            mode="json",
+        )[0]
+    ]
+    graph = _CapturingGraph({"messages": original, "turn_records": []})
+
+    await _write_failure_record(
+        graph,
+        {"configurable": {"thread_id": "s-error-snapshot"}},
+        emissions=[("delta", "live prose")],
+        ids={"message_id": "m-1", "user_message_id": "u-1"},
+        user_text="tell me about duke",
+        trace_id="t-1",
+        messages_offset=0,
+        fallback_messages=original,
+        registry_dump=[],
+        partial_history=snapshot_messages,
+        emissions_len_at_snapshot=0,
+    )
+
+    payload = graph.updates[0]
+    assert payload["messages"] == snapshot_messages
+    assert payload["turn_records"][-1]["status"] == "error"
+    assert payload["turn_records"][-1]["partial_history"] == "snapshot"
+
+
 def _serialized_user_message_for_test(text: str) -> list[dict[str, Any]]:
     from pydantic_ai.messages import ModelMessagesTypeAdapter, UserPromptPart
 
@@ -1917,9 +2489,139 @@ async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None
     assert new_input.graph_input["messages"][-1]["kind"] == "request"
     assert new_input.messages_offset == 1  # appended after the one prior message
 
+    # Snapshot-backed interrupted history gets an explicit continuation marker
+    # in the next user prompt; ordinary prior history does not.
+    prior = _serialized_user_message_for_test("first question") + [
+        ModelMessagesTypeAdapter.dump_python(
+            [ModelResponse(parts=[TextPart(content="completed partial work")])],
+            mode="json",
+        )[0]
+    ]
+
+    class _SnapCancelled:
+        values = {
+            "messages": prior,
+            "turn_records": [
+                {
+                    "message_id": "m-old",
+                    "user_message_id": "u-old",
+                    "status": "cancelled",
+                    "messages_offset": 0,
+                    "partial_history": "snapshot",
+                }
+            ],
+        }
+
+    continued = await _prepare_turn_input(
+        rig.graph,
+        rig.deps,
+        rig.settings,
+        session_id="prep-continue",
+        user_text="now compare cost",
+        source_config=_ALL_OFF,
+        snapshot=_SnapCancelled(),
+        parked=None,
+        turn_ids={"message_id": "m-cont", "user_message_id": "u-cont"},
+    )
+    prompt = continued.graph_input["messages"][-1]["parts"][0]["content"]
+    assert prompt.startswith(
+        "[Request interrupted by user - the previous run was stopped; "
+        "its completed steps above are real.]"
+    )
+    assert prompt.endswith("now compare cost")
+
     # Reference the imported sentinel so the import is not flagged as unused; it
     # is the BC-11 raise path exercised by test_turn_persistence's integration test.
     assert issubclass(_ResumePrewriteError, Exception)
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {
+            "message_id": "m-complete",
+            "user_message_id": "u-complete",
+            "status": "complete",
+            "messages_offset": 0,
+            "partial_history": "snapshot",
+        },
+        {
+            "message_id": "m-cancelled",
+            "user_message_id": "u-cancelled",
+            "status": "cancelled",
+            "messages_offset": 0,
+        },
+    ],
+)
+async def test_prepare_turn_input_does_not_mark_normal_or_non_snapshot_history(
+    record: dict[str, Any],
+) -> None:
+    from app.run_turn import _prepare_turn_input
+
+    rig = Rig(_fn_model(_ask_student_probe))
+    prior = _serialized_user_message_for_test("first question") + [
+        ModelMessagesTypeAdapter.dump_python(
+            [ModelResponse(parts=[TextPart(content="prior assistant content")])],
+            mode="json",
+        )[0]
+    ]
+
+    class _Snap:
+        values = {"messages": prior, "turn_records": [record]}
+
+    prepared = await _prepare_turn_input(
+        rig.graph,
+        rig.deps,
+        rig.settings,
+        session_id="prep-no-marker",
+        user_text="now compare cost",
+        source_config=_ALL_OFF,
+        snapshot=_Snap(),
+        parked=None,
+        turn_ids={"message_id": "m-new", "user_message_id": "u-new"},
+    )
+
+    prompt = prepared.graph_input["messages"][-1]["parts"][0]["content"]
+    assert prompt == "now compare cost"
+    assert "Request interrupted by user" not in prompt
+    assert "Previous run ended early" not in prompt
+
+
+async def test_prepare_turn_input_does_not_mark_snapshot_without_assistant_content() -> None:
+    from app.run_turn import _prepare_turn_input
+
+    rig = Rig(_fn_model(_ask_student_probe))
+    prior = _serialized_user_message_for_test("first question")
+
+    class _Snap:
+        values = {
+            "messages": prior,
+            "turn_records": [
+                {
+                    "message_id": "m-snapshot-empty",
+                    "user_message_id": "u-snapshot-empty",
+                    "status": "error",
+                    "messages_offset": 0,
+                    "partial_history": "snapshot",
+                }
+            ],
+        }
+
+    prepared = await _prepare_turn_input(
+        rig.graph,
+        rig.deps,
+        rig.settings,
+        session_id="prep-no-marker-empty-snapshot",
+        user_text="now compare cost",
+        source_config=_ALL_OFF,
+        snapshot=_Snap(),
+        parked=None,
+        turn_ids={"message_id": "m-new", "user_message_id": "u-new"},
+    )
+
+    prompt = prepared.graph_input["messages"][-1]["parts"][0]["content"]
+    assert prompt == "now compare cost"
+    assert "Previous run ended early" not in prompt
 
 
 async def test_record_state_carries_no_secrets() -> None:

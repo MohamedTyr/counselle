@@ -20,6 +20,7 @@ EventType = Literal[
     "step",
     "narration",
     "thinking",
+    "user_message",
     "viz",
     "clarify",
     "sources",
@@ -78,9 +79,9 @@ class DeltaData(BaseModel):
 class StepDetail(BaseModel):
     """Kind-specific receipt payload on a step's ``end``/``error`` (§27.1).
 
-    Carries queries, domains, counts, field keys — NEVER DSNs, credentials,
-    or payloads (house rule; tested). The ``sql`` kind's statement rides
-    ``query`` (radical transparency — B0 decision).
+    Public, student-safe receipt fields only; never raw tool results, DSNs,
+    credentials, or hidden backend payloads. The ``sql`` kind's statement rides
+    ``query`` for transparent receipts.
 
     Honesty invariant: ``field_keys`` and ``row_count`` are eng/debug-only —
     they expose DB schema internals and MUST NOT be rendered in student-facing
@@ -124,7 +125,8 @@ class ToolUi(BaseModel):
     """Structured public UI payload for a completed tool step.
 
     The raw tool result's top-level ``ui`` key is stripped before the model sees
-    it; the step event receives this copy from ``public_receipt.ui``.
+    it; the step event receives this public copy from ``public_receipt.ui`` for
+    widget rendering.
     """
 
     widget: str
@@ -182,10 +184,24 @@ class NarrationData(BaseModel):
 class ThinkingData(BaseModel):
     """A native raw-reasoning line (Gemini thought summaries via
     ``include_thoughts``), interleaved in the timeline. ONLY emitted when
-    ``thinking_summaries`` is on — collapsed by default, never shown as
-    prose. Never carries narration; see :class:`NarrationData` for that."""
+    the effective ``thinking_stream`` setting is on — collapsed by default,
+    never shown as prose. ``thinking_summaries`` is deprecated compatibility
+    config only. Never carries narration; see :class:`NarrationData` for that."""
 
     text: str
+
+
+class UserMessageData(BaseModel):
+    """A user message sent while an assistant run is active.
+
+    ``injected=False`` is the immediate acknowledgement. ``injected=True`` is
+    emitted only after the agent run accepted the text through PydanticAI's
+    public enqueue API.
+    """
+
+    text: str
+    user_message_id: str
+    injected: bool
 
 
 class SourceEntry(BaseModel):
@@ -271,6 +287,17 @@ def ev_narration(text: str) -> Event:
 
 def ev_thinking(text: str) -> Event:
     return Event(type="thinking", data=ThinkingData(text=text).model_dump())
+
+
+def ev_user_message(text: str, user_message_id: str, *, injected: bool) -> Event:
+    return Event(
+        type="user_message",
+        data=UserMessageData(
+            text=text,
+            user_message_id=user_message_id,
+            injected=injected,
+        ).model_dump(),
+    )
 
 
 def ev_viz(spec: RenderSpec) -> Event:

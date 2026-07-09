@@ -145,6 +145,7 @@ def test_parts_skip_empty_deltas_and_ignore_steps_thinking() -> None:
             ("step", _step("s1", "db_tool")),
             ("delta", "Hi"),
             ("thinking", "hmm"),
+            ("user", {"text": "also cost", "user_message_id": "u-steer", "injected": True}),
             ("delta", ""),
             ("delta", "!"),
         ]
@@ -219,6 +220,62 @@ def test_segments_dedupes_viz_without_splitting_delta_run() -> None:
     ]
 
 
+def test_segments_merge_user_message_ack_to_injected() -> None:
+    segments = build_segments(
+        [
+            ("delta", "Working."),
+            ("user", {"text": "also cost", "user_message_id": "u-steer", "injected": False}),
+            ("thinking", "queued"),
+            ("user", {"text": "also cost", "user_message_id": "u-steer", "injected": True}),
+            ("delta", "Done."),
+        ]
+    )
+
+    assert segments == [
+        {"kind": "delta", "text": "Working."},
+        {
+            "kind": "user",
+            "text": "also cost",
+            "user_message_id": "u-steer",
+            "injected": True,
+        },
+        {"kind": "thinking", "text": "queued"},
+        {"kind": "delta", "text": "Done."},
+    ]
+
+
+def test_segments_keep_injected_user_message() -> None:
+    segments = build_segments(
+        [
+            ("delta", "Working."),
+            ("user", {"text": "also cost", "user_message_id": "u-steer", "injected": True}),
+            ("delta", "Done."),
+        ]
+    )
+
+    assert segments == [
+        {"kind": "delta", "text": "Working."},
+        {
+            "kind": "user",
+            "text": "also cost",
+            "user_message_id": "u-steer",
+            "injected": True,
+        },
+        {"kind": "delta", "text": "Done."},
+    ]
+
+
+def test_segments_exclude_uninjected_terminal_user_message() -> None:
+    segments = build_segments(
+        [
+            ("delta", "Done."),
+            ("user", {"text": "next thought", "user_message_id": "u-late", "injected": False}),
+        ]
+    )
+
+    assert segments == [{"kind": "delta", "text": "Done."}]
+
+
 # ---------------------------------------------------------------------------
 # prose_of — the one source for "the assistant's text"
 # ---------------------------------------------------------------------------
@@ -283,6 +340,65 @@ def test_record_carries_ids_status_ts_offset_and_end_state_steps() -> None:
         {"kind": "delta", "text": "Found it [1]."},
     ]
     assert prose_of(record["parts"]) == "Found it [1]."
+
+
+def test_record_persists_live_like_ordered_segments_with_native_thinking() -> None:
+    emissions: list[Emission] = [
+        ("thinking", "Reading the question."),
+        ("step", _step("s1", "db_tool", status="start")),
+        ("thinking", "Checking the CDS row."),
+        ("step", _step("s1", "db_tool", status="end")),
+        ("delta", "Duke reports "),
+        ("step", _step("s2", "web_search", status="start")),
+        ("step", _step("s2", "web_search", status="end")),
+        ("thinking", "Comparing against the source."),
+        ("delta", "strong aid."),
+    ]
+
+    record = build_turn_record(
+        emissions,
+        ids=_IDS,
+        status="complete",
+        sources=[],
+        user_text="how is duke aid?",
+        ts="2026-06-12T00:00:00+00:00",
+        messages_offset=0,
+    )
+
+    assert record["thinking"] == [
+        "Reading the question.",
+        "Checking the CDS row.",
+        "Comparing against the source.",
+    ]
+    assert record["parts"] == [{"type": "text", "text": "Duke reports strong aid."}]
+    assert record["segments"] == [
+        {"kind": "thinking", "text": "Reading the question."},
+        {"kind": "step", "data": emissions[3][1]},
+        {"kind": "thinking", "text": "Checking the CDS row."},
+        {"kind": "delta", "text": "Duke reports "},
+        {"kind": "step", "data": emissions[6][1]},
+        {"kind": "thinking", "text": "Comparing against the source."},
+        {"kind": "delta", "text": "strong aid."},
+    ]
+
+
+def test_record_excludes_uninjected_user_message_from_persisted_replay() -> None:
+    record = build_turn_record(
+        [
+            ("delta", "Done."),
+            ("user", {"text": "next thought", "user_message_id": "u-late", "injected": False}),
+        ],
+        ids=_IDS,
+        status="complete",
+        sources=[],
+        user_text="question",
+        ts="2026-06-12T00:00:00+00:00",
+        messages_offset=0,
+    )
+
+    assert record["parts"] == [{"type": "text", "text": "Done."}]
+    assert prose_of(record["parts"]) == "Done."
+    assert record["segments"] == [{"kind": "delta", "text": "Done."}]
 
 
 def test_record_defaults_mint_ts_and_allow_no_usage_or_user_text() -> None:

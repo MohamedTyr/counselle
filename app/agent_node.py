@@ -45,12 +45,13 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models import Model
-from pydantic_ai.run import AgentRunResultEvent
 from pydantic_ai.usage import UsageLimits
+from pydantic_graph import End
 
 from app import viz as viz_mod
 from app.plan_tool import make_write_plan_tool
 from app.prompt import build_system_prompt
+from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
 from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.skills import load_skill
 from app.sources import SourceRegistry
@@ -59,13 +60,14 @@ from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
 from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
 from app.turn_persistence import partial_messages, resolve_offset
-from app.viz_placement import StreamingVizMarkerStripper, chunks_from_viz_markers
+from app.viz_placement import StreamingVizMarkerStripper
 from config.settings import get_settings, load_yaml_asset
 from domain.events import UsageData
 from domain.specs import SourceConfig
 
 if TYPE_CHECKING:
     from app.graph import GraphDeps  # circular at runtime: graph imports run_agent_node
+    from app.run_handle import RunHandle, SteeringMessage
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +216,95 @@ def _make_read_tool_result_tool(store: ToolResultStore) -> Tool[Any]:
     return Tool(read_tool_result, takes_ctx=False)
 
 
+_VIZ_MARKER_START = "[[viz:"
+
+
+class _StreamingVizMarkerPlacer:
+    def __init__(
+        self,
+        staged_specs: list[dict[str, Any]],
+        writer: Callable[[dict[str, Any]], None],
+    ) -> None:
+        self._staged_specs = staged_specs
+        self._writer = writer
+        self._pending = ""
+        self._emitted_indexes: set[int] = set()
+
+    def feed(self, text: str) -> None:
+        if not text:
+            return
+        self._pending += text
+        self._drain_pending(final=False)
+
+    def flush(self, *, emit_fallback: bool) -> None:
+        self._drain_pending(final=True)
+        if not emit_fallback:
+            return
+        for index, spec in enumerate(self._staged_specs):
+            if index not in self._emitted_indexes:
+                self._writer({"type": "viz", "spec": spec})
+                self._emitted_indexes.add(index)
+
+    def _drain_pending(self, *, final: bool) -> None:
+        while self._pending:
+            marker_start = self._pending.find(_VIZ_MARKER_START)
+            if marker_start == -1:
+                self._emit_non_marker_tail(final=final)
+                return
+            if marker_start > 0:
+                self._emit_delta(self._pending[:marker_start])
+                self._pending = self._pending[marker_start:]
+                continue
+
+            marker_body_start = len(_VIZ_MARKER_START)
+            marker_end = self._pending.find("]]", marker_body_start)
+            if marker_end == -1:
+                whitespace_index = _first_whitespace_index(self._pending[marker_body_start:])
+                if whitespace_index is None:
+                    if final:
+                        self._pending = ""
+                    return
+                self._pending = self._pending[marker_body_start + whitespace_index :]
+                continue
+
+            marker_value = self._pending[marker_body_start:marker_end]
+            if marker_value.isdigit():
+                index = int(marker_value) - 1
+                if 0 <= index < len(self._staged_specs) and index not in self._emitted_indexes:
+                    self._writer({"type": "viz", "spec": self._staged_specs[index]})
+                    self._emitted_indexes.add(index)
+            cursor = marker_end + 2
+            while cursor < len(self._pending) and self._pending[cursor] == "]":
+                cursor += 1
+            self._pending = self._pending[cursor:]
+
+    def _emit_non_marker_tail(self, *, final: bool) -> None:
+        keep_len = 0 if final else _trailing_viz_marker_prefix_len(self._pending)
+        emit_text = self._pending if keep_len == 0 else self._pending[:-keep_len]
+        self._pending = "" if keep_len == 0 else self._pending[-keep_len:]
+        if emit_text:
+            self._emit_delta(emit_text)
+
+    def _emit_delta(self, text: str) -> None:
+        if text:
+            self._writer({"type": "delta", "text": text})
+
+
+def _first_whitespace_index(text: str) -> int | None:
+    return next((index for index, char in enumerate(text) if char.isspace()), None)
+
+
+def _trailing_viz_marker_prefix_len(text: str) -> int:
+    return next(
+        (
+            length
+            for length in range(min(len(text), len(_VIZ_MARKER_START) - 1), 0, -1)
+            if text.endswith(_VIZ_MARKER_START[:length])
+        ),
+        0,
+    )
+
+
 class _FinalContentPlacementWriter:
     def __init__(
         self,
@@ -223,23 +314,19 @@ class _FinalContentPlacementWriter:
         self._staged_specs = staged_specs
         self._writer = writer
         self._final_started = False
-        self._buffering = False
         self._flushed = False
-        self._text_chunks: list[str] = []
+        self._placer = _StreamingVizMarkerPlacer(staged_specs, writer)
         self._stripper = StreamingVizMarkerStripper()
 
     def start_final(self) -> None:
         if self._final_started or self._flushed:
             return
         self._final_started = True
-        self._buffering = bool(self._staged_specs)
 
     def write(self, chunk: dict[str, Any]) -> None:
-        if self._buffering and not self._flushed:
-            kind = chunk.get("type")
-            if kind == "delta":
-                if (text := chunk.get("text")) is not None:
-                    self._text_chunks.append(text)
+        if self._final_started and not self._flushed and self._staged_specs:
+            if chunk.get("type") == "delta":
+                self._placer.feed(str(chunk.get("text") or ""))
                 return
             self.flush_final()
         elif self._final_started and chunk.get("type") == "delta":
@@ -256,19 +343,12 @@ class _FinalContentPlacementWriter:
             return
         if not self._final_started:
             return
-        self._buffering = False
         self._flushed = True
-        if not self._staged_specs:
+        if self._staged_specs:
+            self._placer.flush(emit_fallback=True)
+        else:
             if stripped := self._stripper.flush():
                 self._writer({"type": "delta", "text": stripped})
-            return
-        final_text = "".join(self._text_chunks)
-        self._text_chunks = []
-        for kind, payload in chunks_from_viz_markers(final_text, self._staged_specs):
-            if kind == "delta":
-                self._writer({"type": "delta", "text": payload})
-            elif kind == "viz":
-                self._writer({"type": "viz", "spec": payload})
 
 
 def _make_recording_writer(
@@ -295,6 +375,19 @@ def _make_recording_writer(
             emissions.append(("thinking", text))
         elif kind == "narration" and (text := chunk.get("text")) is not None:
             emissions.append(("narration", text))
+        elif kind == "user_message" and isinstance(chunk.get("data"), dict):
+            data = dict(chunk["data"])
+            if data.get("text") and data.get("user_message_id"):
+                emissions.append(
+                    (
+                        "user",
+                        {
+                            "text": str(data["text"]),
+                            "user_message_id": str(data["user_message_id"]),
+                            "injected": bool(data.get("injected")),
+                        },
+                    )
+                )
         writer(chunk)
 
     return recording
@@ -333,6 +426,101 @@ def _resume_clarify(
     if spec is None:
         return None, False  # pre-B1b parked thread: no spec to carry
     return {"spec": spec, "answer": resume_text}, True
+
+
+def _tool_call_id(part: dict[str, Any]) -> str | None:
+    raw = part.get("tool_call_id") or part.get("id")
+    return str(raw) if raw else None
+
+
+def is_provider_replayable(messages: list[dict[str, Any]]) -> bool:
+    """Conservative serialized-history check for tool-call pairing.
+
+    A snapshot with a tool call but no later tool return is not replay-safe.
+    Unknown or id-less tool-call shapes are treated as unsafe.
+    """
+    waiting: set[str] = set()
+    for message in messages:
+        parts = message.get("parts")
+        if not isinstance(parts, list):
+            return False
+        for part in parts:
+            if not isinstance(part, dict):
+                return False
+            kind = part.get("part_kind")
+            if kind == "tool-call":
+                tool_call_id = _tool_call_id(part)
+                if tool_call_id is None:
+                    return False
+                waiting.add(tool_call_id)
+            elif kind in {"tool-return", "function-tool-result", "retry-prompt"}:
+                tool_call_id = _tool_call_id(part)
+                if tool_call_id is None or tool_call_id not in waiting:
+                    return False
+                waiting.remove(tool_call_id)
+    return not waiting
+
+
+def record_replayable_snapshot(
+    run: Any,
+    handle: RunHandle | None,
+    *,
+    emissions_len: int,
+) -> None:
+    if handle is None:
+        return
+    try:
+        messages = ModelMessagesTypeAdapter.dump_python(run.all_messages(), mode="json")
+    except Exception:
+        logger.warning("failed to serialize active run messages snapshot", exc_info=True)
+        return
+    if not isinstance(messages, list) or not all(isinstance(item, dict) for item in messages):
+        return
+    if not is_provider_replayable(messages):
+        return
+    handle.record_snapshot(messages, emissions_len=emissions_len)
+
+
+def _steering_payload(message: SteeringMessage, *, injected: bool) -> dict[str, Any]:
+    return {
+        "text": message.text,
+        "user_message_id": message.user_message_id,
+        "injected": injected,
+    }
+
+
+def _emit_injected_steers(
+    run: Any,
+    handle: RunHandle | None,
+    writer: Callable[[dict[str, Any]], None],
+) -> None:
+    if handle is None:
+        return
+    for message in handle.drain_steers():
+        run.enqueue(message.text, priority="asap")
+        writer({"type": "user_message", "data": _steering_payload(message, injected=True)})
+
+
+def _record_uninjected_steers(
+    handle: RunHandle | None,
+    emissions: list[Emission],
+) -> None:
+    if handle is None:
+        return
+    for message in handle.drain_steers():
+        payload = _steering_payload(message, injected=False)
+        handle.queued_at_terminal.append(message)
+        emissions.append(("user", payload))
+
+
+def _effective_thinking_stream(settings: Any) -> bool:
+    effective = getattr(settings, "effective_thinking_stream", None)
+    if isinstance(effective, bool):
+        return effective
+    legacy = getattr(settings, "thinking_summaries", None)
+    if isinstance(legacy, bool):
+        return legacy
+    return bool(getattr(settings, "thinking_stream", True))
 
 
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
@@ -381,9 +569,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         lambda: default_model_factory(settings)
     )
     model_settings = None
-    if getattr(settings, "thinking_summaries", False):
-        # Native Gemini thought summaries → `thinking` events (B0 spike 2).
-        # A non-Google model simply ignores the google_* key.
+    if _effective_thinking_stream(settings):
+        # Native Gemini thought output → `thinking` events. Gemini exposes this
+        # through include_thoughts; non-Google models ignore the google_* key.
         from pydantic_ai.models.google import GoogleModelSettings
 
         model_settings = GoogleModelSettings(google_thinking_config={"include_thoughts": True})
@@ -397,6 +585,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         tools=tools,
         toolsets=[mcp_toolset] if mcp_toolset is not None else None,
         model_settings=model_settings,
+        # A tool that fails once for a transient/schema reason gets one more chance
+        # before the turn dies (pydantic_ai default is 1; see
+        # plans/fix-search-fields-resilience.md Bug C).
+        retries=2,
     )
     limits = UsageLimits(
         request_limit=settings.agent_max_model_requests,
@@ -418,22 +610,50 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     #     still flies for legacy/lower-level callers, after open steps close. ---
     messages_out = state["messages"]
     usage = UsageData(input_tokens=0, output_tokens=0, tool_calls=0)
+    ids = _turn_ids(state)
+    handle = None
+    session_id = ids.get("session_id")
+    handle_store = getattr(deps, "run_handles", None)
+    if handle_store is not None and session_id is not None:
+        handle = handle_store.get(str(session_id))
     result = None
     try:
         # `async with agent` enters the MCP toolset for the run (notes §2 lifecycle).
         async with (
             agent,
-            agent.run_stream_events(
+            agent.iter(
                 user_text,
                 message_history=history or None,
                 deps=TurnDeps(registry=registry, tool_overflow=tool_overflow),
                 usage_limits=limits,
-            ) as stream,
+            ) as run,
         ):
-            async for event in stream:
-                router.handle(event)
-                if isinstance(event, AgentRunResultEvent):
-                    result = event.result
+            node = run.next_node
+            while not isinstance(node, End):
+                _emit_injected_steers(run, handle, recording_writer)
+                if Agent.is_model_request_node(node):
+                    model_node: ModelRequestNode[Any, str] = node
+                    async with model_node.stream(run.ctx) as stream:
+                        async for model_event in stream:
+                            router.handle(model_event)
+                    _emit_injected_steers(run, handle, recording_writer)
+                    node = await run.next(model_node)
+                    if isinstance(node, End):
+                        record_replayable_snapshot(run, handle, emissions_len=len(emissions))
+                elif Agent.is_call_tools_node(node):
+                    tool_node: CallToolsNode[Any, str] = node
+                    async with tool_node.stream(run.ctx) as stream:
+                        async for tool_event in stream:
+                            router.handle(tool_event)
+                    record_replayable_snapshot(run, handle, emissions_len=len(emissions))
+                    _emit_injected_steers(run, handle, recording_writer)
+                    node = await run.next(tool_node)
+                    record_replayable_snapshot(run, handle, emissions_len=len(emissions))
+                else:
+                    _emit_injected_steers(run, handle, recording_writer)
+                    node = await run.next(node)
+            result = run.result
+            _record_uninjected_steers(handle, emissions)
     except UsageLimitExceeded:
         _close_router_and_flush_final_safely(router, final_writer, "budget")
         writer({"type": "delta", "text": _TOOL_BUDGET_MESSAGE})
@@ -463,8 +683,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         # (the empty-partial rule, owned by turn_persistence — audit H1).
         messages_out, _ = partial_messages(state["messages"], emissions)
 
+    _record_uninjected_steers(handle, emissions)
+
     # --- the turn record (B1b, G1/G2): built from exactly what streamed ---
-    ids = _turn_ids(state)
     prior_records = list(state.get("turn_records") or [])
     clarify, synthesized = _resume_clarify(prior_records, ids)
     # messages_offset: run_turn computes the authoritative value per path (new

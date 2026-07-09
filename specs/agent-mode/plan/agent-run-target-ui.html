@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent run — target UI</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --surface: #fdfdfc;
+    --surface-2: #f0efeb;
+    --text: #211f1c;
+    --muted: #6f6c64;
+    --faint: #8f8c83;
+    --border: #dedcd5;
+    --border-strong: #c9c6bd;
+    --accent: #b06c2c;
+    --ok: #3d8a4e;
+    --chip-bg: #eceae4;
+    --caret: #211f1c;
+    --new-ring: #b06c2c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #191818;
+      --surface: #1d1c1c;
+      --surface-2: #232222;
+      --text: #e8e6e3;
+      --muted: #9d9a92;
+      --faint: #716f68;
+      --border: #302f2d;
+      --border-strong: #413f3c;
+      --accent: #d9a05b;
+      --ok: #6fbf7f;
+      --chip-bg: #262524;
+      --caret: #e8e6e3;
+      --new-ring: #d9a05b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #191818; --surface: #1d1c1c; --surface-2: #232222;
+    --text: #e8e6e3; --muted: #9d9a92; --faint: #716f68;
+    --border: #302f2d; --border-strong: #413f3c;
+    --accent: #d9a05b; --ok: #6fbf7f; --chip-bg: #262524;
+    --caret: #e8e6e3; --new-ring: #d9a05b;
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f5f2; --surface: #fdfdfc; --surface-2: #f0efeb;
+    --text: #211f1c; --muted: #6f6c64; --faint: #8f8c83;
+    --border: #dedcd5; --border-strong: #c9c6bd;
+    --accent: #b06c2c; --ok: #3d8a4e; --chip-bg: #eceae4;
+    --caret: #211f1c; --new-ring: #b06c2c;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 40px 20px 72px; }
+
+  /* ---------- header ---------- */
+  .eyebrow {
+    font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+  }
+  h1 {
+    margin: 10px 0 6px; font-size: 27px; font-weight: 650;
+    letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .lede { margin: 0 0 8px; max-width: 62ch; color: var(--muted); }
+  .lede strong { color: var(--text); font-weight: 600; }
+
+  /* ---------- legend ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 14px; }
+  .legend span {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; color: var(--muted);
+    background: var(--chip-bg); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 11px;
+  }
+  .legend i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .k-think { background: var(--faint); }
+  .k-resp  { background: var(--text); }
+  .k-tool  { background: var(--ok); }
+
+  /* ---------- compare panels ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 880px) { .compare { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 16px; border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .panel-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .phase-tag {
+    margin-left: auto; font: 500 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--muted);
+  }
+  .pulse {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.25; } }
+  .chat { padding: 18px 20px 20px; }
+  .panel-foot {
+    padding: 10px 16px 14px; border-top: 1px dashed var(--border);
+    font-size: 12.5px; color: var(--muted);
+  }
+  .panel-foot b { color: var(--text); font-weight: 600; }
+
+  /* ---------- beats (the actual UI being specified) ---------- */
+  .beat { margin: 0 0 4px; }
+
+  /* thinking — collapsed toggle */
+  .think-toggle {
+    display: flex; align-items: center; gap: 5px;
+    background: none; border: 0; padding: 3px 0; cursor: pointer;
+    font: inherit; font-size: 13px; color: var(--muted);
+  }
+  .think-toggle:hover { color: var(--text); }
+  .think-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .chev { display: inline-block; transition: transform 0.15s; font-size: 10px; color: var(--faint); }
+  .open .chev { transform: rotate(90deg); }
+  .think-body {
+    display: none; margin: 3px 0 6px; padding-left: 17px;
+    font-size: 13px; font-style: italic; color: var(--muted);
+    white-space: pre-wrap;
+  }
+  .open .think-body { display: block; }
+  .thinking-live { color: var(--muted); }
+  .thinking-live .lbl {
+    background: linear-gradient(90deg, var(--muted) 30%, var(--text) 50%, var(--muted) 70%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: shimmer 1.6s linear infinite;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse, .thinking-live .lbl, .caret, .spin { animation: none !important; }
+  }
+
+  /* response prose — one style for ALL model talk (pre-tool + final) */
+  .prose { font-size: 14.5px; }
+  .prose p { margin: 8px 0; }
+  .prose h3 { margin: 16px 0 6px; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+  .prose ul { margin: 8px 0; padding-left: 20px; }
+  .prose li { margin: 5px 0; }
+  .prose strong { font-weight: 650; }
+  .caret {
+    display: inline-block; width: 7px; height: 15px; margin-left: 2px;
+    vertical-align: -2px; background: var(--caret);
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* tool receipt */
+  .tool { margin: 10px 0; }
+  .tool-row {
+    display: flex; align-items: baseline; gap: 8px;
+    background: none; border: 0; padding: 2px 0; cursor: pointer;
+    font: inherit; font-size: 13.5px; color: var(--text); text-align: left;
+  }
+  .tool-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+  .dot-ok { background: var(--ok); }
+  .spin {
+    flex: none; width: 10px; height: 10px; align-self: center;
+    border: 1.5px solid var(--faint); border-top-color: var(--text);
+    border-radius: 50%; animation: rot 0.8s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .tool-q { color: var(--muted); }
+  .tool-receipt { margin: 2px 0 0 16px; font-size: 12.5px; color: var(--faint); }
+  .tool-detail {
+    display: none; margin: 6px 0 4px 16px; padding: 8px 12px;
+    border-left: 2px solid var(--border-strong);
+    font-size: 12.5px; color: var(--muted);
+  }
+  .tool.open .tool-detail { display: block; }
+  .tool-detail dl { display: grid; grid-template-columns: 72px 1fr; gap: 3px 14px; margin: 0; }
+  .tool-detail dt { color: var(--faint); }
+  .tool-detail dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  /* settled extras */
+  .sources { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; }
+  .src {
+    font-size: 11.5px; color: var(--muted); background: var(--chip-bg);
+    border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px;
+  }
+  .actions {
+    display: flex; gap: 4px; margin-top: 10px; padding: 6px;
+    border: 1.5px dashed var(--new-ring); border-radius: 8px; width: max-content;
+    position: relative;
+  }
+  .actions::after {
+    content: "the ONLY thing that gets added";
+    position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    white-space: nowrap;
+    font: 500 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent);
+  }
+  @media (max-width: 1010px) {
+    .actions::after { left: 0; top: calc(100% + 6px); transform: none; }
+    .actions { margin-bottom: 22px; }
+  }
+  .actions button {
+    background: none; border: 0; border-radius: 6px; padding: 5px 7px;
+    color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
+  }
+  .actions button:hover { background: var(--surface-2); color: var(--text); }
+
+  /* ---------- invariants ---------- */
+  .rules { margin-top: 34px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 26px; }
+  @media (max-width: 720px) { .rules { grid-template-columns: 1fr; } }
+  .rule { display: flex; gap: 10px; font-size: 13.5px; }
+  .rule .no  { color: #c65454; font-weight: 700; flex: none; }
+  .rule .yes { color: var(--ok);  font-weight: 700; flex: none; }
+  .rule p { margin: 0; color: var(--muted); }
+  .rule b { color: var(--text); font-weight: 600; }
+  .rules h2 {
+    grid-column: 1 / -1; margin: 0 0 2px; font-size: 13px; font-weight: 650;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="eyebrow">Counselle · agent run surface</div>
+  <h1>The run is the message — and it never re-renders</h1>
+  <p class="lede">One chronological stream while the agent works. When it finishes, <strong>the exact same stream stays put</strong> — the only change is the actions row appearing under it. Toggles below are clickable.</p>
+
+  <div class="legend">
+    <span><i class="k-think"></i> Thinking — collapsed toggle, muted italic when opened, permanent</span>
+    <span><i class="k-resp"></i> Response text — normal markdown, same style before tools and at the end</span>
+    <span><i class="k-tool"></i> Tool call — compact receipt, expandable details</span>
+  </div>
+
+  <div class="compare">
+
+    <!-- ============ LIVE ============ -->
+    <section class="panel" aria-label="While it's working">
+      <div class="panel-head">
+        <span class="pulse" aria-hidden="true"></span>
+        <h2>1 · While it&rsquo;s working</h2>
+        <span class="phase-tag">streaming</span>
+      </div>
+      <div class="chat">
+
+        <div class="beat think" id="t1">
+          <button class="think-toggle" aria-expanded="false" data-think>
+            <span class="chev">▶</span><span>Thought</span>
+          </button>
+          <div class="think-body">The user wants a prestige and student-life comparison. My database covers selectivity, but "prestige" and campus culture need current web sources — rankings pages and student discussions. I'll search, then synthesize both angles.</div>
+        </div>
+
+        <div class="beat prose">
+          <p>Okay, I&rsquo;ll search the web for rankings, student discussions, and other information comparing the prestige and student life at MIT and Pitzer.</p>
+        </div>
+
+        <div class="beat tool" data-tool>
+          <button class="tool-row" aria-expanded="false">
+            <span class="dot dot-ok" aria-hidden="true"></span>
+            <span>Searching the web: <span class="tool-q">&ldquo;MIT vs Pitzer prestige rankings student life&rdquo;</span></span>
+          </button>
+          <div class="tool-receipt">5 results · talk.collegeconfidential.com, usnews.com, pitzer.edu +2</div>
+          <div class="tool-detail">
+            <dl>
+              <dt>Query</dt><dd>MIT vs Pitzer prestige rankings student life</dd>
+              <dt>Results</dt><dd>5</dd>
+              <dt>Duration</dt><dd>3,287 ms</dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="beat think thinking-live" id="t2">
+          <button class="think-toggle" aria-expanded="false" data-think>
+            <span class="chev">▶</span><span class="lbl">Thinking</span>
+          </button>
+          <div class="think-body">US News has MIT at #2 nationally; Pitzer #36 among liberal arts colleges — different ranking categories, worth flagging. Princeton Review calls Pitzer socially responsible and progressive. Structure: rankings first, then culture.</div>
+        </div>
+
+        <div class="beat prose">
+          <p>Here is what the web search reveals about the prestige and student life at MIT and Pitzer.</p>
+          <h3>Rankings and formal prestige</h3>
+          <p>It&rsquo;s important to note they are ranked in different categories.</p>
+          <ul>
+            <li><strong>MIT</strong> is consistently ranked among the top national universities, often holding the #2 spot.</li>
+            <li><strong>Pitzer College</strong> is ranked #36 among national liberal arts coll<span class="caret" aria-hidden="true"></span></li>
+          </ul>
+        </div>
+
+      </div>
+      <div class="panel-foot">Thinking streams <b>collapsed by default</b> — the label shimmers while it thinks; anyone can expand it mid-run. Answer text streams as <b>rendered markdown</b>, in order, right in the flow.</div>
+    </section>
+
+    <!-- ============ SETTLED ============ -->
+    <section class="panel" aria-label="After it finishes">
+      <div class="panel-head">
+        <h2>2 · After it finishes</h2>
+        <span class="phase-tag">settled — same DOM, same order</span>
+      </div>
+      <div class="chat">
+
+        <div class="beat think" id="t3">
+          <button class="think-toggle" aria-expanded="false" data-think>
+            <span class="chev">▶</span><span>Thought</span>
+          </button>
+          <div class="think-body">The user wants a prestige and student-life comparison. My database covers selectivity, but "prestige" and campus culture need current web sources — rankings pages and student discussions. I'll search, then synthesize both angles.</div>
+        </div>
+
+        <div class="beat prose">
+          <p>Okay, I&rsquo;ll search the web for rankings, student discussions, and other information comparing the prestige and student life at MIT and Pitzer.</p>
+        </div>
+
+        <div class="beat tool" data-tool>
+          <button class="tool-row" aria-expanded="false">
+            <span class="dot dot-ok" aria-hidden="true"></span>
+            <span>Searching the web: <span class="tool-q">&ldquo;MIT vs Pitzer prestige rankings student life&rdquo;</span></span>
+          </button>
+          <div class="tool-receipt">5 results · talk.collegeconfidential.com, usnews.com, pitzer.edu +2</div>
+          <div class="tool-detail">
+            <dl>
+              <dt>Query</dt><dd>MIT vs Pitzer prestige rankings student life</dd>
+              <dt>Results</dt><dd>5</dd>
+              <dt>Duration</dt><dd>3,287 ms</dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="beat think" id="t4">
+          <button class="think-toggle" aria-expanded="false" data-think>
+            <span class="chev">▶</span><span>Thought</span>
+          </button>
+          <div class="think-body">US News has MIT at #2 nationally; Pitzer #36 among liberal arts colleges — different ranking categories, worth flagging. Princeton Review calls Pitzer socially responsible and progressive. Structure: rankings first, then culture.</div>
+        </div>
+
+        <div class="beat prose">
+          <p>Here is what the web search reveals about the prestige and student life at MIT and Pitzer.</p>
+          <h3>Rankings and formal prestige</h3>
+          <p>It&rsquo;s important to note they are ranked in different categories.</p>
+          <ul>
+            <li><strong>MIT</strong> is consistently ranked among the top national universities, often holding the #2 spot.</li>
+            <li><strong>Pitzer College</strong> is ranked #36 among national liberal arts colleges and is a top producer of Fulbright students.</li>
+          </ul>
+          <h3>Student experience and culture</h3>
+          <p>In short, both schools are highly regarded — MIT&rsquo;s prestige comes from research-powerhouse selectivity; Pitzer&rsquo;s from its progressive model inside the Claremont consortium.</p>
+        </div>
+
+        <div class="sources">
+          <span class="src">collegeconfidential.com</span>
+          <span class="src">usnews.com</span>
+          <span class="src">pitzer.edu</span>
+          <span class="src">princetonreview.com</span>
+          <span class="src">+1 more</span>
+        </div>
+
+        <div class="actions" aria-label="Message actions">
+          <button title="Copy">⧉</button>
+          <button title="Good response">👍</button>
+          <button title="Bad response">👎</button>
+        </div>
+
+      </div>
+      <div class="panel-foot">Every beat from the run is still here, <b>in the same order</b>: both thinking toggles, the pre-tool sentence, the tool receipt, the answer. No summary section, no reshuffle, no re-render.</div>
+    </section>
+  </div>
+
+  <div class="rules">
+    <h2>The invariants</h2>
+    <div class="rule"><span class="yes">✓</span><p><b>Two text kinds only.</b> Thinking (collapsed, muted, italic) vs response text (normal markdown). What it says before a tool call is response text, not thinking.</p></div>
+    <div class="rule"><span class="yes">✓</span><p><b>Settled = last frame of the stream.</b> Finishing appends sources + actions and stops the cursor. Nothing else changes.</p></div>
+    <div class="rule"><span class="no">✗</span><p><b>No separate summary/answer section.</b> The final prose is just the last beats of the same stream.</p></div>
+    <div class="rule"><span class="no">✗</span><p><b>No raw markdown as plain text.</b> Never a literal <code>###</code> in a paragraph; never answer text chopped mid-word into grey blocks.</p></div>
+  </div>
+</div>
+
+<script>
+  for (const btn of document.querySelectorAll("[data-think]")) {
+    btn.addEventListener("click", () => {
+      const beat = btn.closest(".think");
+      const open = beat.classList.toggle("open");
+      btn.setAttribute("aria-expanded", String(open));
+    });
+  }
+  for (const tool of document.querySelectorAll("[data-tool]")) {
+    const row = tool.querySelector(".tool-row");
+    row.addEventListener("click", () => {
+      const open = tool.classList.toggle("open");
+      row.setAttribute("aria-expanded", String(open));
+    });
+  }
+</script>
+</body>
+</html>

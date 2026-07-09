@@ -31,7 +31,7 @@ It is two pieces:
 
 - **Python 3.12+** and **[uv](https://github.com/astral-sh/uv)**
 - **Node 20+** and **npm** (for the frontend)
-- **Postgres 16** with the **pgvector** extension running on `localhost:5432` (the data-pipeline DB)
+- **Postgres 16** with the **pgvector** and **pg_trgm** extensions running on `localhost:5432` (the data-pipeline DB)
 - The `counselle_ro` and `counselle_app` roles and the `counselle.*` schema provisioned — run `scripts/setup_db.sql` once, then apply migrations with `yoyo`:
 
 ```bash
@@ -85,6 +85,12 @@ npm run dev        # http://localhost:5173 (proxies /v1 → :8000)
 ```
 
 Then open **http://localhost:5173**.
+
+The local Vite origin is accepted for auth POSTs by default while
+`COUNSELLE_COOKIE_SECURE=false`. If you bypass the Vite proxy and call the API
+cross-origin from the browser, keep `COUNSELLE_CORS_ORIGINS=["http://localhost:5173"]`.
+For production same-origin serving, set `COUNSELLE_COOKIE_SECURE=true` and leave
+`COUNSELLE_CORS_ORIGINS` empty unless you intentionally split the frontend origin.
 
 > Note: serving the built SPA same-origin from the backend (one deployable, ADR 0023) is **planned but not yet built** — that is part of the deferred deploy phase. In local dev the two run side by side as above.
 

@@ -67,12 +67,15 @@ class Settings(BaseSettings):
     model_title: str = "google-vertex:gemini-2.5-flash"
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000
-    # OFF by design: the live timeline shows ONE intent line per round of work,
-    # authored by the model's "Narrate As You Work" sentence (model-agnostic, the
-    # only `thinking` feed). Native Gemini thought summaries would dump the model's
-    # full multi-paragraph reasoning into the rail — exactly what the product does
-    # not want. Leave False; the narration is the one-liner the UI displays (§27.2).
-    thinking_summaries: bool = False
+    # Native provider thought output. Gemini exposes this through
+    # include_thoughts; it is the rawest trace Google exposes through the API,
+    # not private internal CoT tokens. Counselle displays that provider output
+    # byte-for-byte when enabled.
+    thinking_stream: bool = True
+    # Deprecated one-release compatibility env/name. If
+    # COUNSELLE_THINKING_SUMMARIES is set, it overrides thinking_stream so
+    # existing deployments keep their expected behavior.
+    thinking_summaries: bool | None = None
 
     # --- Chat (B4) ---
     title_max_len: int = 60  # cap for both the derived default and the model title
@@ -238,6 +241,11 @@ class Settings(BaseSettings):
 
     # --- Assets ---
     assets_dir: Path = Path(__file__).parent / "assets"
+
+    @property
+    def effective_thinking_stream(self) -> bool:
+        """Whether native provider thought output should be requested."""
+        return self.thinking_stream if self.thinking_summaries is None else self.thinking_summaries
 
     def __repr__(self) -> str:
         """Repr with secrets masked — safe to print, still never log it routinely."""

@@ -29,6 +29,7 @@ from api.context import install_middleware
 from api.routes import sessions as session_routes
 from api.routes import system as system_routes
 from app import transcript as transcript_mod
+from app.run_handle import RunHandleStore
 from app.turns import TurnRegistry
 from tests.api.conftest import TEST_USER_ID, _test_user
 
@@ -137,6 +138,7 @@ def make_test_app(
     fake_deps = SimpleNamespace(
         app_pool=app_pool or _app_pool,
         settings=settings,
+        run_handles=RunHandleStore(),
     )
 
     app.state.settings = settings
@@ -317,6 +319,62 @@ async def test_post_message_409_when_turn_in_flight() -> None:
         gate.set()
         await registry.cancel(test_session_id)
         assert registry.is_generating(test_session_id) is False
+
+
+def test_steer_route_idle_returns_409_status_idle() -> None:
+    app, session_id = _known_session_app()
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(f"/v1/sessions/{session_id}/steer", json={"text": "also cost"})
+
+    assert response.status_code == 409
+    assert response.json() == {"status": "idle"}
+
+
+def test_steer_route_is_mounted_at_v1_sessions_path() -> None:
+    app = make_test_app()
+
+    mounted = {
+        (getattr(route, "path", None), method)
+        for route in app.routes
+        for method in getattr(route, "methods", set())
+    }
+
+    assert ("/v1/sessions/{session_id}/steer", "POST") in mounted
+
+
+async def test_steer_route_active_returns_202_queued() -> None:
+    import asyncio
+
+    import httpx
+
+    from domain.events import ev_meta
+
+    gate = asyncio.Event()
+
+    async def hung_run_turn(session_id: str, text: str, *args: Any, **kwargs: Any) -> Any:
+        yield ev_meta("trace-steer-route", session_id, "model-x", "m-steer", "um-steer")
+        await gate.wait()
+
+    app, session_id = _known_session_app(run_turn_fn=hung_run_turn)
+    registry = app.state.turn_registry
+    await registry.start(session_id, "first")
+
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                f"/v1/sessions/{session_id}/steer",
+                json={"text": "also cost"},
+            )
+
+        assert response.status_code == 202
+        body = response.json()
+        assert body["status"] == "queued"
+        assert isinstance(body["user_message_id"], str)
+    finally:
+        gate.set()
+        await registry.cancel(session_id)
 
 
 # ---------------------------------------------------------------------------

@@ -198,21 +198,23 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 | `GET /v1/sessions/{id}` | Session metadata + transcript (the platform's chat-history read, working from day one). |
 | `GET /v1/health` | Liveness + DB reachability. |
 
-*The four rows above are the agent service's core surface. The full-stack app adds the complete chat-management, auth, config, and identity surface (`GET/PATCH/DELETE /v1/sessions`, `GET /v1/sessions/{id}/stream` reattach, `POST .../cancel`, `POST .../feedback`, `/v1/me`, `/v1/config`, `/v1/auth/*`) — see §27.6 / §28–§32 for the complete v1 contract.*
+*The four rows above are the agent service's core surface. The full-stack app adds the complete chat-management, auth, config, and identity surface (`GET/PATCH/DELETE /v1/sessions`, `GET /v1/sessions/{id}/stream` reattach, `POST .../cancel`, `POST .../steer`, `POST .../feedback`, `/v1/me`, `/v1/config`, `/v1/auth/*`) — see §27.6 / §28–§32 for the complete v1 contract.*
 
 **The event stream.** Every event is `{v: 1, type, data}` — one envelope, every consumer. Types:
 
 | Event | Payload | Notes |
 |---|---|---|
 | `meta` | trace_id, session_id, model, `message_id`, `user_message_id` | First event of every stream. The two ids anchor feedback and edit/regenerate (§27, §30). |
-| `delta` | text tokens (with inline citation markers) | Final-answer prose only. Pre-final narration always reroutes to `thinking` events (§27.2), even when it is long, so only the answer rides `delta`. |
+| `narration` | agent-visible prose / status text | What the assistant says out loud while it works; shown in the timeline and transcript replay. Separate from native model thoughts (§27.2). |
+| `delta` | text tokens (with inline citation markers) | Final-answer prose only. Only the answer rides `delta`; narration and native thoughts use their own events (§27.2). |
 | `viz` | a **render spec** (§17) — cells are citation envelopes | The backend stages and dedupes viz specs during work, then emits the batch once at final-answer start. Numbers never ride in `delta` tokens. |
 | `clarify` | a **clarify spec** (§12.1) | Stream ends `awaiting_input`; client answers via a new message. |
 | `sources` | the deduplicated citation list for the turn (official/community, vintages) | Feeds the expandable-marker UX (PRD). |
 | `usage` | tokens + estimated cost for the turn (§19) | |
+| `user_message` | text, `user_message_id`, `injected` | Mid-run steering text rendered inside the active assistant run; `injected:false` means queued but not yet accepted. |
 | `done` / `error` | terminal | `error` carries a user-safe message + trace_id. |
 
-*The `step` and `thinking` event types (and the extensions to `done`/`meta`) are additive within v1 — see §27.*
+*The `narration`, `step`, `thinking`, and `user_message` event types (and the extensions to `done`/`meta`) are additive within v1 — see §27.*
 
 **Versioning:** `v` on every event, `/v1` on every route, and a version field inside the render/clarify specs. Additive changes don't bump; breaking changes do. Clients ignore unknown event types (forward compatibility).
 
@@ -421,7 +423,7 @@ Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, opti
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_summaries` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2; **default off** by design — the live timeline shows one model-authored intent line per round of work, not the model's full multi-paragraph reasoning; see `config/settings.py`); `agent_max_model_requests`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
+| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_stream` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2; **default on**; `thinking_summaries` remains a compatibility alias only; see `config/settings.py`); `agent_max_model_requests`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
 | Database | pipeline DSN (`counselle_ro`), statement timeout, row cap, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Discovery | embedding model + version, reconcile interval |
@@ -534,7 +536,7 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 
 | Risk | Mitigation |
 |---|---|
-| **PydanticAI API churn** | APIs verified against the pinned version — `run_stream_events()`, `FunctionToolCallEvent`/`FunctionToolResultEvent`, `AgentRunResultEvent`, `UsageLimits` all confirmed and in use (`app/agent_node.py`, `app/steps.py`). Re-verify on any version bump. |
+| **PydanticAI API churn** | APIs verified against the pinned version — `agent.iter()`, `AgentRun.next_node`/`next`, `AgentRun.all_messages()`, `AgentRun.ctx.state.message_history`, `FunctionToolCallEvent`/`FunctionToolResultEvent`, `AgentRunResultEvent`, `UsageLimits` all confirmed and in use (`app/agent_node.py`, `app/steps.py`). Re-verify on any version bump. |
 | Protocol churn breaking clients | `v` on every event/route; additive-only within v1; clients ignore unknown events. |
 | Agent misreads raw values via the SQL escape hatch | Normalization is the default path; escape hatch exposes decode/vintage helpers + "rules still apply" note; eval set watches. |
 | `COUNSELLE_JWT_SECRET` missing or too short | Fail-fast validated at boot (≥32 bytes); the service refuses to start. Set it before first launch — the most likely first-boot failure (§32). |
@@ -629,7 +631,7 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
 }}
 ```
 
-- **Emission seam (a named build-time gate):** the preferred path is PydanticAI's native streamed-run tool events surfaced through the graph's custom stream — the stack's own seam (Part I, §1 principle 2). **Verify at build time** that the pinned pydantic-ai emits tool-call start/result events from `run_stream_events()`: today `app/agent_node.py` consumes only `PartStart`/`PartDelta`/`AgentRunResult` events, so this is assumed, not proven. **Decided fallback order if it doesn't:** seams we already own — the MCP `process_tool_call` hook (where `annotate_mcp_result` already sits) sees every `counselle-db` call, and the Tavily / `render_viz` / skill tools are our own functions. Either way, **no hand-wrapping of tools** (ADR 0017).
+- **Emission seam (a named build-time gate):** the preferred path is PydanticAI's native `agent.iter()` loop, with `ModelRequestNode.stream(run.ctx)` and `CallToolsNode.stream(run.ctx)` surfaced through the graph's custom stream — the stack's own seam (Part I, §1 principle 2). The node advances with `next_node` / `await run.next(node)`; that is the runtime seam the code now owns. Either way, **no hand-wrapping of tools** (ADR 0017).
 - **The step mapper is a named module, not route code:** a pure function — tool-call info in, `{kind, tier, label}` out — using the label templates. The route generator stays a dumb encode-and-yield loop; the mapper (`app/steps.py`) is table-driven-testable with zero mocks (§34).
 - **Labels are editorial:** built from templates in a new data asset `config/assets/step_labels.yaml` (per `kind`, with arg interpolation — "Querying the database: {category} fields", "Checking r/{subreddit}"). Changing the product voice never touches code (ADR 0018 bucket 2).
 - **Steps persist (PRD stories 15–16, decision 5):** at turn end, the turn's **step record** — steps with their receipts, the thinking lines (§27.2), and the derived one-line receipt — is written into the graph state alongside the messages. No new storage: the checkpointer already holds that state. The transcript read returns it per assistant message (§27.5). Without this, "expandable forever" and the collapsed receipt on old chats would be a lie — the timeline would exist only as ephemeral stream events.
@@ -637,15 +639,19 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
 - **`research` kind is reserved** — the deep-research follow-up emits its phases through the same event (PRD story 52's "UI room reserved").
 - **Receipts never leak secrets:** `detail` carries queries, domains, counts, field keys — never DSNs, raw SQL parameters beyond the statement, or credentials (house rule).
 
-### 27.2 New event: `thinking`
+### 27.2 New events: `narration` and `thinking`
 
 ```jsonc
-{ "v": 1, "type": "thinking", "data": { "text": "The database covers admissions, but this year's deadline needs the live site." } }
+{ "v": 1, "type": "narration", "data": { "text": "Checking the official site for the deadline." } }
 ```
 
-Short reasoning summaries interleaved in the timeline (PRD story 14). The model's *interstitial* text — the text PydanticAI emits before final-answer mode begins — is rerouted into `thinking` events; only final-answer text rides `delta`. No second model call, no summarizer. One honesty rule, prompt-enforced and eval-watched: facts and numbers never appear *first* in `thinking` — it narrates intent, not findings. Thinking lines persist in the turn's step record (§27.1), so revisited chats keep them under the expanded receipt. If dogfooding shows interstitial narration is too sparse, the fallback is a cheap-tier summarizer per step (decide then, not now — §35).
+```jsonc
+{ "v": 1, "type": "thinking", "data": { "text": "The deadline is probably on the admissions page." } }
+```
 
-**Post-MVP2 correction:** the old threshold-based splitter is historical; the live gate is final-answer mode: pre-final narration stays in `thinking` regardless of length, and once the final-answer phase begins, prose may stream as `delta`. The buffer still resets per response. Alongside the rerouted pre-final text, **native Gemini thought summaries are available**: `include_thoughts` surfaces `ThinkingPart`/`ThinkingPartDelta`, mapped to `thinking` events as a second feed — real reasoning that would cut visible dead air from ~28s to ~16s on tool-using questions. **Settings-gated (`thinking_summaries`, default off** by design): the live timeline shows one model-authored intent line per round of work (the "Narrate As You Work" sentence); native Gemini thought summaries would dump the model's full multi-paragraph reasoning into the rail — exactly what the product does not want. Leave it off; the narration one-liner is what ships. See `config/settings.py`. The facts-first risk is carried by the eval set's mechanical digit check (§34).
+`narration` is the assistant's agent-visible prose and status trail: the visible run narration, the inline status updates, and the replayable copy/export surface. `thinking` is the native model thought stream when the model emits one. They are separate on purpose, so the transcript can show what the assistant said without collapsing that into the model's private thought stream. `delta` remains final-answer prose only. The visible run can have narration before the answer, and native thinking can appear independently when enabled by the model/provider.
+
+The live gate is final-answer mode: `delta` starts once the answer phase begins. Native thought output is controlled by `thinking_stream` (default on); `thinking_summaries` remains a compatibility alias only. The timeline keeps the visible narration lines in the turn's step record (§27.1), so revisited chats preserve the run surface under the expanded receipt. See `config/settings.py`.
 
 ### 27.3 The turn registry (one module owns the turn lifecycle)
 
@@ -655,16 +661,19 @@ Short reasoning summaries interleaved in the timeline (PRD story 14). The model'
 with terminal persistence factored into `app/turn_persistence.py` (ADR 0025):
 
 - **Turns run as detached asyncio tasks** that outlive any HTTP request. Per session the registry holds: the running task, the **ring buffer** of emitted events (size in Settings), the **single-flight lock**, and the **cancel handle**. A disconnected client costs the turn nothing.
-- **Interface (the endpoints become thin callers):** `start(session_id, message, …)`, `attach(session_id, last_event_id) → event iterator`, `cancel(session_id)`, `is_generating(session_id)`.
+- **Interface (the endpoints become thin callers):** `start(session_id, message, …)`, `attach(session_id, last_event_id) → event iterator`, `cancel(session_id)`, `steer(session_id, text)`, `is_generating(session_id)`.
+- `app/run_handle.py` keeps the process-local `RunHandleStore`: the registry registers one handle per active session, the node reads it by `session_id`, and queued steering / replayable snapshot metadata never enters graph state.
 - `POST .../messages` = start + attach. **`GET /v1/sessions/{id}/stream`** = attach from `Last-Event-ID` — replay the buffer tail, then live to `done`. (Every event carries the SSE `id:` field — `api/sse.py`; the buffer and reattach are the new parts.) No active turn in this process → `204 No Content` → the client falls back to the **transcript read** (§27.5).
-- **Single-writer rule** (PRD story 40): a second `POST .../messages` while a turn is active → `409 {error: "stream_active"}` (the existing guard moves into the registry). "Send mid-stream re-asks" is client-orchestrated: cancel → await `done` → send. The sessions list (§29) reads `is_generating` from the registry for the cross-tab indicator.
+- `POST .../steer` queues ordinary live user text into the active run. The backend emits `user_message` immediately; `injected:false` is the immediate ack and may later be upgraded/replayed as `true` with the same id if the active run accepts the text. If the run ends first, the leftover `false` stays client-owned for the next normal turn; the settled turn record does not persist that false segment.
+- **Single-writer rule** (PRD story 40): a second `POST .../messages` while a turn is active → `409 {error: "stream_active"}` (the existing guard moves into the registry). Ordinary live re-asks go through `POST .../steer`; `cancel` is reserved for explicit stop/edit semantics, not routine live sends. The sessions list (§29) reads `is_generating` from the registry for the cross-tab indicator.
 - **Backpressure caps** (both Settings knobs): a reattach beyond `max_consumers_per_turn` → `429`; a start beyond `max_concurrent_turns` process-wide → `503`. Both degrade gracefully — the client falls back to the transcript read.
 - **The buffer is best-effort UX; persisted state is the correctness guarantee** — prose in the checkpointer, the step record in the graph state (§27.1). `app/turn_persistence.py` is the single owner of terminal update payloads, the empty-partial prose rule, and parked-turn predicates, so transcript writes do not drift across the node, runner, and registry. A deploy mid-turn loses the buffer, not the chat. No Redis, no event store.
 - **Every piece of single-instance state lives inside this one module** — §33's scale-out story becomes "re-back the turn registry", not a hunt across route handlers. Deletion test: removing the registry would smear task ownership, buffering, locking, and cancellation across four route handlers — it concentrates complexity, so it earns its keep.
 
 ### 27.4 Cancel
 
-- **New endpoint: `POST /v1/sessions/{id}/cancel`** — the registry cancels the detached task via asyncio cancellation at the graph boundary. The stream terminates with `done`; partial prose persists (the student keeps what streamed).
+- **`POST /v1/sessions/{id}/steer`** — queues a user message into the active run. The route emits `user_message` immediately; `injected:false` is the immediate ack and may later be upgraded/replayed as `true` with the same id when the active run accepts it. If the active run ends first, the leftover `false` stays client-owned for the next normal turn; the settled turn record does not persist that false segment.
+- **New endpoint: `POST /v1/sessions/{id}/cancel`** — the registry cancels the detached task via asyncio cancellation at the graph boundary. The run is suspended, not forgotten: the partial provider history snapshot and partial turn record persist, then the stream terminates with `done`; partial prose persists (the student keeps what streamed).
 - **`done.data.status` gains `cancelled`** — extending the *existing* enum (`complete | awaiting_input` today, `domain/events.py`) rather than introducing a parallel `stop_reason` field. Additive within v1. The composer's send⇄stop swap (PRD story 38) is cancel + this field.
 - *Full cancel semantics (idle / parked / racing completion / watchdog) are recorded in §27.7 (G5).*
 
@@ -682,6 +691,7 @@ The transcript read (`GET /v1/sessions/{id}`) returns user/assistant text pairs 
 | `PATCH /v1/sessions/{id}` | Rename — §29 |
 | `DELETE /v1/sessions/{id}` | Delete chat (+ its checkpoints) — §29 |
 | `GET /v1/sessions/{id}/stream` | Reattach to an in-flight turn (Last-Event-ID) — §27.3 |
+| `POST /v1/sessions/{id}/steer` | Queue text into the active run and emit `user_message` — §27.3 / §27.7 |
 | `POST /v1/sessions/{id}/cancel` | Stop the active turn — §27.4 |
 | `POST /v1/sessions/{id}/messages/{message_id}/feedback` | Thumbs up/down — §30 |
 | `POST /v1/auth/*` | fastapi-users routers (register, login, logout, forgot/reset, Google OAuth) — §28 |
@@ -695,7 +705,8 @@ All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `P
 Five design questions resolved here as architecture (ADR 0022 carries the decision trail). The field-level FE↔BE contract that realizes these on the wire is **the wire contract** (`specs/mvp2/plan/wire-contract.md`, archived with the ship plan).
 
 - **Message identity (G1).** Every turn mints two UUIDs at start — `user_message_id` and `message_id` (the assistant message). Both ride `meta.data` (additive within v1 — the live stream can address the in-flight message for feedback/edit) and persist in the turn record. Feedback keys on the globally-unique assistant `message_id`. A clarify resume **reuses the parked turn's `message_id`** — one assistant message, one id, however many park/resume cycles produced it.
-- **The turn record (G2 — supersedes §27.5's step record).** Per assistant turn, persisted in graph state (`app/records.py`): the G1 ids; ordered `parts[]` — **materialized** segments in stream order (`{"type":"text","text":…}` and `{"type":"viz","spec":…}`; adjacent deltas merged, verbatim text, **never offsets into `messages`**) so the record is self-contained and the transcript read never slices prose out of the message history; steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and a separate `messages_offset` field — the index of this turn's user `ModelRequest` in `messages`, the graph-state slice point for history rewrite (server-internal, never on the wire). One prose invariant holds everywhere: **every terminal path (complete, cancelled, error, tool-budget) leaves both the record's `parts[]` and `messages` carrying exactly the prose that streamed.** The transcript read returns the consumer-contract wire shape; turns predating the full-stack app have no record and render prose-only.
+- **The turn record (G2 — supersedes §27.5's step record).** The run is the message: per assistant turn, persisted in graph state (`app/records.py`): the G1 ids; ordered `parts[]` — **materialized** segments in stream order (`{"type":"text","text":…}` and `{"type":"viz","spec":…}`; adjacent deltas merged, verbatim text, **never offsets into `messages`**) so the record is self-contained and the transcript read never slices prose out of the message history; `segments[]` — the whole-run replay surface used by transcript replay and copy/export (`narration`, `thinking`, `delta`, `viz`, `step`, `user` beats in stream order); steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and a separate `messages_offset` field — the index of this turn's user `ModelRequest` in `messages`, the graph-state slice point for history rewrite (server-internal, never on the wire). One prose invariant holds everywhere: when a snapshot exists, transcript reads are snapshot-first partial history; the prose invariant applies only to the uncommitted tail and record surface, so every terminal path (complete, cancelled, error, tool-budget) leaves the record's `parts[]` and the live `messages` tail aligned with the streamed prose. The transcript read returns the consumer-contract wire shape; turns predating the full-stack app have no record and render prose-only.
+- **Whole-run copy/export.** Clipboard/share actions should use the ordered run record, not final prose alone. The run is the message, so the assistant-side copy target is the whole run.
 - **Edit & regenerate = history rewrite (G3).** `POST /v1/sessions/{id}/messages` gains optional `replace_message_id` (a prior `user_message_id`): with the single-flight lock held and no active turn, one `aupdate_state` rewrite — messages sliced at the target turn's `messages_offset`, turn records truncated, the source registry restored from the last surviving record's cumulative snapshot, any pending interrupt cleared (per G4) — then the new text runs as a normal turn. **Regenerate = edit of the last user message with the same text** — one mechanism. Turns without a `user_message_id` **cannot be edit targets** (`422`; the FE hides Edit on id-less entries) — the rewrite never slices into record-less history; synthesized clarify-answer entries are likewise refused (`422`, by an explicit synthesized flag, not id-absence).
 - **The clarify-park lifecycle (G4).** `interrupt()` ends the turn — `done(awaiting_input)`, the task completes, the lock releases; **no parked task exists**, so the answering POST is never 409'd and cancel-on-parked is a no-op + **unpark** (clear the interrupt; freeze the clarify as *unanswered*). A plain next message remains the answer. The answered case persists: the answer rides `Command(resume=text)` and never enters `messages`, so the resumed turn's record stores it alongside the spec, and the transcript read synthesizes the student's answer bubble from it — a first-class, feedback-anchorable entry carrying the resume's `user_message_id` (but not an edit target, per G3). Writing the parked turn record via `aupdate_state` while the interrupt is pending works, and `Command(resume)` survives it — but the write clears `tasks[*].interrupts`, so **parked-detection reads the turn record itself** (last record `status == "awaiting_input"`), never the interrupts; **unpark = `aupdate_state(..., as_node="agent")`** (clears the interrupt and `next`; the next plain message runs a complete fresh turn). Resume-replay: LangGraph re-executes the node — pre-clarify tools re-run and re-stream as fresh steps in the answering turn; shown as-is (the work *is* re-done), and the resumed run's record **replaces** the parked record, same `message_id` (ADR 0022's consequences).
 - **Cancel semantics (G5).** Active turn → `202` + a single-shot `done(cancelled)`; idle → `204` no-op; parked → `204` + unpark. Cancel racing completion = the idle no-op. **A watchdog timeout terminates with `error`, not `done(cancelled)`** — the student didn't press stop.
@@ -861,7 +872,7 @@ frontend/
 | Cards inline, CLS ≈ 0 (20, 43) | The first viz event in the final-answer batch triggers a skeleton **sized from the render-spec shape** (type + row/column counts) before data; fill with ~200ms fade; text above never reflows |
 | Collapse to receipt (16) | The turn reducer derives the receipt from accumulated `steps[]` at `done`; old chats render it from the persisted turn record (§27.5/§27.7, PRD decision 5) |
 | Scroll always wins (37) | User scroll detaches the view; "↓ Latest" pill; completion never yanks the viewport |
-| Stop / re-ask (38) | Send⇄stop button on `is_generating`/`done.status`; cancel-then-send orchestration (§27.4) |
+| Stop / re-ask (38) | Send⇄stop button on `is_generating`/`done.status`; ordinary live re-asks steer via `POST /steer`, while cancel is reserved for explicit stop/edit semantics (§27.3-§27.4) |
 | F5-proof (39) | Reattach via `GET .../stream` + Last-Event-ID against the turn registry; 204 → transcript fetch (§27.3, §27.5) |
 | Long chats at 60fps (42) | Virtualized message list; lazily mounted cards; per-chat scroll restoration |
 | Reduced motion (44) | `prefers-reduced-motion` kills shimmer/transitions globally |
@@ -883,7 +894,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | Auth | `jwt_secret` (required, ≥32 bytes) + `jwt_lifetime_seconds`, `cookie_name`/`cookie_secure`, `google_oauth_client_id`/`_secret`, `oauth_state_secret` (falls back to the JWT secret), `oauth_redirect_url`, `password_min_length`. *(Reset-token TTL is a fastapi-users class default, not a Settings knob.)* |
 | Email | `email_provider` (`Literal["console"]` today; `smtp`/`resend` stubbed), `email_from` |
 | Rate limit | `turns_per_hour`, `turns_per_day` (per-user); `auth_attempts_per_window`, `auth_window_seconds` (per-IP, on login + forgot-password) |
-| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, `thinking_threshold_chars` |
+| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, `thinking_stream` (default on; `thinking_summaries` compatibility alias), `thinking_threshold_chars` |
 | Streaming | `agent_stream_buffer_size` (resume ring buffer), `stream_buffer_bytes` (process-wide buffer byte budget), `persist_partial_timeout_s`, `reattach_enabled`, `agent_turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
 | Frontend | static bundle dir, serve on/off — planned per §33; in dev `frontend/` runs on the Vite dev server proxying `/v1` to the API |
 
@@ -900,7 +911,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 - **Still one container.** The single-stage `Containerfile` becomes multi-stage: stage 1 (node) builds the Vite bundle; stage 2 is the existing Python image with the bundle mounted via FastAPI `StaticFiles` and the static landing page at `/`. `/v1/*` is the API; everything else falls through to the SPA (client-side routing).
 - **Same origin is the load-bearing choice:** no CORS configuration, cookie auth trivially secure (no third-party-cookie pain), SSE auth just works, one TLS cert, one deploy target (any VPS / Fly / Railway, day one). Splitting the SPA to a CDN later is a config change, not an architecture change.
 - **Dev parity:** Vite dev server proxies `/v1` → `localhost:8000`, so the same-origin posture (and cookie behavior) holds in development with HMR.
-- **The statelessness clause, amended honestly:** the service remains stateless **except for two named owners of in-process, best-effort state** — the **turn registry** (§27.3: detached tasks, ring buffers, stream locks, cancel handles) and the **rate-limit counters** (§30). Each degrades gracefully on restart (transcript catch-up / lock vanishes with its turn / counters reset). **One instance is the documented posture.** Scale-out beyond one instance means re-backing exactly these two — a contained, known job, deliberately not done before it's needed.
+- **The statelessness clause, amended honestly:** the service remains stateless **except for two named owners of in-process, best-effort state** — the **turn registry** (§27.3, including the process-local `RunHandleStore`: detached tasks, ring buffers, stream locks, cancel handles) and the **rate-limit counters** (§30). Each degrades gracefully on restart (transcript catch-up / lock vanishes with its turn / counters reset). **One instance is the documented posture.** Scale-out beyond one instance means re-backing exactly these two — a contained, known job, deliberately not done before it's needed.
 - **SSE through proxies:** streaming responses set `X-Accel-Buffering: no` and rely on the protocol's keepalives (both already implemented — `api/sse.py`); verify behavior on the chosen host at deploy time.
 - **Migrations on deploy:** the container entrypoint runs `yoyo apply` against `counselle.*` before exec'ing uvicorn. New migrations: users, oauth_accounts, feedback.
 
@@ -928,7 +939,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | Version skew (their Tailwind 3.4 vs ecosystem v4) | Stay on their versions while cloning; upgrade only if/when re-syncing with them |
 | Cloned components drag hidden coupling (Recoil stores, their contexts) | Strip-and-rewire at vendor time; each surface budgets its support files; shared protocol-fixture tests prove the wire stays clean |
 | In-process resume buffer lost on restart/deploy | Transcript catch-up is the correctness guarantee; the buffer is UX sugar (§27.3) |
-| ~~pydantic-ai doesn't emit tool-call stream events~~ | *Resolved:* the pinned pydantic-ai emits `FunctionToolCallEvent`/`FunctionToolResultEvent` from `run_stream_events()`; `app/steps.py` consumes them directly. The MCP-hook fallback was not needed. |
+| ~~pydantic-ai doesn't emit tool-call stream events~~ | *Resolved:* the pinned pydantic-ai exposes `FunctionToolCallEvent`/`FunctionToolResultEvent` through the `agent.iter()` / node-stream loop; `app/steps.py` consumes them directly. The MCP-hook fallback was not needed. |
 | Step records bloat graph state on long chats | Receipts are bounded (queries/domains/counts/keys, no payloads); checkpoint growth already has the TTL knob (Part I, §7); watch, don't pre-build |
 | Cookie auth CSRF | `SameSite=Lax` + JSON-only state changes (§28); revisit if ever embedded cross-origin |
 | Single-instance assumptions (the turn registry + rate counters) | Explicitly documented as the one-instance posture (§33); two named owners, closed list; re-back them when scale demands |
@@ -946,9 +957,9 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 **Still open:**
 
-- `thinking` density — the model's own "Narrate As You Work" one-liner per round is the dead-air mitigation that ships (`thinking_summaries` is off by design; enabling native Gemini thought summaries would cut dead air to ~16s but dump full reasoning into the rail). If dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
+- `thinking` density — the model's own "Narrate As You Work" one-liner per round is the dead-air mitigation that ships (`thinking_stream` is on by default; `thinking_summaries` is compatibility-only). If dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
 - Virtualization library — clone theirs vs a lighter modern one; decide when the long-chat surface needs it.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0024; hardening added ADR 0025), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0028; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0028), `docs/research/` (stack survey). Keep this current as decisions change.*

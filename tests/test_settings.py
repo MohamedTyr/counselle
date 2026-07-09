@@ -77,6 +77,9 @@ class TestDefaults:
         assert settings.model_clarifier == "google-vertex:gemini-2.5-flash"
         assert settings.agent_max_model_requests == 80
         assert settings.agent_max_total_tokens == 2_000_000
+        assert settings.thinking_stream is True
+        assert settings.thinking_summaries is None
+        assert settings.effective_thinking_stream is True
         # Database
         assert settings.db_statement_timeout_ms == 8000
         assert settings.db_row_cap == 500
@@ -120,6 +123,31 @@ class TestDefaults:
         # Assets
         assert settings.assets_dir.name == "assets"
         assert settings.assets_dir.is_dir()
+
+    def test_thinking_stream_reads_new_env(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_THINKING_STREAM", "false")
+        settings = EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
+        )
+
+        assert settings.thinking_stream is False
+        assert settings.thinking_summaries is None
+        assert settings.effective_thinking_stream is False
+
+    def test_deprecated_thinking_summaries_env_overrides_for_compatibility(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_THINKING_STREAM", "true")
+        monkeypatch.setenv("COUNSELLE_THINKING_SUMMARIES", "false")
+        settings = EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
+        )
+
+        assert settings.thinking_stream is True
+        assert settings.thinking_summaries is False
+        assert settings.effective_thinking_stream is False
 
 
 class TestTavilyKeyAlias:

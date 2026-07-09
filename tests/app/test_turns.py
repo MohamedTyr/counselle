@@ -31,6 +31,8 @@ from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
     TextPart,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
@@ -38,6 +40,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 import app.agent_node
 import app.graph
 from app.records import build_turn_record, prose_of
+from app.run_handle import RunHandle, RunHandleStore, SteeringMessage
 from app.state import TemporalContext
 from app.transcript import extract_transcript
 from app.turn_persistence import AGENT_NODE
@@ -55,6 +58,7 @@ from domain.events import (
     UsageData,
     ev_delta,
     ev_done,
+    ev_error,
     ev_meta,
     ev_narration,
     ev_sources,
@@ -208,6 +212,61 @@ def _serialized_user_messages(text: str) -> list[dict[str, Any]]:
         "list[dict[str, Any]]",
         ModelMessagesTypeAdapter.dump_python(
             [ModelRequest(parts=[UserPromptPart(content=text)])],
+            mode="json",
+        ),
+    )
+
+
+def _serialized_response(text: str) -> dict[str, Any]:
+    return cast(
+        "dict[str, Any]",
+        ModelMessagesTypeAdapter.dump_python(
+            [ModelResponse(parts=[TextPart(content=text)])],
+            mode="json",
+        )[0],
+    )
+
+
+def _serialized_tool_work_snapshot(text: str) -> list[dict[str, Any]]:
+    return cast(
+        "list[dict[str, Any]]",
+        ModelMessagesTypeAdapter.dump_python(
+            [
+                ModelRequest(parts=[UserPromptPart(content=text)]),
+                ModelResponse(
+                    parts=[
+                        ToolCallPart(
+                            tool_name="write_plan",
+                            args={
+                                "items": [
+                                    {
+                                        "content": "Check existing context",
+                                        "status": "completed",
+                                    }
+                                ]
+                            },
+                            tool_call_id="call-write-plan-1",
+                        )
+                    ]
+                ),
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart(
+                            tool_name="write_plan",
+                            content={
+                                "ok": True,
+                                "items": [
+                                    {
+                                        "content": "Check existing context",
+                                        "status": "completed",
+                                    }
+                                ],
+                            },
+                            tool_call_id="call-write-plan-1",
+                        )
+                    ]
+                ),
+            ],
             mode="json",
         ),
     )
@@ -484,6 +543,176 @@ async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None
     assert registry.is_generating(session_id) is False
 
 
+async def test_run_handle_lifecycle_registers_and_unregisters_identity_safely() -> None:
+    gate = asyncio.Event()
+    rig = Rig(_gated_model(gate, "Working... ", after="done."))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    stream = await registry.start(session_id, "Tell me about Duke", _ALL_OFF)
+    collector = Collector(stream)
+    await _wait_first_chunk(gate)
+
+    turn = registry._turns[session_id]
+    handle = turn.run_handle
+    assert handle is not None
+    assert rig.deps.run_handles is not None
+    assert rig.deps.run_handles.get(session_id) is handle
+
+    gate.set()
+    await collector.done()
+
+    assert rig.deps.run_handles.get(session_id) is None
+    assert turn.run_handle is handle
+
+
+def test_run_handle_stale_unregister_keeps_newer_same_session_handle() -> None:
+    store = RunHandleStore()
+    session_id = str(uuid4())
+    older = store.register(session_id)
+    newer = store.register(session_id)
+
+    store.unregister(session_id, older)
+
+    assert store.get(session_id) is newer
+
+
+def test_agent_node_steering_drain_enqueues_fifo_and_emits_injected() -> None:
+    handle = RunHandle(session_id="s1")
+    handle.queue_steer(SteeringMessage(user_message_id="u1", text="first"))
+    handle.queue_steer(SteeringMessage(user_message_id="u2", text="second"))
+    chunks: list[dict[str, Any]] = []
+
+    class FakeRun:
+        def __init__(self) -> None:
+            self.enqueued: list[tuple[str, str]] = []
+
+        def enqueue(self, text: str, *, priority: str) -> None:
+            self.enqueued.append((text, priority))
+
+    run = FakeRun()
+
+    app.agent_node._emit_injected_steers(run, handle, chunks.append)
+
+    assert run.enqueued == [("first", "asap"), ("second", "asap")]
+    assert chunks == [
+        {
+            "type": "user_message",
+            "data": {"text": "first", "user_message_id": "u1", "injected": True},
+        },
+        {
+            "type": "user_message",
+            "data": {"text": "second", "user_message_id": "u2", "injected": True},
+        },
+    ]
+    assert list(handle.steering_queue) == []
+
+
+async def test_steer_ack_broadcast_and_replay_ordering() -> None:
+    gate = asyncio.Event()
+    session_id = str(uuid4())
+
+    async def hung_run_turn(session_id: str, text: str, *args: Any, **kwargs: Any) -> Any:
+        yield ev_meta("trace-steer", session_id, "model-x", "m-steer", "um-steer")
+        await gate.wait()
+        yield ev_done("complete")
+
+    rig = Rig(_plain_model())
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=hung_run_turn,
+    )
+
+    stream = await registry.start(session_id, "first", _ALL_OFF)
+    live = Collector(stream)
+    await _eventually(lambda: len(live.items) >= 1)
+
+    user_message_id = registry.steer(session_id, "also compare cost")
+    await _eventually(lambda: any(event.type == "user_message" for event, _ in live.items))
+
+    replay = Collector(registry.attach(session_id, None))
+    await _eventually(lambda: len(replay.items) >= 2)
+    replayed = list(replay.items)
+    assert [(event.type, seq) for event, seq in replayed[:2]] == [
+        ("meta", 0),
+        ("user_message", 1),
+    ]
+    assert replayed[1][0].data == {
+        "text": "also compare cost",
+        "user_message_id": user_message_id,
+        "injected": False,
+    }
+
+    gate.set()
+    await live.done()
+    await replay.done()
+
+
+async def test_steer_idle_raises_no_active_turn() -> None:
+    rig = Rig(_plain_model())
+    registry = _registry(rig)
+
+    with pytest.raises(NoActiveTurn):
+        registry.steer(str(uuid4()), "late message")
+
+
+@pytest.mark.parametrize("terminal_type", ["done", "error"])
+async def test_steer_after_terminal_before_finalize_is_idle_without_ack(
+    monkeypatch: pytest.MonkeyPatch, terminal_type: str
+) -> None:
+    gate = asyncio.Event()
+    session_id = str(uuid4())
+
+    async def terminal_run_turn(session_id: str, text: str, *args: Any, **kwargs: Any) -> Any:
+        yield ev_meta("trace-terminal-steer", session_id, "model-x", "m-terminal", "um-terminal")
+        await gate.wait()
+        if terminal_type == "done":
+            yield ev_done("complete")
+        else:
+            yield ev_error("failed", "trace-terminal-steer")
+
+    rig = Rig(_plain_model())
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=terminal_run_turn,
+    )
+
+    stream = await registry.start(session_id, "first", _ALL_OFF)
+    live = Collector(stream)
+    await _eventually(lambda: bool(live.items))
+
+    turn = registry._turns[session_id]
+    original_append = turn.buffer.append
+    append_log: list[str] = []
+    steer_was_idle = False
+
+    def append_and_race(event: Event) -> None:
+        nonlocal steer_was_idle
+        original_append(event)
+        append_log.append(event.type)
+        if event.type == terminal_type:
+            assert turn.terminal_appended is True
+            assert turn.finalized is False
+            assert turn.task is not None
+            assert not turn.task.done()
+            with pytest.raises(NoActiveTurn):
+                registry.steer(session_id, "too late")
+            steer_was_idle = True
+
+    monkeypatch.setattr(turn.buffer, "append", append_and_race)
+
+    gate.set()
+    await live.done()
+
+    assert steer_was_idle is True
+    assert "user_message" not in append_log
+    assert all(event.type != "user_message" for event, _ in live.items)
+
+
 async def test_cancel_after_done_is_idle_noop() -> None:
     rig = Rig(_fn_model(_search_then_answer))
     registry = _registry(rig)
@@ -613,6 +842,240 @@ async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
         if part.get("part_kind") == "text"
     ]
     assert prose_messages == [visible]
+
+
+async def test_cancel_prefers_run_handle_snapshot_over_prose_reconstruction() -> None:
+    gate = asyncio.Event()
+    rig = Rig(_plain_model())
+    session_id = str(uuid4())
+    snapshot_messages = _serialized_user_messages("duke dorms?") + [
+        _serialized_response("safe snapshot")
+    ]
+
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {
+                "messages": _serialized_user_messages(user_text),
+                "turn_records": [],
+                "source_registry": [],
+            },
+            as_node=AGENT_NODE,
+        )
+        yield ev_meta("trace-snapshot-cancel", session_id, "test-model", "m-snap", "u-snap")
+        handle = deps.run_handles.get(session_id)
+        assert handle is not None
+        handle.record_snapshot(snapshot_messages, emissions_len=0)
+        yield ev_delta("prose-only live tail")
+        await gate.wait()
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=fake_run_turn,
+    )
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await _eventually(lambda: any(event.type == "delta" for event, _ in collector.items))
+
+    assert await registry.cancel(session_id) == "cancelled"
+    await collector.done()
+
+    values = await _state_values(rig, session_id)
+    assert values["messages"] == snapshot_messages
+    record = values["turn_records"][-1]
+    assert record["status"] == "cancelled"
+    assert record["partial_history"] == "snapshot"
+    assert prose_of(record["parts"]) == "prose-only live tail"
+
+
+async def test_cancel_preserves_completed_tool_work_for_next_turn_context() -> None:
+    gate = asyncio.Event()
+    snapshot_recorded = asyncio.Event()
+    captured_contexts: list[list[ModelMessage]] = []
+
+    def recording_model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        captured_contexts.append(list(messages))
+        return ModelResponse(parts=[TextPart("Continuing with the prior tool context.")])
+
+    rig = Rig(_fn_model(recording_model))
+    session_id = str(uuid4())
+    user_text = "Build a plan for Duke."
+    snapshot_messages = _serialized_tool_work_snapshot(user_text)
+    assert app.agent_node.is_provider_replayable(snapshot_messages)
+
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {
+                "messages": _serialized_user_messages(user_text),
+                "turn_records": [],
+                "source_registry": [],
+            },
+            as_node=AGENT_NODE,
+        )
+        yield ev_meta("trace-tool-snapshot-cancel", session_id, "test-model", "m-tool", "u-tool")
+        handle = deps.run_handles.get(session_id)
+        assert handle is not None
+        handle.record_snapshot(snapshot_messages, emissions_len=0)
+        snapshot_recorded.set()
+        await gate.wait()
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=fake_run_turn,
+    )
+    collector = Collector(await registry.start(session_id, user_text, _ALL_OFF))
+    await asyncio.wait_for(snapshot_recorded.wait(), timeout=3)
+
+    assert await registry.cancel(session_id) == "cancelled"
+    await collector.done()
+
+    values = await _state_values(rig, session_id)
+    assert values["messages"] == snapshot_messages
+    record = values["turn_records"][-1]
+    assert record["status"] == "cancelled"
+    assert record["partial_history"] == "snapshot"
+
+    events = await rig.turn(session_id, "Continue from there.", _ALL_OFF)
+    assert any(event.type == "done" and event.data["status"] == "complete" for event in events)
+    assert captured_contexts
+    serialized_context = cast(
+        "list[dict[str, Any]]",
+        ModelMessagesTypeAdapter.dump_python(captured_contexts[0], mode="json"),
+    )
+    tool_parts = [
+        part
+        for message in serialized_context
+        for part in message.get("parts", [])
+        if part.get("part_kind") in {"tool-call", "tool-return"}
+    ]
+    assert tool_parts == [
+        snapshot_messages[1]["parts"][0],
+        snapshot_messages[2]["parts"][0],
+    ]
+
+
+async def test_timeout_prefers_run_handle_snapshot_over_prose_reconstruction() -> None:
+    gate = asyncio.Event()
+    settings = FakeSettings()
+    settings.agent_turn_timeout_s = 0.1
+    rig = Rig(_plain_model(), settings=settings)
+    session_id = str(uuid4())
+    snapshot_messages = _serialized_user_messages("duke dorms?") + [
+        _serialized_response("safe timeout snapshot")
+    ]
+
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {
+                "messages": _serialized_user_messages(user_text),
+                "turn_records": [],
+                "source_registry": [],
+            },
+            as_node=AGENT_NODE,
+        )
+        yield ev_meta("trace-snapshot-timeout", session_id, "test-model", "m-timeout", "u-timeout")
+        handle = deps.run_handles.get(session_id)
+        assert handle is not None
+        handle.record_snapshot(snapshot_messages, emissions_len=0)
+        yield ev_delta("prose-only timeout tail")
+        await gate.wait()
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=fake_run_turn,
+    )
+    pairs = await _run_full_turn(registry, session_id, "duke dorms?", _ALL_OFF)
+
+    assert pairs[-1][0].type == "error"
+    values = await _state_values(rig, session_id)
+    assert values["messages"] == snapshot_messages
+    record = values["turn_records"][-1]
+    assert record["status"] == "error"
+    assert record["partial_history"] == "snapshot"
+    assert prose_of(record["parts"]) == "prose-only timeout tail"
+
+
+async def test_shutdown_prefers_run_handle_snapshot_over_prose_reconstruction() -> None:
+    gate = asyncio.Event()
+    rig = Rig(_plain_model())
+    session_id = str(uuid4())
+    snapshot_messages = _serialized_user_messages("duke dorms?") + [
+        _serialized_response("safe shutdown snapshot")
+    ]
+
+    async def fake_run_turn(
+        session_id: str,
+        user_text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        deps: Any,
+        graph: Any,
+    ) -> AsyncIterator[Event]:
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {
+                "messages": _serialized_user_messages(user_text),
+                "turn_records": [],
+                "source_registry": [],
+            },
+            as_node=AGENT_NODE,
+        )
+        yield ev_meta(
+            "trace-snapshot-shutdown", session_id, "test-model", "m-shutdown", "u-shutdown"
+        )
+        handle = deps.run_handles.get(session_id)
+        assert handle is not None
+        handle.record_snapshot(snapshot_messages, emissions_len=0)
+        yield ev_delta("prose-only shutdown tail")
+        await gate.wait()
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=fake_run_turn,
+    )
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await _eventually(lambda: any(event.type == "delta" for event, _ in collector.items))
+
+    await registry.aclose()
+    pairs = await collector.done()
+
+    assert pairs[-1][0].type == "error"
+    values = await _state_values(rig, session_id)
+    assert values["messages"] == snapshot_messages
+    record = values["turn_records"][-1]
+    assert record["status"] == "error"
+    assert record["partial_history"] == "snapshot"
+    assert prose_of(record["parts"]) == "prose-only shutdown tail"
 
 
 async def test_cancel_mid_resume_replaces_the_parked_record() -> None:

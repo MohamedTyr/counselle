@@ -9,6 +9,7 @@ from fastapi import Request
 from api.deps import EnvelopeError
 
 _USER_SAFE_CSRF = "Invalid auth request origin."
+_LOCAL_DEV_FRONTEND_ORIGIN = "http://localhost:5173"
 
 
 def _origin_from_url(value: str) -> str | None:
@@ -34,6 +35,8 @@ async def auth_origin_protect(request: Request) -> None:
         for origin in getattr(settings, "cors_origins", [])
         if isinstance(origin, str)
     )
+    if settings is not None and not getattr(settings, "cookie_secure", False):
+        allowed.add(_LOCAL_DEV_FRONTEND_ORIGIN)
 
     origin = request.headers.get("origin")
     if origin:

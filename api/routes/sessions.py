@@ -84,6 +84,10 @@ class MessageBody(BaseModel):
     in_reply_to: str | None = None
 
 
+class SteerBody(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
 class TranscriptEntry(BaseModel):
     role: str  # "user" | "assistant"
     text: str
@@ -275,6 +279,34 @@ async def post_message(
         await set_session_title(pool, sid, default_title(body.text, settings.title_max_len))
 
     return _sse_response(stream, request)
+
+
+@router.post(
+    "/sessions/{session_id}/steer",
+    dependencies=[Depends(require_json), Depends(message_rate_limit)],
+)
+async def steer_session(
+    session_id: UUID,
+    body: SteerBody,
+    request: Request,
+    _user: UserDB = Depends(current_active_user),
+    _row: dict[str, Any] = Depends(owned_session),
+) -> JSONResponse:
+    """Queue a user steering message for the active assistant run.
+
+    Active steerable turn → 202 with the queued user_message_id. Idle/no
+    steerable run → 409 with the explicit idle status so the client can submit
+    the text as the next normal message.
+    """
+    sid = str(session_id)
+    try:
+        user_message_id = _registry(request).steer(sid, body.text)
+    except NoActiveTurn:
+        return JSONResponse(status_code=409, content={"status": "idle"})
+    return JSONResponse(
+        status_code=202,
+        content={"status": "queued", "user_message_id": user_message_id},
+    )
 
 
 @router.get("/sessions/{session_id}/stream")

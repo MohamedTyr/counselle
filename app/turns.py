@@ -49,8 +49,10 @@ from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
+from uuid import uuid4
 
 from app.records import Emission, FinalEmissionDeduper, TurnStatus
+from app.run_handle import RunHandle, SteeringMessage
 from app.run_turn import _USER_SAFE_ERROR, run_turn
 from app.turn_persistence import (
     AGENT_NODE,
@@ -60,7 +62,7 @@ from app.turn_persistence import (
     resolve_offset,
 )
 from app.usage import enrich_usage_event, log_turn_complete
-from domain.events import Event, ev_done, ev_error
+from domain.events import Event, ev_done, ev_error, ev_user_message
 from domain.specs import SourceConfig
 
 logger = logging.getLogger(__name__)
@@ -216,6 +218,7 @@ class _Turn:
     finalized: bool = False
     terminal_appended: bool = False  # a done/error event reached the buffer
     consumers: int = 0  # currently-attached streams (per-turn consumer cap)
+    run_handle: RunHandle | None = None
 
 
 class TurnRegistry:
@@ -318,12 +321,17 @@ class TurnRegistry:
             on_refund=self._refund_bytes,
         )
         turn = _Turn(session_id=session_id, user_text=text, user_id=user_id, buffer=buffer)
+        handle_store = getattr(self._deps, "run_handles", None)
+        if handle_store is not None:
+            turn.run_handle = handle_store.register(session_id)
         self._turns[session_id] = turn  # the claim — released at the terminal
         try:
             if replace_message_id is not None:
                 await self._rewrite_history(session_id, replace_message_id)
         except BaseException:
             self._turns.pop(session_id, None)
+            if handle_store is not None and turn.run_handle is not None:
+                handle_store.unregister(session_id, turn.run_handle)
             raise
         turn.task = asyncio.create_task(self._drive(turn, source_config), name=f"turn-{session_id}")
         # The starter's consumer slot is claimed on the generator's FIRST
@@ -352,6 +360,38 @@ class TurnRegistry:
         # increment happens on _follow's first iteration so an undriven handle
         # never leaks a slot (BC-02). Symmetric with the release in finally.
         return self._follow(turn, last_event_id)
+
+    def steer(self, session_id: str, text: str) -> str:
+        """Queue a mid-run user message and broadcast the immediate ack.
+
+        This only acknowledges and buffers. The agent node is the sole owner of
+        injecting queued text into PydanticAI via ``run.enqueue``.
+        """
+        turn = self._turns.get(session_id)
+        if not self._is_steerable(turn):
+            raise NoActiveTurn(session_id)
+        user_message_id = str(uuid4())
+        message = SteeringMessage(user_message_id=user_message_id, text=text)
+        assert turn is not None
+        assert turn.run_handle is not None
+        turn.run_handle.queue_steer(message)
+        event = ev_user_message(text, user_message_id, injected=False)
+        observed = self._observe(turn, event)
+        if observed is not None:
+            turn.buffer.append(observed)
+        return user_message_id
+
+    @staticmethod
+    def _is_steerable(turn: _Turn | None) -> bool:
+        return (
+            turn is not None
+            and not turn.finalized
+            and not turn.terminal_appended
+            and not turn.cancel_requested
+            and turn.run_handle is not None
+            and turn.task is not None
+            and not turn.task.done()
+        )
 
     async def cancel(self, session_id: str) -> CancelOutcome:
         """G5: active → cancel-with-persistence (202); parked → unpark (204);
@@ -430,6 +470,7 @@ class TurnRegistry:
     async def _drive(self, turn: _Turn, source_config: SourceConfig | None) -> None:
         start_mono = time.monotonic()
         timeout_s = self._settings.agent_turn_timeout_s
+        handle_store = getattr(self._deps, "run_handles", None)
         try:
             try:
                 async with asyncio.timeout(timeout_s):
@@ -478,6 +519,8 @@ class TurnRegistry:
                     turn.terminal_appended = True
                     turn.buffer.append(ev_error(_USER_SAFE_ERROR, turn.trace_id))
                 self._finalize(turn)
+            if handle_store is not None and turn.run_handle is not None:
+                handle_store.unregister(turn.session_id, turn.run_handle)
             self._log_complete(turn, start_mono)
 
     def _observe(self, turn: _Turn, event: Event) -> Event | None:
@@ -506,6 +549,8 @@ class TurnRegistry:
             turn.emissions.append(("thinking", event.data["text"]))
         elif kind == "narration":
             turn.emissions.append(("narration", event.data["text"]))
+        elif kind == "user_message":
+            turn.emissions.append(("user", dict(event.data)))
         elif kind == "step":
             turn.emissions.append(("step", event.data))
         elif kind == "viz":
@@ -777,6 +822,12 @@ class TurnRegistry:
             error=error,
             clarify=clarify,
             synthesized_answer=synthesized,
+            partial_history=list(turn.run_handle.messages_snapshot)
+            if turn.run_handle is not None and turn.run_handle.messages_snapshot
+            else None,
+            emissions_len_at_snapshot=turn.run_handle.emissions_len_at_snapshot
+            if turn.run_handle is not None
+            else 0,
         )
         await self._graph.aupdate_state(config, update, as_node=AGENT_NODE)
 

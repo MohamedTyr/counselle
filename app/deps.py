@@ -24,6 +24,7 @@ from pydantic_ai.models import Model
 
 from app.checkpointer import build_checkpointer
 from app.graph import GraphDeps, build_graph
+from app.run_handle import RunHandleStore
 from app.toolset import ToolDeps, build_mcp_toolset, make_tool_deps
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import WorkspaceSeedingTemplate
@@ -47,6 +48,7 @@ class AppDeps(GraphDeps):
     """
 
     settings: Any = None  # config.settings.Settings (Any: tests pass a namespace)
+    run_handles: RunHandleStore | None = field(default_factory=RunHandleStore)
     tool_deps: ToolDeps | None = None
     mcp_toolset: MCPToolset | None = None
     model_factory: Callable[[], Model] | None = None
@@ -96,6 +98,7 @@ async def build_runtime(settings: Any = None) -> Runtime:
         catalog=catalog,
         app_pool=app_pool,
         settings=settings,
+        run_handles=RunHandleStore(),
         tool_deps=make_tool_deps(settings, catalog),
         mcp_toolset=build_mcp_toolset(settings),
         workspace_events=WorkspaceEventBus(queue_size=settings.workspace_event_queue_size),

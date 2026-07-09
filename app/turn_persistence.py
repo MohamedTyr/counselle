@@ -88,6 +88,32 @@ def partial_messages(
     return appended, True
 
 
+def append_legal_uncommitted_tail(
+    partial_history: list[dict[str, Any]],
+    emissions: list[Emission],
+    emissions_len_at_snapshot: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Append streamed prose that happened after a safe history snapshot.
+
+    Snapshot history wins because it is provider-real. The only approximation
+    allowed after it is the old prose-only tail, and only when the snapshot ends
+    at a user request that can legally anchor a text response.
+    """
+    tail = emissions[max(emissions_len_at_snapshot, 0) :]
+    prose = "".join(text for kind, text in tail if kind == "delta")
+    if (
+        not prose
+        or not partial_history
+        or partial_history[-1].get("kind") != "request"
+    ):
+        return partial_history, False
+    partial = ModelResponse(parts=[TextPart(content=prose)])
+    appended = partial_history + list(
+        ModelMessagesTypeAdapter.dump_python([partial], mode="json")
+    )
+    return appended, True
+
+
 # -- the one aupdate_state payload builder --------------------------------
 
 
@@ -105,6 +131,8 @@ def build_terminal_update(
     error: dict[str, Any] | None = None,
     clarify: dict[str, Any] | None = None,
     synthesized_answer: bool = False,
+    partial_history: list[dict[str, Any]] | None = None,
+    emissions_len_at_snapshot: int = 0,
 ) -> dict[str, Any]:
     """The single ``aupdate_state`` payload for ANY terminal path.
 
@@ -114,7 +142,18 @@ def build_terminal_update(
     snapshot's ``messages``/``records`` and the emissions it observed; nothing
     else differs across vantages.
     """
-    new_messages, changed = partial_messages(messages, emissions)
+    used_partial_snapshot = partial_history is not None
+    if partial_history is None:
+        new_messages, changed = partial_messages(messages, emissions)
+    else:
+        new_messages = list(partial_history)
+        changed = new_messages != messages
+        new_messages, tail_changed = append_legal_uncommitted_tail(
+            new_messages,
+            emissions,
+            emissions_len_at_snapshot,
+        )
+        changed = changed or tail_changed
     record = build_turn_record(
         emissions,
         ids=ids,
@@ -128,6 +167,8 @@ def build_terminal_update(
         messages_offset=resolve_offset(messages_offset, new_messages),
         synthesized_answer=synthesized_answer,
     )
+    if used_partial_snapshot:
+        record["partial_history"] = "snapshot"
     update: dict[str, Any] = {"turn_records": append_or_replace(records, record)}
     if changed:
         update["messages"] = new_messages

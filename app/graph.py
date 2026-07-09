@@ -22,6 +22,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.agent_node import run_agent_node
+from app.run_handle import RunHandleStore
 from app.state import TemporalContext, TurnState
 from app.turn_persistence import AGENT_NODE
 from config.settings import load_yaml_asset
@@ -36,6 +37,7 @@ class GraphDeps:
 
     catalog: Catalog
     app_pool: asyncpg.Pool | None = None  # counselle_app role (sessions, Slice F)
+    run_handles: RunHandleStore | None = None
 
 
 def _render_temporal(today: date, season: Season, calendar: list[CalendarEntry]) -> str:

@@ -271,6 +271,44 @@ class _HangingFinalStream:
         await asyncio.Event().wait()
 
 
+class _HangingModelRequestNode:
+    def __init__(self, prose: str) -> None:
+        self.prose = prose
+
+    def stream(self, ctx: Any) -> _HangingFinalStream:
+        return _HangingFinalStream(self.prose)
+
+
+class _HangingIterRun:
+    def __init__(self, prose: str) -> None:
+        self.ctx = object()
+        self.next_node: Any = _HangingModelRequestNode(prose)
+        self.result = None
+
+    async def __aenter__(self) -> _HangingIterRun:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    async def next(self, node: Any) -> Any:
+        raise AssertionError("hanging final stream should be cancelled before next()")
+
+    def all_messages(self) -> list[Any]:
+        return []
+
+
+class _HangingIterContext:
+    def __init__(self, prose: str) -> None:
+        self.prose = prose
+
+    async def __aenter__(self) -> _HangingIterRun:
+        return _HangingIterRun(self.prose)
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+
 class _HangingFinalAgent:
     def __init__(self, model: _HangingFinalModel, *args: Any, **kwargs: Any) -> None:
         self.model = model
@@ -283,6 +321,17 @@ class _HangingFinalAgent:
 
     def run_stream_events(self, *args: Any, **kwargs: Any) -> _HangingFinalStream:
         return _HangingFinalStream(self.model.prose)
+
+    def iter(self, *args: Any, **kwargs: Any) -> _HangingIterContext:
+        return _HangingIterContext(self.model.prose)
+
+    @staticmethod
+    def is_model_request_node(node: Any) -> bool:
+        return isinstance(node, _HangingModelRequestNode)
+
+    @staticmethod
+    def is_call_tools_node(node: Any) -> bool:
+        return False
 
 
 def _hanging_model(prose: str) -> _HangingFinalModel:
