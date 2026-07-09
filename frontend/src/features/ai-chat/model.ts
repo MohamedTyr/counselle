@@ -12,6 +12,7 @@ import {
   narrationTextsOf,
   proseOf,
   reduceTranscriptEntry,
+  runMarkdownOf,
   stepsOf,
   toStepRecord,
   type ContentBlock,
@@ -45,9 +46,11 @@ export type AssistantChatMessage = ChatMessageBase & {
    * and viz beats in stream order — what `AssistantBody` renders. */
   segments: Segment[];
   /** The final citeable answer's content only (markdown + inline viz) — what
-   * copy/citations/sources key off. A subset of `segments`, never the render
-   * order. */
+   * citations/sources and legacy text key off. A subset of `segments`, never
+   * the render order. */
   blocks: ContentBlock[];
+  /** Whole chronological assistant run for copy/export. */
+  runMarkdown: string;
   stepRecord?: StepRecord;
   receipt?: string;
   /** Whole-turn wall-clock duration. Not rendered by any component today —
@@ -104,6 +107,7 @@ export function assistantMessage(
     sender: "Counselle",
     segments: state.segments,
     blocks,
+    runMarkdown: runMarkdownOf(state.segments),
     stepRecord: record,
     receipt: record?.receipt,
     durationMs: deriveDurationMs(state, steps),

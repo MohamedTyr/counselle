@@ -14,10 +14,12 @@ import {
   reduceLiveTurn,
   reduceTranscriptEntry,
   reduceTurn,
+  runMarkdownOf,
   transcriptEntryToEvents,
   type ContentBlock,
   type TurnState,
 } from "./turn-reducer";
+import { messagesFromTranscript } from "./model";
 
 function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
   return {
@@ -223,6 +225,130 @@ describe("turn reducer", () => {
     ]);
   });
 
+  test("consecutive thinking events coalesce into one episode", () => {
+    const state = reduceEvents([
+      { v: 1, type: "thinking", data: { text: "First thought." } },
+      { v: 1, type: "thinking", data: { text: "Second thought." } },
+      { v: 1, type: "narration", data: { text: "Checking the database." } },
+      { v: 1, type: "thinking", data: { text: "Third thought." } },
+    ]);
+
+    expect(state.segments).toEqual([
+      {
+        type: "thinking",
+        id: "thinking-0",
+        text: "First thought.\n\nSecond thought.",
+      },
+      {
+        type: "narration",
+        id: "narration-0",
+        text: "Checking the database.",
+      },
+      {
+        type: "thinking",
+        id: "thinking-1",
+        text: "Third thought.",
+      },
+    ]);
+  });
+
+  test("step updates break thinking coalescing even when merged in place", () => {
+    const state = reduceEvents([
+      stepEvent({ step_id: "s1", status: "start", label: "Searching" }),
+      { v: 1, type: "thinking", data: { text: "First thought." } },
+      stepEvent({
+        step_id: "s1",
+        status: "end",
+        label: "Searched",
+        detail: { result_count: 2 },
+      }),
+      { v: 1, type: "thinking", data: { text: "Second thought." } },
+    ]);
+
+    expect(state.segments).toEqual([
+      {
+        type: "tool",
+        step: {
+          kind: "web_search",
+          label: "Searched",
+          tier: null,
+          detail: { result_count: 2 },
+          step_id: "s1",
+          status: "end",
+        },
+      },
+      { type: "thinking", id: "thinking-0", text: "First thought." },
+      { type: "thinking", id: "thinking-1", text: "Second thought." },
+    ]);
+  });
+
+  test("user_message updates break thinking coalescing even when merged in place", () => {
+    const state = reduceEvents([
+      {
+        v: 1,
+        type: "user_message",
+        data: {
+          text: "Also compare cost.",
+          user_message_id: "steer-1",
+          injected: false,
+        },
+      },
+      { v: 1, type: "thinking", data: { text: "First thought." } },
+      {
+        v: 1,
+        type: "user_message",
+        data: {
+          text: "Also compare cost.",
+          user_message_id: "steer-1",
+          injected: true,
+        },
+      },
+      { v: 1, type: "thinking", data: { text: "Second thought." } },
+    ]);
+
+    expect(state.segments).toEqual([
+      {
+        type: "user",
+        id: "steer-1",
+        text: "Also compare cost.",
+        injected: true,
+      },
+      { type: "thinking", id: "thinking-0", text: "First thought." },
+      { type: "thinking", id: "thinking-1", text: "Second thought." },
+    ]);
+  });
+
+  test("user_message upserts by id and upgrades injected false to true", () => {
+    let state = initialTurnState();
+    state = reduceTurn(state, {
+      v: 1,
+      type: "user_message",
+      data: {
+        text: "Also compare cost.",
+        user_message_id: "steer-1",
+        injected: false,
+      },
+    });
+    state = reduceTurn(state, {
+      v: 1,
+      type: "user_message",
+      data: {
+        text: "Also compare cost.",
+        user_message_id: "steer-1",
+        injected: true,
+      },
+    });
+
+    expect(state.segments).toEqual([
+      {
+        type: "user",
+        id: "steer-1",
+        text: "Also compare cost.",
+        injected: true,
+      },
+    ]);
+  });
+
   test("legacy transcript step_record thinking replays as visible narration", () => {
     const events = transcriptEntryToEvents({
       role: "assistant",
@@ -311,6 +437,253 @@ describe("turn reducer", () => {
       },
       { type: "answer", text: "Ordered answer." },
     ]);
+  });
+
+  test("ordered transcript user segments replay as inline user_message events", () => {
+    const state = reduceTranscriptEntry({
+      role: "assistant",
+      text: "",
+      ts: null,
+      segments: [
+        { kind: "narration", text: "Checking." },
+        {
+          kind: "user",
+          text: "Also compare cost.",
+          user_message_id: "steer-1",
+          injected: true,
+        },
+        { kind: "delta", text: "Done." },
+      ],
+      status: "complete",
+    });
+
+    expect(state.segments).toEqual([
+      { type: "narration", id: "narration-0", text: "Checking." },
+      {
+        type: "user",
+        id: "steer-1",
+        text: "Also compare cost.",
+        injected: true,
+      },
+      { type: "answer", text: "Done." },
+    ]);
+  });
+
+  test("ordered transcript segments replay the same beat sequence as the live reducer", () => {
+    const tool = stepEvent({
+      step_id: "search-1",
+      status: "end",
+      kind: "web_search",
+      label: "Searching web",
+      detail: { query: "MIT Pitzer prestige student life", result_count: 3 },
+    }).data;
+    const viz = renderSpec({ title: "Selectivity comparison" });
+    const liveEvents: ProtocolEvent[] = [
+      { v: 1, type: "thinking", data: { text: "Separate prestige from fit." } },
+      {
+        v: 1,
+        type: "narration",
+        data: { text: "I'll compare reputation and student life." },
+      },
+      { v: 1, type: "step", data: tool },
+      { v: 1, type: "delta", data: { text: "MIT has the stronger global brand." } },
+      { v: 1, type: "viz", data: viz },
+      {
+        v: 1,
+        type: "user_message",
+        data: {
+          text: "Also mention campus vibe.",
+          user_message_id: "steer-1",
+          injected: true,
+        },
+      },
+      { v: 1, type: "delta", data: { text: " Pitzer has the tighter LAC community." } },
+      {
+        v: 1,
+        type: "sources",
+        data: {
+          sources: [
+            {
+              index: 1,
+              citation: {
+                source: "web",
+                tier: "official",
+                vintage: "2026",
+                url: "https://example.com",
+              },
+              label: "Example",
+            },
+          ],
+        },
+      },
+      { v: 1, type: "done", data: { status: "complete" } },
+    ];
+    const liveState = reduceEvents(liveEvents);
+    const reloaded = messagesFromTranscript("c1", [
+      {
+        role: "assistant",
+        text: "",
+        ts: null,
+        message_id: "a1",
+        segments: [
+          { kind: "thinking", text: "Separate prestige from fit." },
+          {
+            kind: "narration",
+            text: "I'll compare reputation and student life.",
+          },
+          { kind: "step", data: tool },
+          { kind: "delta", text: "MIT has the stronger global brand." },
+          { kind: "viz", spec: viz },
+          {
+            kind: "user",
+            text: "Also mention campus vibe.",
+            user_message_id: "steer-1",
+            injected: true,
+          },
+          { kind: "delta", text: " Pitzer has the tighter LAC community." },
+        ],
+        sources: liveState.sources,
+        status: "complete",
+      },
+    ]);
+
+    expect(reloaded[0]).toMatchObject({ kind: "assistant" });
+    if (reloaded[0].kind !== "assistant") {
+      throw new Error("Expected an assistant message");
+    }
+    expect(reloaded[0].segments).toEqual(liveState.segments);
+    expect(reloaded[0].blocks).toEqual(answerBlocksOf(liveState));
+    expect(reloaded[0].text).toBe(proseOf(liveState));
+    expect(reloaded[0].runMarkdown).toBe(runMarkdownOf(liveState));
+    expect(reloaded[0].sources).toEqual(liveState.sources);
+  });
+
+  test("sources and done settle the turn without reordering existing beats", () => {
+    const beforeCompletion = reduceEvents([
+      { v: 1, type: "thinking", data: { text: "Check ranking and fit separately." } },
+      { v: 1, type: "narration", data: { text: "I'll check the current evidence." } },
+      stepEvent({
+        step_id: "search-1",
+        status: "end",
+        kind: "web_search",
+        label: "Searching web",
+        detail: { query: "MIT Pitzer prestige", result_count: 2 },
+      }),
+      { v: 1, type: "delta", data: { text: "MIT wins on prestige." } },
+    ]);
+
+    const withSources = reduceTurn(beforeCompletion, {
+      v: 1,
+      type: "sources",
+      data: {
+        sources: [
+          {
+            index: 1,
+            citation: {
+              source: "web",
+              tier: "official",
+              vintage: "2026",
+              url: "https://example.com",
+            },
+            label: "Example",
+          },
+        ],
+      },
+    });
+    const settled = reduceTurn(withSources, {
+      v: 1,
+      type: "done",
+      data: { status: "complete" },
+    });
+
+    expect(withSources.segments).toBe(beforeCompletion.segments);
+    expect(settled.segments).toBe(beforeCompletion.segments);
+    expect(settled.segments).toEqual([
+      { type: "thinking", id: "thinking-0", text: "Check ranking and fit separately." },
+      { type: "narration", id: "narration-0", text: "I'll check the current evidence." },
+      {
+        type: "tool",
+        step: {
+          step_id: "search-1",
+          status: "end",
+          kind: "web_search",
+          label: "Searching web",
+          tier: null,
+          detail: { query: "MIT Pitzer prestige", result_count: 2 },
+        },
+      },
+      { type: "answer", text: "MIT wins on prestige." },
+    ]);
+    expect(settled.sources).toHaveLength(1);
+    expect(settled.status).toBe("complete");
+  });
+
+  test("runMarkdownOf serializes the visible run in chronological order", () => {
+    const state = reduceEvents([
+      { v: 1, type: "narration", data: { text: "Checking official data." } },
+      { v: 1, type: "thinking", data: { text: "Hidden native thought." } },
+      stepEvent({
+        step_id: "search-1",
+        status: "end",
+        kind: "web_search",
+        label: "Searching web",
+        detail: {
+          query: "Duke financial aid",
+          result_count: 2,
+        },
+      }),
+      {
+        v: 1,
+        type: "user_message",
+        data: {
+          text: "Also compare cost.",
+          user_message_id: "steer-1",
+          injected: true,
+        },
+      },
+      { v: 1, type: "delta", data: { text: "Here is the answer." } },
+      { v: 1, type: "viz", data: renderSpec({ title: "Cost comparison" }) },
+    ]);
+
+    expect(runMarkdownOf(state)).toBe(
+      [
+        "Checking official data.",
+        '- Searching web: "Duke financial aid" · 2 results',
+        "> Also compare cost.",
+        "Here is the answer.",
+        [
+          "### Cost comparison",
+          "",
+          "| Metric | North College | South University |",
+          "| --- | --- | --- |",
+          "| Acceptance rate | 12% (CDS 2024-25, cds) | 42% (IPEDS 2024-25, ipeds) |",
+        ].join("\n"),
+      ].join("\n\n"),
+    );
+    expect(runMarkdownOf(state)).not.toContain("Hidden native thought");
+  });
+
+  test("runMarkdownOf handles receipt-free tools and multiline user beats", () => {
+    const state = reduceEvents([
+      stepEvent({
+        step_id: "search-1",
+        status: "start",
+        label: "Searching",
+      }),
+      {
+        v: 1,
+        type: "user_message",
+        data: {
+          text: "First line\nSecond line",
+          user_message_id: "steer-1",
+          injected: true,
+        },
+      },
+    ]);
+
+    expect(runMarkdownOf(state.segments)).toBe(
+      ["- Searching", "> First line\n> Second line"].join("\n\n"),
+    );
   });
 
   test("step end-event sources merge onto the started step in place", () => {

@@ -13,8 +13,10 @@ import { isTransportError, TransportError } from "@/api/http/errors";
 
 import {
   initialTurnState,
+  pendingUserSegmentsOf,
   reduceLiveTurn,
   type TurnState,
+  withoutPendingUserSegments,
 } from "./turn-reducer";
 import { userMessage, assistantMessage, type ChatMessage } from "./model";
 import {
@@ -51,6 +53,11 @@ type StartedTurn = {
   sessionId: string;
   userMessageId: string;
   optimisticUserMessageId?: string;
+};
+
+type AutoForwardMessage = {
+  id: string;
+  text: string;
 };
 
 export type UseTurnEngineOptions = {
@@ -113,6 +120,7 @@ export function useTurnEngine({
   const [liveTurn, setLiveTurn] = useState<LiveTurn | null>(null);
   const [turnError, setTurnError] = useState<TurnError | null>(null);
   const [pendingSend, setPendingSend] = useState<PendingSend | null>(null);
+  const [autoForwardVersion, setAutoForwardVersion] = useState(0);
 
   const sessionIdRef = useRef(sessionId);
   const liveTurnRef = useRef(liveTurn);
@@ -124,6 +132,8 @@ export function useTurnEngine({
   const cancelCommittedRef = useRef(false);
   const isMountedRef = useRef(true);
   const turnAbortControllerRef = useRef<AbortController | null>(null);
+  const autoForwardQueueRef = useRef<AutoForwardMessage[]>([]);
+  const autoForwardSeenRef = useRef(new Set<string>());
 
   sessionIdRef.current = sessionId;
   liveTurnRef.current = liveTurn;
@@ -224,17 +234,35 @@ export function useTurnEngine({
           );
         }
 
+        const pendingUserSegments = pendingUserSegmentsOf(state);
+        const terminalState = withoutPendingUserSegments(state);
         const terminal = persistTerminalTurn({
           sessionId: activeSessionId,
           assistantMessageId,
           userMessageId,
           hasBackendId,
-          state,
+          state: terminalState,
         });
 
         setPersistedMessages((previous) =>
           upsertAssistantMessage(previous, terminal),
         );
+        const newForwards = pendingUserSegments.filter(
+          (segment) => !autoForwardSeenRef.current.has(segment.id),
+        );
+        if (newForwards.length > 0) {
+          for (const segment of newForwards) {
+            autoForwardSeenRef.current.add(segment.id);
+          }
+          autoForwardQueueRef.current = [
+            ...autoForwardQueueRef.current,
+            ...newForwards.map((segment) => ({
+              id: segment.id,
+              text: segment.text,
+            })),
+          ];
+          setAutoForwardVersion((version) => version + 1);
+        }
         void queryClient.invalidateQueries({
           queryKey: chatKeys.sessions.all(),
         });
@@ -408,6 +436,19 @@ export function useTurnEngine({
     return true;
   }, [cancelWaitTimeoutMs, transport]);
 
+  const awaitLiveClear = useCallback(async (): Promise<boolean> => {
+    const startedAt = Date.now();
+    while (
+      isMountedRef.current &&
+      liveTurnRef.current !== null &&
+      Date.now() - startedAt < cancelWaitTimeoutMs
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    return liveTurnRef.current === null;
+  }, [cancelWaitTimeoutMs]);
+
   const submitMessage = useCallback(
     async (
       text: string,
@@ -427,6 +468,28 @@ export function useTurnEngine({
 
       setPendingSend(null);
       setTurnError(null);
+
+      if (liveTurnRef.current !== null && replaceMessageId === undefined) {
+        const active = liveTurnRef.current;
+        try {
+          const steer = await transport.steerMessage({
+            sessionId: active.sessionId,
+            text: trimmed,
+          });
+          if (steer.status === "queued") {
+            return { ok: true, sessionId: active.sessionId };
+          }
+          const cleared = await awaitLiveClear();
+          if (!cleared) {
+            setPendingSend({ text });
+            return { ok: false, keepText: text };
+          }
+        } catch (error) {
+          setTurnError(turnErrorOf(error));
+          setPendingSend({ text });
+          return { ok: false, keepText: text };
+        }
+      }
 
       if (liveTurnRef.current !== null) {
         const cleared = await cancelAndAwaitClear();
@@ -488,8 +551,18 @@ export function useTurnEngine({
         return { ok: false, keepText: text };
       }
     },
-    [cancelAndAwaitClear, runTurn, startSend, transport],
+    [awaitLiveClear, cancelAndAwaitClear, runTurn, startSend, transport],
   );
+
+  useEffect(() => {
+    if (liveTurn !== null || autoForwardQueueRef.current.length === 0) {
+      return;
+    }
+
+    const next = autoForwardQueueRef.current[0];
+    autoForwardQueueRef.current = autoForwardQueueRef.current.slice(1);
+    void submitMessage(next.text);
+  }, [autoForwardVersion, liveTurn, submitMessage]);
 
   const retryLastSend = useCallback(() => {
     const pending = pendingSend;

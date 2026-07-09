@@ -146,12 +146,19 @@ export type NarrationData = { text: string };
 
 export type ThinkingData = { text: string };
 
+export type UserMessageData = {
+  text: string;
+  user_message_id: string;
+  injected: boolean;
+};
+
 export type ProtocolEvent =
   | { v?: number; type: "meta"; data: MetaData }
   | { v?: number; type: "delta"; data: DeltaData }
   | { v?: number; type: "step"; data: StepData }
   | { v?: number; type: "narration"; data: NarrationData }
   | { v?: number; type: "thinking"; data: ThinkingData }
+  | { v?: number; type: "user_message"; data: UserMessageData }
   | { v?: number; type: "viz"; data: RenderSpec }
   | { v?: number; type: "clarify"; data: ClarifySpec }
   | { v?: number; type: "sources"; data: SourcesData }
@@ -167,6 +174,7 @@ export const protocolEventTypes = [
   "step",
   "narration",
   "thinking",
+  "user_message",
   "viz",
   "clarify",
   "sources",
@@ -196,6 +204,7 @@ export type AssistantContentPart =
 export type TranscriptSegment =
   | { kind: "narration"; text: string }
   | { kind: "thinking"; text: string }
+  | { kind: "user"; text: string; user_message_id: string; injected: boolean }
   | { kind: "step"; data: StepData }
   | { kind: "delta"; text: string }
   | { kind: "viz"; spec: RenderSpec };
@@ -295,6 +304,15 @@ export type SendMessageInput = {
   replaceMessageId?: string;
 };
 
+export type SteerMessageInput = {
+  sessionId: string;
+  text: string;
+};
+
+export type SteerMessageResult =
+  | { status: "queued"; userMessageId: string }
+  | { status: "idle" };
+
 export type AttachStreamResult =
   | { active: false }
   | { active: true; stream: AsyncIterable<SseFrame<ProtocolEvent>> };
@@ -327,6 +345,7 @@ export type ChatTransport = {
   sendMessage: (
     input: SendMessageInput,
   ) => AsyncIterable<SseFrame<ProtocolEvent>>;
+  steerMessage: (input: SteerMessageInput) => Promise<SteerMessageResult>;
   attachStream: (input: {
     sessionId: string;
     signal?: AbortSignal;

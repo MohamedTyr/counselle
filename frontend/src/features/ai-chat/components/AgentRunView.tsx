@@ -7,9 +7,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import type { StepData } from "@/api/chat/types";
+import type { SourceEntry, StepData } from "@/api/chat/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+
+import { CitationRenderer } from "./CitationRenderer";
 
 export { ToolStepBeat } from "./ToolWidgets";
 
@@ -26,9 +28,8 @@ function PlanStatusIcon({ status }: { status: string }) {
   return <CircleIcon aria-hidden="true" className="mt-0.5 size-3.5" />;
 }
 
-/** The pinned plan checklist — the latest `write_plan` update only; earlier
- * updates never render as their own rows (a plan is one evolving widget, not
- * a log of edits). */
+/** Compact plan rendering for places that intentionally show a plan summary.
+ * The chronological run itself renders `write_plan` as a normal tool beat. */
 export function PlanChecklist({ step }: { step: StepData }) {
   const items = step.detail?.items ?? [];
   if (items.length === 0) {
@@ -64,17 +65,42 @@ export function PlanChecklist({ step }: { step: StepData }) {
   );
 }
 
-/** The agent's loud talk — normal visible prose, not italic/muted (that
- * styling is reserved for the collapsed raw-thinking beat below). */
-export function NarrationBeat({ text }: { text: string }) {
-  return <p className="not-prose py-1 text-[13.5px] leading-relaxed text-foreground">{text}</p>;
+/** The agent's loud talk — response text, so it uses the same
+ * markdown/citation renderer as the final answer. */
+export function NarrationBeat({
+  text,
+  sources,
+  onCitationOpen,
+}: {
+  text: string;
+  sources?: SourceEntry[];
+  onCitationOpen?: (index: number) => void;
+}) {
+  return (
+    <div className="py-1">
+      <CitationRenderer
+        markdown={text}
+        onCitationOpen={onCitationOpen}
+        sources={sources}
+      />
+    </div>
+  );
 }
 
-/** Native raw reasoning (only emitted when `thinking_summaries` is on) —
- * collapsed by default, one line per occurrence, expandable inline. */
-export function ThinkingBeat({ id, text }: { id: string; text: string }) {
+/** Native provider thought output — collapsed by default, one episode per
+ * continuous thinking run, expandable inline. */
+export function ThinkingBeat({
+  id,
+  isLive = false,
+  text,
+}: {
+  id: string;
+  isLive?: boolean;
+  text: string;
+}) {
   const [open, setOpen] = useState(false);
   const contentId = `thinking-content-${id}`;
+  const label = isLive ? "Thinking" : "Thought";
 
   return (
     <Collapsible className="not-prose py-1" onOpenChange={setOpen} open={open}>
@@ -86,12 +112,14 @@ export function ThinkingBeat({ id, text }: { id: string; text: string }) {
           aria-hidden="true"
           className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
         />
-        <span>Thought{open ? "" : " for a moment"}</span>
+        <span className={cn(isLive && "animate-pulse")}>{label}</span>
       </CollapsibleTrigger>
       <CollapsibleContent aria-labelledby={contentId}>
-        <p className="mt-1 pl-[18px] text-[13px] whitespace-pre-wrap text-muted-foreground italic">
-          {text}
-        </p>
+        {text.trim().length > 0 && (
+          <p className="mt-1 pl-[18px] text-[13px] whitespace-pre-wrap text-muted-foreground italic">
+            {text}
+          </p>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );

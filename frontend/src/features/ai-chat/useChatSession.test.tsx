@@ -120,6 +120,10 @@ function createTransport(): ChatTransport {
     renameSession: vi.fn(),
     deleteSession: vi.fn(),
     sendMessage: vi.fn(),
+    steerMessage: vi.fn(async () => ({
+      status: "queued",
+      userMessageId: "steer-1",
+    })),
     attachStream: vi.fn(async () => ({ active: false as const })),
     streamFirstMessage: vi.fn(),
     cancelActiveTurn: vi.fn(),

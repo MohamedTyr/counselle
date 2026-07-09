@@ -26,6 +26,10 @@ function transportMock(overrides: Partial<ChatTransport> = {}): ChatTransport {
     renameSession: vi.fn().mockResolvedValue(undefined),
     deleteSession: vi.fn().mockResolvedValue(undefined),
     sendMessage: vi.fn(),
+    steerMessage: vi.fn().mockResolvedValue({
+      status: "queued",
+      userMessageId: "steer-1",
+    }),
     attachStream: vi.fn().mockResolvedValue({ active: false }),
     streamFirstMessage: vi.fn().mockResolvedValue({ accepted: true }),
     cancelActiveTurn: vi.fn().mockResolvedValue(undefined),

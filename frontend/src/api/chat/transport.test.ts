@@ -286,6 +286,108 @@ describe("chatTransport", () => {
     );
   });
 
+  it("accepts user_message SSE frames", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      sseResponse(
+        frame("user_message", {
+          text: "Also compare cost.",
+          user_message_id: "steer-1",
+          injected: true,
+        }),
+        frame("done", { status: "complete" }, "2"),
+      ),
+    );
+
+    await expect(
+      collect(
+        chatTransport.sendMessage({
+          sessionId: "session-1",
+          text: "Question",
+          sourceConfig: BUILT_IN_SOURCE_CONFIG,
+        }),
+      ),
+    ).resolves.toEqual([
+      {
+        id: undefined,
+        event: "user_message",
+        data: {
+          v: 1,
+          type: "user_message",
+          data: {
+            text: "Also compare cost.",
+            user_message_id: "steer-1",
+            injected: true,
+          },
+        },
+      },
+      {
+        id: "2",
+        event: "done",
+        data: { v: 1, type: "done", data: { status: "complete" } },
+      },
+    ]);
+  });
+
+  it("rejects malformed user_message SSE frames", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      sseResponse(
+        frame("user_message", {
+          text: "Also compare cost.",
+          user_message_id: "steer-1",
+        }),
+      ),
+    );
+
+    await expect(
+      collect(
+        chatTransport.sendMessage({
+          sessionId: "session-1",
+          text: "Question",
+          sourceConfig: BUILT_IN_SOURCE_CONFIG,
+        }),
+      ),
+    ).rejects.toThrow("malformed user_message");
+  });
+
+  it("steers a live message without clearing the SSE cursor", async () => {
+    sessionStorage.setItem(cursorKey, "7");
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(
+        { status: "queued", user_message_id: "steer-1" },
+        { status: 202 },
+      ),
+    );
+
+    await expect(
+      chatTransport.steerMessage({
+        sessionId: "session-1",
+        text: " Also compare cost. ",
+      }),
+    ).resolves.toEqual({ status: "queued", userMessageId: "steer-1" });
+
+    expect(sessionStorage.getItem(cursorKey)).toBe("7");
+    expect(fetch).toHaveBeenCalledWith(
+      "/v1/sessions/session-1/steer",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ text: "Also compare cost." }),
+      }),
+    );
+  });
+
+  it("maps 409 idle steer responses to a typed idle result", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({ status: "idle" }, { status: 409 }),
+    );
+
+    await expect(
+      chatTransport.steerMessage({
+        sessionId: "session-1",
+        text: "Next",
+      }),
+    ).resolves.toEqual({ status: "idle" });
+  });
+
   it("includes persisted Last-Event-ID on attach and reports 204 as inactive", async () => {
     sessionStorage.setItem(cursorKey, "7");
     vi.mocked(fetch).mockResolvedValueOnce(emptyResponse({ status: 204 }));

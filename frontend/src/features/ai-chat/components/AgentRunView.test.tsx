@@ -36,6 +36,12 @@ describe("ToolStepBeat", () => {
     expect(screen.queryByText("Should not matter")).not.toBeInTheDocument();
   });
 
+  test("falls back to the default widget for unknown step kinds", () => {
+    render(<ToolStepBeat step={step({ kind: "future_tool", label: "Using a future tool" })} />);
+
+    expect(screen.getByText("Using a future tool")).toBeInTheDocument();
+  });
+
   test("default start rows use the legacy hollow dot instead of a spinner", () => {
     const { container } = render(<ToolStepBeat step={step({ status: "start" })} />);
 
@@ -100,7 +106,7 @@ describe("ToolStepBeat", () => {
     expect(screen.getByText('"NYU acceptance rate" · 3 results')).toBeInTheDocument();
   });
 
-  test("db/sql steps render safe receipts without leaking hidden internals", () => {
+  test("db/sql steps render public details without leaking hidden internals", () => {
     render(
       <ToolStepBeat
         step={step({
@@ -120,7 +126,74 @@ describe("ToolStepBeat", () => {
     expect(screen.getByText("Reading the Common Data Set")).toBeInTheDocument();
     expect(screen.getByText("1 value")).toBeInTheDocument();
     expect(screen.queryByText(/SELECT admission_rate/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Query")).not.toBeInTheDocument();
     expect(screen.queryByText(/admissions\.acceptance_rate/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Row count")).not.toBeInTheDocument();
+  });
+
+  test("generic details render all approved StepDetail fields", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          detail: {
+            query: "NYU scholarships",
+            summary: "Found official aid pages.",
+            domains: ["nyu.edu", "studentaid.gov"],
+            result_count: 2,
+            value_count: 3,
+            duration_ms: 42,
+            tool: "search_web",
+            viz_type: "comparison_table",
+            schools: ["NYU", "Duke"],
+            items: [{ content: "Check aid deadlines", status: "completed" }],
+            completed: 1,
+            total: 2,
+            next_actions: ["Compare net price"],
+            error: "One source timed out",
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Query")).toBeInTheDocument();
+    expect(screen.getByText("NYU scholarships")).toBeInTheDocument();
+    expect(screen.getByText("Found official aid pages.")).toBeInTheDocument();
+    expect(screen.getByText("nyu.edu, studentaid.gov")).toBeInTheDocument();
+    expect(screen.getByText("2", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("3", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("42", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("search_web")).toBeInTheDocument();
+    expect(screen.getByText("comparison table")).toBeInTheDocument();
+    expect(screen.getByText("NYU, Duke")).toBeInTheDocument();
+    expect(screen.getByText("Check aid deadlines")).toBeInTheDocument();
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+    expect(screen.getByText("Compare net price")).toBeInTheDocument();
+    expect(screen.getByText("One source timed out")).toBeInTheDocument();
+  });
+
+  test("generic details ignore hidden fields and arbitrary raw data", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          detail: {
+            query: "public query",
+            field_keys: ["admissions.acceptance_rate"],
+            row_count: 99,
+            raw_payload: "must stay hidden",
+          } as StepData["detail"] & { raw_payload: string },
+          ui: {
+            widget: "future_widget",
+            data: { internalNote: "must not render" },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("public query")).toBeInTheDocument();
+    expect(screen.queryByText(/admissions\.acceptance_rate/)).not.toBeInTheDocument();
+    expect(screen.queryByText("99")).not.toBeInTheDocument();
+    expect(screen.queryByText("must stay hidden")).not.toBeInTheDocument();
+    expect(screen.queryByText("must not render")).not.toBeInTheDocument();
   });
 
   test("source chips are deduped and capped, with a +N more expander", () => {
@@ -190,11 +263,11 @@ describe("PlanChecklist", () => {
 });
 
 describe("NarrationBeat", () => {
-  test("renders visible prose, not italic/muted styling", () => {
-    render(<NarrationBeat text="Let me check Harvard's aid page." />);
-    const node = screen.getByText("Let me check Harvard's aid page.");
-    expect(node).toBeInTheDocument();
-    expect(node.className).not.toContain("italic");
+  test("renders response text through markdown, not plain muted prose", () => {
+    render(<NarrationBeat text="Let me check **Harvard**." />);
+
+    expect(screen.getByText("Harvard")).toHaveClass("font-semibold");
+    expect(screen.queryByText(/\*\*Harvard\*\*/)).not.toBeInTheDocument();
   });
 });
 
@@ -202,12 +275,27 @@ describe("ThinkingBeat", () => {
   test("collapsed by default; expands to reveal the raw text", () => {
     render(<ThinkingBeat id="t1" text="Weighing which source to check first." />);
 
+    expect(screen.getByRole("button", { name: "Thought" })).toBeInTheDocument();
     expect(
       screen.queryByText("Weighing which source to check first."),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button"));
 
+    expect(screen.getByRole("button", { name: "Thought" })).toBeInTheDocument();
     expect(screen.getByText("Weighing which source to check first.")).toBeInTheDocument();
+  });
+
+  test("live state is rendered from data, not expanded state", () => {
+    render(<ThinkingBeat id="t1" isLive text="Still deciding." />);
+
+    const trigger = screen.getByRole("button", { name: "Thinking" });
+    expect(trigger).toBeInTheDocument();
+    expect(screen.getByText("Thinking")).toHaveClass("animate-pulse");
+
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole("button", { name: "Thinking" })).toBeInTheDocument();
+    expect(screen.getByText("Still deciding.")).toBeInTheDocument();
   });
 });

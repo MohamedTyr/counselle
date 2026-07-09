@@ -145,6 +145,31 @@ describe("assistantMessage", () => {
     expect(message.segments).toBe(segments);
     expect(message.stepRecord?.steps).toHaveLength(1);
     expect(message.stepRecord?.thinking).toEqual(["pondering"]);
+    expect(message.runMarkdown).toBe("- Reading CDS\n\npondering");
+  });
+
+  test("message text remains answer-only while runMarkdown keeps the whole run", () => {
+    const state: TurnState = {
+      ...initialTurnState(),
+      status: "complete",
+      segments: [
+        { type: "narration", id: "narration-0", text: "Checking aid data." },
+        {
+          type: "user",
+          id: "steer-1",
+          text: "Also compare cost.",
+          injected: true,
+        },
+        { type: "answer", text: "Final answer only." },
+      ],
+    };
+
+    const message = assistantMessage("c1", "a1", "u1", state, null);
+
+    expect(message.text).toBe("Final answer only.");
+    expect(message.runMarkdown).toBe(
+      ["Checking aid data.", "> Also compare cost.", "Final answer only."].join("\n\n"),
+    );
   });
 
   test("raw thinking segments render but do not enter the legacy step record", () => {

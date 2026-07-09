@@ -1,5 +1,5 @@
 import { CheckIcon, CopyIcon, RotateCcwIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
-import { memo, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import {
   Message,
@@ -10,8 +10,8 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { Segment } from "../turn-reducer";
-import { NarrationBeat, PlanChecklist, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
-import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
+import { NarrationBeat, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
+import { isLiveStatus } from "./activity-trace-helpers";
 import { CitationRenderer } from "./CitationRenderer";
 import { ClarifyWidget } from "./ClarifyWidget";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
@@ -36,18 +36,64 @@ export type ChatMessageProps = {
   isLatestMessage?: boolean;
 };
 
-function CopyAction({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+const COPY_FEEDBACK_MS = 1500;
 
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    });
+function StreamingCursor() {
+  return (
+    <span
+      aria-hidden="true"
+      className="ml-0.5 inline-block h-4 w-[0.55ch] animate-pulse rounded-sm bg-foreground align-[-0.15em]"
+      data-testid="streaming-cursor"
+    />
+  );
+}
+
+function CopyAction({
+  answerText,
+  runMarkdown,
+}: {
+  answerText: string;
+  runMarkdown: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const timeoutRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timeoutRef.current), []);
+
+  const handleCopy = async () => {
+    window.clearTimeout(timeoutRef.current);
+
+    const text = runMarkdown.trim() === "" ? answerText : runMarkdown;
+    const writeText =
+      typeof navigator === "undefined"
+        ? undefined
+        : navigator.clipboard?.writeText;
+
+    if (text.trim() === "" || writeText === undefined) {
+      setCopied(false);
+      setCopyFailed(true);
+    } else {
+      try {
+        await writeText.call(navigator.clipboard, text);
+        setCopied(true);
+        setCopyFailed(false);
+      } catch {
+        setCopied(false);
+        setCopyFailed(true);
+      }
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      setCopied(false);
+      setCopyFailed(false);
+    }, COPY_FEEDBACK_MS);
   };
 
+  const label = copied ? "Copied" : copyFailed ? "Copy failed" : "Copy";
+
   return (
-    <MessageAction label="Copy" onClick={handleCopy} tooltip="Copy">
+    <MessageAction label={label} onClick={() => void handleCopy()} tooltip={label}>
       {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
     </MessageAction>
   );
@@ -65,6 +111,8 @@ function segmentKey(segment: Segment, index: number): string {
     case "narration":
     case "thinking":
       return segment.id;
+    case "user":
+      return `user-${segment.id}`;
     case "tool":
       return `tool-${segment.step.step_id}`;
     case "answer":
@@ -81,28 +129,49 @@ function segmentKey(segment: Segment, index: number): string {
  * `write_plan` tool segments are suppressed here; the pinned `PlanChecklist`
  * above the stream renders the latest one instead. */
 function SegmentBeat({
+  isLiveSegment,
   segment,
   sources,
   onOpenCitation,
 }: {
+  isLiveSegment: boolean;
   segment: Segment;
   sources: AssistantChatMessage["sources"];
   onOpenCitation?: (index: number) => void;
 }) {
   switch (segment.type) {
     case "narration":
-      return <NarrationBeat text={segment.text} />;
-    case "thinking":
-      return <ThinkingBeat id={segment.id} text={segment.text} />;
-    case "tool":
-      return segment.step.kind === "write_plan" ? null : <ToolStepBeat step={segment.step} />;
-    case "answer":
-      return segment.text.length === 0 ? null : (
-        <CitationRenderer
-          markdown={segment.text}
+      return (
+        <NarrationBeat
           onCitationOpen={onOpenCitation}
           sources={sources}
+          text={segment.text}
         />
+      );
+    case "thinking":
+      return (
+        <ThinkingBeat id={segment.id} isLive={isLiveSegment} text={segment.text} />
+      );
+    case "user":
+      return (
+        <Message from="user" className="not-prose max-w-full py-1">
+          <MessageContent className="max-w-[80%]">
+            <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{segment.text}</p>
+          </MessageContent>
+        </Message>
+      );
+    case "tool":
+      return <ToolStepBeat step={segment.step} />;
+    case "answer":
+      return segment.text.length === 0 ? null : (
+        <div>
+          <CitationRenderer
+            markdown={segment.text}
+            onCitationOpen={onOpenCitation}
+            sources={sources}
+          />
+          {isLiveSegment && <StreamingCursor />}
+        </div>
       );
     case "viz":
       return <VizBlock spec={segment.spec} />;
@@ -122,20 +191,30 @@ function AssistantBody({
   onOpenCitation?: (index: number) => void;
   clarifyFrozen: boolean;
 }) {
-  const planStep = latestPlanStep(message.segments);
-  const isWorking =
+  const showEmptyLiveThinking =
     message.segments.length === 0 &&
     message.turnStatus !== undefined &&
     isLiveStatus(message.turnStatus);
+  const hasLiveSegment =
+    message.turnStatus !== undefined && isLiveStatus(message.turnStatus);
+  const liveAnswerIndex = hasLiveSegment
+    ? message.segments.findLastIndex(
+        (segment) => segment.type === "answer" && segment.text.length > 0,
+      )
+    : -1;
 
   return (
     <>
-      {planStep !== null && <PlanChecklist step={planStep} />}
-      {isWorking && (
-        <p className="not-prose py-1 text-[13.5px] text-muted-foreground">Working…</p>
+      {showEmptyLiveThinking && (
+        <ThinkingBeat id={`${message.messageId}-empty-live`} isLive text="" />
       )}
       {message.segments.map((segment, index) => (
         <SegmentBeat
+          isLiveSegment={
+            segment.type === "answer"
+              ? index === liveAnswerIndex
+              : hasLiveSegment && index === message.segments.length - 1
+          }
           key={segmentKey(segment, index)}
           onOpenCitation={onOpenCitation}
           segment={segment}
@@ -202,7 +281,7 @@ function ChatMessageComponent({
       </MessageContent>
       {settled && (
         <MessageActions>
-          <CopyAction text={message.text} />
+          <CopyAction answerText={message.text} runMarkdown={message.runMarkdown} />
           {onFeedback !== undefined && (
             <>
               <MessageAction

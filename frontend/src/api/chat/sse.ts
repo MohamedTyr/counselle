@@ -226,6 +226,12 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
     case "narration":
     case "thinking":
       return typeof data.text === "string";
+    case "user_message":
+      return (
+        typeof data.text === "string" &&
+        isNonEmptyString(data.user_message_id) &&
+        typeof data.injected === "boolean"
+      );
     case "viz":
       return (
         typeof data.v === "number" &&

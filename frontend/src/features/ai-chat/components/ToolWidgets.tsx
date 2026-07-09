@@ -8,13 +8,18 @@ import {
 import type React from "react";
 import { useState } from "react";
 
-import type { StepData } from "@/api/chat/types";
+import type { StepData, StepDetail } from "@/api/chat/types";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { safeExternalUrl } from "../citations";
-import { dedupeStepSources, MAX_VISIBLE_SOURCE_CHIPS, receiptText } from "./activity-trace-helpers";
+import {
+  dedupeStepSources,
+  isSearchKind,
+  MAX_VISIBLE_SOURCE_CHIPS,
+  receiptText,
+} from "./activity-trace-helpers";
 
 type ToolWidgetProps = {
   step: StepData;
@@ -84,6 +89,107 @@ function StepDot({ status }: { status: StepData["status"] }) {
   );
 }
 
+type DetailRow = {
+  label: string;
+  value: React.ReactNode;
+};
+
+function textRow(label: string, value: string | undefined): DetailRow | null {
+  return value !== undefined && value.trim().length > 0
+    ? { label, value }
+    : null;
+}
+
+function numberRow(label: string, value: number | undefined): DetailRow | null {
+  return typeof value === "number" ? { label, value: value.toLocaleString() } : null;
+}
+
+function listRow(label: string, values: string[] | undefined): DetailRow | null {
+  const clean = values?.map((value) => value.trim()).filter(Boolean) ?? [];
+  return clean.length > 0 ? { label, value: clean.join(", ") } : null;
+}
+
+function itemsRow(items: StepDetail["items"]): DetailRow | null {
+  if (!Array.isArray(items) || items.length === 0) {
+    return null;
+  }
+
+  return {
+    label: "Items",
+    value: (
+      <ul className="list-disc space-y-0.5 pl-4">
+        {items.map((item, index) => (
+          <li key={`${item.content}-${index}`}>
+            {item.content}
+            {item.status !== undefined && (
+              <span className="text-muted-foreground"> ({item.status.replaceAll("_", " ")})</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    ),
+  };
+}
+
+function progressRow(completed: number | undefined, total: number | undefined): DetailRow | null {
+  if (typeof completed !== "number" && typeof total !== "number") {
+    return null;
+  }
+
+  if (typeof completed === "number" && typeof total === "number") {
+    return { label: "Progress", value: `${completed.toLocaleString()}/${total.toLocaleString()}` };
+  }
+
+  return numberRow(completed === undefined ? "Total" : "Completed", completed ?? total);
+}
+
+function detailRows(step: StepData): DetailRow[] {
+  const detail = step.detail;
+  if (detail === null) {
+    return [];
+  }
+
+  return [
+    isSearchKind(step.kind) ? textRow("Query", detail.query) : null,
+    textRow("Summary", detail.summary),
+    listRow("Domains", detail.domains),
+    numberRow("Results", detail.result_count),
+    numberRow("Values", detail.value_count),
+    numberRow("Duration", detail.duration_ms),
+    textRow("Tool", detail.tool),
+    textRow("Visualization", detail.viz_type?.replaceAll("_", " ")),
+    listRow("Schools", detail.schools),
+    itemsRow(detail.items),
+    progressRow(detail.completed, detail.total),
+    listRow("Next", detail.next_actions),
+    textRow("Error", detail.error),
+  ].filter((row): row is DetailRow => row !== null);
+}
+
+function PublicStepDetails({ step }: { step: StepData }) {
+  const rows = detailRows(step);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="mt-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer select-none text-foreground/80 hover:text-foreground">
+        Details
+      </summary>
+      <dl className="mt-2 grid gap-1.5">
+        {rows.map((row) => (
+          <div className="grid grid-cols-[96px_1fr] gap-2" key={row.label}>
+            <dt className="font-medium text-muted-foreground">{row.label}</dt>
+            <dd className="min-w-0 text-foreground/85">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
+
 export function DefaultToolWidget({ step }: ToolWidgetProps) {
   const receipt = receiptText(step);
   const labelClass = cn(
@@ -100,6 +206,7 @@ export function DefaultToolWidget({ step }: ToolWidgetProps) {
         {receipt !== null && (
           <p className="mt-0.5 text-xs text-muted-foreground">{receipt}</p>
         )}
+        <PublicStepDetails step={step} />
         <SourceChips step={step} />
       </div>
     </div>

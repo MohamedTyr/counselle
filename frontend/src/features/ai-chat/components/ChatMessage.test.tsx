@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { ChatMessage } from "./ChatMessage";
 import type { AssistantChatMessage, UserChatMessage } from "../model";
@@ -33,6 +33,7 @@ function assistantMessage(overrides: Partial<AssistantChatMessage> = {}): Assist
     ts: null,
     isCreatedByUser: false,
     blocks,
+    runMarkdown: overrides.runMarkdown ?? "Aid depends on need [1].",
     segments: blocks.map((block) =>
       block.kind === "markdown"
         ? { type: "answer" as const, text: block.text }
@@ -49,6 +50,17 @@ function assistantMessage(overrides: Partial<AssistantChatMessage> = {}): Assist
     ...overrides,
   };
 }
+
+function setClipboard(value: Pick<Clipboard, "writeText"> | undefined) {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value,
+  });
+}
+
+afterEach(() => {
+  setClipboard(undefined);
+});
 
 describe("ChatMessage", () => {
   test("user message renders as a right-aligned bubble tagged with its message id", () => {
@@ -112,14 +124,184 @@ describe("ChatMessage", () => {
     expect(screen.getByText("I added it to your workspace.")).toBeInTheDocument();
   });
 
-  test("copy action copies the assistant's rendered text", async () => {
+  test("assistant message renders write_plan in chronological order", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          segments: [
+            { type: "narration", id: "n1", text: "First, I will plan this." },
+            {
+              type: "tool",
+              step: {
+                step_id: "plan-1",
+                status: "end",
+                kind: "write_plan",
+                label: "Updated the plan",
+                tier: null,
+                detail: {
+                  completed: 1,
+                  total: 2,
+                  items: [
+                    { content: "Check schools", status: "completed" },
+                    { content: "Compare fit", status: "in_progress" },
+                  ],
+                },
+              },
+            },
+            { type: "answer", text: "Then I will answer." },
+          ],
+          blocks: [{ kind: "markdown", text: "Then I will answer." }],
+          text: "Then I will answer.",
+        })}
+      />,
+    );
+
+    const text = document.body.textContent ?? "";
+    expect(text.indexOf("First, I will plan this.")).toBeLessThan(
+      text.indexOf("Updated the plan"),
+    );
+    expect(text.indexOf("Updated the plan")).toBeLessThan(
+      text.indexOf("Then I will answer."),
+    );
+  });
+
+  test("empty live assistant run shows the collapsed thinking row immediately", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          blocks: [],
+          runMarkdown: "",
+          segments: [],
+          text: "",
+          turnStatus: "streaming",
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Thinking" })).toBeInTheDocument();
+    expect(screen.queryByText("Working…")).not.toBeInTheDocument();
+  });
+
+  test("live final answer renders a streaming cursor", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          segments: [{ type: "answer", text: "Streaming **answer**" }],
+          blocks: [{ kind: "markdown", text: "Streaming **answer**" }],
+          text: "Streaming answer",
+          turnStatus: "streaming",
+        })}
+      />,
+    );
+
+    expect(screen.getByText("answer")).toBeInTheDocument();
+    expect(screen.getByTestId("streaming-cursor")).toBeInTheDocument();
+  });
+
+  test("live final answer keeps the cursor on the latest answer when viz follows", () => {
+    const spec = {
+      v: 1,
+      type: "stat_block",
+      title: "Cost card",
+      schools: [],
+      rows: [],
+    } as const;
+
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          segments: [
+            { type: "answer", text: "Streaming answer before the card." },
+            { type: "viz", spec },
+          ],
+          blocks: [
+            { kind: "markdown", text: "Streaming answer before the card." },
+            { kind: "viz", spec },
+          ],
+          text: "Streaming answer before the card.",
+          turnStatus: "streaming",
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Streaming answer before the card.")).toBeInTheDocument();
+    expect(screen.getByTestId("streaming-cursor")).toBeInTheDocument();
+  });
+
+  test("assistant message renders inline user beats inside the assistant row", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          segments: [
+            { type: "narration", id: "n1", text: "Checking costs." },
+            {
+              type: "user",
+              id: "steer-1",
+              text: "Also compare cost.",
+              injected: true,
+            },
+            { type: "answer", text: "Cost comparison follows." },
+          ],
+          blocks: [{ kind: "markdown", text: "Cost comparison follows." }],
+          text: "Cost comparison follows.",
+        })}
+      />,
+    );
+
+    const bubble = screen.getByText("Also compare cost.");
+    expect(bubble).toBeInTheDocument();
+    expect(bubble.closest("[id]")).toHaveAttribute("id", "assistant-1");
+  });
+
+  test("copy action copies the whole assistant run markdown", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+    setClipboard({ writeText });
+
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          runMarkdown:
+            "Checking official data.\n\n- Searching web: 2 results\n\nAid depends on need [1].",
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      "Checking official data.\n\n- Searching web: 2 results\n\nAid depends on need [1].",
+    );
+  });
+
+  test("copy action falls back to answer text when run markdown is empty", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard({ writeText });
+
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          runMarkdown: "",
+          text: "Answer-only copy.",
+          blocks: [{ kind: "markdown", text: "Answer-only copy." }],
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+    expect(writeText).toHaveBeenCalledWith("Answer-only copy.");
+  });
+
+  test("copy action reports clipboard rejection without crashing", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    setClipboard({ writeText });
 
     render(<ChatMessage message={assistantMessage()} />);
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
 
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Copy failed" })).toBeInTheDocument();
+    });
     expect(writeText).toHaveBeenCalledWith("Aid depends on need [1].");
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
   });
 
   test("a cancelled turn renders the stopped-response notice", () => {
@@ -213,5 +395,78 @@ describe("ChatMessage", () => {
   test("sources are hidden while a turn is still streaming", () => {
     render(<ChatMessage message={assistantMessage({ turnStatus: "streaming" })} />);
     expect(screen.queryByText(/source/i)).not.toBeInTheDocument();
+  });
+
+  test("expanded thinking stays expanded when completion appends sources and actions", () => {
+    const onFeedback = vi.fn();
+    const streamingMessage = assistantMessage({
+      blocks: [],
+      runMarkdown: "I'll compare reputation and student life.",
+      segments: [
+        {
+          type: "narration",
+          id: "narration-0",
+          text: "I'll compare reputation and student life.",
+        },
+        {
+          type: "thinking",
+          id: "thinking-0",
+          text: "I need to compare prestige separately from campus fit.",
+        },
+      ],
+      text: "",
+      turnStatus: "streaming",
+    });
+    const completedMessage = assistantMessage({
+      ...streamingMessage,
+      blocks: [{ kind: "markdown", text: "Both are strong for different reasons [1]." }],
+      runMarkdown:
+        "I'll compare reputation and student life.\n\nBoth are strong for different reasons [1].",
+      segments: [
+        {
+          type: "narration",
+          id: "narration-0",
+          text: "I'll compare reputation and student life.",
+        },
+        {
+          type: "thinking",
+          id: "thinking-0",
+          text: "I need to compare prestige separately from campus fit.",
+        },
+        { type: "answer", text: "Both are strong for different reasons [1]." },
+      ],
+      text: "Both are strong for different reasons [1].",
+      turnStatus: "complete",
+    });
+
+    const { rerender } = render(
+      <ChatMessage message={streamingMessage} onFeedback={onFeedback} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Thinking" }));
+    expect(
+      screen.getByText("I need to compare prestige separately from campus fit."),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Copy" })).not.toBeInTheDocument();
+
+    rerender(<ChatMessage message={completedMessage} onFeedback={onFeedback} />);
+
+    expect(screen.getByRole("button", { name: "Thought" })).toBeInTheDocument();
+    expect(
+      screen.getByText("I need to compare prestige separately from campus fit."),
+    ).toBeVisible();
+    expect(screen.queryByTestId("streaming-cursor")).not.toBeInTheDocument();
+
+    const text = document.body.textContent ?? "";
+    expect(text.indexOf("I'll compare reputation and student life.")).toBeLessThan(
+      text.indexOf("I need to compare prestige separately from campus fit."),
+    );
+    expect(text.indexOf("I need to compare prestige separately from campus fit.")).toBeLessThan(
+      text.indexOf("Both are strong for different reasons"),
+    );
+    expect(text.indexOf("Both are strong for different reasons")).toBeLessThan(
+      text.indexOf("1 source"),
+    );
+    expect(text.indexOf("1 source")).toBeLessThan(text.indexOf("Copy"));
+    expect(text.indexOf("Copy")).toBeLessThan(text.indexOf("Good response"));
   });
 });

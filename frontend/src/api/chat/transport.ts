@@ -13,6 +13,7 @@ import type {
   SendMessageInput,
   SourceConfigWire,
   SseFrame,
+  SteerMessageResult,
   StreamResult,
   TranscriptEntry,
 } from "@/api/chat/types";
@@ -57,6 +58,15 @@ type SessionMetadataWire = {
 
 type SessionDetailResponseWire = SessionMetadataWire & {
   transcript?: TranscriptEntry[];
+};
+
+type SteerQueuedWire = {
+  status: "queued";
+  user_message_id: string;
+};
+
+type SteerIdleWire = {
+  status: "idle";
 };
 
 function withBase(path: string) {
@@ -190,6 +200,34 @@ function listRows(value: unknown): SessionRowWire[] {
   return value;
 }
 
+function isSteerQueuedWire(value: unknown): value is SteerQueuedWire {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+
+  const row = value as Partial<SteerQueuedWire>;
+  return row.status === "queued" && typeof row.user_message_id === "string";
+}
+
+function isSteerIdleWire(value: unknown): value is SteerIdleWire {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    (value as Partial<SteerIdleWire>).status === "idle"
+  );
+}
+
+async function parseSteerJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch (cause) {
+    throw new TransportError("server", "Steer response was malformed.", {
+      cause,
+      status: response.status,
+    });
+  }
+}
+
 async function* streamFrames(
   sessionId: string,
   response: Response,
@@ -320,6 +358,33 @@ export const chatTransport: ChatTransport = {
       throw await errorFromResponse(response);
     }
     yield* streamFrames(sessionId, response);
+  },
+
+  async steerMessage({ sessionId, text }): Promise<SteerMessageResult> {
+    const response = await streamFetch(`${sessionPath(sessionId)}/steer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text.trim() }),
+    });
+
+    if (response.status === 202) {
+      const wire = await parseSteerJson(response);
+      if (!isSteerQueuedWire(wire)) {
+        throw new TransportError("server", "Steer response was malformed.", {
+          status: response.status,
+        });
+      }
+      return { status: "queued", userMessageId: wire.user_message_id };
+    }
+
+    if (response.status === 409) {
+      const wire = await parseSteerJson(response);
+      if (isSteerIdleWire(wire)) {
+        return { status: "idle" };
+      }
+    }
+
+    throw await errorFromResponse(response);
   },
 
   async attachStream({ sessionId, signal }): Promise<AttachStreamResult> {

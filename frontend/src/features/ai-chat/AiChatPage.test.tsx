@@ -25,6 +25,10 @@ const fakeTransport: MockedChatTransport = vi.hoisted(() => ({
   renameSession: vi.fn<ChatTransport["renameSession"]>(),
   deleteSession: vi.fn<ChatTransport["deleteSession"]>(),
   sendMessage: vi.fn<ChatTransport["sendMessage"]>(),
+  steerMessage: vi.fn<ChatTransport["steerMessage"]>(async () => ({
+    status: "queued",
+    userMessageId: "steer-1",
+  })),
   attachStream: vi.fn<ChatTransport["attachStream"]>(async () => ({ active: false as const })),
   streamFirstMessage: vi.fn<ChatTransport["streamFirstMessage"]>(),
   cancelActiveTurn: vi.fn<ChatTransport["cancelActiveTurn"]>(async () => undefined),
@@ -433,16 +437,14 @@ describe("AiChatPage", () => {
     );
   });
 
-  test("active send cancels the running turn before sending the next one", async () => {
+  test("active send steers the running turn instead of cancelling it", async () => {
     fakeTransport.getSession.mockResolvedValue(session());
     const first = controllableStream();
     fakeTransport.sendMessage.mockReturnValueOnce(first.stream);
-    fakeTransport.cancelActiveTurn.mockImplementation(async () => {
-      first.close();
+    fakeTransport.steerMessage.mockResolvedValueOnce({
+      status: "queued",
+      userMessageId: "steer-1",
     });
-    fakeTransport.sendMessage.mockReturnValueOnce(
-      replay([meta({ messageId: "assistant-2" }), delta("Second answer"), done()]),
-    );
 
     renderPage();
     await screen.findByText("No messages yet");
@@ -457,8 +459,14 @@ describe("AiChatPage", () => {
     fireEvent.change(textarea, { target: { value: "Second question" } });
     fireEvent.keyDown(textarea, { key: "Enter" });
 
-    await waitFor(() => expect(fakeTransport.cancelActiveTurn).toHaveBeenCalled());
-    expect(await screen.findByText("Second answer")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(fakeTransport.steerMessage).toHaveBeenCalledWith({
+        sessionId: "s1",
+        text: "Second question",
+      }),
+    );
+    expect(fakeTransport.cancelActiveTurn).not.toHaveBeenCalled();
+    first.close();
   });
 
   test("selecting a subreddit subset is preserved on the next send", async () => {

@@ -59,6 +59,18 @@ function done(
   return { v: 1, type: "done", data: { status } };
 }
 
+function userMessageEvent(
+  text: string,
+  userMessageId = "steer-1",
+  injected = true,
+): ProtocolEvent {
+  return {
+    v: 1,
+    type: "user_message",
+    data: { text, user_message_id: userMessageId, injected },
+  };
+}
+
 async function* stream(
   events: ProtocolEvent[],
 ): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
@@ -115,6 +127,7 @@ function assistant(messageId: string, conversationId = "s1"): ChatMessage {
     isCreatedByUser: false,
     sender: "Counselle",
     blocks: [{ kind: "markdown", text: "Old" }],
+    runMarkdown: "Old",
     segments: [{ type: "answer", text: "Old" }],
     turnStatus: "complete",
     hasBackendId: true,
@@ -134,6 +147,10 @@ function createTransport(overrides: Partial<ChatTransport> = {}): ChatTransport 
     renameSession: vi.fn(),
     deleteSession: vi.fn(),
     sendMessage: vi.fn(() => stream([meta(), delta("final"), done()])),
+    steerMessage: vi.fn(async () => ({
+      status: "queued" as const,
+      userMessageId: "steer-1",
+    })),
     attachStream: vi.fn(async () => ({ active: false as const })),
     streamFirstMessage: vi.fn(),
     cancelActiveTurn: vi.fn(),
@@ -286,32 +303,66 @@ describe("useTurnEngine", () => {
     });
   });
 
-  test("send while streaming cancels first turn before sending second", async () => {
+  test("send while streaming steers instead of cancelling the active turn", async () => {
     const first = gatedStream([meta("a1", "u1"), delta("first"), done()]);
     const transport = createTransport({
       sendMessage: vi
         .fn()
-        .mockReturnValueOnce(first.iterable)
-        .mockReturnValueOnce(stream([meta("a2", "u2"), delta("second"), done()])),
-      cancelActiveTurn: vi.fn(async () => {
-        first.release();
-      }),
+        .mockReturnValueOnce(first.iterable),
+      steerMessage: vi.fn(async () => ({
+        status: "queued",
+        userMessageId: "steer-1",
+      })),
+      cancelActiveTurn: vi.fn(),
     });
     const { result } = renderEngine({ transport });
 
-    let firstSend: Promise<unknown>;
     act(() => {
-      firstSend = result.current.submitMessage("First");
+      void result.current.submitMessage("First");
     });
 
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
     await act(async () => {
       await result.current.submitMessage("Second");
-      await firstSend;
     });
 
-    expect(transport.cancelActiveTurn).toHaveBeenCalledWith("s1");
+    expect(transport.steerMessage).toHaveBeenCalledWith({
+      sessionId: "s1",
+      text: "Second",
+    });
+    expect(transport.cancelActiveTurn).not.toHaveBeenCalled();
+    expect(transport.sendMessage).toHaveBeenCalledTimes(1);
+    first.release();
+  });
+
+  test("idle steer fallback sends a normal next turn after the live stream settles", async () => {
+    const first = gatedStream([meta("a1", "u1"), delta("first"), done()]);
+    const transport = createTransport({
+      sendMessage: vi
+        .fn()
+        .mockReturnValueOnce(first.iterable)
+        .mockReturnValueOnce(stream([meta("a2", "u2"), delta("second"), done()])),
+      steerMessage: vi.fn(async () => ({ status: "idle" })),
+      cancelActiveTurn: vi.fn(),
+    });
+    const { result } = renderEngine({ transport });
+
+    act(() => {
+      void result.current.submitMessage("First");
+    });
+    await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
+
+    let second!: Promise<unknown>;
+    act(() => {
+      second = result.current.submitMessage("Second");
+    });
+    first.release();
+    await act(async () => {
+      await second;
+    });
+
+    expect(transport.cancelActiveTurn).not.toHaveBeenCalled();
     expect(transport.sendMessage).toHaveBeenCalledTimes(2);
     expect(result.current.messages.at(-1)).toMatchObject({
       kind: "assistant",
@@ -434,7 +485,7 @@ describe("useTurnEngine", () => {
     );
   });
 
-  test("cancel timeout keeps typed text and does not send second message", async () => {
+  test("replace send still cancels an active turn before editing", async () => {
     const first = gatedStream([meta("a1", "u1"), delta("first"), done()]);
     const transport = createTransport({
       sendMessage: vi.fn().mockReturnValue(first.iterable),
@@ -452,21 +503,60 @@ describe("useTurnEngine", () => {
 
     let second: Promise<unknown>;
     act(() => {
-      second = result.current.submitMessage("Second");
+      second = result.current.submitMessage("Edited", "u1");
     });
     await act(async () => {
       await second;
     });
 
-    expect(result.current.pendingText).toBe("Second");
+    expect(result.current.pendingText).toBe("Edited");
     expect(result.current.turnError?.message).toBe(
       "Couldn't stop the previous response. Try again.",
     );
+    expect(transport.cancelActiveTurn).toHaveBeenCalledWith("s1");
     expect(transport.sendMessage).toHaveBeenCalledTimes(1);
     first.release();
   });
 
-  test("retry after cancel timeout does not delete the first user turn", async () => {
+  test("injected false user_message is auto-forwarded once as a normal next turn", async () => {
+    const transport = createTransport({
+      sendMessage: vi
+        .fn()
+        .mockReturnValueOnce(
+          stream([
+            meta("a1", "u1"),
+            delta("first"),
+            userMessageEvent("Second", "steer-late", false),
+            done(),
+          ]),
+        )
+        .mockReturnValueOnce(stream([meta("a2", "u2"), delta("second"), done()])),
+    });
+    const { result } = renderEngine({ transport });
+
+    await act(async () => {
+      await result.current.submitMessage("First");
+    });
+
+    await waitFor(() => expect(transport.sendMessage).toHaveBeenCalledTimes(2));
+    expect(transport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ text: "Second" }),
+    );
+    const firstAssistant = result.current.messages.find(
+      (message) => message.kind === "assistant" && message.messageId === "a1",
+    );
+    expect(firstAssistant).toMatchObject({
+      kind: "assistant",
+      segments: [{ type: "answer", text: "first" }],
+    });
+    expect(result.current.messages.at(-1)).toMatchObject({
+      kind: "assistant",
+      messageId: "a2",
+      text: "second",
+    });
+  });
+
+  test("retry after replace cancel timeout does not delete the first user turn", async () => {
     const first = gatedStream([meta("a1", "u1"), delta("first"), done()]);
     const transport = createTransport({
       sendMessage: vi
@@ -487,7 +577,7 @@ describe("useTurnEngine", () => {
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
     await act(async () => {
-      await result.current.submitMessage("Second");
+      await result.current.submitMessage("Edited", "u1");
     });
 
     first.release();
@@ -509,7 +599,6 @@ describe("useTurnEngine", () => {
     );
     expect(userMessages.map((message) => message.text)).toEqual([
       "First",
-      "Second",
     ]);
   });
 

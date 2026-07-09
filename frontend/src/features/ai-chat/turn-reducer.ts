@@ -11,7 +11,10 @@ import type {
   TranscriptAssistantEntry,
   TranscriptSegment,
   UsageData,
+  UserMessageData,
 } from "@/api/chat/types";
+
+import { receiptText } from "./step-receipts";
 
 export type ContentBlock =
   | { kind: "markdown"; text: string }
@@ -35,6 +38,7 @@ export type TurnStep = StepData;
 export type Segment =
   | { type: "narration"; id: string; text: string }
   | { type: "thinking"; id: string; text: string }
+  | { type: "user"; id: string; text: string; injected: boolean }
   | { type: "tool"; step: StepData }
   | { type: "answer"; text: string }
   | { type: "viz"; spec: RenderSpec };
@@ -50,6 +54,7 @@ export type TurnState = {
   error: ErrorData | null;
   startedAtMs: number | null;
   completedAtMs: number | null;
+  lastEventType: ProtocolEvent["type"] | null;
 };
 
 export function initialTurnState(): TurnState {
@@ -64,6 +69,7 @@ export function initialTurnState(): TurnState {
     error: null,
     startedAtMs: null,
     completedAtMs: null,
+    lastEventType: null,
   };
 }
 
@@ -138,6 +144,52 @@ function mergeToolSegment(segments: Segment[], step: StepData): Segment[] {
   ];
 }
 
+function appendThinkingSegment(
+  segments: Segment[],
+  text: string,
+  shouldCoalesce: boolean,
+): Segment[] {
+  const last = segments.at(-1);
+
+  if (shouldCoalesce && last?.type === "thinking") {
+    return [
+      ...segments.slice(0, -1),
+      { ...last, text: `${last.text}\n\n${text}` },
+    ];
+  }
+
+  const id = `thinking-${thinkingSegmentCount(segments)}`;
+  return [...segments, { type: "thinking", id, text }];
+}
+
+function mergeUserSegment(segments: Segment[], data: UserMessageData): Segment[] {
+  const index = segments.findIndex(
+    (segment) =>
+      segment.type === "user" && segment.id === data.user_message_id,
+  );
+  const nextSegment: Segment = {
+    type: "user",
+    id: data.user_message_id,
+    text: data.text,
+    injected: data.injected,
+  };
+
+  if (index === -1) {
+    return [...segments, nextSegment];
+  }
+
+  return [
+    ...segments.slice(0, index),
+    {
+      ...nextSegment,
+      injected:
+        (segments[index] as Extract<Segment, { type: "user" }>).injected ||
+        data.injected,
+    },
+    ...segments.slice(index + 1),
+  ];
+}
+
 function narrationSegmentCount(segments: Segment[]): number {
   return segments.filter((segment) => segment.type === "narration").length;
 }
@@ -149,42 +201,61 @@ function thinkingSegmentCount(segments: Segment[]): number {
 export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
   switch (event.type) {
     case "meta":
-      return { ...state, meta: event.data, status: "streaming" };
+      return { ...state, meta: event.data, status: "streaming", lastEventType: event.type };
     case "delta":
       return {
         ...(state.status === "idle" ? { ...state, status: "streaming" as const } : state),
         segments: appendAnswerText(state.segments, event.data.text),
+        lastEventType: event.type,
       };
     case "step":
-      return { ...state, segments: mergeToolSegment(state.segments, event.data) };
+      return {
+        ...state,
+        segments: mergeToolSegment(state.segments, event.data),
+        lastEventType: event.type,
+      };
     case "narration": {
       const id = `narration-${narrationSegmentCount(state.segments)}`;
 
       return {
         ...state,
         segments: [...state.segments, { type: "narration", id, text: event.data.text }],
+        lastEventType: event.type,
       };
     }
     case "thinking": {
-      const id = `thinking-${thinkingSegmentCount(state.segments)}`;
-
       return {
         ...state,
-        segments: [...state.segments, { type: "thinking", id, text: event.data.text }],
+        segments: appendThinkingSegment(
+          state.segments,
+          event.data.text,
+          state.lastEventType === "thinking",
+        ),
+        lastEventType: event.type,
       };
     }
+    case "user_message":
+      return {
+        ...(state.status === "idle" ? { ...state, status: "streaming" as const } : state),
+        segments: mergeUserSegment(state.segments, event.data),
+        lastEventType: event.type,
+      };
     case "viz":
-      return appendViz(state, event.data);
+      return { ...appendViz(state, event.data), lastEventType: event.type };
     case "clarify":
-      return { ...state, clarify: event.data };
+      return { ...state, clarify: event.data, lastEventType: event.type };
     case "sources":
-      return { ...state, sources: event.data.sources };
+      return { ...state, sources: event.data.sources, lastEventType: event.type };
     case "usage":
-      return { ...state, usage: event.data };
+      return { ...state, usage: event.data, lastEventType: event.type };
     case "done":
-      return { ...state, status: doneStatusToTurnStatus(event.data.status) };
+      return {
+        ...state,
+        status: doneStatusToTurnStatus(event.data.status),
+        lastEventType: event.type,
+      };
     case "error":
-      return { ...state, status: "error", error: event.data };
+      return { ...state, status: "error", error: event.data, lastEventType: event.type };
     default:
       return state;
   }
@@ -196,6 +267,7 @@ const ARRIVAL_START_EVENTS = new Set<ProtocolEvent["type"]>([
   "step",
   "narration",
   "thinking",
+  "user_message",
   "viz",
   "clarify",
   "sources",
@@ -236,9 +308,9 @@ function doneStatusToTurnStatus(status: DoneStatus): TurnStatus {
   return "awaiting_input";
 }
 
-/** The final citeable answer's content blocks (markdown + inline viz), in
- * order — narration/tool/thinking beats are NOT part of this: they are
- * shown, not part of the answer artifact (copy/citations key off this). */
+/** The final citeable answer subset (markdown + inline viz), in order.
+ * Narration/tool/thinking/user beats are NOT part of this: they are shown in
+ * the run surface, while citations and legacy answer text key off this subset. */
 export function answerBlocksOf(state: TurnState): ContentBlock[] {
   const blocks: ContentBlock[] = [];
 
@@ -251,6 +323,20 @@ export function answerBlocksOf(state: TurnState): ContentBlock[] {
   }
 
   return blocks;
+}
+
+export function pendingUserSegmentsOf(state: TurnState): Array<Extract<Segment, { type: "user" }>> {
+  return state.segments.filter(
+    (segment): segment is Extract<Segment, { type: "user" }> =>
+      segment.type === "user" && !segment.injected,
+  );
+}
+
+export function withoutPendingUserSegments(state: TurnState): TurnState {
+  const segments = state.segments.filter(
+    (segment) => segment.type !== "user" || segment.injected,
+  );
+  return segments.length === state.segments.length ? state : { ...state, segments };
 }
 
 export function stepsOf(state: TurnState): StepData[] {
@@ -283,6 +369,102 @@ export function proseOf(
     )
     .map((block) => block.text)
     .join("\n\n");
+}
+
+function segmentsFrom(stateOrSegments: TurnState | Segment[]): Segment[] {
+  return Array.isArray(stateOrSegments) ? stateOrSegments : stateOrSegments.segments;
+}
+
+function escapeMarkdownTableCell(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll("|", "\\|").replaceAll("\n", "<br>");
+}
+
+function citationSuffix(cell: RenderSpec["rows"][number]["cells"][number]): string {
+  const parts = [cell.citation.vintage, cell.citation.source].filter(
+    (value) => value !== undefined && value !== null && value !== "",
+  );
+
+  return parts.length > 0 ? ` (${parts.join(", ")})` : "";
+}
+
+function vizMarkdown(spec: RenderSpec): string {
+  const columns = ["Metric", ...spec.schools.map((school) => school.name)];
+  const lines = [
+    `### ${spec.title}`,
+    "",
+    `| ${columns.map(escapeMarkdownTableCell).join(" | ")} |`,
+    `| ${columns.map(() => "---").join(" | ")} |`,
+  ];
+
+  for (const row of spec.rows) {
+    const cells = spec.schools.map((_school, index) => {
+      const cell = row.cells[index];
+
+      if (cell === undefined) {
+        return "";
+      }
+
+      const display = cell.available ? cell.display : "Not available";
+      const suffix = cell.available ? citationSuffix(cell) : "";
+      return `${display}${suffix}`;
+    });
+
+    lines.push(
+      `| ${[row.label, ...cells].map(escapeMarkdownTableCell).join(" | ")} |`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function userBlockquote(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
+/** Serialize the whole assistant run in chronological order for copy/export.
+ * Native thinking is intentionally omitted; visible narration, tool receipts,
+ * inline user steering, final answer prose, and viz cards are included. */
+export function runMarkdownOf(stateOrSegments: TurnState | Segment[]): string {
+  const chunks: string[] = [];
+
+  for (const segment of segmentsFrom(stateOrSegments)) {
+    switch (segment.type) {
+      case "narration":
+        if (segment.text.trim().length > 0) {
+          chunks.push(segment.text);
+        }
+        break;
+      case "thinking":
+        break;
+      case "user":
+        if (segment.text.trim().length > 0) {
+          chunks.push(userBlockquote(segment.text));
+        }
+        break;
+      case "tool": {
+        const receipt = receiptText(segment.step);
+        chunks.push(
+          receipt === null
+            ? `- ${segment.step.label}`
+            : `- ${segment.step.label}: ${receipt}`,
+        );
+        break;
+      }
+      case "answer":
+        if (segment.text.trim().length > 0) {
+          chunks.push(segment.text);
+        }
+        break;
+      case "viz":
+        chunks.push(vizMarkdown(segment.spec));
+        break;
+    }
+  }
+
+  return chunks.join("\n\n");
 }
 
 export function deriveReceipt(steps: TurnStep[], thinking: string[]): string {
@@ -436,6 +618,16 @@ function transcriptSegmentsToEvents(segments: TranscriptSegment[]): ProtocolEven
         return { v: 1, type: "narration", data: { text: segment.text } };
       case "thinking":
         return { v: 1, type: "thinking", data: { text: segment.text } };
+      case "user":
+        return {
+          v: 1,
+          type: "user_message",
+          data: {
+            text: segment.text,
+            user_message_id: segment.user_message_id,
+            injected: segment.injected,
+          },
+        };
       case "step":
         return { v: 1, type: "step", data: segment.data };
       case "delta":
