@@ -40,6 +40,7 @@ StepKind = Literal[
     "skill",
     "research",
     "write_plan",
+    "workspace",
 ]
 StepTier = Literal["official", "community"]
 DoneStatus = Literal["complete", "awaiting_input", "cancelled"]

@@ -534,6 +534,153 @@ def test_agent_node_turn_ids_helper_reads_user_id() -> None:
 
 
 # ---------------------------------------------------------------------------
+# (a3) workspace task tools: mount gate (Phase 4 of plans/agent-task-tools.md)
+# ---------------------------------------------------------------------------
+
+_WORKSPACE_TOOL_NAMES = {
+    "view_tasks",
+    "search_tasks",
+    "create_tasks",
+    "update_task",
+    "archive_tasks",
+    "restore_task",
+}
+
+
+def _record_tools(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    del messages
+    _record_tools.seen = {tool.name for tool in info.function_tools}  # type: ignore[attr-defined]
+    return ModelResponse(parts=[TextPart("ok")])
+
+
+async def test_workspace_tools_mount_when_authenticated_with_pool_and_bus() -> None:
+    from app.workspace.changes import WorkspaceEventBus
+
+    rig = Rig(_fn_model(_record_tools))
+    rig.deps.workspace_events = WorkspaceEventBus()
+
+    await rig.turn(str(uuid4()), "hi", _ALL_OFF, user_id=str(uuid4()))
+
+    assert _record_tools.seen >= _WORKSPACE_TOOL_NAMES  # type: ignore[attr-defined]
+
+
+async def test_workspace_tools_stay_unmounted_without_user_id() -> None:
+    from app.workspace.changes import WorkspaceEventBus
+
+    rig = Rig(_fn_model(_record_tools))
+    rig.deps.workspace_events = WorkspaceEventBus()
+
+    await rig.turn(str(uuid4()), "hi", _ALL_OFF)  # no user_id: eval/CLI shape
+
+    assert not (_WORKSPACE_TOOL_NAMES & _record_tools.seen)  # type: ignore[attr-defined]
+
+
+async def test_workspace_tools_stay_unmounted_without_event_bus() -> None:
+    rig = Rig(_fn_model(_record_tools))
+    rig.deps.workspace_events = None
+
+    await rig.turn(str(uuid4()), "hi", _ALL_OFF, user_id=str(uuid4()))
+
+    assert not (_WORKSPACE_TOOL_NAMES & _record_tools.seen)  # type: ignore[attr-defined]
+
+
+def _hallucinate_create_tasks_then_answer(
+    messages: list[ModelMessage], info: AgentInfo
+) -> ModelResponse:
+    from pydantic_ai.messages import RetryPromptPart
+
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, (ToolReturnPart, RetryPromptPart)) for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("I cannot manage tasks right now.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="create_tasks",
+                args={"tasks": [{"title": "Request transcript"}]},
+            )
+        ]
+    )
+
+
+async def test_hallucinated_create_tasks_while_unmounted_paints_no_step() -> None:
+    """Mirrors the ask_student unmounted-hallucination test: a call to a
+    gated-but-unmounted tool must never paint a timeline step (ADR 0013)."""
+    rig = Rig(_fn_model(_hallucinate_create_tasks_then_answer))
+
+    events = await rig.turn(str(uuid4()), "add a task", _ALL_OFF)  # no user_id
+
+    assert _done_status(events) == "complete"
+    steps = _steps(events)
+    assert not any(step["kind"] == "workspace" for step in steps)
+    _assert_every_step_start_has_a_terminal(events)
+
+
+def _create_one_task_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    last = messages[-1]
+    if isinstance(last, ModelRequest) and any(
+        isinstance(part, ToolReturnPart) and part.tool_name == "create_tasks"
+        for part in last.parts
+    ):
+        return ModelResponse(parts=[TextPart("Added the task to your board.")])
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="create_tasks",
+                args={"tasks": [{"title": "Request transcript"}]},
+            )
+        ]
+    )
+
+
+@pytest.mark.live_db
+async def test_create_tasks_tool_streams_workspace_step_with_task_added_ui() -> None:
+    """End-to-end through the graph against a real pool (create_tasks writes a
+    row via service_tasks); mirrors test_write_plan_tool_produces_visible_step_receipt
+    but needs a live DB because the tool isn't monkeypatched."""
+    from app.workspace.changes import WorkspaceEventBus
+    from config.settings import get_settings
+    from counselle_db.db import create_pool
+
+    pool = await create_pool(dsn=get_settings().db_app_dsn)
+    user_id = uuid4()
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO counselle.users
+                  (id, email, hashed_password, is_active, is_superuser, is_verified)
+                VALUES ($1, $2, $3, true, false, false)
+                """,
+                user_id,
+                f"{user_id}@workspace.test",
+                "not-a-real-password-hash",
+            )
+
+        rig = Rig(_fn_model(_create_one_task_then_answer))
+        rig.deps.app_pool = pool
+        rig.deps.workspace_events = WorkspaceEventBus()
+
+        events = await rig.turn(str(uuid4()), "add a task", _ALL_OFF, user_id=str(user_id))
+
+        assert _done_status(events) == "complete"
+        workspace_steps = [
+            event.data
+            for event in events
+            if event.type == "step" and event.data["kind"] == "workspace"
+        ]
+        assert [step["status"] for step in workspace_steps] == ["start", "end"]
+        end_step = workspace_steps[-1]
+        assert end_step["ui"]["widget"] == "task_added"
+        assert end_step["ui"]["data"]["count"] == 1
+    finally:
+        async with pool.acquire() as conn:
+            await conn.execute("DELETE FROM counselle.users WHERE id = $1", user_id)
+        await pool.close()
+
+
+# ---------------------------------------------------------------------------
 # (b) tool-loop bound (settings.agent_max_model_requests)
 # ---------------------------------------------------------------------------
 

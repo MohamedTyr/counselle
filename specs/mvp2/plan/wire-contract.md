@@ -59,7 +59,7 @@ FE already declares the full shape in protocol.ts (`StepData`/`StepKind`/`StepTi
 |---|---|---|---|
 | `step_id` | `string` | required | unique within the turn; pairs start/end — **keyed by `tool_call_id`** (parallel tool calls: results arrive as-completed) |
 | `status` | `'start' \| 'end' \| 'error'` | required | |
-| `kind` | `'db_tool' \| 'sql' \| 'web_search' \| 'edu_search' \| 'reddit_search' \| 'viz' \| 'skill' \| 'research'` | required | `research` reserved; unknown tool → generic default row, never absent |
+| `kind` | `'db_tool' \| 'sql' \| 'web_search' \| 'edu_search' \| 'reddit_search' \| 'viz' \| 'skill' \| 'research' \| 'write_plan' \| 'workspace'` | required | `research` reserved; unknown tool → generic default row, never absent |
 | `label` | `string` | required | pre-built server-side from `step_labels.yaml` |
 | `tier` | `'official' \| 'community' \| null` | required | drives the icon/color grammar |
 | `detail` | `StepDetail \| null` | required (null on start) | `{ query?, domains?, result_count?, duration_ms?, tool?, field_keys?, row_count?, viz_type?, schools? }` — all optional, kind-specific; never DSNs/credentials. `sql` kind: the statement rides `detail.query` (radical transparency, decided in B1a) |

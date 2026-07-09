@@ -2,8 +2,8 @@
 #
 # One row per tool the agent can call. `label` templates interpolate args the
 # step mapper (app/steps.py) guarantees: {query} {school} {schools} {category}
-# {subreddits} {viz_label} {name} {field} {tool}. Changing the product voice
-# never touches code (ADR 0018 bucket 2).
+# {subreddits} {viz_label} {name} {field} {tool} {tasks_phrase}. Changing the
+# product voice never touches code (ADR 0018 bucket 2).
 #
 # `tier` drives the timeline icon/color grammar: official | community | null
 # (null = neutral — the open web is mixed-tier per result; the citation
@@ -82,6 +82,30 @@ tools:
     kind: db_tool
     tier: null
     label: "Reading an oversized tool result"
+  view_tasks:
+    kind: workspace
+    tier: null
+    label: "Checking the task list"
+  search_tasks:
+    kind: workspace
+    tier: null
+    label: "Searching tasks for “{query}”"
+  create_tasks:
+    kind: workspace
+    tier: null
+    label: "Adding {tasks_phrase} to the plan"
+  update_task:
+    kind: workspace
+    tier: null
+    label: "Updating a task"
+  archive_tasks:
+    kind: workspace
+    tier: null
+    label: "Archiving {tasks_phrase}"
+  restore_task:
+    kind: workspace
+    tier: null
+    label: "Bringing back an archived task"
 
 # Any tool not in the table maps here — a generic step, never nothing.
 default:

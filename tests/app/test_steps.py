@@ -29,6 +29,12 @@ FUNCTION_TOOLS = {
     "load_skill",
     "write_plan",
     "read_tool_result",
+    "view_tasks",
+    "search_tasks",
+    "create_tasks",
+    "update_task",
+    "archive_tasks",
+    "restore_task",
 }
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
@@ -116,6 +122,30 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
         ["plan"],
     ),
     ("read_tool_result", {"handle": "tool-result-1"}, "db_tool", None, ["oversized"]),
+    ("view_tasks", {}, "workspace", None, ["task list"]),
+    (
+        "search_tasks",
+        {"query": "FAFSA"},
+        "workspace",
+        None,
+        ["FAFSA"],
+    ),
+    (
+        "create_tasks",
+        {"tasks": [{"title": "Request transcript"}]},
+        "workspace",
+        None,
+        ["a task"],
+    ),
+    ("update_task", {"task_id": "abc"}, "workspace", None, ["Updating a task"]),
+    (
+        "archive_tasks",
+        {"task_ids": ["a", "b", "c"]},
+        "workspace",
+        None,
+        ["3 tasks"],
+    ),
+    ("restore_task", {"task_id": "abc"}, "workspace", None, ["archived task"]),
 ]
 
 
@@ -402,6 +432,50 @@ def test_detail_for_write_plan_kind(mapper: StepMapper) -> None:
     assert detail.completed == 1
     assert detail.total == 2
     assert detail.duration_ms == 12
+
+
+def test_detail_for_workspace_kind_carries_summary(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "create_tasks",
+        {"tasks": [{"title": "Request transcript"}]},
+        {"status": "ok", "summary": "Created 1 task.", "created": [{"id": "1", "title": "x"}]},
+        20,
+    )
+
+    assert detail.summary == "Created 1 task."
+    assert detail.duration_ms == 20
+
+
+def test_detail_for_workspace_kind_error_path(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "update_task",
+        {"task_id": "stale"},
+        {
+            "status": "error",
+            "error": "No active task with id \"stale\".",
+            "safe_retry": "Call view_tasks to see current active tasks.",
+        },
+        8,
+    )
+
+    assert detail.error == 'No active task with id "stale".'
+    assert detail.next_actions == ["Call view_tasks to see current active tasks."]
+
+
+def test_workspace_label_tasks_phrase_singular_and_plural(mapper: StepMapper) -> None:
+    singular = mapper.map_call("create_tasks", {"tasks": [{"title": "Request transcript"}]})
+    plural = mapper.map_call(
+        "create_tasks", {"tasks": [{"title": "a"}, {"title": "b"}, {"title": "c"}]}
+    )
+
+    assert singular.label == "Adding a task to the plan"
+    assert plural.label == "Adding 3 tasks to the plan"
+
+    archive_singular = mapper.map_call("archive_tasks", {"task_ids": ["a"]})
+    archive_plural = mapper.map_call("archive_tasks", {"task_ids": ["a", "b"]})
+
+    assert archive_singular.label == "Archiving a task"
+    assert archive_plural.label == "Archiving 2 tasks"
 
 
 def test_receipts_never_carry_secrets(mapper: StepMapper, labels: dict[str, Any]) -> None:

@@ -32,7 +32,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from langgraph.config import get_stream_writer
 from langgraph.errors import GraphInterrupt
@@ -61,6 +61,7 @@ from app.tool_overflow import ToolResultStore
 from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
 from app.turn_persistence import partial_messages, resolve_offset
 from app.viz_placement import StreamingVizMarkerStripper
+from app.workspace.agent_tools import build_workspace_tools
 from config.settings import get_settings, load_yaml_asset
 from domain.events import UsageData
 from domain.specs import SourceConfig
@@ -560,6 +561,17 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         _make_read_tool_result_tool(overflow_store),
         _make_load_skill_tool(tool_overflow),
     ]
+    # Workspace tools (ADR 0013: unmounted, not hidden) — only exist this turn
+    # when the turn carries an authenticated user AND the app pool + workspace
+    # event bus are wired in (eval runner / CLI pass no user_id → unmounted).
+    workspace_events = getattr(deps, "workspace_events", None)
+    user_id = ids.get("user_id")
+    if user_id and deps.app_pool and workspace_events:
+        extra_tools.extend(
+            build_workspace_tools(
+                deps.app_pool, deps.catalog, workspace_events, UUID(user_id), tool_overflow
+            )
+        )
     tools = build_tools(
         source_config,
         tool_deps,

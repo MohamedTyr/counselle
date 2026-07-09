@@ -17,6 +17,21 @@ FUNCTION_TOOLS = {
     "load_skill",
     "write_plan",
     "read_tool_result",
+    "view_tasks",
+    "search_tasks",
+    "create_tasks",
+    "update_task",
+    "archive_tasks",
+    "restore_task",
+}
+
+WORKSPACE_TOOLS = {
+    "view_tasks",
+    "search_tasks",
+    "create_tasks",
+    "update_task",
+    "archive_tasks",
+    "restore_task",
 }
 
 
@@ -44,4 +59,16 @@ def test_registry_labels_resolve_and_gated_set_is_derived() -> None:
         "search_web",
         "search_school_site",
         "search_reddit",
+        *WORKSPACE_TOOLS,
     }
+
+
+def test_workspace_tools_load_as_workspace_kind_gated_by_auth() -> None:
+    labels = load_yaml_asset("step_labels")
+    specs = build_tool_specs(labels, _receipt)
+
+    for name in WORKSPACE_TOOLS:
+        spec = specs[name]
+        assert spec.kind == "workspace"
+        assert spec.tier is None
+        assert spec.gated_by == "auth"

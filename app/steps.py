@@ -241,6 +241,9 @@ class StepMapper:
                 kwargs["value_count"] = receipt["value_count"]
         elif kind == "write_plan":
             kwargs.update(_plan_detail_kwargs(content))
+        elif kind == "workspace":
+            if isinstance(content, dict):
+                kwargs["summary"] = _str_or_none(content.get("summary"))
         else:  # db_tool, skill, unknown
             kwargs.update(self._db_tool_detail_kwargs(tool_name, args, content))
         kwargs.update(_error_detail_kwargs(content))
@@ -284,6 +287,7 @@ class StepMapper:
             else "Reddit",
             "category": self._category_of(args),
             "viz_label": self._viz_labels.get(viz_type, "visualization"),
+            "tasks_phrase": _tasks_phrase(args),
         }
 
     @staticmethod
@@ -474,6 +478,13 @@ def _error_detail_kwargs(content: Any) -> dict[str, Any]:
 def _str_or_none(value: Any) -> str | None:
     text = str(value).strip() if value is not None else ""
     return text or None
+
+
+def _tasks_phrase(args: dict[str, Any]) -> str:
+    """"a task" for a single-item batch, else "N tasks" (create_tasks/archive_tasks)."""
+    items = args.get("tasks") or args.get("task_ids") or []
+    count = len(items) if isinstance(items, list) else 0
+    return "a task" if count == 1 else f"{count} tasks"
 
 
 def _row_count_of(content: Any) -> int | None:

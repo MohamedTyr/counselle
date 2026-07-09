@@ -18,6 +18,12 @@ _GATED_BY: dict[str, str] = {
     "search_web": "web",
     "search_school_site": "edu",
     "search_reddit": "reddit",
+    "view_tasks": "auth",
+    "search_tasks": "auth",
+    "create_tasks": "auth",
+    "update_task": "auth",
+    "archive_tasks": "auth",
+    "restore_task": "auth",
 }
 
 
