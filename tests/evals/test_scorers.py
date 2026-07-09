@@ -36,6 +36,7 @@ from evals.runner import (
     score_narration_quality,
     score_question,
     score_viz,
+    score_workspace_task,
     select_questions,
     value_in_prose,
     write_reports,
@@ -304,6 +305,60 @@ def test_score_viz_rejects_missing_school_wrong_type_or_no_viz(
         {"viz_type": "comparison_table", "unitids": [100, 200]}, make_capture(vizzes=vizzes)
     )
     assert checks["viz_rendered"]["passed"] is False
+
+
+def test_score_workspace_task_happy_path() -> None:
+    capture = make_capture(
+        tool_calls=[
+            {
+                "tool_name": "create_tasks",
+                "args": {
+                    "tasks": [
+                        {"title": "Request transcript from registrar"},
+                        {"title": "Ask counselor for a letter of recommendation"},
+                        {"title": "Draft personal essay"},
+                    ]
+                },
+            }
+        ]
+    )
+    checks = score_workspace_task(
+        {"tools": ["create_tasks"], "min_tasks": 3, "title_keywords": ["transcript", "essay"]},
+        capture,
+    )
+    assert checks["workspace_tool_called"]["passed"] is True
+    assert checks["tasks_created"]["passed"] is True
+    assert checks["title_reflects_request"]["passed"] is True
+
+
+def test_score_workspace_task_rejects_missing_tool_call() -> None:
+    capture = make_capture(tool_calls=[{"tool_name": "view_tasks", "args": {}}])
+    checks = score_workspace_task({"tools": ["create_tasks"], "min_tasks": 1}, capture)
+    assert checks["workspace_tool_called"]["passed"] is False
+    assert checks["tasks_created"]["passed"] is False
+
+
+def test_score_workspace_task_rejects_below_min_tasks() -> None:
+    capture = make_capture(
+        tool_calls=[
+            {"tool_name": "create_tasks", "args": {"tasks": [{"title": "Draft essay"}]}}
+        ]
+    )
+    checks = score_workspace_task({"tools": ["create_tasks"], "min_tasks": 2}, capture)
+    assert checks["workspace_tool_called"]["passed"] is True
+    assert checks["tasks_created"]["passed"] is False
+
+
+def test_score_workspace_task_rejects_missing_title_keyword() -> None:
+    capture = make_capture(
+        tool_calls=[
+            {"tool_name": "create_tasks", "args": {"tasks": [{"title": "Unrelated chore"}]}}
+        ]
+    )
+    checks = score_workspace_task(
+        {"tools": ["create_tasks"], "min_tasks": 1, "title_keywords": ["transcript"]}, capture
+    )
+    assert checks["title_reflects_request"]["passed"] is False
 
 
 def test_score_narration_quality_passes_clean_tool_rounds() -> None:
@@ -654,6 +709,20 @@ async def test_score_honesty_requires_judge_agent() -> None:
                 events=[narration("I'll look this up."), step("s1", "start"), step("s1", "end")]
             ),
             "narration_present_for_tool_rounds",
+        ),
+        (
+            {
+                "id": "w",
+                "type": "workspace-task",
+                "question": "Q",
+                "expects": {"tools": ["create_tasks"], "min_tasks": 1},
+            },
+            make_capture(
+                tool_calls=[
+                    {"tool_name": "create_tasks", "args": {"tasks": [{"title": "Draft essay"}]}}
+                ]
+            ),
+            "workspace_tool_called",
         ),
     ],
 )

@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
+from uuid import UUID, uuid4
 
 import structlog
 import yaml
@@ -63,6 +64,7 @@ QUESTION_TYPES = (
     "honesty",
     "comparison-viz",
     "narration-quality",
+    "workspace-task",
 )
 
 #: Default set of tools that can carry a fact's value (plan: get_values/get_dossier;
@@ -532,6 +534,42 @@ def score_narration_quality(
     return checks
 
 
+def score_workspace_task(
+    expects: dict[str, Any], capture: TurnCapture
+) -> dict[str, dict[str, Any]]:
+    """Workspace-task: the right workspace tool ran and produced sensible task titles."""
+    tools = set(expects.get("tools") or {"create_tasks"})
+    called = {call["tool_name"] for call in capture.tool_calls}
+    matched_tools = called & tools
+    title_keywords = [str(keyword).lower() for keyword in expects.get("title_keywords") or []]
+    titles: list[str] = []
+    for call in capture.tool_calls:
+        if call["tool_name"] != "create_tasks":
+            continue
+        for draft in (call.get("args") or {}).get("tasks") or []:
+            title = str((draft or {}).get("title") or "")
+            if title:
+                titles.append(title)
+    titles_blob = " | ".join(titles).lower()
+    keywords_seen = [keyword for keyword in title_keywords if keyword in titles_blob]
+    min_tasks = int(expects.get("min_tasks") or 1)
+    checks = {
+        "workspace_tool_called": _check(
+            bool(matched_tools), f"expected one of {sorted(tools)}; called {sorted(called)}"
+        ),
+        "tasks_created": _check(
+            len(titles) >= min_tasks,
+            f"expected >= {min_tasks} created task(s); got {len(titles)}: {titles}",
+        ),
+    }
+    if title_keywords:
+        checks["title_reflects_request"] = _check(
+            bool(keywords_seen),
+            f"expected one of {title_keywords} in a created title; titles: {titles}",
+        )
+    return checks
+
+
 # ---------------------------------------------------------------------------
 # Judge-scored honesty
 # ---------------------------------------------------------------------------
@@ -615,6 +653,8 @@ async def score_question(
         checks = score_narration_quality(expects, capture)
     elif question_type == "honesty":
         checks = await score_honesty(question["question"], expects, capture, judge_agent)
+    elif question_type == "workspace-task":
+        checks = score_workspace_task(expects, capture)
     else:
         raise ValueError(f"unknown question type: {question_type!r}")
     checks["no_error_event"] = _check(not capture.errored, f"error event: {capture.errored}")
@@ -629,41 +669,84 @@ async def _thread_messages(runtime: Runtime, session_id: str) -> list[dict[str, 
     return list(snapshot.values.get("messages") or [])
 
 
+async def _seed_eval_user(app_pool: Any, question_id: str) -> UUID:
+    """Insert a throwaway ``counselle.users`` row so FK-bound workspace tools can mount.
+
+    Workspace tools are mount-gated on a real ``user_id`` (ADR 0029) and
+    ``tasks.user_id`` is a foreign key into ``counselle.users`` — without a
+    real row here, a workspace-task question would either fail loudly (no
+    tools mounted) or, worse, appear to pass while never exercising the
+    tools at all (plan Risk #2). Mirrors ``make_user`` in
+    ``tests/app/test_workspace_services_live.py``.
+    """
+    user_id = uuid4()
+    async with app_pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO counselle.users
+              (id, email, hashed_password, is_active, is_superuser, is_verified)
+            VALUES ($1, $2, $3, true, false, false)
+            """,
+            user_id,
+            f"eval-{question_id}-{user_id}@workspace.test",
+            "not-a-real-password-hash",
+        )
+    return user_id
+
+
+async def _delete_eval_user(app_pool: Any, user_id: UUID) -> None:
+    async with app_pool.acquire() as conn:
+        await conn.execute("DELETE FROM counselle.users WHERE id = $1", user_id)
+
+
 async def run_question(
     runtime: Runtime, judge_agent: Any, question: dict[str, Any]
 ) -> dict[str, Any]:
     """One fresh session, one live turn, one scored result."""
     web = bool(question.get("web"))
+    needs_workspace = bool(question.get("workspace"))
     source_config = SourceConfig(web=web, reddit=False, edu=web)
     session_id = await create_session(
         runtime.app_pool, source_config.model_dump(mode="json"), title=f"eval:{question['id']}"
     )
+    eval_user_id: UUID | None = None
+    if needs_workspace:
+        eval_user_id = await _seed_eval_user(runtime.app_pool, question["id"])
     started = time.monotonic()
     events: list[Event] = []
-    async with asyncio.timeout(QUESTION_TIMEOUT_S):
-        async for event in run_turn(
-            session_id, question["question"], source_config, deps=runtime.deps, graph=runtime.graph
-        ):
-            events.append(event)
-    capture = capture_turn(events, await _thread_messages(runtime, session_id))
-    checks = await score_question(question, capture, judge_agent)
-    return {
-        "id": question["id"],
-        "type": question["type"],
-        "question": question["question"],
-        "web": web,
-        "session_id": session_id,
-        "passed": all(check["passed"] for check in checks.values()),
-        "checks": checks,
-        "prose": capture.prose,
-        "tool_calls": capture.tool_calls,
-        "sources": capture.sources,
-        "vizzes": capture.vizzes,
-        "usage": capture.usage,
-        "done_status": capture.done_status,
-        "duration_s": round(time.monotonic() - started, 1),
-        "events": [event.model_dump() for event in capture.events],
-    }
+    try:
+        async with asyncio.timeout(QUESTION_TIMEOUT_S):
+            async for event in run_turn(
+                session_id,
+                question["question"],
+                source_config,
+                deps=runtime.deps,
+                graph=runtime.graph,
+                user_id=str(eval_user_id) if eval_user_id else None,
+            ):
+                events.append(event)
+        capture = capture_turn(events, await _thread_messages(runtime, session_id))
+        checks = await score_question(question, capture, judge_agent)
+        return {
+            "id": question["id"],
+            "type": question["type"],
+            "question": question["question"],
+            "web": web,
+            "session_id": session_id,
+            "passed": all(check["passed"] for check in checks.values()),
+            "checks": checks,
+            "prose": capture.prose,
+            "tool_calls": capture.tool_calls,
+            "sources": capture.sources,
+            "vizzes": capture.vizzes,
+            "usage": capture.usage,
+            "done_status": capture.done_status,
+            "duration_s": round(time.monotonic() - started, 1),
+            "events": [event.model_dump() for event in capture.events],
+        }
+    finally:
+        if eval_user_id is not None:
+            await _delete_eval_user(runtime.app_pool, eval_user_id)
 
 
 async def run_question_safely(

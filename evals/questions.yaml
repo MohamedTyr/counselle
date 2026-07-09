@@ -1,4 +1,4 @@
-# The MVP1 eval set + Phase 5 narration gates — 51 questions.
+# The MVP1 eval set + Phase 5 narration gates + Phase 5 workspace-task gate — 52 questions.
 #
 # Authored 2026-06-11. Every `expects.values` entry for fact questions was read
 # from the LIVE database at authoring time through the service layer
@@ -6,7 +6,11 @@
 # memory. Re-author values after any pipeline data reload.
 #
 # Shape: {id, question, type, expects} (+ optional `web: true` to enable
-# Tavily web/.edu search for that question; reddit is always off in evals).
+# Tavily web/.edu search for that question; reddit is always off in evals;
+# + optional `workspace: true` to seed a real counselle.users row and pass
+# its id into run_turn so the agent workspace task tools mount — ADR 0029 /
+# agent-task-tools plan Risk #2. The seeded user (and anything it owns, via
+# ON DELETE CASCADE) is deleted after the question runs.)
 #
 # Types and counts:
 #   fact (20)            — single-school lookups; scored on tool + field + display value
@@ -16,6 +20,7 @@
 #   honesty (8)          — judge-scored prose criteria (cheap-model judge, evals/judge.md)
 #   comparison-viz (3)   — scored on viz event type + schools
 #   narration-quality (2) — deterministic checks over narration/step ordering
+#   workspace-task (1)   — agent workspace task tools; scored on tool call + created titles
 #
 # expects keys by type:
 #   fact:            unitid, school, fields (any-of), values (any-of display strings),
@@ -29,6 +34,9 @@
 #                    requires_tool_work (default true), values / forbidden_values /
 #                    narration_forbidden_values / narration_forbidden_phrases,
 #                    reaction_required, failure_reaction_required, failure_required
+#   workspace-task:  tools (default {create_tasks}), min_tasks (default 1),
+#                    title_keywords (any-of, matched case-insensitively against
+#                    created task titles)
 
 # ---------------------------------------------------------------------------
 # fact (20)
@@ -484,3 +492,16 @@
     narration_forbidden_values: ["Very Important", "Not Considered"]
     narration_forbidden_phrases: ["essays are", "GPA is"]
     reaction_required: true
+
+# ---------------------------------------------------------------------------
+# workspace-task (1)
+# ---------------------------------------------------------------------------
+
+- id: workspace-checklist-generic
+  type: workspace-task
+  workspace: true
+  question: "Break my college application work into a checklist of tasks: I need to request transcripts, ask for a letter of recommendation, and draft my personal essay."
+  expects:
+    tools: [create_tasks]
+    min_tasks: 3
+    title_keywords: ["transcript", "recommendation", "essay"]
