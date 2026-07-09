@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
-from datetime import date
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -63,6 +63,8 @@ from app.workspace.service_tasks import (
     create_task,
     list_tasks,
     restore_task,
+    search_tasks,
+    task_board_counts,
     update_task,
 )
 from config.settings import get_settings, load_yaml_asset
@@ -1013,3 +1015,333 @@ async def test_honor_lifecycle_cap_and_ownership(
         )
 
     assert await _change_count(app_pool, user_id) == 10
+
+
+async def test_list_tasks_status_filter(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    todo = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Todo task", status="todo"),
+    )
+    doing = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Doing task", status="doing"),
+    )
+    done = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Done task", status="done"),
+    )
+
+    all_active = {task.id for task in await list_tasks(app_pool, user_id=user_id)}
+    assert all_active == {todo.id, doing.id, done.id}
+
+    only_done = await list_tasks(app_pool, user_id=user_id, statuses=["done"])
+    assert [task.id for task in only_done] == [done.id]
+
+    todo_or_doing = await list_tasks(
+        app_pool, user_id=user_id, statuses=["todo", "doing"]
+    )
+    assert {task.id for task in todo_or_doing} == {todo.id, doing.id}
+
+
+async def test_list_tasks_application_and_essay_filters(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    app_a = await add_application(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(unitid=_unitid(catalog, 0), list_type="Target", round="RD"),
+        template=_template(),
+    )
+    app_b = await add_application(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(unitid=_unitid(catalog, 1), list_type="Target", round="RD"),
+        template=_template(),
+    )
+    essay = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(
+            application_id=app_a.application.id,
+            title="Why us?",
+            essay_type="Supplement",
+        ),
+    )
+    task_a = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(application_id=app_a.application.id, title="Task on app A"),
+    )
+    await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(application_id=app_b.application.id, title="Task on app B"),
+    )
+    task_essay = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(essay_id=essay.id, title="Task on essay"),
+    )
+
+    by_app = await list_tasks(app_pool, user_id=user_id, application_id=app_a.application.id)
+    assert [task.id for task in by_app] == [task_a.id]
+
+    by_essay = await list_tasks(app_pool, user_id=user_id, essay_id=essay.id)
+    assert [task.id for task in by_essay] == [task_essay.id]
+
+
+async def test_list_tasks_completed_after_and_limit_and_ownership(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    other_user_id = await make_user()
+    before_done = datetime.now(UTC)
+    done_task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Finished thing", status="done"),
+    )
+    after_done = datetime.now(UTC)
+    await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=other_user_id,
+        actor="student",
+        data=TaskCreate(title="Other user done thing", status="done"),
+    )
+
+    recent = await list_tasks(app_pool, user_id=user_id, completed_after=before_done)
+    assert [task.id for task in recent] == [done_task.id]
+
+    stale = await list_tasks(app_pool, user_id=user_id, completed_after=after_done)
+    assert stale == []
+
+    other_recent = await list_tasks(
+        app_pool, user_id=other_user_id, completed_after=before_done
+    )
+    assert done_task.id not in {task.id for task in other_recent}
+
+    for index in range(3):
+        await create_task(
+            app_pool,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="student",
+            data=TaskCreate(title=f"Extra task {index}"),
+        )
+    limited = await list_tasks(app_pool, user_id=user_id, limit=2)
+    assert len(limited) == 2
+
+
+async def test_search_tasks_keyword_and_synonym_match(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    transcript_task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Request transcript from registrar"),
+    )
+    lor_task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Ask counselor for a letter of recommendation"),
+    )
+
+    exact_hits = await search_tasks(app_pool, user_id=user_id, query="transcript")
+    assert [hit.id for hit in exact_hits] == [transcript_task.id]
+
+    synonym_hits = await search_tasks(
+        app_pool, user_id=user_id, query="LOR OR recommendation"
+    )
+    assert lor_task.id in {hit.id for hit in synonym_hits}
+
+
+async def test_search_tasks_trgm_typo_fallback(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Financial aid worksheet"),
+    )
+
+    hits = await search_tasks(app_pool, user_id=user_id, query="finnancial")
+    assert task.id in {hit.id for hit in hits}
+
+
+async def test_search_tasks_includes_archived_hits_flagged_and_scoped(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    other_user_id = await make_user()
+    task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Submit outstanding paperwork"),
+    )
+    other_task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=other_user_id,
+        actor="student",
+        data=TaskCreate(title="Submit outstanding paperwork"),
+    )
+    await archive_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        task_id=task.id,
+    )
+
+    hits = await search_tasks(app_pool, user_id=user_id, query="outstanding paperwork")
+    matched = [hit for hit in hits if hit.id == task.id]
+    assert len(matched) == 1
+    assert matched[0].state == "archived"
+    assert matched[0].archived_at is not None
+    assert other_task.id not in {hit.id for hit in hits}
+
+
+async def test_search_tasks_empty_query_returns_no_hits(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Anything at all"),
+    )
+
+    hits = await search_tasks(app_pool, user_id=user_id, query="zzzznonexistentqueryterm")
+    assert hits == []
+
+
+async def test_search_tasks_active_vs_done_state(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    active = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Interview prep session"),
+    )
+    done = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Interview prep worksheet", status="done"),
+    )
+
+    hits = {
+        hit.id: hit.state
+        for hit in await search_tasks(app_pool, user_id=user_id, query="interview prep")
+    }
+    assert hits[active.id] == "active"
+    assert hits[done.id] == "done"
+
+
+async def test_task_board_counts(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    other_user_id = await make_user()
+    old_done = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Old done task", status="done"),
+    )
+    async with app_pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE counselle.tasks SET completed_at = now() - interval '60 days' WHERE id = $1",
+            old_done.id,
+        )
+    await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Recent done task", status="done"),
+    )
+    to_archive = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="To archive"),
+    )
+    await archive_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        task_id=to_archive.id,
+    )
+    await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=other_user_id,
+        actor="student",
+        data=TaskCreate(title="Other user's done task", status="done"),
+    )
+
+    counts = await task_board_counts(app_pool, user_id=user_id, done_within_days=30)
+    assert counts.done == 2
+    assert counts.done_recent == 1
+    assert counts.archived == 1

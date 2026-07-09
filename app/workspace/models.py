@@ -160,6 +160,26 @@ class TaskPatch(_Model):
     reminder_at: datetime | None = None
 
 
+class TaskSearchHit(_Model):
+    """One `search_tasks` result row (Locked decision 4 / 9: FTS+trgm, archived included)."""
+
+    id: UUID
+    title: str
+    status: TaskStatus
+    category: TaskCategory
+    state: Literal["active", "done", "archived"]
+    match: str | None = None
+    archived_at: datetime | None = None
+
+
+class TaskBoardCounts(_Model):
+    """Aggregate counts for the view_tasks/search_tasks footer (Phase 3 formats wording)."""
+
+    done: int
+    done_recent: int
+    archived: int
+
+
 class SeededWorkspaceIds(_Model):
     task_ids: list[UUID]
     essay_ids: list[UUID]
