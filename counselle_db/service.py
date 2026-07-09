@@ -283,7 +283,11 @@ async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
     fuzzy_path = False
     rows = await fetch(catalog.pool, _SEARCH_SQL, expanded)
     if not rows:
-        rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
+        # Honesty carve-out (see _FUZZY_SEARCH_SQL comment above): without
+        # pg_trgm, skip the fuzzy pass and answer truthfully from the ILIKE
+        # result alone — a degraded "not found" beats a 500.
+        if catalog.trgm_available:
+            rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
         if not rows:
             return ResolveNotFound(message=_not_found_message(catalog.school_count))
         if rows[0]["score"] >= _FUZZY_EXACT_SCORE:
@@ -313,7 +317,9 @@ async def search_school_names(
         return []
     expanded = _expand_abbreviation(query)
     rows = await fetch(catalog.pool, _SEARCH_SQL, expanded)
-    if not rows:
+    if not rows and catalog.trgm_available:
+        # Honesty carve-out (see _FUZZY_SEARCH_SQL comment above): skip the
+        # fuzzy pass when pg_trgm is unavailable rather than 500 the caller.
         rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
     ordered = sorted(rows, key=lambda row: (_campus_rank(row["name"]), row["name"]))
     capped = max(1, min(limit, 20))

@@ -26,3 +26,6 @@ GRANT SELECT ON public.fields TO counselle_app;
 
 -- pgvector availability check (informational, recorded for Phase 3)
 SELECT count(*) AS pgvector_available FROM pg_available_extensions WHERE name = 'vector';
+
+-- pg_trgm availability check (informational) — keyword/fuzzy field & school search
+SELECT count(*) AS pg_trgm_available FROM pg_available_extensions WHERE name = 'pg_trgm';

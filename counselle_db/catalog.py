@@ -140,6 +140,11 @@ class Catalog:
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
+        #: Capability flags set by the server-startup preflight (counselle_db/server.py
+        #: ``_lifespan``); default optimistic until the real probe result lands.
+        #: Consumed by search_fields.py/service.py to degrade to ILIKE-only search.
+        self.trgm_available: bool = True
+        self.vector_available: bool = True
         self.fields_by_key: dict[str, FieldMeta] = {}
         self.school_names: dict[int, str] = {}
         self.school_domains: dict[int, str] = {}

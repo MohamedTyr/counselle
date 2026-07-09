@@ -1,0 +1,1 @@
+-- The pg_trgm extension stays installed (cheap, possibly shared).

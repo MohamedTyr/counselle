@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 
+import asyncpg
 import structlog
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
@@ -22,11 +23,14 @@ from config.logging import setup_logging
 from config.settings import get_settings
 from counselle_db import service
 from counselle_db.catalog import Catalog
-from counselle_db.db import create_pool
+from counselle_db.db import create_pool, fetch
 from counselle_db.search_fields import FieldHit, search_fields
 from counselle_db.service_find import FindCriteria
 
 logger = structlog.get_logger(__name__)
+
+_TRGM_PROBE_SQL = "SELECT similarity('a', 'a')"
+_VECTOR_PROBE_SQL = "SELECT '[1]'::vector"
 
 
 @dataclass
@@ -34,6 +38,40 @@ class AppState:
     """Lifespan state shared by every tool call."""
 
     catalog: Catalog
+
+
+async def _probe_trgm(pool: asyncpg.Pool) -> bool:
+    """Probe pg_trgm usability; False + a loud error log on any failure.
+
+    A one-shot startup diagnostic, not hot-path code — the broad except is
+    deliberate: any failure here (missing extension, missing function, a DB
+    that doesn't support the probe at all) means the same thing to us: degrade.
+    """
+    try:
+        await fetch(pool, _TRGM_PROBE_SQL)
+        return True
+    except Exception:
+        logger.error(
+            "pg_trgm extension unavailable — keyword/fuzzy search will degrade to "
+            "ILIKE-only. Fix: CREATE EXTENSION pg_trgm; (see migrations/0009_pg_trgm.sql)",
+            exc_info=True,
+        )
+        return False
+
+
+async def _probe_vector(pool: asyncpg.Pool) -> bool:
+    """Probe pgvector usability; False + a loud error log on any failure."""
+    try:
+        await fetch(pool, _VECTOR_PROBE_SQL)
+        return True
+    except Exception:
+        logger.error(
+            "pgvector extension unusable — semantic field search disabled, serving "
+            "keyword-only. Fix: ensure the Postgres image ships pgvector "
+            "(pgvector/pgvector:pgXX) and CREATE EXTENSION vector;",
+            exc_info=True,
+        )
+        return False
 
 
 @asynccontextmanager
@@ -50,6 +88,10 @@ async def _lifespan(_server: FastMCP) -> AsyncIterator[AppState]:
     pool = await create_pool()
     try:
         catalog = await Catalog.load(pool)
+        # Capability preflight (fail-loud half; Phase 3 wires the degrade-gracefully
+        # half into search_fields.py/service.py) — never blocks/raises on failure.
+        catalog.trgm_available = await _probe_trgm(pool)
+        catalog.vector_available = await _probe_vector(pool)
         yield AppState(catalog=catalog)
     finally:
         await pool.close()
@@ -101,7 +143,12 @@ def _tool_error_payload(message: str) -> dict[str, Any]:
 
 
 def tool_errors(fn: Any) -> Any:
-    """Return D6-shaped tool errors for expected service-layer failures."""
+    """Return D6-shaped tool errors for expected service-layer failures.
+
+    Every wrapped tool's return annotation must admit ``dict[str, Any]`` as an
+    alternative to its success shape, or FastMCP's output validation rejects the
+    D6 envelope as a schema violation (`ToolError`) before it ever reaches the model.
+    """
 
     @wraps(fn)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -131,7 +178,9 @@ async def resolve_school(query: str, ctx: AppContext) -> dict[str, Any]:
 
 @mcp.tool()
 @tool_errors
-async def get_values(unitid: int, field_keys: list[str], ctx: AppContext) -> list[dict[str, Any]]:
+async def get_values(
+    unitid: int, field_keys: list[str], ctx: AppContext
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Fetch specific fields for one school as citation envelopes.
 
     Each value comes back normalized, formatted, dated, and cited — use `display`
@@ -175,7 +224,9 @@ async def compare_schools(
 
 @mcp.tool()
 @tool_errors
-async def find_schools(criteria: FindCriteria, ctx: AppContext) -> list[dict[str, Any]]:
+async def find_schools(
+    criteria: FindCriteria, ctx: AppContext
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Filter and rank schools across the whole database.
 
     Criteria: state, control (public | private_nonprofit | private_forprofit),
@@ -205,7 +256,7 @@ async def national_benchmark(field_key: str, ctx: AppContext) -> dict[str, Any]:
 @tool_errors
 async def get_programs(
     unitid: int, ctx: AppContext, cip_prefix: str | None = None, credlev: int = 3
-) -> list[dict[str, Any]]:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Programs by major (College Scorecard field-of-study): completions, debt, earnings.
 
     credlev 3 = bachelor's (default). Optional cip_prefix filters by CIP code prefix.
@@ -248,7 +299,7 @@ async def query_database(
 
 @mcp.tool()
 @tool_errors
-async def get_data_calendar(ctx: AppContext) -> list[dict[str, Any]]:
+async def get_data_calendar(ctx: AppContext) -> list[dict[str, Any]] | dict[str, Any]:
     """Each data source's vintage and knowledge cutoff (IPEDS, Scorecard, CDS).
 
     Derived live from the database — use it to judge whether a question falls
@@ -267,7 +318,7 @@ async def discover_fields(
     source: str | None = None,
     limit: int = 8,
     use_vector: bool | None = None,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Discover which catalog fields answer a natural-language question (ADR 0008).
 
     Hybrid search: cosine vector similarity against counselle.field_index (when

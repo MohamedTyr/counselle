@@ -1,10 +1,14 @@
 """The ``search_fields`` discovery tool — vector + always-on keyword fallback (ADR 0008).
 
 The vector path searches ``counselle.field_index`` by cosine distance; the
-keyword path (key/label ILIKE + pg_trgm similarity) is ALWAYS unioned in, so a
-field missing from the index — new, or the index is stale/empty/broken — is
-never invisible. A floor of keyword slots survives the merge for the same
-reason: a full vector page must not crowd out an exact keyword match.
+keyword path (key/label ILIKE, ranked by pg_trgm similarity when available) is
+ALWAYS attempted and unioned in, so a field missing from the index — new, or
+the index is stale/empty/broken — is never invisible. When pg_trgm is
+unavailable (``Catalog.trgm_available`` is False), the keyword path degrades
+to ILIKE-only matching ordered by label instead of raising (ADR 0007: the
+fail-safe must stay a fail-safe even without the extension). A floor of
+keyword slots survives the merge for the same reason: a full vector page must
+not crowd out an exact keyword match.
 
 Vector-path failures (Vertex down, embed error) degrade to keyword-only with a
 warning — they never fail the tool.
@@ -149,25 +153,63 @@ async def _vector_rows(
     return await fetch(pool, sql, vector_literal(vector), *filter_params, limit)
 
 
-async def _keyword_rows(
-    pool: asyncpg.Pool, query: str, category: str | None, source: str | None, limit: int
-) -> list[asyncpg.Record]:
-    """ILIKE + pg_trgm fallback rows, best label-similarity first."""
-    filters, filter_params = _filter_clauses("", 2, category, source)
+def _keyword_sql(filters: str, n_filter_params: int, *, trgm: bool) -> str:
+    """The keyword-search SQL, with or without the pg_trgm similarity clause."""
+    limit_param = f"${2 + n_filter_params}"
     # _TRGM_THRESHOLD and _META_COLUMNS are module constants, never user input;
     # every value binds via $N. Safe by construction.
-    sql = f"""
-        SELECT {_META_COLUMNS}, similarity(label, $1) AS sim
+    if trgm:
+        return f"""
+            SELECT {_META_COLUMNS}, similarity(label, $1) AS sim
+            FROM fields
+            WHERE enabled
+              AND (key ILIKE '%' || $1 || '%'
+                   OR label ILIKE '%' || $1 || '%'
+                   OR similarity(label, $1) > {_TRGM_THRESHOLD})
+              {filters}
+            ORDER BY sim DESC NULLS LAST
+            LIMIT {limit_param}
+        """  # nosec B608
+    return f"""
+        SELECT {_META_COLUMNS}
         FROM fields
         WHERE enabled
           AND (key ILIKE '%' || $1 || '%'
-               OR label ILIKE '%' || $1 || '%'
-               OR similarity(label, $1) > {_TRGM_THRESHOLD})
+               OR label ILIKE '%' || $1 || '%')
           {filters}
-        ORDER BY sim DESC NULLS LAST
-        LIMIT ${2 + len(filter_params)}
+        ORDER BY label
+        LIMIT {limit_param}
     """  # nosec B608
-    return await fetch(pool, sql, query, *filter_params, limit)
+
+
+async def _keyword_rows(
+    catalog: Catalog, query: str, category: str | None, source: str | None, limit: int
+) -> list[asyncpg.Record]:
+    """ILIKE + pg_trgm fallback rows, best label-similarity first.
+
+    Degrades to ILIKE-only (ordered by label) when ``catalog.trgm_available``
+    is False — this is the ADR 0007 fail-safe layer and must never itself
+    depend on an optional extension (the production incident this guards
+    against: pg_trgm not installed made the "always-on" fallback also throw).
+    """
+    filters, filter_params = _filter_clauses("", 2, category, source)
+    if not catalog.trgm_available:
+        sql = _keyword_sql(filters, len(filter_params), trgm=False)
+        return await fetch(catalog.pool, sql, query, *filter_params, limit)
+    sql = _keyword_sql(filters, len(filter_params), trgm=True)
+    try:
+        return await fetch(catalog.pool, sql, query, *filter_params, limit)
+    except asyncpg.exceptions.UndefinedFunctionError:
+        # pg_trgm was available at startup but is gone now (dropped mid-lifetime)
+        # — rarer than the "never installed" case caught by the startup preflight,
+        # so this is a warning, not the error-level startup log.
+        logger.warning(
+            "pg_trgm similarity() unavailable at query time — falling back to "
+            "ILIKE-only keyword search; run `CREATE EXTENSION pg_trgm;` on the DB",
+            exc_info=True,
+        )
+        plain_sql = _keyword_sql(filters, len(filter_params), trgm=False)
+        return await fetch(catalog.pool, plain_sql, query, *filter_params, limit)
 
 
 async def search_fields(
@@ -193,7 +235,7 @@ async def search_fields(
             vector_records = await _vector_rows(catalog.pool, query, category, source, limit)
         except Exception:
             logger.warning("search_fields vector path failed — serving keyword-only", exc_info=True)
-    keyword_records = await _keyword_rows(catalog.pool, query, category, source, limit)
+    keyword_records = await _keyword_rows(catalog, query, category, source, limit)
 
     vector_take, keyword_take = _merge_hits(vector_records, keyword_records, limit)
     hits = [
