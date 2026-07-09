@@ -35,6 +35,13 @@ FUNCTION_TOOLS = {
     "update_task",
     "archive_tasks",
     "restore_task",
+    "search_schools",
+    "view_schools",
+    "get_school",
+    "add_schools",
+    "update_school",
+    "archive_schools",
+    "restore_school",
 }
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
@@ -146,6 +153,19 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
         ["3 tasks"],
     ),
     ("restore_task", {"task_id": "abc"}, "workspace", None, ["archived task"]),
+    ("search_schools", {"query": "duke"}, "workspace", None, ["colleges"]),
+    ("view_schools", {}, "workspace", None, ["school list"]),
+    ("get_school", {"application_id": "abc"}, "workspace", None, ["inside a school"]),
+    ("add_schools", {"schools": [{"unitid": 198419}]}, "workspace", None, ["Adding a school"]),
+    ("update_school", {"application_id": "abc"}, "workspace", None, ["Updating a school"]),
+    (
+        "archive_schools",
+        {"application_ids": ["a", "b"]},
+        "workspace",
+        None,
+        ["Removing 2 schools"],
+    ),
+    ("restore_school", {"application_id": "abc"}, "workspace", None, ["removed school"]),
 ]
 
 

@@ -288,6 +288,7 @@ class StepMapper:
             "category": self._category_of(args),
             "viz_label": self._viz_labels.get(viz_type, "visualization"),
             "tasks_phrase": _tasks_phrase(args),
+            "schools_phrase": _schools_phrase(args),
         }
 
     @staticmethod
@@ -485,6 +486,13 @@ def _tasks_phrase(args: dict[str, Any]) -> str:
     items = args.get("tasks") or args.get("task_ids") or []
     count = len(items) if isinstance(items, list) else 0
     return "a task" if count == 1 else f"{count} tasks"
+
+
+def _schools_phrase(args: dict[str, Any]) -> str:
+    """"a school" for a single-item batch, else "N schools" (add_schools/archive_schools)."""
+    items = args.get("schools") or args.get("application_ids") or []
+    count = len(items) if isinstance(items, list) else 0
+    return "a school" if count == 1 else f"{count} schools"
 
 
 def _row_count_of(content: Any) -> int | None:

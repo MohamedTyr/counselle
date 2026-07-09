@@ -23,6 +23,13 @@ FUNCTION_TOOLS = {
     "update_task",
     "archive_tasks",
     "restore_task",
+    "search_schools",
+    "view_schools",
+    "get_school",
+    "add_schools",
+    "update_school",
+    "archive_schools",
+    "restore_school",
 }
 
 WORKSPACE_TOOLS = {
@@ -32,6 +39,13 @@ WORKSPACE_TOOLS = {
     "update_task",
     "archive_tasks",
     "restore_task",
+    "search_schools",
+    "view_schools",
+    "get_school",
+    "add_schools",
+    "update_school",
+    "archive_schools",
+    "restore_school",
 }
 
 

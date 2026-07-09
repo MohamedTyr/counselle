@@ -42,6 +42,17 @@ from app.workspace.agent_tools_mutations import (
     make_restore_task_tool,
     make_update_task_tool,
 )
+from app.workspace.agent_tools_schools import (
+    make_get_school_tool,
+    make_search_schools_tool,
+    make_view_schools_tool,
+)
+from app.workspace.agent_tools_schools_mutations import (
+    make_add_schools_tool,
+    make_archive_schools_tool,
+    make_restore_school_tool,
+    make_update_school_tool,
+)
 from app.workspace.agent_tools_shared import (
     ACTIVE_STATUSES,
     PRIORITY_ORDER,
@@ -56,7 +67,14 @@ from app.workspace.agent_tools_shared import (
 #: Re-exported so callers can do ``from app.workspace.agent_tools import TaskDraft``.
 from app.workspace.agent_tools_shared import TaskDraft as TaskDraft  # noqa: E402
 from app.workspace.changes import WorkspaceEventBus
-from app.workspace.models import ApplicationView, Task, TaskBoardCounts, TaskSearchHit, TaskStatus
+from app.workspace.models import (
+    ApplicationView,
+    Task,
+    TaskBoardCounts,
+    TaskSearchHit,
+    TaskStatus,
+    WorkspaceSeedingTemplate,
+)
 from counselle_db.catalog import Catalog
 
 _MAX_MATCH_CHARS = 140
@@ -68,14 +86,22 @@ def build_workspace_tools(
     workspace_events: WorkspaceEventBus,
     user_id: UUID,
     tool_overflow: ToolMiddlewareContext | None,
+    template: WorkspaceSeedingTemplate | None = None,
 ) -> list[Tool[Any]]:
-    """Build the six per-run task tools bound to one authenticated turn."""
+    """Build the per-run workspace tools bound to one authenticated turn.
+
+    Six task tools (view/search/create/update/archive/restore) plus seven school
+    tools (search/view/get/add/update/archive/restore). ``template`` seeds the
+    starter tasks/essays when the agent adds a school; ``add_schools`` errors
+    cleanly if it is unset.
+    """
     ctx = ToolCtx(
         app_pool=app_pool,
         catalog=catalog,
         workspace_events=workspace_events,
         user_id=user_id,
         tool_overflow=tool_overflow,
+        template=template,
     )
     return [
         _make_view_tasks_tool(ctx),
@@ -84,6 +110,13 @@ def build_workspace_tools(
         make_update_task_tool(ctx),
         make_archive_tasks_tool(ctx),
         make_restore_task_tool(ctx),
+        make_search_schools_tool(ctx),
+        make_view_schools_tool(ctx),
+        make_get_school_tool(ctx),
+        make_add_schools_tool(ctx),
+        make_update_school_tool(ctx),
+        make_archive_schools_tool(ctx),
+        make_restore_school_tool(ctx),
     ]
 
 

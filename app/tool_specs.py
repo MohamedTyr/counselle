@@ -24,6 +24,13 @@ _GATED_BY: dict[str, str] = {
     "update_task": "auth",
     "archive_tasks": "auth",
     "restore_task": "auth",
+    "search_schools": "auth",
+    "view_schools": "auth",
+    "get_school": "auth",
+    "add_schools": "auth",
+    "update_school": "auth",
+    "archive_schools": "auth",
+    "restore_school": "auth",
 }
 
 

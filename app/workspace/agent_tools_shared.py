@@ -26,6 +26,7 @@ from app.workspace.models import (
     TaskCategory,
     TaskPriority,
     TaskStatus,
+    WorkspaceSeedingTemplate,
 )
 from app.workspace.service_applications import list_applications
 from app.workspace.service_essays import list_essays
@@ -76,6 +77,9 @@ class ToolCtx:
     workspace_events: WorkspaceEventBus
     user_id: UUID
     tool_overflow: ToolMiddlewareContext | None
+    #: Starter tasks/essays seeded when the agent adds a school (``add_schools``).
+    #: ``None`` on the task-only mount path; ``add_schools`` errors cleanly if unset.
+    template: WorkspaceSeedingTemplate | None = None
 
 
 def today() -> str:
@@ -106,6 +110,23 @@ def stale_task_error(task_id: str) -> dict[str, Any]:
         "pruned from your view, or the id may be stale.",
         retryable=False,
         recovery=STALE_TASK_RECOVERY,
+    )
+
+
+def stale_school_recovery() -> str:
+    return (
+        "Call view_schools to see the student's current schools and their ids, or "
+        'view_schools(status="archived") if it may have been removed (restore_school '
+        "brings one back). Do not retry this same id."
+    )
+
+
+def stale_school_error(application_id: str) -> dict[str, Any]:
+    return error(
+        f'No active school with id "{application_id}". It may have been archived, or the id '
+        "may be stale.",
+        retryable=False,
+        recovery=stale_school_recovery(),
     )
 
 
@@ -217,6 +238,18 @@ def validate_date_field(value: str, field: str) -> tuple[datetime | None, str | 
     except ValueError:
         return None, f'{field} "{value}" is not a valid date.'
     return datetime.combine(parsed, time.min, tzinfo=UTC), None
+
+
+def validate_date_only(value: str, field: str) -> tuple[date | None, str | None]:
+    """Parse a ``YYYY-MM-DD`` string to a ``date`` (application deadlines are date-typed).
+
+    Companion to ``validate_date_field`` (which returns a midnight-UTC ``datetime``
+    for task timestamps); returns ``(parsed, None)`` or ``(None, error)``.
+    """
+    try:
+        return date.fromisoformat(value), None
+    except ValueError:
+        return None, f'{field} "{value}" is not a valid date.'
 
 
 def resolve_link(

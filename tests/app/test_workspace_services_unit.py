@@ -85,18 +85,21 @@ async def test_search_school_names_uses_name_path_and_main_campus_order(
 
     async def fake_fetch(_pool: object, sql: str, query: str) -> list[dict[str, Any]]:
         calls.append((sql, query))
+        # _SEARCH_SQL is now the authoritative order (main campus first via its
+        # ORDER BY); the DB returns rows already ranked, so the fixture mirrors
+        # that and the wrapper must preserve — not re-sort — the order.
         return [
             {
-                "unitid": 2,
-                "name": "Example University - Downtown",
+                "unitid": 1,
+                "name": "Example University",
                 "city": "A",
                 "state": "NY",
                 "control": "public",
                 "level": "4-year",
             },
             {
-                "unitid": 1,
-                "name": "Example University",
+                "unitid": 2,
+                "name": "Example University - Downtown",
                 "city": "A",
                 "state": "NY",
                 "control": "public",
@@ -109,5 +112,8 @@ async def test_search_school_names_uses_name_path_and_main_campus_order(
 
     results = await service.search_school_names(catalog, "Example", limit=1)
 
+    # Preserves DB relevance order and honours the limit (main campus, not Downtown).
     assert [school.unitid for school in results] == [1]
     assert calls and "ILIKE" in calls[0][0]
+    # The main-campus preference lives in the SQL, not a Python re-sort.
+    assert "main campus" in calls[0][0].lower()

@@ -93,7 +93,22 @@ _SCHOOL_COLUMNS = "unitid, name, city, state, control, level"
 _SCHOOL_SELECT = f"SELECT {_SCHOOL_COLUMNS} FROM schools"
 
 _SCHOOL_SQL = f"{_SCHOOL_SELECT} WHERE unitid = $1"
-_SEARCH_SQL = f"{_SCHOOL_SELECT} WHERE name ILIKE '%' || $1 || '%' ORDER BY name LIMIT 10"
+# Relevance-ranked so a broad token (e.g. "Washington", "Columbia") surfaces the
+# most likely school instead of the alphabetically-first one, and — critically —
+# so the intended school is never truncated out below the row cap. Ranking is the
+# authoritative order (callers preserve it; they must not re-sort it away): exact
+# match, then prefix, then the main-campus-first preference (mirrors _campus_rank:
+# no "-" suffix, or an explicit "…Main Campus"), then shorter/alphabetical. It is
+# trgm-free so this query stays unconditional; the trgm fallback below still
+# handles zero-hit typos.
+_SEARCH_SQL = (
+    f"{_SCHOOL_SELECT} WHERE name ILIKE '%' || $1 || '%' "
+    "ORDER BY (lower(name) = lower($1)) DESC, "
+    "(name ILIKE $1 || '%') DESC, "
+    "(position('-' in name) = 0 OR lower(name) LIKE '%main campus') DESC, "
+    "length(name), name "
+    "LIMIT 25"
+)
 # Trigram fallback when ILIKE finds nothing — catches punctuation/word-order
 # variants ("Alabama A&M" vs "Alabama A & M", "UNC Chapel Hill") so we never
 # falsely tell a student a school is not in the database (honesty carve-out).
@@ -321,9 +336,12 @@ async def search_school_names(
         # Honesty carve-out (see _FUZZY_SEARCH_SQL comment above): skip the
         # fuzzy pass when pg_trgm is unavailable rather than 500 the caller.
         rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
-    ordered = sorted(rows, key=lambda row: (_campus_rank(row["name"]), row["name"]))
-    capped = max(1, min(limit, 20))
-    return [_school_basics(row) for row in ordered[:capped]]
+    # Both queries already return their authoritative order (_SEARCH_SQL by
+    # relevance+main-campus, _FUZZY_SEARCH_SQL by score); preserve it through the
+    # cap. Re-sorting here would discard relevance and let a bare-token query
+    # (e.g. "Washington") truncate the intended flagship out of the result.
+    capped = max(1, min(limit, 25))
+    return [_school_basics(row) for row in rows[:capped]]
 
 
 # --- get_values ---------------------------------------------------------------

@@ -569,7 +569,12 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     if user_id and deps.app_pool and workspace_events:
         extra_tools.extend(
             build_workspace_tools(
-                deps.app_pool, deps.catalog, workspace_events, UUID(user_id), tool_overflow
+                deps.app_pool,
+                deps.catalog,
+                workspace_events,
+                UUID(user_id),
+                tool_overflow,
+                getattr(deps, "workspace_seeding_template", None),
             )
         )
     tools = build_tools(

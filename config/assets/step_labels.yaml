@@ -106,6 +106,34 @@ tools:
     kind: workspace
     tier: null
     label: "Bringing back an archived task"
+  search_schools:
+    kind: workspace
+    tier: null
+    label: "Searching colleges for “{query}”"
+  view_schools:
+    kind: workspace
+    tier: null
+    label: "Checking the school list"
+  get_school:
+    kind: workspace
+    tier: null
+    label: "Looking inside a school"
+  add_schools:
+    kind: workspace
+    tier: null
+    label: "Adding {schools_phrase} to the list"
+  update_school:
+    kind: workspace
+    tier: null
+    label: "Updating a school"
+  archive_schools:
+    kind: workspace
+    tier: null
+    label: "Removing {schools_phrase} from the list"
+  restore_school:
+    kind: workspace
+    tier: null
+    label: "Bringing back a removed school"
 
 # Any tool not in the table maps here — a generic step, never nothing.
 default:
