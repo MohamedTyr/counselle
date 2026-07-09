@@ -482,6 +482,7 @@ class TurnRegistry:
                             source_config,
                             deps=self._deps,
                             graph=self._graph,
+                            user_id=turn.user_id,
                         ),
                     )
                     async with aclosing(events) as stream:

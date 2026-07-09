@@ -544,6 +544,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         overflow_store=overflow_store,
         max_result_chars=settings.agent_tool_result_max_chars,
     )
+    # Hoisted ahead of the toolset block (was read further down, after tools
+    # were already built) so a future mount gate can read
+    # `ids.get("user_id")` before deciding which tools to construct (ADR
+    # 0013: unmounted, not hidden — gating after construction is too late).
+    ids = _turn_ids(state)
 
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
@@ -610,7 +615,6 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     #     still flies for legacy/lower-level callers, after open steps close. ---
     messages_out = state["messages"]
     usage = UsageData(input_tokens=0, output_tokens=0, tool_calls=0)
-    ids = _turn_ids(state)
     handle = None
     session_id = ids.get("session_id")
     handle_store = getattr(deps, "run_handles", None)

@@ -75,7 +75,11 @@ class TurnState(TypedDict, total=False):
     - ``turn_ids``: the in-flight turn's G1 identity (``message_id``,
       ``user_message_id``, and on a clarify resume ``resume_text`` — the
       answer rides ``Command(resume)`` and never enters ``messages``, so
-      this is the node's only way to persist it into the record).
+      this is the node's only way to persist it into the record). Also
+      carries ``user_id`` (``str | None``) from the authenticated HTTP
+      session — ``None`` for the eval runner/CLI, which is the agent-tool
+      mount-gate signal a later phase reads (ADR 0013: unmounted, not
+      hidden).
     """
 
     messages: list[dict[str, Any]]

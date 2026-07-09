@@ -306,6 +306,7 @@ def _resume_parked_run_turn(
         *,
         deps: Any,
         graph: Any,
+        user_id: str | None = None,
     ) -> AsyncIterator[Event]:
         config = {"configurable": {"thread_id": session_id}}
         snapshot = await graph.aget_state(config)
@@ -351,6 +352,7 @@ def _gated_narration_run_turn(
         *,
         deps: Any,
         graph: Any,
+        user_id: str | None = None,
     ) -> AsyncIterator[Event]:
         yield ev_meta("trace-buffer", session_id, "test-model", str(uuid4()), str(uuid4()))
         for chunk in chunks:
@@ -466,6 +468,62 @@ async def test_replay_duplicate_final_chunks_keeps_one_answer_and_one_viz() -> N
 
     turn = registry._turns.get(session_id)
     assert turn is None
+
+
+# ---------------------------------------------------------------------------
+# Identity plumbing: _drive threads turn.user_id into _run_turn (Phase 2 of
+# plans/agent-task-tools.md B.1 — the gap the plan's Risk #1 calls out).
+# ---------------------------------------------------------------------------
+
+
+async def test_drive_passes_user_id_through_to_run_turn() -> None:
+    rig = Rig(_plain_model())
+    captured: dict[str, Any] = {}
+
+    async def recording_run_turn(*args: Any, **kwargs: Any) -> AsyncIterator[Event]:
+        captured["user_id"] = kwargs.get("user_id")
+        yield ev_meta("trace-1", "session-1", "model", "assistant-1", "user-1")
+        yield ev_sources([])
+        yield ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=recording_run_turn,
+    )
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "hi", _ALL_OFF, user_id="user-42")
+
+    assert captured["user_id"] == "user-42"
+
+
+async def test_drive_passes_none_user_id_when_omitted() -> None:
+    """No caller-supplied user_id (eval runner / CLI) → _run_turn sees None,
+    never a missing kwarg or a minted id."""
+    rig = Rig(_plain_model())
+    captured: dict[str, Any] = {}
+
+    async def recording_run_turn(*args: Any, **kwargs: Any) -> AsyncIterator[Event]:
+        captured["user_id"] = kwargs.get("user_id")
+        yield ev_meta("trace-1", "session-1", "model", "assistant-1", "user-1")
+        yield ev_sources([])
+        yield ev_usage(UsageData(input_tokens=1, output_tokens=1, tool_calls=0))
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=recording_run_turn,
+    )
+    session_id = str(uuid4())
+
+    await _run_full_turn(registry, session_id, "hi", _ALL_OFF)
+
+    assert captured["user_id"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -790,6 +848,7 @@ async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
         *,
         deps: Any,
         graph: Any,
+        user_id: str | None = None,
     ) -> AsyncIterator[Event]:
         messages = list(
             ModelMessagesTypeAdapter.dump_python(
@@ -859,6 +918,7 @@ async def test_cancel_prefers_run_handle_snapshot_over_prose_reconstruction() ->
         *,
         deps: Any,
         graph: Any,
+        user_id: str | None = None,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -918,6 +978,7 @@ async def test_cancel_preserves_completed_tool_work_for_next_turn_context() -> N
         *,
         deps: Any,
         graph: Any,
+        user_id: str | None = None,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -989,6 +1050,7 @@ async def test_timeout_prefers_run_handle_snapshot_over_prose_reconstruction() -
         *,
         deps: Any,
         graph: Any,
+        user_id: str | None = None,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -1038,6 +1100,7 @@ async def test_shutdown_prefers_run_handle_snapshot_over_prose_reconstruction() 
         *,
         deps: Any,
         graph: Any,
+        user_id: str | None = None,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},

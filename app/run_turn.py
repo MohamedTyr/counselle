@@ -442,6 +442,7 @@ async def run_turn(
     *,
     deps: GraphDeps,
     graph: Any,
+    user_id: str | None = None,
 ) -> AsyncIterator[Event]:
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -485,6 +486,10 @@ async def run_turn(
         "message_id": message_id,
         "user_message_id": user_message_id,
         "session_id": session_id,
+        # Unauthenticated callers (eval runner, CLI) pass no user_id, and it
+        # stays None here — that's the mount-gate signal a later phase reads
+        # off turn_ids (ADR 0013: unmounted, not hidden).
+        "user_id": user_id,
     }
     emissions: list[Emission] = []
     final_emissions = FinalEmissionDeduper()

@@ -231,12 +231,22 @@ class Rig:
         self.graph = build_graph(InMemorySaver(), self.deps)
 
     async def turn(
-        self, session_id: str, text: str, source_config: SourceConfig | None = None
+        self,
+        session_id: str,
+        text: str,
+        source_config: SourceConfig | None = None,
+        *,
+        user_id: str | None = None,
     ) -> list[Event]:
         return [
             event
             async for event in run_turn(
-                session_id, text, source_config, deps=self.deps, graph=self.graph
+                session_id,
+                text,
+                source_config,
+                deps=self.deps,
+                graph=self.graph,
+                user_id=user_id,
             )
         ]
 
@@ -428,6 +438,99 @@ async def test_simple_turn_streams_deltas_persists_messages_creates_session() ->
     # session row created (INSERT ... ON CONFLICT) and touched (UPDATE)
     assert session_id in rig.pool.rows
     assert ("UPDATE", (session_id,)) in rig.pool.executed
+
+
+# ---------------------------------------------------------------------------
+# (a2) identity plumbing: user_id threads into turn_ids (Phase 2 of
+# plans/agent-task-tools.md — the mount-gate signal a later phase reads)
+# ---------------------------------------------------------------------------
+
+
+async def test_run_turn_threads_user_id_into_turn_ids() -> None:
+    rig = Rig(TestModel(call_tools=[], custom_output_text="Hi there."))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "hi", _ALL_OFF, user_id="user-42")
+
+    assert _done_status(events) == "complete"
+    state = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    assert state.values["turn_ids"]["user_id"] == "user-42"
+
+
+async def test_run_turn_without_user_id_defaults_to_none_in_turn_ids() -> None:
+    """The eval runner / CLI call run_turn with no user_id — the unmounted
+    agent-tools path (ADR 0013) must see None, not a missing key or a mint."""
+    rig = Rig(TestModel(call_tools=[], custom_output_text="Hi there."))
+    session_id = str(uuid4())
+
+    events = await rig.turn(session_id, "hi", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    state = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    assert state.values["turn_ids"]["user_id"] is None
+
+
+async def test_parked_resume_carries_user_id_through_the_prewrite() -> None:
+    """A clarify resume rebuilds turn_ids via _prepare_turn_input's parked
+    branch (app/run_turn.py) — user_id must survive that branch too, not
+    just the fresh-turn branch."""
+    def _answer_cost(messages: Any, info: Any) -> ModelResponse:
+        return ModelResponse(parts=[TextPart("Focusing on cost.")])
+
+    rig = Rig(_fn_model(_answer_cost))
+    session_id = str(uuid4())
+    config: Any = {"configurable": {"thread_id": session_id}}
+    parked = build_turn_record(
+        [],
+        ids={"message_id": "m-parked", "user_message_id": "u-parked"},
+        status="awaiting_input",
+        sources=[],
+        user_text="Is NYU good?",
+        clarify={
+            "spec": {
+                "v": 1,
+                "question": "What matters most to you?",
+                "header": "Pick one",
+                "multi_select": False,
+                "options": [{"label": "Cost", "hint": "affordability and aid"}],
+            },
+            "answer": None,
+        },
+        messages_offset=0,
+    )
+    await rig.graph.aupdate_state(
+        config,
+        {
+            "messages": _serialized_user_message_for_test("Is NYU good?"),
+            "turn_records": [parked],
+            "source_registry": [],
+        },
+        as_node="agent",
+    )
+
+    events = await rig.turn(session_id, "cost", _ALL_OFF, user_id="user-99")
+
+    assert _done_status(events) == "complete"
+    state = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    assert state.values["turn_ids"]["user_id"] == "user-99"
+
+
+def test_agent_node_turn_ids_helper_reads_user_id() -> None:
+    """Pins app.agent_node._turn_ids surfacing user_id — the hoisted call site
+    (ahead of the toolset block) reads this exact dict, so a future mount gate
+    (Phase 3/4) sees a real value instead of a stale/missing key."""
+    ids = app.agent_node._turn_ids(
+        {"turn_ids": {"message_id": "m-1", "user_message_id": "u-1", "user_id": "user-7"}}
+    )
+    assert ids["user_id"] == "user-7"
+
+    unauthenticated_ids = app.agent_node._turn_ids(
+        {"turn_ids": {"message_id": "m-1", "user_message_id": "u-1", "user_id": None}}
+    )
+    assert unauthenticated_ids["user_id"] is None
+
+    missing_ids = app.agent_node._turn_ids({"turn_ids": {}})
+    assert missing_ids.get("user_id") is None
 
 
 # ---------------------------------------------------------------------------
