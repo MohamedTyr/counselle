@@ -98,6 +98,7 @@ We are a **startup doing rapid prototyping**. The default engineering instinct i
 - **Never reinvent the wheel.** If a battle-tested library/tool does it, use it. Don't hand-roll.
 - **Never write code that doesn't add much value.** No speculative abstraction, no defensive layers for edge cases that don't matter yet, no "enterprise completeness." YAGNI.
 - **The honesty carve-out still holds** (principle 3): never lie to a student. That's the *one* place we spend extra effort regardless of ease — because it's the highest-value thing we have.
+- **No TDD, and no reflexive tests — a test has to earn its place.** Don't write tests first, don't chase a coverage number, don't add a test for every function. Ship the feature. Write a test *only* when it genuinely pays for itself: the honesty-critical paths (the R1–R12 value-reading rules, citations — anything that could lie to a student or corrupt data), a bug you want to stay fixed, or logic gnarly enough that a test is the fastest way to trust it. Skip everything else. The one hard line stays principle 3 — the data-integrity code is tested hard, always.
 - **Optimize for rewrite cost, not diff size.** The lazy version is right when it can be *extended* later without a rewrite. Only when the shortcut would *force* a future rewrite — global state that can't become per-user (cf. `user_id` nullable-until-platform, ADR 0019), a schema welded to one provider (ADR 0011), logic fused into a route handler — pay the *small* structural cost now. The trigger is strictly "would this force a rewrite," never "might structure help someday." Good structure is cheap future-proofing; speculative features are expensive. Do the first, skip the second.
 - **Clear beats short.** "Minimal" means minimal *surface and complexity*, not fewest characters. A dense one-liner you decode at 3am is debt, not laziness. Boring and readable wins over clever and short.
 
@@ -153,7 +154,7 @@ When in doubt, do the simplest thing that works and ship it.
 - **Tool schemas are an API.** One tool, one clear capability; tight schema; the description is the contract the model reads. No god-tool with a mode flag. Curate the action space — enough tools to be capable, few enough to not bloat context.
 - **Authz lives in the tool, never in the model.** Every workspace tool scopes to the authenticated `user_id` from turn state (`WHERE user_id = $1`), never to anything the model supplies. Authority is server-side and identity-bound.
 - **Typed output at the tool boundary.** Data tools return typed, validated structures — the citation envelope (ADR 0006) is the model to follow: decode and validate at the edge, hand the rest of the system types, not raw strings.
-- **Test tools hard, eval the agent.** Tools are ordinary code — unit-test them deterministically. Fuzzy end-to-end behavior belongs in the eval set (`evals/`, `uv run python -m evals.runner`), not brittle string assertions.
+- **Eval the agent; don't unit-test its behavior.** The eval set (`evals/`, `uv run python -m evals.runner`) is how we measure agent quality — brittle string-assert tests on model output are worse than useless. Deterministic honesty-critical tools (value-reading, citations) still get hard unit tests; everything else follows the no-TDD stance under "How we build".
 
 ## Frontend components — search registries first, never reinvent the wheel
 
