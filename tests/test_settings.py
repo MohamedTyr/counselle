@@ -114,6 +114,9 @@ class TestDefaults:
         assert settings.protocol_version == 1
         assert settings.workspace_event_queue_size == 256
         assert settings.workspace_writes_per_minute == 240
+        assert settings.document_summary_excerpt_max_chars == 8_000
+        assert settings.document_summary_timeout_s == 8.0
+        assert settings.document_extraction_timeout_s == 8.0
         # Chat / auth knobs promoted in Phase 6
         assert settings.thinking_threshold_chars == 240  # CFG-07
         assert settings.password_min_length == 8  # CFG-03

@@ -2,16 +2,30 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
+from zipfile import ZipFile
 
 import pytest
+from docx import Document as DocxDocument
 from pydantic import ValidationError
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from app.workspace.changes import WorkspaceEventBus, make_change_event
+from app.workspace.document_summary import (
+    make_document_summary_generator,
+    normalize_document_summary,
+)
+from app.workspace.extraction import prepare_document_upload
 from app.workspace.memory_context import memory_rendered_char_count, render_memory_block
 from app.workspace.models import (
     DOCUMENT_MAX_BYTES,
@@ -22,6 +36,7 @@ from app.workspace.models import (
     PROFILE_TEXT_MAX_LENGTH,
     Academics,
     DocumentCreate,
+    DocumentUpload,
     Memory,
     MemoryCreate,
     MemoryPatch,
@@ -38,6 +53,7 @@ from app.workspace.service_documents import (
     list_documents,
     read_document,
     restore_document,
+    upload_document,
 )
 from app.workspace.service_memory import (
     _normalize_content,
@@ -68,9 +84,42 @@ class _DocumentConn:
         self.fetch_calls.append((sql, args))
         return []
 
-    async def fetchrow(self, sql: str, *args: object) -> None:
+    async def fetchrow(self, sql: str, *args: object) -> dict[str, object] | None:
         self.fetchrow_calls.append((sql, args))
         return None
+
+
+class _WritableDocumentConn(_DocumentConn):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fetchval_calls: list[tuple[str, tuple[object, ...]]] = []
+        self.insert_args: tuple[object, ...] | None = None
+
+    def transaction(self) -> _FakeTransaction:
+        return _FakeTransaction()
+
+    async def fetchrow(self, sql: str, *args: object) -> dict[str, object] | None:
+        self.fetchrow_calls.append((sql, args))
+        if "INSERT INTO counselle.documents" not in sql:
+            return None
+        self.insert_args = args
+        return {
+            "id": uuid4(),
+            "user_id": args[0],
+            "title": args[1],
+            "doc_type": args[2],
+            "filename": args[3],
+            "mime": args[4],
+            "size_bytes": args[5],
+            "text_status": args[8],
+            "summary": args[9],
+            "created_at": datetime(2026, 7, 10, tzinfo=UTC),
+            "archived_at": None,
+        }
+
+    async def fetchval(self, sql: str, *args: object) -> int:
+        self.fetchval_calls.append((sql, args))
+        return 1
 
 
 class _MemoryConn:
@@ -100,6 +149,723 @@ class _FakePool:
     @asynccontextmanager
     async def acquire(self):  # type: ignore[no-untyped-def]
         yield self.conn
+
+
+def _pdf_bytes(text: str | None = None) -> bytes:
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    if text is not None:
+        page[NameObject("/Resources")] = DictionaryObject(
+            {
+                NameObject("/Font"): DictionaryObject(
+                    {
+                        NameObject("/F1"): DictionaryObject(
+                            {
+                                NameObject("/Type"): NameObject("/Font"),
+                                NameObject("/Subtype"): NameObject("/Type1"),
+                                NameObject("/BaseFont"): NameObject("/Helvetica"),
+                            }
+                        )
+                    }
+                )
+            }
+        )
+        content = DecodedStreamObject()
+        content.set_data(f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode())
+        page[NameObject("/Contents")] = content
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def _docx_bytes() -> bytes:
+    document = DocxDocument()
+    document.add_paragraph("Maya's academic resume")
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "GPA"
+    table.cell(0, 1).text = "3.91"
+    output = BytesIO()
+    document.save(output)
+    return output.getvalue()
+
+
+def _zip_bytes() -> bytes:
+    output = BytesIO()
+    with ZipFile(output, "w") as archive:
+        archive.writestr("word/document.xml", "<document />")
+    return output.getvalue()
+
+
+def _document_upload(*, filename: str, mime: str, content: bytes) -> DocumentUpload:
+    return DocumentUpload(
+        title="Student document", filename=filename, mime=mime, content=content
+    )
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime", "content_factory", "expected_text"),
+    [
+        ("transcript.pdf", "application/pdf", lambda: _pdf_bytes("Maya GPA 3.91"), "Maya GPA 3.91"),
+        (
+            "resume.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            _docx_bytes,
+            "Maya's academic resume",
+        ),
+        (
+            "notes.txt",
+            "text/plain; charset=utf-8",
+            lambda: b"First-generation applicant",
+            "First-generation",
+        ),
+        ("activities.md", "text/x-markdown", lambda: b"# Robotics\nCaptain", "# Robotics"),
+    ],
+)
+async def test_prepare_document_upload_extracts_allowed_document_formats(
+    filename: str,
+    mime: str,
+    content_factory: Callable[[], bytes],
+    expected_text: str,
+) -> None:
+    prepared = await prepare_document_upload(
+        _document_upload(filename=filename, mime=mime, content=content_factory())
+    )
+
+    assert prepared.text_status == "extracted"
+    assert prepared.extracted_text is not None
+    assert expected_text in prepared.extracted_text
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime", "content", "message"),
+    [
+        ("archive.zip", "application/zip", b"not an archive", "unsupported document type"),
+        ("transcript.pdf", "text/plain", b"not a PDF", "does not match"),
+        ("scan.png", "application/pdf", b"not a PNG", "does not match"),
+        ("notes.txt", "application/zip", b"notes", "does not match"),
+    ],
+)
+async def test_prepare_document_upload_rejects_unsupported_or_mismatched_types(
+    filename: str, mime: str, content: bytes, message: str
+) -> None:
+    with pytest.raises(WorkspaceValidationError, match=message):
+        await prepare_document_upload(
+            _document_upload(filename=filename, mime=mime, content=content)
+        )
+
+
+async def test_prepare_document_upload_marks_images_unsupported_without_source_text() -> None:
+    prepared = await prepare_document_upload(
+        _document_upload(
+            filename="transcript.png", mime="image/png", content=b"\x89PNG\r\n\x1a\nimage"
+        )
+    )
+
+    assert prepared.mime == "image/png"
+    assert prepared.text_status == "unsupported"
+    assert prepared.extracted_text is None
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime", "content"),
+    [
+        ("scan.png", "image/png", b"not an image"),
+        ("scan.jpg", "image/jpeg", b"not an image"),
+        ("scan.webp", "image/webp", b"not an image"),
+    ],
+)
+async def test_prepare_document_upload_rejects_images_without_matching_signatures(
+    filename: str, mime: str, content: bytes
+) -> None:
+    with pytest.raises(WorkspaceValidationError, match="image content does not match"):
+        await prepare_document_upload(
+            _document_upload(filename=filename, mime=mime, content=content)
+        )
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime", "content"),
+    [
+        ("scanned.pdf", "application/pdf", _pdf_bytes()),
+        ("empty.txt", "text/plain", b" \n\t"),
+    ],
+)
+async def test_prepare_document_upload_marks_unreadable_or_empty_documents_failed(
+    filename: str, mime: str, content: bytes
+) -> None:
+    prepared = await prepare_document_upload(
+        _document_upload(filename=filename, mime=mime, content=content)
+    )
+
+    assert prepared.text_status == "failed"
+    assert prepared.extracted_text is None
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime", "content"),
+    [
+        ("spoofed.pdf", "application/pdf", b"%PDF-1.7\nnot a PDF"),
+        (
+            "spoofed.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            _zip_bytes(),
+        ),
+        ("spoofed.txt", "text/plain", b"\xff\xfe\x00"),
+    ],
+)
+async def test_prepare_document_upload_rejects_spoofed_extractable_content(
+    filename: str, mime: str, content: bytes
+) -> None:
+    with pytest.raises(WorkspaceValidationError, match="not a valid"):
+        await prepare_document_upload(
+            _document_upload(filename=filename, mime=mime, content=content)
+        )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "../transcript.pdf",
+        "..\\transcript.pdf",
+        "folder/transcript.pdf",
+        "transcript\n.pdf",
+    ],
+)
+async def test_prepare_document_upload_rejects_unsafe_filenames(filename: str) -> None:
+    with pytest.raises(WorkspaceValidationError, match="single safe filename"):
+        await prepare_document_upload(
+            _document_upload(filename=filename, mime="application/pdf", content=_pdf_bytes("Maya"))
+        )
+
+
+async def test_prepare_document_upload_validation_timeout_raises_validation_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pathologically slow parse (e.g. a decompression-bomb PDF stream) must
+    time out rather than stall the shared thread pool indefinitely."""
+    import app.workspace.extraction as extraction
+
+    def slow_validate(kind: str, content: bytes) -> None:
+        time.sleep(0.2)
+
+    monkeypatch.setattr(extraction, "_validate_extractable_content", slow_validate)
+
+    with pytest.raises(WorkspaceValidationError, match="not a valid"):
+        await prepare_document_upload(
+            _document_upload(
+                filename="transcript.pdf", mime="application/pdf", content=_pdf_bytes("Maya")
+            ),
+            extraction_timeout_s=0.01,
+        )
+
+
+async def test_prepare_document_upload_extraction_timeout_yields_failed_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An extraction-phase timeout is just another unreadable-file outcome — it
+    must never propagate as an unhandled exception and crash the upload."""
+    import app.workspace.extraction as extraction
+
+    def slow_extract(kind: str, content: bytes) -> str | None:
+        time.sleep(0.2)
+        return "unreachable"
+
+    monkeypatch.setattr(extraction, "_extract_text", slow_extract)
+
+    prepared = await prepare_document_upload(
+        _document_upload(
+            filename="transcript.pdf", mime="application/pdf", content=_pdf_bytes("Maya")
+        ),
+        extraction_timeout_s=0.01,
+    )
+
+    assert prepared.text_status == "failed"
+    assert prepared.extracted_text is None
+
+
+async def test_prepare_document_upload_truncates_extracted_text_to_the_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Oversized extracted text is truncated, not rejected — text_status stays
+    "extracted" and the caller still gets a usable (bounded) document."""
+    import app.workspace.extraction as extraction
+    from app.workspace.models import EXTRACTED_TEXT_MAX_LENGTH
+
+    oversized_text = "A" * (EXTRACTED_TEXT_MAX_LENGTH + 500)
+
+    def oversized_extract(kind: str, content: bytes) -> str:
+        return oversized_text
+
+    monkeypatch.setattr(extraction, "_extract_text", oversized_extract)
+
+    prepared = await prepare_document_upload(
+        _document_upload(
+            filename="transcript.pdf", mime="application/pdf", content=_pdf_bytes("Maya")
+        )
+    )
+
+    assert prepared.text_status == "extracted"
+    assert prepared.extracted_text is not None
+    assert len(prepared.extracted_text) == EXTRACTED_TEXT_MAX_LENGTH
+    assert prepared.extracted_text == oversized_text[:EXTRACTED_TEXT_MAX_LENGTH]
+
+
+def test_document_upload_model_enforces_filename_and_size_bounds() -> None:
+    with pytest.raises(ValidationError):
+        _document_upload(
+            filename="x" * (PROFILE_SHORT_TEXT_MAX_LENGTH + 1),
+            mime="text/plain",
+            content=b"x",
+        )
+    with pytest.raises(ValidationError):
+        _document_upload(
+            filename="notes.txt", mime="text/plain", content=b"x" * (DOCUMENT_MAX_BYTES + 1)
+        )
+
+
+async def test_upload_document_allows_student_mutation_and_publishes_content_free_event() -> None:
+    conn = _WritableDocumentConn()
+    event_bus = WorkspaceEventBus()
+    user_id = uuid4()
+    source_text = "Maya's GPA is 3.91"
+
+    async def summarize(_: DocumentCreate) -> str:
+        return "Type: school record\nTopics: academics, coursework"
+
+    async with event_bus.subscribe(user_id) as queue:
+        document = await upload_document(
+            _FakePool(conn),
+            event_bus,
+            user_id=user_id,
+            actor="student",
+            data=_document_upload(
+                filename="transcript.txt", mime="text/plain", content=source_text.encode()
+            ),
+            summary_generator=summarize,
+        )
+        event = queue.get_nowait()
+
+    assert document.text_status == "extracted"
+    assert document.summary is not None
+    assert event.data.object_id == document.id
+    assert event.data.object_type == "document"
+    assert event.data.actor == "student"
+    assert source_text not in repr(event.model_dump(mode="json"))
+    assert conn.insert_args is not None
+    assert conn.insert_args[7] == source_text
+
+
+async def test_upload_document_rejects_nonstudent_before_extraction_or_persistence() -> None:
+    conn = _WritableDocumentConn()
+
+    with pytest.raises(WorkspaceValidationError, match="only be modified by students"):
+        await upload_document(
+            _FakePool(conn),
+            WorkspaceEventBus(),
+            user_id=uuid4(),
+            actor="counselle",
+            data=_document_upload(filename="notes.txt", mime="text/plain", content=b"notes"),
+        )
+
+    assert conn.fetchrow_calls == []
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime", "content", "expected_status"),
+    [
+        ("scan.png", "image/png", b"\x89PNG\r\n\x1a\nimage", "unsupported"),
+        ("scanned.pdf", "application/pdf", _pdf_bytes(), "failed"),
+    ],
+)
+async def test_upload_document_never_summarizes_or_persists_usable_text_for_nonextracted_content(
+    filename: str, mime: str, content: bytes, expected_status: str
+) -> None:
+    conn = _WritableDocumentConn()
+
+    async def unexpected_summary(_: DocumentCreate) -> str:
+        raise AssertionError("summary generator must not receive unusable document text")
+
+    document = await upload_document(
+        _FakePool(conn),
+        WorkspaceEventBus(),
+        user_id=uuid4(),
+        actor="student",
+        data=_document_upload(filename=filename, mime=mime, content=content),
+        summary_generator=unexpected_summary,
+    )
+
+    assert document.text_status == expected_status
+    assert document.summary is None
+    assert conn.insert_args is not None
+    assert conn.insert_args[7] is None
+    assert conn.insert_args[9] is None
+
+
+async def test_upload_document_keeps_extracted_document_when_summary_fails() -> None:
+    conn = _WritableDocumentConn()
+
+    async def failing_summary(_: DocumentCreate) -> str:
+        raise RuntimeError("cheap model unavailable")
+
+    document = await upload_document(
+        _FakePool(conn),
+        WorkspaceEventBus(),
+        user_id=uuid4(),
+        actor="student",
+        data=_document_upload(
+            filename="notes.txt", mime="text/plain", content=b"Applicant prefers cities"
+        ),
+        summary_generator=failing_summary,
+    )
+
+    assert document.text_status == "extracted"
+    assert document.summary is None
+
+
+async def test_upload_document_rejects_spoofed_bytes_before_persistence() -> None:
+    conn = _WritableDocumentConn()
+
+    with pytest.raises(WorkspaceValidationError, match="not a valid PDF"):
+        await upload_document(
+            _FakePool(conn),
+            WorkspaceEventBus(),
+            user_id=uuid4(),
+            actor="student",
+            data=_document_upload(
+                filename="spoofed.pdf", mime="application/pdf", content=b"%PDF-1.7\ninvalid"
+            ),
+        )
+
+    assert conn.fetchrow_calls == []
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "Only one line.",
+        "One\nTwo\nThree\nFour",
+        f"{'x' * PROFILE_TEXT_MAX_LENGTH}\nSecond line.",
+        object(),
+    ],
+)
+async def test_upload_document_discards_malformed_generator_summaries(summary: object) -> None:
+    conn = _WritableDocumentConn()
+
+    async def malformed_summary(_: DocumentCreate) -> object:
+        return summary
+
+    document = await upload_document(
+        _FakePool(conn),
+        WorkspaceEventBus(),
+        user_id=uuid4(),
+        actor="student",
+        data=_document_upload(filename="notes.txt", mime="text/plain", content=b"Applicant notes"),
+        summary_generator=malformed_summary,
+    )
+
+    assert document.summary is None
+    assert conn.insert_args is not None
+    assert conn.insert_args[9] is None
+
+
+def test_normalize_document_summary_enforces_persisted_shape_and_length() -> None:
+    raw_summary = " Type: school record \n\n Topics: academics, coursework "
+    assert normalize_document_summary(raw_summary) == (
+        "Type: school record\nTopics: academics, coursework"
+    )
+    assert normalize_document_summary("NO_SUMMARY") is None
+    assert normalize_document_summary("Type: school record") is None
+    assert normalize_document_summary("Type: school record\nTopics: GPA 3.91") is None
+    assert normalize_document_summary("Type: Maya Chen\nTopics: academics, coursework") is None
+    assert normalize_document_summary(f"Type: {'x' * 121}\nTopics: academics") is None
+
+
+async def test_document_summary_uses_the_configured_non_google_cheap_model_and_excerpt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.workspace.document_summary as document_summary
+
+    received: dict[str, object] = {}
+
+    class FakeAgent:
+        def __init__(self, model: object, *, system_prompt: str) -> None:
+            received.update(model=model, system_prompt=system_prompt)
+
+        async def run(self, prompt: str) -> SimpleNamespace:
+            received["prompt"] = prompt
+            return SimpleNamespace(output="Type: school record\nTopics: academics, coursework")
+
+    monkeypatch.setattr(document_summary, "Agent", FakeAgent)
+    monkeypatch.setattr(document_summary, "load_prompt", lambda _: "summary prompt")
+    settings = SimpleNamespace(
+        model_cheap="anthropic:claude-haiku-4-5",
+        document_summary_excerpt_max_chars=12,
+        document_summary_timeout_s=1.0,
+    )
+    source_text = "A" * 12 + "B" * 100_000
+
+    summary = await document_summary.summarize_document(
+        settings,
+        title="Student document",
+        doc_type="other",
+        extracted_text=source_text,
+    )
+
+    assert summary == "Type: school record\nTopics: academics, coursework"
+    assert received["model"] == "anthropic:claude-haiku-4-5"
+    assert source_text[:12] in str(received["prompt"])
+    assert source_text[12:] not in str(received["prompt"])
+
+
+def test_summary_model_builds_an_authenticated_google_model_for_the_vertex_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The production fallback (no ``model_factory`` override) must use the same
+    explicit Vertex Express Mode auth path as ``app.agent_node.default_model_factory``
+    — never the bare provider-prefixed string, which resolves to unusable ambient
+    credentials (see app/agent_node.py notes §1)."""
+    # Importing app.agent_node pulls in app.toolset, which calls get_settings()
+    # at module import time — supply the required fields so that succeeds here.
+    monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
+    monkeypatch.setenv("COUNSELLE_DB_APP_DSN", "postgresql://app@localhost/counselle")
+    from config.settings import reset_config_caches
+
+    reset_config_caches()
+    try:
+        import app.workspace.document_summary as document_summary
+        from app.agent_node import model_name_from_setting
+
+        settings = SimpleNamespace(
+            model_cheap="google-vertex:gemini-2.5-flash",
+            vertex_api_key="test-vertex-express-mode-key",
+        )
+
+        model = document_summary._summary_model(settings, None)
+
+        from pydantic_ai.models.google import GoogleModel
+        from pydantic_ai.providers.google_cloud import GoogleCloudProvider
+
+        assert isinstance(model, GoogleModel)
+        assert model.model_name == model_name_from_setting(settings.model_cheap)
+        assert model.model_name == "gemini-2.5-flash"
+        assert isinstance(model._provider, GoogleCloudProvider)
+        assert model._provider.client._api_client.api_key == settings.vertex_api_key
+    finally:
+        reset_config_caches()
+
+
+def test_summary_model_without_vertex_api_key_raises_before_any_model_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
+    monkeypatch.setenv("COUNSELLE_DB_APP_DSN", "postgresql://app@localhost/counselle")
+    from config.settings import reset_config_caches
+
+    reset_config_caches()
+    try:
+        import app.workspace.document_summary as document_summary
+
+        settings = SimpleNamespace(
+            model_cheap="google-vertex:gemini-2.5-flash",
+            vertex_api_key=None,
+        )
+
+        with pytest.raises(RuntimeError, match="COUNSELLE_VERTEX_API_KEY"):
+            document_summary._summary_model(settings, None)
+    finally:
+        reset_config_caches()
+
+
+async def test_summary_timeout_keeps_the_extracted_document_and_logs_no_source_contents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.workspace.document_summary as document_summary
+
+    source_text = "student source content that must never reach logs"
+    summary_logs: list[tuple[tuple[object, ...], dict[str, object]]] = []
+    service_logs: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    class CapturingLogger:
+        def __init__(self, calls: list[tuple[tuple[object, ...], dict[str, object]]]) -> None:
+            self.calls = calls
+
+        def warning(self, *args: object, **kwargs: object) -> None:
+            self.calls.append((args, kwargs))
+
+    class SlowAgent:
+        def __init__(self, *_: object, **__: object) -> None:
+            pass
+
+        async def run(self, _: str) -> SimpleNamespace:
+            await asyncio.sleep(0.05)
+            return SimpleNamespace(output="Type: school record\nTopics: academics, coursework")
+
+    monkeypatch.setattr(document_summary, "Agent", SlowAgent)
+    monkeypatch.setattr(document_summary, "load_prompt", lambda _: "summary prompt")
+    monkeypatch.setattr(document_summary, "logger", CapturingLogger(summary_logs))
+    import app.workspace.service_documents as service_documents
+
+    monkeypatch.setattr(service_documents, "logger", CapturingLogger(service_logs))
+    settings = SimpleNamespace(
+        model_cheap="anthropic:claude-haiku-4-5",
+        document_summary_excerpt_max_chars=100,
+        document_summary_timeout_s=0.001,
+    )
+
+    async def summarize(data: DocumentCreate) -> str | None:
+        return await document_summary.summarize_document(
+            settings,
+            title=data.title,
+            doc_type=data.doc_type,
+            extracted_text=data.extracted_text or "",
+        )
+
+    conn = _WritableDocumentConn()
+    document = await upload_document(
+        _FakePool(conn),
+        WorkspaceEventBus(),
+        user_id=uuid4(),
+        actor="student",
+        data=_document_upload(
+            filename="notes.txt", mime="text/plain", content=source_text.encode()
+        ),
+        summary_generator=summarize,
+    )
+
+    assert document.text_status == "extracted"
+    assert document.summary is None
+    assert conn.insert_args is not None
+    rendered_logs = repr([*summary_logs, *service_logs])
+    assert source_text not in rendered_logs
+    assert "exc_info" not in rendered_logs
+
+
+async def test_summary_generator_exception_logs_no_document_or_exception_contents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.workspace.service_documents as service_documents
+
+    source_text = "confidential document content"
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    class CapturingLogger:
+        def warning(self, *args: object, **kwargs: object) -> None:
+            calls.append((args, kwargs))
+
+    async def failing_summary(_: DocumentCreate) -> str:
+        raise RuntimeError(source_text)
+
+    monkeypatch.setattr(service_documents, "logger", CapturingLogger())
+    conn = _WritableDocumentConn()
+    document = await upload_document(
+        _FakePool(conn),
+        WorkspaceEventBus(),
+        user_id=uuid4(),
+        actor="student",
+        data=_document_upload(
+            filename="notes.txt", mime="text/plain", content=source_text.encode()
+        ),
+        summary_generator=failing_summary,
+    )
+
+    assert document.text_status == "extracted"
+    assert document.summary is None
+    assert conn.insert_args is not None
+    rendered_logs = repr(calls)
+    assert source_text not in rendered_logs
+    assert "exc_info" not in rendered_logs
+
+
+async def test_summary_exception_logs_no_document_or_exception_contents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.workspace.document_summary as document_summary
+
+    source_text = "confidential student document source"
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    class CapturingLogger:
+        def warning(self, *args: object, **kwargs: object) -> None:
+            calls.append((args, kwargs))
+
+    class FailingAgent:
+        def __init__(self, *_: object, **__: object) -> None:
+            pass
+
+        async def run(self, _: str) -> SimpleNamespace:
+            raise RuntimeError(source_text)
+
+    monkeypatch.setattr(document_summary, "Agent", FailingAgent)
+    monkeypatch.setattr(document_summary, "load_prompt", lambda _: "summary prompt")
+    monkeypatch.setattr(document_summary, "logger", CapturingLogger())
+    settings = SimpleNamespace(
+        model_cheap="anthropic:claude-haiku-4-5",
+        document_summary_excerpt_max_chars=100,
+        document_summary_timeout_s=1.0,
+    )
+
+    assert (
+        await document_summary.summarize_document(
+            settings,
+            title="Student document",
+            doc_type="other",
+            extracted_text=source_text,
+        )
+        is None
+    )
+    rendered_logs = repr(calls)
+    assert source_text not in rendered_logs
+    assert "exc_info" not in rendered_logs
+
+
+async def test_document_summary_generator_reaches_the_cheap_model_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.workspace.document_summary as document_summary
+
+    received: dict[str, object] = {}
+
+    async def fake_summarize(
+        settings: object,
+        *,
+        title: str,
+        doc_type: str,
+        extracted_text: str,
+        model_factory: Callable[[], object] | None,
+    ) -> str:
+        received.update(
+            settings=settings,
+            title=title,
+            doc_type=doc_type,
+            extracted_text=extracted_text,
+            model_factory=model_factory,
+        )
+        return "First fact.\nSecond fact."
+
+    monkeypatch.setattr(document_summary, "summarize_document", fake_summarize)
+    settings = object()
+
+    def model_factory() -> object:
+        return object()
+
+    generator = make_document_summary_generator(settings, model_factory=model_factory)
+    data = DocumentCreate(
+        title="Transcript",
+        filename="transcript.txt",
+        mime="text/plain",
+        content=b"GPA 3.91",
+        text_status="extracted",
+        extracted_text="GPA 3.91",
+    )
+
+    assert await generator(data) == "First fact.\nSecond fact."
+    assert received == {
+        "settings": settings,
+        "title": "Transcript",
+        "doc_type": "other",
+        "extracted_text": "GPA 3.91",
+        "model_factory": model_factory,
+    }
 
 
 async def test_document_lookup_hides_foreign_document_with_owner_scoped_query() -> None:

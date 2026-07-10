@@ -51,6 +51,10 @@ MEMORY_TOTAL_MAX_CHARS = 5_000
 MEMORY_BATCH_MIN_ITEMS = 1
 MEMORY_BATCH_MAX_ITEMS = 10
 DOCUMENT_MAX_BYTES = 15 * 1024 * 1024
+#: Cap on stored/returned extracted document text (truncated, not rejected, at
+#: the extraction layer) — legitimate large PDFs/DOCX can otherwise yield
+#: several MB of text stored and returned verbatim.
+EXTRACTED_TEXT_MAX_LENGTH = 500_000
 
 ProfileText = Annotated[str, Field(max_length=PROFILE_TEXT_MAX_LENGTH)]
 ProfileShortText = Annotated[str, Field(max_length=PROFILE_SHORT_TEXT_MAX_LENGTH)]
@@ -645,7 +649,7 @@ class Document(_Model):
 
 class DocumentContent(Document):
     content: bytes
-    extracted_text: str | None = None
+    extracted_text: str | None = Field(default=None, max_length=EXTRACTED_TEXT_MAX_LENGTH)
 
 
 class DocumentCreate(_Model):
@@ -655,8 +659,18 @@ class DocumentCreate(_Model):
     mime: str = Field(max_length=PROFILE_SHORT_TEXT_MAX_LENGTH)
     content: bytes
     text_status: DocumentTextStatus
-    extracted_text: str | None = None
+    extracted_text: str | None = Field(default=None, max_length=EXTRACTED_TEXT_MAX_LENGTH)
     summary: str | None = Field(default=None, max_length=PROFILE_TEXT_MAX_LENGTH)
+
+
+class DocumentUpload(_Model):
+    """Student-supplied upload data before extraction and summarization."""
+
+    title: str = Field(min_length=1, max_length=PROFILE_SHORT_TEXT_MAX_LENGTH)
+    doc_type: DocumentType = "other"
+    filename: str = Field(min_length=1, max_length=PROFILE_SHORT_TEXT_MAX_LENGTH)
+    mime: str = Field(min_length=1, max_length=PROFILE_SHORT_TEXT_MAX_LENGTH)
+    content: bytes = Field(min_length=1, max_length=DOCUMENT_MAX_BYTES)
 
 
 class Memory(_Model):

@@ -183,6 +183,15 @@ class Settings(BaseSettings):
     # --- Workspace ---
     workspace_event_queue_size: int = 256
     workspace_writes_per_minute: int = 240
+    # Document summaries are optional list metadata, not a second document
+    # store. Bound both source exposure and upload latency independently.
+    document_summary_excerpt_max_chars: int = 8_000
+    document_summary_timeout_s: float = 8.0
+    # PDF/DOCX parsing (pypdf/python-docx) runs twice per upload (validate then
+    # extract) off the event loop via asyncio.to_thread; a crafted small file can
+    # decompress to gigabytes or pathologically stall the shared thread pool
+    # (decompression-bomb DoS). Bounded the same way as the summary model call.
+    document_extraction_timeout_s: float = 8.0
 
     # --- Auth (B3, ADR 0021) ---
     # REQUIRED: the JWT signing secret (≥32 bytes — pyjwt 2.13 warns below).

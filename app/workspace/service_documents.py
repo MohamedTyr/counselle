@@ -5,8 +5,15 @@ from __future__ import annotations
 from uuid import UUID
 
 import asyncpg
+import structlog
 
 from app.workspace.changes import WorkspaceEventBus, make_change_event, record_change
+from app.workspace.document_summary import (
+    DocumentSummaryGenerator,
+    is_no_document_summary,
+    normalize_document_summary,
+)
+from app.workspace.extraction import DEFAULT_EXTRACTION_TIMEOUT_S
 from app.workspace.models import (
     DOCUMENT_MAX_BYTES,
     Actor,
@@ -14,10 +21,13 @@ from app.workspace.models import (
     Document,
     DocumentContent,
     DocumentCreate,
+    DocumentUpload,
     WorkspaceNotFoundError,
     WorkspaceValidationError,
 )
 from app.workspace.service_utils import publish_events
+
+logger = structlog.get_logger(__name__)
 
 _METADATA_COLUMNS = """
 id, user_id, title, doc_type, filename, mime, size_bytes, text_status,
@@ -55,6 +65,7 @@ async def create_document(
     _require_student_actor(actor)
     if len(data.content) > DOCUMENT_MAX_BYTES:
         raise WorkspaceValidationError("document exceeds the 15 MiB size limit")
+    _validate_text_state(data)
     async with app_pool.acquire() as conn, conn.transaction():
         row = await conn.fetchrow(
             """
@@ -88,6 +99,36 @@ async def create_document(
         )
     _publish_change(event_bus, user_id, actor, document.id, "created", change_id)
     return document
+
+
+async def upload_document(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    data: DocumentUpload,
+    summary_generator: DocumentSummaryGenerator | None = None,
+    extraction_timeout_s: float = DEFAULT_EXTRACTION_TIMEOUT_S,
+) -> Document:
+    """Extract, optionally summarize, and persist one student-uploaded document.
+
+    This is the upload boundary for future HTTP routes: input validation and
+    ownership checks happen before storage, while summary failure remains
+    degradable after extraction has produced a truthful status.
+    """
+    _require_student_actor(actor)
+    from app.workspace.extraction import prepare_document_upload
+
+    prepared = await prepare_document_upload(data, extraction_timeout_s=extraction_timeout_s)
+    summary = await _generate_summary(prepared, summary_generator)
+    return await create_document(
+        app_pool,
+        event_bus,
+        user_id=user_id,
+        actor=actor,
+        data=prepared.model_copy(update={"summary": summary}),
+    )
 
 
 async def get_document(app_pool: asyncpg.Pool, *, user_id: UUID, document_id: UUID) -> Document:
@@ -217,3 +258,47 @@ def _publish_change(
 def _require_student_actor(actor: Actor) -> None:
     if actor != "student":
         raise WorkspaceValidationError("documents can only be modified by students")
+
+
+async def _generate_summary(
+    data: DocumentCreate, summary_generator: DocumentSummaryGenerator | None
+) -> str | None:
+    if data.text_status != "extracted" or data.extracted_text is None or summary_generator is None:
+        return None
+    try:
+        raw_summary = await summary_generator(data)
+        summary = normalize_document_summary(raw_summary)
+    except Exception:
+        logger.warning(
+            "document summary failed; upload will continue",
+            doc_type=data.doc_type,
+            mime=data.mime,
+            extracted_text_length=len(data.extracted_text),
+        )
+        return None
+    if summary is None and not is_no_document_summary(raw_summary):
+        logger.warning(
+            "document summary output invalid; upload will continue",
+            doc_type=data.doc_type,
+            mime=data.mime,
+            extracted_text_length=len(data.extracted_text),
+        )
+    return summary
+
+
+def _validate_text_state(data: DocumentCreate) -> None:
+    has_text = bool(
+        data.extracted_text
+        and any(
+            character.isprintable() and not character.isspace()
+            for character in data.extracted_text
+        )
+    )
+    if data.text_status == "extracted" and not has_text:
+        raise WorkspaceValidationError("extracted documents require usable extracted text")
+    if data.text_status != "extracted" and data.extracted_text is not None:
+        raise WorkspaceValidationError(
+            "failed or unsupported documents cannot include extracted text"
+        )
+    if data.text_status != "extracted" and data.summary is not None:
+        raise WorkspaceValidationError("failed or unsupported documents cannot include a summary")
