@@ -51,6 +51,12 @@ _GATED_BY: dict[str, str] = {
     "archive_honors": "auth",
     "restore_honor": "auth",
     "reorder_honors": "auth",
+    "update_profile": "auth",
+    "view_documents": "auth",
+    "read_document": "auth",
+    "remember": "auth",
+    "update_memory": "auth",
+    "forget": "auth",
 }
 
 

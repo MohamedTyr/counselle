@@ -22,6 +22,18 @@ export const workspaceKeys = {
     all: () => [...workspaceKeys.all, "honors"] as const,
     list: () => [...workspaceKeys.honors.all(), "list"] as const,
   },
+  profile: {
+    all: () => [...workspaceKeys.all, "profile"] as const,
+    detail: () => [...workspaceKeys.profile.all(), "detail"] as const,
+  },
+  documents: {
+    all: () => [...workspaceKeys.all, "documents"] as const,
+    list: () => [...workspaceKeys.documents.all(), "list"] as const,
+  },
+  memories: {
+    all: () => [...workspaceKeys.all, "memories"] as const,
+    list: () => [...workspaceKeys.memories.all(), "list"] as const,
+  },
   schoolSearchAll: () => [...workspaceKeys.all, "schools", "search"] as const,
   schoolSearch: (q: string) =>
     [...workspaceKeys.schoolSearchAll(), q.trim()] as const,

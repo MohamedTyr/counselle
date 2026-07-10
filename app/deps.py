@@ -27,6 +27,7 @@ from app.graph import GraphDeps, build_graph
 from app.run_handle import RunHandleStore
 from app.toolset import ToolDeps, build_mcp_toolset, make_tool_deps
 from app.workspace.changes import WorkspaceEventBus
+from app.workspace.document_summary import DocumentSummaryGenerator, make_document_summary_generator
 from app.workspace.models import WorkspaceSeedingTemplate
 from config.settings import get_settings, load_yaml_asset
 from counselle_db.catalog import Catalog
@@ -55,6 +56,7 @@ class AppDeps(GraphDeps):
     on_failure: Callable[[], None] | None = field(default=None)
     workspace_events: WorkspaceEventBus | None = None
     workspace_seeding_template: WorkspaceSeedingTemplate | None = None
+    document_summary_generator: DocumentSummaryGenerator | None = None
 
 
 @dataclass
@@ -103,6 +105,7 @@ async def build_runtime(settings: Any = None) -> Runtime:
         mcp_toolset=build_mcp_toolset(settings),
         workspace_events=WorkspaceEventBus(queue_size=settings.workspace_event_queue_size),
         workspace_seeding_template=workspace_seeding_template,
+        document_summary_generator=make_document_summary_generator(settings),
     )
     graph = build_graph(checkpointer, deps)
     return Runtime(

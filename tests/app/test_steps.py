@@ -62,6 +62,12 @@ FUNCTION_TOOLS = {
     "archive_honors",
     "restore_honor",
     "reorder_honors",
+    "update_profile",
+    "view_documents",
+    "read_document",
+    "remember",
+    "update_memory",
+    "forget",
 }
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
@@ -242,6 +248,18 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
     ),
     ("restore_honor", {"honor_id": "abc"}, "workspace", None, ["Bringing back"]),
     ("reorder_honors", {"ids": ["a", "b"]}, "workspace", None, ["Reordering"]),
+    ("update_profile", {}, "workspace", None, ["Updating your profile"]),
+    ("view_documents", {}, "workspace", None, ["Checking your documents"]),
+    ("read_document", {"document_ref": "abc12345"}, "workspace", None, ["Reading a document"]),
+    ("remember", {"notes": ["prefers blunt feedback"]}, "memory", None, ["Remembering"]),
+    ("update_memory", {"memory_ref": "abc12345"}, "memory", None, ["Updating a memory"]),
+    (
+        "forget",
+        {"memory_refs": ["abc12345", "def67890"]},
+        "memory",
+        None,
+        ["Forgetting 2 notes"],
+    ),
 ]
 
 

@@ -3,8 +3,8 @@
 # One row per tool the agent can call. `label` templates interpolate args the
 # step mapper (app/steps.py) guarantees: {query} {school} {schools} {category}
 # {subreddits} {viz_label} {name} {field} {tool} {tasks_phrase} {schools_phrase}
-# {essays_phrase} {activities_phrase} {honors_phrase}. Changing the product
-# voice never touches code (ADR 0018 bucket 2).
+# {essays_phrase} {activities_phrase} {honors_phrase} {memories_phrase}.
+# Changing the product voice never touches code (ADR 0018 bucket 2).
 #
 # `tier` drives the timeline icon/color grammar: official | community | null
 # (null = neutral — the open web is mixed-tier per result; the citation
@@ -215,6 +215,30 @@ tools:
     kind: workspace
     tier: null
     label: "Reordering the honors list"
+  update_profile:
+    kind: workspace
+    tier: null
+    label: "Updating your profile"
+  view_documents:
+    kind: workspace
+    tier: null
+    label: "Checking your documents"
+  read_document:
+    kind: workspace
+    tier: null
+    label: "Reading a document"
+  remember:
+    kind: memory
+    tier: null
+    label: "Remembering…"
+  update_memory:
+    kind: memory
+    tier: null
+    label: "Updating a memory"
+  forget:
+    kind: memory
+    tier: null
+    label: "Forgetting {memories_phrase}"
 
 # Any tool not in the table maps here — a generic step, never nothing.
 default:

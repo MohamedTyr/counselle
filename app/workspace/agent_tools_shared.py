@@ -410,6 +410,28 @@ def resolve_link(
     return parsed, None
 
 
+def resolve_ref(ref: str, ids: list[UUID]) -> tuple[UUID | None, bool]:
+    """Resolve a document/memory ref against active ids (Part D 8-char id prefixes).
+
+    Accepts either a full UUID or the rendered 8-char prefix (or any shorter
+    hex prefix, ``>=4`` chars, to tolerate a model truncating further).
+    Returns ``(matched_id, ambiguous)`` — ``(None, False)`` means not found,
+    ``(None, True)`` means more than one active id shares that prefix.
+    """
+    parsed = try_uuid(ref)
+    if parsed is not None:
+        return (parsed, False) if parsed in ids else (None, False)
+    candidate = ref.strip().lower()
+    if len(candidate) < 4 or any(char not in "0123456789abcdef" for char in candidate):
+        return None, False
+    matches = [item_id for item_id in ids if str(item_id).replace("-", "").startswith(candidate)]
+    if len(matches) == 1:
+        return matches[0], False
+    if len(matches) > 1:
+        return None, True
+    return None, False
+
+
 async def find_similar_active_task(ctx: ToolCtx, title: str) -> dict[str, Any] | None:
     """Trgm duplicate guard (Locked decision 8): best active-title match ≥0.6, if any.
 

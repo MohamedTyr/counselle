@@ -56,6 +56,7 @@ from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.skills import load_skill
 from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
+from app.student_context import STUDENT_CONTEXT_UNAUTHENTICATED
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
 from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
@@ -602,6 +603,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         model_factory(),
         instructions=build_system_prompt(
             state["temporal"]["context"],
+            state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
             deps.catalog.school_count,
         ),
         deps_type=TurnDeps,

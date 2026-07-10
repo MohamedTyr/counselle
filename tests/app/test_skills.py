@@ -41,6 +41,7 @@ _EXPECTED_SKILLS = {
 }
 
 _FAKE_TEMPORAL = "Today is 2026-06-10. TEST. Season: list-building."
+_FAKE_STUDENT_CONTEXT = "## About This Student\nTEST. No profile yet."
 _CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
 _TOOL_CALL_RE = re.compile(r"^([a-z][a-z0-9_]*)\(")
 
@@ -203,16 +204,17 @@ def built_prompt() -> str:
     sm_mod.load_static_map.cache_clear()
 
     importlib.reload(prompt_mod)
-    return prompt_mod.build_system_prompt(_FAKE_TEMPORAL, 2710)
+    return prompt_mod.build_system_prompt(_FAKE_TEMPORAL, _FAKE_STUDENT_CONTEXT, 2710)
 
 
 def test_no_unfilled_template_slots(built_prompt: str) -> None:
-    """The six slot names must not appear as bare {name} tokens."""
+    """The seven slot names must not appear as bare {name} tokens."""
     _slots = [
         "static_field_map",
         "dossier_shortlist_summary",
         "subreddit_menu",
         "temporal_context",
+        "student_context",
         "tier_note",
         "school_count",
     ]
@@ -223,6 +225,10 @@ def test_no_unfilled_template_slots(built_prompt: str) -> None:
 
 def test_prompt_contains_fake_temporal(built_prompt: str) -> None:
     assert _FAKE_TEMPORAL in built_prompt, "Temporal context string not found in built prompt"
+
+
+def test_prompt_contains_fake_student_context(built_prompt: str) -> None:
+    assert _FAKE_STUDENT_CONTEXT in built_prompt, "Student context string not found in built prompt"
 
 
 def test_prompt_contains_subreddit_line(built_prompt: str) -> None:

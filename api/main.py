@@ -51,8 +51,11 @@ from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter, auth_rate_li
 from api.routes import (
     activities,
     applications,
+    documents,
     essays,
     me,
+    memories,
+    profile,
     sessions,
     system,
     tasks,
@@ -232,5 +235,8 @@ def create_app() -> FastAPI:
     app.include_router(tasks.router, prefix="/v1")
     app.include_router(essays.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")
+    app.include_router(profile.router, prefix="/v1")
+    app.include_router(documents.router, prefix="/v1")
+    app.include_router(memories.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
     return app

@@ -11,6 +11,7 @@ import { AiChatRoute } from "@/features/ai-chat/AiChatRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
 import { EssayEditorPage } from "@/pages/essay-editor-page";
 import { EssaysPage } from "@/pages/essays-page";
+import { ProfilePage } from "@/pages/profile-page";
 import { SchoolsPage } from "@/pages/schools-page";
 import { TasksPage } from "@/pages/tasks-page";
 
@@ -56,6 +57,10 @@ export function createAppRouter() {
             {
               path: "tasks",
               element: <TasksPage />,
+            },
+            {
+              path: "profile",
+              element: <ProfilePage />,
             },
             {
               path: "calendar",

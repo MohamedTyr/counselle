@@ -241,7 +241,7 @@ class StepMapper:
                 kwargs["value_count"] = receipt["value_count"]
         elif kind == "write_plan":
             kwargs.update(_plan_detail_kwargs(content))
-        elif kind == "workspace":
+        elif kind in ("workspace", "memory"):
             if isinstance(content, dict):
                 kwargs["summary"] = _str_or_none(content.get("summary"))
         else:  # db_tool, skill, unknown
@@ -292,6 +292,7 @@ class StepMapper:
             "essays_phrase": _essays_phrase(args),
             "activities_phrase": _activities_phrase(args),
             "honors_phrase": _honors_phrase(args),
+            "memories_phrase": _memories_phrase(args),
         }
 
     @staticmethod
@@ -518,6 +519,13 @@ def _honors_phrase(args: dict[str, Any]) -> str:
     items = args.get("honors") or args.get("honor_ids") or []
     count = len(items) if isinstance(items, list) else 0
     return "an honor" if count == 1 else f"{count} honors"
+
+
+def _memories_phrase(args: dict[str, Any]) -> str:
+    """ "1 note" / "N notes" (forget) — the plan's literal "Forgetting {n} notes" wording."""
+    items = args.get("memory_refs") or []
+    count = len(items) if isinstance(items, list) else 0
+    return f"{count} note" if count == 1 else f"{count} notes"
 
 
 def _row_count_of(content: Any) -> int | None:

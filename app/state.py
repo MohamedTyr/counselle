@@ -65,6 +65,10 @@ class TurnState(TypedDict, total=False):
       on later turns in the same session.
     - ``temporal``: :class:`TemporalContext` dump — rebuilt by ``prepare``
       every turn, never stale.
+    - ``student_context``: the rendered ``{student_context}`` prompt block
+      (``app/student_context.py``) — profile + documents + memory for the
+      authenticated user, or the neutral unauthenticated line. Rebuilt by
+      ``prepare`` every turn, same as ``temporal``.
     - ``turn_records``: one record per assistant turn (``app/records.py``,
       ship-plan G2) — the full-fidelity transcript source. This is an
       **overwrite channel where every writer owns the full list**: each
@@ -90,5 +94,6 @@ class TurnState(TypedDict, total=False):
     usage: dict[str, Any]
     tool_result_store: dict[str, Any]
     temporal: dict[str, Any]
+    student_context: str
     turn_records: list[dict[str, Any]]
     turn_ids: dict[str, Any] | None

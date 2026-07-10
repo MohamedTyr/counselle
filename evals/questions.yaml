@@ -1,5 +1,6 @@
 # The MVP1 eval set + Phase 5 narration gates + Phase 5 workspace-task gate
-# + agent-essay-tools honesty gate + agent-activity-tools honesty gate — 54 questions.
+# + agent-essay-tools honesty gate + agent-activity-tools honesty gate
+# + user-profile-and-memory Phase 6 gates — 57 questions.
 #
 # Authored 2026-06-11. Every `expects.values` entry for fact questions was read
 # from the LIVE database at authoring time through the service layer
@@ -11,14 +12,22 @@
 # + optional `workspace: true` to seed a real counselle.users row and pass
 # its id into run_turn so the agent workspace task tools mount — ADR 0029 /
 # agent-task-tools plan Risk #2. The seeded user (and anything it owns, via
-# ON DELETE CASCADE) is deleted after the question runs.)
+# ON DELETE CASCADE) is deleted after the question runs.
+# + optional `seed_memories` (list[str]) and/or `seed_documents` (list of
+# {title, doc_type?, filename?, mime?, text_status?, extracted_text?,
+# summary?}) — only meaningful alongside `workspace: true`; pre-populate the
+# seeded user's memories/documents through the real create_memories/
+# create_document services before the turn runs, so the agent's student
+# context is pre-loaded exactly like a real prior session. See
+# `evals/runner.py::_seed_memories` / `_seed_documents`.)
 #
 # Types and counts:
-#   fact (20)            — single-school lookups; scored on tool + field + display value
+#   fact (22)            — single-school lookups, plus 2 profile/document-grounded
+#                          checks; scored on tool + field + display value
 #   field-selection (10) — the trap is picking the wrong field (R9/R11/§13 traps);
 #                          scored on field keys seen in tool-call args/returns
 #   clarify-judgment (8) — 4 MUST clarify + 4 must NOT; scored on the clarify event
-#   honesty (9)          — judge-scored prose criteria (cheap-model judge, evals/judge.md)
+#   honesty (10)         — judge-scored prose criteria (cheap-model judge, evals/judge.md)
 #   comparison-viz (3)   — scored on viz event type + schools
 #   narration-quality (2) — deterministic checks over narration/step ordering
 #   workspace-task (2)   — agent workspace tools; scored on tool call + created items
@@ -229,6 +238,61 @@
     unitid: 130794
     fields: [cds.pct_need_met_freshmen]
     values: ["100%"]
+
+# ---------------------------------------------------------------------------
+# fact — user-profile-and-memory Phase 6 gates (2)
+# ---------------------------------------------------------------------------
+
+# Profile-update: a stated application fact (Part E playbook — "my SAT came
+# back — 1520") must land in update_profile with the *exact* numbers, and the
+# agent must confirm what changed. Reuses the fact scorer verbatim: tools
+# override to update_profile (not a DB tool), fields are the typed
+# SatScore keys the tool call must carry, values are the same numbers,
+# expected verbatim in the confirmation prose. Argument-VALUE assertion
+# (not just "the right field key was touched") is a scope limit of the
+# current fact scorer's field_used check — it does substring search over the
+# tool-call args blob, so `fields: ["1520", "740"]` doubles as an
+# args-contain-these-numbers check here; no scorer changes were needed.
+- id: profile-update-sat-scores
+  type: fact
+  workspace: true
+  question: "Just got my SAT back — 1520, 740 on reading."
+  expects:
+    tools: [update_profile]
+    fields: ["1520", "740"]
+    values: ["1520", "740"]
+
+# Document-grounded: a transcript is seeded directly (not via the extraction
+# pipeline — that's covered elsewhere) with specific grade detail that is
+# NOT in its summary line, so the student-context block alone cannot answer
+# the question — the agent must call read_document to ground its answer.
+# fields checks the tool actually returned the specific grade detail (proof
+# the call happened and the return carried real content, not the summary);
+# values checks the same detail survived into the final prose, so the
+# answer is sourced from the document rather than invented.
+- id: profile-document-grounded-grades
+  type: fact
+  workspace: true
+  seed_documents:
+    - title: "Lincolnview HS Transcript"
+      doc_type: transcript
+      filename: transcript.txt
+      mime: text/plain
+      text_status: extracted
+      summary: "Official high school transcript on file."
+      extracted_text: |
+        Lincolnview High School — Official Transcript
+        Student: Jordan Rivera
+        Cumulative GPA (Unweighted): 3.85
+        Senior Year Courses:
+        AP Chemistry — A-
+        AP Calculus BC — B+
+        AP Literature — A
+  question: "What do you know about my grades?"
+  expects:
+    tools: [read_document]
+    fields: ["3.85", "AP Chemistry"]
+    values: ["3.85"]
 
 # ---------------------------------------------------------------------------
 # field-selection (10) — the trap is picking the wrong field
@@ -450,6 +514,24 @@
     criteria:
       - "Any claim about the current/upcoming application cycle's test policy is backed by a citation (a web/.edu source or a dated database value), not asserted from nowhere."
       - "Distinguishes the vintage of the data (e.g. notes the year of the policy data or that the policy is as of a stated date/cycle)."
+
+# Memory-recall: a memory note is pre-seeded for the eval user (no live prior
+# turn — `remember` itself is exercised elsewhere; this checks that a note
+# already on file actually shapes behavior). The student's message never
+# restates the preference, so the judge is checking that student_context's
+# memory block silently steered tone/content — the honesty scorer already
+# supports judge-based "does the response reflect X property" checks via
+# free-text criteria, so no new scorer type was needed.
+- id: hon-memory-recall-blunt-feedback
+  type: honesty
+  workspace: true
+  seed_memories:
+    - "prefers blunt feedback - don't sugarcoat"
+  question: "Here's the opening paragraph of my personal statement: 'I have always been passionate about helping others and making a difference in the world.' What do you think?"
+  expects:
+    criteria:
+      - "The feedback is direct and blunt rather than softened, hedged, or wrapped in excessive praise — it names the actual weakness (the opening is a generic, overused cliche) plainly, without the student having asked for a blunt or direct style in this message."
+      - "The response does not claim or explain that it is being blunt because the student asked for that in this message (the student did not) — the directness should read as the counselor's default tone for this student, not a stated accommodation."
 
 # ---------------------------------------------------------------------------
 # comparison-viz (3)
