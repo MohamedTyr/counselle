@@ -12,6 +12,7 @@ project's error envelope.
 
 from __future__ import annotations
 
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
@@ -24,7 +25,12 @@ from api.ratelimit import workspace_write_rate_limit
 from api.routes.workspace_common import map_workspace_errors, runtime_parts
 from api.users_db import UserDB
 from app.workspace.models import DOCUMENT_MAX_BYTES, DocumentType, DocumentUpload
-from app.workspace.service_documents import archive_document, list_documents, upload_document
+from app.workspace.service_documents import (
+    archive_document,
+    list_documents,
+    read_document,
+    upload_document,
+)
 
 router = APIRouter(tags=["workspace"])
 
@@ -101,6 +107,42 @@ async def archive_document_route(
         )
     )
     return Response(status_code=204)
+
+
+@router.get("/documents/{document_id}/file")
+async def read_document_file_route(
+    document_id: UUID,
+    request: Request,
+    user: UserDB = Depends(current_active_user),
+) -> Response:
+    app_pool, _, _, _ = runtime_parts(request)
+    document = await map_workspace_errors(
+        lambda: read_document(app_pool, user_id=user.id, document_id=document_id)
+    )
+    return Response(
+        content=document.content,
+        media_type=document.mime,
+        headers={
+            "Content-Disposition": _content_disposition(document.filename),
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+def _content_disposition(filename: str) -> str:
+    """Build a header-injection-safe ``attachment`` Content-Disposition value.
+
+    Always forces ``attachment`` (never inline) so a browser never renders
+    user-uploaded content in-page. The stored filename was sanitized at
+    upload time (``extraction.py::_unsafe_filename``), but header injection
+    is a distinct risk from path traversal, so it is re-escaped here too —
+    mirroring Starlette's own ``FileResponse`` RFC 6266 quoting.
+    """
+    safe_filename = quote(filename)
+    if safe_filename != filename:
+        return f"attachment; filename*=utf-8''{safe_filename}"
+    return f'attachment; filename="{filename}"'
 
 
 def _upload_validation_message(exc: ValidationError) -> str:

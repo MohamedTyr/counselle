@@ -17,7 +17,13 @@ from api.context import install_middleware
 from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter
 from api.routes import documents, memories, profile
 from app.workspace.changes import WorkspaceEventBus
-from app.workspace.models import Document, Memory, Profile, WorkspaceNotFoundError
+from app.workspace.models import (
+    Document,
+    DocumentContent,
+    Memory,
+    Profile,
+    WorkspaceNotFoundError,
+)
 from tests.api.conftest import TEST_USER_ID, _test_user
 
 _UNKNOWN_UUID = "00000000-0000-4000-8000-000000000001"
@@ -76,6 +82,23 @@ def _document(document_id: UUID | None = None) -> Document:
     )
 
 
+def _document_content(
+    document_id: UUID | None = None, *, filename: str = "transcript.pdf"
+) -> DocumentContent:
+    return DocumentContent(
+        id=document_id or uuid4(),
+        user_id=TEST_USER_ID,
+        title="Transcript",
+        doc_type="transcript",
+        filename=filename,
+        mime="application/pdf",
+        size_bytes=13,
+        text_status="extracted",
+        created_at=datetime.now(UTC),
+        content=b"%PDF-1.4 fake",
+    )
+
+
 def _memory(memory_id: UUID | None = None) -> Memory:
     return Memory(
         id=memory_id or uuid4(),
@@ -96,6 +119,7 @@ def _memory(memory_id: UUID | None = None) -> Memory:
     [
         ("get", "/v1/profile"),
         ("get", "/v1/documents"),
+        ("get", f"/v1/documents/{_UNKNOWN_UUID}/file"),
         ("get", "/v1/memories"),
     ],
 )
@@ -262,6 +286,7 @@ def test_upload_document_route_requires_auth() -> None:
     ("patch_target", "method", "path"),
     [
         ("api.routes.documents.archive_document", "delete", f"/v1/documents/{_UNKNOWN_UUID}"),
+        ("api.routes.documents.read_document", "get", f"/v1/documents/{_UNKNOWN_UUID}/file"),
         ("api.routes.memories.archive_memory", "delete", f"/v1/memories/{_UNKNOWN_UUID}"),
     ],
 )
@@ -293,6 +318,51 @@ def test_archive_document_route_scopes_to_authenticated_user() -> None:
     assert kwargs["user_id"] == TEST_USER_ID
     assert kwargs["actor"] == "student"
     assert kwargs["document_id"] == document_id
+
+
+def test_read_document_file_route_returns_raw_bytes_with_safe_headers() -> None:
+    document_id = uuid4()
+    content = _document_content(document_id)
+    service = AsyncMock(return_value=content)
+    with (
+        patch("api.routes.documents.read_document", new=service),
+        TestClient(_app(), raise_server_exceptions=False) as client,
+    ):
+        response = client.get(f"/v1/documents/{document_id}/file")
+
+    assert response.status_code == 200
+    assert response.content == content.content
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"] == 'attachment; filename="transcript.pdf"'
+    assert response.headers["x-content-type-options"] == "nosniff"
+    kwargs = _await_kwargs(service)
+    assert kwargs["user_id"] == TEST_USER_ID
+    assert kwargs["document_id"] == document_id
+
+
+def test_read_document_file_route_escapes_header_injection_attempt_in_filename() -> None:
+    document_id = uuid4()
+    content = _document_content(document_id, filename='evil".pdf\r\nX-Injected: 1')
+    service = AsyncMock(return_value=content)
+    with (
+        patch("api.routes.documents.read_document", new=service),
+        TestClient(_app(), raise_server_exceptions=False) as client,
+    ):
+        response = client.get(f"/v1/documents/{document_id}/file")
+
+    assert response.status_code == 200
+    disposition = response.headers["content-disposition"]
+    assert disposition.startswith("attachment; filename*=utf-8''")
+    assert "\r" not in disposition
+    assert "\n" not in disposition
+    assert "X-Injected" not in response.headers
+
+
+def test_read_document_file_route_requires_auth() -> None:
+    with TestClient(_app(authed=False), raise_server_exceptions=False) as client:
+        response = client.get(f"/v1/documents/{uuid4()}/file")
+
+    assert response.status_code == 401
 
 
 def test_archive_memory_route_scopes_to_authenticated_user() -> None:
