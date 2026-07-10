@@ -48,7 +48,7 @@ ORDER BY e.archived_at DESC
 # --------------------------------------------------------------------------
 
 
-def _words(word_count: int, word_limit: int | None) -> str:
+def words_display(word_count: int, word_limit: int | None) -> str:
     return f"{word_count}/{word_limit}" if word_limit is not None else str(word_count)
 
 
@@ -62,7 +62,7 @@ def render_essay_row(essay: EssaySummary, *, state: str | None = None) -> dict[s
     }
     if essay.school_name:
         row["school"] = essay.school_name
-    row["words"] = _words(essay.word_count, essay.word_limit)
+    row["words"] = words_display(essay.word_count, essay.word_limit)
     if essay.deadline is not None:
         row["deadline"] = essay.deadline.isoformat()
     row["updated"] = essay.updated_at.date().isoformat()
@@ -87,7 +87,7 @@ async def _archived_essay_rows(ctx: ToolCtx) -> list[dict[str, Any]]:
         }
         if school:
             item["school"] = school
-        item["words"] = _words(row["word_count"], row["word_limit"])
+        item["words"] = words_display(row["word_count"], row["word_limit"])
         if row["deadline"] is not None:
             item["deadline"] = row["deadline"].isoformat()
         item["updated"] = row["updated_at"].date().isoformat()
@@ -252,7 +252,7 @@ async def _read_essay_impl(ctx: ToolCtx, essay_id: str) -> dict[str, Any]:
         essay_meta["prompt"] = essay.prompt
     if essay.deadline is not None:
         essay_meta["deadline"] = essay.deadline.isoformat()
-    essay_meta["words"] = _words(essay.word_count, essay.word_limit)
+    essay_meta["words"] = words_display(essay.word_count, essay.word_limit)
 
     if not content_markdown:
         footer = "The essay is empty — draft it with write_essay."

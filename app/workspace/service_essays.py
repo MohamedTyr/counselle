@@ -303,11 +303,19 @@ def _tiptap_text(node: Any) -> list[str]:
 
 
 async def _require_essay(conn: asyncpg.Connection, user_id: UUID, essay_id: UUID) -> asyncpg.Record:
+    # FOR UPDATE closes a TOCTOU race in update_essay: without it, a plain
+    # SELECT lets a concurrent autosave commit between this stale-version
+    # check and the UPDATE below, so the UPDATE would silently clobber it
+    # once the lock releases. Holding the row lock here until the caller's
+    # transaction commits makes expected_updated_at an actual guarantee, not
+    # just advisory. Always called inside a transaction, so this never
+    # blocks outside one.
     row = await conn.fetchrow(
         """
         SELECT *
         FROM counselle.essays
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+        FOR UPDATE
         """,
         essay_id,
         user_id,
