@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic_ai import Tool
 
@@ -39,6 +40,7 @@ FROM counselle.essays e
 LEFT JOIN counselle.applications a
   ON a.id = e.application_id AND a.user_id = e.user_id
 WHERE e.user_id = $1 AND e.archived_at IS NOT NULL
+  AND ($2::uuid IS NULL OR e.application_id = $2)
 ORDER BY e.archived_at DESC
 """
 
@@ -73,9 +75,11 @@ def render_essay_row(essay: EssaySummary, *, state: str | None = None) -> dict[s
     return row
 
 
-async def _archived_essay_rows(ctx: ToolCtx) -> list[dict[str, Any]]:
+async def _archived_essay_rows(
+    ctx: ToolCtx, application_id: UUID | None = None
+) -> list[dict[str, Any]]:
     async with ctx.app_pool.acquire() as conn:
-        rows = await conn.fetch(_ARCHIVED_ESSAYS_SQL, ctx.user_id)
+        rows = await conn.fetch(_ARCHIVED_ESSAYS_SQL, ctx.user_id, application_id)
     out: list[dict[str, Any]] = []
     for row in rows:
         school = ctx.catalog.school_name(row["school_unitid"]) if row["school_unitid"] else None
@@ -157,9 +161,7 @@ async def _view_essays_impl(
 
     archived: list[dict[str, Any]] = []
     if status in ("archived", "all") and not filter_unmatchable:
-        archived = await _archived_essay_rows(ctx)
-        if app_filter is not None:
-            archived = []  # archived rows aren't filtered by application_id today
+        archived = await _archived_essay_rows(ctx, app_filter)
 
     rows = (active + archived)[:limit]
     total = len(active) + len(archived)

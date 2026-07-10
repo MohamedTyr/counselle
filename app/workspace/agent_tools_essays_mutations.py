@@ -36,7 +36,9 @@ from app.workspace.models import (
     Essay,
     EssayCreate,
     EssayPatch,
+    EssayStatus,
     EssaySummary,
+    EssayType,
     WorkspaceNotFoundError,
     WorkspaceValidationError,
 )
@@ -72,7 +74,7 @@ def make_create_essays_tool(ctx: ToolCtx) -> Tool[Any]:
         view_schools/link_targets whenever one clearly applies.
 
         content_markdown is optional — omit it to create an empty essay to draft
-        later. If you do include an initial draft and don't set status explicitly,
+        later. If you do include an initial draft and leave status at its default,
         it's set to "Drafting" automatically.
 
         Args:
@@ -111,6 +113,7 @@ async def _create_essays_impl(ctx: ToolCtx, drafts: list[EssayDraft]) -> dict[st
     active_app_ids = {app.id for app in apps}
 
     parsed: list[tuple[EssayDraft, UUID | None]] = []
+    seen_in_batch: set[tuple[str, UUID | None]] = set()
     for index, draft in enumerate(drafts):
         app_uuid, app_error_msg = resolve_link(
             draft.application_id, "application_id", active_app_ids
@@ -123,6 +126,15 @@ async def _create_essays_impl(ctx: ToolCtx, drafts: list[EssayDraft]) -> dict[st
                 "batch, or omit the link if none fits.",
                 link_targets=link_targets(apps, _essays),
             )
+        batch_key = (draft.title.strip().lower(), app_uuid)
+        if batch_key in seen_in_batch:
+            return error(
+                f'essays[{index}]: "{draft.title}" duplicates another essay earlier in this '
+                "same batch, on the same application. Nothing was created.",
+                retryable=True,
+                recovery="Give each essay in the batch a distinct title, or drop the duplicate "
+                "and resubmit.",
+            )
         dup = await _duplicate_title_guard(ctx, draft.title, app_uuid)
         if dup is not None:
             return error(
@@ -131,6 +143,7 @@ async def _create_essays_impl(ctx: ToolCtx, drafts: list[EssayDraft]) -> dict[st
                 retryable=False,
                 recovery="Update or read the existing essay instead of creating a duplicate.",
             )
+        seen_in_batch.add(batch_key)
         parsed.append((draft, app_uuid))
 
     created: list[Essay] = []
@@ -150,14 +163,29 @@ async def _create_essays_impl(ctx: ToolCtx, drafts: list[EssayDraft]) -> dict[st
             word_limit=draft.word_limit,
             **({"content": content} if content is not None else {}),
         )
-        essay = await create_essay(
-            ctx.app_pool,
-            ctx.catalog,
-            ctx.workspace_events,
-            user_id=ctx.user_id,
-            actor="counselle",
-            data=data,
-        )
+        try:
+            essay = await create_essay(
+                ctx.app_pool,
+                ctx.catalog,
+                ctx.workspace_events,
+                user_id=ctx.user_id,
+                actor="counselle",
+                data=data,
+            )
+        except (WorkspaceNotFoundError, WorkspaceValidationError):
+            # A link resolved fine above but its application was archived in the
+            # window since (rare TOCTOU) — report plainly rather than leak a 500.
+            # Essays already created earlier in this loop are NOT rolled back
+            # (each create_essay call is its own transaction); their ids are
+            # reported so the agent doesn't re-offer to create them again.
+            return error(
+                f'"{draft.title}" could not be created — its linked school may have just been '
+                "archived.",
+                retryable=True,
+                recovery="Call view_schools to check the school is still active, then retry "
+                "with the remaining essays.",
+                created=[render_essay_row(_to_summary(e)) for e in created],
+            )
         created.append(essay)
 
     return {
@@ -203,8 +231,8 @@ def make_update_essay_tool(ctx: ToolCtx) -> Tool[Any]:
         essay_id: str,
         title: str | None = None,
         application_id: str | None = None,
-        essay_type: str | None = None,
-        status: str | None = None,
+        essay_type: EssayType | None = None,
+        status: EssayStatus | None = None,
         prompt: str | None = None,
         word_limit: int | str | None = None,
         deadline: str | None = None,
@@ -215,7 +243,7 @@ def make_update_essay_tool(ctx: ToolCtx) -> Tool[Any]:
 
         essay_id must be an exact id echoed from a view_essays result. To CLEAR an
         optional field, pass the string "clear" (clearable: application_id,
-        word_limit, deadline).
+        prompt, word_limit, deadline).
 
         Args:
             essay_id: The essay's id, from view_essays.
@@ -226,7 +254,7 @@ def make_update_essay_tool(ctx: ToolCtx) -> Tool[Any]:
                 "Optional".
             status: "Not started", "Drafting", "Needs review", "Ready", or
                 "Submitted".
-            prompt: The school's essay question, verbatim.
+            prompt: The school's essay question, verbatim, or "clear" to remove it.
             word_limit: The word limit, or "clear" to remove it.
             deadline: Essay-specific deadline as YYYY-MM-DD, or "clear".
         """
@@ -252,8 +280,8 @@ async def _update_essay_impl(
     *,
     title: str | None,
     application_id: str | None,
-    essay_type: str | None,
-    status: str | None,
+    essay_type: EssayType | None,
+    status: EssayStatus | None,
     prompt: str | None,
     word_limit: int | str | None,
     deadline: str | None,
@@ -279,7 +307,7 @@ async def _update_essay_impl(
     if status is not None:
         patch_fields["status"] = status
     if prompt is not None:
-        patch_fields["prompt"] = prompt
+        patch_fields["prompt"] = None if prompt == _CLEARABLE else prompt
 
     if application_id is not None:
         if application_id == _CLEARABLE:
@@ -435,7 +463,7 @@ async def _archive_essays_impl(ctx: ToolCtx, essay_ids: list[str]) -> dict[str, 
     if skipped:
         summary += f" Skipped {len(skipped)}."
     payload: dict[str, Any] = {
-        "status": "ok",
+        "status": "warning" if skipped else "ok",
         "today": today(),
         "summary": summary,
         "archived": archived,

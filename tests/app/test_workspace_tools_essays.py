@@ -174,6 +174,50 @@ async def test_view_essays_archived_status_shows_archived_essays(
     assert archived_result["essays"][0]["state"] == "archived"
 
 
+async def test_view_essays_archived_status_with_application_filter_matches_correctly(
+    app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
+) -> None:
+    """Regression: combining status="archived" with application_id used to
+    unconditionally return zero rows instead of filtering."""
+    user_id = await make_user()
+    app = await add_application(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
+    )
+    linked = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(title="Linked essay", application_id=app.application.id),
+    )
+    unlinked = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(title="Unlinked essay"),
+    )
+    await archive_essay(
+        app_pool, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=linked.id
+    )
+    await archive_essay(
+        app_pool, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=unlinked.id
+    )
+
+    tool = make_view_essays_tool(_ctx(app_pool, catalog, user_id))
+    result = await tool.function(status="archived", application_id=str(app.application.id))
+
+    ids = {row["id"] for row in result["essays"]}
+    assert ids == {str(linked.id)}
+
+
 async def test_read_essay_returns_markdown_content_and_version(
     app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
 ) -> None:

@@ -132,6 +132,25 @@ async def test_create_essays_rejects_batch_on_duplicate_title(
     assert result["retryable"] is False
 
 
+async def test_create_essays_rejects_batch_with_internal_duplicate_titles(
+    app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
+) -> None:
+    """Two drafts in the same batch with the same title/application must be
+    rejected even though neither exists in the DB yet."""
+    user_id = await make_user()
+    tool = make_create_essays_tool(_ctx(app_pool, catalog, user_id))
+
+    result = await tool.function(
+        essays=[
+            EssayDraft(title="Why us?"),
+            EssayDraft(title="why us?"),
+        ]
+    )
+
+    assert result["status"] == "error"
+    assert result["retryable"] is True
+
+
 async def test_create_essays_batch_size_error(
     app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
 ) -> None:
