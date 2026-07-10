@@ -21,7 +21,9 @@ from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import (
     ApplicationView,
     Assignee,
+    EssayStatus,
     EssaySummary,
+    EssayType,
     Task,
     TaskCategory,
     TaskPriority,
@@ -68,6 +70,18 @@ class TaskDraft(BaseModel):
     reminder: str | None = None
     application_id: str | None = None
     essay_id: str | None = None
+
+
+class EssayDraft(BaseModel):
+    """One essay to create in a ``create_essays`` batch."""
+
+    title: str
+    application_id: str | None = None
+    essay_type: EssayType = "Supplement"
+    status: EssayStatus = "Not started"
+    prompt: str | None = None
+    word_limit: int | None = None
+    content_markdown: str | None = None
 
 
 @dataclass(frozen=True)
@@ -127,6 +141,30 @@ def stale_school_error(application_id: str) -> dict[str, Any]:
         "may be stale.",
         retryable=False,
         recovery=stale_school_recovery(),
+    )
+
+
+def stale_essay_recovery() -> str:
+    return (
+        "Call view_essays to see current essays and their ids, or "
+        'view_essays(status="archived") if it may have been archived (restore_essay '
+        "brings one back). Do not retry this same id."
+    )
+
+
+def stale_essay_error(essay_id: str) -> dict[str, Any]:
+    return error(
+        f'No active essay with id "{essay_id}". It may have been archived, or the id may be stale.',
+        retryable=False,
+        recovery=stale_essay_recovery(),
+    )
+
+
+def stale_version_error() -> dict[str, Any]:
+    return error(
+        "The essay changed since you read it (the student may be typing right now).",
+        retryable=True,
+        recovery="Call read_essay again and rebuild your edit against the current text.",
     )
 
 
