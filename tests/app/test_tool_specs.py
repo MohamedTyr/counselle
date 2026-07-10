@@ -39,6 +39,18 @@ FUNCTION_TOOLS = {
     "restore_essay",
     "edit_essay",
     "write_essay",
+    "update_profile",
+    "view_documents",
+    "read_document",
+    "remember",
+    "update_memory",
+    "forget",
+}
+
+MEMORY_TOOLS = {
+    "remember",
+    "update_memory",
+    "forget",
 }
 
 WORKSPACE_TOOLS = {
@@ -64,6 +76,9 @@ WORKSPACE_TOOLS = {
     "restore_essay",
     "edit_essay",
     "write_essay",
+    "update_profile",
+    "view_documents",
+    "read_document",
 }
 
 
@@ -92,6 +107,7 @@ def test_registry_labels_resolve_and_gated_set_is_derived() -> None:
         "search_school_site",
         "search_reddit",
         *WORKSPACE_TOOLS,
+        *MEMORY_TOOLS,
     }
 
 
@@ -102,5 +118,16 @@ def test_workspace_tools_load_as_workspace_kind_gated_by_auth() -> None:
     for name in WORKSPACE_TOOLS:
         spec = specs[name]
         assert spec.kind == "workspace"
+        assert spec.tier is None
+        assert spec.gated_by == "auth"
+
+
+def test_memory_tools_load_as_memory_kind_gated_by_auth() -> None:
+    labels = load_yaml_asset("step_labels")
+    specs = build_tool_specs(labels, _receipt)
+
+    for name in MEMORY_TOOLS:
+        spec = specs[name]
+        assert spec.kind == "memory"
         assert spec.tier is None
         assert spec.gated_by == "auth"

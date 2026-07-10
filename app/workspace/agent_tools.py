@@ -45,11 +45,21 @@ from app.workspace.agent_tools_essays_mutations import (
     make_restore_essay_tool,
     make_update_essay_tool,
 )
+from app.workspace.agent_tools_memory import (
+    make_forget_tool,
+    make_remember_tool,
+    make_update_memory_tool,
+)
 from app.workspace.agent_tools_mutations import (
     make_archive_tasks_tool,
     make_create_tasks_tool,
     make_restore_task_tool,
     make_update_task_tool,
+)
+from app.workspace.agent_tools_profile import (
+    make_read_document_tool,
+    make_update_profile_tool,
+    make_view_documents_tool,
 )
 from app.workspace.agent_tools_schools import (
     make_get_school_tool,
@@ -103,10 +113,13 @@ def build_workspace_tools(
     """Build the per-run workspace tools bound to one authenticated turn.
 
     Six task tools (view/search/create/update/archive/restore), seven school
-    tools (search/view/get/add/update/archive/restore), and nine essay tools —
+    tools (search/view/get/add/update/archive/restore), nine essay tools —
     general control (view/create/update/duplicate/archive/restore) plus
-    specialized document control (read/edit/write, ADR 0030). ``template``
-    seeds the starter tasks/essays when the agent adds a school;
+    specialized document control (read/edit/write, ADR 0030) — and the six
+    profile/memory tools (plans/user-profile-and-memory.md Part E):
+    ``update_profile``, ``view_documents``, ``read_document`` (student
+    documents, not essays), ``remember``, ``update_memory``, ``forget``.
+    ``template`` seeds the starter tasks/essays when the agent adds a school;
     ``add_schools`` errors cleanly if it is unset.
     """
     ctx = ToolCtx(
@@ -140,6 +153,12 @@ def build_workspace_tools(
         make_restore_essay_tool(ctx),
         make_edit_essay_tool(ctx),
         make_write_essay_tool(ctx),
+        make_update_profile_tool(ctx),
+        make_view_documents_tool(ctx),
+        make_read_document_tool(ctx),
+        make_remember_tool(ctx),
+        make_update_memory_tool(ctx),
+        make_forget_tool(ctx),
     ]
 
 

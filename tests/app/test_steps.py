@@ -51,6 +51,12 @@ FUNCTION_TOOLS = {
     "restore_essay",
     "edit_essay",
     "write_essay",
+    "update_profile",
+    "view_documents",
+    "read_document",
+    "remember",
+    "update_memory",
+    "forget",
 }
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
@@ -196,6 +202,18 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
     ("restore_essay", {"essay_id": "abc"}, "workspace", None, ["archived essay"]),
     ("edit_essay", {"essay_id": "abc"}, "workspace", None, ["Editing an essay"]),
     ("write_essay", {"essay_id": "abc"}, "workspace", None, ["Drafting an essay"]),
+    ("update_profile", {}, "workspace", None, ["Updating your profile"]),
+    ("view_documents", {}, "workspace", None, ["Checking your documents"]),
+    ("read_document", {"document_ref": "abc12345"}, "workspace", None, ["Reading a document"]),
+    ("remember", {"notes": ["prefers blunt feedback"]}, "memory", None, ["Remembering"]),
+    ("update_memory", {"memory_ref": "abc12345"}, "memory", None, ["Updating a memory"]),
+    (
+        "forget",
+        {"memory_refs": ["abc12345", "def67890"]},
+        "memory",
+        None,
+        ["Forgetting 2 notes"],
+    ),
 ]
 
 

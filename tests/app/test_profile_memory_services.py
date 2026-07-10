@@ -1003,7 +1003,6 @@ async def test_memory_update_hides_foreign_memory_after_user_scoped_lock() -> No
         ("create_many", "student", "created, updated, or restored by Counselle"),
         ("update", "student", "created, updated, or restored by Counselle"),
         ("restore", "student", "created, updated, or restored by Counselle"),
-        ("archive", "counselle", "deleted by students"),
     ],
 )
 async def test_memory_mutations_enforce_agent_owned_actor_contract(
@@ -1029,17 +1028,20 @@ async def test_memory_mutations_enforce_agent_owned_actor_contract(
                 memory_id=memory_id,
                 data=MemoryPatch(content=data.content),
             )
-        elif operation == "restore":
+        else:
             await restore_memory(
                 pool, event_bus, user_id=user_id, actor=actor, memory_id=memory_id  # type: ignore[arg-type]
             )
-        else:
-            await archive_memory(
-                pool, event_bus, user_id=user_id, actor=actor, memory_id=memory_id  # type: ignore[arg-type]
-            )
 
 
-async def test_memory_delete_accepts_a_student_actor() -> None:
+@pytest.mark.parametrize("actor", ["student", "counselle"])
+async def test_memory_delete_accepts_student_or_counselle_actor(actor: str) -> None:
+    """Part E's ``forget`` agent tool archives as ``counselle``; the Profile
+
+    page's delete button archives as ``student`` — both are legitimate
+    deletion authority (deviation from the original student-only gate, see
+    ``service_memory.archive_memory`` docstring).
+    """
     conn = _MemoryConn()
 
     with pytest.raises(WorkspaceNotFoundError):
@@ -1047,7 +1049,7 @@ async def test_memory_delete_accepts_a_student_actor() -> None:
             _FakePool(conn),
             WorkspaceEventBus(),
             user_id=uuid4(),
-            actor="student",
+            actor=actor,  # type: ignore[arg-type]
             memory_id=uuid4(),
         )
 

@@ -157,8 +157,16 @@ async def archive_memory(
     actor: Actor,
     memory_id: UUID,
 ) -> None:
-    """Soft-delete one active note while retaining an auditable change row."""
-    _require_student_actor(actor)
+    """Soft-delete one active note while retaining an auditable change row.
+
+    Deletable by the student (the Profile page's "delete" button) or by
+    Counselle (the ``forget`` agent tool, Part E of the profile/memory plan —
+    a student saying "forget that" in chat is the same authority as clicking
+    delete). ``restore_memory`` stays ``counselle``-only: there is no restore
+    *tool*, so a student-initiated restore only ever happens through the
+    agent re-``remember``-ing, never a raw service call with actor="student".
+    """
+    _require_deletable_actor(actor)
     async with app_pool.acquire() as conn, conn.transaction():
         row = await conn.fetchrow(
             """
@@ -224,9 +232,11 @@ async def restore_memory(
 
 async def _locked_active_memories(conn: asyncpg.Connection, user_id: UUID) -> list[Memory]:
     # Serializes writes for one user even when they have no existing memory rows.
+    # $1 binds as text (the explicit cast below), so asyncpg needs a str, not a
+    # UUID object, to encode it — passing the UUID directly raises DataError.
     await conn.execute(
         "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
-        user_id,
+        str(user_id),
     )
     rows = await conn.fetch(
         """
@@ -268,9 +278,9 @@ def _require_counselle_actor(actor: Actor) -> None:
         )
 
 
-def _require_student_actor(actor: Actor) -> None:
-    if actor != "student":
-        raise WorkspaceValidationError("memories can only be deleted by students")
+def _require_deletable_actor(actor: Actor) -> None:
+    if actor not in ("student", "counselle"):
+        raise WorkspaceValidationError("memories can only be deleted by students or Counselle")
 
 
 async def _record_change(
