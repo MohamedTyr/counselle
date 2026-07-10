@@ -11,6 +11,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   HONOR_TITLE_LIMIT,
+  commonAppCharacterCount,
   gradeOptions,
   levelOptions,
   sortGrades,
@@ -103,7 +104,7 @@ export function HonorDrawer({
               trailing={
                 <>
                   <CharCounter
-                    length={current.title.length}
+                    length={commonAppCharacterCount(current.title)}
                     limit={HONOR_TITLE_LIMIT}
                   />
                   <CopyFieldButton label="Copy title" value={current.title} />
@@ -121,7 +122,7 @@ export function HonorDrawer({
                 value={current.title}
               />
               <CharLimitAnnouncer
-                length={current.title.length}
+                length={commonAppCharacterCount(current.title)}
                 limit={HONOR_TITLE_LIMIT}
               />
             </DrawerField>

@@ -245,6 +245,12 @@ export function formatLevels(levels: RecognitionLevel[]): string {
 
 export type CharState = "empty" | "ok" | "near" | "over";
 
+// JavaScript's String#length counts UTF-16 code units, while the Common App
+// budget and backend tools use Python's len() (Unicode code points).
+export function commonAppCharacterCount(value: string): number {
+  return Array.from(value).length;
+}
+
 export function getCharState(length: number, limit: number): CharState {
   if (length === 0) {
     return "empty";
@@ -264,9 +270,11 @@ export function getCharState(length: number, limit: number): CharState {
 // A field over its budget cannot be pasted into the Common App as-is.
 export function isActivityOverLimit(activity: Activity): boolean {
   return (
-    activity.position.length > ACTIVITY_LIMITS.position ||
-    activity.organization.length > ACTIVITY_LIMITS.organization ||
-    activity.description.length > ACTIVITY_LIMITS.description
+    commonAppCharacterCount(activity.position) > ACTIVITY_LIMITS.position ||
+    commonAppCharacterCount(activity.organization) >
+      ACTIVITY_LIMITS.organization ||
+    commonAppCharacterCount(activity.description) >
+      ACTIVITY_LIMITS.description
   );
 }
 
@@ -339,7 +347,7 @@ export function getHonorMissingFields(honor: Honor): string[] {
 }
 
 export function isHonorOverLimit(honor: Honor): boolean {
-  return honor.title.length > HONOR_TITLE_LIMIT;
+  return commonAppCharacterCount(honor.title) > HONOR_TITLE_LIMIT;
 }
 
 export function isHonorReady(honor: Honor): boolean {

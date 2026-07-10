@@ -1,5 +1,7 @@
 import {
+  commonAppCharacterCount,
   getActivityMissingFields,
+  isActivityOverLimit,
   isActivityReady,
   isHonorReady,
   type Activity,
@@ -114,6 +116,17 @@ describe("reorder helpers", () => {
 });
 
 describe("readiness, limits, and missing fields", () => {
+  it("counts Common App characters as Unicode code points", () => {
+    const description = `${"a".repeat(149)}😀`;
+
+    expect(commonAppCharacterCount(description)).toBe(150);
+    expect(
+      isActivityOverLimit(
+        activity({ description, id: "emoji-limit", order: 1 }),
+      ),
+    ).toBe(false);
+  });
+
   it("computes missing fields in fill order", () => {
     expect(
       getActivityMissingFields(

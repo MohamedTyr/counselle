@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   ACTIVITY_LIMITS,
+  commonAppCharacterCount,
   HOURS_MAX,
   WEEKS_MAX,
   activityTypeOptions,
@@ -144,7 +145,7 @@ export function ActivityDrawer({
               trailing={
                 <>
                   <CharCounter
-                    length={current.position.length}
+                    length={commonAppCharacterCount(current.position)}
                     limit={ACTIVITY_LIMITS.position}
                   />
                   <CopyFieldButton
@@ -162,7 +163,7 @@ export function ActivityDrawer({
                 value={current.position}
               />
               <CharLimitAnnouncer
-                length={current.position.length}
+                length={commonAppCharacterCount(current.position)}
                 limit={ACTIVITY_LIMITS.position}
               />
             </DrawerField>
@@ -173,7 +174,7 @@ export function ActivityDrawer({
               trailing={
                 <>
                   <CharCounter
-                    length={current.organization.length}
+                    length={commonAppCharacterCount(current.organization)}
                     limit={ACTIVITY_LIMITS.organization}
                   />
                   <CopyFieldButton
@@ -193,7 +194,7 @@ export function ActivityDrawer({
                 value={current.organization}
               />
               <CharLimitAnnouncer
-                length={current.organization.length}
+                length={commonAppCharacterCount(current.organization)}
                 limit={ACTIVITY_LIMITS.organization}
               />
             </DrawerField>
@@ -205,7 +206,7 @@ export function ActivityDrawer({
                 <>
                   <CharCounter
                     id={descriptionCounterId}
-                    length={current.description.length}
+                    length={commonAppCharacterCount(current.description)}
                     limit={ACTIVITY_LIMITS.description}
                   />
                   <CopyFieldButton
@@ -229,7 +230,7 @@ export function ActivityDrawer({
                 value={current.description}
               />
               <CharLimitAnnouncer
-                length={current.description.length}
+                length={commonAppCharacterCount(current.description)}
                 limit={ACTIVITY_LIMITS.description}
               />
             </DrawerField>

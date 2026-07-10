@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ACTIVITY_LIMITS,
+  commonAppCharacterCount,
   formatGrades,
   formatTiming,
   getActivityMissingFields,
@@ -269,7 +270,7 @@ export function ActivityRow({
             <div className="justify-self-start sm:justify-self-end">
               <CharCounter
                 hideOverIcon
-                length={activity.description.length}
+                length={commonAppCharacterCount(activity.description)}
                 limit={ACTIVITY_LIMITS.description}
               />
             </div>
