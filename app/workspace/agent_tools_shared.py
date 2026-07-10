@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.tool_middleware import ToolMiddlewareContext
 from app.workspace.changes import WorkspaceEventBus
@@ -30,6 +30,7 @@ from app.workspace.models import (
     TaskStatus,
     WorkspaceSeedingTemplate,
 )
+from app.workspace.service_activities import ACTIVITY_CAP, HONOR_CAP
 from app.workspace.service_applications import list_applications
 from app.workspace.service_essays import list_essays
 from counselle_db.catalog import Catalog
@@ -41,6 +42,55 @@ BATCH_MAX = 20
 DUPLICATE_SIMILARITY_THRESHOLD = 0.6
 ACTIVE_STATUSES: list[TaskStatus] = ["todo", "doing", "waiting"]
 PRIORITY_ORDER = {"high": 0, "med": 1, "low": 2}
+
+# Mirrors ``frontend/src/domain/activity.ts``. Confirm the Common App
+# vocabulary against the live form each admissions cycle before changing it.
+ActivityType = Literal[
+    "Academic",
+    "Art",
+    "Athletics: Club",
+    "Athletics: JV/Varsity",
+    "Career Oriented",
+    "Community Service (Volunteer)",
+    "Computer/Technology",
+    "Cultural",
+    "Dance",
+    "Debate/Speech",
+    "Environmental",
+    "Family Responsibilities",
+    "Foreign Exchange",
+    "Foreign Language",
+    "Internship",
+    "Journalism/Publication",
+    "Junior R.O.T.C.",
+    "LGBT",
+    "Music: Instrumental",
+    "Music: Vocal",
+    "Religious",
+    "Research",
+    "Robotics",
+    "School Spirit",
+    "Science/Math",
+    "Social Justice",
+    "Student Govt./Politics",
+    "Theater/Drama",
+    "Work (Paid)",
+    "Other Club/Activity",
+]
+Grade = Literal["9", "10", "11", "12", "pg"]
+Timing = Literal["school_year", "break", "all_year"]
+RecognitionLevel = Literal["school", "state_regional", "national", "international"]
+
+POSITION_CHAR_LIMIT = 50
+ORGANIZATION_CHAR_LIMIT = 100
+DESCRIPTION_CHAR_LIMIT = 150
+HONOR_TITLE_CHAR_LIMIT = 100
+HOURS_MAX = 168
+WEEKS_MAX = 52
+# Slot limits are owned and enforced in ``service_activities``; the aliases
+# keep tool-facing names descriptive without duplicating those values.
+MAX_ACTIVITIES = ACTIVITY_CAP
+MAX_HONORS = HONOR_CAP
 
 STALE_TASK_RECOVERY = (
     "Call view_tasks to see current active tasks and their ids, or search_tasks if it may be "
@@ -82,6 +132,29 @@ class EssayDraft(BaseModel):
     prompt: str | None = None
     word_limit: int | None = None
     content_markdown: str | None = None
+
+
+class ActivityDraft(BaseModel):
+    """One Common App activity to create in a ``create_activities`` batch."""
+
+    type: ActivityType
+    position: str
+    organization: str = ""
+    description: str = ""
+    grades: list[Grade] = Field(default_factory=list)
+    timing: list[Timing] = Field(default_factory=list)
+    hours_per_week: int | None = Field(default=None, ge=1, le=HOURS_MAX)
+    weeks_per_year: int | None = Field(default=None, ge=1, le=WEEKS_MAX)
+    continue_in_college: bool | None = None
+    story: str | None = None
+
+
+class HonorDraft(BaseModel):
+    """One Common App honor to create in a ``create_honors`` batch."""
+
+    title: str
+    grades: list[Grade] = Field(default_factory=list)
+    levels: list[RecognitionLevel] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -157,6 +230,38 @@ def stale_essay_error(essay_id: str) -> dict[str, Any]:
         f'No active essay with id "{essay_id}". It may have been archived, or the id may be stale.',
         retryable=False,
         recovery=stale_essay_recovery(),
+    )
+
+
+def stale_activity_error(activity_id: str) -> dict[str, Any]:
+    return error(
+        f'No active activity with id "{activity_id}". It may have been archived, or the id '
+        "may be stale.",
+        retryable=False,
+        recovery=(
+            "Call view_activities to see the current lists and their ids (archived activities "
+            "come back with restore_activity). Do not retry this same id."
+        ),
+    )
+
+
+def stale_honor_error(honor_id: str) -> dict[str, Any]:
+    return error(
+        f'No active honor with id "{honor_id}". It may have been archived, or the id may be stale.',
+        retryable=False,
+        recovery=(
+            "Call view_activities to see the current lists and their ids (archived honors come "
+            "back with restore_honor). Do not retry this same id."
+        ),
+    )
+
+
+def slot_cap_error(kind: Literal["activity", "honor"], cap: int, active: int) -> dict[str, Any]:
+    plural = f"{kind}s"
+    return error(
+        f"The Common App allows {cap} {plural}; this student already has {active} active.",
+        retryable=True,
+        recovery=f"Archive another {kind} first, or fold this into an existing entry.",
     )
 
 

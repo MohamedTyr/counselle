@@ -24,8 +24,10 @@ from app.workspace.models import (
 )
 from app.workspace.service_utils import publish_events
 
-_ACTIVITY_CAP = 10
-_HONOR_CAP = 5
+# Public because the agent-tool layer presents the same hard Common App slot
+# limits before calling this service. Keep enforcement and presentation aligned.
+ACTIVITY_CAP = 10
+HONOR_CAP = 5
 
 type WorkspaceTable = Literal["activities", "honors"]
 type WorkspaceObject = Literal["activity", "honor"]
@@ -131,12 +133,12 @@ _REORDER_SQL: dict[WorkspaceTable, str] = {
 
 _REQUIRE_ACTIVE_SQL: dict[WorkspaceTable, str] = {
     "activities": """
-        SELECT id
+        SELECT *
         FROM counselle.activities
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
         """,
     "honors": """
-        SELECT id
+        SELECT *
         FROM counselle.honors
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
         """,
@@ -197,7 +199,7 @@ async def create_activity(
     data: ActivityCreate,
 ) -> Activity:
     async with app_pool.acquire() as conn, conn.transaction():
-        await _require_capacity(conn, "activities", user_id, _ACTIVITY_CAP)
+        await _require_capacity(conn, "activities", user_id, ACTIVITY_CAP)
         sort_order = await _next_sort_order(conn, "activities", user_id)
         row = await conn.fetchrow(
             """
@@ -240,7 +242,8 @@ async def update_activity(
     row, event = await _update_row(
         app_pool, user_id, actor, "activities", "activity", activity_id, values
     )
-    publish_events(event_bus, user_id, [event])
+    if event is not None:
+        publish_events(event_bus, user_id, [event])
     return Activity.model_validate(dict(row))
 
 
@@ -265,7 +268,7 @@ async def restore_activity(
     activity_id: UUID,
 ) -> Activity:
     row, event = await _restore_row(
-        app_pool, user_id, actor, "activities", "activity", activity_id, _ACTIVITY_CAP
+        app_pool, user_id, actor, "activities", "activity", activity_id, ACTIVITY_CAP
     )
     publish_events(event_bus, user_id, [event])
     return Activity.model_validate(dict(row))
@@ -298,7 +301,7 @@ async def create_honor(
     data: HonorCreate,
 ) -> Honor:
     async with app_pool.acquire() as conn, conn.transaction():
-        await _require_capacity(conn, "honors", user_id, _HONOR_CAP)
+        await _require_capacity(conn, "honors", user_id, HONOR_CAP)
         sort_order = await _next_sort_order(conn, "honors", user_id)
         row = await conn.fetchrow(
             """
@@ -331,7 +334,8 @@ async def update_honor(
     row, event = await _update_row(
         app_pool, user_id, actor, "honors", "honor", honor_id, data.model_dump(exclude_unset=True)
     )
-    publish_events(event_bus, user_id, [event])
+    if event is not None:
+        publish_events(event_bus, user_id, [event])
     return Honor.model_validate(dict(row))
 
 
@@ -356,7 +360,7 @@ async def restore_honor(
     honor_id: UUID,
 ) -> Honor:
     row, event = await _restore_row(
-        app_pool, user_id, actor, "honors", "honor", honor_id, _HONOR_CAP
+        app_pool, user_id, actor, "honors", "honor", honor_id, HONOR_CAP
     )
     publish_events(event_bus, user_id, [event])
     return Honor.model_validate(dict(row))
@@ -406,12 +410,12 @@ async def _update_row(
     object_type: WorkspaceObject,
     row_id: UUID,
     values: dict[str, object],
-) -> tuple[asyncpg.Record, ChangeEvent]:
+) -> tuple[asyncpg.Record, ChangeEvent | None]:
     async with app_pool.acquire() as conn, conn.transaction():
-        await _require_active(conn, table, user_id, row_id)
-        row = await _apply_update(conn, table, user_id, row_id, values) if values else (
-            await _require_active(conn, table, user_id, row_id)
-        )
+        current = await _require_active(conn, table, user_id, row_id)
+        if not values:
+            return current, None
+        row = await _apply_update(conn, table, user_id, row_id, values)
         event = await _record_change(conn, user_id, actor, object_type, row["id"], "updated")
     return row, event
 

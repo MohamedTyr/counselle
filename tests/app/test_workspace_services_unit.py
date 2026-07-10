@@ -5,15 +5,65 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import Any, cast
+from uuid import uuid4
 
 import pytest
 
-from app.workspace.models import WorkspaceSeedingTemplate, WorkspaceValidationError
+from app.workspace import service_activities
+from app.workspace.changes import WorkspaceEventBus
+from app.workspace.models import (
+    Activity,
+    ActivityPatch,
+    Honor,
+    HonorPatch,
+    WorkspaceSeedingTemplate,
+    WorkspaceValidationError,
+)
 from app.workspace.seeding import _due_at
 from app.workspace.service_essays import _check_not_stale, _word_count, tiptap_preview
 from config.settings import load_yaml_asset
 from counselle_db import service
 from counselle_db.catalog import Catalog
+
+
+class _AsyncContext:
+    async def __aenter__(self) -> _AsyncContext:
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+
+class _ActivityConnection:
+    def __init__(self, row: dict[str, object]) -> None:
+        self.row = row
+        self.queries: list[str] = []
+
+    def transaction(self) -> _AsyncContext:
+        return _AsyncContext()
+
+    async def fetchrow(self, query: str, *_: object) -> dict[str, object]:
+        self.queries.append(query)
+        return self.row if "SELECT *" in query else {"id": self.row["id"]}
+
+
+class _ConnectionContext:
+    def __init__(self, connection: _ActivityConnection) -> None:
+        self.connection = connection
+
+    async def __aenter__(self) -> _ActivityConnection:
+        return self.connection
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+
+class _ActivityPool:
+    def __init__(self, connection: _ActivityConnection) -> None:
+        self.connection = connection
+
+    def acquire(self) -> _ConnectionContext:
+        return _ConnectionContext(self.connection)
 
 
 def test_seed_due_at_only_when_user_deadline_exists() -> None:
@@ -76,6 +126,75 @@ def test_check_not_stale_rejects_mismatched_precondition() -> None:
 
     with pytest.raises(WorkspaceValidationError):
         _check_not_stale(current, stale)
+
+
+@pytest.mark.parametrize("patch", [ActivityPatch(), HonorPatch()])
+async def test_empty_activity_or_honor_patch_is_a_true_no_op(
+    monkeypatch: pytest.MonkeyPatch,
+    patch: ActivityPatch | HonorPatch,
+) -> None:
+    """Empty patches do not write a change or notify workspace subscribers."""
+    user_id = uuid4()
+    activity_id = uuid4()
+    timestamp = datetime(2027, 1, 1, tzinfo=UTC)
+    connection = _ActivityConnection(
+        {
+            "id": activity_id,
+            "user_id": user_id,
+            "sort_order": 0,
+            "activity_type": "Robotics",
+            "position_label": "Builder",
+            "organization": "Robotics Club",
+            "description": "Built robots.",
+            "grades": ["11"],
+            "timing": ["school_year"],
+            "hours_per_week": 8,
+            "weeks_per_year": 30,
+            "continue_in_college": True,
+            "story": None,
+            "title": "Regional robotics award",
+            "levels": ["Regional"],
+            "created_at": timestamp,
+            "updated_at": timestamp,
+            "archived_at": None,
+        }
+    )
+
+    async def fail_if_change_is_recorded(*_: object, **__: object) -> None:
+        pytest.fail("an empty patch must not create a workspace change")
+
+    monkeypatch.setattr(service_activities, "_record_change", fail_if_change_is_recorded)
+    event_bus = WorkspaceEventBus()
+    result: Activity | Honor
+    expected: Activity | Honor
+
+    async with event_bus.subscribe(user_id) as queue:
+        if isinstance(patch, ActivityPatch):
+            result = await service_activities.update_activity(
+                cast(Any, _ActivityPool(connection)),
+                event_bus,
+                user_id=user_id,
+                actor="student",
+                activity_id=activity_id,
+                data=patch,
+            )
+            expected = Activity.model_validate(connection.row)
+        else:
+            result = await service_activities.update_honor(
+                cast(Any, _ActivityPool(connection)),
+                event_bus,
+                user_id=user_id,
+                actor="student",
+                honor_id=activity_id,
+                data=patch,
+            )
+            expected = Honor.model_validate(connection.row)
+
+        assert queue.empty()
+    assert result == expected
+    assert connection.queries == [service_activities._REQUIRE_ACTIVE_SQL[
+        "activities" if isinstance(patch, ActivityPatch) else "honors"
+    ]]
 
 
 async def test_search_school_names_uses_name_path_and_main_campus_order(
