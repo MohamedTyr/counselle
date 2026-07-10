@@ -8,7 +8,9 @@ import counselle_db.static_map as static_map_mod
 def _render_prompt() -> str:
     cfg_mod.reset_config_caches()
     static_map_mod.load_static_map.cache_clear()
-    return prompt_mod.build_system_prompt("Today is 2026-06-18.", 2746)
+    return prompt_mod.build_system_prompt(
+        "Today is 2026-06-18.", "## About This Student\nNo profile yet.", 2746
+    )
 
 
 def test_prompt_contains_final_answer_and_viz_guardrails() -> None:

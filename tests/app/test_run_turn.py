@@ -194,6 +194,9 @@ _TEMPORAL = TemporalContext(
 )
 
 
+_STUDENT_CONTEXT = "## About This Student\nTest student context."
+
+
 @pytest.fixture(autouse=True)
 def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
     """No DB in prepare, no asset loading in the prompt builder."""
@@ -201,7 +204,11 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_temporal(catalog: Any, today: Any = None) -> TemporalContext:
         return _TEMPORAL
 
+    async def fake_student_context(app_pool: Any, *, user_id: Any) -> str:
+        return _STUDENT_CONTEXT
+
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
+    monkeypatch.setattr(app.graph, "build_student_context", fake_student_context)
     monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
@@ -449,12 +456,13 @@ async def test_simple_turn_streams_deltas_persists_messages_creates_session() ->
 async def test_run_turn_threads_user_id_into_turn_ids() -> None:
     rig = Rig(TestModel(call_tools=[], custom_output_text="Hi there."))
     session_id = str(uuid4())
+    user_id = str(uuid4())
 
-    events = await rig.turn(session_id, "hi", _ALL_OFF, user_id="user-42")
+    events = await rig.turn(session_id, "hi", _ALL_OFF, user_id=user_id)
 
     assert _done_status(events) == "complete"
     state = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
-    assert state.values["turn_ids"]["user_id"] == "user-42"
+    assert state.values["turn_ids"]["user_id"] == user_id
 
 
 async def test_run_turn_without_user_id_defaults_to_none_in_turn_ids() -> None:
@@ -508,11 +516,12 @@ async def test_parked_resume_carries_user_id_through_the_prewrite() -> None:
         as_node="agent",
     )
 
-    events = await rig.turn(session_id, "cost", _ALL_OFF, user_id="user-99")
+    user_id = str(uuid4())
+    events = await rig.turn(session_id, "cost", _ALL_OFF, user_id=user_id)
 
     assert _done_status(events) == "complete"
     state = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
-    assert state.values["turn_ids"]["user_id"] == "user-99"
+    assert state.values["turn_ids"]["user_id"] == user_id
 
 
 def test_agent_node_turn_ids_helper_reads_user_id() -> None:

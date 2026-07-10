@@ -71,4 +71,5 @@ def _render_memory_header(note_count: int, rendered_chars: int) -> str:
 
 
 def _render_memory_line(line: _MemoryLine) -> str:
-    return f"- mem {line.id_prefix} {_MIDDLE_DOT} {line.created_date} {_MIDDLE_DOT} {line.content}"
+    content = " ".join(line.content.split())
+    return f"- mem {line.id_prefix} {_MIDDLE_DOT} {line.created_date} {_MIDDLE_DOT} {content}"

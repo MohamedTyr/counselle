@@ -87,7 +87,11 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_temporal(catalog: Any, today: Any = None) -> TemporalContext:
         return _TEMPORAL
 
+    async def fake_student_context(app_pool: Any, *, user_id: Any) -> str:
+        return "## About This Student\nTest student context."
+
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
+    monkeypatch.setattr(app.graph, "build_student_context", fake_student_context)
     monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
 
 
