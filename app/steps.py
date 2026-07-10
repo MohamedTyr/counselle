@@ -289,6 +289,7 @@ class StepMapper:
             "viz_label": self._viz_labels.get(viz_type, "visualization"),
             "tasks_phrase": _tasks_phrase(args),
             "schools_phrase": _schools_phrase(args),
+            "essays_phrase": _essays_phrase(args),
         }
 
     @staticmethod
@@ -482,17 +483,24 @@ def _str_or_none(value: Any) -> str | None:
 
 
 def _tasks_phrase(args: dict[str, Any]) -> str:
-    """"a task" for a single-item batch, else "N tasks" (create_tasks/archive_tasks)."""
+    """ "a task" for a single-item batch, else "N tasks" (create_tasks/archive_tasks)."""
     items = args.get("tasks") or args.get("task_ids") or []
     count = len(items) if isinstance(items, list) else 0
     return "a task" if count == 1 else f"{count} tasks"
 
 
 def _schools_phrase(args: dict[str, Any]) -> str:
-    """"a school" for a single-item batch, else "N schools" (add_schools/archive_schools)."""
+    """ "a school" for a single-item batch, else "N schools" (add_schools/archive_schools)."""
     items = args.get("schools") or args.get("application_ids") or []
     count = len(items) if isinstance(items, list) else 0
     return "a school" if count == 1 else f"{count} schools"
+
+
+def _essays_phrase(args: dict[str, Any]) -> str:
+    """ "an essay" for a single-item batch, else "N essays" (create_essays/archive_essays)."""
+    items = args.get("essays") or args.get("essay_ids") or []
+    count = len(items) if isinstance(items, list) else 0
+    return "an essay" if count == 1 else f"{count} essays"
 
 
 def _row_count_of(content: Any) -> int | None:

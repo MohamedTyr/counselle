@@ -31,6 +31,15 @@ _GATED_BY: dict[str, str] = {
     "update_school": "auth",
     "archive_schools": "auth",
     "restore_school": "auth",
+    "view_essays": "auth",
+    "read_essay": "auth",
+    "create_essays": "auth",
+    "update_essay": "auth",
+    "duplicate_essay": "auth",
+    "archive_essays": "auth",
+    "restore_essay": "auth",
+    "edit_essay": "auth",
+    "write_essay": "auth",
 }
 
 
@@ -44,9 +53,7 @@ class ToolSpec:
     gated_by: str | None = None
 
 
-def build_tool_specs(
-    labels: Mapping[str, Any], receipt: ReceiptBuilder
-) -> dict[str, ToolSpec]:
+def build_tool_specs(labels: Mapping[str, Any], receipt: ReceiptBuilder) -> dict[str, ToolSpec]:
     """Build one typed spec per label row.
 
     Unknown/future tools still fall back inside ``StepMapper``; the registry

@@ -30,6 +30,15 @@ FUNCTION_TOOLS = {
     "update_school",
     "archive_schools",
     "restore_school",
+    "view_essays",
+    "read_essay",
+    "create_essays",
+    "update_essay",
+    "duplicate_essay",
+    "archive_essays",
+    "restore_essay",
+    "edit_essay",
+    "write_essay",
 }
 
 WORKSPACE_TOOLS = {
@@ -46,6 +55,15 @@ WORKSPACE_TOOLS = {
     "update_school",
     "archive_schools",
     "restore_school",
+    "view_essays",
+    "read_essay",
+    "create_essays",
+    "update_essay",
+    "duplicate_essay",
+    "archive_essays",
+    "restore_essay",
+    "edit_essay",
+    "write_essay",
 }
 
 

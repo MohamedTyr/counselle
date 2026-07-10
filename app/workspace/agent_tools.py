@@ -36,6 +36,15 @@ from pydantic_ai import Tool
 
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.workspace import service_tasks
+from app.workspace.agent_tools_essays import make_read_essay_tool, make_view_essays_tool
+from app.workspace.agent_tools_essays_content import make_edit_essay_tool, make_write_essay_tool
+from app.workspace.agent_tools_essays_mutations import (
+    make_archive_essays_tool,
+    make_create_essays_tool,
+    make_duplicate_essay_tool,
+    make_restore_essay_tool,
+    make_update_essay_tool,
+)
 from app.workspace.agent_tools_mutations import (
     make_archive_tasks_tool,
     make_create_tasks_tool,
@@ -64,6 +73,9 @@ from app.workspace.agent_tools_shared import (
     try_uuid,
 )
 
+#: Re-exported so callers can do ``from app.workspace.agent_tools import EssayDraft``.
+from app.workspace.agent_tools_shared import EssayDraft as EssayDraft  # noqa: E402
+
 #: Re-exported so callers can do ``from app.workspace.agent_tools import TaskDraft``.
 from app.workspace.agent_tools_shared import TaskDraft as TaskDraft  # noqa: E402
 from app.workspace.changes import WorkspaceEventBus
@@ -90,10 +102,12 @@ def build_workspace_tools(
 ) -> list[Tool[Any]]:
     """Build the per-run workspace tools bound to one authenticated turn.
 
-    Six task tools (view/search/create/update/archive/restore) plus seven school
-    tools (search/view/get/add/update/archive/restore). ``template`` seeds the
-    starter tasks/essays when the agent adds a school; ``add_schools`` errors
-    cleanly if it is unset.
+    Six task tools (view/search/create/update/archive/restore), seven school
+    tools (search/view/get/add/update/archive/restore), and nine essay tools —
+    general control (view/create/update/duplicate/archive/restore) plus
+    specialized document control (read/edit/write, ADR 0030). ``template``
+    seeds the starter tasks/essays when the agent adds a school;
+    ``add_schools`` errors cleanly if it is unset.
     """
     ctx = ToolCtx(
         app_pool=app_pool,
@@ -117,6 +131,15 @@ def build_workspace_tools(
         make_update_school_tool(ctx),
         make_archive_schools_tool(ctx),
         make_restore_school_tool(ctx),
+        make_view_essays_tool(ctx),
+        make_read_essay_tool(ctx),
+        make_create_essays_tool(ctx),
+        make_update_essay_tool(ctx),
+        make_duplicate_essay_tool(ctx),
+        make_archive_essays_tool(ctx),
+        make_restore_essay_tool(ctx),
+        make_edit_essay_tool(ctx),
+        make_write_essay_tool(ctx),
     ]
 
 
@@ -289,8 +312,7 @@ async def _view_tasks_impl(
         )
         elsewhere_total = len(elsewhere)
         footer = (
-            f"{elsewhere_total} {label} tasks exist elsewhere — call view_tasks() without "
-            "filters."
+            f"{elsewhere_total} {label} tasks exist elsewhere — call view_tasks() without filters."
             if elsewhere_total
             else _empty_board_footer(apps)
         )

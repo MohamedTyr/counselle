@@ -42,6 +42,15 @@ FUNCTION_TOOLS = {
     "update_school",
     "archive_schools",
     "restore_school",
+    "view_essays",
+    "read_essay",
+    "create_essays",
+    "update_essay",
+    "duplicate_essay",
+    "archive_essays",
+    "restore_essay",
+    "edit_essay",
+    "write_essay",
 }
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
@@ -166,6 +175,27 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
         ["Removing 2 schools"],
     ),
     ("restore_school", {"application_id": "abc"}, "workspace", None, ["removed school"]),
+    ("view_essays", {}, "workspace", None, ["essay library"]),
+    ("read_essay", {"essay_id": "abc"}, "workspace", None, ["Reading an essay"]),
+    (
+        "create_essays",
+        {"essays": [{"title": "Common App essay"}]},
+        "workspace",
+        None,
+        ["an essay"],
+    ),
+    ("update_essay", {"essay_id": "abc"}, "workspace", None, ["Updating an essay"]),
+    ("duplicate_essay", {"essay_id": "abc"}, "workspace", None, ["Copying an essay"]),
+    (
+        "archive_essays",
+        {"essay_ids": ["a", "b"]},
+        "workspace",
+        None,
+        ["2 essays"],
+    ),
+    ("restore_essay", {"essay_id": "abc"}, "workspace", None, ["archived essay"]),
+    ("edit_essay", {"essay_id": "abc"}, "workspace", None, ["Editing an essay"]),
+    ("write_essay", {"essay_id": "abc"}, "workspace", None, ["Drafting an essay"]),
 ]
 
 
@@ -472,7 +502,7 @@ def test_detail_for_workspace_kind_error_path(mapper: StepMapper) -> None:
         {"task_id": "stale"},
         {
             "status": "error",
-            "error": "No active task with id \"stale\".",
+            "error": 'No active task with id "stale".',
             "safe_retry": "Call view_tasks to see current active tasks.",
         },
         8,

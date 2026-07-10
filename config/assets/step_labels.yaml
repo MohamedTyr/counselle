@@ -2,8 +2,9 @@
 #
 # One row per tool the agent can call. `label` templates interpolate args the
 # step mapper (app/steps.py) guarantees: {query} {school} {schools} {category}
-# {subreddits} {viz_label} {name} {field} {tool} {tasks_phrase}. Changing the
-# product voice never touches code (ADR 0018 bucket 2).
+# {subreddits} {viz_label} {name} {field} {tool} {tasks_phrase} {schools_phrase}
+# {essays_phrase}. Changing the product voice never touches code (ADR 0018
+# bucket 2).
 #
 # `tier` drives the timeline icon/color grammar: official | community | null
 # (null = neutral — the open web is mixed-tier per result; the citation
@@ -134,6 +135,42 @@ tools:
     kind: workspace
     tier: null
     label: "Bringing back a removed school"
+  view_essays:
+    kind: workspace
+    tier: null
+    label: "Checking the essay library"
+  read_essay:
+    kind: workspace
+    tier: null
+    label: "Reading an essay"
+  create_essays:
+    kind: workspace
+    tier: null
+    label: "Adding {essays_phrase} to the library"
+  update_essay:
+    kind: workspace
+    tier: null
+    label: "Updating an essay"
+  duplicate_essay:
+    kind: workspace
+    tier: null
+    label: "Copying an essay"
+  archive_essays:
+    kind: workspace
+    tier: null
+    label: "Archiving {essays_phrase}"
+  restore_essay:
+    kind: workspace
+    tier: null
+    label: "Bringing back an archived essay"
+  edit_essay:
+    kind: workspace
+    tier: null
+    label: "Editing an essay"
+  write_essay:
+    kind: workspace
+    tier: null
+    label: "Drafting an essay"
 
 # Any tool not in the table maps here — a generic step, never nothing.
 default:
