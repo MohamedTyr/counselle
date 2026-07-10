@@ -126,6 +126,7 @@ class TurnCapture:
     events: list[Event]
     prose: str
     tool_calls: list[dict[str, Any]]
+    tool_returns: list[dict[str, Any]]  # {tool_name, content}, structurally (not blob-only)
     args_blob: str  # all tool-call args, JSON-dumped (field-key needle search)
     returns_blob: str  # all tool-return contents, JSON-dumped
     sources: list[dict[str, Any]]
@@ -165,6 +166,22 @@ def _extract_returns_blob(raw_messages: list[dict[str, Any]]) -> str:
     return "\n".join(chunks)
 
 
+def _extract_tool_returns(raw_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """All tool-return parts, tool name + content, structurally (not just the blob).
+
+    Needed for checks that must correlate a created item's DB-assigned id (only
+    available in the tool *return*, never in the create call's args) back to a
+    later tool call that references that id — e.g. confirming a specific created
+    activity was the one reordered to rank 1.
+    """
+    returns: list[dict[str, Any]] = []
+    for message in raw_messages:
+        for part in message.get("parts") or []:
+            if part.get("part_kind") == "tool-return":
+                returns.append({"tool_name": part.get("tool_name"), "content": part.get("content")})
+    return returns
+
+
 def capture_turn(events: list[Event], raw_messages: list[dict[str, Any]]) -> TurnCapture:
     """Assemble the capture from the event stream + the thread's messages."""
     sources_events = [event for event in events if event.type == "sources"]
@@ -175,6 +192,7 @@ def capture_turn(events: list[Event], raw_messages: list[dict[str, Any]]) -> Tur
         events=events,
         prose="".join(event.data["text"] for event in events if event.type == "delta"),
         tool_calls=tool_calls,
+        tool_returns=_extract_tool_returns(raw_messages),
         args_blob=json.dumps([call["args"] for call in tool_calls], default=str),
         returns_blob=_extract_returns_blob(raw_messages),
         sources=list(sources_events[-1].data["sources"]) if sources_events else [],
@@ -534,32 +552,100 @@ def score_narration_quality(
     return checks
 
 
+def _created_items_by_id(
+    capture: TurnCapture, create_tool: str, created_items_key: str
+) -> dict[str, dict[str, Any]]:
+    """Map created-item id -> its returned row, read from ``create_tool``'s
+    tool-*return* content. The id is DB-assigned, so it only exists in the
+    return payload, never in the create call's args.
+    """
+    items: dict[str, dict[str, Any]] = {}
+    for tool_return in capture.tool_returns:
+        if tool_return.get("tool_name") != create_tool:
+            continue
+        content = tool_return.get("content")
+        if not isinstance(content, dict):
+            continue
+        for row in content.get(created_items_key) or []:
+            if isinstance(row, dict) and row.get("id"):
+                items[str(row["id"])] = row
+    return items
+
+
+def _score_reorder_after_create(
+    expects: dict[str, Any], capture: TurnCapture, create_tool: str, reorder_tool: str
+) -> dict[str, Any]:
+    """Confirm ``reorder_tool`` was called, and (if ``reorder_keyword`` is set)
+    that the item reordered to rank 1 is the one matching that keyword.
+    """
+    reorder_calls = [call for call in capture.tool_calls if call["tool_name"] == reorder_tool]
+    if not reorder_calls:
+        return _check(False, f"{reorder_tool} was never called")
+    first_ids = list((reorder_calls[0].get("args") or {}).get("ids") or [])
+    if not first_ids:
+        return _check(False, f"{reorder_tool} was called with no ids")
+    keyword = str(expects.get("reorder_keyword") or "").lower()
+    if not keyword:
+        return _check(True, f"{reorder_tool} called with ids {first_ids}")
+    created_items_key = str(expects.get("created_items_key") or "activities")
+    items_by_id = _created_items_by_id(capture, create_tool, created_items_key)
+    top_item = items_by_id.get(str(first_ids[0]))
+    if top_item is None:
+        return _check(
+            False,
+            f"could not find a created item for rank-1 id {first_ids[0]!r} "
+            f"(known created ids: {sorted(items_by_id)})",
+        )
+    haystack = " ".join(
+        str(top_item.get(field) or "") for field in ("position", "organization", "description")
+    ).lower()
+    return _check(
+        keyword in haystack,
+        f"rank-1 reordered item {top_item.get('id')!r} fields {haystack!r}; "
+        f"expected to contain {keyword!r}",
+    )
+
+
 def score_workspace_task(
     expects: dict[str, Any], capture: TurnCapture
 ) -> dict[str, dict[str, Any]]:
-    """Workspace-task: the right workspace tool ran and produced sensible task titles."""
+    """Workspace-task: the right workspace tool ran and produced sensible item titles.
+
+    Generalized over ``expects`` so one scorer covers any workspace batch-create
+    tool (tasks, activities, ...): ``create_tool`` (default ``"create_tasks"``,
+    the tool whose batch arg carries the created-item drafts), ``batch_arg_key``
+    (default ``"tasks"``), and ``title_field`` (default ``"title"``, matched
+    against ``title_keywords``). Optional ``max_description_chars`` checks a
+    created draft's ``description`` arg fits an exact character budget.
+    Optional ``reorder_tool`` (+ ``reorder_keyword``, ``created_items_key``)
+    checks that tool's first call reordered the matching item to rank 1.
+    """
     tools = set(expects.get("tools") or {"create_tasks"})
     called = {call["tool_name"] for call in capture.tool_calls}
     matched_tools = called & tools
-    title_keywords = [str(keyword).lower() for keyword in expects.get("title_keywords") or []]
-    titles: list[str] = []
-    for call in capture.tool_calls:
-        if call["tool_name"] != "create_tasks":
-            continue
-        for draft in (call.get("args") or {}).get("tasks") or []:
-            title = str((draft or {}).get("title") or "")
-            if title:
-                titles.append(title)
+    create_tool = str(expects.get("create_tool") or "create_tasks")
+    batch_arg_key = str(expects.get("batch_arg_key") or "tasks")
+    title_field = str(expects.get("title_field") or "title")
+
+    drafts: list[dict[str, Any]] = [
+        draft or {}
+        for call in capture.tool_calls
+        if call["tool_name"] == create_tool
+        for draft in (call.get("args") or {}).get(batch_arg_key) or []
+    ]
+    titles = [str(draft.get(title_field) or "") for draft in drafts if draft.get(title_field)]
     titles_blob = " | ".join(titles).lower()
+    title_keywords = [str(keyword).lower() for keyword in expects.get("title_keywords") or []]
     keywords_seen = [keyword for keyword in title_keywords if keyword in titles_blob]
     min_tasks = int(expects.get("min_tasks") or 1)
+
     checks = {
         "workspace_tool_called": _check(
             bool(matched_tools), f"expected one of {sorted(tools)}; called {sorted(called)}"
         ),
         "tasks_created": _check(
             len(titles) >= min_tasks,
-            f"expected >= {min_tasks} created task(s); got {len(titles)}: {titles}",
+            f"expected >= {min_tasks} created item(s); got {len(titles)}: {titles}",
         ),
     }
     if title_keywords:
@@ -567,6 +653,26 @@ def score_workspace_task(
             bool(keywords_seen),
             f"expected one of {title_keywords} in a created title; titles: {titles}",
         )
+
+    max_description_chars = expects.get("max_description_chars")
+    if max_description_chars is not None:
+        limit = int(max_description_chars)
+        descriptions = [
+            str(draft.get("description") or "") for draft in drafts if draft.get("description")
+        ]
+        within_limit = [description for description in descriptions if len(description) <= limit]
+        checks["description_within_char_limit"] = _check(
+            bool(within_limit),
+            f"expected at least one description <= {limit} chars (exact len()); "
+            f"lengths: {[len(description) for description in descriptions]}",
+        )
+
+    reorder_tool = expects.get("reorder_tool")
+    if reorder_tool:
+        checks["reorder_after_create"] = _score_reorder_after_create(
+            expects, capture, create_tool, str(reorder_tool)
+        )
+
     return checks
 
 

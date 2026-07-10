@@ -48,6 +48,7 @@ def make_capture(
     events: list[Event] | None = None,
     prose: str = "",
     tool_calls: list[dict[str, Any]] | None = None,
+    tool_returns: list[dict[str, Any]] | None = None,
     args_blob: str = "",
     returns_blob: str = "",
     sources: list[dict[str, Any]] | None = None,
@@ -60,6 +61,7 @@ def make_capture(
         events=events or [],
         prose=prose,
         tool_calls=tool_calls or [],
+        tool_returns=tool_returns or [],
         args_blob=args_blob,
         returns_blob=returns_blob,
         sources=sources or [],
@@ -359,6 +361,88 @@ def test_score_workspace_task_rejects_missing_title_keyword() -> None:
         {"tools": ["create_tasks"], "min_tasks": 1, "title_keywords": ["transcript"]}, capture
     )
     assert checks["title_reflects_request"]["passed"] is False
+
+
+def test_score_workspace_task_activities_path_checks_description_and_reorder_rank() -> None:
+    """Generalized path: create_activities batch key + description-length + the
+    reorder_activities rank-1 check, correlated back through the create tool-return."""
+    capture = make_capture(
+        tool_calls=[
+            {
+                "tool_name": "create_activities",
+                "args": {
+                    "activities": [
+                        {"position": "Co-Captain", "organization": "FIRST Robotics Team",
+                         "description": "Led programming subgroup on autonomous navigation code."},
+                        {"position": "Volunteer", "organization": "Public Library",
+                         "description": "Helped kids with homework on Saturdays."},
+                    ]
+                },
+            },
+            {"tool_name": "reorder_activities", "args": {"ids": ["robotics-id", "library-id"]}},
+        ],
+        tool_returns=[
+            {
+                "tool_name": "create_activities",
+                "content": {
+                    "activities": [
+                        {"id": "robotics-id", "position": "Co-Captain",
+                         "organization": "FIRST Robotics Team",
+                         "description": "Led programming subgroup on autonomous navigation code."},
+                        {"id": "library-id", "position": "Volunteer",
+                         "organization": "Public Library",
+                         "description": "Helped kids with homework on Saturdays."},
+                    ]
+                },
+            }
+        ],
+    )
+    checks = score_workspace_task(
+        {
+            "tools": ["create_activities", "reorder_activities"],
+            "create_tool": "create_activities",
+            "batch_arg_key": "activities",
+            "title_field": "position",
+            "min_tasks": 2,
+            "max_description_chars": 150,
+            "reorder_tool": "reorder_activities",
+            "reorder_keyword": "robotics",
+        },
+        capture,
+    )
+    assert checks["workspace_tool_called"]["passed"] is True
+    assert checks["tasks_created"]["passed"] is True
+    assert checks["description_within_char_limit"]["passed"] is True
+    assert checks["reorder_after_create"]["passed"] is True
+
+
+def test_score_workspace_task_reorder_fails_when_rank_one_is_not_the_keyword_match() -> None:
+    capture = make_capture(
+        tool_calls=[{"tool_name": "reorder_activities", "args": {"ids": ["library-id"]}}],
+        tool_returns=[
+            {
+                "tool_name": "create_activities",
+                "content": {
+                    "activities": [
+                        {"id": "robotics-id", "position": "Co-Captain",
+                         "organization": "FIRST Robotics Team", "description": "..."},
+                        {"id": "library-id", "position": "Volunteer",
+                         "organization": "Public Library", "description": "..."},
+                    ]
+                },
+            }
+        ],
+    )
+    checks = score_workspace_task(
+        {
+            "tools": ["reorder_activities"],
+            "create_tool": "create_activities",
+            "reorder_tool": "reorder_activities",
+            "reorder_keyword": "robotics",
+        },
+        capture,
+    )
+    assert checks["reorder_after_create"]["passed"] is False
 
 
 def test_score_narration_quality_passes_clean_tool_rounds() -> None:

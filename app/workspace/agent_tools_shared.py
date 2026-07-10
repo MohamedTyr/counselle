@@ -1,9 +1,9 @@
 """Shared context, constants, and rendering helpers for the workspace agent tools.
 
 Split out of ``agent_tools.py`` purely to keep each module under the file-size
-convention — ``agent_tools.py`` (view_tasks/search_tasks) and
-``agent_tools_mutations.py`` (create/update/archive/restore) both import from
-here. No public surface of its own beyond what those two modules re-export.
+convention — shared by every workspace tool module (tasks, schools, essays,
+activities, honors). No public surface of its own beyond what those modules
+re-export.
 """
 
 from __future__ import annotations
