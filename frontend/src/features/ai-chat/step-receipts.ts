@@ -21,6 +21,7 @@ export const KIND_PRESENTATION: Readonly<Record<KnownStepKind, KindPresentation>
   research: DEFAULT_KIND_PRESENTATION,
   write_plan: DEFAULT_KIND_PRESENTATION,
   workspace: DEFAULT_KIND_PRESENTATION,
+  memory: DEFAULT_KIND_PRESENTATION,
 };
 
 function presentationForKind(kind: StepKind): KindPresentation {

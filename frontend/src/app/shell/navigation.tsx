@@ -2,6 +2,7 @@ import {
   Bot,
   CalendarClock,
   ClipboardCheck,
+  IdCard,
   LibraryBig,
   ListChecks,
   School,
@@ -27,6 +28,12 @@ export const shellRoutes: ShellRoute[] = [
     title: "Tasks",
     icon: <ClipboardCheck />,
     link: "/app/tasks",
+  },
+  {
+    id: "profile",
+    title: "Profile",
+    icon: <IdCard />,
+    link: "/app/profile",
   },
   {
     id: "calendar",

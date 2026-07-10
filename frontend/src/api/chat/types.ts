@@ -93,7 +93,8 @@ export type KnownStepKind =
   | "skill"
   | "research"
   | "write_plan"
-  | "workspace";
+  | "workspace"
+  | "memory";
 
 export type StepKind = KnownStepKind | (string & {});
 

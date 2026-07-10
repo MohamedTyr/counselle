@@ -1,4 +1,7 @@
 export * from "@/api/workspace/hooks/activities"
 export * from "@/api/workspace/hooks/applications"
+export * from "@/api/workspace/hooks/documents"
 export * from "@/api/workspace/hooks/essays"
+export * from "@/api/workspace/hooks/memories"
+export * from "@/api/workspace/hooks/profile"
 export * from "@/api/workspace/hooks/tasks"
