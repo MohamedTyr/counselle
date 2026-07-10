@@ -46,6 +46,10 @@ from app.agent_node import model_name_from_setting
 from app.deps import Runtime, build_runtime
 from app.run_turn import run_turn
 from app.sessions import create_session
+from app.workspace.changes import WorkspaceEventBus
+from app.workspace.models import DocumentCreate, MemoryCreate
+from app.workspace.service_documents import create_document
+from app.workspace.service_memory import create_memories
 from config.logging import setup_logging
 from config.settings import get_settings
 from domain.events import Event
@@ -699,6 +703,50 @@ async def _delete_eval_user(app_pool: Any, user_id: UUID) -> None:
         await conn.execute("DELETE FROM counselle.users WHERE id = $1", user_id)
 
 
+async def _seed_memories(app_pool: Any, user_id: UUID, contents: list[str]) -> None:
+    """Pre-seed memory notes for the eval user (question key: ``seed_memories``).
+
+    Goes through the real service so capacity/dedup rules apply exactly as
+    they would for an agent-written note; ``actor="counselle"`` because
+    ``create_memories`` only accepts Counselle-authored writes.
+    """
+    await create_memories(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="counselle",
+        data=[MemoryCreate(content=content) for content in contents],
+    )
+
+
+async def _seed_documents(app_pool: Any, user_id: UUID, documents: list[dict[str, Any]]) -> None:
+    """Pre-seed document rows for the eval user (question key: ``seed_documents``).
+
+    Goes through the real create-document service (skipping the upload/
+    extraction pipeline, which is exercised elsewhere) so the row shape and
+    change events match production. ``actor="student"`` because document
+    creation is student-only.
+    """
+    for document in documents:
+        extracted_text = document.get("extracted_text")
+        await create_document(
+            app_pool,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="student",
+            data=DocumentCreate(
+                title=document["title"],
+                doc_type=document.get("doc_type", "other"),
+                filename=document.get("filename", document["title"]),
+                mime=document.get("mime", "text/plain"),
+                content=(extracted_text or document["title"]).encode("utf-8"),
+                text_status=document.get("text_status", "extracted"),
+                extracted_text=extracted_text,
+                summary=document.get("summary"),
+            ),
+        )
+
+
 async def run_question(
     runtime: Runtime, judge_agent: Any, question: dict[str, Any]
 ) -> dict[str, Any]:
@@ -712,6 +760,12 @@ async def run_question(
     eval_user_id: UUID | None = None
     if needs_workspace:
         eval_user_id = await _seed_eval_user(runtime.app_pool, question["id"])
+        seed_memories = question.get("seed_memories") or []
+        if seed_memories:
+            await _seed_memories(runtime.app_pool, eval_user_id, list(seed_memories))
+        seed_documents = question.get("seed_documents") or []
+        if seed_documents:
+            await _seed_documents(runtime.app_pool, eval_user_id, list(seed_documents))
     started = time.monotonic()
     events: list[Event] = []
     try:
