@@ -69,7 +69,13 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's dependency-injection idiom puts Depends()/Security() in argument
 # defaults — that's the framework contract, not a B008 mutable-default bug.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Security", "fastapi.Query"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Security",
+    "fastapi.Query",
+    "fastapi.File",
+    "fastapi.Form",
+]
 
 [tool.mypy]
 ignore_missing_imports = true
