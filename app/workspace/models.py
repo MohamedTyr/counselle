@@ -243,7 +243,6 @@ class EssayCreate(_Model):
     status: EssayStatus = "Not started"
     prompt: str | None = None
     content: dict[str, Any] = Field(default_factory=lambda: deepcopy(EMPTY_TIPTAP_DOC))
-    word_count: int = 0
     word_limit: int | None = None
 
 

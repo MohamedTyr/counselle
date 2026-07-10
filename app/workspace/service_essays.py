@@ -95,13 +95,11 @@ async def create_essay(
             data.status,
             data.prompt,
             data.content,
-            data.word_count,
+            _word_count(data.content),
             data.word_limit,
         )
         essay = Essay.model_validate(dict(row))
-        events.append(
-            await _record_essay_change(conn, user_id, actor, essay, "created")
-        )
+        events.append(await _record_essay_change(conn, user_id, actor, essay, "created"))
     publish_events(event_bus, user_id, events)
     return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
 
@@ -128,9 +126,7 @@ async def update_essay(
             await _validate_application(conn, user_id, values["application_id"])
         row = await _update_essay_row(conn, user_id, essay_id, values) if values else current
         essay = Essay.model_validate(dict(row))
-        events.append(
-            await _record_essay_change(conn, user_id, actor, essay, "updated")
-        )
+        events.append(await _record_essay_change(conn, user_id, actor, essay, "updated"))
     publish_events(event_bus, user_id, events)
     return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
 
@@ -163,9 +159,7 @@ async def duplicate_essay(
             user_id,
         )
         essay = Essay.model_validate(dict(row))
-        events.append(
-            await _record_essay_change(conn, user_id, actor, essay, "created")
-        )
+        events.append(await _record_essay_change(conn, user_id, actor, essay, "created"))
     publish_events(event_bus, user_id, events)
     return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
 
@@ -193,9 +187,7 @@ async def archive_essay(
         if row is None:
             raise WorkspaceNotFoundError()
         essay = Essay.model_validate(dict(row))
-        events.append(
-            await _record_essay_change(conn, user_id, actor, essay, "archived")
-        )
+        events.append(await _record_essay_change(conn, user_id, actor, essay, "archived"))
     publish_events(event_bus, user_id, events)
 
 
@@ -231,16 +223,12 @@ async def restore_essay(
         if row is None:
             raise WorkspaceNotFoundError()
         essay = Essay.model_validate(dict(row))
-        events.append(
-            await _record_essay_change(conn, user_id, actor, essay, "restored")
-        )
+        events.append(await _record_essay_change(conn, user_id, actor, essay, "restored"))
     publish_events(event_bus, user_id, events)
     return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
 
 
-async def _summaries_from_rows(
-    catalog: Catalog, rows: list[asyncpg.Record]
-) -> list[EssaySummary]:
+async def _summaries_from_rows(catalog: Catalog, rows: list[asyncpg.Record]) -> list[EssaySummary]:
     identities = await school_identities(
         catalog, [row["school_unitid"] for row in rows if row["school_unitid"] is not None]
     )
@@ -314,9 +302,7 @@ def _tiptap_text(node: Any) -> list[str]:
     return []
 
 
-async def _require_essay(
-    conn: asyncpg.Connection, user_id: UUID, essay_id: UUID
-) -> asyncpg.Record:
+async def _require_essay(conn: asyncpg.Connection, user_id: UUID, essay_id: UUID) -> asyncpg.Record:
     row = await conn.fetchrow(
         """
         SELECT *
