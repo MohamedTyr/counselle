@@ -10,11 +10,16 @@ PydanticAI 1.x.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+from pydantic_ai import RunContext
+from pydantic_ai.capabilities import WrapModelRequestHandler
+from pydantic_ai.capabilities.abstract import AbstractCapability
+from pydantic_ai.messages import CachePoint, ModelRequest, ModelResponse, UserPromptPart
+from pydantic_ai.models import ModelRequestContext
 
 
 class TaskStatus(StrEnum):
@@ -66,6 +71,45 @@ def render_plan(items: list[PlanItem]) -> str:
     return "\n".join(lines)
 
 
+def _reminder_text(rendered_plan: str) -> str:
+    """Wrap the rendered checklist for the ephemeral tail reminder."""
+    return f"<plan-reminder>\n{rendered_plan}\n</plan-reminder>"
+
+
+@dataclass
+class PlanReminder(AbstractCapability[Any]):
+    """Ephemeral tail reminder of the current plan (harness Planning, D13).
+
+    Appends the rendered checklist to the tail of the *outgoing* model
+    request only -- never to durable history -- so the model re-reads its
+    own plan on every step without the reminder ever being persisted or
+    replayed. A ``CachePoint`` precedes it so the cached prefix (system
+    prompt + prior turns) stays byte-identical across requests.
+    """
+
+    state: PlanState
+    cache_ttl: Literal["5m", "1h"] = "5m"
+
+    async def wrap_model_request(
+        self,
+        ctx: RunContext[Any],
+        *,
+        request_context: ModelRequestContext,
+        handler: WrapModelRequestHandler,
+    ) -> ModelResponse:
+        items = self.state.items
+        if not items:
+            return await handler(request_context)
+        messages = request_context.messages
+        last = messages[-1] if messages else None
+        if isinstance(last, ModelRequest):
+            reminder = UserPromptPart(
+                content=[CachePoint(ttl=self.cache_ttl), _reminder_text(render_plan(items))]
+            )
+            messages[-1] = replace(last, parts=[*last.parts, reminder])
+        return await handler(request_context)
+
+
 def _summary(items: list[PlanItem]) -> str:
     total = len(items)
     in_progress = sum(1 for item in items if item.status is TaskStatus.in_progress)
@@ -92,12 +136,27 @@ def make_write_plan_tool(
     plan_state = state or PlanState()
 
     async def write_plan(items: list[PlanItem]) -> dict[str, Any]:
-        """Create or replace the full task plan.
+        """Create or replace the full task plan for a multi-step task.
 
-        Pass the entire ordered plan every time -- including steps that are
-        unchanged, completed, or cancelled. Keep exactly one step `in_progress`.
-        Call this when you start and when you finish a step so your progress
-        stays visible.
+        Skip this tool for trivial, single-step, or purely conversational work
+        -- planning a task that doesn't need it just adds noise.
+
+        Mark a step `in_progress` before you start it, and `completed`
+        immediately after you finish it -- don't batch updates. Keep exactly
+        one step `in_progress` at a time, and never call `write_plan` more
+        than once in parallel (full replacement makes concurrent calls race).
+
+        Only mark a step `completed` when it is fully done. If you hit an
+        error or a blocker, leave it `in_progress` and add a new step naming
+        the blocker -- don't mark it complete to move on.
+
+        Pass the entire ordered plan every time, including steps that are
+        unchanged, completed, or cancelled -- this call fully replaces the
+        plan, it does not patch it.
+
+        Your final answer to the student must come in the message AFTER your
+        last `write_plan` call; marking the last step complete is not itself
+        an answer.
 
         Args:
             items: The complete ordered list of plan steps.
