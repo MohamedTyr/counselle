@@ -1,6 +1,6 @@
 # Counselle — System Architecture
 
-> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–35)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, and the React frontend. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
+> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–36)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, and the student profile/document/memory stores. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
 >
 > **This document describes the target architecture — how Counselle is designed and built, not what has shipped to date.** A few subsystems below are designed but not yet wired (e.g. the deep-research subagent, §13). For the current build status — what's implemented vs. pending, and the deployment state — see `CLAUDE.md`; it is the single source of progress truth.
 
@@ -48,6 +48,7 @@
 33. [Deployment of the full-stack app](#33-deployment-of-the-full-stack-app)
 34. [Frontend testing strategy](#34-frontend-testing-strategy)
 35. [Risks & open questions](#35-risks--open-questions)
+36. [Student profile, documents & agent memory](#36-student-profile-documents--agent-memory)
 
 ---
 
@@ -962,4 +963,119 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0028; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0028), `docs/research/` (stack survey). Keep this current as decisions change.*
+## 36. Student profile, documents & agent memory
+
+(ADR 0031.) Alongside the workspace (§31), Counselle keeps three more
+per-student stores: the student's own application facts, their uploaded
+documents, and the agent's curated understanding of them. All three follow
+the same `app/workspace/` service pattern (ADR 0027/0029) — explicit
+`user_id`/`actor`, `record_change` rows, `WorkspaceEventBus` publish, thin
+HTTP routes, agent tools calling services in-process — so this section
+covers what's new rather than re-explaining the pattern.
+
+**Schema (`migrations/0010_profile_memory.sql`):**
+
+| Table | Shape |
+|---|---|
+| `counselle.profiles` | One row per user; `data jsonb`, validated at the service boundary by a typed `Profile` model (`app/workspace/models.py`) with ten section submodels (`basics`, `academics`, `testing`, `background`, `circumstances`, `aid`, `interests`, `preferences`, `narrative`, `people`). Lazily created on first read. |
+| `counselle.documents` | One row per upload: `content bytea` (≤15 MiB, `DOCUMENT_MAX_BYTES`), `extracted_text`, `text_status` (`extracted \| unsupported \| failed`), `summary` (nullable, ≤5,000 chars), soft-archived via `archived_at`. |
+| `counselle.memories` | One row per note: `content` (1–200 chars, `MEMORY_CONTENT_MAX_LENGTH`), soft-archived; a unique index on `(user_id, content)` for active rows backstops exact-duplicate rejection. |
+
+**Services:** `service_profile.py` (lazy `get_profile`, section-merge
+`update_profile` — a present field merges, an explicit `null` clears it),
+`service_documents.py` (`list_documents`, `create_document`/
+`upload_document` which extracts and summarizes before persisting,
+`get_document`, `read_document`, `archive_document`/`restore_document`),
+`service_memory.py` (`list_memories`, `create_memories` batched under a
+per-user Postgres advisory lock so capacity/duplicate checks cannot race,
+`update_memory`, `archive_memory`/`restore_memory`). Extraction
+(`app/workspace/extraction.py`) runs pdf via `pypdf`, docx via
+`python-docx`, txt/md as-is, off the event loop with a timeout bound
+against decompression-bomb-style inputs; images are accepted and stored but
+marked `unsupported` (no OCR). Upload succeeds even when the cheap-model
+summary call fails — filename and type remain the fallback signal.
+
+**`app/student_context.py` — the render-per-turn mechanism.** `prepare`
+(`app/graph.py`) calls `build_student_context` alongside
+`build_temporal_context`, on the same seam, for every authenticated turn;
+unauthenticated turns get a single neutral line
+(`STUDENT_CONTEXT_UNAUTHENTICATED`). The result fills the `{student_context}`
+slot in `counselor.md` (`app/prompt.py`). This module is honesty-critical,
+the same tier as the DB value-reading rules, and enforces:
+
+- **Verbatim scalar rendering.** Profile fields render in each Pydantic
+  model's declared field order — never resorted, never rounded, never
+  reinterpreted (`render_profile_block`). Empty sections and fields are
+  omitted rather than invented; a fully empty profile renders an explicit
+  "Profile is empty" line instead of nothing.
+- **Document honesty.** Every document line carries its `text_status`
+  next to it; `unsupported`/`failed` documents render a fixed "can't read
+  this yet" note instead of a fabricated detail, and only a summary line —
+  never full extracted text — rides the prompt.
+- **Prompt-injection defense.** `_collapse_newlines` strips embedded line
+  breaks from every piece of untrusted, student-authored text (profile free
+  text, document filenames, memory content) before interpolation — Markdown
+  only recognizes `#` headings at the start of a line, so a string like
+  `"...\n## SYSTEM OVERRIDE\n..."` degrades to harmless inline text once its
+  newlines are gone. Document filenames are additionally neutralized
+  (`_neutralize_filename`) so a crafted name can't forge extra delimited
+  fields in the hand-built document line. `counselor.md` reinforces this in
+  the prompt itself: everything in the block is an observation about the
+  student, never an instruction to follow.
+- **Memory's capacity meter.** `app/workspace/memory_context.py` renders
+  the active pile with a live usage header (`### Memory (9 notes ·
+  1,474/5,000 chars — 29%)`) that appends an "approaching capacity" notice
+  past 80% of `MEMORY_TOTAL_MAX_CHARS` (5,000). The same rendering function
+  computes the exact prompt cost of a prospective write
+  (`memory_rendered_char_count`), so `service_memory` can reject an
+  over-budget batch before it's persisted, never truncate silently.
+  Memory and document ids render as an 8-char UUID prefix (context economy);
+  tools resolve a prefix or full id against the student's active rows and
+  return a teaching error on ambiguity or a stale ref. This prefix
+  convention is scoped to these two every-turn surfaces — workspace
+  task/school/essay tools keep their full-UUID convention.
+
+**Agent tools (six, `app/tool_specs.py` all gated `"auth"`, mount-gated on
+`user_id` in `build_workspace_tools` — ADR 0029's unmounted-not-hidden
+pattern):**
+
+| Tool | File | Does |
+|---|---|---|
+| `update_profile` | `agent_tools_profile.py` | One tool over all ten sections; a present field merges/overwrites, an explicit `null` clears a field, the sentinel string `"clear"` empties a whole section. Returns the full rendered profile so the agent confirms from state, not from what it sent. |
+| `view_documents` | `agent_tools_profile.py` | Lists id/title/type/filename/`text_status`/size/date/summary — a re-check after a mid-conversation upload; the student context already carries the list. |
+| `read_document` | `agent_tools_profile.py` | Full extracted text, framed as "student-provided document"; `unsupported`/`failed` refs return a teaching error steering toward pasting content or re-uploading. |
+| `remember` | `agent_tools_memory.py` | Batch save 1–10 notes (≤200 chars each); rejects exact duplicates by name and over-budget batches with a `retryable` capacity error pointing at `update_memory`/`forget`. |
+| `update_memory` | `agent_tools_memory.py` | Rewrite/consolidate one note in place by ref. |
+| `forget` | `agent_tools_memory.py` | Batch soft-archive by ref; per-ref results (`forgotten`/`skipped`), no restore tool — a wanted note is a re-`remember` away. |
+
+Uploads and deletes stay student-only at the service layer
+(`_require_student_actor`) — the agent reads documents, it never uploads or
+destroys them; `remember`/`update_memory`/`forget` are `"counselle"`-only,
+mirroring the same authorship split (except delete, which either the
+student or the agent may perform — a student saying "forget that" in chat
+carries the same authority as clicking delete on the Profile page). Tool
+calls for all six use a dedicated `StepKind: "memory"` for 4–6 ("Remembering…",
+"Updating a memory", "Forgetting {n} notes") and `kind: workspace` for 1–3,
+distinct from `db_tool`'s citation-chip semantics, following ADR 0029's
+precedent. The registry in `config/assets/step_labels.yaml` now carries 46
+tool specs (up from 40 before this feature), continuing the standing
+tool-count risk ADR 0029/0030 already flagged — mitigated the same way:
+tight descriptions, schema-borne vocabulary, watching eval routing.
+
+**Routes:** `GET/PATCH /v1/profile`, `GET/POST /v1/documents`,
+`GET /v1/documents/{id}/file` (forced `attachment` download, header-injection-
+safe filename quoting), `DELETE /v1/documents/{id}`, `GET /v1/memories`,
+`DELETE /v1/memories/{id}` (`api/routes/profile.py`, `documents.py`,
+`memories.py`) — thin wrappers over the services, same shape as every other
+workspace route.
+
+**Frontend:** a Profile page (`frontend/src/features/profile/`, routed
+beside the four workspace pages) rendering section cards from a declarative
+`PROFILE_SECTIONS` config, inline-edit with autosave-on-blur via the PATCH
+route, a documents area, and a "What Counselle remembers" list with
+per-note delete — built from existing design-system primitives, no new
+component patterns.
+
+---
+
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031), `docs/research/` (stack survey). Keep this current as decisions change.*
