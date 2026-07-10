@@ -257,7 +257,7 @@ def stale_honor_error(honor_id: str) -> dict[str, Any]:
 
 
 def slot_cap_error(kind: Literal["activity", "honor"], cap: int, active: int) -> dict[str, Any]:
-    plural = f"{kind}s"
+    plural = "activities" if kind == "activity" else "honors"
     return error(
         f"The Common App allows {cap} {plural}; this student already has {active} active.",
         retryable=True,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
@@ -1015,6 +1016,49 @@ async def test_honor_lifecycle_cap_and_ownership(
         )
 
     assert await _change_count(app_pool, user_id) == 10
+
+
+async def _assert_activity_create_restore_race(
+    app_pool: asyncpg.Pool,
+    user_id: UUID,
+) -> None:
+    event_bus = WorkspaceEventBus()
+    for index in range(10):
+        await create_activity(
+            app_pool,
+            event_bus,
+            user_id=user_id,
+            actor="student",
+            data=ActivityCreate(position=f"Activity {index}"),
+        )
+    archived = (await list_activities(app_pool, user_id=user_id))[-1]
+    await archive_activity(
+        app_pool, event_bus, user_id=user_id, actor="student", activity_id=archived.id
+    )
+    results = await asyncio.gather(
+        create_activity(
+            app_pool,
+            event_bus,
+            user_id=user_id,
+            actor="student",
+            data=ActivityCreate(position="Concurrent"),
+        ),
+        restore_activity(
+            app_pool, event_bus, user_id=user_id, actor="student", activity_id=archived.id
+        ),
+        return_exceptions=True,
+    )
+    active = await list_activities(app_pool, user_id=user_id)
+
+    assert sum(isinstance(result, WorkspaceValidationError) for result in results) == 1
+    assert len(active) == 10
+    assert len({row.sort_order for row in active}) == 10
+
+
+async def test_activity_create_restore_race_stays_within_cap(
+    app_pool: asyncpg.Pool, make_user: Callable[[], Awaitable[UUID]]
+) -> None:
+    await _assert_activity_create_restore_race(app_pool, await make_user())
 
 
 async def test_list_tasks_status_filter(

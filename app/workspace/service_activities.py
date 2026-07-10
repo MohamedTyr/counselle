@@ -11,6 +11,7 @@ from app.workspace.changes import WorkspaceEventBus, make_change_event, record_c
 from app.workspace.models import (
     Activity,
     ActivityCreate,
+    ActivityDuplicateError,
     ActivityPatch,
     Actor,
     ChangeEvent,
@@ -73,6 +74,22 @@ _NEXT_SORT_SQL: dict[WorkspaceTable, str] = {
         """,
 }
 
+# ``max(sort_order)`` and the active-slot count have no row to lock for an
+# empty list. A transaction-scoped advisory lock gives each user's activity
+# list a short critical section without creating lock rows.
+_ACTIVITY_LOCK_SQL = """
+    SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))
+"""
+# The trailing ``0`` above is a namespace tag reserved for this activities-list
+# lock; a future second advisory-lock caller should pick a different constant
+# to avoid key collisions with this one.
+
+_ACTIVE_ACTIVITY_DUPLICATES_SQL = """
+    SELECT id, position_label, organization
+    FROM counselle.activities
+    WHERE user_id = $1 AND archived_at IS NULL
+"""
+
 _ARCHIVE_SQL: dict[WorkspaceTable, str] = {
     "activities": """
         UPDATE counselle.activities
@@ -91,7 +108,7 @@ _ARCHIVE_SQL: dict[WorkspaceTable, str] = {
 _RESTORE_SQL: dict[WorkspaceTable, str] = {
     "activities": """
         UPDATE counselle.activities
-        SET archived_at = NULL, updated_at = now()
+        SET archived_at = NULL, sort_order = $3, updated_at = now()
         WHERE id = $1 AND user_id = $2 AND archived_at IS NOT NULL
         RETURNING *
         """,
@@ -198,35 +215,75 @@ async def create_activity(
     actor: Actor,
     data: ActivityCreate,
 ) -> Activity:
-    async with app_pool.acquire() as conn, conn.transaction():
-        await _require_capacity(conn, "activities", user_id, ACTIVITY_CAP)
-        sort_order = await _next_sort_order(conn, "activities", user_id)
-        row = await conn.fetchrow(
-            """
-            INSERT INTO counselle.activities
-              (user_id, sort_order, activity_type, position_label, organization,
-               description, grades, timing, hours_per_week, weeks_per_year,
-               continue_in_college, story)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING *
-            """,
-            user_id,
-            sort_order,
-            data.activity_type,
-            data.position,
-            data.organization,
-            data.description,
-            data.grades,
-            data.timing,
-            data.hours_per_week,
-            data.weeks_per_year,
-            data.continue_in_college,
-            data.story,
+    return (
+        await create_activities(
+            app_pool,
+            event_bus,
+            user_id=user_id,
+            actor=actor,
+            data=[data],
         )
-        activity = Activity.model_validate(dict(row))
-        event = await _record_change(conn, user_id, actor, "activity", activity.id, "created")
-    publish_events(event_bus, user_id, [event])
-    return activity
+    )[0]
+
+
+async def create_activities(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    data: list[ActivityCreate],
+    reject_duplicate_pairs: bool = False,
+) -> list[Activity]:
+    """Create one activity batch atomically, appending it to the active order.
+
+    ``reject_duplicate_pairs`` is reserved for the agent's reviewed batch
+    workflow. The UI and ordinary ``create_activity`` calls remain permissive.
+    Regardless of this flag, two entries within the same batch that share a
+    position/organization pair are always rejected — only the active-row
+    duplicate check is gated by ``reject_duplicate_pairs``.
+    """
+    if not data:
+        return []
+    async with app_pool.acquire() as conn, conn.transaction():
+        await _lock_activities(conn, user_id)
+        await _require_distinct_activity_pairs(
+            conn, user_id, data, reject_active_duplicates=reject_duplicate_pairs
+        )
+        await _require_activity_capacity(conn, user_id, needed=len(data))
+        sort_order = await _next_sort_order(conn, "activities", user_id)
+        activities: list[Activity] = []
+        events: list[ChangeEvent] = []
+        for index, activity_data in enumerate(data):
+            row = await conn.fetchrow(
+                """
+                INSERT INTO counselle.activities
+                  (user_id, sort_order, activity_type, position_label, organization,
+                   description, grades, timing, hours_per_week, weeks_per_year,
+                   continue_in_college, story)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                RETURNING *
+                """,
+                user_id,
+                sort_order + index,
+                activity_data.activity_type,
+                activity_data.position,
+                activity_data.organization,
+                activity_data.description,
+                activity_data.grades,
+                activity_data.timing,
+                activity_data.hours_per_week,
+                activity_data.weeks_per_year,
+                activity_data.continue_in_college,
+                activity_data.story,
+            )
+            activity = Activity.model_validate(dict(row))
+            activities.append(activity)
+            events.append(
+                await _record_change(conn, user_id, actor, "activity", activity.id, "created")
+            )
+    publish_events(event_bus, user_id, events)
+    return activities
 
 
 async def update_activity(
@@ -395,11 +452,66 @@ async def _require_capacity(
         raise WorkspaceValidationError(f"active {table} cap reached")
 
 
-async def _next_sort_order(
-    conn: asyncpg.Connection, table: WorkspaceTable, user_id: UUID
-) -> int:
+async def _require_activity_capacity(
+    conn: asyncpg.Connection, user_id: UUID, *, needed: int
+) -> None:
+    count = await conn.fetchval(_COUNT_ACTIVE_SQL["activities"], user_id)
+    if count + needed > ACTIVITY_CAP:
+        raise WorkspaceValidationError("active activities cap reached")
+
+
+async def _next_sort_order(conn: asyncpg.Connection, table: WorkspaceTable, user_id: UUID) -> int:
     value = await conn.fetchval(_NEXT_SORT_SQL[table], user_id)
     return int(value)
+
+
+async def _lock_activities(conn: asyncpg.Connection, user_id: UUID) -> None:
+    """Serialize activity list writes for a user without affecting honors."""
+    await conn.execute(_ACTIVITY_LOCK_SQL, str(user_id))
+
+
+def _activity_pair(data: ActivityCreate) -> tuple[str, str]:
+    return (data.position.strip().casefold(), data.organization.strip().casefold())
+
+
+async def _require_distinct_activity_pairs(
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    data: list[ActivityCreate],
+    *,
+    reject_active_duplicates: bool,
+) -> None:
+    """Reject duplicate position/organization pairs.
+
+    Batch-internal duplicates are always rejected — creating the same
+    activity twice in one call is never a legitimate case. The active-row
+    duplicate check is gated by ``reject_active_duplicates`` so a caller
+    (``force=true`` in the agent tool) can bypass only that check, never the
+    batch-internal one.
+    """
+    active_pairs: dict[tuple[str, str], UUID] = {}
+    if reject_active_duplicates:
+        rows = await conn.fetch(_ACTIVE_ACTIVITY_DUPLICATES_SQL, user_id)
+        active_pairs = {
+            (
+                str(row["position_label"]).strip().casefold(),
+                str(row["organization"]).strip().casefold(),
+            ): row["id"]
+            for row in rows
+        }
+    batch_pairs: dict[tuple[str, str], int] = {}
+    for index, activity_data in enumerate(data):
+        pair = _activity_pair(activity_data)
+        if reject_active_duplicates and (active_activity_id := active_pairs.get(pair)):
+            raise ActivityDuplicateError(
+                duplicate_index=index, active_activity_id=active_activity_id
+            )
+        earlier_batch_index = batch_pairs.get(pair)
+        if earlier_batch_index is not None:
+            raise ActivityDuplicateError(
+                duplicate_index=index, earlier_batch_index=earlier_batch_index
+            )
+        batch_pairs[pair] = index
 
 
 async def _update_row(
@@ -429,6 +541,8 @@ async def _archive_row(
     row_id: UUID,
 ) -> ChangeEvent:
     async with app_pool.acquire() as conn, conn.transaction():
+        if table == "activities":
+            await _lock_activities(conn, user_id)
         row = await conn.fetchrow(
             _ARCHIVE_SQL[table],
             row_id,
@@ -450,13 +564,15 @@ async def _restore_row(
     cap: int,
 ) -> tuple[asyncpg.Record, ChangeEvent]:
     async with app_pool.acquire() as conn, conn.transaction():
+        if table == "activities":
+            await _lock_activities(conn, user_id)
         await _require_archived(conn, table, user_id, row_id)
         await _require_capacity(conn, table, user_id, cap)
-        row = await conn.fetchrow(
-            _RESTORE_SQL[table],
-            row_id,
-            user_id,
-        )
+        if table == "activities":
+            sort_order = await _next_sort_order(conn, table, user_id)
+            row = await conn.fetchrow(_RESTORE_SQL[table], row_id, user_id, sort_order)
+        else:
+            row = await conn.fetchrow(_RESTORE_SQL[table], row_id, user_id)
         if row is None:
             raise WorkspaceNotFoundError()
         event = await _record_change(conn, user_id, actor, object_type, row["id"], "restored")
@@ -474,6 +590,8 @@ async def _reorder_rows(
     if len(set(ids)) != len(ids):
         raise WorkspaceValidationError("ordered ids must be unique")
     async with app_pool.acquire() as conn, conn.transaction():
+        if table == "activities":
+            await _lock_activities(conn, user_id)
         active = await conn.fetch(
             _ACTIVE_IDS_SQL[table],
             user_id,

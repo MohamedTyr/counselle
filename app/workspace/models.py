@@ -44,6 +44,22 @@ class WorkspaceValidationError(Exception):
     """Raised when workspace input is structurally valid but conflicts with state."""
 
 
+class ActivityDuplicateError(WorkspaceValidationError):
+    """Raised when an agent batch repeats an active activity identity."""
+
+    def __init__(
+        self,
+        *,
+        duplicate_index: int,
+        active_activity_id: UUID | None = None,
+        earlier_batch_index: int | None = None,
+    ) -> None:
+        super().__init__("duplicate activity")
+        self.duplicate_index = duplicate_index
+        self.active_activity_id = active_activity_id
+        self.earlier_batch_index = earlier_batch_index
+
+
 class _Model(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
