@@ -3,8 +3,8 @@
 # One row per tool the agent can call. `label` templates interpolate args the
 # step mapper (app/steps.py) guarantees: {query} {school} {schools} {category}
 # {subreddits} {viz_label} {name} {field} {tool} {tasks_phrase} {schools_phrase}
-# {essays_phrase}. Changing the product voice never touches code (ADR 0018
-# bucket 2).
+# {essays_phrase} {activities_phrase} {honors_phrase}. Changing the product
+# voice never touches code (ADR 0018 bucket 2).
 #
 # `tier` drives the timeline icon/color grammar: official | community | null
 # (null = neutral — the open web is mixed-tier per result; the citation
@@ -171,6 +171,50 @@ tools:
     kind: workspace
     tier: null
     label: "Drafting an essay"
+  view_activities:
+    kind: workspace
+    tier: null
+    label: "Checking activities and honors"
+  create_activities:
+    kind: workspace
+    tier: null
+    label: "Adding {activities_phrase}"
+  update_activity:
+    kind: workspace
+    tier: null
+    label: "Updating an activity"
+  archive_activities:
+    kind: workspace
+    tier: null
+    label: "Removing {activities_phrase}"
+  restore_activity:
+    kind: workspace
+    tier: null
+    label: "Bringing back an activity"
+  reorder_activities:
+    kind: workspace
+    tier: null
+    label: "Reordering the activities list"
+  create_honors:
+    kind: workspace
+    tier: null
+    label: "Adding {honors_phrase}"
+  update_honor:
+    kind: workspace
+    tier: null
+    label: "Updating an honor"
+  archive_honors:
+    kind: workspace
+    tier: null
+    label: "Removing {honors_phrase}"
+  restore_honor:
+    kind: workspace
+    tier: null
+    label: "Bringing back an honor"
+  reorder_honors:
+    kind: workspace
+    tier: null
+    label: "Reordering the honors list"
 
 # Any tool not in the table maps here — a generic step, never nothing.
 default:

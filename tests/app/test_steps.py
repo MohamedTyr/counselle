@@ -51,6 +51,17 @@ FUNCTION_TOOLS = {
     "restore_essay",
     "edit_essay",
     "write_essay",
+    "view_activities",
+    "create_activities",
+    "update_activity",
+    "archive_activities",
+    "restore_activity",
+    "reorder_activities",
+    "create_honors",
+    "update_honor",
+    "archive_honors",
+    "restore_honor",
+    "reorder_honors",
 }
 
 _SCHOOL_NAMES = {198419: "Duke University", 221999: "Vanderbilt University"}
@@ -196,6 +207,41 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
     ("restore_essay", {"essay_id": "abc"}, "workspace", None, ["archived essay"]),
     ("edit_essay", {"essay_id": "abc"}, "workspace", None, ["Editing an essay"]),
     ("write_essay", {"essay_id": "abc"}, "workspace", None, ["Drafting an essay"]),
+    ("view_activities", {}, "workspace", None, ["activities and honors"]),
+    (
+        "create_activities",
+        {"activities": [{"type": "work", "position": "Cashier"}]},
+        "workspace",
+        None,
+        ["an activity"],
+    ),
+    ("update_activity", {"activity_id": "abc"}, "workspace", None, ["Updating an activity"]),
+    (
+        "archive_activities",
+        {"activity_ids": ["a", "b"]},
+        "workspace",
+        None,
+        ["2 activities"],
+    ),
+    ("restore_activity", {"activity_id": "abc"}, "workspace", None, ["Bringing back"]),
+    ("reorder_activities", {"ids": ["a", "b"]}, "workspace", None, ["Reordering"]),
+    (
+        "create_honors",
+        {"honors": [{"title": "National Merit Scholar"}]},
+        "workspace",
+        None,
+        ["an honor"],
+    ),
+    ("update_honor", {"honor_id": "abc"}, "workspace", None, ["Updating an honor"]),
+    (
+        "archive_honors",
+        {"honor_ids": ["a", "b"]},
+        "workspace",
+        None,
+        ["2 honors"],
+    ),
+    ("restore_honor", {"honor_id": "abc"}, "workspace", None, ["Bringing back"]),
+    ("reorder_honors", {"ids": ["a", "b"]}, "workspace", None, ["Reordering"]),
 ]
 
 

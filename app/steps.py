@@ -290,6 +290,8 @@ class StepMapper:
             "tasks_phrase": _tasks_phrase(args),
             "schools_phrase": _schools_phrase(args),
             "essays_phrase": _essays_phrase(args),
+            "activities_phrase": _activities_phrase(args),
+            "honors_phrase": _honors_phrase(args),
         }
 
     @staticmethod
@@ -501,6 +503,21 @@ def _essays_phrase(args: dict[str, Any]) -> str:
     items = args.get("essays") or args.get("essay_ids") or []
     count = len(items) if isinstance(items, list) else 0
     return "an essay" if count == 1 else f"{count} essays"
+
+
+def _activities_phrase(args: dict[str, Any]) -> str:
+    """ "an activity" for a single-item batch, else "N activities" (create_activities/
+    archive_activities)."""
+    items = args.get("activities") or args.get("activity_ids") or []
+    count = len(items) if isinstance(items, list) else 0
+    return "an activity" if count == 1 else f"{count} activities"
+
+
+def _honors_phrase(args: dict[str, Any]) -> str:
+    """ "an honor" for a single-item batch, else "N honors" (create_honors/archive_honors)."""
+    items = args.get("honors") or args.get("honor_ids") or []
+    count = len(items) if isinstance(items, list) else 0
+    return "an honor" if count == 1 else f"{count} honors"
 
 
 def _row_count_of(content: Any) -> int | None:

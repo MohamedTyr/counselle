@@ -40,6 +40,17 @@ _GATED_BY: dict[str, str] = {
     "restore_essay": "auth",
     "edit_essay": "auth",
     "write_essay": "auth",
+    "view_activities": "auth",
+    "create_activities": "auth",
+    "update_activity": "auth",
+    "archive_activities": "auth",
+    "restore_activity": "auth",
+    "reorder_activities": "auth",
+    "create_honors": "auth",
+    "update_honor": "auth",
+    "archive_honors": "auth",
+    "restore_honor": "auth",
+    "reorder_honors": "auth",
 }
 
 

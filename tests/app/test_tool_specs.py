@@ -39,6 +39,17 @@ FUNCTION_TOOLS = {
     "restore_essay",
     "edit_essay",
     "write_essay",
+    "view_activities",
+    "create_activities",
+    "update_activity",
+    "archive_activities",
+    "restore_activity",
+    "reorder_activities",
+    "create_honors",
+    "update_honor",
+    "archive_honors",
+    "restore_honor",
+    "reorder_honors",
 }
 
 WORKSPACE_TOOLS = {
@@ -64,6 +75,17 @@ WORKSPACE_TOOLS = {
     "restore_essay",
     "edit_essay",
     "write_essay",
+    "view_activities",
+    "create_activities",
+    "update_activity",
+    "archive_activities",
+    "restore_activity",
+    "reorder_activities",
+    "create_honors",
+    "update_honor",
+    "archive_honors",
+    "restore_honor",
+    "reorder_honors",
 }
 
 

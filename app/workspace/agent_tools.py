@@ -36,6 +36,14 @@ from pydantic_ai import Tool
 
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.workspace import service_tasks
+from app.workspace.agent_tools_activities import make_view_activities_tool
+from app.workspace.agent_tools_activities_mutations import (
+    make_archive_activities_tool,
+    make_create_activities_tool,
+    make_reorder_activities_tool,
+    make_restore_activity_tool,
+    make_update_activity_tool,
+)
 from app.workspace.agent_tools_essays import make_read_essay_tool, make_view_essays_tool
 from app.workspace.agent_tools_essays_content import make_edit_essay_tool, make_write_essay_tool
 from app.workspace.agent_tools_essays_mutations import (
@@ -44,6 +52,13 @@ from app.workspace.agent_tools_essays_mutations import (
     make_duplicate_essay_tool,
     make_restore_essay_tool,
     make_update_essay_tool,
+)
+from app.workspace.agent_tools_honors_mutations import (
+    make_archive_honors_tool,
+    make_create_honors_tool,
+    make_reorder_honors_tool,
+    make_restore_honor_tool,
+    make_update_honor_tool,
 )
 from app.workspace.agent_tools_mutations import (
     make_archive_tasks_tool,
@@ -73,8 +88,14 @@ from app.workspace.agent_tools_shared import (
     try_uuid,
 )
 
+#: Re-exported so callers can do ``from app.workspace.agent_tools import ActivityDraft``.
+from app.workspace.agent_tools_shared import ActivityDraft as ActivityDraft  # noqa: E402
+
 #: Re-exported so callers can do ``from app.workspace.agent_tools import EssayDraft``.
 from app.workspace.agent_tools_shared import EssayDraft as EssayDraft  # noqa: E402
+
+#: Re-exported so callers can do ``from app.workspace.agent_tools import HonorDraft``.
+from app.workspace.agent_tools_shared import HonorDraft as HonorDraft  # noqa: E402
 
 #: Re-exported so callers can do ``from app.workspace.agent_tools import TaskDraft``.
 from app.workspace.agent_tools_shared import TaskDraft as TaskDraft  # noqa: E402
@@ -103,11 +124,14 @@ def build_workspace_tools(
     """Build the per-run workspace tools bound to one authenticated turn.
 
     Six task tools (view/search/create/update/archive/restore), seven school
-    tools (search/view/get/add/update/archive/restore), and nine essay tools —
+    tools (search/view/get/add/update/archive/restore), nine essay tools —
     general control (view/create/update/duplicate/archive/restore) plus
-    specialized document control (read/edit/write, ADR 0030). ``template``
-    seeds the starter tasks/essays when the agent adds a school;
-    ``add_schools`` errors cleanly if it is unset.
+    specialized document control (read/edit/write, ADR 0030) — and eleven
+    activity/honor tools: one shared read (``view_activities``, both lists in
+    one payload) plus five mutations per object type
+    (create/update/archive/restore/reorder). ``template`` seeds the starter
+    tasks/essays when the agent adds a school; ``add_schools`` errors cleanly
+    if it is unset.
     """
     ctx = ToolCtx(
         app_pool=app_pool,
@@ -140,6 +164,17 @@ def build_workspace_tools(
         make_restore_essay_tool(ctx),
         make_edit_essay_tool(ctx),
         make_write_essay_tool(ctx),
+        make_view_activities_tool(ctx),
+        make_create_activities_tool(ctx),
+        make_update_activity_tool(ctx),
+        make_archive_activities_tool(ctx),
+        make_restore_activity_tool(ctx),
+        make_reorder_activities_tool(ctx),
+        make_create_honors_tool(ctx),
+        make_update_honor_tool(ctx),
+        make_archive_honors_tool(ctx),
+        make_restore_honor_tool(ctx),
+        make_reorder_honors_tool(ctx),
     ]
 
 
