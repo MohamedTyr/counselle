@@ -15,12 +15,17 @@ import { CitationRenderer } from "./CitationRenderer";
 
 export { ToolStepBeat } from "./ToolWidgets";
 
-function PlanStatusIcon({ status }: { status: string }) {
+function PlanStatusIcon({ isLive, status }: { isLive: boolean; status: string }) {
   if (status === "completed") {
     return <CheckCircle2Icon aria-hidden="true" className="mt-0.5 size-3.5" />;
   }
   if (status === "in_progress") {
-    return <LoaderCircleIcon aria-hidden="true" className="mt-0.5 size-3.5" />;
+    return (
+      <LoaderCircleIcon
+        aria-hidden="true"
+        className={cn("mt-0.5 size-3.5", isLive && "animate-spin")}
+      />
+    );
   }
   if (status === "cancelled") {
     return <XCircleIcon aria-hidden="true" className="mt-0.5 size-3.5" />;
@@ -29,8 +34,10 @@ function PlanStatusIcon({ status }: { status: string }) {
 }
 
 /** Compact plan rendering for places that intentionally show a plan summary.
- * The chronological run itself renders `write_plan` as a normal tool beat. */
-export function PlanChecklist({ step }: { step: StepData }) {
+ * The chronological run itself renders `write_plan` as a normal tool beat.
+ * `isLive` gates the in-progress spinner — a finished or cancelled run must
+ * settle, not lie about activity. */
+export function PlanChecklist({ isLive = false, step }: { isLive?: boolean; step: StepData }) {
   const items = step.detail?.items ?? [];
   if (items.length === 0) {
     return null;
@@ -56,7 +63,7 @@ export function PlanChecklist({ step }: { step: StepData }) {
             )}
             key={`${item.content}-${index}`}
           >
-            <PlanStatusIcon status={item.status} />
+            <PlanStatusIcon isLive={isLive} status={item.status} />
             <span>{item.content}</span>
           </li>
         ))}

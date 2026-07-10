@@ -15,10 +15,17 @@ export function isLiveStatus(status: TurnStatus): boolean {
   return LIVE_STATUSES.has(status);
 }
 
+/** Skips item-less `write_plan` steps — the start event carries `detail=None`
+ *  (items land on the end event), so the checklist would flicker empty during
+ *  the start→end window if we didn't prefer the latest step with items. */
 export function latestPlanStep(segments: readonly Segment[]): StepData | null {
   for (let index = segments.length - 1; index >= 0; index -= 1) {
     const entry = segments[index];
-    if (entry.type === "tool" && entry.step.kind === "write_plan") {
+    if (
+      entry.type === "tool" &&
+      entry.step.kind === "write_plan" &&
+      (entry.step.detail?.items?.length ?? 0) > 0
+    ) {
       return entry.step;
     }
   }

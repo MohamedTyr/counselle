@@ -124,7 +124,7 @@ describe("ChatMessage", () => {
     expect(screen.getByText("I added it to your workspace.")).toBeInTheDocument();
   });
 
-  test("assistant message renders write_plan in chronological order", () => {
+  test("assistant message pins the latest write_plan checklist above the stream", () => {
     render(
       <ChatMessage
         message={assistantMessage({
@@ -156,13 +156,48 @@ describe("ChatMessage", () => {
       />,
     );
 
+    expect(screen.getByText("Plan")).toBeInTheDocument();
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+    expect(screen.getByText("Check schools")).toBeInTheDocument();
+    expect(screen.getByText("Compare fit")).toBeInTheDocument();
+
     const text = document.body.textContent ?? "";
-    expect(text.indexOf("First, I will plan this.")).toBeLessThan(
-      text.indexOf("Updated the plan"),
+    expect(text.indexOf("Plan")).toBeLessThan(text.indexOf("First, I will plan this."));
+  });
+
+  test("assistant message suppresses the generic write_plan beat from the stream", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          segments: [
+            { type: "narration", id: "n1", text: "First, I will plan this." },
+            {
+              type: "tool",
+              step: {
+                step_id: "plan-1",
+                status: "end",
+                kind: "write_plan",
+                label: "Updated the plan",
+                tier: null,
+                detail: {
+                  completed: 1,
+                  total: 2,
+                  items: [
+                    { content: "Check schools", status: "completed" },
+                    { content: "Compare fit", status: "in_progress" },
+                  ],
+                },
+              },
+            },
+            { type: "answer", text: "Then I will answer." },
+          ],
+          blocks: [{ kind: "markdown", text: "Then I will answer." }],
+          text: "Then I will answer.",
+        })}
+      />,
     );
-    expect(text.indexOf("Updated the plan")).toBeLessThan(
-      text.indexOf("Then I will answer."),
-    );
+
+    expect(screen.queryByText("Updated the plan")).not.toBeInTheDocument();
   });
 
   test("empty live assistant run shows the collapsed thinking row immediately", () => {

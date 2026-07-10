@@ -260,6 +260,43 @@ describe("PlanChecklist", () => {
     );
     expect(container.firstChild).toBeNull();
   });
+
+  test("spins the in-progress icon while the turn is live", () => {
+    const { container } = render(
+      <PlanChecklist
+        isLive
+        step={step({
+          kind: "write_plan",
+          label: "Updated the plan",
+          detail: {
+            completed: 0,
+            total: 1,
+            items: [{ content: "Compare costs", status: "in_progress" }],
+          },
+        })}
+      />,
+    );
+
+    expect(container.querySelector(".animate-spin")).not.toBeNull();
+  });
+
+  test("does not spin the in-progress icon when the turn is not live", () => {
+    const { container } = render(
+      <PlanChecklist
+        step={step({
+          kind: "write_plan",
+          label: "Updated the plan",
+          detail: {
+            completed: 0,
+            total: 1,
+            items: [{ content: "Compare costs", status: "in_progress" }],
+          },
+        })}
+      />,
+    );
+
+    expect(container.querySelector(".animate-spin")).toBeNull();
+  });
 });
 
 describe("NarrationBeat", () => {

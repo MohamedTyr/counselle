@@ -10,8 +10,8 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { Segment } from "../turn-reducer";
-import { NarrationBeat, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
-import { isLiveStatus } from "./activity-trace-helpers";
+import { NarrationBeat, PlanChecklist, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
+import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
 import { CitationRenderer } from "./CitationRenderer";
 import { ClarifyWidget } from "./ClarifyWidget";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
@@ -161,7 +161,7 @@ function SegmentBeat({
         </Message>
       );
     case "tool":
-      return <ToolStepBeat step={segment.step} />;
+      return segment.step.kind === "write_plan" ? null : <ToolStepBeat step={segment.step} />;
     case "answer":
       return segment.text.length === 0 ? null : (
         <div>
@@ -202,9 +202,11 @@ function AssistantBody({
         (segment) => segment.type === "answer" && segment.text.length > 0,
       )
     : -1;
+  const planStep = latestPlanStep(message.segments);
 
   return (
     <>
+      {planStep !== null && <PlanChecklist isLive={hasLiveSegment} step={planStep} />}
       {showEmptyLiveThinking && (
         <ThinkingBeat id={`${message.messageId}-empty-live`} isLive text="" />
       )}
