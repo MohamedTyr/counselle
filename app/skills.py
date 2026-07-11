@@ -162,9 +162,13 @@ def _build_registry() -> tuple[MappingProxyType[str, SkillEntry], tuple[SkillEnt
             _invalid_internal_skill(path, "name does not match parent directory")
             continue
         if user_flag not in {"true", "false"}:
-            raise ValueError(
-                f"skill {name!r} user_invokable must be literal lowercase true or false"
-            )
+            # An invalid visibility flag cannot establish that a skill is public.
+            # Treat it like other malformed internal metadata: skip the untrusted
+            # entry and retain the loader's historical resilience. Entries that
+            # explicitly declare ``user_invokable: true`` still fail fast below
+            # for every public-metadata violation.
+            _invalid_internal_skill(path, "user_invokable must be literal lowercase true or false")
+            continue
         display_name = frontmatter.get("display_name", "").strip() or None
         user_description = frontmatter.get("user_description", "").strip() or None
         body = _body(text)

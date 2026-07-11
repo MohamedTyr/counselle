@@ -451,16 +451,32 @@ def test_public_skill_with_directory_mismatch_fails_registry_startup(
         mod.user_skill_catalog()
 
 
-def test_user_invokable_only_accepts_literal_lowercase_booleans(
+def test_internal_skill_with_invalid_user_invokable_is_skipped_and_logged(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     mod = _fresh_skills()
-    _write_skill(tmp_path, "public-skill", user_invokable="True")
+    path = _write_skill(tmp_path, "internal-skill", user_invokable="True")
+    warnings: list[tuple[str, dict[str, object]]] = []
+
+    class WarningLogger:
+        def warning(self, event: str, **kwargs: object) -> None:
+            warnings.append((event, kwargs))
+
+    monkeypatch.setattr(mod, "_skills_logger", WarningLogger())
     monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
     _reset_registry_cache(mod)
 
-    with pytest.raises(ValueError, match="literal lowercase"):
-        mod.user_skill_catalog()
+    assert mod.load_all_skill_meta() == []
+    assert mod.user_skill_catalog() == []
+    assert warnings == [
+        (
+            "skill file invalid — skipping",
+            {
+                "path": str(path),
+                "reason": "user_invokable must be literal lowercase true or false",
+            },
+        )
+    ]
 
 
 @pytest.mark.parametrize(

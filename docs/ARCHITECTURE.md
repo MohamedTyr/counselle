@@ -386,6 +386,8 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, optional scripts), living in `skills/`. (ADR 0010.) Metadata loads at startup; full instructions load only when triggered (progressive disclosure). Skills are the **workflow** layer; MCP is the **transport** layer — kept separate. Four skills ship in `skills/`: `dossier-assembly`, `school-comparison`, `decode-coded-value`, `citation-and-recency`. (`deep-research-with-citations` activates with the GPT-Researcher subsystem — ADR 0009.) Skills are data, not code — editing one never requires a deploy decision beyond shipping the file.
 
+Students can explicitly invoke only skills that opt into the public SKILL.md metadata (`user_invokable`, with student-facing display copy). The API exposes that catalog through config and validates submitted canonical names, visibility, uniqueness, count, and trusted body-size/path bounds before a turn is claimed. Valid selections are preloaded as a server-owned, one-turn instruction block; they cannot override the counselor's base instructions, authz, read-only constraints, or honesty rules. The selected canonical names persist in the turn record and original user transcript entry, so reload, retry, and regeneration preserve the exact invocation without adding control syntax to the student's text. Internal skills remain available to the agent's normal progressive-disclosure tool path but are never exposed as student actions.
+
 ---
 
 ## 16. Citations, recency & temporal context, end to end
