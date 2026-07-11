@@ -45,6 +45,8 @@ describe("chatTransport", () => {
         season_note: null,
         conversation_starters: [],
         default_source_config: null,
+        skills: [],
+        max_selected_skills: 3,
       }),
     );
 
@@ -281,6 +283,37 @@ describe("chatTransport", () => {
             reddit: true,
             reddit_subreddits: null,
           },
+        }),
+      }),
+    );
+  });
+
+  it("sends explicitly selected skill names separately from student text", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      sseResponse(frame("done", { status: "complete" })),
+    );
+
+    await collect(
+      chatTransport.sendMessage({
+        sessionId: "session-1",
+        text: "Compare Duke and Northwestern",
+        sourceConfig: BUILT_IN_SOURCE_CONFIG,
+        skills: ["school-comparison"],
+      }),
+    );
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/v1/sessions/session-1/messages",
+      expect.objectContaining({
+        body: JSON.stringify({
+          text: "Compare Duke and Northwestern",
+          source_config: {
+            web: true,
+            edu: true,
+            reddit: true,
+            reddit_subreddits: null,
+          },
+          skills: ["school-comparison"],
         }),
       }),
     );

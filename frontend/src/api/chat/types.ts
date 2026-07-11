@@ -250,16 +250,32 @@ export type SourceConfigWire = {
   reddit_subreddits: string[] | null;
 };
 
+export type SkillCatalogEntryWire = {
+  name: string;
+  display_name: string;
+  description: string;
+};
+
+export type SkillCatalogEntry = {
+  name: string;
+  displayName: string;
+  description: string;
+};
+
 export type ChatConfigWire = {
   greeting: string;
   season_note: string | null;
   conversation_starters: string[];
   default_source_config: SourceConfigWire | null;
+  skills?: SkillCatalogEntryWire[];
+  max_selected_skills?: number;
 };
 
 export type ComposerConfig = {
   greeting: string;
   sourceConfig: SourceConfig;
+  skills: SkillCatalogEntry[];
+  maxSelectedSkills: number;
 };
 
 export type CreatedSession = {
@@ -302,6 +318,7 @@ export type SendMessageInput = {
   sessionId: string;
   text: string;
   sourceConfig: SourceConfig;
+  skills?: string[];
   signal?: AbortSignal;
   replaceMessageId?: string;
 };
@@ -312,8 +329,7 @@ export type SteerMessageInput = {
 };
 
 export type SteerMessageResult =
-  | { status: "queued"; userMessageId: string }
-  | { status: "idle" };
+  { status: "queued"; userMessageId: string } | { status: "idle" };
 
 export type AttachStreamResult =
   | { active: false }

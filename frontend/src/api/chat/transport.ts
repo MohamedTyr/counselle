@@ -184,17 +184,11 @@ function detailToSession(
 
 function listRows(value: unknown): SessionRowWire[] {
   if (!Array.isArray(value)) {
-    throw new TransportError(
-      "server",
-      "Session list response was malformed.",
-    );
+    throw new TransportError("server", "Session list response was malformed.");
   }
 
   if (!value.every(isSessionRowWire)) {
-    throw new TransportError(
-      "server",
-      "Session list response was malformed.",
-    );
+    throw new TransportError("server", "Session list response was malformed.");
   }
 
   return value;
@@ -299,7 +293,8 @@ export const chatTransport: ChatTransport = {
     const wire = await requestJson<SessionListWire>(`/sessions?${params}`);
     return {
       sessions: listRows(wire.sessions).map((row) => rowToSummary(row)),
-      nextCursor: typeof wire.next_cursor === "string" ? wire.next_cursor : null,
+      nextCursor:
+        typeof wire.next_cursor === "string" ? wire.next_cursor : null,
     };
   },
 
@@ -337,6 +332,7 @@ export const chatTransport: ChatTransport = {
     sessionId,
     text,
     sourceConfig,
+    skills,
     signal,
     replaceMessageId,
   }: SendMessageInput) {
@@ -348,6 +344,7 @@ export const chatTransport: ChatTransport = {
       body: JSON.stringify({
         text: text.trim(),
         source_config: toWireSourceConfig(sourceConfig),
+        ...(skills !== undefined ? { skills } : {}),
         ...(replaceMessageId !== undefined
           ? { replace_message_id: replaceMessageId }
           : {}),
