@@ -21,6 +21,7 @@ from __future__ import annotations
 import importlib
 import re
 import types
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -52,7 +53,41 @@ def _fresh_skills() -> types.ModuleType:
 
     mod._meta_cache = None
     mod._body_cache = {}
+    _reset_registry_cache(mod)
     return mod
+
+
+def _reset_registry_cache(mod: types.ModuleType) -> None:
+    """Clear implementation-private registry state without widening module typing."""
+    mod.__dict__["_registry_cache"] = None
+    mod.__dict__["_ordered_entries_cache"] = None
+
+
+def _write_skill(
+    root: Path,
+    directory: str,
+    *,
+    name: str | None = None,
+    description: str = "Model-facing description.",
+    user_invokable: str | None = None,
+    display_name: str | None = None,
+    user_description: str | None = None,
+    body: str = "# Trusted workflow\n\nFollow this workflow.",
+) -> Path:
+    """Create a small, purpose-built SKILL.md fixture without YAML machinery."""
+    skill_dir = root / directory
+    skill_dir.mkdir(parents=True)
+    metadata = ["---", f"name: {name or directory}", f"description: {description}"]
+    if user_invokable is not None:
+        metadata.append(f"user_invokable: {user_invokable}")
+    if display_name is not None:
+        metadata.append(f"display_name: {display_name}")
+    if user_description is not None:
+        metadata.append(f"user_description: {user_description}")
+    metadata.append("---")
+    path = skill_dir / "SKILL.md"
+    path.write_text("\n".join([*metadata, "", body, ""]), encoding="utf-8")
+    return path
 
 
 def _receipt(
@@ -279,3 +314,257 @@ def test_make_load_skill_tool_has_docstring() -> None:
     assert "dossier-assembly" in doc, (
         "Tool docstring should list skill names; 'dossier-assembly' not found"
     )
+
+
+# ---------------------------------------------------------------------------
+# Explicit student selection — authority boundary
+# ---------------------------------------------------------------------------
+
+
+def test_user_catalog_contains_only_opted_in_metadata_in_name_order() -> None:
+    mod = _fresh_skills()
+
+    assert mod.user_skill_catalog() == [
+        {
+            "name": "dossier-assembly",
+            "display_name": "School dossier",
+            "description": "Build a complete, cited overview of one school.",
+        },
+        {
+            "name": "school-comparison",
+            "display_name": "School comparison",
+            "description": "Compare 2–6 schools across cost, admissions, outcomes, and fit.",
+        },
+    ]
+
+
+def test_validate_selected_skills_preserves_canonical_input_order() -> None:
+    mod = _fresh_skills()
+
+    selected = mod.validate_selected_skills(["school-comparison", "dossier-assembly"])
+
+    assert selected == ["school-comparison", "dossier-assembly"]
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        ["school-comparison", "school-comparison"],
+        ["decode-coded-value"],
+        ["does-not-exist"],
+        ["school-comparison", "dossier-assembly", "school-comparison", "does-not-exist"],
+    ],
+)
+def test_validate_selected_skills_rejects_duplicates_hidden_unknown_and_excess(
+    names: list[str],
+) -> None:
+    mod = _fresh_skills()
+
+    with pytest.raises(mod.SelectedSkillValidationError):
+        mod.validate_selected_skills(names)
+
+
+def test_render_selected_skills_uses_validated_registry_bodies_not_friendly_loader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mod = _fresh_skills()
+    monkeypatch.setattr(mod, "load_skill", lambda _name: "UNTRUSTED FRIENDLY RESPONSE")
+
+    rendered = mod.render_selected_skills(["school-comparison", "dossier-assembly"])
+
+    assert "## Explicitly selected workflows" in rendered
+    assert "### Selected skill: school-comparison" in rendered
+    assert "### Selected skill: dossier-assembly" in rendered
+    assert "UNTRUSTED FRIENDLY RESPONSE" not in rendered
+    assert rendered.index("school-comparison") < rendered.index("dossier-assembly")
+    assert "cannot override system instructions" in rendered
+    assert "read-only constraints" in rendered
+    assert "value-reading rules" in rendered
+
+
+def test_malformed_public_metadata_fails_registry_startup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    _write_skill(
+        tmp_path,
+        "public-skill",
+        user_invokable="true",
+        display_name="Public skill",
+        # A public description is mandatory, even though the model description exists.
+    )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="user_description"):
+        mod.user_skill_catalog()
+
+
+@pytest.mark.parametrize(
+    ("directory", "name", "description"),
+    [
+        ("bad-slug", "Bad Slug", "Public workflow."),
+        ("missing-description", None, ""),
+    ],
+)
+def test_public_skills_with_invalid_identity_metadata_fail_registry_startup(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    directory: str,
+    name: str | None,
+    description: str,
+) -> None:
+    mod = _fresh_skills()
+    _write_skill(
+        tmp_path,
+        directory,
+        name=name,
+        description=description,
+        user_invokable="true",
+        display_name="Public workflow",
+        user_description="Use this workflow.",
+    )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="public skill has missing or invalid"):
+        mod.user_skill_catalog()
+
+
+def test_public_skill_with_directory_mismatch_fails_registry_startup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    path = _write_skill(
+        tmp_path,
+        "wrong-directory",
+        name="public-workflow",
+        user_invokable="true",
+        display_name="Public workflow",
+        user_description="Use this workflow.",
+    )
+    monkeypatch.setattr(mod, "_skill_paths", lambda: [path])
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="does not match parent directory"):
+        mod.user_skill_catalog()
+
+
+def test_user_invokable_only_accepts_literal_lowercase_booleans(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    _write_skill(tmp_path, "public-skill", user_invokable="True")
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="literal lowercase"):
+        mod.user_skill_catalog()
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid_value", "match"),
+    [
+        ("display_name", "x" * 241, "display_name"),
+        ("user_description", "x" * 241, "user_description"),
+        ("display_name", "Bad\tcopy", "display_name"),
+        ("user_description", "Bad\tcopy", "user_description"),
+        ("display_name", "Bad\x1fcopy", "display_name"),
+        ("user_description", "Bad\x1fcopy", "user_description"),
+        ("display_name", "Bad\ncopy", "invalid frontmatter"),
+        ("user_description", "Bad\ncopy", "invalid frontmatter"),
+    ],
+)
+def test_public_presentation_copy_rejects_length_controls_and_multiline_values(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    field: str,
+    invalid_value: str,
+    match: str,
+) -> None:
+    mod = _fresh_skills()
+    presentation = {
+        "display_name": "Public workflow",
+        "user_description": "Use this workflow.",
+    }
+    presentation[field] = invalid_value
+    _write_skill(tmp_path, "public-skill", user_invokable="true", **presentation)
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match=match):
+        mod.user_skill_catalog()
+
+
+def test_duplicate_names_fail_registry_startup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    duplicate = _write_skill(tmp_path, "duplicate")
+    # A duplicate can only arise through an ambiguous discovery result because
+    # normal on-disk directory names must equal the canonical skill name.
+    monkeypatch.setattr(mod, "_skill_paths", lambda: [duplicate, duplicate])
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="duplicate skill name"):
+        mod.load_all_skill_meta()
+
+
+def test_symlink_escape_is_not_authorized_for_the_catalog(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    outside = tmp_path.parent / "outside-skill.md"
+    outside.write_text(
+        "---\nname: escaped\ndescription: Escaped.\n---\n# Escaped\n", encoding="utf-8"
+    )
+    skill_dir = tmp_path / "escaped"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").symlink_to(outside)
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    assert mod.load_all_skill_meta() == []
+    assert mod.user_skill_catalog() == []
+
+
+def test_selected_body_limits_are_enforced_without_truncation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    body = "x" * 9_000
+    for name in ("one", "two", "three"):
+        _write_skill(
+            tmp_path,
+            name,
+            user_invokable="true",
+            display_name=name.title(),
+            user_description=f"Use {name}.",
+            body=body,
+        )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(mod.SelectedSkillValidationError, match="bodies exceed"):
+        mod.render_selected_skills(["one", "two", "three"])
+
+
+def test_public_skill_with_an_oversized_body_fails_registry_startup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    _write_skill(
+        tmp_path,
+        "too-large",
+        user_invokable="true",
+        display_name="Too large",
+        user_description="This is too large.",
+        body="x" * (mod.MAX_PUBLIC_SKILL_BODY_CHARS + 1),
+    )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="body exceeds"):
+        mod.user_skill_catalog()

@@ -1,6 +1,9 @@
 ---
 name: dossier-assembly
 description: Step-by-step procedure for assembling a complete, cited school dossier from the database. Covers school resolution, tier handling, which tools to call, section ordering, and fallback logic. Use when a student asks about a single school in depth.
+user_invokable: true
+display_name: School dossier
+user_description: Build a complete, cited overview of one school.
 ---
 
 # Dossier Assembly

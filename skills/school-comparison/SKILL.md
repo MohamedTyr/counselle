@@ -1,6 +1,9 @@
 ---
 name: school-comparison
 description: Procedure for comparing 2–6 schools side by side on fields that matter for a specific intent (cost, selectivity, outcomes, etc.). Always renders a comparison_table viz. Handles missing values honestly per cell. Use when a student wants to compare schools.
+user_invokable: true
+display_name: School comparison
+user_description: Compare 2–6 schools across cost, admissions, outcomes, and fit.
 ---
 
 # School Comparison
