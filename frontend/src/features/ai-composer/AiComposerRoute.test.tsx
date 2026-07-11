@@ -24,6 +24,14 @@ function aiFetchHandler(
         reddit: true,
         reddit_subreddits: null,
       },
+      skills: [
+        {
+          name: "school-comparison",
+          display_name: "School comparison",
+          description: "Compare schools side by side.",
+        },
+      ],
+      max_selected_skills: 3,
     })
   }
   if (url.endsWith("/v1/sessions") && init?.method === "POST") {
@@ -166,7 +174,7 @@ describe("AiComposerRoute", () => {
       },
     })
 
-    const textarea = await screen.findByRole("textbox", {
+    const textarea = await screen.findByRole("combobox", {
       name: "Message Counselle",
     })
     await waitFor(() => expect(textarea).not.toBeDisabled())
@@ -182,6 +190,7 @@ describe("AiComposerRoute", () => {
         requests.find((request) => request.url.endsWith("/messages"))?.body,
       ).toEqual({
         text: "Compare aid\nat UCLA",
+        skills: [],
         source_config: {
           web: true,
           edu: false,
@@ -217,5 +226,47 @@ describe("AiComposerRoute", () => {
     expect(
       within(form).getByRole("button", { name: "Reddit communities" }),
     ).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("carries a selected skill through the first-message handoff", async () => {
+    const user = userEvent.setup()
+    const requests: { url: string; body: unknown }[] = []
+    renderApp("/app/ai", {
+      fetchHandler: (input, init) => {
+        if (init?.body) {
+          requests.push({ url: String(input), body: JSON.parse(String(init.body)) })
+        }
+        return aiFetchHandler(input, init)
+      },
+    })
+
+    const textarea = await screen.findByRole("combobox", {
+      name: "Message Counselle",
+    })
+    await waitFor(() => expect(textarea).toBeEnabled())
+    await user.type(textarea, "Compare @school")
+    await screen.findByRole("listbox", { name: "Skills" })
+    await user.keyboard("{Enter}")
+    expect(await screen.findByText("School comparison")).toBeInTheDocument()
+
+    await user.type(textarea, "Duke and Northwestern{Enter}")
+    await waitFor(() =>
+      expect(
+        requests.find((request) => request.url.endsWith("/messages"))?.body,
+      ).toMatchObject({
+        text: "Compare Duke and Northwestern",
+        skills: ["school-comparison"],
+      }),
+    )
+  })
+
+  it("loads the skill catalog on a direct session route", async () => {
+    renderApp("/app/ai/60000000-0000-4000-8000-000000000001", {
+      fetchHandler: aiFetchHandler,
+    })
+
+    expect(
+      await screen.findByRole("button", { name: "Add a skill (@)" }),
+    ).toBeEnabled()
   })
 })

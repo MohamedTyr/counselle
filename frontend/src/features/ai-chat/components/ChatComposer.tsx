@@ -1,5 +1,5 @@
-import { Globe2, GraduationCap, MessageCircle, Send, SlidersHorizontal, Square } from "lucide-react";
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
+import { AtSign, Globe2, GraduationCap, MessageCircle, Send, SlidersHorizontal, Square } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,10 @@ import {
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { FULL_SUBREDDIT_MENU } from "@/api/chat/source-config";
-import type { SourceConfig, Subreddit } from "@/api/chat/types";
+import type { SkillCatalogEntry, SourceConfig, Subreddit } from "@/api/chat/types";
+import { SelectedSkillChips } from "@/features/skill-picker/SelectedSkillChips";
+import { SkillPicker } from "@/features/skill-picker/SkillPicker";
+import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +29,10 @@ export type ChatComposerProps = {
   isSubmitting: boolean;
   awaitingClarify: boolean;
   disabled?: boolean;
+  skills?: readonly SkillCatalogEntry[];
+  selectedSkills?: readonly string[];
+  onSelectedSkillsChange?: (skills: string[]) => void;
+  maxSelectedSkills?: number;
 };
 
 type SourceToggle = {
@@ -96,12 +103,28 @@ export function ChatComposer({
   isSubmitting,
   awaitingClarify,
   disabled = false,
+  skills = [],
+  selectedSkills = [],
+  onSelectedSkillsChange = () => undefined,
+  maxSelectedSkills = 0,
 }: ChatComposerProps) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 34,
     maxHeight: 220,
+  });
+  const composerRef = useRef<HTMLDivElement>(null);
+  const picker = useSkillPicker({
+    text: value,
+    onTextChange: onValueChange,
+    textareaRef,
+    catalog: skills,
+    selectedSkills,
+    onSelectedSkillsChange,
+    maxSelectedSkills,
+    disabled:
+      disabled || isSubmitting || awaitingClarify || maxSelectedSkills === 0,
   });
   const placeholder = awaitingClarify ? CLARIFY_PLACEHOLDER : DEFAULT_PLACEHOLDER;
   const canSubmit = value.trim().length > 0 && !disabled;
@@ -127,6 +150,9 @@ export function ChatComposer({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (picker.handleKeyDown(event)) {
+      return;
+    }
     if (event.key !== "Enter" || event.shiftKey) {
       return;
     }
@@ -149,6 +175,7 @@ export function ChatComposer({
       onSubmit={handleSubmit}
     >
       <div
+        ref={composerRef}
         className={cn(
           "group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl transition-colors",
           "bg-[#1e1d1c] text-card-foreground",
@@ -157,8 +184,19 @@ export function ChatComposer({
             : "border border-[#383736] focus-within:border-[#434240]",
         )}
       >
+        <SelectedSkillChips
+          catalog={skills}
+          disabled={disabled || isSubmitting}
+          onRemove={picker.removeSelectedSkill}
+          selectedSkills={selectedSkills}
+        />
         <Textarea
+          aria-activedescendant={picker.activeOptionId}
+          aria-autocomplete="list"
+          aria-controls={picker.isOpen ? picker.listboxId : undefined}
+          aria-expanded={picker.isOpen}
           aria-label="Message Counselle"
+          role="combobox"
           unstyled
           className={cn(
             "min-h-10 max-h-18 w-full resize-none border-0 bg-transparent px-3 pt-2.5 pb-1.5 text-base leading-5 shadow-none outline-none",
@@ -166,12 +204,19 @@ export function ChatComposer({
           )}
           disabled={disabled}
           onChange={(event) => {
-            onValueChange(event.target.value);
+            picker.handleTextChange(event);
             adjustHeight();
           }}
-          onCompositionEnd={() => setIsComposing(false)}
-          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={(event) => {
+            setIsComposing(false);
+            picker.handleCompositionEnd(event);
+          }}
+          onCompositionStart={() => {
+            setIsComposing(true);
+            picker.handleCompositionStart();
+          }}
           onKeyDown={handleKeyDown}
+          onSelect={picker.handleTextareaSelect}
           placeholder={placeholder}
           ref={textareaRef}
           style={{ resize: "none" }}
@@ -180,6 +225,19 @@ export function ChatComposer({
 
         <div className="mt-auto flex min-h-12 flex-wrap items-center justify-between gap-3 border-t border-[var(--workspace-border-soft)] px-3 py-2.5 md:px-4">
           <div className="flex flex-wrap items-center gap-2">
+            {maxSelectedSkills > 0 && !awaitingClarify && (
+              <Button
+                aria-label="Add a skill (@)"
+                className="size-8 rounded-lg"
+                disabled={disabled || isSubmitting}
+                onClick={picker.insertTrigger}
+                size="icon"
+                type="button"
+                variant="outline"
+              >
+                <AtSign data-icon="inline-start" />
+              </Button>
+            )}
             {sourceToggles.map((toggle) => {
               const Icon = toggle.icon;
               const pressed = sourceConfig[toggle.key];
@@ -253,6 +311,19 @@ export function ChatComposer({
             </Button>
           )}
         </div>
+        <SkillPicker
+          activeIndex={picker.activeIndex}
+          anchorRef={composerRef}
+          announcement={picker.announcement}
+          isOpen={picker.isOpen}
+          listboxId={picker.listboxId}
+          onClose={picker.close}
+          onSelect={picker.selectSkill}
+          query={picker.query}
+          results={picker.results}
+          selectedSkills={selectedSkills}
+          setActiveIndex={picker.setActiveIndex}
+        />
       </div>
     </form>
   );

@@ -1,3 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
+
+import { chatKeys } from "@/api/chat/hooks";
+import { chatTransport } from "@/api/chat/transport";
 import type {
   ChatConfigWire,
   ComposerConfig,
@@ -92,4 +96,26 @@ export function resolveComposerConfig(
       ? maxSelectedSkills
       : NO_SELECTED_SKILLS,
   };
+}
+
+/**
+ * The composer boot payload is shared by the landing and in-session routes.
+ * Keeping the query key here means a landing-page fetch is reused after the
+ * redirect, while a direct session load still obtains the public skill catalog.
+ */
+export function useChatConfig() {
+  const query = useQuery({
+    queryKey: chatKeys.config(),
+    queryFn: chatTransport.getChatConfig,
+    retry: false,
+  });
+
+  const config =
+    query.status === "success"
+      ? resolveComposerConfig({ status: "success", config: query.data })
+      : query.status === "error"
+        ? resolveComposerConfig({ status: "error" })
+        : null;
+
+  return { ...query, config };
 }

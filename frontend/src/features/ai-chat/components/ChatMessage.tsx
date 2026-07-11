@@ -34,6 +34,7 @@ export type ChatMessageProps = {
   onOpenCitation?: (index: number) => void;
   onClarifyAnswer?: (text: string) => void;
   isLatestMessage?: boolean;
+  skillLabelForName?: (name: string) => string | undefined;
 };
 
 const COPY_FEEDBACK_MS = 1500;
@@ -254,12 +255,27 @@ function ChatMessageComponent({
   onOpenCitation,
   onClarifyAnswer,
   isLatestMessage = false,
+  skillLabelForName,
 }: ChatMessageProps) {
   if (message.kind === "user") {
+    const skills = message.skills ?? [];
     return (
       <Message from="user" id={message.messageId}>
         <MessageContent>
           <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
+          {skills.length > 0 && (
+            <div aria-label="Invoked skills" className="mt-2 flex flex-wrap gap-1" role="list">
+              {skills.map((name) => (
+                <span
+                  className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground"
+                  key={name}
+                  role="listitem"
+                >
+                  {skillLabelForName?.(name) ?? name.replaceAll("-", " ")}
+                </span>
+              ))}
+            </div>
+          )}
         </MessageContent>
       </Message>
     );

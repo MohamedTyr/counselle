@@ -45,6 +45,7 @@ export type SubmitMessageResult =
 
 type PendingSend = {
   text: string;
+  skills: string[];
   replaceMessageId?: string;
   optimisticUserMessageId?: string;
 };
@@ -85,6 +86,7 @@ export type UseTurnEngineResult = {
   awaitingClarify: boolean;
   submitMessage: (
     text: string,
+    skillsOrReplaceMessageId?: readonly string[] | string,
     replaceMessageId?: string,
   ) => Promise<SubmitMessageResult>;
   retryLastSend: () => void;
@@ -102,6 +104,20 @@ function isTurnActive(turn: LiveTurn | null) {
 
 function createTempId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function submitArguments(
+  skillsOrReplaceMessageId: readonly string[] | string | undefined,
+  replaceMessageId: string | undefined,
+) {
+  if (typeof skillsOrReplaceMessageId === "string") {
+    return { skills: [], replaceMessageId: skillsOrReplaceMessageId };
+  }
+
+  return {
+    skills: skillsOrReplaceMessageId === undefined ? [] : [...skillsOrReplaceMessageId],
+    replaceMessageId,
+  };
 }
 
 export function useTurnEngine({
@@ -303,6 +319,7 @@ export function useTurnEngine({
       activeSessionId: string,
       tempUserMessageId: string,
       text: string,
+      skills: readonly string[],
       replaceMessageId?: string,
     ) => {
       const controller = beginTurnAbort();
@@ -314,6 +331,7 @@ export function useTurnEngine({
             sessionId: activeSessionId,
             text,
             sourceConfig: committedSourceConfig,
+            skills: [...skills],
             replaceMessageId,
             signal: controller.signal,
           }),
@@ -323,7 +341,7 @@ export function useTurnEngine({
         });
         onSourceConfigCommitted?.(activeSessionId, committedSourceConfig);
       } catch (error) {
-        setPendingSend({ text, replaceMessageId });
+        setPendingSend({ text, skills: [...skills], replaceMessageId });
         throw error;
       }
 
@@ -341,7 +359,11 @@ export function useTurnEngine({
   );
 
   const startSend = useCallback(
-    async (text: string, replaceMessageId?: string): Promise<StartedTurn> => {
+    async (
+      text: string,
+      skills: readonly string[],
+      replaceMessageId?: string,
+    ): Promise<StartedTurn> => {
       if (liveTurnRef.current !== null) {
         throw new Error("A turn is already running.");
       }
@@ -371,6 +393,7 @@ export function useTurnEngine({
             previous.at(-1)?.messageId ?? null,
             text,
             new Date().toISOString(),
+            skills,
           ),
         ]);
       } else {
@@ -379,7 +402,7 @@ export function useTurnEngine({
       lastStartedUserMessageIdRef.current = tempUserId;
 
       onSendStart?.();
-      await runTurn(activeSessionId, tempUserId, text, replaceMessageId);
+      await runTurn(activeSessionId, tempUserId, text, skills, replaceMessageId);
       return {
         sessionId: activeSessionId,
         userMessageId: tempUserId,
@@ -452,8 +475,13 @@ export function useTurnEngine({
   const submitMessage = useCallback(
     async (
       text: string,
-      replaceMessageId?: string,
+      skillsOrReplaceMessageId?: readonly string[] | string,
+      requestedReplaceMessageId?: string,
     ): Promise<SubmitMessageResult> => {
+      const { skills, replaceMessageId } = submitArguments(
+        skillsOrReplaceMessageId,
+        requestedReplaceMessageId,
+      );
       const trimmed = text.trim();
       if (!trimmed) {
         return { ok: false, keepText: text };
@@ -470,6 +498,14 @@ export function useTurnEngine({
       setTurnError(null);
 
       if (liveTurnRef.current !== null && replaceMessageId === undefined) {
+        if (skills.length > 0) {
+          setTurnError({
+            kind: "server",
+            message: "Wait for the current response to finish before using a skill.",
+          });
+          setPendingSend({ text, skills });
+          return { ok: false, keepText: text };
+        }
         const active = liveTurnRef.current;
         try {
           const steer = await transport.steerMessage({
@@ -481,12 +517,12 @@ export function useTurnEngine({
           }
           const cleared = await awaitLiveClear();
           if (!cleared) {
-            setPendingSend({ text });
+            setPendingSend({ text, skills });
             return { ok: false, keepText: text };
           }
         } catch (error) {
           setTurnError(turnErrorOf(error));
-          setPendingSend({ text });
+          setPendingSend({ text, skills });
           return { ok: false, keepText: text };
         }
       }
@@ -494,13 +530,13 @@ export function useTurnEngine({
       if (liveTurnRef.current !== null) {
         const cleared = await cancelAndAwaitClear();
         if (!cleared) {
-          setPendingSend({ text, replaceMessageId });
+          setPendingSend({ text, skills, replaceMessageId });
           return { ok: false, keepText: text };
         }
       }
 
       try {
-        const started = await startSend(trimmed, replaceMessageId);
+        const started = await startSend(trimmed, skills, replaceMessageId);
         return { ok: true, sessionId: started.sessionId };
       } catch (error) {
         if (isTransportError(error) && error.kind === "conflict") {
@@ -521,6 +557,7 @@ export function useTurnEngine({
                   lastStartedUserMessageIdRef.current ??
                   createTempId("temp-user"),
                 trimmed,
+                skills,
                 replaceMessageId,
               );
               return { ok: true, sessionId: activeSessionId };
@@ -528,6 +565,7 @@ export function useTurnEngine({
               setTurnError(turnErrorOf(retryError));
               setPendingSend({
                 text,
+                skills,
                 replaceMessageId,
                 optimisticUserMessageId:
                   replaceMessageId === undefined
@@ -542,6 +580,7 @@ export function useTurnEngine({
         setTurnError(turnErrorOf(error));
         setPendingSend({
           text,
+          skills,
           replaceMessageId,
           optimisticUserMessageId:
             replaceMessageId === undefined
@@ -561,7 +600,7 @@ export function useTurnEngine({
 
     const next = autoForwardQueueRef.current[0];
     autoForwardQueueRef.current = autoForwardQueueRef.current.slice(1);
-    void submitMessage(next.text);
+    void submitMessage(next.text, []);
   }, [autoForwardVersion, liveTurn, submitMessage]);
 
   const retryLastSend = useCallback(() => {
@@ -579,7 +618,7 @@ export function useTurnEngine({
         ),
       );
     }
-    void submitMessage(pending.text, pending.replaceMessageId);
+    void submitMessage(pending.text, pending.skills, pending.replaceMessageId);
   }, [pendingSend, setPersistedMessages, submitMessage]);
 
   const attachActiveTurn = useCallback(

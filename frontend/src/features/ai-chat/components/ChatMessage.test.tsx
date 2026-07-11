@@ -14,6 +14,7 @@ function userMessage(overrides: Partial<UserChatMessage> = {}): UserChatMessage 
     sender: "",
     ts: null,
     isCreatedByUser: true,
+    skills: [],
     ...overrides,
   };
 }
@@ -69,6 +70,24 @@ describe("ChatMessage", () => {
     const bubble = screen.getByText("How does financial aid work?").closest("[id]");
     expect(bubble).toHaveAttribute("id", "user-1");
     expect(bubble?.className).toContain("is-user");
+  });
+
+  test("renders historical skill chips with catalog labels and a slug fallback", () => {
+    render(
+      <ChatMessage
+        message={userMessage({ skills: ["school-comparison", "retired-skill"] })}
+        skillLabelForName={(name) =>
+          name === "school-comparison" ? "School comparison" : undefined
+        }
+      />,
+    );
+
+    expect(screen.getByRole("list", { name: "Invoked skills" })).toHaveTextContent(
+      "School comparison",
+    );
+    expect(screen.getByRole("list", { name: "Invoked skills" })).toHaveTextContent(
+      "retired skill",
+    );
   });
 
   test("assistant message renders markdown content and message actions once settled", () => {

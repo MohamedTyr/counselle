@@ -849,4 +849,45 @@ describe("useTurnEngine", () => {
       result.current.messages.filter((message) => message.kind === "assistant"),
     ).toEqual([]);
   });
+
+  test("carries selected skills through the request and optimistic user message", async () => {
+    const transport = createTransport();
+    const { result } = renderEngine({ transport });
+
+    await act(async () => {
+      await result.current.submitMessage("Compare these schools", ["school-comparison"]);
+    });
+
+    expect(transport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ skills: ["school-comparison"] }),
+    );
+    expect(result.current.messages[0]).toMatchObject({
+      kind: "user",
+      skills: ["school-comparison"],
+    });
+  });
+
+  test("does not silently steer a selected skill into an active turn", async () => {
+    const first = gatedStream([meta("a1", "u1"), delta("first"), done()]);
+    const transport = createTransport({
+      sendMessage: vi.fn().mockReturnValueOnce(first.iterable),
+      steerMessage: vi.fn(),
+    });
+    const { result } = renderEngine({ transport });
+
+    act(() => {
+      void result.current.submitMessage("First");
+    });
+    await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
+
+    let sent;
+    await act(async () => {
+      sent = await result.current.submitMessage("Second", ["school-comparison"]);
+    });
+
+    expect(sent).toEqual({ ok: false, keepText: "Second" });
+    expect(transport.steerMessage).not.toHaveBeenCalled();
+    expect(result.current.pendingText).toBe("Second");
+    first.release();
+  });
 });

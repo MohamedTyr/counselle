@@ -198,6 +198,7 @@ export type TranscriptUserEntry = {
   ts: string | null;
   message_id?: string;
   synthesized?: boolean;
+  skills?: string[];
 };
 
 export type AssistantContentPart =

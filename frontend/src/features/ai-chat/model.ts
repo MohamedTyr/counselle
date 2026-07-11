@@ -37,6 +37,7 @@ export type UserChatMessage = ChatMessageBase & {
   kind: "user";
   isCreatedByUser: true;
   synthesized?: boolean;
+  skills?: string[];
 };
 
 export type AssistantChatMessage = ChatMessageBase & {
@@ -126,6 +127,7 @@ export function userMessage(
   parentMessageId: string | null,
   text: string,
   ts: string | null,
+  skills: readonly string[] = [],
 ): UserChatMessage {
   return {
     kind: "user",
@@ -136,6 +138,7 @@ export function userMessage(
     isCreatedByUser: true,
     sender: "",
     ts,
+    skills: [...skills],
   };
 }
 
@@ -153,7 +156,14 @@ export function messagesFromTranscript(
 
     if (entry.role === "user") {
       messages.push({
-        ...userMessage(conversationId, messageId, parentMessageId, entry.text, entry.ts),
+        ...userMessage(
+          conversationId,
+          messageId,
+          parentMessageId,
+          entry.text,
+          entry.ts,
+          entry.skills ?? [],
+        ),
         synthesized: entry.synthesized === true,
         hasBackendId,
       });

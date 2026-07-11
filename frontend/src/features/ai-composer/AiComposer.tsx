@@ -1,11 +1,15 @@
-import { Globe2, GraduationCap, MessageCircle, Send, Square } from "lucide-react"
-import { useEffect, type FormEvent, type KeyboardEvent } from "react"
+import { AtSign, Globe2, GraduationCap, MessageCircle, Send, Square } from "lucide-react"
+import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { cn } from "@/lib/utils"
 import type { SourceConfig } from "@/api/chat/types"
+import type { SkillCatalogEntry } from "@/api/chat/types"
+import { SelectedSkillChips } from "@/features/skill-picker/SelectedSkillChips"
+import { SkillPicker } from "@/features/skill-picker/SkillPicker"
+import { useSkillPicker } from "@/features/skill-picker/useSkillPicker"
 
 type AiComposerProps = {
   value: string
@@ -17,6 +21,10 @@ type AiComposerProps = {
   isSubmitting: boolean
   canCancel: boolean
   disabled?: boolean
+  skills?: readonly SkillCatalogEntry[]
+  selectedSkills?: readonly string[]
+  onSelectedSkillsChange?: (skills: string[]) => void
+  maxSelectedSkills?: number
 }
 
 type SourceToggle = {
@@ -57,10 +65,25 @@ export function AiComposer({
   isSubmitting,
   canCancel,
   disabled = false,
+  skills = [],
+  selectedSkills = [],
+  onSelectedSkillsChange = () => undefined,
+  maxSelectedSkills = 0,
 }: AiComposerProps) {
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 34,
     maxHeight: 220,
+  })
+  const composerRef = useRef<HTMLDivElement>(null)
+  const picker = useSkillPicker({
+    text: value,
+    onTextChange: onValueChange,
+    textareaRef,
+    catalog: skills,
+    selectedSkills,
+    onSelectedSkillsChange,
+    maxSelectedSkills,
+    disabled: disabled || isSubmitting || maxSelectedSkills === 0,
   })
   const canSubmit = value.trim().length > 0 && !isSubmitting && !disabled
   const hasValue = value.trim().length > 0
@@ -79,6 +102,9 @@ export function AiComposer({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (picker.handleKeyDown(event)) {
+      return
+    }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       handleSubmit()
@@ -99,6 +125,7 @@ export function AiComposer({
       onSubmit={handleSubmit}
     >
       <div
+        ref={composerRef}
         className={cn(
           "group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl transition-colors",
           "bg-[#1e1d1c] text-card-foreground",
@@ -107,8 +134,19 @@ export function AiComposer({
             : "border border-[#383736] focus-within:border-[#434240]",
         )}
       >
+        <SelectedSkillChips
+          catalog={skills}
+          disabled={disabled || isSubmitting}
+          onRemove={picker.removeSelectedSkill}
+          selectedSkills={selectedSkills}
+        />
         <Textarea
+          aria-activedescendant={picker.activeOptionId}
+          aria-autocomplete="list"
+          aria-controls={picker.isOpen ? picker.listboxId : undefined}
+          aria-expanded={picker.isOpen}
           aria-label="Message Counselle"
+          role="combobox"
           unstyled
           className={cn(
             "min-h-10 max-h-18 w-full resize-none border-0 bg-transparent px-3 pt-2.5 pb-1.5 text-base leading-5 shadow-none outline-none",
@@ -116,10 +154,13 @@ export function AiComposer({
           )}
           disabled={disabled}
           onChange={(event) => {
-            onValueChange(event.target.value)
+            picker.handleTextChange(event)
             adjustHeight()
           }}
+          onCompositionEnd={picker.handleCompositionEnd}
+          onCompositionStart={picker.handleCompositionStart}
           onKeyDown={handleKeyDown}
+          onSelect={picker.handleTextareaSelect}
           placeholder="Message Counselle"
           ref={textareaRef}
           style={{ resize: "none" }}
@@ -128,6 +169,19 @@ export function AiComposer({
 
         <div className="mt-auto flex min-h-12 flex-wrap items-center justify-between gap-3 border-t border-[var(--workspace-border-soft)] px-3 py-2.5 md:px-4">
           <div className="flex flex-wrap items-center gap-2">
+            {maxSelectedSkills > 0 && (
+              <Button
+                aria-label="Add a skill (@)"
+                className="size-8 rounded-lg"
+                disabled={disabled || isSubmitting}
+                onClick={picker.insertTrigger}
+                size="icon"
+                type="button"
+                variant="outline"
+              >
+                <AtSign data-icon="inline-start" />
+              </Button>
+            )}
             {sourceToggles.map((toggle) => {
               const Icon = toggle.icon
               const pressed = sourceConfig[toggle.key]
@@ -184,6 +238,19 @@ export function AiComposer({
             </Button>
           )}
         </div>
+        <SkillPicker
+          activeIndex={picker.activeIndex}
+          anchorRef={composerRef}
+          announcement={picker.announcement}
+          isOpen={picker.isOpen}
+          listboxId={picker.listboxId}
+          onClose={picker.close}
+          onSelect={picker.selectSkill}
+          query={picker.query}
+          results={picker.results}
+          selectedSkills={selectedSkills}
+          setActiveIndex={picker.setActiveIndex}
+        />
       </div>
     </form>
   )

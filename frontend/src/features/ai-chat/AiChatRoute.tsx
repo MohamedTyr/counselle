@@ -4,18 +4,35 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { AiChatPage } from "./AiChatPage";
 
 type AiChatLocationState = {
-  initialPrompt?: unknown;
+  initialTurn?: unknown;
 };
 
-function initialPromptFromState(state: unknown) {
+export type InitialTurn = {
+  text: string;
+  skills: string[];
+};
+
+function initialTurnFromState(state: unknown): InitialTurn | null {
   if (state === null || typeof state !== "object") {
     return null;
   }
 
-  const prompt = (state as AiChatLocationState).initialPrompt;
-  return typeof prompt === "string" && prompt.trim().length > 0
-    ? prompt
-    : null;
+  const turn = (state as AiChatLocationState).initialTurn;
+  if (turn === null || typeof turn !== "object") {
+    return null;
+  }
+
+  const candidate = turn as Partial<InitialTurn>;
+  if (
+    typeof candidate.text !== "string" ||
+    candidate.text.trim().length === 0 ||
+    !Array.isArray(candidate.skills) ||
+    !candidate.skills.every((skill) => typeof skill === "string")
+  ) {
+    return null;
+  }
+
+  return { text: candidate.text, skills: [...candidate.skills] };
 }
 
 /** Route shell for `/app/ai/:sessionId` — `WorkspaceOutlet` keys routes by
@@ -25,7 +42,7 @@ export function AiChatRoute() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const initialPrompt = initialPromptFromState(location.state);
+  const initialTurn = initialTurnFromState(location.state);
 
   const clearInitialPrompt = useCallback(() => {
     void navigate(location.pathname, { replace: true, state: null });
@@ -37,8 +54,8 @@ export function AiChatRoute() {
 
   return (
     <AiChatPage
-      initialPrompt={initialPrompt}
-      onInitialPromptConsumed={clearInitialPrompt}
+      initialTurn={initialTurn}
+      onInitialTurnConsumed={clearInitialPrompt}
       sessionId={sessionId}
     />
   );

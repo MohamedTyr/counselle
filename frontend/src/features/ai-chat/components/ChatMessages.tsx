@@ -23,6 +23,7 @@ export type ChatMessagesProps = {
   onFeedback?: (message: ChatMessageModel, rating: FeedbackRating) => void;
   onOpenSources?: (payload: MessageSourcesPayload) => void;
   onClarifyAnswer?: (text: string) => void;
+  skillLabelForName?: (name: string) => string | undefined;
 };
 
 function sourcesPayloadFor(
@@ -68,6 +69,7 @@ export function ChatMessages({
   onFeedback,
   onOpenSources,
   onClarifyAnswer,
+  skillLabelForName,
 }: ChatMessagesProps) {
   const { scrollableRef, contentRef, messagesEndRef, showScrollButton, scrollToBottom, onScroll } =
     useQuestionAnchoredScroll({ sessionId, messages, isSubmitting });
@@ -130,6 +132,7 @@ export function ChatMessages({
               onRegenerate={
                 onRegenerate !== undefined ? () => onRegenerate(message) : undefined
               }
+              skillLabelForName={skillLabelForName}
             />
           ))}
           <div ref={messagesEndRef} />

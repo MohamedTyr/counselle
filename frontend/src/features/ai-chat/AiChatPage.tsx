@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useMessageFeedback } from "@/api/chat/hooks";
+import { useChatConfig } from "@/api/chat/config";
 import type { ChatTransport } from "@/api/chat/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -10,9 +11,13 @@ import type { MessageSourcesPayload } from "./components/MessageSources";
 import { SourcesRail } from "./components/SourcesRail";
 import type { ChatMessage, FeedbackRating } from "./model";
 import { useChatSession } from "./useChatSession";
+import type { InitialTurn } from "./AiChatRoute";
 
 export type AiChatPageProps = {
   sessionId: string;
+  initialTurn?: InitialTurn | null;
+  onInitialTurnConsumed?: () => void;
+  /** Compatibility for callers created before structured initial turns. */
   initialPrompt?: string | null;
   onInitialPromptConsumed?: () => void;
   /** Injectable for tests; defaults to the real `chatTransport` singleton
@@ -28,15 +33,29 @@ function documentTitleFor(title: string | null | undefined): string {
 
 export function AiChatPage({
   sessionId,
+  initialTurn = null,
+  onInitialTurnConsumed,
   initialPrompt = null,
   onInitialPromptConsumed,
   transport,
 }: AiChatPageProps) {
+  const effectiveInitialTurn = useMemo(
+    () =>
+      initialTurn ??
+      (initialPrompt !== null && initialPrompt.trim().length > 0
+        ? { text: initialPrompt, skills: [] }
+        : null),
+    [initialPrompt, initialTurn],
+  );
+  const consumeInitialTurn = onInitialTurnConsumed ?? onInitialPromptConsumed;
   const [composerValue, setComposerValue] = useState("");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [sourcesPayload, setSourcesPayload] = useState<MessageSourcesPayload | null>(null);
-  const consumedInitialPromptRef = useRef(false);
+  const consumedInitialTurnRef = useRef(false);
   const isMobile = useIsMobile();
   const feedback = useMessageFeedback();
+  const configQuery = useChatConfig();
+  const skillConfig = configQuery.config;
 
   const resetScrollFollow = useCallback(() => {
     // Reactive coverage: useQuestionAnchoredScroll re-derives the anchor and
@@ -70,36 +89,46 @@ export function AiChatPage({
     };
   }, [session?.title]);
 
-  const handleSubmit = useCallback(
-    (text: string) => {
+  const handleComposerSubmit = useCallback(
+    (text: string, skills = selectedSkills) => {
+      const submittedSkills = [...skills];
       setComposerValue("");
-      void submitMessage(text).then((result) => {
+      setSelectedSkills([]);
+      void submitMessage(text, submittedSkills).then((result) => {
         if (!result.ok) {
           setComposerValue(result.keepText);
+          setSelectedSkills(submittedSkills);
         }
       });
+    },
+    [selectedSkills, submitMessage],
+  );
+
+  const handleClarifyAnswer = useCallback(
+    (text: string) => {
+      void submitMessage(text, []);
     },
     [submitMessage],
   );
 
   useEffect(() => {
     if (
-      initialPrompt === null ||
-      consumedInitialPromptRef.current ||
+      effectiveInitialTurn === null ||
+      consumedInitialTurnRef.current ||
       isLoading ||
       transcriptError !== null
     ) {
       return;
     }
 
-    consumedInitialPromptRef.current = true;
-    onInitialPromptConsumed?.();
-    handleSubmit(initialPrompt);
+    consumedInitialTurnRef.current = true;
+    consumeInitialTurn?.();
+    handleComposerSubmit(effectiveInitialTurn.text, effectiveInitialTurn.skills);
   }, [
-    handleSubmit,
-    initialPrompt,
+    handleComposerSubmit,
+    effectiveInitialTurn,
     isLoading,
-    onInitialPromptConsumed,
+    consumeInitialTurn,
     transcriptError,
   ]);
 
@@ -112,7 +141,7 @@ export function AiChatPage({
       if (parent === undefined || parent.kind !== "user") {
         return;
       }
-      void submitMessage(parent.text, parent.messageId);
+      void submitMessage(parent.text, parent.skills, parent.messageId);
     },
     [messages, submitMessage],
   );
@@ -169,7 +198,10 @@ export function AiChatPage({
         <ChatMessages
           isSubmitting={isSubmitting}
           messages={messages}
-          onClarifyAnswer={handleSubmit}
+          skillLabelForName={(name) =>
+            skillConfig?.skills.find((skill) => skill.name === name)?.displayName
+          }
+          onClarifyAnswer={handleClarifyAnswer}
           onFeedback={handleFeedback}
           onOpenSources={openSources}
           onRegenerate={handleRegenerate}
@@ -195,8 +227,12 @@ export function AiChatPage({
             isSubmitting={isSubmitting}
             onStop={stopGenerating}
             onSourceConfigChange={setSourceConfig}
-            onSubmit={handleSubmit}
+            onSelectedSkillsChange={setSelectedSkills}
+            onSubmit={handleComposerSubmit}
             onValueChange={setComposerValue}
+            maxSelectedSkills={skillConfig?.maxSelectedSkills ?? 0}
+            selectedSkills={selectedSkills}
+            skills={skillConfig?.skills ?? []}
             sourceConfig={sourceConfig}
             value={composerValue}
           />

@@ -1,37 +1,23 @@
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 
-import { chatTransport } from "@/api/chat/transport"
 import type { SourceConfig } from "@/api/chat/types"
 import {
   BUILT_IN_SOURCE_CONFIG,
 } from "@/api/chat/source-config"
-import { resolveComposerConfig } from "@/api/chat/config"
+import { useChatConfig } from "@/api/chat/config"
 import { AiComposer } from "@/features/ai-composer/AiComposer"
 import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn"
 
 export function AiComposerRoute() {
   const navigate = useNavigate()
-  const configQuery = useQuery({
-    queryKey: ["chat", "config"],
-    queryFn: chatTransport.getChatConfig,
-    retry: false,
-  })
+  const configQuery = useChatConfig()
   const startTurn = useComposerStartTurn()
   const [value, setValue] = useState("")
   const [sourceConfigOverride, setSourceConfigOverride] =
     useState<SourceConfig | null>(null)
-
-  const resolved =
-    configQuery.status === "success"
-      ? resolveComposerConfig({
-          status: "success",
-          config: configQuery.data,
-        })
-      : configQuery.status === "error"
-        ? resolveComposerConfig({ status: "error" })
-        : null
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([])
+  const resolved = configQuery.config
 
   const sourceConfig =
     sourceConfigOverride ?? resolved?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG
@@ -42,16 +28,19 @@ export function AiComposerRoute() {
       return
     }
 
-    setValue("")
     const result = await startTurn.submit(submitted, sourceConfig)
     if (result.ok) {
+      setValue("")
+      setSelectedSkills([])
       void navigate(`/app/ai/${result.sessionId}`, {
-        state: { initialPrompt: submitted },
+        state: {
+          initialTurn: {
+            text: submitted,
+            skills: [...selectedSkills],
+          },
+        },
       })
       return
-    }
-    if (!result.ok) {
-      setValue(submitted)
     }
   }
 
@@ -80,7 +69,11 @@ export function AiComposerRoute() {
           onSubmit={() => {
             void submit()
           }}
+          onSelectedSkillsChange={setSelectedSkills}
           onValueChange={setValue}
+          maxSelectedSkills={resolved?.maxSelectedSkills ?? 0}
+          selectedSkills={selectedSkills}
+          skills={resolved?.skills ?? []}
           sourceConfig={sourceConfig}
           value={value}
         />
