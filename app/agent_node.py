@@ -53,7 +53,12 @@ from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
 from app.prompt import build_system_prompt
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
 from app.records import Emission, append_or_replace, build_turn_record, now_iso
-from app.skills import load_skill
+from app.skills import (
+    SelectedSkillValidationError,
+    load_skill,
+    render_selected_skills,
+    validate_selected_skills,
+)
 from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
 from app.student_context import STUDENT_CONTEXT_UNAUTHENTICATED
@@ -401,6 +406,13 @@ def _turn_ids(state: Any) -> dict[str, Any]:
     ids = dict(state.get("turn_ids") or {})
     ids.setdefault("message_id", str(uuid4()))
     ids.setdefault("user_message_id", str(uuid4()))
+    raw_selected_skills = ids.get("selected_skills", [])
+    if not isinstance(raw_selected_skills, list):
+        raise SelectedSkillValidationError("selected skills in checkpoint are malformed")
+    # Checkpoint state is untrusted at this boundary: only the immutable public
+    # registry may turn a name into prompt instructions. An invalid restored
+    # value raises safely through run_turn's ordinary error path.
+    ids["selected_skills"] = validate_selected_skills(raw_selected_skills)
     return ids
 
 
@@ -599,13 +611,18 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         from pydantic_ai.models.google import GoogleModelSettings
 
         model_settings = GoogleModelSettings(google_thinking_config={"include_thoughts": True})
+    base_instructions = build_system_prompt(
+        state["temporal"]["context"],
+        state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
+        deps.catalog.school_count,
+    )
+    selected_instructions = render_selected_skills(ids["selected_skills"])
+    instructions = "\n\n".join(
+        part for part in (base_instructions, selected_instructions) if part
+    )
     agent: Agent[TurnDeps, str] = Agent(
         model_factory(),
-        instructions=build_system_prompt(
-            state["temporal"]["context"],
-            state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
-            deps.catalog.school_count,
-        ),
+        instructions=instructions,
         deps_type=TurnDeps,
         tools=tools,
         toolsets=[mcp_toolset] if mcp_toolset is not None else None,
@@ -738,6 +755,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         ts=now_iso(),
         messages_offset=offset,
         synthesized_answer=synthesized,
+        selected_skills=ids["selected_skills"],
     )
 
     emitted_viz = [payload for kind, payload in emissions if kind == "viz"]

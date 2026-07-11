@@ -27,6 +27,7 @@ from pydantic import ValidationError
 
 from api.auth import current_active_user
 from api.users_db import UserDB
+from app.skills import MAX_SELECTED_SKILLS, user_skill_catalog
 from config.settings import load_yaml_asset
 from domain.season import SeasonWindow, admission_season
 from domain.specs import SourceConfig
@@ -74,5 +75,7 @@ async def get_config(
             "season_note": copy["season_note"],
             "conversation_starters": starters,
             "default_source_config": _default_source_config(user, settings),
+            "skills": user_skill_catalog(),
+            "max_selected_skills": MAX_SELECTED_SKILLS,
         }
     )

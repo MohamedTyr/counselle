@@ -1672,6 +1672,111 @@ async def test_complete_turn_writes_the_node_record() -> None:
     assert record["segments"][1]["text"] == _text(events)
 
 
+async def test_explicit_skill_is_preloaded_once_persisted_and_not_leaked() -> None:
+    """A selected workflow stays turn-scoped while clean user prose is unchanged."""
+    seen_prompts: list[str] = []
+
+    def answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_prompts.append(str(messages))
+        return ModelResponse(parts=[TextPart("Comparison complete.")])
+
+    rig = Rig(_fn_model(answer))
+    session_id = str(uuid4())
+    events = [
+        event
+        async for event in run_turn(
+            session_id,
+            "Compare Duke and Northwestern.",
+            _ALL_OFF,
+            deps=rig.deps,
+            graph=rig.graph,
+            selected_skills=["school-comparison"],
+        )
+    ]
+
+    assert _done_status(events) == "complete"
+    assert any("## Explicitly selected workflows" in prompt for prompt in seen_prompts)
+    values = await _state_values(rig, session_id)
+    assert values["turn_records"][-1]["skills"] == ["school-comparison"]
+    assert values["turn_records"][-1]["user_text"] == "Compare Duke and Northwestern."
+
+    await rig.turn(session_id, "Now focus on campus life.", _ALL_OFF)
+    values = await _state_values(rig, session_id)
+    assert values["turn_records"][-1]["skills"] == []
+
+
+async def test_malformed_restored_selection_fails_before_meta_or_record_write() -> None:
+    rig = Rig(_fn_model(lambda _messages, _info: ModelResponse(parts=[TextPart("unused")])))
+    session_id = str(uuid4())
+    parked = build_turn_record(
+        [],
+        ids={"message_id": "parked", "user_message_id": "question"},
+        status="awaiting_input",
+        sources=[],
+        user_text="Compare schools.",
+        messages_offset=0,
+        clarify={"spec": {"question": "Which matters?"}, "answer": None},
+        selected_skills=["not-a-public-skill"],
+    )
+    messages = ModelMessagesTypeAdapter.dump_python(
+        [ModelRequest(parts=[UserPromptPart(content="Compare schools.")])], mode="json"
+    )
+    await rig.graph.aupdate_state(
+        {"configurable": {"thread_id": session_id}},
+        {"messages": messages, "turn_records": [parked]},
+    )
+
+    events = [
+        event
+        async for event in run_turn(
+            session_id, "Cost.", _ALL_OFF, deps=rig.deps, graph=rig.graph
+        )
+    ]
+
+    assert _types(events) == ["error"]
+    values = await _state_values(rig, session_id)
+    assert values["turn_records"] == [parked]
+
+
+async def test_direct_clarify_resume_rejects_matching_nonempty_selection() -> None:
+    """Only the registry's server-owned inheritance flag may carry a skill."""
+    rig = Rig(_fn_model(lambda _messages, _info: ModelResponse(parts=[TextPart("unused")])))
+    session_id = str(uuid4())
+    parked = build_turn_record(
+        [],
+        ids={"message_id": "parked", "user_message_id": "question"},
+        status="awaiting_input",
+        sources=[],
+        user_text="Compare schools.",
+        messages_offset=0,
+        clarify={"spec": {"question": "Which matters?"}, "answer": None},
+        selected_skills=["school-comparison"],
+    )
+    messages = ModelMessagesTypeAdapter.dump_python(
+        [ModelRequest(parts=[UserPromptPart(content="Compare schools.")])], mode="json"
+    )
+    await rig.graph.aupdate_state(
+        {"configurable": {"thread_id": session_id}},
+        {"messages": messages, "turn_records": [parked]},
+    )
+
+    events = [
+        event
+        async for event in run_turn(
+            session_id,
+            "Cost.",
+            _ALL_OFF,
+            deps=rig.deps,
+            graph=rig.graph,
+            selected_skills=["school-comparison"],
+        )
+    ]
+
+    assert _types(events) == ["error"]
+    values = await _state_values(rig, session_id)
+    assert values["turn_records"] == [parked]
+
+
 def _two_viz_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     last = messages[-1]
     if isinstance(last, ModelRequest) and any(

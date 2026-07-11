@@ -21,17 +21,31 @@ _skills_logger = structlog.get_logger(__name__)
 
 _SKILLS_ROOT = Path(__file__).parent.parent / "skills"
 _FRONTMATTER_RE = re.compile(r"^---\s*\n.*?^---\s*\n", re.DOTALL | re.MULTILINE)
-_SKILL_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
+SKILL_NAME_PATTERN = r"^[a-z][a-z0-9-]{0,63}$"
+_SKILL_NAME_RE = re.compile(SKILL_NAME_PATTERN)
 _INVALID_FRONTMATTER_LINE = "__invalid_frontmatter_line__"
 _SINGLE_LINE_COPY_MAX_CHARS = 240
 
 MAX_SELECTED_SKILLS = 3
 MAX_PUBLIC_SKILL_BODY_CHARS = 12_000
 MAX_SELECTED_SKILL_BODY_CHARS = 24_000
+SELECTED_SKILLS_SAFE_ERROR = "Those selected skills aren't available."
+
+# Stable, non-sensitive reasons suitable for server-side telemetry.  These are
+# deliberately labels rather than a copy of an input name, a filesystem path,
+# or a skill body: explicit skill selection is an untrusted request boundary.
+_SELECTED_SKILL_TOO_MANY = "too_many_selected_skills"
+_SELECTED_SKILL_DUPLICATE = "duplicate_selected_skill"
+_SELECTED_SKILL_UNAVAILABLE = "unknown_or_internal_skill"
+_SELECTED_SKILL_BODY_LIMIT = "selected_skill_body_limit"
 
 
 class SelectedSkillValidationError(ValueError):
     """Raised when an explicit skill selection is not a public valid selection."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,22 +220,26 @@ def user_skill_catalog() -> list[dict[str, str]]:
     ]
 
 
-def validate_selected_skills(names: Sequence[str]) -> list[str]:
+def validate_selected_skills(names: Sequence[object]) -> list[str]:
     """Allow only unique, explicitly user-invokable skill names in input order."""
     if len(names) > MAX_SELECTED_SKILLS:
-        raise SelectedSkillValidationError("too many selected skills")
+        raise SelectedSkillValidationError(_SELECTED_SKILL_TOO_MANY)
 
     registry, _ = _registry()
     selected: list[str] = []
     seen: set[str] = set()
     for name in names:
-        if not isinstance(name, str) or name in seen:
-            raise SelectedSkillValidationError("invalid selected skill")
+        if not isinstance(name, str):
+            raise SelectedSkillValidationError(_SELECTED_SKILL_UNAVAILABLE)
+        if name in seen:
+            raise SelectedSkillValidationError(_SELECTED_SKILL_DUPLICATE)
         entry = registry.get(name)
         if entry is None or not entry.user_invokable:
-            raise SelectedSkillValidationError("invalid selected skill")
+            raise SelectedSkillValidationError(_SELECTED_SKILL_UNAVAILABLE)
         seen.add(name)
         selected.append(entry.name)
+    if sum(len(registry[name].body) for name in selected) > MAX_SELECTED_SKILL_BODY_CHARS:
+        raise SelectedSkillValidationError(_SELECTED_SKILL_BODY_LIMIT)
     return selected
 
 
@@ -233,8 +251,6 @@ def render_selected_skills(names: Sequence[str]) -> str:
 
     registry, _ = _registry()
     bodies = [registry[name].body for name in selected]
-    if sum(len(body) for body in bodies) > MAX_SELECTED_SKILL_BODY_CHARS:
-        raise SelectedSkillValidationError("selected skill bodies exceed size limit")
 
     rendered = [
         "## Explicitly selected workflows",

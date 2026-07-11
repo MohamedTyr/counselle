@@ -111,6 +111,7 @@ def _record(
     messages_offset: int = 0,
     synthesized_answer: bool = False,
     usage: dict[str, Any] | None = None,
+    selected_skills: list[str] | None = None,
 ) -> dict[str, Any]:
     return build_turn_record(
         [("delta", text)] if text else [],
@@ -123,12 +124,31 @@ def _record(
         ts="2026-06-12T00:00:00+00:00",
         messages_offset=messages_offset,
         synthesized_answer=synthesized_answer,
+        selected_skills=selected_skills,
     )
 
 
 # ---------------------------------------------------------------------------
 # The full wire-shape assertion: complete + clarify + resume in one session
 # ---------------------------------------------------------------------------
+
+
+def test_transcript_exposes_selected_skills_on_original_user_entry_only() -> None:
+    transcript = extract_transcript(
+        [],
+        [
+            _record(
+                message_id="m-skill",
+                user_message_id="u-skill",
+                user_text="Compare Duke and Northwestern.",
+                text="Here is the comparison.",
+                selected_skills=["school-comparison"],
+            )
+        ],
+    )
+
+    assert transcript[0]["skills"] == ["school-comparison"]
+    assert "skills" not in transcript[1]
 
 
 async def test_transcript_wire_shape_complete_clarify_resume() -> None:
@@ -151,6 +171,7 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
             messages_offset=1,
             synthesized_answer=True,
             usage={"input_tokens": 1, "output_tokens": 1, "tool_calls": 0},
+            selected_skills=["school-comparison"],
         ),
     ]
 
@@ -186,7 +207,12 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
     # Turn 2+3 — the clarify turn, resumed: ONE assistant entry (the resumed
     # record replaced the parked one, same message_id).
     # The original question renders id-less (its parked-era record was replaced).
-    assert question_2 == {"role": "user", "text": "Is NYU good?", "ts": None}
+    assert question_2 == {
+        "role": "user",
+        "text": "Is NYU good?",
+        "ts": None,
+        "skills": ["school-comparison"],
+    }
     # The synthesized answer bubble (G4): first-class, never an edit target.
     assert answer_2 == {
         "role": "user",
@@ -195,6 +221,7 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
         "message_id": "u-2",
         "synthesized": True,
     }
+    assert "skills" not in answer_2
     assert assistant_2["message_id"] == "m-2"
     assert assistant_2["status"] == "complete"
     assert assistant_2["clarify"] == {

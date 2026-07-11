@@ -30,6 +30,7 @@ Design points (decided in the ship plan, not here):
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -220,6 +221,7 @@ def build_turn_record(
     ts: str | None = None,
     messages_offset: int,
     synthesized_answer: bool = False,
+    selected_skills: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """One turn record (ship-plan §0.1 G2), msgpack-plain and self-contained.
 
@@ -243,6 +245,11 @@ def build_turn_record(
         "message_id": ids["message_id"],
         "user_message_id": ids["user_message_id"],
         "user_text": user_text,
+        # Only ``None`` denotes an omitted legacy selection.  Do not coerce
+        # other falsy/corrupt values (for example ``False``) to an innocent
+        # empty list: callers validate the persisted selection at their
+        # boundary, and a bad value must fail loudly instead of being erased.
+        "skills": list(selected_skills) if selected_skills is not None else [],
         "parts": build_parts(emissions),
         "segments": build_segments(emissions),
         "steps": steps,

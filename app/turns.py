@@ -45,7 +45,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import AsyncGenerator, AsyncIterator, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
@@ -54,6 +54,7 @@ from uuid import uuid4
 from app.records import Emission, FinalEmissionDeduper, TurnStatus
 from app.run_handle import RunHandle, SteeringMessage
 from app.run_turn import _USER_SAFE_ERROR, run_turn
+from app.skills import SelectedSkillValidationError, validate_selected_skills
 from app.turn_persistence import (
     AGENT_NODE,
     build_terminal_update,
@@ -104,6 +105,10 @@ class InvalidEditTarget(Exception):
     and a record whose ``messages_offset`` anchor is corrupt (slicing on a bad
     anchor would corrupt the thread — degrade honestly instead).
     """
+
+
+class InvalidSelectedSkills(Exception):
+    """Explicit skills are invalid for this turn or clarify continuation."""
 
 
 def _event_nbytes(event: Event) -> int:
@@ -208,6 +213,8 @@ class _Turn:
     user_text: str
     user_id: str | None
     buffer: _RingBuffer
+    selected_skills: tuple[str, ...] = ()
+    selected_skills_inherited: bool = False
     task: asyncio.Task[None] | None = None
     trace_id: str = ""
     ids: dict[str, Any] | None = None  # {message_id, user_message_id} from meta
@@ -286,6 +293,7 @@ class TurnRegistry:
         *,
         user_id: str | None = None,
         replace_message_id: str | None = None,
+        selected_skills: Sequence[str] = (),
     ) -> AsyncIterator[tuple[Event, int]]:
         """Claim the session, spawn the detached turn, return an attach handle.
 
@@ -306,6 +314,10 @@ class TurnRegistry:
         # await is AFTER the claim (the claim is held across it), which is
         # correct: the claim is released in the `except BaseException` below if
         # the rewrite fails.
+        try:
+            selected = tuple(validate_selected_skills(selected_skills))
+        except SelectedSkillValidationError as exc:
+            raise InvalidSelectedSkills from exc
         if session_id in self._turns:
             raise StreamActive(session_id)
         # The global backstop: a process-wide ceiling on detached turns so an
@@ -320,12 +332,25 @@ class TurnRegistry:
             on_charge=self._charge_bytes,
             on_refund=self._refund_bytes,
         )
-        turn = _Turn(session_id=session_id, user_text=text, user_id=user_id, buffer=buffer)
+        turn = _Turn(
+            session_id=session_id,
+            user_text=text,
+            user_id=user_id,
+            selected_skills=selected,
+            buffer=buffer,
+        )
         handle_store = getattr(self._deps, "run_handles", None)
         if handle_store is not None:
             turn.run_handle = handle_store.register(session_id)
         self._turns[session_id] = turn  # the claim — released at the terminal
         try:
+            # Inspect a parked clarify before a history rewrite can remove the
+            # record that owns its original selection. This also ensures a
+            # non-empty answer request is rejected under the held claim.
+            (
+                turn.selected_skills,
+                turn.selected_skills_inherited,
+            ) = await self._selected_skills_for_start(session_id, selected)
             if replace_message_id is not None:
                 await self._rewrite_history(session_id, replace_message_id)
         except BaseException:
@@ -465,6 +490,25 @@ class TurnRegistry:
             return
         await self._unpark_if_parked(session_id)
 
+    async def _selected_skills_for_start(
+        self, session_id: str, selected_skills: tuple[str, ...]
+    ) -> tuple[tuple[str, ...], bool]:
+        """Resolve a parked clarify's authoritative original selection.
+
+        This runs only after the registry has claimed the session. A clarify
+        answer may not add a workflow midway through the parked turn; an empty
+        request inherits the original record's validated names.
+        """
+        config = {"configurable": {"thread_id": session_id}}
+        snapshot = await self._graph.aget_state(config)
+        values = dict(snapshot.values) if snapshot else {}
+        parked = parked_record(list(values.get("turn_records") or []))
+        if parked is None:
+            return selected_skills, False
+        if selected_skills:
+            raise InvalidSelectedSkills("clarify answers cannot select skills")
+        return _record_selected_skills(parked), True
+
     # -- the detached task ----------------------------------------------------
 
     async def _drive(self, turn: _Turn, source_config: SourceConfig | None) -> None:
@@ -474,15 +518,21 @@ class TurnRegistry:
         try:
             try:
                 async with asyncio.timeout(timeout_s):
+                    run_kwargs: dict[str, Any] = {
+                        "deps": self._deps,
+                        "graph": self._graph,
+                        "user_id": turn.user_id,
+                        "selected_skills": turn.selected_skills,
+                    }
+                    if turn.selected_skills_inherited:
+                        run_kwargs["selected_skills_inherited"] = True
                     events = cast(
                         "AsyncGenerator[Event, None]",
                         self._run_turn(
                             turn.session_id,
                             turn.user_text,
                             source_config,
-                            deps=self._deps,
-                            graph=self._graph,
-                            user_id=turn.user_id,
+                            **run_kwargs,
                         ),
                     )
                     async with aclosing(events) as stream:
@@ -810,7 +860,9 @@ class TurnRegistry:
         messages = list(values.get("messages") or [])
         records = list(values.get("turn_records") or [])
         registry_dump = list(values.get("source_registry") or [])
-        user_text, offset, clarify, synthesized = _partial_anchor(turn, messages, records)
+        user_text, offset, clarify, synthesized, selected_skills = _partial_anchor(
+            turn, messages, records
+        )
         update = build_terminal_update(
             messages=messages,
             records=records,
@@ -823,6 +875,7 @@ class TurnRegistry:
             error=error,
             clarify=clarify,
             synthesized_answer=synthesized,
+            selected_skills=selected_skills,
             partial_history=list(turn.run_handle.messages_snapshot)
             if turn.run_handle is not None and turn.run_handle.messages_snapshot
             else None,
@@ -900,6 +953,7 @@ class TurnRegistry:
             "messages": messages[:offset],
             "turn_records": surviving,
             "source_registry": registry_dump,
+            "turn_ids": None,
         }
         if parked:
             await self._graph.aupdate_state(config, update, as_node=AGENT_NODE)
@@ -909,7 +963,7 @@ class TurnRegistry:
 
 def _partial_anchor(
     turn: _Turn, messages: list[dict[str, Any]], records: list[dict[str, Any]]
-) -> tuple[str | None, int, dict[str, Any] | None, bool]:
+) -> tuple[str | None, int, dict[str, Any] | None, bool, tuple[str, ...]]:
     """The partial record's anchor: ``(user_text, messages_offset, clarify,
     synthesized_answer)``.
 
@@ -933,8 +987,21 @@ def _partial_anchor(
         offset = resolve_offset(parked.get("messages_offset"), messages)
         spec = (parked.get("clarify") or {}).get("spec")
         clarify = {"spec": spec, "answer": turn.user_text} if spec else None
-        return parked.get("user_text"), offset, clarify, True
-    return turn.user_text, resolve_offset(None, messages), None, False
+        return parked.get("user_text"), offset, clarify, True, _record_selected_skills(parked)
+    return turn.user_text, resolve_offset(None, messages), None, False, turn.selected_skills
+
+
+def _record_selected_skills(record: dict[str, Any]) -> tuple[str, ...]:
+    """Read a persisted selection through the same public-skill allowlist."""
+    stored = record.get("skills", [])
+    if stored is None:
+        stored = []
+    if not isinstance(stored, list):
+        raise InvalidSelectedSkills("stored skill selection is malformed")
+    try:
+        return tuple(validate_selected_skills(stored))
+    except SelectedSkillValidationError as exc:
+        raise InvalidSelectedSkills("stored skill selection is invalid") from exc
 
 
 def _resolve_edit_target(

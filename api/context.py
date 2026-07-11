@@ -14,20 +14,39 @@ from __future__ import annotations
 
 import traceback
 import uuid
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from app.skills import SELECTED_SKILLS_SAFE_ERROR
 from config.logging import bind_trace_id
 
 logger = structlog.get_logger(__name__)
 
 #: The one user-safe message for unhandled errors.
 ERROR_MESSAGE = "Something went wrong — this is on us."
+
+
+def _selected_skill_schema_reason(errors: Sequence[Mapping[str, Any]]) -> str:
+    """Return a fixed telemetry label for a malformed ``body.skills`` value.
+
+    Pydantic's error details can echo untrusted input.  Never log those
+    details here: the safe response and logs must not disclose a requested
+    slug, a malformed body, or any skill content.
+    """
+    error_types = {str(error.get("type", "")) for error in errors}
+    if "too_long" in error_types:
+        return "too_many_selected_skills_schema"
+    if any(error_type.endswith("string_type") for error_type in error_types):
+        return "invalid_selected_skill_item_schema"
+    return "invalid_selected_skills_schema"
 
 
 class RequestContextMiddleware:
@@ -68,6 +87,34 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+async def request_validation_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    """Keep malformed explicit skill payloads indistinguishable from bad names."""
+    # Starlette's exception-handler type accepts ``Exception`` rather than a
+    # narrower subclass.  The registration below is keyed to
+    # RequestValidationError, but retain a safe fallback if that contract ever
+    # changes.
+    if not isinstance(exc, RequestValidationError):
+        return await unhandled_exception_handler(request, exc)
+    is_message_route = request.url.path.endswith("/messages")
+    has_skill_error = any(
+        len(error.get("loc", ())) >= 2 and error["loc"][0:2] == ("body", "skills")
+        for error in exc.errors()
+    )
+    if is_message_route and has_skill_error:
+        trace_id = getattr(request.state, "trace_id", None)
+        logger.warning(
+            "invalid explicit skill selection",
+            reason=_selected_skill_schema_reason(exc.errors()),
+        )
+        return JSONResponse(
+            status_code=422,
+            content={"error": {"message": SELECTED_SKILLS_SAFE_ERROR, "trace_id": trace_id}},
+        )
+    return await request_validation_exception_handler(request, exc)
+
+
 def install_middleware(app: FastAPI, settings: Any) -> None:
     """Wire the request-context stack: context middleware, CORS, error envelope.
 
@@ -92,4 +139,5 @@ def install_middleware(app: FastAPI, settings: Any) -> None:
         allow_headers=["Content-Type", "Authorization", "Last-Event-ID"],
     )
     app.add_exception_handler(EnvelopeError, envelope_error_handler)
+    app.add_exception_handler(RequestValidationError, request_validation_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

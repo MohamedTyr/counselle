@@ -540,11 +540,26 @@ async def test_config_shape(live_app: FastAPI) -> None:
             "season_note",
             "conversation_starters",
             "default_source_config",
+            "skills",
+            "max_selected_skills",
         }
         assert isinstance(body["greeting"], str) and body["greeting"]
         assert isinstance(body["conversation_starters"], list) and body["conversation_starters"]
         cfg = body["default_source_config"]
         assert set(cfg) >= {"web", "edu", "reddit", "reddit_subreddits"}
+        assert body["max_selected_skills"] == 3
+        assert body["skills"] == [
+            {
+                "name": "dossier-assembly",
+                "display_name": "School dossier",
+                "description": "Build a complete, cited overview of one school.",
+            },
+            {
+                "name": "school-comparison",
+                "display_name": "School comparison",
+                "description": "Compare 2–6 schools across cost, admissions, outcomes, and fit.",
+            },
+        ]
 
 
 @pytest.mark.live_db

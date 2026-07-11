@@ -12,6 +12,7 @@ invariant — ``messages`` keeps exactly the prose that streamed — is enforced
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic_ai.messages import (
@@ -133,6 +134,7 @@ def build_terminal_update(
     synthesized_answer: bool = False,
     partial_history: list[dict[str, Any]] | None = None,
     emissions_len_at_snapshot: int = 0,
+    selected_skills: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """The single ``aupdate_state`` payload for ANY terminal path.
 
@@ -166,6 +168,7 @@ def build_terminal_update(
         ts=now_iso(),
         messages_offset=resolve_offset(messages_offset, new_messages),
         synthesized_answer=synthesized_answer,
+        selected_skills=selected_skills,
     )
     if used_partial_snapshot:
         record["partial_history"] = "snapshot"

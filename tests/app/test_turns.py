@@ -39,6 +39,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 import app.agent_node
 import app.graph
+import app.turns as turns_mod
 from app.records import build_turn_record, prose_of
 from app.run_handle import RunHandle, RunHandleStore, SteeringMessage
 from app.state import TemporalContext
@@ -46,6 +47,7 @@ from app.transcript import extract_transcript
 from app.turn_persistence import AGENT_NODE
 from app.turns import (
     InvalidEditTarget,
+    InvalidSelectedSkills,
     NoActiveTurn,
     StreamActive,
     TooManyConsumers,
@@ -277,7 +279,10 @@ def _serialized_tool_work_snapshot(text: str) -> list[dict[str, Any]]:
 
 
 async def _seed_parked_turn(
-    rig: Rig, session_id: str, user_text: str = "Is NYU good?"
+    rig: Rig,
+    session_id: str,
+    user_text: str = "Is NYU good?",
+    selected_skills: list[str] | None = None,
 ) -> dict[str, Any]:
     ids = {"message_id": str(uuid4()), "user_message_id": str(uuid4())}
     record = build_turn_record(
@@ -288,6 +293,7 @@ async def _seed_parked_turn(
         user_text=user_text,
         messages_offset=0,
         clarify={"spec": _clarify_spec(), "answer": None},
+        selected_skills=selected_skills,
     )
     await rig.graph.aupdate_state(
         {"configurable": {"thread_id": session_id}},
@@ -311,6 +317,8 @@ def _resume_parked_run_turn(
         deps: Any,
         graph: Any,
         user_id: str | None = None,
+        selected_skills: tuple[str, ...] = (),
+        selected_skills_inherited: bool = False,
     ) -> AsyncIterator[Event]:
         config = {"configurable": {"thread_id": session_id}}
         snapshot = await graph.aget_state(config)
@@ -357,6 +365,7 @@ def _gated_narration_run_turn(
         deps: Any,
         graph: Any,
         user_id: str | None = None,
+        selected_skills: tuple[str, ...] = (),
     ) -> AsyncIterator[Event]:
         yield ev_meta("trace-buffer", session_id, "test-model", str(uuid4()), str(uuid4()))
         for chunk in chunks:
@@ -569,6 +578,79 @@ async def test_seeded_awaiting_input_releases_lock_for_the_answering_post() -> N
     assert "Focusing on cost." in _prose(pairs)
 
 
+async def test_clarify_resume_inherits_parked_skills_and_rejects_new_ones() -> None:
+    """The parked record, not the answer request, owns the workflow choice."""
+    rig = Rig(_plain_model())
+    captured: dict[str, Any] = {}
+
+    async def recording_run_turn(*args: Any, **kwargs: Any) -> AsyncIterator[Event]:
+        captured["selected_skills"] = kwargs.get("selected_skills")
+        yield ev_meta("trace-skill", args[0], "model", "m-skill", "u-skill")
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=recording_run_turn,
+    )
+    session_id = str(uuid4())
+    await _seed_parked_turn(
+        rig, session_id, selected_skills=["school-comparison"]
+    )
+
+    await _run_full_turn(registry, session_id, "Cost matters most.")
+    assert captured["selected_skills"] == ("school-comparison",)
+
+    second_session_id = str(uuid4())
+    second_parked = await _seed_parked_turn(
+        rig, second_session_id, selected_skills=["school-comparison"]
+    )
+    before_rejected_replace = await _state_values(rig, second_session_id)
+    with pytest.raises(InvalidSelectedSkills):
+        await registry.start(
+            second_session_id,
+            "Try to change workflows.",
+            replace_message_id=second_parked["user_message_id"],
+            selected_skills=["dossier-assembly"],
+        )
+    assert registry.is_generating(second_session_id) is False
+    # The parked record remains: selection validation ran before the rewrite
+    # could erase the sole durable copy of its workflow choice.
+    assert await _state_values(rig, second_session_id) == before_rejected_replace
+
+
+async def test_real_clarify_resume_runs_with_the_parked_selection() -> None:
+    """The inherited registry value reaches run_turn instead of looking new."""
+    rig = Rig(_plain_model())
+    registry = _registry(rig)
+    session_id = str(uuid4())
+    await _seed_parked_turn(rig, session_id, selected_skills=["school-comparison"])
+
+    events = await _run_full_turn(registry, session_id, "Cost matters most.")
+
+    assert events[-1][0].type == "done"
+    assert events[-1][0].data["status"] == "complete"
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["skills"] == ["school-comparison"]
+    assert record["synthesized_answer"] is True
+    assert record["clarify"]["answer"] == "Cost matters most."
+
+
+@pytest.mark.parametrize("malformed", ["", 0, False, {}])
+def test_persisted_falsy_skill_values_are_not_silently_treated_as_legacy_empty(
+    malformed: Any,
+) -> None:
+    with pytest.raises(InvalidSelectedSkills):
+        turns_mod._record_selected_skills({"skills": malformed})
+
+
+def test_missing_or_null_persisted_skills_remain_legacy_empty() -> None:
+    assert turns_mod._record_selected_skills({}) == ()
+    assert turns_mod._record_selected_skills({"skills": None}) == ()
+
+
 # ---------------------------------------------------------------------------
 # Cancel (G5)
 # ---------------------------------------------------------------------------
@@ -580,7 +662,14 @@ async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None
     registry = _registry(rig)
     session_id = str(uuid4())
 
-    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    collector = Collector(
+        await registry.start(
+            session_id,
+            "duke dorms?",
+            _ALL_OFF,
+            selected_skills=["school-comparison"],
+        )
+    )
     await _wait_first_chunk(gate)
 
     outcome = await registry.cancel(session_id)
@@ -599,6 +688,7 @@ async def test_cancel_active_persists_partial_and_emits_done_cancelled() -> None
     record = values["turn_records"][-1]
     assert record["status"] == "cancelled"
     assert record["user_text"] == "duke dorms?"
+    assert record["skills"] == ["school-comparison"]
     assert prose_of(record["parts"]) == streamed
     assert record["segments"] == []
     assert all(message["kind"] == "request" for message in values["messages"])
@@ -793,7 +883,7 @@ async def test_cancel_on_parked_unparks_and_freezes_clarify_unanswered() -> None
     registry = _registry(rig)
     session_id = str(uuid4())
 
-    await _seed_parked_turn(rig, session_id)
+    await _seed_parked_turn(rig, session_id, selected_skills=["school-comparison"])
 
     assert await registry.cancel(session_id) == "unparked"
 
@@ -803,6 +893,7 @@ async def test_cancel_on_parked_unparks_and_freezes_clarify_unanswered() -> None
     assert record["status"] == "cancelled"
     assert record["clarify"]["answer"] is None
     assert record["clarify"]["spec"]["question"] == "What matters most to you?"
+    assert record["skills"] == ["school-comparison"]
     # The parked state is cleared (spike-1 mechanic b).
     assert not any(task.interrupts for task in snapshot.tasks)
 
@@ -853,6 +944,7 @@ async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
         deps: Any,
         graph: Any,
         user_id: str | None = None,
+        selected_skills: tuple[str, ...] = (),
     ) -> AsyncIterator[Event]:
         messages = list(
             ModelMessagesTypeAdapter.dump_python(
@@ -923,6 +1015,7 @@ async def test_cancel_prefers_run_handle_snapshot_over_prose_reconstruction() ->
         deps: Any,
         graph: Any,
         user_id: str | None = None,
+        selected_skills: tuple[str, ...] = (),
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -983,6 +1076,7 @@ async def test_cancel_preserves_completed_tool_work_for_next_turn_context() -> N
         deps: Any,
         graph: Any,
         user_id: str | None = None,
+        selected_skills: tuple[str, ...] = (),
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -1055,6 +1149,7 @@ async def test_timeout_prefers_run_handle_snapshot_over_prose_reconstruction() -
         deps: Any,
         graph: Any,
         user_id: str | None = None,
+        selected_skills: tuple[str, ...] = (),
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -1105,6 +1200,7 @@ async def test_shutdown_prefers_run_handle_snapshot_over_prose_reconstruction() 
         deps: Any,
         graph: Any,
         user_id: str | None = None,
+        selected_skills: tuple[str, ...] = (),
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -1158,7 +1254,9 @@ async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
     )
     session_id = str(uuid4())
 
-    parked = await _seed_parked_turn(rig, session_id)
+    parked = await _seed_parked_turn(
+        rig, session_id, selected_skills=["school-comparison"]
+    )
     meta_1 = parked
     assert parked["status"] == "awaiting_input"
 
@@ -1177,6 +1275,7 @@ async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
     assert record["clarify"]["answer"] == "cost"
     assert record["synthesized_answer"] is True
     assert record["user_text"] == "Is NYU good?"
+    assert record["skills"] == ["school-comparison"]
 
 
 # ---------------------------------------------------------------------------
@@ -1192,7 +1291,9 @@ async def test_watchdog_timeout_terminates_with_error_not_cancelled() -> None:
     registry = _registry(rig)
     session_id = str(uuid4())
 
-    pairs = await _run_full_turn(registry, session_id, "hi")
+    pairs = await _run_full_turn(
+        registry, session_id, "hi", selected_skills=["school-comparison"]
+    )
 
     types = [e.type for e, _ in pairs]
     assert types[-1] == "error"
@@ -1201,8 +1302,34 @@ async def test_watchdog_timeout_terminates_with_error_not_cancelled() -> None:
     record = values["turn_records"][-1]
     assert record["status"] == "error"
     assert record["error"]["message"]
+    assert record["skills"] == ["school-comparison"]
     assert prose_of(record["parts"]) == _prose(pairs)
     assert registry.is_generating(session_id) is False
+
+
+async def test_watchdog_timeout_during_clarify_resume_preserves_parked_skills() -> None:
+    """A timeout replacing a parked record retains its original workflow."""
+    gate = asyncio.Event()
+    settings = FakeSettings()
+    settings.agent_turn_timeout_s = 0.1
+    rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
+    registry = _registry(rig)
+    session_id = str(uuid4())
+    parked = await _seed_parked_turn(
+        rig, session_id, selected_skills=["school-comparison"]
+    )
+
+    events = await _run_full_turn(registry, session_id, "Cost matters most.")
+
+    assert events[-1][0].type == "error"
+    values = await _state_values(rig, session_id)
+    assert len(values["turn_records"]) == 1
+    record = values["turn_records"][-1]
+    assert record["message_id"] == parked["message_id"]
+    assert record["status"] == "error"
+    assert record["skills"] == ["school-comparison"]
+    assert record["synthesized_answer"] is True
+    assert record["clarify"]["answer"] == "Cost matters most."
 
 
 # ---------------------------------------------------------------------------
@@ -1342,6 +1469,36 @@ async def test_rewrite_of_the_first_message_restores_an_empty_registry() -> None
     assert values["turn_records"][0]["user_text"] == "nyu dorms?"
     # No surviving record → empty restore; the new turn minted index 1 fresh.
     assert [s["index"] for s in values["source_registry"]] == [1]
+
+
+async def test_rewrite_does_not_leak_replaced_skill_selection() -> None:
+    """A regeneration's explicit selection is authoritative after history rewrite."""
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    first = await _run_full_turn(
+        registry,
+        session_id,
+        "duke dorms?",
+        _WEB,
+        selected_skills=["school-comparison"],
+    )
+    first_user_id = first[0][0].data["user_message_id"]
+    before = await _state_values(rig, session_id)
+    assert before["turn_records"][-1]["skills"] == ["school-comparison"]
+
+    await _run_full_turn(
+        registry,
+        session_id,
+        "duke dorms, with a focus on housing?",
+        _WEB,
+        replace_message_id=first_user_id,
+    )
+
+    after = await _state_values(rig, session_id)
+    assert len(after["turn_records"]) == 1
+    assert after["turn_records"][-1]["skills"] == []
 
 
 async def test_parked_edit_clears_the_interrupt_and_runs_fresh() -> None:

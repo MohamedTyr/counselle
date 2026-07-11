@@ -21,13 +21,13 @@ that detection, not by this field.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictStr, StringConstraints
 from sse_starlette import EventSourceResponse
 
 from api.auth import current_active_user
@@ -44,10 +44,18 @@ from app.sessions import (
     set_session_source_config,
     set_session_title,
 )
+from app.skills import (
+    MAX_SELECTED_SKILLS,
+    SELECTED_SKILLS_SAFE_ERROR,
+    SKILL_NAME_PATTERN,
+    SelectedSkillValidationError,
+    validate_selected_skills,
+)
 from app.titles import default_title
 from app.transcript import extract_transcript
 from app.turns import (
     InvalidEditTarget,
+    InvalidSelectedSkills,
     NoActiveTurn,
     StreamActive,
     TooManyConsumers,
@@ -58,6 +66,17 @@ from domain.specs import SourceConfig
 
 router = APIRouter(tags=["sessions"])
 logger = structlog.get_logger(__name__)
+
+
+# Keep the wire shape strict before the repository allowlist runs.  The global
+# request-validation handler intentionally maps every error rooted at this
+# field to the same safe 422 as an unknown or internal skill, so schema errors
+# never reveal the public slug grammar or let a malformed selection reach a
+# turn claim.
+SelectedSkillName = Annotated[
+    StrictStr,
+    StringConstraints(pattern=SKILL_NAME_PATTERN, max_length=64),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +95,10 @@ class CreateSessionResponse(BaseModel):
 
 class MessageBody(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
+    skills: list[SelectedSkillName] = Field(
+        default_factory=list,
+        max_length=MAX_SELECTED_SKILLS,
+    )
     source_config: SourceConfig | None = None
     # G3 (B2): a prior user_message_id — edit & regenerate via history rewrite.
     replace_message_id: str | None = Field(default=None, max_length=64)
@@ -240,6 +263,12 @@ async def post_message(
     settings = request.app.state.settings
     pool = request.app.state.runtime.app_pool
 
+    try:
+        selected_skills = validate_selected_skills(body.skills)
+    except SelectedSkillValidationError as exc:
+        logger.warning("invalid explicit skill selection", session_id=sid, reason=exc.reason)
+        return _error_json(422, SELECTED_SKILLS_SAFE_ERROR, trace_id)  # type: ignore[return-value]
+
     # BC-12: claim before side-effect writes.
     # Claim the session FIRST (single-flight): a rejected start (409/503/422)
     # must NOT mutate the stored source-config or stamp a title from a prompt
@@ -253,6 +282,7 @@ async def post_message(
             body.source_config,
             user_id=str(user.id),
             replace_message_id=body.replace_message_id,
+            selected_skills=selected_skills,
         )
     except StreamActive:
         return _error_json(  # type: ignore[return-value]
@@ -267,6 +297,13 @@ async def post_message(
         # fixed user-safe line goes out, the detail is logged server-side.
         logger.warning("invalid edit target", session_id=sid, exc_info=True)
         return _error_json(422, "That message can't be edited.", trace_id)  # type: ignore[return-value]
+    except InvalidSelectedSkills:
+        logger.warning(
+            "invalid explicit skill selection",
+            session_id=sid,
+            reason="registry_revalidation_failed",
+        )
+        return _error_json(422, SELECTED_SKILLS_SAFE_ERROR, trace_id)  # type: ignore[return-value]
 
     # The claim succeeded — now persist the side effects (BC-12).
     # Source-config stickiness (PRD story 10): upsert the per-message toggle so

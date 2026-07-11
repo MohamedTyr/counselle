@@ -204,6 +204,27 @@ def test_build_terminal_update_omits_messages_when_no_partial() -> None:
     assert update["turn_records"][-1]["status"] == "error"
 
 
+@pytest.mark.parametrize("status", ["complete", "awaiting_input", "cancelled", "error"])
+def test_every_terminal_record_preserves_the_validated_skill_selection(status: str) -> None:
+    """Success, parking, cancellation, and failure share one durable field."""
+    update = build_terminal_update(
+        messages=[_request("Compare Duke and Northwestern.")],
+        records=[],
+        emissions=[("delta", "Working on it.")],
+        ids=_IDS,
+        status=status,  # type: ignore[arg-type]
+        sources=[],
+        user_text="Compare Duke and Northwestern.",
+        messages_offset=0,
+        clarify={"spec": {"question": "What matters?"}, "answer": None}
+        if status == "awaiting_input"
+        else None,
+        selected_skills=["school-comparison"],
+    )
+
+    assert update["turn_records"][-1]["skills"] == ["school-comparison"]
+
+
 def test_build_terminal_update_snapshot_precedes_prose_fallback() -> None:
     messages = [_request("hi")]
     snapshot = [_request("hi"), _response("safe snapshot")]
@@ -315,10 +336,12 @@ def test_parked_write_does_not_mutate_messages() -> None:
         user_text="Is NYU good?",
         messages_offset=0,
         clarify={"spec": {"question": "Which campus?"}, "answer": None},
+        selected_skills=["school-comparison"],
     )
     assert "messages" not in update  # the parked write writes only the record
     assert "turn_records" in update
     assert update["turn_records"][-1]["status"] == "awaiting_input"
+    assert update["turn_records"][-1]["skills"] == ["school-comparison"]
 
 
 # ---------------------------------------------------------------------------

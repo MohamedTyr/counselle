@@ -32,7 +32,7 @@ real tracing. Errors never propagate: the stream ends with a user-safe
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
@@ -48,6 +48,7 @@ from pydantic_ai.messages import (
 from app.graph import GraphDeps
 from app.records import Emission, FinalEmissionDeduper
 from app.sessions import get_session, touch_session
+from app.skills import SelectedSkillValidationError, validate_selected_skills
 from app.turn_persistence import AGENT_NODE, build_terminal_update, parked_record
 from config.settings import get_settings
 from domain.events import (
@@ -192,6 +193,7 @@ async def _write_failure_record(
     parked_resume: dict[str, Any] | None = None,
     partial_history: list[dict[str, Any]] | None = None,
     emissions_len_at_snapshot: int = 0,
+    selected_skills: Sequence[str] | None = None,
 ) -> None:
     """Best-effort error persistence (G2): the error turn record plus — when
     prose streamed — a partial ``ModelResponse`` so ``messages`` keeps exactly
@@ -240,6 +242,7 @@ async def _write_failure_record(
         synthesized_answer=synthesized_answer,
         partial_history=partial_history,
         emissions_len_at_snapshot=emissions_len_at_snapshot,
+        selected_skills=selected_skills,
     )
     if restored_fallback:
         # Equivalence with the pre-refactor code: a fallback restore ALWAYS
@@ -293,6 +296,32 @@ def _prompt_with_interruption_marker(
     return f"{marker}\n\n{user_text}"
 
 
+def _selected_skills_from_turn_ids(turn_ids: dict[str, Any]) -> list[str]:
+    """Read the checkpoint transport field without erasing corrupt falsy data.
+
+    Direct helper callers and pre-feature checkpoints can omit the key.  Once
+    it is present, however, it must be the same validated list that entered
+    the turn; values such as ``False`` must not silently become ``[]`` while a
+    terminal record is being written.
+    """
+    raw = turn_ids.get("selected_skills")
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise SelectedSkillValidationError("selected skills in turn ids are malformed")
+    return validate_selected_skills(raw)
+
+
+def _selected_skills_from_parked_record(parked: dict[str, Any]) -> list[str]:
+    """Validate the parked turn's durable selection without falsy coercion."""
+    raw = parked.get("skills", [])
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise SelectedSkillValidationError("parked selected skills are malformed")
+    return validate_selected_skills(raw)
+
+
 async def _prepare_turn_input(
     graph: Any,
     deps: GraphDeps,
@@ -328,7 +357,12 @@ async def _prepare_turn_input(
             messages_offset = parked_offset
         else:
             messages_offset = max(len(prior_messages) - 1, 0)
-        turn_ids = {**turn_ids, "messages_offset": messages_offset, "resume_text": user_text}
+        turn_ids = {
+            **turn_ids,
+            "messages_offset": messages_offset,
+            "resume_text": user_text,
+            "selected_skills": _selected_skills_from_turn_ids(turn_ids),
+        }
         try:
             await graph.aupdate_state(
                 {"configurable": {"thread_id": session_id}},
@@ -348,7 +382,11 @@ async def _prepare_turn_input(
     prior = list(snapshot.values.get("messages") or []) if snapshot else []
     prior_records = list(snapshot.values.get("turn_records") or []) if snapshot else []
     messages_offset = len(prior)
-    turn_ids = {**turn_ids, "messages_offset": messages_offset}
+    turn_ids = {
+        **turn_ids,
+        "messages_offset": messages_offset,
+        "selected_skills": _selected_skills_from_turn_ids(turn_ids),
+    }
     prompt = _prompt_with_interruption_marker(user_text, prior_records, prior)
     graph_input = {
         "messages": prior + _serialized_user_message(prompt),
@@ -372,6 +410,7 @@ async def _finish_failed_turn(
     graph_input: Any,
     last_registry_dump: list[Any],
     parked: dict[str, Any] | None,
+    selected_skills: Sequence[str],
 ) -> None:
     """Shared cleanup + best-effort failure-record write for a failed turn.
 
@@ -426,6 +465,7 @@ async def _finish_failed_turn(
             parked_resume=parked,
             partial_history=partial_history,
             emissions_len_at_snapshot=emissions_len_at_snapshot,
+            selected_skills=selected_skills,
         )
     except Exception:
         logger.warning(
@@ -443,6 +483,8 @@ async def run_turn(
     deps: GraphDeps,
     graph: Any,
     user_id: str | None = None,
+    selected_skills: Sequence[str] = (),
+    selected_skills_inherited: bool = False,
 ) -> AsyncIterator[Event]:
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -480,6 +522,33 @@ async def run_turn(
     record_user_text: str | None = (
         parked.get("user_text") if parked is not None else user_text
     )
+    # Registry.start rejects a non-empty clarify-answer request, then marks
+    # its server-owned inherited selection explicitly.  Direct callers may
+    # never select skills midway through a parked clarify run, even if they
+    # happen to repeat the same names.
+    effective_selected_skills: list[Any] = list(selected_skills)
+    try:
+        requested_selected_skills = validate_selected_skills(effective_selected_skills)
+        if parked is not None:
+            parked_selected_skills = _selected_skills_from_parked_record(parked)
+            if requested_selected_skills:
+                if not selected_skills_inherited:
+                    raise SelectedSkillValidationError("clarify resume selects skills")
+                if requested_selected_skills != parked_selected_skills:
+                    raise SelectedSkillValidationError("clarify resume replaces selected skills")
+            effective_selected_skills = parked_selected_skills
+        else:
+            effective_selected_skills = requested_selected_skills
+    except SelectedSkillValidationError:
+        logger.warning(
+            "invalid selected skills in direct or restored turn state "
+            "(session_id=%s, trace_id=%s)",
+            session_id,
+            trace_id,
+        )
+        yield ev_error(_USER_SAFE_ERROR, trace_id)
+        return
+
     yield ev_meta(trace_id, session_id, settings.model_counselor, message_id, user_message_id)
 
     turn_ids: dict[str, Any] = {
@@ -490,6 +559,7 @@ async def run_turn(
         # stays None here — that's the mount-gate signal a later phase reads
         # off turn_ids (ADR 0013: unmounted, not hidden).
         "user_id": user_id,
+        "selected_skills": list(effective_selected_skills),
     }
     emissions: list[Emission] = []
     final_emissions = FinalEmissionDeduper()
@@ -624,6 +694,7 @@ async def run_turn(
                     user_text=record_user_text,
                     messages_offset=messages_offset,
                     clarify={"spec": clarify_dump, "answer": None} if clarify_dump else None,
+                    selected_skills=_selected_skills_from_turn_ids(turn_ids),
                 )
                 await graph.aupdate_state(config, {"turn_records": update["turn_records"]})
             except Exception:
@@ -684,6 +755,7 @@ async def run_turn(
             graph_input=graph_input,
             last_registry_dump=last_registry_dump,
             parked=parked,
+            selected_skills=_selected_skills_from_turn_ids(turn_ids),
         )
         yield ev_error(_USER_SAFE_ERROR, trace_id)
     except Exception:
@@ -701,5 +773,6 @@ async def run_turn(
             graph_input=graph_input,
             last_registry_dump=last_registry_dump,
             parked=parked,
+            selected_skills=_selected_skills_from_turn_ids(turn_ids),
         )
         yield ev_error(_USER_SAFE_ERROR, trace_id)

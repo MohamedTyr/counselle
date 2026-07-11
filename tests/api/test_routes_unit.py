@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 
 from api.auth import current_active_user
 from api.context import install_middleware
+from api.routes import config as config_routes
 from api.routes import sessions as session_routes
 from api.routes import system as system_routes
 from app import transcript as transcript_mod
@@ -75,6 +76,7 @@ def make_test_app(
     app = FastAPI()
     install_middleware(app, SimpleNamespace(cors_origins=["*"]))
     app.include_router(session_routes.router, prefix="/v1")
+    app.include_router(config_routes.router, prefix="/v1")
     app.include_router(system_routes.router, prefix="/v1")
 
     # Minimal fake settings
@@ -855,6 +857,200 @@ def test_post_message_422_for_invalid_edit_target() -> None:
     assert response.status_code == 422
     body = response.json()
     assert "error" in body
+
+
+def test_post_message_rejects_tampered_skill_before_claim_or_writes() -> None:
+    """Hidden/unknown names never claim a turn or reveal the private catalog."""
+    app, session_id = _known_session_app()
+    registry_start = AsyncMock()
+    with (
+        patch.object(app.state.turn_registry, "start", new=registry_start),
+        patch.object(session_routes, "set_session_source_config", new=AsyncMock()) as cfg_w,
+        patch.object(session_routes, "set_session_title", new=AsyncMock()) as title_w,
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "text": "Compare schools",
+                "skills": ["decode-coded-value"],
+                "source_config": {"web": True, "reddit": False, "edu": False},
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "Those selected skills aren't available."
+    registry_start.assert_not_awaited()
+    cfg_w.assert_not_awaited()
+    title_w.assert_not_awaited()
+
+
+def test_invalid_skill_attempt_still_spends_the_message_rate_limit() -> None:
+    """Validation rejection happens after the existing route-level limiter.
+
+    A client must not bypass its message allowance by repeatedly guessing a
+    hidden skill.  This tests the real dependency ordering rather than the
+    limiter in isolation.
+    """
+    app, session_id = _known_session_app()
+    app.state.settings.turns_per_hour = 1
+    app.state.settings.turns_per_day = 1
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        first = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"text": "Compare schools", "skills": ["decode-coded-value"]},
+        )
+        second = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"text": "Compare schools", "skills": ["decode-coded-value"]},
+        )
+
+    assert first.status_code == 422
+    assert first.json()["error"]["message"] == "Those selected skills aren't available."
+    assert second.status_code == 429
+    assert "Retry-After" in second.headers
+
+
+def test_invalid_skill_logs_a_canonical_registry_reason() -> None:
+    app, session_id = _known_session_app()
+    with (
+        patch.object(session_routes.logger, "warning") as warning,
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"text": "Compare schools", "skills": ["decode-coded-value"]},
+        )
+
+    assert response.status_code == 422
+    warning.assert_called_once_with(
+        "invalid explicit skill selection",
+        session_id=session_id,
+        reason="unknown_or_internal_skill",
+    )
+
+
+def test_post_message_excess_skills_uses_the_same_safe_route_error() -> None:
+    app, session_id = _known_session_app()
+    registry_start = AsyncMock()
+    with (
+        patch.object(app.state.turn_registry, "start", new=registry_start),
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "text": "Compare schools",
+                "skills": ["school-comparison"] * 4,
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "Those selected skills aren't available."
+    registry_start.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "skills",
+    [
+        ["School Comparison"],
+        ["school-comparison", 1],
+        [False],
+        ["school-comparison" * 8],
+        [["school-comparison"]],
+        {"name": "school-comparison"},
+        None,
+    ],
+)
+def test_post_message_malformed_skill_uses_the_same_safe_route_error(skills: Any) -> None:
+    """Pydantic-level failures cannot bypass the generic skill 422 envelope."""
+    app, session_id = _known_session_app()
+    registry_start = AsyncMock()
+    with (
+        patch.object(app.state.turn_registry, "start", new=registry_start),
+        patch.object(session_routes, "set_session_source_config", new=AsyncMock()) as cfg_w,
+        patch.object(session_routes, "set_session_title", new=AsyncMock()) as title_w,
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"text": "Compare schools", "skills": skills},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "Those selected skills aren't available."
+    registry_start.assert_not_awaited()
+    cfg_w.assert_not_awaited()
+    title_w.assert_not_awaited()
+
+
+def test_malformed_skill_logs_a_canonical_schema_reason() -> None:
+    from api import context as context_mod
+
+    app, session_id = _known_session_app()
+    with (
+        patch.object(context_mod.logger, "warning") as warning,
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"text": "Compare schools", "skills": [42]},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "Those selected skills aren't available."
+    warning.assert_called_once_with(
+        "invalid explicit skill selection",
+        reason="invalid_selected_skill_item_schema",
+    )
+
+
+def test_config_exposes_only_public_skills_and_selection_limit_without_live_db() -> None:
+    """The browser catalog is deterministic and does not expose internal skills."""
+    app = make_test_app()
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.get("/v1/config")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["max_selected_skills"] == 3
+    assert body["skills"] == [
+        {
+            "name": "dossier-assembly",
+            "display_name": "School dossier",
+            "description": "Build a complete, cited overview of one school.",
+        },
+        {
+            "name": "school-comparison",
+            "display_name": "School comparison",
+            "description": "Compare 2–6 schools across cost, admissions, outcomes, and fit.",
+        },
+    ]
+
+
+def test_post_message_accepts_omitted_and_public_skills() -> None:
+    from domain.events import ev_done, ev_meta
+
+    captured: list[tuple[str, ...]] = []
+
+    async def fake_run_turn(*args: Any, **kwargs: Any) -> Any:
+        captured.append(kwargs["selected_skills"])
+        yield ev_meta("trace", args[0], "model", "message", "user")
+        yield ev_done("complete")
+
+    app, session_id = _known_session_app(run_turn_fn=fake_run_turn)
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        selected = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"text": "Compare schools", "skills": ["school-comparison"]},
+        )
+        omitted = tc.post(
+            f"/v1/sessions/{session_id}/messages", json={"text": "Campus life"}
+        )
+
+    assert selected.status_code == 200
+    assert omitted.status_code == 200
+    assert captured == [("school-comparison",), ()]
 
 
 # ---------------------------------------------------------------------------

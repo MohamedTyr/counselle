@@ -547,8 +547,10 @@ def test_selected_body_limits_are_enforced_without_truncation(
     monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
     _reset_registry_cache(mod)
 
-    with pytest.raises(mod.SelectedSkillValidationError, match="bodies exceed"):
+    with pytest.raises(mod.SelectedSkillValidationError) as exc_info:
         mod.render_selected_skills(["one", "two", "three"])
+
+    assert exc_info.value.reason == "selected_skill_body_limit"
 
 
 def test_public_skill_with_an_oversized_body_fails_registry_startup(

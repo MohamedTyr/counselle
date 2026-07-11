@@ -67,7 +67,10 @@ def _user_entries_for_record(record: dict[str, Any]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     if record.get("synthesized_answer"):
         if question:
-            entries.append({"role": "user", "text": question, "ts": None})
+            question_entry: dict[str, Any] = {"role": "user", "text": question, "ts": None}
+            if record.get("skills"):
+                question_entry["skills"] = list(record["skills"])
+            entries.append(question_entry)
         answer = (record.get("clarify") or {}).get("answer")
         entries.append(
             {
@@ -79,14 +82,15 @@ def _user_entries_for_record(record: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     elif question:
-        entries.append(
-            {
-                "role": "user",
-                "text": question,
-                "ts": record.get("ts"),
-                "message_id": record.get("user_message_id"),
-            }
-        )
+        entry: dict[str, Any] = {
+            "role": "user",
+            "text": question,
+            "ts": record.get("ts"),
+            "message_id": record.get("user_message_id"),
+        }
+        if record.get("skills"):
+            entry["skills"] = list(record["skills"])
+        entries.append(entry)
     return entries
 
 
