@@ -20,7 +20,7 @@ async def list_memories_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, _ = runtime_parts(request)
+    app_pool, _, _ = runtime_parts(request)
     return await list_memories(app_pool, user_id=user.id)
 
 
@@ -34,7 +34,7 @@ async def archive_memory_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: archive_memory(
             app_pool, event_bus, user_id=user.id, actor="student", memory_id=memory_id

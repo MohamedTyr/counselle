@@ -12,6 +12,7 @@ import {
   jsonResponse,
   renderApp,
   workspaceApplicationFixture,
+  workspaceReferenceFixture,
 } from "@/test/render-app"
 
 const princetonSearchResult: SchoolSearchResult = {
@@ -21,6 +22,8 @@ const princetonSearchResult: SchoolSearchResult = {
   state: "NJ",
   website_url: "https://www.princeton.edu",
   on_list: false,
+  active_cycle_years: [],
+  has_legacy_application: false,
 }
 
 function applicationFromInput(
@@ -37,25 +40,52 @@ function applicationFromInput(
     website_url: school.website_url,
     list_type: input.list_type,
     round: input.round,
+    cycle_year: input.cycle_year,
     deadline: input.deadline ?? null,
   }
 }
 
-function statefulAddSchoolFetch(searchResult = princetonSearchResult) {
+function statefulAddSchoolFetch({
+  searchResult = princetonSearchResult,
+  initialApplications = [],
+  currentCycleYear = 2027,
+}: {
+  searchResult?: SchoolSearchResult
+  initialApplications?: ApplicationView[]
+  currentCycleYear?: number
+} = {}) {
   const posts: ApplicationCreate[] = []
-  let applications: ApplicationView[] = []
+  let applications: ApplicationView[] = [...initialApplications]
 
   const fetchHandler = (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
 
+    if (url.endsWith("/v1/config")) {
+      return jsonResponse({ current_admissions_cycle_year: currentCycleYear })
+    }
+
     if (url.includes("/v1/schools/search")) {
+      const matchingApplications = applications.filter(
+        (application) => application.school_unitid === searchResult.unitid,
+      )
       return jsonResponse([
         {
           ...searchResult,
           on_list:
             searchResult.on_list ||
-            applications.some(
-              (application) => application.school_unitid === searchResult.unitid,
+            matchingApplications.length > 0,
+          active_cycle_years: Array.from(
+            new Set([
+              ...searchResult.active_cycle_years,
+              ...matchingApplications.flatMap((application) =>
+                application.cycle_year === null ? [] : [application.cycle_year],
+              ),
+            ]),
+          ).sort((a, b) => a - b),
+          has_legacy_application:
+            searchResult.has_legacy_application ||
+            matchingApplications.some(
+              (application) => application.cycle_year === null,
             ),
         },
       ])
@@ -67,10 +97,7 @@ function statefulAddSchoolFetch(searchResult = princetonSearchResult) {
         posts.push(body)
         const application = applicationFromInput(body, searchResult)
         applications = [application, ...applications]
-        return jsonResponse({
-          application,
-          seeded: { task_ids: [], essay_ids: [] },
-        })
+        return jsonResponse({ application })
       }
 
       return jsonResponse(applications)
@@ -81,6 +108,7 @@ function statefulAddSchoolFetch(searchResult = princetonSearchResult) {
         application: applications[0],
         tasks: [],
         essays: [],
+        reference: workspaceReferenceFixture,
       })
     }
 
@@ -111,19 +139,25 @@ describe("AddSchoolDialog", () => {
 
     const dialog = screen.getByRole("dialog")
     expect(within(dialog).getByText("Princeton, NJ")).toBeInTheDocument()
+    expect(within(dialog).getByLabelText("Fall enrollment year")).toHaveValue(2027)
     await user.click(within(dialog).getByRole("button", { name: "Add school" }))
 
     await waitFor(() =>
       expect(addFetch.posts).toEqual([
         {
           deadline: null,
+          cycle_year: 2027,
           list_type: "Target",
           round: "RD",
           unitid: 186131,
         },
       ]),
     )
-    expect(await screen.findByText("1 school shown")).toBeInTheDocument()
+    await waitFor(() =>
+      expect(window.location.pathname).toBe(
+        "/app/schools/10000000-0000-4000-8000-000000000777",
+      ),
+    )
   })
 
   it("opens from the keyboard shortcut", async () => {
@@ -135,26 +169,80 @@ describe("AddSchoolDialog", () => {
     expect(screen.getByPlaceholderText("Search for a school...")).toBeInTheDocument()
   })
 
-  it("shows already-on-list results as disabled", async () => {
+  it("keeps an aggregate on-list search result selectable for another cycle", async () => {
     const user = userEvent.setup()
     const onListSchool: SchoolSearchResult = {
       ...princetonSearchResult,
       on_list: true,
+      active_cycle_years: [2026],
     }
     renderApp("/app/schools", {
-      fetchHandler: statefulAddSchoolFetch(onListSchool).fetchHandler,
+      fetchHandler: statefulAddSchoolFetch({ searchResult: onListSchool }).fetchHandler,
     })
 
     await user.click(await screen.findByRole("button", { name: "Add school" }))
     await user.type(screen.getByPlaceholderText("Search for a school..."), "princeton")
 
-    expect(await screen.findByText("On your list")).toBeInTheDocument()
     expect(
-      within(screen.getByRole("dialog"))
-        .getByText("Princeton University")
-        .closest("[cmdk-item]"),
-    ).toHaveAttribute("aria-disabled", "true")
-    expect(screen.queryByText("List type")).not.toBeInTheDocument()
+      await screen.findByText("Tracked for 2025-26 · choose a cycle"),
+    ).toBeInTheDocument()
+    await user.click(screen.getByText("Princeton University"))
+    expect(
+      within(screen.getByRole("dialog")).getByText("List type"),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Fall enrollment year")).toHaveValue(2027)
+  })
+
+  it("blocks only an exact school-cycle duplicate", async () => {
+    const user = userEvent.setup()
+    const existing = {
+      ...workspaceApplicationFixture,
+      school_unitid: princetonSearchResult.unitid,
+      cycle_year: 2027,
+    }
+    renderApp("/app/schools", {
+      fetchHandler: statefulAddSchoolFetch({
+        currentCycleYear: 2028,
+        initialApplications: [existing],
+        searchResult: { ...princetonSearchResult, on_list: true },
+      }).fetchHandler,
+    })
+
+    await user.click(await screen.findByRole("button", { name: "Add school" }))
+    await user.type(screen.getByPlaceholderText("Search for a school..."), "princeton")
+    await user.click(await screen.findByText("Princeton University"))
+
+    const addButton = within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Add school",
+    })
+    expect(screen.getByLabelText("Fall enrollment year")).toHaveValue(2028)
+    expect(addButton).toBeEnabled()
+
+    await user.clear(screen.getByLabelText("Fall enrollment year"))
+    await user.type(screen.getByLabelText("Fall enrollment year"), "2027")
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "already in your workspace for the 2026-27 cycle",
+    )
+    expect(addButton).toBeDisabled()
+  })
+
+  it("shows a config-driven cycle preselection that remains editable", async () => {
+    const user = userEvent.setup()
+    const addFetch = statefulAddSchoolFetch({ currentCycleYear: 2029 })
+    renderApp("/app/schools", { fetchHandler: addFetch.fetchHandler })
+
+    await user.click(await screen.findByRole("button", { name: "Add school" }))
+    await user.type(screen.getByPlaceholderText("Search for a school..."), "princeton")
+    await user.click(await screen.findByText("Princeton University"))
+    const cycleInput = screen.getByLabelText("Fall enrollment year")
+    expect(cycleInput).toHaveValue(2029)
+
+    await user.clear(cycleInput)
+    await user.type(cycleInput, "2030")
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Add school" }),
+    )
+    await waitFor(() => expect(addFetch.posts[0]?.cycle_year).toBe(2030))
   })
 
   it("shows a search error instead of the empty state", async () => {
@@ -184,7 +272,7 @@ describe("AddSchoolDialog", () => {
     expect(screen.queryByText("No schools found.")).not.toBeInTheDocument()
   })
 
-  it("marks a cached search result as already on the list after adding it", async () => {
+  it("marks a cached result as tracked but still allows a new cycle", async () => {
     const user = userEvent.setup()
     let searchCount = 0
     let resolveSecondSearch = () => undefined
@@ -216,17 +304,22 @@ describe("AddSchoolDialog", () => {
       }),
     )
     await waitFor(() => expect(addFetch.posts).toHaveLength(1))
-    await user.click(await screen.findByRole("button", { name: "Close" }))
+    const schoolLinks = await screen.findAllByRole("link", { name: "Schools" })
+    await user.click(schoolLinks[0])
     await user.click(await screen.findByRole("button", { name: "Add school" }))
     await user.type(screen.getByPlaceholderText("Search for a school..."), "princeton")
 
-    expect(await screen.findByText("On your list")).toBeInTheDocument()
     expect(
-      within(screen.getByRole("dialog"))
-        .getByText("Princeton University")
-        .closest("[cmdk-item]"),
-    ).toHaveAttribute("aria-disabled", "true")
-    expect(screen.queryByText("List type")).not.toBeInTheDocument()
+      await screen.findByText("Tracked for 2026-27 · choose a cycle"),
+    ).toBeInTheDocument()
+    await user.click(screen.getByText("Princeton University"))
+    expect(screen.getByRole("alert")).toHaveTextContent("2026-27 cycle")
+    await user.clear(screen.getByLabelText("Fall enrollment year"))
+    await user.type(screen.getByLabelText("Fall enrollment year"), "2028")
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Add school" }),
+    ).toBeEnabled()
     resolveSecondSearch()
   })
 

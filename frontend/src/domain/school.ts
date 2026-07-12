@@ -15,6 +15,9 @@ export type Progress = Rollup
 export type School = {
   id: string
   unitid: number
+  cycleYear: number | null
+  platform: ApplicationView["platform"]
+  checklist: ApplicationView["checklist"]
   schoolName: string
   location: string
   websiteUrl: string | null
@@ -46,6 +49,9 @@ export function schoolFromApplication(application: ApplicationView): School {
   return {
     id: application.id,
     unitid: application.school_unitid,
+    cycleYear: application.cycle_year,
+    platform: application.platform,
+    checklist: application.checklist,
     schoolName: application.school_name,
     location: formatSchoolLocation(application),
     websiteUrl: application.website_url,

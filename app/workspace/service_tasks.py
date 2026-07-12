@@ -189,20 +189,27 @@ async def create_task(
 ) -> Task:
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
-        await _validate_links(conn, user_id, data.application_id, data.essay_id)
+        await _validate_links(
+            conn,
+            user_id,
+            data.application_id,
+            data.essay_id,
+            data.requirement_kind,
+        )
         row = await conn.fetchrow(
             """
             INSERT INTO counselle.tasks
-              (user_id, application_id, essay_id, title, notes, status, category,
+              (user_id, application_id, essay_id, requirement_kind, title, notes, status, category,
                priority, assignee, needs_input, due_at, planned_for, reminder_at,
                completed_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-                    CASE WHEN $6 = 'done' THEN now() ELSE NULL END)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                    CASE WHEN $7 = 'done' THEN now() ELSE NULL END)
             RETURNING *
             """,
             user_id,
             data.application_id,
             data.essay_id,
+            data.requirement_kind,
             data.title,
             data.notes,
             data.status,
@@ -234,8 +241,13 @@ async def update_task(
     values = data.model_dump(exclude_unset=True)
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
-        current = await _require_task(conn, user_id, task_id)
-        await _validate_patch_links(conn, user_id, values)
+        snapshot = await _require_task(conn, user_id, task_id, for_update=False)
+        await _validate_patch_links(conn, user_id, snapshot, values)
+        current = await _require_task(conn, user_id, task_id, for_update=True)
+        if _task_link_identity(current) != _task_link_identity(snapshot):
+            raise WorkspaceValidationError(
+                "task links changed concurrently; refresh and retry"
+            )
         if values:
             row = await _update_task_row(conn, user_id, task_id, values)
         else:
@@ -373,14 +385,20 @@ async def _archive_one(
 
 
 async def _require_task(
-    conn: asyncpg.Connection, user_id: UUID, task_id: UUID
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    task_id: UUID,
+    *,
+    for_update: bool,
 ) -> asyncpg.Record:
+    lock = "FOR UPDATE" if for_update else ""
     row = await conn.fetchrow(
-        """
+        f"""
         SELECT *
         FROM counselle.tasks
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
-        """,
+        {lock}
+        """,  # nosec B608 -- lock is one of two fixed internal fragments
         task_id,
         user_id,
     )
@@ -389,12 +407,20 @@ async def _require_task(
     return row
 
 
+def _task_link_identity(row: asyncpg.Record) -> tuple[object, object, object]:
+    return row["application_id"], row["essay_id"], row["requirement_kind"]
+
+
 async def _validate_patch_links(
-    conn: asyncpg.Connection, user_id: UUID, values: dict[str, object]
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    current: asyncpg.Record,
+    values: dict[str, object],
 ) -> None:
-    app_id = values.get("application_id") if "application_id" in values else None
-    essay_id = values.get("essay_id") if "essay_id" in values else None
-    await _validate_links(conn, user_id, app_id, essay_id)
+    app_id = values.get("application_id", current["application_id"])
+    essay_id = values.get("essay_id", current["essay_id"])
+    requirement_kind = values.get("requirement_kind", current["requirement_kind"])
+    await _validate_links(conn, user_id, app_id, essay_id, requirement_kind)
 
 
 async def _validate_links(
@@ -402,11 +428,18 @@ async def _validate_links(
     user_id: UUID,
     application_id: object,
     essay_id: object,
+    requirement_kind: object,
 ) -> None:
+    if requirement_kind is not None and application_id is None:
+        raise WorkspaceValidationError("requirement_kind requires application_id")
     if application_id is not None:
         await _require_active_application(conn, user_id, application_id)
     if essay_id is not None:
-        await _require_active_essay(conn, user_id, essay_id)
+        essay_application_id = await _require_active_essay(conn, user_id, essay_id)
+        if essay_application_id != application_id:
+            raise WorkspaceValidationError(
+                "task application_id must match the linked essay application_id"
+            )
 
 
 async def _require_active_application(
@@ -417,6 +450,7 @@ async def _require_active_application(
         SELECT id
         FROM counselle.applications
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+        FOR UPDATE
         """,
         application_id,
         user_id,
@@ -427,18 +461,20 @@ async def _require_active_application(
 
 async def _require_active_essay(
     conn: asyncpg.Connection, user_id: UUID, essay_id: object
-) -> None:
+) -> UUID | None:
     row = await conn.fetchrow(
         """
-        SELECT id
+        SELECT id, application_id
         FROM counselle.essays
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+        FOR UPDATE
         """,
         essay_id,
         user_id,
     )
     if row is None:
         raise WorkspaceNotFoundError()
+    return row["application_id"]
 
 
 async def _require_restorable_task(
@@ -486,17 +522,18 @@ async def _update_task_row(
         SET title = CASE WHEN $3 THEN $4 ELSE title END,
             application_id = CASE WHEN $5 THEN $6 ELSE application_id END,
             essay_id = CASE WHEN $7 THEN $8 ELSE essay_id END,
-            notes = CASE WHEN $9 THEN $10 ELSE notes END,
-            status = CASE WHEN $11 THEN $12 ELSE status END,
-            category = CASE WHEN $13 THEN $14 ELSE category END,
-            priority = CASE WHEN $15 THEN $16 ELSE priority END,
-            assignee = CASE WHEN $17 THEN $18 ELSE assignee END,
-            needs_input = CASE WHEN $19 THEN $20 ELSE needs_input END,
-            due_at = CASE WHEN $21 THEN $22 ELSE due_at END,
-            planned_for = CASE WHEN $23 THEN $24 ELSE planned_for END,
-            reminder_at = CASE WHEN $25 THEN $26 ELSE reminder_at END,
+            requirement_kind = CASE WHEN $9 THEN $10 ELSE requirement_kind END,
+            notes = CASE WHEN $11 THEN $12 ELSE notes END,
+            status = CASE WHEN $13 THEN $14 ELSE status END,
+            category = CASE WHEN $15 THEN $16 ELSE category END,
+            priority = CASE WHEN $17 THEN $18 ELSE priority END,
+            assignee = CASE WHEN $19 THEN $20 ELSE assignee END,
+            needs_input = CASE WHEN $21 THEN $22 ELSE needs_input END,
+            due_at = CASE WHEN $23 THEN $24 ELSE due_at END,
+            planned_for = CASE WHEN $25 THEN $26 ELSE planned_for END,
+            reminder_at = CASE WHEN $27 THEN $28 ELSE reminder_at END,
             completed_at = CASE
-              WHEN $11 THEN CASE WHEN $12 = 'done' THEN now() ELSE NULL END
+              WHEN $13 THEN CASE WHEN $14 = 'done' THEN now() ELSE NULL END
               ELSE completed_at
             END,
             updated_at = now()
@@ -511,6 +548,8 @@ async def _update_task_row(
         values.get("application_id"),
         "essay_id" in values,
         values.get("essay_id"),
+        "requirement_kind" in values,
+        values.get("requirement_kind"),
         "notes" in values,
         values.get("notes"),
         "status" in values,

@@ -588,7 +588,6 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
                 workspace_events,
                 UUID(user_id),
                 tool_overflow,
-                getattr(deps, "workspace_seeding_template", None),
             )
         )
     tools = build_tools(

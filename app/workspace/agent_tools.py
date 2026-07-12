@@ -116,7 +116,6 @@ from app.workspace.models import (
     TaskBoardCounts,
     TaskSearchHit,
     TaskStatus,
-    WorkspaceSeedingTemplate,
 )
 from counselle_db.catalog import Catalog
 
@@ -129,7 +128,6 @@ def build_workspace_tools(
     workspace_events: WorkspaceEventBus,
     user_id: UUID,
     tool_overflow: ToolMiddlewareContext | None,
-    template: WorkspaceSeedingTemplate | None = None,
 ) -> list[Tool[Any]]:
     """Build the per-run workspace tools bound to one authenticated turn.
 
@@ -142,9 +140,7 @@ def build_workspace_tools(
     (create/update/archive/restore/reorder) — and the six profile/memory
     tools (plans/user-profile-and-memory.md Part E): ``update_profile``,
     ``view_documents``, ``read_document`` (student documents, not essays),
-    ``remember``, ``update_memory``, ``forget``. ``template`` seeds the
-    starter tasks/essays when the agent adds a school; ``add_schools`` errors
-    cleanly if it is unset.
+    ``remember``, ``update_memory``, ``forget``.
     """
     ctx = ToolCtx(
         app_pool=app_pool,
@@ -152,7 +148,6 @@ def build_workspace_tools(
         workspace_events=workspace_events,
         user_id=user_id,
         tool_overflow=tool_overflow,
-        template=template,
     )
     return [
         _make_view_tasks_tool(ctx),

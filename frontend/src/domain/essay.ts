@@ -13,6 +13,7 @@ export type EssayType =
 
 export type Essay = {
   applicationId: string | null;
+  cycleYear: number | null;
   comments: number;
   deadline: string | null;
   dueSoon: boolean;
@@ -141,6 +142,7 @@ export function essayFromSummary(summary: EssaySummary): Essay {
 
   return {
     applicationId,
+    cycleYear: numberOrNull(summary.cycle_year),
     comments: numberOrZero(summary.comment_count),
     deadline,
     dueSoon: isEssayDueSoon(deadline),

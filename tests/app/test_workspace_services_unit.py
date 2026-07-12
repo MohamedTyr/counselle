@@ -16,12 +16,9 @@ from app.workspace.models import (
     ActivityPatch,
     Honor,
     HonorPatch,
-    WorkspaceSeedingTemplate,
     WorkspaceValidationError,
 )
-from app.workspace.seeding import _due_at
 from app.workspace.service_essays import _check_not_stale, _word_count, tiptap_preview
-from config.settings import load_yaml_asset
 from counselle_db import service
 from counselle_db.catalog import Catalog
 
@@ -65,19 +62,6 @@ class _ActivityPool:
     def acquire(self) -> _ConnectionContext:
         return _ConnectionContext(self.connection)
 
-
-def test_seed_due_at_only_when_user_deadline_exists() -> None:
-    assert _due_at(None, 3) is None
-    assert _due_at(date(2027, 1, 10), None) is None
-    assert _due_at(date(2027, 1, 10), 3) == datetime(2027, 1, 7, tzinfo=UTC)
-
-
-def test_workspace_seed_template_shape_is_phase_2_contract() -> None:
-    template = WorkspaceSeedingTemplate.model_validate(load_yaml_asset("workspace_seeding"))
-
-    assert template.tasks == []
-    assert len(template.essays) == 1
-    assert template.essays[0].title == "Supplemental essay (confirm required)"
 
 
 def test_tiptap_preview_extracts_plain_text() -> None:

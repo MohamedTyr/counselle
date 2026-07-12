@@ -58,6 +58,7 @@ class SchoolDraft(BaseModel):
     """One school to add in an ``add_schools`` batch."""
 
     unitid: int
+    cycle_year: int
     list_type: ListType = "Target"
     round: Round = "RD"
     deadline: str | None = None
@@ -71,8 +72,7 @@ class SchoolDraft(BaseModel):
 def make_add_schools_tool(ctx: ToolCtx) -> Tool[Any]:
     async def add_schools(schools: list[SchoolDraft]) -> dict[str, Any]:
         """Add one or more schools to the student's list. Each school is created with a
-        starter set of tasks and essays automatically, so the student's board is
-        ready to work immediately.
+        explicit admissions cycle. Adding a school never creates tasks or essays.
 
         Get each unitid from search_schools first — never guess one. A school already
         on the student's list is skipped and reported (adding it again does not
@@ -81,7 +81,7 @@ def make_add_schools_tool(ctx: ToolCtx) -> Tool[Any]:
 
         Args:
             schools: The schools to add, 1-20 per call. Each needs a unitid (from
-                search_schools) and may set list_type, round, and a deadline
+                search_schools), cycle_year (fall enrollment year), and may set list_type, round, and a deadline
                 (YYYY-MM-DD).
         """
         payload = await _add_schools_impl(ctx, schools)
@@ -93,13 +93,6 @@ def make_add_schools_tool(ctx: ToolCtx) -> Tool[Any]:
 async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str, Any]:
     if not (BATCH_MIN <= len(drafts) <= BATCH_MAX):
         return batch_size_error("add_schools", len(drafts))
-    if ctx.template is None:
-        return error(
-            "Adding schools is not available on this run (no workspace seeding template).",
-            retryable=False,
-            recovery="Tell the student to add the school from the Schools page instead.",
-        )
-
     # Validate every deadline up front — a bad date rejects the whole batch so the
     # model fixes it and resubmits, rather than silently adding some and not others.
     for index, draft in enumerate(drafts):
@@ -125,11 +118,11 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
                 actor="counselle",
                 data=ApplicationCreate(
                     unitid=draft.unitid,
+                    cycle_year=draft.cycle_year,
                     list_type=draft.list_type,
                     round=draft.round,
                     deadline=deadline,
                 ),
-                template=ctx.template,
             )
         except WorkspaceValidationError as exc:
             name = ctx.catalog.school_name(draft.unitid) or f"unitid {draft.unitid}"
@@ -139,10 +132,7 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
         added.append({
             "id": str(app.id),
             "school": app.school_name,
-            "seeded": {
-                "tasks": len(result.seeded.task_ids),
-                "essays": len(result.seeded.essay_ids),
-            },
+            "cycle_year": app.cycle_year,
         })
 
     if not added:
@@ -157,7 +147,7 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
         "status": "warning" if skipped else "ok",
         "summary": f"Added {len(added)} school{'' if len(added) == 1 else 's'} to the list.",
         "added": added,
-        "footer": "Each new school arrives with starter tasks and essays on the student's board.",
+        "footer": "No tasks or essays were created automatically.",
         "ui": {
             "widget": "school_added",
             "data": {

@@ -19,7 +19,14 @@ export function createTask(input: TaskCreate) {
 }
 
 export function updateTask(taskId: string, patch: TaskPatch) {
-  return requestJson<Task>(`/tasks/${taskId}`, jsonRequestInit("PATCH", patch))
+  const coherentPatch =
+    "application_id" in patch
+      ? { essay_id: null, requirement_kind: null, ...patch }
+      : patch
+  return requestJson<Task>(
+    `/tasks/${taskId}`,
+    jsonRequestInit("PATCH", coherentPatch),
+  )
 }
 
 export function archiveTask(taskId: string) {

@@ -20,7 +20,7 @@ async def get_profile_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, _ = runtime_parts(request)
+    app_pool, _, _ = runtime_parts(request)
     return await get_profile(app_pool, user_id=user.id)
 
 
@@ -33,7 +33,7 @@ async def update_profile_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await update_profile(
         app_pool, event_bus, user_id=user.id, actor="student", data=body
     )

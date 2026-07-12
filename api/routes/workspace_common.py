@@ -12,7 +12,7 @@ from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import WorkspaceNotFoundError, WorkspaceValidationError
 
 
-def runtime_parts(request: Request) -> tuple[Any, Any, Any, WorkspaceEventBus]:
+def runtime_parts(request: Request) -> tuple[Any, Any, WorkspaceEventBus]:
     """Return the explicit runtime pieces the workspace service functions need."""
     runtime = request.app.state.runtime
     event_bus = runtime.deps.workspace_events
@@ -21,7 +21,6 @@ def runtime_parts(request: Request) -> tuple[Any, Any, Any, WorkspaceEventBus]:
     return (
         runtime.app_pool,
         runtime.deps.catalog,
-        runtime.deps.workspace_seeding_template,
         event_bus,
     )
 

@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useSearchParams } from "react-router"
+import { useNavigate, useSearchParams } from "react-router"
 
 import { PageHeader } from "@/components/workspace/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
 import { AddSchoolDialog } from "@/features/schools/AddSchoolDialog"
-import { SchoolDetailSheet } from "@/features/schools/SchoolDetailSheet"
 import {
   defaultSortState,
   listTypeFilterOptions,
@@ -91,7 +90,8 @@ function SchoolsSkeleton() {
 export function SchoolsPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const applications = useApplications()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [addSchoolOpen, setAddSchoolOpen] = useState(false)
   const {
     columnWidths,
@@ -128,6 +128,12 @@ export function SchoolsPage() {
     tableColumns[0]
 
   useEffect(() => {
+    if (activeSchoolId) {
+      void navigate(`/app/schools/${activeSchoolId}`, { replace: true })
+    }
+  }, [activeSchoolId, navigate])
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault()
@@ -140,25 +146,7 @@ export function SchoolsPage() {
   }, [])
 
   function openSchool(schoolId: string) {
-    setSearchParams(
-      (currentParams) => {
-        const nextParams = new URLSearchParams(currentParams)
-        nextParams.set("school", schoolId)
-        return nextParams
-      },
-      { replace: true },
-    )
-  }
-
-  function closeSchool() {
-    setSearchParams(
-      (currentParams) => {
-        const nextParams = new URLSearchParams(currentParams)
-        nextParams.delete("school")
-        return nextParams
-      },
-      { replace: true },
-    )
+    void navigate(`/app/schools/${schoolId}`)
   }
 
   function handleColumnSort(columnId: ColumnId) {
@@ -400,11 +388,6 @@ export function SchoolsPage() {
         onAdded={openSchool}
         onOpenChange={setAddSchoolOpen}
         open={addSchoolOpen}
-      />
-      <SchoolDetailSheet
-        onClose={closeSchool}
-        open={activeSchoolId !== null}
-        schoolId={activeSchoolId}
       />
     </section>
   )

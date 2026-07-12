@@ -22,6 +22,30 @@ export type TaskCategory =
   | "interview"
 export type TaskPriority = "low" | "med" | "high"
 export type TestPlan = "submit" | "withhold" | "undecided"
+export type ApplicationPlatform =
+  | "common_app"
+  | "coalition"
+  | "school_portal"
+  | "direct"
+  | "other"
+export type RequirementApplicability =
+  | "required"
+  | "optional"
+  | "not_required"
+  | "conditional"
+  | "unknown"
+export type TrackableRequirementKind =
+  | "fee"
+  | "css_profile"
+  | "fafsa"
+  | "testing"
+export type ChecklistEntry = {
+  status: string
+  updated_at?: string | null
+}
+export type ChecklistMap = Partial<
+  Record<TrackableRequirementKind, ChecklistEntry>
+>
 export type Assignee = "student" | "counselle"
 export type EssayStatus =
   | "Not started"
@@ -54,6 +78,7 @@ export type Application = {
   id: string
   user_id: string
   school_unitid: number
+  cycle_year: number | null
   status: ApplicationStatus
   list_type: ListType
   round: Round
@@ -63,6 +88,9 @@ export type Application = {
   notes: string | null
   intended_major: string | null
   test_plan: TestPlan | null
+  checklist: ChecklistMap
+  platform: ApplicationPlatform | null
+  platform_other: string | null
   created_at: string
   updated_at: string
   archived_at: string | null
@@ -84,10 +112,13 @@ export type SchoolSearchResult = {
   state: string | null
   website_url: string | null
   on_list: boolean
+  active_cycle_years: number[]
+  has_legacy_application: boolean
 }
 
 export type ApplicationCreate = {
   unitid: number
+  cycle_year: number
   list_type: ListType
   round: Round
   deadline?: string | null
@@ -103,16 +134,14 @@ export type ApplicationPatch = Partial<{
   notes: string | null
   intended_major: string | null
   test_plan: TestPlan | null
+  cycle_year: number | null
+  checklist: Partial<Record<TrackableRequirementKind, ChecklistEntry | null>>
+  platform: ApplicationPlatform | null
+  platform_other: string | null
 }>
-
-export type SeededWorkspaceIds = {
-  task_ids: string[]
-  essay_ids: string[]
-}
 
 export type ApplicationAddResult = {
   application: ApplicationView
-  seeded: SeededWorkspaceIds
 }
 
 export type Task = {
@@ -120,6 +149,7 @@ export type Task = {
   user_id: string
   application_id: string | null
   essay_id: string | null
+  requirement_kind: string | null
   title: string
   notes: string | null
   status: TaskStatus
@@ -141,6 +171,7 @@ export type TaskCreate = {
   title: string
   application_id?: string | null
   essay_id?: string | null
+  requirement_kind?: string | null
   notes?: string | null
   status?: TaskStatus
   category?: TaskCategory
@@ -156,6 +187,7 @@ export type TaskPatch = Partial<{
   title: string
   application_id: string | null
   essay_id: string | null
+  requirement_kind: string | null
   notes: string | null
   status: TaskStatus
   category: TaskCategory
@@ -171,6 +203,7 @@ export type EssaySummary = {
   id: string
   user_id: string
   application_id: string | null
+  prompt_ref: string | null
   title: string
   essay_type: EssayType
   status: EssayStatus
@@ -184,6 +217,7 @@ export type EssaySummary = {
   school_name: string | null
   school_city: string | null
   school_state: string | null
+  cycle_year?: number | null
   deadline: string | null
   created_at: string
   updated_at: string
@@ -201,6 +235,7 @@ export type Essay = EssaySummary & {
 export type EssayCreate = {
   title: string
   application_id?: string | null
+  prompt_ref?: string | null
   essay_type?: EssayType
   status?: EssayStatus
   prompt?: string | null
@@ -212,6 +247,7 @@ export type EssayCreate = {
 export type EssayPatch = Partial<{
   title: string
   application_id: string | null
+  prompt_ref: string | null
   essay_type: EssayType
   status: EssayStatus
   prompt: string | null
@@ -279,6 +315,67 @@ export type ApplicationDetail = {
   application: ApplicationView
   tasks: Task[]
   essays: EssaySummary[]
+  reference: SchoolReference
+}
+
+export type ReferenceProvenance = {
+  source: string
+  source_url: string
+  verified_at: string
+}
+
+export type SchoolPromptGroup = {
+  id: string
+  label: string
+  choice_min: number
+  provenance: ReferenceProvenance
+}
+
+export type SchoolEssayPrompt = {
+  id: string
+  school_unitid: number
+  cycle_year: number
+  ordinal: number
+  prompt: string
+  word_limit: number | null
+  applicability: RequirementApplicability
+  audience: Record<string, unknown>
+  group_id?: string | null
+  provenance: ReferenceProvenance
+}
+
+export type SchoolRequirement = {
+  id: string
+  school_unitid: number
+  cycle_year: number
+  kind: string
+  label: string
+  applicability: RequirementApplicability
+  audience: Record<string, unknown>
+  detail: Record<string, unknown>
+  provenance: ReferenceProvenance
+}
+
+export type TestPolicyReference = {
+  display?: string | null
+  raw?: unknown
+  citation?: {
+    caveat?: string | null
+    source?: string | null
+    vintage?: string | number | null
+    url?: string | null
+    [key: string]: unknown
+  } | null
+}
+
+export type SchoolReference = {
+  status: "cycle_required" | "loaded"
+  cycle_year: number | null
+  populated: boolean
+  prompt_groups: SchoolPromptGroup[]
+  prompts: SchoolEssayPrompt[]
+  requirements: SchoolRequirement[]
+  test_policy?: TestPolicyReference | null
 }
 
 export type ChangeEventData = {

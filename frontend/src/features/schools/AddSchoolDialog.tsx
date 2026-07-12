@@ -1,8 +1,14 @@
 import { AlertCircle, ArrowLeft, Check, Plus } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { useAddApplication, useSchoolSearch } from "@/api/workspace/hooks"
+import { requestJson } from "@/api/http/client"
+import {
+  useAddApplication,
+  useApplications,
+  useSchoolSearch,
+} from "@/api/workspace/hooks"
 import type {
   ListType,
   Round,
@@ -30,6 +36,12 @@ import { SchoolAvatar } from "@/features/schools/school-cells"
 
 const listTypeOptions: ListType[] = ["Reach", "Target", "Safety"]
 const roundOptions: Round[] = ["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"]
+const MIN_CYCLE_YEAR = 2020
+const MAX_CYCLE_YEAR = 2100
+
+function validCycleYear(value: number) {
+  return Number.isFinite(value) && Number.isInteger(value) && value >= MIN_CYCLE_YEAR && value <= MAX_CYCLE_YEAR
+}
 
 function schoolLocation(school: SchoolSearchResult) {
   if (school.city && school.state) {
@@ -37,6 +49,19 @@ function schoolLocation(school: SchoolSearchResult) {
   }
 
   return school.city ?? school.state ?? "Location unavailable"
+}
+
+function trackedCycleLabel(school: SchoolSearchResult) {
+  if (school.active_cycle_years.length > 0) {
+    const cycles = school.active_cycle_years
+      .map((year) => `${year - 1}-${String(year).slice(-2)}`)
+      .join(", ")
+    return `Tracked for ${cycles} · choose a cycle`
+  }
+  if (school.has_legacy_application) {
+    return "Tracked with an unconfirmed cycle · choose a cycle"
+  }
+  return "Tracked in your workspace · choose a cycle"
 }
 
 function useDebouncedValue(value: string, delayMs: number) {
@@ -65,11 +90,37 @@ export function AddSchoolDialog({
   const [listType, setListType] = useState<ListType>("Target")
   const [round, setRound] = useState<Round>("RD")
   const [deadline, setDeadline] = useState("")
+  const [cycleYear, setCycleYear] = useState("")
+  const cycleConfig = useQuery({
+    queryKey: ["config", "current-admissions-cycle"],
+    queryFn: () => requestJson<{ current_admissions_cycle_year?: number }>("/config"),
+  })
+  const defaultCycleYear = validCycleYear(cycleConfig.data?.current_admissions_cycle_year ?? NaN)
+    ? cycleConfig.data!.current_admissions_cycle_year!
+    : null
   const debouncedQuery = useDebouncedValue(query, 250)
   const trimmedQuery = debouncedQuery.trim()
   const search = useSchoolSearch(trimmedQuery)
+  const applications = useApplications()
   const addApplication = useAddApplication()
   const isConfirmStep = selectedSchool !== null
+  const selectedCycleYear = Number(cycleYear)
+  const isCycleYearValid = validCycleYear(selectedCycleYear)
+  const isDuplicateCycle = Boolean(
+    selectedSchool &&
+      selectedCycleYear &&
+      applications.data?.some(
+        (application) =>
+          application.school_unitid === selectedSchool.unitid &&
+          application.cycle_year === selectedCycleYear,
+      ),
+  )
+
+  useEffect(() => {
+    if (open && !cycleYear && defaultCycleYear) {
+      setCycleYear(String(defaultCycleYear))
+    }
+  }, [cycleYear, defaultCycleYear, open])
 
   const searchResults = useMemo(
     () => search.data ?? [],
@@ -82,6 +133,7 @@ export function AddSchoolDialog({
     setListType("Target")
     setRound("RD")
     setDeadline("")
+    setCycleYear(defaultCycleYear ? String(defaultCycleYear) : "")
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -98,6 +150,7 @@ export function AddSchoolDialog({
 
     try {
       const result = await addApplication.mutateAsync({
+        cycle_year: selectedCycleYear,
         deadline: deadline || null,
         list_type: listType,
         optimisticSchool: selectedSchool,
@@ -189,6 +242,30 @@ export function AddSchoolDialog({
             />
           </label>
 
+          {isDuplicateCycle ? (
+            <p className="text-sm text-destructive" role="alert">
+              This school is already in your workspace for the {selectedCycleYear - 1}-{String(selectedCycleYear).slice(-2)} cycle.
+            </p>
+          ) : null}
+
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
+            Fall enrollment year
+            <Input
+              nativeInput
+              max={MAX_CYCLE_YEAR}
+              min={MIN_CYCLE_YEAR}
+              onChange={(event) => setCycleYear(event.currentTarget.value)}
+              placeholder="e.g. 2027"
+              required
+              type="number"
+              value={cycleYear}
+            />
+            <span className="text-xs font-normal text-muted-foreground">
+              This selects the correct admissions-cycle catalog. It cannot be guessed safely.
+            </span>
+            {cycleYear && !isCycleYearValid ? <span className="text-xs font-normal text-destructive">Enter a whole year from {MIN_CYCLE_YEAR} to {MAX_CYCLE_YEAR}.</span> : null}
+          </label>
+
           <div className="-mx-4 -mb-4 flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 sm:flex-row sm:justify-between">
             <Button
               onClick={() => setSelectedSchool(null)}
@@ -199,6 +276,7 @@ export function AddSchoolDialog({
               Back
             </Button>
             <Button
+              disabled={!isCycleYearValid || isDuplicateCycle}
               loading={addApplication.isPending}
               onClick={() => void confirmAdd()}
               type="button"
@@ -249,12 +327,10 @@ export function AddSchoolDialog({
                 <CommandGroup heading={trimmedQuery ? "Results" : undefined}>
                   {searchResults.map((school) => (
                     <CommandItem
-                      disabled={school.on_list}
+                      disabled={false}
                       key={school.unitid}
                       onSelect={() => {
-                        if (!school.on_list) {
-                          setSelectedSchool(school)
-                        }
+                        setSelectedSchool(school)
                       }}
                       value={`${school.name} ${schoolLocation(school)}`}
                     >
@@ -267,7 +343,7 @@ export function AddSchoolDialog({
                       </span>
                       {school.on_list ? (
                         <span className="ml-auto text-xs text-muted-foreground">
-                          On your list
+                          {trackedCycleLabel(school)}
                         </span>
                       ) : (
                         <Check className="ml-auto opacity-0" />

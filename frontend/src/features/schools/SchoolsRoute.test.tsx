@@ -6,7 +6,6 @@ import {
   createWorkspaceFetchPreset,
   renderApp,
   workspaceApplicationFixture,
-  workspaceTaskFixture,
 } from "@/test/render-app"
 
 function application(
@@ -173,56 +172,40 @@ describe("SchoolsPage", () => {
     )
   })
 
-  it("opens the detail sheet from the school query param and patches inline edits", async () => {
+  it("redirects the legacy school query param to the canonical workspace page", async () => {
     const fetchSpy = createWorkspaceFetchPreset({ applications: testApplications })
     renderApp(
       "/app/schools?school=10000000-0000-4000-8000-000000000001",
       { fetchHandler: fetchSpy },
     )
 
-    expect(await screen.findByText("Linked tasks")).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText("Deadline"), {
-      target: { value: "2027-02-01" },
-    })
-
-    await waitFor(() =>
-      expect(screen.getByLabelText("Deadline")).toHaveValue("2027-02-01"),
+    expect(
+      await screen.findByRole("heading", { name: "Alpha College" }),
+    ).toBeInTheDocument()
+    expect(window.location.pathname).toBe(
+      "/app/schools/10000000-0000-4000-8000-000000000001",
     )
+    expect(window.location.search).toBe("")
   })
 
-  it("links linked tasks to the tasks route URL state", async () => {
+  it("opens a school row on its canonical workspace page", async () => {
     const user = userEvent.setup()
-    const taskId = "20000000-0000-4000-8000-000000000777"
-    renderApp(
-      "/app/schools?school=10000000-0000-4000-8000-000000000001",
-      {
-        fetchHandler: createWorkspaceFetchPreset({
-          applications: testApplications,
-          tasks: [
-            {
-              ...workspaceTaskFixture,
-              id: taskId,
-              title: "Submit financial aid form",
-            },
-          ],
-        }),
-      },
+    await renderSchools()
+    await user.click(
+      within(screen.getByRole("table")).getByRole("button", {
+        name: "Open Alpha College details",
+      }),
     )
 
-    const taskLink = await screen.findByRole("link", {
-      name: "Submit financial aid form",
-    })
-
-    expect(taskLink).toHaveAttribute("href", `/app/tasks?task=${taskId}`)
-
-    await user.click(taskLink)
-
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"))
-    expect(window.location.search).toBe(`?task=${taskId}`)
+    expect(
+      await screen.findByRole("heading", { name: "Alpha College" }),
+    ).toBeInTheDocument()
+    expect(window.location.pathname).toBe(
+      "/app/schools/10000000-0000-4000-8000-000000000001",
+    )
   })
 
-  it("archives a school from the detail sheet with undo", async () => {
+  it("archives a school from its workspace and restores it with undo", async () => {
     const user = userEvent.setup()
     await renderSchools()
 
@@ -231,14 +214,10 @@ describe("SchoolsPage", () => {
         name: "Open Alpha College details",
       }),
     )
-    await screen.findByText("Linked tasks")
+    await screen.findByRole("heading", { name: "Alpha College" })
     await user.click(screen.getByRole("button", { name: "Archive" }))
 
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "Open Alpha College details" }),
-      ).not.toBeInTheDocument(),
-    )
+    await waitFor(() => expect(window.location.pathname).toBe("/app/schools"))
     expect(
       screen.queryByRole("button", { name: "Open Alpha College details" }),
     ).not.toBeInTheDocument()

@@ -32,7 +32,7 @@ async def school_identities(
         return {}
     rows = await catalog.pool.fetch(
         """
-        SELECT unitid, name, city, state
+        SELECT unitid, name, NULL::text AS city, state
         FROM schools
         WHERE unitid = ANY($1::int[])
         """,

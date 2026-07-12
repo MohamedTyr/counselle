@@ -371,7 +371,7 @@ export function TaskDetailSheet({
     () => [
       { label: "No school", value: noSchoolValue },
       ...applications.map((application) => ({
-        label: application.school_name,
+        label: `${application.school_name} · ${application.cycle_year ? `${application.cycle_year - 1}-${String(application.cycle_year).slice(-2)}` : "Cycle unconfirmed"}`,
         value: application.id,
       })),
     ],

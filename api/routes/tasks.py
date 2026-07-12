@@ -40,7 +40,7 @@ async def list_tasks_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, _ = runtime_parts(request)
+    app_pool, _, _ = runtime_parts(request)
     return await list_tasks(app_pool, user_id=user.id)
 
 
@@ -54,7 +54,7 @@ async def create_task_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: create_task(
             app_pool, event_bus, user_id=user.id, actor="student", data=body
@@ -72,7 +72,7 @@ async def update_task_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: update_task(
             app_pool,
@@ -95,7 +95,7 @@ async def archive_task_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: archive_task(
             app_pool, event_bus, user_id=user.id, actor="student", task_id=task_id
@@ -113,7 +113,7 @@ async def restore_task_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: restore_task(
             app_pool, event_bus, user_id=user.id, actor="student", task_id=task_id
@@ -130,7 +130,7 @@ async def bulk_status_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: bulk_update_status(
             app_pool,
@@ -152,7 +152,7 @@ async def bulk_archive_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: bulk_archive(
             app_pool, event_bus, user_id=user.id, actor="student", ids=body.ids

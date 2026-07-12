@@ -32,6 +32,7 @@ export type Task = {
   priority: TaskPriority
   application_id?: string
   essay_id?: string
+  requirement_kind?: string
 }
 
 function undefinedIfNull<T>(value: T | null | undefined): T | undefined {
@@ -56,6 +57,7 @@ export function taskFromApi(task: ApiTask): Task {
     priority: task.priority,
     application_id: undefinedIfNull(task.application_id),
     essay_id: undefinedIfNull(task.essay_id),
+    requirement_kind: undefinedIfNull(task.requirement_kind),
   }
 }
 
@@ -72,6 +74,7 @@ const patchableTaskFields = [
   "priority",
   "application_id",
   "essay_id",
+  "requirement_kind",
 ] as const satisfies readonly (keyof Task)[]
 
 /**
@@ -88,6 +91,11 @@ export function taskPatchToApi(patch: Partial<Task>): ApiTaskPatch {
       const value = patch[field]
       apiPatch[field] = value === undefined ? null : value
     }
+  }
+
+  if ("application_id" in patch) {
+    if (!("essay_id" in patch)) apiPatch.essay_id = null
+    if (!("requirement_kind" in patch)) apiPatch.requirement_kind = null
   }
 
   return apiPatch as ApiTaskPatch

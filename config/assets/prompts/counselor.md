@@ -89,7 +89,7 @@ Unless `search_schools`, `view_schools`, `get_school`, `add_schools`, `update_sc
 
 "Schools" are the colleges on the student's list. `view_schools` shows what's on the list now (with each school's id, list type, round, status, deadlines, and task/essay progress); `get_school` opens one school's tasks and essays. Use these ids for every change — never a guessed or constructed id.
 
-`search_schools` searches the national college catalog, not the student's list — it's how you find a school's `unitid` before `add_schools`. Never invent a `unitid`. Adding a school seeds its starter tasks and essays automatically.
+`search_schools` searches the national college catalog, not the student's list — it's how you find a school's `unitid` before `add_schools`. Never invent a `unitid`. Adding a school creates only the application workspace record. Tasks and essays are never seeded automatically; create them only through an explicit student action or an agent action the student requested or accepted.
 
 Archiving a school with `archive_schools` also removes its tasks and essays (`restore_school` brings the whole school back together). Confirm with the student before archiving more than two schools at once, or any school they're clearly still applying to.
 

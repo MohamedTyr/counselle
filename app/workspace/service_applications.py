@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from uuid import UUID
 
 import asyncpg
@@ -20,13 +21,11 @@ from app.workspace.models import (
     ObjectType,
     Rollup,
     SchoolSearchResult,
-    SeededWorkspaceIds,
     Task,
     WorkspaceNotFoundError,
-    WorkspaceSeedingTemplate,
     WorkspaceValidationError,
 )
-from app.workspace.seeding import seed_application_workspace
+from app.workspace.service_reference import get_school_reference
 from app.workspace.service_utils import SchoolIdentity, publish_events, school_identities
 from counselle_db.catalog import Catalog
 from counselle_db.service import search_school_names
@@ -99,7 +98,7 @@ async def search_schools(
 ) -> list[SchoolSearchResult]:
     schools = await search_school_names(catalog, query, limit=limit)
     unitids = [school.unitid for school in schools]
-    active = await _active_unitids(app_pool, user_id, unitids)
+    active = await _active_cycles(app_pool, user_id, unitids)
     return [
         SchoolSearchResult(
             unitid=school.unitid,
@@ -107,7 +106,11 @@ async def search_schools(
             city=school.city,
             state=school.state,
             website_url=_website_url(catalog, school.unitid),
-            on_list=school.unitid in active,
+            on_list=bool(active.get(school.unitid)),
+            active_cycle_years=sorted(
+                cycle for cycle in active.get(school.unitid, []) if cycle is not None
+            ),
+            has_legacy_application=None in active.get(school.unitid, []),
         )
         for school in schools
     ]
@@ -129,7 +132,6 @@ async def add_application(
     user_id: UUID,
     actor: Actor,
     data: ApplicationCreate,
-    template: WorkspaceSeedingTemplate,
 ) -> ApplicationAddResult:
     if catalog.school_name(data.unitid) is None:
         raise WorkspaceValidationError("school is not in the catalog")
@@ -139,12 +141,13 @@ async def add_application(
             app_row = await conn.fetchrow(
                 """
                 INSERT INTO counselle.applications
-                  (user_id, school_unitid, list_type, round, deadline)
-                VALUES ($1, $2, $3, $4, $5)
+                  (user_id, school_unitid, cycle_year, list_type, round, deadline)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING *
                 """,
                 user_id,
                 data.unitid,
+                data.cycle_year,
                 data.list_type,
                 data.round,
                 data.deadline,
@@ -167,65 +170,12 @@ async def add_application(
                     op="created",
                 )
             )
-            seeded = await seed_application_workspace(
-                conn,
-                user_id=user_id,
-                application_id=app_id,
-                deadline=data.deadline,
-                template=template,
-            )
-            for task in seeded.tasks:
-                change_id = await record_change(
-                    conn,
-                    user_id=user_id,
-                    actor=actor,
-                    object_type="task",
-                    object_id=task.id,
-                    op="created",
-                    application_id=app_id,
-                )
-                events.append(
-                    make_change_event(
-                        change_id=change_id,
-                        actor=actor,
-                        object_type="task",
-                        object_id=task.id,
-                        op="created",
-                        application_id=app_id,
-                    )
-                )
-            for essay in seeded.essays:
-                change_id = await record_change(
-                    conn,
-                    user_id=user_id,
-                    actor=actor,
-                    object_type="essay",
-                    object_id=essay.id,
-                    op="created",
-                    application_id=app_id,
-                )
-                events.append(
-                    make_change_event(
-                        change_id=change_id,
-                        actor=actor,
-                        object_type="essay",
-                        object_id=essay.id,
-                        op="created",
-                        application_id=app_id,
-                    )
-                )
     except asyncpg.UniqueViolationError as exc:
-        raise WorkspaceValidationError("school is already active on this list") from exc
+        raise WorkspaceValidationError("school is already active for this application cycle") from exc
 
     publish_events(event_bus, user_id, events)
     application = await _application_view_by_id(app_pool, catalog, user_id, app_id)
-    return ApplicationAddResult(
-        application=application,
-        seeded=SeededWorkspaceIds(
-            task_ids=[task.id for task in seeded.tasks],
-            essay_ids=[essay.id for essay in seeded.essays],
-        ),
-    )
+    return ApplicationAddResult(application=application)
 
 
 async def update_application(
@@ -239,12 +189,19 @@ async def update_application(
     data: ApplicationPatch,
 ) -> ApplicationView:
     values = data.model_dump(exclude_unset=True)
-    if not values:
+    checklist_patch = values.pop("checklist", None)
+    if not values and checklist_patch is None:
         return await _application_view_by_id(app_pool, catalog, user_id, application_id)
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
-        await _require_active_application(conn, user_id, application_id)
-        row = await conn.fetchrow(
+        current = await _require_active_application(conn, user_id, application_id)
+        _validate_platform_patch(current, values)
+        if "cycle_year" in values:
+            await _validate_application_prompt_cycle(
+                conn, user_id, application_id, values["cycle_year"]
+            )
+        try:
+            row = await conn.fetchrow(
             """
             UPDATE counselle.applications
             SET status = CASE WHEN $3 THEN $4 ELSE status END,
@@ -256,6 +213,20 @@ async def update_application(
                 notes = CASE WHEN $15 THEN $16 ELSE notes END,
                 intended_major = CASE WHEN $17 THEN $18 ELSE intended_major END,
                 test_plan = CASE WHEN $19 THEN $20 ELSE test_plan END,
+                cycle_year = CASE WHEN $21 THEN $22 ELSE cycle_year END,
+                checklist = CASE WHEN $23 THEN
+                  (checklist || jsonb_strip_nulls($24::jsonb))
+                  - ARRAY(
+                      SELECT key FROM jsonb_each($24::jsonb)
+                      WHERE value = 'null'::jsonb
+                    )
+                  ELSE checklist END,
+                platform = CASE WHEN $25 THEN $26 ELSE platform END,
+                platform_other = CASE
+                  WHEN $25 AND $26 IS DISTINCT FROM 'other' THEN NULL
+                  WHEN $27 THEN $28
+                  ELSE platform_other
+                END,
                 updated_at = now()
             WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
             RETURNING id
@@ -280,7 +251,19 @@ async def update_application(
             values.get("intended_major"),
             "test_plan" in values,
             values.get("test_plan"),
-        )
+            "cycle_year" in values,
+            values.get("cycle_year"),
+            checklist_patch is not None,
+            json.dumps(checklist_patch, default=str),
+            "platform" in values,
+            values.get("platform"),
+            "platform_other" in values,
+            values.get("platform_other"),
+            )
+        except asyncpg.UniqueViolationError as exc:
+            raise WorkspaceValidationError(
+                "school is already active for this application cycle"
+            ) from exc
         change_id = await record_change(
             conn,
             user_id=user_id,
@@ -411,7 +394,7 @@ async def restore_application(
                 )
             )
     except asyncpg.UniqueViolationError as exc:
-        raise WorkspaceValidationError("school is already active on this list") from exc
+        raise WorkspaceValidationError("school is already active for this application cycle") from exc
     publish_events(event_bus, user_id, events)
 
 
@@ -423,6 +406,12 @@ async def get_application_detail(
     application_id: UUID,
 ) -> ApplicationDetail:
     application = await _application_view_by_id(app_pool, catalog, user_id, application_id)
+    reference = await get_school_reference(
+        app_pool,
+        catalog,
+        unitid=application.school_unitid,
+        cycle_year=application.cycle_year,
+    )
     async with app_pool.acquire() as conn:
         task_rows = await conn.fetch(
             """
@@ -436,12 +425,16 @@ async def get_application_detail(
         )
         essay_rows = await conn.fetch(
             """
-            SELECT *, ''::text AS preview,
+            SELECT e.*,
+                   CASE WHEN e.prompt_ref IS NOT NULL THEN p.prompt ELSE e.prompt END AS prompt,
+                   CASE WHEN e.prompt_ref IS NOT NULL THEN p.word_limit ELSE e.word_limit END AS word_limit,
+                   ''::text AS preview,
                    jsonb_array_length(comments) AS comment_count,
                    jsonb_array_length(suggestions) AS suggestion_count
-            FROM counselle.essays
-            WHERE user_id = $1 AND application_id = $2 AND archived_at IS NULL
-            ORDER BY created_at
+            FROM counselle.essays e
+            LEFT JOIN counselle.school_essay_prompts p ON p.id = e.prompt_ref
+            WHERE e.user_id = $1 AND e.application_id = $2 AND e.archived_at IS NULL
+            ORDER BY e.created_at
             """,
             user_id,
             application_id,
@@ -450,18 +443,19 @@ async def get_application_detail(
         application=application,
         tasks=[Task.model_validate(dict(row)) for row in task_rows],
         essays=[EssaySummary.model_validate(dict(row)) for row in essay_rows],
+        reference=reference,
     )
 
 
-async def _active_unitids(
+async def _active_cycles(
     app_pool: asyncpg.Pool, user_id: UUID, unitids: list[int]
-) -> set[int]:
+) -> dict[int, list[int | None]]:
     if not unitids:
-        return set()
+        return {}
     async with app_pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT school_unitid
+            SELECT school_unitid, cycle_year
             FROM counselle.applications
             WHERE user_id = $1 AND archived_at IS NULL
               AND school_unitid = ANY($2::int[])
@@ -469,7 +463,10 @@ async def _active_unitids(
             user_id,
             unitids,
         )
-    return {row["school_unitid"] for row in rows}
+    result: dict[int, list[int | None]] = {}
+    for row in rows:
+        result.setdefault(row["school_unitid"], []).append(row["cycle_year"])
+    return result
 
 
 def _website_url(catalog: Catalog, unitid: int) -> str | None:
@@ -511,18 +508,66 @@ async def _application_view_by_id(
 
 async def _require_active_application(
     conn: asyncpg.Connection, user_id: UUID, application_id: UUID
-) -> None:
+) -> asyncpg.Record:
     row = await conn.fetchrow(
         """
-        SELECT id
+        SELECT id, platform, platform_other
         FROM counselle.applications
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+        FOR UPDATE
         """,
         application_id,
         user_id,
     )
     if row is None:
         raise WorkspaceNotFoundError()
+    return row
+
+
+def _validate_platform_patch(current: asyncpg.Record, values: dict[str, object]) -> None:
+    if "platform" not in values and "platform_other" not in values:
+        return
+    platform = values.get("platform", current["platform"])
+    platform_other = values.get("platform_other", current["platform_other"])
+    if platform == "other":
+        if not isinstance(platform_other, str) or not platform_other.strip():
+            raise WorkspaceValidationError(
+                "platform_other is required when platform is other"
+            )
+        return
+    if platform_other is not None and not (
+        "platform" in values and values.get("platform") != "other"
+    ):
+        raise WorkspaceValidationError(
+            "platform_other must be cleared unless platform is other"
+        )
+
+
+async def _validate_application_prompt_cycle(
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    application_id: UUID,
+    cycle_year: object,
+) -> None:
+    mismatch = await conn.fetchval(
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM counselle.essays e
+          JOIN counselle.applications a ON a.id = e.application_id
+          JOIN counselle.school_essay_prompts p ON p.id = e.prompt_ref
+          WHERE e.user_id = $1 AND e.application_id = $2
+            AND (p.school_unitid <> a.school_unitid OR p.cycle_year IS DISTINCT FROM $3)
+        )
+        """,
+        user_id,
+        application_id,
+        cycle_year,
+    )
+    if mismatch:
+        raise WorkspaceValidationError(
+            "application cycle cannot change while essays are linked to another cycle"
+        )
 
 
 async def _archive_linked_tasks(

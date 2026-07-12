@@ -77,5 +77,6 @@ async def get_config(
             "default_source_config": _default_source_config(user, settings),
             "skills": user_skill_catalog(),
             "max_selected_skills": MAX_SELECTED_SKILLS,
+            "current_admissions_cycle_year": settings.current_admissions_cycle_year,
         }
     )

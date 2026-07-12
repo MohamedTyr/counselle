@@ -13,6 +13,7 @@ import { EssayEditorPage } from "@/pages/essay-editor-page";
 import { EssaysPage } from "@/pages/essays-page";
 import { ProfilePage } from "@/pages/profile-page";
 import { SchoolsPage } from "@/pages/schools-page";
+import { SchoolDetailPage } from "@/pages/school-detail-page";
 import { TasksPage } from "@/pages/tasks-page";
 
 export function createAppRouter() {
@@ -69,6 +70,10 @@ export function createAppRouter() {
             {
               path: "schools",
               element: <SchoolsPage />,
+            },
+            {
+              path: "schools/:applicationId",
+              element: <SchoolDetailPage />,
             },
             {
               path: "activities",

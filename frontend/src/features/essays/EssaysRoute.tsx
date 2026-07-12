@@ -188,7 +188,7 @@ function NewEssayDialog({
                   </SelectItem>
                   {applications.map((application) => (
                     <SelectItem key={application.id} value={application.id}>
-                      {application.school_name}
+                      {application.school_name} · {application.cycle_year ? `${application.cycle_year - 1}-${String(application.cycle_year).slice(-2)}` : "Cycle unconfirmed"}
                     </SelectItem>
                   ))}
                 </SelectGroup>

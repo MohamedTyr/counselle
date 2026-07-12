@@ -83,6 +83,7 @@ def _draft_to_task_create(draft: TaskDraft, parsed: dict[str, Any]) -> TaskCreat
         title=draft.title,
         application_id=parsed["application_id"],
         essay_id=parsed["essay_id"],
+        requirement_kind=draft.requirement_kind,
         notes=draft.notes,
         status=draft.status,
         category=draft.category,

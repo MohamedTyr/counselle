@@ -12,6 +12,7 @@ import type {
   Essay,
   EssaySummary,
   Honor,
+  SchoolReference,
   SchoolSearchResult,
   Task,
 } from "@/api/workspace/types";
@@ -68,17 +69,31 @@ export const workspaceApplicationFixture: ApplicationView = {
   status: "Considering",
   list_type: "Target",
   round: "RD",
+  cycle_year: 2027,
   deadline: null,
   aid_deadline: null,
   scholarship_deadline: null,
   notes: null,
   intended_major: null,
   test_plan: null,
+  checklist: {},
+  platform: null,
+  platform_other: null,
   progress: { completed: 0, total: 6 },
   essays: { completed: 0, total: 1 },
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
+};
+
+export const workspaceReferenceFixture: SchoolReference = {
+  status: "loaded",
+  cycle_year: 2027,
+  populated: false,
+  prompt_groups: [],
+  prompts: [],
+  requirements: [],
+  test_policy: null,
 };
 
 export const workspaceSchoolSearchFixture: SchoolSearchResult = {
@@ -88,6 +103,8 @@ export const workspaceSchoolSearchFixture: SchoolSearchResult = {
   state: "MA",
   website_url: "https://www.harvard.edu",
   on_list: false,
+  active_cycle_years: [],
+  has_legacy_application: false,
 };
 
 export const workspaceTaskFixture: Task = {
@@ -95,6 +112,7 @@ export const workspaceTaskFixture: Task = {
   user_id: authUserFixture.id,
   application_id: workspaceApplicationFixture.id,
   essay_id: null,
+  requirement_kind: null,
   title: "Request transcript",
   notes: null,
   status: "todo",
@@ -116,6 +134,7 @@ export const workspaceEssayFixture: EssaySummary = {
   id: "30000000-0000-4000-8000-000000000001",
   user_id: authUserFixture.id,
   application_id: workspaceApplicationFixture.id,
+  prompt_ref: null,
   title: "Supplemental essay",
   essay_type: "Supplement",
   status: "Not started",
@@ -237,15 +256,13 @@ export function createWorkspaceFetchPreset(
           school_city: searchResult?.city ?? null,
           school_state: searchResult?.state ?? null,
           website_url: searchResult?.website_url ?? null,
+          cycle_year: inputBody.cycle_year,
           list_type: inputBody.list_type,
           round: inputBody.round,
           deadline: inputBody.deadline ?? null,
         };
         applications = [application, ...applications];
-        return jsonResponse({
-          application,
-          seeded: { task_ids: [], essay_ids: [] },
-        });
+        return jsonResponse({ application });
       }
 
       return jsonResponse(applications);
@@ -306,6 +323,10 @@ export function createWorkspaceFetchPreset(
         application,
         tasks,
         essays,
+        reference: {
+          ...workspaceReferenceFixture,
+          cycle_year: application.cycle_year,
+        },
       });
     }
     if (url.endsWith("/v1/tasks/bulk-status")) {
@@ -351,6 +372,7 @@ export function createWorkspaceFetchPreset(
           id: crypto.randomUUID(),
           application_id: body.application_id ?? null,
           essay_id: body.essay_id ?? null,
+          requirement_kind: body.requirement_kind ?? null,
           title: body.title,
           notes: body.notes ?? null,
           status: body.status ?? "todo",
@@ -415,6 +437,7 @@ export function createWorkspaceFetchPreset(
           ...workspaceEssayDetailFixture,
           id: crypto.randomUUID(),
           application_id: body.application_id ?? null,
+          prompt_ref: body.prompt_ref ?? null,
           title: body.title,
           essay_type: body.essay_type ?? "Supplement",
           status: body.status ?? "Not started",
@@ -476,6 +499,7 @@ export function createWorkspaceFetchPreset(
         const copy: Essay = {
           ...source,
           id: crypto.randomUUID(),
+          prompt_ref: null,
           title: `${source.title} copy`,
           status: "Drafting",
           comment_count: 0,
@@ -767,6 +791,7 @@ export function defaultAuthenticatedFetch(
       application: workspaceApplicationFixture,
       tasks: [workspaceTaskFixture],
       essays: [workspaceEssayFixture],
+      reference: workspaceReferenceFixture,
     });
   }
   if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture]);

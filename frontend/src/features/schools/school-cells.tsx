@@ -111,7 +111,7 @@ export function SchoolIdentity({
           </span>
         </span>
         <span className="truncate text-xs text-muted-foreground">
-          {school.location}
+          {school.location} · {school.cycleYear ? `${school.cycleYear - 1}-${String(school.cycleYear).slice(-2)}` : "Cycle unconfirmed"}
         </span>
       </span>
     </button>
@@ -129,6 +129,7 @@ export function SchoolWebsiteLink({ school }: { school: School }) {
       className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
       href={school.websiteUrl}
       onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
       rel="noreferrer"
       target="_blank"
     >

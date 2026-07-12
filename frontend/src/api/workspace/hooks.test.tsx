@@ -35,6 +35,7 @@ import {
   workspaceApplicationFixture,
   workspaceEssayFixture,
   workspaceHonorFixture,
+  workspaceReferenceFixture,
   workspaceTaskFixture,
 } from "@/test/render-app";
 
@@ -186,6 +187,7 @@ describe("workspace mutation hooks", () => {
       application: workspaceApplicationFixture,
       tasks: [],
       essays: [],
+      reference: workspaceReferenceFixture,
     };
     queryClient.setQueryData(workspaceKeys.applications.list(), [
       workspaceApplicationFixture,

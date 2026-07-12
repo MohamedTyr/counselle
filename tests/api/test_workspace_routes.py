@@ -26,7 +26,6 @@ from app.workspace.models import (
     ApplicationAddResult,
     ApplicationView,
     Rollup,
-    SeededWorkspaceIds,
     Task,
     WorkspaceNotFoundError,
     WorkspaceValidationError,
@@ -55,7 +54,6 @@ def _app(*, authed: bool = True, workspace_writes_per_minute: int = 240) -> Fast
         deps=SimpleNamespace(
             catalog=object(),
             workspace_events=WorkspaceEventBus(),
-            workspace_seeding_template=object(),
         ),
     )
     setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
@@ -363,7 +361,7 @@ def test_bad_enum_stays_pydantic_422() -> None:
     with TestClient(_app(), raise_server_exceptions=False) as client:
         response = client.post(
             "/v1/applications",
-            json={"unitid": 166027, "list_type": "Maybe", "round": "RD"},
+            json={"unitid": 166027, "cycle_year": 2027, "list_type": "Maybe", "round": "RD"},
         )
 
     assert response.status_code == 422
@@ -373,7 +371,7 @@ def test_scholarship_deadline_round_is_rejected() -> None:
     with TestClient(_app(), raise_server_exceptions=False) as client:
         response = client.post(
             "/v1/applications",
-            json={"unitid": 166027, "list_type": "Target", "round": "Scholarship deadline"},
+            json={"unitid": 166027, "cycle_year": 2027, "list_type": "Target", "round": "Scholarship deadline"},
         )
 
     assert response.status_code == 422
@@ -384,7 +382,6 @@ def test_new_round_values_are_accepted(round_value: str) -> None:
     service = AsyncMock(
         return_value=ApplicationAddResult(
             application=_application_view(),
-            seeded=SeededWorkspaceIds(task_ids=[], essay_ids=[]),
         )
     )
     with (
@@ -393,7 +390,7 @@ def test_new_round_values_are_accepted(round_value: str) -> None:
     ):
         response = client.post(
             "/v1/applications",
-            json={"unitid": 166027, "list_type": "Target", "round": round_value},
+            json={"unitid": 166027, "cycle_year": 2027, "list_type": "Target", "round": round_value},
         )
 
     assert response.status_code == 201
@@ -453,7 +450,7 @@ def test_duplicate_active_school_maps_to_409() -> None:
     ):
         response = client.post(
             "/v1/applications",
-            json={"unitid": 166027, "list_type": "Target", "round": "RD"},
+            json={"unitid": 166027, "cycle_year": 2027, "list_type": "Target", "round": "RD"},
         )
 
     assert response.status_code == 409
@@ -482,7 +479,6 @@ def test_application_add_route_passes_runtime_parts_and_actor() -> None:
     service = AsyncMock(
         return_value=ApplicationAddResult(
             application=_application_view(),
-            seeded=SeededWorkspaceIds(task_ids=[], essay_ids=[]),
         )
     )
     with (
@@ -491,7 +487,7 @@ def test_application_add_route_passes_runtime_parts_and_actor() -> None:
     ):
         response = client.post(
             "/v1/applications",
-            json={"unitid": 166027, "list_type": "Target", "round": "RD"},
+            json={"unitid": 166027, "cycle_year": 2027, "list_type": "Target", "round": "RD"},
         )
 
     assert response.status_code == 201

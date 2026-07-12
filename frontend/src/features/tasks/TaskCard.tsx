@@ -1,4 +1,4 @@
-import type { DragEvent, KeyboardEvent, MouseEvent } from "react";
+import type { DragEvent, MouseEvent } from "react";
 import { motion } from "motion/react";
 
 import type { ApplicationView } from "@/api/workspace/types";
@@ -49,18 +49,6 @@ export function TaskCard({
 }: TaskCardProps) {
   const isDone = task.status === "done";
 
-  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      onOpen(task.id);
-    }
-
-    if (event.key === " ") {
-      event.preventDefault();
-      onToggleSelected(task.id);
-    }
-  }
-
   return (
     <motion.div
       animate={
@@ -91,11 +79,30 @@ export function TaskCard({
         onClick={(event) => onClick(event, task.id)}
         onDragEnd={onDragEnd}
         onDragStart={(event) => onDragStart(event, task, task.status)}
-        onKeyDown={handleKeyDown}
-        role="button"
-        tabIndex={0}
       >
         <div className="flex min-w-0 items-start gap-3">
+          <button
+            aria-label={`Open ${task.title} details`}
+            className="sr-only focus:not-sr-only focus:absolute focus:rounded-md focus:bg-background focus:px-2 focus:py-1 focus:text-sm focus:ring-[3px] focus:ring-ring/50"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen(task.id);
+            }}
+            type="button"
+          >
+            Open task
+          </button>
+          <button
+            aria-label={`${isSelected ? "Deselect" : "Select"} ${task.title}`}
+            className="sr-only focus:not-sr-only focus:absolute focus:rounded-md focus:bg-background focus:px-2 focus:py-1 focus:text-sm focus:ring-[3px] focus:ring-ring/50"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleSelected(task.id);
+            }}
+            type="button"
+          >
+            {isSelected ? "Deselect task" : "Select task"}
+          </button>
           <h3 className="min-w-0 flex-1 text-sm leading-5 font-medium">
             <InlineTaskText
               ariaLabel={`Edit title for ${task.title}`}

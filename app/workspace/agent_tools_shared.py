@@ -28,7 +28,6 @@ from app.workspace.models import (
     TaskCategory,
     TaskPriority,
     TaskStatus,
-    WorkspaceSeedingTemplate,
 )
 from app.workspace.service_activities import ACTIVITY_CAP, HONOR_CAP
 from app.workspace.service_applications import list_applications
@@ -120,6 +119,9 @@ class TaskDraft(BaseModel):
     reminder: str | None = None
     application_id: str | None = None
     essay_id: str | None = None
+    requirement_kind: str | None = Field(
+        default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$"
+    )
 
 
 class EssayDraft(BaseModel):
@@ -164,9 +166,6 @@ class ToolCtx:
     workspace_events: WorkspaceEventBus
     user_id: UUID
     tool_overflow: ToolMiddlewareContext | None
-    #: Starter tasks/essays seeded when the agent adds a school (``add_schools``).
-    #: ``None`` on the task-only mount path; ``add_schools`` errors cleanly if unset.
-    template: WorkspaceSeedingTemplate | None = None
 
 
 def today() -> str:

@@ -14,11 +14,10 @@ from app.workspace.models import (
     TaskCreate,
     TaskPatch,
 )
-from config.settings import load_yaml_asset
 
 
 def test_workspace_models_import_and_validate_minimal_payloads() -> None:
-    app = ApplicationCreate(unitid=166027, list_type="Target", round="RD")
+    app = ApplicationCreate(unitid=166027, cycle_year=2027, list_type="Target", round="RD")
     task = TaskCreate(title="Request transcript")
     essay = EssayCreate(title="Supplemental essay")
 
@@ -88,14 +87,3 @@ def test_change_event_shape_matches_phase_1_contract() -> None:
             "application_id": None,
         },
     }
-
-
-def test_workspace_seeding_asset_loads_and_validates() -> None:
-    from app.workspace.models import WorkspaceSeedingTemplate
-
-    template = WorkspaceSeedingTemplate.model_validate(load_yaml_asset("workspace_seeding"))
-
-    assert template.tasks == []
-    assert len(template.essays) == 1
-    assert template.essays[0].title == "Supplemental essay (confirm required)"
-    assert template.essays[0].essay_type == "Supplement"

@@ -40,7 +40,7 @@ async def list_activities_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, _ = runtime_parts(request)
+    app_pool, _, _ = runtime_parts(request)
     return await list_activities(app_pool, user_id=user.id)
 
 
@@ -54,7 +54,7 @@ async def create_activity_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: create_activity(
             app_pool, event_bus, user_id=user.id, actor="student", data=body
@@ -72,7 +72,7 @@ async def update_activity_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: update_activity(
             app_pool,
@@ -95,7 +95,7 @@ async def archive_activity_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: archive_activity(
             app_pool,
@@ -117,7 +117,7 @@ async def restore_activity_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: restore_activity(
             app_pool,
@@ -138,7 +138,7 @@ async def reorder_activities_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: reorder_activities(
             app_pool, event_bus, user_id=user.id, actor="student", ids=body.ids
@@ -151,7 +151,7 @@ async def list_honors_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, _ = runtime_parts(request)
+    app_pool, _, _ = runtime_parts(request)
     return await list_honors(app_pool, user_id=user.id)
 
 
@@ -165,7 +165,7 @@ async def create_honor_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: create_honor(
             app_pool, event_bus, user_id=user.id, actor="student", data=body
@@ -183,7 +183,7 @@ async def update_honor_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: update_honor(
             app_pool,
@@ -206,7 +206,7 @@ async def archive_honor_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: archive_honor(
             app_pool, event_bus, user_id=user.id, actor="student", honor_id=honor_id
@@ -224,7 +224,7 @@ async def restore_honor_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: restore_honor(
             app_pool, event_bus, user_id=user.id, actor="student", honor_id=honor_id
@@ -241,7 +241,7 @@ async def reorder_honors_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: reorder_honors(
             app_pool, event_bus, user_id=user.id, actor="student", ids=body.ids

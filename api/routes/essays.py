@@ -30,7 +30,7 @@ async def list_essays_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, _ = runtime_parts(request)
+    app_pool, catalog, _ = runtime_parts(request)
     return await list_essays(app_pool, catalog, user_id=user.id)
 
 
@@ -44,7 +44,7 @@ async def create_essay_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, event_bus = runtime_parts(request)
+    app_pool, catalog, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: create_essay(
             app_pool, catalog, event_bus, user_id=user.id, actor="student", data=body
@@ -58,7 +58,7 @@ async def get_essay_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, _ = runtime_parts(request)
+    app_pool, catalog, _ = runtime_parts(request)
     return await map_workspace_errors(
         lambda: get_essay(app_pool, catalog, user_id=user.id, essay_id=essay_id)
     )
@@ -74,7 +74,7 @@ async def update_essay_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, event_bus = runtime_parts(request)
+    app_pool, catalog, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: update_essay(
             app_pool,
@@ -98,7 +98,7 @@ async def archive_essay_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: archive_essay(
             app_pool, event_bus, user_id=user.id, actor="student", essay_id=essay_id
@@ -116,7 +116,7 @@ async def restore_essay_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, event_bus = runtime_parts(request)
+    app_pool, catalog, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: restore_essay(
             app_pool,
@@ -139,7 +139,7 @@ async def duplicate_essay_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, event_bus = runtime_parts(request)
+    app_pool, catalog, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: duplicate_essay(
             app_pool,

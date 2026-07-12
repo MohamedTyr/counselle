@@ -11,7 +11,6 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from app.workspace import service_applications
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import (
     ActivityCreate,
@@ -25,7 +24,6 @@ from app.workspace.models import (
     TaskCreate,
     TaskPatch,
     WorkspaceNotFoundError,
-    WorkspaceSeedingTemplate,
     WorkspaceValidationError,
 )
 from app.workspace.service_activities import (
@@ -68,7 +66,7 @@ from app.workspace.service_tasks import (
     task_board_counts,
     update_task,
 )
-from config.settings import get_settings, load_yaml_asset
+from config.settings import get_settings
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
 
@@ -123,10 +121,6 @@ async def make_user(
                 await conn.execute("DELETE FROM counselle.users WHERE id = $1", user_id)
 
 
-def _template() -> WorkspaceSeedingTemplate:
-    return WorkspaceSeedingTemplate.model_validate(load_yaml_asset("workspace_seeding"))
-
-
 def _unitid(catalog: Catalog, offset: int = 0) -> int:
     return sorted(catalog.school_names)[offset]
 
@@ -141,37 +135,25 @@ async def _change_count(app_pool: asyncpg.Pool, user_id: UUID) -> int:
         )
 
 
-async def test_add_application_seeding_is_atomic(
+async def test_add_application_creates_no_tasks_or_essays(
     app_pool: asyncpg.Pool,
     catalog: Catalog,
     make_user: Callable[[], Awaitable[UUID]],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     user_id = await make_user()
-    unitid = _unitid(catalog)
-
-    async def fail_mid_seed(*_args: object, **_kwargs: object) -> None:
-        raise RuntimeError("seed failure")
-
-    monkeypatch.setattr(service_applications, "seed_application_workspace", fail_mid_seed)
-
-    with pytest.raises(RuntimeError, match="seed failure"):
-        await add_application(
-            app_pool,
-            catalog,
-            WorkspaceEventBus(),
-            user_id=user_id,
-            actor="student",
-            data=ApplicationCreate(unitid=unitid, list_type="Target", round="RD"),
-            template=_template(),
-        )
-
+    await add_application(
+        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+    )
     async with app_pool.acquire() as conn:
-        count = await conn.fetchval(
-            "SELECT count(*) FROM counselle.applications WHERE user_id = $1",
+        counts = await conn.fetchrow(
+            """SELECT
+              (SELECT count(*) FROM counselle.applications WHERE user_id = $1) applications,
+              (SELECT count(*) FROM counselle.tasks WHERE user_id = $1) tasks,
+              (SELECT count(*) FROM counselle.essays WHERE user_id = $1) essays""",
             user_id,
         )
-    assert count == 0
+    assert dict(counts) == {"applications": 1, "tasks": 0, "essays": 0}
 
 
 async def test_ownership_duplicate_and_school_search_scoping(
@@ -189,8 +171,7 @@ async def test_ownership_duplicate_and_school_search_scoping(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=unitid, list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(unitid=unitid, cycle_year=2027, list_type="Target", round="RD"),
     )
 
     assert await list_applications(app_pool, catalog, user_id=other_user_id) == []
@@ -211,8 +192,7 @@ async def test_ownership_duplicate_and_school_search_scoping(
             WorkspaceEventBus(),
             user_id=user_id,
             actor="student",
-            data=ApplicationCreate(unitid=unitid, list_type="Reach", round="EA"),
-            template=_template(),
+            data=ApplicationCreate(unitid=unitid, cycle_year=2027, list_type="Reach", round="EA"),
         )
 
     hits = await search_schools(
@@ -233,8 +213,7 @@ async def test_archive_cascade_restore_exact_set(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
     )
     # Seeding no longer creates a starter checklist (change 11); create a task
     # directly to exercise "archived directly, not via application" semantics.
@@ -292,8 +271,7 @@ async def test_task_and_essay_archived_via_application_restore_only_after_applic
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
     )
     # Seeding no longer creates a starter checklist (change 11); create a task
     # linked to the application directly.
@@ -305,7 +283,19 @@ async def test_task_and_essay_archived_via_application_restore_only_after_applic
         data=TaskCreate(application_id=result.application.id, title="Confirm requirements"),
     )
     task_id = task.id
-    essay_id = result.seeded.essay_ids[0]
+    essay = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(
+            application_id=result.application.id,
+            title="Why this school?",
+            essay_type="Supplement",
+        ),
+    )
+    essay_id = essay.id
 
     await archive_application(
         app_pool,
@@ -425,8 +415,7 @@ async def test_application_restore_keeps_task_archived_when_linked_essay_archive
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
     )
     essay = await create_essay(
         app_pool,
@@ -507,7 +496,7 @@ async def test_application_restore_keeps_task_archived_when_linked_essay_archive
     assert task.id in active_task_ids
 
 
-async def test_change_log_rows_rollups_and_seeded_deadlines(
+async def test_change_log_rows_rollups_and_explicit_essay(
     app_pool: asyncpg.Pool,
     catalog: Catalog,
     make_user: Callable[[], Awaitable[UUID]],
@@ -520,23 +509,33 @@ async def test_change_log_rows_rollups_and_seeded_deadlines(
         user_id=user_id,
         actor="student",
         data=ApplicationCreate(
+            cycle_year=2027,
             unitid=_unitid(catalog), list_type="Target", round="RD", deadline=date(2027, 1, 10)
         ),
-        template=_template(),
     )
 
-    # Seeding no longer creates a starter checklist (change 11): only the
-    # application + the one supplement essay slot are seeded.
-    assert await _change_count(app_pool, user_id) == 2
+    assert await _change_count(app_pool, user_id) == 1
     tasks = await list_tasks(app_pool, user_id=user_id)
     assert tasks == []
+    essay = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(
+            application_id=result.application.id,
+            title="Why this school?",
+            essay_type="Supplement",
+        ),
+    )
     await update_essay(
         app_pool,
         catalog,
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        essay_id=result.seeded.essay_ids[0],
+        essay_id=essay.id,
         data=EssayPatch(status="Ready"),
     )
 
@@ -560,8 +559,7 @@ async def test_application_patch_round_trips_new_fields(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
     )
 
     updated = await update_application(
@@ -698,9 +696,9 @@ async def test_essay_effective_deadline_coalesces_own_override_and_application_d
         user_id=user_id,
         actor="student",
         data=ApplicationCreate(
+            cycle_year=2027,
             unitid=_unitid(catalog), list_type="Target", round="RD", deadline=date(2027, 1, 10)
         ),
-        template=_template(),
     )
     essay = await create_essay(
         app_pool,
@@ -745,8 +743,7 @@ async def test_task_bulk_ops_are_owned_and_logged(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
     )
     other_result = await add_application(
         app_pool,
@@ -754,8 +751,12 @@ async def test_task_bulk_ops_are_owned_and_logged(
         WorkspaceEventBus(),
         user_id=other_user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 1), list_type="Safety", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 1),
+            cycle_year=2027,
+            list_type="Safety",
+            round="RD",
+        ),
     )
     # Seeding no longer creates a starter checklist (change 11); create the
     # tasks this test needs directly.
@@ -808,12 +809,11 @@ async def test_task_bulk_ops_are_owned_and_logged(
 
     assert [task.id for task in changed] == [own_tasks[0].id]
     assert set(archived) == {own_tasks[0].id, own_tasks[1].id}
-    # user_id: add_application (application.created + essay.created) + 2x
-    # task.created + 1x bulk task.updated + 2x bulk task.archived = 7.
-    assert await _change_count(app_pool, user_id) == 7
-    # other_user_id: add_application (application.created + essay.created)
-    # + 1x task.created = 3.
-    assert await _change_count(app_pool, other_user_id) == 3
+    # user_id: application.created + 2x task.created + 1x bulk task.updated
+    # + 2x bulk task.archived = 6.
+    assert await _change_count(app_pool, user_id) == 6
+    # other_user_id: application.created + 1x task.created = 2.
+    assert await _change_count(app_pool, other_user_id) == 2
     assert other_result.application.id
 
 
@@ -1112,8 +1112,12 @@ async def test_list_tasks_application_and_essay_filters(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 0), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 0),
+            cycle_year=2027,
+            list_type="Target",
+            round="RD",
+        ),
     )
     app_b = await add_application(
         app_pool,
@@ -1121,8 +1125,12 @@ async def test_list_tasks_application_and_essay_filters(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 1), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 1),
+            cycle_year=2027,
+            list_type="Target",
+            round="RD",
+        ),
     )
     essay = await create_essay(
         app_pool,

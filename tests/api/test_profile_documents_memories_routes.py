@@ -54,7 +54,6 @@ def _app(*, authed: bool = True, workspace_writes_per_minute: int = 240) -> Fast
         deps=SimpleNamespace(
             catalog=object(),
             workspace_events=WorkspaceEventBus(),
-            workspace_seeding_template=object(),
             document_summary_generator=None,
         ),
     )

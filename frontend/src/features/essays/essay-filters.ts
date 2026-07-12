@@ -33,7 +33,7 @@ export function matchesFilter(essay: Essay, filter: EssayFilter) {
 }
 
 export function getEssaySearchText(essay: Essay) {
-  return `${essay.title} ${essay.schoolName} ${essay.schoolLocation} ${essay.type}`.toLowerCase();
+  return `${essay.title} ${essay.schoolName} ${essay.cycleYear ?? "cycle unconfirmed"} ${essay.schoolLocation} ${essay.type}`.toLowerCase();
 }
 
 export function countEssaysByFilter(essays: Essay[], filter: EssayFilter) {

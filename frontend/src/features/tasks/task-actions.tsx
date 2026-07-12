@@ -1,5 +1,6 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { MoreHorizontal, School, Sparkles, Trash2 } from "lucide-react"
+import { Link } from "react-router"
 
 import type { ApplicationView } from "@/api/workspace/types"
 import { Badge } from "@/components/ui/badge"
@@ -77,7 +78,7 @@ export function PlanWithAgentButton({
   )
 }
 
-function stopPropagation(event: MouseEvent) {
+function stopPropagation(event: Pick<MouseEvent, "stopPropagation">) {
   event.stopPropagation()
 }
 
@@ -97,10 +98,18 @@ export function TaskSchoolChip({
   }
 
   return (
-    <Badge className="max-w-full gap-1" variant="outline">
-      <School aria-hidden="true" className="size-3" />
-      <span className="truncate">{application.school_name}</span>
-    </Badge>
+    <Link
+      aria-label={`Open ${application.school_name} workspace`}
+      className="max-w-full rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      onClick={stopPropagation}
+      onKeyDown={stopPropagation}
+      to={`/app/schools/${application.id}`}
+    >
+      <Badge className="max-w-full gap-1" variant="outline">
+        <School aria-hidden="true" className="size-3" />
+        <span className="truncate">{application.school_name} · {application.cycle_year ? `${application.cycle_year - 1}-${String(application.cycle_year).slice(-2)}` : "Cycle unconfirmed"}</span>
+      </Badge>
+    </Link>
   )
 }
 

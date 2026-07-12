@@ -26,10 +26,16 @@ def _app(cors_origins: list[str], *, cookie_secure: bool = False) -> FastAPI:
 def test_auth_origin_protect_allows_local_vite_origin_in_dev_by_default() -> None:
     client = TestClient(_app([]), raise_server_exceptions=False)
 
-    response = client.post("/auth-post", headers={"Origin": "http://localhost:5173"})
+    for origin in (
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+    ):
+        response = client.post("/auth-post", headers={"Origin": origin})
 
-    assert response.status_code == 200
-    assert response.json() == {"ok": True}
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
 
 
 def test_auth_origin_protect_requires_configured_origin_when_cookie_secure() -> None:

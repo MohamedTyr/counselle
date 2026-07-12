@@ -58,6 +58,9 @@ export function useWorkspaceEvents(
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.applications.detail(change.data.object_id),
           })
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.schoolSearchAll(),
+          })
           break
         case "task":
           void queryClient.invalidateQueries({ queryKey: workspaceKeys.tasks.list() })

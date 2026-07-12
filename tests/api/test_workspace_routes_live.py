@@ -81,16 +81,15 @@ async def test_add_school_list_complete_task_rollup_moves(
             "/v1/applications",
             json={
                 "unitid": _first_unitid(test_runtime),
+                "cycle_year": 2027,
                 "list_type": "Target",
                 "round": "RD",
             },
         )
         assert create.status_code == 201, create.text
         application_id = create.json()["application"]["id"]
-        # Seeding no longer creates a starter checklist (change 11): zero
-        # tasks, one supplement essay slot.
-        assert create.json()["seeded"]["task_ids"] == []
-        assert len(create.json()["seeded"]["essay_ids"]) == 1
+        assert set(create.json()) == {"application"}
+        assert create.json()["application"]["cycle_year"] == 2027
 
         listed = await client.get("/v1/applications")
         assert listed.status_code == 200
@@ -102,6 +101,10 @@ async def test_add_school_list_complete_task_rollup_moves(
         task_list = await client.get("/v1/tasks")
         assert task_list.status_code == 200
         assert task_list.json() == []
+
+        essay_list = await client.get("/v1/essays")
+        assert essay_list.status_code == 200
+        assert essay_list.json() == []
 
         created_task = await client.post(
             "/v1/tasks",
@@ -132,7 +135,12 @@ async def test_workspace_sse_replay_returns_route_events(
     ) as client:
         created = await client.post(
             "/v1/applications",
-            json={"unitid": unitid, "list_type": "Target", "round": "RD"},
+            json={
+                "unitid": unitid,
+                "cycle_year": 2027,
+                "list_type": "Target",
+                "round": "RD",
+            },
         )
         assert created.status_code == 201, created.text
         async with test_runtime.app_pool.acquire() as conn:

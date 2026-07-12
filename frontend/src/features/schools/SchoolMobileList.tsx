@@ -38,14 +38,6 @@ function SchoolMobileCard({
     <article
       className="rounded-xl border bg-card p-4 shadow-xs"
       onClick={() => onOpenSchool(school.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          onOpenSchool(school.id)
-        }
-      }}
-      role="button"
-      tabIndex={0}
     >
       <div className="flex items-start justify-between gap-3">
         <SchoolIdentity

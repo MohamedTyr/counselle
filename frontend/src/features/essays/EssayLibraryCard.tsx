@@ -7,6 +7,7 @@ import {
   PencilLine,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { Link } from "react-router";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -165,8 +166,20 @@ export function EssayLibraryCard({
                   <Clock3 aria-hidden="true" />
                   <span className="truncate">{getEssayActivityLabel(essay)}</span>
                 </span>
-                <span className="truncate">
-                  {essay.schoolName} · {formatEssayDeadline(essay.deadline)}
+                <span className="flex min-w-0 items-center gap-1">
+                  {essay.applicationId ? (
+                    <Link
+                      className="truncate rounded-sm font-medium text-foreground/75 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      onClick={(event) => event.stopPropagation()}
+                      to={`/app/schools/${essay.applicationId}`}
+                    >
+                      {essay.schoolName}{essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed"}
+                    </Link>
+                  ) : (
+                    <span className="truncate">{essay.schoolName}{essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed"}</span>
+                  )}
+                  <span aria-hidden="true">·</span>
+                  <span className="shrink-0">{formatEssayDeadline(essay.deadline)}</span>
                 </span>
               </div>
               <span className="ml-auto flex shrink-0 items-center gap-3">

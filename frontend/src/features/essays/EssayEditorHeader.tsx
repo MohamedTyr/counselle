@@ -1,4 +1,5 @@
 import { ChevronDown, GraduationCap } from "lucide-react";
+import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -95,22 +96,33 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
                 /
               </span>
             ) : null}
-            <span
-              className={cn(
-                "truncate",
-                index === 0 && "font-medium text-foreground/75",
-              )}
-            >
-              {item}
-            </span>
+            {index === 0 && essay.applicationId ? (
+              <Link
+                className="truncate rounded-sm font-medium text-foreground/75 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                to={`/app/schools/${essay.applicationId}`}
+              >
+                {item}{index === 0 ? (essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed") : ""}
+              </Link>
+            ) : (
+              <span className={cn("truncate", index === 0 && "font-medium text-foreground/75")}>
+                {item}
+              </span>
+            )}
           </li>
         ))}
       </ol>
       <div className="flex flex-col gap-0.5 text-sm leading-5 text-muted-foreground sm:hidden">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-medium text-foreground/75">
-            {essay.schoolName}
-          </span>
+          {essay.applicationId ? (
+            <Link
+              className="truncate rounded-sm font-medium text-foreground/75 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              to={`/app/schools/${essay.applicationId}`}
+            >
+              {essay.schoolName}{essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed"}
+            </Link>
+          ) : (
+            <span className="truncate font-medium text-foreground/75">{essay.schoolName}</span>
+          )}
           <span aria-hidden="true" className="shrink-0 text-border">
             /
           </span>

@@ -119,7 +119,7 @@ async def test_view_essays_lists_and_sorts_by_deadline(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
     )
     undated = await create_essay(
         app_pool,
@@ -186,7 +186,7 @@ async def test_view_essays_archived_status_with_application_filter_matches_corre
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), list_type="Target", round="RD"),
+        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
     )
     linked = await create_essay(
         app_pool,

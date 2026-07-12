@@ -93,7 +93,18 @@ export function useAddApplication() {
         (current) =>
           current?.map((school) =>
             school.unitid === result.application.school_unitid
-              ? { ...school, on_list: true }
+              ? {
+                  ...school,
+                  active_cycle_years: [
+                    ...new Set([
+                      ...school.active_cycle_years,
+                      ...(result.application.cycle_year
+                        ? [result.application.cycle_year]
+                        : []),
+                    ]),
+                  ],
+                  on_list: true,
+                }
               : school,
           ),
       )
@@ -107,6 +118,9 @@ export function useAddApplication() {
       })
       void context.client.invalidateQueries({ queryKey: workspaceKeys.tasks.list() })
       void context.client.invalidateQueries({ queryKey: workspaceKeys.essays.list() })
+      void context.client.invalidateQueries({
+        queryKey: workspaceKeys.schoolSearchAll(),
+      })
     },
   })
 }
@@ -132,13 +146,37 @@ export function useUpdateApplication() {
         workspaceKeys.applications.list(),
         (current) => patchById(current, id, patch),
       )
-      context.client.setQueryData<ApplicationDetail>(
-        workspaceKeys.applications.detail(id),
-        (current) =>
-          current
-            ? { ...current, application: { ...current.application, ...patch } }
-            : current,
-      )
+      const cycleChanged =
+        "cycle_year" in patch &&
+        patch.cycle_year !== previousDetail?.application.cycle_year
+      if (cycleChanged) {
+        context.client.removeQueries({
+          exact: true,
+          queryKey: workspaceKeys.applications.detail(id),
+        })
+      } else {
+        context.client.setQueryData<ApplicationDetail>(
+          workspaceKeys.applications.detail(id),
+          (current) => {
+            if (!current) return current
+            return {
+                ...current,
+                application: {
+                  ...current.application,
+                  ...patch,
+                  checklist: patch.checklist
+                    ? Object.fromEntries(
+                        Object.entries({
+                          ...current.application.checklist,
+                          ...patch.checklist,
+                        }).filter(([, value]) => value !== null),
+                      )
+                    : current.application.checklist,
+                },
+              }
+          },
+        )
+      }
       return { previous, previousDetail }
     },
     onError: (error, _vars, snapshot, context) => {
@@ -188,6 +226,9 @@ export function useArchiveApplication() {
     },
     onSettled: (_data, _error, id, _snapshot, context) => {
       void context.client.invalidateQueries({
+        queryKey: workspaceKeys.schoolSearchAll(),
+      })
+      void context.client.invalidateQueries({
         queryKey: workspaceKeys.applications.list(),
       })
       void context.client.invalidateQueries({
@@ -195,6 +236,9 @@ export function useArchiveApplication() {
       })
       void context.client.invalidateQueries({ queryKey: workspaceKeys.tasks.list() })
       void context.client.invalidateQueries({ queryKey: workspaceKeys.essays.list() })
+      void context.client.invalidateQueries({
+        queryKey: workspaceKeys.schoolSearchAll(),
+      })
     },
   })
 }
@@ -206,6 +250,9 @@ export function useRestoreApplication() {
       handleMutationError(error, context)
     },
     onSettled: (_data, _error, id, _snapshot, context) => {
+      void context.client.invalidateQueries({
+        queryKey: workspaceKeys.schoolSearchAll(),
+      })
       void context.client.invalidateQueries({
         queryKey: workspaceKeys.applications.list(),
       })

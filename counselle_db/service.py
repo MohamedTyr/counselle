@@ -89,7 +89,15 @@ _CANDIDATES_HINT = (
 
 #: The SchoolBasics column list — the single source for every schools SELECT.
 #: Must match SchoolBasics.model_fields (the _school_basics builder, below).
-_SCHOOL_COLUMNS = "unitid, name, city, state, control, level"
+# The pipeline's read contract guarantees the identity columns below.  Some
+# deployed snapshots do not project ``city``/``level`` on ``schools`` (those
+# values only exist on the pipeline detail endpoint), while ``SchoolBasics``
+# deliberately keeps both fields optional.  Alias honest NULLs here so every
+# direct-SQL caller, including workspace typeahead, works against both schema
+# generations instead of failing the entire search on an optional detail.
+_SCHOOL_COLUMNS = (
+    "unitid, name, NULL::text AS city, state, control, NULL::text AS level"
+)
 _SCHOOL_SELECT = f"SELECT {_SCHOOL_COLUMNS} FROM schools"
 
 _SCHOOL_SQL = f"{_SCHOOL_SELECT} WHERE unitid = $1"

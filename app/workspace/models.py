@@ -9,7 +9,19 @@ from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StrictBool, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    RootModel,
+    StrictBool,
+    field_validator,
+    model_validator,
+)
+
+from domain.envelope import CitationEnvelope
 
 Actor = Literal["student", "counselle"]
 ApplicationStatus = Literal[
@@ -28,6 +40,10 @@ Round = Literal["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"]
 TaskStatus = Literal["todo", "doing", "waiting", "done"]
 TaskCategory = Literal["essay", "lor", "aid", "research", "other", "form", "interview"]
 TestPlan = Literal["submit", "withhold", "undecided"]
+Platform = Literal["common_app", "coalition", "school_portal", "direct", "other"]
+Applicability = Literal["required", "optional", "not_required", "conditional", "unknown"]
+ReferenceState = Literal["draft", "published", "retracted"]
+TrackableRequirementKind = Literal["fee", "css_profile", "fafsa", "testing"]
 TaskPriority = Literal["low", "med", "high"]
 Assignee = Literal["student", "counselle"]
 EssayStatus = Literal["Not started", "Drafting", "Needs review", "Ready", "Submitted"]
@@ -110,6 +126,43 @@ class _Model(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
+class ChecklistEntry(_Model):
+    status: str = Field(min_length=1, max_length=32)
+    updated_at: datetime | None = None
+
+
+_CHECKLIST_STATUSES: dict[str, frozenset[str]] = {
+    "fee": frozenset({"not_started", "to_do", "waiver_requested", "paid"}),
+    "css_profile": frozenset({"not_started", "in_progress", "submitted"}),
+    "fafsa": frozenset({"not_started", "in_progress", "submitted"}),
+    "testing": frozenset({"not_started", "in_progress", "submitted"}),
+}
+
+
+class ChecklistPatch(RootModel[dict[TrackableRequirementKind, ChecklistEntry | None]]):
+    """Atomic shallow patch; JSON null deletes one tracked key."""
+
+    @field_validator("root")
+    @classmethod
+    def validate_statuses(
+        cls, value: dict[TrackableRequirementKind, ChecklistEntry | None]
+    ) -> dict[TrackableRequirementKind, ChecklistEntry | None]:
+        for key, entry in value.items():
+            if entry is not None and entry.status not in _CHECKLIST_STATUSES[key]:
+                raise ValueError(f"invalid checklist status for {key}")
+        return value
+
+
+class ChecklistMap(RootModel[dict[TrackableRequirementKind, ChecklistEntry]]):
+    @field_validator("root")
+    @classmethod
+    def validate_statuses(
+        cls, value: dict[TrackableRequirementKind, ChecklistEntry]
+    ) -> dict[TrackableRequirementKind, ChecklistEntry]:
+        ChecklistPatch(root=value)
+        return value
+
+
 class Application(_Model):
     id: UUID
     user_id: UUID
@@ -123,6 +176,10 @@ class Application(_Model):
     notes: str | None = None
     intended_major: str | None = None
     test_plan: TestPlan | None = None
+    cycle_year: int | None = Field(default=None, ge=2000, le=2200)
+    checklist: ChecklistMap = Field(default_factory=lambda: ChecklistMap(root={}))
+    platform: Platform | None = None
+    platform_other: str | None = None
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None = None
@@ -149,10 +206,13 @@ class SchoolSearchResult(_Model):
     state: str | None = None
     website_url: str | None = None
     on_list: bool = False
+    active_cycle_years: list[int] = Field(default_factory=list)
+    has_legacy_application: bool = False
 
 
 class ApplicationCreate(_Model):
     unitid: int
+    cycle_year: int = Field(ge=2000, le=2200)
     list_type: ListType
     round: Round
     deadline: Date | None = None
@@ -168,6 +228,26 @@ class ApplicationPatch(_Model):
     notes: str | None = None
     intended_major: str | None = None
     test_plan: TestPlan | None = None
+    cycle_year: int | None = Field(default=None, ge=2000, le=2200)
+    checklist: ChecklistPatch | None = None
+    platform: Platform | None = None
+    platform_other: str | None = None
+
+    @field_validator(
+        "status", "list_type", "round", "cycle_year", "checklist", mode="before"
+    )
+    @classmethod
+    def reject_null_required_fields(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("field may be omitted but cannot be null")
+        return value
+
+    @model_validator(mode="after")
+    def validate_platform_other(self) -> ApplicationPatch:
+        # The service validates the combined persisted + patch state while
+        # holding the application row lock. A partial patch cannot be judged
+        # correctly from request fields alone.
+        return self
 
 
 class Task(_Model):
@@ -175,6 +255,7 @@ class Task(_Model):
     user_id: UUID
     application_id: UUID | None = None
     essay_id: UUID | None = None
+    requirement_kind: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$")
     title: str
     notes: str | None = None
     status: TaskStatus
@@ -196,6 +277,7 @@ class TaskCreate(_Model):
     title: str
     application_id: UUID | None = None
     essay_id: UUID | None = None
+    requirement_kind: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$")
     notes: str | None = None
     status: TaskStatus = "todo"
     category: TaskCategory = "other"
@@ -211,6 +293,7 @@ class TaskPatch(_Model):
     title: str | None = None
     application_id: UUID | None = None
     essay_id: UUID | None = None
+    requirement_kind: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$")
     notes: str | None = None
     status: TaskStatus | None = None
     category: TaskCategory | None = None
@@ -220,6 +303,15 @@ class TaskPatch(_Model):
     due_at: datetime | None = None
     planned_for: datetime | None = None
     reminder_at: datetime | None = None
+
+    @field_validator(
+        "title", "status", "category", "priority", "assignee", "needs_input", mode="before"
+    )
+    @classmethod
+    def reject_null_required_fields(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("field may be omitted but cannot be null")
+        return value
 
 
 class TaskSearchHit(_Model):
@@ -242,20 +334,15 @@ class TaskBoardCounts(_Model):
     archived: int
 
 
-class SeededWorkspaceIds(_Model):
-    task_ids: list[UUID]
-    essay_ids: list[UUID]
-
-
 class ApplicationAddResult(_Model):
     application: ApplicationView
-    seeded: SeededWorkspaceIds
 
 
 class Essay(_Model):
     id: UUID
     user_id: UUID
     application_id: UUID | None = None
+    prompt_ref: UUID | None = None
     title: str
     essay_type: EssayType
     status: EssayStatus
@@ -279,6 +366,7 @@ class EssaySummary(_Model):
     id: UUID
     user_id: UUID
     application_id: UUID | None = None
+    prompt_ref: UUID | None = None
     title: str
     essay_type: EssayType
     status: EssayStatus
@@ -301,6 +389,7 @@ class EssaySummary(_Model):
 class EssayCreate(_Model):
     title: str
     application_id: UUID | None = None
+    prompt_ref: UUID | None = None
     essay_type: EssayType = "Supplement"
     status: EssayStatus = "Not started"
     prompt: str | None = None
@@ -311,6 +400,7 @@ class EssayCreate(_Model):
 class EssayPatch(_Model):
     title: str | None = None
     application_id: UUID | None = None
+    prompt_ref: UUID | None = None
     essay_type: EssayType | None = None
     status: EssayStatus | None = None
     prompt: str | None = None
@@ -318,6 +408,13 @@ class EssayPatch(_Model):
     word_limit: int | None = None
     deadline: Date | None = None
     expected_updated_at: datetime | None = None
+
+    @field_validator("title", "essay_type", "status", "content", mode="before")
+    @classmethod
+    def reject_null_required_fields(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("field may be omitted but cannot be null")
+        return value
 
 
 class Activity(_Model):
@@ -721,25 +818,125 @@ class ChangeEvent(_Model):
     data: ChangeEventData
 
 
+def _https_source_url(value: str) -> str:
+    from urllib.parse import urlsplit
+
+    if any(character.isspace() for character in value):
+        raise ValueError("source_url must not contain whitespace")
+    parsed = urlsplit(value)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("source_url must be an absolute HTTPS URL")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("source_url must not contain credentials")
+    return value
+
+
+HttpsSourceUrl = Annotated[str, AfterValidator(_https_source_url)]
+
+
+class ReferenceProvenance(_Model):
+    source: str = Field(min_length=1)
+    source_url: HttpsSourceUrl
+    verified_at: Date
+    published_at: datetime
+
+
+class SchoolPromptGroup(_Model):
+    id: UUID
+    school_unitid: int
+    cycle_year: int
+    label: str
+    choice_min: int = Field(gt=0)
+    provenance: ReferenceProvenance
+
+
+class SchoolEssayPrompt(_Model):
+    id: UUID
+    school_unitid: int
+    cycle_year: int
+    ordinal: int = Field(gt=0)
+    prompt: str = Field(min_length=1)
+    word_limit: int | None = Field(default=None, gt=0)
+    applicability: Applicability
+    audience: dict[str, Any] = Field(default_factory=dict)
+    group_id: UUID | None = None
+    provenance: ReferenceProvenance
+
+
+class FeeRequirementDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount_cents: Annotated[int, Field(strict=True, ge=0)] | None = None
+    waiver_available: StrictBool | None = None
+
+
+class RecommendationRequirementDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    count: Annotated[int, Field(strict=True, ge=0)] | None = None
+
+
+class FormRequirementDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    form_name: str | None = Field(default=None, min_length=1)
+    form_url: str | None = Field(default=None, pattern=r"^https://")
+    deadline: Date | None = None
+
+
+class TestingRequirementDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy: Literal["required", "optional", "blind", "flexible", "unknown"] | None = None
+    notes: str | None = Field(default=None, min_length=1)
+
+
+class AidRequirementDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    form_name: str | None = Field(default=None, min_length=1)
+    deadline: Date | None = None
+    notes: str | None = Field(default=None, min_length=1)
+
+
+class SchoolRequirement(_Model):
+    id: UUID
+    school_unitid: int
+    cycle_year: int
+    kind: str = Field(pattern=r"^[a-z][a-z0-9_]{1,63}$")
+    label: str = Field(min_length=1)
+    applicability: Applicability
+    audience: dict[str, Any] = Field(default_factory=dict)
+    detail: dict[str, Any] = Field(default_factory=dict)
+    provenance: ReferenceProvenance
+
+    @model_validator(mode="after")
+    def validate_known_detail(self) -> SchoolRequirement:
+        if self.kind == "fee":
+            FeeRequirementDetail.model_validate(self.detail)
+        elif self.kind in {"teacher_rec", "counselor_rec"}:
+            RecommendationRequirementDetail.model_validate(self.detail)
+        elif self.kind == "form":
+            FormRequirementDetail.model_validate(self.detail)
+        elif self.kind == "testing":
+            TestingRequirementDetail.model_validate(self.detail)
+        elif self.kind in {"aid", "css_profile", "fafsa"}:
+            AidRequirementDetail.model_validate(self.detail)
+        return self
+
+
+class SchoolReference(_Model):
+    status: Literal["cycle_required", "loaded"]
+    cycle_year: int | None
+    populated: bool = False
+    prompt_groups: list[SchoolPromptGroup] = Field(default_factory=list)
+    prompts: list[SchoolEssayPrompt] = Field(default_factory=list)
+    requirements: list[SchoolRequirement] = Field(default_factory=list)
+    test_policy: CitationEnvelope | None = None
+
+
 class ApplicationDetail(_Model):
     application: ApplicationView
     tasks: list[Task]
     essays: list[EssaySummary]
-
-
-class WorkspaceSeedTask(_Model):
-    title: str
-    category: TaskCategory
-    priority: TaskPriority
-    days_before_deadline: int | None = None
-
-
-class WorkspaceSeedEssay(_Model):
-    title: str
-    essay_type: EssayType
-    status: EssayStatus
-
-
-class WorkspaceSeedingTemplate(_Model):
-    tasks: list[WorkspaceSeedTask]
-    essays: list[WorkspaceSeedEssay]
+    reference: SchoolReference

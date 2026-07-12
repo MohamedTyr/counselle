@@ -32,7 +32,7 @@ async def search_schools_route(
     limit: int = Query(default=8, ge=1, le=25),
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, _ = runtime_parts(request)
+    app_pool, catalog, _ = runtime_parts(request)
     return await map_workspace_errors(
         lambda: search_schools(catalog, app_pool, user_id=user.id, query=q, limit=limit)
     )
@@ -43,7 +43,7 @@ async def list_applications_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, _ = runtime_parts(request)
+    app_pool, catalog, _ = runtime_parts(request)
     return await list_applications(app_pool, catalog, user_id=user.id)
 
 
@@ -57,7 +57,7 @@ async def add_application_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, template, event_bus = runtime_parts(request)
+    app_pool, catalog, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: add_application(
             app_pool,
@@ -66,7 +66,6 @@ async def add_application_route(
             user_id=user.id,
             actor="student",
             data=body,
-            template=template,
         )
     )
 
@@ -77,7 +76,7 @@ async def get_application_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, _ = runtime_parts(request)
+    app_pool, catalog, _ = runtime_parts(request)
     return await map_workspace_errors(
         lambda: get_application_detail(
             app_pool, catalog, user_id=user.id, application_id=application_id
@@ -95,7 +94,7 @@ async def update_application_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, catalog, _, event_bus = runtime_parts(request)
+    app_pool, catalog, event_bus = runtime_parts(request)
     return await map_workspace_errors(
         lambda: update_application(
             app_pool,
@@ -119,7 +118,7 @@ async def archive_application_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: archive_application(
             app_pool,
@@ -142,7 +141,7 @@ async def restore_application_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: restore_application(
             app_pool,

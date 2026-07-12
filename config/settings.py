@@ -183,6 +183,9 @@ class Settings(BaseSettings):
     # --- Workspace ---
     workspace_event_queue_size: int = 256
     workspace_writes_per_minute: int = 240
+    # Fall enrollment year visibly preselected when adding a school. The user
+    # still submits it explicitly; this is never a database default/backfill.
+    current_admissions_cycle_year: int = Field(default=2027, ge=2000, le=2200)
     # Document summaries are optional list metadata, not a second document
     # store. Bound both source exposure and upload latency independently.
     document_summary_excerpt_max_chars: int = 8_000

@@ -44,7 +44,7 @@ async def list_documents_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, _ = runtime_parts(request)
+    app_pool, _, _ = runtime_parts(request)
     return await list_documents(app_pool, user_id=user.id)
 
 
@@ -60,7 +60,7 @@ async def create_document_route(
     doc_type: DocumentType = Form(_DEFAULT_DOC_TYPE),
     user: UserDB = Depends(current_active_user),
 ) -> object:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     content = await file.read(DOCUMENT_MAX_BYTES + 1)
     if len(content) > DOCUMENT_MAX_BYTES:
         max_mb = DOCUMENT_MAX_BYTES // (1024 * 1024)
@@ -100,7 +100,7 @@ async def archive_document_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, event_bus = runtime_parts(request)
+    app_pool, _, event_bus = runtime_parts(request)
     await map_workspace_errors(
         lambda: archive_document(
             app_pool, event_bus, user_id=user.id, actor="student", document_id=document_id
@@ -115,7 +115,7 @@ async def read_document_file_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> Response:
-    app_pool, _, _, _ = runtime_parts(request)
+    app_pool, _, _ = runtime_parts(request)
     document = await map_workspace_errors(
         lambda: read_document(app_pool, user_id=user.id, document_id=document_id)
     )

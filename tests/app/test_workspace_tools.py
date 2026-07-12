@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 import asyncpg
 import pytest
 import pytest_asyncio
+from pydantic import ValidationError
 
 from app.tool_middleware import ToolMiddlewareContext
 from app.tool_overflow import ToolResultStore
@@ -24,7 +25,6 @@ from app.workspace.models import (
     ApplicationCreate,
     EssayCreate,
     TaskCreate,
-    WorkspaceSeedingTemplate,
 )
 from app.workspace.service_applications import add_application, archive_application
 from app.workspace.service_essays import archive_essay, create_essay
@@ -84,10 +84,6 @@ async def make_user(
                 await conn.execute("DELETE FROM counselle.users WHERE id = $1", user_id)
 
 
-def _template() -> WorkspaceSeedingTemplate:
-    return WorkspaceSeedingTemplate.model_validate(load_yaml_asset("workspace_seeding"))
-
-
 def _unitid(catalog: Catalog, offset: int = 0) -> int:
     return sorted(catalog.school_names)[offset]
 
@@ -101,6 +97,16 @@ def _tools(
 ) -> dict[str, Any]:
     built = build_workspace_tools(app_pool, catalog, WorkspaceEventBus(), user_id, tool_overflow)
     return {tool.name: tool for tool in built}
+
+
+def test_application_create_rejects_null_cycle_year() -> None:
+    with pytest.raises(ValidationError):
+        ApplicationCreate(
+            unitid=1,
+            cycle_year=None,  # type: ignore[arg-type]
+            list_type="Target",
+            round="RD",
+        )
 
 
 # --------------------------------------------------------------------------
@@ -207,8 +213,9 @@ async def test_view_tasks_application_and_essay_filters(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 0), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 0), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     essay = await create_essay(
         app_pool,
@@ -280,8 +287,9 @@ async def test_view_tasks_filtered_empty_not_globally_empty(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 0), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 0), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     await create_task(
         app_pool,
@@ -395,8 +403,9 @@ async def test_create_tasks_single_and_batch_with_links_and_ui(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 0), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 0), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     essay = await create_essay(
         app_pool,
@@ -569,8 +578,9 @@ async def test_update_task_clear_sentinel_on_every_clearable_field(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 0), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 0), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     essay = await create_essay(
         app_pool,
@@ -864,8 +874,9 @@ async def test_restore_task_blocked_by_archived_application(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog, 0), list_type="Target", round="RD"),
-        template=_template(),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog, 0), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     task = await create_task(
         app_pool,
