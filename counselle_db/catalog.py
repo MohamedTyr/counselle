@@ -90,7 +90,7 @@ ORDER BY unitid, cycle_year DESC NULLS LAST
 """
 
 _CDS_CALENDAR_SQL = """
-SELECT (SELECT value FROM settings WHERE key = 'current_cycle_year') AS cycle_year,
+SELECT (SELECT current_cycle_year FROM public.cds_settings WHERE id = 1) AS cycle_year,
        (SELECT count(DISTINCT unitid) FROM field_values
          WHERE source = 'cds' AND value IS NOT NULL)                 AS extracted_schools
 """
@@ -261,7 +261,7 @@ class Catalog:
         """Per-source vintage + cutoff, derived live (ARCHITECTURE §8)."""
         cds_rows = await fetch(self.pool, _CDS_CALENDAR_SQL)
         if not cds_rows:
-            raise ServiceError("data calendar unavailable: settings table returned no rows")
+            raise ServiceError("data calendar unavailable: cds_settings table returned no rows")
         cds_row = cds_rows[0]
         cds_year = cds_row["cycle_year"] if isinstance(cds_row["cycle_year"], int) else None
         return [

@@ -61,7 +61,7 @@ cd ~/Projects/ascensia-data-pipeline && docker compose exec -T db psql -U ascens
 
 ### jsonb decoding
 
-`field_values.value` and `settings.value` are `jsonb`. Over asyncpg (the API path) a codec decodes them to native Python objects. Over psycopg2 they arrive as **strings** unless `register_json()` is called — the agent's DB layer must normalize either way. `cds_files.content` (bytea) arrives as `memoryview` under psycopg2 — coerce with `bytes(...)`.
+`field_values.value` is `jsonb`. Over asyncpg (the API path) a codec decodes it to native Python objects. Over psycopg2 it arrives as a **string** unless `register_json()` is called — the agent's DB layer must normalize either way.
 
 ---
 
@@ -133,13 +133,13 @@ Indexes: PK on `unitid`; `schools_state_idx` (state); `schools_is_tracked_idx` (
 
 Every raw column is registered with `label`, `sample_value`, `is_pickable`. 5,398 pickable, 689 non-pickable (multi-row + dict tables). 2,603 IPEDS, 3,484 Scorecard, **0 CDS** (CDS bypasses this catalog). Mostly an admin concern, but it's how "any raw column is trackable" works, and the join target for enum decoding.
 
-### `settings` — runtime knobs (16 rows, jsonb values)
+### `cds_settings` — CDS runtime knobs (one typed row)
 
-Notable: `current_cycle_year = 2024` (default year for new CDS jobs; the canonical "current year" signal). The rest are `cds.*` (models, caps, index TTL — see [§12](#12-the-cds-pipeline--current-coverage)).
+Notable: `current_cycle_year = 2024` (default year for new CDS jobs; the canonical "current year" signal). The remaining typed columns hold the CDS models, prompts, caps, and retry settings; see [§12](#12-the-cds-pipeline--current-coverage).
 
 ### CDS operational tables
 
-`cds_jobs` (per school/year status board), `cds_files` (downloaded PDF bytes in `content` bytea), `cds_job_steps` (curated GUI timeline), `cds_index_entries` + `cds_index_meta` (the College Transitions URL index). Detail in [§12](#12-the-cds-pipeline--current-coverage).
+`cds_jobs` (per school/year status board), `raw.cds_files` (downloaded CDS-file provenance), `cds_job_steps` (curated GUI timeline), `cds_index_entries` + `cds_index_meta` (the College Transitions URL index). Detail in [§12](#12-the-cds-pipeline--current-coverage).
 
 ---
 
@@ -308,12 +308,18 @@ For the "deep school dossier" wedge: ~90 high-value fields grouped into student-
 SELECT fv.source, fv.cycle_year,
        rf.filename       AS file_name,
        rf.downloaded_at  AS db_loaded_at,
-       cf.source_url     AS cds_pdf_url,
-       cf.created_at     AS cds_pdf_fetched_at
+       cf.source_url     AS cds_source_url,
+       cf.downloaded_at  AS cds_downloaded_at
 FROM field_values fv
 JOIN raw.files rf ON rf.id = fv.raw_file_id
-LEFT JOIN cds_files cf
-       ON cf.unitid = fv.unitid AND cf.cycle_year = fv.cycle_year AND fv.source = 'cds'
+LEFT JOIN LATERAL (
+    SELECT source_url, downloaded_at
+    FROM raw.cds_files
+    WHERE unitid = fv.unitid
+      AND split_part(cycle, '-', 1)::int = fv.cycle_year
+    ORDER BY downloaded_at DESC
+    LIMIT 1
+) cf ON fv.source = 'cds'
 WHERE fv.unitid = $1 AND fv.field_key = $2;
 -- A field key may exist in more than one source (e.g. acceptance rate in ipeds AND scorecard);
 -- this can return one row per source. Add `AND fv.source = $3` to pin one.
@@ -326,7 +332,7 @@ WHERE fv.unitid = $1 AND fv.field_key = $2;
 | `ipeds` | `2024` | Fall 2024, **provisional** (enrollment, scores, costs, admissions) | `IPEDS202425.accdb`, loaded 2026-06-05 | "IPEDS 2024-25 (provisional)" |
 | `ipeds` | `2023` | 2023-24 financial aid (SFA/F tables) | same `.accdb` | "IPEDS 2023-24 financial-aid data" |
 | `scorecard` | NULL | Most-recent cohort as of the **publication date in the filename** | `College_Scorecard_Raw_Data_03232026.zip` → **March 23, 2026** | "College Scorecard, published Mar 2026" + earnings-lag caveat |
-| `cds` | `2024` | 2024-25 CDS (describes the fall-2024 entering class) | PDF in `cds_files` | "2024-25 Common Data Set filed by the school" |
+| `cds` | `2024` | 2024-25 CDS (describes the fall-2024 entering class) | source metadata in `raw.cds_files` | "2024-25 Common Data Set filed by the school" |
 
 ### Provisional vs. Final (IPEDS)
 
@@ -336,7 +342,7 @@ IPEDS publishes each cycle twice: **Provisional** (full data, may be revised) th
 
 Scorecard earnings reflect students who entered **years ago**. Entry cohort ≈ `publication_year − N` for a `_Nyr` field. For the March-2026 file: `_4yr` → ~2022 entrants, `_6yr` → ~2020, `_10yr` → ~2016, `_11yr` → ~2015. Disclose: *"This earnings figure reflects students who entered around [year], not current students."*
 
-### `settings.current_cycle_year = 2024`
+### `cds_settings.current_cycle_year = 2024`
 
 The canonical "current year" signal and the default target year for new CDS jobs. It does **not** affect IPEDS/Scorecard vintages (those are fixed by the files on disk).
 
@@ -393,17 +399,17 @@ These are real gaps the agent will hit constantly in its "think and compare" job
 
 **What CDS is:** the Common Data Set — a standardized form schools publish annually. It's the richest admissions-process source (factor weights, test policy, GPA distribution, ED/EA dates, waitlist, class sizes, % need met). 284 fields, all `source='cds'`, filled by an LLM reading the school's CDS PDF.
 
-**Current coverage (sparse):** 9 PDFs downloaded; **8 schools have extracted field data** (per-school field counts): **U Penn 249, Yale 243, Harvard 241, Pitzer 241, Princeton 240, Northwestern 236, U Chicago 230, Duke 218** (all cycle_year 2024). **Stanford** has a downloaded PDF and `extract_status='done'` but **0 extracted values** (root cause not recorded in the DB — likely processed before the CDS fields were seeded; re-extractable). The agent must treat CDS as opportunistic and fall back to IPEDS/Scorecard.
+**Coverage rule:** treat CDS as opportunistic and fall back to IPEDS/Scorecard. Determine extracted coverage from non-null CDS rows in `field_values`; a row in `raw.cds_files` proves only that source-file metadata exists, not that extraction produced values.
 
 > **Two CDS traps:** (1) `extract_status='done'` does **not** guarantee values exist (Stanford). (2) `GET /schools/{unitid}/fields` returns all 284 CDS fields as `null` for the 2,738 uncovered schools — these are catalog placeholders, not stored values. **Always confirm CDS coverage with a `field_values` count** ([§14](#14-how-to-recipes-for-the-agent)).
 
-**Lifecycle (admin-initiated only, pipeline ADR 0004):** a job is created (`POST /cds/jobs` or the CLI) → worker claims it (`FOR UPDATE SKIP LOCKED`) → **scout** resolves the PDF URL (Tier 1 exact index match → Tier 2 LLM name-match with a strict single-candidate guard → Tier 3 browser scout) → **download** (httpx, format-sniff, store bytes in `cds_files.content`) → **extract** (Gemini 2.5 Pro reads the PDF, writes `field_values`).
+**Lifecycle (admin-initiated only, pipeline ADR 0004):** a job is created (`POST /cds/jobs` or the CLI) → worker claims it (`FOR UPDATE SKIP LOCKED`) → **scout** resolves the source URL → **download** (format-sniff and persist file metadata in `raw.cds_files`) → **extract** (the configured model reads the source and writes `field_values`).
 
-**Tables & live counts:** `cds_jobs` (18: 9 download-done, 7 cancelled, 2 failed — the failures are MIT, no URL found, and Pitzer's first attempt), `cds_files` (9 PDFs in-DB; resolve via `unitid`+`cycle_year`, not filename — the earliest, Stanford's, is named differently), `cds_job_steps` (155, curated ≤~15/stage), `cds_index_entries` (~1,983 College-Transitions links, years 2017–2024), `cds_index_meta` (1, status `ok`).
+**Tables:** `cds_jobs` tracks per-school work, `raw.cds_files` stores source URL/path/format/download metadata keyed by `unitid` and textual `cycle`, and `cds_job_steps` stores the curated job timeline. Counts are operational and should be queried live.
 
-**From a CDS value to its PDF:** `field_values.raw_file_id` → `cds_files` (match `unitid`+`cycle_year`) → bytes in `content`, served by `GET /cds/files/{id}/raw`. `download_status='done'` guarantees a linked PDF (CHECK `cds_jobs_done_requires_file`).
+**From a CDS value to its source:** use the value's `unitid` and `cycle_year` to find the matching `raw.cds_files.unitid` and `cycle` (`2024` → `2024-2025`). The table holds provenance metadata and an on-disk path; it does not hold file bytes.
 
-**Config (`settings cds.*`):** extract model `vertex:gemini-2.5-pro`, scout model `vertex:gemini-2.5-flash`, `max_steps=35`, `wall_clock_s=180`, `size_cap_bytes=50MB`, index TTL 24h. (`cds.auto_extract`, `cds.max_retries`, `cds.max_spend_usd` are seeded but not yet read.)
+**Config (`cds_settings`):** one typed row contains the current cycle, extraction/scout models and prompts, step/time/size caps, auto-extract flag, and retry policy. Query it live rather than copying its tunable values into agent code.
 
 ---
 
@@ -418,7 +424,7 @@ These are real gaps the agent will hit constantly in its "think and compare" job
 7. **COA composition trap:** after the 2024-25 COST1/COST2 restructure, `cost.room_and_board` is **null for many schools** while the value moved to a sibling field (e.g. `cost.on_campus_room_board_other`). There are also multiple "total cost" concepts (in-district vs in-state vs out-of-state; Scorecard `COSTT4_A` academic-year vs `COSTT4_P` program-year — a school has one, never both). Don't present null room-and-board as missing without checking the sibling field.
 8. **Negative currency is valid** — net-price fields can be negative when grants exceed cost (68 rows). Don't clip.
 9. **IPEDS imputation:** IPEDS estimates missing values for non-reporting schools. There is **no `is_imputed` flag** on `field_values` rows; if the agent needs a data-quality signal (e.g. for chancing), join `raw.ipeds_flags2024` (`IMP_ADM`, `IMP_EF`, … and parent-child `PRCH_*` indicators) via direct SQL.
-10. **Generated `db-schema.md` drift:** lists `field_values.source` CHECK as `fsa` (it's `cds`); references `cds_files.on_disk_path` (dropped in migration 0009). Trust the live DB.
+10. **CDS file location:** file provenance is in `raw.cds_files`; `on_disk_path` is present, while file bytes are not stored in the table. Trust the live DB over older generated schema docs.
 11. **`GET /schools/search` is missing from `api.md`** but is live and is the best name→unitid path.
 12. **`schools` ≠ full universe** — 2,746 curated vs 6,072 in `raw.ipeds_hd2024`; all are 4-year.
 13. **Not yet loaded (future):** the Scorecard zip also contains 29-year MERGED panel CSVs and OPEID→UNITID crosswalks — useful later for time-series and FSA joins, but absent from the DB today.
@@ -512,13 +518,13 @@ Use the universal provenance query in [§9](#9-data-recency--provenance--how-to-
 
 **Snapshot date:** 2026-06-09. **Counts:** schools 2,746 · fields 1,093 (ipeds 417 / scorecard 392 / cds 284) · field_values 2,087,998 · source_columns 6,087 (5,398 pickable) · raw tables 57.
 
-**`public` app tables:** `schools` (2,746), `fields` (1,093), `field_values` (2,087,998), `source_columns` (6,087), `settings` (16), `cds_files` (9), `cds_jobs` (18), `cds_job_steps` (155), `cds_index_entries` (~1,983), `cds_index_meta` (1). Plus yoyo infra tables (`_yoyo_*`, `yoyo_lock`) — never query in app logic.
+**`public` app tables:** `schools`, `fields`, `field_values`, `source_columns`, `cds_settings` (one typed row), `cds_jobs`, `cds_job_steps`, `cds_index_entries`, and `cds_index_meta`. CDS file provenance lives in `raw.cds_files`. Plus migration infrastructure tables — never query those in app logic.
 
 **`raw` tables (57):** `raw.files` (12), `raw.scorecard_institution` (6,322; all 3,307 Scorecard columns in a `data jsonb`), `raw.scorecard_fos` (227,980), `raw.ipeds_valuesets24` (12,143), `raw.ipeds_vartable24` (2,599), `raw.ipeds_hd2024` (6,072; the master directory), `raw.ipeds_adm2024` (1,956; admissions/test scores), `raw.ipeds_ef2024a` (113,833; diversity source), `raw.ipeds_cost1_2024` / `cost2_2024_netprice` / `cost2_2024_financialaid` (the 2024-25 cost restructure), `raw.ipeds_flags2024` (imputation/response flags), and ~40 more IPEDS survey/derived tables (aid SFA, enrollment EF/EFFY, graduation GR, finance F, HR S/SAL, completions C, outcomes OM, libraries AL). 22 IPEDS/Scorecard tables are multi-row (`is_pickable=false`) and never projected.
 
-**`raw.files` (the provenance registry, 12 rows):** IPEDS `.accdb` (loaded 2026-06-05), Scorecard zip `College_Scorecard_Raw_Data_03232026.zip` + the `Most-Recent-Cohorts-Field-of-Study.csv` (loaded 2026-06-05), and 9 CDS PDFs (loaded 2026-06-05 → 2026-06-09).
+**Provenance registries:** `raw.files` records IPEDS/Scorecard ingest files; `raw.cds_files` records CDS source URLs, formats, download timestamps, and on-disk paths.
 
-**Migrations 0001–0009:** init → coverage cols → drop FSA/rebuild (source enum `ipeds,scorecard`) → add CDS (source enum `ipeds,scorecard,cds`; CDS fields nullable raw_table; extraction_hint; cds_* tables) → orphan-done CHECK → CDS index → raw unitid indexes → cds_files FK CASCADE → **CDS PDF bytes in DB** (`content bytea`, dropped `on_disk_path`).
+The live schema is the contract; pipeline migration history belongs to the pipeline repository and may differ across local snapshots.
 
 ---
 

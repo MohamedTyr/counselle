@@ -143,7 +143,7 @@ _FUZZY_EXACT_SCORE = 0.95
 _TIER_SQL = """
 SELECT (SELECT count(*) FROM field_values
          WHERE unitid = $1 AND source = 'cds' AND value IS NOT NULL) AS cds_count,
-       EXISTS(SELECT 1 FROM cds_files WHERE unitid = $1)             AS has_pdf
+       EXISTS(SELECT 1 FROM raw.cds_files WHERE unitid = $1)         AS has_pdf
 """
 # Latest row per key (today no field has two years — DATABASE_GUIDE §5); NULL-value
 # rows are kept so a stored sentinel surfaces as available=False, never invented.

@@ -213,6 +213,7 @@ export type WorkspaceFetchPreset = Partial<{
   essayDetails: Essay[];
   activities: Activity[];
   honors: Honor[];
+  reference: SchoolReference;
 }>;
 
 export function createWorkspaceFetchPreset(
@@ -235,6 +236,7 @@ export function createWorkspaceFetchPreset(
   let honors = preset.honors ?? [workspaceHonorFixture];
   let archivedHonors: Honor[] = [];
   const data = {
+    reference: preset.reference ?? workspaceReferenceFixture,
     schoolSearch: preset.schoolSearch ?? [workspaceSchoolSearchFixture],
   };
 
@@ -324,7 +326,7 @@ export function createWorkspaceFetchPreset(
         tasks,
         essays,
         reference: {
-          ...workspaceReferenceFixture,
+          ...data.reference,
           cycle_year: application.cycle_year,
         },
       });

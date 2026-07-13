@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode, useState, type ReactElement } from "react";
+import { MemoryRouter } from "react-router";
 
 import { useEssay } from "@/api/workspace/hooks";
 import { workspaceKeys } from "@/api/workspace/keys";
@@ -25,7 +26,9 @@ import {
   createWorkspaceFetchPreset,
   jsonResponse,
   renderApp,
+  workspaceApplicationFixture,
   workspaceEssayFixture,
+  workspaceReferenceFixture,
 } from "@/test/render-app";
 
 function tiptapDoc(text: string) {
@@ -126,7 +129,9 @@ function renderWithQuery(
   return {
     queryClient,
     ...render(
-      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+      </MemoryRouter>,
     ),
   };
 }
@@ -394,6 +399,78 @@ describe("EssaysPage", () => {
     expect(screen.getByText("No essays found")).toBeInTheDocument();
   });
 
+  it("creates a school essay linked to the selected catalog prompt", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const promptId = "60000000-0000-4000-8000-000000000001";
+    const requestBodies: Record<string, unknown>[] = [];
+    const preset = createWorkspaceFetchPreset({
+      essayDetails: [],
+      essays: [],
+      reference: {
+        ...workspaceReferenceFixture,
+        populated: true,
+        prompts: [
+          {
+            id: promptId,
+            school_unitid: workspaceApplicationFixture.school_unitid,
+            cycle_year: 2027,
+            ordinal: 1,
+            prompt: "Describe an experience that shaped your perspective.",
+            word_limit: 250,
+            applicability: "required",
+            audience: {},
+            provenance: {
+              source: "Admissions",
+              source_url: "https://example.edu/admissions",
+              verified_at: "2026-07-01",
+            },
+          },
+        ],
+      },
+    });
+    const fetchHandler = (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/v1/essays") && init?.method === "POST") {
+        requestBodies.push(JSON.parse(String(init.body ?? "{}")));
+      }
+      return preset(input, init);
+    };
+
+    const queryClient = createTestQueryClient();
+    vi.stubGlobal("fetch", vi.fn(fetchHandler));
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <EssaysPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole("button", { name: "New essay" }));
+    await user.click(screen.getByRole("combobox", { name: "School link" }));
+    await user.click(
+      await screen.findByRole("option", { name: /Harvard University/ }),
+    );
+
+    await screen.findByText(/keeps this essay connected/);
+    await user.click(screen.getByRole("combobox", { name: "Essay prompt" }));
+    await user.click(
+      await screen.findByRole("option", {
+        name: /Prompt 1.*Required.*250 words.*Describe an experience/,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Create essay" }));
+
+    await waitFor(() =>
+      expect(requestBodies).toContainEqual(
+        expect.objectContaining({
+          application_id: workspaceApplicationFixture.id,
+          prompt_ref: promptId,
+        }),
+      ),
+    );
+    expect(requestBodies[0]).not.toHaveProperty("prompt");
+    expect(requestBodies[0]).not.toHaveProperty("word_limit");
+  });
+
   it("opens an essay from the primary card action", async () => {
     const user = userEvent.setup();
     const onOpenEssay = vi.fn();
@@ -558,9 +635,11 @@ describe("EssayEditorPage", () => {
     return {
       fetchHandler,
       ...render(
-        <QueryClientProvider client={queryClient}>
-          <EssayEditorPage essay={essayFromApi(essay)} onBack={vi.fn()} />
-        </QueryClientProvider>,
+        <MemoryRouter>
+          <QueryClientProvider client={queryClient}>
+            <EssayEditorPage essay={essayFromApi(essay)} onBack={vi.fn()} />
+          </QueryClientProvider>
+        </MemoryRouter>,
       ),
     };
   }
@@ -1812,27 +1891,31 @@ describe("EssayEditorPage", () => {
     );
 
     const { rerender } = render(
-      <QueryClientProvider client={queryClient}>
-        <EssayEditorPage
-          essay={essayFromApi(stanfordEssayDetail)}
-          onBack={onBack}
-        />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <EssayEditorPage
+            essay={essayFromApi(stanfordEssayDetail)}
+            onBack={onBack}
+          />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     expect(await screen.findByText("A roommate line.")).toBeInTheDocument();
 
     rerender(
-      <QueryClientProvider client={queryClient}>
-        <EssayEditorPage
-          essay={essayFromApi({
-            ...stanfordEssayDetail,
-            content: tiptapDoc("Server rewrite"),
-            word_count: 2,
-          })}
-          onBack={onBack}
-        />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <EssayEditorPage
+            essay={essayFromApi({
+              ...stanfordEssayDetail,
+              content: tiptapDoc("Server rewrite"),
+              word_count: 2,
+            })}
+            onBack={onBack}
+          />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     expect(await screen.findByText("Server rewrite")).toBeInTheDocument();

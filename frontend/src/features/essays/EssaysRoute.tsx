@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useApplications,
+  useApplication,
   useArchiveEssay,
   useCreateEssay,
   useDuplicateEssay,
@@ -11,7 +12,11 @@ import {
   useRestoreEssay,
   useUpdateEssay,
 } from "@/api/workspace/hooks";
-import type { ApplicationView, EssayType } from "@/api/workspace/types";
+import type {
+  ApplicationView,
+  EssayType,
+  RequirementApplicability,
+} from "@/api/workspace/types";
 import { UndoToast } from "@/components/undo-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +60,18 @@ import type { EssaysPageProps } from "@/features/essays/essays-types";
 import { cn } from "@/lib/utils";
 
 const noApplicationValue = "none";
+const customPromptValue = "custom";
+const unselectedPromptValue = "unselected";
+const promptHelpId = "new-essay-prompt-help";
+const promptWarningId = "new-essay-prompt-warning";
+
+const applicabilityLabels: Record<RequirementApplicability, string> = {
+  required: "Required",
+  optional: "Optional",
+  not_required: "Not required",
+  conditional: "Conditional",
+  unknown: "Unknown",
+};
 
 const essayTypeOptions: readonly EssayType[] = [
   "Personal statement",
@@ -106,6 +123,20 @@ function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
   return Array.isArray(value) ? value : [];
 }
 
+function describeAudience(audience: Record<string, unknown>) {
+  const details = Object.entries(audience)
+    .filter(([, value]) =>
+      ["boolean", "number", "string"].includes(typeof value),
+    )
+    .map(
+      ([key, value]) =>
+        `${key.replaceAll("_", " ")}: ${String(value)}`,
+    );
+  return details.length > 0
+    ? details.join(" · ")
+    : "Published audience conditions apply; verify them with the school.";
+}
+
 function NewEssayDialog({
   applications,
   initialType,
@@ -117,12 +148,50 @@ function NewEssayDialog({
   applications: ApplicationView[];
   initialType: EssayType;
   isCreating: boolean;
-  onCreate: (input: { applicationId: string | null; type: EssayType }) => void;
+  onCreate: (input: {
+    applicationId: string | null;
+    promptOrdinal: number | null;
+    promptRef: string | null;
+    type: EssayType;
+  }) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
   const [type, setType] = useState<EssayType>(initialType);
   const [applicationId, setApplicationId] = useState(noApplicationValue);
+  const [promptRef, setPromptRef] = useState(unselectedPromptValue);
+  const selectedApplicationId =
+    type === "Personal statement" || applicationId === noApplicationValue
+      ? null
+      : applicationId;
+  const applicationQuery = useApplication(selectedApplicationId);
+  const prompts = applicationQuery.data?.reference.prompts ?? [];
+  const linkedPromptIds = new Set(
+    applicationQuery.data?.essays.flatMap((essay) =>
+      essay.prompt_ref ? [essay.prompt_ref] : [],
+    ) ?? [],
+  );
+  const selectedPrompt = prompts.find((prompt) => prompt.id === promptRef);
+  const selectedPromptIsAvailable =
+    promptRef === customPromptValue ||
+    (!applicationQuery.isError &&
+      !!selectedPrompt &&
+      !linkedPromptIds.has(selectedPrompt.id) &&
+      selectedPrompt.applicability !== "not_required");
+
+  function selectType(value: string) {
+    const nextType = value as EssayType;
+    setType(nextType);
+    if (nextType === "Personal statement") {
+      setApplicationId(noApplicationValue);
+    }
+    setPromptRef(unselectedPromptValue);
+  }
+
+  function selectApplication(value: string) {
+    setApplicationId(value);
+    setPromptRef(unselectedPromptValue);
+  }
 
   function submit() {
     onCreate({
@@ -130,6 +199,14 @@ function NewEssayDialog({
         type === "Personal statement" || applicationId === noApplicationValue
           ? null
           : applicationId,
+      promptOrdinal: selectedPrompt?.ordinal ?? null,
+      promptRef:
+        type === "Personal statement" ||
+        applicationId === noApplicationValue ||
+        promptRef === customPromptValue ||
+        promptRef === unselectedPromptValue
+          ? null
+          : promptRef,
       type,
     });
   }
@@ -149,7 +226,7 @@ function NewEssayDialog({
           <label className="grid gap-2 text-sm font-medium">
             Essay type
             <Select
-              onValueChange={(value) => setType(value as EssayType)}
+              onValueChange={selectType}
               value={type}
             >
               <SelectTrigger aria-label="Essay type">
@@ -171,7 +248,7 @@ function NewEssayDialog({
             School link
             <Select
               disabled={type === "Personal statement"}
-              onValueChange={setApplicationId}
+              onValueChange={selectApplication}
               value={
                 type === "Personal statement"
                   ? noApplicationValue
@@ -195,10 +272,106 @@ function NewEssayDialog({
               </SelectPopup>
             </Select>
           </label>
+
+          {selectedApplicationId ? (
+            <label className="grid gap-2 text-sm font-medium">
+              Essay prompt
+              <Select
+                disabled={applicationQuery.isFetching}
+                onValueChange={setPromptRef}
+                value={promptRef}
+              >
+                <SelectTrigger
+                  aria-describedby={`${promptHelpId}${selectedPrompt?.applicability === "conditional" || selectedPrompt?.applicability === "unknown" ? ` ${promptWarningId}` : ""}`}
+                  aria-label="Essay prompt"
+                >
+                  <SelectValue placeholder="Select a prompt" />
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectGroup>
+                    <SelectItem disabled value={unselectedPromptValue}>
+                      Select a published or custom prompt
+                    </SelectItem>
+                    <SelectItem value={customPromptValue}>
+                      Custom essay (no catalog prompt)
+                    </SelectItem>
+                    {prompts.map((prompt) => {
+                      const alreadyLinked = linkedPromptIds.has(prompt.id);
+                      const unavailable =
+                        applicationQuery.isError ||
+                        alreadyLinked ||
+                        prompt.applicability === "not_required";
+                      const availability = alreadyLinked
+                        ? " · already linked"
+                        : prompt.applicability === "not_required"
+                          ? " · not required"
+                          : "";
+                      const wordLimit = prompt.word_limit
+                        ? ` · ${prompt.word_limit} words`
+                        : "";
+                      return (
+                        <SelectItem
+                          disabled={unavailable}
+                          key={prompt.id}
+                          value={prompt.id}
+                        >
+                          Prompt {prompt.ordinal}
+                          {` · ${applicabilityLabels[prompt.applicability]}`}
+                          {wordLimit}
+                          {availability}: {prompt.prompt}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                </SelectPopup>
+              </Select>
+              <span
+                aria-live="polite"
+                className="text-xs font-normal text-muted-foreground"
+                id={promptHelpId}
+                role="status"
+              >
+                {applicationQuery.isLoading
+                  ? "Loading published prompts…"
+                  : applicationQuery.isError
+                    ? "Published prompts could not be loaded. You can still create a custom essay."
+                    : applicationQuery.data?.reference.status ===
+                        "cycle_required"
+                      ? "Confirm this school's application cycle to load its published prompts."
+                      : prompts.length === 0
+                        ? "No published prompts are available for this school and cycle."
+                        : "Selecting a published prompt keeps this essay connected to its catalog wording and word limit."}
+              </span>
+              {selectedPrompt ? (
+                <span className="text-xs font-normal text-muted-foreground">
+                  Source: {selectedPrompt.provenance.source} · verified {selectedPrompt.provenance.verified_at}
+                </span>
+              ) : null}
+              {selectedPrompt?.applicability === "conditional" ? (
+                <span aria-live="polite" className="text-xs font-normal text-warning" id={promptWarningId} role="status">
+                  This prompt is conditional. Verify whether it applies to you: {describeAudience(selectedPrompt.audience)}
+                </span>
+              ) : selectedPrompt?.applicability === "unknown" ? (
+                <span aria-live="polite" className="text-xs font-normal text-warning" id={promptWarningId} role="status">
+                  The school has not confirmed who must answer this prompt. Verify before relying on it.
+                </span>
+              ) : null}
+            </label>
+          ) : null}
         </div>
 
         <DialogFooter>
-          <Button disabled={isCreating} onClick={submit} type="button">
+          <Button
+            disabled={
+              isCreating ||
+              (!!selectedApplicationId &&
+                (applicationQuery.isFetching ||
+                  promptRef === unselectedPromptValue ||
+                  !selectedPromptIsAvailable))
+            }
+            onClick={submit}
+            type="button"
+          >
             <Plus aria-hidden="true" data-icon="inline-start" />
             Create essay
           </Button>
@@ -264,6 +437,8 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
 
   async function createEssay(input: {
     applicationId: string | null;
+    promptOrdinal: number | null;
+    promptRef: string | null;
     type: EssayType;
   }) {
     const application = applications.find(
@@ -273,8 +448,12 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
       const created = await createEssayMutation.mutateAsync({
         application_id: input.applicationId,
         essay_type: input.type,
+        prompt_ref: input.promptRef,
         status: "Not started",
-        title: defaultEssayTitle(input.type, application),
+        title:
+          application && input.promptOrdinal
+            ? `${application.school_name} ${input.type.toLowerCase()} ${input.promptOrdinal}`
+            : defaultEssayTitle(input.type, application),
       });
       setCreateOpen(false);
       onOpenEssay?.(essayFromSummary(created));
