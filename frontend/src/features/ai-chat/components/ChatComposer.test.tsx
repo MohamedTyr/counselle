@@ -1,11 +1,19 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 
 import { ChatComposer } from "./ChatComposer";
 
-function renderComposer(overrides: Partial<Parameters<typeof ChatComposer>[0]> = {}) {
+function renderComposer(
+  overrides: Partial<Parameters<typeof ChatComposer>[0]> = {},
+) {
   const props = {
     awaitingClarify: false,
     isSubmitting: false,
@@ -24,8 +32,12 @@ function renderComposer(overrides: Partial<Parameters<typeof ChatComposer>[0]> =
 describe("ChatComposer", () => {
   test("Enter sends the message", async () => {
     const props = renderComposer({ value: "Tell me about aid" });
-    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), { key: "Enter" });
-    await waitFor(() => expect(props.onSubmit).toHaveBeenCalledWith("Tell me about aid"));
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), {
+      key: "Enter",
+    });
+    await waitFor(() =>
+      expect(props.onSubmit).toHaveBeenCalledWith("Tell me about aid"),
+    );
   });
 
   test("Shift+Enter does not send", () => {
@@ -59,13 +71,19 @@ describe("ChatComposer", () => {
     const shell = container.querySelector("form > div");
     expect(shell).toHaveClass("min-h-28");
     expect(shell).toHaveClass("rounded-2xl");
-    expect(shell).toContainElement(screen.getByRole("button", { name: "Web search" }));
-    expect(shell).toContainElement(screen.getByRole("button", { name: "Send" }));
+    expect(shell).toContainElement(
+      screen.getByRole("button", { name: /Sources:/ }),
+    );
+    expect(shell).toContainElement(
+      screen.getByRole("button", { name: "Send" }),
+    );
   });
 
   test("awaitingClarify swaps the placeholder", () => {
     renderComposer({ awaitingClarify: true });
-    expect(screen.getByPlaceholderText("Pick one, or just type...")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Pick one, or just type..."),
+    ).toBeInTheDocument();
   });
 
   test("submit button becomes a stop control while submitting", () => {
@@ -74,9 +92,12 @@ describe("ChatComposer", () => {
     expect(props.onStop).toHaveBeenCalled();
   });
 
-  test("clicking a source toggle patches only that key", () => {
+  test("choosing a source from the menu patches only that key", () => {
     const props = renderComposer();
-    fireEvent.click(screen.getByRole("button", { name: "Web search" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Web search" }),
+    );
     expect(props.onSourceConfigChange).toHaveBeenCalledWith({
       ...BUILT_IN_SOURCE_CONFIG,
       webSearch: false,
@@ -85,12 +106,11 @@ describe("ChatComposer", () => {
 
   test("subreddit subset selection updates selectedSubreddits and preserves the legacy five-item order", () => {
     const props = renderComposer();
-    fireEvent.click(screen.getByRole("button", { name: "Choose subreddits" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
 
-    const menuHeading = screen.getByText("Communities");
-    const menu = menuHeading.parentElement as HTMLElement;
-    const chips = within(menu).getAllByRole("button");
-    expect(chips.map((chip) => chip.textContent)).toEqual([
+    const menu = screen.getByRole("menu");
+    const communities = within(menu).getAllByRole("menuitemcheckbox").slice(3);
+    expect(communities.map((community) => community.textContent)).toEqual([
       "ApplyingToCollege",
       "chanceme",
       "financialaid",
@@ -98,7 +118,9 @@ describe("ChatComposer", () => {
       "csMajors",
     ]);
 
-    fireEvent.click(within(menu).getByText("chanceme"));
+    fireEvent.click(
+      within(menu).getByRole("menuitemcheckbox", { name: "chanceme" }),
+    );
     expect(props.onSourceConfigChange).toHaveBeenCalledWith({
       ...BUILT_IN_SOURCE_CONFIG,
       selectedSubreddits: [

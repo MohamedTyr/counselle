@@ -1,17 +1,17 @@
-import { screen, waitFor, within } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import {
   createWorkspaceFetchPreset,
   jsonResponse,
   renderApp,
-} from "@/test/render-app"
+} from "@/test/render-app";
 
 function aiFetchHandler(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Response | Promise<Response> {
-  const url = String(input)
+  const url = String(input);
 
   if (url.endsWith("/v1/config")) {
     return jsonResponse({
@@ -32,7 +32,7 @@ function aiFetchHandler(
         },
       ],
       max_selected_skills: 3,
-    })
+    });
   }
   if (url.endsWith("/v1/sessions") && init?.method === "POST") {
     return jsonResponse(
@@ -46,7 +46,7 @@ function aiFetchHandler(
         },
       },
       { status: 201 },
-    )
+    );
   }
   if (
     url.endsWith("/v1/sessions/60000000-0000-4000-8000-000000000001") &&
@@ -63,15 +63,13 @@ function aiFetchHandler(
         reddit_subreddits: null,
       },
       transcript: [],
-    })
+    });
   }
   if (
-    url.endsWith(
-      "/v1/sessions/60000000-0000-4000-8000-000000000001/stream",
-    ) &&
+    url.endsWith("/v1/sessions/60000000-0000-4000-8000-000000000001/stream") &&
     (!init?.method || init.method === "GET")
   ) {
-    return new Response(null, { status: 204 })
+    return new Response(null, { status: 204 });
   }
   if (
     url.endsWith(
@@ -82,53 +80,53 @@ function aiFetchHandler(
     return new Response(
       'event: done\ndata: {"v":1,"type":"done","data":{"status":"complete"}}\n\n',
       { headers: { "Content-Type": "text/event-stream" } },
-    )
+    );
   }
 
-  return createWorkspaceFetchPreset()(input, init)
+  return createWorkspaceFetchPreset()(input, init);
 }
 
 describe("AiComposerRoute", () => {
   beforeEach(() => {
-    window.history.replaceState(null, "", "/")
-    window.innerWidth = 1280
-  })
+    window.history.replaceState(null, "", "/");
+    window.innerWidth = 1280;
+  });
 
   it("redirects /app to /app/ai and marks the AI nav item active", async () => {
-    renderApp("/app", { fetchHandler: aiFetchHandler })
+    renderApp("/app", { fetchHandler: aiFetchHandler });
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/ai"))
+    await waitFor(() => expect(window.location.pathname).toBe("/app/ai"));
     expect(
       await screen.findByRole("heading", {
         name: "What should we untangle first?",
       }),
-    ).toBeInTheDocument()
+    ).toBeInTheDocument();
 
-    const aiLink = screen.getByRole("link", { name: "AI" })
+    const aiLink = screen.getByRole("link", { name: "AI" });
     expect(aiLink.closest('[data-slot="sidebar-menu-button"]')).toHaveAttribute(
       "data-active",
       "true",
-    )
-  })
+    );
+  });
 
   it("does not flash fallback greeting while config is loading", async () => {
-    let resolveConfig!: (response: Response) => void
+    let resolveConfig!: (response: Response) => void;
     const configPromise = new Promise<Response>((resolve) => {
-      resolveConfig = resolve
-    })
+      resolveConfig = resolve;
+    });
     renderApp("/app/ai", {
       fetchHandler: (input, init) => {
-        const url = String(input)
+        const url = String(input);
         if (url.endsWith("/v1/config")) {
-          return configPromise
+          return configPromise;
         }
-        return createWorkspaceFetchPreset()(input, init)
+        return createWorkspaceFetchPreset()(input, init);
       },
-    })
+    });
 
     expect(
       screen.queryByRole("heading", { name: "Where should we begin?" }),
-    ).not.toBeInTheDocument()
+    ).not.toBeInTheDocument();
 
     resolveConfig(
       jsonResponse({
@@ -137,53 +135,56 @@ describe("AiComposerRoute", () => {
         conversation_starters: [],
         default_source_config: null,
       }),
-    )
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Ready when you are." }),
-    ).toBeInTheDocument()
-  })
+    ).toBeInTheDocument();
+  });
 
   it("shows fallback greeting only after config failure", async () => {
     renderApp("/app/ai", {
       fetchHandler: (input, init) => {
-        const url = String(input)
+        const url = String(input);
         if (url.endsWith("/v1/config")) {
-          return jsonResponse({ error: { message: "failed" } }, { status: 500 })
+          return jsonResponse(
+            { error: { message: "failed" } },
+            { status: 500 },
+          );
         }
-        return createWorkspaceFetchPreset()(input, init)
+        return createWorkspaceFetchPreset()(input, init);
       },
-    })
+    });
 
     expect(
       await screen.findByRole("heading", { name: "Where should we begin?" }),
-    ).toBeInTheDocument()
-  })
+    ).toBeInTheDocument();
+  });
 
   it("submits on Enter and inserts a newline on Shift+Enter", async () => {
-    const user = userEvent.setup()
-    const requests: { url: string; body: unknown }[] = []
+    const user = userEvent.setup();
+    const requests: { url: string; body: unknown }[] = [];
 
     renderApp("/app/ai", {
       fetchHandler: (input, init) => {
-        const url = String(input)
+        const url = String(input);
         if (init?.body) {
-          requests.push({ url, body: JSON.parse(String(init.body)) })
+          requests.push({ url, body: JSON.parse(String(init.body)) });
         }
-        return aiFetchHandler(input, init)
+        return aiFetchHandler(input, init);
       },
-    })
+    });
 
     const textarea = await screen.findByRole("combobox", {
       name: "Message Counselle",
-    })
-    await waitFor(() => expect(textarea).not.toBeDisabled())
+    });
+    await waitFor(() => expect(textarea).not.toBeDisabled());
 
-    await user.type(textarea, "Compare aid")
-    await user.keyboard("{Shift>}{Enter}{/Shift}")
-    expect(textarea).toHaveValue("Compare aid\n")
+    await user.type(textarea, "Compare aid");
+    await user.keyboard("{Shift>}{Enter}{/Shift}");
+    expect(textarea).toHaveValue("Compare aid\n");
 
-    await user.type(textarea, "at UCLA{Enter}")
+    await user.type(textarea, "at UCLA{Enter}");
 
     await waitFor(() =>
       expect(
@@ -198,58 +199,69 @@ describe("AiComposerRoute", () => {
           reddit_subreddits: null,
         },
       }),
-    )
+    );
     await waitFor(() =>
       expect(window.location.pathname).toBe(
         "/app/ai/60000000-0000-4000-8000-000000000001",
       ),
-    )
-    expect(textarea).toHaveValue("")
-  })
+    );
+    expect(textarea).toHaveValue("");
+  });
 
-  it("renders source toggles in the composer action row", async () => {
-    renderApp("/app/ai", { fetchHandler: aiFetchHandler })
+  it("offers source choices from the composer menu", async () => {
+    renderApp("/app/ai", { fetchHandler: aiFetchHandler });
     await screen.findByRole("heading", {
       name: "What should we untangle first?",
-    })
+    });
 
     const form = await screen.findByRole("form", {
       name: "Start an AI conversation",
-    })
+    });
 
+    fireEvent.click(within(form).getByRole("button", { name: /Sources:/ }));
+
+    const menu = screen.getByRole("menu");
     expect(
-      within(form).getByRole("button", { name: "Web search" }),
-    ).toHaveAttribute("aria-pressed", "true")
+      within(menu).getByRole("menuitemcheckbox", { name: "Web search" }),
+    ).toHaveAttribute("aria-checked", "true");
     expect(
-      within(form).getByRole("button", { name: ".edu sources" }),
-    ).toHaveAttribute("aria-pressed", "false")
+      within(menu).getByRole("menuitemcheckbox", { name: ".edu sources" }),
+    ).toHaveAttribute("aria-checked", "false");
     expect(
-      within(form).getByRole("button", { name: "Reddit communities" }),
-    ).toHaveAttribute("aria-pressed", "true")
-  })
+      within(menu).getByRole("menuitemcheckbox", {
+        name: "Reddit communities",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      within(menu).getByRole("menuitemcheckbox", { name: "ApplyingToCollege" }),
+    ).toBeInTheDocument();
+  });
 
   it("carries a selected skill through the first-message handoff", async () => {
-    const user = userEvent.setup()
-    const requests: { url: string; body: unknown }[] = []
+    const user = userEvent.setup();
+    const requests: { url: string; body: unknown }[] = [];
     renderApp("/app/ai", {
       fetchHandler: (input, init) => {
         if (init?.body) {
-          requests.push({ url: String(input), body: JSON.parse(String(init.body)) })
+          requests.push({
+            url: String(input),
+            body: JSON.parse(String(init.body)),
+          });
         }
-        return aiFetchHandler(input, init)
+        return aiFetchHandler(input, init);
       },
-    })
+    });
 
     const textarea = await screen.findByRole("combobox", {
       name: "Message Counselle",
-    })
-    await waitFor(() => expect(textarea).toBeEnabled())
-    await user.type(textarea, "Compare @school")
-    await screen.findByRole("listbox", { name: "Skills" })
-    await user.keyboard("{Enter}")
-    expect(await screen.findByText("School comparison")).toBeInTheDocument()
+    });
+    await waitFor(() => expect(textarea).toBeEnabled());
+    await user.type(textarea, "Compare @school");
+    await screen.findByRole("listbox", { name: "Skills" });
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("School comparison")).toBeInTheDocument();
 
-    await user.type(textarea, "Duke and Northwestern{Enter}")
+    await user.type(textarea, "Duke and Northwestern{Enter}");
     await waitFor(() =>
       expect(
         requests.find((request) => request.url.endsWith("/messages"))?.body,
@@ -257,16 +269,16 @@ describe("AiComposerRoute", () => {
         text: "Compare Duke and Northwestern",
         skills: ["school-comparison"],
       }),
-    )
-  })
+    );
+  });
 
   it("loads the skill catalog on a direct session route", async () => {
     renderApp("/app/ai/60000000-0000-4000-8000-000000000001", {
       fetchHandler: aiFetchHandler,
-    })
+    });
 
     expect(
       await screen.findByRole("button", { name: "Add a skill (@)" }),
-    ).toBeEnabled()
-  })
-})
+    ).toBeEnabled();
+  });
+});

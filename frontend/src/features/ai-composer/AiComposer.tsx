@@ -1,59 +1,32 @@
-import { AtSign, Globe2, GraduationCap, MessageCircle, Send, Square } from "lucide-react"
-import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react"
+import { AtSign, Send, Square } from "lucide-react";
+import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
 
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
-import { cn } from "@/lib/utils"
-import type { SourceConfig } from "@/api/chat/types"
-import type { SkillCatalogEntry } from "@/api/chat/types"
-import { SelectedSkillChips } from "@/features/skill-picker/SelectedSkillChips"
-import { SkillPicker } from "@/features/skill-picker/SkillPicker"
-import { useSkillPicker } from "@/features/skill-picker/useSkillPicker"
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
+import { cn } from "@/lib/utils";
+import type { SourceConfig } from "@/api/chat/types";
+import type { SkillCatalogEntry } from "@/api/chat/types";
+import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
+import { SelectedSkillChips } from "@/features/skill-picker/SelectedSkillChips";
+import { SkillPicker } from "@/features/skill-picker/SkillPicker";
+import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
 
 type AiComposerProps = {
-  value: string
-  onValueChange: (value: string) => void
-  sourceConfig: SourceConfig
-  onSourceConfigChange: (sourceConfig: SourceConfig) => void
-  onSubmit: () => void
-  onCancel: () => void
-  isSubmitting: boolean
-  canCancel: boolean
-  disabled?: boolean
-  skills?: readonly SkillCatalogEntry[]
-  selectedSkills?: readonly string[]
-  onSelectedSkillsChange?: (skills: string[]) => void
-  maxSelectedSkills?: number
-}
-
-type SourceToggle = {
-  key: "webSearch" | "eduSources" | "reddit"
-  label: string
-  shortLabel: string
-  icon: typeof Globe2
-}
-
-const sourceToggles: SourceToggle[] = [
-  {
-    key: "webSearch",
-    label: "Web search",
-    shortLabel: "Web",
-    icon: Globe2,
-  },
-  {
-    key: "eduSources",
-    label: ".edu sources",
-    shortLabel: ".edu",
-    icon: GraduationCap,
-  },
-  {
-    key: "reddit",
-    label: "Reddit communities",
-    shortLabel: "Reddit",
-    icon: MessageCircle,
-  },
-]
+  value: string;
+  onValueChange: (value: string) => void;
+  sourceConfig: SourceConfig;
+  onSourceConfigChange: (sourceConfig: SourceConfig) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  isSubmitting: boolean;
+  canCancel: boolean;
+  disabled?: boolean;
+  skills?: readonly SkillCatalogEntry[];
+  selectedSkills?: readonly string[];
+  onSelectedSkillsChange?: (skills: string[]) => void;
+  maxSelectedSkills?: number;
+};
 
 export function AiComposer({
   value,
@@ -71,10 +44,10 @@ export function AiComposer({
   maxSelectedSkills = 0,
 }: AiComposerProps) {
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 34,
+    minHeight: 74,
     maxHeight: 220,
-  })
-  const composerRef = useRef<HTMLDivElement>(null)
+  });
+  const composerRef = useRef<HTMLDivElement>(null);
   const picker = useSkillPicker({
     text: value,
     onTextChange: onValueChange,
@@ -84,38 +57,30 @@ export function AiComposer({
     onSelectedSkillsChange,
     maxSelectedSkills,
     disabled: disabled || isSubmitting || maxSelectedSkills === 0,
-  })
-  const canSubmit = value.trim().length > 0 && !isSubmitting && !disabled
-  const hasValue = value.trim().length > 0
+  });
+  const canSubmit = value.trim().length > 0 && !isSubmitting && !disabled;
 
   useEffect(() => {
-    adjustHeight(value.length === 0)
-  }, [adjustHeight, value])
+    adjustHeight(value.length === 0);
+  }, [adjustHeight, value]);
 
   function handleSubmit(event?: FormEvent) {
-    event?.preventDefault()
+    event?.preventDefault();
     if (!canSubmit) {
-      return
+      return;
     }
-    onSubmit()
-    adjustHeight(true)
+    onSubmit();
+    adjustHeight(true);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (picker.handleKeyDown(event)) {
-      return
+      return;
     }
     if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault()
-      handleSubmit()
+      event.preventDefault();
+      handleSubmit();
     }
-  }
-
-  function patchSource(key: SourceToggle["key"]) {
-    onSourceConfigChange({
-      ...sourceConfig,
-      [key]: !sourceConfig[key],
-    })
   }
 
   return (
@@ -126,13 +91,7 @@ export function AiComposer({
     >
       <div
         ref={composerRef}
-        className={cn(
-          "group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl transition-colors",
-          "bg-[#1e1d1c] text-card-foreground",
-          hasValue
-            ? "border border-[#434240] focus-within:border-[#434240]"
-            : "border border-[#383736] focus-within:border-[#434240]",
-        )}
+        className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground shadow-[0_1px_2px_color-mix(in_oklch,var(--shell-background)_60%,transparent)] transition-colors focus-within:border-[var(--workspace-composer-border-active)]"
       >
         <SelectedSkillChips
           catalog={skills}
@@ -149,13 +108,12 @@ export function AiComposer({
           role="combobox"
           unstyled
           className={cn(
-            "min-h-10 max-h-18 w-full resize-none border-0 bg-transparent px-3 pt-2.5 pb-1.5 text-base leading-5 shadow-none outline-none",
-            "placeholder:text-[var(--workspace-foreground-soft)] focus-visible:ring-0 md:px-4 md:pt-2.5",
+            "block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)] [&_[data-slot=textarea]]:pb-3 [&_[data-slot=textarea]]:text-[var(--workspace-composer-input-foreground)] [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
           )}
           disabled={disabled}
           onChange={(event) => {
-            picker.handleTextChange(event)
-            adjustHeight()
+            picker.handleTextChange(event);
+            adjustHeight();
           }}
           onCompositionEnd={picker.handleCompositionEnd}
           onCompositionStart={picker.handleCompositionStart}
@@ -167,58 +125,32 @@ export function AiComposer({
           value={value}
         />
 
-        <div className="mt-auto flex min-h-12 flex-wrap items-center justify-between gap-3 border-t border-[var(--workspace-border-soft)] px-3 py-2.5 md:px-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
+          <div className="flex flex-wrap items-center gap-1.5">
             {maxSelectedSkills > 0 && (
               <Button
                 aria-label="Add a skill (@)"
-                className="size-8 rounded-lg"
+                className="size-8 !rounded-[var(--workspace-composer-control-radius)] !border-[var(--workspace-composer-control-border)] !bg-[var(--workspace-composer-control-surface)] !text-[var(--workspace-composer-sources-foreground)] !shadow-none before:!rounded-[calc(var(--workspace-composer-control-radius)-1px)] before:!shadow-none hover:!border-[var(--workspace-composer-control-hover-border)] hover:!bg-[var(--workspace-composer-control-hover-surface)] hover:!text-[var(--workspace-composer-sources-foreground)] data-pressed:!border-[var(--workspace-composer-control-hover-border)] data-pressed:!bg-[var(--workspace-composer-control-hover-surface)]"
                 disabled={disabled || isSubmitting}
                 onClick={picker.insertTrigger}
                 size="icon"
                 type="button"
                 variant="outline"
               >
-                <AtSign data-icon="inline-start" />
+                <AtSign className="!mx-0 size-4" data-icon="inline-start" />
               </Button>
             )}
-            {sourceToggles.map((toggle) => {
-              const Icon = toggle.icon
-              const pressed = sourceConfig[toggle.key]
-
-              return (
-                <Button
-                  aria-label={toggle.label}
-                  aria-pressed={pressed}
-                  className={cn(
-                    "h-8 rounded-lg px-2.5 text-xs font-medium",
-                    pressed
-                      ? "border-[var(--workspace-upcoming-task-card-hover-border)] bg-[var(--workspace-surface-active)] text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                  disabled={disabled || isSubmitting}
-                  key={toggle.key}
-                  onClick={() => patchSource(toggle.key)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Icon data-icon="inline-start" />
-                  <span aria-hidden="true" className="hidden sm:inline">
-                    {toggle.label}
-                  </span>
-                  <span aria-hidden="true" className="sm:hidden">
-                    {toggle.shortLabel}
-                  </span>
-                </Button>
-              )
-            })}
+            <SourcesMenu
+              disabled={disabled || isSubmitting}
+              onSourceConfigChange={onSourceConfigChange}
+              sourceConfig={sourceConfig}
+            />
           </div>
 
           {canCancel ? (
             <Button
               aria-label="Stop response"
-              className="size-9 shrink-0 rounded-lg"
+              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
               onClick={onCancel}
               size="icon"
               type="button"
@@ -229,12 +161,12 @@ export function AiComposer({
           ) : (
             <Button
               aria-label="Send message"
-              className="size-9 shrink-0 rounded-lg"
+              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
               disabled={!canSubmit}
               size="icon"
               type="submit"
             >
-              <Send data-icon="inline-start" />
+              <Send className="!mx-0 size-4" data-icon="inline-start" />
             </Button>
           )}
         </div>
@@ -253,5 +185,5 @@ export function AiComposer({
         />
       </div>
     </form>
-  )
+  );
 }

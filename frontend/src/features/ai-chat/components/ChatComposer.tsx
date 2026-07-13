@@ -1,15 +1,16 @@
-import { AtSign, Globe2, GraduationCap, MessageCircle, Send, SlidersHorizontal, Square } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { AtSign, Send, Square } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { FULL_SUBREDDIT_MENU } from "@/api/chat/source-config";
-import type { SkillCatalogEntry, SourceConfig, Subreddit } from "@/api/chat/types";
+import type { SkillCatalogEntry, SourceConfig } from "@/api/chat/types";
+import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
 import { SelectedSkillChips } from "@/features/skill-picker/SelectedSkillChips";
 import { SkillPicker } from "@/features/skill-picker/SkillPicker";
 import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
@@ -35,64 +36,6 @@ export type ChatComposerProps = {
   maxSelectedSkills?: number;
 };
 
-type SourceToggle = {
-  key: "webSearch" | "eduSources" | "reddit";
-  label: string;
-  shortLabel: string;
-  icon: typeof Globe2;
-};
-
-const sourceToggles: SourceToggle[] = [
-  { key: "webSearch", label: "Web search", shortLabel: "Web", icon: Globe2 },
-  { key: "eduSources", label: ".edu sources", shortLabel: ".edu", icon: GraduationCap },
-  { key: "reddit", label: "Reddit communities", shortLabel: "Reddit", icon: MessageCircle },
-];
-
-function SubredditMenu({
-  selected,
-  onChange,
-}: {
-  selected: Subreddit[];
-  onChange: (next: Subreddit[]) => void;
-}) {
-  const toggle = (subreddit: Subreddit) => {
-    onChange(
-      selected.includes(subreddit)
-        ? selected.filter((entry) => entry !== subreddit)
-        : [...selected, subreddit],
-    );
-  };
-
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="px-1 text-xs font-medium text-muted-foreground">
-        Communities
-      </span>
-      <div className="flex flex-wrap gap-1.5 px-1">
-        {FULL_SUBREDDIT_MENU.map((subreddit) => {
-          const checked = selected.includes(subreddit);
-          return (
-            <button
-              aria-pressed={checked}
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                checked
-                  ? "border-primary/40 bg-accent text-foreground"
-                  : "border-transparent text-muted-foreground hover:bg-accent",
-              )}
-              key={subreddit}
-              onClick={() => toggle(subreddit)}
-              type="button"
-            >
-              {subreddit.replace(/^r\//, "")}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function ChatComposer({
   value,
   onValueChange,
@@ -108,10 +51,9 @@ export function ChatComposer({
   onSelectedSkillsChange = () => undefined,
   maxSelectedSkills = 0,
 }: ChatComposerProps) {
-  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 34,
+    minHeight: 74,
     maxHeight: 220,
   });
   const composerRef = useRef<HTMLDivElement>(null);
@@ -126,10 +68,11 @@ export function ChatComposer({
     disabled:
       disabled || isSubmitting || awaitingClarify || maxSelectedSkills === 0,
   });
-  const placeholder = awaitingClarify ? CLARIFY_PLACEHOLDER : DEFAULT_PLACEHOLDER;
+  const placeholder = awaitingClarify
+    ? CLARIFY_PLACEHOLDER
+    : DEFAULT_PLACEHOLDER;
   const canSubmit = value.trim().length > 0 && !disabled;
   const canClickSend = canSubmit && !isSubmitting;
-  const hasValue = value.trim().length > 0;
 
   useEffect(() => {
     adjustHeight(value.length === 0);
@@ -164,10 +107,6 @@ export function ChatComposer({
     submitText(event.currentTarget.value);
   }
 
-  function patchSource(key: SourceToggle["key"]) {
-    onSourceConfigChange({ ...sourceConfig, [key]: !sourceConfig[key] });
-  }
-
   return (
     <form
       aria-label="Message Counselle"
@@ -176,13 +115,7 @@ export function ChatComposer({
     >
       <div
         ref={composerRef}
-        className={cn(
-          "group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl transition-colors",
-          "bg-[#1e1d1c] text-card-foreground",
-          hasValue
-            ? "border border-[#434240] focus-within:border-[#434240]"
-            : "border border-[#383736] focus-within:border-[#434240]",
-        )}
+        className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground shadow-[0_1px_2px_color-mix(in_oklch,var(--shell-background)_60%,transparent)] transition-colors focus-within:border-[var(--workspace-composer-border-active)]"
       >
         <SelectedSkillChips
           catalog={skills}
@@ -199,8 +132,7 @@ export function ChatComposer({
           role="combobox"
           unstyled
           className={cn(
-            "min-h-10 max-h-18 w-full resize-none border-0 bg-transparent px-3 pt-2.5 pb-1.5 text-base leading-5 shadow-none outline-none",
-            "placeholder:text-[var(--workspace-foreground-soft)] focus-visible:ring-0 md:px-4 md:pt-2.5",
+            "block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)] [&_[data-slot=textarea]]:pb-3 [&_[data-slot=textarea]]:text-[var(--workspace-composer-input-foreground)] [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
           )}
           disabled={disabled}
           onChange={(event) => {
@@ -223,75 +155,32 @@ export function ChatComposer({
           value={value}
         />
 
-        <div className="mt-auto flex min-h-12 flex-wrap items-center justify-between gap-3 border-t border-[var(--workspace-border-soft)] px-3 py-2.5 md:px-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
+          <div className="flex flex-wrap items-center gap-1.5">
             {maxSelectedSkills > 0 && !awaitingClarify && (
               <Button
                 aria-label="Add a skill (@)"
-                className="size-8 rounded-lg"
+                className="size-8 !rounded-[var(--workspace-composer-control-radius)] !border-[var(--workspace-composer-control-border)] !bg-[var(--workspace-composer-control-surface)] !text-[var(--workspace-composer-sources-foreground)] !shadow-none before:!rounded-[calc(var(--workspace-composer-control-radius)-1px)] before:!shadow-none hover:!border-[var(--workspace-composer-control-hover-border)] hover:!bg-[var(--workspace-composer-control-hover-surface)] hover:!text-[var(--workspace-composer-sources-foreground)] data-pressed:!border-[var(--workspace-composer-control-hover-border)] data-pressed:!bg-[var(--workspace-composer-control-hover-surface)]"
                 disabled={disabled || isSubmitting}
                 onClick={picker.insertTrigger}
                 size="icon"
                 type="button"
                 variant="outline"
               >
-                <AtSign data-icon="inline-start" />
+                <AtSign className="!mx-0 size-4" data-icon="inline-start" />
               </Button>
             )}
-            {sourceToggles.map((toggle) => {
-              const Icon = toggle.icon;
-              const pressed = sourceConfig[toggle.key];
-              return (
-                <Button
-                  aria-label={toggle.label}
-                  aria-pressed={pressed}
-                  className={cn(
-                    "h-8 rounded-lg px-2.5 text-xs font-medium",
-                    pressed
-                      ? "border-[var(--workspace-upcoming-task-card-hover-border)] bg-[var(--workspace-surface-active)] text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                  disabled={disabled || isSubmitting}
-                  key={toggle.key}
-                  onClick={() => patchSource(toggle.key)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Icon data-icon="inline-start" />
-                  <span aria-hidden="true" className="hidden sm:inline">
-                    {toggle.label}
-                  </span>
-                  <span aria-hidden="true" className="sm:hidden">
-                    {toggle.shortLabel}
-                  </span>
-                </Button>
-              );
-            })}
-            {sourceConfig.reddit && (
-              <Popover onOpenChange={setSourcesOpen} open={sourcesOpen}>
-              <PopoverTrigger
-                aria-label="Choose subreddits"
-                className="flex size-8 items-center justify-center rounded-lg border border-input text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <SlidersHorizontal className="size-3.5" />
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64" side="top">
-                <SubredditMenu
-                    onChange={(next) =>
-                      onSourceConfigChange({ ...sourceConfig, selectedSubreddits: next })
-                    }
-                    selected={sourceConfig.selectedSubreddits}
-                  />
-                </PopoverContent>
-              </Popover>
-            )}
+            <SourcesMenu
+              disabled={disabled || isSubmitting}
+              onSourceConfigChange={onSourceConfigChange}
+              sourceConfig={sourceConfig}
+            />
           </div>
 
           {isSubmitting ? (
             <Button
               aria-label="Stop"
-              className="size-9 shrink-0 rounded-lg"
+              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
               onClick={onStop}
               size="icon"
               type="button"
@@ -302,12 +191,12 @@ export function ChatComposer({
           ) : (
             <Button
               aria-label="Send"
-              className="size-9 shrink-0 rounded-lg"
+              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
               disabled={!canClickSend}
               size="icon"
               type="submit"
             >
-              <Send data-icon="inline-start" />
+              <Send className="!mx-0 size-4" data-icon="inline-start" />
             </Button>
           )}
         </div>
