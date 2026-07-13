@@ -15,7 +15,8 @@ import type { SkillCatalogEntry } from "@/api/chat/types";
 import {
   findSkillTrigger,
   insertSkillTrigger,
-  removeSkillTrigger,
+  normalizeInlineSkillSpacing,
+  replaceSkillTrigger,
   rankSkills,
   type SkillTrigger,
 } from "@/features/skill-picker/skill-query";
@@ -46,7 +47,6 @@ export type SkillPickerController = {
   isOpen: boolean;
   listboxId: string;
   query: string;
-  removeSelectedSkill: (name: string) => void;
   results: readonly SkillCatalogEntry[];
   selectSkill: (name: string) => void;
   setActiveIndex: (index: number) => void;
@@ -68,6 +68,14 @@ function focusTextareaAt(
 
 function optionId(listboxId: string, name: string) {
   return `${listboxId}-${name}`;
+}
+
+function hasSelectedSkillMention(
+  text: string,
+  name: string,
+) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`@${escapedName}(?=$|[^A-Za-z0-9-])`).test(text);
 }
 
 /**
@@ -135,6 +143,16 @@ export function useSkillPicker({
     updateTrigger(text, start, end);
   }, [text, updateTrigger]);
 
+  useEffect(() => {
+    const nextSelectedSkills = selectedSkills.filter((name) =>
+      hasSelectedSkillMention(text, name),
+    );
+
+    if (nextSelectedSkills.length !== selectedSkills.length) {
+      onSelectedSkillsChange(nextSelectedSkills);
+    }
+  }, [onSelectedSkillsChange, selectedSkills, text]);
+
   const close = useCallback(() => {
     setTrigger(null);
   }, []);
@@ -164,7 +182,7 @@ export function useSkillPicker({
         return;
       }
 
-      const replacement = removeSkillTrigger(text, trigger);
+      const replacement = replaceSkillTrigger(text, trigger, selected.name);
       onTextChange(replacement.text);
       onSelectedSkillsChange([...selectedSkills, name]);
       setActionAnnouncement(`${selected.displayName} added.`);
@@ -189,31 +207,19 @@ export function useSkillPicker({
     ],
   );
 
-  const removeSelectedSkill = useCallback(
-    (name: string) => {
-      const selected = catalog.find((skill) => skill.name === name);
-      if (!selectedSkills.includes(name)) {
-        return;
-      }
-      onSelectedSkillsChange(selectedSkills.filter((skill) => skill !== name));
-      setActionAnnouncement(`${selected?.displayName ?? name} removed.`);
-      textareaRef.current?.focus({ preventScroll: true });
-    },
-    [catalog, onSelectedSkillsChange, selectedSkills, textareaRef],
-  );
-
   const handleTextChange = useCallback(
     (event: SyntheticEvent<HTMLTextAreaElement>) => {
       const { selectionEnd, selectionStart, value } = event.currentTarget;
       setActionAnnouncement(null);
-      onTextChange(value);
+      const normalizedText = normalizeInlineSkillSpacing(value, selectedSkills);
+      onTextChange(normalizedText);
       updateTrigger(
-        value,
-        selectionStart ?? value.length,
-        selectionEnd ?? value.length,
+        normalizedText,
+        selectionStart ?? normalizedText.length,
+        selectionEnd ?? normalizedText.length,
       );
     },
-    [onTextChange, updateTrigger],
+    [onTextChange, selectedSkills, updateTrigger],
   );
 
   const handleTextareaSelect = useCallback(
@@ -344,7 +350,6 @@ export function useSkillPicker({
     isOpen,
     listboxId,
     query: trigger?.query ?? "",
-    removeSelectedSkill,
     results,
     selectSkill,
     setActiveIndex,

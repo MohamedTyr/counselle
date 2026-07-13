@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { useEffect, useRef, type RefObject } from "react";
 import type React from "react";
 
@@ -56,22 +57,22 @@ export function SkillPicker({
         <PopoverPopup
           align="start"
           anchor={anchorRef}
-          className="w-[min(30rem,var(--anchor-width),calc(100vw-2rem))] [--popup-height:min(18rem,var(--available-height))] motion-reduce:transform-none motion-reduce:transition-none"
+          className="w-[min(var(--workspace-skill-picker-popup-width),var(--anchor-width),calc(100vw-2rem))] [--popup-height:min(16rem,var(--available-height))] motion-reduce:transform-none motion-reduce:transition-none"
           finalFocus={false}
           initialFocus={false}
           positionerClassName="max-w-[min(var(--anchor-width),calc(100vw-2rem))] motion-reduce:transition-none"
           side="top"
           sideOffset={8}
         >
-          <div className="flex min-h-0 flex-col gap-2" data-slot="skill-picker">
+          <div className="-mx-2.5 -my-2.5 flex min-h-0 flex-col" data-slot="skill-picker">
             <div
               aria-label="Skills"
-              className="max-h-52 overflow-y-auto"
+              className="flex max-h-52 flex-col gap-1.5 overflow-y-auto"
               id={listboxId}
               role="listbox"
             >
               {results.length === 0 ? (
-                <p className="px-2 py-3 text-sm text-muted-foreground">
+                <p className="px-2.5 py-3 text-[13px] text-[var(--workspace-dropdown-foreground)]">
                   No skills match “{query}”.
                 </p>
               ) : (
@@ -81,11 +82,14 @@ export function SkillPicker({
                   return (
                     <div
                       aria-disabled={selected || undefined}
-                      aria-selected={active}
+                      aria-selected={selected}
+                      data-active={active ? "" : undefined}
                       className={cn(
-                        "flex cursor-pointer flex-col gap-0.5 rounded-md px-2 py-2 outline-none transition-colors",
-                        active && "bg-accent text-accent-foreground",
-                        selected && "cursor-default opacity-60",
+                        "flex min-h-12 cursor-pointer flex-col gap-1 rounded-md border border-transparent px-2.5 py-2 text-[var(--workspace-dropdown-foreground)] outline-none transition-colors duration-150",
+                        active &&
+                          "text-[var(--workspace-composer-sources-foreground)] [&_[data-slot=skill-picker-meta]]:text-[var(--workspace-composer-sources-foreground)]",
+                        selected &&
+                          "cursor-default bg-[var(--workspace-composer-skill-surface)]",
                       )}
                       id={`${listboxId}-${skill.name}`}
                       key={skill.name}
@@ -105,26 +109,32 @@ export function SkillPicker({
                       }}
                       role="option"
                     >
-                      <span className="flex items-baseline justify-between gap-3 text-sm font-medium">
+                      <span className="flex min-w-0 items-center justify-between gap-2 text-[12px] font-medium leading-4">
                         <span className="truncate">{skill.displayName}</span>
-                        <span className="shrink-0 font-normal text-muted-foreground">
-                          @{skill.name}
-                        </span>
+                        {selected ? (
+                          <Check
+                            aria-label="Selected"
+                            className="size-3.5 shrink-0 text-[var(--workspace-composer-sources-foreground)]"
+                          />
+                        ) : (
+                          <span
+                            className="max-w-32 shrink-0 truncate font-mono text-[10px] font-normal leading-4 text-[var(--workspace-muted-foreground)]"
+                            data-slot="skill-picker-meta"
+                          >
+                            @{skill.name}
+                          </span>
+                        )}
                       </span>
-                      <span className="line-clamp-1 text-xs text-muted-foreground">
-                        {selected ? "Added" : skill.description}
+                      <span
+                        className="line-clamp-1 text-[11px] leading-4 text-[var(--workspace-muted-foreground)]"
+                        data-slot="skill-picker-meta"
+                      >
+                        {skill.description}
                       </span>
                     </div>
                   );
                 })
               )}
-            </div>
-            <div className="hidden border-t border-border pt-2 text-xs text-muted-foreground md:flex md:items-center md:gap-1">
-              <span>↑↓ Navigate</span>
-              <span aria-hidden="true">·</span>
-              <span>Enter Select</span>
-              <span aria-hidden="true">·</span>
-              <span>Esc Close</span>
             </div>
           </div>
         </PopoverPopup>

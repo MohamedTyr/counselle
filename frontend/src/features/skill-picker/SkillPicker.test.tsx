@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { useRef, useState, type KeyboardEvent } from "react";
 
 import type { SkillCatalogEntry } from "@/api/chat/types";
-import { SelectedSkillChips } from "@/features/skill-picker/SelectedSkillChips";
 import { SkillPicker } from "@/features/skill-picker/SkillPicker";
 import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
 
@@ -79,11 +78,7 @@ function Harness({
         Add a skill
       </button>
       <output aria-label="Sent count">{sends}</output>
-      <SelectedSkillChips
-        catalog={catalog}
-        onRemove={picker.removeSelectedSkill}
-        selectedSkills={selectedSkills}
-      />
+      <output aria-label="Selected skills">{selectedSkills.join(",")}</output>
       <SkillPicker
         activeIndex={picker.activeIndex}
         anchorRef={textareaRef}
@@ -130,12 +125,11 @@ describe("SkillPicker", () => {
     expect(screen.getByRole("listbox", { name: "Skills" })).toBeInTheDocument();
     expect(
       screen.getByRole("option", { name: /school comparison/i }),
-    ).toHaveAttribute("aria-selected", "true");
+    ).toHaveAttribute("data-active");
 
     await user.keyboard("{Enter}");
 
-    expect(screen.getByText("School comparison")).toBeInTheDocument();
-    expect(textarea).toHaveValue("");
+    expect(textarea).toHaveValue("@school-comparison  ");
     expect(screen.getByLabelText("Sent count")).toHaveTextContent("0");
     await waitFor(() => expect(textarea).toHaveFocus());
   });
@@ -174,7 +168,7 @@ describe("SkillPicker", () => {
       screen.getByRole("option", { name: /school comparison/i }),
     );
     await waitFor(() => expect(textarea).toHaveFocus());
-    expect(screen.getByText("School comparison")).toBeInTheDocument();
+    expect(textarea).toHaveValue("@school-comparison  ");
 
     await user.type(textarea, "@school");
     expect(
@@ -183,7 +177,49 @@ describe("SkillPicker", () => {
     fireEvent.pointerDown(
       screen.getByRole("option", { name: /school comparison/i }),
     );
-    expect(screen.getAllByText("School comparison")).toHaveLength(2);
+    expect(textarea).toHaveValue("@school-comparison  @school");
+  });
+
+  it("keeps a selected skill when its inline mention is followed by punctuation", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const textarea = screen.getByRole("combobox", {
+      name: "Message Counselle",
+    });
+
+    await user.click(textarea);
+    await user.type(textarea, "@school");
+    await user.keyboard("{Enter}");
+    fireEvent.change(textarea, {
+      target: { value: "@school-comparison," },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Selected skills")).toHaveTextContent(
+        "school-comparison",
+      ),
+    );
+  });
+
+  it("keeps a selected skill while text is inserted immediately before its mention", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const textarea = screen.getByRole("combobox", {
+      name: "Message Counselle",
+    }) as HTMLTextAreaElement;
+
+    await user.click(textarea);
+    await user.type(textarea, "@school");
+    await user.keyboard("{Enter}");
+    textarea.setSelectionRange(0, 0);
+    fireEvent.select(textarea);
+    await user.type(textarea, "Compare ");
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Selected skills")).toHaveTextContent(
+        "school-comparison",
+      ),
+    );
   });
 
   it("inserts a trigger at a middle selection without losing surrounding text", async () => {
@@ -248,12 +284,12 @@ describe("SkillPicker", () => {
     await user.keyboard("{ArrowDown}");
     expect(
       screen.getByRole("option", { name: /school dossier/i }),
-    ).toHaveAttribute("aria-selected", "true");
+    ).toHaveAttribute("data-active");
 
     await user.type(textarea, "s");
     expect(
       screen.getByRole("option", { name: /school comparison/i }),
-    ).toHaveAttribute("aria-selected", "true");
+    ).toHaveAttribute("data-active");
   });
 
   it("removes the active-descendant reference when disabled", async () => {
@@ -271,7 +307,7 @@ describe("SkillPicker", () => {
     expect(textarea).not.toHaveAttribute("aria-activedescendant");
   });
 
-  it("announces the selection cap and lets a chip be removed", async () => {
+  it("announces the selection cap and clears a skill when its inline mention is deleted", async () => {
     const user = userEvent.setup();
     render(<Harness maxSelectedSkills={1} />);
     const textarea = screen.getByRole("combobox", {
@@ -287,13 +323,12 @@ describe("SkillPicker", () => {
     expect(
       screen.getByText("You can select up to 1 skills."),
     ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Remove School comparison" }),
-    );
-    expect(
-      screen.queryByRole("button", { name: "Remove School comparison" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText("School comparison removed.")).toBeInTheDocument();
+
+    await user.clear(textarea);
+    await user.type(textarea, "@dossier");
+    await user.keyboard("{Enter}");
+
+    expect(textarea).toHaveValue("@dossier-assembly  ");
   });
 
   it("uses an instant reduced-motion popup contract", async () => {

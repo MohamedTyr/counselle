@@ -1,5 +1,11 @@
 import { AtSign, Send, Square } from "lucide-react";
-import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +14,10 @@ import { cn } from "@/lib/utils";
 import type { SourceConfig } from "@/api/chat/types";
 import type { SkillCatalogEntry } from "@/api/chat/types";
 import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
-import { SelectedSkillChips } from "@/features/skill-picker/SelectedSkillChips";
+import {
+  hasInlineSkillMention,
+  InlineSkillMentionLayer,
+} from "@/features/skill-picker/InlineSkillMentionLayer";
 import { SkillPicker } from "@/features/skill-picker/SkillPicker";
 import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
 
@@ -43,6 +52,7 @@ export function AiComposer({
   onSelectedSkillsChange = () => undefined,
   maxSelectedSkills = 0,
 }: AiComposerProps) {
+  const [textareaScrollTop, setTextareaScrollTop] = useState(0);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 74,
     maxHeight: 220,
@@ -59,6 +69,7 @@ export function AiComposer({
     disabled: disabled || isSubmitting || maxSelectedSkills === 0,
   });
   const canSubmit = value.trim().length > 0 && !isSubmitting && !disabled;
+  const hasSkillMention = hasInlineSkillMention(value, selectedSkills);
 
   useEffect(() => {
     adjustHeight(value.length === 0);
@@ -93,37 +104,43 @@ export function AiComposer({
         ref={composerRef}
         className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground shadow-[0_1px_2px_color-mix(in_oklch,var(--shell-background)_60%,transparent)] transition-colors focus-within:border-[var(--workspace-composer-border-active)]"
       >
-        <SelectedSkillChips
-          catalog={skills}
-          disabled={disabled || isSubmitting}
-          onRemove={picker.removeSelectedSkill}
-          selectedSkills={selectedSkills}
-        />
-        <Textarea
-          aria-activedescendant={picker.activeOptionId}
-          aria-autocomplete="list"
-          aria-controls={picker.isOpen ? picker.listboxId : undefined}
-          aria-expanded={picker.isOpen}
-          aria-label="Message Counselle"
-          role="combobox"
-          unstyled
-          className={cn(
-            "block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)] [&_[data-slot=textarea]]:pb-3 [&_[data-slot=textarea]]:text-[var(--workspace-composer-input-foreground)] [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
+        <div className="relative">
+          {hasSkillMention && (
+            <InlineSkillMentionLayer
+              scrollTop={textareaScrollTop}
+              selectedSkills={selectedSkills}
+              value={value}
+            />
           )}
-          disabled={disabled}
-          onChange={(event) => {
-            picker.handleTextChange(event);
-            adjustHeight();
-          }}
-          onCompositionEnd={picker.handleCompositionEnd}
-          onCompositionStart={picker.handleCompositionStart}
-          onKeyDown={handleKeyDown}
-          onSelect={picker.handleTextareaSelect}
-          placeholder="Message Counselle"
-          ref={textareaRef}
-          style={{ resize: "none" }}
-          value={value}
-        />
+          <Textarea
+            aria-activedescendant={picker.activeOptionId}
+            aria-autocomplete="list"
+            aria-controls={picker.isOpen ? picker.listboxId : undefined}
+            aria-expanded={picker.isOpen}
+            aria-label="Message Counselle"
+            role="combobox"
+            unstyled
+            className={cn(
+              "relative block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:pb-3 [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
+              "[&_[data-slot=textarea]]:text-[var(--workspace-composer-input-foreground)]",
+              "[&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)]",
+            )}
+            disabled={disabled}
+            onChange={(event) => {
+              picker.handleTextChange(event);
+              adjustHeight();
+            }}
+            onCompositionEnd={picker.handleCompositionEnd}
+            onCompositionStart={picker.handleCompositionStart}
+            onKeyDown={handleKeyDown}
+            onScroll={(event) => setTextareaScrollTop(event.currentTarget.scrollTop)}
+            onSelect={picker.handleTextareaSelect}
+            placeholder="Message Counselle"
+            ref={textareaRef}
+            style={{ resize: "none" }}
+            value={value}
+          />
+        </div>
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
           <div className="flex flex-wrap items-center gap-1.5">

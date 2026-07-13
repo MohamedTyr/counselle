@@ -189,6 +189,48 @@ export function removeSkillTrigger(
   return { text: replacement.text, caret: replacement.selection.start };
 }
 
+/** Replaces the active query with a completed inline skill mention. */
+export function replaceSkillTrigger(
+  text: string,
+  trigger: SkillTrigger,
+  skillName: string,
+): Readonly<{ text: string; caret: number }> {
+  const start = clampSelectionIndex(trigger.start, text.length);
+  const end = clampSelectionIndex(trigger.end, text.length);
+  const tokenStart = Math.min(start, end);
+  const tokenEnd = Math.max(start, end);
+  const prefix = text.slice(0, tokenStart);
+  const leadingGap = prefix.length > 0 && /\s$/.test(prefix) ? " " : "";
+  const mention = `${leadingGap}@${skillName}  `;
+
+  return {
+    text: `${prefix}${mention}${text.slice(tokenEnd)}`,
+    caret: prefix.length + mention.length,
+  };
+}
+
+/** Keeps selected inline mentions visually separated from adjacent words. */
+export function normalizeInlineSkillSpacing(
+  text: string,
+  selectedSkills: readonly string[],
+) {
+  return [...selectedSkills]
+    .sort((left, right) => right.length - left.length)
+    .reduce((normalizedText, skillName) => {
+      const escapedName = skillName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const mention = `@${escapedName}`;
+      const withTrailingGap = normalizedText.replace(
+        new RegExp(`(${mention})(?=[A-Za-z0-9])`, "g"),
+        "$1  ",
+      );
+
+      return withTrailingGap.replace(
+        new RegExp(`([^\\s])(${mention})(?=$|[^A-Za-z0-9-])`, "g"),
+        "$1  $2",
+      );
+    }, text);
+}
+
 /**
  * Inserts a new trigger at the selection.  When the caret is already in a
  * valid `@query`, it replaces the entire query rather than duplicating it.
@@ -246,12 +288,4 @@ export function selectSkill(
   }
 
   return { selected: [...selected, skillName], outcome: "added" };
-}
-
-/** Removes every occurrence defensively, returning a fresh immutable value. */
-export function removeSelectedSkill(
-  selected: readonly string[],
-  skillName: string,
-): string[] {
-  return selected.filter((selectedName) => selectedName !== skillName);
 }

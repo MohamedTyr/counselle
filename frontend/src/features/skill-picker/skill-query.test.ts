@@ -6,9 +6,10 @@ import {
   getActiveSkillQuery,
   insertSkillTrigger,
   insertSkillTriggerAtSelection,
+  normalizeInlineSkillSpacing,
   removeActiveSkillQuery,
   removeSkillTrigger,
-  removeSelectedSkill,
+  replaceSkillTrigger,
   rankSkills,
   selectSkill,
   type SkillCatalogEntryLike,
@@ -123,6 +124,27 @@ describe("text edits", () => {
     });
   });
 
+  test("replaces an active query with an inline mention and trailing boundary", () => {
+    const text = "Compare @school";
+    const active = getActiveSkillQuery(text, {
+      start: text.length,
+      end: text.length,
+    });
+
+    expect(replaceSkillTrigger(text, active!, "school-comparison")).toEqual({
+      text: "Compare  @school-comparison  ",
+      caret: 29,
+    });
+  });
+
+  test("keeps selected mentions separated from adjacent words", () => {
+    expect(
+      normalizeInlineSkillSpacing("hi@school-comparisonthere", [
+        "school-comparison",
+      ]),
+    ).toBe("hi  @school-comparison  there");
+  });
+
   test("inserts at a middle selection while preserving text on both sides", () => {
     expect(insertSkillTrigger("Compare Duke and Northwestern", 8, 12)).toEqual({
       text: "Compare @ and Northwestern",
@@ -173,15 +195,16 @@ describe("selected skill helpers", () => {
     expect(original).toEqual(["school-comparison"]);
   });
 
-  test("adds and removes immutable selected names", () => {
+  test("adds a selected name immutably", () => {
     const selected = selectSkill(["school-comparison"], "dossier-assembly", 3);
 
     expect(selected).toEqual({
       selected: ["school-comparison", "dossier-assembly"],
       outcome: "added",
     });
-    expect(removeSelectedSkill(selected.selected, "school-comparison")).toEqual(
-      ["dossier-assembly"],
-    );
+    expect(selected.selected).toEqual([
+      "school-comparison",
+      "dossier-assembly",
+    ]);
   });
 });

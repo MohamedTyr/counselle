@@ -259,14 +259,18 @@ describe("AiComposerRoute", () => {
     await user.type(textarea, "Compare @school");
     await screen.findByRole("listbox", { name: "Skills" });
     await user.keyboard("{Enter}");
-    expect(await screen.findByText("School comparison")).toBeInTheDocument();
+    expect(textarea).toHaveValue("Compare  @school-comparison  ");
+    expect(screen.getByText("@school-comparison")).toHaveAttribute(
+      "data-slot",
+      "inline-skill-mention",
+    );
 
     await user.type(textarea, "Duke and Northwestern{Enter}");
     await waitFor(() =>
       expect(
         requests.find((request) => request.url.endsWith("/messages"))?.body,
       ).toMatchObject({
-        text: "Compare Duke and Northwestern",
+        text: "Compare  @school-comparison  Duke and Northwestern",
         skills: ["school-comparison"],
       }),
     );
