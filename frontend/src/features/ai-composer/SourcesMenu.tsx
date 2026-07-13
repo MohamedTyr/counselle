@@ -47,10 +47,6 @@ export function SourcesMenu({
   onSourceConfigChange,
   sourceConfig,
 }: SourcesMenuProps) {
-  const enabledSourceCount = sourceOptions.filter(
-    (source) => sourceConfig[source.key],
-  ).length;
-
   function toggleSource(key: SourceKey) {
     onSourceConfigChange({ ...sourceConfig, [key]: !sourceConfig[key] });
   }
@@ -81,9 +77,6 @@ export function SourcesMenu({
       >
         <Search data-icon="inline-start" />
         <span>Sources</span>
-        <span className="inline-flex size-3.5 shrink-0 items-center justify-center rounded-full bg-[var(--workspace-surface-active)] text-[9px] font-medium leading-none tabular-nums text-[var(--workspace-composer-sources-foreground)]">
-          <span className="translate-y-px">{enabledSourceCount}</span>
-        </span>
         <ChevronDown data-icon="inline-end" />
       </MenuTrigger>
       <MenuPopup align="start" className="w-72 px-1 py-1.5" side="top" sideOffset={8}>
