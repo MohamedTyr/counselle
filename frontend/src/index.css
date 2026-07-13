@@ -80,6 +80,17 @@
   --workspace-muted-foreground: #969593;
   --workspace-surface: #1b1a19;
   --workspace-surface-raised: #211f1d;
+  --profile-section-surface: var(--workspace-surface-raised);
+  --profile-section-border: var(--workspace-border);
+  --profile-section-divider: var(--workspace-border-soft);
+  --profile-field-surface: var(--workspace-composer-control-surface);
+  --profile-field-border: var(--workspace-composer-control-border);
+  --profile-field-hover-border: var(--workspace-composer-control-hover-border);
+  --profile-field-focus-border: var(--workspace-composer-border-active);
+  --profile-field-label: var(--workspace-foreground-soft);
+  --profile-field-helper: var(--workspace-muted-foreground);
+  --profile-control-selected-surface: var(--workspace-surface-active);
+  --profile-control-selected-border: var(--workspace-border);
   --workspace-composer-surface: #1e1d1c;
   --workspace-composer-border: #383736;
   --workspace-composer-border-active: #434240;

@@ -1,10 +1,16 @@
-import type { SectionConfig } from "@/features/profile/profile-field-types"
+import type { SectionConfig } from "@/features/profile/profile-field-types";
 
 function summarize(item: Record<string, unknown>, ...keys: string[]): string {
   const parts = keys
     .map((key) => item[key])
-    .filter((value): value is string | number => value !== null && value !== undefined && value !== "")
-  return parts.length > 0 ? parts.join(" — ") : "New entry"
+    .filter(
+      (value): value is string | number =>
+        value !== null && value !== undefined && value !== "",
+    )
+    .map((value) =>
+      typeof value === "string" ? value.replaceAll("_", " ") : value,
+    );
+  return parts.length > 0 ? parts.join(" — ") : "New entry";
 }
 
 export const PROFILE_SECTIONS: readonly SectionConfig[] = [
@@ -28,7 +34,13 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
           { label: "Other", value: "other" },
         ],
       },
-      { kind: "int", key: "graduation_year", label: "Graduation year" },
+      {
+        kind: "int",
+        key: "graduation_year",
+        label: "Graduation year",
+        min: 2000,
+        max: 2100,
+      },
       {
         kind: "object",
         key: "high_school",
@@ -62,11 +74,23 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Academics",
     description: "Grades, rigor, and how your record reads.",
     fields: [
-      { kind: "decimal", key: "gpa_unweighted", label: "GPA (unweighted)" },
-      { kind: "decimal", key: "gpa_weighted", label: "GPA (weighted)" },
-      { kind: "decimal", key: "gpa_scale", label: "GPA scale" },
-      { kind: "int", key: "class_rank", label: "Class rank" },
-      { kind: "int", key: "class_size", label: "Class size" },
+      {
+        kind: "decimal",
+        key: "gpa_unweighted",
+        label: "GPA (unweighted)",
+        min: 0,
+        help: "Use the scale your school reports.",
+      },
+      { kind: "decimal", key: "gpa_weighted", label: "GPA (weighted)", min: 0 },
+      {
+        kind: "decimal",
+        key: "gpa_scale",
+        label: "GPA scale",
+        min: 0,
+        help: "For example, 4.0 or 5.0.",
+      },
+      { kind: "int", key: "class_rank", label: "Class rank", min: 1 },
+      { kind: "int", key: "class_size", label: "Class size", min: 1 },
       { kind: "boolean", key: "school_ranks", label: "School ranks students" },
       {
         kind: "object",
@@ -106,9 +130,9 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
         key: "sat",
         label: "SAT",
         fields: [
-          { kind: "int", key: "total", label: "Total" },
-          { kind: "int", key: "ebrw", label: "EBRW" },
-          { kind: "int", key: "math", label: "Math" },
+          { kind: "int", key: "total", label: "Total", min: 400, max: 1600 },
+          { kind: "int", key: "ebrw", label: "EBRW", min: 200, max: 800 },
+          { kind: "int", key: "math", label: "Math", min: 200, max: 800 },
           { kind: "date", key: "date", label: "Date" },
         ],
       },
@@ -117,7 +141,13 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
         key: "act",
         label: "ACT",
         fields: [
-          { kind: "int", key: "composite", label: "Composite" },
+          {
+            kind: "int",
+            key: "composite",
+            label: "Composite",
+            min: 1,
+            max: 36,
+          },
           { kind: "date", key: "date", label: "Date" },
         ],
       },
@@ -126,7 +156,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
         key: "psat",
         label: "PSAT",
         fields: [
-          { kind: "int", key: "total", label: "Total" },
+          { kind: "int", key: "total", label: "Total", min: 320, max: 1520 },
           { kind: "text", key: "nmsqt_status", label: "NMSQT status" },
         ],
       },
@@ -136,8 +166,20 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
         label: "IB",
         fields: [
           { kind: "text", key: "programme", label: "Programme" },
-          { kind: "decimal", key: "predicted", label: "Predicted score" },
-          { kind: "decimal", key: "final", label: "Final score" },
+          {
+            kind: "decimal",
+            key: "predicted",
+            label: "Predicted score",
+            min: 0,
+            max: 45,
+          },
+          {
+            kind: "decimal",
+            key: "final",
+            label: "Final score",
+            min: 0,
+            max: 45,
+          },
         ],
       },
       {
@@ -168,7 +210,14 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
         addLabel: "Add AP score",
         itemFields: [
           { kind: "text", key: "subject", label: "Subject", required: true },
-          { kind: "int", key: "score", label: "Score", required: true },
+          {
+            kind: "int",
+            key: "score",
+            label: "Score",
+            min: 1,
+            max: 5,
+            required: true,
+          },
         ],
         itemSummary: (item) => summarize(item, "subject", "score"),
       },
@@ -412,13 +461,18 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
           { kind: "text", key: "name", label: "Name", required: true },
           { kind: "text", key: "role_or_subject", label: "Role / subject" },
           { kind: "text", key: "why_them", label: "Why them" },
+          { kind: "boolean", key: "asked", label: "Asked?" },
         ],
         itemSummary: (item) => summarize(item, "name", "role_or_subject"),
       },
-      { kind: "textarea", key: "counselor_context", label: "Counselor context" },
+      {
+        kind: "textarea",
+        key: "counselor_context",
+        label: "Counselor context",
+      },
       { kind: "textarea", key: "family_stance", label: "Family stance" },
       { kind: "textarea", key: "other_support", label: "Other support" },
       { kind: "textarea", key: "notes", label: "Notes" },
     ],
   },
-]
+];
