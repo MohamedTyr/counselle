@@ -128,7 +128,7 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
     ),
     (
         "render_viz",
-        {"type": "comparison_table", "unitids": [198419, 221999]},
+        {"type": "comparison_table", "columns": [{"unitid": 198419}, {"unitid": 221999}]},
         "viz",
         None,
         ["comparison table"],
@@ -498,7 +498,7 @@ def test_detail_for_db_tool_kind(mapper: StepMapper) -> None:
 def test_detail_for_viz_kind(mapper: StepMapper) -> None:
     detail = mapper.detail_for(
         "render_viz",
-        {"type": "comparison_table", "unitids": [221999]},
+        {"type": "comparison_table", "columns": [{"unitid": 221999}]},
         {"ok": True, "public_receipt": {"value_count": 3}},
         10,
     )

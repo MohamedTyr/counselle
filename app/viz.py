@@ -1,315 +1,500 @@
-"""The ``render_viz`` tool — the LLM picks the shape, this tool fetches cited values.
+"""Transactional resolver for the two verified visualization value channels."""
 
-ADR 0014 / ARCHITECTURE §17 (Slice D). The provenance boundary lives here:
-every cell is a :class:`CitationEnvelope` fetched **directly in-process** from
-``counselle_db.service`` (eng-review D2 — never through the MCP child). The
-built :class:`RenderSpec` is appended to the state-owned ``viz_emitted`` list
-(streamed to the client as a ``viz`` event); the LLM receives a compact table
-of display strings with citation markers so nearby prose can cite exactly what
-the visualization shows.
-"""
+from __future__ import annotations
 
-from typing import Any, Literal
+from difflib import SequenceMatcher
+from typing import Any
 
 import structlog
 
+from app.caveats import render_caveat
 from app.sources import SourceRegistry
 from app.viz_signature import render_spec_signature, viz_payload_signature
+from config.settings import get_settings
 from counselle_db.catalog import Catalog
-from counselle_db.models import ResolvedSchool, ServiceError
-from counselle_db.service import get_domain, resolve_school
+from counselle_db.models import DomainResult, ProfileGroupResult, ProfileLeaf, ServiceError
+from counselle_db.service import get_domain, get_school_profile
 from domain.envelope import Citation, CitationEnvelope, EvidenceItem
-from domain.specs import RenderSpec, SchoolRef, VizRow
+from domain.specs import (
+    ColumnInput,
+    MetricCellInput,
+    ProfileCellInput,
+    SchoolRef,
+    SourcedCellInput,
+    TabularRenderSpec,
+    UnavailableCellInput,
+    VizRow,
+    VizRowInput,
+)
 
 logger = structlog.get_logger(__name__)
-
-VizType = Literal["stat_block", "comparison_table"]
-
-
-async def _school_ref(catalog: Catalog, unitid: int) -> SchoolRef:
-    """Resolve a unitid to a named SchoolRef; unknown unitid → ServiceError."""
-    result = await resolve_school(catalog, str(unitid))
-    if not isinstance(result, ResolvedSchool):
-        raise ServiceError(f"unitid {unitid} is not in our database")
-    return SchoolRef(unitid=unitid, name=result.school.name)
+VizType = str
+_KNOWN_TYPES = {"stat_block", "comparison_table"}
 
 
-async def _domains(catalog: Catalog, unitids: list[int]) -> dict[int, str | None]:
-    """Map each unitid → its website host, in ONE batched query.
-
-    Best-effort and never fatal: a school with no website (or a website we can't
-    parse to a host) maps to ``None``, and any DB hiccup degrades the whole map to
-    empty — a viz without logos still renders. Logos are decoration, never data.
-    """
-    if not unitids:
-        return {}
-    return {unitid: catalog.school_domain(unitid) for unitid in unitids}
+def _defect(row: int, col: int, reason: str) -> dict[str, Any]:
+    return {"row": row, "col": col, "reason": reason}
 
 
-async def _envelopes(catalog: Catalog, unitid: int, refs: list[str]) -> list[CitationEnvelope]:
-    by_domain: dict[str, list[str]] = {}
-    for ref in refs:
-        if ref.count(".") != 1:
-            raise ServiceError(f"invalid qualified metric ref: {ref}")
-        by_domain.setdefault(ref.split(".", 1)[0], []).append(ref)
-    found: dict[str, CitationEnvelope] = {}
-    for domain_id, wanted in by_domain.items():
-        result = await get_domain(catalog, unitid, domain_id)
-        for row in result.rows:
-            if row.ref in wanted:
-                available = bool(row.available)
-                citation = (
-                    Citation(
-                        source="cds",
-                        tier="official",
-                        vintage=row.vintage,
-                        document_sha256=result.document_sha256,
-                        source_kind=result.source_kind,
-                        retrieved_at=result.retrieved_at,
-                        academic_year=result.academic_year,
-                        manifest_version=result.manifest_version,
-                        school_unitid=result.school.unitid,
-                    )
-                    if available
-                    else None
-                )
-                found[row.ref] = CitationEnvelope(
-                    field=row.ref,
-                    label=row.label,
-                    display=row.display if available and row.display else "not available",
-                    raw=(
-                        row.value
-                        if available and isinstance(row.value, (str, int, float, bool))
-                        else None
-                    ),
-                    available=available,
-                    citation=citation,
-                    evidence=(EvidenceItem.model_validate(row.evidence) if available else None),
-                )
-    return [found[ref] for ref in refs if ref in found]
+def _suggest(value: str, choices: list[str]) -> str:
+    ranked = sorted(
+        choices,
+        key=lambda item: (-SequenceMatcher(None, value, item).ratio(), item),
+    )[:3]
+    return f" — did you mean {', '.join(repr(item) for item in ranked)}?" if ranked else ""
 
 
-def _with_domains(schools: list[SchoolRef], domains: dict[int, str | None]) -> list[SchoolRef]:
-    """Attach each school's website host (immutably) so the client can show a logo."""
-    return [school.model_copy(update={"domain": domains.get(school.unitid)}) for school in schools]
-
-
-async def _comparison_spec(
-    catalog: Catalog, unitids: list[int], field_keys: list[str] | None, title: str | None
-) -> RenderSpec:
-    if not field_keys:
-        raise ServiceError("comparison_table needs field_keys — pick the fields that matter here")
-    schools = [await _school_ref(catalog, unitid) for unitid in unitids]
-    schools = _with_domains(schools, await _domains(catalog, [s.unitid for s in schools]))
-    matrices = [await _envelopes(catalog, unitid, field_keys) for unitid in unitids]
-    rows = [
-        VizRow(label=ref, cells=[cells[index] for cells in matrices if len(cells) > index])
-        for index, ref in enumerate(field_keys)
-    ]
+def _validate_shape(
+    type: str, columns: list[ColumnInput], rows: list[VizRowInput]
+) -> list[dict[str, Any]]:
+    defects: list[dict[str, Any]] = []
+    if type not in _KNOWN_TYPES:
+        return [_defect(0, 0, f"unsupported tabular visualization type {type!r}")]
+    if not columns:
+        defects.append(_defect(0, 0, "render_viz needs at least one column"))
     if not rows:
-        raise ServiceError("no valid manifest refs were returned")
-    return RenderSpec(
-        type="comparison_table",
-        title=title or " vs ".join(school.name for school in schools),
-        schools=schools,
-        rows=rows,
-    )
+        defects.append(_defect(0, 0, "render_viz needs at least one row"))
+    if type == "stat_block" and len(columns) != 1:
+        defects.append(_defect(0, 0, "stat_block requires exactly one column"))
+    if type == "comparison_table" and len(columns) < 2:
+        defects.append(_defect(0, 0, "comparison_table requires at least two columns"))
+    for row_index, row in enumerate(rows):
+        if not row.label.strip():
+            defects.append(_defect(row_index, 0, "row label must be nonblank"))
+        if len(row.cells) != len(columns):
+            defects.append(
+                _defect(
+                    row_index,
+                    0,
+                    f"row has {len(row.cells)} cells but {len(columns)} columns",
+                )
+            )
+    return defects
 
 
-async def _stat_block_spec(
-    catalog: Catalog, unitids: list[int], field_keys: list[str] | None, title: str | None
-) -> RenderSpec:
-    if not field_keys:
-        raise ServiceError("stat_block needs field_keys — pick the fields that matter here")
-    unitid = unitids[0]  # a stat block is one school (ADR 0014)
-    school = await _school_ref(catalog, unitid)
-    school = _with_domains([school], await _domains(catalog, [unitid]))[0]
-    envelopes = await _envelopes(catalog, unitid, field_keys)
-    rows = [VizRow(label=env.label, cells=[env]) for env in envelopes]
-    if not rows:
-        raise ServiceError("no valid manifest refs were returned")
-    return RenderSpec(
-        type="stat_block",
-        title=title or f"{school.name} — key facts",
-        schools=[school],
-        rows=rows,
-    )
-
-
-async def _build_spec(
-    catalog: Catalog,
-    type: VizType,
-    unitids: list[int],
-    field_keys: list[str] | None,
-    title: str | None,
-) -> RenderSpec:
-    _validate_viz_request(type, unitids, field_keys)
-    if type == "comparison_table":
-        return await _comparison_spec(catalog, unitids, field_keys, title)
-    if type == "stat_block":
-        return await _stat_block_spec(catalog, unitids, field_keys, title)
-    raise ServiceError(f"unknown viz type: {type!r}")
-
-
-def _validate_viz_request(
-    type: VizType | str, unitids: list[int], field_keys: list[str] | None
-) -> None:
-    if not unitids:
-        raise ServiceError("render_viz needs at least one unitid")
-    if type in {"comparison_table", "stat_block"} and not field_keys:
-        raise ServiceError(f"{type} needs field_keys — pick the fields that matter here")
-    if type not in {"comparison_table", "stat_block"}:
-        raise ServiceError(f"unknown viz type: {type!r}")
-
-
-def _viz_result_from_spec(
-    spec: RenderSpec, registry: SourceRegistry
-) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    cells = [cell for row in spec.rows for cell in row.cells]
-    n_available = sum(1 for cell in cells if cell.available)
-    if n_available == 0:
-        return (
-            {
-                "ok": False,
-                "status": "error",
-                "summary": "No values available for this visualization.",
-                "error": "no values available for this visualization — tell the student "
-                "honestly that this data is not available; do not invent values",
-                "public_receipt": {
-                    "viz_type": spec.type,
-                    "value_count": 0,
-                    "schools": [school.name for school in spec.schools],
-                },
-            },
-            None,
-        )
-    cell_markers: list[str] = []
-    markers: set[int] = set()
-    for cell in cells:
-        if not cell.available or cell.citation is None:
-            cell_markers.append("")
+def _validate_column_identities(columns: list[ColumnInput]) -> list[dict[str, Any]]:
+    """Reject duplicate identities without consulting the catalog or sources."""
+    defects: list[dict[str, Any]] = []
+    db_ids: set[int] = set()
+    web_names: set[str] = set()
+    for col, column in enumerate(columns):
+        if column.unitid is not None:
+            if column.unitid in db_ids:
+                defects.append(_defect(0, col, f"duplicate database unitid {column.unitid}"))
+            db_ids.add(column.unitid)
             continue
-        index = registry.register(cell.citation, cell.citation.vintage)
-        markers.add(index)
-        cell_markers.append(f"[{index}]")
-    sources = [f"[{index}]" for index in sorted(markers)]
-    result_for_agent = _result_for_agent(spec, cell_markers)
-    return (
-        {
-            "ok": True,
-            "status": "success",
-            "summary": f"{spec.type} rendered with {n_available} cited values",
-            "viz": f"{spec.type} rendered with {n_available} values",
-            "sources": sources,
-            "result_for_agent": result_for_agent,
-            "public_receipt": {
-                "viz_type": spec.type,
-                "value_count": n_available,
-                "schools": [school.name for school in spec.schools],
-                "sources": sources,
-            },
-        },
-        spec.model_dump(mode="json"),
+        normalized_name = " ".join((column.name or "").casefold().split())
+        if normalized_name in web_names:
+            defects.append(
+                _defect(0, col, f"duplicate web-only identity {(column.name or '').strip()!r}")
+            )
+        web_names.add(normalized_name)
+    return defects
+
+
+def _resolve_columns(
+    catalog: Catalog, columns: list[ColumnInput]
+) -> tuple[list[SchoolRef | None], list[dict[str, Any]]]:
+    resolved: list[SchoolRef | None] = []
+    defects: list[dict[str, Any]] = []
+    for col, column in enumerate(columns):
+        if column.unitid is not None:
+            record = catalog.snapshot.schools.get(column.unitid)
+            if record is None:
+                defects.append(_defect(0, col, f"unitid {column.unitid} is not in our database"))
+                resolved.append(None)
+            else:
+                basics = record.basics
+                resolved.append(
+                    SchoolRef(
+                        unitid=basics.unitid,
+                        name=basics.name,
+                        domain=basics.official_domain,
+                    )
+                )
+        else:
+            name = (column.name or "").strip()
+            resolved.append(SchoolRef(unitid=None, name=name, domain=column.domain))
+    return resolved, defects
+
+
+def _metric_ref(catalog: Catalog, value: str) -> tuple[str, str] | None:
+    if value.count(".") != 1 or value not in catalog.snapshot.metrics:
+        return None
+    return tuple(value.split(".", 1))  # type: ignore[return-value]
+
+
+def _profile_ref(catalog: Catalog, value: str) -> tuple[str, str] | None:
+    if value.count(".") < 1:
+        return None
+    group, _ = value.split(".", 1)
+    return (group, value) if group in catalog.snapshot.profile_groups else None
+
+
+async def _fetch_groups(
+    catalog: Catalog,
+    schools: list[SchoolRef | None],
+    rows: list[VizRowInput],
+) -> tuple[
+    dict[tuple[int, str], DomainResult],
+    dict[tuple[int, str], ProfileGroupResult],
+]:
+    metric_groups: set[tuple[int, str]] = set()
+    profile_groups: set[tuple[int, str]] = set()
+    for row in rows:
+        for col, cell in enumerate(row.cells):
+            school = schools[col] if col < len(schools) else None
+            if school is None or school.unitid is None:
+                continue
+            if isinstance(cell, MetricCellInput) and (
+                parsed := _metric_ref(catalog, cell.metric_ref)
+            ):
+                metric_groups.add((school.unitid, parsed[0]))
+            elif isinstance(cell, ProfileCellInput) and (
+                parsed_profile := _profile_ref(catalog, cell.profile_field)
+            ):
+                profile_groups.add((school.unitid, parsed_profile[0]))
+    domains = {key: await get_domain(catalog, key[0], key[1]) for key in sorted(metric_groups)}
+    profiles = {
+        key: await get_school_profile(catalog, key[0], [key[1]]) for key in sorted(profile_groups)
+    }
+    return domains, profiles
+
+
+def _db_envelope(result: DomainResult, ref: str) -> CitationEnvelope | None:
+    row = next((item for item in result.rows if item.ref == ref), None)
+    if row is None or not row.available or row.display is None or row.evidence is None:
+        return None
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage=row.vintage,
+        document_sha256=result.document_sha256,
+        source_kind=result.source_kind,
+        retrieved_at=result.retrieved_at,
+        academic_year=result.academic_year,
+        manifest_version=result.manifest_version,
+        school_unitid=result.school.unitid,
+    )
+    evidence = EvidenceItem.model_validate(row.evidence)
+    return CitationEnvelope(
+        field=ref,
+        label=row.label,
+        display=row.display,
+        raw=row.value,
+        available=True,
+        citation=citation,
+        evidence=evidence,
+        caveats=tuple(
+            render_caveat(kind, edition=row.vintage)
+            if kind == "stale_edition"
+            else render_caveat(kind)
+            for kind in row.caveat_kinds
+        ),
     )
 
 
-def _result_for_agent(spec: RenderSpec, cell_markers: list[str]) -> dict[str, Any]:
-    marker_iter = iter(cell_markers)
-    return {
-        "type": spec.type,
-        "title": spec.title,
-        "schools": [{"unitid": school.unitid, "name": school.name} for school in spec.schools],
-        "rows": [
-            {
-                "label": row.label,
-                "cells": [
-                    {
-                        "school": spec.schools[index].name if index < len(spec.schools) else None,
-                        "field": cell.field,
-                        "label": cell.label,
-                        "display": cell.display,
-                        "available": cell.available,
-                        "marker": next(marker_iter),
-                    }
-                    for index, cell in enumerate(row.cells)
-                ],
-            }
-            for row in spec.rows
-        ],
+def _profile_envelope(result: ProfileGroupResult, ref: str) -> CitationEnvelope | None:
+    leaf = _profile_leaf(result, ref)
+    if leaf is None or not leaf.available or leaf.display is None:
+        return None
+    citation = Citation(
+        source="profile",
+        tier="official",
+        vintage=f"Profile snapshot {result.profile_snapshot_date.isoformat()}",
+        school_unitid=result.school.unitid,
+        profile_sha256=result.profile_sha256,
+    )
+    return CitationEnvelope(
+        field=ref,
+        label=leaf.label,
+        display=leaf.display,
+        raw=leaf.value,
+        available=True,
+        citation=citation,
+        caveats=(
+            render_caveat(
+                "profile_snapshot", snapshot_date=result.profile_snapshot_date.isoformat()
+            ),
+        ),
+    )
+
+
+def _profile_leaf(result: ProfileGroupResult, ref: str) -> ProfileLeaf | None:
+    return next((row for group in result.groups for row in group.rows if row.ref == ref), None)
+
+
+def _unavailable(label: str, ref: str | None = None) -> CitationEnvelope:
+    return CitationEnvelope(
+        field=ref,
+        label=label,
+        display="not available",
+        raw=None,
+        available=False,
+    )
+
+
+def _apply_mismatch(cells: list[CitationEnvelope]) -> list[CitationEnvelope]:
+    cds = [
+        cell for cell in cells if cell.available and cell.citation and cell.citation.source == "cds"
+    ]
+    identities = {
+        (cell.citation.academic_year, cell.citation.manifest_version)
+        for cell in cds
+        if cell.citation
     }
-
-
-def _placement_marker(index: int) -> str:
-    return f"[[viz:{index}]]"
+    if len(identities) <= 1:
+        return cells
+    editions = ", ".join(sorted({cell.citation.vintage for cell in cds if cell.citation}))
+    caveat = render_caveat("edition_mismatch_comparison", editions=editions)
+    return [
+        cell.model_copy(update={"caveats": (*cell.caveats, caveat)})
+        if cell in cds and caveat not in cell.caveats
+        else cell
+        for cell in cells
+    ]
 
 
 def _stage_render_spec(
     viz_emitted: list[dict[str, Any]],
-    spec: RenderSpec,
+    spec: TabularRenderSpec,
     signature_indexes: dict[str, int] | None = None,
-) -> str | None:
-    if not any(cell.available for row in spec.rows for cell in row.cells):
-        return None
-
+) -> str:
     signature = render_spec_signature(spec)
-    if signature_indexes is not None:
-        if index := signature_indexes.get(signature):
-            return _placement_marker(index)
-        viz_emitted.append(spec.model_dump(mode="json"))
-        index = len(viz_emitted)
-        signature_indexes[signature] = index
-        return _placement_marker(index)
-
+    if signature_indexes is not None and (index := signature_indexes.get(signature)):
+        return f"[[viz:{index}]]"
     for index, staged in enumerate(viz_emitted, start=1):
         if signature == viz_payload_signature(staged):
-            return _placement_marker(index)
-
+            return f"[[viz:{index}]]"
     viz_emitted.append(spec.model_dump(mode="json"))
-    return _placement_marker(len(viz_emitted))
+    index = len(viz_emitted)
+    if signature_indexes is not None:
+        signature_indexes[signature] = index
+    return f"[[viz:{index}]]"
 
 
 async def render_viz(
     catalog: Catalog,
     registry: SourceRegistry,
     viz_emitted: list[dict[str, Any]],
-    type: VizType,
-    unitids: list[int],
-    field_keys: list[str] | None = None,
+    type: str,
+    columns: list[ColumnInput],
+    rows: list[VizRowInput],
     title: str | None = None,
     viz_signature_indexes: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    """Render a visualization for the student with compact cited values.
+    """Compose a verified card after reading database/search results first.
 
-    You pick the SHAPE — which schools, which fields, which chart type; this
-    tool fetches the exact cited values from the database and shows them to
-    the student directly. On success, ``result_for_agent`` contains only
-    display strings already produced by the data layer plus their citation
-    markers. Use those display strings verbatim if you discuss the values.
-    In your final answer, put the exact returned ``placement_marker`` wherever
-    the visualization should appear. Do not alter it, do not wrap it in code,
-    and do not explain it; it is hidden from the student. Cite the returned
-    markers in the prose around the card.
-
-    Types: ``comparison_table`` (N schools × your field_keys),
-    ``stat_block`` (ONE school × your field_keys).
+    Each cell is exactly one of: ``{"metric_ref": "domain.metric"}``,
+    ``{"profile_field": "group.field"}``, ``{"display": "...", "raw": ...,
+    "marker": "[n]"}`` for an external web/edu/reddit marker, or
+    ``{"unavailable": true}``. Database refs are fetched here; sourced citations
+    are copied from the turn registry. Never use sourced cells with CDS/profile
+    markers. Invalid/unavailable database refs reject the whole call: replace a
+    genuinely missing value explicitly with ``unavailable`` and retry. The cell
+    ceiling is enforced before I/O. Success returns only counts, sources and the
+    exact placement marker; failure returns every cell defect. Nothing partially
+    renders.
     """
+    defects = _validate_shape(type, columns, rows)
+    cell_count = len(columns) * len(rows)
+    if cell_count > get_settings().viz_max_cells:
+        defects.append(_defect(0, 0, f"cell count {cell_count} exceeds configured maximum"))
+    defects.extend(_validate_column_identities(columns))
+    if defects:
+        return {"ok": False, "status": "rejected", "rejected_cells": defects, "valid_cells": 0}
+    schools, column_defects = _resolve_columns(catalog, columns)
+    defects.extend(column_defects)
+    if defects:
+        return {"ok": False, "status": "rejected", "rejected_cells": defects, "valid_cells": 0}
     try:
-        spec = await _build_spec(catalog, type, unitids, field_keys, title)
+        domains, profiles = await _fetch_groups(catalog, schools, rows)
     except ServiceError as exc:
-        return {"ok": False, "status": "error", "summary": str(exc), "error": str(exc)}
-    except Exception:
-        logger.exception("render_viz unexpected error building spec", type=type, unitids=unitids)
         return {
             "ok": False,
-            "status": "error",
-            "summary": "Visualization data unavailable.",
-            "error": (
-                "visualization data unavailable — a database error occurred; do not invent values"
-            ),
+            "status": "rejected",
+            "rejected_cells": [_defect(0, 0, str(exc))],
+            "valid_cells": 0,
         }
-    result, spec_to_emit = _viz_result_from_spec(spec, registry)
-    if spec_to_emit is not None:
-        placement_marker = _stage_render_spec(viz_emitted, spec, viz_signature_indexes)
-        if placement_marker is not None:
-            result = {**result, "placement_marker": placement_marker}
-    return result
+    except Exception:
+        logger.exception("render_viz grouped fetch failed", type=type)
+        return {
+            "ok": False,
+            "status": "rejected",
+            "rejected_cells": [_defect(0, 0, "visualization data unavailable")],
+            "valid_cells": 0,
+        }
+
+    candidate_registry = registry.fork()
+    flat: list[CitationEnvelope] = []
+    valid_cells = 0
+    metric_choices = list(catalog.snapshot.metrics)
+    for row_index, row in enumerate(rows):
+        for col, cell in enumerate(row.cells):
+            school = schools[col]
+            envelope: CitationEnvelope | None = None
+            reason: str | None = None
+            if school is None:
+                reason = "column identity is invalid"
+            elif isinstance(cell, UnavailableCellInput):
+                envelope = _unavailable(row.label)
+            elif isinstance(cell, SourcedCellInput):
+                entry = candidate_registry.lookup_marker(cell.marker)
+                if entry is None:
+                    reason = f"marker {cell.marker} is not available in this turn"
+                elif entry.citation.source not in {"web", "edu", "reddit"}:
+                    reason = f"marker {cell.marker} is not an external web/edu/reddit source"
+                else:
+                    envelope = CitationEnvelope(
+                        field=None,
+                        label=row.label,
+                        display=cell.display,
+                        raw=cell.raw,
+                        available=True,
+                        citation=entry.citation,
+                        marker=cell.marker,
+                    )
+            elif school.unitid is None:
+                reason = "web-only columns cannot resolve database references"
+            elif isinstance(cell, MetricCellInput):
+                parsed = _metric_ref(catalog, cell.metric_ref)
+                if parsed is None:
+                    domain = cell.metric_ref.split(".", 1)[0]
+                    choices = [ref for ref in metric_choices if ref.startswith(f"{domain}.")]
+                    reason = (
+                        f"unknown metric_ref {cell.metric_ref!r}"
+                        f"{_suggest(cell.metric_ref, choices)}"
+                    )
+                else:
+                    envelope = _db_envelope(domains[(school.unitid, parsed[0])], cell.metric_ref)
+                    if envelope is None:
+                        reason = (
+                            f"{cell.metric_ref!r} is unavailable; replace this cell "
+                            'with {"unavailable":true}'
+                        )
+            elif isinstance(cell, ProfileCellInput):
+                parsed_profile = _profile_ref(catalog, cell.profile_field)
+                if parsed_profile is None:
+                    reason = f"unknown profile_field {cell.profile_field!r}"
+                else:
+                    profile = profiles[(school.unitid, parsed_profile[0])]
+                    leaf = _profile_leaf(profile, cell.profile_field)
+                    if leaf is None:
+                        choices = [
+                            row.ref
+                            for group in profile.groups
+                            if group.id == parsed_profile[0]
+                            for row in group.rows
+                        ]
+                        reason = (
+                            f"unknown profile_field {cell.profile_field!r}"
+                            f"{_suggest(cell.profile_field, choices)}"
+                        )
+                    else:
+                        envelope = _profile_envelope(profile, cell.profile_field)
+                    if leaf is not None and envelope is None:
+                        reason = (
+                            f"{cell.profile_field!r} is unavailable; replace this cell "
+                            'with {"unavailable":true}'
+                        )
+            if reason:
+                defects.append(_defect(row_index, col, reason))
+            else:
+                valid_cells += 1
+                assert envelope is not None
+                flat.append(envelope)
+    if defects:
+        return {
+            "ok": False,
+            "status": "rejected",
+            "rejected_cells": defects,
+            "valid_cells": valid_cells,
+        }
+    if not any(cell.available for cell in flat):
+        return {
+            "ok": False,
+            "status": "rejected",
+            "rejected_cells": [
+                _defect(
+                    0, 0, "no values available for this visualization — tell the student honestly"
+                )
+            ],
+            "valid_cells": valid_cells,
+        }
+
+    flat = _apply_mismatch(flat)
+    markers: set[int] = set()
+    resolved_rows: list[VizRow] = []
+    offset = 0
+    for row in rows:
+        resolved_cells: list[CitationEnvelope] = []
+        for resolved_cell in flat[offset : offset + len(columns)]:
+            if resolved_cell.available and resolved_cell.citation:
+                marker = candidate_registry.marker_for(resolved_cell.citation)
+                if marker is None:
+                    school = schools[len(resolved_cells)]
+                    assert school is not None
+                    if (
+                        resolved_cell.citation.source == "cds"
+                        or resolved_cell.citation.source == "profile"
+                    ):
+                        label = f"{school.name} — {resolved_cell.citation.vintage}"
+                    else:
+                        label = resolved_cell.citation.vintage
+                    marker = candidate_registry.register_source(resolved_cell.citation, label)
+                marker_index = int(marker[1:-1])
+                markers.add(marker_index)
+                if resolved_cell.evidence is not None:
+                    candidate_registry.register_used_evidence(marker_index, resolved_cell.evidence)
+                resolved_cell = resolved_cell.model_copy(update={"marker": marker})
+            resolved_cells.append(resolved_cell)
+        resolved_rows.append(
+            VizRow.model_validate(
+                {
+                    "label": row.label,
+                    "cells": [cell.model_dump(mode="python") for cell in resolved_cells],
+                }
+            )
+        )
+        offset += len(columns)
+    spec = TabularRenderSpec(
+        type=type,  # type: ignore[arg-type]
+        title=title or (" vs ".join(s.name for s in schools if s) or "Comparison"),
+        columns=tuple(s for s in schools if s is not None),
+        rows=tuple(resolved_rows),
+    )
+    staged = list(viz_emitted)
+    indexes = dict(viz_signature_indexes) if viz_signature_indexes is not None else None
+    try:
+        placement_marker = _stage_render_spec(staged, spec, indexes)
+    except Exception:
+        logger.exception("render_viz staging failed", type=type)
+        return {
+            "ok": False,
+            "status": "rejected",
+            "rejected_cells": [_defect(0, 0, "visualization could not be staged")],
+            "valid_cells": valid_cells,
+        }
+    viz_emitted[:] = staged
+    if viz_signature_indexes is not None and indexes is not None:
+        viz_signature_indexes.clear()
+        viz_signature_indexes.update(indexes)
+    registry.commit_from(candidate_registry)
+    sources = [f"[{index}]" for index in sorted(markers)]
+    available_count = sum(cell.available for cell in flat)
+    return {
+        "ok": True,
+        "status": "rendered",
+        "placement_marker": placement_marker,
+        "cell_count": cell_count,
+        "available_count": available_count,
+        "unavailable_count": cell_count - available_count,
+        "source_count": len(sources),
+        "sources": sources,
+        "public_receipt": {
+            "viz_type": type,
+            "value_count": available_count,
+            "schools": [school.name for school in schools if school],
+            "sources": sources,
+        },
+    }

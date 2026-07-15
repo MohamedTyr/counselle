@@ -10,7 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from domain.envelope import Citation, EvidenceItem
-from domain.specs import ClarifySpec, RenderSpec
+from domain.specs import ClarifySpec, ParsedRenderSpec
 
 PROTOCOL_VERSION = 1
 
@@ -85,7 +85,7 @@ class StepDetail(BaseModel):
     credentials, or hidden backend payloads. The ``sql`` kind's statement rides
     ``query`` for transparent receipts.
 
-    Honesty invariant: ``field_keys`` and ``row_count`` are eng/debug-only —
+    Honesty invariant: ``row_count`` is eng/debug-only —
     they expose DB schema internals and MUST NOT be rendered in student-facing
     UI. Public plan receipts ride ``items``/``completed``/``total``.
     """
@@ -98,7 +98,6 @@ class StepDetail(BaseModel):
     duration_ms: int | None = None
     tool: str | None = None
     domain_id: str | None = None
-    field_keys: list[str] | None = None
     row_count: int | None = None
     viz_type: str | None = None
     schools: list[str] | None = None
@@ -223,6 +222,7 @@ class SourceEntry(BaseModel):
     evidence: tuple[EvidenceItem, ...] = ()
     evidence_omitted_count: int = Field(default=0, ge=0)
 
+
 class SourcesData(BaseModel):
     """The turn's full deduplicated citation list."""
 
@@ -307,7 +307,7 @@ def ev_user_message(text: str, user_message_id: str, *, injected: bool) -> Event
     )
 
 
-def ev_viz(spec: RenderSpec) -> Event:
+def ev_viz(spec: ParsedRenderSpec) -> Event:
     return Event(type="viz", data=spec.model_dump(mode="json"))
 
 

@@ -20,7 +20,7 @@ from app.viz import render_viz
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
 from counselle_db.service import get_domain
-from domain.specs import RenderSpec
+from domain.specs import ColumnInput, MetricCellInput, RenderSpec, VizRowInput
 
 pytestmark = [pytest.mark.live_db, pytest.mark.asyncio(loop_scope="module")]
 
@@ -42,12 +42,16 @@ async def catalog() -> AsyncIterator[Catalog]:
         await pool.close()
 
 
-def _agent_cells(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        cell
-        for row in payload["result_for_agent"]["rows"]
-        for cell in row["cells"]
-    ]
+def _input(unitids: list[int], metric_ref: str) -> tuple[list[ColumnInput], list[VizRowInput]]:
+    return (
+        [ColumnInput(unitid=unitid) for unitid in unitids],
+        [
+            VizRowInput(
+                label=metric_ref,
+                cells=tuple(MetricCellInput(metric_ref=metric_ref) for _ in unitids),
+            )
+        ],
+    )
 
 
 async def _available_comparison(catalog: Catalog) -> tuple[list[int], str]:
@@ -72,19 +76,20 @@ async def test_comparison_table_emits_spec_with_envelope_cells(catalog: Catalog)
     unitids, metric_ref = await _available_comparison(catalog)
     registry = SourceRegistry()
     viz_emitted: list[dict[str, Any]] = []
+    columns, rows = _input(unitids, metric_ref)
     payload = await render_viz(
         catalog,
         registry,
         viz_emitted,
         type="comparison_table",
-        unitids=unitids,
-        field_keys=[metric_ref],
+        columns=columns,
+        rows=rows,
     )
     assert payload["ok"] is True
     assert len(viz_emitted) == 1
     spec = RenderSpec.model_validate(viz_emitted[0])  # a valid RenderSpec dict
     assert spec.type == "comparison_table"
-    assert [school.unitid for school in spec.schools] == unitids
+    assert [school.unitid for school in spec.columns] == unitids
     assert len(spec.rows) == 1
     for row in spec.rows:
         assert len(row.cells) == 2  # one cell per school
@@ -99,18 +104,21 @@ async def test_comparison_table_schools_carry_website_domain(catalog: Catalog) -
     unitids, metric_ref = await _available_comparison(catalog)
     registry = SourceRegistry()
     viz_emitted: list[dict[str, Any]] = []
+    columns, rows = _input(unitids, metric_ref)
     payload = await render_viz(
         catalog,
         registry,
         viz_emitted,
         type="comparison_table",
-        unitids=unitids,
-        field_keys=[metric_ref],
+        columns=columns,
+        rows=rows,
     )
     assert payload["ok"] is True
     spec = RenderSpec.model_validate(viz_emitted[0])
-    domains = {school.unitid: school.domain for school in spec.schools}
-    assert domains == {unitid: catalog.school_domain(unitid) for unitid in unitids}
+    domains = {school.unitid: school.domain for school in spec.columns}
+    assert domains == {
+        unitid: catalog.snapshot.schools[unitid].basics.official_domain for unitid in unitids
+    }
 
 
 async def test_comparison_table_payload_carries_cited_display_values(
@@ -119,19 +127,20 @@ async def test_comparison_table_payload_carries_cited_display_values(
     unitids, metric_ref = await _available_comparison(catalog)
     registry = SourceRegistry()
     viz_emitted: list[dict[str, Any]] = []
+    columns, rows = _input(unitids, metric_ref)
     payload = await render_viz(
         catalog,
         registry,
         viz_emitted,
         type="comparison_table",
-        unitids=unitids,
-        field_keys=[metric_ref],
+        columns=columns,
+        rows=rows,
     )
     assert payload["ok"] is True
-    assert payload["status"] == "success"
-    assert payload["viz"].startswith("comparison_table rendered with ")
+    assert payload["status"] == "rendered"
+    assert "result_for_agent" not in payload
     assert payload["sources"]
-    cells = _agent_cells(payload)
+    cells = [cell for row in viz_emitted[0]["rows"] for cell in row["cells"]]
     assert cells
     assert all(cell["display"] for cell in cells)
     assert all(cell["marker"] in payload["sources"] for cell in cells)
@@ -145,13 +154,14 @@ async def test_stat_block_sources_markers_match_registry_entries(catalog: Catalo
     unitids, metric_ref = await _available_comparison(catalog)
     registry = SourceRegistry()
     viz_emitted: list[dict[str, Any]] = []
+    columns, rows = _input(unitids[:1], metric_ref)
     payload = await render_viz(
         catalog,
         registry,
         viz_emitted,
         type="stat_block",
-        unitids=unitids[:1],
-        field_keys=[metric_ref],
+        columns=columns,
+        rows=rows,
     )
     assert payload["ok"] is True
     assert len(viz_emitted) == 1
@@ -161,7 +171,7 @@ async def test_stat_block_sources_markers_match_registry_entries(catalog: Catalo
     for marker in payload["sources"]:  # every "[n]" resolves to a registry entry
         assert int(marker.strip("[]")) in registered_indices
     assert len(registry) == len(registered_indices)  # indices are unique
-    cells = _agent_cells(payload)
+    cells = [cell for row in viz_emitted[0]["rows"] for cell in row["cells"]]
     assert all(cell["marker"] in payload["sources"] for cell in cells)
 
 
@@ -176,10 +186,14 @@ async def test_unknown_unitid_returns_error_without_numbers(catalog: Catalog) ->
         registry,
         viz_emitted,
         type="stat_block",
-        unitids=[NOT_A_UNITID],
-        field_keys=[ACCEPTANCE_RATE],
+        columns=[ColumnInput(unitid=NOT_A_UNITID)],
+        rows=[
+            VizRowInput(
+                label="Acceptance rate", cells=(MetricCellInput(metric_ref=ACCEPTANCE_RATE),)
+            )
+        ],
     )
     assert payload["ok"] is False
-    assert "not in our database" in payload["error"]
+    assert "not in our database" in payload["rejected_cells"][0]["reason"]
     assert viz_emitted == []
     unitids, metric_ref = await _available_comparison(catalog)

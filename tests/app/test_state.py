@@ -40,11 +40,12 @@ def _render_spec() -> RenderSpec:
         available=True,
         unit="percent",
         citation=_citation(),
+        marker="[1]",
     )
     return RenderSpec(
         type="stat_block",
         title="Duke University at a glance",
-        schools=[SchoolRef(unitid=198419, name="Duke University")],
+        columns=[SchoolRef(unitid=198419, name="Duke University")],
         rows=[VizRow(label="Acceptance rate", cells=[cell])],
     )
 

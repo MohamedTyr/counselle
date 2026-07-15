@@ -53,6 +53,7 @@ from app.run_turn import run_turn
 from app.state import TemporalContext
 from app.steps import EmissionRouter
 from app.toolset import ToolDeps
+from app.viz_signature import render_spec_signature, viz_payload_signature
 from domain.envelope import Citation, CitationEnvelope
 from domain.events import Event
 from domain.season import Season
@@ -328,8 +329,7 @@ async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_i
             return ModelResponse(
                 parts=[
                     TextPart(
-                        "There were 50,000 applicants [1]"
-                        "[[evidence:1:admissions.applicants]]."
+                        "There were 50,000 applicants [1][[evidence:1:admissions.applicants]]."
                     )
                 ]
             )
@@ -439,16 +439,58 @@ def _viz_cell(field: str, raw: int = 42) -> CitationEnvelope:
             vintage="Retrieved 2026-01-01",
             url=f"https://example.edu/{field}",
         ),
+        marker="[1]",
     )
 
 
 def _viz_spec(field: str, *, title: str = "Rendered card") -> RenderSpec:
     return RenderSpec(
-        type="comparison_table",
+        type="stat_block",
         title=title,
-        schools=[SchoolRef(unitid=1, name="A University")],
+        columns=[SchoolRef(unitid=1, name="A University")],
         rows=[VizRow(label=field, cells=[_viz_cell(field)])],
     )
+
+
+def _fake_render_specs(*specs: RenderSpec) -> Callable[..., Any]:
+    queue = list(specs)
+
+    async def fake(
+        _catalog: object,
+        _registry: object,
+        viz_emitted: list[dict[str, Any]],
+        _type: str,
+        _columns: object,
+        _rows: object,
+        _title: str | None = None,
+        _indexes: object = None,
+    ) -> dict[str, Any]:
+        spec = queue.pop(0)
+        signature = render_spec_signature(spec)
+        index = next(
+            (
+                position
+                for position, payload in enumerate(viz_emitted, start=1)
+                if viz_payload_signature(payload) == signature
+            ),
+            None,
+        )
+        if index is None:
+            viz_emitted.append(spec.model_dump(mode="json"))
+            index = len(viz_emitted)
+        return {
+            "ok": True,
+            "status": "rendered",
+            "placement_marker": f"[[viz:{index}]]",
+            "cell_count": 1,
+            "available_count": 1,
+            "unavailable_count": 0,
+            "source_count": 1,
+            "sources": ["[1]"],
+            "public_receipt": {"viz_type": spec.type, "value_count": 1},
+        }
+
+    return fake
 
 
 def _node_state(prompt: str = "hi") -> dict[str, Any]:
@@ -1895,18 +1937,18 @@ def _two_viz_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Model
             ToolCallPart(
                 tool_name="render_viz",
                 args={
-                    "type": "comparison_table",
-                    "unitids": [1],
-                    "field_keys": ["admissions.rate"],
+                    "type": "stat_block",
+                    "columns": [{"unitid": 1}],
+                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
                     "title": "Card one",
                 },
             ),
             ToolCallPart(
                 tool_name="render_viz",
                 args={
-                    "type": "comparison_table",
-                    "unitids": [1],
-                    "field_keys": ["cost.net_price"],
+                    "type": "stat_block",
+                    "columns": [{"unitid": 1}],
+                    "rows": [{"label": "Net price", "cells": [{"metric_ref": "cost.net_price"}]}],
                     "title": "Card two",
                 },
             ),
@@ -1929,9 +1971,9 @@ def _viz_marker_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Mo
             ToolCallPart(
                 tool_name="render_viz",
                 args={
-                    "type": "comparison_table",
-                    "unitids": [1],
-                    "field_keys": ["admissions.rate"],
+                    "type": "stat_block",
+                    "columns": [{"unitid": 1}],
+                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
                     "title": "Inline card",
                 },
             )
@@ -2009,16 +2051,9 @@ def _placement_marker(part: ToolReturnPart) -> str:
 async def test_viz_marker_places_card_between_final_text_segments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return _viz_spec("admissions.rate", title="Inline card")
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(
+        app.viz, "render_viz", _fake_render_specs(_viz_spec("admissions.rate", title="Inline card"))
+    )
     rig = Rig(_fn_model(_viz_marker_then_answer))
     session_id = str(uuid4())
 
@@ -2204,16 +2239,7 @@ async def test_viz_without_marker_falls_back_after_final_answer(
         _viz_spec("cost.net_price", title="Card two"),
     ]
 
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return specs.pop(0)
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(app.viz, "render_viz", _fake_render_specs(*specs))
     rig = Rig(_fn_model(_two_viz_then_answer))
     session_id = str(uuid4())
 
@@ -2252,16 +2278,7 @@ async def test_duplicate_render_viz_final_flush_persists_one_viz_part(
         _viz_spec("admissions.rate", title="Second title"),
     ]
 
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return specs.pop(0)
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(app.viz, "render_viz", _fake_render_specs(*specs))
     rig = Rig(_fn_model(_two_viz_then_answer))
     session_id = str(uuid4())
 
@@ -2287,16 +2304,7 @@ async def test_record_exact_final_content_stream_record_and_transcript(
         _viz_spec("admissions.rate", title="Second title"),
     ]
 
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return specs.pop(0)
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(app.viz, "render_viz", _fake_render_specs(*specs))
     rig = Rig(_fn_model(_two_viz_then_answer))
     session_id = str(uuid4())
 
@@ -2355,9 +2363,9 @@ def _render_then_continue_without_clarify(
             ToolCallPart(
                 tool_name="render_viz",
                 args={
-                    "type": "comparison_table",
-                    "unitids": [1],
-                    "field_keys": ["admissions.rate"],
+                    "type": "stat_block",
+                    "columns": [{"unitid": 1}],
+                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
                     "title": "Early card",
                 },
             )
@@ -2368,16 +2376,9 @@ def _render_then_continue_without_clarify(
 async def test_unmounted_ask_student_allows_staged_viz_to_flush_with_final_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return _viz_spec("admissions.rate", title="Early card")
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(
+        app.viz, "render_viz", _fake_render_specs(_viz_spec("admissions.rate", title="Early card"))
+    )
     rig = Rig(_fn_model(_render_then_continue_without_clarify))
 
     session_id = str(uuid4())
@@ -2406,9 +2407,9 @@ def _narrate_render_then_answer(messages: list[ModelMessage], info: AgentInfo) -
             ToolCallPart(
                 tool_name="render_viz",
                 args={
-                    "type": "comparison_table",
-                    "unitids": [1],
-                    "field_keys": ["admissions.rate"],
+                    "type": "stat_block",
+                    "columns": [{"unitid": 1}],
+                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
                     "title": "Card",
                 },
             ),
@@ -2419,16 +2420,9 @@ def _narrate_render_then_answer(messages: list[ModelMessage], info: AgentInfo) -
 async def test_no_early_answer_persists_only_final_prose(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return _viz_spec("admissions.rate", title="Card")
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(
+        app.viz, "render_viz", _fake_render_specs(_viz_spec("admissions.rate", title="Card"))
+    )
     rig = Rig(_fn_model(_narrate_render_then_answer))
     session_id = str(uuid4())
 
@@ -2474,9 +2468,9 @@ def _render_then_hit_budget(messages: list[ModelMessage], info: AgentInfo) -> Mo
             ToolCallPart(
                 tool_name="render_viz",
                 args={
-                    "type": "comparison_table",
-                    "unitids": [1],
-                    "field_keys": ["admissions.rate"],
+                    "type": "stat_block",
+                    "columns": [{"unitid": 1}],
+                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
                     "title": "Hidden until final",
                 },
             )
@@ -2487,16 +2481,11 @@ def _render_then_hit_budget(messages: list[ModelMessage], info: AgentInfo) -> Mo
 async def test_budget_before_final_staged_viz_does_not_leak(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return _viz_spec("admissions.rate", title="Hidden until final")
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(
+        app.viz,
+        "render_viz",
+        _fake_render_specs(_viz_spec("admissions.rate", title="Hidden until final")),
+    )
     settings = FakeSettings()
     settings.agent_max_model_requests = 1
     rig = Rig(_fn_model(_render_then_hit_budget), settings=settings)
@@ -2528,9 +2517,9 @@ class _BudgetAfterFinalStream:
         call = ToolCallPart(
             tool_name="render_viz",
             args={
-                "type": "comparison_table",
-                "unitids": [1],
-                "field_keys": ["admissions.rate"],
+                "type": "stat_block",
+                "columns": [{"unitid": 1}],
+                "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
                 "title": "Visible card",
             },
             tool_call_id="viz-after-final",
@@ -2564,7 +2553,11 @@ class _BudgetToolStream:
     async def __aiter__(self) -> AsyncIterator[FunctionToolCallEvent | FunctionToolResultEvent]:
         call = ToolCallPart(
             tool_name="render_viz",
-            args={"type": "comparison", "unitids": [1], "field_keys": ["admissions.rate"]},
+            args={
+                "type": "comparison_table",
+                "columns": [{"unitid": 1}],
+                "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+            },
             tool_call_id="viz-after-final",
         )
         yield FunctionToolCallEvent(part=call)
@@ -2664,16 +2657,11 @@ class _BudgetAfterFinalAgent:
 async def test_budget_after_final_partial_preserves_visible_viz_and_prose(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return _viz_spec("admissions.rate", title="Visible card")
-
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(
+        app.viz,
+        "render_viz",
+        _fake_render_specs(_viz_spec("admissions.rate", title="Visible card")),
+    )
     monkeypatch.setattr(app.agent_node, "Agent", _BudgetAfterFinalAgent)
     rig = Rig(TestModel(call_tools=[], custom_output_text="unused"))
     session_id = str(uuid4())

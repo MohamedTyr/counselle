@@ -41,14 +41,18 @@ def _viz_spec(title: str) -> dict[str, Any]:
         available=True,
         unit="number",
         citation=Citation(
-            source="web", tier="official", vintage="Retrieved 2026-01-01",
+            source="web",
+            tier="official",
+            vintage="Retrieved 2026-01-01",
             url="https://example.edu/admissions",
         ),
+        marker="[1]",
     )
     return {
-        "type": "comparison_table",
+        "v": 2,
+        "type": "stat_block",
         "title": title,
-        "schools": [{"unitid": 1, "name": "A University"}],
+        "columns": [{"unitid": 1, "name": "A University", "domain": None}],
         "rows": [{"label": "admissions.rate", "cells": [cell.model_dump(mode="json")]}],
     }
 

@@ -32,7 +32,6 @@ from app.records import build_turn_record
 from app.state import TemporalContext
 from app.transcript import extract_transcript
 from domain.season import Season
-from domain.specs import RenderSpec
 from tests.app.test_run_turn import (
     _ALL_OFF,
     _WEB_ONLY,
@@ -189,9 +188,7 @@ async def test_transcript_wire_shape_complete_clarify_resume() -> None:
     assert assistant_1["status"] == "complete"
     assert assistant_1["text"] == "Duke is strong in engineering."
     assert assistant_1["parts"] == [{"type": "text", "text": "Duke is strong in engineering."}]
-    assert assistant_1["segments"] == [
-        {"kind": "delta", "text": "Duke is strong in engineering."}
-    ]
+    assert assistant_1["segments"] == [{"kind": "delta", "text": "Duke is strong in engineering."}]
     assert assistant_1["step_record"] == {
         "steps": [],
         "narration": [],
@@ -306,9 +303,9 @@ def _inline_viz_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelRe
             ToolCallPart(
                 tool_name="render_viz",
                 args={
-                    "type": "comparison_table",
-                    "unitids": [1],
-                    "field_keys": ["admissions.rate"],
+                    "type": "stat_block",
+                    "columns": [{"unitid": 1}],
+                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
                     "title": "Inline card",
                 },
             )
@@ -326,16 +323,11 @@ def _placement_marker(part: ToolReturnPart) -> str:
 async def test_transcript_final_content_has_inline_viz_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_build_spec(
-        _catalog: object,
-        _type: str,
-        _unitids: list[int],
-        _field_keys: list[str] | None,
-        _title: str | None,
-    ) -> RenderSpec:
-        return _viz_spec("admissions.rate", title="Inline card")
+    from tests.app.test_run_turn import _fake_render_specs
 
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(
+        app.viz, "render_viz", _fake_render_specs(_viz_spec("admissions.rate", title="Inline card"))
+    )
     rig = Rig(_fn_model(_inline_viz_answer))
     session_id = str(uuid4())
 

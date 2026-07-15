@@ -71,7 +71,7 @@ from app.viz_placement import StreamingVizMarkerStripper
 from app.workspace.agent_tools import build_workspace_tools
 from config.settings import get_settings, load_yaml_asset
 from domain.events import UsageData
-from domain.specs import SourceConfig
+from domain.specs import ColumnInput, SourceConfig, VizRowInput
 
 if TYPE_CHECKING:
     from app.graph import GraphDeps  # circular at runtime: graph imports run_agent_node
@@ -172,9 +172,9 @@ def _make_render_viz_tool(
     and stages successful specs for the final-answer flush."""
 
     async def render_viz(
-        type: viz_mod.VizType,
-        unitids: list[int],
-        field_keys: list[str] | None = None,
+        type: str,
+        columns: list[ColumnInput],
+        rows: list[VizRowInput],
         title: str | None = None,
     ) -> dict[str, Any]:
         result = await viz_mod.render_viz(
@@ -182,8 +182,8 @@ def _make_render_viz_tool(
             registry,
             viz_list,
             type,
-            unitids,
-            field_keys,
+            columns,
+            rows,
             title,
             viz_signature_indexes,
         )

@@ -69,7 +69,7 @@ from domain.events import (
     ev_user_message,
     ev_viz,
 )
-from domain.specs import ClarifySpec, RenderSpec, SourceConfig
+from domain.specs import ClarifySpec, SourceConfig, parse_render_spec
 
 logger = logging.getLogger(__name__)
 
@@ -646,7 +646,7 @@ async def run_turn(
                     if not final_emissions.keep(kind, spec):
                         continue
                     emissions.append(("viz", spec))
-                    yield ev_viz(RenderSpec.model_validate(spec))
+                    yield ev_viz(parse_render_spec(spec))
             elif mode == "updates" and isinstance(chunk, dict):
                 if "__interrupt__" in chunk:
                     interrupt = chunk["__interrupt__"][0]

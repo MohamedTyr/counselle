@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -44,7 +45,7 @@ import app.viz
 from app.state import TemporalContext
 from app.transcript import extract_transcript
 from app.turns import TurnRegistry
-from domain.envelope import Citation, CitationEnvelope
+from domain.envelope import Caveat, Citation, CitationEnvelope, EvidenceItem
 from domain.events import Event, StepData, StepDetail, ToolUi, ev_step
 from domain.specs import RenderSpec, SchoolRef, SourceConfig, VizRow
 from tests.app.test_run_turn import _TEMPORAL, Rig, _fn_model
@@ -81,25 +82,78 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_temporal(catalog: Any, today: Any = None) -> TemporalContext:
         return _TEMPORAL
 
-    async def fake_build_spec(
+    async def fake_render_viz(
         catalog: Any,
+        registry: Any,
+        viz_emitted: list[dict[str, Any]],
         type: str,
-        unitids: list[int],
-        field_keys: Any,
-        title: Any,
-    ) -> RenderSpec:
-        return _CANNED_SPEC
+        columns: Any,
+        rows: Any,
+        title: Any = None,
+        viz_signature_indexes: Any = None,
+    ) -> dict[str, Any]:
+        del catalog, type, columns, rows, title, viz_signature_indexes
+        registry.register_source(_CDS_CITATION, "Duke University — Common Data Set 2024-25")
+        registry.register_used_evidence(2, _EVIDENCE)
+        registry.register_source(_PROFILE_CITATION, "Duke University — Profile snapshot 2024-12-31")
+        viz_emitted.append(_CANNED_SPEC.model_dump(mode="json"))
+        return {
+            "ok": True,
+            "status": "rendered",
+            "placement_marker": "[[viz:1]]",
+            "cell_count": 4,
+            "available_count": 3,
+            "unavailable_count": 1,
+            "source_count": 3,
+            "sources": ["[1]", "[2]", "[3]"],
+            "public_receipt": {
+                "viz_type": "comparison_table",
+                "value_count": 3,
+                "schools": ["Duke University", "Example College"],
+                "sources": ["[1]", "[2]", "[3]"],
+            },
+        }
 
     monkeypatch.setattr(app.graph, "build_temporal_context", fake_temporal)
     monkeypatch.setattr(app.agent_node, "build_system_prompt", lambda *a: "Test counselor.")
-    monkeypatch.setattr(app.viz, "_build_spec", fake_build_spec)
+    monkeypatch.setattr(app.viz, "render_viz", fake_render_viz)
 
 
+_EVIDENCE = EvidenceItem(
+    eid="admissions.acceptance_rate",
+    value_display="6.8%",
+    label="Acceptance rate",
+    page=7,
+    section="C1",
+    row_label="Total first-time applicants",
+    column_label="Percent admitted",
+    excerpt="Applicants admitted: 6.8%",
+)
+_CDS_CITATION = Citation(
+    source="cds",
+    tier="official",
+    vintage="Common Data Set 2024-25",
+    document_sha256="a" * 64,
+    source_kind="upload",
+    retrieved_at=datetime(2026, 7, 15, tzinfo=UTC),
+    academic_year=2024,
+    manifest_version="5.0.1",
+    school_unitid=198419,
+)
+_PROFILE_CITATION = Citation(
+    source="profile",
+    tier="official",
+    vintage="Profile snapshot 2024-12-31",
+    school_unitid=198419,
+    profile_sha256="b" * 64,
+)
 _CANNED_SPEC = RenderSpec(
-    v=1,
-    type="stat_block",
-    title="Duke University at a glance",
-    schools=[SchoolRef(unitid=198419, name="Duke University")],
+    type="comparison_table",
+    title="Duke University comparison",
+    columns=[
+        SchoolRef(unitid=198419, name="Duke University", domain="duke.edu"),
+        SchoolRef(unitid=None, name="Example College", domain="example.edu"),
+    ],
     rows=[
         VizRow(
             label="Acceptance rate",
@@ -111,13 +165,51 @@ _CANNED_SPEC = RenderSpec(
                     raw=0.068,
                     available=True,
                     unit="percent",
-                    citation=Citation(
-                        source="web", tier="official", vintage="Retrieved Jul 7, 2026",
-                        url="https://example.edu/source",
+                    citation=_CDS_CITATION,
+                    evidence=_EVIDENCE,
+                    caveats=(
+                        Caveat(kind="stale_edition", text="This value is from 2024-25."),
+                        Caveat(kind="edition_mismatch_comparison", text="Editions differ."),
                     ),
-                )
+                    marker="[2]",
+                ),
+                CitationEnvelope(
+                    field=None,
+                    label="Acceptance rate",
+                    display="7.1%",
+                    raw=0.071,
+                    available=True,
+                    unit="percent",
+                    citation=Citation(
+                        source="web",
+                        tier="official",
+                        vintage="Retrieved Jun 10, 2026 (live web)",
+                        url="https://example.com/1",
+                    ),
+                    marker="[1]",
+                ),
             ],
-        )
+        ),
+        VizRow(
+            label="Campus setting",
+            cells=[
+                CitationEnvelope(
+                    field="location.locale",
+                    label="Campus setting",
+                    display="Large city",
+                    raw="large_city",
+                    available=True,
+                    citation=_PROFILE_CITATION,
+                    marker="[3]",
+                ),
+                CitationEnvelope(
+                    field=None,
+                    label="Campus setting",
+                    display="not available",
+                    available=False,
+                ),
+            ],
+        ),
     ],
 )
 
@@ -131,9 +223,7 @@ def _returned_tools(messages: list[ModelMessage]) -> set[str]:
     last = messages[-1]
     if not isinstance(last, ModelRequest):
         return set()
-    return {
-        part.tool_name for part in last.parts if isinstance(part, ToolReturnPart)
-    }
+    return {part.tool_name for part in last.parts if isinstance(part, ToolReturnPart)}
 
 
 def _returned_tool_content(messages: list[ModelMessage], tool_name: str) -> dict[str, Any]:
@@ -170,11 +260,29 @@ def _dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelRespon
                 ToolCallPart(
                     tool_name="render_viz",
                     args={
-                        "type": "stat_block",
-                        "unitids": [198419],
-                        "field_keys": ["admissions.acceptance_rate"],
+                        "type": "comparison_table",
+                        "columns": [
+                            {"unitid": 198419},
+                            {"name": "Example College", "domain": "example.edu"},
+                        ],
+                        "rows": [
+                            {
+                                "label": "Acceptance rate",
+                                "cells": [
+                                    {"metric_ref": "admissions.acceptance_rate"},
+                                    {"display": "7.1%", "raw": 0.071, "marker": "[1]"},
+                                ],
+                            },
+                            {
+                                "label": "Campus setting",
+                                "cells": [
+                                    {"profile_field": "location.locale"},
+                                    {"unavailable": True},
+                                ],
+                            },
+                        ],
                     },
-                )
+                ),
             ]
         )
     return ModelResponse(
@@ -206,11 +314,29 @@ def _transcript_dossier_model(messages: list[ModelMessage], info: AgentInfo) -> 
                 ToolCallPart(
                     tool_name="render_viz",
                     args={
-                        "type": "stat_block",
-                        "unitids": [198419],
-                        "field_keys": ["admissions.acceptance_rate"],
+                        "type": "comparison_table",
+                        "columns": [
+                            {"unitid": 198419},
+                            {"name": "Example College", "domain": "example.edu"},
+                        ],
+                        "rows": [
+                            {
+                                "label": "Acceptance rate",
+                                "cells": [
+                                    {"metric_ref": "admissions.acceptance_rate"},
+                                    {"display": "7.1%", "raw": 0.071, "marker": "[1]"},
+                                ],
+                            },
+                            {
+                                "label": "Campus setting",
+                                "cells": [
+                                    {"profile_field": "location.locale"},
+                                    {"unavailable": True},
+                                ],
+                            },
+                        ],
                     },
-                )
+                ),
             ]
         )
     return ModelResponse(
@@ -351,6 +477,8 @@ def normalize(obj: Any, ids: dict[str, str] | None = None) -> Any:
 
 
 def _normalize(obj: Any, ids: dict[str, str]) -> Any:
+    if isinstance(obj, datetime):
+        return obj.isoformat()
     if isinstance(obj, dict):
         out: dict[str, Any] = {}
         for key, value in obj.items():
@@ -363,7 +491,7 @@ def _normalize(obj: Any, ids: dict[str, str]) -> Any:
             else:
                 out[key] = _normalize(value, ids)
         return out
-    if isinstance(obj, list):
+    if isinstance(obj, list | tuple):
         return [_normalize(item, ids) for item in obj]
     return obj
 
@@ -415,17 +543,32 @@ async def test_golden_full_turn_events() -> None:
     types = [event.type for event in events]
     assert {"meta", "narration", "step", "viz", "delta", "sources", "usage", "done"} <= set(types)
     work_end = max(
-        index
-        for index, event in enumerate(events)
-        if event.type in {"step", "narration"}
+        index for index, event in enumerate(events) if event.type in {"step", "narration"}
     )
     delta_positions = [index for index, event in enumerate(events) if event.type == "delta"]
     viz_position = types.index("viz")
     assert len(delta_positions) == 2
     assert work_end < delta_positions[0] < viz_position < delta_positions[1]
-    assert "[[viz:" not in "".join(
-        event.data["text"] for event in events if event.type == "delta"
+    assert "[[viz:" not in "".join(event.data["text"] for event in events if event.type == "delta")
+    viz = next(event.data for event in events if event.type == "viz")
+    assert viz["v"] == 2
+    assert [column["unitid"] for column in viz["columns"]] == [198419, None]
+    cells = [cell for row in viz["rows"] for cell in row["cells"]]
+    assert {cell["citation"]["source"] for cell in cells if cell["available"]} == {
+        "cds",
+        "profile",
+        "web",
+    }
+    assert any(not cell["available"] and cell["marker"] is None for cell in cells)
+    cds = next(cell for cell in cells if (cell.get("citation") or {}).get("source") == "cds")
+    assert cds["evidence"]["eid"] == "admissions.acceptance_rate"
+    assert len(cds["caveats"]) == 2
+    render_end = next(
+        event.data
+        for event in events
+        if event.type == "step" and event.data["kind"] == "viz" and event.data["status"] == "end"
     )
+    assert "result_for_agent" not in render_end
     _check_or_regen("turn_full", {"events": normalize(_dump(events))})
 
 
@@ -494,13 +637,16 @@ async def test_golden_full_fidelity_transcript(monkeypatch: pytest.MonkeyPatch) 
 
     with monkeypatch.context() as cancel_patch:
         cancel_patch.setattr(app.agent_node, "Agent", _HangingFinalAgent)
-        rig.deps.model_factory = cast(Any, lambda: _hanging_model(
-            "Cost-wise, Duke meets full demonstrated need for every admitted "
-            "student, and around half the class receives some form of aid. The "
-            "sticker price looks intimidating, but the net price for aided "
-            "families is dramatically lower, and there are no loans in the aid "
-            "packages for families under the income thresholds."
-        ))
+        rig.deps.model_factory = cast(
+            Any,
+            lambda: _hanging_model(
+                "Cost-wise, Duke meets full demonstrated need for every admitted "
+                "student, and around half the class receives some form of aid. The "
+                "sticker price looks intimidating, but the net price for aided "
+                "families is dramatically lower, and there are no loans in the aid "
+                "packages for families under the income thresholds."
+            ),
+        )
         got_delta = asyncio.Event()
         drained = asyncio.Event()
 

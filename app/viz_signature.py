@@ -1,24 +1,11 @@
+"""Canonical semantic signatures for known and future visualization payloads."""
+
 from __future__ import annotations
 
 import json
 from typing import Any
 
-from domain.specs import RenderSpec
-
-
-def _stable_json(payload: Any) -> str:
-    try:
-        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    except Exception:
-        try:
-            return json.dumps(
-                _json_safe(payload),
-                ensure_ascii=False,
-                separators=(",", ":"),
-                sort_keys=True,
-            )
-        except Exception:
-            return repr(payload)
+from domain.specs import OpaqueRenderSpec, ParsedRenderSpec, TabularRenderSpec, parse_render_spec
 
 
 def _json_safe(value: Any) -> Any:
@@ -31,33 +18,26 @@ def _json_safe(value: Any) -> Any:
     return repr(value)
 
 
-def render_spec_signature(spec: RenderSpec) -> str:
-    spec_json = spec.model_dump(mode="json")
+def _stable_json(payload: Any) -> str:
+    return json.dumps(
+        _json_safe(payload), ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    )
+
+
+def render_spec_signature(spec: ParsedRenderSpec) -> str:
+    """Hash all truth/provenance for tables; all payload fields for open types."""
+    if isinstance(spec, OpaqueRenderSpec):
+        return _stable_json(spec.model_dump(mode="json"))
     payload = {
-        "type": spec_json.get("type"),
-        "schools": [
-            {
-                "unitid": school.get("unitid"),
-                "name": school.get("name"),
-            }
-            for school in spec_json.get("schools", [])
-        ],
+        "v": spec.v,
+        "type": spec.type,
+        "columns": [{"unitid": column.unitid, "name": column.name} for column in spec.columns],
         "rows": [
             {
-                "label": row.get("label"),
-                "cells": [
-                    {
-                        "field": cell.get("field"),
-                        "display": cell.get("display"),
-                        "raw": cell.get("raw"),
-                        "unit": cell.get("unit"),
-                        "available": cell.get("available"),
-                        "citation": cell.get("citation"),
-                    }
-                    for cell in row.get("cells", [])
-                ],
+                "label": row.label,
+                "cells": [cell.model_dump(mode="json") for cell in row.cells],
             }
-            for row in spec_json.get("rows", [])
+            for row in spec.rows
         ],
     }
     return _stable_json(payload)
@@ -65,6 +45,8 @@ def render_spec_signature(spec: RenderSpec) -> str:
 
 def viz_payload_signature(payload: Any) -> str:
     try:
-        return render_spec_signature(RenderSpec.model_validate(payload))
+        if isinstance(payload, (TabularRenderSpec, OpaqueRenderSpec)):
+            return render_spec_signature(payload)
+        return render_spec_signature(parse_render_spec(payload))
     except Exception:
         return _stable_json(payload)

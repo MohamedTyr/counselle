@@ -186,10 +186,14 @@ class StepMapper:
 
     @staticmethod
     def result_is_error(result_part: Any, content: Any) -> bool:
-        """Result-shape error detection: RetryPromptPart or an ``{"error": …}`` dict."""
+        """Detect retry/error and explicit all-or-nothing tool rejections."""
         if isinstance(result_part, RetryPromptPart):
             return True
-        return isinstance(content, dict) and "error" in content
+        return isinstance(content, dict) and (
+            "error" in content
+            or content.get("ok") is False
+            or content.get("status") in {"error", "rejected"}
+        )
 
     def detail_for(
         self, tool_name: str, args: dict[str, Any], content: Any, duration_ms: int
@@ -262,9 +266,6 @@ class StepMapper:
             kwargs["value_count"] = kwargs["row_count"]
         if isinstance(args.get("domain_id"), str):
             kwargs["domain_id"] = args["domain_id"]
-        keys = args.get("field_keys")
-        if isinstance(keys, list) and keys:
-            kwargs["field_keys"] = [str(key) for key in keys]
         schools = self._school_names(args)
         if schools:
             kwargs["schools"] = schools
@@ -303,6 +304,12 @@ class StepMapper:
             return [args["unitid"]]
         if isinstance(args.get("unitids"), list):
             return [u for u in args["unitids"] if isinstance(u, int)]
+        if isinstance(args.get("columns"), list):
+            return [
+                column["unitid"]
+                for column in args["columns"]
+                if isinstance(column, dict) and isinstance(column.get("unitid"), int)
+            ]
         return []
 
     def _school_names(self, args: dict[str, Any]) -> list[str]:
@@ -384,8 +391,15 @@ class StepMapper:
     def _category_of(self, args: dict[str, Any]) -> str:
         if isinstance(args.get("domain_id"), str) and args["domain_id"].strip():
             return _humanize(args["domain_id"])
-        keys = args.get("field_keys")
-        if not isinstance(keys, list) or not keys:
+        refs = [
+            cell.get("metric_ref") or cell.get("profile_field")
+            for row in args.get("rows", [])
+            if isinstance(row, dict)
+            for cell in row.get("cells", [])
+            if isinstance(cell, dict)
+        ]
+        keys = [ref for ref in refs if isinstance(ref, str)]
+        if not keys:
             return self._fallbacks.get("category", "profile")
         prefixes = {str(key).split(".", 1)[0] for key in keys}
         if len(prefixes) == 1:

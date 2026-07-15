@@ -103,7 +103,9 @@ def test_db_school_source_has_name_and_favicon(mapper: StepMapper) -> None:
 
 
 def test_viz_multi_school_sources(mapper: StepMapper) -> None:
-    sources = mapper.sources_for("render_viz", {"unitids": [198419, 221999]}, {})
+    sources = mapper.sources_for(
+        "render_viz", {"columns": [{"unitid": 198419}, {"unitid": 221999}]}, {}
+    )
     assert sources is not None
     assert [s.label for s in sources] == ["Duke University", "Vanderbilt University"]
 

@@ -63,7 +63,7 @@
         "step_id": "id-6",
         "status": "start",
         "kind": "viz",
-        "label": "Building a stat card",
+        "label": "Building a comparison table",
         "tier": null,
         "detail": null
       }
@@ -75,12 +75,12 @@
         "step_id": "id-6",
         "status": "end",
         "kind": "viz",
-        "label": "Building a stat card",
+        "label": "Building a comparison table",
         "tier": null,
         "detail": {
-          "value_count": 1,
+          "value_count": 3,
           "duration_ms": 0,
-          "viz_type": "stat_block",
+          "viz_type": "comparison_table",
           "schools": []
         }
       }
@@ -96,14 +96,19 @@
       "v": 1,
       "type": "viz",
       "data": {
-        "v": 1,
-        "type": "stat_block",
-        "title": "Duke University at a glance",
-        "schools": [
+        "v": 2,
+        "type": "comparison_table",
+        "title": "Duke University comparison",
+        "columns": [
           {
             "unitid": 198419,
             "name": "Duke University",
-            "domain": null
+            "domain": "duke.edu"
+          },
+          {
+            "unitid": null,
+            "name": "Example College",
+            "domain": "example.edu"
           }
         ],
         "rows": [
@@ -111,7 +116,7 @@
             "label": "Acceptance rate",
             "cells": [
               {
-                "v": 1,
+                "v": 2,
                 "field": "admissions.acceptance_rate",
                 "label": "Acceptance rate",
                 "display": "6.8%",
@@ -119,13 +124,110 @@
                 "available": true,
                 "unit": "percent",
                 "citation": {
-                  "source": "ipeds",
+                  "v": 2,
+                  "source": "cds",
                   "tier": "official",
-                  "vintage": "IPEDS 2024-25 (provisional)",
-                  "caveat": null,
-                  "raw_table": "adm",
-                  "url": null
-                }
+                  "vintage": "Common Data Set 2024-25",
+                  "url": null,
+                  "document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "source_kind": "upload",
+                  "retrieved_at": "2026-07-15T00:00:00Z",
+                  "academic_year": 2024,
+                  "manifest_version": "5.0.1",
+                  "school_unitid": 198419,
+                  "profile_sha256": null
+                },
+                "evidence": {
+                  "eid": "admissions.acceptance_rate",
+                  "value_display": "6.8%",
+                  "label": "Acceptance rate",
+                  "page": 7,
+                  "section": "C1",
+                  "row_label": "Total first-time applicants",
+                  "column_label": "Percent admitted",
+                  "excerpt": "Applicants admitted: 6.8%"
+                },
+                "caveats": [
+                  {
+                    "kind": "stale_edition",
+                    "text": "This value is from 2024-25."
+                  },
+                  {
+                    "kind": "edition_mismatch_comparison",
+                    "text": "Editions differ."
+                  }
+                ],
+                "marker": "[2]"
+              },
+              {
+                "v": 2,
+                "field": null,
+                "label": "Acceptance rate",
+                "display": "7.1%",
+                "raw": 0.071,
+                "available": true,
+                "unit": "percent",
+                "citation": {
+                  "v": 2,
+                  "source": "web",
+                  "tier": "official",
+                  "vintage": "Retrieved Jun 10, 2026 (live web)",
+                  "url": "https://example.com/1",
+                  "document_sha256": null,
+                  "source_kind": null,
+                  "retrieved_at": null,
+                  "academic_year": null,
+                  "manifest_version": null,
+                  "school_unitid": null,
+                  "profile_sha256": null
+                },
+                "evidence": null,
+                "caveats": [],
+                "marker": "[1]"
+              }
+            ]
+          },
+          {
+            "label": "Campus setting",
+            "cells": [
+              {
+                "v": 2,
+                "field": "location.locale",
+                "label": "Campus setting",
+                "display": "Large city",
+                "raw": "large_city",
+                "available": true,
+                "unit": null,
+                "citation": {
+                  "v": 2,
+                  "source": "profile",
+                  "tier": "official",
+                  "vintage": "Profile snapshot 2024-12-31",
+                  "url": null,
+                  "document_sha256": null,
+                  "source_kind": null,
+                  "retrieved_at": null,
+                  "academic_year": null,
+                  "manifest_version": null,
+                  "school_unitid": 198419,
+                  "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                },
+                "evidence": null,
+                "caveats": [],
+                "marker": "[3]"
+              },
+              {
+                "v": 2,
+                "field": null,
+                "label": "Campus setting",
+                "display": "not available",
+                "raw": null,
+                "available": false,
+                "unit": null,
+                "citation": null,
+                "evidence": null,
+                "caveats": [],
+                "marker": null
               }
             ]
           }
@@ -145,30 +247,81 @@
       "data": {
         "sources": [
           {
+            "v": 2,
             "index": 1,
             "citation": {
+              "v": 2,
               "source": "web",
-              "tier": "community",
+              "tier": "official",
               "vintage": "Retrieved Jun 10, 2026 (live web)",
-              "caveat": "General web source \u2014 verify on the school's official site.",
-              "raw_table": null,
-              "url": "https://example.com/1"
+              "url": "https://example.com/1",
+              "document_sha256": null,
+              "source_kind": null,
+              "retrieved_at": null,
+              "academic_year": null,
+              "manifest_version": null,
+              "school_unitid": null,
+              "profile_sha256": null
             },
             "label": "Result 1",
-            "snippet": "snippet"
+            "snippet": "snippet",
+            "evidence": [],
+            "evidence_omitted_count": 0
           },
           {
+            "v": 2,
             "index": 2,
             "citation": {
-              "source": "ipeds",
+              "v": 2,
+              "source": "cds",
               "tier": "official",
-              "vintage": "IPEDS 2024-25 (provisional)",
-              "caveat": null,
-              "raw_table": "adm",
-              "url": null
+              "vintage": "Common Data Set 2024-25",
+              "url": null,
+              "document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "source_kind": "upload",
+              "retrieved_at": "2026-07-15T00:00:00+00:00",
+              "academic_year": 2024,
+              "manifest_version": "5.0.1",
+              "school_unitid": 198419,
+              "profile_sha256": null
             },
-            "label": "IPEDS 2024-25 (provisional)",
-            "snippet": null
+            "label": "Duke University \u2014 Common Data Set 2024-25",
+            "snippet": null,
+            "evidence": [
+              {
+                "eid": "admissions.acceptance_rate",
+                "value_display": "6.8%",
+                "label": "Acceptance rate",
+                "page": 7,
+                "section": "C1",
+                "row_label": "Total first-time applicants",
+                "column_label": "Percent admitted",
+                "excerpt": "Applicants admitted: 6.8%"
+              }
+            ],
+            "evidence_omitted_count": 0
+          },
+          {
+            "v": 2,
+            "index": 3,
+            "citation": {
+              "v": 2,
+              "source": "profile",
+              "tier": "official",
+              "vintage": "Profile snapshot 2024-12-31",
+              "url": null,
+              "document_sha256": null,
+              "source_kind": null,
+              "retrieved_at": null,
+              "academic_year": null,
+              "manifest_version": null,
+              "school_unitid": 198419,
+              "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "label": "Duke University \u2014 Profile snapshot 2024-12-31",
+            "snippet": null,
+            "evidence": [],
+            "evidence_omitted_count": 0
           }
         ]
       }
@@ -178,7 +331,7 @@
       "type": "usage",
       "data": {
         "input_tokens": 150,
-        "output_tokens": 62,
+        "output_tokens": 101,
         "est_cost_usd": null,
         "tool_calls": 2
       }
