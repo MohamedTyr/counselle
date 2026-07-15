@@ -1,310 +1,328 @@
-"""The in-memory fields catalog + decode maps + data calendar (ARCHITECTURE §8).
+"""Atomic, immutable catalog snapshot for the five-view reader contract."""
 
-Loaded once at server start from ``public.fields``; refreshed hourly via
-:meth:`Catalog.maybe_refresh` (callers decide when to call it — KISS). Decode
-maps are fetched lazily per coded column from ``raw.ipeds_valuesets24`` and
-cached forever (IPEDS codes are static — DATABASE_GUIDE R1). Scorecard has no
-decode table, so its few coded columns use the hardcoded maps from §8.
-"""
+from __future__ import annotations
 
-import asyncio
 import re
-from datetime import UTC, datetime, timedelta
-from typing import NamedTuple
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+from difflib import SequenceMatcher
+from types import MappingProxyType
+from typing import Any
 
 import asyncpg
 import structlog
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
-from counselle_db.db import fetch
-from counselle_db.models import ServiceError
-from domain.normalize import FieldMeta
-from domain.urls import registrable_domain
-from domain.vintage import vintage_for
+from config.settings import get_db_child_settings
+from counselle_db.models import SchoolBasics, ServiceError
+from counselle_db.packets import (
+    ManifestDomain,
+    ManifestMetric,
+    ManifestSnapshot,
+    compile_manifest,
+    hex_digest,
+)
+
+# Local seam retained for focused catalog tests.
+get_settings = get_db_child_settings
 
 logger = structlog.get_logger(__name__)
 
-_REFRESH_INTERVAL = timedelta(hours=1)
 
-#: Scorecard coded columns — hardcoded, no decode endpoint exists (DATABASE_GUIDE §8).
-_DEGREE_LEVELS = {
-    "0": "Non-degree-granting",
-    "1": "Certificate",
-    "2": "Associate degree",
-    "3": "Bachelor's degree",
-    "4": "Graduate degree",
-}
-SCORECARD_DECODE_MAPS: dict[str, dict[str, str]] = {
-    "PREDDEG": _DEGREE_LEVELS,
-    "HIGHDEG": _DEGREE_LEVELS,
-    "CONTROL": {"1": "Public", "2": "Private (nonprofit)", "3": "Private (for-profit)"},
-    "MAIN": {"0": "Branch campus", "1": "Main campus"},
-}
-
-#: Scorecard field-of-study credential levels (DATABASE_GUIDE §8, full CREDLEV decode).
-CREDLEV_DECODE: dict[int, str] = {
-    1: "Undergraduate certificate",
-    2: "Associate degree",
-    3: "Bachelor's degree",
-    4: "Post-baccalaureate certificate",
-    5: "Master's degree",
-    6: "Doctoral degree",
-    7: "First-professional degree",
-    8: "Graduate certificate",
-    99: "Non-credential program",
-}
-
-_IPEDS_CYCLE_RE = re.compile(r"IPEDS(\d{4})")
-
-_FIELDS_SQL = """
-SELECT key, label, category, data_type, source, raw_table, raw_column
-FROM fields WHERE enabled
-"""
-
-# Valuesets store bare uppercase table names ('ADM2024'); fields store FQ names
-# ('raw.ipeds_adm2024') — verified live 2026-06-10 (phase-2 Slice A note).
-_DECODE_SQL = """
-SELECT "Codevalue", "ValueLabel"
-FROM raw.ipeds_valuesets24
-WHERE lower("TableName") = lower(replace($1, 'raw.ipeds_', ''))
-  AND lower("VarName") = lower($2)
-"""
-
-_FILES_SQL = "SELECT filename, downloaded_at, source FROM raw.files ORDER BY id"
-
-_VALUESETS_COUNT_SQL = "SELECT count(*) FROM raw.ipeds_valuesets24"
-
-_SCHOOL_NAMES_SQL = "SELECT unitid, name FROM schools"
-
-# unitid → website, for the activity-timeline school logos (MVP2 §27.1). A
-# separate query, NOT a join onto _SCHOOL_NAMES_SQL: field_values is keyed
-# (unitid, field_key, cycle_year) — DISTINCT ON keeps the newest row per school
-# and guards against a school ever carrying the field across two cycles. `value`
-# is jsonb (a JSON string scalar like "www.aamu.edu/"), so `#>> '{}'` unwraps it
-# to bare text. ~2.7k rows, one extra query at load (hits the field_key index).
-_SCHOOL_WEBSITES_SQL = """
-SELECT DISTINCT ON (unitid) unitid, value #>> '{}' AS website
-FROM field_values
-WHERE field_key = 'institution.website' AND value IS NOT NULL
-ORDER BY unitid, cycle_year DESC NULLS LAST
-"""
-
-_CDS_CALENDAR_SQL = """
-SELECT (SELECT current_cycle_year FROM public.cds_settings WHERE id = 1) AS cycle_year,
-       (SELECT count(DISTINCT unitid) FROM field_values
-         WHERE source = 'cds' AND value IS NOT NULL)                 AS extracted_schools
-"""
+def _freeze(value: Any) -> Any:
+    """Recursively freeze JSON-shaped snapshot state, not only its outer mapping."""
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze(child) for key, child in value.items()})
+    if isinstance(value, list | tuple):
+        return tuple(_freeze(child) for child in value)
+    return value
 
 
 class CalendarEntry(BaseModel):
-    """One source's vintage + knowledge cutoff, derived live (never hardcoded)."""
-
+    model_config = ConfigDict(extra="forbid", frozen=True)
     source: str
     vintage: str
     cutoff_note: str
 
 
-class _SourceFiles(NamedTuple):
-    """What ``raw.files`` tells us about the loaded source datasets."""
+_MANIFEST_SQL = """SELECT version,content_sha256,content,domain_hashes,published_at,
+ extractor_contract_version,is_current
+ FROM cds_library.cds_manifest_snapshots ORDER BY published_at"""
+_PROFILES_SQL = """SELECT id,name,aliases,city,state,search_name,official_domain,is_main_campus,
+ basic_profile,profile_version,profile_snapshot_date,profile_sha256
+ FROM cds_library.school_profiles ORDER BY id"""
+_COVERAGE_SQL = """WITH selected_documents AS (
+ SELECT DISTINCT ON (school_id) * FROM cds_library.active_cds_documents
+ ORDER BY school_id,academic_year DESC,document_id DESC)
+ SELECT d.school_id,d.academic_year,d.document_id,d.currentness,d.staleness_reason,
+ d.latest_extraction_status,d.latest_error_code,p.domain_id,p.accepted_packet_status
+ FROM selected_documents d LEFT JOIN cds_library.active_cds_domain_packets p
+ ON p.school_id=d.school_id AND p.document_id=d.document_id"""
 
-    scorecard_filename: str | None
-    scorecard_loaded_at: datetime | None
-    ipeds_cycle_year: int | None
-    ipeds_loaded_at: datetime | None
+
+def normalize_school_name(value: str) -> str:
+    value = value.casefold().replace("&", " and ")
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", value).split())
 
 
-def _scan_source_files(rows: list[asyncpg.Record]) -> _SourceFiles:
-    """Derive the per-source dataset facts from ``raw.files`` (pure — no instance state)."""
-    scorecard_filename: str | None = None
-    scorecard_loaded_at: datetime | None = None
-    ipeds_cycle_year: int | None = None
-    ipeds_loaded_at: datetime | None = None
-    for row in rows:
-        filename, source = row["filename"], row["source"]
-        if source == "scorecard" and filename.endswith(".zip"):
-            scorecard_filename = filename
-            scorecard_loaded_at = row["downloaded_at"]
-        elif source == "ipeds" and filename.endswith(".accdb"):
-            ipeds_loaded_at = row["downloaded_at"]
-            match = _IPEDS_CYCLE_RE.search(filename)
-            if match:
-                ipeds_cycle_year = int(match.group(1))
-            else:
-                ipeds_cycle_year = None
-                logger.warning("unparseable IPEDS filename (no cycle year)", filename=filename)
-    return _SourceFiles(scorecard_filename, scorecard_loaded_at, ipeds_cycle_year, ipeds_loaded_at)
+@dataclass(frozen=True)
+class SchoolRecord:
+    basics: SchoolBasics
+    aliases: tuple[str, ...]
+    search_name: str
+    is_main_campus: bool
+    basic_profile: Mapping[str, Any]
+    profile_version: str
+    profile_snapshot_date: date
+    profile_sha256: str
+
+
+@dataclass(frozen=True)
+class CatalogSnapshot:
+    refreshed_at: datetime
+    current_version: str
+    current_hash: str
+    current_contract: str
+    published_at: datetime
+    manifests: Mapping[str, ManifestSnapshot]
+    domains: tuple[ManifestDomain, ...]
+    metrics: Mapping[str, ManifestMetric]
+    total_metrics: int
+    domain_counts: Mapping[str, int]
+    schools: Mapping[int, SchoolRecord]
+    name_index: Mapping[str, tuple[int, ...]]
+    profile_groups: tuple[str, ...]
+    profile_snapshot_min: date
+    profile_snapshot_max: date
+    coverage: Mapping[int, Mapping[str, Any]]
+    coverage_aggregates: Mapping[str, Any]
 
 
 class Catalog:
-    """The fields catalog, decode-map cache, and live data calendar."""
-
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: asyncpg.Pool, snapshot: CatalogSnapshot):
         self.pool = pool
-        #: Capability flags set by the server-startup preflight (counselle_db/server.py
-        #: ``_lifespan``); default optimistic until the real probe result lands.
-        #: Consumed by search_fields.py/service.py to degrade to ILIKE-only search.
-        self.trgm_available: bool = True
-        self.vector_available: bool = True
-        self.fields_by_key: dict[str, FieldMeta] = {}
-        self.school_names: dict[int, str] = {}
-        self.school_domains: dict[int, str] = {}
-        #: Live coverage count (= len(school_names)) — derived from the DB and
-        #: refreshed for free with the hourly catalog reload (CFG-01, ADR 0018
-        #: bucket 3). NEVER a hardcoded literal: the count drifts on every
-        #: pipeline re-ingest and a stale number would lie to a student about
-        #: coverage (CLAUDE.md principle 3). 0 until the first _reload().
-        self.school_count: int = 0
-        self.scorecard_filename: str | None = None
-        self.ipeds_cycle_year: int | None = None
-        self.loaded_at: datetime = datetime.min.replace(tzinfo=UTC)
-        self._decode_cache: dict[tuple[str, str], dict[str, str] | None] = {}
-        self._ipeds_loaded_at: datetime | None = None
-        self._scorecard_loaded_at: datetime | None = None
-        # Serializes concurrent refreshes: N stale callers would each launch a full
-        # _reload (a thundering herd) — only the first waiter reloads (audit M1).
-        self._reload_lock = asyncio.Lock()
+        self._snapshot = snapshot
+        self._last_attempt = snapshot.refreshed_at
 
-    def school_name(self, unitid: int) -> str | None:
-        """The school's display name, or None when the unitid is unknown.
+    @property
+    def snapshot(self) -> CatalogSnapshot:
+        return self._snapshot
 
-        In-memory (loaded with the catalog, ~2.7k rows) so hot paths — step
-        labels (MVP2 §27.1) — never touch the pool.
-        """
-        return self.school_names.get(unitid)
+    @property
+    def school_count(self) -> int:
+        return len(self._snapshot.schools)
 
-    def school_domain(self, unitid: int) -> str | None:
-        """The school's registrable website domain (e.g. ``stanford.edu``), or None.
-
-        In-memory like ``school_name`` — feeds the timeline's school-logo chip
-        (a favicon derived from this domain). The only honest fact we have is the
-        school's own website domain; the "logo" is derived from it client-side.
-        """
-        return self.school_domains.get(unitid)
+    @property
+    def school_names(self) -> Mapping[int, str]:
+        return MappingProxyType(
+            {unitid: record.basics.name for unitid, record in self._snapshot.schools.items()}
+        )
 
     @classmethod
-    async def load(cls, pool: asyncpg.Pool) -> "Catalog":
-        """Load the catalog once at server start (decode source must be non-empty)."""
-        valueset_count = (await fetch(pool, _VALUESETS_COUNT_SQL))[0]["count"]
-        if not valueset_count:
-            raise RuntimeError("ipeds valuesets table is empty — decode maps unavailable (R1 risk)")
-        catalog = cls(pool)
-        await catalog._reload()
-        return catalog
+    async def load(cls, pool: asyncpg.Pool) -> Catalog:
+        return cls(pool, await cls._load_snapshot(pool))
 
-    async def maybe_refresh(self) -> None:
-        """Reload the catalog if it is older than an hour (callers decide when).
-
-        On failure, the stale catalog is served (callers continue normally) and
-        the next retry is deferred by ~10 minutes to avoid a thundering herd of
-        reload attempts during a DB blip. The initial load (via ``load()``) still
-        raises on failure — only the periodic refresh serves stale.
-        """
-        if datetime.now(UTC) - self.loaded_at < _REFRESH_INTERVAL:
-            return
-        async with self._reload_lock:
-            # Double-check: a concurrent caller may have reloaded while we waited
-            # on the lock — only the first waiter reloads (audit M1).
-            if datetime.now(UTC) - self.loaded_at < _REFRESH_INTERVAL:
-                return
-            try:
-                await self._reload()
-            except Exception:
-                logger.warning(
-                    "catalog refresh failed — serving stale catalog",
-                    exc_info=True,
-                )
-                # Advance loaded_at so the next attempt happens in ~10 minutes,
-                # not on every subsequent call (thundering herd prevention).
-                self.loaded_at = datetime.now(UTC) - (_REFRESH_INTERVAL - timedelta(minutes=10))
-
-    async def _reload(self) -> None:
-        # Build everything into locals first; a failed query mid-reload must never
-        # leave a half-updated catalog that is then treated as fresh.
-        field_rows = await fetch(self.pool, _FIELDS_SQL)
-        new_fields = {row["key"]: FieldMeta(**dict(row)) for row in field_rows}
-        files = _scan_source_files(await fetch(self.pool, _FILES_SQL))
-        name_rows = await fetch(self.pool, _SCHOOL_NAMES_SQL)
-        new_names = {row["unitid"]: row["name"] for row in name_rows}
-        website_rows = await fetch(self.pool, _SCHOOL_WEBSITES_SQL)
-        new_domains = {
-            row["unitid"]: domain
-            for row in website_rows
-            if (domain := registrable_domain(row["website"] or "")) is not None
-        }
-        # Every query succeeded — swap the instance state, loaded_at last.
-        self.fields_by_key = new_fields
-        self.school_names = new_names
-        self.school_count = len(new_names)  # CFG-01: live coverage count, no extra query
-        self.school_domains = new_domains
-        self.scorecard_filename = files.scorecard_filename
-        self._scorecard_loaded_at = files.scorecard_loaded_at
-        self.ipeds_cycle_year = files.ipeds_cycle_year
-        self._ipeds_loaded_at = files.ipeds_loaded_at
-        self.loaded_at = datetime.now(UTC)
-
-    async def decode_map_for(self, meta: FieldMeta) -> dict[str, str] | None:
-        """The code→label map for a coded int field; None when the field isn't coded (R1)."""
-        if meta.data_type != "int":
-            return None
-        if meta.source == "scorecard":
-            return SCORECARD_DECODE_MAPS.get((meta.raw_column or "").upper())
-        if meta.source != "ipeds" or not meta.raw_table or not meta.raw_column:
-            return None  # CDS strings need no decode (R7)
-        cache_key = (meta.raw_table, meta.raw_column)
-        if cache_key not in self._decode_cache:
-            rows = await fetch(self.pool, _DECODE_SQL, meta.raw_table, meta.raw_column)
-            decoded = {row["Codevalue"]: row["ValueLabel"] for row in rows}
-            self._decode_cache[cache_key] = decoded or None  # codes are static: cache forever
-        return self._decode_cache[cache_key]
-
-    async def data_calendar(self) -> list[CalendarEntry]:
-        """Per-source vintage + cutoff, derived live (ARCHITECTURE §8)."""
-        cds_rows = await fetch(self.pool, _CDS_CALENDAR_SQL)
-        if not cds_rows:
-            raise ServiceError("data calendar unavailable: cds_settings table returned no rows")
-        cds_row = cds_rows[0]
-        cds_year = cds_row["cycle_year"] if isinstance(cds_row["cycle_year"], int) else None
-        return [
-            self._ipeds_entry(),
-            self._scorecard_entry(),
-            self._cds_entry(cds_year, cds_row["extracted_schools"]),
-        ]
-
-    def _ipeds_entry(self) -> CalendarEntry:
-        vintage, _ = vintage_for("ipeds", self.ipeds_cycle_year)
-        loaded = _loaded_suffix(self._ipeds_loaded_at)
-        return CalendarEntry(
-            source="ipeds",
-            vintage=vintage,
-            cutoff_note=(
-                f"Provisional federal data for the fall {self.ipeds_cycle_year} collection"
-                f"{loaded}; later developments are not in this source."
+    @staticmethod
+    async def _load_snapshot(pool: asyncpg.Pool) -> CatalogSnapshot:
+        async with (
+            pool.acquire() as conn,
+            conn.transaction(isolation="repeatable_read", readonly=True),
+        ):
+            manifest_rows = await conn.fetch(_MANIFEST_SQL)
+            profile_rows = await conn.fetch(_PROFILES_SQL)
+            coverage_rows = await conn.fetch(_COVERAGE_SQL)
+            now = datetime.now(UTC)
+        if not profile_rows:
+            raise ServiceError("The school profile catalog is empty.")
+        current_rows = [row for row in manifest_rows if row["is_current"]]
+        if len(current_rows) != 1:
+            raise ServiceError("The CDS catalog must have exactly one current manifest.")
+        manifests: dict[str, ManifestSnapshot] = {}
+        for row in manifest_rows:
+            content = row["content"]
+            root_version = content.get("root", {}).get("version")
+            if (
+                root_version != row["version"]
+                or row["version"] in manifests
+                or len(bytes(row["content_sha256"])) != 32
+                or not row["extractor_contract_version"]
+            ):
+                raise ServiceError("Manifest snapshot identity is inconsistent.")
+            manifests[row["version"]] = compile_manifest(
+                row["version"], content, row["domain_hashes"]
+            )
+        current_row = current_rows[0]
+        current = manifests[current_row["version"]]
+        metrics = {metric.ref: metric for domain in current.domains for metric in domain.metrics}
+        schools: dict[int, SchoolRecord] = {}
+        names: dict[str, list[int]] = {}
+        groups: set[str] = set()
+        dates: list[date] = []
+        for row in profile_rows:
+            unitid = row["id"]
+            aliases = row["aliases"] or ()
+            if (
+                not isinstance(unitid, int)
+                or unitid <= 0
+                or unitid in schools
+                or not isinstance(row["name"], str)
+                or not row["name"].strip()
+                or not isinstance(row["search_name"], str)
+                or not row["search_name"].strip()
+                or any(not isinstance(alias, str) or not alias.strip() for alias in aliases)
+                or not isinstance(row["basic_profile"], dict)
+                or len(bytes(row["profile_sha256"])) != 32
+            ):
+                raise ServiceError("School profile identity is invalid or duplicated.")
+            profile = row["basic_profile"]
+            groups.update(k for k, value in profile.items() if isinstance(value, dict))
+            record = SchoolRecord(
+                basics=SchoolBasics(
+                    unitid=unitid,
+                    name=row["name"],
+                    city=row["city"],
+                    state=row["state"],
+                    official_domain=row["official_domain"],
+                ),
+                aliases=tuple(aliases),
+                search_name=row["search_name"],
+                is_main_campus=bool(row["is_main_campus"]),
+                basic_profile=_freeze(profile),
+                profile_version=row["profile_version"],
+                profile_snapshot_date=row["profile_snapshot_date"],
+                profile_sha256=hex_digest(row["profile_sha256"]),
+            )
+            schools[unitid] = record
+            dates.append(record.profile_snapshot_date)
+            for name in (record.basics.name, record.search_name, *record.aliases):
+                normalized = normalize_school_name(name)
+                if normalized:
+                    names.setdefault(normalized, []).append(unitid)
+        coverage: dict[int, dict[str, Any]] = {}
+        for row in coverage_rows:
+            existing = coverage.get(row["school_id"])
+            if existing is not None and existing["document_id"] != row["document_id"]:
+                raise ServiceError("Selected-document coverage contains duplicate schools.")
+            item = coverage.setdefault(
+                row["school_id"],
+                {
+                    "academic_year": row["academic_year"],
+                    "document_id": row["document_id"],
+                    "currentness": row["currentness"],
+                    "staleness_reason": row["staleness_reason"],
+                    "latest_status": row["latest_extraction_status"],
+                    "latest_error_code": row["latest_error_code"],
+                    "domains": [],
+                    "partials": 0,
+                },
+            )
+            if row["accepted_packet_status"]:
+                item["domains"].append(row["domain_id"])
+                item["partials"] += row["accepted_packet_status"] == "partial"
+        order = {domain.id: index for index, domain in enumerate(current.domains)}
+        for item in coverage.values():
+            item["domains"].sort(key=lambda domain: order.get(domain, 10**9))
+        covered = sum(bool(item["domains"]) for item in coverage.values())
+        fully = sum(
+            len(item["domains"]) == len(current.domains) and item["partials"] == 0
+            for item in coverage.values()
+        )
+        by_year: dict[int, int] = {}
+        stale = 0
+        for item in coverage.values():
+            if item["domains"]:
+                by_year[item["academic_year"]] = by_year.get(item["academic_year"], 0) + 1
+                stale += item["currentness"] == "stale"
+        return CatalogSnapshot(
+            refreshed_at=now,
+            current_version=current.version,
+            current_hash=hex_digest(current_row["content_sha256"]),
+            current_contract=current_row["extractor_contract_version"],
+            published_at=current_row["published_at"],
+            manifests=MappingProxyType(manifests),
+            domains=current.domains,
+            metrics=MappingProxyType(metrics),
+            total_metrics=len(metrics),
+            domain_counts=MappingProxyType({d.id: len(d.metrics) for d in current.domains}),
+            schools=MappingProxyType(schools),
+            name_index=MappingProxyType({k: tuple(v) for k, v in names.items()}),
+            profile_groups=tuple(sorted(groups)),
+            profile_snapshot_min=min(dates),
+            profile_snapshot_max=max(dates),
+            coverage=_freeze(coverage),
+            coverage_aggregates=_freeze(
+                {
+                    "covered": covered,
+                    "fully": fully,
+                    "partial": covered - fully,
+                    "stale": stale,
+                    "by_year": by_year,
+                }
             ),
         )
 
-    def _scorecard_entry(self) -> CalendarEntry:
-        vintage, _ = vintage_for("scorecard", None, scorecard_filename=self.scorecard_filename)
-        loaded = _loaded_suffix(self._scorecard_loaded_at)
-        return CalendarEntry(
-            source="scorecard",
-            vintage=vintage,
-            cutoff_note=(
-                f"Most-recent cohorts as of publication{loaded}; "
-                "earnings figures lag the entry cohort by years."
-            ),
+    async def maybe_refresh(self, *, force: bool = False) -> CatalogSnapshot:
+        cadence = timedelta(seconds=get_settings().data_catalog_refresh_seconds)
+        now = datetime.now(UTC)
+        if not force and now - self._last_attempt < cadence:
+            return self._snapshot
+        self._last_attempt = now
+        try:
+            fresh = await self._load_snapshot(self.pool)
+        except Exception:
+            logger.warning("catalog_refresh_failed", exc_info=True)
+            return self._snapshot
+        self._snapshot = fresh
+        return fresh
+
+    async def domain(self, domain_id: str) -> ManifestDomain:
+        match = next((d for d in self._snapshot.domains if d.id == domain_id), None)
+        if match is None:
+            await self.maybe_refresh(force=True)
+            match = next((d for d in self._snapshot.domains if d.id == domain_id), None)
+        if match is None:
+            valid = ", ".join(d.id for d in self._snapshot.domains)
+            raise ServiceError(f"Unknown CDS domain. Valid domains: {valid}")
+        return match
+
+    def school_name(self, unitid: int) -> str | None:
+        record = self._snapshot.schools.get(unitid)
+        return record.basics.name if record else None
+
+    def school_domain(self, unitid: int) -> str | None:
+        record = self._snapshot.schools.get(unitid)
+        return record.basics.official_domain if record else None
+
+    def resolve_candidates(self, query: str) -> tuple[SchoolRecord, ...]:
+        normalized = normalize_school_name(query)
+        if query.isdigit() and int(query) in self._snapshot.schools:
+            return (self._snapshot.schools[int(query)],)
+        exact = self._snapshot.name_index.get(normalized, ())
+        ids: set[int] = set(exact)
+        if not ids:
+            ids = {
+                unitid
+                for name, values in self._snapshot.name_index.items()
+                if normalized in name or name.startswith(normalized)
+                for unitid in values
+            }
+        scored: list[tuple[float, SchoolRecord]] = []
+        pool = ids or set(self._snapshot.schools)
+        for unitid in pool:
+            record = self._snapshot.schools[unitid]
+            score = max(
+                SequenceMatcher(None, normalized, normalize_school_name(name)).ratio()
+                for name in (record.basics.name, *record.aliases)
+            )
+            if score >= 0.55:
+                scored.append((score, record))
+        scored.sort(
+            key=lambda pair: (
+                not pair[1].is_main_campus,
+                -pair[0],
+                pair[1].basics.name,
+                pair[1].basics.unitid,
+            )
         )
-
-    def _cds_entry(self, cycle_year: int | None, extracted_schools: int) -> CalendarEntry:
-        vintage, _ = vintage_for("cds", cycle_year)
-        return CalendarEntry(
-            source="cds",
-            vintage=vintage,
-            cutoff_note=(
-                f"Extracted for {extracted_schools} school(s) so far; "
-                "all other schools fall back to IPEDS/Scorecard."
-            ),
-        )
-
-
-def _loaded_suffix(loaded_at: datetime | None) -> str:
-    return f" (loaded {loaded_at:%Y-%m-%d})" if loaded_at else ""
+        return tuple(record for _, record in scored[:5])

@@ -125,8 +125,8 @@ def test_simple_flow_narration_step_pair_then_live_answer(rig: Rig) -> None:
     rig.feed(
         _text_start("Let me pull Duke's numbers."),
         _text_end("tool-call"),
-        _call("get_values", {"unitid": 198419, "field_keys": ["admissions.sat_25"]}, "c1"),
-        _result("get_values", [{"field": "admissions.sat_25"}], "c1"),
+        _call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "c1"),
+        _result("get_domain", [{"field": "admissions.sat_25"}], "c1"),
         _final(),
         _text_start(long_tail),
         _text_delta(" And more."),
@@ -403,10 +403,10 @@ async def test_final_result_event_orders_before_text_delta_with_function_model()
 
 def test_parallel_calls_pair_results_by_tool_call_id(rig: Rig) -> None:
     rig.feed(
-        _call("get_values", {"unitid": 198419, "field_keys": ["admissions.sat_25"]}, "A"),
+        _call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "A"),
         _call("search_web", {"query": "duke dorms"}, "B"),
         _result("search_web", {"results": [{"url": "https://reddit.com/x"}]}, "B"),
-        _result("get_values", [{"field": "admissions.sat_25"}], "A"),
+        _result("get_domain", [{"field": "admissions.sat_25"}], "A"),
     )
 
     steps = rig.steps()
@@ -557,8 +557,8 @@ def test_error_dict_result_gives_error_status_and_search_failed_label(rig: Rig) 
 
 def test_retry_prompt_result_gives_error_status_and_retry_label(rig: Rig) -> None:
     rig.feed(
-        _call("get_values", {"unitid": 198419, "field_keys": []}, "c1"),
-        _retry_result("get_values", "c1"),
+        _call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "c1"),
+        _retry_result("get_domain", "c1"),
     )
 
     steps = rig.steps()
@@ -570,11 +570,11 @@ def test_retry_result_leaves_row_count_unset(rig: Rig) -> None:
     """A retry's content is a validation-error list — it must never be read as
     a row count in the receipt."""
     rig.feed(
-        _call("get_values", {"unitid": 198419, "field_keys": []}, "c1"),
+        _call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "c1"),
         _retry_result(
-            "get_values",
+            "get_domain",
             "c1",
-            content=[{"type": "missing", "loc": ("field_keys",), "msg": "Field required"}],
+            content=[{"type": "missing", "loc": ("domain_id",), "msg": "Field required"}],
         ),
     )
 
@@ -632,7 +632,7 @@ def test_close_before_final_result_never_calls_on_final_start_or_emits_delta(
 
 @pytest.mark.parametrize("reason", ["error", "budget"])
 def test_close_error_and_budget_close_open_steps_as_error(rig: Rig, reason: str) -> None:
-    rig.feed(_call("get_values", {"unitid": 198419, "field_keys": ["x"]}, "c1"))
+    rig.feed(_call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "c1"))
 
     rig.router.close(reason)  # type: ignore[arg-type]
 
@@ -643,7 +643,7 @@ def test_close_error_and_budget_close_open_steps_as_error(rig: Rig, reason: str)
 
 
 def test_close_is_idempotent_and_handle_is_noop_after_close(rig: Rig) -> None:
-    rig.feed(_call("get_values", {"unitid": 198419, "field_keys": ["x"]}, "c1"))
+    rig.feed(_call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "c1"))
     rig.router.close("error")
     chunks_after_close = len(rig.chunks)
 
@@ -704,8 +704,8 @@ def test_step_records_hold_terminal_states_only_and_narration_lines_accumulate(r
     rig.feed(
         _text_start("Checking the database."),
         _text_end("tool-call"),
-        _call("get_values", {"unitid": 198419, "field_keys": ["x"]}, "c1"),
-        _result("get_values", [{"field": "x"}], "c1"),
+        _call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "c1"),
+        _result("get_domain", [{"field": "x"}], "c1"),
         _call("search_web", {"query": "dorms"}, "c2"),
         _result("search_web", {"error": "down"}, "c2"),
     )

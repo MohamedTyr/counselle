@@ -78,32 +78,45 @@ def _test_policy(*, vintage: str, source: str, raw: str) -> CitationEnvelope:
 async def test_test_policy_uses_compatible_preference_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stale_preferred = _test_policy(vintage="CDS 2024-25", source="cds", raw="Optional")
-    compatible_fallback = _test_policy(
-        vintage="IPEDS 2026-27", source="ipeds", raw="Required"
+    row = SimpleNamespace(
+        available=True,
+        ref="admissions.test_policy_clarification",
+        label="Test policy",
+        display="Required",
+        value="Required",
+        vintage="CDS 2026-27",
     )
 
-    async def fake_get_values(*_: object) -> list[CitationEnvelope]:
-        return [stale_preferred, compatible_fallback]
+    async def fake_get_domain(*_: object) -> SimpleNamespace:
+        return SimpleNamespace(rows=(row,))
 
-    monkeypatch.setattr(service_reference, "get_values", fake_get_values)
+    monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
 
     result = await service_reference._compatible_test_policy(
         cast(Any, object()), unitid=1, cycle_year=2027
     )
 
-    assert result == compatible_fallback
+    assert result is not None
+    assert result.available
+    assert result.raw == "Required"
 
 
 async def test_stale_test_policy_is_unavailable_and_requires_portal_verification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stale = _test_policy(vintage="CDS 2024-25", source="cds", raw="Optional")
+    row = SimpleNamespace(
+        available=True,
+        ref="admissions.test_policy_clarification",
+        label="Test policy",
+        display="Optional",
+        value="Optional",
+        vintage="CDS 2024-25",
+    )
 
-    async def fake_get_values(*_: object) -> list[CitationEnvelope]:
-        return [stale]
+    async def fake_get_domain(*_: object) -> SimpleNamespace:
+        return SimpleNamespace(rows=(row,))
 
-    monkeypatch.setattr(service_reference, "get_values", fake_get_values)
+    monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
 
     result = await service_reference._compatible_test_policy(
         cast(Any, object()), unitid=1, cycle_year=2027
@@ -164,7 +177,7 @@ async def test_school_identity_does_not_require_optional_pipeline_city_column() 
 
     identities = await service_utils.school_identities(cast(Any, catalog), [1])
 
-    assert "NULL::text AS city" in pool.query
+    assert "id AS unitid, name, city, state, official_domain" in pool.query
     assert identities[1].city is None
     assert identities[1].state == "MA"
     assert identities[1].website_url == "https://example.edu"

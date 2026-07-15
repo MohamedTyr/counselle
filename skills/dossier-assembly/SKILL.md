@@ -38,11 +38,11 @@ Say this once, briefly, at the start of the dossier. Example: "Duke has the deep
 
 ## Step 3 — Fetch the dossier
 
-Call `get_dossier(unitid, sections=None)` — fetches all six shortlist sections in one call. The tool returns citation envelopes. All values are already decoded, scaled, and formatted per the reading rules.
+Call `get_school_profile(unitid)` for identity facts, then `get_domain(unitid, domain_id)` for each relevant CDS domain. Displays are produced by the typed reading rules.
 
 For programs and diversity (Section D sub-data and Section E):
-- Programs/earnings by major: use `get_programs(unitid)`. Filter to `credlev=3` for bachelor's-level earnings.
-- Diversity breakdown: use `get_diversity(unitid)`.
+- Programs/majors: use the relevant CDS degrees/academics domain when covered; otherwise search the official school site.
+- Diversity breakdown: use the relevant CDS enrollment/class-profile domain when covered; otherwise search the official school site.
 
 ## Step 4 — Present sections in order
 

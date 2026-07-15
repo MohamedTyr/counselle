@@ -144,39 +144,18 @@ class TestSearchWebTierAssignment:
 
 
 class FakeCatalog:
-    """Minimal catalog stub; get_values is monkeypatched per test."""
+    """Minimal catalog stub for the immutable official-domain cache."""
 
-    pass
+    def __init__(self, domain: str | None = "duke.edu") -> None:
+        self.domain = domain
+
+    def school_domain(self, unitid: int) -> str | None:
+        return self.domain
 
 
 class TestSearchSchoolSite:
     @pytest.mark.asyncio
-    async def test_resolves_domain_from_website_field(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        from domain.envelope import Citation, CitationEnvelope
-
-        env = CitationEnvelope(
-            field="institution.website",
-            label="Website",
-            display="https://www.duke.edu",
-            raw="https://www.duke.edu",
-            available=True,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-        admissions_env = CitationEnvelope(
-            field="institution.admissions_url",
-            label="Admissions URL",
-            display="not available",
-            available=False,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-
-        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
-            return [env, admissions_env]
-
-        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
-
+    async def test_resolves_domain_from_catalog(self) -> None:
         client = StubTavilyClient([_make_result("https://duke.edu/admissions")])
         catalog = FakeCatalog()
         result = await search_school_site(
@@ -191,86 +170,30 @@ class TestSearchSchoolSite:
         assert "school's official site" in citation["vintage"]
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_admissions_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from domain.envelope import Citation, CitationEnvelope
-
-        website_env = CitationEnvelope(
-            field="institution.website",
-            label="Website",
-            display="not available",
-            available=False,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-        admissions_env = CitationEnvelope(
-            field="institution.admissions_url",
-            label="Admissions URL",
-            display="https://www.mit.edu/admissions",
-            raw="https://www.mit.edu/admissions",
-            available=True,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-
-        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
-            return [website_env, admissions_env]
-
-        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
-
+    async def test_uses_non_edu_official_domain(self) -> None:
         client = StubTavilyClient([_make_result("https://mit.edu/apply")])
         result = await search_school_site(
-            client, FakeCatalog(), 166683, "financial aid", today=TODAY, max_results=MAX_RESULTS
+            client,
+            FakeCatalog("mit.edu"),
+            166683,
+            "financial aid",
+            today=TODAY,
+            max_results=MAX_RESULTS,
         )
         assert "results" in result
         assert client.calls[0]["include_domains"] == ["mit.edu"]
 
     @pytest.mark.asyncio
-    async def test_returns_error_when_no_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from domain.envelope import Citation, CitationEnvelope
-
-        na_env = CitationEnvelope(
-            field="institution.website",
-            label="Website",
-            display="not available",
-            available=False,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-        na_env2 = CitationEnvelope(
-            field="institution.admissions_url",
-            label="Admissions URL",
-            display="not available",
-            available=False,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-
-        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
-            return [na_env, na_env2]
-
-        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
-
+    async def test_returns_error_when_no_url(self) -> None:
         client = StubTavilyClient()
         result = await search_school_site(
-            client, FakeCatalog(), 999999, "q", today=TODAY, max_results=MAX_RESULTS
+            client, FakeCatalog(None), 999999, "q", today=TODAY, max_results=MAX_RESULTS
         )
         assert result == {"error": "school website unknown", "retryable": False}
         assert len(client.calls) == 0  # no Tavily call when domain unknown
 
     @pytest.mark.asyncio
-    async def test_tavily_error_returns_error_dict(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from domain.envelope import Citation, CitationEnvelope
-
-        env = CitationEnvelope(
-            field="institution.website",
-            label="Website",
-            display="https://uchicago.edu",
-            raw="https://uchicago.edu",
-            available=True,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-
-        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
-            return [env, env]
-
-        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
-
+    async def test_tavily_error_returns_error_dict(self) -> None:
         client = StubTavilyClient(raise_exc=ConnectionError("timeout"))
         result = await search_school_site(
             client, FakeCatalog(), 144050, "deadlines", today=TODAY, max_results=MAX_RESULTS
@@ -278,29 +201,9 @@ class TestSearchSchoolSite:
         assert "error" in result
         assert result["retryable"] is True
 
-    @staticmethod
-    def _patch_duke_domain(monkeypatch: pytest.MonkeyPatch) -> None:
-        """Resolve the school domain to duke.edu for the per-result tier tests."""
-        from domain.envelope import Citation, CitationEnvelope
-
-        env = CitationEnvelope(
-            field="institution.website",
-            label="Website",
-            display="https://www.duke.edu",
-            raw="https://www.duke.edu",
-            available=True,
-            citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024-25"),
-        )
-
-        async def fake_get_values(catalog: object, unitid: int, keys: list[str]) -> list[object]:
-            return [env]
-
-        monkeypatch.setattr("adapters.tavily_tools._get_values_impl", fake_get_values)
-
     @pytest.mark.asyncio
-    async def test_on_domain_result_stays_official(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_on_domain_result_stays_official(self) -> None:
         # DS-02: an on-domain result keeps the school's-official-site citation.
-        self._patch_duke_domain(monkeypatch)
         client = StubTavilyClient([_make_result("https://duke.edu/admissions")])
         result = await search_school_site(
             client, FakeCatalog(), 198419, "early decision", today=TODAY, max_results=MAX_RESULTS
@@ -312,11 +215,10 @@ class TestSearchSchoolSite:
 
     @pytest.mark.asyncio
     async def test_off_domain_result_is_retiered_community(
-        self, monkeypatch: pytest.MonkeyPatch
+        self,
     ) -> None:
         # DS-02: include_domains is a bias, not a guarantee. An off-domain result
         # (a third-party host) must be re-tiered honestly, never stamped official.
-        self._patch_duke_domain(monkeypatch)
         client = StubTavilyClient([_make_result("https://collegeconfidential.com/duke")])
         result = await search_school_site(
             client, FakeCatalog(), 198419, "early decision", today=TODAY, max_results=MAX_RESULTS
@@ -329,11 +231,10 @@ class TestSearchSchoolSite:
 
     @pytest.mark.asyncio
     async def test_off_domain_gov_result_is_official_web(
-        self, monkeypatch: pytest.MonkeyPatch
+        self,
     ) -> None:
         # DS-02: an off-domain .gov result re-derives correctly to official/web —
         # the tier comes from the actual URL, not the school stamp.
-        self._patch_duke_domain(monkeypatch)
         client = StubTavilyClient([_make_result("https://nces.ed.gov/ipeds")])
         result = await search_school_site(
             client, FakeCatalog(), 198419, "outcomes", today=TODAY, max_results=MAX_RESULTS

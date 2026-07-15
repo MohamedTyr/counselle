@@ -15,14 +15,15 @@ attributes hold real secrets.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 import yaml
 from pydantic import AliasChoices, Field, ValidationError, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _ENV_PREFIX = "COUNSELLE_"
 
@@ -43,6 +44,45 @@ _SECRET_FIELDS = frozenset(
 )
 
 
+class DbChildSettings(BaseSettings):
+    """Minimal settings surface for the credential-isolated DB MCP child."""
+
+    model_config = SettingsConfigDict(env_file=None, env_prefix=_ENV_PREFIX, extra="ignore")
+
+    db_ro_dsn: str
+    db_statement_timeout_ms: int = 8000
+    db_row_cap: int = Field(default=500, gt=0)
+    query_database_max_bytes: int = Field(default=262_144, gt=0)
+    data_catalog_refresh_seconds: int = Field(default=3600, gt=0)
+    supported_packet_extractor_versions: Annotated[frozenset[str], NoDecode] = frozenset(
+        {
+            "gemini-native-pdf-v2",
+            "gemini-native-pdf-v5",
+            "gemini-routed-extraction-v7",
+            "gemini-routed-extraction-v8",
+        }
+    )
+    db_pool_min: int = 1
+    db_pool_max: int = 5
+    log_level: str = "INFO"
+
+    @field_validator("supported_packet_extractor_versions", mode="before")
+    @classmethod
+    def _parse_supported_extractors(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            value = frozenset(part.strip() for part in value.split(","))
+        if not value or any(
+            not isinstance(part, str) or not part or part != part.strip() for part in value
+        ):
+            raise ValueError("extractor versions must be nonempty exact strings")
+        return frozenset(value)
+
+
+@lru_cache(maxsize=1)
+def get_db_child_settings() -> DbChildSettings:
+    return DbChildSettings()  # type: ignore[call-arg]
+
+
 def _mask_secret(name: str, value: str) -> str:
     """Mask a secret for display: DSNs show scheme + host only, keys show ``***``."""
     if name.endswith("_dsn"):
@@ -57,6 +97,14 @@ class Settings(BaseSettings):
     """Every deploy- or cost-relevant knob, in one place (ADR 0018, ARCHITECTURE §18)."""
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix=_ENV_PREFIX, extra="ignore")
+
+    def __init__(self, **values: Any) -> None:
+        # The DB-only MCP subprocess is started in the repository root.  Without
+        # this explicit opt-out pydantic-settings would reload the repository
+        # .env and defeat the transport's credential allowlist.
+        if os.environ.get("COUNSELLE_SETTINGS_NO_ENV_FILE") == "1":
+            values.setdefault("_env_file", None)
+        super().__init__(**values)
 
     # --- Models ---
     model_counselor: str = "google-vertex:gemini-2.5-pro"
@@ -94,9 +142,21 @@ class Settings(BaseSettings):
 
     # --- Database ---
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required
-    db_app_dsn: str  # counselle.* schema (checkpointer, embeddings) — required
+    db_app_dsn: str  # counselle.* schema (sessions, users, workspace) — required
     db_statement_timeout_ms: int = 8000
-    db_row_cap: int = 500
+    db_row_cap: int = Field(default=500, gt=0)
+    query_database_max_bytes: int = Field(default=262_144, gt=0)
+    data_catalog_refresh_seconds: int = Field(default=3600, gt=0)
+    supported_packet_extractor_versions: Annotated[frozenset[str], NoDecode] = frozenset(
+        {
+            "gemini-native-pdf-v2",
+            "gemini-native-pdf-v5",
+            "gemini-routed-extraction-v7",
+            "gemini-routed-extraction-v8",
+        }
+    )
+    viz_max_cells: int = Field(default=600, gt=0)
+    source_evidence_max_items: int = Field(default=50, gt=0)
     db_pool_min: int = 1
     db_pool_max: int = 5
 
@@ -105,10 +165,6 @@ class Settings(BaseSettings):
     session_ttl_days: int | None = None  # None = keep everything
 
     # --- Discovery ---
-    embed_model: str = "gemini-embedding-001"
-    embed_dimensions: int = 768
-    reconcile_interval_minutes: int = 20
-    vector_search_enabled: bool = True
 
     # --- Sources ---
     # Required only when any external source is enabled. The validation_alias makes
@@ -224,6 +280,17 @@ class Settings(BaseSettings):
             )
         return value
 
+    @field_validator("supported_packet_extractor_versions", mode="before")
+    @classmethod
+    def _parse_supported_extractors(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            value = frozenset(part.strip() for part in value.split(","))
+        if not value or any(
+            not isinstance(part, str) or not part or part != part.strip() for part in value
+        ):
+            raise ValueError("extractor versions must be nonempty exact strings")
+        return frozenset(value)
+
     @property
     def effective_oauth_state_secret(self) -> str:
         """The OAuth CSRF state secret — falls back to jwt_secret when unset.
@@ -278,7 +345,7 @@ def get_settings() -> Settings:
     """Load and cache the Settings, failing fast with one aggregated, readable error."""
     try:
         # Required fields (the DSNs) arrive via the environment, which mypy can't see.
-        return Settings()  # type: ignore[call-arg]
+        return Settings()
     except ValidationError as exc:
         lines = ["Invalid Counselle configuration — fix the following and restart:"]
         for error in exc.errors():

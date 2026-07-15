@@ -28,7 +28,6 @@ from tavily.errors import (
     UsageLimitExceededError,
 )
 
-from counselle_db.service import get_values as _get_values_impl
 from domain.envelope import Citation
 from domain.urls import registrable_domain as _registrable_domain
 
@@ -224,26 +223,15 @@ async def search_school_site(
 ) -> dict[str, Any]:
     """Search the school's own .edu (or official) domain via Tavily.
 
-    Resolves the school's website domain from the DB by calling
-    ``counselle_db.service.get_values`` for ``institution.website`` and
-    ``institution.admissions_url``, then passes ``include_domains=[domain]``
-    to Tavily.
+    Resolves the school's official domain from the shared immutable Catalog,
+    then passes it to Tavily as an include-domain constraint.
 
     If neither URL is available in the DB returns ``{"error": ..., "retryable": False}``.
     All other failures return ``{"error": ..., "retryable": True}``.
     """
     domain: str | None = None
     try:
-        envelopes = await _get_values_impl(
-            catalog, unitid, ["institution.website", "institution.admissions_url"]
-        )
-        for env in envelopes:
-            raw_url = getattr(env, "raw", None) or getattr(env, "display", None)
-            if raw_url and str(raw_url) not in ("", "not available"):
-                candidate = _registrable_domain(str(raw_url))
-                if candidate:
-                    domain = candidate
-                    break
+        domain = catalog.school_domain(unitid)
     except Exception as exc:
         return _safe_error(exc)
 

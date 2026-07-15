@@ -1,6 +1,6 @@
 ---
 name: decode-coded-value
-description: How to handle coded integer fields so students never see raw IPEDS codes. Covers the R1 rule, which columns need decoding, the get_values decode path, and when to use query_database with counselle.decode_ipeds. Never show a raw code like "control: 2" or "ADMCON7: 3".
+description: How to use code-produced displays from the typed profile and CDS readers. Never expose an undecoded raw source code to a student.
 ---
 
 # Decode Coded Values (R1)
@@ -11,19 +11,19 @@ Source: DATABASE_GUIDE §6 R1, §8 (enum decoding); ARCHITECTURE §8.
 
 Some integer fields in the database store IPEDS numeric codes that are meaningless to a student. Showing `control: 2` instead of "Private (nonprofit)" is a data error. This skill tells you how to always show the decoded label.
 
-## The safe path: use get_values or get_dossier
+## The safe path: use typed reads
 
-The `get_values` and `get_dossier` tools apply the normalization engine (R1–R12) automatically. Every coded field comes back already decoded in the `display` field of the citation envelope. You never see the raw code. This is the correct path for 90%+ of questions.
+The `get_school_profile` and `get_domain` tools apply the typed reading rules automatically. Every returned fact includes a code-produced `display`; never reinterpret a raw code yourself.
 
-Example: `get_values(unitid, ["institution.control", "admissions.req_test_scores"])` returns:
+Example: `get_school_profile(unitid, ["classification"])` returns profile leaves with code-produced displays.
 - `institution.control` → `display: "Private (nonprofit)"` (not `2`)
 - `admissions.req_test_scores` → `display: "Test-optional"` (not `3`)
 
-Use `get_values` or `get_dossier` for all standard lookups. You are done.
+Use `get_school_profile` for identity facts or `get_domain` for CDS metrics. You are done.
 
 ## Common coded columns you will encounter
 
-These columns require decoding. The tool handles it for you when using get_values:
+The profile reader handles source decoding before values reach you:
 
 | Field key | Raw column | Common decoded values |
 |---|---|---|
@@ -68,7 +68,7 @@ Scorecard has no decode table. Use these maps directly when needed:
 - `CONTROL` (Scorecard): 1=Public, 2=Private (nonprofit), 3=Private (for-profit)
 - `MAIN`: 0=Branch campus, 1=Main campus
 
-Again, `get_values` handles this for you. Only reference these maps if writing raw SQL.
+Again, the typed read tools handle this for you. Raw SQL is only for candidate or aggregate analysis.
 
 ## CDS fields (no decode needed — use R7 formatting)
 
@@ -79,4 +79,4 @@ CDS text fields are already human-readable strings. They need light formatting o
 
 ## What to do if a value looks like a number but seems wrong
 
-If `get_values` returns a value that looks like a raw integer (e.g. `display: "2"` for a known coded column), that is a bug in the normalization engine — do not show it to the student. Use `search_fields` to check the field's metadata, then fall back to a web search for that specific fact.
+If a typed read returns a display that appears inconsistent with its definition, do not show it to the student. Re-read the relevant domain, then fall back to an official web search for that specific fact.

@@ -80,4 +80,4 @@ Do not use "as of" for things that are not expected to change (Carnegie classifi
 
 ## Do not present national benchmarks as school-specific values
 
-The fields `earnings.*_all_institutions` and `cost.median_net_price_all_institutions` are **national aggregates**. They have near-100% fill, which looks like school data, but they are not the school's own value. Never present them as the school's number. Use `national_benchmark(field_key)` explicitly when you want a comparison point, and label it clearly as the national picture.
+Results from `query_database` are aggregate/candidate-analysis rows, not per-value citations. Never present an aggregate as a school's own value. State the computed-as-of date and covered-school denominator, and re-fetch named final values through a typed read.

@@ -410,7 +410,7 @@ def test_health_returns_ok_shape_with_healthy_pools() -> None:
     assert body["checkpointer"] == "ok"
     assert body["rate_limiter"] == "ok"
     assert "mcp" in body
-    assert "reconciler" in body
+    assert "reconciler" not in body
     assert body["version"] == "0.1.0"
 
 

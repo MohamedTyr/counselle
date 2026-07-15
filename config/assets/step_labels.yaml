@@ -15,42 +15,14 @@ tools:
     kind: db_tool
     tier: official
     label: "Finding “{query}” in the database"
-  get_values:
+  get_school_profile:
     kind: db_tool
     tier: official
-    label: "Pulling {school}'s {category} data"
-  get_dossier:
+    label: "Pulling {school}'s profile"
+  get_domain:
     kind: db_tool
     tier: official
-    label: "Pulling {school}'s full dossier"
-  compare_schools:
-    kind: db_tool
-    tier: official
-    label: "Comparing {schools}"
-  find_schools:
-    kind: db_tool
-    tier: official
-    label: "Searching the database for matching schools"
-  national_benchmark:
-    kind: db_tool
-    tier: official
-    label: "Checking the national picture for {field}"
-  get_programs:
-    kind: db_tool
-    tier: official
-    label: "Looking up {school}'s programs"
-  get_diversity:
-    kind: db_tool
-    tier: official
-    label: "Pulling {school}'s diversity profile"
-  get_data_calendar:
-    kind: db_tool
-    tier: official
-    label: "Checking how fresh each data source is"
-  search_fields:
-    kind: db_tool
-    tier: official
-    label: "Finding the right data fields for “{query}”"
+    label: "Pulling {school}'s {category} CDS data"
   query_database:
     kind: sql
     tier: official

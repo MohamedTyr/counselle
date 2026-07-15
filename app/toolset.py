@@ -117,25 +117,17 @@ _MCP_ENV_ALLOWLIST: frozenset[str] = frozenset(
     {
         # Database connection strings (required)
         "COUNSELLE_DB_RO_DSN",
-        "COUNSELLE_DB_APP_DSN",
         # DB connection pool / statement-timeout tuning (optional)
         "COUNSELLE_DB_POOL_MIN",
         "COUNSELLE_DB_POOL_MAX",
         "COUNSELLE_DB_STATEMENT_TIMEOUT_MS",
-        # Vertex / GCP credentials needed for embedding (reconciler)
-        # COUNSELLE_VERTEX_API_KEY is included so the child's embedding calls and
-        # reconciler work in env-var-only deployments (in dev the child also reads
-        # .env itself, but in prod only this allowlist reaches the child process).
-        "COUNSELLE_VERTEX_API_KEY",
-        "COUNSELLE_VERTEX_LOCATION",
-        "COUNSELLE_VERTEX_PROJECT",
-        "GOOGLE_APPLICATION_CREDENTIALS",
-        # Embedding / vector-search / reconciler flags
-        "COUNSELLE_EMBED_MODEL",
-        "COUNSELLE_RECONCILE_ON_STARTUP",
-        "COUNSELLE_VECTOR_SEARCH_LIMIT",
+        "COUNSELLE_DATA_CATALOG_REFRESH_SECONDS",
+        "COUNSELLE_SUPPORTED_PACKET_EXTRACTOR_VERSIONS",
+        "COUNSELLE_DB_ROW_CAP",
+        "COUNSELLE_QUERY_DATABASE_MAX_BYTES",
         # Log level for the child process
         "COUNSELLE_LOG_LEVEL",
+        "COUNSELLE_SETTINGS_NO_ENV_FILE",
         # The child is spawned via `uv run`; in the container HOME is
         # non-writable (/nonexistent), so uv needs its cache dir passed through.
         "UV_CACHE_DIR",
@@ -144,7 +136,7 @@ _MCP_ENV_ALLOWLIST: frozenset[str] = frozenset(
 
 
 def build_mcp_toolset(settings: Any) -> MCPToolset:
-    """The counselle-db MCP server as a stdio child (notes §2; all 11 tools).
+    """The counselle-db MCP server as a stdio child (four DB tools).
 
     The child receives only the explicit ``_MCP_ENV_ALLOWLIST`` variables — it
     must NOT receive the Tavily key or other credentials unrelated to DB access.
@@ -158,7 +150,7 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
     }
     # Settings-driven DSN overrides always win (may differ from raw env).
     env["COUNSELLE_DB_RO_DSN"] = settings.db_ro_dsn
-    env["COUNSELLE_DB_APP_DSN"] = settings.db_app_dsn
+    env["COUNSELLE_SETTINGS_NO_ENV_FILE"] = "1"
     read_timeout = settings.agent_mcp_read_timeout_s
     return MCPToolset(
         StdioTransport(

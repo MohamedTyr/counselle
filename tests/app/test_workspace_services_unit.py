@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 from uuid import uuid4
@@ -182,41 +182,13 @@ async def test_empty_activity_or_honor_patch_is_a_true_no_op(
 
 
 async def test_search_school_names_uses_name_path_and_main_campus_order(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[str, str]] = []
-
-    async def fake_fetch(_pool: object, sql: str, query: str) -> list[dict[str, Any]]:
-        calls.append((sql, query))
-        # _SEARCH_SQL is now the authoritative order (main campus first via its
-        # ORDER BY); the DB returns rows already ranked, so the fixture mirrors
-        # that and the wrapper must preserve — not re-sort — the order.
-        return [
-            {
-                "unitid": 1,
-                "name": "Example University",
-                "city": "A",
-                "state": "NY",
-                "control": "public",
-                "level": "4-year",
-            },
-            {
-                "unitid": 2,
-                "name": "Example University - Downtown",
-                "city": "A",
-                "state": "NY",
-                "control": "public",
-                "level": "4-year",
-            },
-        ]
-
-    monkeypatch.setattr(service, "fetch", fake_fetch)
-    catalog = cast(Catalog, SimpleNamespace(pool=object()))
+    schools = [
+        SimpleNamespace(basics=SimpleNamespace(unitid=1)),
+        SimpleNamespace(basics=SimpleNamespace(unitid=2)),
+    ]
+    catalog = cast(Catalog, SimpleNamespace(resolve_candidates=lambda query: tuple(schools)))
 
     results = await service.search_school_names(catalog, "Example", limit=1)
 
-    # Preserves DB relevance order and honours the limit (main campus, not Downtown).
     assert [school.unitid for school in results] == [1]
-    assert calls and "ILIKE" in calls[0][0]
-    # The main-campus preference lives in the SQL, not a Python re-sort.
-    assert "main campus" in calls[0][0].lower()

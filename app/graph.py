@@ -2,7 +2,7 @@
 
 - ``prepare`` rebuilds the temporal context every turn: today's date, the
   admissions season (``domain.season`` over the ``season_calendar`` asset), and
-  the live per-source data calendar (``counselle_db.service.get_data_calendar``).
+  the current manifest and profile snapshot dates from the atomic catalog.
   It also rebuilds the student-context block (``app/student_context.py``) —
   profile + documents + memory for the turn's authenticated user, or the
   neutral unauthenticated line — never stale, never cached across turns.
@@ -32,7 +32,6 @@ from app.student_context import STUDENT_CONTEXT_UNAUTHENTICATED, build_student_c
 from app.turn_persistence import AGENT_NODE
 from config.settings import load_yaml_asset
 from counselle_db.catalog import CalendarEntry, Catalog
-from counselle_db.service import get_data_calendar
 from domain.season import Season, SeasonWindow, admission_season
 
 
@@ -57,7 +56,24 @@ async def build_temporal_context(catalog: Catalog, today: date | None = None) ->
     today = today or datetime.now().date()
     windows = [SeasonWindow.model_validate(row) for row in load_yaml_asset("season_calendar")]
     season = admission_season(today, windows)
-    calendar = await get_data_calendar(catalog)
+    await catalog.maybe_refresh()
+    snapshot = catalog.snapshot
+    calendar = [
+        CalendarEntry(
+            source="CDS",
+            vintage=(
+                f"Manifest {snapshot.current_version} (published {snapshot.published_at.date()})"
+            ),
+            cutoff_note="School values remain pinned to each selected CDS edition.",
+        ),
+        CalendarEntry(
+            source="School profile",
+            vintage=(
+                f"Snapshots {snapshot.profile_snapshot_min} through {snapshot.profile_snapshot_max}"
+            ),
+            cutoff_note="Stable identity context only; not current annual institutional data.",
+        ),
+    ]
     return TemporalContext(
         today=today.isoformat(),
         season=season,

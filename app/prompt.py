@@ -19,8 +19,6 @@ Literal braces in the markdown are escaped as ``{{``/``}}``.
 from __future__ import annotations
 
 from config.settings import load_prompt, load_yaml_asset
-from counselle_db.static_map import load_static_map
-from domain.tiers import CoverageTier, tier_explanation
 
 
 def _dossier_shortlist_summary() -> str:
@@ -50,12 +48,8 @@ def _subreddit_menu() -> str:
 
 
 def _tier_note() -> str:
-    """All three tier_explanation strings, one per line."""
-    tiers: list[CoverageTier] = ["base", "cds_pdf_only", "cds_extracted"]
-    lines: list[str] = []
-    for tier in tiers:
-        lines.append(f"  [{tier}] {tier_explanation(tier)}")
-    return "\n".join(lines)
+    """Compatibility slot until the Phase 5 prompt rewrite removes old tier copy."""
+    return "Coverage is reported per selected CDS document and domain."
 
 
 def build_system_prompt(temporal_context: str, student_context: str, school_count: int) -> str:
@@ -111,7 +105,7 @@ def build_system_prompt(temporal_context: str, student_context: str, school_coun
         text = text.replace(token, placeholder)
 
     return text.format(
-        static_field_map=load_static_map(),
+        static_field_map="The current manifest returned by database tools is the catalog.",
         dossier_shortlist_summary=_dossier_shortlist_summary(),
         subreddit_menu=_subreddit_menu(),
         temporal_context=temporal_context,

@@ -1,23 +1,11 @@
-"""System routes: GET /v1/health, POST /v1/admin/reconcile.
-
-Phase 5 Slice B implementation (phase-5-api.md Slice B route table).
-
-``/v1/admin/reconcile``
------------------------
-**Superuser-only (B3).**  It runs the full field-index reconciliation
-immediately (paid Vertex embedding work), returning the summary dict, and is
-gated behind ``current_superuser`` (ADR 0016, ARCHITECTURE §23). ``/v1/health``
-stays open for uptime checks.
-"""
+"""System health route."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from api.auth import current_superuser
 from api.ratelimit import _RATE_LIMITER_ATTR
-from counselle_db.reconcile import reconcile_field_index
 
 APP_VERSION = "0.1.0"
 
@@ -35,7 +23,6 @@ async def health(request: Request) -> JSONResponse:
     degrades the health status instead of being a silent log-only warning.
     """
     runtime = request.app.state.runtime
-    reconciler = request.app.state.reconciler
     supervisor = request.app.state.mcp_supervisor
 
     # --- DB health: SELECT 1 on both pools ---
@@ -78,22 +65,6 @@ async def health(request: Request) -> JSONResponse:
             "checkpointer": checkpointer_status,
             "rate_limiter": rate_limiter_status,
             "mcp": supervisor.status(),
-            "reconciler": reconciler.as_dict(),
             "version": APP_VERSION,
         },
     )
-
-
-@router.post("/admin/reconcile", dependencies=[Depends(current_superuser)])
-async def admin_reconcile(request: Request) -> JSONResponse:
-    """Trigger an immediate field-index reconciliation pass.
-
-    **Superuser-only (B3):** it kicks off paid Vertex embedding work, so it is
-    gated behind ``current_superuser`` — a non-superuser (or unauthenticated)
-    caller gets 401/403 (ADR 0016, ARCHITECTURE §23).
-
-    Returns the reconcile summary dict from :func:`reconcile_field_index`.
-    """
-    runtime = request.app.state.runtime
-    summary = await reconcile_field_index(runtime.app_pool)
-    return JSONResponse(content=summary)

@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 from counselle_db import service
-from counselle_db.server import tool_errors
+from counselle_db.server import mcp, tool_errors
+
+
+def test_exact_four_tool_inventory() -> None:
+    assert set(mcp._tool_manager._tools) == {  # noqa: SLF001
+        "resolve_school",
+        "get_school_profile",
+        "get_domain",
+        "query_database",
+    }
 
 
 async def test_tool_errors_returns_d6_error_shape() -> None:

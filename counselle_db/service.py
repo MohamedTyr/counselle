@@ -1,750 +1,553 @@
-"""The counselle-db service layer — the real API (eng-review D2; ARCHITECTURE §8).
+"""The four-tool CDS Library service API."""
 
-Every tool behavior lives here as a plain async function returning domain types;
-the MCP server (Slice C) is a ~3-line shell per tool, and ``app/`` imports this
-module directly. ``envelope_for`` is THE single choke point: every value from
-every tool is decoded, scaled, formatted, and cited through it (the honesty
-guarantee — ADR 0006).
-"""
+from __future__ import annotations
 
+import math
 import re
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 import asyncpg
+from sqlglot import exp, parse
+from sqlglot.errors import ParseError
 
-from config.settings import get_settings, load_yaml_asset
-from counselle_db.catalog import CREDLEV_DECODE, CalendarEntry, Catalog
-from counselle_db.db import fetch
+from config.settings import get_db_child_settings
+from counselle_db.catalog import Catalog
 from counselle_db.models import (
-    BenchmarkResult,
-    BenchmarkStat,
-    CompareResult,
-    CompareRow,
-    DiversityBreakdown,
-    Dossier,
-    DossierSection,
-    FieldKeyError,
-    ProgramRow,
+    AvailabilitySummary,
+    DomainResult,
+    ProfileGroup,
+    ProfileGroupResult,
+    ProfileLeaf,
     QueryResult,
-    RaceGroup,
     ResolveCandidates,
-    ResolveMatch,
+    ResolvedSchool,
     ResolveNotFound,
     ResolveResult,
-    SchoolBasics,
+    SchoolCoverage,
     ServiceError,
 )
-from counselle_db.service_find import FieldFilter, FindCriteria, OrderBy, find_schools
-from domain.envelope import Citation, CitationEnvelope
-from domain.normalize import FieldMeta, normalize
-from domain.tiers import CoverageTier, compute_tier, tier_explanation
-from domain.vintage import vintage_for
+from counselle_db.packets import ParsedMetric, parse_packet_row, read_metric
+
+# Local seam retained for focused service tests.
+get_settings = get_db_child_settings
 
 __all__ = [
-    "FieldFilter",
-    "FindCriteria",
-    "OrderBy",
     "ServiceError",
-    "compare_schools",
-    "envelope_for",
-    "find_schools",
-    "get_data_calendar",
-    "get_diversity",
-    "get_dossier",
-    "get_programs",
-    "get_values",
-    "national_benchmark",
+    "get_domain",
+    "get_school_profile",
     "query_database",
     "resolve_school",
     "search_school_names",
 ]
 
-#: Protocol sanity caps for compare_schools — not tuning knobs (phase-2 Slice C #4).
-# Sanity cap, not a tuning knob (CFG-06 reviewed 2026-06: kept hardcoded — no
-# product need for runtime density control; promote to Settings only if the UI
-# gains a "compare more fields" control).
-_COMPARE_MAX_SCHOOLS = 6
-_COMPARE_MAX_FIELDS = 25
-_PROGRAMS_PREVIEW_TOP_N = 10
-_BACHELORS_CREDLEV = 3
+_SELECTED_DOCUMENT_SQL = """SELECT d.*,p.manifest_version AS target_manifest_version
+ FROM cds_library.active_cds_documents d
+ LEFT JOIN cds_library.active_cds_domain_packets p
+ ON p.school_id=d.school_id AND p.document_id=d.document_id AND p.domain_id=$2
+ WHERE d.school_id=$1 ORDER BY d.academic_year DESC,d.document_id DESC LIMIT 1"""
+_DOMAIN_ROWS_SQL = """SELECT p.*,d.currentness,d.staleness_reason
+ FROM cds_library.active_cds_domain_packets p
+ JOIN cds_library.active_cds_documents d ON d.school_id=p.school_id AND d.document_id=p.document_id
+ WHERE p.school_id=$1 AND p.document_id=$2 AND p.domain_id=ANY($3::text[])"""
+_PROFILE_SQL = """SELECT id,name,city,state,official_domain,basic_profile,profile_provenance,
+ profile_version,profile_snapshot_date,profile_sha256
+ FROM cds_library.school_profiles WHERE id=$1"""
+_ALLOWED_RELATIONS = frozenset(
+    {
+        "cds_library.school_profiles",
+        "cds_library.active_cds_domain_packets",
+        "cds_library.active_cds_documents",
+        "cds_library.cds_document_sources",
+        "cds_library.cds_manifest_snapshots",
+    }
+)
+_PLACEHOLDER_RE = re.compile(r"\$(\d+)")
+_SAFE_FUNCTIONS = frozenset(
+    {
+        "abs", "and", "avg", "ceil", "ceiling", "char_length", "coalesce", "count",
+        "cast", "date_part", "extract", "floor", "greatest", "least", "in", "length", "like",
+        "json_extract", "json_extract_scalar", "lower", "max", "min", "not", "nullif",
+        "octet_length", "or",
+        "round", "substring", "sum", "trim", "upper",
+    }
+)
 
-def _not_found_message(school_count: int) -> str:
-    """The not-found copy with the live coverage count (CFG-01, ADR 0018 bucket 3).
+# The bytea-bearing columns in the five-view reader contract.  Guard these before
+# asyncpg executes the statement: the post-fetch recursion remains a final backstop,
+# but must never be the mechanism that prevents a PDF from being materialized.
+_BYTEA_COLUMNS = frozenset(
+    {"pdf_content", "pdf_sha256", "profile_sha256", "content_sha256", "domain_schema_hash"}
+)
+_BYTEA_RELATIONS = frozenset(
+    {
+        "cds_library.school_profiles",
+        "cds_library.active_cds_domain_packets",
+        "cds_library.active_cds_documents",
+        "cds_library.cds_document_sources",
+        "cds_library.cds_manifest_snapshots",
+    }
+)
 
-    The count comes from the catalog (``catalog.school_count``), never a baked
-    literal — it drifts on every pipeline re-ingest and a stale number would lie
-    to a student about coverage (CLAUDE.md principle 3).
-    """
-    return (
-        f"That school is not in our database — we cover {school_count:,} curated "
-        "4-year US institutions. Tell the student honestly that we don't have data "
-        "on it; do not invent values."
+
+def _inside_octet_length(column: exp.Column) -> bool:
+    parent = column.parent
+    while parent is not None and not isinstance(parent, exp.Select):
+        if isinstance(parent, exp.Anonymous) and parent.name.casefold() == "octet_length":
+            return True
+        parent = parent.parent
+    return False
+
+
+def _reject_binary_projection(tree: exp.Query, relations: set[str]) -> None:
+    """Reject projections that can return bytea before the database is queried."""
+    unsafe_star = any(
+        isinstance(expression, exp.Star)
+        or (isinstance(expression, exp.Column) and isinstance(expression.this, exp.Star))
+        for select in tree.find_all(exp.Select)
+        for expression in select.expressions
+    )
+    if relations & _BYTEA_RELATIONS and unsafe_star:
+        raise ServiceError(
+            "Binary/PDF columns cannot be selected with *; name safe metadata columns."
+        )
+    for column in tree.find_all(exp.Column):
+        if column.name.casefold() in _BYTEA_COLUMNS and not _inside_octet_length(column):
+            raise ServiceError(
+                "Binary/PDF bytes cannot be returned; select metadata such as "
+                "octet_length(pdf_content)."
+            )
+    for cast in tree.find_all(exp.Cast):
+        target = cast.args.get("to")
+        if isinstance(target, exp.DataType) and target.this in {
+            exp.DataType.Type.BINARY,
+            exp.DataType.Type.VARBINARY,
+        }:
+            raise ServiceError("Expressions returning binary/PDF bytes are not allowed.")
+
+
+def _contains_binary(value: Any) -> bool:
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return True
+    if isinstance(value, dict):
+        return any(_contains_binary(key) or _contains_binary(child) for key, child in value.items())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_contains_binary(child) for child in value)
+    return False
+
+
+def _coverage(
+    document: asyncpg.Record | None, rows: list[asyncpg.Record], catalog: Catalog
+) -> SchoolCoverage:
+    if document is None:
+        return SchoolCoverage()
+    statuses = {
+        row["domain_id"]: row["accepted_packet_status"] for row in rows if row["packet"] is not None
+    }
+    ordered = tuple(domain.id for domain in catalog.snapshot.domains if domain.id in statuses)
+    return SchoolCoverage(
+        selected_year=document["academic_year"],
+        document_id=document["document_id"],
+        currentness=document["currentness"],
+        stale_reason=document["staleness_reason"],
+        usable_domain_count=len(ordered),
+        partial_domain_count=sum(value == "partial" for value in statuses.values()),
+        usable_domain_ids=ordered,
+        latest_status=document["latest_extraction_status"],
+        latest_error_code=document["latest_error_code"],
     )
 
 
-_CANDIDATES_HINT = (
-    "Multiple campuses matched; the main campus is listed first. Pick the campus "
-    "the student means, or ask them if it is genuinely ambiguous."
-)
-
-#: The SchoolBasics column list — the single source for every schools SELECT.
-#: Must match SchoolBasics.model_fields (the _school_basics builder, below).
-# The pipeline's read contract guarantees the identity columns below.  Some
-# deployed snapshots do not project ``city``/``level`` on ``schools`` (those
-# values only exist on the pipeline detail endpoint), while ``SchoolBasics``
-# deliberately keeps both fields optional.  Alias honest NULLs here so every
-# direct-SQL caller, including workspace typeahead, works against both schema
-# generations instead of failing the entire search on an optional detail.
-_SCHOOL_COLUMNS = (
-    "unitid, name, NULL::text AS city, state, control, NULL::text AS level"
-)
-_SCHOOL_SELECT = f"SELECT {_SCHOOL_COLUMNS} FROM schools"
-
-_SCHOOL_SQL = f"{_SCHOOL_SELECT} WHERE unitid = $1"
-# Relevance-ranked so a broad token (e.g. "Washington", "Columbia") surfaces the
-# most likely school instead of the alphabetically-first one, and — critically —
-# so the intended school is never truncated out below the row cap. Ranking is the
-# authoritative order (callers preserve it; they must not re-sort it away): exact
-# match, then prefix, then the main-campus-first preference (mirrors _campus_rank:
-# no "-" suffix, or an explicit "…Main Campus"), then shorter/alphabetical. It is
-# trgm-free so this query stays unconditional; the trgm fallback below still
-# handles zero-hit typos.
-_SEARCH_SQL = (
-    f"{_SCHOOL_SELECT} WHERE name ILIKE '%' || $1 || '%' "
-    "ORDER BY (lower(name) = lower($1)) DESC, "
-    "(name ILIKE $1 || '%') DESC, "
-    "(position('-' in name) = 0 OR lower(name) LIKE '%main campus') DESC, "
-    "length(name), name "
-    "LIMIT 25"
-)
-# Trigram fallback when ILIKE finds nothing — catches punctuation/word-order
-# variants ("Alabama A&M" vs "Alabama A & M", "UNC Chapel Hill") so we never
-# falsely tell a student a school is not in the database (honesty carve-out).
-# pg_trgm similarity() handles whole-name closeness; word_similarity() handles
-# partial-name queries. Thresholds tuned against the live DB (Phase 7).
-#: pg_trgm fuzzy-search thresholds, tuned against the live DB (Phase 7). Named for
-#: discoverability (CFG-15); code-owned literals, never user input.
-_FUZZY_SIMILARITY_FLOOR = 0.4
-_FUZZY_WORD_SIMILARITY_FLOOR = 0.7
-
-# nosec B608 — only trusted module-constant floats interpolated; $1 stays bound.
-_FUZZY_SEARCH_SQL = (
-    f"SELECT {_SCHOOL_COLUMNS}, "  # nosec B608
-    "GREATEST(similarity(name, $1), word_similarity($1, name)) AS score "
-    "FROM schools "
-    f"WHERE similarity(name, $1) >= {_FUZZY_SIMILARITY_FLOOR} "
-    f"OR word_similarity($1, name) >= {_FUZZY_WORD_SIMILARITY_FLOOR} "
-    "ORDER BY GREATEST(similarity(name, $1), word_similarity($1, name)) DESC, name "
-    "LIMIT 5"
-)
-#: A fuzzy top hit at/above this score is unambiguous — return it as a direct
-#: match instead of asking the student (e.g. "Alabama A&M" → "Alabama A & M").
-_FUZZY_EXACT_SCORE = 0.95
-_TIER_SQL = """
-SELECT (SELECT count(*) FROM field_values
-         WHERE unitid = $1 AND source = 'cds' AND value IS NOT NULL) AS cds_count,
-       EXISTS(SELECT 1 FROM raw.cds_files WHERE unitid = $1)         AS has_pdf
-"""
-# Latest row per key (today no field has two years — DATABASE_GUIDE §5); NULL-value
-# rows are kept so a stored sentinel surfaces as available=False, never invented.
-# Scorecard rows are the cycle_year IS NULL rows by construction (§4.1) — NULLS FIRST
-# so they win DISTINCT ON if a key ever has rows from two sources.
-_VALUES_SQL = """
-SELECT DISTINCT ON (field_key) field_key, value, cycle_year
-FROM field_values
-WHERE unitid = $1 AND field_key = ANY($2::text[])
-ORDER BY field_key, cycle_year DESC NULLS FIRST
-"""
-_COMPARE_SQL = """
-SELECT DISTINCT ON (unitid, field_key) unitid, field_key, value, cycle_year
-FROM field_values
-WHERE unitid = ANY($1::int[]) AND field_key = ANY($2::text[])
-ORDER BY unitid, field_key, cycle_year DESC NULLS FIRST
-"""
-_BENCHMARK_SQL = """
-SELECT percentile_cont(0.5)  WITHIN GROUP (ORDER BY (value)::numeric) AS median,
-       avg((value)::numeric)                                          AS mean,
-       percentile_cont(0.25) WITHIN GROUP (ORDER BY (value)::numeric) AS p25,
-       percentile_cont(0.75) WITHIN GROUP (ORDER BY (value)::numeric) AS p75,
-       count(*)                                                       AS n
-FROM field_values
-WHERE field_key = $1 AND source = $2
-  AND value IS NOT NULL
-  AND jsonb_typeof(value) = 'number'   -- skip BBRR privacy-range tokens (R4)
-"""
-_PROGRAMS_SQL = """
-SELECT "CIPCODE", "CIPDESC", "CREDLEV", "CREDDESC", "IPEDSCOUNT2",
-       "DEBT_ALL_STGP_ANY_MDN", "DEBT_ALL_STGP_ANY_MDN10YRPAY",
-       "EARN_MDN_1YR", "EARN_MDN_4YR", "EARN_MDN_5YR"
-FROM raw.scorecard_fos
-WHERE unitid = $1 AND "CREDLEV" = $2
-ORDER BY "CIPCODE"
-"""
-_DIVERSITY_SQL = """
-SELECT * FROM raw.ipeds_ef2024a WHERE unitid = $1 AND "EFALEVEL" = '2' LIMIT 1
-"""
-
-#: IPEDS EF2024A column stems → student-readable race/ethnicity labels (§8).
-_RACE_GROUPS: list[tuple[str, str]] = [
-    ("EFAIAN", "American Indian or Alaska Native"),
-    ("EFASIA", "Asian"),
-    ("EFBKAA", "Black or African American"),
-    ("EFHISP", "Hispanic or Latino"),
-    ("EFNHPI", "Native Hawaiian or Other Pacific Islander"),
-    ("EFWHIT", "White"),
-    ("EF2MOR", "Two or more races"),
-    ("EFUNKN", "Race/ethnicity unknown"),
-    ("EFNRAL", "U.S. Nonresident"),
-]
-
-_CONTROL_DISPLAY = {
-    "public": "Public",
-    "private_nonprofit": "Private (nonprofit)",
-    "private_forprofit": "Private (for-profit)",
-}
-#: Section-F pseudo keys served from ``public.schools`` (decoded text — R12).
-_SCHOOLS_PSEUDO_LABELS = {
-    "schools.city": "City",
-    "schools.state": "State",
-    "schools.control": "Control",
-}
-
-_SQL_FIRST_KEYWORD_RE = re.compile(r"^(select|with)\b", re.IGNORECASE)
-_SQL_WRITE_KEYWORD_RE = re.compile(
-    r"\b(insert|update|delete|merge|truncate|drop|alter|grant|revoke)\b", re.IGNORECASE
-)
-# Deny dangerous system/session functions called as function calls (with an opening
-# parenthesis immediately after the name): set_config, pg_advisory_lock variants, and
-# pg_sleep variants. Over-rejection is intentional for the escape hatch.
-_SQL_FUNC_DENYLIST_RE = re.compile(r"\b(set_config|pg_advisory\w*|pg_sleep\w*)\s*\(", re.IGNORECASE)
-
-
-# --- The one choke point -----------------------------------------------------
-
-
-async def envelope_for(
-    catalog: Catalog,
-    unitid: int,
-    meta: FieldMeta,
-    value: Any,
-    cycle_year: int | None,
-) -> CitationEnvelope:
-    """Normalize + date + cite one value. EVERY tool envelope is built here."""
-    decode_map = await catalog.decode_map_for(meta)
-    normalized = normalize(meta, value, decode_map)
-    vintage, caveat = vintage_for(
-        meta.source,
-        cycle_year,
-        scorecard_filename=catalog.scorecard_filename,
-        field_key=meta.key,
-    )
-    if normalized.extra_caveat:
-        caveat = f"{caveat} {normalized.extra_caveat}" if caveat else normalized.extra_caveat
-    return CitationEnvelope(
-        field=meta.key,
-        label=meta.label,
-        display=normalized.display,
-        raw=normalized.raw,
-        available=normalized.available,
-        unit=normalized.unit,
-        citation=Citation(
-            source=meta.source,
-            tier="official",  # ipeds/scorecard/cds are all official sources
-            vintage=vintage,
-            caveat=caveat,
-            raw_table=meta.raw_table,
-        ),
-    )
-
-
-# --- resolve_school -----------------------------------------------------------
-
-
-def _school_basics(row: asyncpg.Record) -> SchoolBasics:
-    return SchoolBasics(**{name: row[name] for name in SchoolBasics.model_fields})
-
-
-async def _coverage_tier(catalog: Catalog, unitid: int) -> tuple[CoverageTier, str]:
-    row = (await fetch(catalog.pool, _TIER_SQL, unitid))[0]
-    tier = compute_tier(row["cds_count"], row["has_pdf"])
-    return tier, tier_explanation(tier)
-
-
-def _expand_abbreviation(query: str) -> str:
-    abbreviations: dict[str, str] = load_yaml_asset("abbreviations")
-    lowered = {key.lower(): value for key, value in abbreviations.items()}
-    return lowered.get(query.lower(), query)
-
-
-def _campus_rank(name: str) -> int:
-    """Main-campus-first heuristic (§11): no suffix, or an explicit main campus."""
-    return 0 if "-" not in name or name.lower().endswith("main campus") else 1
-
-
-async def _match(catalog: Catalog, row: asyncpg.Record) -> ResolveMatch:
-    tier, explanation = await _coverage_tier(catalog, row["unitid"])
-    return ResolveMatch(
-        school=_school_basics(row), coverage_tier=tier, tier_explanation=explanation
-    )
+async def _live_document(
+    catalog: Catalog, unitid: int
+) -> tuple[asyncpg.Record | None, list[asyncpg.Record]]:
+    async with catalog.pool.acquire() as conn:
+        document = await conn.fetchrow(_SELECTED_DOCUMENT_SQL, unitid, None)
+        if document is None:
+            return None, []
+        rows = await conn.fetch(
+            _DOMAIN_ROWS_SQL,
+            unitid,
+            document["document_id"],
+            [d.id for d in catalog.snapshot.domains],
+        )
+        return document, list(rows)
 
 
 async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
-    """Name/unitid/abbreviation → one school (+ tier), candidates, or not_found."""
     query = query.strip()
-    if not query:
-        return ResolveNotFound(message=_not_found_message(catalog.school_count))
-    try:
-        unitid = int(query)
-    except ValueError:
-        unitid = None
-    if unitid is not None:
-        rows = await fetch(catalog.pool, _SCHOOL_SQL, unitid)
-        if not rows:
-            return ResolveNotFound(message=_not_found_message(catalog.school_count))
-        return await _match(catalog, rows[0])
-    expanded = _expand_abbreviation(query)
-    fuzzy_path = False
-    rows = await fetch(catalog.pool, _SEARCH_SQL, expanded)
-    if not rows:
-        # Honesty carve-out (see _FUZZY_SEARCH_SQL comment above): without
-        # pg_trgm, skip the fuzzy pass and answer truthfully from the ILIKE
-        # result alone — a degraded "not found" beats a 500.
-        if catalog.trgm_available:
-            rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
-        if not rows:
-            return ResolveNotFound(message=_not_found_message(catalog.school_count))
-        if rows[0]["score"] >= _FUZZY_EXACT_SCORE:
-            return await _match(catalog, rows[0])
-        # Sub-exact fuzzy hits are never auto-matched — even a single row could
-        # be the wrong school; the agent must confirm with the student.
-        fuzzy_path = True
-    if len(rows) == 1 and not fuzzy_path:
-        return await _match(catalog, rows[0])
-    ordered = sorted(rows, key=lambda row: (_campus_rank(row["name"]), row["name"]))
-    return ResolveCandidates(
-        candidates=[_school_basics(row) for row in ordered], hint=_CANDIDATES_HINT
+    if not query or len(query) > 200:
+        raise ServiceError("School query must be 1-200 characters.")
+    candidates = catalog.resolve_candidates(query)
+    if not candidates:
+        return ResolveNotFound(
+            message=(
+                "That school is not in our database of "
+                f"{len(catalog.snapshot.schools):,} institutions."
+            )
+        )
+    if len(candidates) > 1 and not query.isdigit():
+        return ResolveCandidates(
+            candidates=tuple(item.basics for item in candidates),
+            hint="Multiple campuses matched; ask which campus the student means.",
+        )
+    school = candidates[0]
+    document, rows = await _live_document(catalog, school.basics.unitid)
+    return ResolvedSchool(school=school.basics, coverage=_coverage(document, rows, catalog))
+
+
+async def search_school_names(catalog: Catalog, query: str, limit: int = 10) -> list[Any]:
+    return [record.basics for record in catalog.resolve_candidates(query)[:limit]]
+
+
+def _display_profile(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if not math.isfinite(float(value)):
+            return None
+        return format(Decimal(str(value)), "f").rstrip("0").rstrip(".") or "0"
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        displays = [_display_profile(item) for item in value]
+        if any(item is None for item in displays):
+            return None
+        return ", ".join(item for item in displays if item is not None)
+    return None
+
+
+def _receipt_at(provenance: Any, path: tuple[str, ...]) -> dict[str, Any] | None:
+    current = provenance
+    for part in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current if isinstance(current, dict) else None
+
+
+def _walk_profile(
+    group: str, value: Any, provenance: Any, path: tuple[str, ...] = ()
+) -> list[ProfileLeaf]:
+    if isinstance(value, dict):
+        return [
+            leaf
+            for key, child in value.items()
+            for leaf in _walk_profile(group, child, provenance, (*path, key))
+        ]
+    display = _display_profile(value)
+    receipt = _receipt_at(provenance, (group, *path))
+    source_column = receipt.get("source_column") if receipt else None
+    label = source_column or path[-1].replace("_", " ").capitalize()
+    return [
+        ProfileLeaf(
+            ref=".".join((group, *path)),
+            label=label,
+            display=display,
+            available=display is not None,
+            value=value if display is not None else None,
+            provenance=receipt,
+        )
+    ]
+
+
+async def get_school_profile(
+    catalog: Catalog, unitid: int, groups: list[str] | None = None
+) -> ProfileGroupResult:
+    async with catalog.pool.acquire() as conn:
+        row = await conn.fetchrow(_PROFILE_SQL, unitid)
+    if row is None:
+        raise ServiceError("School is not in the profile catalog.")
+    profile = row["basic_profile"]
+    valid = tuple(key for key, value in profile.items() if isinstance(value, dict))
+    selected = tuple(groups) if groups is not None else valid
+    unknown = [group for group in selected if group not in valid]
+    if unknown:
+        raise ServiceError(f"Unknown profile group. Valid groups: {', '.join(valid)}")
+    record = catalog.snapshot.schools[unitid]
+    result_groups = tuple(
+        ProfileGroup(
+            id=group, rows=tuple(_walk_profile(group, profile[group], row["profile_provenance"]))
+        )
+        for group in selected
+    )
+    return ProfileGroupResult(
+        school=record.basics,
+        profile_version=row["profile_version"],
+        profile_snapshot_date=row["profile_snapshot_date"],
+        profile_sha256=bytes(row["profile_sha256"]).hex(),
+        groups=result_groups,
+        valid_groups=valid,
     )
 
 
-async def search_school_names(
-    catalog: Catalog, query: str, *, limit: int = 8
-) -> list[SchoolBasics]:
-    """Typeahead-oriented school name search over the pipeline catalog.
+async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainResult:
+    domain = await catalog.domain(domain_id)
+    school = catalog.snapshot.schools.get(unitid)
+    if school is None:
+        raise ServiceError("School is not in the profile catalog.")
+    async with catalog.pool.acquire() as conn:
+        document = await conn.fetchrow(_SELECTED_DOCUMENT_SQL, unitid, domain_id)
+    empty = AvailabilitySummary(
+        configured=len(domain.metrics), verified=0, not_in_template_version=0
+    )
+    if document is None:
+        return DomainResult(
+            school=school.basics,
+            domain_id=domain_id,
+            availability=empty,
+            summary=f"0 of {len(domain.metrics)} metrics verified; no active CDS document.",
+        )
+    manifest_version = document["target_manifest_version"]
+    manifests = dict(catalog.snapshot.manifests)
+    pinned_manifest = manifests.get(manifest_version) if manifest_version else None
+    if manifest_version and pinned_manifest is None:
+        raise ServiceError(
+            "Stored CDS data for this domain uses an unsupported/inconsistent "
+            "contract; no values were returned."
+        )
+    historical_domain = (
+        next((item for item in pinned_manifest.domains if item.id == domain_id), None)
+        if pinned_manifest
+        else None
+    )
+    if pinned_manifest and historical_domain is None:
+        raise ServiceError(
+            "Stored CDS data for this domain uses an unsupported/inconsistent "
+            "contract; no values were returned."
+        )
+    binder_domains = {
+        ref.split(".", 1)[0]
+        for metric in (historical_domain.metrics if historical_domain else ())
+        for context in metric.contexts
+        for ref in context.refs
+    }
+    requested_domains = sorted({domain_id, *binder_domains})
+    async with catalog.pool.acquire() as conn:
+        raw_rows = await conn.fetch(
+            _DOMAIN_ROWS_SQL, unitid, document["document_id"], requested_domains
+        )
+    by_domain = {row["domain_id"]: row for row in raw_rows}
+    target = by_domain.get(domain_id)
+    if target is None or target["packet"] is None:
+        return DomainResult(
+            school=school.basics,
+            domain_id=domain_id,
+            academic_year=document["academic_year"],
+            document_id=document["document_id"],
+            document_sha256=bytes(document["pdf_sha256"]).hex(),
+            currentness=document["currentness"],
+            latest_status=document["latest_extraction_status"],
+            latest_error_code=document["latest_error_code"],
+            availability=empty,
+            summary=(
+                f"0 of {len(domain.metrics)} metrics verified; this domain has no accepted packet."
+            ),
+        )
+    settings = get_settings()
+    target_packet = parse_packet_row(
+        dict(target), manifests, settings.supported_packet_extractor_versions
+    )
+    parsed = {domain_id: target_packet}
+    parsed.update(
+        {
+            key: parse_packet_row(
+                dict(row), manifests, settings.supported_packet_extractor_versions
+            )
+            for key, row in by_domain.items()
+            if key != domain_id and row["packet"] is not None
+        }
+    )
+    context_values: dict[str, tuple[ParsedMetric, Any]] = {}
+    for parsed_packet in parsed.values():
+        definitions = {
+            metric.ref: metric for d in parsed_packet.manifest.domains for metric in d.metrics
+        }
+        context_values.update(
+            {
+                ref: (metric, definitions[ref])
+                for ref, metric in parsed_packet.packet.metrics.items()
+                if ref in definitions
+                and metric.extraction_status == "verified"
+                and metric.availability_status == "reported"
+                and metric.value is not None
+                and metric.evidence is not None
+            }
+        )
+    packet = parsed[domain_id]
+    definitions = {
+        metric.ref: metric
+        for d in packet.manifest.domains
+        if d.id == domain_id
+        for metric in d.metrics
+    }
+    rows = tuple(
+        read_metric(
+            packet.packet.metrics.get(
+                definition.ref,
+                ParsedMetric(
+                    ref=definition.ref,
+                    extraction_status="not_extracted",
+                    availability_status=None,
+                    value=None,
+                    raw_value=None,
+                    evidence=None,
+                ),
+            ),
+            definition,
+            academic_year=document["academic_year"],
+            packet_status=packet.packet.status,
+            definition_match=packet.current_definition_match,
+            currentness=document["currentness"],
+            context_values=context_values,
+        )
+        for definition in definitions.values()
+    )
+    verified = sum(row.available for row in rows)
+    absent = sum(row.availability_status == "not_in_template_version" for row in rows)
+    summary = f"{verified} of {len(domain.metrics)} metrics verified"
+    if absent:
+        summary += f"; {absent} not in this template version"
+    return DomainResult(
+        school=school.basics,
+        domain_id=domain_id,
+        academic_year=document["academic_year"],
+        document_id=document["document_id"],
+        document_sha256=bytes(document["pdf_sha256"]).hex(),
+        packet_status=packet.packet.status,
+        currentness=document["currentness"],
+        latest_status=document["latest_extraction_status"],
+        latest_error_code=document["latest_error_code"],
+        definition_match=packet.current_definition_match,
+        rows=rows,
+        availability=AvailabilitySummary(
+            configured=len(domain.metrics), verified=verified, not_in_template_version=absent
+        ),
+        summary=summary,
+    )
 
-    This is the public wrapper around the existing name-match path used by
-    ``resolve_school``: abbreviation expansion, ILIKE first pass, trigram
-    fallback, and main-campus-first ordering.
-    """
-    query = query.strip()
-    if not query:
-        return []
-    expanded = _expand_abbreviation(query)
-    rows = await fetch(catalog.pool, _SEARCH_SQL, expanded)
-    if not rows and catalog.trgm_available:
-        # Honesty carve-out (see _FUZZY_SEARCH_SQL comment above): skip the
-        # fuzzy pass when pg_trgm is unavailable rather than 500 the caller.
-        rows = await fetch(catalog.pool, _FUZZY_SEARCH_SQL, expanded)
-    # Both queries already return their authoritative order (_SEARCH_SQL by
-    # relevance+main-campus, _FUZZY_SEARCH_SQL by score); preserve it through the
-    # cap. Re-sorting here would discard relevance and let a bare-token query
-    # (e.g. "Washington") truncate the intended flagship out of the result.
-    capped = max(1, min(limit, 25))
-    return [_school_basics(row) for row in rows[:capped]]
 
-
-# --- get_values ---------------------------------------------------------------
-
-
-async def get_values(
-    catalog: Catalog, unitid: int, field_keys: list[str]
-) -> list[CitationEnvelope | FieldKeyError]:
-    """Specific fields, normalized + cited (§14.1). Unknown keys → error entries."""
-    known = [key for key in field_keys if key in catalog.fields_by_key]
-    rows = await fetch(catalog.pool, _VALUES_SQL, unitid, known) if known else []
-    by_key = {row["field_key"]: row for row in rows}
-    results: list[CitationEnvelope | FieldKeyError] = []
-    for key in field_keys:
-        meta = catalog.fields_by_key.get(key)
-        if meta is None:
-            results.append(FieldKeyError(field=key, error="unknown field key"))
+def _guard_sql(sql: str, params: list[Any]) -> None:
+    if (
+        not isinstance(sql, str)
+        or not sql.strip()
+        or any(token in sql for token in (";", "--", "/*"))
+    ):
+        raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
+    try:
+        statements = parse(sql, read="postgres")
+    except ParseError:
+        raise ServiceError("Only one safe SELECT/WITH statement is allowed.") from None
+    if len(statements) != 1 or not isinstance(statements[0], exp.Query):
+        raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
+    tree = statements[0]
+    forbidden_nodes = (
+        exp.Alter,
+        exp.Command,
+        exp.Copy,
+        exp.Create,
+        exp.Delete,
+        exp.Drop,
+        exp.Grant,
+        exp.Insert,
+        exp.Merge,
+        exp.Revoke,
+        exp.Set,
+        exp.Update,
+    )
+    if any(tree.find(node_type) is not None for node_type in forbidden_nodes):
+        raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
+    if tree.find(exp.Lock) is not None or tree.find(exp.Into) is not None:
+        raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
+    if any(
+        not join.args.get("on") and not join.args.get("kind")
+        for join in tree.find_all(exp.Join)
+    ):
+        raise ServiceError("Implicit comma joins are not allowed.")
+    cte_names = {cte.alias for cte in tree.find_all(exp.CTE)}
+    tables = list(tree.find_all(exp.Table))
+    if not tables:
+        raise ServiceError("Queries must read at least one CDS reader view.")
+    relations: set[str] = set()
+    for table in tables:
+        if not table.db and table.name in cte_names and not table.catalog:
             continue
-        row = by_key.get(key)  # missing row → available=False envelope, never invented
-        value = row["value"] if row else None
-        cycle_year = row["cycle_year"] if row else None
-        results.append(await envelope_for(catalog, unitid, meta, value, cycle_year))
-    return results
-
-
-# --- get_dossier ----------------------------------------------------------------
-
-
-def _shortlist_sections(section_ids: list[str] | None) -> list[dict[str, Any]]:
-    sections: list[dict[str, Any]] = load_yaml_asset("dossier_shortlist")["sections"]
-    if section_ids is None:
-        return sections
-    wanted = {section_id.strip().upper() for section_id in section_ids}
-    picked = [section for section in sections if section["id"] in wanted]
-    if not picked:
-        raise ServiceError(f"no such dossier sections: {sorted(wanted)} (valid: A–F)")
-    return picked
-
-
-async def _pseudo_envelope(catalog: Catalog, school: SchoolBasics, key: str) -> CitationEnvelope:
-    """schools.* shortlist entries come from the schools table itself (R12)."""
-    meta = FieldMeta(
-        key=key,
-        label=_SCHOOLS_PSEUDO_LABELS[key],
-        category="institution",
-        data_type="text",
-        source="ipeds",
-        raw_table="raw.ipeds_hd2024",
+        relation = f"{table.db}.{table.name}" if table.db and not table.catalog else ""
+        if relation not in _ALLOWED_RELATIONS:
+            raise ServiceError("Queries may use only the five schema-qualified CDS reader views.")
+        relations.add(relation)
+    for function in tree.find_all(exp.Func):
+        name = (
+            function.name if isinstance(function, exp.Anonymous) else function.sql_name()
+        ).casefold()
+        if name not in _SAFE_FUNCTIONS:
+            raise ServiceError("Query uses a function that is not allowed by the read-only guard.")
+    placeholders = sorted({int(item) for item in _PLACEHOLDER_RE.findall(sql)})
+    ast_placeholders = sorted(
+        int(parameter.this.this)
+        for parameter in tree.find_all(exp.Parameter)
+        if isinstance(parameter.this, exp.Literal) and parameter.this.is_int
     )
-    value = getattr(school, key.removeprefix("schools."))
-    if key == "schools.control" and value is not None:
-        value = _CONTROL_DISPLAY.get(value, value)
-    return await envelope_for(catalog, school.unitid, meta, value, catalog.ipeds_cycle_year)
-
-
-def _apply_fallback(
-    entry: dict[str, Any], env_by_key: dict[str, CitationEnvelope]
-) -> CitationEnvelope | None:
-    """COA sibling trap (§13.7): emit whichever of the pair is populated, prefer primary."""
-    primary = env_by_key.get(entry["key"])
-    if primary is None:
-        return None
-    fallback_key = entry.get("fallback")
-    if primary.available or not fallback_key:
-        return primary
-    fallback = env_by_key.get(fallback_key)
-    return fallback if fallback is not None and fallback.available else primary
-
-
-async def _build_sections(
-    catalog: Catalog, school: SchoolBasics, sections: list[dict[str, Any]]
-) -> tuple[list[DossierSection], list[str]]:
-    keys: list[str] = []
-    for section in sections:
-        for entry in section["fields"]:
-            if not entry["key"].startswith("schools."):
-                keys.append(entry["key"])
-                if entry.get("fallback"):
-                    keys.append(entry["fallback"])
-    envelopes = await get_values(catalog, school.unitid, keys)
-    env_by_key = {env.field: env for env in envelopes if isinstance(env, CitationEnvelope)}
-    # A drifted shortlist key must never vanish silently — surface it as a warning.
-    warnings = [
-        f"shortlist key not in catalog: {env.field}"
-        for env in envelopes
-        if isinstance(env, FieldKeyError)
-    ]
-    built: list[DossierSection] = []
-    for section in sections:
-        values: list[CitationEnvelope] = []
-        for entry in section["fields"]:
-            if entry["key"] in _SCHOOLS_PSEUDO_LABELS:
-                values.append(await _pseudo_envelope(catalog, school, entry["key"]))
-            elif (envelope := _apply_fallback(entry, env_by_key)) is not None:
-                values.append(envelope)
-        built.append(DossierSection(id=section["id"], title=section["title"], values=values))
-    return built, warnings
-
-
-async def get_dossier(catalog: Catalog, unitid: int, sections: list[str] | None = None) -> Dossier:
-    """The wedge: the curated shortlist + programs preview + diversity, all cited."""
-    rows = await fetch(catalog.pool, _SCHOOL_SQL, unitid)
-    if not rows:
-        raise ServiceError(_not_found_message(catalog.school_count))
-    school = _school_basics(rows[0])
-    tier, explanation = await _coverage_tier(catalog, unitid)
-    built, warnings = await _build_sections(catalog, school, _shortlist_sections(sections))
-    programs = await get_programs(catalog, unitid)
-    programs.sort(
-        key=lambda row: row.completions if row.completions is not None else -1, reverse=True
-    )
-    return Dossier(
-        school=school,
-        tier=tier,
-        tier_explanation=explanation,
-        sections=built,
-        programs_preview=programs[:_PROGRAMS_PREVIEW_TOP_N],
-        diversity=await get_diversity(catalog, unitid),
-        warnings=warnings,
-    )
-
-
-# --- compare_schools ------------------------------------------------------------
-
-
-async def compare_schools(
-    catalog: Catalog, unitids: list[int], field_keys: list[str]
-) -> CompareResult:
-    """N×M matrix of envelopes (§14.2); missing cell → available=False envelope."""
-    if not unitids or len(unitids) > _COMPARE_MAX_SCHOOLS:
-        raise ServiceError(f"compare 1–{_COMPARE_MAX_SCHOOLS} schools, got {len(unitids)}")
-    if not field_keys or len(field_keys) > _COMPARE_MAX_FIELDS:
-        raise ServiceError(f"compare 1–{_COMPARE_MAX_FIELDS} fields, got {len(field_keys)}")
-    school_rows = await fetch(
-        catalog.pool,
-        f"{_SCHOOL_SELECT} WHERE unitid = ANY($1::int[])",
-        unitids,
-    )
-    basics = {row["unitid"]: _school_basics(row) for row in school_rows}
-    missing = [unitid for unitid in unitids if unitid not in basics]
-    if missing:
-        raise ServiceError(f"unitid(s) not in our database: {missing}")
-    errors = [
-        FieldKeyError(field=key, error="unknown field key")
-        for key in field_keys
-        if key not in catalog.fields_by_key
-    ]
-    known = [key for key in field_keys if key in catalog.fields_by_key]
-    value_rows = await fetch(catalog.pool, _COMPARE_SQL, unitids, known) if known else []
-    cells = {(row["unitid"], row["field_key"]): row for row in value_rows}
-    rows_out: list[CompareRow] = []
-    for key in known:
-        meta = catalog.fields_by_key[key]
-        row_cells = []
-        for unitid in unitids:
-            cell = cells.get((unitid, key))
-            value = cell["value"] if cell else None
-            cycle_year = cell["cycle_year"] if cell else None
-            row_cells.append(await envelope_for(catalog, unitid, meta, value, cycle_year))
-        rows_out.append(CompareRow(field=key, label=meta.label, cells=row_cells))
-    return CompareResult(
-        schools=[basics[unitid] for unitid in unitids], rows=rows_out, errors=errors
-    )
-
-
-# --- national_benchmark ---------------------------------------------------------
-
-
-async def national_benchmark(catalog: Catalog, field_key: str) -> BenchmarkResult:
-    """National distribution for one field (§14.4), display-normalized."""
-    meta = catalog.fields_by_key.get(field_key)
-    if meta is None:
-        raise ServiceError(f"unknown field key: {field_key!r}")
-    if meta.data_type not in ("int", "number", "percent", "currency"):
-        raise ServiceError(f"field {field_key!r} is {meta.data_type}, not numeric")
-    # Scope to the field's own source so a future cross-source key can't pollute it.
-    row = (await fetch(catalog.pool, _BENCHMARK_SQL, field_key, meta.source))[0]
-    if not row["n"]:
-        raise ServiceError(f"no values stored for {field_key!r}")
-    vintage, caveat = vintage_for(
-        meta.source, None, scorecard_filename=catalog.scorecard_filename, field_key=meta.key
-    )
-
-    def stat(value: Any) -> BenchmarkStat:
-        return BenchmarkStat(raw=float(value), display=normalize(meta, float(value)).display)
-
-    return BenchmarkResult(
-        field=field_key,
-        label=meta.label,
-        n=row["n"],
-        median=stat(row["median"]),
-        mean=stat(row["mean"]),
-        p25=stat(row["p25"]),
-        p75=stat(row["p75"]),
-        citation=Citation(
-            source=meta.source,
-            tier="official",
-            vintage=vintage,
-            caveat=f"National distribution across {row['n']} institutions in our database."
-            + (f" {caveat}" if caveat else ""),
-            raw_table="field_values",
-        ),
-    )
-
-
-# --- get_programs ----------------------------------------------------------------
-
-
-def _fos_number(text: str | None) -> float | None:
-    """Scorecard FoS cells are text; suppressed (PS/NA/blank) stays null (§8)."""
-    if text is None:
-        return None
-    try:
-        return float(text)
-    except ValueError:
-        return None
-
-
-def _fos_count(text: str | None) -> int | None:
-    number = _fos_number(text)
-    return int(number) if number is not None else None
-
-
-async def get_programs(
-    catalog: Catalog,
-    unitid: int,
-    cip_prefix: str | None = None,
-    credlev: int = _BACHELORS_CREDLEV,
-) -> list[ProgramRow]:
-    """Earnings/debt by major from raw.scorecard_fos (§8); suppressed cells stay null."""
-    if credlev not in CREDLEV_DECODE:
-        raise ServiceError(
-            f"unknown credlev {credlev!r}; valid values: "
-            + ", ".join(f"{code} ({label})" for code, label in sorted(CREDLEV_DECODE.items()))
-        )
-    vintage, _ = vintage_for("scorecard", None, scorecard_filename=catalog.scorecard_filename)
-    citation = Citation(
-        source="scorecard",
-        tier="official",
-        vintage=vintage,
-        caveat="Earnings/debt by major lag the entry cohort by years.",
-        raw_table="raw.scorecard_fos",
-    )
-    rows = await fetch(catalog.pool, _PROGRAMS_SQL, unitid, str(credlev))
-    programs = [
-        ProgramRow(
-            cipcode=row["CIPCODE"],
-            cipdesc=row["CIPDESC"],
-            credlev=credlev,
-            creddesc=row["CREDDESC"] or CREDLEV_DECODE.get(credlev),
-            completions=_fos_count(row["IPEDSCOUNT2"]),
-            debt_median=_fos_number(row["DEBT_ALL_STGP_ANY_MDN"]),
-            debt_monthly_payment=_fos_number(row["DEBT_ALL_STGP_ANY_MDN10YRPAY"]),
-            earnings_1yr=_fos_number(row["EARN_MDN_1YR"]),
-            earnings_4yr=_fos_number(row["EARN_MDN_4YR"]),
-            earnings_5yr=_fos_number(row["EARN_MDN_5YR"]),
-            citation=citation,
-        )
-        for row in rows
-        if cip_prefix is None or row["CIPCODE"].startswith(cip_prefix)
-    ]
-    return programs
-
-
-# --- get_diversity ----------------------------------------------------------------
-
-
-def _enrollment_count(text: str | None) -> int | None:
-    """IPEDS EF cells are text; negative sentinels → null (§8)."""
-    if text is None:
-        return None
-    try:
-        count = int(float(text))
-    except ValueError:
-        return None
-    return None if count < 0 else count
-
-
-async def get_diversity(catalog: Catalog, unitid: int) -> DiversityBreakdown | None:
-    """Undergrad race/sex breakdown (raw.ipeds_ef2024a, EFALEVEL='2'); None if unreported."""
-    rows = await fetch(catalog.pool, _DIVERSITY_SQL, unitid)
-    if not rows:
-        return None
-    row = rows[0]
-    vintage, _ = vintage_for("ipeds", catalog.ipeds_cycle_year)
-    return DiversityBreakdown(
-        unitid=unitid,
-        total=_enrollment_count(row["EFTOTLT"]),
-        men=_enrollment_count(row["EFTOTLM"]),
-        women=_enrollment_count(row["EFTOTLW"]),
-        by_race=[
-            RaceGroup(
-                race_label=label,
-                total=_enrollment_count(row[f"{stem}T"]),
-                men=_enrollment_count(row[f"{stem}M"]),
-                women=_enrollment_count(row[f"{stem}W"]),
-            )
-            for stem, label in _RACE_GROUPS
-        ],
-        citation=Citation(
-            source="ipeds", tier="official", vintage=vintage, raw_table="raw.ipeds_ef2024a"
-        ),
-    )
-
-
-# --- query_database (Layer 3) -------------------------------------------------------
-
-
-def _guard_sql(sql: str) -> str:
-    """Reject anything that isn't a single read-only SELECT/WITH statement.
-
-    Defense-in-depth on top of the RO role (which already blocks writes). Note:
-    semicolons (and write keywords) inside string literals are over-rejected by
-    design — the escape hatch prefers over-rejection.
-    """
-    stripped = sql.strip()
-    if stripped.endswith(";"):
-        stripped = stripped[:-1].rstrip()
-    if ";" in stripped:
-        raise ServiceError("rejected: multiple SQL statements are not allowed")
-    if not _SQL_FIRST_KEYWORD_RE.match(stripped):
-        raise ServiceError("rejected: read-only — the statement must start with SELECT or WITH")
-    write_keyword = _SQL_WRITE_KEYWORD_RE.search(stripped)
-    if write_keyword:
-        raise ServiceError(
-            f"rejected: read-only — write keyword {write_keyword.group(1).upper()!r} "
-            "is not allowed anywhere in the statement (including CTEs)"
-        )
-    func_denied = _SQL_FUNC_DENYLIST_RE.search(stripped)
-    if func_denied:
-        raise ServiceError(
-            f"rejected: function call {func_denied.group(1).lower()!r} is not permitted "
-            "in the escape hatch (set_config, pg_advisory_lock variants, pg_sleep variants)"
-        )
-    return stripped
-
-
-def _decode_hints_for(catalog: Catalog, columns: list[str]) -> dict[str, str]:
-    """DS-03: honesty reminders for value-bearing columns the raw rows bypass.
-
-    Pure (no pool, no I/O): resolves each column name against the catalog's
-    field index and flags percent / coded-int / raw-``value`` columns so the
-    model is reminded to decode/scale before quoting (R1/R2/R4). Unresolvable
-    columns get no hint — no false reassurance.
-    """
-    hints: dict[str, str] = {}
-    for col in columns:
-        meta = catalog.fields_by_key.get(col)
-        if meta is not None and meta.data_type == "percent":
-            hints[col] = "0–1 fraction — multiply by 100 before quoting (R2)."
-        elif meta is not None and meta.data_type == "int":
-            hints[col] = (
-                "may be a coded enum — decode via counselle.decode_ipeds before quoting (R1)."
-            )
-        elif col == "value":
-            hints[col] = (
-                "raw field_values payload — percents are 0–1 fractions, coded ints "
-                "need decoding, '-2'/range tokens are sentinels (R1/R2/R4)."
-            )
-    return hints
+    if placeholders != ast_placeholders or placeholders != list(range(1, len(params) + 1)):
+        raise ServiceError("SQL placeholders must be contiguous and match params exactly.")
+    if any(_contains_binary(value) for value in params):
+        raise ServiceError("Binary query parameters are not allowed.")
+    _reject_binary_projection(tree, relations)
 
 
 async def query_database(
     catalog: Catalog, sql: str, params: list[Any] | None = None
 ) -> QueryResult:
-    """Guarded read-only SQL escape hatch (Layer 3). Raw rows bypass normalization:
-    the reading rules still apply; prefer counselle.decode_ipeds / counselle.value_vintage;
-    percent values are 0–1 fractions."""
-    params = params or []
-    inner = _guard_sql(sql)
-    row_cap = get_settings().db_row_cap
-    # The wrapper is a fixed template; ``inner`` is the _guard_sql-validated query
-    # and the row cap binds as the final $N parameter. Safe by construction.
-    wrapped = f"SELECT * FROM ({inner}) q LIMIT ${len(params) + 1}"  # nosec B608
-    try:
-        rows = await fetch(catalog.pool, wrapped, *params, row_cap + 1)
-    except asyncpg.PostgresError as exc:
-        # Deliberately echo the Postgres error message: the LLM tool loop needs it
-        # to self-correct its SQL, and it contains no credentials.
-        raise ServiceError(f"query failed: {exc}") from exc
-    truncated = len(rows) > row_cap
-    rows = rows[:row_cap]
-    columns = list(rows[0].keys()) if rows else []
-    return QueryResult(
+    values = params or []
+    _guard_sql(sql, values)
+    settings = get_settings()
+    wrapped = f"SELECT * FROM ({sql}) AS counselle_query LIMIT {settings.db_row_cap + 1}"
+    async with catalog.pool.acquire() as conn, conn.transaction(readonly=True):
+        await conn.execute(
+            "SELECT set_config('statement_timeout', $1, true)",
+            str(settings.db_statement_timeout_ms),
+        )
+        records = await conn.fetch(wrapped, *values)
+    truncated = len(records) > settings.db_row_cap
+    records = records[: settings.db_row_cap]
+    columns = tuple(records[0].keys()) if records else ()
+    rows: list[tuple[Any, ...]] = []
+    as_of = datetime.now(UTC)
+    warning = (
+        "Raw query rows bypass typed normalization. Re-fetch named student-facing "
+        "values through get_school_profile or get_domain; aggregates need as-of "
+        "and coverage-denominator attribution."
+    )
+    for record in records:
+        row = tuple(record.values())
+        if _contains_binary(row):
+            raise ServiceError(
+                "Binary/PDF bytes cannot be returned; select metadata such as "
+                "octet_length(pdf_content)."
+            )
+        candidate = QueryResult(
+            columns=columns,
+            rows=tuple([*rows, row]),
+            row_count=len(rows) + 1,
+            truncated=truncated,
+            as_of=as_of,
+            warning=warning,
+        )
+        if len(candidate.model_dump_json().encode()) > settings.query_database_max_bytes:
+            truncated = True
+            break
+        rows.append(row)
+    result = QueryResult(
         columns=columns,
-        rows=[list(row) for row in rows],
+        rows=tuple(rows),
         row_count=len(rows),
         truncated=truncated,
-        decode_hints=_decode_hints_for(catalog, columns),
+        as_of=as_of,
+        warning=warning,
     )
-
-
-# --- get_data_calendar ----------------------------------------------------------------
-
-
-async def get_data_calendar(catalog: Catalog) -> list[CalendarEntry]:
-    """Per-source vintage + cutoff (ARCHITECTURE §8) — the server's 11th tool."""
-    return await catalog.data_calendar()
+    if len(result.model_dump_json().encode()) > settings.query_database_max_bytes:
+        raise ServiceError("Query metadata exceeds the configured serialized-result limit.")
+    return result

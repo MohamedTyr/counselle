@@ -233,11 +233,6 @@ def built_prompt() -> str:
     # Clear the coupled config caches together (prompt/asset/settings — audit L4).
     cfg_mod.reset_config_caches()
 
-    # Also clear static_map cache
-    import counselle_db.static_map as sm_mod
-
-    sm_mod.load_static_map.cache_clear()
-
     importlib.reload(prompt_mod)
     return prompt_mod.build_system_prompt(_FAKE_TEMPORAL, _FAKE_STUDENT_CONTEXT, 2710)
 

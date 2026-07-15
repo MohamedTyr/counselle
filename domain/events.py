@@ -97,6 +97,7 @@ class StepDetail(BaseModel):
     value_count: int | None = None
     duration_ms: int | None = None
     tool: str | None = None
+    domain_id: str | None = None
     field_keys: list[str] | None = None
     row_count: int | None = None
     viz_type: str | None = None

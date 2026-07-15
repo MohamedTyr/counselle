@@ -14,9 +14,8 @@ from app.workspace.models import (
     SchoolRequirement,
 )
 from counselle_db.catalog import Catalog
-from counselle_db.service import get_values
-from domain.envelope import CitationEnvelope
-from domain.normalize import preferred_field
+from counselle_db.service import get_domain
+from domain.envelope import Citation, CitationEnvelope
 
 
 async def get_school_reference(
@@ -82,7 +81,9 @@ async def get_school_reference(
     return SchoolReference(
         status="loaded",
         cycle_year=cycle_year,
-        populated=bool(groups or prompts or requirements or (test_policy and test_policy.available)),
+        populated=bool(
+            groups or prompts or requirements or (test_policy and test_policy.available)
+        ),
         prompt_groups=groups,
         prompts=prompts,
         requirements=requirements,
@@ -142,16 +143,25 @@ def _requirement(row: asyncpg.Record) -> SchoolRequirement:
 async def _compatible_test_policy(
     catalog: Catalog, unitid: int, cycle_year: int
 ) -> CitationEnvelope | None:
-    results = await get_values(catalog, unitid, preferred_field("test_policy"))
+    domain = await get_domain(catalog, unitid, "admissions")
     available = [
-        item for item in results if isinstance(item, CitationEnvelope) and item.available
+        row
+        for row in domain.rows
+        if row.available and row.ref == "admissions.test_policy_clarification"
     ]
     if not available:
         return None
-    for envelope in available:
-        if _vintage_matches_cycle(envelope.citation.vintage, cycle_year):
-            return envelope
-    envelope = available[0]
+    row = available[0]
+    envelope = CitationEnvelope(
+        field=row.ref,
+        label=row.label,
+        display=row.display or "",
+        raw=row.value,
+        available=True,
+        citation=Citation(source="cds", tier="official", vintage=row.vintage, caveat=None),
+    )
+    if _vintage_matches_cycle(envelope.citation.vintage, cycle_year):
+        return envelope
     caveat = (
         f"Source vintage does not match the {cycle_year - 1}-{str(cycle_year)[-2:]} "
         "application cycle; verify the current policy in the school's application portal."

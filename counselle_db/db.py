@@ -11,7 +11,7 @@ import json
 
 import asyncpg
 
-from config.settings import get_settings
+from config.settings import get_db_child_settings
 
 
 async def _init_connection(conn: asyncpg.Connection) -> None:
@@ -24,7 +24,7 @@ async def _init_connection(conn: asyncpg.Connection) -> None:
 
 async def create_pool(dsn: str | None = None) -> asyncpg.Pool:
     """Create the read-only pool on COUNSELLE_DB_RO_DSN (sizes/timeout from Settings)."""
-    settings = get_settings()
+    settings = get_db_child_settings()
     return await asyncpg.create_pool(
         dsn or settings.db_ro_dsn,
         min_size=settings.db_pool_min,

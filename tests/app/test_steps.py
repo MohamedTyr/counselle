@@ -97,32 +97,19 @@ def mapper(labels: dict[str, Any]) -> StepMapper:
 _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = [
     ("resolve_school", {"query": "duke"}, "db_tool", "official", ["duke"]),
     (
-        "get_values",
-        {"unitid": 198419, "field_keys": ["admissions.acceptance_rate", "admissions.sat_25"]},
+        "get_school_profile",
+        {"unitid": 198419, "groups": ["identity"]},
+        "db_tool",
+        "official",
+        ["Duke University", "profile"],
+    ),
+    (
+        "get_domain",
+        {"unitid": 198419, "domain_id": "admissions"},
         "db_tool",
         "official",
         ["Duke University", "admissions"],
     ),
-    ("get_dossier", {"unitid": 198419}, "db_tool", "official", ["Duke University"]),
-    (
-        "compare_schools",
-        {"unitids": [198419, 221999], "field_keys": ["admissions.acceptance_rate"]},
-        "db_tool",
-        "official",
-        ["Duke University", "Vanderbilt University"],
-    ),
-    ("find_schools", {"criteria": {"state": "NC"}}, "db_tool", "official", ["database"]),
-    (
-        "national_benchmark",
-        {"field_key": "admissions.acceptance_rate"},
-        "db_tool",
-        "official",
-        ["acceptance rate"],
-    ),
-    ("get_programs", {"unitid": 198419}, "db_tool", "official", ["Duke University"]),
-    ("get_diversity", {"unitid": 198419}, "db_tool", "official", ["Duke University"]),
-    ("get_data_calendar", {}, "db_tool", "official", ["fresh"]),
-    ("search_fields", {"query": "early decision"}, "db_tool", "official", ["early decision"]),
     ("query_database", {"sql": "SELECT 1"}, "sql", "official", ["query"]),
     ("search_web", {"query": "duke dorms"}, "web_search", None, ["duke dorms"]),
     (
@@ -351,7 +338,7 @@ def test_every_row_with_empty_args_has_no_braces(
 
 
 def test_error_label_retry_class(mapper: StepMapper) -> None:
-    mapped = mapper.map_call("get_values", {"unitid": 198419})
+    mapped = mapper.map_call("get_domain", {"unitid": 198419, "domain_id": "admissions"})
 
     label = mapper.error_label(mapped, retry=True)
 
@@ -368,7 +355,7 @@ def test_error_label_search_failed_class(mapper: StepMapper) -> None:
 
 
 def test_error_label_tool_failed_class(mapper: StepMapper) -> None:
-    for tool in ("get_values", "query_database", "render_viz", "load_skill"):
+    for tool in ("get_domain", "query_database", "render_viz", "load_skill"):
         mapped = mapper.map_call(tool, {})
 
         label = mapper.error_label(mapped, retry=False)
@@ -382,7 +369,7 @@ def test_error_label_tool_failed_class(mapper: StepMapper) -> None:
 
 
 def test_result_is_error_retry_prompt_part() -> None:
-    part = RetryPromptPart(content="bad args", tool_name="get_values", tool_call_id="c1")
+    part = RetryPromptPart(content="bad args", tool_name="get_domain", tool_call_id="c1")
 
     assert StepMapper.result_is_error(part, None) is True
 
@@ -495,14 +482,14 @@ def test_detail_for_sql_kind_carries_statement_and_row_count(mapper: StepMapper)
 
 def test_detail_for_db_tool_kind(mapper: StepMapper) -> None:
     detail = mapper.detail_for(
-        "get_values",
-        {"unitid": 198419, "field_keys": ["admissions.acceptance_rate", "admissions.sat_25"]},
+        "get_domain",
+        {"unitid": 198419, "domain_id": "admissions"},
         [{"field": "a"}, {"field": "b"}],
         80,
     )
 
-    assert detail.tool == "get_values"
-    assert detail.field_keys == ["admissions.acceptance_rate", "admissions.sat_25"]
+    assert detail.tool == "get_domain"
+    assert detail.domain_id == "admissions"
     assert detail.row_count == 2
     assert detail.value_count == 2
     assert detail.schools == ["Duke University"]

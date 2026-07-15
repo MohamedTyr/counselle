@@ -51,7 +51,7 @@ If the student has not specified a dimension, use the default: cost + selectivit
 
 ## Step 3 — Fetch the comparison data
 
-Call `compare_schools(unitids=[...], field_keys=[...])`. The tool returns an N×M matrix of citation envelopes — one envelope per school-field cell. Cells where data is unavailable have `available: false`.
+Call `get_domain(unitid, domain_id)` for each resolved school and compare the same qualified metric refs. For broad candidate or aggregate analysis, use parameterized `query_database`, then re-fetch named final values through `get_domain`.
 
 For earnings: always pick `earnings.median_4yr_postcompletion` as the primary earnings field. Supplement with `median_6yr` if the student asked about longer-term outcomes. Always add the earnings-lag caveat in the prose ("these figures reflect students who entered around [year], not current students").
 

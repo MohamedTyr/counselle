@@ -24,17 +24,15 @@ def website_url(catalog: Catalog, unitid: int) -> str | None:
     return f"https://{domain}" if domain else None
 
 
-async def school_identities(
-    catalog: Catalog, unitids: list[int]
-) -> dict[int, SchoolIdentity]:
+async def school_identities(catalog: Catalog, unitids: list[int]) -> dict[int, SchoolIdentity]:
     unique_unitids = sorted(set(unitids))
     if not unique_unitids:
         return {}
     rows = await catalog.pool.fetch(
         """
-        SELECT unitid, name, NULL::text AS city, state
-        FROM schools
-        WHERE unitid = ANY($1::int[])
+        SELECT id AS unitid, name, city, state, official_domain
+        FROM cds_library.school_profiles
+        WHERE id = ANY($1::int[])
         """,
         unique_unitids,
     )
@@ -50,8 +48,6 @@ async def school_identities(
     }
 
 
-def publish_events(
-    event_bus: WorkspaceEventBus, user_id: UUID, events: list[ChangeEvent]
-) -> None:
+def publish_events(event_bus: WorkspaceEventBus, user_id: UUID, events: list[ChangeEvent]) -> None:
     for event in events:
         event_bus.publish(user_id, event)

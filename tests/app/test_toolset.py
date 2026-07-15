@@ -262,7 +262,8 @@ class TestMcpToolset:
         # The child env does NOT inherit the parent env (notes §2) — the DSNs
         # must be passed explicitly.
         assert transport.env["COUNSELLE_DB_RO_DSN"] == settings.db_ro_dsn
-        assert transport.env["COUNSELLE_DB_APP_DSN"] == settings.db_app_dsn
+        assert transport.env["COUNSELLE_SETTINGS_NO_ENV_FILE"] == "1"
+        assert "COUNSELLE_DB_APP_DSN" not in transport.env
 
     def test_build_mcp_toolset_carries_bounded_read_timeout(self) -> None:
         """A dead MCP child must not hang tool calls forever (fix 2).
@@ -308,7 +309,7 @@ class TestMcpToolset:
         assert "COUNSELLE_TAVILY_API_KEY" not in env
         # DSNs must still be there
         assert env["COUNSELLE_DB_RO_DSN"] == settings.db_ro_dsn
-        assert env["COUNSELLE_DB_APP_DSN"] == settings.db_app_dsn
+        assert "COUNSELLE_DB_APP_DSN" not in env
 
     async def test_annotate_mcp_result_routes_through_the_deps_registry(self) -> None:
         registry = SourceRegistry()

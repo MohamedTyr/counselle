@@ -258,8 +258,10 @@ class StepMapper:
             "query": _str_or_none(args.get("query") or args.get("name")),
             "row_count": _row_count_of(content),
         }
-        if tool_name == "get_values" and kwargs["row_count"] is not None:
+        if tool_name == "get_domain" and kwargs["row_count"] is not None:
             kwargs["value_count"] = kwargs["row_count"]
+        if isinstance(args.get("domain_id"), str):
+            kwargs["domain_id"] = args["domain_id"]
         keys = args.get("field_keys")
         if isinstance(keys, list) and keys:
             kwargs["field_keys"] = [str(key) for key in keys]
@@ -380,6 +382,8 @@ class StepMapper:
         return out or None
 
     def _category_of(self, args: dict[str, Any]) -> str:
+        if isinstance(args.get("domain_id"), str) and args["domain_id"].strip():
+            return _humanize(args["domain_id"])
         keys = args.get("field_keys")
         if not isinstance(keys, list) or not keys:
             return self._fallbacks.get("category", "profile")

@@ -16,27 +16,20 @@ import structlog
 from app.sources import SourceRegistry
 from app.viz_signature import render_spec_signature, viz_payload_signature
 from counselle_db.catalog import Catalog
-from counselle_db.models import FieldKeyError, ResolveMatch, ServiceError
-from counselle_db.service import compare_schools, get_values, resolve_school
-from domain.envelope import CitationEnvelope
+from counselle_db.models import ResolvedSchool, ServiceError
+from counselle_db.service import get_domain, resolve_school
+from domain.envelope import Citation, CitationEnvelope
 from domain.specs import RenderSpec, SchoolRef, VizRow
-from domain.urls import registrable_domain
 
 logger = structlog.get_logger(__name__)
 
 VizType = Literal["stat_block", "comparison_table"]
 
 
-#: The DB field whose value is each school's official website (R8: scheme may be
-#: absent). The host drives the client-side logo; ``registrable_domain`` is robust
-#: to both ``https://www.x.edu/`` and bare ``www.x.edu/`` shapes.
-_WEBSITE_KEY = "institution.website"
-
-
 async def _school_ref(catalog: Catalog, unitid: int) -> SchoolRef:
     """Resolve a unitid to a named SchoolRef; unknown unitid → ServiceError."""
     result = await resolve_school(catalog, str(unitid))
-    if not isinstance(result, ResolveMatch):
+    if not isinstance(result, ResolvedSchool):
         raise ServiceError(f"unitid {unitid} is not in our database")
     return SchoolRef(unitid=unitid, name=result.school.name)
 
@@ -50,16 +43,34 @@ async def _domains(catalog: Catalog, unitids: list[int]) -> dict[int, str | None
     """
     if not unitids:
         return {}
-    try:
-        result = await compare_schools(catalog, unitids, [_WEBSITE_KEY])
-    except Exception:
-        logger.warning("viz website lookup failed; rendering without logos", unitids=unitids)
-        return {}
-    cells = result.rows[0].cells if result.rows else []
-    return {
-        school.unitid: (registrable_domain(cell.display) if cell.available else None)
-        for school, cell in zip(result.schools, cells, strict=False)
-    }
+    return {unitid: catalog.school_domain(unitid) for unitid in unitids}
+
+
+async def _envelopes(catalog: Catalog, unitid: int, refs: list[str]) -> list[CitationEnvelope]:
+    by_domain: dict[str, list[str]] = {}
+    for ref in refs:
+        if ref.count(".") != 1:
+            raise ServiceError(f"invalid qualified metric ref: {ref}")
+        by_domain.setdefault(ref.split(".", 1)[0], []).append(ref)
+    found: dict[str, CitationEnvelope] = {}
+    for domain_id, wanted in by_domain.items():
+        result = await get_domain(catalog, unitid, domain_id)
+        for row in result.rows:
+            if row.ref in wanted:
+                found[row.ref] = CitationEnvelope(
+                    field=row.ref,
+                    label=row.label,
+                    display=row.display or "not available",
+                    raw=row.value if isinstance(row.value, (str, int, float, bool)) else None,
+                    available=row.available,
+                    citation=Citation(
+                        source="cds",
+                        tier="official",
+                        vintage=row.vintage,
+                        caveat=", ".join(row.caveat_kinds) or None,
+                    ),
+                )
+    return [found[ref] for ref in refs if ref in found]
 
 
 def _with_domains(schools: list[SchoolRef], domains: dict[int, str | None]) -> list[SchoolRef]:
@@ -72,13 +83,15 @@ async def _comparison_spec(
 ) -> RenderSpec:
     if not field_keys:
         raise ServiceError("comparison_table needs field_keys — pick the fields that matter here")
-    result = await compare_schools(catalog, unitids, field_keys)
-    schools = [SchoolRef(unitid=s.unitid, name=s.name) for s in result.schools]
+    schools = [await _school_ref(catalog, unitid) for unitid in unitids]
     schools = _with_domains(schools, await _domains(catalog, [s.unitid for s in schools]))
-    rows = [VizRow(label=row.label, cells=row.cells) for row in result.rows]
+    matrices = [await _envelopes(catalog, unitid, field_keys) for unitid in unitids]
+    rows = [
+        VizRow(label=ref, cells=[cells[index] for cells in matrices if len(cells) > index])
+        for index, ref in enumerate(field_keys)
+    ]
     if not rows:
-        unknown = [error.field for error in result.errors]
-        raise ServiceError(f"unknown field key(s): {unknown} — use real catalog keys")
+        raise ServiceError("no valid manifest refs were returned")
     return RenderSpec(
         type="comparison_table",
         title=title or " vs ".join(school.name for school in schools),
@@ -95,15 +108,10 @@ async def _stat_block_spec(
     unitid = unitids[0]  # a stat block is one school (ADR 0014)
     school = await _school_ref(catalog, unitid)
     school = _with_domains([school], await _domains(catalog, [unitid]))[0]
-    envelopes = await get_values(catalog, unitid, field_keys)
-    rows = [
-        VizRow(label=env.label, cells=[env])
-        for env in envelopes
-        if isinstance(env, CitationEnvelope)
-    ]
+    envelopes = await _envelopes(catalog, unitid, field_keys)
+    rows = [VizRow(label=env.label, cells=[env]) for env in envelopes]
     if not rows:
-        unknown = [env.field for env in envelopes if isinstance(env, FieldKeyError)]
-        raise ServiceError(f"unknown field key(s): {unknown} — use real catalog keys")
+        raise ServiceError("no valid manifest refs were returned")
     return RenderSpec(
         type="stat_block",
         title=title or f"{school.name} — key facts",
@@ -191,18 +199,13 @@ def _result_for_agent(spec: RenderSpec, cell_markers: list[str]) -> dict[str, An
     return {
         "type": spec.type,
         "title": spec.title,
-        "schools": [
-            {"unitid": school.unitid, "name": school.name}
-            for school in spec.schools
-        ],
+        "schools": [{"unitid": school.unitid, "name": school.name} for school in spec.schools],
         "rows": [
             {
                 "label": row.label,
                 "cells": [
                     {
-                        "school": spec.schools[index].name
-                        if index < len(spec.schools)
-                        else None,
+                        "school": spec.schools[index].name if index < len(spec.schools) else None,
                         "field": cell.field,
                         "label": cell.label,
                         "display": cell.display,
@@ -276,9 +279,7 @@ async def render_viz(
     except ServiceError as exc:
         return {"ok": False, "status": "error", "summary": str(exc), "error": str(exc)}
     except Exception:
-        logger.exception(
-            "render_viz unexpected error building spec", type=type, unitids=unitids
-        )
+        logger.exception("render_viz unexpected error building spec", type=type, unitids=unitids)
         return {
             "ok": False,
             "status": "error",
