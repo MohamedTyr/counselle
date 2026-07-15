@@ -234,19 +234,18 @@ def built_prompt() -> str:
     cfg_mod.reset_config_caches()
 
     importlib.reload(prompt_mod)
-    return prompt_mod.build_system_prompt(_FAKE_TEMPORAL, _FAKE_STUDENT_CONTEXT, 2710)
+    return prompt_mod.build_system_prompt(
+        _FAKE_TEMPORAL, _FAKE_STUDENT_CONTEXT, "Live picture: 2,710 schools"
+    )
 
 
 def test_no_unfilled_template_slots(built_prompt: str) -> None:
-    """The seven slot names must not appear as bare {name} tokens."""
+    """The four final slot names must not appear as bare tokens."""
     _slots = [
-        "static_field_map",
-        "dossier_shortlist_summary",
         "subreddit_menu",
         "temporal_context",
         "student_context",
-        "tier_note",
-        "school_count",
+        "data_picture",
     ]
     for slot in _slots:
         token = "{" + slot + "}"

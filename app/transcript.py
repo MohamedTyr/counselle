@@ -13,6 +13,7 @@ from typing import Any
 
 import structlog
 
+from app.legacy_citations import adapt_completed_sources
 from app.records import prose_of
 
 logger = structlog.get_logger(__name__)
@@ -124,7 +125,7 @@ def _assistant_entry_for_record(
         "message_id": record.get("message_id"),
         "parts": parts,
         "step_record": step_record,
-        "sources": record.get("sources") or [],
+        "sources": adapt_completed_sources(record.get("sources") or []),
         "status": record.get("status"),
     }
     entry["segments"] = _segments_for_record(record, parts)
@@ -161,20 +162,14 @@ def _segments_for_record(
 
     if "narration" in record:
         segments.extend(
-            {"kind": "narration", "text": text}
-            for text in record.get("narration") or []
-            if text
+            {"kind": "narration", "text": text} for text in record.get("narration") or [] if text
         )
         segments.extend(
-            {"kind": "thinking", "text": text}
-            for text in record.get("thinking") or []
-            if text
+            {"kind": "thinking", "text": text} for text in record.get("thinking") or [] if text
         )
     else:
         segments.extend(
-            {"kind": "narration", "text": text}
-            for text in record.get("thinking") or []
-            if text
+            {"kind": "narration", "text": text} for text in record.get("thinking") or [] if text
         )
 
     for part in parts:

@@ -30,7 +30,9 @@ def test_oversized_tool_result_spills_to_store_and_returns_reference() -> None:
     assert result["public_receipt"]["handle"] == handle
     assert result["result_for_agent"]["chars"] > 200
     assert result["result_for_agent"]["preview"]
-    assert store.read(handle) is payload
+    # Spill storage is a durable-safe copy (hidden evidence telemetry is
+    # scrubbed recursively), not the caller's mutable object identity.
+    assert store.read(handle) == payload
 
 
 def test_oversized_search_result_preserves_public_receipt_metadata() -> None:

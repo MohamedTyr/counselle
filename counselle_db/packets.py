@@ -267,9 +267,11 @@ def parse_packet_row(
     except (ValidationError, KeyError, TypeError, ValueError):
         raise _reject("packet_shape_invalid", row) from None
     historical = manifests.get(packet.manifest_version)
-    historical_domain = next(
-        (domain for domain in historical.domains if domain.id == packet.domain_id), None
-    ) if historical else None
+    historical_domain = (
+        next((domain for domain in historical.domains if domain.id == packet.domain_id), None)
+        if historical
+        else None
+    )
     if historical_domain is None:
         raise _reject("packet_manifest_domain_missing", row)
     checks = (
@@ -417,7 +419,7 @@ def read_metric(
     if packet_status == "partial":
         caveats.append("partial_packet")
     if not definition_match:
-        caveats.append("definition_mismatch")
+        caveats.append("definition_drift")
     if currentness == "stale":
         caveats.append("stale_edition")
     if not available and metric.availability_status:
@@ -449,4 +451,18 @@ def read_metric(
         value=metric.value if available else None,
         vintage=vintage,
         caveat_kinds=tuple(caveats),
+        evidence=(
+            {
+                "eid": metric.ref,
+                "value_display": display,
+                "label": definition.description,
+                "page": metric.evidence.page_number,
+                "section": metric.evidence.section,
+                "row_label": metric.evidence.row_label,
+                "column_label": metric.evidence.column_label,
+                "excerpt": metric.evidence.excerpt,
+            }
+            if available and metric.evidence is not None and display is not None
+            else None
+        ),
     )

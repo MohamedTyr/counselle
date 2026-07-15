@@ -55,7 +55,9 @@ from api.routes import (
 )
 from api.routes import config as config_routes
 from api.supervision import McpSupervisor
+from app.caveats import caveat_catalog
 from app.deps import build_runtime
+from app.prompt import validate_prompt_assets
 from app.skills import load_all_skill_meta
 from app.titles import make_auto_titler
 from app.turns import TurnRegistry
@@ -75,6 +77,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     load_yaml_asset("greeting_templates")
     load_yaml_asset("season_calendar")
     load_yaml_asset("starter_prompts")
+    caveat_catalog()
+    validate_prompt_assets()
     load_all_skill_meta()
     runtime = await build_runtime(settings)  # pools + catalog + checkpointer (D3) + graph
     try:

@@ -9,12 +9,15 @@ the database (notes-p4-apis §10).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.errors import GraphInterrupt
+from langgraph.types import Interrupt
 from pydantic_ai import FinalResultEvent
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
@@ -189,7 +192,6 @@ _TEMPORAL = TemporalContext(
         entering_class="Fall 2027",
         cycle_note="It is the exploration phase for the class entering Fall 2027.",
     ),
-    data_calendar=[],
     context="Today is 2026-06-10.",
 )
 
@@ -258,6 +260,113 @@ class Rig:
         ]
 
 
+async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage="Common Data Set 2024-25",
+        document_sha256="a" * 64,
+        source_kind="cds_pdf",
+        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        academic_year=2024,
+        manifest_version="5.0.1",
+        school_unitid=198419,
+    )
+    calls = 0
+
+    def interrupting_skill(name: str) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {
+                "field": "admissions.applicants",
+                "label": "Applicants",
+                "display": "50,000",
+                "available": True,
+                "citation": citation.model_dump(mode="json"),
+                "evidence": {
+                    "eid": "admissions.applicants",
+                    "value_display": "50,000",
+                    "label": "Applicants",
+                    "page": 3,
+                    "excerpt": "Applicants total 50,000.",
+                },
+            }
+        raise GraphInterrupt(
+            [
+                Interrupt(
+                    value={
+                        "question": "Which year should I use?",
+                        "header": "Choose year",
+                        "options": [
+                            {"label": "2024", "hint": "latest complete year"},
+                            {"label": "2023", "hint": "prior year"},
+                        ],
+                        "multi_select": False,
+                    },
+                    id="clarify-evidence",
+                )
+            ]
+        )
+
+    monkeypatch.setattr(app.agent_node, "load_skill", interrupting_skill)
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        prompt = next(
+            (
+                str(part.content)
+                for message in reversed(messages)
+                if isinstance(message, ModelRequest)
+                for part in message.parts
+                if isinstance(part, UserPromptPart)
+            ),
+            "",
+        )
+        if "student answered the earlier clarification" in prompt:
+            return ModelResponse(
+                parts=[
+                    TextPart(
+                        "There were 50,000 applicants [1]"
+                        "[[evidence:1:admissions.applicants]]."
+                    )
+                ]
+            )
+        returned = [
+            part
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        return ModelResponse(
+            parts=[ToolCallPart(tool_name="load_skill", args={"name": "test"})]
+            if len(returned) < 2
+            else [TextPart("unreachable")]
+        )
+
+    rig = Rig(_fn_model(model))
+    session_id = str(uuid4())
+    user_id = str(uuid4())
+    first = await rig.turn(session_id, "Compare applicants", _ALL_OFF, user_id=user_id)
+    assert first[-1].data["status"] == "awaiting_input"
+    meta = first[0].data
+    assert rig.deps.parked_sources.restore(session_id, meta["message_id"], str(uuid4())) is None
+    parked = rig.deps.parked_sources.restore(session_id, meta["message_id"], user_id)
+    assert parked is not None
+    assert parked.promote_pending_evidence(1, "admissions.applicants")
+
+    resumed = await rig.turn(session_id, "2024", _ALL_OFF, user_id=user_id)
+    assert resumed[-1].data["status"] == "complete"
+    assert "[[evidence:" not in "".join(
+        event.data.get("text", "") for event in resumed if isinstance(event.data, dict)
+    )
+    source_event = next(event for event in resumed if event.type == "sources")
+    assert source_event.data["sources"][0]["evidence"][0]["eid"] == "admissions.applicants"
+    assert rig.deps.parked_sources.restore(session_id, meta["message_id"], user_id) is None
+
+
 class _ImmediateEndRun:
     next_node = End(data=None)
     result = None
@@ -324,7 +433,12 @@ def _viz_cell(field: str, raw: int = 42) -> CitationEnvelope:
         raw=raw,
         available=True,
         unit="number",
-        citation=Citation(source="ipeds", tier="official", vintage="IPEDS 2024", raw_table=field),
+        citation=Citation(
+            source="web",
+            tier="official",
+            vintage="Retrieved 2026-01-01",
+            url=f"https://example.edu/{field}",
+        ),
     )
 
 
@@ -482,6 +596,7 @@ async def test_parked_resume_carries_user_id_through_the_prewrite() -> None:
     """A clarify resume rebuilds turn_ids via _prepare_turn_input's parked
     branch (app/run_turn.py) — user_id must survive that branch too, not
     just the fresh-turn branch."""
+
     def _answer_cost(messages: Any, info: Any) -> ModelResponse:
         return ModelResponse(parts=[TextPart("Focusing on cost.")])
 
@@ -629,8 +744,7 @@ async def test_hallucinated_create_tasks_while_unmounted_paints_no_step() -> Non
 def _create_one_task_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     last = messages[-1]
     if isinstance(last, ModelRequest) and any(
-        isinstance(part, ToolReturnPart) and part.tool_name == "create_tasks"
-        for part in last.parts
+        isinstance(part, ToolReturnPart) and part.tool_name == "create_tasks" for part in last.parts
     ):
         return ModelResponse(parts=[TextPart("Added the task to your board.")])
     return ModelResponse(
@@ -749,8 +863,7 @@ async def test_toolset_lacks_disabled_sources_and_ask_student() -> None:
 def _plan_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     last = messages[-1]
     if isinstance(last, ModelRequest) and any(
-        isinstance(part, ToolReturnPart) and part.tool_name == "write_plan"
-        for part in last.parts
+        isinstance(part, ToolReturnPart) and part.tool_name == "write_plan" for part in last.parts
     ):
         return ModelResponse(parts=[TextPart("I updated the plan and then answered.")])
     return ModelResponse(
@@ -1010,8 +1123,7 @@ def _event_order_signature(events: list[Event]) -> list[dict[str, Any]]:
             data = {
                 key: value
                 for key, value in data.items()
-                if key in {"status", "kind", "label", "detail"}
-                and value is not None
+                if key in {"status", "kind", "label", "detail"} and value is not None
             }
             detail = data.get("detail")
             if isinstance(detail, dict):
@@ -1086,8 +1198,7 @@ def _overflow_then_read_back(messages: list[ModelMessage], info: AgentInfo) -> M
 def _overflow_without_read_back(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     last = messages[-1]
     if isinstance(last, ModelRequest) and any(
-        isinstance(part, ToolReturnPart) and part.tool_name == "load_skill"
-        for part in last.parts
+        isinstance(part, ToolReturnPart) and part.tool_name == "load_skill" for part in last.parts
     ):
         return ModelResponse(parts=[TextPart("I stored the large result.")])
     return ModelResponse(parts=[ToolCallPart(tool_name="load_skill", args={"name": "huge"})])
@@ -1191,9 +1302,7 @@ async def test_oversized_tool_result_handle_survives_later_turn(
         if part.get("part_kind") == "tool-return"
     ]
     read_return = next(
-        part
-        for part in reversed(second_tool_returns)
-        if part["tool_name"] == "read_tool_result"
+        part for part in reversed(second_tool_returns) if part["tool_name"] == "read_tool_result"
     )
     assert read_return["content"] == huge
 
@@ -1228,7 +1337,7 @@ def _search_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelR
     return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "dorms"})])
 
 
-async def test_registry_indices_stable_across_two_turns() -> None:
+async def test_registry_resets_for_each_completed_answer() -> None:
     rig = Rig(_fn_model(_search_then_answer))
     session_id = str(uuid4())
     config = SourceConfig(web=True, reddit=False, edu=False)
@@ -1239,10 +1348,8 @@ async def test_registry_indices_stable_across_two_turns() -> None:
     sources_1 = next(e.data["sources"] for e in events_1 if e.type == "sources")
     sources_2 = next(e.data["sources"] for e in events_2 if e.type == "sources")
     assert [entry["index"] for entry in sources_1] == [1]
-    assert [entry["index"] for entry in sources_2] == [1, 2]
-    # turn 2 never renumbered turn 1's source
-    assert sources_2[0] == sources_1[0]
-    assert sources_2[1]["citation"]["url"] == "https://example.com/2"
+    assert [entry["index"] for entry in sources_2] == [1]
+    assert sources_2[0]["citation"]["url"] == "https://example.com/2"
 
 
 # ---------------------------------------------------------------------------
@@ -1664,7 +1771,9 @@ async def test_complete_turn_writes_the_node_record() -> None:
     # Steps are end-state only; receipt per the §7 contract; sources snapshot.
     assert [s["status"] for s in record["steps"]] == ["end"]
     assert record["receipt"] == "1 web search"
-    assert record["sources"] == values["source_registry"]
+    assert record["sources"][0]["citation"] == values["source_registry"][0]["citation"]
+    assert "evidence_seen_eids" not in record["sources"][0]
+    assert record["sources"][0]["evidence_omitted_count"] == 0
     assert record["usage"]["tool_calls"] >= 1
     assert record["error"] is None and record["clarify"] is None
     assert [segment["kind"] for segment in record["segments"]] == ["step", "delta"]
@@ -1728,9 +1837,7 @@ async def test_malformed_restored_selection_fails_before_meta_or_record_write() 
 
     events = [
         event
-        async for event in run_turn(
-            session_id, "Cost.", _ALL_OFF, deps=rig.deps, graph=rig.graph
-        )
+        async for event in run_turn(session_id, "Cost.", _ALL_OFF, deps=rig.deps, graph=rig.graph)
     ]
 
     assert _types(events) == ["error"]

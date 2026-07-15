@@ -206,7 +206,7 @@ def test_packet_metric_must_exist_in_pinned_historical_manifest() -> None:
         parse_packet_row(row, {"5.0.1": _manifest()}, frozenset({"gemini-routed-extraction-v8"}))
 
 
-def test_domain_row_payload_does_not_expose_evidence_excerpt() -> None:
+def test_domain_row_carries_internal_evidence_for_phase3_middleware() -> None:
     parsed = parse_packet_row(
         _row(), {"5.0.1": _manifest()}, frozenset({"gemini-routed-extraction-v8"})
     )
@@ -219,8 +219,8 @@ def test_domain_row_payload_does_not_expose_evidence_excerpt() -> None:
         definition_match=True,
         currentness="current",
     )
-    assert "evidence" not in row.model_dump()
-    assert "Rate 10%" not in row.model_dump_json()
+    assert row.evidence is not None
+    assert row.evidence["excerpt"] == "Rate 10%"
 
 
 def test_manifest_rejects_duplicate_domains_refs_bad_binders_and_hash_coverage() -> None:

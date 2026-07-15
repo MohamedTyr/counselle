@@ -85,10 +85,24 @@ async def test_test_policy_uses_compatible_preference_fallback(
         display="Required",
         value="Required",
         vintage="CDS 2026-27",
+        evidence={
+            "eid": "admissions.test_policy_clarification",
+            "value_display": "Required",
+            "label": "Test policy",
+            "page": 1,
+            "excerpt": "Required",
+        },
     )
 
     async def fake_get_domain(*_: object) -> SimpleNamespace:
-        return SimpleNamespace(rows=(row,))
+        return SimpleNamespace(
+            rows=(row,),
+            document_sha256="a" * 64,
+            source_kind="upload",
+            retrieved_at="2026-01-01T00:00:00Z",
+            academic_year=2026,
+            manifest_version="5.0.1",
+        )
 
     monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
 
@@ -111,10 +125,24 @@ async def test_stale_test_policy_is_unavailable_and_requires_portal_verification
         display="Optional",
         value="Optional",
         vintage="CDS 2024-25",
+        evidence={
+            "eid": "admissions.test_policy_clarification",
+            "value_display": "Optional",
+            "label": "Test policy",
+            "page": 1,
+            "excerpt": "Optional",
+        },
     )
 
     async def fake_get_domain(*_: object) -> SimpleNamespace:
-        return SimpleNamespace(rows=(row,))
+        return SimpleNamespace(
+            rows=(row,),
+            document_sha256="a" * 64,
+            source_kind="upload",
+            retrieved_at="2026-01-01T00:00:00Z",
+            academic_year=2024,
+            manifest_version="5.0.1",
+        )
 
     monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
 
@@ -125,10 +153,9 @@ async def test_stale_test_policy_is_unavailable_and_requires_portal_verification
     assert result is not None
     assert result.available is False
     assert result.raw is None
-    assert result.display == "not available for this application cycle"
-    assert result.citation.caveat is not None
-    assert "verify" in result.citation.caveat.lower()
-    assert "portal" in result.citation.caveat.lower()
+    assert result.display == "not available"
+    assert result.citation is None
+    assert result.caveats[0].kind == "stale_edition"
 
 
 async def test_add_application_creates_only_the_application_and_no_children(
@@ -140,9 +167,7 @@ async def test_add_application_creates_only_the_application_and_no_children(
     async def fake_application_view(*_: object, **__: object) -> ApplicationView:
         return application
 
-    monkeypatch.setattr(
-        service_applications, "_application_view_by_id", fake_application_view
-    )
+    monkeypatch.setattr(service_applications, "_application_view_by_id", fake_application_view)
     catalog = SimpleNamespace(school_name=lambda unitid: "Example University")
 
     result = await service_applications.add_application(

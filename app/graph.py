@@ -16,7 +16,7 @@ session durable (ADR 0019). Deps (catalog, pools) ride a closure, never state:
 state must stay msgpack-plain (``app/state.py``).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 from uuid import UUID
@@ -26,12 +26,14 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.agent_node import run_agent_node
+from app.parked_sources import ParkedSourceStore
+from app.prompt import render_data_picture
 from app.run_handle import RunHandleStore
 from app.state import TemporalContext, TurnState
 from app.student_context import STUDENT_CONTEXT_UNAUTHENTICATED, build_student_context
 from app.turn_persistence import AGENT_NODE
 from config.settings import load_yaml_asset
-from counselle_db.catalog import CalendarEntry, Catalog
+from counselle_db.catalog import Catalog
 from domain.season import Season, SeasonWindow, admission_season
 
 
@@ -42,13 +44,11 @@ class GraphDeps:
     catalog: Catalog
     app_pool: asyncpg.Pool | None = None  # counselle_app role (sessions, Slice F)
     run_handles: RunHandleStore | None = None
+    parked_sources: ParkedSourceStore = field(default_factory=ParkedSourceStore)
 
 
-def _render_temporal(today: date, season: Season, calendar: list[CalendarEntry]) -> str:
-    """The prompt block: today + cycle phase + what each source knows (§16)."""
-    lines = [f"Today is {today.isoformat()}. {season.cycle_note}", "Data calendar:"]
-    lines += [f"- {entry.source}: {entry.vintage} — {entry.cutoff_note}" for entry in calendar]
-    return "\n".join(lines)
+def _render_temporal(today: date, season: Season) -> str:
+    return f"Today is {today.isoformat()}. {season.cycle_note}"
 
 
 async def build_temporal_context(catalog: Catalog, today: date | None = None) -> TemporalContext:
@@ -57,28 +57,10 @@ async def build_temporal_context(catalog: Catalog, today: date | None = None) ->
     windows = [SeasonWindow.model_validate(row) for row in load_yaml_asset("season_calendar")]
     season = admission_season(today, windows)
     await catalog.maybe_refresh()
-    snapshot = catalog.snapshot
-    calendar = [
-        CalendarEntry(
-            source="CDS",
-            vintage=(
-                f"Manifest {snapshot.current_version} (published {snapshot.published_at.date()})"
-            ),
-            cutoff_note="School values remain pinned to each selected CDS edition.",
-        ),
-        CalendarEntry(
-            source="School profile",
-            vintage=(
-                f"Snapshots {snapshot.profile_snapshot_min} through {snapshot.profile_snapshot_max}"
-            ),
-            cutoff_note="Stable identity context only; not current annual institutional data.",
-        ),
-    ]
     return TemporalContext(
         today=today.isoformat(),
         season=season,
-        data_calendar=calendar,
-        context=_render_temporal(today, season, calendar),
+        context=_render_temporal(today, season),
     )
 
 
@@ -100,10 +82,17 @@ def build_graph(checkpointer: Any, deps: GraphDeps) -> CompiledStateGraph[TurnSt
 
     async def prepare(state: TurnState) -> dict[str, Any]:
         temporal = await build_temporal_context(deps.catalog)
+        snapshot = getattr(deps.catalog, "snapshot", None)
+        data_picture = (
+            render_data_picture(snapshot)
+            if snapshot is not None
+            else state.get("data_picture", "Live data picture unavailable in this test harness.")
+        )
         student_context = await _build_turn_student_context(state, deps.app_pool)
         return {
             "temporal": temporal.model_dump(mode="json"),
             "student_context": student_context,
+            "data_picture": data_picture,
         }
 
     async def agent(state: TurnState) -> dict[str, Any]:

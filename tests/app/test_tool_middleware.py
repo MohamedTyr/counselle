@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from app.sources import SourceRegistry
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
@@ -43,7 +45,8 @@ def test_mcp_envelopes_are_annotated_by_default() -> None:
         "display": "6%",
         "available": True,
         "citation": Citation(
-            source="ipeds", tier="official", vintage="IPEDS 2024-25"
+            source="profile", tier="official", vintage="Profile 2024",
+            school_unitid=198419, profile_sha256="a" * 64,
         ).model_dump(mode="json"),
     }
 
@@ -52,7 +55,7 @@ def test_mcp_envelopes_are_annotated_by_default() -> None:
     )
 
     assert result["marker"] == "[1]"
-    assert registry.entries[0].label == "IPEDS 2024-25"
+    assert registry.entries[0].label == "Profile 2024"
 
 
 def test_overflow_runs_after_annotation() -> None:
@@ -83,6 +86,54 @@ def test_overflow_runs_after_annotation() -> None:
     assert result["status"] == "overflow"
     full = store.read(result["result_for_agent"]["handle"])
     assert full["results"][0]["marker"] == "[1]"
+
+
+def test_overflow_store_scrubs_hidden_cds_evidence_but_keeps_runtime_promotion() -> None:
+    registry = SourceRegistry()
+    store = ToolResultStore()
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage="Common Data Set 2024-25",
+        document_sha256="a" * 64,
+        source_kind="cds_pdf",
+        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        academic_year=2024,
+        manifest_version="5.0.1",
+        school_unitid=198419,
+    )
+    payload = {
+        "rows": [
+            {
+                "field": "admissions.applicants",
+                "label": "Applicants",
+                "display": "50,000",
+                "available": True,
+                "citation": citation.model_dump(mode="json"),
+                "evidence": {
+                    "eid": "admissions.applicants",
+                    "value_display": "50,000",
+                    "label": "Applicants",
+                    "page": 3,
+                    "excerpt": "secret source excerpt " + "x" * 500,
+                },
+            }
+        ]
+    }
+
+    result = process_tool_result(
+        payload,
+        ToolMiddlewareContext(registry=registry, overflow_store=store, max_result_chars=120),
+        tool_name="get_values",
+    )
+
+    compact = str(result)
+    assert "[[evidence:1:admissions.applicants]]" in compact
+    durable = str(store.dump())
+    assert "[[evidence:" not in durable
+    assert "secret source excerpt" not in durable
+    assert registry.promote_pending_evidence(1, "admissions.applicants")
+    assert registry.entries[0].evidence[0].eid == "admissions.applicants"
 
 
 def test_tool_ui_is_demoted_to_public_receipt_before_model_result() -> None:

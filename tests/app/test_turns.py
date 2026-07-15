@@ -595,9 +595,7 @@ async def test_clarify_resume_inherits_parked_skills_and_rejects_new_ones() -> N
         run_turn_fn=recording_run_turn,
     )
     session_id = str(uuid4())
-    await _seed_parked_turn(
-        rig, session_id, selected_skills=["school-comparison"]
-    )
+    await _seed_parked_turn(rig, session_id, selected_skills=["school-comparison"])
 
     await _run_full_turn(registry, session_id, "Cost matters most.")
     assert captured["selected_skills"] == ("school-comparison",)
@@ -1254,9 +1252,7 @@ async def test_cancel_mid_resume_replaces_the_parked_record() -> None:
     )
     session_id = str(uuid4())
 
-    parked = await _seed_parked_turn(
-        rig, session_id, selected_skills=["school-comparison"]
-    )
+    parked = await _seed_parked_turn(rig, session_id, selected_skills=["school-comparison"])
     meta_1 = parked
     assert parked["status"] == "awaiting_input"
 
@@ -1291,9 +1287,7 @@ async def test_watchdog_timeout_terminates_with_error_not_cancelled() -> None:
     registry = _registry(rig)
     session_id = str(uuid4())
 
-    pairs = await _run_full_turn(
-        registry, session_id, "hi", selected_skills=["school-comparison"]
-    )
+    pairs = await _run_full_turn(registry, session_id, "hi", selected_skills=["school-comparison"])
 
     types = [e.type for e, _ in pairs]
     assert types[-1] == "error"
@@ -1315,9 +1309,7 @@ async def test_watchdog_timeout_during_clarify_resume_preserves_parked_skills() 
     rig = Rig(_gated_model(gate, _LONG_CHUNK), settings=settings)
     registry = _registry(rig)
     session_id = str(uuid4())
-    parked = await _seed_parked_turn(
-        rig, session_id, selected_skills=["school-comparison"]
-    )
+    parked = await _seed_parked_turn(rig, session_id, selected_skills=["school-comparison"])
 
     events = await _run_full_turn(registry, session_id, "Cost matters most.")
 
@@ -1405,7 +1397,7 @@ async def test_parked_turn_is_not_attachable_but_record_is_durable() -> None:
 _WEB = SourceConfig(web=True, reddit=False, edu=False)
 
 
-async def test_rewrite_slices_history_and_restores_the_source_registry() -> None:
+async def test_rewrite_slices_history_and_starts_a_fresh_source_registry() -> None:
     rig = Rig(_fn_model(_search_then_answer))
     registry = _registry(rig)
     session_id = str(uuid4())
@@ -1416,7 +1408,7 @@ async def test_rewrite_slices_history_and_restores_the_source_registry() -> None
 
     values = await _state_values(rig, session_id)
     assert len(values["turn_records"]) == 2
-    assert [s["index"] for s in values["source_registry"]] == [1, 2]
+    assert [s["index"] for s in values["source_registry"]] == [1]
     record_1 = values["turn_records"][0]
 
     # Edit turn 2's question (regenerate = same mechanism, same text allowed).
@@ -1430,11 +1422,10 @@ async def test_rewrite_slices_history_and_restores_the_source_registry() -> None
     assert len(records) == 2
     assert records[0] == record_1  # the surviving record untouched
     assert records[1]["user_text"] == "and yale?"
-    # The registry was restored from record_1's snapshot, then the new turn
-    # appended its fresh source — index 2 is the NEW search, never index 3.
+    # A rewritten answer owns a fresh bibliography; its search starts at one.
     indexes = [s["index"] for s in values["source_registry"]]
-    assert indexes == [1, 2]
-    assert values["source_registry"][1]["citation"]["url"] == "https://example.com/3"
+    assert indexes == [1]
+    assert values["source_registry"][0]["citation"]["url"] == "https://example.com/3"
 
     # Ghost-exchange-free transcript: "and harvard?" is gone everywhere.
     transcript = extract_transcript(values["messages"], records)
@@ -1452,6 +1443,46 @@ async def test_rewrite_slices_history_and_restores_the_source_registry() -> None
     assert "and harvard?" not in user_prompts
 
 
+async def test_legacy_v1_turn_then_v2_turn_and_regenerate_preserves_legacy_display() -> None:
+    import json
+    from pathlib import Path
+
+    fixture = Path(__file__).parents[1] / "fixtures/protocol/legacy_v1_completed_turn.json"
+    legacy = json.loads(fixture.read_text())
+    rig = Rig(_fn_model(_search_then_answer))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+    await rig.graph.aupdate_state(
+        {"configurable": {"thread_id": session_id}},
+        {
+            "messages": legacy["messages"],
+            "turn_records": legacy["turn_records"],
+            # Legacy sources are record-local replay data and must never seed
+            # the current answer's strict v2 registry.
+            "source_registry": [],
+        },
+    )
+
+    fresh = await _run_full_turn(registry, session_id, "What about Duke?", _WEB)
+    target = fresh[0][0].data["user_message_id"]
+    await _run_full_turn(
+        registry,
+        session_id,
+        "Regenerate the Duke answer",
+        _WEB,
+        replace_message_id=target,
+    )
+
+    values = await _state_values(rig, session_id)
+    transcript = extract_transcript(values["messages"], values["turn_records"])
+    legacy_assistant = transcript[1]
+    assert legacy_assistant["text"] == "The legacy display was 7% [1]."
+    assert legacy_assistant["sources"][0]["citation"]["source"] == "ipeds"
+    assert legacy_assistant["sources"][0]["legacy"] is True
+    assert values["source_registry"][0]["index"] == 1
+    assert values["source_registry"][0]["citation"]["v"] == 2
+
+
 async def test_rewrite_of_the_first_message_restores_an_empty_registry() -> None:
     rig = Rig(_fn_model(_search_then_answer))
     registry = _registry(rig)
@@ -1460,9 +1491,7 @@ async def test_rewrite_of_the_first_message_restores_an_empty_registry() -> None
     pairs_1 = await _run_full_turn(registry, session_id, "duke dorms?", _WEB)
     first_user_id = pairs_1[0][0].data["user_message_id"]
 
-    await _run_full_turn(
-        registry, session_id, "nyu dorms?", _WEB, replace_message_id=first_user_id
-    )
+    await _run_full_turn(registry, session_id, "nyu dorms?", _WEB, replace_message_id=first_user_id)
 
     values = await _state_values(rig, session_id)
     assert len(values["turn_records"]) == 1
@@ -1535,9 +1564,7 @@ async def test_rewrite_unknown_target_raises_invalid_edit_target() -> None:
     before = await _state_values(rig, session_id)
 
     with pytest.raises(InvalidEditTarget):
-        await registry.start(
-            session_id, "edited", _WEB, replace_message_id=str(uuid4())
-        )
+        await registry.start(session_id, "edited", _WEB, replace_message_id=str(uuid4()))
     # The claim was released and the thread untouched.
     assert registry.is_generating(session_id) is False
     assert await _state_values(rig, session_id) == before
@@ -1985,9 +2012,7 @@ async def test_concurrent_cancel_produces_exactly_one_terminal_and_one_persist()
 
     registry._persist_partial = counting_persist  # type: ignore[method-assign]
 
-    outcomes = await asyncio.gather(
-        registry.cancel(session_id), registry.cancel(session_id)
-    )
+    outcomes = await asyncio.gather(registry.cancel(session_id), registry.cancel(session_id))
     assert set(outcomes) == {"cancelled", "idle"}
 
     pairs = await collector.done()

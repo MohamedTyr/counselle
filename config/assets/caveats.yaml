@@ -1,0 +1,30 @@
+profile_snapshot:
+  text: "Identity profile snapshot from {snapshot_date}; verify time-sensitive facts."
+  slots: [snapshot_date]
+stale_edition:
+  text: "This value comes from the older {edition} CDS edition."
+  slots: [edition]
+partial_packet:
+  text: "This domain was only partially extracted from the source document."
+  slots: []
+definition_drift:
+  text: "The source definition differs from the current metric definition."
+  slots: []
+not_in_template_version:
+  text: "This item does not exist in this school's CDS template edition."
+  slots: []
+edition_mismatch_comparison:
+  text: "Compared values come from different CDS editions: {editions}."
+  slots: [editions]
+coverage_denominator:
+  text: "Computed across {covered} covered schools out of {total} profiles as of {as_of}."
+  slots: [covered, total, as_of]
+not_reported:
+  text: "The school did not report this item."
+  slots: []
+not_applicable:
+  text: "The school marked this item as not applicable."
+  slots: []
+suppressed:
+  text: "The source suppresses this value."
+  slots: []

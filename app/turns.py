@@ -51,10 +51,12 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 from uuid import uuid4
 
+from app.parked_sources import ParkedSourceStore
 from app.records import Emission, FinalEmissionDeduper, TurnStatus
 from app.run_handle import RunHandle, SteeringMessage
 from app.run_turn import _USER_SAFE_ERROR, run_turn
 from app.skills import SelectedSkillValidationError, validate_selected_skills
+from app.sources import SourceRegistry
 from app.turn_persistence import (
     AGENT_NODE,
     build_terminal_update,
@@ -243,6 +245,7 @@ class TurnRegistry:
         self._graph = graph
         self._settings = settings
         self._run_turn = run_turn_fn or run_turn
+        self._parked_sources = getattr(deps, "parked_sources", ParkedSourceStore())
         self._turns: dict[str, _Turn] = {}
         #: Process-wide byte budget shared across every live ring buffer
         #: (BC-01). Incremented on append, decremented on eviction and at
@@ -739,6 +742,7 @@ class TurnRegistry:
         (BC-03) — set defensively here too so a direct call (tests) is safe.
         """
         turn.cancel_requested = True  # idempotent — cancel() already set it
+        self._parked_sources.clear_session(turn.session_id)
         task = turn.task
         if task is None:  # guarded by the caller; defensive (asserts strip under -O)
             return
@@ -762,6 +766,7 @@ class TurnRegistry:
 
         The ``cancel_requested`` flag is already set by the caller so
         ``_drive``'s finally skips its own terminal (same contract as cancel)."""
+        self._parked_sources.clear_session(turn.session_id)
         task = turn.task
         if task is None:
             return
@@ -783,6 +788,7 @@ class TurnRegistry:
 
     async def _handle_timeout(self, turn: _Turn, timeout_s: float) -> None:
         """G5: the watchdog terminates with ``error``, never done(cancelled)."""
+        self._parked_sources.clear_session(turn.session_id)
         logger.error(
             "turn watchdog fired after %ss (session_id=%s, trace_id=%s)",
             timeout_s,
@@ -859,7 +865,7 @@ class TurnRegistry:
         values = dict(snapshot.values) if snapshot else {}
         messages = list(values.get("messages") or [])
         records = list(values.get("turn_records") or [])
-        registry_dump = list(values.get("source_registry") or [])
+        registry_dump = SourceRegistry(values.get("source_registry") or []).wire_dump()
         user_text, offset, clarify, synthesized, selected_skills = _partial_anchor(
             turn, messages, records
         )
@@ -922,6 +928,7 @@ class TurnRegistry:
         except Exception:
             logger.exception("unpark aupdate_state failed (session_id=%s)", session_id)
             return False
+        self._parked_sources.clear_session(session_id)
         return True
 
     # -- the G3 history rewrite ---------------------------------------------------
@@ -930,13 +937,13 @@ class TurnRegistry:
         """Edit & regenerate: ONE ``aupdate_state`` rewrite (G3).
 
         Slices ``messages`` at the target record's ``messages_offset``,
-        truncates ``turn_records`` from that turn onward, restores the source
-        registry from the last SURVIVING record's cumulative snapshot (or
-        empty), and clears any pending interrupt (per G4 unpark). Regenerate is
+        truncates ``turn_records`` from that turn onward, starts the new answer's
+        source registry empty, and clears any pending interrupt (per G4 unpark). Regenerate is
         the same mechanism with the same text — the registry doesn't
         distinguish. Pre-MVP2 turns (no ``user_message_id``) and synthesized
         clarify-answer bubbles are never edit targets → :class:`InvalidEditTarget`.
         """
+        self._parked_sources.clear_session(session_id)
         config = {"configurable": {"thread_id": session_id}}
         snapshot = await self._graph.aget_state(config)
         values = dict(snapshot.values) if snapshot else {}
@@ -944,7 +951,7 @@ class TurnRegistry:
         messages = list(values.get("messages") or [])
         index, offset = _resolve_edit_target(records, messages, replace_message_id, session_id)
         surviving = records[:index]
-        registry_dump = list(surviving[-1].get("sources") or []) if surviving else []
+        registry_dump: list[dict[str, Any]] = []
         # The turn record is the sole parked signal (audit BC-14): no
         # OR-on-interrupt — a torn write could leave a stale interrupt that the
         # record (now cancelled) already disclaims.

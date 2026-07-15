@@ -7,9 +7,9 @@ ignore unknown event types (forward compatibility); breaking changes bump ``v``.
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from domain.envelope import Citation
+from domain.envelope import Citation, EvidenceItem
 from domain.specs import ClarifySpec, RenderSpec
 
 PROTOCOL_VERSION = 1
@@ -210,14 +210,18 @@ class UserMessageData(BaseModel):
 class SourceEntry(BaseModel):
     """One deduplicated source for the turn, referenced by inline markers."""
 
-    index: int
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    v: Literal[2] = 2
+    index: int = Field(ge=1)
     citation: Citation
     label: str
     #: Short page description — the search-result snippet / meta description.
     #: Present for web/edu/reddit results; ``None`` for structured DB sources
     #: (CDS/IPEDS) that have no page. Rendered as the source row's body line.
     snippet: str | None = None
-
+    evidence: tuple[EvidenceItem, ...] = ()
+    evidence_omitted_count: int = Field(default=0, ge=0)
 
 class SourcesData(BaseModel):
     """The turn's full deduplicated citation list."""
@@ -304,7 +308,7 @@ def ev_user_message(text: str, user_message_id: str, *, injected: bool) -> Event
 
 
 def ev_viz(spec: RenderSpec) -> Event:
-    return Event(type="viz", data=spec.model_dump())
+    return Event(type="viz", data=spec.model_dump(mode="json"))
 
 
 def ev_clarify(spec: ClarifySpec) -> Event:

@@ -1,161 +1,189 @@
-"""The citation source registry (Phase 4 Slice B; ARCHITECTURE §9, ADR 0006/0013).
-
-Every tool result that carries citations is intercepted before the model sees
-it: each distinct citation is registered under the next marker index ``[n]``
-and the payload is rewritten so every cited item carries ``"marker": "[n]"``.
-The model is told to cite by repeating the bracketed numbers it was given —
-it never constructs citation metadata; the ``sources`` event (Phase 5) renders
-the registry verbatim.
-
-State rule (notes-p4-apis §7): on an ``interrupt()`` resume the agent node
-**re-executes from the top**, so the registry must never live in a module
-global. It is constructed FROM ``state.source_registry`` dicts at the start of
-each node execution and dumped BACK to plain dicts in the node's returned state
-update — replay then rebuilds it cleanly with no duplicate accumulation.
-"""
+"""Immutable per-answer v2 source registry and runtime-only evidence ledger."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+import re
+from collections.abc import Hashable, Iterable, Mapping
 from typing import Any, TypeGuard
 
 from pydantic import ValidationError
 
+from app.evidence_markers import evidence_token
 from app.state import RegisteredSource
-from domain.envelope import Citation
+from config.settings import get_settings
+from domain.envelope import Citation, EvidenceItem
+from domain.events import SourceEntry
 
-#: Citation identity for dedupe: same source + url + vintage + raw_table = same marker.
-_DedupeKey = tuple[str, str | None, str, str | None]
-
-#: Cap stored snippets so a verbose search result never bloats the checkpointed
-#: state — the UI only shows a couple of lines anyway.
-_MAX_SNIPPET_CHARS = 300
+_MARKER = re.compile(r"^\[([1-9]\d*)\]$")
+_MAX_TEXT_CHARS = 300
 
 
-def _clean_snippet(value: Any) -> str | None:
-    """A trimmed, length-capped snippet, or ``None`` when there's nothing usable."""
-    if not isinstance(value, str):
+def _clean_text(value: Any) -> str | None:
+    if not isinstance(value, str) or not value.strip():
         return None
-    trimmed = value.strip()
-    if not trimmed:
-        return None
-    return trimmed[:_MAX_SNIPPET_CHARS]
+    return value.strip()[:_MAX_TEXT_CHARS]
 
 
-def _dedupe_key(citation: Citation) -> _DedupeKey:
-    return (citation.source, citation.url, citation.vintage, citation.raw_table)
+def source_key(citation: Citation) -> Hashable:
+    if citation.source == "cds":
+        return ("cds", citation.document_sha256)
+    if citation.source == "profile":
+        return ("profile", citation.school_unitid, citation.profile_sha256)
+    return (citation.source, citation.url, citation.vintage)
 
 
 def _is_citation_shaped(value: Any) -> TypeGuard[dict[str, Any]]:
-    """True when ``value`` looks like a dumped :class:`Citation` dict."""
     return isinstance(value, dict) and {"source", "tier", "vintage"} <= value.keys()
 
 
 class SourceRegistry:
-    """The per-turn marker registry: index → citation + label.
-
-    Wraps the state-owned ``list[RegisteredSource]`` (as plain dicts, ADR 0019
-    serde rule). All ``annotate_*`` methods are pure with respect to their
-    input payloads — they return new annotated copies, never mutate.
-    """
-
     def __init__(self, entries: Iterable[Mapping[str, Any]] | None = None) -> None:
-        self._entries: list[RegisteredSource] = [
-            RegisteredSource.model_validate(entry) for entry in (entries or [])
-        ]
-        self._index_by_key: dict[_DedupeKey, int] = {
-            _dedupe_key(entry.citation): entry.index for entry in self._entries
-        }
+        self._entries = tuple(RegisteredSource.model_validate(entry) for entry in (entries or ()))
+        self._pending: dict[tuple[int, str], EvidenceItem] = {}
 
     def __len__(self) -> int:
         return len(self._entries)
 
     @property
-    def entries(self) -> list[RegisteredSource]:
-        """The registered sources, in marker order (read-only view by convention)."""
-        return list(self._entries)
+    def entries(self) -> tuple[RegisteredSource, ...]:
+        return self._entries
 
-    def register(self, citation: Citation, label: str, snippet: str | None = None) -> int:
-        """Register a citation, returning its marker index (stable, 1-based).
-
-        Dedupe is by ``(source, url, vintage, raw_table)`` — re-registering an
-        already-seen citation returns the existing index; the first label (and
-        snippet) wins.
-        """
-        key = _dedupe_key(citation)
-        existing = self._index_by_key.get(key)
-        if existing is not None:
+    def register_source(self, citation: Citation, label: str, snippet: str | None = None) -> str:
+        existing = self.marker_for(citation)
+        if existing:
             return existing
         index = self._entries[-1].index + 1 if self._entries else 1
-        self._entries.append(
-            RegisteredSource(index=index, citation=citation, label=label, snippet=snippet)
+        self._entries = (
+            *self._entries,
+            RegisteredSource(
+                index=index, citation=citation, label=label, snippet=_clean_text(snippet)
+            ),
         )
-        self._index_by_key[key] = index
-        return index
+        return f"[{index}]"
 
-    def dump(self) -> list[dict[str, Any]]:
-        """Plain msgpack-safe dicts for ``state.source_registry`` (ADR 0019 serde rule)."""
+    def register(self, citation: Citation, label: str, snippet: str | None = None) -> int:
+        return int(self.register_source(citation, label, snippet)[1:-1])
+
+    def lookup_marker(self, marker: str) -> RegisteredSource | None:
+        match = _MARKER.fullmatch(marker)
+        if not match:
+            return None
+        index = int(match.group(1))
+        return next((entry for entry in self._entries if entry.index == index), None)
+
+    def marker_for(self, citation: Citation) -> str | None:
+        key = source_key(citation)
+        entry = next((item for item in self._entries if source_key(item.citation) == key), None)
+        return f"[{entry.index}]" if entry else None
+
+    def register_pending_evidence(self, marker: str, evidence: EvidenceItem) -> None:
+        entry = self.lookup_marker(marker)
+        if entry and entry.citation.source == "cds":
+            self._pending[(entry.index, evidence.eid)] = evidence.model_copy(
+                update={"excerpt": evidence.excerpt[:_MAX_TEXT_CHARS]}
+            )
+
+    def promote_pending_evidence(self, index: int, eid: str) -> bool:
+        evidence = self._pending.get((index, eid))
+        if evidence is None:
+            return False
+        self.register_used_evidence(index, evidence)
+        return True
+
+    def register_used_evidence(self, index: int, evidence: EvidenceItem) -> None:
+        cap = get_settings().source_evidence_max_items
+        updated: list[RegisteredSource] = []
+        for entry in self._entries:
+            if entry.index != index or evidence.eid in entry.evidence_seen_eids:
+                updated.append(entry)
+                continue
+            seen = (*entry.evidence_seen_eids, evidence.eid)
+            stored = entry.evidence
+            if len(stored) < cap:
+                stored = (
+                    *stored,
+                    evidence.model_copy(update={"excerpt": evidence.excerpt[:_MAX_TEXT_CHARS]}),
+                )
+            updated.append(
+                entry.model_copy(update={"evidence": stored, "evidence_seen_eids": seen})
+            )
+        self._entries = tuple(updated)
+
+    def fork(self) -> SourceRegistry:
+        candidate = SourceRegistry(self.dump_state())
+        candidate._pending = dict(self._pending)
+        return candidate
+
+    def commit_from(self, candidate: SourceRegistry) -> None:
+        self._entries = tuple(candidate._entries)
+        self._pending = dict(candidate._pending)
+
+    def dump_state(self) -> list[dict[str, Any]]:
         return [entry.model_dump(mode="json") for entry in self._entries]
 
-    # ------------------------------------------------------------------
-    # Payload annotation
-    # ------------------------------------------------------------------
+    def entries_for_wire(self) -> list[SourceEntry]:
+        return [
+            SourceEntry(
+                index=entry.index,
+                citation=entry.citation,
+                label=entry.label,
+                snippet=entry.snippet,
+                evidence=tuple(sorted(entry.evidence, key=lambda item: (item.page, item.eid))),
+                evidence_omitted_count=len(entry.evidence_seen_eids) - len(entry.evidence),
+            )
+            for entry in self._entries
+        ]
+
+    def wire_dump(self) -> list[dict[str, Any]]:
+        """Public, evidence-capped entries; never checkpoint-only seen-EID state."""
+        return [entry.model_dump(mode="json") for entry in self.entries_for_wire()]
 
     def annotate_envelopes(self, payload: Any) -> Any:
-        """Walk a tool result and add ``"marker": "[n]"`` next to every citation.
-
-        Handles every envelope-carrying shape — a single envelope dict, lists
-        of them (``get_values``), and nested containers (dossier sections,
-        ``compare_schools`` rows). Anything without a citation passes through
-        untouched. Returns a new structure; the input is never mutated.
-        """
         if isinstance(payload, dict):
             annotated = {key: self.annotate_envelopes(value) for key, value in payload.items()}
-            citation_dict = payload.get("citation")
-            if _is_citation_shaped(citation_dict):
-                marker = self._register_dict(citation_dict, label=None)
-                if marker is not None:
+            if _is_citation_shaped(payload.get("citation")):
+                marker = self._register_dict(payload["citation"], payload.get("source_label"))
+                if marker:
                     annotated["marker"] = marker
+                    evidence_raw = payload.get("evidence")
+                    if evidence_raw:
+                        try:
+                            evidence = EvidenceItem.model_validate(evidence_raw)
+                        except ValidationError:
+                            pass
+                        else:
+                            self.register_pending_evidence(marker, evidence)
+                            annotated["marker"] = (
+                                f"{marker}{evidence_token(int(marker[1:-1]), evidence.eid)}"
+                            )
+                    annotated.pop("evidence", None)
             return annotated
         if isinstance(payload, list):
             return [self.annotate_envelopes(item) for item in payload]
         return payload
 
     def annotate_search_results(self, payload: Any) -> Any:
-        """Annotate the Tavily ``{"results": [...]}`` shape (label = page title).
-
-        Error payloads (``{"error": ...}``) and anything not results-shaped
-        pass through unchanged. Returns a new structure; never mutates.
-        """
         if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
             return payload
-        results: list[Any] = []
-        for item in payload["results"]:
+        results = []
+        for original in payload["results"]:
+            item = original
             if isinstance(item, dict) and _is_citation_shaped(item.get("citation")):
-                label = item.get("title") or item.get("url") or None
-                # Search items carry the page excerpt under "snippet"
-                # (adapters.tavily_tools maps Tavily's `content` → `snippet`).
-                snippet = _clean_snippet(item.get("snippet"))
-                marker = self._register_dict(item["citation"], label=label, snippet=snippet)
-                if marker is not None:
+                marker = self._register_dict(
+                    item["citation"],
+                    item.get("title") or item.get("url"),
+                    _clean_text(item.get("snippet")),
+                )
+                if marker:
                     item = {**item, "marker": marker}
             results.append(item)
         return {**payload, "results": results}
 
     def _register_dict(
-        self, citation_dict: dict[str, Any], label: str | None, snippet: str | None = None
+        self, raw: dict[str, Any], label: str | None, snippet: str | None = None
     ) -> str | None:
-        """Validate + register a dumped citation; ``None`` if it isn't a valid Citation.
-
-        A malformed citation gets no marker (and never enters the registry) —
-        the value still reaches the model with its raw citation attached, so
-        nothing is hidden; we just refuse to mint a marker we can't stand by.
-        """
         try:
-            citation = Citation.model_validate(citation_dict)
+            citation = Citation.model_validate(raw)
         except ValidationError:
             return None
-        # Default label for DB envelopes: the vintage is already the human
-        # source string (e.g. "IPEDS 2024-25 (provisional)").
-        index = self.register(citation, label or citation.vintage, snippet=snippet)
-        return f"[{index}]"
+        return self.register_source(citation, label or citation.vintage, snippet)

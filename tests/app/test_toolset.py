@@ -167,7 +167,7 @@ class TestToolAnnotation:
         assert payload["results"][0]["marker"] == "[1]"
         assert len(rig.registry) == 1
         assert rig.registry.entries[0].label == "A result"
-        assert rig.registry.entries[0].citation.tier == "community"  # example.com
+        assert rig.registry.entries[0].citation.tier == "official"
 
     async def test_search_reddit_passes_allowlisted_domains(self) -> None:
         rig = Rig()
@@ -322,9 +322,10 @@ class TestMcpToolset:
             available=True,
             unit="percent",
             citation=Citation(
-                source="ipeds",
+                source="web",
                 tier="official",
-                vintage="IPEDS 2024-25 (provisional)",
+                vintage="Retrieved 2026-01-01",
+                url="https://example.edu/admissions",
             ),
         ).model_dump(mode="json")
 

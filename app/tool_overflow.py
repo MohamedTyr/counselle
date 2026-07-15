@@ -18,6 +18,7 @@ from uuid import uuid4
 
 from pydantic_core import to_json
 
+from app.evidence_markers import scrub_evidence_tokens
 from domain.events import tool_ui_from_payload
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07|\x1b[^[\]()]")
@@ -164,7 +165,11 @@ def reduce_tool_result(value: Any, store: ToolResultStore, *, max_chars: int) ->
     chars = len(to_bytes(value)) if binary else measure(text)
     if chars <= max_chars:
         return value
-    handle = store.put(value)
+    # Evidence-use tokens are model/runtime telemetry, never durable payload.
+    # Keep them in the compact result returned to the active model so its final
+    # prose can promote pending evidence, but spill only the scrubbed value into
+    # checkpointed ToolResultStore state.
+    handle = store.put(scrub_evidence_tokens(value))
     preview_chars = max(200, min(max_chars // 2, 2_000))
     return {
         "status": "overflow",

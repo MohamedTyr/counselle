@@ -89,6 +89,7 @@ class DomainRow(FrozenModel):
     value: Any = None
     vintage: str
     caveat_kinds: tuple[str, ...] = ()
+    evidence: dict[str, Any] | None = None
 
 
 class AvailabilitySummary(FrozenModel):
@@ -103,6 +104,9 @@ class DomainResult(FrozenModel):
     academic_year: int | None = None
     document_id: int | None = None
     document_sha256: str | None = None
+    source_kind: str | None = None
+    retrieved_at: datetime | None = None
+    manifest_version: str | None = None
     packet_status: str | None = None
     currentness: str | None = None
     latest_status: str | None = None

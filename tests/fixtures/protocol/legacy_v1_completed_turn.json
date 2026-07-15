@@ -1,0 +1,29 @@
+{
+  "messages": [],
+  "turn_records": [
+    {
+      "message_id": "legacy-assistant-1",
+      "user_message_id": "legacy-user-1",
+      "user_text": "What was the old admission rate?",
+      "messages_offset": 0,
+      "status": "complete",
+      "parts": [{"type": "text", "text": "The legacy display was 7% [1]."}],
+      "steps": [],
+      "thinking": [],
+      "receipt": "",
+      "sources": [
+        {
+          "index": 1,
+          "label": "IPEDS 2024 admissions",
+          "citation": {
+            "source": "ipeds",
+            "tier": "official",
+            "vintage": "IPEDS 2024",
+            "caveat": "provisional",
+            "raw_table": "adm2024"
+          }
+        }
+      ]
+    }
+  ]
+}

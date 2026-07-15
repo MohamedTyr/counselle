@@ -6,6 +6,7 @@ import re
 
 import asyncpg
 
+from app.caveats import render_caveat
 from app.workspace.models import (
     ReferenceProvenance,
     SchoolEssayPrompt,
@@ -15,7 +16,7 @@ from app.workspace.models import (
 )
 from counselle_db.catalog import Catalog
 from counselle_db.service import get_domain
-from domain.envelope import Citation, CitationEnvelope
+from domain.envelope import Citation, CitationEnvelope, EvidenceItem
 
 
 async def get_school_reference(
@@ -152,27 +153,34 @@ async def _compatible_test_policy(
     if not available:
         return None
     row = available[0]
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage=row.vintage,
+        document_sha256=domain.document_sha256,
+        source_kind=domain.source_kind,
+        retrieved_at=domain.retrieved_at,
+        academic_year=domain.academic_year,
+        manifest_version=domain.manifest_version,
+        school_unitid=unitid,
+    )
     envelope = CitationEnvelope(
         field=row.ref,
         label=row.label,
         display=row.display or "",
         raw=row.value,
         available=True,
-        citation=Citation(source="cds", tier="official", vintage=row.vintage, caveat=None),
+        citation=citation,
+        evidence=EvidenceItem.model_validate(row.evidence),
     )
-    if _vintage_matches_cycle(envelope.citation.vintage, cycle_year):
+    if _vintage_matches_cycle(citation.vintage, cycle_year):
         return envelope
-    caveat = (
-        f"Source vintage does not match the {cycle_year - 1}-{str(cycle_year)[-2:]} "
-        "application cycle; verify the current policy in the school's application portal."
-    )
-    return envelope.model_copy(
-        update={
-            "available": False,
-            "display": "not available for this application cycle",
-            "raw": None,
-            "citation": envelope.citation.model_copy(update={"caveat": caveat}),
-        }
+    return CitationEnvelope(
+        field=row.ref,
+        label=row.label,
+        display="not available",
+        available=False,
+        caveats=(render_caveat("stale_edition", edition=row.vintage),),
     )
 
 

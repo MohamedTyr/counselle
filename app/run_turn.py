@@ -49,11 +49,11 @@ from app.graph import GraphDeps
 from app.records import Emission, FinalEmissionDeduper
 from app.sessions import get_session, touch_session
 from app.skills import SelectedSkillValidationError, validate_selected_skills
+from app.sources import SourceRegistry
 from app.turn_persistence import AGENT_NODE, build_terminal_update, parked_record
 from config.settings import get_settings
 from domain.events import (
     Event,
-    SourceEntry,
     StepData,
     UsageData,
     ev_clarify,
@@ -234,7 +234,7 @@ async def _write_failure_record(
         emissions=emissions,
         ids=ids,
         status="error",
-        sources=registry_dump,
+        sources=SourceRegistry(registry_dump).wire_dump(),
         user_text=user_text,
         messages_offset=offset,
         error={"message": _USER_SAFE_ERROR, "trace_id": trace_id},
@@ -391,6 +391,7 @@ async def _prepare_turn_input(
     graph_input = {
         "messages": prior + _serialized_user_message(prompt),
         "source_config": effective_config.model_dump(mode="json"),
+        "source_registry": [],
         "turn_ids": turn_ids,
     }
     return _TurnInput(graph_input, turn_ids, messages_offset)
@@ -676,6 +677,9 @@ async def run_turn(
                 )
 
         if interrupted:
+            parked_registry = deps.parked_sources.restore(session_id, message_id, user_id)
+            if parked_registry is not None:
+                last_registry_dump = parked_registry.dump_state()
             yield ev_done("awaiting_input")
             # The parked turn record (G2/G4) — written after done per spike 1:
             # the write sticks, interrupts clear (detection moves onto the
@@ -690,7 +694,7 @@ async def run_turn(
                     emissions=emissions,
                     ids=turn_ids,
                     status="awaiting_input",
-                    sources=last_registry_dump,
+                    sources=SourceRegistry(last_registry_dump).wire_dump(),
                     user_text=record_user_text,
                     messages_offset=messages_offset,
                     clarify={"spec": clarify_dump, "answer": None} if clarify_dump else None,
@@ -711,10 +715,9 @@ async def run_turn(
         # citation markers already seen by the student still resolve.
         try:
             final = await graph.aget_state(config)
-            entries = [
-                SourceEntry.model_validate(entry)
-                for entry in (final.values.get("source_registry") or [])
-            ]
+            entries = SourceRegistry(
+                final.values.get("source_registry") or []
+            ).entries_for_wire()
             usage_dict: dict[str, Any] | None = final.values.get("usage")
         except Exception:
             logger.error(
@@ -724,7 +727,7 @@ async def run_turn(
                 session_id,
                 exc_info=True,
             )
-            entries = [SourceEntry.model_validate(entry) for entry in last_registry_dump]
+            entries = SourceRegistry(last_registry_dump).entries_for_wire()
             usage_dict = last_usage_dict_inline
         yield ev_sources(entries)
         if usage_dict:

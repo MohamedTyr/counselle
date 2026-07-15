@@ -79,7 +79,6 @@ _TEMPORAL = TemporalContext(
         entering_class="Fall 2027",
         cycle_note="It is the exploration phase for the class entering Fall 2027.",
     ),
-    data_calendar=[],
     context="Today is 2026-06-10.",
 )
 

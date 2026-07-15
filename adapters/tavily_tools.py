@@ -19,6 +19,7 @@ import os
 import re
 from datetime import date
 from typing import Any
+from urllib.parse import urlparse
 
 from tavily import AsyncTavilyClient
 from tavily.errors import (
@@ -75,13 +76,11 @@ def _is_official_domain(url: str) -> bool:
 
 
 def _citation_for_web_result(url: str, today: date) -> Citation:
-    """Build the Citation for a single web result, applying tiering rules."""
-    official = _is_official_domain(url)
+    """Build the strict v2 general-web citation."""
     return Citation(
-        source="edu" if (_tld(_registrable_domain(url) or "") == "edu") else "web",
-        tier="official" if official else "community",
+        source="web",
+        tier="official",
         vintage=f"Retrieved {today:%b %d, %Y} (live web)",
-        caveat=None if official else "General web source — verify on the school's official site.",
         url=url,
     )
 
@@ -258,20 +257,24 @@ async def search_school_site(
 
     results = resp.get("results", [])
 
-    def _citation_for_school_result(url: str) -> Citation:
-        # On-domain ⇒ the school's own official site. Off-domain (include_domains
-        # is a relevance bias, not a hard guarantee) ⇒ re-tier honestly via the
-        # web-result rule so a third-party host is never stamped "official".
-        if _registrable_domain(url) == domain:
-            return Citation(
-                source="edu",
-                tier="official",
-                vintage=school_site_vintage,
-                url=url,
+    requested_domain = (urlparse(f"//{domain}").hostname or domain).lower().rstrip(".")
+    items: list[dict[str, Any]] = []
+    for result in results:
+        url = result.get("url", "")
+        actual_host = (urlparse(url).hostname or "").lower().rstrip(".")
+        if actual_host == requested_domain or actual_host.endswith(f".{requested_domain}"):
+            citation = Citation(
+                source="edu", tier="official", vintage=school_site_vintage, url=url
             )
-        return _citation_for_web_result(url, today)
-
-    items = [_result_to_item(r, _citation_for_school_result(r.get("url", ""))) for r in results]
+        elif _is_official_domain(url):
+            # Tavily's include-domain filter is not a security boundary. A
+            # different government/education host is still official web, but
+            # never the requested school's official site.
+            citation = _citation_for_web_result(url, today)
+        else:
+            # Third-party leakage does not belong in this official-site tool.
+            continue
+        items.append(_result_to_item(result, citation))
     return {"results": items}
 
 
@@ -339,12 +342,6 @@ async def search_reddit(
         return {"error": "no valid subreddits after allowlist filtering", "retryable": False}
 
     include_domains = [f"reddit.com/r/{s}" for s in valid_subs]
-    citation = Citation(
-        source="reddit",
-        tier="community",
-        vintage=f"Retrieved {today:%b %d, %Y} (Reddit community)",
-        caveat="Community sentiment from Reddit — lived experience, not verified fact.",
-    )
     try:
         resp = await client.search(
             query,
@@ -363,5 +360,16 @@ async def search_reddit(
         return _safe_error(exc)
 
     results = resp.get("results", [])
-    items = [_result_to_item(r, citation.model_copy(update={"url": r.get("url")})) for r in results]
+    items = [
+        _result_to_item(
+            r,
+            Citation(
+                source="reddit",
+                tier="community",
+                vintage=f"Retrieved {today:%b %d, %Y} (Reddit community)",
+                url=r.get("url"),
+            ),
+        )
+        for r in results
+    ]
     return {"results": items}

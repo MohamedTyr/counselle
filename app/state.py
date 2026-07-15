@@ -14,10 +14,9 @@ Messages are PydanticAI ``ModelMessage``s serialized via
 
 from typing import Any, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
-from counselle_db.catalog import CalendarEntry
-from domain.envelope import Citation
+from domain.envelope import Citation, EvidenceItem
 from domain.season import Season
 
 
@@ -28,20 +27,23 @@ class RegisteredSource(BaseModel):
     registry in state IS the turn's sources list, dict-encoded.
     """
 
-    index: int
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    index: int = Field(ge=1)
     citation: Citation
     label: str
     #: Optional page description (search-result snippet); ``None`` for DB sources.
     #: Mirrors ``domain.events.SourceEntry.snippet`` so the dict round-trips.
     snippet: str | None = None
+    evidence: tuple[EvidenceItem, ...] = ()
+    evidence_seen_eids: tuple[str, ...] = ()
 
 
 class TemporalContext(BaseModel):
-    """Today + admissions season + per-source data calendar (rebuilt each turn)."""
+    """Today + admissions season (rebuilt each turn)."""
 
     today: str  # ISO date, e.g. "2026-06-10"
     season: Season
-    data_calendar: list[CalendarEntry]
     context: str  # the rendered prompt block (ARCHITECTURE §16)
 
 
@@ -97,5 +99,6 @@ class TurnState(TypedDict, total=False):
     tool_result_store: dict[str, Any]
     temporal: dict[str, Any]
     student_context: str
+    data_picture: str
     turn_records: list[dict[str, Any]]
     turn_ids: dict[str, Any] | None

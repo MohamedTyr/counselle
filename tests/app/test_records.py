@@ -41,10 +41,8 @@ def _viz_spec(title: str) -> dict[str, Any]:
         available=True,
         unit="number",
         citation=Citation(
-            source="ipeds",
-            tier="official",
-            vintage="IPEDS 2024",
-            raw_table="admissions.rate",
+            source="web", tier="official", vintage="Retrieved 2026-01-01",
+            url="https://example.edu/admissions",
         ),
     )
     return {

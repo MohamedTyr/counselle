@@ -15,7 +15,6 @@ from pydantic_ai.messages import (
 )
 
 from app.state import RegisteredSource, TemporalContext, TurnState
-from counselle_db.catalog import CalendarEntry
 from domain.envelope import Citation, CitationEnvelope
 from domain.events import UsageData
 from domain.season import Season
@@ -24,11 +23,11 @@ from domain.specs import ClarifyOption, ClarifySpec, RenderSpec, SchoolRef, Sour
 
 def _citation() -> Citation:
     return Citation(
-        source="ipeds",
+        source="profile",
         tier="official",
-        vintage="IPEDS 2024-25 (provisional)",
-        caveat="Provisional federal data.",
-        raw_table="raw.ipeds_adm2024",
+        vintage="Profile 2024",
+        school_unitid=198419,
+        profile_sha256="a" * 64,
     )
 
 
@@ -76,20 +75,19 @@ def _full_state() -> TurnState:
             entering_class="Fall 2027",
             cycle_note="It is the pre-application phase.",
         ),
-        data_calendar=[
-            CalendarEntry(source="ipeds", vintage="IPEDS 2024-25", cutoff_note="Provisional.")
-        ],
         context="Today is 2026-06-10.",
     )
     return TurnState(
         messages=messages,
-        source_config=SourceConfig(web=True, reddit=False, edu=True).model_dump(),
-        pending_clarify=clarify.model_dump(),
+        source_config=SourceConfig(web=True, reddit=False, edu=True).model_dump(mode="json"),
+        pending_clarify=clarify.model_dump(mode="json"),
         source_registry=[
-            RegisteredSource(index=1, citation=_citation(), label="IPEDS ADM2024").model_dump()
+            RegisteredSource(index=1, citation=_citation(), label="Profile 2024").model_dump(
+                mode="json"
+            )
         ],
-        viz_emitted=[_render_spec().model_dump()],
-        usage=UsageData(input_tokens=120, output_tokens=80, tool_calls=3).model_dump(),
+        viz_emitted=[_render_spec().model_dump(mode="json")],
+        usage=UsageData(input_tokens=120, output_tokens=80, tool_calls=3).model_dump(mode="json"),
         temporal=temporal.model_dump(mode="json"),
     )
 

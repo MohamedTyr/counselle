@@ -49,6 +49,7 @@ from pydantic_ai.usage import UsageLimits
 from pydantic_graph import End
 
 from app import viz as viz_mod
+from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
 from app.prompt import build_system_prompt
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
@@ -99,6 +100,7 @@ def _close_router_and_flush_final_safely(
 ) -> None:
     _close_router_safely(router, reason)
     final_writer.flush_final()
+
 
 #: The clean cut-off message when the run hits a request/token budget.
 _TOOL_BUDGET_MESSAGE = (
@@ -317,9 +319,13 @@ class _FinalContentPlacementWriter:
         self,
         staged_specs: list[dict[str, Any]],
         writer: Callable[[dict[str, Any]], None],
+        registry: SourceRegistry | None = None,
     ) -> None:
         self._staged_specs = staged_specs
         self._writer = writer
+        self._evidence = EvidenceMarkerStripper(
+            registry.promote_pending_evidence if registry else lambda _index, _eid: False
+        )
         self._final_started = False
         self._flushed = False
         self._placer = _StreamingVizMarkerPlacer(staged_specs, writer)
@@ -331,6 +337,11 @@ class _FinalContentPlacementWriter:
         self._final_started = True
 
     def write(self, chunk: dict[str, Any]) -> None:
+        if chunk.get("type") == "delta":
+            clean = self._evidence.feed(str(chunk.get("text") or ""))
+            if not clean:
+                return
+            chunk = {"type": "delta", "text": clean}
         if self._final_started and not self._flushed and self._staged_specs:
             if chunk.get("type") == "delta":
                 self._placer.feed(str(chunk.get("text") or ""))
@@ -347,6 +358,7 @@ class _FinalContentPlacementWriter:
         if self._flushed:
             if self._final_started and (stripped := self._stripper.flush()):
                 self._writer({"type": "delta", "text": stripped})
+            self._evidence.flush()
             return
         if not self._final_started:
             return
@@ -356,6 +368,8 @@ class _FinalContentPlacementWriter:
         else:
             if stripped := self._stripper.flush():
                 self._writer({"type": "delta", "text": stripped})
+        if clean := self._evidence.flush():
+            self._writer({"type": "delta", "text": clean})
 
 
 def _make_recording_writer(
@@ -484,7 +498,9 @@ def record_replayable_snapshot(
     if handle is None:
         return
     try:
-        messages = ModelMessagesTypeAdapter.dump_python(run.all_messages(), mode="json")
+        messages = scrub_evidence_tokens(
+            ModelMessagesTypeAdapter.dump_python(run.all_messages(), mode="json")
+        )
     except Exception:
         logger.warning("failed to serialize active run messages snapshot", exc_info=True)
         return
@@ -544,12 +560,24 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     recording_writer = _make_recording_writer(get_stream_writer(), emissions)
 
     # --- rebuild per-turn objects from state (replay-safe, module docstring) ---
-    registry = SourceRegistry(state.get("source_registry") or [])
+    ids = _turn_ids(state)
+    parked_session_id = str(ids.get("session_id") or "")
+    message_id = str(ids["message_id"])
+    parked_user_id = str(ids["user_id"]) if ids.get("user_id") is not None else None
+    parked_store = getattr(deps, "parked_sources", None)
+    restored_registry = (
+        parked_store.restore(parked_session_id, message_id, parked_user_id)
+        if parked_store is not None and ids.get("resume_text") is not None
+        else None
+    )
+    if parked_store is not None and ids.get("resume_text") is None:
+        parked_store.clear_session(parked_session_id)
+    registry = restored_registry or SourceRegistry(state.get("source_registry") or [])
     source_config = SourceConfig.model_validate(state["source_config"])
     history, user_text = _split_user_message(state["messages"])
     viz_list: list[dict[str, Any]] = []
     viz_signature_indexes: dict[str, int] = {}
-    final_writer = _FinalContentPlacementWriter(viz_list, recording_writer)
+    final_writer = _FinalContentPlacementWriter(viz_list, recording_writer, registry)
     writer = final_writer.write
     today = date.fromisoformat(state["temporal"]["today"])
     overflow_store = ToolResultStore(state.get("tool_result_store") or {})
@@ -562,7 +590,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # were already built) so a future mount gate can read
     # `ids.get("user_id")` before deciding which tools to construct (ADR
     # 0013: unmounted, not hidden — gating after construction is too late).
-    ids = _turn_ids(state)
+    # ``ids`` was validated above because it also keys runtime-only parked evidence.
 
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
@@ -613,12 +641,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     base_instructions = build_system_prompt(
         state["temporal"]["context"],
         state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
-        deps.catalog.school_count,
+        state.get("data_picture", "Live data picture unavailable in this test harness."),
     )
     selected_instructions = render_selected_skills(ids["selected_skills"])
-    instructions = "\n\n".join(
-        part for part in (base_instructions, selected_instructions) if part
-    )
+    instructions = "\n\n".join(part for part in (base_instructions, selected_instructions) if part)
     agent: Agent[TurnDeps, str] = Agent(
         model_factory(),
         instructions=instructions,
@@ -700,9 +726,13 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         writer({"type": "delta", "text": _TOOL_BUDGET_MESSAGE})
     except GraphInterrupt:
         _close_router_and_flush_final_safely(router, final_writer, "interrupt")
+        if parked_store is not None:
+            parked_store.park(parked_session_id, message_id, parked_user_id, registry)
         raise
     except Exception:
         _close_router_and_flush_final_safely(router, final_writer, "error")
+        if parked_store is not None:
+            parked_store.clear(parked_session_id, message_id, parked_user_id)
         raise
     else:
         # Deliberately NOT guarded: a close() failure on the happy path is a
@@ -710,8 +740,14 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         router.close("complete")
         final_writer.flush_final()
 
+    # Both a normal answer and the handled tool-budget answer are terminal.
+    if parked_store is not None:
+        parked_store.clear(parked_session_id, message_id, parked_user_id)
+
     if result is not None:
-        messages_out = ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")
+        messages_out = scrub_evidence_tokens(
+            ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")
+        )
         run_usage = result.usage  # property in 1.107 (notes §4)
         usage = UsageData(
             input_tokens=run_usage.input_tokens or 0,
@@ -747,7 +783,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         emissions,
         ids=ids,
         status="complete",
-        sources=registry.dump(),
+        sources=registry.wire_dump(),
         user_text=record_user_text,
         usage=usage.model_dump(mode="json"),
         clarify=clarify,
@@ -760,7 +796,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     emitted_viz = [payload for kind, payload in emissions if kind == "viz"]
     return {
         "messages": messages_out,
-        "source_registry": registry.dump(),
+        "source_registry": registry.dump_state(),
         "viz_emitted": emitted_viz,
         "usage": usage.model_dump(mode="json"),
         "tool_result_store": overflow_store.dump(),

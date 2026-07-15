@@ -31,9 +31,7 @@ def _manifest_content(
     binder: bool = False,
 ) -> dict[str, Any]:
     contexts = (
-        [{"id": "admissions.term", "label": "Term", "refs": ["enrollment.term"]}]
-        if binder
-        else []
+        [{"id": "admissions.term", "label": "Term", "refs": ["enrollment.term"]}] if binder else []
     )
     domains = [
         {
@@ -249,9 +247,7 @@ async def test_catalog_load_validates_manifest_identity_and_compiled_contract(
 ) -> None:
     row = _manifest_row("5.0.1", current=True)
     mutate(row["content"])
-    row["domain_hashes"] = {
-        domain["id"]: b"d" * 32 for domain in row["content"]["domains"]
-    }
+    row["domain_hashes"] = {domain["id"]: b"d" * 32 for domain in row["content"]["domains"]}
     pool = _CatalogPool(_CatalogConnection([row], [_profile_row()], []))
 
     with pytest.raises(ServiceError, match=message):
@@ -341,7 +337,10 @@ def _verified(value: object, raw: str, excerpt: str = "private evidence") -> dic
 
 
 def _document(
-    *, currentness: str = "current", year: int = 2025, document_id: int = 20,
+    *,
+    currentness: str = "current",
+    year: int = 2025,
+    document_id: int = 20,
     manifest_version: str | None = "5.0.1",
 ) -> dict[str, Any]:
     return {
@@ -354,6 +353,8 @@ def _document(
         "latest_extraction_status": "succeeded",
         "latest_error_code": None,
         "target_manifest_version": manifest_version,
+        "source_kind": "upload",
+        "retrieved_at": datetime(2026, 1, 1, tzinfo=UTC),
     }
 
 
@@ -443,7 +444,7 @@ def _service_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-async def test_get_domain_uses_newest_selected_document_and_redacts_evidence() -> None:
+async def test_get_domain_uses_newest_selected_document_and_carries_internal_evidence() -> None:
     row = _packet_row("admissions", {"admissions.rate": _verified(0.1, "10%")})
     connection = _DomainConnection(_document(), [row])
     result = await get_domain(_service_catalog(connection), 1, "admissions")
@@ -453,12 +454,10 @@ async def test_get_domain_uses_newest_selected_document_and_redacts_evidence() -
     assert result.rows[0].display == "10%"
     assert result.summary == "1 of 1 metrics verified"
     payload = result.model_dump_json()
-    assert "private evidence" not in payload
+    assert "private evidence" in payload
     assert "provider_contract" not in payload
     assert "secret" not in payload
-    selected_reads = [
-        sql for sql, _ in connection.calls if "ORDER BY d.academic_year DESC" in sql
-    ]
+    selected_reads = [sql for sql, _ in connection.calls if "ORDER BY d.academic_year DESC" in sql]
     assert len(selected_reads) == 1
 
 
@@ -466,9 +465,7 @@ async def test_get_domain_uses_newest_selected_document_and_redacts_evidence() -
 async def test_get_domain_distinguishes_no_document_from_missing_packet(
     document: dict[str, Any] | None,
 ) -> None:
-    result = await get_domain(
-        _service_catalog(_DomainConnection(document, [])), 1, "admissions"
-    )
+    result = await get_domain(_service_catalog(_DomainConnection(document, [])), 1, "admissions")
     assert result.availability.verified == 0
     if document is None:
         assert result.document_id is None
@@ -495,7 +492,7 @@ async def test_get_domain_partial_stale_and_definition_drift_use_pinned_manifest
     assert result.rows[0].label == "Historical admission rate"
     assert set(result.rows[0].caveat_kinds) == {
         "partial_packet",
-        "definition_mismatch",
+        "definition_drift",
         "stale_edition",
     }
     assert result.definition_match is False
@@ -510,9 +507,7 @@ async def test_get_domain_rejects_unsupported_packet_without_returning_zero_valu
 
 async def test_get_domain_aggregates_same_document_cross_domain_binders() -> None:
     admissions = _packet_row("admissions", {"admissions.rate": _verified(0.1, "10%")})
-    enrollment = _packet_row(
-        "enrollment", {"enrollment.term": _verified("Fall", "Fall 2025")}
-    )
+    enrollment = _packet_row("enrollment", {"enrollment.term": _verified("Fall", "Fall 2025")})
     connection = _DomainConnection(_document(), [admissions, enrollment])
     result = await get_domain(_service_catalog(connection), 1, "admissions")
 
@@ -600,9 +595,7 @@ async def test_get_domain_same_domain_binder_is_deduplicated_in_one_packet_fetch
 
 async def test_get_domain_rejects_inconsistent_binder_packet_contract() -> None:
     admissions = _packet_row("admissions", {"admissions.rate": _verified(0.1, "10%")})
-    enrollment = _packet_row(
-        "enrollment", {"enrollment.term": _verified("Fall", "Fall 2025")}
-    )
+    enrollment = _packet_row("enrollment", {"enrollment.term": _verified("Fall", "Fall 2025")})
     enrollment["packet"]["domain_id"] = "admissions"
     with pytest.raises(ServiceError, match="unsupported/inconsistent"):
         await get_domain(

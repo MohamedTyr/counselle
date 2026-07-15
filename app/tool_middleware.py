@@ -5,12 +5,109 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from app.caveats import render_caveat
 from app.sources import SourceRegistry
 from app.tool_overflow import ToolResultStore, reduce_tool_result
+from domain.envelope import Citation, CitationEnvelope, EvidenceItem
 from domain.events import tool_ui_from_payload
 
 _SEARCH_TOOLS = frozenset({"search_web", "search_school_site", "search_reddit"})
 _OVERFLOW_EXEMPT_TOOLS = frozenset({"render_viz"})
+
+
+def _caveats(
+    kinds: list[str] | tuple[str, ...], *, snapshot_date: str = "", edition: str = ""
+) -> tuple[Any, ...]:
+    rendered = []
+    for kind in kinds:
+        if kind == "profile_snapshot":
+            rendered.append(render_caveat(kind, snapshot_date=snapshot_date))
+        elif kind == "stale_edition":
+            rendered.append(render_caveat(kind, edition=edition))
+        elif kind in {
+            "partial_packet",
+            "definition_drift",
+            "not_in_template_version",
+            "not_reported",
+            "not_applicable",
+            "suppressed",
+        }:
+            rendered.append(render_caveat(kind))
+    return tuple(rendered)
+
+
+def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
+    if not isinstance(result, dict):
+        return result
+    if tool_name == "get_domain" and isinstance(result.get("rows"), list):
+        school = result.get("school") or {}
+        year = result.get("academic_year")
+        sha = result.get("document_sha256")
+        if not (
+            year
+            and sha
+            and result.get("source_kind")
+            and result.get("retrieved_at")
+            and result.get("manifest_version")
+        ):
+            return result
+        citation = Citation(
+            source="cds",
+            tier="official",
+            vintage=f"Common Data Set {year}-{str(year + 1)[-2:]}",
+            document_sha256=sha,
+            source_kind=result["source_kind"],
+            retrieved_at=result["retrieved_at"],
+            academic_year=year,
+            manifest_version=result["manifest_version"],
+            school_unitid=school.get("unitid"),
+        )
+        label = f"{school.get('name')} — Common Data Set {year}-{str(year + 1)[-2:]}"
+        rows = []
+        for row in result["rows"]:
+            available = bool(row.get("available"))
+            evidence = EvidenceItem.model_validate(row["evidence"]) if available else None
+            envelope = CitationEnvelope(
+                field=row.get("ref"),
+                label=row.get("label") or row.get("ref") or "Value",
+                display=row.get("display") if available else "not available",
+                raw=row.get("value") if available else None,
+                available=available,
+                citation=citation if available else None,
+                evidence=evidence,
+                caveats=_caveats(row.get("caveat_kinds") or (), edition=citation.vintage),
+            )
+            rows.append({**envelope.model_dump(mode="json"), "source_label": label})
+        return {**result, "rows": rows}
+    if tool_name == "get_school_profile" and isinstance(result.get("groups"), list):
+        school = result.get("school") or {}
+        snapshot_date = str(result.get("profile_snapshot_date") or "")
+        citation = Citation(
+            source="profile",
+            tier="official",
+            vintage=f"Profile {result.get('profile_version')} ({snapshot_date})",
+            school_unitid=school.get("unitid"),
+            profile_sha256=result.get("profile_sha256"),
+        )
+        label = f"{school.get('name')} — profile snapshot {snapshot_date}"
+        groups = []
+        for group in result["groups"]:
+            rows = []
+            for row in group.get("rows") or []:
+                available = bool(row.get("available"))
+                envelope = CitationEnvelope(
+                    field=row.get("ref"),
+                    label=row.get("label") or row.get("ref") or "Value",
+                    display=row.get("display") if available else "not available",
+                    raw=row.get("value") if available else None,
+                    available=available,
+                    citation=citation if available else None,
+                    caveats=_caveats(row.get("caveat_kinds") or (), snapshot_date=snapshot_date),
+                )
+                rows.append({**envelope.model_dump(mode="json"), "source_label": label})
+            groups.append({**group, "rows": rows})
+        return {**result, "groups": groups}
+    return result
 
 
 @dataclass
@@ -81,6 +178,7 @@ def process_tool_result(
     exempt_overflow: bool = False,
 ) -> Any:
     """Apply the ordered tool-result middleware pipeline."""
+    result = _normalize_db_payload(result, tool_name)
     result = annotate_citations(result, context, tool_name=tool_name)
     result = error_envelope(result)
     result = demote_tool_ui(result)

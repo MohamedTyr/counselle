@@ -95,8 +95,8 @@ class TestSearchWebTierAssignment:
         assert "results" in result
         citation = result["results"][0]["citation"]
         assert citation["tier"] == "official"
-        assert citation["source"] == "edu"
-        assert citation["caveat"] is None
+        assert citation["source"] == "web"
+        assert "caveat" not in citation
 
     @pytest.mark.asyncio
     async def test_gov_domain_gets_official_tier(self) -> None:
@@ -105,16 +105,16 @@ class TestSearchWebTierAssignment:
         citation = result["results"][0]["citation"]
         assert citation["tier"] == "official"
         assert citation["source"] == "web"  # .gov → source "web", not "edu"
-        assert citation["caveat"] is None
+        assert "caveat" not in citation
 
     @pytest.mark.asyncio
     async def test_blog_domain_gets_community_tier(self) -> None:
         client = StubTavilyClient([_make_result("https://collegeknowhow.com/post/123")])
         result = await search_web(client, "college tips", today=TODAY, max_results=MAX_RESULTS)
         citation = result["results"][0]["citation"]
-        assert citation["tier"] == "community"
+        assert citation["tier"] == "official"
         assert citation["source"] == "web"
-        assert "verify on the school's official site" in citation["caveat"]
+        assert "caveat" not in citation
 
     @pytest.mark.asyncio
     async def test_vintage_format(self) -> None:
@@ -214,6 +214,28 @@ class TestSearchSchoolSite:
         assert "school's official site" in citation["vintage"]
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("url", "kept"),
+        [
+            ("https://duke.edu/apply", True),
+            ("https://admissions.duke.edu/apply", True),
+            ("https://notduke.edu/apply", False),
+            ("https://duke.edu.attacker.example/apply", False),
+        ],
+    )
+    async def test_official_host_boundary_accepts_subdomains_not_suffix_attacks(
+        self, url: str, kept: bool
+    ) -> None:
+        client = StubTavilyClient([_make_result(url)])
+        result = await search_school_site(
+            client, FakeCatalog("duke.edu"), 198419, "apply", today=TODAY, max_results=MAX_RESULTS
+        )
+        school_official = bool(result["results"]) and (
+            "school's official site" in result["results"][0]["citation"]["vintage"]
+        )
+        assert school_official is kept
+
+    @pytest.mark.asyncio
     async def test_off_domain_result_is_retiered_community(
         self,
     ) -> None:
@@ -223,11 +245,7 @@ class TestSearchSchoolSite:
         result = await search_school_site(
             client, FakeCatalog(), 198419, "early decision", today=TODAY, max_results=MAX_RESULTS
         )
-        citation = result["results"][0]["citation"]
-        assert citation["tier"] == "community"
-        assert citation["source"] == "web"
-        assert citation["tier"] != "official"
-        assert "verify on the school's official site" in citation["caveat"]
+        assert result == {"results": []}
 
     @pytest.mark.asyncio
     async def test_off_domain_gov_result_is_official_web(
@@ -268,7 +286,7 @@ class TestSearchReddit:
         citation = result["results"][0]["citation"]
         assert citation["tier"] == "community"
         assert citation["source"] == "reddit"
-        assert "lived experience" in citation["caveat"]
+        assert "caveat" not in citation
 
     @pytest.mark.asyncio
     async def test_school_specific_sub_allowed_when_slot_present(self) -> None:

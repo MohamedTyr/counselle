@@ -89,6 +89,7 @@ async def test_comparison_table_emits_spec_with_envelope_cells(catalog: Catalog)
     for row in spec.rows:
         assert len(row.cells) == 2  # one cell per school
         for cell in row.cells:  # per-cell envelopes, fully cited
+            assert cell.citation is not None
             assert cell.citation.tier == "official"
             assert cell.citation.vintage
 

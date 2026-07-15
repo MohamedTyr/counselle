@@ -105,7 +105,6 @@ _CANNED_SPEC = RenderSpec(
             label="Acceptance rate",
             cells=[
                 CitationEnvelope(
-                    v=1,
                     field="admissions.acceptance_rate",
                     label="Acceptance rate",
                     display="6.8%",
@@ -113,12 +112,8 @@ _CANNED_SPEC = RenderSpec(
                     available=True,
                     unit="percent",
                     citation=Citation(
-                        source="ipeds",
-                        tier="official",
-                        vintage="IPEDS 2024-25 (provisional)",
-                        caveat=None,
-                        raw_table="adm",
-                        url=None,
+                        source="web", tier="official", vintage="Retrieved Jul 7, 2026",
+                        url="https://example.edu/source",
                     ),
                 )
             ],

@@ -66,11 +66,37 @@ _ALLOWED_RELATIONS = frozenset(
 _PLACEHOLDER_RE = re.compile(r"\$(\d+)")
 _SAFE_FUNCTIONS = frozenset(
     {
-        "abs", "and", "avg", "ceil", "ceiling", "char_length", "coalesce", "count",
-        "cast", "date_part", "extract", "floor", "greatest", "least", "in", "length", "like",
-        "json_extract", "json_extract_scalar", "lower", "max", "min", "not", "nullif",
-        "octet_length", "or",
-        "round", "substring", "sum", "trim", "upper",
+        "abs",
+        "and",
+        "avg",
+        "ceil",
+        "ceiling",
+        "char_length",
+        "coalesce",
+        "count",
+        "cast",
+        "date_part",
+        "extract",
+        "floor",
+        "greatest",
+        "least",
+        "in",
+        "length",
+        "like",
+        "json_extract",
+        "json_extract_scalar",
+        "lower",
+        "max",
+        "min",
+        "not",
+        "nullif",
+        "octet_length",
+        "or",
+        "round",
+        "substring",
+        "sum",
+        "trim",
+        "upper",
     }
 )
 
@@ -417,6 +443,9 @@ async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainRes
         academic_year=document["academic_year"],
         document_id=document["document_id"],
         document_sha256=bytes(document["pdf_sha256"]).hex(),
+        source_kind=document["source_kind"],
+        retrieved_at=document["retrieved_at"],
+        manifest_version=packet.packet.manifest_version,
         packet_status=packet.packet.status,
         currentness=document["currentness"],
         latest_status=document["latest_extraction_status"],
@@ -463,8 +492,7 @@ def _guard_sql(sql: str, params: list[Any]) -> None:
     if tree.find(exp.Lock) is not None or tree.find(exp.Into) is not None:
         raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
     if any(
-        not join.args.get("on") and not join.args.get("kind")
-        for join in tree.find_all(exp.Join)
+        not join.args.get("on") and not join.args.get("kind") for join in tree.find_all(exp.Join)
     ):
         raise ServiceError("Implicit comma joins are not allowed.")
     cte_names = {cte.alias for cte in tree.find_all(exp.CTE)}

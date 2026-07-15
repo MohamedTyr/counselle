@@ -1,256 +1,114 @@
-"""Unit tests for app/sources.py — the citation source registry. No I/O."""
+from datetime import UTC, datetime
+from types import SimpleNamespace
 
-from __future__ import annotations
+import pytest
 
-import copy
-from typing import Any
+from app.sources import SourceRegistry, source_key
+from domain.envelope import Citation, EvidenceItem
 
-from app.sources import SourceRegistry
-from domain.envelope import Citation, CitationEnvelope
-
-# ---------------------------------------------------------------------------
-# Builders
-# ---------------------------------------------------------------------------
+SHA = "a" * 64
 
 
-def _citation(**overrides: Any) -> Citation:
-    base: dict[str, Any] = {
-        "source": "ipeds",
-        "tier": "official",
-        "vintage": "IPEDS 2024-25 (provisional)",
-        "raw_table": "adm2024",
-        "url": None,
+def cds() -> Citation:
+    return Citation(
+        source="cds",
+        tier="official",
+        vintage="Common Data Set 2024-25",
+        document_sha256=SHA,
+        source_kind="upload",
+        retrieved_at=datetime(2026, 1, 1, tzinfo=UTC),
+        academic_year=2024,
+        manifest_version="5.0.1",
+        school_unitid=1,
+    )
+
+
+def evidence(eid: str = "admissions.applicants") -> EvidenceItem:
+    return EvidenceItem(
+        eid=eid, value_display="10", label="Applicants", page=2, excerpt="Applicants 10"
+    )
+
+
+def test_conditional_identity_and_marker_lookup() -> None:
+    registry = SourceRegistry()
+    assert registry.register_source(cds(), "School — Common Data Set 2024-25") == "[1]"
+    assert (
+        registry.register_source(cds().model_copy(update={"vintage": "other"}), "ignored") == "[1]"
+    )
+    assert registry.lookup_marker("[1]") is not None
+    assert registry.lookup_marker("[001]") is None
+    assert source_key(cds()) == ("cds", SHA)
+
+
+def test_pending_is_runtime_only_and_exact_use_promotes() -> None:
+    registry = SourceRegistry()
+    marker = registry.register_source(cds(), "School — Common Data Set 2024-25")
+    registry.register_pending_evidence(marker, evidence())
+    assert "Applicants 10" not in str(registry.dump_state())
+    assert not registry.promote_pending_evidence(1, "admissions.invented")
+    assert registry.promote_pending_evidence(1, "admissions.applicants")
+    assert registry.entries[0].evidence_seen_eids == ("admissions.applicants",)
+
+
+def test_fork_rollback_and_commit_are_immutable() -> None:
+    registry = SourceRegistry()
+    registry.register_source(cds(), "School")
+    candidate = registry.fork()
+    candidate.register_used_evidence(1, evidence())
+    assert registry.entries[0].evidence == ()
+    registry.commit_from(candidate)
+    assert registry.entries[0].evidence
+    assert registry.entries[0].evidence[0].eid == "admissions.applicants"
+
+
+def test_annotated_domain_row_hides_excerpt_and_gives_composite_marker() -> None:
+    registry = SourceRegistry()
+    payload = {
+        "citation": cds().model_dump(mode="json"),
+        "source_label": "School",
+        "evidence": evidence().model_dump(mode="json"),
+        "display": "10",
     }
-    base.update(overrides)
-    return Citation(**base)
+    annotated = registry.annotate_envelopes(payload)
+    assert annotated["marker"] == "[1][[evidence:1:admissions.applicants]]"
+    assert "evidence" not in annotated
+    assert "Applicants 10" not in str(annotated)
 
 
-def _envelope(field: str, citation: Citation) -> dict[str, Any]:
-    return CitationEnvelope(
-        field=field,
-        label=field.split(".")[-1].replace("_", " "),
-        display="42%",
-        raw=0.42,
-        available=True,
-        unit="percent",
-        citation=citation,
-    ).model_dump(mode="json")
+def test_wire_evidence_is_sorted_without_mutating_state() -> None:
+    registry = SourceRegistry()
+    registry.register_source(cds(), "School")
+    registry.register_used_evidence(1, evidence("admissions.zed").model_copy(update={"page": 4}))
+    registry.register_used_evidence(1, evidence("admissions.alpha").model_copy(update={"page": 1}))
+    wire = registry.entries_for_wire()[0]
+    assert [item.eid for item in wire.evidence] == ["admissions.alpha", "admissions.zed"]
+    assert [item.eid for item in registry.entries[0].evidence] == [
+        "admissions.zed",
+        "admissions.alpha",
+    ]
 
 
-def _search_item(title: str, url: str, citation: Citation) -> dict[str, Any]:
-    return {"title": title, "url": url, "snippet": "snip", "citation": citation.model_dump()}
+def test_evidence_cap_omitted_count_and_internal_round_trip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.sources.get_settings", lambda: SimpleNamespace(source_evidence_max_items=1)
+    )
+    registry = SourceRegistry()
+    registry.register_source(cds(), "School")
+    registry.register_used_evidence(1, evidence("admissions.first"))
+    registry.register_used_evidence(1, evidence("admissions.second"))
+
+    restored = SourceRegistry(registry.dump_state())
+    wire = restored.entries_for_wire()[0]
+    assert [item.eid for item in wire.evidence] == ["admissions.first"]
+    assert wire.evidence_omitted_count == 1
+    public = restored.wire_dump()[0]
+    assert public["evidence_omitted_count"] == 1
+    assert "evidence_seen_eids" not in public
 
 
-# ---------------------------------------------------------------------------
-# register: dedupe + stable indices
-# ---------------------------------------------------------------------------
-
-
-class TestRegister:
-    def test_indices_are_sequential_starting_at_one(self) -> None:
-        registry = SourceRegistry()
-        assert registry.register(_citation(), "IPEDS") == 1
-        assert registry.register(_citation(vintage="CDS 2025-26"), "CDS") == 2
-        assert registry.register(_citation(url="https://duke.edu"), "Duke") == 3
-
-    def test_dedupes_by_source_url_vintage_raw_table(self) -> None:
-        registry = SourceRegistry()
-        first = registry.register(_citation(), "IPEDS")
-        again = registry.register(_citation(caveat="different caveat ignored"), "IPEDS bis")
-        assert first == again == 1
-        assert len(registry) == 1
-        # First label wins on dedupe
-        assert registry.entries[0].label == "IPEDS"
-
-    def test_any_identity_field_change_makes_a_new_entry(self) -> None:
-        registry = SourceRegistry()
-        registry.register(_citation(), "a")
-        assert registry.register(_citation(source="cds", tier="official"), "b") == 2
-        assert registry.register(_citation(vintage="IPEDS 2023-24"), "c") == 3
-        assert registry.register(_citation(raw_table="ic2024"), "d") == 4
-        assert registry.register(_citation(url="https://x.edu"), "e") == 5
-
-    def test_rebuild_from_dumped_state_preserves_indices(self) -> None:
-        # Interrupt-resume re-executes the node: the registry must rebuild
-        # from state.source_registry dicts and keep indices stable.
-        first = SourceRegistry()
-        first.register(_citation(), "IPEDS")
-        first.register(_citation(vintage="CDS 2025-26"), "CDS")
-
-        rebuilt = SourceRegistry(first.dump())
-        assert len(rebuilt) == 2
-        assert rebuilt.register(_citation(), "IPEDS") == 1  # dedupe survives the round-trip
-        assert rebuilt.register(_citation(url="https://y.edu"), "new") == 3
-
-    def test_dump_is_msgpack_plain(self) -> None:
-        registry = SourceRegistry()
-        registry.register(_citation(), "IPEDS")
-        dumped = registry.dump()
-        assert dumped == [
-            {
-                "index": 1,
-                "label": "IPEDS",
-                "snippet": None,
-                "citation": {
-                    "source": "ipeds",
-                    "tier": "official",
-                    "vintage": "IPEDS 2024-25 (provisional)",
-                    "caveat": None,
-                    "raw_table": "adm2024",
-                    "url": None,
-                },
-            }
-        ]
-
-
-# ---------------------------------------------------------------------------
-# annotate_envelopes
-# ---------------------------------------------------------------------------
-
-
-class TestAnnotateEnvelopes:
-    def test_get_values_shape_gains_markers_and_registry_grows(self) -> None:
-        registry = SourceRegistry()
-        ipeds = _citation()
-        cds = _citation(source="cds", vintage="CDS 2025-26", raw_table=None)
-        payload = [
-            _envelope("admissions.acceptance_rate", ipeds),
-            _envelope("admissions.yield_rate", ipeds),  # same citation → same marker
-            _envelope("admissions.sat_math_75", cds),
-        ]
-
-        annotated = registry.annotate_envelopes(payload)
-
-        assert [item["marker"] for item in annotated] == ["[1]", "[1]", "[2]"]
-        assert len(registry) == 2
-        # Envelope label defaults to the citation's vintage (already human)
-        assert registry.entries[0].label == "IPEDS 2024-25 (provisional)"
-
-    def test_nested_compare_shape_is_annotated(self) -> None:
-        registry = SourceRegistry()
-        payload = {
-            "schools": [{"unitid": 198419, "name": "Duke University"}],
-            "rows": [
-                {
-                    "label": "Acceptance rate",
-                    "cells": [
-                        _envelope("admissions.acceptance_rate", _citation()),
-                        _envelope(
-                            "admissions.acceptance_rate",
-                            _citation(vintage="CDS 2025-26"),
-                        ),
-                    ],
-                }
-            ],
-        }
-
-        annotated = registry.annotate_envelopes(payload)
-
-        cells = annotated["rows"][0]["cells"]
-        assert [cell["marker"] for cell in cells] == ["[1]", "[2]"]
-        assert len(registry) == 2
-
-    def test_input_payload_is_not_mutated(self) -> None:
-        registry = SourceRegistry()
-        payload = [_envelope("admissions.acceptance_rate", _citation())]
-        snapshot = copy.deepcopy(payload)
-
-        registry.annotate_envelopes(payload)
-
-        assert payload == snapshot  # no in-place "marker" key
-
-    def test_non_envelope_payloads_pass_through(self) -> None:
-        registry = SourceRegistry()
-        assert registry.annotate_envelopes("plain text") == "plain text"
-        assert registry.annotate_envelopes({"ok": True, "count": 3}) == {"ok": True, "count": 3}
-        assert len(registry) == 0
-
-    def test_malformed_citation_gets_no_marker(self) -> None:
-        registry = SourceRegistry()
-        payload = {"citation": {"source": "not-a-source", "tier": "official", "vintage": "x"}}
-
-        annotated = registry.annotate_envelopes(payload)
-
-        assert "marker" not in annotated
-        assert len(registry) == 0
-
-
-# ---------------------------------------------------------------------------
-# annotate_search_results
-# ---------------------------------------------------------------------------
-
-
-class TestAnnotateSearchResults:
-    def test_results_gain_markers_with_title_labels(self) -> None:
-        registry = SourceRegistry()
-        web = _citation(source="web", tier="community", raw_table=None)
-        payload = {
-            "results": [
-                _search_item(
-                    "Duke dorms guide",
-                    "https://a.com/x",
-                    web.model_copy(update={"url": "https://a.com/x"}),
-                ),
-                _search_item(
-                    "Duke fees",
-                    "https://b.com/y",
-                    web.model_copy(update={"url": "https://b.com/y"}),
-                ),
-            ]
-        }
-
-        annotated = registry.annotate_search_results(payload)
-
-        assert [item["marker"] for item in annotated["results"]] == ["[1]", "[2]"]
-        assert [entry.label for entry in registry.entries] == ["Duke dorms guide", "Duke fees"]
-
-    def test_search_item_snippet_is_captured(self) -> None:
-        registry = SourceRegistry()
-        web = _citation(source="web", tier="community", raw_table=None, url="https://a.com/x")
-        item = _search_item("Duke dorms guide", "https://a.com/x", web)
-        item["snippet"] = "  A short page excerpt describing Duke dorms.  "
-
-        registry.annotate_search_results({"results": [item]})
-
-        assert registry.entries[0].snippet == "A short page excerpt describing Duke dorms."
-
-    def test_blank_snippet_becomes_none(self) -> None:
-        registry = SourceRegistry()
-        web = _citation(source="web", tier="community", raw_table=None, url="https://a.com/x")
-        item = _search_item("Duke dorms guide", "https://a.com/x", web)
-        item["snippet"] = "   "
-
-        registry.annotate_search_results({"results": [item]})
-
-        assert registry.entries[0].snippet is None
-
-    def test_error_payload_passes_through(self) -> None:
-        registry = SourceRegistry()
-        payload = {"error": "tavily down", "retryable": True}
-        assert registry.annotate_search_results(payload) == payload
-        assert len(registry) == 0
-
-    def test_duplicate_urls_share_a_marker(self) -> None:
-        registry = SourceRegistry()
-        web = _citation(source="web", tier="community", raw_table=None, url="https://a.com/x")
-        payload = {
-            "results": [
-                _search_item("One", "https://a.com/x", web),
-                _search_item("Two", "https://a.com/x", web),
-            ]
-        }
-
-        annotated = registry.annotate_search_results(payload)
-
-        assert [item["marker"] for item in annotated["results"]] == ["[1]", "[1]"]
-        assert len(registry) == 1
-
-    def test_input_not_mutated(self) -> None:
-        registry = SourceRegistry()
-        web = _citation(source="web", tier="community", raw_table=None, url="https://a.com")
-        payload = {"results": [_search_item("One", "https://a.com", web)]}
-        snapshot = copy.deepcopy(payload)
-
-        registry.annotate_search_results(payload)
-
-        assert payload == snapshot
+def test_entries_property_does_not_expose_a_mutable_registry_list() -> None:
+    registry = SourceRegistry()
+    registry.register_source(cds(), "School")
+    assert isinstance(registry.entries, tuple)

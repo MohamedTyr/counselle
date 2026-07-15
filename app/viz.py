@@ -18,7 +18,7 @@ from app.viz_signature import render_spec_signature, viz_payload_signature
 from counselle_db.catalog import Catalog
 from counselle_db.models import ResolvedSchool, ServiceError
 from counselle_db.service import get_domain, resolve_school
-from domain.envelope import Citation, CitationEnvelope
+from domain.envelope import Citation, CitationEnvelope, EvidenceItem
 from domain.specs import RenderSpec, SchoolRef, VizRow
 
 logger = structlog.get_logger(__name__)
@@ -57,18 +57,34 @@ async def _envelopes(catalog: Catalog, unitid: int, refs: list[str]) -> list[Cit
         result = await get_domain(catalog, unitid, domain_id)
         for row in result.rows:
             if row.ref in wanted:
-                found[row.ref] = CitationEnvelope(
-                    field=row.ref,
-                    label=row.label,
-                    display=row.display or "not available",
-                    raw=row.value if isinstance(row.value, (str, int, float, bool)) else None,
-                    available=row.available,
-                    citation=Citation(
+                available = bool(row.available)
+                citation = (
+                    Citation(
                         source="cds",
                         tier="official",
                         vintage=row.vintage,
-                        caveat=", ".join(row.caveat_kinds) or None,
+                        document_sha256=result.document_sha256,
+                        source_kind=result.source_kind,
+                        retrieved_at=result.retrieved_at,
+                        academic_year=result.academic_year,
+                        manifest_version=result.manifest_version,
+                        school_unitid=result.school.unitid,
+                    )
+                    if available
+                    else None
+                )
+                found[row.ref] = CitationEnvelope(
+                    field=row.ref,
+                    label=row.label,
+                    display=row.display if available and row.display else "not available",
+                    raw=(
+                        row.value
+                        if available and isinstance(row.value, (str, int, float, bool))
+                        else None
                     ),
+                    available=available,
+                    citation=citation,
+                    evidence=(EvidenceItem.model_validate(row.evidence) if available else None),
                 )
     return [found[ref] for ref in refs if ref in found]
 
@@ -170,6 +186,9 @@ def _viz_result_from_spec(
     cell_markers: list[str] = []
     markers: set[int] = set()
     for cell in cells:
+        if not cell.available or cell.citation is None:
+            cell_markers.append("")
+            continue
         index = registry.register(cell.citation, cell.citation.vintage)
         markers.add(index)
         cell_markers.append(f"[{index}]")
