@@ -80,7 +80,9 @@ function isEssayType(value: unknown): value is EssayType {
 }
 
 function contentOrEmpty(value: unknown): TiptapContent {
-  return value && typeof value === "object" ? value : emptyTiptapContent;
+  return value && typeof value === "object"
+    ? (value as TiptapContent)
+    : emptyTiptapContent;
 }
 
 function dateOnlyUtcTime(value: Date) {

@@ -100,7 +100,7 @@ async def prepare_document_upload(
 
     if not _has_usable_text(extracted_text):
         return _document_create(data, upload_format.mime, "failed", None)
-    assert extracted_text is not None  # narrowed by _has_usable_text above
+    assert extracted_text is not None  # nosec B101 - narrowed by _has_usable_text above
     return _document_create(
         data, upload_format.mime, "extracted", extracted_text[:EXTRACTED_TEXT_MAX_LENGTH]
     )

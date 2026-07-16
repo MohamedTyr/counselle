@@ -1,10 +1,10 @@
-import type { Essay } from "@/domain/essay";
+import type { Essay, EssayDetail } from "@/domain/essay";
 
 export type EssaysPageProps = {
   onOpenEssay?: (essay: Essay) => void;
 };
 
 export type EssayEditorPageProps = {
-  essay: Essay;
+  essay: EssayDetail;
   onBack: () => void;
 };

@@ -118,6 +118,14 @@ Element.prototype.scrollIntoView = function scrollIntoView() {
   return undefined
 }
 
+Element.prototype.setPointerCapture = function setPointerCapture() {
+  return undefined
+}
+
+Element.prototype.releasePointerCapture = function releasePointerCapture() {
+  return undefined
+}
+
 Object.defineProperty(Element.prototype, "getAnimations", {
   configurable: true,
   value: () => [],

@@ -48,7 +48,7 @@ async def update_profile(
             user_id,
             normalized,
         )
-        assert row is not None
+        assert row is not None  # nosec B101 - UPSERT ... RETURNING always yields a row
         change_id = await record_change(
             conn,
             user_id=user_id,
@@ -86,7 +86,7 @@ async def _ensure_profile(conn: asyncpg.Connection, user_id: UUID) -> asyncpg.Re
         """,
         user_id,
     )
-    assert row is not None
+    assert row is not None  # nosec B101 - UPSERT ... RETURNING always yields a row
     return row
 
 

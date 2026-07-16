@@ -12,9 +12,8 @@ from typing import Any
 
 import asyncpg
 import structlog
-from pydantic import BaseModel, ConfigDict
 
-from config.settings import get_db_child_settings
+from config.settings import get_settings, load_yaml_asset
 from counselle_db.models import SchoolBasics, ServiceError
 from counselle_db.packets import (
     ManifestDomain,
@@ -24,10 +23,9 @@ from counselle_db.packets import (
     hex_digest,
 )
 
-# Local seam retained for focused catalog tests.
-get_settings = get_db_child_settings
-
 logger = structlog.get_logger(__name__)
+
+_FUZZY_MATCH_MIN_SCORE = 0.80
 
 
 def _freeze(value: Any) -> Any:
@@ -37,13 +35,6 @@ def _freeze(value: Any) -> Any:
     if isinstance(value, list | tuple):
         return tuple(_freeze(child) for child in value)
     return value
-
-
-class CalendarEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    source: str
-    vintage: str
-    cutoff_note: str
 
 
 _MANIFEST_SQL = """SELECT version,content_sha256,content,domain_hashes,published_at,
@@ -64,6 +55,21 @@ _COVERAGE_SQL = """WITH selected_documents AS (
 def normalize_school_name(value: str) -> str:
     value = value.casefold().replace("&", " and ")
     return " ".join(re.sub(r"[^a-z0-9]+", " ", value).split())
+
+
+def _abbreviations() -> Mapping[str, str]:
+    """Common abbreviation -> full-name expansions (config/assets/abbreviations.yaml).
+
+    Substring/ILIKE-style matching never finds "MIT" inside "Massachusetts
+    Institute of Technology" — expand the query before searching. Deliberately
+    uncached beyond ``load_yaml_asset``'s own cache: a second cache layer here
+    would need coupling into ``reset_config_caches()`` (audit L4) for no real
+    benefit — normalizing ~40 keys is too cheap to be worth it.
+    """
+    raw = load_yaml_asset("abbreviations")
+    if not isinstance(raw, dict):
+        raise ValueError("abbreviations asset must be a mapping")
+    return MappingProxyType({normalize_school_name(k): v for k, v in raw.items()})
 
 
 @dataclass(frozen=True)
@@ -100,10 +106,13 @@ class CatalogSnapshot:
 
 
 class Catalog:
-    def __init__(self, pool: asyncpg.Pool, snapshot: CatalogSnapshot):
+    def __init__(
+        self, pool: asyncpg.Pool, snapshot: CatalogSnapshot, *, settings: Any = None
+    ):
         self.pool = pool
         self._snapshot = snapshot
         self._last_attempt = snapshot.refreshed_at
+        self.settings = settings
 
     @property
     def snapshot(self) -> CatalogSnapshot:
@@ -120,8 +129,12 @@ class Catalog:
         )
 
     @classmethod
-    async def load(cls, pool: asyncpg.Pool) -> Catalog:
-        return cls(pool, await cls._load_snapshot(pool))
+    async def load(cls, pool: asyncpg.Pool, *, settings: Any = None) -> Catalog:
+        return cls(
+            pool,
+            await cls._load_snapshot(pool),
+            settings=settings,
+        )
 
     @staticmethod
     async def _load_snapshot(pool: asyncpg.Pool) -> CatalogSnapshot:
@@ -263,7 +276,8 @@ class Catalog:
         )
 
     async def maybe_refresh(self, *, force: bool = False) -> CatalogSnapshot:
-        cadence = timedelta(seconds=get_settings().data_catalog_refresh_seconds)
+        settings = self.settings or get_settings()
+        cadence = timedelta(seconds=settings.data_catalog_refresh_seconds)
         now = datetime.now(UTC)
         if not force and now - self._last_attempt < cadence:
             return self._snapshot
@@ -298,6 +312,9 @@ class Catalog:
         normalized = normalize_school_name(query)
         if query.isdigit() and int(query) in self._snapshot.schools:
             return (self._snapshot.schools[int(query)],)
+        expansion = _abbreviations().get(normalized)
+        if expansion is not None:
+            normalized = normalize_school_name(expansion)
         exact = self._snapshot.name_index.get(normalized, ())
         ids: set[int] = set(exact)
         if not ids:
@@ -307,15 +324,21 @@ class Catalog:
                 if normalized in name or name.startswith(normalized)
                 for unitid in values
             }
-        scored: list[tuple[float, SchoolRecord]] = []
+        # A substring/prefix/abbreviation hit is already a strong, targeted
+        # signal — the similarity ratio below is only a discovery mechanism
+        # for the untargeted whole-catalog fallback, and must not re-filter
+        # targeted hits (e.g. "Yale" vs "Yale University" scores well under
+        # the threshold purely from length, despite being an exact match).
+        targeted = bool(ids)
         pool = ids or set(self._snapshot.schools)
+        scored: list[tuple[float, SchoolRecord]] = []
         for unitid in pool:
             record = self._snapshot.schools[unitid]
             score = max(
                 SequenceMatcher(None, normalized, normalize_school_name(name)).ratio()
                 for name in (record.basics.name, *record.aliases)
             )
-            if score >= 0.55:
+            if targeted or score >= _FUZZY_MATCH_MIN_SCORE:
                 scored.append((score, record))
         scored.sort(
             key=lambda pair: (

@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-from domain.envelope import Citation, CitationEnvelope, JsonValue
+from domain.envelope import Citation, CitationEnvelope, JsonValue, reject_non_finite_json
 
 
 class SourceConfig(BaseModel):
@@ -134,6 +134,19 @@ class SourcedCellInput(BaseModel):
     # schemas before the model can make a request.
     raw: ToolJsonValue = None
     marker: str
+
+    @field_validator("display")
+    @classmethod
+    def display_must_be_nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("sourced display must be nonblank")
+        return value
+
+    @field_validator("raw")
+    @classmethod
+    def raw_must_be_finite_json(cls, value: JsonValue) -> JsonValue:
+        reject_non_finite_json(value)
+        return value
 
 
 class UnavailableCellInput(BaseModel):

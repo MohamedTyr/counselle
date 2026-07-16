@@ -102,7 +102,7 @@ async def create_memories(
                 user_id,
                 content,
             )
-            assert row is not None
+            assert row is not None  # nosec B101 - INSERT ... RETURNING always yields a row
             memory = Memory.model_validate(dict(row))
             memories.append(memory)
             events.append(await _record_change(conn, user_id, actor, memory.id, "created"))

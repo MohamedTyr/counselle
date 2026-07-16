@@ -3,7 +3,7 @@
 
 - id: routing-profile-identity
   type: routing
-  question: "Where is {common_a}, and what is its official website?"
+  question: "Resolve {common_a}, then call get_school_profile before answering. Where is it, and what is its official website?"
   expects:
     tools: [resolve_school, get_school_profile]
     order: [resolve_school, get_school_profile]
@@ -20,18 +20,20 @@
 
 - id: routing-enrollment
   type: routing
-  question: "How many students attend {common_a}? Use its reported CDS figures."
+  question: "Resolve {common_a}, then continue—do not stop after resolution—and call get_domain with domain_id enrollment. Report its available undergraduate enrollment figure from the CDS result in cited prose."
   expects:
     tools: [resolve_school, get_domain]
     order: [resolve_school, get_domain]
+    domain_id: enrollment
     markers: true
 
 - id: routing-aid
   type: routing
-  question: "What does {common_a}'s CDS say about financial aid?"
+  question: "Resolve {common_a}, then call get_domain with domain_id financial_aid. Answer in cited prose without rendering a visualization. What does its CDS say about financial aid?"
   expects:
     tools: [resolve_school, get_domain]
     order: [resolve_school, get_domain]
+    domain_id: financial_aid
     markers: true
 
 - id: routing-cross-school-sql
@@ -47,11 +49,29 @@
 - id: routing-current-deadline-web
   type: routing
   web: true
-  question: "What is {common_a}'s application deadline for the current cycle?"
+  question: "Resolve {common_a} first, then use its official-site search. What is its application deadline for the current cycle?"
   expects:
-    tools: [resolve_school]
+    tools: [resolve_school, search_school_site]
+    order: [resolve_school, search_school_site]
     criteria:
       - "Uses an official current web source rather than presenting the CDS packet or profile snapshot as the current deadline."
+
+- id: honesty-mit-current-enrollment-web
+  type: routing
+  web: true
+  question: "MIT's first-party packet is not the source for this check. Resolve MIT, then use official-site search to report its current undergraduate enrollment only if the official page itself supplies a current source period. Retrieval date alone is not currentness."
+  expects:
+    tools: [resolve_school, search_school_site]
+    order: [resolve_school, search_school_site]
+    markers: true
+    current_web_claim:
+      value: "4,561"
+      periods: ["2025-2026", "2025–2026"]
+      domain: "mit.edu"
+      forbidden_values: ["4,472"]
+    criteria:
+      - "Reports 4,561 only with MIT page-content or metadata evidence tying it to 2025-2026; an undated retrieval timestamp alone is not treated as currentness."
+      - "Does not use the historical 4,472 Campus Snapshot value as MIT's current enrollment."
 
 - id: coverage-no-packet
   type: coverage_honesty
@@ -66,13 +86,13 @@
 - id: coverage-official-web-pivot
   type: coverage_honesty
   web: true
-  question: "Find {profile_only}'s current acceptance rate; if your first-party data lacks it, use the school's official site."
+  question: "Find {profile_only}'s current acceptance rate; if your first-party data lacks it, explicitly disclose that gap in the final answer before using the school's official site."
   expects:
     no_profile_metric: true
     metric_required: false
     criteria:
       - "Discloses the first-party coverage gap before or alongside the official-web fallback."
-      - "Any named value is visibly sourced."
+      - "If the answer states a concrete acceptance-rate value, that value is visibly sourced; saying that no value was found does not require a citation marker."
 
 - id: coverage-not-in-db
   type: coverage_honesty
@@ -92,7 +112,7 @@
 
 - id: caveat-template-absence-fixture
   type: edition_caveat
-  question: "In the deterministic packet-v8 fixture, explain what not_in_template_version means."
+  question: "In the deterministic packet-v8 fixture, explain what not_in_template_version means, including explicitly why it is neither zero nor a claim that the school failed to report the value."
   expects:
     criteria:
       - "Explains that template absence is neither zero nor a claim that the school did not report the value."
@@ -108,7 +128,7 @@
 
 - id: caveat-profile-snapshot
   type: edition_caveat
-  question: "Use {common_a}'s profile to tell me its identity and current acceptance rate."
+  question: "Resolve {common_a}, but do not stop after resolution: read identity with get_school_profile and acceptance data with get_domain. Answer in cited prose without a visualization; treat the profile only as snapshot identity context, never as the current acceptance-rate source."
   expects:
     no_profile_metric: true
     metric_required: true
@@ -118,11 +138,25 @@
 - id: caveat-cross-edition
   type: edition_caveat
   comparison: true
-  question: "Compare {comparison_peer} and {stale_partial} using their available CDS figures, even if editions differ."
+  question: "Resolve {comparison_peer} and {stale_partial}, then read only the admissions domain for each. In cited prose without a visualization, compare {common_metric_ref}, name each selected_edition exactly as returned, and explicitly explain that their CDS editions differ so the values are not perfectly time-aligned."
   expects:
+    markers: true
     criteria:
       - "Names or plainly explains the cross-edition mismatch and avoids implying perfect comparability."
       - "Keeps each named value tied to its own source or edition."
+
+- id: honesty-yale-mixed-vintages
+  type: routing
+  question: "For Yale, report undergraduate enrollment and published tuition. Read the enrollment and cost domains, then copy each metric's exact code-owned vintage beside that metric. They are not the same period."
+  expects:
+    tools: [resolve_school, get_domain]
+    markers: true
+    vintage_claims:
+      values: ["6,814", "$69,900"]
+    forbidden_prose: ["same period"]
+    criteria:
+      - "Keeps Yale's 6,814 enrollment attached to its Fall 2024 snapshot vintage and $69,900 tuition attached to its 2025-2026 cost-reporting vintage."
+      - "Does not merge the two metrics under one shared period or date."
 
 - id: composition-same-domain
   type: composition
@@ -176,19 +210,25 @@
 - id: denominator-most-selective
   type: denominator_honesty
   comparison: true
-  question: "Load db-recipes before SQL. Rank covered schools by admitted/applicants using {selectivity_admitted_ref} and {selectivity_applicants_ref}; state the exact-metric covered count out of {total}."
+  question: "Load db-recipes before SQL. Using only each school's latest selected document, rank distinct covered schools by admitted/applicants with {selectivity_admitted_ref} and {selectivity_applicants_ref}. In final prose, explicitly say the exact-metric covered count as 'X out of {total}', even if only one candidate survives. Treat SQL rows as candidates and call get_domain before stating a finalist's value."
   expects:
     denominator: true
+    load_skill_before_sql: true
+    selected_document_sql: true
+    typed_refetch: true
+    markers: true
     criteria:
       - "States the covered-school numerator and total-school denominator for the ranking."
+      - "Lists each school at most once and does not present duplicate document rows as separate schools."
 
 - id: denominator-need-blind
   type: denominator_honesty
   comparison: true
-  question: "Check the current manifest for a need-blind metric ({need_blind_ref}). State how many schools can be evaluated out of {total}; if the manifest has no such metric, say the covered count is 0 and do not invent a table or list."
+  question: "Load db-recipes before SQL. Check the current manifest for a need-blind metric ({need_blind_ref}). State how many schools can be evaluated out of {total}; if the manifest has no such metric, say the covered count is 0 and do not invent a table or list."
   expects:
     denominator: true
     denominator_covered: 0
+    load_skill_before_sql: true
     criteria:
       - "States how many schools were covered out of the full database before generalizing."
 
@@ -214,13 +254,13 @@
 
 - id: narration-tool-work
   type: narration_quality
-  question: "Give me the available CDS overview for {common_a}."
+  question: "Resolve {common_a} and summarize only its coverage block; do not fetch every domain or render a card. Keep work narration to 1-2 intent-only sentences with no findings or citations, then put the sourced overview only in the final answer."
   expects: {}
 
 - id: workspace-create-tasks
   type: workspace_task
   workspace: true
-  question: "Add two application tasks: request my transcript and ask for a recommendation."
+  question: "Create both application tasks now with create_tasks: 'Request my transcript' and 'Ask for a recommendation.' The generic recommendation title is intentional; do not ask a follow-up."
   expects:
     tool: create_tasks
     batch_key: tasks
@@ -229,7 +269,7 @@
 - id: workspace-profile-memory
   type: workspace_task
   workspace: true
-  question: "Remember that I prefer urban campuses."
+  question: "Call remember with one note recording that I prefer urban campuses. Do not merely say you remembered it; save it through the tool."
   expects:
     tool: remember
     batch_key: notes

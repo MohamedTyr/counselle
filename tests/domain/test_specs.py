@@ -100,6 +100,13 @@ def test_cell_variants_are_mutually_exclusive() -> None:
         )
 
 
+def test_sourced_cells_reject_blank_display_and_non_finite_raw_data() -> None:
+    with pytest.raises(ValidationError, match="sourced display must be nonblank"):
+        SourcedCellInput(display=" \t", marker="[1]")
+    with pytest.raises(ValidationError, match="non-finite floats are not JSON values"):
+        SourcedCellInput(display="Value", raw={"nested": [float("inf")]}, marker="[1]")
+
+
 def test_column_identity_and_domain_are_strict() -> None:
     assert ColumnInput(name="Web School", domain="Example.EDU.").domain == "example.edu"
     with pytest.raises(ValidationError):

@@ -30,7 +30,7 @@ def adapt_completed_sources(values: Any) -> list[dict[str, Any]]:
             continue
         try:
             old = LegacySourceEntry.model_validate(value)
-        except Exception:
+        except Exception:  # nosec B112 - malformed legacy entries are intentionally skipped
             continue
         dumped = old.model_dump(mode="json")
         dumped["legacy"] = True

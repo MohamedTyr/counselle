@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,8 +9,15 @@ from typing import Any, cast
 import pytest
 
 from counselle_db.catalog import Catalog, SchoolRecord, _freeze, normalize_school_name
+from counselle_db.formatting import format_cds_edition
 from counselle_db.models import SchoolBasics, ServiceError
-from counselle_db.service import _display_profile, _walk_profile, query_database, resolve_school
+from counselle_db.service import (
+    _coverage,
+    _display_profile,
+    _walk_profile,
+    query_database,
+    resolve_school,
+)
 
 
 def test_profile_display_rejects_blank_strings_and_empty_lists() -> None:
@@ -17,6 +25,27 @@ def test_profile_display_rejects_blank_strings_and_empty_lists() -> None:
     assert _display_profile("   ") is None
     assert _display_profile([]) is None
     assert _display_profile(["Duke", "University"]) == "Duke, University"
+    assert _display_profile(69_900) == "69900"
+    assert _display_profile(20.0) == "20"
+    assert _display_profile(12.340) == "12.34"
+
+
+def test_selected_edition_label_is_code_formatted_from_opening_year() -> None:
+    assert format_cds_edition(2024) == "CDS 2024-25"
+    coverage = _coverage(
+        {
+            "academic_year": 2024,
+            "document_id": 7,
+            "currentness": "current",
+            "staleness_reason": None,
+            "latest_extraction_status": "succeeded",
+            "latest_error_code": None,
+        },
+        [],
+        cast(Any, SimpleNamespace(snapshot=SimpleNamespace(domains=()))),
+    )
+    assert coverage.selected_year == 2024
+    assert coverage.selected_edition == "CDS 2024-25"
 
 
 class _Context:
@@ -35,6 +64,7 @@ class _QueryConnection:
         self.records = records
         self.bound: tuple[Any, ...] = ()
         self.fetch_count = 0
+        self.yield_count = 0
 
     def transaction(self, **_: object) -> _Context:
         return _Context(self)
@@ -42,10 +72,19 @@ class _QueryConnection:
     async def execute(self, *_: object) -> None:
         return None
 
-    async def fetch(self, _sql: str, *params: Any) -> list[dict[str, Any]]:
+    def cursor(
+        self, _sql: str, *params: Any, prefetch: int
+    ) -> AsyncIterator[dict[str, Any]]:
         self.fetch_count += 1
         self.bound = params
-        return self.records
+
+        async def records() -> AsyncIterator[dict[str, Any]]:
+            for record in self.records:
+                self.yield_count += 1
+                yield record
+
+        assert prefetch == 1
+        return records()
 
 
 class _Pool:
@@ -86,7 +125,7 @@ async def test_query_database_passes_params_separately_and_applies_row_cap(
 async def test_query_database_caps_complete_serialized_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    catalog, _ = _query_catalog(
+    catalog, connection = _query_catalog(
         [{"very_long_column_name": "x" * 800}, {"very_long_column_name": "ok"}]
     )
     monkeypatch.setattr(
@@ -103,6 +142,7 @@ async def test_query_database_caps_complete_serialized_payload(
     assert result.rows == ()
     assert result.truncated
     assert len(result.model_dump_json().encode()) <= 700
+    assert connection.yield_count == 1
 
 
 async def test_query_database_rejects_nested_binary_values(
@@ -118,9 +158,7 @@ async def test_query_database_rejects_nested_binary_values(
         ),
     )
     with pytest.raises(ServiceError, match="Binary/PDF"):
-        await query_database(
-            cast(Any, catalog), "SELECT packet FROM cds_library.active_cds_domain_packets"
-        )
+        await query_database(cast(Any, catalog), "SELECT name FROM cds_library.school_profiles")
 
 
 @pytest.mark.parametrize(
@@ -149,6 +187,59 @@ async def test_query_database_rejects_pdf_projection_before_fetch(
     assert connection.fetch_count == 0
 
 
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT packet FROM cds_library.active_cds_domain_packets",
+        "SELECT packet->'provider_contract' FROM cds_library.active_cds_domain_packets",
+        "SELECT packet->'metrics'->'admissions.rate'->>'diagnostic_code' "
+        "FROM cds_library.active_cds_domain_packets",
+        "SELECT packet->'metrics'->'admissions.rate'->'evidence' "
+        "FROM cds_library.active_cds_domain_packets",
+    ],
+)
+async def test_query_database_rejects_internal_packet_shapes_before_cursor(
+    sql: str,
+) -> None:
+    catalog, connection = _query_catalog([])
+
+    with pytest.raises(ServiceError, match="Packet|packet|internal"):
+        await query_database(cast(Any, catalog), sql)
+
+    assert connection.fetch_count == 0
+
+
+@pytest.mark.parametrize(
+    ("sql", "params"),
+    [
+        (
+            "SELECT packet -> ($1 || $2) ->> 'response_schema' "
+            "FROM cds_library.active_cds_domain_packets",
+            ["provider_", "contract"],
+        ),
+        (
+            "SELECT packet -> 'metrics' -> $1 ->> ($2 || $3) "
+            "FROM cds_library.active_cds_domain_packets",
+            ["admissions.rate", "diagnostic", "_code"],
+        ),
+        (
+            "SELECT packet -> 'metrics' -> $1 -> ($2 || $3) ->> 'excerpt' "
+            "FROM cds_library.active_cds_domain_packets",
+            ["admissions.rate", "evi", "dence"],
+        ),
+    ],
+)
+async def test_query_database_rejects_computed_packet_paths_before_cursor(
+    sql: str, params: list[object]
+) -> None:
+    catalog, connection = _query_catalog([])
+
+    with pytest.raises(ServiceError, match="Packet JSON paths"):
+        await query_database(cast(Any, catalog), sql, params)
+
+    assert connection.fetch_count == 0
+
+
 def test_snapshot_json_is_deeply_frozen() -> None:
     source = {"group": {"nested": [1, {"value": 2}]}}
     frozen = _freeze(source)
@@ -173,7 +264,9 @@ def test_profile_walk_is_recursive_safe_and_attaches_matching_provenance() -> No
     by_ref = {row.ref: row for row in rows}
     homepage = by_ref["official_links.homepage"]
     assert homepage.label == "Official homepage"
-    assert homepage.provenance == provenance["official_links"]["homepage"]
+    assert homepage.provenance is not None
+    assert homepage.provenance.chosen_source == "IPEDS"
+    assert homepage.provenance.source_column == "Official homepage"
     assert homepage.caveat_kinds == ("profile_snapshot",)
     assert by_ref["official_links.flags"].display == "Yes, No"
     assert not by_ref["official_links.unsafe"].available
@@ -238,6 +331,138 @@ def test_catalog_resolver_handles_unitid_alias_prefix_fuzzy_and_not_found() -> N
     assert [item.basics.unitid for item in catalog.resolve_candidates("Example University")] == [1]
     assert catalog.resolve_candidates("Exampel University")[0].basics.unitid == 1
     assert catalog.resolve_candidates("zzzzzz") == ()
+    assert catalog.resolve_candidates("definitely-not-a-real-school-xyz") == ()
+
+
+def test_catalog_resolver_finds_short_common_name_despite_length_mismatch() -> None:
+    """A genuine substring/prefix hit must not be re-filtered by the whole-pool
+    fuzzy-similarity threshold — "Yale" vs "Yale University" scores poorly on
+    length alone despite being an exact, unambiguous match."""
+    records = {
+        1: SchoolRecord(
+            basics=SchoolBasics(unitid=1, name="Yale University", state="CT"),
+            aliases=(),
+            search_name="yale university",
+            is_main_campus=True,
+            basic_profile={},
+            profile_version="v1",
+            profile_snapshot_date=datetime.now(UTC).date(),
+            profile_sha256="00" * 32,
+        ),
+    }
+    names: dict[str, tuple[int, ...]] = {}
+    for unitid, record in records.items():
+        for name in (record.basics.name, record.search_name, *record.aliases):
+            normalized = normalize_school_name(name)
+            names[normalized] = (*names.get(normalized, ()), unitid)
+    snapshot = SimpleNamespace(refreshed_at=datetime.now(UTC), schools=records, name_index=names)
+    catalog = Catalog(cast(Any, object()), cast(Any, snapshot))
+    for query in ("Yale", "yale", "Duke"):
+        result = catalog.resolve_candidates(query)
+        assert result == () or result[0].basics.unitid == 1
+    assert [item.basics.unitid for item in catalog.resolve_candidates("Yale")] == [1]
+
+
+def test_catalog_resolver_expands_known_abbreviations() -> None:
+    """config/assets/abbreviations.yaml exists precisely because substring
+    matching never finds "MIT" inside "Massachusetts Institute of Technology" —
+    the resolver must consult it before falling back to whole-catalog fuzzy."""
+    records = {
+        1: SchoolRecord(
+            basics=SchoolBasics(
+                unitid=1, name="Massachusetts Institute of Technology", state="MA"
+            ),
+            aliases=(),
+            search_name="massachusetts institute of technology",
+            is_main_campus=True,
+            basic_profile={},
+            profile_version="v1",
+            profile_snapshot_date=datetime.now(UTC).date(),
+            profile_sha256="00" * 32,
+        ),
+    }
+    names: dict[str, tuple[int, ...]] = {}
+    for unitid, record in records.items():
+        for name in (record.basics.name, record.search_name, *record.aliases):
+            normalized = normalize_school_name(name)
+            names[normalized] = (*names.get(normalized, ()), unitid)
+    snapshot = SimpleNamespace(refreshed_at=datetime.now(UTC), schools=records, name_index=names)
+    catalog = Catalog(cast(Any, object()), cast(Any, snapshot))
+    assert [item.basics.unitid for item in catalog.resolve_candidates("MIT")] == [1]
+
+
+def test_catalog_resolver_expands_specific_common_campus_aliases_safely() -> None:
+    records = {
+        unitid: SchoolRecord(
+            basics=SchoolBasics(unitid=unitid, name=name, state=state),
+            aliases=(),
+            search_name=normalize_school_name(name),
+            is_main_campus=False,
+            basic_profile={},
+            profile_version="v1",
+            profile_snapshot_date=datetime.now(UTC).date(),
+            profile_sha256=f"{unitid % 100:02d}" * 32,
+        )
+        for unitid, name, state in (
+            (166513, "University of Massachusetts-Lowell", "MA"),
+            (214591, "Pennsylvania State University-Penn State Erie-Behrend College", "PA"),
+        )
+    }
+    names = {
+        normalize_school_name(record.basics.name): (unitid,)
+        for unitid, record in records.items()
+    }
+    catalog = Catalog(
+        cast(Any, object()),
+        cast(
+            Any,
+            SimpleNamespace(
+                refreshed_at=datetime.now(UTC), schools=records, name_index=names
+            ),
+        ),
+    )
+    assert [item.basics.unitid for item in catalog.resolve_candidates("UMass Lowell")] == [166513]
+    assert [item.basics.unitid for item in catalog.resolve_candidates("Penn State Behrend")] == [
+        214591
+    ]
+    assert catalog.resolve_candidates("Harvard-Westlake") == ()
+    assert catalog.resolve_candidates("definitely-not-a-real-school-xyz") == ()
+
+
+def test_catalog_resolver_does_not_let_a_decoy_outscore_the_abbreviated_school() -> None:
+    """"Vandy" -> Vanderbilt University must not lose to an unrelated school that
+    happens to share more raw characters with the query (e.g. "University of
+    Indianapolis") once the untargeted whole-catalog fuzzy fallback runs."""
+    records = {
+        1: SchoolRecord(
+            basics=SchoolBasics(unitid=1, name="Vanderbilt University", state="TN"),
+            aliases=(),
+            search_name="vanderbilt university",
+            is_main_campus=True,
+            basic_profile={},
+            profile_version="v1",
+            profile_snapshot_date=datetime.now(UTC).date(),
+            profile_sha256="00" * 32,
+        ),
+        2: SchoolRecord(
+            basics=SchoolBasics(unitid=2, name="University of Indianapolis", state="IN"),
+            aliases=(),
+            search_name="university of indianapolis",
+            is_main_campus=True,
+            basic_profile={},
+            profile_version="v1",
+            profile_snapshot_date=datetime.now(UTC).date(),
+            profile_sha256="11" * 32,
+        ),
+    }
+    names: dict[str, tuple[int, ...]] = {}
+    for unitid, record in records.items():
+        for name in (record.basics.name, record.search_name, *record.aliases):
+            normalized = normalize_school_name(name)
+            names[normalized] = (*names.get(normalized, ()), unitid)
+    snapshot = SimpleNamespace(refreshed_at=datetime.now(UTC), schools=records, name_index=names)
+    catalog = Catalog(cast(Any, object()), cast(Any, snapshot))
+    assert [item.basics.unitid for item in catalog.resolve_candidates("Vandy")] == [1]
 
 
 async def test_catalog_refresh_is_atomic_and_failed_refresh_keeps_truthful_snapshot(

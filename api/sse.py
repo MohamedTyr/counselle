@@ -49,10 +49,10 @@ def encode_sse(event: Event, seq: int) -> ServerSentEvent:
     Returns:
         A :class:`sse_starlette.sse.ServerSentEvent` ready to be yielded from
         an ``EventSourceResponse`` generator.  The ``data`` field is the compact
-        JSON serialisation of ``event.model_dump()``.  The ``event`` field is the
+        JSON serialisation of ``event.model_dump(mode="json")``.  The ``event`` field is the
         protocol event type (``"meta"``, ``"delta"``, etc.).
     """
-    payload = json.dumps(event.model_dump(), separators=(",", ":"))
+    payload = json.dumps(event.model_dump(mode="json"), separators=(",", ":"))
     return ServerSentEvent(
         data=payload,
         event=event.type,

@@ -83,14 +83,14 @@ Use the stored receipt rather than inventing a source label. Every profile answe
 carry the profile snapshot/version caveat; a profile value must never be presented as a
 live or current-cycle metric.
 
-## 3. Manifest 5.0.1: the dynamic catalog
+## 3. Manifest 5.0.2: the dynamic catalog
 
 The row with `is_current = true` is the only current catalog. The coordinated
-publication is manifest `5.0.1`, extraction contract `8`, extractor identifier
+publication is manifest `5.0.2`, extraction contract `8`, extractor identifier
 `gemini-routed-extraction-v8`. Counselle validates the current pointer and contract;
 it does not hardcode the domain menu, metric counts, labels, or ordering.
-The immutable `5.0.0` snapshot remains in history. `5.0.1` is the corrected patch
-successor; consumers must never reinterpret `5.0.0` packets as having `5.0.1`
+The immutable `5.0.0` and `5.0.1` snapshots remain in history. `5.0.2` is the current
+patch successor; consumers must never reinterpret older packets as having `5.0.2`
 semantics.
 
 Domain and metric definitions come from `content`; domain semantic hashes come from
@@ -110,7 +110,7 @@ minted from the packet's domain plus a manifest metric; do not guess one from pr
 ### Compiled contexts
 
 Some metrics are binders: printed terms, years, snapshot dates, cohorts, or reporting
-windows that date surrounding values. Manifest 5.0.1 compiles each authored
+windows that date surrounding values. Manifest 5.0.2 compiles each authored
 `context_bindings` relationship onto selected target metrics as:
 
 ```json
@@ -245,9 +245,9 @@ and covered/total denominator, not a fake value citation; named final values are
 re-fetched through typed reads for evidence.
 
 Compiled contexts supply value-specific vintage. Resolve each context ref through the
-same typed metric map and attach the binder's reported display/evidence. Missing or
-unavailable binders create a vintage caveat; they do not license guessing a term or
-year from the surrounding PDF.
+same typed metric map and attach the binder's reported display/evidence. Omit a context
+when any binder is missing or unavailable; never guess a term or year from the
+surrounding PDF.
 
 The code-owned caveat catalog supplies canonical text for these kinds:
 
@@ -258,7 +258,6 @@ The code-owned caveat catalog supplies canonical text for these kinds:
 - cross-school edition mismatch;
 - unavailable/not reported/not applicable/suppressed;
 - not in this template version;
-- missing or unresolved context/vintage;
 - covered-population denominator for cross-school queries.
 
 Prompts and skills may name caveat kinds and explain when to voice them, but must not
@@ -275,10 +274,10 @@ and remains restricted to the five views.
 The guarded query path accepts one `SELECT` or `WITH`, positional `$1..$n` parameters,
 and applies the configured statement timeout and row cap. Select only needed columns.
 Never select `pdf_content` or whole packet JSON through general query results. PDF
-bytes are served only by the dedicated, authorization-checked document/page endpoint;
-consumers enforce response/download limits before materializing bytes and verify the
-immutable `pdf_sha256` anchor. `bytea` hashes are binary 32-byte SHA-256 values, not
-preformatted hex strings.
+bytes are not currently served by Counselle: the authorization-checked document/page
+endpoint is a deferred fast follow. Until it exists, clients use stored evidence
+metadata and cannot retrieve PDFs through this service. `bytea` hashes are binary
+32-byte SHA-256 values, not preformatted hex strings.
 
 ### Configured safety limits
 

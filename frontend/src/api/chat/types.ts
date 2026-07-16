@@ -4,6 +4,8 @@ export type Tier = "official" | "community";
 
 export const SOURCE_NAMES = ["cds", "profile", "web", "edu", "reddit"] as const;
 export type SourceName = (typeof SOURCE_NAMES)[number];
+export type SourceCurrentness = "current" | "historical" | "undated";
+export type SourcePeriodBasis = "page_content" | "metadata";
 
 export type Caveat = { kind: string; text: string };
 export type JsonValue =
@@ -38,6 +40,10 @@ export type Citation = {
   manifest_version?: string | null;
   school_unitid?: number | null;
   profile_sha256?: string | null;
+  source_period?: string | null;
+  source_period_basis?: SourcePeriodBasis | null;
+  source_period_evidence?: string | null;
+  source_currentness?: SourceCurrentness | null;
 };
 
 type EnvelopeBase = {

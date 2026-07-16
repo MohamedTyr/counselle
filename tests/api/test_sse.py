@@ -10,12 +10,25 @@ Protocol contract (Slice C, Phase 5 test 8):
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 from sse_starlette import ServerSentEvent
 
 from api.sse import SSE_HEADERS, encode_sse
-from domain.events import UsageData, ev_delta, ev_done, ev_error, ev_meta, ev_usage
+from domain.envelope import Citation, EvidenceItem
+from domain.events import (
+    SourceEntry,
+    UsageData,
+    ev_delta,
+    ev_done,
+    ev_error,
+    ev_meta,
+    ev_sources,
+    ev_usage,
+    ev_viz,
+)
+from domain.specs import AvailableResolvedCell, SchoolRef, TabularRenderSpec, VizRow
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -114,6 +127,79 @@ class TestEncodeSSEAttributes:
         assert sse.event == "error"
         parsed = json.loads(_sse_data(sse))
         assert parsed["data"]["trace_id"] == "trace-err"
+
+    def test_citation_datetimes_stream_through_sources_viz_and_terminal_events(self) -> None:
+        retrieved_at = datetime(2026, 7, 16, 10, 30, tzinfo=UTC)
+        citation = Citation(
+            source="cds",
+            tier="official",
+            vintage="2025–26 CDS",
+            document_sha256="a" * 64,
+            source_kind="upload",
+            retrieved_at=retrieved_at,
+            academic_year=2025,
+            manifest_version="5.0.2",
+            school_unitid=123,
+        )
+        evidence = EvidenceItem(
+            eid="admissions.rate",
+            value_display="10%",
+            label="Acceptance rate",
+            page=1,
+            excerpt="Acceptance rate 10%",
+        )
+        source = SourceEntry(
+            index=1,
+            citation=citation,
+            label="Example University CDS",
+            evidence=(evidence,),
+        )
+        viz = TabularRenderSpec(
+            type="stat_block",
+            title="Acceptance rate",
+            columns=(SchoolRef(unitid=123, name="Example University"),),
+            rows=(
+                VizRow(
+                    label="Acceptance rate",
+                    cells=(
+                        AvailableResolvedCell(
+                            field="admissions.rate",
+                            label="Acceptance rate",
+                            display="10%",
+                            raw=0.1,
+                            unit="percent",
+                            citation=citation,
+                            evidence=evidence,
+                            marker="[1]",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        events = (
+            ev_sources([source]),
+            ev_viz(viz),
+            ev_usage(UsageData(input_tokens=1, output_tokens=2, tool_calls=0)),
+            ev_done("complete"),
+        )
+        payloads = [
+            json.loads(_sse_data(encode_sse(event, seq)))
+            for seq, event in enumerate(events)
+        ]
+
+        assert payloads[0]["data"]["sources"][0]["citation"]["retrieved_at"] == (
+            "2026-07-16T10:30:00Z"
+        )
+        assert payloads[1]["data"]["rows"][0]["cells"][0]["citation"][
+            "retrieved_at"
+        ] == "2026-07-16T10:30:00Z"
+        assert [payload["type"] for payload in payloads] == [
+            "sources",
+            "viz",
+            "usage",
+            "done",
+        ]
 
 
 # ---------------------------------------------------------------------------

@@ -210,7 +210,7 @@ export function useQueuedUpdateInList<
       });
       activeByIdRef.current.set(
         id,
-        active.catch(() => undefined),
+        active.then(() => undefined, () => undefined),
       );
       return request;
     }

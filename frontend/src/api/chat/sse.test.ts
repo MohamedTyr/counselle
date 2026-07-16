@@ -1,5 +1,6 @@
 import { parseSseStream } from "@/api/chat/sse";
 import type { SseFrame } from "@/api/chat/types";
+import { isCurrentCitation } from "@/api/chat/validation";
 
 function streamOf(...frames: string[]) {
   return new ReadableStream<Uint8Array>({
@@ -40,6 +41,20 @@ function cdsCitation() {
     manifest_version: "5.0.1",
     school_unitid: 198419,
     profile_sha256: null,
+  };
+}
+
+function webCitation() {
+  return {
+    v: 2,
+    source: "web",
+    tier: "official",
+    vintage: "Retrieved Jul 16, 2026 (live web)",
+    url: "https://example.edu/admissions",
+    source_period: "2025-2026",
+    source_period_basis: "page_content",
+    source_period_evidence: "2025-2026 undergraduate admissions",
+    source_currentness: "current",
   };
 }
 
@@ -94,6 +109,20 @@ function currentViz() {
 }
 
 describe("parseSseStream", () => {
+  it("validates web source-period evidence as one coherent claim", () => {
+    expect(isCurrentCitation(webCitation())).toBe(true);
+    expect(isCurrentCitation({
+      ...webCitation(),
+      source_period: null,
+      source_period_basis: null,
+      source_period_evidence: null,
+      source_currentness: "undated",
+    })).toBe(true);
+    expect(isCurrentCitation({ ...webCitation(), source_period_evidence: null })).toBe(false);
+    expect(isCurrentCitation({ ...webCitation(), source_currentness: "undated" })).toBe(false);
+    expect(isCurrentCitation({ ...cdsCitation(), source_currentness: "undated" })).toBe(false);
+  });
+
   it("exposes frame id, event field, and parsed protocol event data", async () => {
     const frames = await collect(
       streamOf(frame("delta", { text: "hi" }, "12")),
@@ -151,6 +180,17 @@ describe("parseSseStream", () => {
         label: "Reading",
         tier: null,
         detail: [],
+      },
+    ],
+    [
+      "step",
+      {
+        step_id: "s1",
+        status: "end",
+        kind: "render_viz",
+        label: "Built a comparison",
+        tier: null,
+        detail: { sources: "[1]" },
       },
     ],
     [

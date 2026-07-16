@@ -16,15 +16,17 @@ class _FakePool:
 async def test_build_runtime_creates_workspace_bus_without_seed_asset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    created_pools: list[str | None] = []
+    created_pools: list[tuple[str | None, object | None]] = []
 
-    async def create_pool(*, dsn: str | None = None) -> _FakePool:
-        created_pools.append(dsn)
+    async def create_pool(
+        *, dsn: str | None = None, settings: object | None = None
+    ) -> _FakePool:
+        created_pools.append((dsn, settings))
         return _FakePool()
 
     class Catalog:
         @classmethod
-        async def load(cls, pool: _FakePool) -> str:
+        async def load(cls, pool: _FakePool, *, settings: object) -> str:
             return "catalog"
 
     async def build_checkpointer(settings: object) -> str:
@@ -37,11 +39,10 @@ async def test_build_runtime_creates_workspace_bus_without_seed_asset(
     monkeypatch.setattr(deps_mod, "make_tool_deps", lambda settings, catalog: "tool-deps")
     monkeypatch.setattr(deps_mod, "build_mcp_toolset", lambda settings: "toolset")
 
-    runtime = await deps_mod.build_runtime(
-        SimpleNamespace(db_app_dsn="postgresql://app", workspace_event_queue_size=7)
-    )
+    settings = SimpleNamespace(db_app_dsn="postgresql://app", workspace_event_queue_size=7)
+    runtime = await deps_mod.build_runtime(settings)
 
-    assert created_pools == [None, "postgresql://app"]
+    assert created_pools == [(None, settings), ("postgresql://app", settings)]
     assert isinstance(runtime.deps.workspace_events, WorkspaceEventBus)
     assert runtime.deps.workspace_events.queue_size == 7
     assert not hasattr(runtime.deps, "workspace_seeding_template")

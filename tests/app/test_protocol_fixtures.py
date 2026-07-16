@@ -45,9 +45,16 @@ import app.viz
 from app.state import TemporalContext
 from app.transcript import extract_transcript
 from app.turns import TurnRegistry
-from domain.envelope import Caveat, Citation, CitationEnvelope, EvidenceItem
+from domain.envelope import Caveat, Citation, EvidenceItem
 from domain.events import Event, StepData, StepDetail, ToolUi, ev_step
-from domain.specs import RenderSpec, SchoolRef, SourceConfig, VizRow
+from domain.specs import (
+    AvailableResolvedCell,
+    RenderSpec,
+    SchoolRef,
+    SourceConfig,
+    UnavailableResolvedCell,
+    VizRow,
+)
 from tests.app.test_run_turn import _TEMPORAL, Rig, _fn_model
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "protocol"
@@ -150,20 +157,19 @@ _PROFILE_CITATION = Citation(
 _CANNED_SPEC = RenderSpec(
     type="comparison_table",
     title="Duke University comparison",
-    columns=[
+    columns=(
         SchoolRef(unitid=198419, name="Duke University", domain="duke.edu"),
         SchoolRef(unitid=None, name="Example College", domain="example.edu"),
-    ],
-    rows=[
+    ),
+    rows=(
         VizRow(
             label="Acceptance rate",
-            cells=[
-                CitationEnvelope(
+            cells=(
+                AvailableResolvedCell(
                     field="admissions.acceptance_rate",
                     label="Acceptance rate",
                     display="6.8%",
                     raw=0.068,
-                    available=True,
                     unit="percent",
                     citation=_CDS_CITATION,
                     evidence=_EVIDENCE,
@@ -173,12 +179,11 @@ _CANNED_SPEC = RenderSpec(
                     ),
                     marker="[2]",
                 ),
-                CitationEnvelope(
+                AvailableResolvedCell(
                     field=None,
                     label="Acceptance rate",
                     display="7.1%",
                     raw=0.071,
-                    available=True,
                     unit="percent",
                     citation=Citation(
                         source="web",
@@ -188,29 +193,26 @@ _CANNED_SPEC = RenderSpec(
                     ),
                     marker="[1]",
                 ),
-            ],
+            ),
         ),
         VizRow(
             label="Campus setting",
-            cells=[
-                CitationEnvelope(
+            cells=(
+                AvailableResolvedCell(
                     field="location.locale",
                     label="Campus setting",
                     display="Large city",
                     raw="large_city",
-                    available=True,
                     citation=_PROFILE_CITATION,
                     marker="[3]",
                 ),
-                CitationEnvelope(
+                UnavailableResolvedCell(
                     field=None,
                     label="Campus setting",
-                    display="not available",
-                    available=False,
                 ),
-            ],
+            ),
         ),
-    ],
+    ),
 )
 
 

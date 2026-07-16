@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
+from config.settings import get_settings
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
 
@@ -35,8 +36,9 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def catalog() -> AsyncIterator[Catalog]:
     """A live read-only pool with the fields catalog loaded — one pool per module."""
-    pool = await create_pool()
+    settings = get_settings()
+    pool = await create_pool(settings=settings)
     try:
-        yield await Catalog.load(pool)
+        yield await Catalog.load(pool, settings=settings)
     finally:
         await pool.close()

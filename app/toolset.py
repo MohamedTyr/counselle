@@ -39,7 +39,7 @@ from adapters import tavily_tools
 from app.sources import SourceRegistry
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_specs import build_tool_specs, gateable_tool_names
-from config.settings import load_yaml_asset
+from config.settings import load_yaml_asset, serialize_db_child_environment
 from domain.events import StepDetail
 from domain.specs import SourceConfig
 
@@ -110,31 +110,6 @@ async def annotate_mcp_result(
 # tool starts timing out legitimately in production.
 _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS: float = 60.0
 
-# Explicit allowlist of env vars forwarded to the counselle-db MCP child.
-# NEVER forward the Tavily key — the MCP child is read-only DB-only code
-# and should not have access to external search credentials.
-_MCP_ENV_ALLOWLIST: frozenset[str] = frozenset(
-    {
-        # Database connection strings (required)
-        "COUNSELLE_DB_RO_DSN",
-        # DB connection pool / statement-timeout tuning (optional)
-        "COUNSELLE_DB_POOL_MIN",
-        "COUNSELLE_DB_POOL_MAX",
-        "COUNSELLE_DB_STATEMENT_TIMEOUT_MS",
-        "COUNSELLE_DATA_CATALOG_REFRESH_SECONDS",
-        "COUNSELLE_SUPPORTED_PACKET_EXTRACTOR_VERSIONS",
-        "COUNSELLE_DB_ROW_CAP",
-        "COUNSELLE_QUERY_DATABASE_MAX_BYTES",
-        # Log level for the child process
-        "COUNSELLE_LOG_LEVEL",
-        "COUNSELLE_SETTINGS_NO_ENV_FILE",
-        # The child is spawned via `uv run`; in the container HOME is
-        # non-writable (/nonexistent), so uv needs its cache dir passed through.
-        "UV_CACHE_DIR",
-    }
-)
-
-
 def build_mcp_toolset(settings: Any) -> MCPToolset:
     """The counselle-db MCP server as a stdio child (four DB tools).
 
@@ -145,12 +120,9 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
     ``read_timeout`` is bounded by settings so a dead
     child process does not hang the caller forever.
     """
-    env: dict[str, str] = {
-        key: value for key, value in os.environ.items() if key in _MCP_ENV_ALLOWLIST
-    }
-    # Settings-driven DSN overrides always win (may differ from raw env).
-    env["COUNSELLE_DB_RO_DSN"] = settings.db_ro_dsn
-    env["COUNSELLE_SETTINGS_NO_ENV_FILE"] = "1"
+    env = serialize_db_child_environment(
+        settings, uv_cache_dir=os.environ.get("UV_CACHE_DIR")
+    )
     read_timeout = settings.agent_mcp_read_timeout_s
     return MCPToolset(
         StdioTransport(

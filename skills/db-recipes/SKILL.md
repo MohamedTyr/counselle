@@ -5,15 +5,11 @@ description: Parameterized SQL patterns over the five schema-qualified cds_libra
 
 # DB Recipes
 
-Source: `specs/db-rewire/design.md` §§2, 5, 10; `docs/DATABASE_GUIDE.md` §8.
-
 ## Typed tools first — this is the rare path
 
 `resolve_school`, `get_school_profile`, and `get_domain` cover almost every
-question. Reach for `query_database` only for cross-school candidate
-selection, ad-hoc aggregates/distributions, or coverage detail beyond what
-`resolve_school`'s coverage block already gives you per school. If a typed
-tool can answer it, use the typed tool — it's cheaper and it's already cited.
+question. Use `query_database` only for cross-school selection, aggregates, or
+coverage detail a typed tool cannot answer; typed reads are already cited.
 
 `query_database` accepts exactly one parameterized `SELECT`/`WITH`,
 positional `$1..$n` only, under a row cap and statement timeout, restricted
@@ -25,8 +21,7 @@ to exactly five schema-qualified views:
 - `cds_library.cds_document_sources`
 - `cds_library.cds_manifest_snapshots`
 
-Never write a bare table name — always schema-qualify. No other relation is
-reachable through this tool.
+Never write a bare table name; no other relation is reachable through this tool.
 
 Profile groups come dynamically from `school_profiles.basic_profile`.
 Manifest domains/metrics come dynamically from the current
@@ -34,6 +29,22 @@ Manifest domains/metrics come dynamically from the current
 `active_cds_documents`; per-domain status comes from
 `active_cds_domain_packets`. Never memorize those inventories or recreate
 selected-edition logic in SQL when a typed tool already exposes it.
+
+There is no `manifest.metrics` relation or column. Check one exact candidate ref in the current snapshot's `content`, carrying the denominator with it:
+
+```sql
+SELECT m.version,
+       jsonb_path_exists(m.content,
+         '$.domains[*].metrics[*] ? (@.id == $ref)',
+         jsonb_build_object('ref', to_jsonb($1::text))) AS metric_ref_present,
+       (SELECT count(*) FROM cds_library.school_profiles) AS total
+FROM cds_library.cds_manifest_snapshots m
+WHERE m.is_current
+```
+
+Bind `$1` to the exact qualified ref, with no wildcard. The JSONPath checks only metric
+`id` members, so descriptions cannot create a false match. When false, say `0 out of
+total`; do not invent a packet path, ranking, or school list.
 
 ## Coverage denominator recipe
 
@@ -79,7 +90,7 @@ WITH selected AS (
   JOIN selected s ON s.school_id = d.school_id AND s.document_id = d.document_id
   WHERE d.domain_id = $1
 ), verified AS (
-  SELECT school_id, metric -> 'value' AS value
+  SELECT school_id, (metric ->> 'value')::numeric AS value
   FROM candidates
   WHERE metric ->> 'extraction_status' = 'verified'
     AND metric ->> 'availability_status' = 'reported'
@@ -95,9 +106,9 @@ LIMIT $3
 ```
 
 Packet-v8 `metrics` keys are already qualified refs (`domain_id.metric_id`).
-`$1` is the live domain id, `$2` the exact qualified ref from the live
-manifest/`get_domain`, and `$3` the result limit. Never strip the domain
-prefix or reconstruct the ref in SQL. A result built this way is a
+`$1` is the domain, `$2` the exact qualified ref, and `$3` the limit. Never
+strip or reconstruct the ref. After the JSON-number guard, cast
+`metric ->> 'value'` (text), never `metric -> 'value'` (jsonb). This produces a
 **candidate list**, not a citation: re-fetch each finalist's real value
 through `get_domain` for a typed reading, display string, and page citation
 before telling the student a number. Never cite the raw SQL row directly.

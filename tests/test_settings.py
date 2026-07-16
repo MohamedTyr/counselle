@@ -8,6 +8,7 @@ import pytest
 from pydantic_settings import SettingsConfigDict
 
 from config.settings import (
+    AssetSettings,
     DbChildSettings,
     Settings,
     get_settings,
@@ -61,10 +62,21 @@ def _clear_caches() -> Iterator[None]:
 
 @pytest.fixture
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Strip every COUNSELLE_-prefixed variable from the environment."""
+    """Strip every settings input that could make an isolation test ambient."""
     for key in list(os.environ):
         if key.startswith("COUNSELLE_"):
             monkeypatch.delenv(key)
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+
+
+def test_asset_settings_do_not_require_application_secrets(
+    clean_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("COUNSELLE_SETTINGS_NO_ENV_FILE", "1")
+    assets = AssetSettings()
+    assert assets.assets_dir.name == "assets"
+    assert not hasattr(assets, "db_app_dsn")
+    assert not hasattr(assets, "jwt_secret")
 
 
 @pytest.fixture

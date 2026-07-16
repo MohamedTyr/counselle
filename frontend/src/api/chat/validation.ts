@@ -51,9 +51,26 @@ function serializedDatetime(value: unknown): boolean {
 
 const sourceNames = new Set<SourceName>(SOURCE_NAMES);
 const tiers = new Set<Tier>(["official", "community"]);
+const sourceCurrentness = new Set(["current", "historical", "undated"]);
+const sourcePeriodBases = new Set(["page_content", "metadata"]);
+
+function hasSourcePeriodEvidence(value: JsonRecord): boolean {
+  const currentness = value.source_currentness;
+  const period = value.source_period;
+  const basis = value.source_period_basis;
+  const evidence = value.source_period_evidence;
+  if (currentness === null || currentness === undefined) {
+    return [period, basis, evidence].every((item) => item === null || item === undefined);
+  }
+  if (typeof currentness !== "string" || !sourceCurrentness.has(currentness)) return false;
+  if (currentness === "undated") {
+    return [period, basis, evidence].every((item) => item === null || item === undefined);
+  }
+  return nonEmpty(period) && typeof basis === "string" && sourcePeriodBases.has(basis) && nonEmpty(evidence);
+}
 
 export function isCurrentCitation(value: unknown): value is Citation {
-  if (!record(value) || !only(value, ["v", "source", "tier", "vintage", "url", "document_sha256", "source_kind", "retrieved_at", "academic_year", "manifest_version", "school_unitid", "profile_sha256"])) return false;
+  if (!record(value) || !only(value, ["v", "source", "tier", "vintage", "url", "document_sha256", "source_kind", "retrieved_at", "academic_year", "manifest_version", "school_unitid", "profile_sha256", "source_period", "source_period_basis", "source_period_evidence", "source_currentness"])) return false;
   if (value.v !== 2 || typeof value.source !== "string" || !sourceNames.has(value.source as SourceName) ||
       typeof value.tier !== "string" || !tiers.has(value.tier as Tier) || !nonEmpty(value.vintage) ||
       (!("url" in value) || nullableString(value.url)) === false ||
@@ -61,9 +78,10 @@ export function isCurrentCitation(value: unknown): value is Citation {
       (!("academic_year" in value) || value.academic_year === null || positiveInteger(value.academic_year)) === false ||
       (!("school_unitid" in value) || value.school_unitid === null || positiveInteger(value.school_unitid)) === false) return false;
   const dbKeys = ["document_sha256", "source_kind", "retrieved_at", "academic_year", "manifest_version", "school_unitid", "profile_sha256"];
-  if (value.source === "cds") return value.tier === "official" && typeof value.document_sha256 === "string" && /^[0-9a-f]{64}$/.test(value.document_sha256) && nonEmpty(value.source_kind) && serializedDatetime(value.retrieved_at) && positiveInteger(value.academic_year) && nonEmpty(value.manifest_version) && positiveInteger(value.school_unitid) && absentOrNull(value, "profile_sha256");
-  if (value.source === "profile") return value.tier === "official" && positiveInteger(value.school_unitid) && typeof value.profile_sha256 === "string" && /^[0-9a-f]{64}$/.test(value.profile_sha256) && dbKeys.slice(0, 5).every((key) => absentOrNull(value, key));
-  return value.tier === (value.source === "reddit" ? "community" : "official") && nonEmpty(value.url) && dbKeys.every((key) => absentOrNull(value, key));
+  const periodKeys = ["source_period", "source_period_basis", "source_period_evidence", "source_currentness"];
+  if (value.source === "cds") return value.tier === "official" && typeof value.document_sha256 === "string" && /^[0-9a-f]{64}$/.test(value.document_sha256) && nonEmpty(value.source_kind) && serializedDatetime(value.retrieved_at) && positiveInteger(value.academic_year) && nonEmpty(value.manifest_version) && positiveInteger(value.school_unitid) && absentOrNull(value, "profile_sha256") && periodKeys.every((key) => absentOrNull(value, key));
+  if (value.source === "profile") return value.tier === "official" && positiveInteger(value.school_unitid) && typeof value.profile_sha256 === "string" && /^[0-9a-f]{64}$/.test(value.profile_sha256) && dbKeys.slice(0, 5).every((key) => absentOrNull(value, key)) && periodKeys.every((key) => absentOrNull(value, key));
+  return value.tier === (value.source === "reddit" ? "community" : "official") && nonEmpty(value.url) && dbKeys.every((key) => absentOrNull(value, key)) && hasSourcePeriodEvidence(value);
 }
 
 export function isCurrentEvidence(value: unknown): value is EvidenceItem {

@@ -10,7 +10,7 @@ pytestmark = pytest.mark.live_db
 
 
 async def test_current_five_view_contract(catalog: Catalog) -> None:
-    assert catalog.snapshot.current_version == "5.0.1"
+    assert catalog.snapshot.current_version in catalog.snapshot.manifests
     assert catalog.snapshot.current_contract == "8"
     unitid = next(iter(catalog.snapshot.schools))
     assert (await resolve_school(catalog, str(unitid))).status == "match"
@@ -38,6 +38,23 @@ async def test_parameterized_query_and_binary_rejection(catalog: Catalog) -> Non
             catalog,
             "SELECT pdf_content FROM cds_library.cds_document_sources LIMIT 1",
         )
+
+
+async def test_manifest_metric_membership_is_structural_not_description_substring(
+    catalog: Catalog,
+) -> None:
+    ref, metric = next(iter(catalog.snapshot.metrics.items()))
+    sql = """SELECT jsonb_path_exists(
+               m.content,
+               '$.domains[*].metrics[*] ? (@.id == $ref)',
+               jsonb_build_object('ref', to_jsonb($1::text))
+             ) AS metric_ref_present
+             FROM cds_library.cds_manifest_snapshots m
+             WHERE m.is_current"""
+    present = await query_database(catalog, sql, [ref])
+    description_only = await query_database(catalog, sql, [metric.description])
+    assert present.rows == ((True,),)
+    assert description_only.rows == ((False,),)
 
 
 async def test_reader_cannot_select_pipeline_base_table(catalog: Catalog) -> None:

@@ -50,8 +50,11 @@ from app.workspace.service_applications import (
 _TEST_PLAN_VALUES = ("submit", "withhold", "undecided")
 
 #: Optional-string fields that accept the ``"clear"`` sentinel in update_school.
-_CLEARABLE_DATES = (("deadline", "deadline"), ("aid_deadline", "aid_deadline"),
-                    ("scholarship_deadline", "scholarship_deadline"))
+_CLEARABLE_DATES = (
+    ("deadline", "deadline"),
+    ("aid_deadline", "aid_deadline"),
+    ("scholarship_deadline", "scholarship_deadline"),
+)
 
 
 class SchoolDraft(BaseModel):
@@ -81,8 +84,8 @@ def make_add_schools_tool(ctx: ToolCtx) -> Tool[Any]:
 
         Args:
             schools: The schools to add, 1-20 per call. Each needs a unitid (from
-                search_schools), cycle_year (fall enrollment year), and may set list_type, round, and a deadline
-                (YYYY-MM-DD).
+                search_schools), cycle_year (fall enrollment year), and may set
+                list_type, round, and a deadline (YYYY-MM-DD).
         """
         payload = await _add_schools_impl(ctx, schools)
         return process_tool_result(payload, ctx.tool_overflow, tool_name="add_schools")  # type: ignore[no-any-return]
@@ -129,11 +132,13 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
             skipped.append({"school": name, "reason": str(exc)})
             continue
         app = result.application
-        added.append({
-            "id": str(app.id),
-            "school": app.school_name,
-            "cycle_year": app.cycle_year,
-        })
+        added.append(
+            {
+                "id": str(app.id),
+                "school": app.school_name,
+                "cycle_year": app.cycle_year,
+            }
+        )
 
     if not added:
         return error(
@@ -267,7 +272,7 @@ def _build_application_patch(
 
 def _change_summary(name: str, patch: dict[str, Any]) -> str:
     parts = [f"{key} → {'cleared' if value is None else value}" for key, value in patch.items()]
-    return f'Updated {name} — ' + ", ".join(parts) + "."
+    return f"Updated {name} — " + ", ".join(parts) + "."
 
 
 async def _update_school_impl(ctx: ToolCtx, application_id: str, **fields: Any) -> dict[str, Any]:

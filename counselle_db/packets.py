@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import math
-from decimal import Decimal
 from typing import Any, Literal
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
+from counselle_db.formatting import format_decimal
 from counselle_db.models import DomainRow, ServiceError
 
 logger = structlog.get_logger(__name__)
@@ -374,7 +374,7 @@ def _display(metric: ParsedMetric, definition: ManifestMetric) -> str:
     ):
         if not math.isfinite(float(value)):
             raise ValueError("non-finite")
-        return format(Decimal(str(value)), "f").rstrip("0").rstrip(".") or "0"
+        return format_decimal(value)
     if definition.type in {"string", "enum"} and isinstance(value, str):
         return value.strip()
     raise ValueError("type mismatch")

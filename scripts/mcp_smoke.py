@@ -11,29 +11,9 @@ from typing import Any
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from config.settings import DbChildSettings
+from config.settings import DbChildSettings, serialize_db_child_environment
 
 EXPECTED_TOOLS = {"resolve_school", "get_school_profile", "get_domain", "query_database"}
-
-
-def child_environment(settings: DbChildSettings) -> dict[str, str]:
-    """Serialize only the DB child's typed settings into its process environment."""
-    values = settings.model_dump(mode="json")
-    env = {
-        "COUNSELLE_DB_RO_DSN": settings.db_ro_dsn,
-        "COUNSELLE_SETTINGS_NO_ENV_FILE": "1",
-    }
-    for field, value in values.items():
-        if field == "db_ro_dsn":
-            continue
-        key = f"COUNSELLE_{field.upper()}"
-        if isinstance(value, list):
-            env[key] = ",".join(value)
-        else:
-            env[key] = str(value)
-    if "UV_CACHE_DIR" in os.environ:
-        env["UV_CACHE_DIR"] = os.environ["UV_CACHE_DIR"]
-    return env
 
 
 def structured(result: Any) -> dict[str, Any]:
@@ -47,7 +27,9 @@ async def main() -> None:
     server = StdioServerParameters(
         command=sys.executable,
         args=["-m", "counselle_db.server"],
-        env=child_environment(settings),
+        env=serialize_db_child_environment(
+            settings, uv_cache_dir=os.environ.get("UV_CACHE_DIR")
+        ),
     )
     async with stdio_client(server) as (read, write), ClientSession(read, write) as session:
         await session.initialize()

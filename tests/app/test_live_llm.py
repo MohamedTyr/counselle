@@ -149,27 +149,22 @@ async def test_1_duke_overview_cites_or_renders(rt: Runtime) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. NYU clarify → resume
+# 2. NYU underspecification → qualified complete answer
 # ---------------------------------------------------------------------------
 
 
-async def test_2_nyu_clarify_then_resume(rt: Runtime) -> None:
+async def test_2_nyu_underspecified_completes_with_sources(rt: Runtime) -> None:
     session_id = str(uuid4())
     try:
-        events_1 = await _turn(rt, session_id, "Is NYU good?", label="nyu-q")
+        events = await _turn(rt, session_id, "Is NYU good?", label="nyu-qualified")
 
-        clarifies = [event for event in events_1 if event.type == "clarify"]
-        assert len(clarifies) == 1, _prose(events_1)
-        assert 2 <= len(clarifies[0].data["options"]) <= 4
-        assert _done_status(events_1) == "awaiting_input"
-
-        events_2 = await _turn(rt, session_id, "CS and affordability", label="nyu-resume")
-
-        _assert_clean_complete(events_2)
-        # ≥1 envelope-cited answer: at least one prose marker resolves in the registry.
-        indices = {entry["index"] for entry in _sources(events_2)}
+        _assert_clean_complete(events)
+        assert "clarify" not in _types(events)
+        # Agent V1 states a reasonable scope assumption and answers in one turn;
+        # structurally, the answer must still ground at least one claim.
+        indices = {entry["index"] for entry in _sources(events)}
         assert indices
-        assert set(_markers_in_prose(events_2)) & indices
+        assert set(_markers_in_prose(events)) & indices
     finally:
         await _cleanup(rt, session_id)
 
@@ -192,7 +187,22 @@ async def test_3_compare_duke_harvard_renders_table(rt: Runtime) -> None:
         _assert_clean_complete(events)
         tables = [viz for viz in _vizzes(events) if viz["type"] == "comparison_table"]
         assert tables, f"no comparison_table viz; got {[v['type'] for v in _vizzes(events)]}"
-        assert any(len(table["schools"]) == 2 for table in tables)
+        expected_unitids = {166027, 198419}
+        comparison = next(
+            (
+                table
+                for table in tables
+                if {column["unitid"] for column in table["columns"]} == expected_unitids
+            ),
+            None,
+        )
+        assert comparison is not None, [table["columns"] for table in tables]
+        assert comparison["rows"]
+        assert all(
+            len(row["cells"]) == len(comparison["columns"])
+            and any(cell["available"] for cell in row["cells"])
+            for row in comparison["rows"]
+        )
     finally:
         await _cleanup(rt, session_id)
 

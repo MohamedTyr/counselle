@@ -20,6 +20,28 @@ def test_source_conditional_citation_identities() -> None:
         Citation(source="web", tier="community", vintage="now", url="https://example.com")
 
 
+def test_web_currentness_requires_page_or_metadata_period_evidence() -> None:
+    current = Citation(
+        source="edu",
+        tier="official",
+        vintage="Retrieved Jun 10, 2026 (school's official site)",
+        url="https://registrar.mit.edu/stats-reports/enrollment-statistics-year/all",
+        source_period="2025-2026",
+        source_period_basis="page_content",
+        source_period_evidence="2025-2026 | Undergraduate 4,561",
+        source_currentness="current",
+    )
+    assert current.source_period == "2025-2026"
+    with pytest.raises(ValidationError, match="requires source-period evidence"):
+        Citation(
+            source="edu",
+            tier="official",
+            vintage="Retrieved Jun 10, 2026 (school's official site)",
+            url="https://mit.edu/facts",
+            source_currentness="current",
+        )
+
+
 def test_cds_envelope_requires_matching_exact_evidence() -> None:
     citation = Citation(
         source="cds", tier="official", vintage="CDS 2024-25", document_sha256=SHA,

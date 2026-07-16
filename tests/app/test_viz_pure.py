@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from app.agent_node import _make_render_viz_tool
 from app.sources import SourceRegistry
 from app.viz import render_viz
+from counselle_db.catalog import Catalog
 from counselle_db.models import (
     AvailabilitySummary,
     DomainResult,
@@ -29,18 +30,26 @@ from domain.specs import (
 )
 
 
-def _catalog() -> SimpleNamespace:
-    return SimpleNamespace(snapshot=SimpleNamespace(schools={}, metrics={}, profile_groups=()))
+def _catalog() -> Catalog:
+    # A duck-typed stand-in for the real, DB-backed Catalog — pure unit tests
+    # never need a live connection, only the read-only snapshot shape.
+    return cast(
+        Catalog,
+        SimpleNamespace(snapshot=SimpleNamespace(schools={}, metrics={}, profile_groups=())),
+    )
 
 
-def _db_catalog() -> SimpleNamespace:
+def _db_catalog() -> Catalog:
     school = SchoolBasics(unitid=1, name="Canonical School", official_domain="school.edu")
-    return SimpleNamespace(
-        snapshot=SimpleNamespace(
-            schools={1: SimpleNamespace(basics=school)},
-            metrics={"admissions.one": object(), "admissions.two": object()},
-            profile_groups=(),
-        )
+    return cast(
+        Catalog,
+        SimpleNamespace(
+            snapshot=SimpleNamespace(
+                schools={1: SimpleNamespace(basics=school)},
+                metrics={"admissions.one": object(), "admissions.two": object()},
+                profile_groups=(),
+            )
+        ),
     )
 
 
@@ -85,6 +94,18 @@ async def test_sourced_and_unavailable_cells_render_with_compact_ack() -> None:
         "cell_count": 2,
         "available_count": 1,
         "unavailable_count": 1,
+        "unavailable_guidance": (
+            "Unavailable means missing, not zero. State the gap explicitly and do not "
+            "invent a value."
+        ),
+        "vintage_requirements": [
+            {
+                "school": "One",
+                "metric": "Rate",
+                "vintage": "Retrieved 2026-07-15",
+                "marker": "[1]",
+            }
+        ],
         "source_count": 1,
         "sources": ["[1]"],
         "public_receipt": {
@@ -123,6 +144,37 @@ async def test_rejection_rolls_back_card_and_registry_byte_for_byte() -> None:
     assert result["ok"] is False
     assert result["status"] == "rejected"
     assert result["valid_cells"] == 1
+    assert emitted == []
+    assert registry.dump_state() == before
+
+
+@pytest.mark.asyncio
+async def test_sourced_envelope_failures_are_collected_for_every_cell() -> None:
+    registry = _registry()
+    before = registry.dump_state()
+    emitted: list[dict[str, object]] = []
+    malformed = (
+        SourcedCellInput.model_construct(display=" ", raw=None, marker="[1]"),
+        SourcedCellInput.model_construct(
+            display="Value", raw={"nested": [float("nan")]}, marker="[1]"
+        ),
+    )
+
+    result = await render_viz(
+        _catalog(),
+        registry,
+        emitted,
+        "comparison_table",
+        [ColumnInput(name="One"), ColumnInput(name="Two")],
+        [VizRowInput.model_construct(label="Rate", cells=malformed)],
+    )
+
+    assert result["status"] == "rejected"
+    assert result["valid_cells"] == 0
+    assert [defect["col"] for defect in result["rejected_cells"]] == [0, 1]
+    reasons = [defect["reason"] for defect in result["rejected_cells"]]
+    assert "nonblank display" in reasons[0]
+    assert "non-finite floats" in reasons[1]
     assert emitted == []
     assert registry.dump_state() == before
 
@@ -244,7 +296,9 @@ async def test_metric_reads_are_grouped_once_and_column_is_canonicalized(
             retrieved_at=datetime(2026, 7, 15, tzinfo=UTC),
             manifest_version="5.0.1",
             rows=rows,
-            availability=AvailabilitySummary(configured=2, verified=2, not_in_template_version=0),
+            availability=AvailabilitySummary(
+                configured=2, verified=2, available=2, not_in_template_version=0
+            ),
             summary="2 of 2 metrics verified",
         )
 
@@ -308,14 +362,17 @@ async def test_profile_reads_are_grouped_once_and_source_label_names_snapshot(
     monkeypatch.setattr("app.viz.get_school_profile", fake_profile)
     registry = SourceRegistry()
     result = await render_viz(
-        SimpleNamespace(
-            snapshot=SimpleNamespace(
-                schools={
-                    1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
-                },
-                metrics={},
-                profile_groups=("location",),
-            )
+        cast(
+            Catalog,
+            SimpleNamespace(
+                snapshot=SimpleNamespace(
+                    schools={
+                        1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
+                    },
+                    metrics={},
+                    profile_groups=("location",),
+                )
+            ),
         ),
         registry,
         [],
@@ -379,14 +436,17 @@ async def test_profile_typo_is_unknown_while_present_null_leaf_is_unavailable(
     before = registry.dump_state()
     emitted: list[dict[str, object]] = []
     result = await render_viz(
-        SimpleNamespace(
-            snapshot=SimpleNamespace(
-                schools={
-                    1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
-                },
-                metrics={},
-                profile_groups=("location",),
-            )
+        cast(
+            Catalog,
+            SimpleNamespace(
+                snapshot=SimpleNamespace(
+                    schools={
+                        1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
+                    },
+                    metrics={},
+                    profile_groups=("location",),
+                )
+            ),
         ),
         registry,
         emitted,
@@ -496,7 +556,9 @@ async def test_structural_defects_reject_before_catalog_or_source_io(
             raise AssertionError("source I/O forbidden for structural defects")
 
     monkeypatch.setattr("app.viz.get_settings", lambda: SimpleNamespace(viz_max_cells=max_cells))
-    result = await render_viz(ExplodingCatalog(), ExplodingRegistry(), [], type_, columns, rows)
+    result = await render_viz(
+        cast(Catalog, ExplodingCatalog()), ExplodingRegistry(), [], type_, columns, rows
+    )
     assert result["status"] == "rejected"
     assert any(reason in defect["reason"] for defect in result["rejected_cells"])
 
@@ -525,7 +587,9 @@ async def test_unknown_refs_web_db_ref_and_missing_value_are_aggregated(
                     vintage="Common Data Set 2024-25",
                 ),
             ),
-            availability=AvailabilitySummary(configured=1, verified=0, not_in_template_version=0),
+            availability=AvailabilitySummary(
+                configured=1, verified=0, available=0, not_in_template_version=0
+            ),
             summary="unavailable",
         )
 
@@ -623,12 +687,15 @@ async def test_mixed_cds_editions_attach_comparison_caveat(
         unitid: SimpleNamespace(basics=SchoolBasics(unitid=unitid, name=f"School {unitid}"))
         for unitid in (1, 2)
     }
-    catalog = SimpleNamespace(
-        snapshot=SimpleNamespace(
-            schools=schools,
-            metrics={"admissions.one": object()},
-            profile_groups=(),
-        )
+    catalog = cast(
+        Catalog,
+        SimpleNamespace(
+            snapshot=SimpleNamespace(
+                schools=schools,
+                metrics={"admissions.one": object()},
+                profile_groups=(),
+            )
+        ),
     )
 
     async def fake_domain(_catalog: object, unitid: int, _domain: str) -> DomainResult:
@@ -659,7 +726,9 @@ async def test_mixed_cds_editions_attach_comparison_caveat(
                     },
                 ),
             ),
-            availability=AvailabilitySummary(configured=1, verified=1, not_in_template_version=0),
+            availability=AvailabilitySummary(
+                configured=1, verified=1, available=1, not_in_template_version=0
+            ),
             summary="verified",
         )
 

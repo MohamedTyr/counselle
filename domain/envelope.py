@@ -13,6 +13,8 @@ type JsonScalar = str | int | float | bool
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue] | None
 SourceName = Literal["cds", "profile", "web", "edu", "reddit"]
 Tier = Literal["official", "community"]
+SourceCurrentness = Literal["current", "historical", "undated"]
+SourcePeriodBasis = Literal["page_content", "metadata"]
 Unit = Literal["percent", "currency", "count", "number", "bool", "text", "date"]
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -50,6 +52,10 @@ class Citation(BaseModel):
     manifest_version: str | None = None
     school_unitid: int | None = None
     profile_sha256: str | None = None
+    source_period: str | None = None
+    source_period_basis: SourcePeriodBasis | None = None
+    source_period_evidence: str | None = None
+    source_currentness: SourceCurrentness | None = None
 
     @model_validator(mode="after")
     def validate_identity(self) -> Citation:
@@ -90,6 +96,22 @@ class Citation(BaseModel):
                 raise ValueError(f"{self.source} citations require tier {expected} and a URL")
             if any(db_fields):
                 raise ValueError("external citations cannot carry database identity")
+        period_fields = (
+            self.source_period,
+            self.source_period_basis,
+            self.source_period_evidence,
+            self.source_currentness,
+        )
+        if self.source in {"cds", "profile"} and any(period_fields):
+            raise ValueError("database citations cannot carry web source-period evidence")
+        if self.source_currentness in {"current", "historical"} and not all(
+            period_fields[:3]
+        ):
+            raise ValueError("dated web currentness requires source-period evidence")
+        if self.source_currentness == "undated" and any(period_fields[:3]):
+            raise ValueError("undated web citations cannot claim source-period evidence")
+        if self.source_currentness is None and any(period_fields[:3]):
+            raise ValueError("source-period evidence requires an explicit currentness")
         return self
 
 

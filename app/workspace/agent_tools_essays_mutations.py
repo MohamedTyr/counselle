@@ -154,14 +154,16 @@ async def _create_essays_impl(ctx: ToolCtx, drafts: list[EssayDraft]) -> dict[st
         status = draft.status
         if content is not None and status == "Not started":
             status = "Drafting"
-        data = EssayCreate(
-            title=draft.title,
-            application_id=app_uuid,
-            essay_type=draft.essay_type,
-            status=status,
-            prompt=draft.prompt,
-            word_limit=draft.word_limit,
-            **({"content": content} if content is not None else {}),
+        data = EssayCreate.model_validate(
+            {
+                "title": draft.title,
+                "application_id": app_uuid,
+                "essay_type": draft.essay_type,
+                "status": status,
+                "prompt": draft.prompt,
+                "word_limit": draft.word_limit,
+                **({"content": content} if content is not None else {}),
+            }
         )
         try:
             essay = await create_essay(

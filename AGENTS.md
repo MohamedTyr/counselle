@@ -12,7 +12,7 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 ## Status
 
-**MVP1 shipped (2026-06-11).** The agent — PRD stories 1–38 and 42–58 — is implemented and verified by tests, evals, and live E2E. Deep research (PRD stories 39–41) is **deferred**: the graph is `prepare → agent → END` (no stub node), and the follow-up plan (`specs/deep-research/plan.md`) adds the research node — the minimal topology is what makes that additive. The data pipeline is live (Postgres on `localhost:5432`).
+**MVP1 shipped (2026-06-11).** The agent — PRD stories 1–38 and 42–58 — is implemented and verified by tests, evals, and live E2E. Deep research (PRD stories 39–41) is **deferred**: the graph is `prepare → agent → END` (no stub node), and the follow-up plan (`specs/deep-research/plan.md`) adds the research node — the minimal topology is what makes that additive. The data pipeline is live (Postgres on `localhost:5433`).
 
 **MVP2 shipped (2026-06-13), merged to `main`.** The full-stack app over the agent: step/thinking work-visibility events, the turn registry (detached turns, reattach, cancel), auth & identity (fastapi-users cookie-JWT + Google OAuth), chat management, feedback, rate limiting, `GET /v1/config`, and the React/Vite frontend (FE-0…FE-7) wired to the real backend. Phases **B0–B5 are complete**; the per-phase build log lives in `specs/mvp2/plan/ship-plan.md`.
 
@@ -22,7 +22,7 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 **MVP3 workspace shipped (2026-07-06).** The rebuilt frontend now has a persistent, auth-scoped workspace for Schools, Tasks, Essays, and Activities. Workspace mutations go through `app/workspace/`, write actor-attributed change rows, and publish workspace change events so HTTP calls and future Counselle-agent actions share the same path. The graduated design and plan live in `specs/mvp3/`; ADR 0027 records the service/event decision.
 
-**CDS Library DB rewire shipped (2026-07-16).** The retired wide field store is replaced by five reader views, four DB tools, manifest `5.0.1`/packet v8, code-owned evidence and availability semantics, a live data picture, viz v2, and four focused skills. ADR 0032 is the decision record.
+**CDS Library DB rewire technically cut over (2026-07-16); owner acceptance is pending.** The retired wide field store is replaced by five reader views, four DB tools, manifest `5.0.2`/packet v8, code-owned evidence and availability semantics, a live data picture, viz v2, and four focused skills. PostgreSQL 16 runs locally on `localhost:5433`; role isolation and rollback rehearsal are verified. The protected operational cleanup evidence is under `artifacts/db-rewire/20260716T205303Z-round3-cleanup/`: every deleted test row has a contemporaneous ID manifest, while two post-boundary sessions with uncertain ownership were deliberately retained. Because post-boundary writes exist, zero-loss rollback has expired. Counselle traffic remains closed until the remaining technical gates pass and the owner signs the current evidence; never switch back to the old DSN and discard those writes. ADR 0032 is the decision record.
 
 ## Commands
 
@@ -111,7 +111,7 @@ When in doubt, do the simplest thing that works and ship it.
 - **Agent runtime:** **PydanticAI** (model-agnostic, MCP-native, typed outputs = the citation envelope) — ADR 0003.
 - **Orchestration:** **LangGraph** (multi-agent deep research, `interrupt()` for visual clarifying questions, state for in-session memory) — ADR 0003.
 - **Database access:** a **`counselle-db` MCP server** (Python, asyncpg, `cds_library_reader`) exposing exactly four tools: `resolve_school`, `get_school_profile`, `get_domain`, and parameterized `query_database`. Tool logic lives in an in-process service layer that the MCP server thinly wraps; `app/` imports it directly for verified rendering — ADR 0032.
-- **Catalog:** the current immutable manifest snapshot (`5.0.1`, extraction contract 8) is dynamic. Never hardcode domain ids, metric inventories/counts, profile groups, or qualified refs.
+- **Catalog:** the current immutable manifest snapshot (`5.0.2`, extraction contract 8) is dynamic. Never hardcode domain ids, metric inventories/counts, profile groups, or qualified refs.
 - **Reading rules + citations in code:** the citation envelope (every value decoded, formatted, dated, source-tiered) — ADR 0006.
 - **External search:** **Tavily** — one search+extract backend for all 3 external searches (web / .edu / Reddit), scoped by domain (3 thin tools, no scraping); Reddit is agent-steered. Also GPT-Researcher's retriever — ADR 0015.
 - **Deep research:** **GPT-Researcher**, embedded, cheap-model-routed, capped depth, DB-first; on Tavily; *not* a hosted research black box (our DB must be a first-class source) — ADR 0009. **Deferred from the MVP1 implementation plan** (stub seam in the graph; follow-up plan adds it).

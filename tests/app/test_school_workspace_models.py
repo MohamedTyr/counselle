@@ -18,7 +18,7 @@ from app.workspace.service_reference import _vintage_matches_cycle
 
 def test_new_application_requires_explicit_cycle() -> None:
     with pytest.raises(ValidationError):
-        ApplicationCreate(unitid=166027, list_type="Target", round="RD")  # type: ignore[call-arg]
+        ApplicationCreate(unitid=166027, list_type="Target", round="RD")
 
 
 def test_checklist_is_closed_and_statuses_are_kind_specific() -> None:

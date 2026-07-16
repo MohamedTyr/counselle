@@ -87,7 +87,7 @@ async def create_document(
             data.text_status,
             data.summary,
         )
-        assert row is not None
+        assert row is not None  # nosec B101 - INSERT ... RETURNING always yields a row
         document = Document.model_validate(dict(row))
         change_id = await record_change(
             conn,

@@ -184,6 +184,70 @@ class TestSearchSchoolSite:
         assert client.calls[0]["include_domains"] == ["mit.edu"]
 
     @pytest.mark.asyncio
+    async def test_mit_search_widens_legacy_host_and_ranks_dated_current_page_first(
+        self,
+    ) -> None:
+        historical = _make_result(
+            "https://web.mit.edu/jdaly/www/wpi1.html",
+            title="MIT Campus Snapshot 2000-2001",
+            content="Undergraduate enrollment 4,472 in 2000-2001.",
+        )
+        historical["raw_content"] = "Copyright 2026. Campus Snapshot 2000-2001."
+        current = _make_result(
+            "https://registrar.mit.edu/stats-reports/enrollment-statistics-year/all",
+            title="Enrollment statistics | MIT Registrar",
+            content="2025-2026 | Undergraduate 4,561 | Graduate 7,255",
+        )
+        client = StubTavilyClient([historical, current])
+
+        result = await search_school_site(
+            client,
+            FakeCatalog("web.mit.edu"),
+            166683,
+            "current undergraduate enrollment",
+            today=TODAY,
+            max_results=MAX_RESULTS,
+        )
+
+        assert client.calls[0]["include_domains"] == ["mit.edu"]
+        assert client.calls[0]["include_raw_content"] == "text"
+        assert [row["url"] for row in result["results"]] == [
+            "https://registrar.mit.edu/stats-reports/enrollment-statistics-year/all",
+            "https://web.mit.edu/jdaly/www/wpi1.html",
+        ]
+        current_citation = result["results"][0]["citation"]
+        assert current_citation["source_currentness"] == "current"
+        assert current_citation["source_period"] == "2025-2026"
+        assert "4,561" in current_citation["source_period_evidence"]
+        assert result["results"][1]["citation"]["source_currentness"] == "historical"
+        assert result["results"][1]["citation"]["source_period"] == "2000-2001"
+
+    @pytest.mark.asyncio
+    async def test_retrieval_date_never_makes_undated_official_result_current(self) -> None:
+        client = StubTavilyClient(
+            [
+                _make_result(
+                    "https://mit.edu/facts",
+                    title="MIT facts",
+                    content="Undergraduates 4,561",
+                )
+            ]
+        )
+        result = await search_school_site(
+            client,
+            FakeCatalog("mit.edu"),
+            166683,
+            "current undergraduate enrollment",
+            today=TODAY,
+            max_results=MAX_RESULTS,
+        )
+
+        citation = result["results"][0]["citation"]
+        assert citation["source_currentness"] == "undated"
+        assert citation["source_period"] is None
+        assert "Retrieval date is not source-period evidence" in result["freshness"]["guidance"]
+
+    @pytest.mark.asyncio
     async def test_returns_error_when_no_url(self) -> None:
         client = StubTavilyClient()
         result = await search_school_site(

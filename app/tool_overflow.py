@@ -227,9 +227,9 @@ def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
                 receipt["schools"] = [name]
         availability = value.get("availability")
         if "value_count" not in receipt and isinstance(availability, Mapping):
-            verified = availability.get("verified")
-            if isinstance(verified, int):
-                receipt["value_count"] = verified
+            available = availability.get("available")
+            if isinstance(available, int):
+                receipt["value_count"] = available
         results = value.get("results")
         if isinstance(results, list):
             receipt["result_count"] = len(results)

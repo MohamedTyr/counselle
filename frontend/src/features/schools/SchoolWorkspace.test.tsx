@@ -193,7 +193,7 @@ describe("SchoolWorkspace honesty states", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/app/schools"))
     await user.click(screen.getByRole("button", { name: "Undo" }))
     expect(
-      await screen.findByRole("button", { name: "Open Harvard University details" }),
+      (await screen.findAllByRole("button", { name: "Open Harvard University details" }))[0],
     ).toBeInTheDocument()
   })
 

@@ -244,12 +244,26 @@ class TestRedditAllowlist:
 
 
 class TestMcpToolset:
+    @staticmethod
+    def _settings(**overrides: Any) -> SimpleNamespace:
+        values = {
+            "db_ro_dsn": "postgresql://ro@localhost:5432/pipeline",
+            "db_app_dsn": "postgresql://app@localhost:5432/pipeline",
+            "db_statement_timeout_ms": 8_000,
+            "db_row_cap": 500,
+            "query_database_max_bytes": 262_144,
+            "data_catalog_refresh_seconds": 3_600,
+            "supported_packet_extractor_versions": frozenset({"extractor-v8"}),
+            "db_pool_min": 1,
+            "db_pool_max": 5,
+            "log_level": "INFO",
+            "agent_mcp_read_timeout_s": 60.0,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
     def test_build_mcp_toolset_wires_stdio_child_and_registry_hook(self) -> None:
-        settings = SimpleNamespace(
-            db_ro_dsn="postgresql://ro@localhost:5432/pipeline",
-            db_app_dsn="postgresql://app@localhost:5432/pipeline",
-            agent_mcp_read_timeout_s=60.0,
-        )
+        settings = self._settings()
 
         toolset = build_mcp_toolset(settings)
 
@@ -274,11 +288,7 @@ class TestMcpToolset:
         """
         from datetime import timedelta
 
-        settings = SimpleNamespace(
-            db_ro_dsn="postgresql://ro@localhost:5432/pipeline",
-            db_app_dsn="postgresql://app@localhost:5432/pipeline",
-            agent_mcp_read_timeout_s=60.0,
-        )
+        settings = self._settings()
 
         toolset = build_mcp_toolset(settings)
 
@@ -297,11 +307,7 @@ class TestMcpToolset:
         """The Tavily key must NEVER reach the MCP child (fix 5)."""
         monkeypatch.setenv("COUNSELLE_TAVILY_API_KEY", "tvly-secret")
         monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
-        settings = SimpleNamespace(
-            db_ro_dsn="postgresql://ro@localhost:5432/pipeline",
-            db_app_dsn="postgresql://app@localhost:5432/pipeline",
-            agent_mcp_read_timeout_s=60.0,
-        )
+        settings = self._settings()
 
         toolset = build_mcp_toolset(settings)
         env = toolset.client.transport.env
@@ -310,6 +316,37 @@ class TestMcpToolset:
         # DSNs must still be there
         assert env["COUNSELLE_DB_RO_DSN"] == settings.db_ro_dsn
         assert "COUNSELLE_DB_APP_DSN" not in env
+
+    def test_build_mcp_toolset_serializes_every_child_setting_from_parent(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_VERTEX_API_KEY", "vertex-secret")
+        monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/secret/vertex.json")
+        settings = self._settings(
+            db_statement_timeout_ms=321,
+            db_row_cap=17,
+            query_database_max_bytes=4_096,
+            data_catalog_refresh_seconds=23,
+            supported_packet_extractor_versions=frozenset({"v9", "v8"}),
+            db_pool_min=2,
+            db_pool_max=7,
+            log_level="WARNING",
+        )
+
+        env = build_mcp_toolset(settings).client.transport.env
+
+        assert env == {
+            "COUNSELLE_DB_RO_DSN": settings.db_ro_dsn,
+            "COUNSELLE_SETTINGS_NO_ENV_FILE": "1",
+            "COUNSELLE_DB_STATEMENT_TIMEOUT_MS": "321",
+            "COUNSELLE_DB_ROW_CAP": "17",
+            "COUNSELLE_QUERY_DATABASE_MAX_BYTES": "4096",
+            "COUNSELLE_DATA_CATALOG_REFRESH_SECONDS": "23",
+            "COUNSELLE_SUPPORTED_PACKET_EXTRACTOR_VERSIONS": "v8,v9",
+            "COUNSELLE_DB_POOL_MIN": "2",
+            "COUNSELLE_DB_POOL_MAX": "7",
+            "COUNSELLE_LOG_LEVEL": "WARNING",
+        }
 
     async def test_annotate_mcp_result_routes_through_the_deps_registry(self) -> None:
         registry = SourceRegistry()

@@ -39,6 +39,8 @@ school's 2024-25 CDS versus another's 2023-24) are still worth doing, but
 they get the `edition_mismatch_comparison` caveat and you must say so once,
 up front, near the comparison — not bury it in a footnote per cell.
 
+Never call differently dated metrics "the same period." Preserve each `get_domain` row's exact top-level `vintage`; after rendering, follow `vintage_requirements` so each fact keeps its own vintage in prose.
+
 ## Step 3 — Pull the same domain symmetrically
 
 For each dimension the student cares about, call `get_domain(unitid,
@@ -68,6 +70,8 @@ Every cell is one of exactly four shapes:
 - `{unavailable: true}` — an honest hole. Use this whenever a school truly
   lacks the data for that row/column, including a **nullable web-only
   column** for a school with no first-party data on that dimension at all.
+
+An unavailable hole means missing, not zero; say that explicitly when the student asked for the missing comparison fact.
 
 Do not present a comparison in prose alone — the table is the source of
 truth for the numbers; your prose is the interpretation, not a restatement.

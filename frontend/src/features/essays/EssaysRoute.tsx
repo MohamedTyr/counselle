@@ -179,8 +179,9 @@ function NewEssayDialog({
       !linkedPromptIds.has(selectedPrompt.id) &&
       selectedPrompt.applicability !== "not_required");
 
-  function selectType(value: string) {
-    const nextType = value as EssayType;
+  function selectType(value: EssayType | null) {
+    if (!value) return;
+    const nextType = value;
     setType(nextType);
     if (nextType === "Personal statement") {
       setApplicationId(noApplicationValue);
@@ -188,7 +189,8 @@ function NewEssayDialog({
     setPromptRef(unselectedPromptValue);
   }
 
-  function selectApplication(value: string) {
+  function selectApplication(value: string | null) {
+    if (!value) return;
     setApplicationId(value);
     setPromptRef(unselectedPromptValue);
   }
@@ -278,7 +280,7 @@ function NewEssayDialog({
               Essay prompt
               <Select
                 disabled={applicationQuery.isFetching}
-                onValueChange={setPromptRef}
+                onValueChange={(value) => value && setPromptRef(value)}
                 value={promptRef}
               >
                 <SelectTrigger

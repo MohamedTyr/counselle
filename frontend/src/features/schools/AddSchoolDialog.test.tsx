@@ -186,7 +186,9 @@ describe("AddSchoolDialog", () => {
     expect(
       await screen.findByText("Tracked for 2025-26 · choose a cycle"),
     ).toBeInTheDocument()
-    await user.click(screen.getByText("Princeton University"))
+    await user.click(
+      within(screen.getByRole("dialog")).getByText("Princeton University"),
+    )
     expect(
       within(screen.getByRole("dialog")).getByText("List type"),
     ).toBeInTheDocument()
@@ -312,7 +314,9 @@ describe("AddSchoolDialog", () => {
     expect(
       await screen.findByText("Tracked for 2026-27 · choose a cycle"),
     ).toBeInTheDocument()
-    await user.click(screen.getByText("Princeton University"))
+    await user.click(
+      within(screen.getByRole("dialog")).getByText("Princeton University"),
+    )
     expect(screen.getByRole("alert")).toHaveTextContent("2026-27 cycle")
     await user.clear(screen.getByLabelText("Fall enrollment year"))
     await user.type(screen.getByLabelText("Fall enrollment year"), "2028")

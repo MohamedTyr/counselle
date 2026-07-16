@@ -58,7 +58,11 @@
                       "academic_year": 2024,
                       "manifest_version": "5.0.1",
                       "school_unitid": 198419,
-                      "profile_sha256": null
+                      "profile_sha256": null,
+                      "source_period": null,
+                      "source_period_basis": null,
+                      "source_period_evidence": null,
+                      "source_currentness": null
                     },
                     "evidence": {
                       "eid": "admissions.acceptance_rate",
@@ -102,7 +106,11 @@
                       "academic_year": null,
                       "manifest_version": null,
                       "school_unitid": null,
-                      "profile_sha256": null
+                      "profile_sha256": null,
+                      "source_period": null,
+                      "source_period_basis": null,
+                      "source_period_evidence": null,
+                      "source_currentness": null
                     },
                     "evidence": null,
                     "caveats": [],
@@ -133,7 +141,11 @@
                       "academic_year": null,
                       "manifest_version": null,
                       "school_unitid": 198419,
-                      "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                      "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "source_period": null,
+                      "source_period_basis": null,
+                      "source_period_evidence": null,
+                      "source_currentness": null
                     },
                     "evidence": null,
                     "caveats": [],
@@ -230,7 +242,11 @@
             "academic_year": null,
             "manifest_version": null,
             "school_unitid": null,
-            "profile_sha256": null
+            "profile_sha256": null,
+            "source_period": null,
+            "source_period_basis": null,
+            "source_period_evidence": null,
+            "source_currentness": "undated"
           },
           "label": "Result 1",
           "snippet": "snippet",
@@ -252,7 +268,11 @@
             "academic_year": 2024,
             "manifest_version": "5.0.1",
             "school_unitid": 198419,
-            "profile_sha256": null
+            "profile_sha256": null,
+            "source_period": null,
+            "source_period_basis": null,
+            "source_period_evidence": null,
+            "source_currentness": null
           },
           "label": "Duke University \u2014 Common Data Set 2024-25",
           "snippet": null,
@@ -285,7 +305,11 @@
             "academic_year": null,
             "manifest_version": null,
             "school_unitid": 198419,
-            "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_period": null,
+            "source_period_basis": null,
+            "source_period_evidence": null,
+            "source_currentness": null
           },
           "label": "Duke University \u2014 Profile snapshot 2024-12-31",
           "snippet": null,
@@ -394,7 +418,11 @@
                       "academic_year": 2024,
                       "manifest_version": "5.0.1",
                       "school_unitid": 198419,
-                      "profile_sha256": null
+                      "profile_sha256": null,
+                      "source_period": null,
+                      "source_period_basis": null,
+                      "source_period_evidence": null,
+                      "source_currentness": null
                     },
                     "evidence": {
                       "eid": "admissions.acceptance_rate",
@@ -438,7 +466,11 @@
                       "academic_year": null,
                       "manifest_version": null,
                       "school_unitid": null,
-                      "profile_sha256": null
+                      "profile_sha256": null,
+                      "source_period": null,
+                      "source_period_basis": null,
+                      "source_period_evidence": null,
+                      "source_currentness": null
                     },
                     "evidence": null,
                     "caveats": [],
@@ -469,7 +501,11 @@
                       "academic_year": null,
                       "manifest_version": null,
                       "school_unitid": 198419,
-                      "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                      "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "source_period": null,
+                      "source_period_basis": null,
+                      "source_period_evidence": null,
+                      "source_currentness": null
                     },
                     "evidence": null,
                     "caveats": [],

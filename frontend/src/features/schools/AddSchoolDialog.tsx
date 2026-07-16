@@ -90,7 +90,7 @@ export function AddSchoolDialog({
   const [listType, setListType] = useState<ListType>("Target")
   const [round, setRound] = useState<Round>("RD")
   const [deadline, setDeadline] = useState("")
-  const [cycleYear, setCycleYear] = useState("")
+  const [cycleYear, setCycleYear] = useState<string | null>(null)
   const cycleConfig = useQuery({
     queryKey: ["config", "current-admissions-cycle"],
     queryFn: () => requestJson<{ current_admissions_cycle_year?: number }>("/config"),
@@ -98,13 +98,14 @@ export function AddSchoolDialog({
   const defaultCycleYear = validCycleYear(cycleConfig.data?.current_admissions_cycle_year ?? NaN)
     ? cycleConfig.data!.current_admissions_cycle_year!
     : null
+  const effectiveCycleYear = cycleYear ?? (defaultCycleYear ? String(defaultCycleYear) : "")
   const debouncedQuery = useDebouncedValue(query, 250)
   const trimmedQuery = debouncedQuery.trim()
   const search = useSchoolSearch(trimmedQuery)
   const applications = useApplications()
   const addApplication = useAddApplication()
   const isConfirmStep = selectedSchool !== null
-  const selectedCycleYear = Number(cycleYear)
+  const selectedCycleYear = Number(effectiveCycleYear)
   const isCycleYearValid = validCycleYear(selectedCycleYear)
   const isDuplicateCycle = Boolean(
     selectedSchool &&
@@ -115,12 +116,6 @@ export function AddSchoolDialog({
           application.cycle_year === selectedCycleYear,
       ),
   )
-
-  useEffect(() => {
-    if (open && !cycleYear && defaultCycleYear) {
-      setCycleYear(String(defaultCycleYear))
-    }
-  }, [cycleYear, defaultCycleYear, open])
 
   const searchResults = useMemo(
     () => search.data ?? [],
@@ -133,7 +128,7 @@ export function AddSchoolDialog({
     setListType("Target")
     setRound("RD")
     setDeadline("")
-    setCycleYear(defaultCycleYear ? String(defaultCycleYear) : "")
+    setCycleYear(null)
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -251,6 +246,7 @@ export function AddSchoolDialog({
           <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium">
             Fall enrollment year
             <Input
+              aria-label="Fall enrollment year"
               nativeInput
               max={MAX_CYCLE_YEAR}
               min={MIN_CYCLE_YEAR}
@@ -258,12 +254,12 @@ export function AddSchoolDialog({
               placeholder="e.g. 2027"
               required
               type="number"
-              value={cycleYear}
+              value={effectiveCycleYear}
             />
             <span className="text-xs font-normal text-muted-foreground">
               This selects the correct admissions-cycle catalog. It cannot be guessed safely.
             </span>
-            {cycleYear && !isCycleYearValid ? <span className="text-xs font-normal text-destructive">Enter a whole year from {MIN_CYCLE_YEAR} to {MAX_CYCLE_YEAR}.</span> : null}
+            {effectiveCycleYear && !isCycleYearValid ? <span className="text-xs font-normal text-destructive">Enter a whole year from {MIN_CYCLE_YEAR} to {MAX_CYCLE_YEAR}.</span> : null}
           </label>
 
           <div className="-mx-4 -mb-4 flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 sm:flex-row sm:justify-between">

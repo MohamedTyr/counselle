@@ -52,6 +52,23 @@ def test_oversized_search_result_preserves_public_receipt_metadata() -> None:
     assert set(result["public_receipt"]) == {"result_count"}
 
 
+def test_oversized_domain_result_uses_available_value_count() -> None:
+    store = ToolResultStore()
+    payload = {
+        "rows": [{"label": "x" * 500}],
+        "availability": {
+            "configured": 3,
+            "verified": 3,
+            "available": 2,
+            "not_in_template_version": 1,
+        },
+    }
+
+    result = reduce_tool_result(payload, store, max_chars=200)
+
+    assert result["public_receipt"]["value_count"] == 2
+
+
 def test_oversized_resolve_candidates_preserves_safe_receipt() -> None:
     store = ToolResultStore()
     payload = {

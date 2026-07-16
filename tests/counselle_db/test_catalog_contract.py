@@ -453,6 +453,8 @@ async def test_get_domain_uses_newest_selected_document_and_carries_internal_evi
     assert result.academic_year == 2025
     assert result.rows[0].display == "10%"
     assert result.summary == "1 of 1 metrics verified"
+    assert result.availability.verified == 1
+    assert result.availability.available == 1
     payload = result.model_dump_json()
     assert "private evidence" in payload
     assert "provider_contract" not in payload
@@ -496,6 +498,26 @@ async def test_get_domain_partial_stale_and_definition_drift_use_pinned_manifest
         "stale_edition",
     }
     assert result.definition_match is False
+
+
+async def test_get_domain_counts_verified_source_absence_separately_from_available() -> None:
+    unavailable = {
+        "extraction_status": "verified",
+        "availability_status": "not_in_template_version",
+        "value": None,
+        "raw_value": None,
+        "evidence": {"page_number": 1, "excerpt": "template has no such row"},
+    }
+    row = _packet_row("admissions", {"admissions.rate": unavailable})
+
+    result = await get_domain(
+        _service_catalog(_DomainConnection(_document(), [row])), 1, "admissions"
+    )
+
+    assert result.availability.verified == 1
+    assert result.availability.available == 0
+    assert result.availability.not_in_template_version == 1
+    assert result.summary == "1 of 1 metrics verified; 1 not in this template version"
 
 
 async def test_get_domain_rejects_unsupported_packet_without_returning_zero_values() -> None:

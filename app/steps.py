@@ -383,7 +383,7 @@ class StepMapper:
     def _get_domain_kwargs(args: dict[str, Any], content: Any) -> dict[str, Any]:
         """``get_domain``: tool, schools, domain_id, value_count, duration_ms.
 
-        ``value_count`` is the service's authoritative ``availability.verified``
+        ``value_count`` is the service's authoritative ``availability.available``
         count — never ``len(rows)`` (rows also include unavailable and
         not-in-template-version metrics, so that would overcount).
         """
@@ -400,8 +400,10 @@ class StepMapper:
             kwargs["value_count"] = direct_value_count
         else:
             availability = content.get("availability")
-            if isinstance(availability, dict) and isinstance(availability.get("verified"), int):
-                kwargs["value_count"] = availability["verified"]
+            if isinstance(availability, dict) and isinstance(
+                availability.get("available"), int
+            ):
+                kwargs["value_count"] = availability["available"]
         return kwargs
 
     def _viz_detail_kwargs(self, args: dict[str, Any], content: Any) -> dict[str, Any]:
@@ -445,7 +447,6 @@ class StepMapper:
             "tool": tool_name,
             "query": _truncate(str(args.get("query", "")).strip()) or "…",
             "name": _truncate(str(args.get("name", "")).strip()) or "…",
-            "field": _humanize(str(args.get("field_key", "")).rsplit(".", 1)[-1]) or "the field",
             "school": names[0] if names else school_fallback,
             "schools": _join_names(names) if names else "schools",
             "subreddits": _join_names([f"r/{sub}" for sub in subs])

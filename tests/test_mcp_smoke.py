@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from config.settings import DbChildSettings
-from scripts.mcp_smoke import EXPECTED_TOOLS, child_environment
+from config.settings import DbChildSettings, serialize_db_child_environment
+from scripts.mcp_smoke import EXPECTED_TOOLS
 
 
 def test_smoke_inventory_and_child_environment_are_db_only() -> None:
@@ -11,7 +11,7 @@ def test_smoke_inventory_and_child_environment_are_db_only() -> None:
         supported_packet_extractor_versions=frozenset({"packet-v8"}),
     )
 
-    env = child_environment(settings)
+    env = serialize_db_child_environment(settings)
 
     assert {
         "resolve_school",

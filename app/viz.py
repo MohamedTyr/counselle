@@ -6,6 +6,7 @@ from difflib import SequenceMatcher
 from typing import Any
 
 import structlog
+from pydantic import ValidationError
 
 from app.caveats import render_caveat
 from app.sources import SourceRegistry
@@ -34,6 +35,11 @@ _KNOWN_TYPES = {"stat_block", "comparison_table"}
 
 def _defect(row: int, col: int, reason: str) -> dict[str, Any]:
     return {"row": row, "col": col, "reason": reason}
+
+
+def _validation_reason(exc: ValidationError) -> str:
+    messages = [str(error["msg"]).removeprefix("Value error, ") for error in exc.errors()]
+    return f"invalid sourced value: {'; '.join(messages)}"
 
 
 def _suggest(value: str, choices: list[str]) -> str:
@@ -359,15 +365,18 @@ async def render_viz(
                 elif entry.citation.source not in {"web", "edu", "reddit"}:
                     reason = f"marker {cell.marker} is not an external web/edu/reddit source"
                 else:
-                    envelope = CitationEnvelope(
-                        field=None,
-                        label=row.label,
-                        display=cell.display,
-                        raw=cell.raw,
-                        available=True,
-                        citation=entry.citation,
-                        marker=cell.marker,
-                    )
+                    try:
+                        envelope = CitationEnvelope(
+                            field=None,
+                            label=row.label,
+                            display=cell.display,
+                            raw=cell.raw,
+                            available=True,
+                            citation=entry.citation,
+                            marker=cell.marker,
+                        )
+                    except ValidationError as exc:
+                        reason = _validation_reason(exc)
             elif school.unitid is None:
                 reason = "web-only columns cannot resolve database references"
             elif isinstance(cell, MetricCellInput):
@@ -415,7 +424,7 @@ async def render_viz(
                 defects.append(_defect(row_index, col, reason))
             else:
                 valid_cells += 1
-                assert envelope is not None
+                assert envelope is not None  # nosec B101 - reason branch proves this
                 flat.append(envelope)
     if defects:
         return {
@@ -447,7 +456,7 @@ async def render_viz(
                 marker = candidate_registry.marker_for(resolved_cell.citation)
                 if marker is None:
                     school = schools[len(resolved_cells)]
-                    assert school is not None
+                    assert school is not None  # nosec B101 - validated before flattening
                     if (
                         resolved_cell.citation.source == "cds"
                         or resolved_cell.citation.source == "profile"
@@ -496,13 +505,32 @@ async def render_viz(
     registry.commit_from(candidate_registry)
     sources = [f"[{index}]" for index in sorted(markers)]
     available_count = sum(cell.available for cell in flat)
+    vintage_requirements = [
+        {
+            "school": school.name,
+            "metric": row.label,
+            "vintage": cell.citation.vintage,
+            "marker": cell.marker,
+        }
+        for row in resolved_rows
+        for school, cell in zip((school for school in schools if school), row.cells, strict=True)
+        if cell.available and cell.citation
+    ]
+    unavailable_count = cell_count - available_count
     return {
         "ok": True,
         "status": "rendered",
         "placement_marker": placement_marker,
         "cell_count": cell_count,
         "available_count": available_count,
-        "unavailable_count": cell_count - available_count,
+        "unavailable_count": unavailable_count,
+        "unavailable_guidance": (
+            "Unavailable means missing, not zero. State the gap explicitly and do not "
+            "invent a value."
+            if unavailable_count
+            else None
+        ),
+        "vintage_requirements": vintage_requirements,
         "source_count": len(sources),
         "sources": sources,
         "public_receipt": {

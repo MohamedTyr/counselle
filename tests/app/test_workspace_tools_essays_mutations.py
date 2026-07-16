@@ -259,7 +259,9 @@ async def test_restore_essay_blocked_by_archived_school(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     essay = await create_essay(
         app_pool,

@@ -55,10 +55,10 @@ from app.state import TemporalContext
 from app.steps import EmissionRouter
 from app.toolset import ToolDeps
 from app.viz_signature import render_spec_signature, viz_payload_signature
-from domain.envelope import Citation, CitationEnvelope
+from domain.envelope import Citation
 from domain.events import Event
 from domain.season import Season
-from domain.specs import RenderSpec, SchoolRef, SourceConfig, VizRow
+from domain.specs import AvailableResolvedCell, RenderSpec, SchoolRef, SourceConfig, VizRow
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -426,8 +426,8 @@ def _done_status(events: list[Event]) -> str:
 _ALL_OFF = SourceConfig(web=False, reddit=False, edu=False)
 
 
-def _viz_cell(field: str, raw: int = 42) -> CitationEnvelope:
-    return CitationEnvelope(
+def _viz_cell(field: str, raw: int = 42) -> AvailableResolvedCell:
+    return AvailableResolvedCell(
         field=field,
         label=field,
         display=str(raw),
@@ -448,8 +448,8 @@ def _viz_spec(field: str, *, title: str = "Rendered card") -> RenderSpec:
     return RenderSpec(
         type="stat_block",
         title=title,
-        columns=[SchoolRef(unitid=1, name="A University")],
-        rows=[VizRow(label=field, cells=[_viz_cell(field)])],
+        columns=(SchoolRef(unitid=1, name="A University"),),
+        rows=(VizRow(label=field, cells=(_viz_cell(field),)),),
     )
 
 
@@ -602,6 +602,64 @@ async def test_simple_turn_streams_deltas_persists_messages_creates_session() ->
     # session row created (INSERT ... ON CONFLICT) and touched (UPDATE)
     assert session_id in rig.pool.rows
     assert ("UPDATE", (session_id,)) in rig.pool.executed
+
+
+def test_successful_resolution_cannot_complete_with_empty_prose() -> None:
+    emissions: list[tuple[Any, Any]] = [
+        (
+            "step",
+            {
+                "step_id": "resolve-1",
+                "status": "end",
+                "kind": "db_tool",
+                "label": "Resolved MIT",
+                "detail": {
+                    "tool": "resolve_school",
+                    "result_count": 1,
+                    "schools": ["Massachusetts Institute of Technology"],
+                },
+            },
+        )
+    ]
+
+    fallback = app.agent_node._empty_resolve_completion(cast(Any, emissions))
+
+    assert fallback is not None
+    assert "Massachusetts Institute of Technology" in fallback
+    assert "unavailable, not zero" in fallback
+    assert "won't invent" in fallback
+    assert app.agent_node._empty_resolve_completion(
+        cast(Any, [*emissions, ("delta", "A substantive answer.")])
+    ) is None
+    no_name = cast(
+        Any,
+        [
+            (
+                "step",
+                {
+                    "status": "end",
+                    "detail": {"tool": "resolve_school", "result_count": 1},
+                },
+            )
+        ],
+    )
+    assert "requested school" in str(app.agent_node._empty_resolve_completion(no_name))
+
+
+def test_empty_completion_fallback_replaces_empty_provider_response() -> None:
+    messages = ModelMessagesTypeAdapter.dump_python(
+        [
+            ModelRequest(parts=[UserPromptPart(content="MIT enrollment?")]),
+            ModelResponse(parts=[]),
+        ],
+        mode="json",
+    )
+
+    updated = app.agent_node._replace_empty_final_response(messages, "Safe fallback.")
+
+    assert updated[-1]["kind"] == "response"
+    assert updated[-1]["parts"][0]["content"] == "Safe fallback."
+    assert updated[-1]["parts"][0]["part_kind"] == "text"
 
 
 # ---------------------------------------------------------------------------

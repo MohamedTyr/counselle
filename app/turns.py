@@ -400,8 +400,8 @@ class TurnRegistry:
             raise NoActiveTurn(session_id)
         user_message_id = str(uuid4())
         message = SteeringMessage(user_message_id=user_message_id, text=text)
-        assert turn is not None
-        assert turn.run_handle is not None
+        assert turn is not None  # nosec B101 - narrowed by _is_steerable
+        assert turn.run_handle is not None  # nosec B101 - narrowed by _is_steerable
         turn.run_handle.queue_steer(message)
         event = ev_user_message(text, user_message_id, injected=False)
         observed = self._observe(turn, event)

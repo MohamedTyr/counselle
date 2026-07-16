@@ -31,7 +31,7 @@ It is two pieces:
 
 - **Python 3.12+** and **[uv](https://github.com/astral-sh/uv)**
 - **Node 20+** and **npm** (for the frontend)
-- **Postgres 16** running on `localhost:5432`, containing the independently deployed CDS Library and Counselle's application schema
+- **Postgres 16** running on `localhost:5433` by default, containing the independently deployed CDS Library and Counselle's application schema
 - A LOGIN role that is a member only of pipeline-managed `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. Run `scripts/setup_db.sql` for Counselle-owned state, then apply migrations with `yoyo`:
 
 ```bash
@@ -45,6 +45,12 @@ COUNSELLE_APP_PASSWORD="<counselle_app password>" \
 # counselle schema (owned by counselle_app), not in public.
 uv run yoyo apply --batch --database "${COUNSELLE_DB_APP_DSN}?schema=counselle" migrations/
 ```
+
+The local CDS Library cutover is technically complete, but Counselle traffic remains
+closed pending final technical gates and explicit owner acceptance. The current protected
+cleanup evidence is under `artifacts/db-rewire/20260716T205303Z-round3-cleanup/`.
+Two post-boundary sessions whose ownership could not be proven were retained, so zero-loss
+rollback has expired; do not switch back to the old DSN and discard new writes.
 
 ## Environment setup
 

@@ -29,7 +29,7 @@ from app.workspace.models import (
 from app.workspace.service_applications import add_application, archive_application
 from app.workspace.service_essays import archive_essay, create_essay
 from app.workspace.service_tasks import archive_task, create_task
-from config.settings import get_settings, load_yaml_asset
+from config.settings import get_settings
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
 

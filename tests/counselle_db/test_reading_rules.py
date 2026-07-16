@@ -36,6 +36,34 @@ def test_raw_percentage_is_never_scaled_and_caveats_accumulate() -> None:
 
 
 @pytest.mark.parametrize(
+    ("value", "expected"),
+    [(69_900, "69900"), (90, "90"), (20.0, "20"), (12.340, "12.34")],
+)
+def test_number_fallback_preserves_significant_integral_zeros(
+    value: int | float, expected: str
+) -> None:
+    metric = ParsedMetric(
+        ref="cost.tuition",
+        extraction_status="verified",
+        availability_status="reported",
+        value=value,
+        raw_value=None,
+        evidence=PacketEvidence(page_number=1, excerpt=str(value)),
+    )
+
+    row = read_metric(
+        metric,
+        _definition(),
+        academic_year=2025,
+        packet_status="validated",
+        definition_match=True,
+        currentness="current",
+    )
+
+    assert row.display == expected
+
+
+@pytest.mark.parametrize(
     "status", ["not_reported", "not_applicable", "suppressed", "not_in_template_version"]
 )
 def test_verified_unavailable_states_return_no_value(status: str) -> None:

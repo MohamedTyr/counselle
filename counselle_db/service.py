@@ -5,21 +5,22 @@ from __future__ import annotations
 import math
 import re
 from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import asyncpg
 from sqlglot import exp, parse
-from sqlglot.errors import ParseError
+from sqlglot.errors import ParseError, TokenError
 
-from config.settings import get_db_child_settings
+from config.settings import get_settings
 from counselle_db.catalog import Catalog
+from counselle_db.formatting import format_cds_edition, format_decimal
 from counselle_db.models import (
     AvailabilitySummary,
     DomainResult,
     ProfileGroup,
     ProfileGroupResult,
     ProfileLeaf,
+    ProfileProvenanceReceipt,
     QueryResult,
     ResolveCandidates,
     ResolvedSchool,
@@ -29,9 +30,6 @@ from counselle_db.models import (
     ServiceError,
 )
 from counselle_db.packets import ParsedMetric, parse_packet_row, read_metric
-
-# Local seam retained for focused service tests.
-get_settings = get_db_child_settings
 
 __all__ = [
     "ServiceError",
@@ -85,6 +83,8 @@ _SAFE_FUNCTIONS = frozenset(
         "like",
         "json_extract",
         "json_extract_scalar",
+        "jsonb_build_object",
+        "jsonb_path_exists",
         "jsonb_typeof",
         "lower",
         "max",
@@ -97,6 +97,7 @@ _SAFE_FUNCTIONS = frozenset(
         "substring",
         "sum",
         "trim",
+        "to_jsonb",
         "upper",
     }
 )
@@ -116,6 +117,18 @@ _BYTEA_RELATIONS = frozenset(
         "cds_library.cds_manifest_snapshots",
     }
 )
+_PACKET_RELATION = "cds_library.active_cds_domain_packets"
+_MANIFEST_RELATION = "cds_library.cds_manifest_snapshots"
+_INTERNAL_PACKET_KEYS = frozenset({"provider_contract", "diagnostic_code", "evidence"})
+_SAFE_PACKET_RESULT_KEYS = frozenset(
+    {"availability_status", "extraction_status", "value"}
+)
+_MANIFEST_METRIC_JSONPATH = "$.domains[*].metrics[*] ? (@.id == $ref)"
+
+
+def _catalog_settings(catalog: Catalog) -> Any:
+    """Use settings injected by the owning runtime; fall back for test/MCP seams."""
+    return getattr(catalog, "settings", None) or get_settings()
 
 
 def _inside_octet_length(column: exp.Column) -> bool:
@@ -145,13 +158,269 @@ def _reject_binary_projection(tree: exp.Query, relations: set[str]) -> None:
                 "Binary/PDF bytes cannot be returned; select metadata such as "
                 "octet_length(pdf_content)."
             )
-    for cast in tree.find_all(exp.Cast):
-        target = cast.args.get("to")
+    for cast_expression in tree.find_all(exp.Cast):
+        target = cast_expression.args.get("to")
         if isinstance(target, exp.DataType) and target.this in {
             exp.DataType.Type.BINARY,
             exp.DataType.Type.VARBINARY,
         }:
             raise ServiceError("Expressions returning binary/PDF bytes are not allowed.")
+
+
+def _json_path_parts(expression: exp.Expression, params: list[Any]) -> tuple[str, ...]:
+    """Return one safe, statically bound JSON extraction path.
+
+    Packet paths are a security boundary: accepting an expression we cannot
+    resolve here would let a query assemble an internal key at execution time
+    and bypass the denylist below.  Only quoted string keys and direct ``$n``
+    bind parameters are supported.
+    """
+    value = expression.args.get("expression")
+    if isinstance(value, exp.JSONPath):
+        parts = tuple(value.expressions)
+        if (
+            not parts
+            or not isinstance(parts[0], exp.JSONPathRoot)
+            or any(not isinstance(part, exp.JSONPathKey) for part in parts[1:])
+        ):
+            raise ServiceError(
+                "Packet JSON paths must use static string keys or direct positional parameters."
+            )
+        return tuple(str(key.this) for key in parts[1:])
+    if (
+        isinstance(value, exp.Parameter)
+        and isinstance(value.this, exp.Literal)
+        and value.this.is_int
+    ):
+        index = int(value.this.this) - 1
+        if 0 <= index < len(params):
+            return (str(params[index]),)
+    if isinstance(value, exp.Literal) and value.is_string:
+        return (str(value.this),)
+    raise ServiceError(
+        "Packet JSON paths must use static string keys or direct positional parameters."
+    )
+
+
+def _packet_path(column: exp.Column, params: list[Any]) -> tuple[str, ...]:
+    """Collect the chained ``packet -> ...`` path rooted at one packet column."""
+    parts: list[str] = []
+    child: exp.Expression = column
+    parent = child.parent
+    while isinstance(parent, (exp.JSONExtract, exp.JSONExtractScalar)):
+        if parent.this is not child:
+            break
+        parts.extend(_json_path_parts(parent, params))
+        child = parent
+        parent = child.parent
+    return tuple(parts)
+
+
+def _reject_dynamic_packet_paths(
+    tree: exp.Query, params: list[Any], packet_aliases: set[str]
+) -> None:
+    """Reject computed JSON keys on packet chains, including CTE aliases."""
+    packet_roots = {_PACKET_RELATION.rsplit(".", 1)[-1], "packet", *packet_aliases}
+    for extraction in tree.find_all(exp.JSONExtract, exp.JSONExtractScalar):
+        root = cast(exp.Expression, extraction)
+        while isinstance(root, (exp.JSONExtract, exp.JSONExtractScalar)):
+            root = root.this
+        if isinstance(root, exp.Column) and root.name.casefold() in packet_roots:
+            _json_path_parts(cast(exp.Expression, extraction), params)
+
+
+def _projection_body(expression: exp.Expression) -> exp.Expression:
+    return expression.this if isinstance(expression, exp.Alias) else expression
+
+
+def _packet_column(expression: exp.Expression) -> exp.Column | None:
+    return next(
+        (
+            column
+            for column in expression.find_all(exp.Column)
+            if column.name.casefold() == "packet"
+        ),
+        None,
+    )
+
+
+def _packet_path_keys(tree: exp.Query, params: list[Any]) -> set[str]:
+    keys = {str(key.this).casefold() for key in tree.find_all(exp.JSONPathKey)}
+    keys.update(
+        str(params[int(parameter.this.this) - 1]).casefold()
+        for parameter in tree.find_all(exp.Parameter)
+        if isinstance(parameter.this, exp.Literal)
+        and parameter.this.is_int
+        and 0 < int(parameter.this.this) <= len(params)
+        and isinstance(parameter.parent, (exp.JSONExtract, exp.JSONExtractScalar))
+    )
+    return keys
+
+
+def _returns_packet_object(
+    body: exp.Expression, params: list[Any], unsafe_aliases: set[str]
+) -> bool:
+    direct_packet = _packet_column(body)
+    if direct_packet is not None:
+        path = tuple(part.casefold() for part in _packet_path(direct_packet, params))
+        return not (
+            isinstance(body, exp.JSONExtractScalar)
+            or (bool(path) and path[-1] in _SAFE_PACKET_RESULT_KEYS)
+        )
+    columns = {column.name.casefold() for column in body.find_all(exp.Column)}
+    if not columns & unsafe_aliases:
+        return False
+    return not (
+        isinstance(body, exp.JSONExtractScalar)
+        or any(
+            str(key.this).casefold() in _SAFE_PACKET_RESULT_KEYS
+            for key in body.find_all(exp.JSONPathKey)
+        )
+    )
+
+
+def _packet_object_aliases(tree: exp.Query, params: list[Any]) -> set[str]:
+    unsafe_aliases: set[str] = set()
+    selects = list(tree.find_all(exp.Select))
+    for _ in range(len(selects)):
+        before = len(unsafe_aliases)
+        for projection in (
+            projection for select in selects for projection in select.expressions
+        ):
+            alias = projection.alias_or_name.casefold()
+            if alias and _returns_packet_object(
+                _projection_body(projection), params, unsafe_aliases
+            ):
+                unsafe_aliases.add(alias)
+        if len(unsafe_aliases) == before:
+            break
+    return unsafe_aliases
+
+
+def _reject_packet_projection(
+    tree: exp.Query, relations: set[str], params: list[Any]
+) -> None:
+    """Keep packet provenance and large JSON objects behind the typed parser.
+
+    The guarded SQL escape hatch may traverse one named metric for scalar
+    filtering and aggregation. It may not select the whole packet/metrics map,
+    internal evidence or diagnostics, or return a metric object to the model.
+    """
+    if _PACKET_RELATION not in relations:
+        return
+    if _packet_path_keys(tree, params) & _INTERNAL_PACKET_KEYS:
+        raise ServiceError(
+            "Packet provenance, diagnostics, and raw evidence are internal; "
+            "use get_domain for typed values and citations."
+        )
+    for column in tree.find_all(exp.Column):
+        if column.name.casefold() != "packet":
+            continue
+        path = tuple(part.casefold() for part in _packet_path(column, params))
+        if len(path) < 2 or path[0] != "metrics":
+            raise ServiceError(
+                "Whole packet JSON cannot be selected; traverse one named metric "
+                "for scalar filtering or aggregation."
+            )
+    unsafe_aliases = _packet_object_aliases(tree, params)
+    _reject_dynamic_packet_paths(tree, params, unsafe_aliases)
+    root_select = tree if isinstance(tree, exp.Select) else tree.find(exp.Select)
+    if root_select is None:
+        return
+    for projection in root_select.expressions:
+        if _returns_packet_object(_projection_body(projection), params, unsafe_aliases):
+            raise ServiceError(
+                "Packet objects cannot be returned; select only scalar candidate values."
+            )
+
+
+def _reject_manifest_text_search(tree: exp.Query, relations: set[str]) -> None:
+    """Prevent substring matches from masquerading as exact manifest membership."""
+    if _MANIFEST_RELATION not in relations:
+        return
+    for predicate in tree.find_all(exp.ILike, exp.Like):
+        if any(
+            column.name.casefold() == "content"
+            for column in predicate.this.find_all(exp.Column)
+        ):
+            raise ServiceError(
+                "Manifest metric references require exact structural JSON membership, "
+                "not a text substring search."
+            )
+
+
+def _is_manifest_membership_call(
+    function: exp.Anonymous, manifest_aliases: set[str]
+) -> bool:
+    args = function.expressions
+    if len(args) != 3:
+        return False
+    content, path, variables = args
+    if not (
+        isinstance(content, exp.Column)
+        and content.name.casefold() == "content"
+        and content.table.casefold() in manifest_aliases
+        and isinstance(path, exp.Literal)
+        and path.is_string
+        and path.this == _MANIFEST_METRIC_JSONPATH
+        and isinstance(variables, exp.Anonymous)
+        and variables.name.casefold() == "jsonb_build_object"
+        and len(variables.expressions) == 2
+        and isinstance(variables.expressions[0], exp.Literal)
+        and variables.expressions[0].is_string
+        and variables.expressions[0].this == "ref"
+    ):
+        return False
+    encoded_ref = variables.expressions[1]
+    if not (
+        isinstance(encoded_ref, exp.Anonymous)
+        and encoded_ref.name.casefold() == "to_jsonb"
+        and len(encoded_ref.expressions) == 1
+        and isinstance(encoded_ref.expressions[0], exp.Cast)
+    ):
+        return False
+    parameter = encoded_ref.expressions[0].this
+    target = encoded_ref.expressions[0].args.get("to")
+    return (
+        isinstance(parameter, exp.Parameter)
+        and isinstance(parameter.this, exp.Literal)
+        and parameter.this.is_int
+        and int(parameter.this.this) == 1
+        and isinstance(target, exp.DataType)
+        and target.this == exp.DataType.Type.TEXT
+    )
+
+
+def _reject_non_manifest_json_helpers(tree: exp.Query, relations: set[str]) -> None:
+    """Allow JSONPath only for the one bound exact-ref manifest predicate."""
+    manifest_aliases = {
+        table.alias_or_name.casefold()
+        for table in tree.find_all(exp.Table)
+        if table.db.casefold() == "cds_library"
+        and table.name.casefold() == "cds_manifest_snapshots"
+    }
+    membership_calls = [
+        function
+        for function in tree.find_all(exp.Anonymous)
+        if function.name.casefold() == "jsonb_path_exists"
+    ]
+    if membership_calls and (
+        _MANIFEST_RELATION not in relations
+        or any(
+            not _is_manifest_membership_call(function, manifest_aliases)
+            for function in membership_calls
+        )
+    ):
+        raise ServiceError("Only exact bound manifest metric membership JSONPath is allowed.")
+    for function in tree.find_all(exp.Anonymous):
+        if function.name.casefold() not in {"jsonb_build_object", "to_jsonb"}:
+            continue
+        if not any(
+            function is descendant
+            for call in membership_calls
+            for descendant in call.walk()
+        ):
+            raise ServiceError("Manifest JSON helper functions are restricted to exact membership.")
 
 
 def _contains_binary(value: Any) -> bool:
@@ -175,6 +444,7 @@ def _coverage(
     ordered = tuple(domain.id for domain in catalog.snapshot.domains if domain.id in statuses)
     return SchoolCoverage(
         selected_year=document["academic_year"],
+        selected_edition=format_cds_edition(document["academic_year"]),
         document_id=document["document_id"],
         currentness=document["currentness"],
         stale_reason=document["staleness_reason"],
@@ -236,7 +506,7 @@ def _display_profile(value: Any) -> str | None:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         if not math.isfinite(float(value)):
             return None
-        return format(Decimal(str(value)), "f").rstrip("0").rstrip(".") or "0"
+        return format_decimal(value)
     if isinstance(value, str):
         return value.strip() or None
     if isinstance(value, list):
@@ -250,13 +520,15 @@ def _display_profile(value: Any) -> str | None:
     return None
 
 
-def _receipt_at(provenance: Any, path: tuple[str, ...]) -> dict[str, Any] | None:
+def _receipt_at(
+    provenance: Any, path: tuple[str, ...]
+) -> ProfileProvenanceReceipt | None:
     current = provenance
     for part in path:
         if not isinstance(current, dict):
             return None
         current = current.get(part)
-    return current if isinstance(current, dict) else None
+    return ProfileProvenanceReceipt.model_validate(current) if isinstance(current, dict) else None
 
 
 def _walk_profile(
@@ -270,7 +542,7 @@ def _walk_profile(
         ]
     display = _display_profile(value)
     receipt = _receipt_at(provenance, (group, *path))
-    source_column = receipt.get("source_column") if receipt else None
+    source_column = receipt.source_column if receipt else None
     label = source_column or path[-1].replace("_", " ").capitalize()
     return [
         ProfileLeaf(
@@ -322,7 +594,10 @@ async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainRes
     async with catalog.pool.acquire() as conn:
         document = await conn.fetchrow(_SELECTED_DOCUMENT_SQL, unitid, domain_id)
     empty = AvailabilitySummary(
-        configured=len(domain.metrics), verified=0, not_in_template_version=0
+        configured=len(domain.metrics),
+        verified=0,
+        available=0,
+        not_in_template_version=0,
     )
     if document is None:
         return DomainResult(
@@ -377,7 +652,7 @@ async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainRes
                 f"0 of {len(domain.metrics)} metrics verified; this domain has no accepted packet."
             ),
         )
-    settings = get_settings()
+    settings = _catalog_settings(catalog)
     target_packet = parse_packet_row(
         dict(target), manifests, settings.supported_packet_extractor_versions
     )
@@ -436,7 +711,12 @@ async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainRes
         )
         for definition in definitions.values()
     )
-    verified = sum(row.available for row in rows)
+    verified = sum(
+        metric.extraction_status == "verified"
+        for ref, metric in packet.packet.metrics.items()
+        if ref in definitions
+    )
+    available = sum(row.available for row in rows)
     absent = sum(row.availability_status == "not_in_template_version" for row in rows)
     summary = f"{verified} of {len(domain.metrics)} metrics verified"
     if absent:
@@ -457,22 +737,26 @@ async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainRes
         definition_match=packet.current_definition_match,
         rows=rows,
         availability=AvailabilitySummary(
-            configured=len(domain.metrics), verified=verified, not_in_template_version=absent
+            configured=len(domain.metrics),
+            verified=verified,
+            available=available,
+            not_in_template_version=absent,
         ),
         summary=summary,
     )
 
 
-def _guard_sql(sql: str, params: list[Any]) -> None:
-    if (
-        not isinstance(sql, str)
-        or not sql.strip()
-        or any(token in sql for token in (";", "--", "/*"))
-    ):
+def _guard_sql(sql: str, params: list[Any]) -> str:
+    if not isinstance(sql, str) or not sql.strip():
+        raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
+    normalized = sql.strip()
+    if normalized.endswith(";"):
+        normalized = normalized[:-1].rstrip()
+    if not normalized or any(token in normalized for token in (";", "--", "/*")):
         raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
     try:
-        statements = parse(sql, read="postgres")
-    except ParseError:
+        statements = parse(normalized, read="postgres")
+    except (ParseError, TokenError):
         raise ServiceError("Only one safe SELECT/WITH statement is allowed.") from None
     if len(statements) != 1 or not isinstance(statements[0], exp.Query):
         raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
@@ -517,61 +801,76 @@ def _guard_sql(sql: str, params: list[Any]) -> None:
         ).casefold()
         if name not in _SAFE_FUNCTIONS:
             raise ServiceError("Query uses a function that is not allowed by the read-only guard.")
-    placeholders = sorted({int(item) for item in _PLACEHOLDER_RE.findall(sql)})
+    placeholders = sorted({int(item) for item in _PLACEHOLDER_RE.findall(normalized)})
     ast_placeholders = sorted(
+        {
         int(parameter.this.this)
         for parameter in tree.find_all(exp.Parameter)
         if isinstance(parameter.this, exp.Literal) and parameter.this.is_int
+        }
     )
     if placeholders != ast_placeholders or placeholders != list(range(1, len(params) + 1)):
         raise ServiceError("SQL placeholders must be contiguous and match params exactly.")
     if any(_contains_binary(value) for value in params):
         raise ServiceError("Binary query parameters are not allowed.")
     _reject_binary_projection(tree, relations)
+    _reject_packet_projection(tree, relations, params)
+    _reject_manifest_text_search(tree, relations)
+    _reject_non_manifest_json_helpers(tree, relations)
+    return normalized
 
 
 async def query_database(
     catalog: Catalog, sql: str, params: list[Any] | None = None
 ) -> QueryResult:
     values = params or []
-    _guard_sql(sql, values)
-    settings = get_settings()
-    wrapped = f"SELECT * FROM ({sql}) AS counselle_query LIMIT {settings.db_row_cap + 1}"
-    async with catalog.pool.acquire() as conn, conn.transaction(readonly=True):
-        await conn.execute(
-            "SELECT set_config('statement_timeout', $1, true)",
-            str(settings.db_statement_timeout_ms),
-        )
-        records = await conn.fetch(wrapped, *values)
-    truncated = len(records) > settings.db_row_cap
-    records = records[: settings.db_row_cap]
-    columns = tuple(records[0].keys()) if records else ()
+    safe_sql = _guard_sql(sql, values)
+    settings = _catalog_settings(catalog)
+    # The interpolated statement has passed the sqlglot relation/function/
+    # statement allowlist above; every caller-supplied value remains an asyncpg
+    # bind parameter. Only the code-owned row cap is added here.
+    wrapped = (
+        f"SELECT * FROM ({safe_sql}) AS counselle_query LIMIT {settings.db_row_cap + 1}"  # nosec B608
+    )
     rows: list[tuple[Any, ...]] = []
+    columns: tuple[str, ...] = ()
+    truncated = False
     as_of = datetime.now(UTC)
     warning = (
         "Raw query rows bypass typed normalization. Re-fetch named student-facing "
         "values through get_school_profile or get_domain; aggregates need as-of "
         "and coverage-denominator attribution."
     )
-    for record in records:
-        row = tuple(record.values())
-        if _contains_binary(row):
-            raise ServiceError(
-                "Binary/PDF bytes cannot be returned; select metadata such as "
-                "octet_length(pdf_content)."
-            )
-        candidate = QueryResult(
-            columns=columns,
-            rows=tuple([*rows, row]),
-            row_count=len(rows) + 1,
-            truncated=truncated,
-            as_of=as_of,
-            warning=warning,
+    async with catalog.pool.acquire() as conn, conn.transaction(readonly=True):
+        await conn.execute(
+            "SELECT set_config('statement_timeout', $1, true)",
+            str(settings.db_statement_timeout_ms),
         )
-        if len(candidate.model_dump_json().encode()) > settings.query_database_max_bytes:
-            truncated = True
-            break
-        rows.append(row)
+        cursor = conn.cursor(wrapped, *values, prefetch=1)
+        async for record in cursor:
+            if len(rows) >= settings.db_row_cap:
+                truncated = True
+                break
+            if not columns:
+                columns = tuple(record.keys())
+            row = tuple(record.values())
+            if _contains_binary(row):
+                raise ServiceError(
+                    "Binary/PDF bytes cannot be returned; select metadata such as "
+                    "octet_length(pdf_content)."
+                )
+            candidate = QueryResult(
+                columns=columns,
+                rows=tuple([*rows, row]),
+                row_count=len(rows) + 1,
+                truncated=False,
+                as_of=as_of,
+                warning=warning,
+            )
+            if len(candidate.model_dump_json().encode()) > settings.query_database_max_bytes:
+                truncated = True
+                break
+            rows.append(row)
     result = QueryResult(
         columns=columns,
         rows=tuple(rows),

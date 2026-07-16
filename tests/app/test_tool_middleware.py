@@ -58,6 +58,106 @@ def test_mcp_envelopes_are_annotated_by_default() -> None:
     assert registry.entries[0].label == "Profile 2024"
 
 
+def test_profile_normalization_preserves_only_typed_provenance_fields() -> None:
+    payload = {
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "profile_version": "2026-07-13",
+        "profile_snapshot_date": "2024-12-31",
+        "profile_sha256": "a" * 64,
+        "groups": [
+            {
+                "id": "location",
+                "rows": [
+                    {
+                        "ref": "location.city",
+                        "label": "CITY",
+                        "display": "Durham",
+                        "value": "Durham",
+                        "available": True,
+                        "caveat_kinds": ["profile_snapshot"],
+                        "provenance": {
+                            "status": "present",
+                            "chosen_source": "HD2024",
+                            "source_column": "CITY",
+                            "source_vintage": "2024:RPTMTH=1",
+                            "file_sha256": "b" * 64,
+                            "raw_value": "Durham",
+                            "normalized_value": "Durham",
+                            "normalization": "deterministic:CITY",
+                            "unexpected_internal_field": "must not cross",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    result = process_tool_result(
+        payload, ToolMiddlewareContext(), tool_name="get_school_profile"
+    )
+
+    provenance = result["groups"][0]["rows"][0]["provenance"]
+    assert provenance["chosen_source"] == "HD2024"
+    assert provenance["source_column"] == "CITY"
+    assert provenance["source_vintage"] == "2024:RPTMTH=1"
+    assert "unexpected_internal_field" not in provenance
+
+
+def test_domain_normalization_preserves_each_metric_vintage() -> None:
+    enrollment_vintage = "CDS 2024-25; enrollment snapshot: October 15, 2024"
+    tuition_vintage = "CDS 2024-25; cost reporting academic year: 2025-2026"
+    payload = {
+        "school": {"unitid": 130794, "name": "Yale University"},
+        "academic_year": 2024,
+        "document_sha256": "a" * 64,
+        "source_kind": "cds_pdf",
+        "retrieved_at": "2026-07-16T00:00:00Z",
+        "manifest_version": "5.0.2",
+        "rows": [
+            {
+                "ref": "enrollment.total_undergraduate",
+                "label": "Total Undergraduate Enrollment",
+                "display": "6,814",
+                "value": 6814,
+                "available": True,
+                "vintage": enrollment_vintage,
+                "evidence": {
+                    "eid": "enrollment.total_undergraduate",
+                    "value_display": "6,814",
+                    "label": "Total Undergraduate Enrollment",
+                    "page": 6,
+                    "excerpt": "Total undergraduate students 6,814",
+                },
+            },
+            {
+                "ref": "cost.tuition",
+                "label": "Published Undergraduate Tuition",
+                "display": "$69,900",
+                "value": 69900,
+                "available": True,
+                "vintage": tuition_vintage,
+                "evidence": {
+                    "eid": "cost.tuition",
+                    "value_display": "$69,900",
+                    "label": "Published Undergraduate Tuition",
+                    "page": 21,
+                    "excerpt": "Undergraduate tuition $69,900",
+                },
+            },
+        ],
+    }
+
+    result = process_tool_result(payload, ToolMiddlewareContext(), tool_name="get_domain")
+
+    assert [row["vintage"] for row in result["rows"]] == [
+        enrollment_vintage,
+        tuition_vintage,
+    ]
+    assert {row["citation"]["vintage"] for row in result["rows"]} == {
+        "Common Data Set 2024-25"
+    }
+
+
 def test_overflow_runs_after_annotation() -> None:
     registry = SourceRegistry()
     store = ToolResultStore()

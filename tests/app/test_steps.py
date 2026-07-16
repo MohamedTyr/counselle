@@ -598,9 +598,8 @@ def test_detail_for_get_school_profile(mapper: StepMapper) -> None:
     assert detail.row_count is None
 
 
-def test_detail_for_get_domain_uses_authoritative_verified_count(mapper: StepMapper) -> None:
-    """value_count is availability.verified, never len(rows) — rows also
-    include not-in-template-version/unavailable metrics that must not count."""
+def test_detail_for_get_domain_uses_authoritative_available_count(mapper: StepMapper) -> None:
+    """value_count is availability.available, never verified or len(rows)."""
     detail = mapper.detail_for(
         "get_domain",
         {"unitid": 198419, "domain_id": "admissions"},
@@ -608,7 +607,12 @@ def test_detail_for_get_domain_uses_authoritative_verified_count(mapper: StepMap
             "school": {"unitid": 198419, "name": "Duke University"},
             "domain_id": "admissions",
             "rows": [{"ref": "a"}, {"ref": "b"}, {"ref": "c"}],
-            "availability": {"configured": 3, "verified": 2, "not_in_template_version": 0},
+            "availability": {
+                "configured": 3,
+                "verified": 3,
+                "available": 2,
+                "not_in_template_version": 1,
+            },
         },
         80,
     )

@@ -5,7 +5,8 @@ deps. Slice B mounts them as FunctionToolset tools and injects the deps. Each
 function takes explicit deps so it can be called in unit tests with simple stubs.
 
 Return shape on success:
-    {"results": [{"title": str, "url": str, "snippet": str, "citation": dict}]}
+    {"results": [{"title": str, "url": str, "snippet": str, "citation": dict}],
+     "freshness": {"current": int, "historical": int, "undated": int, "guidance": str}}
 
 Return shape on error (never raises):
     {"error": str, "retryable": bool}
@@ -56,6 +57,16 @@ _GOV_TLDS = frozenset({"gov", "mil"})
 #: email-like token suppresses the raw message — see ``_safe_error``.
 _IPV4_RE = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 _EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+_ACADEMIC_PERIOD_RE = re.compile(
+    r"\b(?P<start>20\d{2})\s*(?P<sep>[-–—/])\s*(?P<end>(?:20)?\d{2})\b"
+)
+_YEAR_RE = re.compile(r"\b20\d{2}\b")
+_COPYRIGHT_YEAR_RE = re.compile(r"(?:copyright|©)\s*(?:20\d{2})", re.IGNORECASE)
+_FRESHNESS_GUIDANCE = (
+    "Retrieval date is not source-period evidence. For a current numeric claim, use only a "
+    "result marked current whose source_period_evidence supports the claim; otherwise search "
+    "the official site again with a year-specific query or say the current value is unavailable."
+)
 
 
 #: ``_registrable_domain`` now lives in ``domain/urls.py`` (shared with the
@@ -85,13 +96,122 @@ def _citation_for_web_result(url: str, today: date) -> Citation:
     )
 
 
-def _result_to_item(result: dict[str, Any], citation: Citation) -> dict[str, Any]:
+def _period_end_year(match: re.Match[str]) -> int:
+    start = int(match.group("start"))
+    raw_end = match.group("end")
+    return int(raw_end) if len(raw_end) == 4 else (start // 100) * 100 + int(raw_end)
+
+
+def _period_excerpt(text: str, start: int, end: int) -> str:
+    left = max(0, start - 90)
+    right = min(len(text), end + 150)
+    return " ".join(text[left:right].split())[:300]
+
+
+def _page_period(result: dict[str, Any], today: date) -> dict[str, str | None]:
+    """Derive conservative source-period evidence from page text/metadata.
+
+    Academic-year ranges beat standalone years so a modern copyright footer
+    cannot make a visibly historical page look current. Raw page content is
+    considered only for academic-year ranges; its standalone years are too
+    likely to be navigation/footer noise.
+    """
+    title_and_snippet = "\n".join(
+        str(result.get(key) or "") for key in ("title", "content")
+    )
+    candidates: list[tuple[int, str, str, str]] = []
+    for match in _ACADEMIC_PERIOD_RE.finditer(title_and_snippet):
+        candidates.append(
+            (
+                _period_end_year(match),
+                match.group(0),
+                _period_excerpt(title_and_snippet, match.start(), match.end()),
+                "page_content",
+            )
+        )
+    if not candidates:
+        without_copyright = _COPYRIGHT_YEAR_RE.sub("", title_and_snippet)
+        for match in _YEAR_RE.finditer(without_copyright):
+            candidates.append(
+                (
+                    int(match.group(0)),
+                    match.group(0),
+                    _period_excerpt(without_copyright, match.start(), match.end()),
+                    "page_content",
+                )
+            )
+    if not candidates:
+        raw_content = str(result.get("raw_content") or "")
+        for match in _ACADEMIC_PERIOD_RE.finditer(raw_content):
+            candidates.append(
+                (
+                    _period_end_year(match),
+                    match.group(0),
+                    _period_excerpt(raw_content, match.start(), match.end()),
+                    "page_content",
+                )
+            )
+    published = str(result.get("published_date") or "")
+    published_match = _YEAR_RE.search(published)
+    if not candidates and published_match:
+        candidates.append(
+            (
+                int(published_match.group(0)),
+                published_match.group(0),
+                published[:300],
+                "metadata",
+            )
+        )
+    if not candidates:
+        return {
+            "source_period": None,
+            "source_period_basis": None,
+            "source_period_evidence": None,
+            "source_currentness": "undated",
+        }
+    end_year, period, evidence, basis = max(candidates, key=lambda item: item[0])
+    currentness = "current" if end_year >= today.year else "historical"
+    return {
+        "source_period": period,
+        "source_period_basis": basis,
+        "source_period_evidence": evidence,
+        "source_currentness": currentness,
+    }
+
+
+def _result_to_item(
+    result: dict[str, Any], citation: Citation, today: date | None = None
+) -> dict[str, Any]:
+    if today is not None:
+        citation = citation.model_copy(update=_page_period(result, today))
     return {
         "title": result.get("title", ""),
         "url": result.get("url", ""),
         "snippet": result.get("content", ""),
         "citation": citation.model_dump(),
     }
+
+
+def _freshness_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = {"current": 0, "historical": 0, "undated": 0}
+    for item in items:
+        currentness = item["citation"].get("source_currentness")
+        if currentness in counts:
+            counts[currentness] += 1
+    return {**counts, "guidance": _FRESHNESS_GUIDANCE}
+
+
+def _freshness_rank(item: dict[str, Any]) -> int:
+    return {"current": 0, "undated": 1, "historical": 2}.get(
+        item["citation"].get("source_currentness"), 3
+    )
+
+
+def _institution_search_domain(domain: str) -> str:
+    """Widen an institutional ``*.edu`` host to its school-wide base domain."""
+    host = (urlparse(f"//{domain}").hostname or domain).lower().rstrip(".")
+    labels = host.split(".")
+    return ".".join(labels[-2:]) if len(labels) > 2 and labels[-1] == "edu" else host
 
 
 def _safe_error(exc: Exception) -> dict[str, Any]:
@@ -202,8 +322,14 @@ async def search_web(
         return _safe_error(exc)
 
     results = resp.get("results", [])
-    items = [_result_to_item(r, _citation_for_web_result(r.get("url", ""), today)) for r in results]
-    return {"results": items}
+    items = [
+        _result_to_item(r, _citation_for_web_result(r.get("url", ""), today), today)
+        for r in results
+    ]
+    return {
+        "results": items,
+        **({"freshness": _freshness_summary(items)} if items else {}),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -238,13 +364,15 @@ async def search_school_site(
         return {"error": "school website unknown", "retryable": False}
 
     school_site_vintage = f"Retrieved {today:%b %d, %Y} (school's official site)"
+    search_domain = _institution_search_domain(domain)
     try:
         resp = await client.search(
             query,
             search_depth="basic",
             max_results=max_results,
-            include_domains=[domain],
+            include_domains=[search_domain],
             include_answer=False,
+            include_raw_content="text",
         )
     except (
         UsageLimitExceededError,
@@ -257,7 +385,7 @@ async def search_school_site(
 
     results = resp.get("results", [])
 
-    requested_domain = (urlparse(f"//{domain}").hostname or domain).lower().rstrip(".")
+    requested_domain = search_domain
     items: list[dict[str, Any]] = []
     for result in results:
         url = result.get("url", "")
@@ -274,8 +402,12 @@ async def search_school_site(
         else:
             # Third-party leakage does not belong in this official-site tool.
             continue
-        items.append(_result_to_item(result, citation))
-    return {"results": items}
+        items.append(_result_to_item(result, citation, today))
+    items.sort(key=_freshness_rank)
+    return {
+        "results": items,
+        **({"freshness": _freshness_summary(items)} if items else {}),
+    }
 
 
 # ---------------------------------------------------------------------------

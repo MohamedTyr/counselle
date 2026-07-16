@@ -769,6 +769,7 @@ export function defaultAuthenticatedFetch(
       season_note: null,
       conversation_starters: [],
       default_source_config: null,
+      current_admissions_cycle_year: 2027,
     })
   }
   if (url.endsWith("/v1/sessions?limit=50")) {

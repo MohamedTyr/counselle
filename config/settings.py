@@ -26,6 +26,10 @@ from pydantic import AliasChoices, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _ENV_PREFIX = "COUNSELLE_"
+_DEFAULT_ASSETS_DIR = Path(__file__).parent / "assets"
+DEFAULT_DB_STATEMENT_TIMEOUT_MS = 8000
+DEFAULT_DB_POOL_MIN = 1
+DEFAULT_DB_POOL_MAX = 5
 
 #: A JWT signing secret shorter than this is rejected (pyjwt 2.13 warns below 32).
 _MIN_JWT_SECRET_BYTES = 32
@@ -50,7 +54,7 @@ class DbChildSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, env_prefix=_ENV_PREFIX, extra="ignore")
 
     db_ro_dsn: str
-    db_statement_timeout_ms: int = 8000
+    db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
     db_row_cap: int = Field(default=500, gt=0)
     query_database_max_bytes: int = Field(default=262_144, gt=0)
     data_catalog_refresh_seconds: int = Field(default=3600, gt=0)
@@ -62,8 +66,8 @@ class DbChildSettings(BaseSettings):
             "gemini-routed-extraction-v8",
         }
     )
-    db_pool_min: int = 1
-    db_pool_max: int = 5
+    db_pool_min: int = DEFAULT_DB_POOL_MIN
+    db_pool_max: int = DEFAULT_DB_POOL_MAX
     log_level: str = "INFO"
 
     @field_validator("supported_packet_extractor_versions", mode="before")
@@ -81,6 +85,28 @@ class DbChildSettings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_db_child_settings() -> DbChildSettings:
     return DbChildSettings()  # type: ignore[call-arg]
+
+
+class AssetSettings(BaseSettings):
+    """Minimal settings surface for packaged editorial assets.
+
+    Asset readers are used by the credential-isolated DB child, so resolving an
+    asset path must not instantiate the unrelated application settings surface.
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", env_prefix=_ENV_PREFIX, extra="ignore")
+
+    assets_dir: Path = _DEFAULT_ASSETS_DIR
+
+    def __init__(self, **values: Any) -> None:
+        if os.environ.get("COUNSELLE_SETTINGS_NO_ENV_FILE") == "1":
+            values.setdefault("_env_file", None)
+        super().__init__(**values)
+
+
+@lru_cache(maxsize=1)
+def get_asset_settings() -> AssetSettings:
+    return AssetSettings()
 
 
 def _mask_secret(name: str, value: str) -> str:
@@ -143,7 +169,7 @@ class Settings(BaseSettings):
     # --- Database ---
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required
     db_app_dsn: str  # counselle.* schema (sessions, users, workspace) — required
-    db_statement_timeout_ms: int = 8000
+    db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
     db_row_cap: int = Field(default=500, gt=0)
     query_database_max_bytes: int = Field(default=262_144, gt=0)
     data_catalog_refresh_seconds: int = Field(default=3600, gt=0)
@@ -157,8 +183,8 @@ class Settings(BaseSettings):
     )
     viz_max_cells: int = Field(default=600, gt=0)
     source_evidence_max_items: int = Field(default=50, gt=0)
-    db_pool_min: int = 1
-    db_pool_max: int = 5
+    db_pool_min: int = DEFAULT_DB_POOL_MIN
+    db_pool_max: int = DEFAULT_DB_POOL_MAX
 
     # --- Sessions ---
     checkpointer: Literal["postgres", "memory"] = "postgres"
@@ -319,7 +345,7 @@ class Settings(BaseSettings):
     )
 
     # --- Assets ---
-    assets_dir: Path = Path(__file__).parent / "assets"
+    assets_dir: Path = _DEFAULT_ASSETS_DIR
 
     @property
     def effective_thinking_stream(self) -> bool:
@@ -340,6 +366,28 @@ class Settings(BaseSettings):
     __str__ = __repr__
 
 
+def serialize_db_child_environment(
+    settings: DbChildSettings | Settings, *, uv_cache_dir: str | None = None
+) -> dict[str, str]:
+    """Serialize only the credential-isolated DB child's typed settings."""
+    child = DbChildSettings(
+        **{name: getattr(settings, name) for name in DbChildSettings.model_fields}
+    )
+    values = child.model_dump(mode="json")
+    env = {
+        "COUNSELLE_DB_RO_DSN": child.db_ro_dsn,
+        "COUNSELLE_SETTINGS_NO_ENV_FILE": "1",
+    }
+    for field, value in values.items():
+        if field == "db_ro_dsn":
+            continue
+        serialized = ",".join(sorted(value)) if isinstance(value, list) else str(value)
+        env[f"COUNSELLE_{field.upper()}"] = serialized
+    if uv_cache_dir is not None:
+        env["UV_CACHE_DIR"] = uv_cache_dir
+    return env
+
+
 @lru_cache
 def get_settings() -> Settings:
     """Load and cache the Settings, failing fast with one aggregated, readable error."""
@@ -355,30 +403,28 @@ def get_settings() -> Settings:
         raise RuntimeError("\n".join(lines)) from exc
 
 
-# NOTE: get_settings/load_prompt/load_yaml_asset caches are coupled — the asset
-# loaders key on `name` only but read get_settings().assets_dir, so clearing one
-# without the others would serve stale assets after an assets_dir change. Always
-# clear them together via reset_config_caches() (audit L4); never call a single
-# .cache_clear() on these three.
+# NOTE: get_asset_settings/load_prompt/load_yaml_asset caches are coupled — the
+# asset loaders key on `name` only, so clearing one without the others would serve
+# stale assets after an assets_dir change. Always clear them together via
+# reset_config_caches() (audit L4); never clear only one of these caches.
 @lru_cache
 def load_prompt(name: str) -> str:
     """Load an agent prompt from ``config/assets/prompts/<name>.md`` (ADR 0018)."""
-    path = get_settings().assets_dir / "prompts" / f"{name}.md"
+    path = get_asset_settings().assets_dir / "prompts" / f"{name}.md"
     return path.read_text(encoding="utf-8")
 
 
 @lru_cache
 def load_yaml_asset(name: str) -> Any:
     """Load and parse a versioned data asset from ``config/assets/<name>.yaml``."""
-    path = get_settings().assets_dir / f"{name}.yaml"
+    path = get_asset_settings().assets_dir / f"{name}.yaml"
     with path.open(encoding="utf-8") as handle:
         return yaml.safe_load(handle)
 
 
 def reset_config_caches() -> None:
-    """Clear all three coupled config caches together (the assets caches key on
-    ``name`` only but read ``get_settings().assets_dir`` — clearing one without the
-    others would serve stale assets after an assets_dir change; audit L4)."""
+    """Clear the application and coupled asset configuration caches together."""
     get_settings.cache_clear()
+    get_asset_settings.cache_clear()
     load_prompt.cache_clear()
     load_yaml_asset.cache_clear()

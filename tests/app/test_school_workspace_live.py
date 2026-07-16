@@ -81,7 +81,9 @@ async def user_id(app_pool: asyncpg.Pool) -> AsyncIterator[UUID]:
             )
 
 
-async def _application(app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID, *, cycle: int = 2027):
+async def _application(
+    app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID, *, cycle: int = 2027
+):
     unitid = sorted(catalog.school_names)[0]
     return await add_application(
         app_pool,
@@ -268,7 +270,11 @@ async def test_prompt_links_are_school_cycle_scoped_unique_and_duplicates_unlink
                 f"https://example.edu/{user_id}",
             )
     essay = await create_essay(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
         data=EssayCreate(
             title="Why us",
             application_id=result.application.id,
@@ -280,7 +286,11 @@ async def test_prompt_links_are_school_cycle_scoped_unique_and_duplicates_unlink
     assert essay.prompt == "Why us?"
     assert essay.word_limit is None
     essay = await update_essay(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
         essay_id=essay.id,
         data=EssayPatch(prompt="Another contradiction", word_limit=1),
     )
@@ -288,13 +298,24 @@ async def test_prompt_links_are_school_cycle_scoped_unique_and_duplicates_unlink
     assert essay.word_limit is None
     with pytest.raises(WorkspaceValidationError):
         await create_essay(
-            app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
-            data=EssayCreate(title="Duplicate", application_id=result.application.id, prompt_ref=prompt_id),
+            app_pool,
+            catalog,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="student",
+            data=EssayCreate(
+                title="Duplicate", application_id=result.application.id, prompt_ref=prompt_id
+            ),
         )
     with pytest.raises(WorkspaceValidationError):
         await update_essay(
-            app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
-            essay_id=essay.id, data=EssayPatch(prompt_ref=other_prompt_id),
+            app_pool,
+            catalog,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="student",
+            essay_id=essay.id,
+            data=EssayPatch(prompt_ref=other_prompt_id),
         )
     duplicate = await duplicate_essay(
         app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=essay.id
@@ -370,11 +391,11 @@ async def test_checklist_patch_is_atomic_and_json_null_deletes(
     )
     await asyncio.gather(
         update_application(**kwargs, data=ApplicationPatch(checklist={"fee": {"status": "paid"}})),
-        update_application(**kwargs, data=ApplicationPatch(checklist={"fafsa": {"status": "submitted"}})),
+        update_application(
+            **kwargs, data=ApplicationPatch(checklist={"fafsa": {"status": "submitted"}})
+        ),
     )
-    updated = await update_application(
-        **kwargs, data=ApplicationPatch(checklist={"fee": None})
-    )
+    updated = await update_application(**kwargs, data=ApplicationPatch(checklist={"fee": None}))
     assert "fee" not in updated.checklist.root
     assert updated.checklist.root["fafsa"].status == "submitted"
     async with app_pool.acquire() as conn:
@@ -404,7 +425,11 @@ async def test_archived_prompt_link_blocks_cycle_change_and_restore_revalidates_
             date(2026, 7, 12),
         )
     first = await create_essay(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
         data=EssayCreate(title="First", application_id=result.application.id, prompt_ref=prompt_id),
     )
     await archive_essay(
@@ -412,16 +437,31 @@ async def test_archived_prompt_link_blocks_cycle_change_and_restore_revalidates_
     )
     with pytest.raises(WorkspaceValidationError, match="cycle"):
         await update_application(
-            app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
-            application_id=result.application.id, data=ApplicationPatch(cycle_year=2028),
+            app_pool,
+            catalog,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="student",
+            application_id=result.application.id,
+            data=ApplicationPatch(cycle_year=2028),
         )
     await create_essay(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
-        data=EssayCreate(title="Second", application_id=result.application.id, prompt_ref=prompt_id),
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(
+            title="Second", application_id=result.application.id, prompt_ref=prompt_id
+        ),
     )
     with pytest.raises(WorkspaceValidationError, match="already has an active essay"):
         await restore_essay(
-            app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
+            app_pool,
+            catalog,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="student",
             essay_id=first.id,
         )
 
@@ -479,8 +519,14 @@ async def test_archived_essay_can_restore_against_matching_historical_prompt(
             date(2026, 7, 12),
         )
     essay = await create_essay(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
-        data=EssayCreate(title="Historical", application_id=result.application.id, prompt_ref=prompt_id),
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(
+            title="Historical", application_id=result.application.id, prompt_ref=prompt_id
+        ),
     )
     await archive_essay(
         app_pool, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=essay.id

@@ -9,10 +9,25 @@ Python objects (DATABASE_GUIDE §2).
 """
 
 import json
+from typing import Protocol
 
 import asyncpg
 
-from config.settings import get_db_child_settings
+from config.settings import (
+    DEFAULT_DB_POOL_MAX,
+    DEFAULT_DB_POOL_MIN,
+    DEFAULT_DB_STATEMENT_TIMEOUT_MS,
+    get_settings,
+)
+
+
+class PoolSettings(Protocol):
+    """The DB connection settings shared by the app and isolated MCP child."""
+
+    db_ro_dsn: str
+    db_statement_timeout_ms: int
+    db_pool_min: int
+    db_pool_max: int
 
 
 async def _init_connection(conn: asyncpg.Connection) -> None:
@@ -23,15 +38,37 @@ async def _init_connection(conn: asyncpg.Connection) -> None:
         )
 
 
-async def create_pool(dsn: str | None = None) -> asyncpg.Pool:
-    """Create the read-only pool on COUNSELLE_DB_RO_DSN (sizes/timeout from Settings)."""
-    settings = get_db_child_settings()
+async def create_pool(
+    dsn: str | None = None, *, settings: PoolSettings | None = None
+) -> asyncpg.Pool:
+    """Create a DB pool without crossing the app/MCP credential boundary.
+
+    Normal app callers use the application settings (and therefore the repo
+    ``.env``). The independently launched MCP child passes its already-loaded
+    ``DbChildSettings`` explicitly. An explicit DSN never instantiates either
+    settings surface; it uses the connection defaults below unless a settings
+    object is also supplied.
+    """
+    if settings is None and dsn is None:
+        settings = get_settings()
+    if dsn is None:
+        assert settings is not None
+        resolved_dsn = settings.db_ro_dsn
+    else:
+        resolved_dsn = dsn
+    pool_min = settings.db_pool_min if settings is not None else DEFAULT_DB_POOL_MIN
+    pool_max = settings.db_pool_max if settings is not None else DEFAULT_DB_POOL_MAX
+    statement_timeout_ms = (
+        settings.db_statement_timeout_ms
+        if settings is not None
+        else DEFAULT_DB_STATEMENT_TIMEOUT_MS
+    )
     return await asyncpg.create_pool(
-        dsn or settings.db_ro_dsn,
-        min_size=settings.db_pool_min,
-        max_size=settings.db_pool_max,
+        resolved_dsn,
+        min_size=pool_min,
+        max_size=pool_max,
         init=_init_connection,
-        server_settings={"statement_timeout": str(settings.db_statement_timeout_ms)},
+        server_settings={"statement_timeout": str(statement_timeout_ms)},
     )
 
 

@@ -9,16 +9,20 @@ import math
 import re
 import statistics
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Literal, cast
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 import structlog
 import yaml
 from pydantic import BaseModel
+from sqlglot import exp, parse
+from sqlglot.errors import ParseError, TokenError
 
 from app.agent_node import model_name_from_setting
 from app.deps import Runtime, build_runtime
@@ -164,6 +168,18 @@ def _school(snapshot: Any, unitid: int) -> EvalSchool:
     )
 
 
+def _require_metric_ref(
+    metrics: Mapping[str, Any], domain_id: str, metric_id: str
+) -> str:
+    """Resolve one semantic eval role without substituting an unrelated metric."""
+    ref = f"{domain_id}.{metric_id}"
+    if ref not in metrics:
+        raise RuntimeError(
+            f"live manifest lacks required {domain_id!r} eval metric {metric_id!r}"
+        )
+    return ref
+
+
 async def build_eval_context(runtime: Runtime) -> EvalContext:
     """Choose fixture roles from the current immutable catalog snapshot."""
     snapshot = runtime.deps.catalog.snapshot
@@ -214,16 +230,17 @@ async def build_eval_context(runtime: Runtime) -> EvalContext:
     if common is None:
         raise RuntimeError("live catalog has no two schools with a common verified metric")
 
-    metric_refs = tuple(snapshot.metrics)
-
-    def metric_ref(suffix: str, fallback: str) -> str:
-        return next((ref for ref in metric_refs if ref.endswith(suffix)), fallback)
-
-    aid_metric_ref = metric_ref(
-        "h2_i_average_percent_need_met_all_full_time", common[3]
+    aid_metric_ref = _require_metric_ref(
+        snapshot.metrics,
+        "financial_aid",
+        "h2_i_average_percent_need_met_all_full_time",
     )
-    applicants_ref = metric_ref("applicants_total", common[3])
-    admitted_ref = metric_ref("admitted_total", common[3])
+    applicants_ref = _require_metric_ref(
+        snapshot.metrics, "admissions", "applicants_total"
+    )
+    admitted_ref = _require_metric_ref(
+        snapshot.metrics, "admissions", "admitted_total"
+    )
     need_blind_ref = next(
         (
             ref
@@ -235,18 +252,38 @@ async def build_eval_context(runtime: Runtime) -> EvalContext:
     )
 
     # The deterministic packet-v8 fixture owns the permanent template-absence gate.
-    # Live coverage records it only when the current database honestly contains it.
+    # A live role exists only when the latest selected document's typed reader
+    # exposes the absence; older raw packets can disagree with selected truth.
     async with runtime.ro_pool.acquire() as conn:
-        template_row = await conn.fetchrow(
-            """SELECT p.name, d.domain_id, metric.key AS metric_id
+        template_candidates = await conn.fetch(
+            """WITH selected AS (
+                 SELECT DISTINCT ON (school_id) school_id, document_id
+                 FROM cds_library.active_cds_documents
+                 ORDER BY school_id, academic_year DESC, document_id DESC
+               )
+               SELECT p.id, p.name, d.domain_id, metric.key AS metric_id
                FROM cds_library.active_cds_domain_packets d
+               JOIN selected s ON s.school_id=d.school_id AND s.document_id=d.document_id
                JOIN cds_library.school_profiles p ON p.id = d.school_id
                CROSS JOIN LATERAL jsonb_each(d.packet -> 'metrics') AS metric(key, value)
                WHERE metric.value ->> 'availability_status' = $1
                ORDER BY p.id, d.domain_id, metric.key
-               LIMIT 1""",
+               LIMIT 50""",
             "not_in_template_version",
         )
+    template_row = None
+    for candidate in template_candidates:
+        typed = await get_domain(
+            runtime.deps.catalog, int(candidate["id"]), str(candidate["domain_id"])
+        )
+        candidate_ref = str(candidate["metric_id"])
+        if any(
+            row.ref == candidate_ref
+            and row.availability_status == "not_in_template_version"
+            for row in typed.rows
+        ):
+            template_row = candidate
+            break
     return EvalContext(
         snapshot.current_version,
         tuple(d.id for d in snapshot.domains),
@@ -267,7 +304,7 @@ async def build_eval_context(runtime: Runtime) -> EvalContext:
         template_row is not None,
         str(template_row["name"]) if template_row else None,
         str(template_row["domain_id"]) if template_row else None,
-        f"{template_row['domain_id']}.{template_row['metric_id']}" if template_row else None,
+        str(template_row["metric_id"]) if template_row else None,
     )
 
 
@@ -338,6 +375,74 @@ def _return_payloads(capture: TurnCapture, name: str) -> list[dict[str, Any]]:
     ]
 
 
+def _paired_results(
+    capture: TurnCapture, name: str
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Pair same-name calls/returns in their provider-preserved order."""
+    calls = iter(_calls(capture, name))
+    paired: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for result in capture.tool_returns:
+        if result["tool_name"] != name:
+            continue
+        call = next(calls, None)
+        if call is None:
+            break
+        payload = result.get("content")
+        if isinstance(payload, dict):
+            paired.append((call, payload))
+    return paired
+
+
+def _payload_succeeded(payload: Mapping[str, Any]) -> bool:
+    return (
+        payload.get("status") not in {"tool_error", "error"}
+        and not payload.get("error")
+        and payload.get("ok", True) is not False
+    )
+
+
+def _result_handle(payload: Mapping[str, Any]) -> str | None:
+    direct = payload.get("result_handle")
+    if isinstance(direct, str):
+        return direct
+    agent = payload.get("result_for_agent")
+    handle = agent.get("handle") if isinstance(agent, dict) else None
+    return handle if isinstance(handle, str) else None
+
+
+def _read_results(capture: TurnCapture) -> dict[str, dict[str, Any]]:
+    reads: dict[str, dict[str, Any]] = {}
+    for call, payload in _paired_results(capture, "read_tool_result"):
+        handle = call["args"].get("handle")
+        if isinstance(handle, str) and _payload_succeeded(payload):
+            reads[handle] = payload
+    return reads
+
+
+def _successful_tool_results(
+    capture: TurnCapture, name: str
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Return successful direct payloads or successfully read overflow payloads."""
+    reads = _read_results(capture)
+    successful: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for call, payload in _paired_results(capture, name):
+        if not _payload_succeeded(payload):
+            continue
+        handle = _result_handle(payload)
+        if handle is not None:
+            expanded = reads.get(handle)
+            if expanded is not None:
+                successful.append((call, expanded))
+            continue
+        if payload.get("status") != "overflow":
+            successful.append((call, payload))
+    return successful
+
+
+def _successful_calls(capture: TurnCapture, name: str) -> list[dict[str, Any]]:
+    return [call for call, _payload in _successful_tool_results(capture, name)]
+
+
 def _caveat_kinds(capture: TurnCapture) -> set[str]:
     found: set[str] = set()
     for result in capture.tool_returns:
@@ -348,6 +453,243 @@ def _caveat_kinds(capture: TurnCapture) -> set[str]:
 
 def _markers(text: str) -> list[str]:
     return re.findall(r"\[[1-9]\d*\]", text)
+
+
+def _walk_mappings(value: Any) -> list[Mapping[str, Any]]:
+    found: list[Mapping[str, Any]] = []
+    if isinstance(value, Mapping):
+        found.append(value)
+        for child in value.values():
+            found.extend(_walk_mappings(child))
+    elif isinstance(value, list | tuple):
+        for child in value:
+            found.extend(_walk_mappings(child))
+    return found
+
+
+def _normalized_period(value: str) -> str:
+    return re.sub(r"[–—/]", "-", value).replace(" ", "")
+
+
+def _normalized_claim_value(value: str) -> str:
+    """Match display formatting without weakening the expected numeric value."""
+    return re.sub(r"[^0-9.]", "", value).removesuffix(".00")
+
+
+def _table_is(table: exp.Table, schema: str, name: str) -> bool:
+    return table.db.casefold() == schema and table.name.casefold() == name
+
+
+def _ordered_column(item: exp.Expression) -> tuple[str, bool] | None:
+    if not isinstance(item, exp.Ordered) or not isinstance(item.this, exp.Column):
+        return None
+    return item.this.name.casefold(), item.args.get("desc") is True
+
+
+def _selected_document_cte(tree: exp.Query) -> tuple[str, exp.Select] | None:
+    for cte in tree.find_all(exp.CTE):
+        select = cte.this
+        if not isinstance(select, exp.Select):
+            continue
+        from_clause = select.args.get("from_")
+        source = from_clause.this if isinstance(from_clause, exp.From) else None
+        if not isinstance(source, exp.Table) or not _table_is(
+            source, "cds_library", "active_cds_documents"
+        ):
+            continue
+        distinct = select.args.get("distinct")
+        on = distinct.args.get("on") if isinstance(distinct, exp.Distinct) else None
+        distinct_expressions = list(on.expressions) if isinstance(on, exp.Tuple) else []
+        order = select.args.get("order")
+        ordered = (
+            [_ordered_column(item) for item in order.expressions]
+            if isinstance(order, exp.Order)
+            else []
+        )
+        projected = {
+            projection.name.casefold()
+            for projection in select.expressions
+            if isinstance(projection, exp.Column)
+        }
+        unfiltered = (
+            not any(
+                select.args.get(key) is not None
+                for key in ("where", "limit", "group", "having", "qualify")
+            )
+            and not select.args.get("joins")
+            and not any(nested is not select for nested in select.find_all(exp.Select))
+        )
+        if (
+            len(distinct_expressions) == 1
+            and isinstance(distinct_expressions[0], exp.Column)
+            and distinct_expressions[0].name.casefold() == "school_id"
+            and {"school_id", "document_id"} <= projected
+            and unfiltered
+            and ordered[:3]
+            == [
+                ("school_id", False),
+                ("academic_year", True),
+                ("document_id", True),
+            ]
+        ):
+            return cte.alias.casefold(), select
+    return None
+
+
+def _join_has_exact_document_keys(
+    join: exp.Join, selected_alias: str, packet_alias: str
+) -> bool:
+    on = join.args.get("on")
+    if not isinstance(on, exp.Expression) or on.find(exp.Or) is not None:
+        return False
+    matched: set[str] = set()
+    for equality in on.find_all(exp.EQ):
+        left, right = equality.this, equality.expression
+        if not isinstance(left, exp.Column) or not isinstance(right, exp.Column):
+            continue
+        columns = (left, right)
+        names = {column.name.casefold() for column in columns}
+        tables = {column.table.casefold() for column in columns}
+        if len(names) == 1 and tables == {selected_alias, packet_alias}:
+            matched.update(names)
+    return {"school_id", "document_id"} <= matched
+
+
+def _has_selected_document_candidate_sql(sql: str) -> bool:
+    try:
+        statements = parse(sql, read="postgres")
+    except (ParseError, TokenError):
+        return False
+    if len(statements) != 1 or not isinstance(statements[0], exp.Query):
+        return False
+    tree = statements[0]
+    selected = _selected_document_cte(tree)
+    if selected is None:
+        return False
+    selected_alias, _selected_query = selected
+    for select in tree.find_all(exp.Select):
+        from_clause = select.args.get("from_")
+        packet_table = from_clause.this if isinstance(from_clause, exp.From) else None
+        if not isinstance(packet_table, exp.Table) or not _table_is(
+            packet_table, "cds_library", "active_cds_domain_packets"
+        ):
+            continue
+        packet_alias = packet_table.alias_or_name.casefold()
+        for join in select.args.get("joins") or []:
+            relation = join.this
+            if (
+                isinstance(relation, exp.Table)
+                and relation.name.casefold() == selected_alias
+                and not join.args.get("side")
+                and join.args.get("kind") in {None, "INNER"}
+                and _join_has_exact_document_keys(
+                    join, relation.alias_or_name.casefold(), packet_alias
+                )
+            ):
+                return True
+    return False
+
+
+def _candidate_school_ids(payload: Mapping[str, Any]) -> set[int]:
+    columns = [str(column).casefold() for column in payload.get("columns") or []]
+    id_column = next(
+        (name for name in ("school_id", "unitid", "id") if name in columns), None
+    )
+    if id_column is None:
+        return set()
+    index = columns.index(id_column)
+    candidates: set[int] = set()
+    for row in payload.get("rows") or []:
+        if isinstance(row, list | tuple) and len(row) > index:
+            try:
+                candidates.add(int(row[index]))
+            except (TypeError, ValueError):
+                continue
+    return candidates
+
+
+def _typed_refetch_complete(capture: TurnCapture) -> tuple[bool, str]:
+    queries = _successful_tool_results(capture, "query_database")
+    if not queries:
+        return False, "no successful candidate query"
+    query_call, query_payload = queries[-1]
+    candidates = _candidate_school_ids(query_payload)
+    query_index = next(
+        (index for index, call in enumerate(capture.tool_calls) if call is query_call), -1
+    )
+    fetched: set[int] = set()
+    for call, _payload in _successful_tool_results(capture, "get_domain"):
+        call_index = next(
+            (index for index, item in enumerate(capture.tool_calls) if item is call), -1
+        )
+        if call_index <= query_index:
+            continue
+        try:
+            fetched.add(int(call["args"].get("unitid")))
+        except (TypeError, ValueError):
+            continue
+    return bool(candidates) and candidates <= fetched, (
+        f"candidates={sorted(candidates)}; successfully refetched={sorted(fetched)}"
+    )
+
+
+def _denominator_pair_from_payload(
+    payload: Mapping[str, Any], fallback_total: int
+) -> tuple[int, int] | None:
+    columns = [str(column).casefold() for column in payload.get("columns") or []]
+    covered_column = next((column for column in columns if column == "covered"), None) or next(
+        (column for column in columns if "covered" in column), None
+    )
+    total_column = next((column for column in columns if column == "total"), None) or next(
+        (
+            column
+            for column in columns
+            if "total" in column
+            and any(hint in column for hint in ("school", "profile", "denominator"))
+        ),
+        None,
+    )
+    if covered_column is None:
+        covered_column = next(
+            (
+                column
+                for column in columns
+                if "total" not in column
+                and (column.endswith("count") or any(
+                    hint in column for hint in ("eligible", "qualifying")
+                ))
+            ),
+            None,
+        )
+    presence_column = (
+        "metric_ref_present" if "metric_ref_present" in columns else None
+    )
+    for row in payload.get("rows") or []:
+        if not isinstance(row, list | tuple) or len(row) != len(columns):
+            continue
+        try:
+            total = (
+                int(row[columns.index(total_column)])
+                if total_column is not None
+                else fallback_total
+            )
+            if covered_column is not None:
+                return int(row[columns.index(covered_column)]), total
+            if presence_column is not None and row[columns.index(presence_column)] is False:
+                return 0, total
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _viz_markers(capture: TurnCapture) -> list[str]:
+    return [
+        str(cell["marker"])
+        for viz in capture.vizzes
+        for row in viz.get("rows", [])
+        for cell in row.get("cells", [])
+        if re.fullmatch(r"\[[1-9]\d*\]", str(cell.get("marker") or ""))
+    ]
 
 
 def _safe_event_summary(capture: TurnCapture) -> str:
@@ -428,7 +770,7 @@ def score_routing(expects: dict[str, Any], capture: TurnCapture) -> dict[str, di
             len(positions) == len(expects["order"]) and positions == sorted(positions),
             f"order={called}",
         )
-    if expects.get("domain_role") == "common":
+    if expects.get("domain_id"):
         selected = [c["args"].get("domain_id") for c in _calls(capture, "get_domain")]
         checks["domain_selected"] = _check(expects["domain_id"] in selected, f"domains={selected}")
     return checks
@@ -475,6 +817,109 @@ def score_composition(expects: dict[str, Any], capture: TurnCapture) -> dict[str
 
 def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
     checks: dict[str, dict[str, Any]] = {}
+    if current_web := expects.get("current_web_claim"):
+        wanted_value = str(current_web["value"])
+        wanted_periods = {
+            _normalized_period(str(period)) for period in current_web.get("periods") or []
+        }
+        wanted_domain = str(current_web.get("domain") or "").casefold()
+        qualifying: list[Mapping[str, Any]] = []
+        for _call, payload in _successful_tool_results(capture, "search_school_site"):
+            for result in payload.get("results") or []:
+                if not isinstance(result, Mapping):
+                    continue
+                citation = result.get("citation")
+                if not isinstance(citation, Mapping):
+                    continue
+                period = str(citation.get("source_period") or "")
+                evidence = str(citation.get("source_period_evidence") or "")
+                host = (urlparse(str(citation.get("url") or "")).hostname or "").casefold()
+                if (
+                    citation.get("tier") == "official"
+                    and citation.get("source") in {"edu", "web"}
+                    and citation.get("source_currentness") == "current"
+                    and citation.get("source_period_basis") in {"page_content", "metadata"}
+                    and wanted_value in evidence
+                    and (not wanted_periods or _normalized_period(period) in wanted_periods)
+                    and (
+                        not wanted_domain
+                        or host == wanted_domain
+                        or host.endswith(f".{wanted_domain}")
+                    )
+                ):
+                    qualifying.append(citation)
+        prose_period = any(
+            _normalized_period(str(period)) in _normalized_period(capture.prose)
+            for period in current_web.get("periods") or []
+        )
+        forbidden = [
+            str(value)
+            for value in current_web.get("forbidden_values") or []
+            if str(value) in capture.prose
+        ]
+        checks["current_web_source_period"] = _check(
+            bool(qualifying) and wanted_value in capture.prose and prose_period and not forbidden,
+            (
+                f"qualifying={len(qualifying)}; value_in_prose={wanted_value in capture.prose}; "
+                f"period_in_prose={prose_period}; forbidden={forbidden}"
+            ),
+        )
+    if vintage_claims := expects.get("vintage_claims"):
+        wanted_values = [str(value) for value in vintage_claims.get("values") or []]
+        claims: dict[str, str] = {}
+        for _call, payload in _successful_tool_results(capture, "get_domain"):
+            for row in _walk_mappings(payload):
+                display = str(row.get("display") or "")
+                citation = row.get("citation")
+                vintage = str(row.get("vintage") or "")
+                if not vintage and isinstance(citation, Mapping):
+                    vintage = str(citation.get("vintage") or "")
+                matched_value = next(
+                    (
+                        value
+                        for value in wanted_values
+                        if _normalized_claim_value(display) == _normalized_claim_value(value)
+                    ),
+                    None,
+                )
+                if matched_value is not None and vintage:
+                    claims[matched_value] = vintage
+        prose_has_bindings = all(
+            value in capture.prose and vintage in capture.prose
+            for value, vintage in claims.items()
+        )
+        checks["metric_vintage_bindings"] = _check(
+            set(claims) == set(wanted_values)
+            and len(set(claims.values())) == len(wanted_values)
+            and prose_has_bindings,
+            f"claims={claims}; prose_has_bindings={prose_has_bindings}",
+        )
+    if forbidden_phrases := expects.get("forbidden_prose"):
+        hits = [
+            str(phrase)
+            for phrase in forbidden_phrases
+            if str(phrase).casefold() in capture.prose.casefold()
+        ]
+        checks["forbidden_prose"] = _check(not hits, f"hits={hits}")
+    if expects.get("load_skill_before_sql"):
+        called = [str(call["tool_name"]) for call in capture.tool_calls]
+        load_index = called.index("load_skill") if "load_skill" in called else None
+        sql_index = called.index("query_database") if "query_database" in called else None
+        checks["load_skill_before_sql"] = _check(
+            load_index is not None and sql_index is not None and load_index < sql_index,
+            f"order={called}",
+        )
+    if expects.get("selected_document_sql"):
+        sql_calls = _calls(capture, "query_database")
+        successful = _successful_calls(capture, "query_database")
+        latest_sql = str(successful[-1]["args"].get("sql") or "") if successful else ""
+        checks["selected_document_sql"] = _check(
+            _has_selected_document_candidate_sql(latest_sql),
+            f"query_database calls={len(sql_calls)}; successful={len(successful)}",
+        )
+    if expects.get("typed_refetch"):
+        complete, detail = _typed_refetch_complete(capture)
+        checks["typed_refetch"] = _check(complete, detail)
     if expects.get("no_profile_metric"):
         profile_calls = _calls(capture, "get_school_profile")
         domain_calls = _calls(capture, "get_domain")
@@ -483,13 +928,15 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             f"profile calls={len(profile_calls)}; domain calls={len(domain_calls)}",
         )
     if expects.get("template_absence_live"):
-        wanted_domain = expects.get("domain_id")
-        wanted_ref = expects.get("metric_ref")
+        template_domain = expects.get("domain_id")
+        template_ref = expects.get("metric_ref")
         domain_calls = _calls(capture, "get_domain")
         payloads = _return_payloads(capture, "get_domain")
-        has_call = any(call["args"].get("domain_id") == wanted_domain for call in domain_calls)
+        has_call = any(
+            call["args"].get("domain_id") == template_domain for call in domain_calls
+        )
         has_row = any(
-            row.get("ref") == wanted_ref
+            row.get("ref") == template_ref
             and row.get("availability_status") == "not_in_template_version"
             for payload in payloads
             for row in payload.get("rows", [])
@@ -497,7 +944,7 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
         )
         checks["template_absence_live_evidence"] = _check(
             has_call and has_row,
-            f"domain={wanted_domain}; ref={wanted_ref}; called={has_call}; evidenced={has_row}",
+            f"domain={template_domain}; ref={template_ref}; called={has_call}; evidenced={has_row}",
         )
     if expects.get("caveat_kinds"):
         kinds = _caveat_kinds(capture)
@@ -507,28 +954,24 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
         )
     if expects.get("denominator"):
         expected_pair: tuple[int, int] | None = None
-        if expects.get("denominator_covered") is not None:
-            expected_pair = (int(expects["denominator_covered"]), int(expects["denominator_total"]))
-        else:
-            for payload in _return_payloads(capture, "query_database"):
-                columns = list(payload.get("columns") or [])
-                covered_column = next(
-                    (column for column in columns if "covered" in str(column).casefold()), None
-                )
-                total_column = next(
-                    (column for column in columns if "total" in str(column).casefold()), None
-                )
-                if covered_column is None or total_column is None:
-                    continue
-                for row in payload.get("rows") or []:
-                    if isinstance(row, list | tuple) and len(row) == len(columns):
-                        expected_pair = (
-                            int(row[columns.index(covered_column)]),
-                            int(row[columns.index(total_column)]),
-                        )
-                        break
-                if expected_pair:
-                    break
+        required_pair = (
+            (int(expects["denominator_covered"]), int(expects["denominator_total"]))
+            if expects.get("denominator_covered") is not None
+            else None
+        )
+        # Models may correct an earlier broad/invalid denominator with a later
+        # focused query. Score only the latest successful result evidence.
+        query_payloads = [
+            payload
+            for _call, payload in _successful_tool_results(capture, "query_database")
+        ]
+        for payload in reversed(query_payloads):
+            pair = _denominator_pair_from_payload(
+                payload, int(expects["denominator_total"])
+            )
+            if pair is not None and (required_pair is None or pair == required_pair):
+                expected_pair = pair
+                break
         normalized_prose = capture.prose.replace(",", "")
         number_words = {
             "zero": "0",
@@ -546,7 +989,8 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
         for word, digit in number_words.items():
             normalized_prose = re.sub(rf"\b{word}\b", digit, normalized_prose, flags=re.I)
         direct = (
-            rf"\b{expected_pair[0]}\s+(?:of|out of)\s+(?:the\s+)?{expected_pair[1]}\b"
+            rf"\b{expected_pair[0]}(?:\s+\w+){{0,3}}\s+(?:of|out of)\s+"
+            rf"(?:the\s+)?{expected_pair[1]}\b"
             if expected_pair
             else r"(?!)"
         )
@@ -556,10 +1000,14 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             else r"(?!)"
         )
         has_denominator = bool(re.search(f"(?:{direct})|(?:{reverse})", normalized_prose, re.I))
-        checks["denominator"] = _check(has_denominator, "expected covered/total statement")
+        checks["denominator"] = _check(
+            has_denominator,
+            f"expected covered/total statement; pair={expected_pair}",
+        )
     if expects.get("markers"):
+        visible_markers = [*_markers(capture.prose), *_viz_markers(capture)]
         checks["marker_presence"] = _check(
-            bool(_markers(capture.prose)), f"markers={_markers(capture.prose)}"
+            bool(visible_markers), f"markers={visible_markers}"
         )
     return checks
 
@@ -568,7 +1016,8 @@ def score_clarify(expects: dict[str, Any], capture: TurnCapture) -> dict[str, di
     must = bool(expects.get("must_clarify"))
     asks_in_prose = bool(
         re.search(
-            r"\b(which|do you mean|could you clarify|campus)\b[^?]*\?",
+            r"\b(which|do you mean|could you clarify|campus|are you asking|are you thinking|"
+            r"another school)\b[^?]*\?",
             capture.prose,
             re.I,
         )
@@ -593,32 +1042,20 @@ def score_narration(expects: dict[str, Any], capture: TurnCapture) -> dict[str, 
     }
 
 
-def _created_titles(capture: TurnCapture, tool: str, key: str) -> list[str]:
-    """Draft titles from a batch-create call's args.
-
-    Most workspace batch-create tools (``create_tasks``, ``create_activities``,
-    ...) carry dict drafts with a ``title``/``position`` field; ``remember``'s
-    ``notes`` batch is a plain ``list[str]`` — the note text itself is its
-    "title" for this generic scorer.
-    """
-    titles: list[str] = []
-    for call in _calls(capture, tool):
-        for row in call["args"].get(key) or []:
-            if isinstance(row, dict):
-                titles.append(str(row.get("title") or row.get("position") or ""))
-            else:
-                titles.append(str(row))
-    return titles
-
-
 def score_workspace(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
     tool = str(expects.get("tool", "create_tasks"))
-    key = str(expects.get("batch_key", "tasks"))
-    titles = _created_titles(capture, tool, key)
+    result_key = {"create_tasks": "created", "remember": "notes"}.get(tool, "created")
+    created = [
+        row
+        for _call, payload in _successful_tool_results(capture, tool)
+        for row in (payload.get(result_key) or [])
+        if isinstance(row, dict)
+    ]
     return {
         "workspace_tool_called": _check(bool(_calls(capture, tool)), f"tool={tool}"),
         "items_created": _check(
-            len(titles) >= int(expects.get("min_items", 1)), f"titles={titles}"
+            len(created) >= int(expects.get("min_items", 1)),
+            f"successful persisted rows={len(created)}",
         ),
     }
 
@@ -646,20 +1083,43 @@ async def score_judge(
 ) -> dict[str, dict[str, Any]]:
     if not criteria:
         return {}
-    output = (await judge.run(build_judge_case(question, criteria, capture))).output.verdicts
-    if len(output) != len(criteria):
-        raise ValueError(f"judge returned {len(output)} verdicts for {len(criteria)} criteria")
+
     def normalized(value: str) -> str:
         return " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
 
-    for index, (criterion, verdict) in enumerate(zip(criteria, output, strict=True), 1):
-        expected = normalized(criterion)
-        returned = normalized(verdict.criterion)
-        expected_tokens = set(expected.split())
-        returned_tokens = set(returned.split())
-        overlap = len(expected_tokens & returned_tokens) / max(len(expected_tokens), 1)
-        if SequenceMatcher(None, expected, returned).ratio() < 0.6 and overlap < 0.6:
-            raise ValueError(f"judge verdict {index} criterion mismatch")
+    def validate(output: list[CriterionVerdict]) -> None:
+        if len(output) != len(criteria):
+            raise ValueError(f"judge returned {len(output)} verdicts for {len(criteria)} criteria")
+        for index, (criterion, verdict) in enumerate(zip(criteria, output, strict=True), 1):
+            expected = normalized(criterion)
+            returned = normalized(verdict.criterion)
+            expected_tokens = set(expected.split())
+            returned_tokens = set(returned.split())
+            overlap = len(expected_tokens & returned_tokens) / max(len(expected_tokens), 1)
+            if SequenceMatcher(None, expected, returned).ratio() < 0.6 and overlap < 0.6:
+                raise ValueError(f"judge verdict {index} criterion mismatch")
+
+    case = build_judge_case(question, criteria, capture)
+    last_error: ValueError | None = None
+    output: list[CriterionVerdict] = []
+    for attempt in range(2):
+        output = (await judge.run(case)).output.verdicts
+        try:
+            validate(output)
+            break
+        except ValueError as exc:
+            last_error = exc
+            if attempt:
+                raise
+            case += (
+                "\n\n## Correction required\n"
+                f"Your previous structured output was invalid: {exc}. Return exactly "
+                f"{len(criteria)} verdicts, one for each numbered criterion in the same order. "
+                "Copy each criterion verbatim."
+            )
+    else:  # pragma: no cover - loop always breaks or raises
+        assert last_error is not None
+        raise last_error
     return {
         f"criterion_{i}": _check(v.verdict == "yes", f"{c} -> {v.evidence}")
         for i, (c, v) in enumerate(zip(criteria, output, strict=True), 1)

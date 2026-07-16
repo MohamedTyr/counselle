@@ -2,7 +2,7 @@
 #
 # One row per tool the agent can call. `label` templates interpolate args the
 # step mapper (app/steps.py) guarantees: {query} {school} {schools} {category}
-# {subreddits} {viz_label} {name} {field} {tool} {tasks_phrase} {schools_phrase}
+# {subreddits} {viz_label} {name} {tool} {tasks_phrase} {schools_phrase}
 # {essays_phrase} {activities_phrase} {honors_phrase} {memories_phrase}.
 # Changing the product voice never touches code (ADR 0018 bucket 2).
 #

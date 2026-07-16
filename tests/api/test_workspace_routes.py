@@ -151,9 +151,7 @@ async def _call_workspace_events_until_first_body(
         for message in messages
         if message["type"] == "http.response.body" and message.get("body")
     )
-    response_headers = {
-        key.decode().lower(): value.decode() for key, value in start["headers"]
-    }
+    response_headers = {key.decode().lower(): value.decode() for key, value in start["headers"]}
     return int(start["status"]), response_headers, body.decode()
 
 
@@ -371,7 +369,12 @@ def test_scholarship_deadline_round_is_rejected() -> None:
     with TestClient(_app(), raise_server_exceptions=False) as client:
         response = client.post(
             "/v1/applications",
-            json={"unitid": 166027, "cycle_year": 2027, "list_type": "Target", "round": "Scholarship deadline"},
+            json={
+                "unitid": 166027,
+                "cycle_year": 2027,
+                "list_type": "Target",
+                "round": "Scholarship deadline",
+            },
         )
 
     assert response.status_code == 422
@@ -390,7 +393,12 @@ def test_new_round_values_are_accepted(round_value: str) -> None:
     ):
         response = client.post(
             "/v1/applications",
-            json={"unitid": 166027, "cycle_year": 2027, "list_type": "Target", "round": round_value},
+            json={
+                "unitid": 166027,
+                "cycle_year": 2027,
+                "list_type": "Target",
+                "round": round_value,
+            },
         )
 
     assert response.status_code == 201

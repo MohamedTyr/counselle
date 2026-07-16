@@ -12,6 +12,7 @@ from evals.runner import (
     JudgeOutput,
     TurnCapture,
     _comparison_stats,
+    _require_metric_ref,
     _safe_event_summary,
     build_judge_case,
     capture_turn,
@@ -22,6 +23,7 @@ from evals.runner import (
     score_judge,
     score_question,
     score_routing,
+    score_workspace,
 )
 
 
@@ -41,6 +43,31 @@ def make_capture(**overrides: Any) -> TurnCapture:
     }
     values.update(overrides)
     return TurnCapture(**values)
+
+
+def make_query_capture(prose: str, *payloads: dict[str, Any]) -> TurnCapture:
+    return make_capture(
+        prose=prose,
+        tool_calls=[
+            {"tool_name": "query_database", "args": {"sql": f"SELECT {index}"}}
+            for index, _payload in enumerate(payloads, 1)
+        ],
+        tool_returns=[
+            {"tool_name": "query_database", "content": payload} for payload in payloads
+        ],
+    )
+
+
+_SELECTED_DOCUMENT_SQL = """WITH selected AS (
+  SELECT DISTINCT ON (school_id) school_id, document_id
+  FROM cds_library.active_cds_documents
+  ORDER BY school_id, academic_year DESC, document_id DESC
+), candidates AS (
+  SELECT d.school_id
+  FROM cds_library.active_cds_domain_packets d
+  INNER JOIN selected s ON s.school_id=d.school_id AND s.document_id=d.document_id
+)
+SELECT school_id FROM candidates"""
 
 
 def test_capture_turn_collects_v2_events_and_structural_messages() -> None:
@@ -164,6 +191,17 @@ class FakeJudge:
         return SimpleNamespace(output=JudgeOutput.model_validate({"verdicts": self.verdicts}))
 
 
+class SequenceJudge:
+    def __init__(self, outputs: list[list[dict[str, str]]]) -> None:
+        self.outputs = outputs
+        self.cases: list[str] = []
+
+    async def run(self, case: str) -> Any:
+        self.cases.append(case)
+        verdicts = self.outputs[len(self.cases) - 1]
+        return SimpleNamespace(output=JudgeOutput.model_validate({"verdicts": verdicts}))
+
+
 @pytest.mark.asyncio
 async def test_judge_requires_exact_ordered_verdict_accounting() -> None:
     criteria = ["first", "second"]
@@ -190,6 +228,23 @@ async def test_judge_rejects_missing_extra_or_reordered_verdicts() -> None:
             make_capture(),
             FakeJudge([{"criterion": "different", "verdict": "yes", "evidence": "x"}]),
         )
+
+
+@pytest.mark.asyncio
+async def test_judge_retries_bad_cardinality_once_and_revalidates() -> None:
+    judge = SequenceJudge(
+        [
+            [{"criterion": "one", "verdict": "yes", "evidence": "a"}],
+            [
+                {"criterion": "one", "verdict": "yes", "evidence": "a"},
+                {"criterion": "two", "verdict": "yes", "evidence": "b"},
+            ],
+        ]
+    )
+    checks = await score_judge("q", ["one", "two"], make_capture(), judge)
+    assert all(check["passed"] for check in checks.values())
+    assert len(judge.cases) == 2
+    assert "Return exactly 2 verdicts" in judge.cases[1]
 
 
 @pytest.mark.asyncio
@@ -245,42 +300,443 @@ def test_profile_identity_is_allowed_when_metric_uses_domain() -> None:
     assert checks["no_profile_as_metric"]["passed"] is True
 
 
+def test_query_database_requires_db_recipes_first_when_requested() -> None:
+    expects = {"load_skill_before_sql": True}
+    ordered = make_capture(
+        tool_calls=[
+            {"tool_name": "load_skill", "args": {"name": "db-recipes"}},
+            {"tool_name": "query_database", "args": {}},
+        ]
+    )
+    reversed_calls = make_capture(tool_calls=list(reversed(ordered.tool_calls)))
+    assert score_deterministic(expects, ordered)["load_skill_before_sql"]["passed"] is True
+    assert (
+        score_deterministic(expects, reversed_calls)["load_skill_before_sql"]["passed"] is False
+    )
+
+
+def test_candidate_ranking_requires_selected_document_sql_and_typed_refetch() -> None:
+    expects = {"selected_document_sql": True, "typed_refetch": True}
+    capture = make_capture(
+        tool_calls=[
+            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
+            {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": "admissions"}},
+        ],
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1]]},
+            },
+            {"tool_name": "get_domain", "content": {"status": "ok", "rows": []}},
+        ],
+    )
+    checks = score_deterministic(expects, capture)
+    assert checks["selected_document_sql"]["passed"] is True
+    assert checks["typed_refetch"]["passed"] is True
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT document_id FROM cds_library.active_cds_documents",
+        """WITH selected AS (
+             SELECT DISTINCT ON (school_id) school_id, document_id
+             FROM cds_library.active_cds_documents
+             ORDER BY school_id, academic_year DESC, document_id DESC
+           )
+           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
+           JOIN selected s ON s.school_id=d.school_id""",
+        """WITH selected AS (
+             SELECT DISTINCT ON (school_id) school_id, document_id
+             FROM cds_library.active_cds_documents
+             WHERE academic_year < 2024
+             ORDER BY school_id, academic_year DESC, document_id DESC
+           )
+           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
+           JOIN selected s ON s.school_id=d.school_id AND s.document_id=d.document_id""",
+        """WITH selected AS (
+             SELECT DISTINCT ON (school_id) school_id, document_id
+             FROM cds_library.active_cds_documents
+             ORDER BY school_id, academic_year DESC, document_id DESC
+           )
+           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
+           LEFT JOIN selected s
+             ON s.school_id=d.school_id AND s.document_id=d.document_id""",
+        """WITH selected AS (
+             SELECT DISTINCT ON (school_id) school_id, document_id,
+                    (SELECT count(*) FROM cds_library.active_cds_documents) AS decoy
+             FROM cds_library.active_cds_domain_packets
+             ORDER BY school_id, academic_year DESC, document_id DESC
+           )
+           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
+           JOIN selected s
+             ON s.school_id=d.school_id AND s.document_id=d.document_id""",
+        """WITH selected AS (
+             SELECT DISTINCT ON (school_id) 1 AS school_id, 2 AS document_id
+             FROM cds_library.active_cds_documents
+             ORDER BY school_id, academic_year DESC, document_id DESC
+           )
+           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
+           JOIN selected s
+             ON s.school_id=d.school_id AND s.document_id=d.document_id""",
+        """WITH selected AS (
+             SELECT DISTINCT ON (school_id) school_id, document_id
+             FROM cds_library.active_cds_documents
+             ORDER BY school_id, academic_year DESC, document_id DESC
+           )
+           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
+           JOIN selected s
+             ON s.school_id=d.school_id OR s.document_id=d.document_id""",
+    ],
+)
+def test_selected_document_sql_rejects_nonselecting_or_inexact_join(sql: str) -> None:
+    capture = make_capture(
+        tool_calls=[{"tool_name": "query_database", "args": {"sql": sql}}],
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1]]},
+            }
+        ],
+    )
+    assert (
+        score_deterministic({"selected_document_sql": True}, capture)[
+            "selected_document_sql"
+        ]["passed"]
+        is False
+    )
+
+
+def test_typed_refetch_requires_success_for_every_candidate() -> None:
+    capture = make_capture(
+        tool_calls=[
+            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
+            {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": "admissions"}},
+            {"tool_name": "get_domain", "args": {"unitid": 2, "domain_id": "admissions"}},
+        ],
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1], [2]]},
+            },
+            {"tool_name": "get_domain", "content": {"status": "ok", "rows": []}},
+            {"tool_name": "get_domain", "content": {"status": "tool_error"}},
+        ],
+    )
+    assert score_deterministic({"typed_refetch": True}, capture)["typed_refetch"][
+        "passed"
+    ] is False
+
+
+def test_selected_document_sql_requires_latest_successful_query() -> None:
+    broad_sql = "SELECT school_id FROM cds_library.active_cds_domain_packets"
+    capture = make_capture(
+        tool_calls=[
+            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
+            {"tool_name": "query_database", "args": {"sql": broad_sql}},
+        ],
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {"status": "tool_error", "root_cause": "safe"},
+            },
+            {
+                "tool_name": "query_database",
+                "content": {"status": "ok", "columns": [], "rows": []},
+            },
+        ],
+    )
+    check = score_deterministic({"selected_document_sql": True}, capture)[
+        "selected_document_sql"
+    ]
+    assert check["passed"] is False
+
+
 def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
     expects = {"denominator": True, "denominator_total": 2746}
     payload = {
         "columns": ["name", "covered", "total"],
         "rows": [["School", 2, 2746]],
     }
-    evidenced = make_capture(
-        prose="The ranking covers 2 out of 2,746 profiled schools.",
-        tool_returns=[{"tool_name": "query_database", "content": payload}],
-    )
+    evidenced = make_query_capture("The ranking covers 2 out of 2,746 profiled schools.", payload)
     fabricated = make_capture(prose="The ranking covers 2 out of 2,746 profiled schools.")
-    wrong = make_capture(
-        prose="The ranking covers 3 out of 2,746 profiled schools.",
-        tool_returns=[{"tool_name": "query_database", "content": payload}],
-    )
+    wrong = make_query_capture("The ranking covers 3 out of 2,746 profiled schools.", payload)
     assert score_deterministic(expects, evidenced)["denominator"]["passed"] is True
     assert score_deterministic(expects, fabricated)["denominator"]["passed"] is False
     assert score_deterministic(expects, wrong)["denominator"]["passed"] is False
-    reverse = make_capture(
-        prose="Of the 2,746 profiled schools, 2 have a verified value.",
-        tool_returns=[{"tool_name": "query_database", "content": payload}],
+    reverse = make_query_capture(
+        "Of the 2,746 profiled schools, 2 have a verified value.", payload
     )
     assert score_deterministic(expects, reverse)["denominator"]["passed"] is True
-    aliases_and_word = make_capture(
-        prose="Of the 2,746 profiled schools, two have a verified value.",
+    noun_between = make_query_capture("Two schools out of 2,746 have the exact metric.", payload)
+    assert score_deterministic(expects, noun_between)["denominator"]["passed"] is True
+    aliases_and_word = make_query_capture(
+        "Of the 2,746 profiled schools, two have a verified value.",
+        {"columns": ["covered_schools", "total_schools"], "rows": [[2, 2746]]},
+    )
+    assert score_deterministic(expects, aliases_and_word)["denominator"]["passed"] is True
+
+    wrapped_success = make_capture(
+        prose="Harvard ranks first among the 1 out of 2746 schools with data.",
         tool_returns=[
             {
                 "tool_name": "query_database",
                 "content": {
-                    "columns": ["covered_schools", "total_schools"],
-                    "rows": [[2, 2746]],
+                    "status": "overflow",
+                    "result_for_agent": {"handle": "tool-result-1"},
+                },
+            },
+            {
+                "tool_name": "read_tool_result",
+                "content": {"columns": ["covered", "total"], "rows": [[1, 2746]]},
+            },
+        ],
+        tool_calls=[
+            {"tool_name": "query_database", "args": {"sql": "SELECT 1"}},
+            {"tool_name": "read_tool_result", "args": {"handle": "tool-result-1"}},
+        ],
+    )
+    assert score_deterministic(expects, wrapped_success)["denominator"]["passed"] is True
+
+    metric_total_columns = make_query_capture(
+        "Out of 2,746 schools, only 1 has both metrics.",
+        {
+            "columns": ["admitted_total", "applicants_total", "covered", "total"],
+            "rows": [[2003, 47893, 1, 2746]],
+        },
+    )
+    assert score_deterministic(expects, metric_total_columns)["denominator"]["passed"] is True
+
+    derived_total = make_query_capture(
+        "Out of 2,746 profiled schools, only one has both required values.",
+        {"columns": ["count"], "rows": [[1]]},
+    )
+    assert score_deterministic(expects, derived_total)["denominator"]["passed"] is True
+    aliased_count = make_query_capture(
+        "Out of 2,746 schools, 1 is eligible for this ranking.",
+        {"columns": ["eligible_school_count"], "rows": [[1]]},
+    )
+    assert score_deterministic(expects, aliased_count)["denominator"]["passed"] is True
+
+    corrected = make_query_capture(
+        "Of 2,746 schools, 1 has both required values.",
+        {"columns": ["covered", "total"], "rows": [[4, 2746]]},
+        {"columns": ["covered", "total"], "rows": [[1, 2746]]},
+    )
+    assert score_deterministic(expects, corrected)["denominator"]["passed"] is True
+
+    circular = make_query_capture(
+        "The ranking covers 999 out of 2,746 profiled schools.",
+        {"status": "ok", "columns": ["name"], "rows": [["School"]]},
+    )
+    assert score_deterministic(expects, circular)["denominator"]["passed"] is False
+
+    unread_overflow = make_capture(
+        prose="The ranking covers 1 out of 2,746 profiled schools.",
+        tool_calls=[{"tool_name": "query_database", "args": {"sql": "SELECT 1"}}],
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {
+                    "status": "overflow",
+                    "result_for_agent": {"handle": "tool-result-1"},
                 },
             }
         ],
     )
-    assert score_deterministic(expects, aliases_and_word)["denominator"]["passed"] is True
+    assert score_deterministic(expects, unread_overflow)["denominator"]["passed"] is False
+
+    zero_expects = {
+        "denominator": True,
+        "denominator_total": 2746,
+        "denominator_covered": 0,
+    }
+    unsupported = make_capture(prose="0 out of 2,746 schools can be evaluated.")
+    evidenced_zero = make_query_capture(
+        "0 out of 2,746 schools can be evaluated.",
+        {
+            "columns": ["metric_ref_present", "total"],
+            "rows": [[False, 2746]],
+        },
+    )
+    assert score_deterministic(zero_expects, unsupported)["denominator"]["passed"] is False
+    assert score_deterministic(zero_expects, evidenced_zero)["denominator"]["passed"] is True
+
+
+def test_marker_requirement_accepts_verified_visualization_cell_marker() -> None:
+    capture = make_capture(
+        vizzes=[
+            {
+                "type": "comparison_table",
+                "rows": [{"cells": [{"available": True, "marker": "[1]"}]}],
+            }
+        ]
+    )
+    assert score_deterministic({"markers": True}, capture)["marker_presence"]["passed"] is True
+
+
+def test_current_web_claim_requires_page_period_evidence_not_retrieval_date() -> None:
+    expects = {
+        "current_web_claim": {
+            "value": "4,561",
+            "periods": ["2025-2026", "2025–2026"],
+            "domain": "mit.edu",
+            "forbidden_values": ["4,472"],
+        }
+    }
+    current = make_capture(
+        prose="MIT reports 4,561 undergraduates for 2025–2026 [1].",
+        tool_calls=[{"tool_name": "search_school_site", "args": {"query": "MIT enrollment"}}],
+        tool_returns=[
+            {
+                "tool_name": "search_school_site",
+                "content": {
+                    "results": [
+                        {
+                            "citation": {
+                                "source": "edu",
+                                "tier": "official",
+                                "url": "https://registrar.mit.edu/enrollment",
+                                "source_currentness": "current",
+                                "source_period": "2025-2026",
+                                "source_period_basis": "page_content",
+                                "source_period_evidence": "2025-2026 | Undergraduate 4,561",
+                            }
+                        }
+                    ]
+                },
+            }
+        ],
+    )
+    undated = make_capture(
+        prose="MIT currently has 4,561 undergraduates [1].",
+        tool_calls=current.tool_calls,
+        tool_returns=[
+            {
+                "tool_name": "search_school_site",
+                "content": {
+                    "results": [
+                        {
+                            "citation": {
+                                "source": "edu",
+                                "tier": "official",
+                                "url": "https://mit.edu/facts",
+                                "source_currentness": "undated",
+                                "source_period": None,
+                                "source_period_basis": None,
+                                "source_period_evidence": None,
+                                "vintage": "Retrieved Jul 16, 2026",
+                            }
+                        }
+                    ]
+                },
+            }
+        ],
+    )
+
+    assert score_deterministic(expects, current)["current_web_source_period"]["passed"] is True
+    assert score_deterministic(expects, undated)["current_web_source_period"]["passed"] is False
+
+
+def test_mixed_metric_vintages_must_be_copied_individually() -> None:
+    expects = {
+        "vintage_claims": {"values": ["6,814", "$69,900"]},
+        "forbidden_prose": ["same period"],
+    }
+    enrollment_vintage = "CDS 2024-25; enrollment snapshot: October 15, 2024"
+    tuition_vintage = "CDS 2024-25; cost reporting academic year: 2025-2026"
+    tool_returns = [
+        {
+            "tool_name": "get_domain",
+            "content": {
+                "rows": [
+                    {
+                        "display": "6,814",
+                        "vintage": enrollment_vintage,
+                        "citation": {"vintage": "Common Data Set 2024-25"},
+                    }
+                ]
+            },
+        },
+        {
+            "tool_name": "get_domain",
+            "content": {
+                "rows": [
+                    {
+                        "display": "69900",
+                        "vintage": tuition_vintage,
+                        "citation": {"vintage": "Common Data Set 2024-25"},
+                    }
+                ]
+            },
+        },
+    ]
+    calls = [
+        {"tool_name": "get_domain", "args": {"domain_id": "enrollment"}},
+        {"tool_name": "get_domain", "args": {"domain_id": "cost"}},
+    ]
+    correct = make_capture(
+        prose=(
+            f"Enrollment was 6,814 ({enrollment_vintage}) [1]. "
+            f"Tuition was $69,900 ({tuition_vintage}) [2]."
+        ),
+        tool_calls=calls,
+        tool_returns=tool_returns,
+    )
+    merged = make_capture(
+        prose="Enrollment was 6,814 [1], and tuition for the same period was $69,900 [2].",
+        tool_calls=calls,
+        tool_returns=tool_returns,
+    )
+
+    correct_checks = score_deterministic(expects, correct)
+    assert correct_checks["metric_vintage_bindings"]["passed"] is True
+    assert correct_checks["forbidden_prose"]["passed"] is True
+    merged_checks = score_deterministic(expects, merged)
+    assert merged_checks["metric_vintage_bindings"]["passed"] is False
+    assert merged_checks["forbidden_prose"]["passed"] is False
+
+
+def test_workspace_scorer_requires_successful_persisted_rows() -> None:
+    expects = {"tool": "create_tasks", "batch_key": "tasks", "min_items": 2}
+    failed = make_capture(
+        tool_calls=[
+            {
+                "tool_name": "create_tasks",
+                "args": {"tasks": [{"title": "One"}, {"title": "Two"}]},
+            }
+        ],
+        tool_returns=[
+            {"tool_name": "create_tasks", "content": {"status": "tool_error"}}
+        ],
+    )
+    succeeded = make_capture(
+        tool_calls=failed.tool_calls,
+        tool_returns=[
+            {
+                "tool_name": "create_tasks",
+                "content": {
+                    "status": "ok",
+                    "created": [{"id": "1", "title": "One"}, {"id": "2", "title": "Two"}],
+                },
+            }
+        ],
+    )
+    assert score_workspace(expects, failed)["items_created"]["passed"] is False
+    assert score_workspace(expects, succeeded)["items_created"]["passed"] is True
+    message_error = make_capture(
+        tool_calls=failed.tool_calls,
+        tool_returns=[
+            {"tool_name": "create_tasks", "content": {"error": "database unavailable"}}
+        ],
+    )
+    assert score_workspace(expects, message_error)["items_created"]["passed"] is False
+
+
+def test_required_eval_metric_never_falls_back_to_an_unrelated_ref() -> None:
+    metrics = {"admissions.acceptance_rate": object()}
+    with pytest.raises(RuntimeError, match="applicants_total"):
+        _require_metric_ref(metrics, "admissions", "applicants_total")
 
 
 def test_live_template_absence_requires_typed_row_evidence() -> None:
@@ -326,6 +782,18 @@ def test_v1_clarification_accepts_direct_prose_question() -> None:
         make_capture(prose="Which school do you mean?\n\n- Washington\n- WashU"),
     )
     assert listed["clarify_judgment"]["passed"] is True
+    asking_about = score_clarify(
+        {"must_clarify": True},
+        make_capture(
+            prose="Are you asking about University of Washington or another school?"
+        ),
+    )
+    assert asking_about["clarify_judgment"]["passed"] is True
+    thinking_of = score_clarify(
+        {"must_clarify": True},
+        make_capture(prose="Are you thinking of UW, WashU, or George Washington University?"),
+    )
+    assert thinking_of["clarify_judgment"]["passed"] is True
 
 
 @pytest.mark.asyncio

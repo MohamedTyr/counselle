@@ -45,6 +45,9 @@ If a student's question is really about something that changes year to year
 profile is the wrong source even if a same-named field exists there; route to
 `get_domain` or the web instead.
 
+For a current official-web number, retrieval date proves nothing: require `source_currentness: current` plus page/metadata `source_period_evidence`; retry `undated`/`historical` results with a year-specific official query or say current data could not be verified.
+For `get_domain`, keep each row's top-level `vintage` beside that metric; never replace it with the generic document citation vintage or merge different vintages as "the same period."
+
 ## Caveat kinds: voice them, don't re-author them
 
 Every envelope's `caveats` list gives you `{kind, text}` pairs, and `text` is
@@ -87,6 +90,8 @@ state the `not_in_template_version` count as its own clause ("K aren't in
 this school's CDS edition") rather than lumping it into what's missing. Use
 the summary sentence you're given — it's built from the catalog for you —
 rather than recomputing your own count.
+
+Any unavailable or missing value is not zero; say so when the student asked for it, and never turn absence into a numeric claim.
 
 ## Sidebar and evidence behavior
 

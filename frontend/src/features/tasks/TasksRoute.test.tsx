@@ -380,7 +380,7 @@ describe("TasksPage school and essay link picker", () => {
     await user.click(screen.getByRole("combobox", { name: "Linked school" }))
     await user.click(
       await screen.findByRole("option", {
-        name: workspaceApplicationFixture.school_name,
+        name: new RegExp(`^${workspaceApplicationFixture.school_name} ·`),
       }),
     )
 

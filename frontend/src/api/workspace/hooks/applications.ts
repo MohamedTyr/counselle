@@ -142,19 +142,26 @@ export function useUpdateApplication() {
       const previousDetail = context.client.getQueryData<ApplicationDetail>(
         workspaceKeys.applications.detail(id),
       )
+      const { checklist, ...applicationPatch } = patch
+      const listPatch: Partial<ApplicationView> = checklist
+        ? {
+            ...applicationPatch,
+            checklist: Object.fromEntries(
+              Object.entries({
+                ...(previous?.find((application) => application.id === id)?.checklist ?? {}),
+                ...checklist,
+              }).filter(([, value]) => value !== null),
+            ),
+          }
+        : applicationPatch
       context.client.setQueryData<ApplicationView[]>(
         workspaceKeys.applications.list(),
-        (current) => patchById(current, id, patch),
+        (current) => patchById<ApplicationView>(current, id, listPatch),
       )
       const cycleChanged =
         "cycle_year" in patch &&
         patch.cycle_year !== previousDetail?.application.cycle_year
-      if (cycleChanged) {
-        context.client.removeQueries({
-          exact: true,
-          queryKey: workspaceKeys.applications.detail(id),
-        })
-      } else {
+      if (!cycleChanged) {
         context.client.setQueryData<ApplicationDetail>(
           workspaceKeys.applications.detail(id),
           (current) => {

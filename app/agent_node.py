@@ -31,7 +31,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
 
 from langgraph.config import get_stream_writer
@@ -42,6 +42,8 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelRequest,
+    ModelResponse,
+    TextPart,
     UserPromptPart,
 )
 from pydantic_ai.models import Model
@@ -107,6 +109,43 @@ _TOOL_BUDGET_MESSAGE = (
     "\n\nI hit my tool budget for this turn, so I'm stopping here — this is what "
     "I have so far. Ask me to continue and I'll pick up where I left off."
 )
+
+
+def _empty_resolve_completion(emissions: list[Emission]) -> str | None:
+    """Return a safe terminal answer when resolution succeeded but prose did not."""
+    if any(kind == "delta" and str(payload).strip() for kind, payload in emissions):
+        return None
+    for kind, payload in reversed(emissions):
+        if kind != "step" or not isinstance(payload, dict) or payload.get("status") != "end":
+            continue
+        detail = payload.get("detail")
+        if not isinstance(detail, dict) or detail.get("tool") != "resolve_school":
+            continue
+        schools = detail.get("schools")
+        if detail.get("result_count") == 1:
+            subject = (
+                str(schools[0])
+                if isinstance(schools, list) and schools
+                else "the requested school"
+            )
+            return (
+                f"I identified {subject}, but I couldn't verify enough information to "
+                "complete the answer. Any missing value is unavailable, not zero, and I "
+                "won't invent it."
+            )
+    return None
+
+
+def _replace_empty_final_response(
+    messages: list[dict[str, Any]], fallback: str
+) -> list[dict[str, Any]]:
+    """Keep provider history aligned with the code-owned streamed fallback."""
+    replacement = ModelMessagesTypeAdapter.dump_python(
+        [ModelResponse(parts=[TextPart(content=fallback)])], mode="json"
+    )[0]
+    if messages and messages[-1].get("kind") == "response":
+        return [*messages[:-1], {**messages[-1], "parts": replacement["parts"]}]
+    return [*messages, replacement]
 
 
 @dataclass
@@ -687,6 +726,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     if handle_store is not None and session_id is not None:
         handle = handle_store.get(str(session_id))
     result = None
+    completion_fallback: str | None = None
     try:
         # `async with agent` enters the MCP toolset for the run (notes §2 lifecycle).
         async with (
@@ -742,6 +782,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         # real turn failure (the final flush/steps never reached the student).
         router.close("complete")
         final_writer.flush_final()
+        completion_fallback = _empty_resolve_completion(emissions)
+        if completion_fallback:
+            writer({"type": "delta", "text": completion_fallback})
 
     # Both a normal answer and the handled tool-budget answer are terminal.
     if parked_store is not None:
@@ -751,6 +794,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         messages_out = scrub_evidence_tokens(
             ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")
         )
+        if completion_fallback:
+            messages_out = _replace_empty_final_response(
+                cast(list[dict[str, Any]], messages_out), completion_fallback
+            )
         run_usage = result.usage  # property in 1.107 (notes §4)
         usage = UsageData(
             input_tokens=run_usage.input_tokens or 0,

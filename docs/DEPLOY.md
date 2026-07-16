@@ -17,7 +17,7 @@ The deploy image is a single same-origin container (API + built SPA). It must pr
 ## Database first (everything depends on a reachable DSN)
 
 1. Provision Postgres 16 (managed or VPS), **co-located with the app**.
-2. Deploy the CDS Library independently, including current manifest `5.0.1`, its
+2. Deploy the CDS Library independently, including current manifest `5.0.2`, its
    extraction-contract-8 packets, the five reader views, and pipeline-managed
    `cds_library_reader` grants. Do not import pipeline code into this image.
 3. Provision a LOGIN role that is a member only of `cds_library_reader`; verify it can
@@ -74,7 +74,7 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port 8000 --forwarde
 
 ## Deploy checklist
 
-- [ ] CDS Library current pointer is `5.0.1`; all five views readable and base tables denied through the reader-login DSN
+- [ ] CDS Library current pointer is `5.0.2`; all five views readable and base tables denied through the reader-login DSN
 - [ ] Counselle application schema provisioned through its separate app DSN
 - [ ] Full env matrix set; `CORS_ORIGINS` emptied; `COOKIE_SECURE=true`
 - [ ] Migrations ran on boot; `/v1/health` green

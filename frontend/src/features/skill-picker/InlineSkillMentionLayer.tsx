@@ -15,6 +15,7 @@ function skillMentionExpression(selectedSkills: readonly string[]) {
     : null;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function hasInlineSkillMention(
   value: string,
   selectedSkills: readonly string[],

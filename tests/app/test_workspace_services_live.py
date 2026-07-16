@@ -142,8 +142,14 @@ async def test_add_application_creates_no_tasks_or_essays(
 ) -> None:
     user_id = await make_user()
     await add_application(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     async with app_pool.acquire() as conn:
         counts = await conn.fetchrow(
@@ -213,7 +219,9 @@ async def test_archive_cascade_restore_exact_set(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     # Seeding no longer creates a starter checklist (change 11); create a task
     # directly to exercise "archived directly, not via application" semantics.
@@ -271,7 +279,9 @@ async def test_task_and_essay_archived_via_application_restore_only_after_applic
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     # Seeding no longer creates a starter checklist (change 11); create a task
     # linked to the application directly.
@@ -415,7 +425,9 @@ async def test_application_restore_keeps_task_archived_when_linked_essay_archive
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     essay = await create_essay(
         app_pool,
@@ -510,7 +522,10 @@ async def test_change_log_rows_rollups_and_explicit_essay(
         actor="student",
         data=ApplicationCreate(
             cycle_year=2027,
-            unitid=_unitid(catalog), list_type="Target", round="RD", deadline=date(2027, 1, 10)
+            unitid=_unitid(catalog),
+            list_type="Target",
+            round="RD",
+            deadline=date(2027, 1, 10),
         ),
     )
 
@@ -559,7 +574,9 @@ async def test_application_patch_round_trips_new_fields(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
 
     updated = await update_application(
@@ -697,7 +714,10 @@ async def test_essay_effective_deadline_coalesces_own_override_and_application_d
         actor="student",
         data=ApplicationCreate(
             cycle_year=2027,
-            unitid=_unitid(catalog), list_type="Target", round="RD", deadline=date(2027, 1, 10)
+            unitid=_unitid(catalog),
+            list_type="Target",
+            round="RD",
+            deadline=date(2027, 1, 10),
         ),
     )
     essay = await create_essay(
@@ -743,7 +763,9 @@ async def test_task_bulk_ops_are_owned_and_logged(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=ApplicationCreate(unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"),
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
     )
     other_result = await add_application(
         app_pool,
@@ -776,9 +798,7 @@ async def test_task_bulk_ops_are_owned_and_logged(
             WorkspaceEventBus(),
             user_id=other_user_id,
             actor="student",
-            data=TaskCreate(
-                application_id=other_result.application.id, title="Other user's task"
-            ),
+            data=TaskCreate(application_id=other_result.application.id, title="Other user's task"),
         )
     ).id
 
@@ -1094,9 +1114,7 @@ async def test_list_tasks_status_filter(
     only_done = await list_tasks(app_pool, user_id=user_id, statuses=["done"])
     assert [task.id for task in only_done] == [done.id]
 
-    todo_or_doing = await list_tasks(
-        app_pool, user_id=user_id, statuses=["todo", "doing"]
-    )
+    todo_or_doing = await list_tasks(app_pool, user_id=user_id, statuses=["todo", "doing"])
     assert {task.id for task in todo_or_doing} == {todo.id, doing.id}
 
 
@@ -1202,9 +1220,7 @@ async def test_list_tasks_completed_after_and_limit_and_ownership(
     stale = await list_tasks(app_pool, user_id=user_id, completed_after=after_done)
     assert stale == []
 
-    other_recent = await list_tasks(
-        app_pool, user_id=other_user_id, completed_after=before_done
-    )
+    other_recent = await list_tasks(app_pool, user_id=other_user_id, completed_after=before_done)
     assert done_task.id not in {task.id for task in other_recent}
 
     for index in range(3):
@@ -1242,9 +1258,7 @@ async def test_search_tasks_keyword_and_synonym_match(
     exact_hits = await search_tasks(app_pool, user_id=user_id, query="transcript")
     assert [hit.id for hit in exact_hits] == [transcript_task.id]
 
-    synonym_hits = await search_tasks(
-        app_pool, user_id=user_id, query="LOR OR recommendation"
-    )
+    synonym_hits = await search_tasks(app_pool, user_id=user_id, query="LOR OR recommendation")
     assert lor_task.id in {hit.id for hit in synonym_hits}
 
 

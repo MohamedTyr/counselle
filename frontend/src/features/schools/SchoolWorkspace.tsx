@@ -10,7 +10,7 @@ import {
   Sparkles,
   Unlink,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
 
@@ -141,17 +141,13 @@ function humanize(value: string) {
 }
 
 function useSyncedDraft<TValue>(serverValue: TValue) {
-  const [value, setValue] = useState(serverValue)
-  const [dirty, setDirty] = useState(false)
-  useEffect(() => {
-    if (!dirty) setValue(serverValue)
-  }, [dirty, serverValue])
+  const [draft, setDraft] = useState({ dirty: false, value: serverValue })
   return {
-    dirty,
-    value,
-    setValue: (next: TValue) => { setValue(next); setDirty(true) },
-    commit: () => setDirty(false),
-    revert: () => { setValue(serverValue); setDirty(false) },
+    dirty: draft.dirty,
+    value: draft.dirty ? draft.value : serverValue,
+    setValue: (next: TValue) => setDraft({ dirty: true, value: next }),
+    commit: () => setDraft((current) => ({ ...current, dirty: false })),
+    revert: () => setDraft({ dirty: false, value: serverValue }),
   }
 }
 
@@ -315,7 +311,7 @@ function PromptRow({ applicationId, essay, group, prompt, unlinkedEssays }: { ap
         </div>
       ) : prompt.applicability !== "not_required" && unlinkedEssays.length > 0 ? (
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Select onValueChange={setSelectedEssay} value={selectedEssay}><SelectTrigger aria-label={`Use existing essay for prompt ${prompt.ordinal}`} size="sm"><SelectValue placeholder="Use existing essay" /></SelectTrigger><SelectPopup><SelectGroup>{unlinkedEssays.map((item) => <SelectItem key={item.id} value={item.id}>{item.title}</SelectItem>)}</SelectGroup></SelectPopup></Select>
+          <Select onValueChange={(value) => value && setSelectedEssay(value)} value={selectedEssay}><SelectTrigger aria-label={`Use existing essay for prompt ${prompt.ordinal}`} size="sm"><SelectValue placeholder="Use existing essay" /></SelectTrigger><SelectPopup><SelectGroup>{unlinkedEssays.map((item) => <SelectItem key={item.id} value={item.id}>{item.title}</SelectItem>)}</SelectGroup></SelectPopup></Select>
           <Button disabled={!selectedEssay || updateEssay.isPending} onClick={() => void attach()} size="sm" variant="outline"><Link2 data-icon="inline-start" />Attach</Button>
         </div>
       ) : null}
@@ -373,14 +369,20 @@ function EssaysSection({ detail }: { detail: ApplicationDetail }) {
 }
 
 function RequirementsSection({ detail, patchApplication }: { detail: ApplicationDetail; patchApplication: (patch: ApplicationPatch) => void }) {
-  const visibleRequirements = detail.reference.status === "loaded"
-    ? detail.reference.requirements
-    : []
+  const visibleRequirements = useMemo(
+    () => detail.reference.status === "loaded" ? detail.reference.requirements : [],
+    [detail.reference],
+  )
   const catalogByKind = useMemo(() => new Map(visibleRequirements.map((item) => [item.kind, item])), [visibleRequirements])
   const rows = useMemo(() => {
     const known = commonRequirements.map((common) => ({ common, reference: catalogByKind.get(common.kind) }))
     const knownKinds = new Set(commonRequirements.map((item) => item.kind))
-    const catalogOnly = visibleRequirements.filter((item) => !knownKinds.has(item.kind)).map((reference) => ({ common: { kind: reference.kind, label: reference.label, category: "other" as TaskCategory }, reference }))
+    const catalogOnly = visibleRequirements
+      .filter((item) => !knownKinds.has(item.kind))
+      .map((reference): { common: CommonRequirement; reference: SchoolRequirement } => ({
+        common: { kind: reference.kind, label: reference.label, category: "other" },
+        reference,
+      }))
     return [...known, ...catalogOnly]
   }, [catalogByKind, visibleRequirements])
   const schoolRows = rows.filter((row) => row.reference)

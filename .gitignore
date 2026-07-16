@@ -1,4 +1,5 @@
 .env
+.env.rollback-*
 __pycache__/
 *.pyc
 .pytest_cache/

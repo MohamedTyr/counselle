@@ -28,9 +28,9 @@ class AppState:
 async def _lifespan(_server: FastMCP) -> AsyncIterator[AppState]:
     settings = get_db_child_settings()
     setup_logging(settings.log_level)
-    pool = await create_pool()
+    pool = await create_pool(settings=settings)
     try:
-        yield AppState(catalog=await Catalog.load(pool))
+        yield AppState(catalog=await Catalog.load(pool, settings=settings))
     finally:
         await pool.close()
 
@@ -82,9 +82,11 @@ async def resolve_school(query: str, ctx: AppContext) -> dict[str, Any]:
     Input: ``query`` — free text or a UNITID string.
 
     Success returns exactly one of three ``status`` values:
-    - ``match`` — one school, plus its live coverage block (selected edition
-      year, currentness, and which domain ids currently have a usable
-      packet). Call ``get_domain`` only for a domain id this block lists.
+    - ``match`` — one school, plus its live coverage block (the selected
+      edition's raw opening year and deterministic ``selected_edition`` label,
+      currentness, and which domain ids currently have a usable packet). Copy
+      ``selected_edition`` verbatim; never derive an edition label from the raw
+      year. Call ``get_domain`` only for a domain id this block lists.
     - ``candidates`` — more than one campus matched; ask which campus the
       student means, then resolve again with a more specific query.
     - ``not_found`` — no school in the database matches; say so honestly and
@@ -137,9 +139,10 @@ async def get_domain(unitid: int, domain_id: str, ctx: AppContext) -> dict[str, 
     as a qualified ``domain_id.metric_id`` ref, with its display value and
     page-level citation when verified, or an honest unavailable reason
     otherwise (not yet extracted, in conflict, or absent from this school's
-    CDS template edition). The ``availability.verified`` count is the only
-    authoritative count of usable metrics for this domain — never estimate
-    it from the row list.
+    CDS template edition). ``availability.verified`` counts every verified
+    source assertion, including evidence-backed source absences;
+    ``availability.available`` counts the verified reported values usable in
+    an answer. Never estimate either count from the row list.
 
     An invalid ``domain_id`` fails with the currently valid domain ids from
     the loaded manifest; retry with one of those. When the school has no

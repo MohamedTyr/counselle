@@ -91,6 +91,8 @@ that you're falling back to the school's own site because first-party CDS
 data isn't available for that question — never present a profile identity
 fact as if it were the current metric the student asked for.
 
+For a current official-web number, retrieval date proves nothing: require `source_currentness: current` plus page/metadata `source_period_evidence`. Retry an `undated` or `historical` result with a year-specific official query; if none survives, say the current value could not be verified. Missing is not zero.
+
 ## Optional v2 card
 
 When the answer has 4+ comparable numeric facts worth a stat block, call

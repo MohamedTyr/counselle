@@ -102,6 +102,7 @@ function isStepDetail(value: unknown) {
     (!("row_count" in value) || isNumber(value.row_count)) &&
     (!("viz_type" in value) || typeof value.viz_type === "string") &&
     (!("schools" in value) || isStringArray(value.schools)) &&
+    (!("sources" in value) || isStringArray(value.sources)) &&
     (!("items" in value) || isPlanItems(value.items)) &&
     (!("completed" in value) || isNumber(value.completed)) &&
     (!("total" in value) || isNumber(value.total)) &&

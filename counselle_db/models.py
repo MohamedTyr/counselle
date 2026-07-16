@@ -26,6 +26,7 @@ class SchoolBasics(FrozenModel):
 
 class SchoolCoverage(FrozenModel):
     selected_year: int | None = None
+    selected_edition: str | None = None
     document_id: int | None = None
     currentness: str | None = None
     stale_reason: str | None = None
@@ -56,13 +57,28 @@ class ResolveNotFound(FrozenModel):
 ResolveResult = ResolvedSchool | ResolveCandidates | ResolveNotFound
 
 
+class ProfileProvenanceReceipt(BaseModel):
+    """Safe, typed subset of a pipeline profile-field receipt."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    status: str | None = None
+    chosen_source: str | None = None
+    source_column: str | None = None
+    source_vintage: str | None = None
+    file_sha256: str | None = None
+    raw_value: Any = None
+    normalized_value: Any = None
+    normalization: str | None = None
+
+
 class ProfileLeaf(FrozenModel):
     ref: str
     label: str
     display: str | None
     available: bool
     value: Any = None
-    provenance: dict[str, Any] | None = None
+    provenance: ProfileProvenanceReceipt | None = None
     caveat_kinds: tuple[str, ...] = ("profile_snapshot",)
 
 
@@ -94,7 +110,11 @@ class DomainRow(FrozenModel):
 
 class AvailabilitySummary(FrozenModel):
     configured: int
+    # Source assertions whose extraction_status is verified, including
+    # evidence-backed source absences such as not_in_template_version.
     verified: int
+    # Verified, reported metrics that carry a typed value and evidence.
+    available: int
     not_in_template_version: int
 
 

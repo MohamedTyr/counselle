@@ -8,6 +8,7 @@ from typing import Any
 from app.caveats import render_caveat
 from app.sources import SourceRegistry
 from app.tool_overflow import ToolResultStore, reduce_tool_result
+from counselle_db.models import ProfileProvenanceReceipt
 from domain.envelope import Citation, CitationEnvelope, EvidenceItem
 from domain.events import tool_ui_from_payload
 
@@ -77,7 +78,13 @@ def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
                 evidence=evidence,
                 caveats=_caveats(row.get("caveat_kinds") or (), edition=citation.vintage),
             )
-            rows.append({**envelope.model_dump(mode="json"), "source_label": label})
+            rows.append(
+                {
+                    **envelope.model_dump(mode="json"),
+                    "vintage": row.get("vintage") or citation.vintage,
+                    "source_label": label,
+                }
+            )
         return {**result, "rows": rows}
     if tool_name == "get_school_profile" and isinstance(result.get("groups"), list):
         school = result.get("school") or {}
@@ -95,6 +102,13 @@ def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
             rows = []
             for row in group.get("rows") or []:
                 available = bool(row.get("available"))
+                provenance = (
+                    ProfileProvenanceReceipt.model_validate(row["provenance"]).model_dump(
+                        mode="json"
+                    )
+                    if isinstance(row.get("provenance"), dict)
+                    else None
+                )
                 envelope = CitationEnvelope(
                     field=row.get("ref"),
                     label=row.get("label") or row.get("ref") or "Value",
@@ -104,7 +118,13 @@ def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
                     citation=citation if available else None,
                     caveats=_caveats(row.get("caveat_kinds") or (), snapshot_date=snapshot_date),
                 )
-                rows.append({**envelope.model_dump(mode="json"), "source_label": label})
+                rows.append(
+                    {
+                        **envelope.model_dump(mode="json"),
+                        "provenance": provenance,
+                        "source_label": label,
+                    }
+                )
             groups.append({**group, "rows": rows})
         return {**result, "groups": groups}
     return result

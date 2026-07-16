@@ -159,7 +159,8 @@ class ChecklistMap(RootModel[dict[TrackableRequirementKind, ChecklistEntry]]):
     def validate_statuses(
         cls, value: dict[TrackableRequirementKind, ChecklistEntry]
     ) -> dict[TrackableRequirementKind, ChecklistEntry]:
-        ChecklistPatch(root=value)
+        patch: dict[TrackableRequirementKind, ChecklistEntry | None] = dict(value)
+        ChecklistPatch(root=patch)
         return value
 
 
@@ -233,9 +234,7 @@ class ApplicationPatch(_Model):
     platform: Platform | None = None
     platform_other: str | None = None
 
-    @field_validator(
-        "status", "list_type", "round", "cycle_year", "checklist", mode="before"
-    )
+    @field_validator("status", "list_type", "round", "cycle_year", "checklist", mode="before")
     @classmethod
     def reject_null_required_fields(cls, value: object) -> object:
         if value is None:

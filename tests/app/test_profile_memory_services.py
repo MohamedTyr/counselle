@@ -370,6 +370,7 @@ async def test_prepare_document_upload_extraction_timeout_yields_failed_status(
         time.sleep(0.2)
         return "unreachable"
 
+    monkeypatch.setattr(extraction, "_validate_extractable_content", lambda kind, content: None)
     monkeypatch.setattr(extraction, "_extract_text", slow_extract)
 
     prepared = await prepare_document_upload(

@@ -78,10 +78,10 @@ class Runtime:
 async def build_runtime(settings: Any = None) -> Runtime:
     """Production wiring: pools, catalog, checkpointer, MCP toolset, graph."""
     settings = settings or get_settings()
-    ro_pool = await create_pool()
+    ro_pool = await create_pool(settings=settings)
     try:
-        catalog = await Catalog.load(ro_pool)
-        app_pool = await create_pool(dsn=settings.db_app_dsn)
+        catalog = await Catalog.load(ro_pool, settings=settings)
+        app_pool = await create_pool(dsn=settings.db_app_dsn, settings=settings)
     except BaseException:
         await ro_pool.close()
         raise

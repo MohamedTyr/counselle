@@ -155,7 +155,7 @@ async def _create_tasks_impl(
                 recovery=LINK_RECOVERY,
                 link_targets=targets,
             )
-        assert fields is not None
+        assert fields is not None  # nosec B101 - error branches above narrow this
         parsed.append(fields)
 
     warnings: list[str] = []
