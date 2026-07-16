@@ -569,6 +569,23 @@ async def test_golden_full_turn_events() -> None:
         if event.type == "step" and event.data["kind"] == "viz" and event.data["status"] == "end"
     )
     assert "result_for_agent" not in render_end
+    domain_step = ev_step(
+        StepData(
+            step_id="fixture-domain-read",
+            status="end",
+            kind="db_tool",
+            label="Read admissions data",
+            tier="official",
+            detail=StepDetail(
+                tool="get_domain",
+                domain_id="admissions",
+                value_count=1,
+                row_count=1,
+                schools=["Duke University"],
+            ),
+        )
+    )
+    events.insert(types.index("viz"), domain_step)
     _check_or_regen("turn_full", {"events": normalize(_dump(events))})
 
 

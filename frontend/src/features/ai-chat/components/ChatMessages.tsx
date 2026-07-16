@@ -3,15 +3,8 @@ import { ArrowDownIcon, MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { ChatMessage } from "./ChatMessage";
-import type { MessageSourcesPayload } from "./MessageSources";
-import {
-  citedSourcesForMessage,
-  dbSchoolsForMessage,
-  dbSourcesForMessage,
-  isDbSource,
-  sortSourcesByTrust,
-  usedDbData,
-} from "../citations";
+import type { MessageSourcesPayload, SourceFocus } from "@/api/chat/types";
+import { sourcesPayloadFor } from "../citations";
 import type { ChatMessage as ChatMessageModel, FeedbackRating } from "../model";
 import { useQuestionAnchoredScroll } from "../useQuestionAnchoredScroll";
 
@@ -25,34 +18,6 @@ export type ChatMessagesProps = {
   onClarifyAnswer?: (text: string) => void;
   skillLabelForName?: (name: string) => string | undefined;
 };
-
-function sourcesPayloadFor(
-  message: ChatMessageModel,
-  activeIndex?: number | "counselle-data",
-): MessageSourcesPayload | null {
-  if (message.kind !== "assistant") {
-    return null;
-  }
-
-  const dbUsed = usedDbData(message);
-  const externalCited = citedSourcesForMessage(message).filter(
-    (entry) => !isDbSource(entry.citation.source),
-  );
-  const sortedExternalCited = sortSourcesByTrust(externalCited);
-  const dbEntries = dbSourcesForMessage(message);
-  const displayCount = (dbUsed ? 1 : 0) + sortedExternalCited.length;
-
-  if (displayCount === 0) {
-    return null;
-  }
-
-  return {
-    sources: [...dbEntries, ...sortedExternalCited],
-    dbUsed,
-    dbSchools: dbSchoolsForMessage(message),
-    activeIndex,
-  };
-}
 
 /**
  * ChatMessages — the flat message list. Deliberately does NOT use AI
@@ -84,7 +49,7 @@ export function ChatMessages({
     return (
       <div className="flex size-full flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
         <MessageCircleIcon aria-hidden="true" className="size-8" />
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <h2 className="text-sm font-medium text-foreground">No messages yet</h2>
           <p className="text-sm">Ask a question to start this conversation.</p>
         </div>
@@ -121,8 +86,8 @@ export function ChatMessages({
               onOpenSources={onOpenSources}
               onOpenCitation={
                 message.kind === "assistant" && onOpenSources !== undefined
-                  ? (sourceIndex) => {
-                      const payload = sourcesPayloadFor(message, sourceIndex);
+                  ? (focus: SourceFocus) => {
+                      const payload = sourcesPayloadFor(message, focus);
                       if (payload !== null) {
                         onOpenSources(payload);
                       }
@@ -147,7 +112,7 @@ export function ChatMessages({
           type="button"
           variant="outline"
         >
-          <ArrowDownIcon className="size-4" />
+          <ArrowDownIcon data-icon="inline-start" />
         </Button>
       )}
     </div>

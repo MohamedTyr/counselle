@@ -1,12 +1,11 @@
 import { TransportError } from "@/api/http/errors";
+import { isCurrentSourceEntry, isTabularRenderSpec } from "@/api/chat/validation";
 import {
   protocolEventTypes,
   type DoneStatus,
   type ProtocolEvent,
   type ProtocolEventType,
-  type SourceName,
   type SseFrame,
-  type Tier,
 } from "@/api/chat/types";
 
 const knownEventTypes = new Set<ProtocolEventType>(protocolEventTypes);
@@ -32,71 +31,21 @@ function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) > 0;
+}
+
 function isProtocolEventType(value: unknown): value is ProtocolEventType {
   return (
     typeof value === "string" && knownEventTypes.has(value as ProtocolEventType)
   );
 }
 
-const sourceNames = new Set<SourceName>([
-  "ipeds",
-  "scorecard",
-  "cds",
-  "web",
-  "edu",
-  "reddit",
-]);
-const tiers = new Set<Tier>(["official", "community"]);
 const doneStatuses = new Set<DoneStatus>([
   "complete",
   "awaiting_input",
   "cancelled",
 ]);
-function isCitation(value: unknown) {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    typeof value.source === "string" &&
-    sourceNames.has(value.source as SourceName) &&
-    typeof value.tier === "string" &&
-    tiers.has(value.tier as Tier) &&
-    isNonEmptyString(value.vintage)
-  );
-}
-
-function isCitationEnvelope(value: unknown) {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    isNumber(value.v) &&
-    typeof value.field === "string" &&
-    typeof value.label === "string" &&
-    typeof value.display === "string" &&
-    typeof value.available === "boolean" &&
-    isCitation(value.citation)
-  );
-}
-
-function isSchoolRef(value: unknown) {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return isNumber(value.unitid) && isNonEmptyString(value.name);
-}
-
-function isVizRow(value: unknown) {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    typeof value.label === "string" &&
-    Array.isArray(value.cells) &&
-    value.cells.every(isCitationEnvelope)
-  );
-}
-
 function isClarifyOption(value: unknown) {
   if (!isRecord(value)) {
     return false;
@@ -104,16 +53,6 @@ function isClarifyOption(value: unknown) {
   return typeof value.label === "string" && typeof value.hint === "string";
 }
 
-function isSourceEntry(value: unknown) {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    isNumber(value.index) &&
-    isCitation(value.citation) &&
-    typeof value.label === "string"
-  );
-}
 
 function coerceDoneStatus(value: string): DoneStatus {
   return doneStatuses.has(value as DoneStatus)
@@ -159,7 +98,7 @@ function isStepDetail(value: unknown) {
     (!("value_count" in value) || isNumber(value.value_count)) &&
     (!("duration_ms" in value) || isNumber(value.duration_ms)) &&
     (!("tool" in value) || typeof value.tool === "string") &&
-    (!("field_keys" in value) || isStringArray(value.field_keys)) &&
+    (!("domain_id" in value) || typeof value.domain_id === "string") &&
     (!("row_count" in value) || isNumber(value.row_count)) &&
     (!("viz_type" in value) || typeof value.viz_type === "string") &&
     (!("schools" in value) || isStringArray(value.schools)) &&
@@ -233,15 +172,11 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
         typeof data.injected === "boolean"
       );
     case "viz":
-      return (
-        typeof data.v === "number" &&
-        typeof data.type === "string" &&
-        typeof data.title === "string" &&
-        Array.isArray(data.schools) &&
-        data.schools.every(isSchoolRef) &&
-        Array.isArray(data.rows) &&
-        data.rows.every(isVizRow)
-      );
+      if (!isPositiveInteger(data.v) || !isNonEmptyString(data.type)) return false;
+      if (data.type !== "stat_block" && data.type !== "comparison_table") {
+        return !("title" in data) || data.title === null || typeof data.title === "string";
+      }
+      return isTabularRenderSpec(data);
     case "clarify":
       return (
         typeof data.v === "number" &&
@@ -252,7 +187,7 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
         data.options.every(isClarifyOption)
       );
     case "sources":
-      return Array.isArray(data.sources) && data.sources.every(isSourceEntry);
+      return Array.isArray(data.sources) && data.sources.every(isCurrentSourceEntry);
     case "usage":
       return (
         typeof data.input_tokens === "number" &&

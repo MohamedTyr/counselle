@@ -6,6 +6,7 @@ import type {
   StepData,
   TranscriptAssistantEntry,
 } from "@/api/chat/types";
+import { isTabularRenderSpec } from "@/api/chat/validation";
 
 import {
   answerBlocksOf,
@@ -23,10 +24,10 @@ import { messagesFromTranscript } from "./model";
 
 function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
   return {
-    v: 1,
+    v: 2,
     type: "comparison_table",
     title: "Admission rates",
-    schools: [
+    columns: [
       { unitid: 100, name: "North College", domain: "north.edu" },
       { unitid: 200, name: "South University", domain: "south.edu" },
     ],
@@ -35,7 +36,7 @@ function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
         label: "Acceptance rate",
         cells: [
           {
-            v: 1,
+            v: 2,
             field: "admissions.acceptance_rate",
             label: "Acceptance rate",
             display: "12%",
@@ -43,16 +44,24 @@ function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
             available: true,
             unit: "percent",
             citation: {
+              v: 2,
               source: "cds",
               tier: "official",
               vintage: "CDS 2024-25",
-              caveat: null,
-              raw_table: "B",
               url: null,
+              document_sha256: "a".repeat(64),
+              source_kind: "upload",
+              retrieved_at: "2026-07-15T00:00:00Z",
+              academic_year: 2024,
+              manifest_version: "5.0.1",
+              school_unitid: 100,
             },
+            evidence: { eid: "admissions.acceptance_rate", value_display: "12%", label: "Acceptance rate", page: 7, excerpt: "Rate 12%" },
+            caveats: [],
+            marker: "[1]",
           },
           {
-            v: 1,
+            v: 2,
             field: "admissions.acceptance_rate",
             label: "Acceptance rate",
             display: "42%",
@@ -60,13 +69,15 @@ function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
             available: true,
             unit: "percent",
             citation: {
-              source: "ipeds",
+              v: 2,
+              source: "edu",
               tier: "official",
-              vintage: "IPEDS 2024-25",
-              caveat: "provisional",
-              raw_table: null,
-              url: null,
+              vintage: "Retrieved 2026",
+              url: "https://south.edu/rate",
             },
+            evidence: null,
+            caveats: [{ kind: "edition_mismatch_comparison", text: "Editions differ." }],
+            marker: "[2]",
           },
         ],
       },
@@ -81,7 +92,7 @@ function reduceEvents(events: ProtocolEvent[]): TurnState {
 
 function stepEvent(
   step: Partial<StepData> & Pick<StepData, "step_id" | "status">,
-): ProtocolEvent {
+): Extract<ProtocolEvent, { type: "step" }> {
   return {
     v: 1,
     type: "step",
@@ -159,11 +170,89 @@ describe("turn reducer", () => {
     expect(vizBlocks(state)[0].spec.title).toBe("Admissions snapshot");
   });
 
+  test("resolved provenance differences never dedupe", () => {
+    const first = renderSpec();
+    const baseline = renderSpec();
+    if (!isTabularRenderSpec(baseline)) throw new Error("expected tabular fixture");
+    const firstCell = baseline.rows[0].cells[0];
+    const changed: RenderSpec = {
+      ...baseline,
+      rows: [{
+        ...baseline.rows[0],
+        cells: [{
+          ...firstCell,
+          citation: firstCell.citation === null || firstCell.citation === undefined
+            ? firstCell.citation
+            : { ...firstCell.citation, document_sha256: "b".repeat(64) },
+        }, ...baseline.rows[0].cells.slice(1)],
+      }, ...baseline.rows.slice(1)],
+    };
+
+    const state = reduceEvents([
+      { v: 1, type: "viz", data: first },
+      { v: 1, type: "viz", data: changed },
+    ]);
+    expect(vizBlocks(state)).toHaveLength(2);
+  });
+
+  test("opaque payloads survive replay and export only a safe placeholder", () => {
+    const spec: RenderSpec = {
+      v: 2,
+      type: "community_card",
+      title: "Student voices",
+      secret_payload: "must not export",
+    };
+    const state = reduceTranscriptEntry(assistantEntry([{ type: "viz", spec }]));
+    expect(vizBlocks(state)[0].spec).toEqual(spec);
+    expect(runMarkdownOf(state)).toContain("### Student voices");
+    expect(runMarkdownOf(state)).toContain("requires a newer client");
+    expect(runMarkdownOf(state)).not.toContain("must not export");
+  });
+
+  test.each([
+    ["array-only shell", (spec: Record<string, unknown>) => ({ ...spec, columns: [], rows: [] })],
+    ["bad cell", (spec: Record<string, unknown>) => ({ ...spec, rows: [{ label: "Rate", cells: ["12%"] }] })],
+    ["wrong row width", (spec: Record<string, unknown>) => ({ ...spec, rows: [{ label: "Rate", cells: [] }] })],
+    ["bad citation", (spec: Record<string, unknown>) => {
+      const rows = structuredClone(spec.rows) as Array<{ cells: Array<Record<string, unknown>> }>;
+      rows[0].cells[0].citation = { source: "cds" };
+      return { ...spec, rows };
+    }],
+    ["bad evidence", (spec: Record<string, unknown>) => {
+      const rows = structuredClone(spec.rows) as Array<{ cells: Array<Record<string, unknown>> }>;
+      rows[0].cells[0].evidence = { eid: "wrong" };
+      return { ...spec, rows };
+    }],
+    ["extra keys", (spec: Record<string, unknown>) => ({ ...spec, unexpected: true })],
+  ])("rejects malformed current-v2 %s", (_label, mutate) => {
+    const malformed = mutate(structuredClone(renderSpec()) as unknown as Record<string, unknown>);
+    expect(isTabularRenderSpec(malformed)).toBe(false);
+    const state = reduceTranscriptEntry(assistantEntry([{ type: "viz", spec: malformed as RenderSpec }]));
+    expect(runMarkdownOf(state)).toContain("requires a newer client");
+  });
+
+  test("legacy evidence-less transcript sources remain replayable", () => {
+    const legacy = {
+      role: "assistant",
+      text: "Legacy answer [1].",
+      ts: null,
+      sources: [{
+        index: 1,
+        label: "IPEDS 2024 admissions",
+        citation: { source: "ipeds", tier: "official", vintage: "IPEDS 2024", caveat: "provisional" },
+      }],
+      status: "complete",
+    } as unknown as TranscriptAssistantEntry;
+    const state = reduceTranscriptEntry(legacy);
+    expect(state.status).toBe("complete");
+    expect(state.sources[0]).toMatchObject({ index: 1, citation: { source: "ipeds" } });
+  });
+
   test("attach replay with overlapping live and persisted viz frames keeps one card", () => {
     const liveSpec = renderSpec({ title: "Live card title" });
     const replaySpec = renderSpec({
       title: "Replay card title",
-      schools: [
+      columns: [
         { unitid: 100, name: "North College", domain: "northcollege.edu" },
         { unitid: 200, name: "South University", domain: null },
       ],
@@ -504,14 +593,18 @@ describe("turn reducer", () => {
         data: {
           sources: [
             {
+              v: 2,
               index: 1,
               citation: {
+                v: 2,
                 source: "web",
                 tier: "official",
                 vintage: "2026",
                 url: "https://example.com",
               },
               label: "Example",
+              evidence: [],
+              evidence_omitted_count: 0,
             },
           ],
         },
@@ -578,14 +671,18 @@ describe("turn reducer", () => {
       data: {
         sources: [
           {
+            v: 2,
             index: 1,
             citation: {
+              v: 2,
               source: "web",
               tier: "official",
               vintage: "2026",
               url: "https://example.com",
             },
             label: "Example",
+            evidence: [],
+            evidence_omitted_count: 0,
           },
         ],
       },
@@ -656,7 +753,7 @@ describe("turn reducer", () => {
           "",
           "| Metric | North College | South University |",
           "| --- | --- | --- |",
-          "| Acceptance rate | 12% (CDS 2024-25, cds) | 42% (IPEDS 2024-25, ipeds) |",
+          "| Acceptance rate | 12% (CDS 2024-25, cds) | 42% (Retrieved 2026, edu) |",
         ].join("\n"),
       ].join("\n\n"),
     );
@@ -799,14 +896,18 @@ describe("turn reducer", () => {
       },
       sources: [
         {
+          v: 2,
           index: 1,
           label: "Source",
           citation: {
+            v: 2,
             source: "web",
             tier: "community",
             vintage: "Fetched today",
             url: "https://example.com",
           },
+          evidence: [],
+          evidence_omitted_count: 0,
         },
       ],
       usage: { input_tokens: 1, output_tokens: 2, tool_calls: 3 },

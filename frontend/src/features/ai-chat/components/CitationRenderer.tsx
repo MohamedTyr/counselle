@@ -1,7 +1,8 @@
 import { memo, useMemo } from "react";
 import { defaultRemarkPlugins } from "streamdown";
 
-import type { SourceEntry } from "@/api/chat/types";
+import type { ReplaySourceEntry, SourceFocus } from "@/api/chat/types";
+import { Button } from "@/components/ui/button";
 import {
   InlineCitation,
   InlineCitationCard,
@@ -19,6 +20,7 @@ import {
   safeExternalUrl,
   uniqueSourceByIndex,
 } from "../citations";
+import { isLegacySourceEntry } from "@/api/chat/legacy-replay";
 import { remarkCitationRefs } from "./remark-citation-refs";
 
 export type CitationRendererProps = {
@@ -28,8 +30,8 @@ export type CitationRendererProps = {
   markdown: string;
   /** The message's cumulative source registry. Citation chips render only for
    *  markers that resolve to a non-DB (external) entry here. */
-  sources?: SourceEntry[];
-  onCitationOpen?: (index: number) => void;
+  sources?: ReplaySourceEntry[];
+  onCitationOpen?: (focus: SourceFocus) => void;
 };
 
 // `defaultRemarkPlugins` is a named-plugin map (`{ gfm, codeMeta }`), not a
@@ -43,10 +45,9 @@ const allowedTags = { "citation-ref": ["index"] };
  * CitationChip — what a `[n]` marker becomes in rendered prose.
  *
  * The grammar (ported from the old app's InlineCitation, PINNED): a figure
- * backed by our own database (CDS/IPEDS/Scorecard) renders NOTHING inline —
- * the fact is credited in the sources strip/panel instead, never a pill. A
- * claim leaning on an external page renders a small named chip. A marker
- * whose source hasn't streamed in yet (or doesn't exist) also renders
+ * backed by CDS/profile data remains visible as a compact accessible marker
+ * button. A claim leaning on an external page renders a small named chip. A
+ * marker whose source hasn't streamed in yet (or doesn't exist) renders
  * nothing — never a bare, unexplained digit.
  */
 function CitationChip({
@@ -55,25 +56,42 @@ function CitationChip({
   onOpen,
 }: {
   index: number;
-  sources: SourceEntry[] | undefined;
-  onOpen?: (index: number) => void;
+  sources: ReplaySourceEntry[] | undefined;
+  onOpen?: (focus: SourceFocus) => void;
 }) {
   const entry = uniqueSourceByIndex(sources, index);
 
-  if (entry === undefined || isDbSource(entry.citation.source)) {
+  if (entry === undefined) {
     return null;
   }
 
+  if (isLegacySourceEntry(entry) || isDbSource(entry.citation.source)) {
+    return (
+      <Button
+        aria-label={`Open source ${entry.index}`}
+        className="mx-0.5 h-5 min-w-5 rounded-full px-1.5 align-middle text-[10px]"
+        onClick={() => onOpen?.({ index: entry.index })}
+        size="sm"
+        type="button"
+        variant="secondary"
+      >
+        [{entry.index}]
+      </Button>
+    );
+  }
+
+  // The storage-only branch above narrows this to the current v2 contract.
+
   const label = friendlySourceName(entry.citation);
   const href = safeExternalUrl(entry.citation.url);
-  const handleOpen = () => onOpen?.(entry.index);
+  const handleOpen = () => onOpen?.({ index: entry.index });
 
   return (
     <InlineCitation>
       <InlineCitationCard>
         <InlineCitationCardTrigger onClick={handleOpen} sources={[label]} />
         <InlineCitationCardBody>
-          <div className="space-y-1 p-3 text-xs">
+          <div className="flex flex-col gap-1 p-3 text-xs">
             <div className="font-medium text-foreground">{label}</div>
             {entry.snippet !== undefined && entry.snippet !== null && (
               <p className="text-muted-foreground">{entry.snippet}</p>

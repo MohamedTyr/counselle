@@ -1,162 +1,58 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
-
-import type { MessageSourcesPayload } from "./MessageSources";
+import type { MessageSourcesPayload, SourceEntry } from "@/api/chat/types";
 import { SourcesRail } from "./SourcesRail";
 
-function payload(overrides: Partial<MessageSourcesPayload> = {}): MessageSourcesPayload {
-  return {
-    sources: [
-      {
-        index: 1,
-        citation: { source: "web", tier: "official", vintage: "2026", url: "https://example.com/aid" },
-        label: "Example",
-        snippet: "Aid overview",
-      },
-    ],
-    dbUsed: true,
-    dbSchools: ["Harvard University"],
-    ...overrides,
-  };
+function cds(): SourceEntry {
+  return { v: 2, index: 3, label: "Yale — Common Data Set 2024-25", snippet: null, evidence_omitted_count: 2, citation: { v: 2, source: "cds", tier: "official", vintage: "CDS 2024-25", document_sha256: "a".repeat(64), source_kind: "upload", retrieved_at: "2026-05-02", academic_year: 2024, manifest_version: "5.0.1", school_unitid: 1, url: "https://example.edu/cds.pdf" }, evidence: [
+    { eid: "z.metric", value_display: "9", label: "Later", page: 9, excerpt: "Later excerpt" },
+    { eid: "admissions.rate", value_display: "12%", label: "Acceptance rate", page: 7, section: "C1", row_label: "Applicants", column_label: "Total", excerpt: "Acceptance rate 12%" },
+  ] };
+}
+function web(): SourceEntry {
+  return { v: 2, index: 8, label: "Example", snippet: "Aid overview", evidence: [], evidence_omitted_count: 0, citation: { v: 2, source: "web", tier: "official", vintage: "2026", url: "https://example.com/aid" } };
 }
 
 describe("SourcesRail", () => {
-  test("renders nothing when there is no open payload", () => {
-    const { container } = render(
-      <SourcesRail isMobile={false} onClose={vi.fn()} payload={null} />,
-    );
+  test("renders nothing for a closed rail", () => {
+    const { container } = render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={null} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("desktop rail: shows the source count, focuses the heading, and closes via the close button", async () => {
-    const onClose = vi.fn();
-    render(<SourcesRail isMobile={false} onClose={onClose} payload={payload()} />);
-
-    const heading = await screen.findByRole("heading", { name: "2 sources" });
-    expect(heading).toHaveFocus();
-    expect(screen.getByText("Counselle data")).toBeInTheDocument();
-    expect(screen.getByText("Harvard University")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close sources" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+  test("renders marker order, CDS metadata, page-sorted evidence, omitted count and safe links", () => {
+    const payload: MessageSourcesPayload = { sources: [web(), cds()] };
+    render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />);
+    expect(screen.getByRole("heading", { name: "2 sources" })).toHaveFocus();
+    const rows = document.querySelectorAll("[id^='source-row-']");
+    expect([...rows].map((row) => row.id)).toEqual(["source-row-3", "source-row-8"]);
+    expect(screen.getByText(/upload · 2026-05-02/)).toBeInTheDocument();
+    expect(screen.getByText(/Page 7 · Section C1 · Row: Applicants · Column: Total/)).toBeInTheDocument();
+    expect(screen.getByText(/and 2 more values/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(2);
   });
 
-  test("Esc closes the rail", () => {
-    const onClose = vi.fn();
-    render(<SourcesRail isMobile={false} onClose={onClose} payload={payload()} />);
-
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledTimes(1);
+  test("focuses exact evidence and falls back to entry for missing evidence", () => {
+    const { rerender } = render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [cds()], active: { index: 3, evidenceId: "admissions.rate" } }} />);
+    expect(document.getElementById("source-evidence-3-admissions.rate")).toHaveFocus();
+    rerender(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [cds()], active: { index: 3, evidenceId: "legacy.missing" } }} />);
+    const fallback = document.getElementById("source-row-3");
+    expect(fallback).toHaveFocus();
+    expect(fallback).toHaveAttribute("data-active", "true");
+    expect(fallback).toHaveAttribute("aria-current", "true");
+    expect(fallback).toHaveClass("ring-2", "ring-ring");
   });
 
-  test("mobile: renders as a sheet with the same content", async () => {
-    render(<SourcesRail isMobile onClose={vi.fn()} payload={payload()} />);
-    expect(await screen.findByRole("heading", { name: "2 sources" })).toBeInTheDocument();
-  });
-
-  test("singular count reads '1 source'", async () => {
-    render(
-      <SourcesRail
-        isMobile={false}
-        onClose={vi.fn()}
-        payload={payload({ dbUsed: false })}
-      />,
-    );
-    expect(await screen.findByRole("heading", { name: "1 source" })).toBeInTheDocument();
-  });
-
-  test("focuses and highlights the active source row", async () => {
-    render(
-      <SourcesRail
-        isMobile={false}
-        onClose={vi.fn()}
-        payload={payload({ activeIndex: 1 })}
-      />,
-    );
-
-    const row = document.getElementById("source-row-1");
-    await screen.findByRole("heading", { name: "2 sources" });
-    expect(row).toHaveFocus();
-    expect(row).toHaveAttribute("data-active", "true");
-  });
-
-  test("renders unsafe source urls as inert text, not links", async () => {
-    render(
-      <SourcesRail
-        isMobile={false}
-        onClose={vi.fn()}
-        payload={payload({
-          dbUsed: false,
-          sources: [
-            {
-              index: 1,
-              citation: {
-                source: "web",
-                tier: "official",
-                vintage: "2026",
-                url: "javascript:alert(1)",
-              },
-              label: "Unsafe",
-              snippet: "Unsafe source",
-            },
-          ],
-        })}
-      />,
-    );
-
-    expect(await screen.findByText("Source")).toBeInTheDocument();
+  test("legacy evidence-less CDS entries do not crash and unsafe URLs stay inert", () => {
+    const legacy = { ...cds(), evidence: [], evidence_omitted_count: 0, citation: { ...cds().citation, url: "javascript:alert(1)" } };
+    expect(() => render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [legacy] }} />)).not.toThrow();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  test("orders sources by trust rank, not payload order", async () => {
-    render(
-      <SourcesRail
-        isMobile={false}
-        onClose={vi.fn()}
-        payload={payload({
-          dbUsed: false,
-          sources: [
-            {
-              index: 3,
-              citation: {
-                source: "reddit",
-                tier: "community",
-                vintage: "2026",
-                url: "https://reddit.com/r/ApplyingToCollege/comments/1",
-              },
-              label: "Reddit",
-            },
-            {
-              index: 1,
-              citation: {
-                source: "edu",
-                tier: "official",
-                vintage: "2026",
-                url: "https://admissions.example.edu",
-              },
-              label: "Official",
-            },
-            {
-              index: 2,
-              citation: {
-                source: "web",
-                tier: "community",
-                vintage: "2026",
-                url: "https://example.com",
-              },
-              label: "Web",
-            },
-          ],
-        })}
-      />,
-    );
-
-    await screen.findByRole("heading", { name: "3 sources" });
-    const rows = Array.from(document.querySelectorAll("[id^='source-row-']"));
-    expect(rows.map((row) => row.id)).toEqual([
-      "source-row-1",
-      "source-row-2",
-      "source-row-3",
-    ]);
+  test("close button and Escape close the desktop rail", () => {
+    const onClose = vi.fn();
+    render(<SourcesRail isMobile={false} onClose={onClose} payload={{ sources: [web()] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Close sources" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,168 +1,59 @@
 import { describe, expect, test } from "vitest";
 
-import type { Citation, RenderSpec, SourceEntry } from "@/api/chat/types";
-
+import type { Citation, CitationEnvelope, RenderSpec, SourceEntry } from "@/api/chat/types";
 import {
   citedIndexesIn,
-  citedSourcesForMessage,
-  dbSchoolsForMessage,
-  friendlySourceName,
-  isDbSource,
+  sourceFocusForCell,
+  sourcesUsedByMessage,
   uniqueSourceByIndex,
-  usedDbData,
 } from "./citations";
 
-function citation(overrides: Partial<Citation> = {}): Citation {
-  return {
-    source: "web",
-    tier: "community",
-    vintage: "Fetched 2026-06-11",
-    ...overrides,
-  };
+const SHA = "a".repeat(64);
+
+function citation(source: Citation["source"] = "web"): Citation {
+  if (source === "cds") return { v: 2, source, tier: "official", vintage: "CDS 2024-25", document_sha256: SHA, source_kind: "upload", retrieved_at: "2026-07-15T00:00:00Z", academic_year: 2024, manifest_version: "5.0.1", school_unitid: 1 };
+  if (source === "profile") return { v: 2, source, tier: "official", vintage: "Snapshot 2024", school_unitid: 1, profile_sha256: SHA };
+  return { v: 2, source, tier: source === "reddit" ? "community" : "official", vintage: "Retrieved 2026", url: `https://${source}.example/a` };
 }
 
-function entry(
-  index: number,
-  source: SourceEntry["citation"]["source"],
-  url?: string | null,
-): SourceEntry {
-  return {
-    index,
-    label: source === "cds" ? "North College — Common Data Set" : "External",
-    citation: citation({
-      source,
-      tier: isDbSource(source) || source === "edu" ? "official" : "community",
-      url,
-    }),
-  };
+function entry(index: number, source: Citation["source"]): SourceEntry {
+  return { v: 2, index, label: `${source} source`, citation: citation(source), evidence: source === "cds" ? [{ eid: "admissions.rate", value_display: "12%", label: "Rate", page: 7, excerpt: "Rate 12%" }] : [], evidence_omitted_count: 0 };
 }
 
-function renderSpec(): RenderSpec {
-  return {
-    v: 1,
-    type: "comparison_table",
-    title: "Admissions",
-    schools: [{ unitid: 1, name: "North College" }],
-    rows: [
-      {
-        label: "Acceptance rate",
-        cells: [
-          {
-            v: 1,
-            field: "admissions.acceptance_rate",
-            label: "Acceptance rate",
-            display: "12%",
-            raw: 0.12,
-            available: true,
-            citation: {
-              source: "cds",
-              tier: "official",
-              vintage: "CDS 2024",
-            },
-          },
-        ],
-      },
-    ],
-  };
+function cell(marker: string | null, source: Citation["source"] = "cds", available = true): CitationEnvelope {
+  if (!available) return { v: 2, field: null, label: "Rate", display: "not available", raw: null, available: false, unit: null, citation: null, evidence: null, caveats: [], marker: null };
+  if (marker === null) throw new Error("available test cells require a marker");
+  return { v: 2, field: "admissions.rate", label: "Rate", display: "12%", raw: 0.12, available: true, citation: citation(source), evidence: source === "cds" ? { eid: "admissions.rate", value_display: "12%", label: "Rate", page: 7, excerpt: "Rate 12%" } : null, caveats: [], marker };
 }
 
-describe("citation parsing", () => {
-  test("parses one, two, and three digit citation markers", () => {
-    expect([...citedIndexesIn("See [1], [12], [123], and [1234].")]).toEqual([
-      1,
-      12,
-      123,
-    ]);
+function viz(cells: CitationEnvelope[]): RenderSpec {
+  return { v: 2, type: "comparison_table", title: "Rates", columns: cells.map((_, index) => ({ unitid: index === 0 ? 1 : null, name: `School ${index}` })), rows: [{ label: "Rate", cells }] };
+}
+
+describe("citation source selection", () => {
+  test("parses positive markers of arbitrary width and ignores zero/code/links", () => {
+    expect([...citedIndexesIn("Use [1], [1234], not [0], `[2]`, or [link](https://x.test/[3]).")]).toEqual([1, 1234]);
   });
 
-  test("does not parse markers inside inline or fenced code", () => {
-    const markdown = [
-      "Visible [1] but not `[2]`.",
-      "```ts",
-      "const x = '[3]'",
-      "```",
-      "Visible again [4].",
-    ].join("\n");
-
-    expect([...citedIndexesIn(markdown)]).toEqual([1, 4]);
+  test("unions prose and viz markers in registry order and excludes unused entries", () => {
+    const sources = [entry(1, "web"), entry(2, "cds"), entry(3, "reddit"), entry(4, "profile")];
+    expect(sourcesUsedByMessage({ blocks: [{ kind: "markdown", text: "Web [1]." }, { kind: "viz", spec: viz([cell("[2]"), cell("[3]", "reddit")]) }], sources }).map(({ index }) => index)).toEqual([1, 2, 3]);
   });
 
-  test("does not parse markers inside link destinations", () => {
-    expect(
-      [...citedIndexesIn("Visible [1] and [link](https://example.com/[2]).")],
-    ).toEqual([1]);
+  test("includes viz-only CDS and ignores unavailable and opaque payloads", () => {
+    const sources = [entry(2, "cds"), entry(4, "profile")];
+    expect(sourcesUsedByMessage({ blocks: [{ kind: "viz", spec: viz([cell("[2]"), cell(null, "profile", false)]) }, { kind: "viz", spec: { v: 2, type: "future", payload: { marker: "[4]" } } }], sources }).map(({ index }) => index)).toEqual([2]);
   });
 
-  test("fails closed for duplicate source indexes", () => {
-    const sources = [
-      entry(1, "web", "https://a.example"),
-      entry(1, "web", "https://b.example"),
-    ];
-
+  test("fails closed on duplicate registry indexes", () => {
+    const sources = [entry(1, "web"), entry(1, "edu")];
     expect(uniqueSourceByIndex(sources, 1)).toBeUndefined();
-    expect(
-      citedSourcesForMessage({
-        blocks: [{ kind: "markdown", text: "Cited [1]." }],
-        sources,
-      }),
-    ).toEqual([]);
+    expect(sourcesUsedByMessage({ text: "See [1].", sources })).toEqual([]);
   });
 
-  test("filters cited external and DB sources by prose markers only", () => {
-    const sources = [
-      entry(1, "web", "https://external.example"),
-      entry(2, "cds"),
-      entry(3, "reddit", "https://reddit.com/r/ApplyingToCollege/comments/x"),
-    ];
-
-    expect(
-      citedSourcesForMessage({
-        blocks: [
-          { kind: "markdown", text: "External [1]." },
-          { kind: "viz", spec: renderSpec() },
-          { kind: "markdown", text: "DB [2]." },
-        ],
-        sources,
-      }).map((source) => source.index),
-    ).toEqual([1, 2]);
-  });
-
-  test("DB-backed viz cells count as Counselle data even without DB source rows", () => {
-    const message = {
-      blocks: [{ kind: "viz" as const, spec: renderSpec() }],
-      sources: [entry(1, "web", "https://external.example")],
-    };
-
-    expect(usedDbData(message)).toBe(true);
-    expect(dbSchoolsForMessage(message)).toEqual(["North College"]);
-  });
-
-  test("stray cumulative DB source rows do not count as Counselle data", () => {
-    const message = {
-      blocks: [{ kind: "markdown" as const, text: "External [1]." }],
-      sources: [
-        entry(1, "web", "https://external.example"),
-        entry(2, "cds"),
-      ],
-    };
-
-    expect(usedDbData(message)).toBe(false);
-    expect(dbSchoolsForMessage(message)).toEqual([]);
-  });
-
-  test("friendly source names use subreddit handle or host", () => {
-    expect(
-      friendlySourceName(
-        citation({
-          source: "reddit",
-          url: "https://www.reddit.com/r/ApplyingToCollege/comments/x",
-        }),
-      ),
-    ).toBe("r/ApplyingToCollege");
-    expect(
-      friendlySourceName(
-        citation({ source: "web", url: "https://www.example.com/path" }),
-      ),
-    ).toBe("example.com");
+  test("CDS cells focus exact evidence while external and unavailable cells do not", () => {
+    expect(sourceFocusForCell(cell("[123]"))).toEqual({ index: 123, evidenceId: "admissions.rate" });
+    expect(sourceFocusForCell(cell("[7]", "edu"))).toEqual({ index: 7 });
+    expect(sourceFocusForCell(cell(null, "cds", false))).toBeUndefined();
   });
 });

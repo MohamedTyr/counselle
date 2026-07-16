@@ -8,6 +8,7 @@ import {
   MessageContent,
 } from "@/components/ai-elements/message";
 import { cn } from "@/lib/utils";
+import type { SourceFocus } from "@/api/chat/types";
 
 import type { Segment } from "../turn-reducer";
 import { NarrationBeat, PlanChecklist, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
@@ -31,7 +32,7 @@ export type ChatMessageProps = {
   onRegenerate?: () => void;
   onFeedback?: (rating: FeedbackRating) => void;
   onOpenSources?: (payload: MessageSourcesPayload) => void;
-  onOpenCitation?: (index: number) => void;
+  onOpenCitation?: (focus: SourceFocus) => void;
   onClarifyAnswer?: (text: string) => void;
   isLatestMessage?: boolean;
   skillLabelForName?: (name: string) => string | undefined;
@@ -138,7 +139,7 @@ function SegmentBeat({
   isLiveSegment: boolean;
   segment: Segment;
   sources: AssistantChatMessage["sources"];
-  onOpenCitation?: (index: number) => void;
+  onOpenCitation?: (focus: SourceFocus) => void;
 }) {
   switch (segment.type) {
     case "narration":
@@ -175,7 +176,12 @@ function SegmentBeat({
         </div>
       );
     case "viz":
-      return <VizBlock spec={segment.spec} />;
+      return (
+        <VizBlock
+          onSourceOpen={onOpenCitation}
+          spec={segment.spec}
+        />
+      );
     default:
       assertNeverSegment(segment);
   }
@@ -189,7 +195,7 @@ function AssistantBody({
 }: {
   message: AssistantChatMessage;
   onClarifyAnswer?: (text: string) => void;
-  onOpenCitation?: (index: number) => void;
+  onOpenCitation?: (focus: SourceFocus) => void;
   clarifyFrozen: boolean;
 }) {
   const showEmptyLiveThinking =

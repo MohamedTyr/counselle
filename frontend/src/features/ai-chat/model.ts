@@ -1,7 +1,7 @@
 import type {
   ClarifySpec,
   ErrorData,
-  SourceEntry,
+  ReplaySourceEntry,
   StepRecord,
   TranscriptEntry,
 } from "@/api/chat/types";
@@ -59,7 +59,7 @@ export type AssistantChatMessage = ChatMessageBase & {
    * per-beat `ThinkingBeat` (which needs its own timing, not the turn
    * total). Kept for telemetry and a future settled-duration display. */
   durationMs?: number;
-  sources?: SourceEntry[];
+  sources?: ReplaySourceEntry[];
   clarify?: ClarifySpec;
   clarifyAnswer?: string | null;
   turnStatus?: TurnStatus;

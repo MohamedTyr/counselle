@@ -26,6 +26,73 @@ async function collect(body: ReadableStream<Uint8Array>) {
   return frames;
 }
 
+function cdsCitation() {
+  return {
+    v: 2,
+    source: "cds",
+    tier: "official",
+    vintage: "Common Data Set 2024-25",
+    url: null,
+    document_sha256: "a".repeat(64),
+    source_kind: "upload",
+    retrieved_at: "2026-07-15T00:00:00Z",
+    academic_year: 2024,
+    manifest_version: "5.0.1",
+    school_unitid: 198419,
+    profile_sha256: null,
+  };
+}
+
+function currentViz() {
+  return {
+    v: 2,
+    type: "comparison_table",
+    title: "Comparison",
+    columns: [
+      { unitid: 198419, name: "Duke University", domain: "duke.edu" },
+      { unitid: null, name: "Web College", domain: "example.edu" },
+    ],
+    rows: [{
+      label: "Acceptance rate",
+      cells: [
+        {
+          v: 2,
+          field: "admissions.acceptance_rate",
+          label: "Acceptance rate",
+          display: "6.8%",
+          raw: 0.068,
+          available: true,
+          unit: "percent",
+          citation: cdsCitation(),
+          evidence: {
+            eid: "admissions.acceptance_rate",
+            value_display: "6.8%",
+            label: "Acceptance rate",
+            page: 7,
+            section: "C1",
+            excerpt: "Applicants admitted: 6.8%",
+          },
+          caveats: [{ kind: "stale_edition", text: "This value is from 2024-25." }],
+          marker: "[123]",
+        },
+        {
+          v: 2,
+          field: null,
+          label: "Acceptance rate",
+          display: "not available",
+          raw: null,
+          available: false,
+          unit: null,
+          citation: null,
+          evidence: null,
+          caveats: [],
+          marker: null,
+        },
+      ],
+    }],
+  };
+}
+
 describe("parseSseStream", () => {
   it("exposes frame id, event field, and parsed protocol event data", async () => {
     const frames = await collect(
@@ -279,6 +346,88 @@ describe("parseSseStream", () => {
       type: "done",
       data: { status: "complete" },
     });
+  });
+
+  it("accepts outer v1 with a strict nested v2 table, CDS evidence, and null unitid", async () => {
+    const frames = await collect(streamOf(frame("viz", currentViz(), "1")));
+    expect(frames[0]?.data).toMatchObject({ v: 1, type: "viz", data: { v: 2 } });
+  });
+
+  it.each([
+    ["wrong nested version", { ...currentViz(), v: 1 }],
+    ["old schools vocabulary", { ...currentViz(), columns: undefined, schools: [] }],
+    ["row width mismatch", { ...currentViz(), rows: [{ ...currentViz().rows[0], cells: [currentViz().rows[0].cells[0]] }] }],
+    ["CDS citation without evidence", { ...currentViz(), rows: [{ ...currentViz().rows[0], cells: [{ ...currentViz().rows[0].cells[0], evidence: null }, currentViz().rows[0].cells[1]] }] }],
+    ["unavailable cell with citation", { ...currentViz(), rows: [{ ...currentViz().rows[0], cells: [currentViz().rows[0].cells[0], { ...currentViz().rows[0].cells[1], citation: cdsCitation() }] }] }],
+  ])("rejects malformed known v2 visualization: %s", async (_label, viz) => {
+    await expect(collect(streamOf(frame("viz", viz, "1")))).rejects.toThrow("malformed viz");
+  });
+
+  it("preserves an opaque unknown visualization without inspecting its payload", async () => {
+    const opaque = { v: 2, type: "community_card", title: "Student voices", payload: { rows: "not tabular" } };
+    const frames = await collect(streamOf(frame("viz", opaque, "1")));
+    expect(frames[0]?.data).toEqual({ v: 1, type: "viz", data: opaque });
+  });
+
+  it("enforces source-conditional citation and evidence shapes", async () => {
+    const valid = {
+      sources: [{
+        v: 2,
+        index: 123,
+        citation: cdsCitation(),
+        label: "Duke University — Common Data Set 2024-25",
+        snippet: null,
+        evidence: [currentViz().rows[0].cells[0].evidence],
+        evidence_omitted_count: 2,
+      }],
+    };
+    await expect(collect(streamOf(frame("sources", valid, "1")))).resolves.toHaveLength(1);
+    await expect(collect(streamOf(frame("sources", {
+      sources: [{ ...valid.sources[0], evidence: [], evidence_omitted_count: 0 }],
+    }, "1")))).resolves.toHaveLength(1);
+    const invalid = { sources: [{ ...valid.sources[0], citation: { ...cdsCitation(), tier: "community" } }] };
+    await expect(collect(streamOf(frame("sources", invalid, "1")))).rejects.toThrow("malformed sources");
+
+    const nonCdsEvidence = {
+      sources: [{
+        ...valid.sources[0],
+        citation: {
+          v: 2,
+          source: "web",
+          tier: "official",
+          vintage: "2026",
+          url: "https://example.edu/admissions",
+          retrieved_at: null,
+          academic_year: null,
+          school_unitid: null,
+        },
+      }],
+    };
+    await expect(collect(streamOf(frame("sources", nonCdsEvidence, "1")))).rejects.toThrow("malformed sources");
+  });
+
+  it.each([
+    ["zero school identity", { school_unitid: 0 }],
+    ["fractional academic year", { academic_year: 2024.5 }],
+    ["date without serialized time", { retrieved_at: "2026-07-15" }],
+    ["datetime without timezone", { retrieved_at: "2026-07-15T00:00:00" }],
+    ["impossible calendar date", { retrieved_at: "2026-02-30T00:00:00Z" }],
+    ["unsafe academic year", { academic_year: Number.MAX_SAFE_INTEGER + 1 }],
+    ["profile identity on CDS", { profile_sha256: "b".repeat(64) }],
+  ])("rejects malformed CDS identity: %s", async (_label, override) => {
+    const viz = currentViz();
+    const cell = viz.rows[0].cells[0];
+    const malformed = {
+      ...viz,
+      rows: [{ ...viz.rows[0], cells: [{ ...cell, citation: { ...cdsCitation(), ...override } }, viz.rows[0].cells[1]] }],
+    };
+    await expect(collect(streamOf(frame("viz", malformed, "1")))).rejects.toThrow("malformed viz");
+  });
+
+  it("rejects non-positive DB column unitids", async () => {
+    const viz = currentViz();
+    await expect(collect(streamOf(frame("viz", { ...viz, columns: [{ ...viz.columns[0], unitid: -1 }, viz.columns[1]] }, "1"))))
+      .rejects.toThrow("malformed viz");
   });
 
   it("keeps data split across multiple data lines", async () => {

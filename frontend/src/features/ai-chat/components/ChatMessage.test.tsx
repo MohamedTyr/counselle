@@ -43,9 +43,12 @@ function assistantMessage(overrides: Partial<AssistantChatMessage> = {}): Assist
     turnStatus: "complete",
     sources: [
       {
+        v: 2,
         index: 1,
-        citation: { source: "web", tier: "official", vintage: "2026", url: "https://example.com" },
+        citation: { v: 2, source: "web", tier: "official", vintage: "2026", url: "https://example.com" },
         label: "Example",
+        evidence: [],
+        evidence_omitted_count: 0,
       },
     ],
     ...overrides,

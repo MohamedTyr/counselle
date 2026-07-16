@@ -1,102 +1,36 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, test, vi } from "vitest";
+import type { CitationEnvelope, RenderSpec } from "@/api/chat/types";
+import { VizBlock } from "./VizBlock";
 
-import { VizBlock, type VizRenderSpecLike } from "./VizBlock";
-
-function cell(overrides: Partial<VizRenderSpecLike["rows"][number]["cells"][number]> = {}) {
-  return {
-    v: 1,
-    field: "admissions.acceptance_rate",
-    label: "Acceptance rate",
-    display: "12%",
-    available: true,
-    citation: { source: "cds", tier: "official", vintage: "CDS 2024" },
-    ...overrides,
-  };
+function cell(source: "cds" | "edu" | "reddit", field = "admissions.rate"): CitationEnvelope {
+  return { v: 2, field, label: "Rate", display: "12%", raw: 0.12, available: true, caveats: [], marker: "[12]", evidence: source === "cds" ? { eid: field, value_display: "12%", label: "Rate", page: 7, excerpt: "Rate 12%" } : null, citation: { v: 2, source, tier: source === "reddit" ? "community" : "official", vintage: "2026", ...(source === "cds" ? { document_sha256: "a".repeat(64), source_kind: "upload", retrieved_at: "2026-07-01T00:00:00Z", academic_year: 2025, manifest_version: "5.0.1", school_unitid: 1 } : { url: "https://example.com" }) } };
 }
+const unavailable: CitationEnvelope = { v: 2, field: null, label: "Missing", display: "not available", available: false, caveats: [], citation: null, evidence: null, marker: null };
 
 describe("VizBlock", () => {
-  test("renders a known stat_block spec with its rows", () => {
-    const spec: VizRenderSpecLike = {
-      v: 1,
-      type: "stat_block",
-      title: "North College",
-      schools: [{ unitid: 1, name: "North College" }],
-      rows: [{ label: "Acceptance rate", cells: [cell()] }],
-    };
-
-    render(<VizBlock spec={spec} />);
-
-    expect(screen.getByText("North College")).toBeInTheDocument();
-    expect(screen.getByText("Acceptance rate")).toBeInTheDocument();
-    expect(screen.getByText("12%")).toBeInTheDocument();
-    expect(screen.getByText("Counselle data")).toBeInTheDocument();
-  });
-
-  test("renders a known comparison_table spec across schools", () => {
-    const spec: VizRenderSpecLike = {
-      v: 1,
-      type: "comparison_table",
-      title: "Admissions",
-      schools: [
-        { unitid: 1, name: "North College" },
-        { unitid: 2, name: "South College" },
-      ],
-      rows: [
-        {
-          label: "Acceptance rate",
-          cells: [cell({ display: "12%" }), cell({ display: "34%" })],
-        },
-      ],
-    };
-
-    render(<VizBlock spec={spec} />);
-
-    expect(screen.getByText("North College")).toBeInTheDocument();
-    expect(screen.getByText("South College")).toBeInTheDocument();
-    expect(screen.getByText("12%")).toBeInTheDocument();
-    expect(screen.getByText("34%")).toBeInTheDocument();
-  });
-
-  test("never fabricates an unavailable cell's value", () => {
-    const spec: VizRenderSpecLike = {
-      v: 1,
-      type: "stat_block",
-      title: "North College",
-      schools: [{ unitid: 1, name: "North College" }],
-      rows: [{ label: "Legacy admit rate", cells: [cell({ available: false, display: "" })] }],
-    };
-
-    render(<VizBlock spec={spec} />);
-
+  test("renders mixed source tiers, an inert unavailable hole, and exact CDS evidence focus", () => {
+    const onOpen = vi.fn();
+    const spec: RenderSpec = { v: 2, type: "comparison_table", title: "Admissions", columns: [{ unitid: 1, name: "North", domain: "north.edu" }, { unitid: null, name: "Web school", domain: null }], rows: [{ label: "CDS", cells: [cell("cds"), cell("edu")] }, { label: "Community", cells: [cell("reddit"), unavailable] }] };
+    const { container } = render(<VizBlock onSourceOpen={onOpen} spec={spec} />);
+    expect(screen.getAllByText("Official")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Open community source 12" })).toBeInTheDocument();
     expect(screen.getByText("not available")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Open official source 12" })[0]);
+    expect(onOpen).toHaveBeenCalledWith({ index: 12, evidenceId: "admissions.rate" });
+    expect(container.querySelector(".overflow-x-auto")).toBeInTheDocument();
   });
 
-  test("an unknown spec type degrades to a titled label/value fallback instead of crashing", () => {
-    const spec = {
-      v: 1,
-      type: "future_widget_v9",
-      title: "Something new",
-      schools: [{ unitid: 1, name: "North College" }],
-      rows: [{ label: "Whatever field", cells: [cell({ display: "42" })] }],
-    } as VizRenderSpecLike;
-
+  test("supports null-unitid columns with collision-safe rendering", () => {
+    const spec: RenderSpec = { v: 2, type: "stat_block", title: "Web", columns: [{ unitid: null, name: "Example", domain: "example.edu" }], rows: [{ label: "Rate", cells: [cell("edu")] }] };
     expect(() => render(<VizBlock spec={spec} />)).not.toThrow();
-    expect(screen.getByText("Something new")).toBeInTheDocument();
-    expect(screen.getByText(/Whatever field:/)).toBeInTheDocument();
-    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("Example")).toBeInTheDocument();
   });
 
-  test("a malformed spec missing rows degrades to an empty-but-titled card", () => {
-    const spec = {
-      v: 1,
-      type: "future_widget_v9",
-      title: "Malformed",
-      schools: [],
-      rows: undefined,
-    } as unknown as VizRenderSpecLike;
-
-    expect(() => render(<VizBlock spec={spec} />)).not.toThrow();
-    expect(screen.getByText("Malformed")).toBeInTheDocument();
+  test("opaque types reveal no arbitrary payload values", () => {
+    render(<VizBlock spec={{ v: 9, type: "future", title: "Future", secret: "do not render" }} />);
+    expect(screen.getByText("Future")).toBeInTheDocument();
+    expect(screen.getByText(/requires a newer client/i)).toBeInTheDocument();
+    expect(screen.queryByText("do not render")).not.toBeInTheDocument();
   });
 });

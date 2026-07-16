@@ -1,8 +1,8 @@
 /**
- * remarkCitationRefs — splits `[n]` markers (1-3 digits) out of mdast TEXT
+ * remarkCitationRefs — splits positive-integer `[n]` markers out of mdast text
  * nodes into standalone `citation-ref` hast elements carrying the marker
  * `index` as a prop, so a components map can render each marker as an inline
- * citation chip (or nothing, for DB sources — see CitationRenderer).
+ * citation control (or nothing when the marker is unresolved — see CitationRenderer).
  *
  * Only `text` nodes are visited/replaced. `code` / `inlineCode` mdast nodes
  * hold their content in a `value` string, not a `children` array of text

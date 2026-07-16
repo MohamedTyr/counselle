@@ -94,6 +94,26 @@
     },
     {
       "v": 1,
+      "type": "step",
+      "data": {
+        "step_id": "id-7",
+        "status": "end",
+        "kind": "db_tool",
+        "label": "Read admissions data",
+        "tier": "official",
+        "detail": {
+          "value_count": 1,
+          "tool": "get_domain",
+          "domain_id": "admissions",
+          "row_count": 1,
+          "schools": [
+            "Duke University"
+          ]
+        }
+      }
+    },
+    {
+      "v": 1,
       "type": "viz",
       "data": {
         "v": 2,

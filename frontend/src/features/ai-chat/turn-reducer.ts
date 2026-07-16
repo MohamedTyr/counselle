@@ -5,7 +5,7 @@ import type {
   MetaData,
   ProtocolEvent,
   RenderSpec,
-  SourceEntry,
+  ReplaySourceEntry,
   StepData,
   StepRecord,
   TranscriptAssistantEntry,
@@ -13,6 +13,7 @@ import type {
   UsageData,
   UserMessageData,
 } from "@/api/chat/types";
+import { isTabularRenderSpec } from "@/api/chat/validation";
 
 import { receiptText } from "./step-receipts";
 
@@ -48,7 +49,7 @@ export type TurnState = {
   segments: Segment[];
   vizSignatures: ReadonlySet<string>;
   clarify: ClarifySpec | null;
-  sources: SourceEntry[];
+  sources: ReplaySourceEntry[];
   usage: UsageData | null;
   status: TurnStatus;
   error: ErrorData | null;
@@ -84,30 +85,14 @@ function appendAnswerText(segments: Segment[], text: string): Segment[] {
 }
 
 function vizSignature(spec: RenderSpec): string {
+  if (!isTabularRenderSpec(spec)) return JSON.stringify(spec);
+  // Match the backend semantic signature: headings and decorative domains do
+  // not change truth, while every resolved value and provenance field does.
   return JSON.stringify({
+    v: spec.v,
     type: spec.type,
-    schools: spec.schools.map((school) => ({
-      unitid: school.unitid,
-      name: school.name,
-    })),
-    rows: spec.rows.map((row) => ({
-      label: row.label,
-      cells: row.cells.map((cell) => ({
-        field: cell.field,
-        display: cell.display,
-        raw: cell.raw ?? null,
-        unit: cell.unit ?? null,
-        available: cell.available,
-        citation: {
-          source: cell.citation.source,
-          tier: cell.citation.tier,
-          vintage: cell.citation.vintage,
-          caveat: cell.citation.caveat ?? null,
-          raw_table: cell.citation.raw_table ?? null,
-          url: cell.citation.url ?? null,
-        },
-      })),
-    })),
+    columns: spec.columns.map(({ unitid, name }) => ({ unitid, name })),
+    rows: spec.rows,
   });
 }
 
@@ -379,8 +364,8 @@ function escapeMarkdownTableCell(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll("|", "\\|").replaceAll("\n", "<br>");
 }
 
-function citationSuffix(cell: RenderSpec["rows"][number]["cells"][number]): string {
-  const parts = [cell.citation.vintage, cell.citation.source].filter(
+function citationSuffix(cell: { citation?: { vintage: string; source: string } | null }): string {
+  const parts = [cell.citation?.vintage, cell.citation?.source].filter(
     (value) => value !== undefined && value !== null && value !== "",
   );
 
@@ -388,7 +373,11 @@ function citationSuffix(cell: RenderSpec["rows"][number]["cells"][number]): stri
 }
 
 function vizMarkdown(spec: RenderSpec): string {
-  const columns = ["Metric", ...spec.schools.map((school) => school.name)];
+  if (!isTabularRenderSpec(spec)) {
+    return `### ${typeof spec.title === "string" ? spec.title : "Visualization"}\n\nThis visualization requires a newer client.`;
+  }
+
+  const columns = ["Metric", ...spec.columns.map((school) => school.name)];
   const lines = [
     `### ${spec.title}`,
     "",
@@ -397,7 +386,7 @@ function vizMarkdown(spec: RenderSpec): string {
   ];
 
   for (const row of spec.rows) {
-    const cells = spec.schools.map((_school, index) => {
+    const cells = spec.columns.map((_school, index) => {
       const cell = row.cells[index];
 
       if (cell === undefined) {
@@ -583,9 +572,8 @@ export function transcriptEntryToEvents(
     events.push({ v: 1, type: "clarify", data: entry.clarify.spec });
   }
 
-  if (entry.sources !== undefined && entry.sources.length > 0) {
-    events.push({ v: 1, type: "sources", data: { sources: entry.sources } });
-  }
+  // Legacy replay sources are storage-only and cannot be reintroduced as live
+  // protocol events. They are attached after deterministic event reduction.
 
   if (entry.usage !== undefined) {
     events.push({ v: 1, type: "usage", data: entry.usage });
@@ -641,5 +629,6 @@ function transcriptSegmentsToEvents(segments: TranscriptSegment[]): ProtocolEven
 export function reduceTranscriptEntry(
   entry: TranscriptAssistantEntry,
 ): TurnState {
-  return transcriptEntryToEvents(entry).reduce(reduceTurn, initialTurnState());
+  const state = transcriptEntryToEvents(entry).reduce(reduceTurn, initialTurnState());
+  return entry.sources === undefined ? state : { ...state, sources: [...entry.sources] };
 }

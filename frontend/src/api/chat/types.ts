@@ -2,44 +2,93 @@ export const PROTOCOL_VERSION = 1;
 
 export type Tier = "official" | "community";
 
-export type SourceName =
-  "ipeds" | "scorecard" | "cds" | "web" | "edu" | "reddit";
+export const SOURCE_NAMES = ["cds", "profile", "web", "edu", "reddit"] as const;
+export type SourceName = (typeof SOURCE_NAMES)[number];
+
+export type Caveat = { kind: string; text: string };
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type EvidenceItem = {
+  eid: string;
+  value_display: string;
+  label: string;
+  page: number;
+  section?: string | null;
+  row_label?: string | null;
+  column_label?: string | null;
+  excerpt: string;
+};
 
 export type Citation = {
+  v: 2;
   source: SourceName;
   tier: Tier;
   vintage: string;
-  caveat?: string | null;
-  raw_table?: string | null;
   url?: string | null;
+  document_sha256?: string | null;
+  source_kind?: string | null;
+  retrieved_at?: string | null;
+  academic_year?: number | null;
+  manifest_version?: string | null;
+  school_unitid?: number | null;
+  profile_sha256?: string | null;
 };
 
-export type CitationEnvelope = {
-  v: number;
-  field: string;
+type EnvelopeBase = {
+  v: 2;
+  field: string | null;
   label: string;
   display: string;
-  raw?: number | boolean | string | null;
-  available: boolean;
+  raw?: JsonValue;
   unit?: string | null;
-  citation: Citation;
+  caveats: Caveat[];
 };
 
+export type CitationEnvelope =
+  | (EnvelopeBase & {
+      available: true;
+      citation: Citation;
+      evidence?: EvidenceItem | null;
+      marker: string;
+    })
+  | (EnvelopeBase & {
+      available: false;
+      display: "not available";
+      citation?: null;
+      evidence?: null;
+      marker?: null;
+    });
+
 export type SchoolRef = {
-  unitid: number;
+  unitid: number | null;
   name: string;
   domain?: string | null;
 };
 
 export type VizRow = { label: string; cells: CitationEnvelope[] };
 
-export type RenderSpec = {
-  v: number;
+export type TabularRenderSpec = {
+  v: 2;
   type: "stat_block" | "comparison_table";
   title: string;
-  schools: SchoolRef[];
+  columns: SchoolRef[];
   rows: VizRow[];
 };
+
+export type OpaqueRenderSpec = {
+  v: number;
+  type: string;
+  title?: string | null;
+  [key: string]: unknown;
+};
+
+export type RenderSpec = TabularRenderSpec | OpaqueRenderSpec;
 
 export type ClarifyOption = { label: string; hint: string };
 
@@ -62,13 +111,39 @@ export type MetaData = {
 export type DeltaData = { text: string };
 
 export type SourceEntry = {
+  v: 2;
   index: number;
   citation: Citation;
   label: string;
   snippet?: string | null;
+  evidence: EvidenceItem[];
+  evidence_omitted_count: number;
 };
 
+/** Stored-transcript compatibility only. This deliberately does not share the
+ * current SourceName vocabulary and is never accepted by the live SSE parser. */
+export type LegacySourceEntry = {
+  v: 1;
+  index: number;
+  label: string;
+  citation: {
+    v: 1;
+    source: string;
+    tier: Tier;
+    vintage: string;
+    url?: string | null;
+    caveat?: string | null;
+    raw_table?: string | null;
+  };
+};
+export type ReplaySourceEntry = SourceEntry | LegacySourceEntry;
+
 export type SourcesData = { sources: SourceEntry[] };
+export type SourceFocus = { index: number; evidenceId?: string };
+export type MessageSourcesPayload = {
+  sources: ReplaySourceEntry[];
+  active?: SourceFocus;
+};
 
 export type UsageData = {
   input_tokens: number;
@@ -108,7 +183,7 @@ export type StepDetail = {
   value_count?: number;
   duration_ms?: number;
   tool?: string;
-  field_keys?: string[];
+  domain_id?: string;
   row_count?: number;
   viz_type?: string;
   schools?: string[];
@@ -221,7 +296,7 @@ export type TranscriptAssistantEntry = {
   parts?: AssistantContentPart[];
   segments?: TranscriptSegment[];
   clarify?: { spec: ClarifySpec; answer: string | null };
-  sources?: SourceEntry[];
+  sources?: ReplaySourceEntry[];
   usage?: UsageData;
   status?: DoneStatus | "error";
   error?: ErrorData;

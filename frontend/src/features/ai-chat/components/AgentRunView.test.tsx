@@ -114,7 +114,7 @@ describe("ToolStepBeat", () => {
           kind: "sql",
           label: "Reading the Common Data Set",
           detail: {
-            field_keys: ["admissions.acceptance_rate"],
+            domain_id: "admissions",
             query: "SELECT admission_rate FROM schools",
             row_count: 1,
             value_count: 1,

@@ -15,13 +15,13 @@ import type {
   SseFrame,
   SteerMessageResult,
   StreamResult,
-  TranscriptEntry,
 } from "@/api/chat/types";
 import {
   fromWireSourceConfig,
   toWireSourceConfig,
 } from "@/api/chat/source-config";
 import { parseSseStream } from "@/api/chat/sse";
+import { adaptStoredTranscript } from "@/api/chat/legacy-replay";
 import {
   clearStoredCursor,
   getStoredCursor,
@@ -57,7 +57,7 @@ type SessionMetadataWire = {
 };
 
 type SessionDetailResponseWire = SessionMetadataWire & {
-  transcript?: TranscriptEntry[];
+  transcript?: unknown[];
 };
 
 type SteerQueuedWire = {
@@ -178,7 +178,7 @@ function detailToSession(
     updatedAt: row.updated_at ?? row.created_at,
     sourceConfig: fromWireSourceConfig(row.source_config),
     isGenerating: row.is_generating ?? false,
-    transcript: Array.isArray(row.transcript) ? row.transcript : [],
+    transcript: adaptStoredTranscript((row as Partial<SessionDetailResponseWire>).transcript),
   };
 }
 

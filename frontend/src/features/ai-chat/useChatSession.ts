@@ -306,7 +306,10 @@ export function useChatSession({
 
   return {
     session: sessionQuery.data,
-    isLoading: sessionQuery.isLoading,
+    // A successful query is not render-ready until its transcript/source
+    // config has hydrated local state. This also prevents routed initial
+    // prompts from racing hydration and being overwritten by it.
+    isLoading: sessionQuery.isLoading || (sessionQuery.isSuccess && !isLocalSession),
     transcriptError,
     retryTranscript: sessionQuery.refetch,
     persistedMessages,

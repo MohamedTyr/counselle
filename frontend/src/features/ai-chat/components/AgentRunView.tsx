@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import type { SourceEntry, StepData } from "@/api/chat/types";
+import type { ReplaySourceEntry, SourceFocus, StepData } from "@/api/chat/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
@@ -80,8 +80,8 @@ export function NarrationBeat({
   onCitationOpen,
 }: {
   text: string;
-  sources?: SourceEntry[];
-  onCitationOpen?: (index: number) => void;
+  sources?: ReplaySourceEntry[];
+  onCitationOpen?: (focus: SourceFocus) => void;
 }) {
   return (
     <div className="py-1">

@@ -157,6 +157,14 @@ describe("AiChatPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fakeTransport.attachStream.mockResolvedValue({ active: false });
+    fakeTransport.getChatConfig.mockResolvedValue({
+      greeting: "Welcome",
+      season_note: null,
+      conversation_starters: [],
+      default_source_config: null,
+      skills: [],
+      max_selected_skills: 3,
+    });
   });
 
   afterEach(() => {
@@ -183,6 +191,66 @@ describe("AiChatPage", () => {
 
     expect(await screen.findByText("How does aid work?")).toBeInTheDocument();
     expect(screen.getByText("Aid depends on need.")).toBeInTheDocument();
+  });
+
+  test("opens exact CDS evidence from a rendered cell and leaves unavailable cells inert", async () => {
+    const citation = {
+      v: 2 as const,
+      source: "cds" as const,
+      tier: "official" as const,
+      vintage: "Common Data Set 2024-25",
+      url: null,
+      document_sha256: "a".repeat(64),
+      source_kind: "upload",
+      retrieved_at: "2026-07-15T00:00:00+00:00",
+      academic_year: 2024,
+      manifest_version: "5.0.1",
+      school_unitid: 198419,
+      profile_sha256: null,
+    };
+    const evidence = {
+      eid: "admissions.acceptance_rate",
+      value_display: "6.8%",
+      label: "Acceptance rate",
+      page: 7,
+      section: "C1",
+      excerpt: "Applicants admitted: 6.8%",
+    };
+    const spec = {
+      v: 2 as const,
+      type: "comparison_table" as const,
+      title: "Admissions",
+      columns: [
+        { unitid: 198419, name: "Duke University", domain: "duke.edu" },
+        { unitid: null, name: "Web College", domain: null },
+      ],
+      rows: [{
+        label: "Acceptance rate",
+        cells: [
+          { v: 2 as const, field: evidence.eid, label: evidence.label, display: evidence.value_display, raw: 0.068, available: true as const, unit: "percent", citation, evidence, caveats: [], marker: "[2]" },
+          { v: 2 as const, field: null, label: "Acceptance rate", display: "not available" as const, raw: null, available: false as const, unit: null, citation: null, evidence: null, caveats: [], marker: null },
+        ],
+      }],
+    };
+    fakeTransport.getSession.mockResolvedValue(session({
+      transcript: [{
+        role: "assistant",
+        message_id: "assistant-evidence",
+        text: "",
+        ts: null,
+        status: "complete",
+        parts: [{ type: "viz", spec }],
+        sources: [{ v: 2, index: 2, citation, label: "Duke University — Common Data Set 2024-25", snippet: null, evidence: [evidence], evidence_omitted_count: 0 }],
+      }],
+    }));
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Open official source 2" }));
+
+    const exact = document.getElementById("source-evidence-2-admissions.acceptance_rate");
+    await waitFor(() => expect(exact).toHaveFocus());
+    expect(exact).toHaveAttribute("data-active", "true");
+    expect(screen.getByText("not available")).not.toHaveRole("button");
   });
 
   test("empty active session renders the empty state plus a usable composer", async () => {
@@ -233,9 +301,8 @@ describe("AiChatPage", () => {
   test("submits a routed initial prompt once after the empty session loads", async () => {
     const onInitialPromptConsumed = vi.fn();
     fakeTransport.getSession.mockResolvedValue(session());
-    fakeTransport.sendMessage.mockReturnValue(
-      replay([meta(), delta("Initial answer"), done()]),
-    );
+    const controlled = controllableStream();
+    fakeTransport.sendMessage.mockReturnValue(controlled.stream);
 
     renderPage("s1", {
       initialPrompt: "Compare aid",
@@ -243,11 +310,15 @@ describe("AiChatPage", () => {
     });
 
     expect(await screen.findByText("Compare aid")).toBeInTheDocument();
+    controlled.push(meta());
+    controlled.push(delta("Initial answer"));
     expect(await screen.findByText("Initial answer")).toBeInTheDocument();
     expect(onInitialPromptConsumed).toHaveBeenCalledTimes(1);
     expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: "s1", text: "Compare aid" }),
     );
+    controlled.push(done());
+    controlled.close();
   });
 
   test("Shift+Enter inserts a newline instead of sending", async () => {
@@ -365,7 +436,7 @@ describe("AiChatPage", () => {
     );
   });
 
-  test("inline citation opens the shared sources rail focused on that source", async () => {
+  test("message source opens the shared sources rail focused on that source", async () => {
     fakeTransport.getSession.mockResolvedValue(
       session({
         transcript: [
@@ -374,17 +445,22 @@ describe("AiChatPage", () => {
             role: "assistant",
             message_id: "assistant-1",
             text: "Answer [1]",
+            parts: [{ type: "text", text: "Answer [1]" }],
             status: "complete",
             sources: [
               {
+                v: 2,
                 index: 1,
                 citation: {
+                  v: 2,
                   source: "web",
                   tier: "official",
                   vintage: "2026",
                   url: "https://example.com/source",
                 },
                 label: "Example",
+                evidence: [],
+                evidence_omitted_count: 0,
               },
             ],
             ts: null,
@@ -394,13 +470,10 @@ describe("AiChatPage", () => {
     );
 
     renderPage();
-    fireEvent.click(await screen.findByText("example.com"));
+    fireEvent.click(await screen.findByRole("button", { name: "View 1 source for this answer" }));
 
     expect(await screen.findByRole("heading", { name: "1 source" })).toBeInTheDocument();
-    expect(document.getElementById("source-row-1")).toHaveAttribute(
-      "data-active",
-      "true",
-    );
+    expect(document.getElementById("source-row-1")).toBeInTheDocument();
   });
 
   test("regenerate rewrites from the parent user message id", async () => {
@@ -478,11 +551,9 @@ describe("AiChatPage", () => {
 
     // Reddit is on by default (BUILT_IN_SOURCE_CONFIG) — the subreddit menu
     // toggle is already visible without needing to enable Reddit first.
-    fireEvent.click(screen.getByRole("button", { name: "Choose subreddits" }));
-
-    const menu = await screen.findByText("Communities");
-    const scope = menu.closest("div") ?? document.body;
-    fireEvent.click(within(scope.parentElement ?? scope).getByText("chanceme"));
+    fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
+    const menu = screen.getByRole("menu");
+    fireEvent.click(within(menu).getByRole("menuitemcheckbox", { name: "chanceme" }));
 
     const textarea = screen.getByPlaceholderText("Message Counselle");
     fireEvent.change(textarea, { target: { value: "Reddit question" } });
