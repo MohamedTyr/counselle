@@ -211,6 +211,27 @@ async def test_judge_accepts_semantically_identical_normalized_criterion() -> No
     assert checks["criterion_1"]["passed"] is True
 
 
+@pytest.mark.asyncio
+async def test_judge_accepts_close_paraphrase() -> None:
+    checks = await score_judge(
+        "q",
+        ["Clearly says first-party CDS metric coverage is unavailable for this school."],
+        make_capture(),
+        FakeJudge(
+            [
+                {
+                    "criterion": (
+                        "Says this school has no available first party CDS metric coverage"
+                    ),
+                    "verdict": "yes",
+                    "evidence": "said so",
+                }
+            ]
+        ),
+    )
+    assert checks["criterion_1"]["passed"] is True
+
+
 def test_profile_identity_is_allowed_when_metric_uses_domain() -> None:
     checks = score_deterministic(
         {"no_profile_metric": True, "metric_required": True},
@@ -222,6 +243,44 @@ def test_profile_identity_is_allowed_when_metric_uses_domain() -> None:
         ),
     )
     assert checks["no_profile_as_metric"]["passed"] is True
+
+
+def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
+    expects = {"denominator": True, "denominator_total": 2746}
+    payload = {
+        "columns": ["name", "covered", "total"],
+        "rows": [["School", 2, 2746]],
+    }
+    evidenced = make_capture(
+        prose="The ranking covers 2 out of 2,746 profiled schools.",
+        tool_returns=[{"tool_name": "query_database", "content": payload}],
+    )
+    fabricated = make_capture(prose="The ranking covers 2 out of 2,746 profiled schools.")
+    wrong = make_capture(
+        prose="The ranking covers 3 out of 2,746 profiled schools.",
+        tool_returns=[{"tool_name": "query_database", "content": payload}],
+    )
+    assert score_deterministic(expects, evidenced)["denominator"]["passed"] is True
+    assert score_deterministic(expects, fabricated)["denominator"]["passed"] is False
+    assert score_deterministic(expects, wrong)["denominator"]["passed"] is False
+    reverse = make_capture(
+        prose="Of the 2,746 profiled schools, 2 have a verified value.",
+        tool_returns=[{"tool_name": "query_database", "content": payload}],
+    )
+    assert score_deterministic(expects, reverse)["denominator"]["passed"] is True
+    aliases_and_word = make_capture(
+        prose="Of the 2,746 profiled schools, two have a verified value.",
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {
+                    "columns": ["covered_schools", "total_schools"],
+                    "rows": [[2, 2746]],
+                },
+            }
+        ],
+    )
+    assert score_deterministic(expects, aliases_and_word)["denominator"]["passed"] is True
 
 
 def test_live_template_absence_requires_typed_row_evidence() -> None:
@@ -262,6 +321,11 @@ def test_v1_clarification_accepts_direct_prose_question() -> None:
         make_capture(prose="Which Washington University or campus do you mean?"),
     )
     assert checks["clarify_judgment"]["passed"] is True
+    listed = score_clarify(
+        {"must_clarify": True},
+        make_capture(prose="Which school do you mean?\n\n- Washington\n- WashU"),
+    )
+    assert listed["clarify_judgment"]["passed"] is True
 
 
 @pytest.mark.asyncio
@@ -294,9 +358,14 @@ def test_eval_context_materializes_live_roles_without_mutating_template() -> Non
         profile,
         school,
         school,
+        school,
         "dynamic",
         "dynamic.metric",
         ("dynamic.metric", "dynamic.two", "dynamic.three", "dynamic.four"),
+        "dynamic.aid",
+        "dynamic.applicants",
+        "dynamic.admitted",
+        None,
         False,
     )
     template: list[dict[str, Any]] = [

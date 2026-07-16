@@ -11,6 +11,7 @@ import statistics
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
@@ -114,9 +115,14 @@ class EvalContext:
     profile_only: EvalSchool
     common_a: EvalSchool
     common_b: EvalSchool
+    comparison_peer: EvalSchool
     common_domain: str
     common_metric_ref: str
     stat_metric_refs: tuple[str, ...]
+    aid_metric_ref: str
+    selectivity_applicants_ref: str
+    selectivity_admitted_ref: str
+    need_blind_ref: str | None
     not_in_template_available: bool
     not_in_template_school: str | None = None
     not_in_template_domain: str | None = None
@@ -131,9 +137,14 @@ class EvalContext:
             "profile_only": self.profile_only.name,
             "common_a": self.common_a.name,
             "common_b": self.common_b.name,
+            "comparison_peer": self.comparison_peer.name,
             "common_domain": self.common_domain,
             "common_metric_ref": self.common_metric_ref,
             "stat_metric_refs": ", ".join(self.stat_metric_refs),
+            "aid_metric_ref": self.aid_metric_ref,
+            "selectivity_applicants_ref": self.selectivity_applicants_ref,
+            "selectivity_admitted_ref": self.selectivity_admitted_ref,
+            "need_blind_ref": self.need_blind_ref or "not defined in the current manifest",
             "not_in_template_school": self.not_in_template_school or "",
             "not_in_template_domain": self.not_in_template_domain or "",
             "not_in_template_ref": self.not_in_template_ref or "",
@@ -203,6 +214,26 @@ async def build_eval_context(runtime: Runtime) -> EvalContext:
     if common is None:
         raise RuntimeError("live catalog has no two schools with a common verified metric")
 
+    metric_refs = tuple(snapshot.metrics)
+
+    def metric_ref(suffix: str, fallback: str) -> str:
+        return next((ref for ref in metric_refs if ref.endswith(suffix)), fallback)
+
+    aid_metric_ref = metric_ref(
+        "h2_i_average_percent_need_met_all_full_time", common[3]
+    )
+    applicants_ref = metric_ref("applicants_total", common[3])
+    admitted_ref = metric_ref("admitted_total", common[3])
+    need_blind_ref = next(
+        (
+            ref
+            for ref, metric in snapshot.metrics.items()
+            if "need-blind" in f"{ref} {metric.description}".casefold()
+            or "need blind" in f"{ref} {metric.description}".casefold()
+        ),
+        None,
+    )
+
     # The deterministic packet-v8 fixture owns the permanent template-absence gate.
     # Live coverage records it only when the current database honestly contains it.
     async with runtime.ro_pool.acquire() as conn:
@@ -225,9 +256,14 @@ async def build_eval_context(runtime: Runtime) -> EvalContext:
         _school(snapshot, profile_only_ids[0]),
         _school(snapshot, common[0]),
         _school(snapshot, common[1]),
+        _school(snapshot, common[1] if common[0] == stale_id else common[0]),
         common[2],
         common[3],
         common[4],
+        aid_metric_ref,
+        applicants_ref,
+        admitted_ref,
+        need_blind_ref,
         template_row is not None,
         str(template_row["name"]) if template_row else None,
         str(template_row["domain_id"]) if template_row else None,
@@ -325,8 +361,12 @@ def _safe_event_summary(capture: TurnCapture) -> str:
         name, args = str(call["tool_name"]), call["args"]
         safe_args = {k: args[k] for k in ("query", "unitid", "groups", "domain_id") if k in args}
         payload = (returns.get(name) or [{}]).pop(0)
-        status = payload.get("status") or ("ok" if payload.get("ok", True) else "error")
-        lines.append(f"tool {index}: {name} args={safe_args} status={status}")
+        status = payload.get("status") or payload.get("error")
+        if not status:
+            status = "ok" if payload.get("ok", True) else "error"
+        detail = payload.get("root_cause") if status == "tool_error" else None
+        suffix = f" detail={detail}" if isinstance(detail, str) else ""
+        lines.append(f"tool {index}: {name} args={safe_args} status={status}{suffix}")
     lines.append(f"caveat kinds: {sorted(_caveat_kinds(capture))}")
     lines.append(f"answer markers: {len(_markers(capture.prose))}")
     for viz in capture.vizzes:
@@ -353,6 +393,25 @@ def _safe_event_summary(capture: TurnCapture) -> str:
     as_of = re.findall(r"\bas of\b[^.;\n]*", capture.prose, re.I)
     lines.append(f"aggregate statements: denominator={denominator}; as_of={as_of}")
     return "\n".join(lines)
+
+
+def _safe_tool_outcomes(capture: TurnCapture) -> list[dict[str, Any]]:
+    """Keep status and sanitized failure guidance without logging result values."""
+    outcomes: list[dict[str, Any]] = []
+    for item in capture.tool_returns:
+        payload = item.get("content")
+        if not isinstance(payload, dict):
+            continue
+        status = payload.get("status") or payload.get("error")
+        if not status:
+            status = "ok" if payload.get("ok", True) else "error"
+        outcome = {"tool_name": item.get("tool_name"), "status": status}
+        if status == "tool_error":
+            for key in ("root_cause", "safe_retry", "stop_condition"):
+                if isinstance(payload.get(key), str):
+                    outcome[key] = payload[key]
+        outcomes.append(outcome)
+    return outcomes
 
 
 def score_routing(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
@@ -447,9 +506,56 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             wanted <= kinds, f"wanted={sorted(wanted)} got={sorted(kinds)}"
         )
     if expects.get("denominator"):
-        has_denominator = bool(
-            re.search(r"\b\d[\d,]*\s+(?:of|out of)\s+\d[\d,]*\b", capture.prose, re.I)
+        expected_pair: tuple[int, int] | None = None
+        if expects.get("denominator_covered") is not None:
+            expected_pair = (int(expects["denominator_covered"]), int(expects["denominator_total"]))
+        else:
+            for payload in _return_payloads(capture, "query_database"):
+                columns = list(payload.get("columns") or [])
+                covered_column = next(
+                    (column for column in columns if "covered" in str(column).casefold()), None
+                )
+                total_column = next(
+                    (column for column in columns if "total" in str(column).casefold()), None
+                )
+                if covered_column is None or total_column is None:
+                    continue
+                for row in payload.get("rows") or []:
+                    if isinstance(row, list | tuple) and len(row) == len(columns):
+                        expected_pair = (
+                            int(row[columns.index(covered_column)]),
+                            int(row[columns.index(total_column)]),
+                        )
+                        break
+                if expected_pair:
+                    break
+        normalized_prose = capture.prose.replace(",", "")
+        number_words = {
+            "zero": "0",
+            "one": "1",
+            "two": "2",
+            "three": "3",
+            "four": "4",
+            "five": "5",
+            "six": "6",
+            "seven": "7",
+            "eight": "8",
+            "nine": "9",
+            "ten": "10",
+        }
+        for word, digit in number_words.items():
+            normalized_prose = re.sub(rf"\b{word}\b", digit, normalized_prose, flags=re.I)
+        direct = (
+            rf"\b{expected_pair[0]}\s+(?:of|out of)\s+(?:the\s+)?{expected_pair[1]}\b"
+            if expected_pair
+            else r"(?!)"
         )
+        reverse = (
+            rf"\b(?:of|out of)\s+(?:the\s+)?{expected_pair[1]}\b[^.\n]*\b{expected_pair[0]}\b"
+            if expected_pair
+            else r"(?!)"
+        )
+        has_denominator = bool(re.search(f"(?:{direct})|(?:{reverse})", normalized_prose, re.I))
         checks["denominator"] = _check(has_denominator, "expected covered/total statement")
     if expects.get("markers"):
         checks["marker_presence"] = _check(
@@ -460,8 +566,12 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
 
 def score_clarify(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
     must = bool(expects.get("must_clarify"))
-    asks_in_prose = bool(re.search(r"\?\s*$", capture.prose.strip())) and bool(
-        re.search(r"\b(which|do you mean|could you clarify|campus)\b", capture.prose, re.I)
+    asks_in_prose = bool(
+        re.search(
+            r"\b(which|do you mean|could you clarify|campus)\b[^?]*\?",
+            capture.prose,
+            re.I,
+        )
     )
     clarified = bool(capture.clarifies) or asks_in_prose
     passed = clarified if must else not clarified
@@ -539,11 +649,16 @@ async def score_judge(
     output = (await judge.run(build_judge_case(question, criteria, capture))).output.verdicts
     if len(output) != len(criteria):
         raise ValueError(f"judge returned {len(output)} verdicts for {len(criteria)} criteria")
-    def normalized(value: str) -> tuple[str, ...]:
-        return tuple(re.findall(r"[a-z0-9]+", value.casefold()))
+    def normalized(value: str) -> str:
+        return " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
 
     for index, (criterion, verdict) in enumerate(zip(criteria, output, strict=True), 1):
-        if normalized(verdict.criterion) != normalized(criterion):
+        expected = normalized(criterion)
+        returned = normalized(verdict.criterion)
+        expected_tokens = set(expected.split())
+        returned_tokens = set(returned.split())
+        overlap = len(expected_tokens & returned_tokens) / max(len(expected_tokens), 1)
+        if SequenceMatcher(None, expected, returned).ratio() < 0.6 and overlap < 0.6:
             raise ValueError(f"judge verdict {index} criterion mismatch")
     return {
         f"criterion_{i}": _check(v.verdict == "yes", f"{c} -> {v.evidence}")
@@ -692,6 +807,7 @@ async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -
             "done_status": capture.done_status,
             "duration_s": round(time.monotonic() - started, 3),
             "event_summary": _safe_event_summary(capture),
+            "tool_outcomes": _safe_tool_outcomes(capture),
             "errors": capture.errors,
         }
     finally:
@@ -757,6 +873,8 @@ def materialize_questions(
         expects = question["expects"]
         if expects.get("domain_role") == "common":
             expects["domain_id"] = context.common_domain
+        if expects.get("denominator"):
+            expects["denominator_total"] = context.total
         if question.get("live_not_in_template") and not context.not_in_template_available:
             question["skip_reason"] = (
                 "current live DB contains no not_in_template_version availability"

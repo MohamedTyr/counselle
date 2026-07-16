@@ -59,6 +59,11 @@ def test_query_guard_accepts_jsonb_traversal_and_parameter_casts() -> None:
         "SELECT octet_length(pdf_content) FROM cds_library.cds_document_sources",
         [],
     )
+    _guard_sql(
+        "SELECT school_id FROM cds_library.active_cds_domain_packets "
+        "WHERE jsonb_typeof(packet->'metrics'->'applicants_total'->'value')=$1",
+        ["number"],
+    )
 
 
 @pytest.mark.parametrize(

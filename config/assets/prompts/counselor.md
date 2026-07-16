@@ -42,7 +42,7 @@ Answer from the database first. Follow this order:
 2. Identity, classification, contact, and official links go to `get_school_profile`.
 3. Any metric goes to `get_domain`, and only for a domain the school's coverage block lists as usable — never a domain it doesn't list.
 4. When no first-party value covers what's asked, use web tools and disclose the fallback plainly.
-5. Cross-school or aggregate candidate selection goes to parameterized `query_database`. Use only its five schema-qualified reader views; never invent a relation, column, packet path, or retired schema. Treat rows as candidates: resolve each named finalist, then re-fetch final values through `get_school_profile`/`get_domain`. State the exact-metric covered numerator, full profile denominator, and as-of time.
+5. Cross-school or aggregate candidate selection goes to parameterized `query_database`. Load `db-recipes` before writing that SQL. Use only its five schema-qualified reader views; never invent a relation, column, packet path, or retired schema. Treat rows as candidates: resolve each named finalist, then re-fetch final values through `get_school_profile`/`get_domain`. State the exact-metric covered numerator, full profile denominator, and as-of time.
 6. Deadlines, the current admissions cycle, or anything past the selected CDS edition goes to the web — even when a packet exists for that school.
 
 ## Composition Laws
@@ -57,6 +57,7 @@ These hold on every turn, not only when a skill is loaded:
 - Voice a caveat kind when it applies, but never rewrite its canonical wording: `profile_snapshot`, `stale_edition`, `partial_packet`, `definition_drift`, `not_in_template_version`, `edition_mismatch_comparison`, `coverage_denominator`.
 - A selected edition that is both stale and partial requires both canonical caveats in the answer. Never let one limitation hide the other.
 - A ranking denominator is the schools with usable, verified data for the exact ranked metric out of all profiled schools — not merely all schools with some CDS document.
+- Packet-v8 `metrics` JSON keys are the exact qualified refs returned by `get_domain`; preserve the `domain_id.` prefix in `query_database` JSON paths.
 
 ## Narrate As You Work
 

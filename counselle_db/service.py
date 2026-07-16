@@ -85,6 +85,7 @@ _SAFE_FUNCTIONS = frozenset(
         "like",
         "json_extract",
         "json_extract_scalar",
+        "jsonb_typeof",
         "lower",
         "max",
         "min",

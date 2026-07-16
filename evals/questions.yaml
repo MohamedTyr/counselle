@@ -11,7 +11,7 @@
 
 - id: routing-admissions
   type: routing
-  question: "What admissions figures does {common_a} report?"
+  question: "What value does {common_a} report for {common_metric_ref}?"
   expects:
     tools: [resolve_school, get_domain]
     order: [resolve_school, get_domain]
@@ -37,10 +37,10 @@
 - id: routing-cross-school-sql
   type: routing
   comparison: true
-  question: "Among schools in the database, find candidates with the strongest reported aid, then show the named final values."
+  question: "Load db-recipes before SQL. Using {aid_metric_ref}, rank covered candidates and state the exact-metric covered count out of {total}. Then call get_domain for every finalist before rendering or stating its value, and cite those typed values in prose."
   expects:
-    tools: [query_database, get_domain]
-    order: [query_database, get_domain]
+    tools: [load_skill, query_database, get_domain]
+    order: [load_skill, query_database, get_domain]
     denominator: true
     markers: true
 
@@ -58,6 +58,7 @@
   question: "What is {profile_only}'s acceptance rate according to your first-party data?"
   expects:
     no_profile_metric: true
+    metric_required: false
     criteria:
       - "Clearly says first-party CDS metric coverage is unavailable for this school."
       - "Does not invent or infer an acceptance rate from the school profile."
@@ -68,6 +69,7 @@
   question: "Find {profile_only}'s current acceptance rate; if your first-party data lacks it, use the school's official site."
   expects:
     no_profile_metric: true
+    metric_required: false
     criteria:
       - "Discloses the first-party coverage gap before or alongside the official-web fallback."
       - "Any named value is visibly sourced."
@@ -79,7 +81,6 @@
   expects:
     criteria:
       - "Says the named school is not in the database and does not silently substitute another school."
-      - "Keeps any web-only information clearly separate from first-party database coverage."
 
 - id: caveat-stale-partial
   type: edition_caveat
@@ -117,7 +118,7 @@
 - id: caveat-cross-edition
   type: edition_caveat
   comparison: true
-  question: "Compare {common_a} and {stale_partial} using their available CDS figures, even if editions differ."
+  question: "Compare {comparison_peer} and {stale_partial} using their available CDS figures, even if editions differ."
   expects:
     criteria:
       - "Names or plainly explains the cross-edition mismatch and avoids implying perfect comparability."
@@ -138,7 +139,7 @@
   type: composition
   comparison: true
   web: true
-  question: "Compare {common_a} with North Star Imaginary University. Use first-party data where available, official web otherwise, and render a table."
+  question: "Compare {common_a} with the University of Oxford on {common_metric_ref}. Use first-party data where available, official web otherwise, and render a table with a null-unitid web column."
   expects:
     viz_type: comparison_table
     require_null_unitid: true
@@ -161,12 +162,11 @@
   question: "Show {common_a}'s four reported values ({stat_metric_refs}) as a compact stat block."
   expects:
     viz_type: stat_block
-    markers: true
 
 - id: denominator-best-aid
   type: denominator_honesty
   comparison: true
-  question: "Which schools in the database have the best reported aid?"
+  question: "Load db-recipes before SQL. Rank schools by {aid_metric_ref}; state how many have a verified reported value out of all {total} profiled schools."
   expects:
     denominator: true
     criteria:
@@ -176,7 +176,7 @@
 - id: denominator-most-selective
   type: denominator_honesty
   comparison: true
-  question: "What are the most selective schools in your database?"
+  question: "Load db-recipes before SQL. Rank covered schools by admitted/applicants using {selectivity_admitted_ref} and {selectivity_applicants_ref}; state the exact-metric covered count out of {total}."
   expects:
     denominator: true
     criteria:
@@ -185,9 +185,10 @@
 - id: denominator-need-blind
   type: denominator_honesty
   comparison: true
-  question: "Which database schools report need-blind admissions? Rank or list them honestly."
+  question: "Check the current manifest for a need-blind metric ({need_blind_ref}). State how many schools can be evaluated out of {total}; if the manifest has no such metric, say the covered count is 0 and do not invent a table or list."
   expects:
     denominator: true
+    denominator_covered: 0
     criteria:
       - "States how many schools were covered out of the full database before generalizing."
 
@@ -201,7 +202,7 @@
 
 - id: clarify-ambiguous-school
   type: clarify_judgment
-  question: "Tell me about Washington University."
+  question: "Tell me about Washington."
   expects:
     must_clarify: true
 

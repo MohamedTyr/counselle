@@ -69,9 +69,14 @@ The packet path is `packet -> 'metrics' -> $metric_id`; there is no
 normalized metric table and no retired wide `fields`/`field_values` schema:
 
 ```sql
-WITH candidates AS (
+WITH selected AS (
+  SELECT DISTINCT ON (school_id) school_id, document_id
+  FROM cds_library.active_cds_documents
+  ORDER BY school_id, academic_year DESC, document_id DESC
+), candidates AS (
   SELECT d.school_id, d.packet -> 'metrics' -> $2 AS metric
   FROM cds_library.active_cds_domain_packets d
+  JOIN selected s ON s.school_id = d.school_id AND s.document_id = d.document_id
   WHERE d.domain_id = $1
 ), verified AS (
   SELECT school_id, metric -> 'value' AS value
@@ -89,12 +94,13 @@ ORDER BY v.value DESC
 LIMIT $3
 ```
 
-`$1` is the live domain id, `$2` the unqualified packet metric id from the
-live manifest, `$3` the result limit. A result built this way is a
+Packet-v8 `metrics` keys are already qualified refs (`domain_id.metric_id`).
+`$1` is the live domain id, `$2` the exact qualified ref from the live
+manifest/`get_domain`, and `$3` the result limit. Never strip the domain
+prefix or reconstruct the ref in SQL. A result built this way is a
 **candidate list**, not a citation: re-fetch each finalist's real value
 through `get_domain` for a typed reading, display string, and page citation
-before telling the student a number. Only `get_domain` mints the qualified
-ref used in the student-facing result — never cite the raw SQL row directly.
+before telling the student a number. Never cite the raw SQL row directly.
 
 ## What never to select
 
