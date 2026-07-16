@@ -8,7 +8,15 @@ import re
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    WithJsonSchema,
+    field_validator,
+    model_validator,
+)
 
 from domain.envelope import Citation, CitationEnvelope, JsonValue
 
@@ -100,10 +108,31 @@ class ProfileCellInput(BaseModel):
     profile_field: str
 
 
+ToolJsonValue = Annotated[
+    JsonValue,
+    WithJsonSchema(
+        {
+            "anyOf": [
+                {"type": "string"},
+                {"type": "integer"},
+                {"type": "number"},
+                {"type": "boolean"},
+                {"type": "array", "items": {}},
+                {"type": "object"},
+                {"type": "null"},
+            ]
+        }
+    ),
+]
+
+
 class SourcedCellInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     display: str = Field(min_length=1)
-    raw: JsonValue = None
+    # Keep recursive JsonValue validation, but do not publish its recursive
+    # $ref schema to Gemini: Vertex function declarations reject recursive
+    # schemas before the model can make a request.
+    raw: ToolJsonValue = None
     marker: str
 
 

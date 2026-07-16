@@ -205,6 +205,7 @@ def test_actual_agent_tool_schema_has_only_v2_shape() -> None:
     assert {"type", "columns", "rows", "title"} == set(properties)
     assert "unitids" not in properties
     assert "field_keys" not in properties
+    assert "JsonValue" not in schema.get("$defs", {})
 
 
 @pytest.mark.asyncio

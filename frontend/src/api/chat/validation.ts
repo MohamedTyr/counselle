@@ -96,9 +96,12 @@ function envelope(value: unknown): value is CitationEnvelope {
 export function isTabularRenderSpec(value: unknown): value is TabularRenderSpec {
   if (!record(value) || !only(value, ["v", "type", "title", "columns", "rows"]) || value.v !== 2 ||
       (value.type !== "stat_block" && value.type !== "comparison_table") || typeof value.title !== "string" ||
-      !Array.isArray(value.columns) || value.columns.length === 0 || !value.columns.every((column) => record(column) && only(column, ["unitid", "name", "domain"]) && (column.unitid === null || positiveInteger(column.unitid)) && nonEmpty(column.name) && (!("domain" in column) || nullableString(column.domain))) ||
-      !Array.isArray(value.rows) || value.rows.length === 0 || !value.rows.every((row) => record(row) && only(row, ["label", "cells"]) && typeof row.label === "string" && Array.isArray(row.cells) && row.cells.length === value.columns.length && row.cells.every(envelope))) return false;
-  return value.type === "stat_block" ? value.columns.length === 1 : value.columns.length >= 2;
+      !Array.isArray(value.columns) || !Array.isArray(value.rows)) return false;
+  const columns = value.columns;
+  const rows = value.rows;
+  if (columns.length === 0 || !columns.every((column) => record(column) && only(column, ["unitid", "name", "domain"]) && (column.unitid === null || positiveInteger(column.unitid)) && nonEmpty(column.name) && (!("domain" in column) || nullableString(column.domain))) ||
+      rows.length === 0 || !rows.every((row) => record(row) && only(row, ["label", "cells"]) && typeof row.label === "string" && Array.isArray(row.cells) && row.cells.length === columns.length && row.cells.every(envelope))) return false;
+  return value.type === "stat_block" ? columns.length === 1 : columns.length >= 2;
 }
 
 export function isCurrentSourceEntry(value: unknown): value is SourceEntry {

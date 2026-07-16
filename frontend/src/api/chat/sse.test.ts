@@ -381,12 +381,33 @@ describe("parseSseStream", () => {
         evidence_omitted_count: 2,
       }],
     };
-    await expect(collect(streamOf(frame("sources", valid, "1")))).resolves.toHaveLength(1);
-    await expect(collect(streamOf(frame("sources", {
+    const populatedFrames = await collect(streamOf(frame("sources", valid, "1")));
+    expect(populatedFrames).toEqual([{
+      id: "1",
+      event: "sources",
+      data: { v: 1, type: "sources", data: valid },
+    }]);
+
+    const emptyEvidence = {
       sources: [{ ...valid.sources[0], evidence: [], evidence_omitted_count: 0 }],
-    }, "1")))).resolves.toHaveLength(1);
-    const invalid = { sources: [{ ...valid.sources[0], citation: { ...cdsCitation(), tier: "community" } }] };
-    await expect(collect(streamOf(frame("sources", invalid, "1")))).rejects.toThrow("malformed sources");
+    };
+    const emptyFrames = await collect(streamOf(frame("sources", emptyEvidence, "1")));
+    expect(emptyFrames).toEqual([{
+      id: "1",
+      event: "sources",
+      data: { v: 1, type: "sources", data: emptyEvidence },
+    }]);
+
+    const invalidCitation = { sources: [{ ...valid.sources[0], citation: { ...cdsCitation(), tier: "community" } }] };
+    await expect(collect(streamOf(frame("sources", invalidCitation, "1")))).rejects.toThrow("malformed sources");
+
+    const invalidEvidence = {
+      sources: [{
+        ...valid.sources[0],
+        evidence: [{ ...valid.sources[0].evidence[0], page: 0 }],
+      }],
+    };
+    await expect(collect(streamOf(frame("sources", invalidEvidence, "1")))).rejects.toThrow("malformed sources");
 
     const nonCdsEvidence = {
       sources: [{
