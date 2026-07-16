@@ -35,12 +35,12 @@ It is two pieces:
 - A LOGIN role that is a member only of pipeline-managed `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. Run `scripts/setup_db.sql` for Counselle-owned state, then apply migrations with `yoyo`:
 
 ```bash
-# setup_db.sql substitutes the role passwords at run time via -v (see the
-# script header). Supply both, matching the passwords in your .env DSNs.
-psql postgres \
-  -v ro_pw="<CDS Library reader-login password>" \
-  -v app_pw="<counselle_app password>" \
-  < scripts/setup_db.sql
+# setup_db.sql reads both role passwords from the environment via \getenv (see
+# the script header) — never pass them as psql -v argv. Supply both, matching
+# the passwords in your .env DSNs.
+COUNSELLE_RO_PASSWORD="<CDS Library reader-login password>" \
+COUNSELLE_APP_PASSWORD="<counselle_app password>" \
+  psql "$COUNSELLE_ADMIN_DSN" -f scripts/setup_db.sql
 # Append ?schema=counselle so yoyo keeps its bookkeeping tables in the
 # counselle schema (owned by counselle_app), not in public.
 uv run yoyo apply --batch --database "${COUNSELLE_DB_APP_DSN}?schema=counselle" migrations/
