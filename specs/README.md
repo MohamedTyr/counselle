@@ -23,6 +23,7 @@ A feature that only ever gets an execution plan can have just `plan/`; one that 
 | [`mvp3/`](mvp3/) | The MVP3 workspace — `workspace-design.md`, `feature-showcase.md`, and `plan/workspace-implementation-plan.md` for the persistent Schools/Tasks/Essays/Activities workspace and agent-ready service seam. | Workspace shipped |
 | [`agent-mode/`](agent-mode/) | Agent V1 — the plan to replace counselor chat with one transparent Codex-style agent mode, including tool contracts, visible run traces, and live E2E review gates. | Scoped; implementation not started |
 | [`deep-research/`](deep-research/) | The deferred deep-research feature (PRD stories 39–41) — approved `PRD.md` plus the original `plan.md` stub. | Scoped; implementation not started |
+| [`db-rewire/`](db-rewire/) | Rewiring Counselle from the old `ascensia` DB to the new data pipeline (CDS Library) — `design.md` (rev 3, triple-reviewed) plus `plan/` (phases 0–9): the five-view contract, the 4-tool surface, the ambient data picture, the `render_viz` two-channel redesign, the document/evidence citation model, the packet anti-corruption seam + caveat catalog, the single-edit-point matrix + tunables registry, evals, the full old-DB eradication inventory with residue grep gates, and the pipeline-repo rename (`councelle` → `counselle`). | Shipped; live cutover complete, old DB stopped (kept as rollback); full `live_db` suite and dedicated §9.7 security pass deferred |
 
 ## The lifecycle (how a plan gets here)
 
