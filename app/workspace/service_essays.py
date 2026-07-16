@@ -164,7 +164,7 @@ async def update_essay(
                     current["prompt_ref"],
                     require_current=False,
                 )
-                assert prompt_row is not None
+                assert prompt_row is not None  # nosec B101 - validator either raises or returns
                 # Snapshot the retained historical wording atomically before
                 # severing the reference; content/title remain untouched.
                 values["prompt"] = prompt_row["prompt"]
@@ -179,7 +179,7 @@ async def update_essay(
                         "prompt_ref" in values and prompt_ref != current["prompt_ref"]
                     ),
                 )
-                assert prompt_row is not None
+                assert prompt_row is not None  # nosec B101 - validator either raises or returns
                 values["prompt"] = None
                 values["word_limit"] = None
             row = await _update_essay_row(conn, user_id, essay_id, values) if values else current
@@ -493,7 +493,11 @@ async def _validate_prompt_link(
         require_current,
     )
     if row is None:
-        requirement = "published and current" if require_current else "for the same school and cycle"
+        requirement = (
+            "published, current, and for the same school and cycle"
+            if require_current
+            else "for the same school and cycle"
+        )
         raise WorkspaceValidationError(
             f"prompt_ref must be {requirement}"
         )

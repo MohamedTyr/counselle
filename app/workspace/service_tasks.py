@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID
 
 import asyncpg
@@ -20,6 +20,7 @@ from app.workspace.models import (
     TaskSearchHit,
     TaskStatus,
     WorkspaceNotFoundError,
+    WorkspaceValidationError,
 )
 from app.workspace.service_utils import publish_events
 
@@ -173,7 +174,7 @@ async def task_board_counts(
             user_id,
             done_within_days,
         )
-    assert row is not None
+    assert row is not None  # nosec B101 - aggregate SELECT always yields a row
     return TaskBoardCounts(
         done=row["done"], done_recent=row["done_recent"], archived=row["archived"]
     )
@@ -436,7 +437,11 @@ async def _validate_links(
         await _require_active_application(conn, user_id, application_id)
     if essay_id is not None:
         essay_application_id = await _require_active_essay(conn, user_id, essay_id)
-        if essay_application_id != application_id:
+        if (
+            application_id is not None
+            and essay_application_id is not None
+            and essay_application_id != application_id
+        ):
             raise WorkspaceValidationError(
                 "task application_id must match the linked essay application_id"
             )
@@ -474,7 +479,7 @@ async def _require_active_essay(
     )
     if row is None:
         raise WorkspaceNotFoundError()
-    return row["application_id"]
+    return cast(UUID | None, row["application_id"])
 
 
 async def _require_restorable_task(

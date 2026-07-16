@@ -542,6 +542,7 @@ async def test_config_shape(live_app: FastAPI) -> None:
             "default_source_config",
             "skills",
             "max_selected_skills",
+            "current_admissions_cycle_year",
         }
         assert isinstance(body["greeting"], str) and body["greeting"]
         assert isinstance(body["conversation_starters"], list) and body["conversation_starters"]
@@ -576,7 +577,9 @@ async def test_auth_login_429_when_window_exhausted(monkeypatch: pytest.MonkeyPa
             saw_429 = False
             for _ in range(4):
                 r = await client.post(
-                    "/v1/auth/login", data={"username": "nobody@t.test", "password": "x" * 8}
+                    "/v1/auth/login",
+                    data={"username": "nobody@t.test", "password": "x" * 8},
+                    headers={"Origin": "http://test"},
                 )
                 if r.status_code == 429:
                     saw_429 = True
@@ -586,7 +589,9 @@ async def test_auth_login_429_when_window_exhausted(monkeypatch: pytest.MonkeyPa
             # reset → next attempt is no longer rate-limited (back to 400/credential failure)
             app.state.rate_limiter.reset()
             r2 = await client.post(
-                "/v1/auth/login", data={"username": "nobody@t.test", "password": "x" * 8}
+                "/v1/auth/login",
+                data={"username": "nobody@t.test", "password": "x" * 8},
+                headers={"Origin": "http://test"},
             )
             assert r2.status_code != 429
     finally:

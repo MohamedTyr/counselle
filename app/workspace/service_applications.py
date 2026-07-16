@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from uuid import UUID
 
 import asyncpg
@@ -171,7 +170,9 @@ async def add_application(
                 )
             )
     except asyncpg.UniqueViolationError as exc:
-        raise WorkspaceValidationError("school is already active for this application cycle") from exc
+        raise WorkspaceValidationError(
+            "school is already active for this application cycle"
+        ) from exc
 
     publish_events(event_bus, user_id, events)
     application = await _application_view_by_id(app_pool, catalog, user_id, app_id)
@@ -190,6 +191,10 @@ async def update_application(
 ) -> ApplicationView:
     values = data.model_dump(exclude_unset=True)
     checklist_patch = values.pop("checklist", None)
+    checklist_upserts = {
+        key: value for key, value in (checklist_patch or {}).items() if value is not None
+    }
+    checklist_deletes = [key for key, value in (checklist_patch or {}).items() if value is None]
     if not values and checklist_patch is None:
         return await _application_view_by_id(app_pool, catalog, user_id, application_id)
     events: list[ChangeEvent] = []
@@ -202,7 +207,7 @@ async def update_application(
             )
         try:
             row = await conn.fetchrow(
-            """
+                """
             UPDATE counselle.applications
             SET status = CASE WHEN $3 THEN $4 ELSE status END,
                 list_type = CASE WHEN $5 THEN $6 ELSE list_type END,
@@ -215,50 +220,47 @@ async def update_application(
                 test_plan = CASE WHEN $19 THEN $20 ELSE test_plan END,
                 cycle_year = CASE WHEN $21 THEN $22 ELSE cycle_year END,
                 checklist = CASE WHEN $23 THEN
-                  (checklist || jsonb_strip_nulls($24::jsonb))
-                  - ARRAY(
-                      SELECT key FROM jsonb_each($24::jsonb)
-                      WHERE value = 'null'::jsonb
-                    )
+                  (checklist || $24::jsonb) - $25::text[]
                   ELSE checklist END,
-                platform = CASE WHEN $25 THEN $26 ELSE platform END,
+                platform = CASE WHEN $26 THEN $27 ELSE platform END,
                 platform_other = CASE
-                  WHEN $25 AND $26 IS DISTINCT FROM 'other' THEN NULL
-                  WHEN $27 THEN $28
+                  WHEN $26 AND $27 IS DISTINCT FROM 'other' THEN NULL
+                  WHEN $28 THEN $29
                   ELSE platform_other
                 END,
                 updated_at = now()
             WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
             RETURNING id
             """,
-            application_id,
-            user_id,
-            "status" in values,
-            values.get("status"),
-            "list_type" in values,
-            values.get("list_type"),
-            "round" in values,
-            values.get("round"),
-            "deadline" in values,
-            values.get("deadline"),
-            "aid_deadline" in values,
-            values.get("aid_deadline"),
-            "scholarship_deadline" in values,
-            values.get("scholarship_deadline"),
-            "notes" in values,
-            values.get("notes"),
-            "intended_major" in values,
-            values.get("intended_major"),
-            "test_plan" in values,
-            values.get("test_plan"),
-            "cycle_year" in values,
-            values.get("cycle_year"),
-            checklist_patch is not None,
-            json.dumps(checklist_patch, default=str),
-            "platform" in values,
-            values.get("platform"),
-            "platform_other" in values,
-            values.get("platform_other"),
+                application_id,
+                user_id,
+                "status" in values,
+                values.get("status"),
+                "list_type" in values,
+                values.get("list_type"),
+                "round" in values,
+                values.get("round"),
+                "deadline" in values,
+                values.get("deadline"),
+                "aid_deadline" in values,
+                values.get("aid_deadline"),
+                "scholarship_deadline" in values,
+                values.get("scholarship_deadline"),
+                "notes" in values,
+                values.get("notes"),
+                "intended_major" in values,
+                values.get("intended_major"),
+                "test_plan" in values,
+                values.get("test_plan"),
+                "cycle_year" in values,
+                values.get("cycle_year"),
+                checklist_patch is not None,
+                checklist_upserts,
+                checklist_deletes,
+                "platform" in values,
+                values.get("platform"),
+                "platform_other" in values,
+                values.get("platform_other"),
             )
         except asyncpg.UniqueViolationError as exc:
             raise WorkspaceValidationError(
@@ -309,20 +311,34 @@ async def archive_application(
         )
         events.extend(
             await _record_many(
-                conn, user_id=user_id, actor=actor, rows=[{"id": application_id}],
-                object_type="application", op="archived"
+                conn,
+                user_id=user_id,
+                actor=actor,
+                rows=[{"id": application_id}],
+                object_type="application",
+                op="archived",
             )
         )
         events.extend(
             await _record_many(
-                conn, user_id=user_id, actor=actor, rows=task_rows,
-                object_type="task", op="archived", application_id=application_id
+                conn,
+                user_id=user_id,
+                actor=actor,
+                rows=task_rows,
+                object_type="task",
+                op="archived",
+                application_id=application_id,
             )
         )
         events.extend(
             await _record_many(
-                conn, user_id=user_id, actor=actor, rows=essay_rows,
-                object_type="essay", op="archived", application_id=application_id
+                conn,
+                user_id=user_id,
+                actor=actor,
+                rows=essay_rows,
+                object_type="essay",
+                op="archived",
+                application_id=application_id,
             )
         )
     publish_events(event_bus, user_id, events)
@@ -394,7 +410,9 @@ async def restore_application(
                 )
             )
     except asyncpg.UniqueViolationError as exc:
-        raise WorkspaceValidationError("school is already active for this application cycle") from exc
+        raise WorkspaceValidationError(
+            "school is already active for this application cycle"
+        ) from exc
     publish_events(event_bus, user_id, events)
 
 
@@ -427,7 +445,8 @@ async def get_application_detail(
             """
             SELECT e.*,
                    CASE WHEN e.prompt_ref IS NOT NULL THEN p.prompt ELSE e.prompt END AS prompt,
-                   CASE WHEN e.prompt_ref IS NOT NULL THEN p.word_limit ELSE e.word_limit END AS word_limit,
+                   CASE WHEN e.prompt_ref IS NOT NULL
+                        THEN p.word_limit ELSE e.word_limit END AS word_limit,
                    ''::text AS preview,
                    jsonb_array_length(comments) AS comment_count,
                    jsonb_array_length(suggestions) AS suggestion_count
@@ -474,9 +493,7 @@ def _website_url(catalog: Catalog, unitid: int) -> str | None:
     return f"https://{domain}" if domain else None
 
 
-async def _views_from_rows(
-    catalog: Catalog, rows: list[asyncpg.Record]
-) -> list[ApplicationView]:
+async def _views_from_rows(catalog: Catalog, rows: list[asyncpg.Record]) -> list[ApplicationView]:
     identities = await school_identities(catalog, [row["school_unitid"] for row in rows])
     return [_view_from_row(row, identities.get(row["school_unitid"])) for row in rows]
 
@@ -531,16 +548,12 @@ def _validate_platform_patch(current: asyncpg.Record, values: dict[str, object])
     platform_other = values.get("platform_other", current["platform_other"])
     if platform == "other":
         if not isinstance(platform_other, str) or not platform_other.strip():
-            raise WorkspaceValidationError(
-                "platform_other is required when platform is other"
-            )
+            raise WorkspaceValidationError("platform_other is required when platform is other")
         return
     if platform_other is not None and not (
         "platform" in values and values.get("platform") != "other"
     ):
-        raise WorkspaceValidationError(
-            "platform_other must be cleared unless platform is other"
-        )
+        raise WorkspaceValidationError("platform_other must be cleared unless platform is other")
 
 
 async def _validate_application_prompt_cycle(
