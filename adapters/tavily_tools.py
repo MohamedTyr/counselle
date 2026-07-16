@@ -37,6 +37,7 @@ from domain.urls import registrable_domain as _registrable_domain
 # named in __all__. The test suite and the schema-search docs import these names
 # from this module, so declare the public surface explicitly (keeps `mypy .` green).
 __all__ = [
+    "REDDIT_DOMAINS",
     "make_tavily_client",
     "search_web",
     "search_school_site",
@@ -51,6 +52,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 _GOV_TLDS = frozenset({"gov", "mil"})
+REDDIT_DOMAINS = ("reddit.com", "redd.it")
 
 #: Infra-shaped content in exception messages (defense-in-depth for SDK
 #: messages that may embed hosts, accounts, or addresses): a bare IPv4 or an
@@ -84,6 +86,45 @@ def _is_official_domain(url: str) -> bool:
     domain = _registrable_domain(url) or ""
     tld = _tld(domain)
     return tld in _GOV_TLDS or tld == "edu"
+
+
+def _http_location(url: object) -> tuple[str, str] | None:
+    """Return a normalized host/path only for usable HTTP(S) result URLs."""
+    if not isinstance(url, str):
+        return None
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower().rstrip(".")
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or not host:
+        return None
+    return host, parsed.path
+
+
+def _host_matches_domain(host: str, domain: str) -> bool:
+    candidate = _registrable_domain(domain) or ""
+    return bool(candidate) and (host == candidate or host.endswith(f".{candidate}"))
+
+
+def _web_result_allowed(url: object, excluded_domains: list[str] | None) -> bool:
+    location = _http_location(url)
+    if location is None:
+        return False
+    host, _path = location
+    return not any(_host_matches_domain(host, domain) for domain in (excluded_domains or ()))
+
+
+def _reddit_result_allowed(url: object, subreddits: list[str]) -> bool:
+    location = _http_location(url)
+    if location is None:
+        return False
+    host, path = location
+    if not _host_matches_domain(host, "reddit.com"):
+        return False
+    parts = [part for part in path.split("/") if part]
+    allowed = {subreddit.casefold() for subreddit in subreddits}
+    return len(parts) >= 2 and parts[0].casefold() == "r" and parts[1].casefold() in allowed
 
 
 def _citation_for_web_result(url: str, today: date) -> Citation:
@@ -298,7 +339,7 @@ async def search_web(
     - everything else → ``community`` with the standard web caveat
 
     ``exclude_domains`` enforces source gating in code (ADR 0013): with the
-    Reddit source disabled, the toolset passes ``["reddit.com"]`` so disabled
+    Reddit source disabled, the toolset passes ``REDDIT_DOMAINS`` so disabled
     sources cannot leak back in through the open web search.
 
     Returns ``{"results": [...]}`` on success or ``{"error": ..., "retryable": True}``
@@ -321,7 +362,12 @@ async def search_web(
     ) as exc:
         return _safe_error(exc)
 
-    results = resp.get("results", [])
+    results = [
+        result
+        for result in resp.get("results", [])
+        if isinstance(result, dict)
+        and _web_result_allowed(result.get("url"), exclude_domains)
+    ]
     items = [
         _result_to_item(r, _citation_for_web_result(r.get("url", ""), today), today)
         for r in results
@@ -491,7 +537,11 @@ async def search_reddit(
     ) as exc:
         return _safe_error(exc)
 
-    results = resp.get("results", [])
+    results = [
+        result
+        for result in resp.get("results", [])
+        if isinstance(result, dict) and _reddit_result_allowed(result.get("url"), valid_subs)
+    ]
     items = [
         _result_to_item(
             r,

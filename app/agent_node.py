@@ -27,7 +27,9 @@ Design (notes-p4-apis §1/§3/§4/§6/§7):
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -252,7 +254,9 @@ def _make_load_skill_tool(tool_overflow: ToolMiddlewareContext | None) -> Tool[A
     return Tool(load_skill_tool, takes_ctx=False)
 
 
-def _make_read_tool_result_tool(store: ToolResultStore) -> Tool[Any]:
+def _make_read_tool_result_tool(
+    store: ToolResultStore, registry: SourceRegistry
+) -> Tool[Any]:
     async def read_tool_result(handle: str) -> Any:
         """Read back a full oversized tool result spilled earlier in this run.
 
@@ -262,12 +266,112 @@ def _make_read_tool_result_tool(store: ToolResultStore) -> Tool[Any]:
         Args:
             handle: The spilled tool-result handle.
         """
-        return store.read(handle)
+        return registry.restore_pending_evidence_tokens(store.read(handle))
 
     return Tool(read_tool_result, takes_ctx=False)
 
 
 _VIZ_MARKER_START = "[[viz:"
+_CITATION_MARKER = re.compile(r"(?<!\[)\[([1-9]\d*)\](?!\])")
+_INCOMPLETE_CITATION_MARKER = re.compile(r"(?<!\[)\[(?:[1-9]\d*)?$")
+_YEAR_OR_RANGE = re.compile(r"\b(?:19|20)\d{2}(?:\s*[-–]\s*(?:\d{2}|(?:19|20)\d{2}))?\b")
+_FACT_VALUE = re.compile(r"(?<![\w])[$]?\d[\d,]*(?:\.\d+)?%?")
+_CITATION_FALLBACK = (
+    "I couldn't verify the source reference for this claim, so I'm leaving the "
+    "unsupported value out."
+)
+
+
+class _FinalCitationGuard:
+    """Release final prose sentence-by-sentence only after its markers resolve."""
+
+    def __init__(
+        self,
+        registry: SourceRegistry | None,
+        emit: Callable[[str], None],
+    ) -> None:
+        self._registry = registry
+        self._emit = emit
+        self._pending = ""
+
+    def feed(self, text: str) -> None:
+        self._pending += text
+        if not self._pending or _INCOMPLETE_CITATION_MARKER.search(self._pending):
+            return
+        if not self._invalid_markers(self._pending):
+            ready, self._pending = self._pending, ""
+            self._emit(ready)
+
+    def flush(self) -> None:
+        self._drain(final=True)
+
+    def _drain(self, *, final: bool) -> None:
+        while self._pending:
+            boundary = _sentence_boundary(self._pending, final=final)
+            if boundary is None:
+                return
+            candidate, self._pending = self._pending[:boundary], self._pending[boundary:]
+            invalid = self._invalid_markers(candidate)
+            if invalid:
+                logger.warning(
+                    "withheld final sentence with unresolved citation markers: %s",
+                    sorted(invalid),
+                )
+                self._emit(_CITATION_FALLBACK + (" " if self._pending else ""))
+            else:
+                self._emit(candidate)
+
+    def _invalid_markers(self, text: str) -> set[int]:
+        matches = list(_CITATION_MARKER.finditer(text))
+        if not matches:
+            return set()
+        if self._registry is None:
+            return {int(match.group(1)) for match in matches}
+        invalid: set[int] = set()
+        for match in matches:
+            index = int(match.group(1))
+            entry = self._registry.lookup_marker(f"[{index}]")
+            claim = _sentence_containing(text, match.start())
+            if entry is None or (
+                entry.citation.source == "cds"
+                and not entry.evidence
+                and _has_factual_value(claim)
+            ):
+                invalid.add(index)
+        return invalid
+
+
+def _sentence_boundary(text: str, *, final: bool) -> int | None:
+    """First complete sentence/newline, retaining a streaming-safe tail."""
+    for index, char in enumerate(text):
+        if char == "\n":
+            return index + 1
+        if char in ".!?" and index + 1 < len(text) and text[index + 1].isspace():
+            cursor = index + 2
+            while cursor < len(text) and text[cursor].isspace() and text[cursor] != "\n":
+                cursor += 1
+            return cursor
+    return len(text) if final else None
+
+
+def _sentence_containing(text: str, position: int) -> str:
+    start = max(text.rfind("\n", 0, position), text.rfind(". ", 0, position)) + 1
+    end = next(
+        (
+            index + 1
+            for index in range(position, len(text))
+            if text[index] == "\n"
+            or (text[index] in ".!?" and index + 1 < len(text) and text[index + 1].isspace())
+        ),
+        len(text),
+    )
+    return text[start:end]
+
+
+def _has_factual_value(text: str) -> bool:
+    without_markers = _CITATION_MARKER.sub("", text)
+    without_years = _YEAR_OR_RANGE.sub("", without_markers)
+    return _FACT_VALUE.search(without_years) is not None
 
 
 class _StreamingVizMarkerPlacer:
@@ -372,6 +476,7 @@ class _FinalContentPlacementWriter:
         self._flushed = False
         self._placer = _StreamingVizMarkerPlacer(staged_specs, writer)
         self._stripper = StreamingVizMarkerStripper()
+        self._citations = _FinalCitationGuard(registry, self._write_final_text)
 
     def start_final(self) -> None:
         if self._final_started or self._flushed:
@@ -381,37 +486,37 @@ class _FinalContentPlacementWriter:
     def write(self, chunk: dict[str, Any]) -> None:
         if chunk.get("type") == "delta":
             clean = self._evidence.feed(str(chunk.get("text") or ""))
+            if self._final_started:
+                self._citations.feed(clean)
+                return
             if not clean:
                 return
             chunk = {"type": "delta", "text": clean}
         if self._final_started and not self._flushed and self._staged_specs:
-            if chunk.get("type") == "delta":
-                self._placer.feed(str(chunk.get("text") or ""))
-                return
             self.flush_final()
-        elif self._final_started and chunk.get("type") == "delta":
-            stripped = self._stripper.feed(str(chunk.get("text") or ""))
-            if stripped:
-                self._writer({"type": "delta", "text": stripped})
-            return
         self._writer(chunk)
 
     def flush_final(self) -> None:
-        if self._flushed:
-            if self._final_started and (stripped := self._stripper.flush()):
-                self._writer({"type": "delta", "text": stripped})
-            self._evidence.flush()
-            return
         if not self._final_started:
             return
-        self._flushed = True
-        if self._staged_specs:
-            self._placer.flush(emit_fallback=True)
-        else:
-            if stripped := self._stripper.flush():
-                self._writer({"type": "delta", "text": stripped})
         if clean := self._evidence.flush():
-            self._writer({"type": "delta", "text": clean})
+            self._citations.feed(clean)
+        self._citations.flush()
+        if not self._flushed:
+            self._flushed = True
+            if self._staged_specs:
+                self._placer.flush(emit_fallback=True)
+        if stripped := self._stripper.flush():
+            self._writer({"type": "delta", "text": stripped})
+
+    def _write_final_text(self, text: str) -> None:
+        if not text:
+            return
+        if self._staged_specs and not self._flushed:
+            self._placer.feed(text)
+            return
+        if stripped := self._stripper.feed(text):
+            self._writer({"type": "delta", "text": stripped})
 
 
 def _make_recording_writer(
@@ -642,7 +747,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         _make_render_viz_tool(
             deps.catalog, registry, viz_list, viz_signature_indexes, tool_overflow
         ),
-        _make_read_tool_result_tool(overflow_store),
+        _make_read_tool_result_tool(overflow_store, registry),
         _make_load_skill_tool(tool_overflow),
     ]
     # Workspace tools (ADR 0013: unmounted, not hidden) — only exist this turn
@@ -767,6 +872,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     except UsageLimitExceeded:
         _close_router_and_flush_final_safely(router, final_writer, "budget")
         writer({"type": "delta", "text": _TOOL_BUDGET_MESSAGE})
+        final_writer.flush_final()
+    except asyncio.CancelledError:
+        _close_router_and_flush_final_safely(router, final_writer, "interrupt")
+        raise
     except GraphInterrupt:
         _close_router_and_flush_final_safely(router, final_writer, "interrupt")
         if parked_store is not None:

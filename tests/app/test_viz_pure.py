@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import Any, cast
@@ -94,18 +95,6 @@ async def test_sourced_and_unavailable_cells_render_with_compact_ack() -> None:
         "cell_count": 2,
         "available_count": 1,
         "unavailable_count": 1,
-        "unavailable_guidance": (
-            "Unavailable means missing, not zero. State the gap explicitly and do not "
-            "invent a value."
-        ),
-        "vintage_requirements": [
-            {
-                "school": "One",
-                "metric": "Rate",
-                "vintage": "Retrieved 2026-07-15",
-                "marker": "[1]",
-            }
-        ],
         "source_count": 1,
         "sources": ["[1]"],
         "public_receipt": {
@@ -118,6 +107,33 @@ async def test_sourced_and_unavailable_cells_render_with_compact_ack() -> None:
     assert "result_for_agent" not in result
     assert emitted[0]["v"] == 2
     assert emitted[0]["columns"][0]["unitid"] is None  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_max_size_render_ack_stays_compact() -> None:
+    registry = _registry()
+    emitted: list[dict[str, object]] = []
+    rows = [
+        VizRowInput(
+            label=f"Metric {index}",
+            cells=(SourcedCellInput(display=str(index), raw=index, marker="[1]"),),
+        )
+        for index in range(600)
+    ]
+
+    result = await render_viz(
+        _catalog(),
+        registry,
+        emitted,
+        "stat_block",
+        [ColumnInput(name="One")],
+        rows,
+    )
+
+    assert result["status"] == "rendered"
+    assert result["cell_count"] == 600
+    assert "vintage_requirements" not in result
+    assert len(json.dumps(result)) < 700
 
 
 @pytest.mark.asyncio

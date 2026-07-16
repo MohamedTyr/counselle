@@ -39,7 +39,7 @@ school's 2024-25 CDS versus another's 2023-24) are still worth doing, but
 they get the `edition_mismatch_comparison` caveat and you must say so once,
 up front, near the comparison — not bury it in a footnote per cell.
 
-Never call differently dated metrics "the same period." Preserve each `get_domain` row's exact top-level `vintage`; after rendering, follow `vintage_requirements` so each fact keeps its own vintage in prose.
+Never call differently dated metrics "the same period." Preserve each `get_domain` row's exact top-level `vintage` before rendering so each fact keeps its own vintage in prose; the compact render acknowledgement deliberately does not echo those bindings.
 
 ## Step 3 — Pull the same domain symmetrically
 

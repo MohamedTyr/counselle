@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
+from app.agent_node import _make_read_tool_result_tool
+from app.evidence_markers import EvidenceMarkerStripper
 from app.sources import SourceRegistry
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
@@ -188,7 +191,7 @@ def test_overflow_runs_after_annotation() -> None:
     assert full["results"][0]["marker"] == "[1]"
 
 
-def test_overflow_store_scrubs_hidden_cds_evidence_but_keeps_runtime_promotion() -> None:
+async def test_overflow_readback_restores_runtime_evidence_without_persisting_it() -> None:
     registry = SourceRegistry()
     store = ToolResultStore()
     citation = Citation(
@@ -229,11 +232,22 @@ def test_overflow_store_scrubs_hidden_cds_evidence_but_keeps_runtime_promotion()
 
     compact = str(result)
     assert "[[evidence:1:admissions.applicants]]" in compact
+    handle = result["result_for_agent"]["handle"]
     durable = str(store.dump())
     assert "[[evidence:" not in durable
     assert "secret source excerpt" not in durable
-    assert registry.promote_pending_evidence(1, "admissions.applicants")
+
+    read_tool = _make_read_tool_result_tool(store, registry)
+    readback = await read_tool.function(handle)
+    readback_json = json.dumps(readback)
+    assert "[1][[evidence:1:admissions.applicants]]" in readback_json
+    assert "secret source excerpt" not in readback_json
+
+    stripper = EvidenceMarkerStripper(registry.promote_pending_evidence)
+    visible = stripper.feed(readback_json) + stripper.flush()
+    assert "[[evidence:" not in visible
     assert registry.entries[0].evidence[0].eid == "admissions.applicants"
+    assert "[[evidence:" not in str(store.dump())
 
 
 def test_tool_ui_is_demoted_to_public_receipt_before_model_result() -> None:

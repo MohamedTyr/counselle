@@ -16,6 +16,7 @@ from evals.runner import (
     _safe_event_summary,
     build_judge_case,
     capture_turn,
+    load_questions,
     materialize_questions,
     score_clarify,
     score_composition,
@@ -316,7 +317,12 @@ def test_query_database_requires_db_recipes_first_when_requested() -> None:
 
 
 def test_candidate_ranking_requires_selected_document_sql_and_typed_refetch() -> None:
-    expects = {"selected_document_sql": True, "typed_refetch": True}
+    expects = {
+        "selected_document_sql": True,
+        "typed_refetch": True,
+        "typed_refetch_domain_id": "admissions",
+        "typed_refetch_refs": ["admissions.applicants", "admissions.admitted"],
+    }
     capture = make_capture(
         tool_calls=[
             {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
@@ -327,12 +333,84 @@ def test_candidate_ranking_requires_selected_document_sql_and_typed_refetch() ->
                 "tool_name": "query_database",
                 "content": {"status": "ok", "columns": ["school_id"], "rows": [[1]]},
             },
-            {"tool_name": "get_domain", "content": {"status": "ok", "rows": []}},
+            {
+                "tool_name": "get_domain",
+                "content": {
+                    "status": "ok",
+                    "domain_id": "admissions",
+                    "school": {"unitid": 1},
+                    "rows": [
+                        {"field": "admissions.applicants", "available": True, "display": "10"},
+                        {"field": "admissions.admitted", "available": True, "display": "2"},
+                    ],
+                },
+            },
         ],
     )
     checks = score_deterministic(expects, capture)
     assert checks["selected_document_sql"]["passed"] is True
     assert checks["typed_refetch"]["passed"] is True
+
+
+@pytest.mark.parametrize(
+    ("domain_id", "rows"),
+    [
+        ("admissions", []),
+        (
+            "cost",
+            [
+                {"field": "admissions.applicants", "available": True, "display": "10"},
+                {"field": "admissions.admitted", "available": True, "display": "2"},
+            ],
+        ),
+        (
+            "admissions",
+            [{"field": "admissions.applicants", "available": True, "display": "10"}],
+        ),
+        (
+            "admissions",
+            [
+                {"field": "admissions.applicants", "available": True, "display": "10"},
+                {"field": "admissions.admitted", "available": False, "display": "not available"},
+            ],
+        ),
+    ],
+)
+def test_typed_refetch_rejects_empty_unrelated_or_incomplete_domain_values(
+    domain_id: str, rows: list[dict[str, Any]]
+) -> None:
+    capture = make_capture(
+        tool_calls=[
+            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
+            {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": domain_id}},
+        ],
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1]]},
+            },
+            {
+                "tool_name": "get_domain",
+                "content": {
+                    "status": "ok",
+                    "domain_id": domain_id,
+                    "school": {"unitid": 1},
+                    "rows": rows,
+                },
+            },
+        ],
+    )
+
+    check = score_deterministic(
+        {
+            "typed_refetch": True,
+            "typed_refetch_domain_id": "admissions",
+            "typed_refetch_refs": ["admissions.applicants", "admissions.admitted"],
+        },
+        capture,
+    )["typed_refetch"]
+
+    assert check["passed"] is False
 
 
 @pytest.mark.parametrize(
@@ -419,13 +497,29 @@ def test_typed_refetch_requires_success_for_every_candidate() -> None:
                 "tool_name": "query_database",
                 "content": {"status": "ok", "columns": ["school_id"], "rows": [[1], [2]]},
             },
-            {"tool_name": "get_domain", "content": {"status": "ok", "rows": []}},
+            {
+                "tool_name": "get_domain",
+                "content": {
+                    "status": "ok",
+                    "domain_id": "admissions",
+                    "school": {"unitid": 1},
+                    "rows": [
+                        {"field": "admissions.applicants", "available": True, "display": "10"},
+                        {"field": "admissions.admitted", "available": True, "display": "2"},
+                    ],
+                },
+            },
             {"tool_name": "get_domain", "content": {"status": "tool_error"}},
         ],
     )
-    assert score_deterministic({"typed_refetch": True}, capture)["typed_refetch"][
-        "passed"
-    ] is False
+    assert score_deterministic(
+        {
+            "typed_refetch": True,
+            "typed_refetch_domain_id": "admissions",
+            "typed_refetch_refs": ["admissions.applicants", "admissions.admitted"],
+        },
+        capture,
+    )["typed_refetch"]["passed"] is False
 
 
 def test_selected_document_sql_requires_latest_successful_query() -> None:
@@ -831,8 +925,8 @@ def test_eval_context_materializes_live_roles_without_mutating_template() -> Non
         "dynamic.metric",
         ("dynamic.metric", "dynamic.two", "dynamic.three", "dynamic.four"),
         "dynamic.aid",
-        "dynamic.applicants",
-        "dynamic.admitted",
+        "admissions.applicants",
+        "admissions.admitted",
         None,
         False,
     )
@@ -850,6 +944,17 @@ def test_eval_context_materializes_live_roles_without_mutating_template() -> Non
     assert rendered[0]["expects"]["domain_id"] == "dynamic"
     assert "skip_reason" in rendered[0]
     assert "domain_id" not in template[0]["expects"]
+
+    selected = next(
+        question
+        for question in materialize_questions(load_questions(), context)
+        if question["id"] == "denominator-most-selective"
+    )
+    assert selected["expects"]["typed_refetch_domain_id"] == "admissions"
+    assert selected["expects"]["typed_refetch_refs"] == [
+        "admissions.admitted",
+        "admissions.applicants",
+    ]
 
 
 def test_comparison_stats_report_median_p95_and_max() -> None:

@@ -90,6 +90,26 @@ class SourceRegistry:
         self.register_used_evidence(index, evidence)
         return True
 
+    def restore_pending_evidence_tokens(self, payload: Any) -> Any:
+        """Reattach runtime-only tokens to a scrubbed overflow read-back copy."""
+        if isinstance(payload, dict):
+            restored = {
+                key: self.restore_pending_evidence_tokens(value) for key, value in payload.items()
+            }
+            marker = restored.get("marker")
+            eid = restored.get("field") or restored.get("ref")
+            match = _MARKER.fullmatch(marker) if isinstance(marker, str) else None
+            if match and isinstance(eid, str):
+                index = int(match.group(1))
+                if (index, eid) in self._pending:
+                    restored["marker"] = f"{marker}{evidence_token(index, eid)}"
+            return restored
+        if isinstance(payload, list):
+            return [self.restore_pending_evidence_tokens(item) for item in payload]
+        if isinstance(payload, tuple):
+            return tuple(self.restore_pending_evidence_tokens(item) for item in payload)
+        return payload
+
     def register_used_evidence(self, index: int, evidence: EvidenceItem) -> None:
         cap = get_settings().source_evidence_max_items
         updated: list[RegisteredSource] = []

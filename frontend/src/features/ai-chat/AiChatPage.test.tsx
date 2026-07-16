@@ -10,6 +10,8 @@ import type {
   SseFrame,
 } from "@/api/chat/types";
 import { createTestQueryClient } from "@/test/render-app";
+import { adaptStoredTranscript } from "@/api/chat/legacy-replay";
+import legacyRaw from "../../../../tests/fixtures/protocol/legacy_v1_completed_turn.json?raw";
 
 import { AiChatPage, type AiChatPageProps } from "./AiChatPage";
 
@@ -191,6 +193,32 @@ describe("AiChatPage", () => {
 
     expect(await screen.findByText("How does aid work?")).toBeInTheDocument();
     expect(screen.getByText("Aid depends on need.")).toBeInTheDocument();
+  });
+
+  test("renders the persisted historical v1 fixture through the current chat UI", async () => {
+    const fixture = JSON.parse(legacyRaw) as { turn_records: Array<Record<string, unknown>> };
+    const turn = fixture.turn_records[0]!;
+    const [source] = turn.sources as Array<Record<string, unknown>>;
+    const transcript = adaptStoredTranscript([
+      { role: "user", text: turn.user_text, ts: null, message_id: turn.user_message_id },
+      {
+        role: "assistant",
+        text: "The legacy display was 7% [1].",
+        ts: null,
+        message_id: turn.message_id,
+        parts: turn.parts,
+        status: "complete",
+        sources: [{ ...source, v: 1, citation: { ...(source?.citation as object), v: 1 } }],
+      },
+    ]);
+    fakeTransport.getSession.mockResolvedValue(session({ transcript }));
+
+    renderPage();
+
+    expect(await screen.findByText("What was the old admission rate?")).toBeInTheDocument();
+    expect(screen.getByText(/The legacy display was 7%/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open source 1" })).toBeInTheDocument();
+    expect(screen.queryByText(/couldn't load this conversation/i)).not.toBeInTheDocument();
   });
 
   test("opens exact CDS evidence from a rendered cell and leaves unavailable cells inert", async () => {

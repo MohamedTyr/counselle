@@ -2,6 +2,7 @@ import { chatTransport } from "@/api/chat/transport";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 import type { SseFrame } from "@/api/chat/types";
 import { jsonResponse, emptyResponse } from "@/test/render-app";
+import legacyRaw from "../../../../tests/fixtures/protocol/legacy_v1_completed_turn.json?raw";
 
 const cursorKey = "counselle:cursor:session-1";
 
@@ -182,6 +183,41 @@ describe("chatTransport", () => {
       updatedAt: "2026-07-06T10:00:00Z",
       isGenerating: false,
       transcript: [{ role: "user", text: "Hi" }],
+    });
+  });
+
+  it("hydrates the persisted v1 fixture through the session transport adapter", async () => {
+    const fixture = JSON.parse(legacyRaw) as { turn_records: Array<Record<string, unknown>> };
+    const turn = fixture.turn_records[0]!;
+    const [source] = turn.sources as Array<Record<string, unknown>>;
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        session_id: "session-1",
+        title: "Legacy admission rate",
+        created_at: "2026-07-06T10:00:00Z",
+        source_config: null,
+        transcript: [
+          { role: "user", text: turn.user_text, ts: null, message_id: turn.user_message_id },
+          {
+            role: "assistant",
+            text: "The legacy display was 7% [1].",
+            ts: null,
+            message_id: turn.message_id,
+            parts: turn.parts,
+            status: "complete",
+            sources: [{ ...source, v: 1, citation: { ...(source?.citation as object), v: 1 } }],
+          },
+        ],
+      }),
+    );
+
+    const replay = await chatTransport.getSession("session-1");
+
+    expect(replay.transcript).toHaveLength(2);
+    expect(replay.transcript[1]).toMatchObject({
+      role: "assistant",
+      text: "The legacy display was 7% [1].",
+      sources: [{ v: 1, index: 1, citation: { v: 1, source: "ipeds" } }],
     });
   });
 

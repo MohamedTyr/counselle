@@ -216,6 +216,8 @@
     load_skill_before_sql: true
     selected_document_sql: true
     typed_refetch: true
+    typed_refetch_domain_id: admissions
+    typed_refetch_refs: ["{selectivity_admitted_ref}", "{selectivity_applicants_ref}"]
     markers: true
     criteria:
       - "States the covered-school numerator and total-school denominator for the ranking."

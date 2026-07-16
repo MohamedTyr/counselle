@@ -45,11 +45,15 @@ class StubTavilyClient:
 
     async def search(self, query: str, **kwargs: Any) -> dict[str, Any]:
         self.calls.append({"query": query, **kwargs})
+        include_domains = kwargs.get("include_domains") or []
+        url = (
+            f"https://{include_domains[0]}/a"
+            if include_domains and str(include_domains[0]).startswith("reddit.com/r/")
+            else "https://example.com/a"
+        )
         return {
             "query": query,
-            "results": [
-                {"title": "A result", "url": "https://example.com/a", "content": "snippet"}
-            ],
+            "results": [{"title": "A result", "url": url, "content": "snippet"}],
         }
 
 
@@ -181,13 +185,13 @@ class TestToolAnnotation:
 
     async def test_search_web_excludes_reddit_when_reddit_source_disabled(self) -> None:
         # Reddit off must mean NO reddit content anywhere — the open web search
-        # excludes reddit.com in code, not prompt (ADR 0013; live test 5).
+        # excludes Reddit-owned domains in code, not prompt (ADR 0013; live test 5).
         rig = Rig()
         search_web = _fn(rig.build(_config(reddit=False)), "search_web")
 
         await search_web(query="pitzer dorms reddit")
 
-        assert rig.client.calls[0]["exclude_domains"] == ["reddit.com"]
+        assert rig.client.calls[0]["exclude_domains"] == ["reddit.com", "redd.it"]
 
     async def test_search_web_does_not_exclude_reddit_when_enabled(self) -> None:
         rig = Rig()

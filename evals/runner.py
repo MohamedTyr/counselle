@@ -608,7 +608,11 @@ def _candidate_school_ids(payload: Mapping[str, Any]) -> set[int]:
     return candidates
 
 
-def _typed_refetch_complete(capture: TurnCapture) -> tuple[bool, str]:
+def _typed_refetch_complete(
+    capture: TurnCapture, domain_id: str, required_refs: set[str]
+) -> tuple[bool, str]:
+    if not domain_id or not required_refs:
+        return False, "typed refetch domain/ref requirements are missing"
     queries = _successful_tool_results(capture, "query_database")
     if not queries:
         return False, "no successful candidate query"
@@ -617,19 +621,40 @@ def _typed_refetch_complete(capture: TurnCapture) -> tuple[bool, str]:
     query_index = next(
         (index for index, call in enumerate(capture.tool_calls) if call is query_call), -1
     )
-    fetched: set[int] = set()
-    for call, _payload in _successful_tool_results(capture, "get_domain"):
+    fetched: dict[int, set[str]] = {}
+    for call, payload in _successful_tool_results(capture, "get_domain"):
         call_index = next(
             (index for index, item in enumerate(capture.tool_calls) if item is call), -1
         )
-        if call_index <= query_index:
+        if call_index <= query_index or call["args"].get("domain_id") != domain_id:
+            continue
+        call_unitid = call["args"].get("unitid")
+        school = payload.get("school")
+        returned_unitid_value = school.get("unitid") if isinstance(school, Mapping) else None
+        if not isinstance(call_unitid, int | str) or not isinstance(
+            returned_unitid_value, int | str
+        ):
             continue
         try:
-            fetched.add(int(call["args"].get("unitid")))
+            unitid = int(call_unitid)
+            returned_unitid = int(returned_unitid_value)
         except (TypeError, ValueError):
             continue
-    return bool(candidates) and candidates <= fetched, (
-        f"candidates={sorted(candidates)}; successfully refetched={sorted(fetched)}"
+        if returned_unitid != unitid or payload.get("domain_id") != domain_id:
+            continue
+        available_refs = {
+            str(row.get("field") or row.get("ref"))
+            for row in payload.get("rows") or []
+            if isinstance(row, Mapping)
+            and row.get("available") is True
+            and isinstance(row.get("display"), str)
+            and bool(row["display"].strip())
+        }
+        if required_refs <= available_refs:
+            fetched[unitid] = available_refs
+    return bool(candidates) and candidates <= fetched.keys(), (
+        f"candidates={sorted(candidates)}; domain={domain_id}; refs={sorted(required_refs)}; "
+        f"successfully refetched={sorted(fetched)}"
     )
 
 
@@ -918,7 +943,11 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             f"query_database calls={len(sql_calls)}; successful={len(successful)}",
         )
     if expects.get("typed_refetch"):
-        complete, detail = _typed_refetch_complete(capture)
+        complete, detail = _typed_refetch_complete(
+            capture,
+            str(expects.get("typed_refetch_domain_id") or ""),
+            {str(ref) for ref in expects.get("typed_refetch_refs") or ()},
+        )
         checks["typed_refetch"] = _check(complete, detail)
     if expects.get("no_profile_metric"):
         profile_calls = _calls(capture, "get_school_profile")

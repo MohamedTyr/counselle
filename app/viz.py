@@ -505,17 +505,6 @@ async def render_viz(
     registry.commit_from(candidate_registry)
     sources = [f"[{index}]" for index in sorted(markers)]
     available_count = sum(cell.available for cell in flat)
-    vintage_requirements = [
-        {
-            "school": school.name,
-            "metric": row.label,
-            "vintage": cell.citation.vintage,
-            "marker": cell.marker,
-        }
-        for row in resolved_rows
-        for school, cell in zip((school for school in schools if school), row.cells, strict=True)
-        if cell.available and cell.citation
-    ]
     unavailable_count = cell_count - available_count
     return {
         "ok": True,
@@ -524,13 +513,6 @@ async def render_viz(
         "cell_count": cell_count,
         "available_count": available_count,
         "unavailable_count": unavailable_count,
-        "unavailable_guidance": (
-            "Unavailable means missing, not zero. State the gap explicitly and do not "
-            "invent a value."
-            if unavailable_count
-            else None
-        ),
-        "vintage_requirements": vintage_requirements,
         "source_count": len(sources),
         "sources": sources,
         "public_receipt": {

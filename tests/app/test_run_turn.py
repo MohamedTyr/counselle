@@ -51,11 +51,13 @@ from app.graph import build_graph
 from app.records import build_turn_record, prose_of
 from app.run_handle import RunHandleStore
 from app.run_turn import run_turn
+from app.sources import SourceRegistry
 from app.state import TemporalContext
 from app.steps import EmissionRouter
 from app.toolset import ToolDeps
+from app.transcript import extract_transcript
 from app.viz_signature import render_spec_signature, viz_payload_signature
-from domain.envelope import Citation
+from domain.envelope import Citation, EvidenceItem
 from domain.events import Event
 from domain.season import Season
 from domain.specs import AvailableResolvedCell, RenderSpec, SchoolRef, SourceConfig, VizRow
@@ -366,6 +368,85 @@ async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_i
     source_event = next(event for event in resumed if event.type == "sources")
     assert source_event.data["sources"][0]["evidence"][0]["eid"] == "admissions.applicants"
     assert rig.deps.parked_sources.restore(session_id, meta["message_id"], user_id) is None
+
+
+async def test_sse_and_transcript_withhold_hallucinated_marker_and_keep_registered_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage="Common Data Set 2024-25",
+        document_sha256="a" * 64,
+        source_kind="cds_pdf",
+        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        academic_year=2024,
+        manifest_version="5.0.2",
+        school_unitid=130794,
+    )
+
+    monkeypatch.setattr(
+        app.skills,
+        "load_skill",
+        lambda _name: {
+            "field": "enrollment.undergraduate_total",
+            "label": "Undergraduate enrollment",
+            "display": "6,814",
+            "available": True,
+            "citation": citation.model_dump(mode="json"),
+            "evidence": {
+                "eid": "enrollment.undergraduate_total",
+                "value_display": "6,814",
+                "label": "Undergraduate enrollment",
+                "page": 4,
+                "excerpt": "Undergraduate enrollment 6,814.",
+            },
+        },
+    )
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        del info
+        returned = [
+            part
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        if not returned:
+            return ModelResponse(
+                parts=[ToolCallPart(tool_name="load_skill", args={"name": "test"})]
+            )
+        return ModelResponse(
+            parts=[
+                TextPart(
+                    "Undergraduate enrollment was 6,814 [2]"
+                    "[[evidence:1:enrollment.undergraduate_total]]."
+                )
+            ]
+        )
+
+    rig = Rig(_fn_model(model))
+    session_id = str(uuid4())
+    events = await rig.turn(session_id, "What is Yale enrollment?", _ALL_OFF)
+
+    assert _text(events) == app.agent_node._CITATION_FALLBACK
+    assert "[2]" not in _text(events)
+    source_event = next(event for event in events if event.type == "sources")
+    assert source_event.data["sources"][0]["index"] == 1
+    assert events[-1].type == "done"
+
+    snapshot = await rig.graph.aget_state({"configurable": {"thread_id": session_id}})
+    transcript = extract_transcript(
+        list(snapshot.values.get("messages") or []),
+        list(snapshot.values.get("turn_records") or []),
+    )
+    assert transcript[-1]["text"] == app.agent_node._CITATION_FALLBACK
+    assert transcript[-1]["sources"][0]["index"] == source_event.data["sources"][0]["index"]
+    persisted_citation = transcript[-1]["sources"][0]["citation"]
+    streamed_citation = source_event.data["sources"][0]["citation"]
+    assert persisted_citation["source"] == streamed_citation["source"] == "cds"
+    assert persisted_citation["document_sha256"] == streamed_citation["document_sha256"]
 
 
 class _ImmediateEndRun:
@@ -2263,11 +2344,107 @@ def test_final_writer_streams_staged_viz_answer_deltas_incrementally() -> None:
     ]
 
     writer.flush_final()
-
     assert emitted == [
         {"type": "delta", "text": "First final chunk. "},
         {"type": "delta", "text": "Second final chunk."},
         {"type": "viz", "spec": spec},
+    ]
+
+
+def test_final_writer_releases_cds_marker_only_with_exact_promoted_evidence() -> None:
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage="Common Data Set 2024-25",
+        document_sha256="a" * 64,
+        source_kind="cds_pdf",
+        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        academic_year=2024,
+        manifest_version="5.0.2",
+        school_unitid=130794,
+    )
+    evidence = EvidenceItem(
+        eid="enrollment.undergraduate_total",
+        value_display="6,814",
+        label="Undergraduate enrollment",
+        page=4,
+        excerpt="Undergraduate enrollment 6,814.",
+    )
+    registry = SourceRegistry()
+    marker = registry.register_source(citation, "Yale — Common Data Set 2024-25")
+    registry.register_pending_evidence(marker, evidence)
+    emitted: list[dict[str, Any]] = []
+    writer = app.agent_node._FinalContentPlacementWriter([], emitted.append, registry)
+
+    writer.start_final()
+    writer.write({"type": "delta", "text": "Enrollment was 6,814 [1][[evidence:1:"})
+    assert emitted == []
+    writer.write({"type": "delta", "text": "enrollment.undergraduate_total]]. "})
+    writer.flush_final()
+
+    assert emitted == [{"type": "delta", "text": "Enrollment was 6,814 [1]. "}]
+    assert registry.entries_for_wire()[0].evidence == (evidence,)
+
+
+@pytest.mark.parametrize("text", ["Tuition was $69,900 [2]. ", "Enrollment was 6,814 [1]. "])
+def test_final_writer_withholds_unresolvable_or_evidence_less_cds_marker(text: str) -> None:
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage="Common Data Set 2024-25",
+        document_sha256="a" * 64,
+        source_kind="cds_pdf",
+        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        academic_year=2024,
+        manifest_version="5.0.2",
+        school_unitid=130794,
+    )
+    registry = SourceRegistry()
+    registry.register_source(citation, "Yale — Common Data Set 2024-25")
+    emitted: list[dict[str, Any]] = []
+    writer = app.agent_node._FinalContentPlacementWriter([], emitted.append, registry)
+
+    writer.start_final()
+    writer.write({"type": "delta", "text": text})
+    writer.flush_final()
+
+    prose = "".join(chunk["text"] for chunk in emitted)
+    assert prose == app.agent_node._CITATION_FALLBACK
+    assert "[1]" not in prose
+    assert "[2]" not in prose
+
+
+def test_final_writer_allows_document_level_cds_marker_without_value_evidence() -> None:
+    citation = Citation(
+        source="cds",
+        tier="official",
+        vintage="Common Data Set 2024-25",
+        document_sha256="a" * 64,
+        source_kind="cds_pdf",
+        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
+        academic_year=2024,
+        manifest_version="5.0.2",
+        school_unitid=130794,
+    )
+    registry = SourceRegistry()
+    registry.register_source(citation, "Yale — Common Data Set 2024-25")
+    emitted: list[dict[str, Any]] = []
+    writer = app.agent_node._FinalContentPlacementWriter([], emitted.append, registry)
+
+    writer.start_final()
+    writer.write(
+        {
+            "type": "delta",
+            "text": "Yale's CDS 2024-25 provides the document context [1].",
+        }
+    )
+    writer.flush_final()
+
+    assert emitted == [
+        {
+            "type": "delta",
+            "text": "Yale's CDS 2024-25 provides the document context [1].",
+        }
     ]
 
 

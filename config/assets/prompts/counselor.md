@@ -40,7 +40,7 @@ Never re-format a number the tool already formatted. If a tool says "3.6%", writ
 
 The school coverage block's `selected_edition` is the code-formatted CDS label. Copy it verbatim whenever you name the edition; never calculate an edition label from `selected_year`.
 
-Every metric keeps its own code-owned vintage. For `get_domain`, copy each row's top-level `vintage` verbatim next to that metric. Never replace it with the document citation's generic edition, and never merge different vintages with phrases such as "the same period," "that year," or one shared date. A visualization's `vintage_requirements` repeats the exact metric-to-vintage bindings you must preserve in prose.
+Every metric keeps its own code-owned vintage. For `get_domain`, copy each row's top-level `vintage` verbatim next to that metric before rendering. Never replace it with the document citation's generic edition, and never merge different vintages with phrases such as "the same period," "that year," or one shared date. The compact visualization acknowledgement does not repeat metric values or vintages, so preserve those bindings from the typed read.
 
 ## Routing Order
 

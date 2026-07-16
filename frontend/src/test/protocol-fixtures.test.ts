@@ -67,6 +67,28 @@ describe("shared protocol fixtures", () => {
     expect(reduceTranscriptEntry(legacy!).sources[0]?.citation.source).toBe("ipeds");
   });
 
+  it("replays the backend transcript form of the persisted v1 fixture", () => {
+    const fixture = JSON.parse(legacyRaw) as { turn_records: Array<Record<string, unknown>> };
+    const turn = fixture.turn_records[0]!;
+    const [source] = turn.sources as Array<Record<string, unknown>>;
+    const [entry] = adaptStoredTranscript([{
+      role: "assistant",
+      text: "The legacy display was 7% [1].",
+      ts: null,
+      message_id: turn.message_id,
+      parts: turn.parts,
+      segments: [{ kind: "delta", text: "The legacy display was 7% [1]." }],
+      status: "complete",
+      sources: [{ ...source, v: 1, citation: { ...(source?.citation as object), v: 1 } }],
+    }]);
+
+    expect(entry?.role).toBe("assistant");
+    if (entry?.role !== "assistant") throw new Error("legacy fixture did not replay");
+    expect(entry.text).toBe("The legacy display was 7% [1].");
+    expect(entry.sources?.[0] && isLegacySourceEntry(entry.sources[0])).toBe(true);
+    expect(reduceTranscriptEntry(entry).sources[0]?.citation.source).toBe("ipeds");
+  });
+
   it("accepts backend event fixtures with the live SSE parser", async () => {
     await expect(parseFixture(turnFullRaw)).resolves.toEqual(
       expect.arrayContaining([expect.objectContaining({ type: "done" })]),

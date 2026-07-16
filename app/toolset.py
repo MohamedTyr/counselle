@@ -178,7 +178,7 @@ def build_tools(
     if source_config.web:
         # Reddit off must mean NO reddit content anywhere — including via the
         # open web search (gating in code, not prompt; ADR 0013).
-        excludes = None if source_config.reddit else ["reddit.com"]
+        excludes = None if source_config.reddit else list(tavily_tools.REDDIT_DOMAINS)
         tools.append(
             _make_search_web(
                 client, today, deps.search_max_results, excludes, middleware

@@ -39,6 +39,12 @@ function legacySource(value: unknown): LegacySourceEntry | null {
   };
 }
 
+function replaySource(value: unknown): ReplaySourceEntry | null {
+  if (!record(value)) return null;
+  if (value.v === 1 || value.legacy === true) return legacySource(value);
+  return value as ReplaySourceEntry;
+}
+
 export function isLegacySourceEntry(value: ReplaySourceEntry): value is LegacySourceEntry {
   return value.v === 1;
 }
@@ -64,7 +70,15 @@ function sanitizeCurrentEntry(entry: JsonObject): TranscriptEntry {
         ? { ...segment, spec: safeStoredSpec(segment.spec) }
         : segment)
     : entry.segments;
-  return { ...entry, ...(parts !== undefined ? { parts } : {}), ...(segments !== undefined ? { segments } : {}) } as TranscriptEntry;
+  const sources = Array.isArray(entry.sources)
+    ? entry.sources.map(replaySource).filter((source) => source !== null)
+    : entry.sources;
+  return {
+    ...entry,
+    ...(parts !== undefined ? { parts } : {}),
+    ...(segments !== undefined ? { segments } : {}),
+    ...(sources !== undefined ? { sources } : {}),
+  } as TranscriptEntry;
 }
 
 /** Adapt only old completed turn records loaded from durable storage. */

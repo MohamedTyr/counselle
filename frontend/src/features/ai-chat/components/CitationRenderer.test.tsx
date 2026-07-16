@@ -5,7 +5,13 @@ import { CitationRenderer } from "./CitationRenderer";
 
 function entry(index: number, source: SourceName): SourceEntry {
   return {
-    v: 2, index, label: `${source} source`, evidence: [], evidence_omitted_count: 0,
+    v: 2, index, label: `${source} source`, evidence: source === "cds" ? [{
+      eid: "enrollment.undergraduate_total",
+      value_display: "6,814",
+      label: "Undergraduate enrollment",
+      page: 4,
+      excerpt: "Undergraduate enrollment 6,814.",
+    }] : [], evidence_omitted_count: 0,
     citation: {
       v: 2, source, tier: source === "reddit" ? "community" : "official", vintage: "2026",
       ...(source === "cds" ? { document_sha256: "a".repeat(64), source_kind: "upload", retrieved_at: "2026-07-01", academic_year: 2025, manifest_version: "5.0.1", school_unitid: 1 } : {}),
@@ -35,5 +41,19 @@ describe("CitationRenderer", () => {
     expect(await screen.findByText(/Claim/)).toBeInTheDocument();
     expect(screen.queryByText("[99]")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  test("evidence-less CDS markers remain resolvable for document-level support", async () => {
+    const onOpen = vi.fn();
+    const cds = { ...entry(1, "cds"), evidence: [] };
+    render(
+      <CitationRenderer
+        markdown="Yale's CDS 2024-25 provides the document context [1]."
+        onCitationOpen={onOpen}
+        sources={[cds]}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Open source 1" }));
+    expect(onOpen).toHaveBeenCalledWith({ index: 1 });
   });
 });

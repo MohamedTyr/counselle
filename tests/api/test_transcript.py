@@ -9,6 +9,8 @@ synthesized clarify-answer bubble, materialized ``parts``, the receipt string
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -40,6 +42,8 @@ from tests.app.test_run_turn import (
     _text,
     _viz_spec,
 )
+
+_PROTOCOL_FIXTURES = Path(__file__).parent.parent / "fixtures" / "protocol"
 
 _TEMPORAL = TemporalContext(
     today="2026-06-10",
@@ -429,6 +433,35 @@ def test_pre_mvp2_fallback_is_prose_only_with_keys_absent() -> None:
     for entry in transcript:
         for key in ("message_id", "parts", "step_record", "status", "sources", "synthesized"):
             assert key not in entry  # absent, not null — the FE default path
+
+
+def test_persisted_v1_fixture_replays_as_narrow_storage_compatibility_shape() -> None:
+    fixture = json.loads(
+        (_PROTOCOL_FIXTURES / "legacy_v1_completed_turn.json").read_text()
+    )
+
+    transcript = extract_transcript(fixture["messages"], fixture["turn_records"])
+
+    assert [entry["role"] for entry in transcript] == ["user", "assistant"]
+    assert transcript[1]["text"] == "The legacy display was 7% [1]."
+    assert transcript[1]["sources"] == [
+        {
+            "v": 1,
+            "legacy": True,
+            "index": 1,
+            "label": "IPEDS 2024 admissions",
+            "citation": {
+                "v": 1,
+                "source": "ipeds",
+                "tier": "official",
+                "vintage": "IPEDS 2024",
+                "caveat": "provisional",
+                "raw_table": "adm2024",
+            },
+            "evidence": [],
+            "evidence_omitted_count": 0,
+        }
+    ]
 
 
 def test_invalid_first_record_offset_clamps_fallback_and_still_serves_records() -> None:

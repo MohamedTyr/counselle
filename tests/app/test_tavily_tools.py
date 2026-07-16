@@ -89,6 +89,28 @@ class TestRegistrableDomain:
 
 class TestSearchWebTierAssignment:
     @pytest.mark.asyncio
+    async def test_excluded_reddit_result_is_dropped_even_if_tavily_leaks_it(self) -> None:
+        client = StubTavilyClient(
+            [
+                _make_result("https://www.reddit.com/r/ApplyingToCollege/comments/1"),
+                _make_result("https://redd.it/abc123"),
+                _make_result("https://example.com/college-advice"),
+            ]
+        )
+
+        result = await search_web(
+            client,
+            "college advice",
+            today=TODAY,
+            max_results=MAX_RESULTS,
+            exclude_domains=["reddit.com", "redd.it"],
+        )
+
+        assert [item["url"] for item in result["results"]] == [
+            "https://example.com/college-advice"
+        ]
+
+    @pytest.mark.asyncio
     async def test_edu_domain_gets_official_tier(self) -> None:
         client = StubTavilyClient([_make_result("https://admissions.duke.edu/apply")])
         result = await search_web(client, "Duke admissions", today=TODAY, max_results=MAX_RESULTS)
@@ -351,6 +373,32 @@ class TestSearchReddit:
         assert citation["tier"] == "community"
         assert citation["source"] == "reddit"
         assert "caveat" not in citation
+
+    @pytest.mark.asyncio
+    async def test_provider_leakage_is_dropped_before_reddit_labeling(self) -> None:
+        client = StubTavilyClient(
+            [
+                _make_result("https://www.reddit.com/r/ApplyingToCollege/comments/valid"),
+                _make_result("https://www.reddit.com/r/chanceme/comments/wrong-sub"),
+                _make_result("https://reddit.com.evil.example/r/ApplyingToCollege/post"),
+                _make_result("https://collegeconfidential.com/r/ApplyingToCollege/post"),
+                _make_result("javascript://reddit.com/r/ApplyingToCollege/post"),
+            ]
+        )
+
+        result = await search_reddit(
+            client,
+            "dorm life",
+            ["ApplyingToCollege"],
+            allowed=_MENU_SUBS,
+            today=TODAY,
+            max_results=MAX_RESULTS,
+        )
+
+        assert [item["url"] for item in result["results"]] == [
+            "https://www.reddit.com/r/ApplyingToCollege/comments/valid"
+        ]
+        assert result["results"][0]["citation"]["source"] == "reddit"
 
     @pytest.mark.asyncio
     async def test_school_specific_sub_allowed_when_slot_present(self) -> None:

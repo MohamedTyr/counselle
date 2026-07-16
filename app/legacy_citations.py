@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
 
+class LegacyCitation(BaseModel):
+    """The deliberately small persisted-v1 citation compatibility shape."""
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+    source: str
+    tier: Literal["official", "community"]
+    vintage: str
+    url: str | None = None
+    caveat: str | None = None
+    raw_table: str | None = None
+
+
 class LegacySourceEntry(BaseModel):
-    model_config = ConfigDict(extra="allow", frozen=True)
+    model_config = ConfigDict(extra="ignore", frozen=True)
     index: int
-    citation: dict[str, Any]
+    citation: LegacyCitation
     label: str
-    snippet: str | None = None
 
 
 def adapt_completed_sources(values: Any) -> list[dict[str, Any]]:
@@ -32,9 +43,16 @@ def adapt_completed_sources(values: Any) -> list[dict[str, Any]]:
             old = LegacySourceEntry.model_validate(value)
         except Exception:  # nosec B112 - malformed legacy entries are intentionally skipped
             continue
-        dumped = old.model_dump(mode="json")
-        dumped["legacy"] = True
-        dumped["evidence"] = []
-        dumped["evidence_omitted_count"] = 0
-        adapted.append(dumped)
+        citation = {"v": 1, **old.citation.model_dump(mode="json", exclude_none=True)}
+        adapted.append(
+            {
+                "v": 1,
+                "legacy": True,
+                "index": old.index,
+                "citation": citation,
+                "label": old.label,
+                "evidence": [],
+                "evidence_omitted_count": 0,
+            }
+        )
     return adapted
