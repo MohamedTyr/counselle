@@ -276,3 +276,19 @@ def test_migration_0012_drops_only_retired_objects_and_rollback_is_loud() -> Non
     assert "DROP TABLE IF EXISTS counselle.field_index" in migration
     assert "RAISE EXCEPTION" in rollback
     assert "not SQL-reversible" in rollback
+
+
+def test_setup_db_reconciles_existing_roles_and_legacy_authority() -> None:
+    setup = (Path(__file__).parents[2] / "scripts/setup_db.sql").read_text()
+
+    for role in ("counselle_ro", "counselle_app"):
+        assert f"ALTER ROLE {role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE" in setup
+        assert f"ALTER ROLE {role} RESET ALL" in setup
+        assert f"ALTER ROLE {role} IN DATABASE counselle_data RESET ALL" in setup
+    assert "granted.rolname <> 'cds_library_reader'" in setup
+    assert "REVOKE %I FROM counselle_app" in setup
+    assert "REVOKE ALL ON ALL TABLES IN SCHEMA %I FROM %I" in setup
+    assert "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %I FROM %I" in setup
+    assert "REVOKE ALL ON ALL FUNCTIONS IN SCHEMA %I FROM %I" in setup
+    assert "ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I" in setup
+    assert "GRANT cds_library_reader TO counselle_ro" in setup
