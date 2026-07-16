@@ -4,8 +4,8 @@ Both are pure string functions — no I/O, no config import (domain stays the
 inward-most layer, ADR 0017). The favicon CDN base is a module constant, not a
 Settings field, for the same reason: ``domain/`` must not depend on ``config/``.
 Swapping CDNs is a one-line edit here. Nothing is hardcoded *per source* — the
-host is always derived live from the data (a school's ``institution.website``
-domain, or a search result's URL).
+host is always derived live from the data (a school's ``official_website``/
+``official_domain``, or a search result's URL).
 
 ``FAVICON_CDN_BASE``/``favicon_url`` here serve only the search-step source chips
 (``app/steps.py``); the viz-card school logos use a separate, richer multi-CDN
@@ -29,7 +29,7 @@ def registrable_domain(url: str) -> str | None:
 
     Robust to the two shapes the codebase feeds it: full URLs
     (``https://www.duke.edu/x`` → ``duke.edu``) and the bare, scheme-less,
-    sometimes trailing-slashed strings stored for ``institution.website``
+    sometimes trailing-slashed strings stored in ``official_website``
     (``www.aamu.edu/`` → ``aamu.edu``). Subdomains are kept (``eecs.mit.edu``
     stays ``eecs.mit.edu``) — chips name the real host, not just the eTLD+1
     (KISS: no ``tldextract`` dependency).

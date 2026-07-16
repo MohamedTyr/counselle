@@ -40,8 +40,8 @@ def test_db_child_settings_ignore_repository_env_file(
     ):
         assert not hasattr(child, forbidden)
 
-RO_DSN = "postgresql://counselle_ro:ro-s3cret-pw@localhost:5432/ascensia"
-APP_DSN = "postgresql://counselle_app:app-s3cret-pw@localhost:5432/ascensia"
+RO_DSN = "postgresql://counselle_ro:ro-s3cret-pw@localhost:5432/counselle_data_test"
+APP_DSN = "postgresql://counselle_app:app-s3cret-pw@localhost:5432/counselle_data_test"
 JWT_SECRET = "test-jwt-secret-deadbeef-deadbeef-0123456789"  # ≥32 bytes
 
 

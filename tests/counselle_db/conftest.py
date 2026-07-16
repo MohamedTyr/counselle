@@ -2,7 +2,7 @@
 
 The pool connects as ``counselle_ro`` using ``COUNSELLE_DB_RO_DSN`` from the repo
 ``.env`` (pydantic-settings reads it when pytest runs from the repo root). The
-pipeline DB container (``ascensia-data-pipeline-db-1``) must be running.
+pipeline DB container (``counselle-data-pipeline-db-1``) must be running.
 
 One pool per module: the ``catalog`` fixture is module-scoped on a module-scoped
 event loop, and every test in this directory is pinned to that same loop (an

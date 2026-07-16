@@ -466,7 +466,7 @@ def test_detail_for_sql_kind_never_carries_the_statement(mapper: StepMapper) -> 
     the SQL statement and its params/rows never ride the wire."""
     detail = mapper.detail_for(
         "query_database",
-        {"sql": "SELECT unitid FROM schools WHERE state = $1"},
+        {"sql": "SELECT id FROM cds_library.school_profiles WHERE state = $1"},
         {"rows": [[1], [2], [3]]},
         45,
     )

@@ -115,7 +115,7 @@ describe("ToolStepBeat", () => {
           label: "Reading the Common Data Set",
           detail: {
             domain_id: "admissions",
-            query: "SELECT admission_rate FROM schools",
+            query: "SELECT admission_rate FROM cds_library.active_cds_domain_packets",
             row_count: 1,
             value_count: 1,
           },

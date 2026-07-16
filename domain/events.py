@@ -117,7 +117,7 @@ class StepSource(BaseModel):
     """One source chip on a completed step (§27.1): a favicon + a label.
 
     The favicon is a CDN URL derived live from the source host — a school's
-    ``institution.website`` domain, or a search result's URL host — never a
+    homepage domain, or a search result's URL host — never a
     stored/hardcoded logo. ``label`` is the host (web/edu), the school name
     (db/viz), or the post title (reddit). ``url`` is the result link when one
     exists. Display-only; honesty rules live in the citation envelope, not here.

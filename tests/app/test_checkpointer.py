@@ -19,13 +19,13 @@ _OPTIONS = "options=-csearch_path%3Dcounselle,public"
 
 
 def test_dsn_without_query_gets_question_mark() -> None:
-    dsn = "postgresql://app:pw@localhost:5432/ascensia"
+    dsn = "postgresql://app:pw@localhost:5432/counselle_data_test"
 
     assert dsn_with_search_path(dsn) == f"{dsn}?{_OPTIONS}"
 
 
 def test_dsn_with_existing_query_gets_ampersand() -> None:
-    dsn = "postgresql://app:pw@localhost:5432/ascensia?sslmode=require"
+    dsn = "postgresql://app:pw@localhost:5432/counselle_data_test?sslmode=require"
 
     assert dsn_with_search_path(dsn) == f"{dsn}&{_OPTIONS}"
 

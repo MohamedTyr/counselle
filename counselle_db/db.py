@@ -3,8 +3,9 @@
 The pool connects as ``counselle_ro`` (read-only role). The role already carries
 ``statement_timeout``/``default_transaction_read_only`` server-side; we set the
 timeout per-connection too so a misconfigured role can't silently drop the cap.
-A jsonb/json codec makes ``field_values.value`` (and ``settings.value``) arrive
-as native Python objects (DATABASE_GUIDE §2).
+A jsonb/json codec makes the reader views' jsonb columns (``school_profiles.basic_profile``,
+``active_cds_domain_packets.packet``, ``cds_manifest_snapshots.content``) arrive as native
+Python objects (DATABASE_GUIDE §2).
 """
 
 import json
