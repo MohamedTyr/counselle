@@ -56,7 +56,7 @@ from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
 from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.skills import (
     SelectedSkillValidationError,
-    load_skill,
+    make_load_skill_tool,
     render_selected_skills,
     validate_selected_skills,
 )
@@ -194,18 +194,21 @@ def _make_render_viz_tool(
 
 
 def _make_load_skill_tool(tool_overflow: ToolMiddlewareContext | None) -> Tool[Any]:
+    """Mount the single validated ``load_skill`` menu (``app.skills``) as a Tool.
+
+    The docstring/menu is built once from the live on-disk registry in
+    ``app.skills.make_load_skill_tool`` — there is exactly one place that
+    enumerates skill names, never a second handwritten menu here. This wrapper
+    only adds the per-turn overflow middleware.
+    """
+    base_load_skill_tool = make_load_skill_tool()
+
     async def load_skill_tool(name: str) -> Any:
-        """Load one admissions workflow skill by name.
+        return process_tool_result(
+            await base_load_skill_tool(name), tool_overflow, tool_name="load_skill"
+        )
 
-        Use this before specialized work like dossier assembly, school
-        comparison, essay brainstorming, or activity framing. The skill body is
-        returned only when requested, so the agent can keep context focused.
-
-        Args:
-            name: The skill name from the system prompt's available-skill list.
-        """
-        return process_tool_result(load_skill(name), tool_overflow, tool_name="load_skill")
-
+    load_skill_tool.__doc__ = base_load_skill_tool.__doc__
     load_skill_tool.__name__ = "load_skill"
     return Tool(load_skill_tool, takes_ctx=False)
 

@@ -2,6 +2,14 @@
 
 **Status:** Accepted
 
+> **Old-data note (ADR 0032):** the core decision — never let the model parse a raw
+> value, encode reading/honesty rules in code — still holds, but the specific R1–R12
+> rules, the `{field,label,display,raw,available,unit,citation}` envelope shape, and
+> the IPEDS/Scorecard/CDS trap catalog below describe the retired field store. The
+> current honesty core is the packet anti-corruption boundary (typed values,
+> availability states, compiled context/vintage, evidence, and a code-owned caveat
+> catalog) — see `DATABASE_GUIDE.md` §5–§7.
+
 ## Context
 The database is full of traps (`DATABASE_GUIDE.md` §6): `percent` is a 0–1 fraction; `control: 2` is a code; NULL ≠ missing; `*_all_institutions` is a national benchmark; earnings lag ~4–11 years (field-dependent); CDS is sparse. If the agent parses raw values and must remember the rules every turn, it will lie to a student. The PRD also requires citations for everything (official vs community) and data-recency awareness.
 

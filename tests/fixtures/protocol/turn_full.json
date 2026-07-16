@@ -81,7 +81,15 @@
           "value_count": 3,
           "duration_ms": 0,
           "viz_type": "comparison_table",
-          "schools": []
+          "schools": [
+            "Duke University",
+            "Example College"
+          ],
+          "sources": [
+            "[1]",
+            "[2]",
+            "[3]"
+          ]
         }
       }
     },

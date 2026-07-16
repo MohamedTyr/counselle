@@ -1,5 +1,7 @@
 # ADR 0008 — Field embeddings are a self-healing derived cache (reconciliation)
 
+> **Superseded by [ADR 0032](0032-db-rewire-cds-library.md).** Historical body retained unchanged.
+
 **Status:** Accepted
 
 ## Context

@@ -234,15 +234,17 @@ class StepMapper:
                 # must say so (honesty). Errored searches keep status:error / no count.
                 kwargs["result_count"] = 0
         elif kind == "sql":
-            kwargs["query"] = _str_or_none(args.get("sql"))
-            kwargs["row_count"] = _row_count_of(content)
+            # query_database's receipt never carries the SQL statement or its
+            # params/rows — row_count + tool only (§6.2 receipt contract).
+            effective = _overflow_receipt(content) or content
+            kwargs["row_count"] = (
+                effective.get("row_count")
+                if isinstance(effective, dict) and isinstance(effective.get("row_count"), int)
+                else _row_count_of(effective)
+            )
             kwargs["tool"] = tool_name
         elif kind == "viz":
-            kwargs["viz_type"] = _str_or_none(args.get("type"))
-            kwargs["schools"] = self._school_names(args)
-            receipt = content.get("public_receipt") if isinstance(content, dict) else None
-            if isinstance(receipt, dict) and isinstance(receipt.get("value_count"), int):
-                kwargs["value_count"] = receipt["value_count"]
+            kwargs.update(self._viz_detail_kwargs(args, content))
         elif kind == "write_plan":
             kwargs.update(_plan_detail_kwargs(content))
         elif kind in ("workspace", "memory"):
@@ -256,19 +258,180 @@ class StepMapper:
     def _db_tool_detail_kwargs(
         self, tool_name: str, args: dict[str, Any], content: Any
     ) -> dict[str, Any]:
-        """The db_tool/skill/unknown receipt fields (split out of detail_for)."""
+        """Dispatch the db_tool/skill/unknown receipt to its exact shape (§6.2).
+
+        The four CDS Library tools each get a dedicated, narrow receipt
+        (safe structural fields only — never packets, values, excerpts,
+        diagnostics, coverage blocks, or provider metadata). Anything else in
+        this kind bucket (``load_skill``, a future/unknown tool) falls back to
+        the generic shape.
+        """
+        # An overflowed result's public_receipt already carries the allowlisted
+        # fields (status/schools/domain_id/value_count/row_count/ui) — treat it
+        # as the effective content so a large get_domain/get_school_profile read
+        # still gets a real receipt instead of an empty one.
+        effective = _overflow_receipt(content) or content
+        if tool_name == "resolve_school":
+            return self._resolve_school_kwargs(args, effective)
+        if tool_name == "get_school_profile":
+            return self._get_school_profile_kwargs(effective)
+        if tool_name == "get_domain":
+            return self._get_domain_kwargs(args, effective)
+        return self._generic_db_tool_kwargs(tool_name, args, content)
+
+    def _generic_db_tool_kwargs(
+        self, tool_name: str, args: dict[str, Any], content: Any
+    ) -> dict[str, Any]:
+        """The fallback shape for non-CDS db_tool-kind tools (e.g. ``load_skill``)."""
         kwargs: dict[str, Any] = {
             "tool": tool_name,
             "query": _str_or_none(args.get("query") or args.get("name")),
             "row_count": _row_count_of(content),
         }
-        if tool_name == "get_domain" and kwargs["row_count"] is not None:
-            kwargs["value_count"] = kwargs["row_count"]
-        if isinstance(args.get("domain_id"), str):
-            kwargs["domain_id"] = args["domain_id"]
         schools = self._school_names(args)
         if schools:
             kwargs["schools"] = schools
+        return kwargs
+
+    @staticmethod
+    def _content_school_names(content: dict[str, Any]) -> list[str]:
+        """One school's name from either the raw tool result (``school``) or
+        an overflow receipt's already-flattened ``schools`` list."""
+        school = content.get("school")
+        if isinstance(school, dict):
+            name = _str_or_none(school.get("name"))
+            return [name] if name else []
+        schools = content.get("schools")
+        if isinstance(schools, list):
+            return [str(item) for item in schools if item]
+        return []
+
+    @staticmethod
+    def _resolve_school_kwargs(args: dict[str, Any], content: Any) -> dict[str, Any]:
+        """``resolve_school``: tool, query, result_count, schools?, duration_ms.
+
+        ``args`` never carries a unitid for this tool, so any school name here
+        is derived from the tool's own result content — still safe, since it's
+        the resolution the tool just returned, not raw packet data.
+        """
+        kwargs: dict[str, Any] = {
+            "tool": "resolve_school",
+            "query": _str_or_none(args.get("query")),
+        }
+        if not isinstance(content, dict):
+            return kwargs
+        if isinstance(content.get("result_count"), int):
+            kwargs["result_count"] = content["result_count"]
+            schools = content.get("schools")
+            if isinstance(schools, list):
+                clean = [str(school) for school in schools if school]
+                if clean:
+                    kwargs["schools"] = clean
+            return kwargs
+        status = content.get("status")
+        if status == "match":
+            kwargs["result_count"] = 1
+            names = StepMapper._content_school_names(content)
+            if names:
+                kwargs["schools"] = names
+        elif status == "candidates":
+            candidates = content.get("candidates")
+            if isinstance(candidates, list):
+                kwargs["result_count"] = len(candidates)
+                candidate_names = [
+                    _str_or_none(candidate.get("name"))
+                    for candidate in candidates
+                    if isinstance(candidate, dict)
+                ]
+                clean = [name for name in candidate_names if name]
+                if clean:
+                    kwargs["schools"] = clean
+        elif status == "not_found":
+            kwargs["result_count"] = 0
+        return kwargs
+
+    @staticmethod
+    def _get_school_profile_kwargs(content: Any) -> dict[str, Any]:
+        """``get_school_profile``: tool, schools, value_count, duration_ms.
+
+        No ``query`` (the tool takes a unitid, not free text) and no
+        ``row_count`` — ``value_count`` is the count of profile rows the
+        service actually marked ``available``, not a raw row/group count.
+        """
+        kwargs: dict[str, Any] = {"tool": "get_school_profile"}
+        if not isinstance(content, dict):
+            return kwargs
+        names = StepMapper._content_school_names(content)
+        if names:
+            kwargs["schools"] = names
+        direct_value_count = content.get("value_count")
+        if isinstance(direct_value_count, int):
+            kwargs["value_count"] = direct_value_count
+        else:
+            groups = content.get("groups")
+            if isinstance(groups, list):
+                kwargs["value_count"] = sum(
+                    1
+                    for group in groups
+                    if isinstance(group, dict)
+                    for row in group.get("rows", [])
+                    if isinstance(row, dict) and row.get("available")
+                )
+        return kwargs
+
+    @staticmethod
+    def _get_domain_kwargs(args: dict[str, Any], content: Any) -> dict[str, Any]:
+        """``get_domain``: tool, schools, domain_id, value_count, duration_ms.
+
+        ``value_count`` is the service's authoritative ``availability.verified``
+        count — never ``len(rows)`` (rows also include unavailable and
+        not-in-template-version metrics, so that would overcount).
+        """
+        kwargs: dict[str, Any] = {"tool": "get_domain"}
+        if isinstance(args.get("domain_id"), str):
+            kwargs["domain_id"] = args["domain_id"]
+        if not isinstance(content, dict):
+            return kwargs
+        names = StepMapper._content_school_names(content)
+        if names:
+            kwargs["schools"] = names
+        direct_value_count = content.get("value_count")
+        if isinstance(direct_value_count, int):
+            kwargs["value_count"] = direct_value_count
+        else:
+            availability = content.get("availability")
+            if isinstance(availability, dict) and isinstance(availability.get("verified"), int):
+                kwargs["value_count"] = availability["verified"]
+        return kwargs
+
+    def _viz_detail_kwargs(self, args: dict[str, Any], content: Any) -> dict[str, Any]:
+        """``render_viz``: viz_type, value_count, schools, sources.
+
+        Sourced from ``render_viz``'s own ``public_receipt`` (the resolved
+        column names and the distinct citation markers actually used) rather
+        than the raw call args, since web-only columns (``unitid: None``)
+        have no arg-derivable name. Falls back to the args-derived shape only
+        when no ``public_receipt`` is present (e.g. a rejected call).
+        """
+        receipt = content.get("public_receipt") if isinstance(content, dict) else None
+        if not isinstance(receipt, dict):
+            return {
+                "viz_type": _str_or_none(args.get("type")),
+                "schools": self._school_names(args) or None,
+            }
+        kwargs: dict[str, Any] = {"viz_type": _str_or_none(receipt.get("viz_type"))}
+        schools = receipt.get("schools")
+        if isinstance(schools, list):
+            clean_schools = [str(school) for school in schools if school]
+            if clean_schools:
+                kwargs["schools"] = clean_schools
+        if isinstance(receipt.get("value_count"), int):
+            kwargs["value_count"] = receipt["value_count"]
+        sources = receipt.get("sources")
+        if isinstance(sources, list):
+            clean_sources = [str(source) for source in sources if source]
+            if clean_sources:
+                kwargs["sources"] = clean_sources
         return kwargs
 
     # -- label args -------------------------------------------------------
@@ -331,7 +494,7 @@ class StepMapper:
         if kind in ("web_search", "edu_search", "reddit_search"):
             return self._search_sources(kind, _search_source_content(content))
         if kind in ("db_tool", "sql", "viz"):
-            return self._school_sources(args)
+            return self._school_sources(args, content)
         return None
 
     def ui_for(self, tool_name: str, args: dict[str, Any], content: Any) -> ToolUi | None:
@@ -372,9 +535,25 @@ class StepMapper:
                 break
         return out or None
 
-    def _school_sources(self, args: dict[str, Any]) -> list[StepSource] | None:
+    def _school_sources(self, args: dict[str, Any], content: Any = None) -> list[StepSource] | None:
         out: list[StepSource] = []
-        for unitid in self._school_unitids(args):
+        unitids = self._school_unitids(args)
+        # ``resolve_school`` has no UNITID argument. Its matched/candidate
+        # identities are safe, but still resolve the chip URL through the
+        # Catalog callbacks so a tool-supplied URL/domain can never cross the
+        # public receipt seam.
+        if not unitids and isinstance(content, dict):
+            schools: list[Any] = []
+            if isinstance(content.get("school"), dict):
+                schools.append(content["school"])
+            if isinstance(content.get("candidates"), list):
+                schools.extend(content["candidates"])
+            unitids = [
+                school["unitid"]
+                for school in schools
+                if isinstance(school, dict) and isinstance(school.get("unitid"), int)
+            ]
+        for unitid in dict.fromkeys(unitids):
             name = self._resolve(unitid)
             domain = self._resolve_domain(unitid)
             if not name and not domain:

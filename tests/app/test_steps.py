@@ -450,24 +450,20 @@ def test_detail_for_normal_search_still_counts_results(mapper: StepMapper) -> No
     assert detail.result_count == 2
 
 
-def test_sources_for_overflowed_search_use_public_receipt(mapper: StepMapper) -> None:
+def test_sources_for_overflowed_search_do_not_leak_result_metadata(mapper: StepMapper) -> None:
     content = {
         "status": "overflow",
-        "public_receipt": {
-            "source_results": [
-                {"url": "https://duke.edu/a", "title": "Duke"},
-                {"url": "https://admissions.duke.edu/b", "title": "Admissions"},
-            ],
-        },
+        "public_receipt": {"result_count": 2},
     }
 
     sources = mapper.sources_for("search_school_site", {"query": "cs admissions"}, content)
 
-    assert sources is not None
-    assert [source.label for source in sources] == ["duke.edu", "admissions.duke.edu"]
+    assert sources is None
 
 
-def test_detail_for_sql_kind_carries_statement_and_row_count(mapper: StepMapper) -> None:
+def test_detail_for_sql_kind_never_carries_the_statement(mapper: StepMapper) -> None:
+    """query_database's receipt is tool/row_count/duration_ms only (§6.2) —
+    the SQL statement and its params/rows never ride the wire."""
     detail = mapper.detail_for(
         "query_database",
         {"sql": "SELECT unitid FROM schools WHERE state = $1"},
@@ -475,37 +471,192 @@ def test_detail_for_sql_kind_carries_statement_and_row_count(mapper: StepMapper)
         45,
     )
 
-    assert detail.query == "SELECT unitid FROM schools WHERE state = $1"
+    assert detail.query is None
     assert detail.row_count == 3
     assert detail.tool == "query_database"
 
 
-def test_detail_for_db_tool_kind(mapper: StepMapper) -> None:
+def test_detail_for_resolve_school_match(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "resolve_school",
+        {"query": "duke"},
+        {"status": "match", "school": {"unitid": 198419, "name": "Duke University"}},
+        30,
+    )
+
+    assert detail.tool == "resolve_school"
+    assert detail.query == "duke"
+    assert detail.result_count == 1
+    assert detail.schools == ["Duke University"]
+    assert detail.row_count is None
+    assert detail.value_count is None
+
+
+def test_resolve_school_source_chip_uses_catalog_domain() -> None:
+    mapper = StepMapper(
+        load_yaml_asset("step_labels"),
+        _resolve,
+        resolve_school_domain=lambda unitid: "duke.edu" if unitid == 198419 else None,
+    )
+    sources = mapper.sources_for(
+        "resolve_school",
+        {"query": "duke"},
+        {
+            "status": "match",
+            "school": {
+                "unitid": 198419,
+                "name": "Untrusted result name",
+                "official_domain": "attacker.example",
+            },
+        },
+    )
+
+    assert sources is not None
+    assert sources[0].label == "Duke University"
+    assert sources[0].url == "https://duke.edu"
+
+
+def test_detail_for_resolve_school_candidates(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "resolve_school",
+        {"query": "washington"},
+        {
+            "status": "candidates",
+            "candidates": [{"name": "University of Washington"}, {"name": "Washington University"}],
+            "hint": "Multiple campuses matched.",
+        },
+        30,
+    )
+
+    assert detail.result_count == 2
+    assert detail.schools == ["University of Washington", "Washington University"]
+
+
+def test_detail_for_overflowed_resolve_uses_safe_receipt(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "resolve_school",
+        {"query": "washington"},
+        {
+            "status": "overflow",
+            "public_receipt": {
+                "status": "candidates",
+                "result_count": 2,
+                "schools": ["University of Washington", "Washington University"],
+            },
+        },
+        30,
+    )
+
+    assert detail.result_count == 2
+    assert detail.schools == ["University of Washington", "Washington University"]
+
+
+def test_detail_for_overflowed_query_uses_safe_row_count(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "query_database",
+        {"sql": "SELECT 1"},
+        {"status": "overflow", "public_receipt": {"row_count": 7}},
+        30,
+    )
+
+    assert detail.row_count == 7
+    assert detail.query is None
+
+
+def test_detail_for_resolve_school_not_found(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "resolve_school", {"query": "nowhere college"}, {"status": "not_found", "message": "no"}, 30
+    )
+
+    assert detail.result_count == 0
+    assert detail.schools is None
+
+
+def test_detail_for_get_school_profile(mapper: StepMapper) -> None:
+    detail = mapper.detail_for(
+        "get_school_profile",
+        {"unitid": 198419, "groups": ["identity"]},
+        {
+            "school": {"unitid": 198419, "name": "Duke University"},
+            "groups": [
+                {
+                    "id": "identity",
+                    "rows": [
+                        {"ref": "identity.unitid", "available": True},
+                        {"ref": "identity.opeid", "available": False},
+                    ],
+                }
+            ],
+        },
+        50,
+    )
+
+    assert detail.tool == "get_school_profile"
+    assert detail.schools == ["Duke University"]
+    assert detail.value_count == 1
+    assert detail.query is None
+    assert detail.row_count is None
+
+
+def test_detail_for_get_domain_uses_authoritative_verified_count(mapper: StepMapper) -> None:
+    """value_count is availability.verified, never len(rows) — rows also
+    include not-in-template-version/unavailable metrics that must not count."""
     detail = mapper.detail_for(
         "get_domain",
         {"unitid": 198419, "domain_id": "admissions"},
-        [{"field": "a"}, {"field": "b"}],
+        {
+            "school": {"unitid": 198419, "name": "Duke University"},
+            "domain_id": "admissions",
+            "rows": [{"ref": "a"}, {"ref": "b"}, {"ref": "c"}],
+            "availability": {"configured": 3, "verified": 2, "not_in_template_version": 0},
+        },
         80,
     )
 
     assert detail.tool == "get_domain"
     assert detail.domain_id == "admissions"
-    assert detail.row_count == 2
-    assert detail.value_count == 2
     assert detail.schools == ["Duke University"]
+    assert detail.value_count == 2
+    assert detail.row_count is None
+    assert detail.query is None
 
 
-def test_detail_for_viz_kind(mapper: StepMapper) -> None:
+def test_detail_for_viz_kind_reads_public_receipt(mapper: StepMapper) -> None:
     detail = mapper.detail_for(
         "render_viz",
         {"type": "comparison_table", "columns": [{"unitid": 221999}]},
-        {"ok": True, "public_receipt": {"value_count": 3}},
+        {
+            "ok": True,
+            "public_receipt": {
+                "viz_type": "comparison_table",
+                "value_count": 3,
+                "schools": ["Vanderbilt University", "Some Web-Only College"],
+                "sources": ["[1]", "[3]"],
+            },
+        },
         10,
     )
 
     assert detail.viz_type == "comparison_table"
-    assert detail.schools == ["Vanderbilt University"]
+    assert detail.schools == ["Vanderbilt University", "Some Web-Only College"]
     assert detail.value_count == 3
+    assert detail.sources == ["[1]", "[3]"]
+
+
+def test_detail_for_viz_kind_falls_back_to_args_when_rejected(mapper: StepMapper) -> None:
+    """A rejected render_viz call has no public_receipt — fall back to the
+    args-derived shape instead of an empty receipt."""
+    detail = mapper.detail_for(
+        "render_viz",
+        {"type": "stat_block", "columns": [{"unitid": 198419}]},
+        {"ok": False, "status": "rejected", "rejected_cells": [], "valid_cells": 0},
+        10,
+    )
+
+    assert detail.viz_type == "stat_block"
+    assert detail.schools == ["Duke University"]
+    assert detail.value_count is None
+    assert detail.sources is None
 
 
 def test_detail_for_write_plan_kind(mapper: StepMapper) -> None:

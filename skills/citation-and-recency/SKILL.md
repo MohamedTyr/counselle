@@ -1,83 +1,119 @@
 ---
 name: citation-and-recency
-description: How to phrase citations, vintage strings, and recency caveats so students always know how fresh a fact is. Covers IPEDS/Scorecard/CDS vintage phrasing, the earnings-lag wording, provisional wording, the data calendar, and when to say "as of". Use whenever presenting facts from the database.
+description: How to weave citation markers and caveat kinds into prose honestly — markers copied verbatim right after the fact they support, CDS phrasing derived only from the Citation/evidence you were given, when to voice each caveat kind without re-authoring its wording, and the official/community tier distinction. Use whenever you state a fact that came from a tool result.
 ---
 
 # Citation and Recency
 
-Source: DATABASE_GUIDE §9, §6 R10; ARCHITECTURE §9, §16.
+Source: `specs/db-rewire/design.md` §§8-10; `docs/DATABASE_GUIDE.md` §7.
 
 ## The core principle
 
-Every value you state is stamped with a citation marker `[n]` assigned by the source registry. Write the marker immediately after the fact. The citation panel (shown to the student as expandable markers) carries the full vintage string. Your job in prose is to add honest framing when the vintage matters — especially for earnings and provisional data.
+Every fact you state from a tool result arrives with a `marker` field already
+attached (`"[3]"`, sometimes with an invisible internal token appended — copy
+the whole `marker` string verbatim, exactly as given, immediately after the
+prose it supports). You never invent a marker, renumber one, or move it away
+from the value it belongs to. The runtime strips the invisible part before the
+student sees it; your job is only to place the visible `[n]` correctly and
+never touch what follows it.
 
-## Vintage phrasing by source
+This applies identically to `render_viz` sourced cells: a `{display, raw?,
+marker}` cell must reuse a marker that already resolved earlier in this turn.
+An unknown or invented marker gets that cell rejected, not rendered — see
+`school-comparison` and `school-deep-dive` for what to do with a rejection.
 
-### IPEDS (cycle_year = 2024)
-Standard phrase: **"IPEDS 2024-25 (provisional)"**
+## CDS phrasing: derive it, never assume it
 
-Add "provisional" every time. IPEDS publishes twice per cycle: Provisional first (full data, may be revised), then Final ~2 years later. Current data is Provisional. This means enrollment, test scores, and admit rates may still be revised.
+When you cite a CDS-sourced value (`get_domain`), the school name, edition,
+and page all come from the `Citation`/evidence you were actually given for
+that value — never from what you remember about the school or a prior turn.
+Phrase it plainly from those fields: "…per Duke's Common Data Set 2024-25,
+p. 7 [4]." If the citation names a different edition than you expected (a
+stale packet is in play — see below), say the edition you were actually
+given, not the one you assumed. Never state a school, edition, or page that
+isn't present on the envelope in front of you; if you need it and don't have
+it, that's a sign to re-read the domain, not to guess.
 
-In prose: "Duke enrolled X undergraduates [1] — IPEDS 2024-25 data, provisional."
+## The profile is identity, not a current metric
 
-### IPEDS (cycle_year = 2023)
-This covers financial aid data (SFA and Finance tables). Phrase: **"IPEDS 2023-24 financial-aid data"**
+`get_school_profile` facts (location, control, classification, official
+links, mission, HBCU/HSI/tribal designations, …) carry the `profile_snapshot`
+caveat on every leaf. Treat everything from the profile as **who the school
+is**, sealed at a point in time — never as a current, time-sensitive number.
+If a student's question is really about something that changes year to year
+(current tuition, this cycle's deadlines, this year's acceptance rate), the
+profile is the wrong source even if a same-named field exists there; route to
+`get_domain` or the web instead.
 
-### Scorecard (cycle_year = NULL — all Scorecard fields)
-Standard phrase: **"College Scorecard, published March 2026"**
+## Caveat kinds: voice them, don't re-author them
 
-The publication date comes from the filename in the data calendar. Always include it.
+Every envelope's `caveats` list gives you `{kind, text}` pairs, and `text` is
+already canonical, catalog-authored wording — not a draft for you to improve,
+shorten, or paraphrase. Use it verbatim, or weave it naturally into a sentence
+without changing its meaning or precision. Your job is *when and how often* to
+surface it, never *what it says*.
 
-### CDS (cycle_year = 2024)
-Standard phrase: **"2024-25 Common Data Set filed by the school"**
+Kinds you'll see, and when they matter to the student:
 
-CDS data is self-reported by the institution. It describes the fall-2024 entering class. Note: only 8 schools have extracted CDS data today. When citing CDS, note it's self-reported.
+- **`profile_snapshot`** — every profile fact. Mention once per section, not
+  after every single bullet; repeating it line-by-line is noise.
+- **`stale_edition`** — the packet is an older CDS edition than the current
+  one. Say this whenever you cite a metric from that packet — the number may
+  not reflect the school's current class.
+- **`partial_packet`** — the whole domain packet was only partially
+  extracted. Say this once near the top of that domain's section, so the
+  student knows some rows may simply be missing, not zero.
+- **`definition_drift`** — the source's definition of the metric differs from
+  the current manifest's definition. Voice this specifically for the metric
+  it attaches to; it changes how the number should be read, not just how
+  fresh it is.
+- **`not_in_template_version`** — see below; always voice this distinctly
+  from "not reported."
+- **`edition_mismatch_comparison`** — a cross-school comparison pulled
+  packets from different academic years or manifest versions. Say this once,
+  near the comparison, not per cell.
+- **`coverage_denominator`** — attaches to `query_database` aggregates.
+  Always state the covered/total split and the as-of date; never present an
+  aggregate as if it covers every school in the database.
 
-### Web / .edu sources
-Phrase format: **"Retrieved [Month DD, YYYY] (school's official site)"** or **"Retrieved [Month DD, YYYY] (live web)"**
+## Template absence is neither zero nor "not reported"
 
-The citation envelope carries the retrieval date. Use it.
+`not_in_template_version` means the CDS template edition that school filed
+does not have the row or column at all — the question was structurally
+unanswerable from that document, not that the school reported a zero or
+declined to answer. Never fold it into "not reported" or drop it silently.
+When you give a domain's availability summary ("N of M metrics verified"),
+state the `not_in_template_version` count as its own clause ("K aren't in
+this school's CDS edition") rather than lumping it into what's missing. Use
+the summary sentence you're given — it's built from the catalog for you —
+rather than recomputing your own count.
 
-### Reddit / community sources
-Never phrase as a fact. Always: "students on Reddit say…", "community sentiment on r/[sub] suggests…". Tier is `community`. Never convert to a statistic.
+## Sidebar and evidence behavior
 
-## The earnings-lag wording (always required)
+A citation marker resolves to a document-level sidebar entry (school +
+edition, official/community tier chip, acquisition/retrieval info). Clicking
+a value-level chip on a rendered cell scrolls to and highlights that value's
+own evidence item — page, section, row/column label, and the verbatim
+excerpt. A bare marker in prose resolves to the same document entry but shows
+every evidence item registered so far this turn, unhighlighted. You don't
+need to explain this mechanism to the student — just place markers correctly
+and let the sidebar do the rest. Don't repeat page numbers or excerpts
+yourself beyond natural phrasing ("p. 7"); the excerpt lives in the sidebar.
 
-Scorecard earnings figures reflect students who **entered years ago**, not current students. The lag by field window:
+## Official versus community tier
 
-- `earnings.*_4yr_*` → ~2022 entrants (publication year 2026 minus ~4 years)
-- `earnings.*_6yr_*` → ~2020 entrants
-- `earnings.*_10yr_*` → ~2016 entrants
-- `earnings.*_11yr_*` → ~2015 entrants
+Every citation carries a `tier`: `official` (profile, CDS, the school's own
+web/.edu pages) or `community` (Reddit). Never present a community-tier fact
+as if it were official — phrase it as sentiment, not statistic: "students on
+r/[sub] say…", never "the acceptance rate is…". When a `render_viz` table
+mixes tiers in adjacent cells, the renderer labels tier visibly per cell on
+its own; your prose should still make the distinction in words wherever a
+community number appears, so nothing reads as officially verified when it
+isn't.
 
-**Required phrasing every time you cite earnings:** "This reflects students who entered around [year], not current students."
+## What this skill does not cover
 
-Example: "Median earnings 4 years after completion were $68,000 [3] — College Scorecard, published March 2026. These figures reflect students who entered around 2022; outcomes for today's students may differ."
-
-Never omit this caveat. The student needs it to read the number correctly.
-
-## The provisional wording (required for IPEDS)
-
-Any IPEDS value may be revised. When the precision of a number matters (exact admit rate, exact enrollment), add: "(provisional — may be revised)".
-
-For casual references ("Duke is highly selective"), the qualifier is implied and you do not need to repeat it every sentence. Use judgment.
-
-## The data calendar — what each source covers
-
-The temporal context block in your system prompt contains the live data calendar from the database. Use it to decide when to go to the web:
-
-- **Within the source's cutoff**: answer from the DB, cite the vintage.
-- **Beyond the cutoff** (e.g., this year's specific deadlines, a policy that changed since publication): go to the web. Use `search_school_site` for official current information.
-- **Earnings**: always past data. State the entry cohort; do not pretend earnings reflect current conditions.
-
-## When to say "as of"
-
-Use "as of" for point-in-time facts that change over time:
-- "As of IPEDS 2024-25 (provisional), the acceptance rate was 3.6%."
-- "As of the March 2026 College Scorecard, median 10-year earnings were $X."
-
-Do not use "as of" for things that are not expected to change (Carnegie classification, HBCU status, whether a school offers CS bachelor's degrees).
-
-## Do not present national benchmarks as school-specific values
-
-Results from `query_database` are aggregate/candidate-analysis rows, not per-value citations. Never present an aggregate as a school's own value. State the computed-as-of date and covered-school denominator, and re-fetch named final values through a typed read.
+It never tells you *which* tool to call, *which* domains to read, or *how* to
+structure a dossier or comparison — that's `school-deep-dive` and
+`school-comparison`. It never gives you SQL — that's `db-recipes`. It only
+teaches how to phrase what you've already been given.

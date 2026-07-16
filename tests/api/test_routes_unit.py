@@ -103,6 +103,7 @@ def make_test_app(
         max_consumers_per_turn=8,
         stream_buffer_bytes=256 * 1024 * 1024,
         persist_partial_timeout_s=5.0,
+        current_admissions_cycle_year=2027,
     )
 
     # Default fake pools
@@ -873,7 +874,7 @@ def test_post_message_rejects_tampered_skill_before_claim_or_writes() -> None:
             f"/v1/sessions/{session_id}/messages",
             json={
                 "text": "Compare schools",
-                "skills": ["decode-coded-value"],
+                "skills": ["db-recipes"],
                 "source_config": {"web": True, "reddit": False, "edu": False},
             },
         )
@@ -898,11 +899,11 @@ def test_invalid_skill_attempt_still_spends_the_message_rate_limit() -> None:
     with TestClient(app, raise_server_exceptions=False) as tc:
         first = tc.post(
             f"/v1/sessions/{session_id}/messages",
-            json={"text": "Compare schools", "skills": ["decode-coded-value"]},
+            json={"text": "Compare schools", "skills": ["db-recipes"]},
         )
         second = tc.post(
             f"/v1/sessions/{session_id}/messages",
-            json={"text": "Compare schools", "skills": ["decode-coded-value"]},
+            json={"text": "Compare schools", "skills": ["db-recipes"]},
         )
 
     assert first.status_code == 422
@@ -919,7 +920,7 @@ def test_invalid_skill_logs_a_canonical_registry_reason() -> None:
     ):
         response = tc.post(
             f"/v1/sessions/{session_id}/messages",
-            json={"text": "Compare schools", "skills": ["decode-coded-value"]},
+            json={"text": "Compare schools", "skills": ["db-recipes"]},
         )
 
     assert response.status_code == 422
@@ -1016,14 +1017,14 @@ def test_config_exposes_only_public_skills_and_selection_limit_without_live_db()
     assert body["max_selected_skills"] == 3
     assert body["skills"] == [
         {
-            "name": "dossier-assembly",
-            "display_name": "School dossier",
-            "description": "Build a complete, cited overview of one school.",
-        },
-        {
             "name": "school-comparison",
             "display_name": "School comparison",
-            "description": "Compare 2–6 schools across cost, admissions, outcomes, and fit.",
+            "description": "Compare schools across cost, admissions, outcomes, and fit.",
+        },
+        {
+            "name": "school-deep-dive",
+            "display_name": "School deep dive",
+            "description": "Build a cited, in-depth look at one school.",
         },
     ]
 

@@ -27,7 +27,8 @@ def test_oversized_tool_result_spills_to_store_and_returns_reference() -> None:
 
     assert result["status"] == "overflow"
     handle = result["result_for_agent"]["handle"]
-    assert result["public_receipt"]["handle"] == handle
+    assert "handle" not in result["public_receipt"]
+    assert "chars" not in result["public_receipt"]
     assert result["result_for_agent"]["chars"] > 200
     assert result["result_for_agent"]["preview"]
     # Spill storage is a durable-safe copy (hidden evidence telemetry is
@@ -48,11 +49,25 @@ def test_oversized_search_result_preserves_public_receipt_metadata() -> None:
 
     assert result["status"] == "overflow"
     assert result["public_receipt"]["result_count"] == 2
-    assert result["public_receipt"]["domains"] == ["duke.edu", "admissions.duke.edu"]
-    assert result["public_receipt"]["source_results"] == [
-        {"url": "https://www.duke.edu/a", "title": "A"},
-        {"url": "https://admissions.duke.edu/b", "title": "B"},
-    ]
+    assert set(result["public_receipt"]) == {"result_count"}
+
+
+def test_oversized_resolve_candidates_preserves_safe_receipt() -> None:
+    store = ToolResultStore()
+    payload = {
+        "status": "candidates",
+        "candidates": [
+            {"unitid": 1, "name": "Washington University", "city": "x" * 500},
+            {"unitid": 2, "name": "University of Washington", "city": "y" * 500},
+        ],
+        "hint": "z" * 500,
+    }
+    result = reduce_tool_result(payload, store, max_chars=200)
+    assert result["public_receipt"] == {
+        "status": "candidates",
+        "result_count": 2,
+        "schools": ["Washington University", "University of Washington"],
+    }
 
 
 def test_oversized_result_preserves_public_receipt_ui() -> None:

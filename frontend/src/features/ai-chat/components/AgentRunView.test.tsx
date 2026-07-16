@@ -124,7 +124,7 @@ describe("ToolStepBeat", () => {
     );
 
     expect(screen.getByText("Reading the Common Data Set")).toBeInTheDocument();
-    expect(screen.getByText("1 value")).toBeInTheDocument();
+    expect(screen.getByText("1 value · Domain: admissions")).toBeInTheDocument();
     expect(screen.queryByText(/SELECT admission_rate/)).not.toBeInTheDocument();
     expect(screen.queryByText("Query")).not.toBeInTheDocument();
     expect(screen.queryByText(/admissions\.acceptance_rate/)).not.toBeInTheDocument();

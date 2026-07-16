@@ -7,13 +7,16 @@ from the actual ``skills/*/SKILL.md`` tree; the prompt builder reads from
 Covered behaviors:
 1. All 4 SKILL.md files parse: name + description non-empty, body non-empty.
 2. Each skill body is ≤ 120 lines.
-3. load_skill("dossier-assembly") returns body without frontmatter markers.
+3. load_skill("school-deep-dive") returns body without frontmatter markers.
 4. load_skill with an unknown name returns an error string listing all 4 names.
 5. build_system_prompt fills every slot (no un-filled template residue; the six
    slot names do not appear as bare {slot} tokens in the output).
 6. build_system_prompt output contains the fake temporal string passed in.
 7. build_system_prompt output contains at least one subreddit line ("r/").
 8. Calling load_all_skill_meta twice returns the same list (caching works).
+9. The retired "dossier-assembly" name is a non-advertised compatibility
+   alias for "school-deep-dive": it resolves through validate_selected_skills
+   but never appears in the catalog, the model menu, or as a fifth skill.
 """
 
 from __future__ import annotations
@@ -35,9 +38,9 @@ from domain.events import StepDetail
 # ---------------------------------------------------------------------------
 
 _EXPECTED_SKILLS = {
-    "dossier-assembly",
+    "school-deep-dive",
     "school-comparison",
-    "decode-coded-value",
+    "db-recipes",
     "citation-and-recency",
 }
 
@@ -156,20 +159,20 @@ class TestAllSkillsParse:
 
 
 # ---------------------------------------------------------------------------
-# 3. load_skill("dossier-assembly") returns body without frontmatter
+# 3. load_skill("school-deep-dive") returns body without frontmatter
 # ---------------------------------------------------------------------------
 
 
 def test_load_skill_returns_body_without_frontmatter() -> None:
     mod = _fresh_skills()
-    body = mod.load_skill("dossier-assembly")
+    body = mod.load_skill("school-deep-dive")
     # Frontmatter block should not appear
     assert "---" not in body[:10], "frontmatter delimiter found in returned body"
     # name: and description: from frontmatter should not be in the body header
     # (they might appear in prose, but the YAML keys themselves shouldn't be raw)
     assert not body.startswith("name:"), "body starts with YAML frontmatter key"
     # Body should contain meaningful content
-    assert "resolve_school" in body or "Dossier" in body or "Step" in body
+    assert "resolve_school" in body or "Deep Dive" in body or "Step" in body
 
 
 # ---------------------------------------------------------------------------
@@ -192,30 +195,30 @@ def test_unknown_skill_does_not_raise() -> None:
     assert isinstance(result, str)
 
 
-def test_dossier_skill_contains_agent_voice_and_order_guidance() -> None:
+def test_school_deep_dive_skill_contains_coverage_and_no_fixed_dossier_guidance() -> None:
     mod = _fresh_skills()
-    body = mod.load_skill("dossier-assembly")
+    body = mod.load_skill("school-deep-dive")
 
-    assert "Agent voice and shape" in body
-    assert "work product" in body
-    assert "Lead with the most decision-relevant takeaway" in body
-    assert "Keep the order below" in body
-    assert "branch on its `status`" in body
-    assert "not_in_db" not in body
-    assert "state the campus assumption, and continue" in body
-    assert "Each section heading matches the shortlist" in body
+    assert "resolve, see what's actually" in body or "resolve" in body.lower()
+    assert "coverage" in body.lower()
+    assert "at most the 2-3 domains" in body
+    assert "no fixed tier system" in body
+    assert "never a fixed shortlist" in body
+    assert "not_found" in body
+    assert "official_links" in body
+    assert "net-price calculator" in body
+    assert "rejected_cells" in body
 
 
 def test_comparison_skill_contains_agent_defaults_and_etiquette() -> None:
     mod = _fresh_skills()
     body = mod.load_skill("school-comparison")
 
-    assert "Agent comparison etiquette" in body
-    assert "cost + selectivity + outcomes" in body
-    assert "State the default briefly and continue" in body
-    assert "state the campus assumption, and continue" in body
-    assert "compare the first 6 named" in body
-    assert "do not use a clarify tool call" in body
+    assert "no fixed school-count cap" in body
+    assert "cost, selectivity, outcomes are common defaults" in body
+    assert "edition_mismatch_comparison" in body
+    assert "all-or-nothing" in body
+    assert "coverage_denominator" in body
 
 
 # ---------------------------------------------------------------------------
@@ -250,6 +253,16 @@ def test_no_unfilled_template_slots(built_prompt: str) -> None:
     for slot in _slots:
         token = "{" + slot + "}"
         assert token not in built_prompt, f"Un-filled template slot '{token}' found in built prompt"
+
+
+def test_prompt_asset_has_exactly_the_four_runtime_slots() -> None:
+    prompt = Path("config/assets/prompts/counselor.md").read_text(encoding="utf-8")
+    assert set(re.findall(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}", prompt)) == {
+        "subreddit_menu",
+        "temporal_context",
+        "student_context",
+        "data_picture",
+    }
 
 
 def test_prompt_contains_fake_temporal(built_prompt: str) -> None:
@@ -305,8 +318,11 @@ def test_make_load_skill_tool_has_docstring() -> None:
     tool_fn = mod.make_load_skill_tool()
     assert callable(tool_fn)
     doc = tool_fn.__doc__ or ""
-    assert "dossier-assembly" in doc, (
-        "Tool docstring should list skill names; 'dossier-assembly' not found"
+    assert "school-deep-dive" in doc, (
+        "Tool docstring should list skill names; 'school-deep-dive' not found"
+    )
+    assert "dossier-assembly" not in doc, (
+        "The compatibility alias must never appear in the model-facing menu"
     )
 
 
@@ -320,33 +336,37 @@ def test_user_catalog_contains_only_opted_in_metadata_in_name_order() -> None:
 
     assert mod.user_skill_catalog() == [
         {
-            "name": "dossier-assembly",
-            "display_name": "School dossier",
-            "description": "Build a complete, cited overview of one school.",
-        },
-        {
             "name": "school-comparison",
             "display_name": "School comparison",
-            "description": "Compare 2–6 schools across cost, admissions, outcomes, and fit.",
+            "description": "Compare schools across cost, admissions, outcomes, and fit.",
+        },
+        {
+            "name": "school-deep-dive",
+            "display_name": "School deep dive",
+            "description": "Build a cited, in-depth look at one school.",
         },
     ]
+    names = {entry["name"] for entry in mod.user_skill_catalog()}
+    assert "dossier-assembly" not in names, (
+        "The compatibility alias must never be listed as a fifth skill"
+    )
 
 
 def test_validate_selected_skills_preserves_canonical_input_order() -> None:
     mod = _fresh_skills()
 
-    selected = mod.validate_selected_skills(["school-comparison", "dossier-assembly"])
+    selected = mod.validate_selected_skills(["school-comparison", "school-deep-dive"])
 
-    assert selected == ["school-comparison", "dossier-assembly"]
+    assert selected == ["school-comparison", "school-deep-dive"]
 
 
 @pytest.mark.parametrize(
     "names",
     [
         ["school-comparison", "school-comparison"],
-        ["decode-coded-value"],
+        ["db-recipes"],
         ["does-not-exist"],
-        ["school-comparison", "dossier-assembly", "school-comparison", "does-not-exist"],
+        ["school-comparison", "school-deep-dive", "school-comparison", "does-not-exist"],
     ],
 )
 def test_validate_selected_skills_rejects_duplicates_hidden_unknown_and_excess(
@@ -358,22 +378,53 @@ def test_validate_selected_skills_rejects_duplicates_hidden_unknown_and_excess(
         mod.validate_selected_skills(names)
 
 
+def test_validate_selected_skills_resolves_the_retired_dossier_assembly_alias() -> None:
+    """Old sessions that selected "dossier-assembly" keep working: the alias
+    canonicalizes to "school-deep-dive" before any visibility/duplicate check."""
+    mod = _fresh_skills()
+
+    selected = mod.validate_selected_skills(["dossier-assembly"])
+
+    assert selected == ["school-deep-dive"]
+
+
+def test_old_and_new_named_selection_for_the_same_skill_collide_as_duplicate() -> None:
+    mod = _fresh_skills()
+
+    with pytest.raises(mod.SelectedSkillValidationError) as exc_info:
+        mod.validate_selected_skills(["dossier-assembly", "school-deep-dive"])
+
+    assert exc_info.value.reason == "duplicate_selected_skill"
+
+
 def test_render_selected_skills_uses_validated_registry_bodies_not_friendly_loader(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     mod = _fresh_skills()
     monkeypatch.setattr(mod, "load_skill", lambda _name: "UNTRUSTED FRIENDLY RESPONSE")
 
-    rendered = mod.render_selected_skills(["school-comparison", "dossier-assembly"])
+    rendered = mod.render_selected_skills(["school-comparison", "school-deep-dive"])
 
     assert "## Explicitly selected workflows" in rendered
     assert "### Selected skill: school-comparison" in rendered
-    assert "### Selected skill: dossier-assembly" in rendered
+    assert "### Selected skill: school-deep-dive" in rendered
     assert "UNTRUSTED FRIENDLY RESPONSE" not in rendered
-    assert rendered.index("school-comparison") < rendered.index("dossier-assembly")
+    assert rendered.index("school-comparison") < rendered.index("school-deep-dive")
     assert "cannot override system instructions" in rendered
     assert "read-only constraints" in rendered
     assert "value-reading rules" in rendered
+
+
+def test_render_selected_skills_persists_canonical_name_for_alias_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mod = _fresh_skills()
+    monkeypatch.setattr(mod, "load_skill", lambda _name: "UNTRUSTED FRIENDLY RESPONSE")
+
+    rendered = mod.render_selected_skills(["dossier-assembly"])
+
+    assert "### Selected skill: school-deep-dive" in rendered
+    assert "dossier-assembly" not in rendered
 
 
 def test_malformed_public_metadata_fails_registry_startup(

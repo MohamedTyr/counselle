@@ -2,6 +2,15 @@
 
 **Status:** Accepted
 
+> **Old-data note (ADR 0032):** the layered shape below — safe typed tools plus a
+> guarded SQL escape hatch — still holds, but the specific tool roster and field
+> counts describe the retired wide field store. The current surface is exactly four
+> tools: `resolve_school`, `get_school_profile`, `get_domain`, and guarded
+> `query_database`. There is no separate field-discovery layer (`search_fields` is
+> gone — the manifest is the dynamic catalog) and no `get_dossier` /
+> `national_benchmark` / `get_diversity` style tool set. See `DATABASE_GUIDE.md` for
+> the current contract.
+
 ## Context
 The PRD wants the agent to "do any search it wants / full control" over the DB, intuitively, without getting overwhelmed by 1,000+ fields — while never misreading values. Raw SQL gives full power but risks misreads; curated tools are safe but rigid. The HTTP API can't rank/filter/aggregate.
 

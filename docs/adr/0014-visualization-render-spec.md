@@ -1,6 +1,17 @@
 # ADR 0014 — Visualizations: render-spec contract & data-provenance boundary
 
-**Status:** Accepted (score_band removed — superseded on that point by ADR 0024)
+**Status:** Accepted (score_band removed — superseded on that point by ADR 0024; verified two-channel rendering amended by ADR 0032)
+
+> **Amendment (ADR 0032):** the core data-provenance boundary below — numbers never
+> round-trip through the LLM's tokens — still holds, but its mechanism is now verified
+> two-channel rendering rather than citation-envelope field keys. A viz-v2 cell is
+> either a verified metric ref (`<domain_id>.<metric_id>`) or profile ref, fetched by
+> code through the packet/profile boundary; a registered external value carrying its
+> own provenance; or explicit `unavailable`. There is no `search_fields` catalog, no
+> "field ownership per viz" over legacy field keys, and no CDS-tier/score-band field
+> menu — see `DATABASE_GUIDE.md` and ADR 0032 for the current contract. `RenderSpec`
+> itself is further amended by ADR 0024 (closed set) and this note (open known/opaque
+> seam).
 
 ## Context
 The PRD requires the agent to show visualizations (tables, charts) — e.g. a 2-school comparison. Two questions were open: (1) the catalog of visualization types in scope, and (2) for each, **what data the AI provides vs. what the visualization gets automatically** — i.e. whether numbers flow through the LLM or come straight from the data layer. The data is the product and honesty is non-negotiable (principle 3), so where the numbers come from is a correctness decision, not a UI detail.

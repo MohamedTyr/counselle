@@ -1,41 +1,18 @@
-"""The eval runner — replays evals/questions.yaml through ``run_turn`` (Phase 7 Slice A).
-
-Each question gets a fresh session (``app.sessions.create_session``) and one
-real turn against the live runtime (real Gemini + DB; Tavily only for
-questions tagged ``web: true``; Reddit always off). The runner captures the
-full event stream, the tool calls (from the thread's serialized messages),
-and the source registry, then scores:
-
-- **mechanically** where possible — tool-called, field-key, viz-type/school,
-  clarify-event, and display-value assertions;
-- **via a cheap-model judge** (``settings.model_cheap``, prompt in
-  ``evals/judge.md``) for the honesty prose criteria.
-
-Output: ``evals/report-<date>.json`` + ``evals/report-<date>.md`` and the
-markdown summary on stdout. There is NO pass threshold (PRD story 58) — the
-report is the deliverable; failures get eyeballed by the orchestrator.
-
-Run::
-
-    uv run python -m evals.runner                 # the full set (slow, costs money)
-    uv run python -m evals.runner --only fact-duke-acceptance
-    uv run python -m evals.runner --type honesty
-
-Eval sessions are deliberately left in the DB (they are cheap and useful for
-post-mortems).
-"""
+"""Live, contract-derived evaluation runner for the db-rewire agent surface."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
+import math
 import re
+import statistics
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
 import structlog
@@ -52,751 +29,572 @@ from app.workspace.service_documents import create_document
 from app.workspace.service_memory import create_memories
 from config.logging import setup_logging
 from config.settings import get_settings
+from counselle_db.service import get_domain
 from domain.events import Event
 from domain.specs import SourceConfig
 
 logger = structlog.get_logger(__name__)
-
 EVALS_DIR = Path(__file__).parent
 QUESTIONS_PATH = EVALS_DIR / "questions.yaml"
 JUDGE_PROMPT_PATH = EVALS_DIR / "judge.md"
-
-QUESTION_TYPES = (
-    "fact",
-    "field-selection",
-    "clarify-judgment",
-    "honesty",
-    "comparison-viz",
-    "narration-quality",
-    "workspace-task",
-)
-
-#: Default set of tools that can carry a fact's value (plan: get_values/get_dossier;
-#: compare/benchmark/SQL are legitimate value-bearing paths too).
-VALUE_BEARING_TOOLS = frozenset(
-    {"get_values", "get_dossier", "compare_schools", "national_benchmark", "query_database"}
-)
-#: Hard per-question wall clock — a hung turn must not stall the whole run.
 QUESTION_TIMEOUT_S = 600
-
-
-# ---------------------------------------------------------------------------
-# The judge (cheap model; prompt in evals/judge.md)
-# ---------------------------------------------------------------------------
+QUESTION_TYPES = (
+    "routing",
+    "coverage_honesty",
+    "edition_caveat",
+    "composition",
+    "denominator_honesty",
+    "honesty",
+    "clarify_judgment",
+    "narration_quality",
+    "workspace_task",
+)
+#: Every tool name §5.6 of the design doc cut or replaced by this rewire — a
+#: hit here on any eval turn is a code bug (a stale tool binding), never a
+#: prompt-tuning issue.
+OLD_DB_TOOLS = frozenset(
+    {
+        "find_schools",
+        "find_fields",
+        "get_values",
+        "get_dossier",
+        "compare_schools",
+        "national_benchmark",
+        "search_metrics",
+        "get_metrics",
+        "get_data_coverage",
+        "get_programs",
+        "get_diversity",
+        "get_data_calendar",
+    }
+)
 
 
 class CriterionVerdict(BaseModel):
-    """One yes/no verdict with verbatim evidence (the judge.md contract)."""
-
     criterion: str
     verdict: Literal["yes", "no"]
     evidence: str
 
 
 class JudgeOutput(BaseModel):
-    """The judge's full structured answer: one verdict per criterion, in order."""
-
     verdicts: list[CriterionVerdict]
 
 
 def build_judge_agent(settings: Any) -> Any:
-    """The cheap-model judge agent (same Vertex Express auth path as the counselor)."""
     from pydantic_ai import Agent
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
     if not settings.vertex_api_key:
-        raise RuntimeError("COUNSELLE_VERTEX_API_KEY is not set — the judge cannot authenticate")
+        raise RuntimeError("COUNSELLE_VERTEX_API_KEY is not set")
     model = GoogleModel(
         model_name_from_setting(settings.model_cheap),
         provider=GoogleCloudProvider(api_key=settings.vertex_api_key),
     )
-    return Agent(
-        model,
-        instructions=JUDGE_PROMPT_PATH.read_text(encoding="utf-8"),
-        output_type=JudgeOutput,
+    return Agent(model, instructions=JUDGE_PROMPT_PATH.read_text(), output_type=JudgeOutput)
+
+
+@dataclass(frozen=True)
+class EvalSchool:
+    unitid: int
+    name: str
+    domains: tuple[str, ...]
+    year: int | None
+    currentness: str | None
+    partials: int
+
+
+@dataclass(frozen=True)
+class EvalContext:
+    manifest_version: str
+    domains: tuple[str, ...]
+    covered: int
+    total: int
+    stale_partial: EvalSchool
+    profile_only: EvalSchool
+    common_a: EvalSchool
+    common_b: EvalSchool
+    common_domain: str
+    common_metric_ref: str
+    stat_metric_refs: tuple[str, ...]
+    not_in_template_available: bool
+    not_in_template_school: str | None = None
+    not_in_template_domain: str | None = None
+    not_in_template_ref: str | None = None
+
+    def substitutions(self) -> dict[str, str]:
+        return {
+            "manifest_version": self.manifest_version,
+            "covered": str(self.covered),
+            "total": str(self.total),
+            "stale_partial": self.stale_partial.name,
+            "profile_only": self.profile_only.name,
+            "common_a": self.common_a.name,
+            "common_b": self.common_b.name,
+            "common_domain": self.common_domain,
+            "common_metric_ref": self.common_metric_ref,
+            "stat_metric_refs": ", ".join(self.stat_metric_refs),
+            "not_in_template_school": self.not_in_template_school or "",
+            "not_in_template_domain": self.not_in_template_domain or "",
+            "not_in_template_ref": self.not_in_template_ref or "",
+        }
+
+
+def _school(snapshot: Any, unitid: int) -> EvalSchool:
+    record = snapshot.schools[unitid]
+    coverage = snapshot.coverage.get(unitid, {})
+    return EvalSchool(
+        unitid,
+        record.basics.name,
+        tuple(coverage.get("domains", ())),
+        coverage.get("academic_year"),
+        coverage.get("currentness"),
+        int(coverage.get("partials", 0)),
     )
 
 
-# ---------------------------------------------------------------------------
-# Turn capture — events + tool calls + registry, structurally accessed
-# ---------------------------------------------------------------------------
+async def build_eval_context(runtime: Runtime) -> EvalContext:
+    """Choose fixture roles from the current immutable catalog snapshot."""
+    snapshot = runtime.deps.catalog.snapshot
+    covered_ids = [uid for uid, row in snapshot.coverage.items() if row.get("domains")]
+    profile_only_ids = [
+        uid for uid in snapshot.schools if not snapshot.coverage.get(uid, {}).get("domains")
+    ]
+    stale_partial_ids = [
+        uid
+        for uid in covered_ids
+        if snapshot.coverage[uid].get("currentness") == "stale"
+        and snapshot.coverage[uid].get("partials", 0) > 0
+    ]
+    if not profile_only_ids or not covered_ids:
+        raise RuntimeError("live catalog lacks required covered/profile-only eval roles")
+    if not stale_partial_ids:
+        raise RuntimeError(
+            "live catalog lacks a school whose selected edition is stale and partial"
+        )
+    stale_id = stale_partial_ids[0]
+
+    # Verify the common metric through the real typed reader, not packet internals.
+    common: tuple[int, int, str, str, tuple[str, ...]] | None = None
+    by_domain: dict[str, list[int]] = {}
+    for uid in covered_ids:
+        for domain in snapshot.coverage[uid]["domains"]:
+            by_domain.setdefault(domain, []).append(uid)
+    for domain in (item.id for item in snapshot.domains):
+        candidates = by_domain.get(domain, [])[:12]
+        if len(candidates) < 2:
+            continue
+        verified: dict[str, list[int]] = {}
+        numeric_refs: dict[int, list[str]] = {}
+        for uid in candidates:
+            result = await get_domain(runtime.deps.catalog, uid, domain)
+            for value in result.rows:
+                if value.available:
+                    verified.setdefault(value.ref, []).append(uid)
+                    if isinstance(value.value, int | float) and not isinstance(value.value, bool):
+                        numeric_refs.setdefault(uid, []).append(value.ref)
+        pair = next(((ref, ids) for ref, ids in verified.items() if len(ids) >= 2), None)
+        if pair:
+            stat_refs = tuple(numeric_refs.get(pair[1][0], ()))[:4]
+            if len(stat_refs) < 4:
+                continue
+            common = (pair[1][0], pair[1][1], domain, pair[0], stat_refs)
+            break
+    if common is None:
+        raise RuntimeError("live catalog has no two schools with a common verified metric")
+
+    # The deterministic packet-v8 fixture owns the permanent template-absence gate.
+    # Live coverage records it only when the current database honestly contains it.
+    async with runtime.ro_pool.acquire() as conn:
+        template_row = await conn.fetchrow(
+            """SELECT p.name, d.domain_id, metric.key AS metric_id
+               FROM cds_library.active_cds_domain_packets d
+               JOIN cds_library.school_profiles p ON p.id = d.school_id
+               CROSS JOIN LATERAL jsonb_each(d.packet -> 'metrics') AS metric(key, value)
+               WHERE metric.value ->> 'availability_status' = $1
+               ORDER BY p.id, d.domain_id, metric.key
+               LIMIT 1""",
+            "not_in_template_version",
+        )
+    return EvalContext(
+        snapshot.current_version,
+        tuple(d.id for d in snapshot.domains),
+        len(covered_ids),
+        len(snapshot.schools),
+        _school(snapshot, stale_id),
+        _school(snapshot, profile_only_ids[0]),
+        _school(snapshot, common[0]),
+        _school(snapshot, common[1]),
+        common[2],
+        common[3],
+        common[4],
+        template_row is not None,
+        str(template_row["name"]) if template_row else None,
+        str(template_row["domain_id"]) if template_row else None,
+        f"{template_row['domain_id']}.{template_row['metric_id']}" if template_row else None,
+    )
 
 
 @dataclass
 class TurnCapture:
-    """Everything one eval turn produced, ready for the scorers."""
-
     events: list[Event]
     prose: str
     tool_calls: list[dict[str, Any]]
-    tool_returns: list[dict[str, Any]]  # {tool_name, content}, structurally (not blob-only)
-    args_blob: str  # all tool-call args, JSON-dumped (field-key needle search)
-    returns_blob: str  # all tool-return contents, JSON-dumped
+    tool_returns: list[dict[str, Any]]
     sources: list[dict[str, Any]]
     vizzes: list[dict[str, Any]]
     clarifies: list[dict[str, Any]]
     done_status: str | None
     errored: bool
+    errors: list[dict[str, Any]]
     usage: dict[str, Any] | None
 
 
-@dataclass(frozen=True)
-class ToolRound:
-    """A visible group of step events that starts when the first step opens."""
-
-    start: int
-    end: int | None
-    closed: bool
-
-
-def _extract_tool_calls(raw_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """All tool-call parts from the thread's serialized ModelMessages."""
-    calls: list[dict[str, Any]] = []
-    for message in raw_messages:
-        for part in message.get("parts") or []:
-            if part.get("part_kind") == "tool-call":
-                calls.append({"tool_name": part.get("tool_name"), "args": part.get("args")})
-    return calls
+def _parts(messages: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
+    return [
+        part
+        for message in messages
+        for part in (message.get("parts") or [])
+        if part.get("part_kind") == kind
+    ]
 
 
-def _extract_returns_blob(raw_messages: list[dict[str, Any]]) -> str:
-    """All tool-return contents as one JSON blob (envelope field-key search)."""
-    chunks: list[str] = []
-    for message in raw_messages:
-        for part in message.get("parts") or []:
-            if part.get("part_kind") == "tool-return":
-                chunks.append(json.dumps(part.get("content"), default=str))
-    return "\n".join(chunks)
-
-
-def _extract_tool_returns(raw_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """All tool-return parts, tool name + content, structurally (not just the blob).
-
-    Needed for checks that must correlate a created item's DB-assigned id (only
-    available in the tool *return*, never in the create call's args) back to a
-    later tool call that references that id — e.g. confirming a specific created
-    activity was the one reordered to rank 1.
-    """
-    returns: list[dict[str, Any]] = []
-    for message in raw_messages:
-        for part in message.get("parts") or []:
-            if part.get("part_kind") == "tool-return":
-                returns.append({"tool_name": part.get("tool_name"), "content": part.get("content")})
-    return returns
-
-
-def capture_turn(events: list[Event], raw_messages: list[dict[str, Any]]) -> TurnCapture:
-    """Assemble the capture from the event stream + the thread's messages."""
-    sources_events = [event for event in events if event.type == "sources"]
-    usage_events = [event for event in events if event.type == "usage"]
-    done_events = [event for event in events if event.type == "done"]
-    tool_calls = _extract_tool_calls(raw_messages)
+def capture_turn(events: list[Event], messages: list[dict[str, Any]]) -> TurnCapture:
+    calls = [
+        {"tool_name": p.get("tool_name"), "args": p.get("args") or {}}
+        for p in _parts(messages, "tool-call")
+    ]
+    returns = [
+        {"tool_name": p.get("tool_name"), "content": p.get("content")}
+        for p in _parts(messages, "tool-return")
+    ]
+    sources = [e for e in events if e.type == "sources"]
+    done = [e for e in events if e.type == "done"]
+    usage = [e for e in events if e.type == "usage"]
     return TurnCapture(
-        events=events,
-        prose="".join(event.data["text"] for event in events if event.type == "delta"),
-        tool_calls=tool_calls,
-        tool_returns=_extract_tool_returns(raw_messages),
-        args_blob=json.dumps([call["args"] for call in tool_calls], default=str),
-        returns_blob=_extract_returns_blob(raw_messages),
-        sources=list(sources_events[-1].data["sources"]) if sources_events else [],
-        vizzes=[event.data for event in events if event.type == "viz"],
-        clarifies=[event.data for event in events if event.type == "clarify"],
-        done_status=str(done_events[-1].data["status"]) if done_events else None,
-        errored=any(event.type == "error" for event in events),
-        usage=dict(usage_events[-1].data) if usage_events else None,
+        events,
+        "".join(e.data["text"] for e in events if e.type == "delta"),
+        calls,
+        returns,
+        list(sources[-1].data["sources"]) if sources else [],
+        [e.data for e in events if e.type == "viz"],
+        [e.data for e in events if e.type == "clarify"],
+        str(done[-1].data["status"]) if done else None,
+        any(e.type == "error" for e in events),
+        [dict(e.data) for e in events if e.type == "error"],
+        dict(usage[-1].data) if usage else None,
     )
-
-
-# ---------------------------------------------------------------------------
-# Mechanical assertions
-# ---------------------------------------------------------------------------
 
 
 def _check(passed: bool, detail: str) -> dict[str, Any]:
     return {"passed": passed, "detail": detail}
 
 
-def value_in_prose(value: str, prose: str) -> bool:
-    """Display-value match with numeric and textual boundary guards."""
-    norm_value = value.replace(",", "")
-    norm_prose = prose.replace(",", "")
-    if not re.search(r"\d", norm_value):
-        return _text_contains_phrase(norm_prose, norm_value)
-    pattern = re.compile(
-        r"(?<![\d.])" + re.escape(norm_value) + r"(?!(?:\d|\.\d))",
-        re.IGNORECASE,
-    )
-    if pattern.search(norm_prose):
-        return True
-    if norm_value.startswith("-"):  # "-$2,610" may be rendered "negative $2,610"
-        unsigned = re.compile(
-            r"(?<![\d.])" + re.escape(norm_value[1:]) + r"(?!(?:\d|\.\d))",
-            re.IGNORECASE,
+def _calls(capture: TurnCapture, name: str) -> list[dict[str, Any]]:
+    return [c for c in capture.tool_calls if c["tool_name"] == name]
+
+
+def _return_payloads(capture: TurnCapture, name: str) -> list[dict[str, Any]]:
+    return [
+        r["content"]
+        for r in capture.tool_returns
+        if r["tool_name"] == name and isinstance(r["content"], dict)
+    ]
+
+
+def _caveat_kinds(capture: TurnCapture) -> set[str]:
+    found: set[str] = set()
+    for result in capture.tool_returns:
+        text = json.dumps(result["content"], default=str)
+        found.update(re.findall(r'"kind"\s*:\s*"([a-z0-9_]+)"', text))
+    return found
+
+
+def _markers(text: str) -> list[str]:
+    return re.findall(r"\[[1-9]\d*\]", text)
+
+
+def _safe_event_summary(capture: TurnCapture) -> str:
+    lines = [f"done={capture.done_status}; errored={capture.errored}"]
+    returns = {
+        name: list(payloads)
+        for name in {r["tool_name"] for r in capture.tool_returns}
+        if (payloads := _return_payloads(capture, name))
+    }
+    for index, call in enumerate(capture.tool_calls, 1):
+        name, args = str(call["tool_name"]), call["args"]
+        safe_args = {k: args[k] for k in ("query", "unitid", "groups", "domain_id") if k in args}
+        payload = (returns.get(name) or [{}]).pop(0)
+        status = payload.get("status") or ("ok" if payload.get("ok", True) else "error")
+        lines.append(f"tool {index}: {name} args={safe_args} status={status}")
+    lines.append(f"caveat kinds: {sorted(_caveat_kinds(capture))}")
+    lines.append(f"answer markers: {len(_markers(capture.prose))}")
+    for viz in capture.vizzes:
+        columns = [{k: c.get(k) for k in ("unitid", "name")} for c in viz.get("columns", [])]
+        cells = [
+            {
+                "available": c.get("available"),
+                "source": (c.get("citation") or {}).get("source"),
+                "tier": (c.get("citation") or {}).get("tier"),
+            }
+            for row in viz.get("rows", [])
+            for c in row.get("cells", [])
+        ]
+        lines.append(
+            f"viz: type={viz.get('type')} columns={columns} cells={cells} ack={viz.get('ack')}"
         )
-        return bool(unsigned.search(norm_prose))
-    return False
+    for source in capture.sources:
+        citation = source.get("citation") or {}
+        lines.append(
+            f"source [{source.get('index')}]: "
+            f"source={citation.get('source')} tier={citation.get('tier')}"
+        )
+    denominator = re.findall(r"\b\d[\d,]*\s+(?:of|out of)\s+\d[\d,]*\b", capture.prose, re.I)
+    as_of = re.findall(r"\bas of\b[^.;\n]*", capture.prose, re.I)
+    lines.append(f"aggregate statements: denominator={denominator}; as_of={as_of}")
+    return "\n".join(lines)
 
 
-def _fields_seen(fields: list[str], capture: TurnCapture) -> list[str]:
-    """Which of the given field keys appear in tool-call args or tool returns."""
-    haystack = capture.args_blob + "\n" + capture.returns_blob
-    return [field for field in fields if field in haystack]
-
-
-def score_fact(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
-    """Fact: a value-bearing DB tool ran, a preferred field was used, display matches."""
-    tools = set(expects.get("tools") or VALUE_BEARING_TOOLS)
-    called = {call["tool_name"] for call in capture.tool_calls}
-    fields = list(expects.get("fields") or [])
-    seen = _fields_seen(fields, capture)
-    values = [str(value) for value in expects.get("values") or []]
-    matched = [value for value in values if value_in_prose(value, capture.prose)]
-    return {
-        "db_tool_called": _check(
-            bool(called & tools), f"value-bearing tools called: {sorted(called & tools)}"
-        ),
-        "field_used": _check(bool(seen), f"expected one of {fields}; saw {seen}"),
-        "value_in_prose": _check(
-            bool(matched), f"expected one of {values} in prose; matched {matched}"
-        ),
-    }
-
-
-def score_field_selection(
-    expects: dict[str, Any], capture: TurnCapture
-) -> dict[str, dict[str, Any]]:
-    """Field-selection: the right field appears; the trap field is never requested."""
-    field_in = list(expects.get("field_in") or [])
-    field_not = list(expects.get("field_not") or [])
-    seen = _fields_seen(field_in, capture)
-    # Trap fields are checked against tool-call ARGS only — a dossier RETURN may
-    # legitimately bundle a sibling field the agent never asked for.
-    trapped = [field for field in field_not if field in capture.args_blob]
+def score_routing(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
+    called = [str(c["tool_name"]) for c in capture.tool_calls]
+    expected = list(expects.get("tools") or [])
     checks = {
-        "right_field": _check(bool(seen), f"expected one of {field_in}; saw {seen}"),
+        "tools_called": _check(
+            all(t in called for t in expected), f"expected {expected}; called {called}"
+        )
     }
-    if field_not:
-        checks["trap_field_avoided"] = _check(
-            not trapped, f"forbidden fields requested: {trapped or 'none'}"
+    if expects.get("order"):
+        positions = [called.index(t) for t in expects["order"] if t in called]
+        checks["tool_order"] = _check(
+            len(positions) == len(expects["order"]) and positions == sorted(positions),
+            f"order={called}",
+        )
+    if expects.get("domain_role") == "common":
+        selected = [c["args"].get("domain_id") for c in _calls(capture, "get_domain")]
+        checks["domain_selected"] = _check(expects["domain_id"] in selected, f"domains={selected}")
+    return checks
+
+
+def score_composition(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
+    checks: dict[str, dict[str, Any]] = {}
+    if expects.get("viz_type"):
+        matching = [v for v in capture.vizzes if v.get("type") == expects["viz_type"]]
+        checks["viz_rendered"] = _check(
+            bool(matching), f"viz types={[v.get('type') for v in capture.vizzes]}"
+        )
+    if expects.get("require_null_unitid"):
+        columns = [c for v in capture.vizzes for c in v.get("columns", [])]
+        checks["null_unitid_web_column"] = _check(
+            any(c.get("unitid") is None for c in columns), f"columns={columns}"
+        )
+    if expects.get("require_unavailable"):
+        cells = [
+            c for v in capture.vizzes for row in v.get("rows", []) for c in row.get("cells", [])
+        ]
+        checks["unavailable_hole"] = _check(
+            any(c.get("available") is False and c.get("citation") is None for c in cells),
+            "unavailable cell must be inert",
+        )
+    if capture.vizzes:
+        available_cells = [
+            c
+            for v in capture.vizzes
+            for row in v.get("rows", [])
+            for c in row.get("cells", [])
+            if c.get("available")
+        ]
+        missing_tier = [c for c in available_cells if not (c.get("citation") or {}).get("tier")]
+        checks["cell_provenance_tier"] = _check(
+            not missing_tier, f"available cells missing a visible tier: {missing_tier}"
+        )
+    checks["source_presence"] = _check(
+        bool(capture.sources) or bool(expects.get("allow_no_sources")),
+        f"sources={len(capture.sources)}",
+    )
+    return checks
+
+
+def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
+    checks: dict[str, dict[str, Any]] = {}
+    if expects.get("no_profile_metric"):
+        profile_calls = _calls(capture, "get_school_profile")
+        domain_calls = _calls(capture, "get_domain")
+        checks["no_profile_as_metric"] = _check(
+            bool(domain_calls) or not expects.get("metric_required", True),
+            f"profile calls={len(profile_calls)}; domain calls={len(domain_calls)}",
+        )
+    if expects.get("template_absence_live"):
+        wanted_domain = expects.get("domain_id")
+        wanted_ref = expects.get("metric_ref")
+        domain_calls = _calls(capture, "get_domain")
+        payloads = _return_payloads(capture, "get_domain")
+        has_call = any(call["args"].get("domain_id") == wanted_domain for call in domain_calls)
+        has_row = any(
+            row.get("ref") == wanted_ref
+            and row.get("availability_status") == "not_in_template_version"
+            for payload in payloads
+            for row in payload.get("rows", [])
+            if isinstance(row, dict)
+        )
+        checks["template_absence_live_evidence"] = _check(
+            has_call and has_row,
+            f"domain={wanted_domain}; ref={wanted_ref}; called={has_call}; evidenced={has_row}",
+        )
+    if expects.get("caveat_kinds"):
+        kinds = _caveat_kinds(capture)
+        wanted = set(expects["caveat_kinds"])
+        checks["caveat_kinds"] = _check(
+            wanted <= kinds, f"wanted={sorted(wanted)} got={sorted(kinds)}"
+        )
+    if expects.get("denominator"):
+        has_denominator = bool(
+            re.search(r"\b\d[\d,]*\s+(?:of|out of)\s+\d[\d,]*\b", capture.prose, re.I)
+        )
+        checks["denominator"] = _check(has_denominator, "expected covered/total statement")
+    if expects.get("markers"):
+        checks["marker_presence"] = _check(
+            bool(_markers(capture.prose)), f"markers={_markers(capture.prose)}"
         )
     return checks
 
 
 def score_clarify(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
-    """Clarify-judgment: did a clarify event fire (or not), as expected."""
     must = bool(expects.get("must_clarify"))
-    fired = bool(capture.clarifies)
-    detail = f"clarify events: {len(capture.clarifies)}; done={capture.done_status}"
-    if must:
-        return {"clarify_fired": _check(fired and capture.done_status == "awaiting_input", detail)}
-    return {"no_clarify": _check(not fired and capture.done_status == "complete", detail)}
-
-
-def score_viz(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
-    """Comparison/viz: the right viz type rendered with all the expected schools."""
-    viz_type = expects.get("viz_type")
-    wanted = set(expects.get("unitids") or [])
-    rendered = [
-        (viz["type"], {school["unitid"] for school in viz["schools"]}) for viz in capture.vizzes
-    ]
-    hit = any(kind == viz_type and wanted <= unitids for kind, unitids in rendered)
+    asks_in_prose = bool(re.search(r"\?\s*$", capture.prose.strip())) and bool(
+        re.search(r"\b(which|do you mean|could you clarify|campus)\b", capture.prose, re.I)
+    )
+    clarified = bool(capture.clarifies) or asks_in_prose
+    passed = clarified if must else not clarified
     return {
-        "viz_rendered": _check(
-            hit, f"expected {viz_type} with unitids ⊇ {sorted(wanted)}; got {rendered}"
+        "clarify_judgment": _check(
+            passed, f"clarify_events={len(capture.clarifies)}; prose_clarification={asks_in_prose}"
         )
     }
 
 
-def _narration_beats(capture: TurnCapture) -> list[tuple[int, str]]:
-    """Ordered narration events with non-empty text."""
-    return [
-        (index, str(event.data.get("text") or "").strip())
-        for index, event in enumerate(capture.events)
-        if event.type == "narration" and str(event.data.get("text") or "").strip()
-    ]
-
-
-def _sentence_count(text: str) -> int:
-    """Small deterministic sentence counter for narration-length gating."""
-    stripped = text.strip()
-    if not stripped:
-        return 0
-    endings = re.findall(r"[.!?]+(?:\s+|$)", stripped)
-    return max(1, len(endings))
-
-
-def _tool_rounds(capture: TurnCapture) -> list[ToolRound]:
-    """Return event-index ranges for visible tool rounds, grouped by open steps."""
-    rounds: list[ToolRound] = []
-    active: set[str] = set()
-    round_start: int | None = None
-    for index, event in enumerate(capture.events):
-        if event.type != "step":
-            continue
-        status = str(event.data.get("status") or "")
-        step_id = str(event.data.get("step_id") or index)
-        if status == "start":
-            if not active:
-                round_start = index
-            active.add(step_id)
-        elif status in {"end", "error"}:
-            active.discard(step_id)
-            if not active and round_start is not None:
-                rounds.append(ToolRound(start=round_start, end=index, closed=True))
-                round_start = None
-    if round_start is not None:
-        rounds.append(ToolRound(start=round_start, end=None, closed=False))
-    return rounds
-
-
-def _forbidden_narration_values(expects: dict[str, Any]) -> list[str]:
-    """Configured answer/value strings that must not leak into work narration."""
-    raw_values = [
-        *(expects.get("values") or []),
-        *(expects.get("narration_forbidden_values") or []),
-        *(expects.get("forbidden_values") or []),
-    ]
-    values = [str(value).strip() for value in raw_values if str(value).strip()]
-    return list(dict.fromkeys(values))
-
-
-def _forbidden_narration_phrases(expects: dict[str, Any]) -> list[str]:
-    raw_phrases = [
-        *(expects.get("narration_forbidden_phrases") or []),
-        *(expects.get("answer_forbidden_phrases") or []),
-        *(expects.get("forbidden_phrases") or []),
-    ]
-    phrases = [str(phrase).strip() for phrase in raw_phrases if str(phrase).strip()]
-    return list(dict.fromkeys(phrases))
-
-
-def _text_contains_phrase(text: str, phrase: str) -> bool:
-    if not phrase:
-        return False
-    pattern = re.compile(r"(?<![\w-])" + re.escape(phrase) + r"(?![\w-])", re.IGNORECASE)
-    return bool(pattern.search(text))
-
-
-def _narration_forbidden_hits(
-    beats: list[tuple[int, str]], expects: dict[str, Any]
-) -> list[str]:
-    hits: list[str] = []
-    for _index, text in beats:
-        for value in _forbidden_narration_values(expects):
-            if value_in_prose(value, text):
-                hits.append(value)
-        for phrase in _forbidden_narration_phrases(expects):
-            if _text_contains_phrase(text, phrase):
-                hits.append(phrase)
-    return list(dict.fromkeys(hits))
-
-
-def _delta_indexes(capture: TurnCapture) -> list[int]:
-    return [index for index, event in enumerate(capture.events) if event.type == "delta"]
-
-
-def _premature_delta_indexes(capture: TurnCapture, rounds: list[ToolRound]) -> list[int]:
-    """Final-answer deltas emitted before all visible tool activity is closed."""
-    active: set[str] = set()
-    while_open: list[int] = []
-    for index, event in enumerate(capture.events):
-        if event.type == "step":
-            status = str(event.data.get("status") or "")
-            step_id = str(event.data.get("step_id") or index)
-            if status == "start":
-                active.add(step_id)
-            elif status in {"end", "error"}:
-                active.discard(step_id)
-        elif event.type == "delta" and active:
-            while_open.append(index)
-
-    last_tool_index = max(
-        (round_.end if round_.end is not None else len(capture.events) - 1 for round_ in rounds),
-        default=None,
-    )
-    before_final_tool_done = [
-        index
-        for index in _delta_indexes(capture)
-        if last_tool_index is not None and index < last_tool_index
-    ]
-    return list(dict.fromkeys([*while_open, *before_final_tool_done]))
-
-
-def _failure_indexes(capture: TurnCapture) -> list[int]:
-    failures: list[int] = []
-    for index, event in enumerate(capture.events):
-        if event.type == "error" or (
-            event.type == "step" and event.data.get("status") == "error"
-        ):
-            failures.append(index)
-    return failures
-
-
-def _post_result_reaction_indexes(
-    capture: TurnCapture, rounds: list[ToolRound], beats: list[tuple[int, str]]
-) -> list[int]:
-    """Closed tool rounds that have narration before the next visible move."""
-    reacted_rounds: list[int] = []
-    for round_number, round_ in enumerate(rounds, 1):
-        if round_.end is None:
-            continue
-        next_move = [
-            index
-            for index, event in enumerate(capture.events)
-            if index > round_.end
-            and (
-                event.type in {"delta", "done"}
-                or (event.type == "step" and event.data.get("status") == "start")
-            )
-        ]
-        limit = next_move[0] if next_move else len(capture.events)
-        if any(round_.end < index < limit for index, _text in beats):
-            reacted_rounds.append(round_number)
-    return reacted_rounds
-
-
-def score_narration_quality(
-    expects: dict[str, Any], capture: TurnCapture
-) -> dict[str, dict[str, Any]]:
-    """Narration quality: deterministic checks over visible narration/step order."""
-    beats = _narration_beats(capture)
-    rounds = _tool_rounds(capture)
-    requires_tool_work = bool(expects.get("requires_tool_work", True))
-    closed_rounds = [round_ for round_ in rounds if round_.closed]
-    unclosed_rounds = [
-        round_number for round_number, round_ in enumerate(rounds, 1) if not round_.closed
-    ]
-    missing_rounds: list[int] = []
-    previous_end = -1
-    for round_number, round_ in enumerate(rounds, 1):
-        has_prior_narration = any(previous_end < index < round_.start for index, _text in beats)
-        if not has_prior_narration:
-            missing_rounds.append(round_number)
-        previous_end = round_.end if round_.end is not None else round_.start
-
-    long_beats = [
-        text for _index, text in beats if _sentence_count(text) > 2
-    ]
-    marker_hits = [
-        text for _index, text in beats if re.search(r"\[\d+\]", text)
-    ]
-    forbidden_hits = _narration_forbidden_hits(beats, expects)
-
-    early_deltas = _premature_delta_indexes(capture, rounds)
-
-    failure_reaction_required = bool(expects.get("failure_reaction_required"))
-    failure_required = bool(expects.get("failure_required"))
-    failures = _failure_indexes(capture)
-    failure_reaction_passed = True
-    failure_detail = "not required"
-    if failure_required and not failures:
-        failure_reaction_passed = False
-        failure_detail = "failure_required, but no failure/error event occurred"
-    elif failure_reaction_required and not failures:
-        failure_detail = "no failure/error event occurred; reaction not applicable"
-    elif failure_reaction_required:
-        missing_reactions: list[int] = []
-        for failure_index in failures:
-            next_output_or_step = [
-                index
-                for index, event in enumerate(capture.events)
-                if index > failure_index
-                and (
-                    event.type in {"delta", "done"}
-                    or (event.type == "step" and event.data.get("status") == "start")
-                )
-            ]
-            limit = next_output_or_step[0] if next_output_or_step else len(capture.events)
-            reacted = any(failure_index < index < limit for index, _text in beats)
-            if not reacted:
-                missing_reactions.append(failure_index)
-        failure_reaction_passed = not missing_reactions
-        failure_detail = (
-            f"failure indexes: {failures}; "
-            f"missing reactions before next step/output: {missing_reactions or 'none'}"
-        )
-
-    checks = {
-        "tool_activity_completed": _check(
-            (not requires_tool_work) or bool(closed_rounds),
-            f"requires tool work: {requires_tool_work}; closed tool rounds: {len(closed_rounds)}",
+def score_narration(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
+    beats = [str(e.data.get("text") or "") for e in capture.events if e.type == "narration"]
+    return {
+        "narration_present": _check(bool(beats), f"beats={len(beats)}"),
+        "concise": _check(
+            all(len(re.findall(r"[.!?]+(?:\s|$)", b)) <= 2 for b in beats), f"beats={beats}"
         ),
-        "tool_rounds_closed": _check(
-            not unclosed_rounds, f"unclosed tool rounds: {unclosed_rounds or 'none'}"
-        ),
-        "narration_present_for_tool_rounds": _check(
-            not missing_rounds,
-            f"tool rounds: {len(rounds)}; missing prior narration for rounds: {missing_rounds}",
-        ),
-        "concise_narration": _check(
-            not long_beats, f"beats over 2 sentences: {long_beats or 'none'}"
-        ),
-        "narration_has_no_citation_markers": _check(
-            not marker_hits, f"beats with [n] markers: {marker_hits or 'none'}"
-        ),
-        "narration_has_no_tool_values": _check(
-            not forbidden_hits, f"forbidden values/phrases in narration: {forbidden_hits or 'none'}"
-        ),
-        "no_answer_during_tool_work": _check(
-            not early_deltas,
-            f"delta indexes before final tool activity completed: {early_deltas or 'none'}",
-        ),
-        "reacts_to_failures": _check(failure_reaction_passed, failure_detail),
+        "no_markers": _check(not any(_markers(b) for b in beats), "narration must not cite"),
     }
-    reaction_required = bool(
-        expects.get("reaction_required") or expects.get("post_result_reaction_required")
-    )
-    if reaction_required:
-        reacted_rounds = _post_result_reaction_indexes(capture, rounds, beats)
-        checks["reacts_after_tool_result"] = _check(
-            bool(reacted_rounds),
-            f"reacted closed tool rounds before next move: {reacted_rounds or 'none'}",
-        )
-    return checks
 
 
-def _created_items_by_id(
-    capture: TurnCapture, create_tool: str, created_items_key: str
-) -> dict[str, dict[str, Any]]:
-    """Map created-item id -> its returned row, read from ``create_tool``'s
-    tool-*return* content. The id is DB-assigned, so it only exists in the
-    return payload, never in the create call's args.
+def _created_titles(capture: TurnCapture, tool: str, key: str) -> list[str]:
+    """Draft titles from a batch-create call's args.
+
+    Most workspace batch-create tools (``create_tasks``, ``create_activities``,
+    ...) carry dict drafts with a ``title``/``position`` field; ``remember``'s
+    ``notes`` batch is a plain ``list[str]`` — the note text itself is its
+    "title" for this generic scorer.
     """
-    items: dict[str, dict[str, Any]] = {}
-    for tool_return in capture.tool_returns:
-        if tool_return.get("tool_name") != create_tool:
-            continue
-        content = tool_return.get("content")
-        if not isinstance(content, dict):
-            continue
-        for row in content.get(created_items_key) or []:
-            if isinstance(row, dict) and row.get("id"):
-                items[str(row["id"])] = row
-    return items
+    titles: list[str] = []
+    for call in _calls(capture, tool):
+        for row in call["args"].get(key) or []:
+            if isinstance(row, dict):
+                titles.append(str(row.get("title") or row.get("position") or ""))
+            else:
+                titles.append(str(row))
+    return titles
 
 
-def _score_reorder_after_create(
-    expects: dict[str, Any], capture: TurnCapture, create_tool: str, reorder_tool: str
-) -> dict[str, Any]:
-    """Confirm ``reorder_tool`` was called, and (if ``reorder_keyword`` is set)
-    that the item reordered to rank 1 is the one matching that keyword.
-    """
-    reorder_calls = [call for call in capture.tool_calls if call["tool_name"] == reorder_tool]
-    if not reorder_calls:
-        return _check(False, f"{reorder_tool} was never called")
-    first_ids = list((reorder_calls[0].get("args") or {}).get("ids") or [])
-    if not first_ids:
-        return _check(False, f"{reorder_tool} was called with no ids")
-    keyword = str(expects.get("reorder_keyword") or "").lower()
-    if not keyword:
-        return _check(True, f"{reorder_tool} called with ids {first_ids}")
-    created_items_key = str(expects.get("created_items_key") or "activities")
-    items_by_id = _created_items_by_id(capture, create_tool, created_items_key)
-    top_item = items_by_id.get(str(first_ids[0]))
-    if top_item is None:
-        return _check(
-            False,
-            f"could not find a created item for rank-1 id {first_ids[0]!r} "
-            f"(known created ids: {sorted(items_by_id)})",
-        )
-    haystack = " ".join(
-        str(top_item.get(field) or "") for field in ("position", "organization", "description")
-    ).lower()
-    return _check(
-        keyword in haystack,
-        f"rank-1 reordered item {top_item.get('id')!r} fields {haystack!r}; "
-        f"expected to contain {keyword!r}",
-    )
-
-
-def score_workspace_task(
-    expects: dict[str, Any], capture: TurnCapture
-) -> dict[str, dict[str, Any]]:
-    """Workspace-task: the right workspace tool ran and produced sensible item titles.
-
-    Generalized over ``expects`` so one scorer covers any workspace batch-create
-    tool (tasks, activities, ...): ``create_tool`` (default ``"create_tasks"``,
-    the tool whose batch arg carries the created-item drafts), ``batch_arg_key``
-    (default ``"tasks"``), and ``title_field`` (default ``"title"``, matched
-    against ``title_keywords``). Optional ``max_description_chars`` checks a
-    created draft's ``description`` arg fits an exact character budget.
-    Optional ``reorder_tool`` (+ ``reorder_keyword``, ``created_items_key``)
-    checks that tool's first call reordered the matching item to rank 1.
-    """
-    tools = set(expects.get("tools") or {"create_tasks"})
-    called = {call["tool_name"] for call in capture.tool_calls}
-    matched_tools = called & tools
-    create_tool = str(expects.get("create_tool") or "create_tasks")
-    batch_arg_key = str(expects.get("batch_arg_key") or "tasks")
-    title_field = str(expects.get("title_field") or "title")
-
-    drafts: list[dict[str, Any]] = [
-        draft or {}
-        for call in capture.tool_calls
-        if call["tool_name"] == create_tool
-        for draft in (call.get("args") or {}).get(batch_arg_key) or []
-    ]
-    titles = [str(draft.get(title_field) or "") for draft in drafts if draft.get(title_field)]
-    titles_blob = " | ".join(titles).lower()
-    title_keywords = [str(keyword).lower() for keyword in expects.get("title_keywords") or []]
-    keywords_seen = [keyword for keyword in title_keywords if keyword in titles_blob]
-    min_tasks = int(expects.get("min_tasks") or 1)
-
-    checks = {
-        "workspace_tool_called": _check(
-            bool(matched_tools), f"expected one of {sorted(tools)}; called {sorted(called)}"
-        ),
-        "tasks_created": _check(
-            len(titles) >= min_tasks,
-            f"expected >= {min_tasks} created item(s); got {len(titles)}: {titles}",
+def score_workspace(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
+    tool = str(expects.get("tool", "create_tasks"))
+    key = str(expects.get("batch_key", "tasks"))
+    titles = _created_titles(capture, tool, key)
+    return {
+        "workspace_tool_called": _check(bool(_calls(capture, tool)), f"tool={tool}"),
+        "items_created": _check(
+            len(titles) >= int(expects.get("min_items", 1)), f"titles={titles}"
         ),
     }
-    if title_keywords:
-        checks["title_reflects_request"] = _check(
-            bool(keywords_seen),
-            f"expected one of {title_keywords} in a created title; titles: {titles}",
-        )
-
-    max_description_chars = expects.get("max_description_chars")
-    if max_description_chars is not None:
-        limit = int(max_description_chars)
-        descriptions = [
-            str(draft.get("description") or "") for draft in drafts if draft.get("description")
-        ]
-        within_limit = [description for description in descriptions if len(description) <= limit]
-        checks["description_within_char_limit"] = _check(
-            bool(within_limit),
-            f"expected at least one description <= {limit} chars (exact len()); "
-            f"lengths: {[len(description) for description in descriptions]}",
-        )
-
-    reorder_tool = expects.get("reorder_tool")
-    if reorder_tool:
-        checks["reorder_after_create"] = _score_reorder_after_create(
-            expects, capture, create_tool, str(reorder_tool)
-        )
-
-    return checks
 
 
-# ---------------------------------------------------------------------------
-# Judge-scored honesty
-# ---------------------------------------------------------------------------
-
-
-def _event_summary(capture: TurnCapture) -> str:
-    """A compact structural summary the judge can reference as evidence."""
-    lines = [f"done status: {capture.done_status}; error event: {capture.errored}"]
-    for clarify in capture.clarifies:
-        lines.append(f"clarify question asked: {clarify.get('question')!r}")
-    for viz in capture.vizzes:
-        schools = ", ".join(school["name"] for school in viz.get("schools", []))
-        lines.append(f"visualization rendered: {viz.get('type')} for [{schools}]")
-    for source in capture.sources:
-        citation = source.get("citation") or {}
-        lines.append(
-            f"cited source [{source.get('index')}]: {source.get('label')!r} "
-            f"({citation.get('source')}, {citation.get('tier')}, {citation.get('vintage')})"
-        )
-    return "\n".join(lines)
-
-
-def build_judge_case(question_text: str, criteria: list[str], capture: TurnCapture) -> str:
-    """The judge's user message: question + criteria + prose + event summary."""
-    numbered = [f"{index}. {criterion}" for index, criterion in enumerate(criteria, 1)]
+def build_judge_case(question: str, criteria: list[str], capture: TurnCapture) -> str:
     return "\n".join(
         [
             "## Student question",
-            question_text,
+            question,
             "",
             "## Criteria",
-            *numbered,
+            *[f"{i}. {c}" for i, c in enumerate(criteria, 1)],
             "",
             "## Counselor's final prose answer",
-            capture.prose or "(no prose was produced)",
+            capture.prose or "(no prose)",
             "",
-            "## Event summary",
-            _event_summary(capture),
+            "## Safe event summary",
+            _safe_event_summary(capture),
         ]
     )
 
 
-async def score_honesty(
-    question_text: str, expects: dict[str, Any], capture: TurnCapture, judge_agent: Any
+async def score_judge(
+    question: str, criteria: list[str], capture: TurnCapture, judge: Any
 ) -> dict[str, dict[str, Any]]:
-    """Honesty: every criterion judged yes by the cheap-model judge."""
-    criteria = [str(criterion) for criterion in expects.get("criteria") or []]
-    if judge_agent is None:
-        raise RuntimeError("honesty question scored without a judge agent")
-    result = await judge_agent.run(build_judge_case(question_text, criteria, capture))
-    verdicts: list[CriterionVerdict] = result.output.verdicts
-    checks: dict[str, dict[str, Any]] = {}
-    for index, criterion in enumerate(criteria):
-        verdict = verdicts[index] if index < len(verdicts) else None
-        passed = verdict is not None and verdict.verdict == "yes"
-        evidence = verdict.evidence if verdict else "judge returned no verdict for this criterion"
-        checks[f"criterion_{index + 1}"] = _check(passed, f"{criterion} -> {evidence}")
-    return checks
+    if not criteria:
+        return {}
+    output = (await judge.run(build_judge_case(question, criteria, capture))).output.verdicts
+    if len(output) != len(criteria):
+        raise ValueError(f"judge returned {len(output)} verdicts for {len(criteria)} criteria")
+    def normalized(value: str) -> tuple[str, ...]:
+        return tuple(re.findall(r"[a-z0-9]+", value.casefold()))
 
-
-# ---------------------------------------------------------------------------
-# Running one question
-# ---------------------------------------------------------------------------
+    for index, (criterion, verdict) in enumerate(zip(criteria, output, strict=True), 1):
+        if normalized(verdict.criterion) != normalized(criterion):
+            raise ValueError(f"judge verdict {index} criterion mismatch")
+    return {
+        f"criterion_{i}": _check(v.verdict == "yes", f"{c} -> {v.evidence}")
+        for i, (c, v) in enumerate(zip(criteria, output, strict=True), 1)
+    }
 
 
 async def score_question(
-    question: dict[str, Any], capture: TurnCapture, judge_agent: Any
+    question: dict[str, Any], capture: TurnCapture, judge: Any
 ) -> dict[str, dict[str, Any]]:
-    """Dispatch to the type's scorer; every type also requires a clean stream."""
-    expects = question.get("expects") or {}
-    question_type = question["type"]
-    if question_type == "fact":
-        checks = score_fact(expects, capture)
-    elif question_type == "field-selection":
-        checks = score_field_selection(expects, capture)
-    elif question_type == "clarify-judgment":
+    expects = question["expects"]
+    kind = question["type"]
+    if kind == "routing":
+        checks = score_routing(expects, capture)
+    elif kind == "composition":
+        checks = score_composition(expects, capture)
+    elif kind == "clarify_judgment":
         checks = score_clarify(expects, capture)
-    elif question_type == "comparison-viz":
-        checks = score_viz(expects, capture)
-    elif question_type == "narration-quality":
-        checks = score_narration_quality(expects, capture)
-    elif question_type == "honesty":
-        checks = await score_honesty(question["question"], expects, capture, judge_agent)
-    elif question_type == "workspace-task":
-        checks = score_workspace_task(expects, capture)
+    elif kind == "narration_quality":
+        checks = score_narration(expects, capture)
+    elif kind == "workspace_task":
+        checks = score_workspace(expects, capture)
     else:
-        raise ValueError(f"unknown question type: {question_type!r}")
-    checks["no_error_event"] = _check(not capture.errored, f"error event: {capture.errored}")
+        checks = {}
+    checks.update(score_deterministic(expects, capture))
+    if expects.get("criteria"):
+        checks.update(
+            await score_judge(
+                question["question"], list(expects.get("criteria") or []), capture, judge
+            )
+        )
+    called = {str(c["tool_name"]) for c in capture.tool_calls}
+    checks["no_old_tools"] = _check(
+        not called & OLD_DB_TOOLS, f"old tools={sorted(called & OLD_DB_TOOLS)}"
+    )
+    checks["no_error_event"] = _check(not capture.errored, f"errored={capture.errored}")
     return checks
 
 
 async def _thread_messages(runtime: Runtime, session_id: str) -> list[dict[str, Any]]:
-    """The thread's serialized ModelMessages after the turn (tool-call source)."""
     snapshot = await runtime.graph.aget_state({"configurable": {"thread_id": session_id}})
-    if not snapshot:
-        return []
-    return list(snapshot.values.get("messages") or [])
+    return list(snapshot.values.get("messages") or []) if snapshot else []
 
 
-async def _seed_eval_user(app_pool: Any, question_id: str) -> UUID:
-    """Insert a throwaway ``counselle.users`` row so FK-bound workspace tools can mount.
-
-    Workspace tools are mount-gated on a real ``user_id`` (ADR 0029) and
-    ``tasks.user_id`` is a foreign key into ``counselle.users`` — without a
-    real row here, a workspace-task question would either fail loudly (no
-    tools mounted) or, worse, appear to pass while never exercising the
-    tools at all (plan Risk #2). Mirrors ``make_user`` in
-    ``tests/app/test_workspace_services_live.py``.
-    """
+async def _seed_eval_user(pool: Any, question_id: str) -> UUID:
     user_id = uuid4()
-    async with app_pool.acquire() as conn:
+    async with pool.acquire() as conn:
         await conn.execute(
-            """
-            INSERT INTO counselle.users
-              (id, email, hashed_password, is_active, is_superuser, is_verified)
-            VALUES ($1, $2, $3, true, false, false)
-            """,
+            """INSERT INTO counselle.users
+          (id,email,hashed_password,is_active,is_superuser,is_verified)
+          VALUES ($1,$2,$3,true,false,false)""",
             user_id,
             f"eval-{question_id}-{user_id}@workspace.test",
             "not-a-real-password-hash",
@@ -804,74 +602,64 @@ async def _seed_eval_user(app_pool: Any, question_id: str) -> UUID:
     return user_id
 
 
-async def _delete_eval_user(app_pool: Any, user_id: UUID) -> None:
-    async with app_pool.acquire() as conn:
-        await conn.execute("DELETE FROM counselle.users WHERE id = $1", user_id)
+async def _delete_eval_user(pool: Any, user_id: UUID) -> None:
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM counselle.users WHERE id=$1", user_id)
 
 
-async def _seed_memories(app_pool: Any, user_id: UUID, contents: list[str]) -> None:
-    """Pre-seed memory notes for the eval user (question key: ``seed_memories``).
-
-    Goes through the real service so capacity/dedup rules apply exactly as
-    they would for an agent-written note; ``actor="counselle"`` because
-    ``create_memories`` only accepts Counselle-authored writes.
-    """
-    await create_memories(
-        app_pool,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="counselle",
-        data=[MemoryCreate(content=content) for content in contents],
-    )
-
-
-async def _seed_documents(app_pool: Any, user_id: UUID, documents: list[dict[str, Any]]) -> None:
-    """Pre-seed document rows for the eval user (question key: ``seed_documents``).
-
-    Goes through the real create-document service (skipping the upload/
-    extraction pipeline, which is exercised elsewhere) so the row shape and
-    change events match production. ``actor="student"`` because document
-    creation is student-only.
-    """
-    for document in documents:
-        extracted_text = document.get("extracted_text")
+async def _seed_workspace(runtime: Runtime, user_id: UUID, question: dict[str, Any]) -> None:
+    if question.get("seed_memories"):
+        await create_memories(
+            runtime.app_pool,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="counselle",
+            data=[MemoryCreate(content=x) for x in question["seed_memories"]],
+        )
+    for doc in question.get("seed_documents") or []:
+        text = doc.get("extracted_text")
         await create_document(
-            app_pool,
+            runtime.app_pool,
             WorkspaceEventBus(),
             user_id=user_id,
             actor="student",
             data=DocumentCreate(
-                title=document["title"],
-                doc_type=document.get("doc_type", "other"),
-                filename=document.get("filename", document["title"]),
-                mime=document.get("mime", "text/plain"),
-                content=(extracted_text or document["title"]).encode("utf-8"),
-                text_status=document.get("text_status", "extracted"),
-                extracted_text=extracted_text,
-                summary=document.get("summary"),
+                title=doc["title"],
+                doc_type=doc.get("doc_type", "other"),
+                filename=doc.get("filename", doc["title"]),
+                mime=doc.get("mime", "text/plain"),
+                content=(text or doc["title"]).encode(),
+                text_status=doc.get("text_status", "extracted"),
+                extracted_text=text,
+                summary=doc.get("summary"),
             ),
         )
 
 
-async def run_question(
-    runtime: Runtime, judge_agent: Any, question: dict[str, Any]
-) -> dict[str, Any]:
-    """One fresh session, one live turn, one scored result."""
+async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -> dict[str, Any]:
+    if question.get("skip_reason"):
+        return {
+            "id": question["id"],
+            "type": question["type"],
+            "question": question["question"],
+            "comparison": bool(question.get("comparison")),
+            "skipped": True,
+            "skip_reason": question["skip_reason"],
+            "passed": True,
+            "checks": {},
+            "duration_s": None,
+            "usage": None,
+            "tool_calls": [],
+        }
     web = bool(question.get("web"))
-    needs_workspace = bool(question.get("workspace"))
-    source_config = SourceConfig(web=web, reddit=False, edu=web)
+    workspace = bool(question.get("workspace"))
+    config = SourceConfig(web=web, reddit=False, edu=web)
     session_id = await create_session(
-        runtime.app_pool, source_config.model_dump(mode="json"), title=f"eval:{question['id']}"
+        runtime.app_pool, config.model_dump(mode="json"), title=f"eval:{question['id']}"
     )
-    eval_user_id: UUID | None = None
-    if needs_workspace:
-        eval_user_id = await _seed_eval_user(runtime.app_pool, question["id"])
-        seed_memories = question.get("seed_memories") or []
-        if seed_memories:
-            await _seed_memories(runtime.app_pool, eval_user_id, list(seed_memories))
-        seed_documents = question.get("seed_documents") or []
-        if seed_documents:
-            await _seed_documents(runtime.app_pool, eval_user_id, list(seed_documents))
+    user_id = await _seed_eval_user(runtime.app_pool, question["id"]) if workspace else None
+    if user_id:
+        await _seed_workspace(runtime, user_id, question)
     started = time.monotonic()
     events: list[Event] = []
     try:
@@ -879,21 +667,22 @@ async def run_question(
             async for event in run_turn(
                 session_id,
                 question["question"],
-                source_config,
+                config,
                 deps=runtime.deps,
                 graph=runtime.graph,
-                user_id=str(eval_user_id) if eval_user_id else None,
+                user_id=str(user_id) if user_id else None,
             ):
                 events.append(event)
         capture = capture_turn(events, await _thread_messages(runtime, session_id))
-        checks = await score_question(question, capture, judge_agent)
+        checks = await score_question(question, capture, judge)
         return {
             "id": question["id"],
             "type": question["type"],
             "question": question["question"],
-            "web": web,
+            "comparison": bool(question.get("comparison")),
+            "skipped": False,
             "session_id": session_id,
-            "passed": all(check["passed"] for check in checks.values()),
+            "passed": all(c["passed"] for c in checks.values()),
             "checks": checks,
             "prose": capture.prose,
             "tool_calls": capture.tool_calls,
@@ -901,201 +690,224 @@ async def run_question(
             "vizzes": capture.vizzes,
             "usage": capture.usage,
             "done_status": capture.done_status,
-            "duration_s": round(time.monotonic() - started, 1),
-            "events": [event.model_dump() for event in capture.events],
+            "duration_s": round(time.monotonic() - started, 3),
+            "event_summary": _safe_event_summary(capture),
+            "errors": capture.errors,
         }
     finally:
-        if eval_user_id is not None:
-            await _delete_eval_user(runtime.app_pool, eval_user_id)
+        if user_id:
+            await _delete_eval_user(runtime.app_pool, user_id)
 
 
 async def run_question_safely(
-    runtime: Runtime, judge_agent: Any, question: dict[str, Any]
+    runtime: Runtime, judge: Any, question: dict[str, Any]
 ) -> dict[str, Any]:
-    """A crash in one question becomes a failed result, never a dead run."""
     try:
-        return await run_question(runtime, judge_agent, question)
+        return await run_question(runtime, judge, question)
     except Exception as exc:
         logger.exception("eval question crashed", id=question["id"])
         return {
             "id": question["id"],
             "type": question["type"],
             "question": question["question"],
-            "web": bool(question.get("web")),
+            "comparison": bool(question.get("comparison")),
+            "skipped": False,
             "passed": False,
-            "checks": {"runner": _check(False, f"crashed: {type(exc).__name__}: {exc}")},
-            "prose": "",
-            "tool_calls": [],
-            "sources": [],
-            "vizzes": [],
-            "usage": None,
-            "done_status": None,
+            "checks": {"runner": _check(False, f"{type(exc).__name__}: {exc}")},
+            "error": {"type": type(exc).__name__, "message": str(exc)},
             "duration_s": None,
-            "events": [],
+            "usage": None,
+            "tool_calls": [],
         }
-
-
-# ---------------------------------------------------------------------------
-# Question selection
-# ---------------------------------------------------------------------------
 
 
 def load_questions() -> list[dict[str, Any]]:
-    """Load and sanity-check evals/questions.yaml."""
-    with QUESTIONS_PATH.open(encoding="utf-8") as handle:
-        questions: list[dict[str, Any]] = yaml.safe_load(handle)
-    for question in questions:
+    questions = yaml.safe_load(QUESTIONS_PATH.read_text())
+    if not isinstance(questions, list):
+        raise ValueError("questions.yaml must be a list")
+    ids: list[str] = []
+    for q in questions:
         for key in ("id", "question", "type", "expects"):
-            if key not in question:
-                raise ValueError(f"question {question.get('id')!r} is missing {key!r}")
-        if question["type"] not in QUESTION_TYPES:
-            raise ValueError(f"question {question['id']!r} has unknown type {question['type']!r}")
-    ids = [question["id"] for question in questions]
+            if key not in q:
+                raise ValueError(f"question {q.get('id')!r} missing {key}")
+        if q["type"] not in QUESTION_TYPES:
+            raise ValueError(f"unknown type {q['type']}")
+        ids.append(q["id"])
     if len(ids) != len(set(ids)):
-        raise ValueError("duplicate question ids in questions.yaml")
+        raise ValueError("duplicate question ids")
     return questions
 
 
-def select_questions(
-    questions: list[dict[str, Any]], only: list[str] | None, question_type: str | None
+def materialize_questions(
+    questions: list[dict[str, Any]], context: EvalContext
 ) -> list[dict[str, Any]]:
-    """Apply --only / --type filters; unknown --only ids are an error."""
-    selected = questions
-    if question_type:
-        selected = [question for question in selected if question["type"] == question_type]
+    values = context.substitutions()
+
+    def substitute(value: Any) -> Any:
+        if isinstance(value, str):
+            return value.format_map(values)
+        if isinstance(value, list):
+            return [substitute(item) for item in value]
+        if isinstance(value, dict):
+            return {key: substitute(item) for key, item in value.items()}
+        return value
+
+    rendered = substitute(questions)
+    for question in rendered:
+        expects = question["expects"]
+        if expects.get("domain_role") == "common":
+            expects["domain_id"] = context.common_domain
+        if question.get("live_not_in_template") and not context.not_in_template_available:
+            question["skip_reason"] = (
+                "current live DB contains no not_in_template_version availability"
+            )
+        elif question.get("live_not_in_template"):
+            expects["domain_id"] = context.not_in_template_domain
+            expects["metric_ref"] = context.not_in_template_ref
+    return cast(list[dict[str, Any]], rendered)
+
+
+def select_questions(
+    questions: list[dict[str, Any]], only: list[str] | None, kind: str | None
+) -> list[dict[str, Any]]:
     if only:
-        wanted = {part.strip() for item in only for part in item.split(",") if part.strip()}
-        known = {question["id"] for question in questions}
-        missing = wanted - known
+        wanted = {x.strip() for item in only for x in item.split(",") if x.strip()}
+        missing = wanted - {q["id"] for q in questions}
         if missing:
-            raise SystemExit(f"unknown question id(s): {sorted(missing)}")
-        selected = [question for question in selected if question["id"] in wanted]
-    return selected
+            raise SystemExit(f"unknown question ids: {sorted(missing)}")
+        questions = [q for q in questions if q["id"] in wanted]
+    return [q for q in questions if not kind or q["type"] == kind]
 
 
-# ---------------------------------------------------------------------------
-# Report
-# ---------------------------------------------------------------------------
+def _percentile(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = math.ceil(percentile * len(ordered)) - 1
+    return round(ordered[max(rank, 0)], 3)
 
 
-def build_report(results: list[dict[str, Any]], model: str) -> dict[str, Any]:
-    """The full report object: per-type accuracy + per-question results."""
-    per_type: dict[str, dict[str, Any]] = {}
-    for question_type in QUESTION_TYPES:
-        scoped = [result for result in results if result["type"] == question_type]
-        if not scoped:
-            continue
-        passed = sum(1 for result in scoped if result["passed"])
-        per_type[question_type] = {
-            "passed": passed,
-            "total": len(scoped),
-            "accuracy": round(passed / len(scoped), 3),
+def _comparison_stats(results: list[dict[str, Any]]) -> dict[str, Any]:
+    scoped = [r for r in results if r.get("comparison") and not r.get("skipped")]
+
+    def stats(values: list[float]) -> dict[str, Any]:
+        return {
+            "median": round(statistics.median(values), 3) if values else None,
+            "p95": _percentile(values, 0.95),
+            "max": round(max(values), 3) if values else None,
         }
+
+    durations = [float(r["duration_s"]) for r in scoped if r.get("duration_s") is not None]
+    inputs = [float((r.get("usage") or {}).get("input_tokens", 0)) for r in scoped]
+    outputs = [float((r.get("usage") or {}).get("output_tokens", 0)) for r in scoped]
+    calls = [float(len(r.get("tool_calls") or [])) for r in scoped]
+    return {
+        "count": len(scoped),
+        "duration_s": stats(durations),
+        "input_tokens": stats(inputs),
+        "output_tokens": stats(outputs),
+        "tool_calls": stats(calls),
+    }
+
+
+def build_report(results: list[dict[str, Any]], model: str, context: EvalContext) -> dict[str, Any]:
+    per_category = {}
+    for kind in QUESTION_TYPES:
+        scoped = [r for r in results if r["type"] == kind]
+        if scoped:
+            attempted = [r for r in scoped if not r.get("skipped")]
+            per_category[kind] = {
+                "passed": sum(r["passed"] for r in attempted),
+                "total": len(attempted),
+                "skipped": len(scoped) - len(attempted),
+            }
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "model": model,
+        "eval_context": {
+            "manifest_version": context.manifest_version,
+            "domains": list(context.domains),
+            "covered": context.covered,
+            "total": context.total,
+            "roles": {
+                k: getattr(context, k).__dict__
+                for k in ("stale_partial", "profile_only", "common_a", "common_b")
+            },
+            "common_domain": context.common_domain,
+            "common_metric_ref": context.common_metric_ref,
+        },
         "total": len(results),
-        "passed": sum(1 for result in results if result["passed"]),
-        "per_type": per_type,
+        "passed": sum(r["passed"] for r in results if not r.get("skipped")),
+        "skipped": sum(bool(r.get("skipped")) for r in results),
+        "per_category": per_category,
+        "comparison_stats": _comparison_stats(results),
         "results": results,
     }
 
 
 def render_markdown(report: dict[str, Any]) -> str:
-    """The human summary: per-type accuracy table + per-question rows."""
+    attempted = report["total"] - report["skipped"]
     lines = [
         f"# Eval report — {report['generated_at'][:10]}",
         "",
-        f"Model: `{report['model']}` · questions: {report['total']} · "
-        f"passed: {report['passed']}/{report['total']}",
+        f"Model: `{report['model']}` · attempted: {attempted} · "
+        f"passed: {report['passed']} · skipped: {report['skipped']}",
         "",
-        "## Per-type accuracy",
-        "",
-        "| Type | Passed | Total | Accuracy |",
-        "|---|---|---|---|",
+        "| Category | Passed | Total | Skipped |",
+        "|---|---:|---:|---:|",
     ]
-    for question_type, stats in report["per_type"].items():
-        lines.append(
-            f"| {question_type} | {stats['passed']} | {stats['total']} | {stats['accuracy']:.0%} |"
-        )
+    for kind, s in report["per_category"].items():
+        lines.append(f"| {kind} | {s['passed']} | {s['total']} | {s['skipped']} |")
     lines += [
         "",
-        "## Per-question results",
+        "## Comparison evidence",
         "",
-        "| ID | Type | Result | Failed checks |",
+        f"```json\n{json.dumps(report['comparison_stats'], indent=2)}\n```",
+        "",
+        "| ID | Category | Result | Failed checks |",
         "|---|---|---|---|",
     ]
-    for result in report["results"]:
-        failed = [name for name, check in result["checks"].items() if not check["passed"]]
-        status = "PASS" if result["passed"] else "FAIL"
-        failed_cell = ", ".join(failed) or "—"
-        lines.append(f"| {result['id']} | {result['type']} | {status} | {failed_cell} |")
-    lines.append("")
-    return "\n".join(lines)
+    for r in report["results"]:
+        failed = [k for k, v in r["checks"].items() if not v["passed"]]
+        result = "SKIP" if r.get("skipped") else ("PASS" if r["passed"] else "FAIL")
+        lines.append(f"| {r['id']} | {r['type']} | {result} | {', '.join(failed) or '—'} |")
+    return "\n".join(lines) + "\n"
 
 
 def write_reports(report: dict[str, Any]) -> None:
-    """Write report-<date>.json + .md into evals/ and print the summary."""
     stamp = report["generated_at"][:10]
-    json_path = EVALS_DIR / f"report-{stamp}.json"
-    md_path = EVALS_DIR / f"report-{stamp}.md"
-    json_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    (EVALS_DIR / f"report-{stamp}.json").write_text(json.dumps(report, indent=2, default=str))
     markdown = render_markdown(report)
-    md_path.write_text(markdown, encoding="utf-8")
+    (EVALS_DIR / f"report-{stamp}.md").write_text(markdown)
     print(markdown)
-    print(f"Report written: {json_path} and {md_path}")
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog="evals.runner", description="Replay the eval questions through run_turn and score."
-    )
-    parser.add_argument(
-        "--only",
-        action="append",
-        metavar="ID",
-        help="run only this question id (repeatable; comma-separable)",
-    )
-    parser.add_argument(
-        "--type",
-        dest="question_type",
-        choices=QUESTION_TYPES,
-        help="run only questions of this type",
-    )
+    parser = argparse.ArgumentParser(prog="evals.runner")
+    parser.add_argument("--only", action="append")
+    parser.add_argument("--type", dest="question_type", choices=QUESTION_TYPES)
     return parser.parse_args(argv)
 
 
 async def amain(args: argparse.Namespace) -> int:
     settings = get_settings()
     setup_logging(settings.log_level)
-    questions = load_questions()
-    selected = select_questions(questions, args.only, args.question_type)
-    if not selected:
-        raise SystemExit("no questions selected")
-    logger.info("eval run starting", selected=len(selected), total=len(questions))
-    needs_judge = any(question["type"] == "honesty" for question in selected)
-    judge_agent = build_judge_agent(settings) if needs_judge else None
     runtime = await build_runtime(settings)
-    results: list[dict[str, Any]] = []
     try:
-        for question in selected:  # serial on purpose: one tool loop at a time
-            logger.info("eval question", id=question["id"], type=question["type"])
-            result = await run_question_safely(runtime, judge_agent, question)
-            logger.info(
-                "eval question done",
-                id=result["id"],
-                passed=result["passed"],
-                duration_s=result["duration_s"],
-            )
-            results.append(result)
+        context = await build_eval_context(runtime)
+        questions = materialize_questions(load_questions(), context)
+        selected = select_questions(questions, args.only, args.question_type)
+        if not selected:
+            raise SystemExit("no questions selected")
+        judge = (
+            build_judge_agent(settings)
+            if any(q["expects"].get("criteria") for q in selected)
+            else None
+        )
+        results = [await run_question_safely(runtime, judge, q) for q in selected]
     finally:
         await runtime.aclose()
-    write_reports(build_report(results, settings.model_counselor))
+    write_reports(build_report(results, settings.model_counselor, context))
     return 0
 
 

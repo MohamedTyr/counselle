@@ -5,7 +5,7 @@
 - **Why:** the Settings surface ships the knob (ADR 0019 names retention as configurable) but nothing executes it; with the keep-everything default this is harmless for months, but a knob connected to nothing is config-surface debt.
 - **Pros:** config honesty; disk hygiene before it's ever a problem.
 - **Cons:** touches the checkpointer's internal tables (small coupling to library internals — re-verify table names on library upgrades).
-- **Context (start here):** lives next to the reconciler interval task in the API lifespan (`api/main.py`); the deletion is two statements inside one transaction; add a `cleanup: {last_run, deleted}` line to `/v1/health`.
+- **Context (start here):** wire it into the API lifespan (`api/main.py`); the deletion is two statements inside one transaction; add a `cleanup: {last_run, deleted}` line to `/v1/health`.
 - **Depends on / blocked by:** Phase 4 checkpointer landed (tables exist in `counselle.*` per eng-review D3).
 - *(Logged from /plan-eng-review, 2026-06-10. Note: CI pipeline was proposed and explicitly declined by the user the same day.)*
 
@@ -47,13 +47,8 @@
 - **Context (start here):** `api/ratelimit.py` (`check_auth`, `_client_ip`, the MULTI-REPLICA CAVEAT comment), `api/routes/system.py` (the health signal).
 - *(Logged from Phase 6, DS-06.)*
 
-## Deferred config promotions (Phase 6, CFG-06 / CFG-08)
-- **CFG-06 — compare/dossier-preview/search-fields caps** (`_COMPARE_MAX_SCHOOLS`, `_COMPARE_MAX_FIELDS`, `_PROGRAMS_PREVIEW_TOP_N` in `counselle_db/service.py`; `_MAX_STEP_SOURCES` in `app/steps.py`; `_MAX_LIMIT` in `counselle_db/search_fields.py`): kept as named module constants. Promote to Settings only if the UI gains a "compare more fields"-style density control (value×ease says no now — YAGNI).
-- **CFG-08 — embedding retry/backoff** (`_MAX_ATTEMPTS`, `_BACKOFF_BASE_S` in `adapters/embeddings.py`): kept as named constants; promote to Settings only if the embedding path becomes flaky in prod. `BATCH_SIZE` is a Vertex provider invariant (≤64 texts/call) — never promote (LA-2).
-- *(Logged from Phase 6; both are deliberate leaves with rationale comments at the constants.)*
-
 ## Community card viz type (deferred from MVP1)
-- **What:** implement the `community_card` type in `RenderSpec` and the corresponding frontend card renderer for qualitative/Reddit content.
-- **Why:** the architecture designed it (ARCHITECTURE §17) but it was not built in MVP1 — `RenderSpec.type` currently accepts only `stat_block | comparison_table`. Community/Reddit content falls back to prose narration in the delta stream.
+- **What:** add a native `community_card` renderer and documented v2 payload grammar.
+- **Why:** the viz-v2 seam now accepts known and opaque types, so an unknown card already degrades safely; this TODO is the richer qualitative/Reddit presentation, not a schema-union change.
 - **Context:** see `domain/specs.py` (`RenderSpec`) and ARCHITECTURE §17. No honesty risk deferred — community content is never quantified anyway; this is a UX improvement only.
 - *(Logged from Phase 7 Slice D docs audit, 2026-06-11.)*

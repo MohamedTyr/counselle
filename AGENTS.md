@@ -22,6 +22,8 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 
 **MVP3 workspace shipped (2026-07-06).** The rebuilt frontend now has a persistent, auth-scoped workspace for Schools, Tasks, Essays, and Activities. Workspace mutations go through `app/workspace/`, write actor-attributed change rows, and publish workspace change events so HTTP calls and future Counselle-agent actions share the same path. The graduated design and plan live in `specs/mvp3/`; ADR 0027 records the service/event decision.
 
+**CDS Library DB rewire shipped (2026-07-16).** The retired wide field store is replaced by five reader views, four DB tools, manifest `5.0.1`/packet v8, code-owned evidence and availability semantics, a live data picture, viz v2, and four focused skills. ADR 0032 is the decision record.
+
 ## Commands
 
 ```bash
@@ -59,12 +61,12 @@ cd frontend && npm run typecheck && npm test
 | `specs/README.md` | Index + the lifecycle convention for `specs/` (the permanent home for PRDs + plans) vs `plans/` (local scratch). Read this to know where finalized plans live |
 | `specs/mvp1/PRD.md` | MVP1 product requirements: the agent's purpose, primary user, scope, the feature list, what's deferred, and the decision history/rationale from the design conversation |
 | `specs/mvp2/PRD.md` | MVP2 PRD (WHAT-level): the full-stack app over the MVP1 agent — auth, home screen, the chat-experience spec (activity timeline, inline cards, citation grammar, smoothness laws), chat management, settings, the backend delta (`step`/`thinking` events, resume/cancel, chat CRUD, rate limiting), locked product decisions, and MVP2 out-of-scope |
-| `docs/ARCHITECTURE.md` | The full system architecture, in two parts. **Part I (§1–25, MVP1):** the chosen stack, the data-access layer (the `counselle-db` MCP server, its 3 layers and tool catalog), the citation envelope, field discovery, school coverage & the CDS tier, the agent runtime, the deep-research subsystem, source control, skills, visualizations, temporal awareness, deployment, the feature→component matrix, risks, and open questions. **Part II (§26–35, MVP2):** the full-stack app — protocol extensions (step/thinking, the turn registry, resume/cancel, the §27.7 turn-record/identity/lifecycle resolutions), auth, chat management, feedback & rate limiting, the frontend, config/deployment/testing deltas |
-| `docs/DATABASE_GUIDE.md` | Exhaustive reference for the underlying database — every table, the 1,093-field catalog, value-reading rules (R1–R12, anti-misread), raw/multi-row data, enum decoding, data recency/provenance, the query surface, school identity, the CDS pipeline, gotchas, and how-to SQL recipes. Verified against the live DB (snapshot 2026-06-09) |
+| `docs/ARCHITECTURE.md` | The full system architecture, including the four-tool CDS Library data surface, packet/evidence truth boundary, live data picture, viz v2, orchestration, protocol, auth, workspace, frontend, deployment, and testing. |
+| `docs/DATABASE_GUIDE.md` | Exhaustive contract for the five CDS Library reader views: profiles, dynamic manifest, selected editions, packet v8, availability/evidence/caveat rules, coverage, limits, and safe SQL recipes. |
 | `docs/DEPLOY.md` | The deployment guide and its open gotchas (env matrix, DB provisioning, the `--forwarded-allow-ips` trap). **Deploy itself is deferred** — this is the plan, not a tested runbook |
 | `docs/research/agent-stack-evaluation.md` | The frontier-tech survey behind the stack choice: agent frameworks, model-provider abstraction, and the agent-skills ecosystem, with scorecards and the verdict |
 | `docs/research/deep-research-bakeoff.md` | The 4-way quality-vs-cost comparison of open-source deep-research systems (Alibaba DeepResearch, STORM, dzhng/deep-research, GPT-Researcher) and the verdict |
-| `docs/adr/README.md` | **Index of all 27 ADRs** (number, title, one-line summary). Start here for decisions |
+| `docs/adr/README.md` | **Index of all 32 ADRs** (number, title, one-line summary). Start here for decisions |
 | `docs/adr/` | One file per architectural decision (context → decision → rationale → alternatives → consequences). Do not silently break an ADR |
 | `specs/mvp1/plan/` | The MVP1 implementation plan (archived): `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7) |
 | `specs/deep-research/plan.md` | Stub plan for the deferred deep-research follow-up (PRD stories 39–41) |
@@ -78,7 +80,7 @@ cd frontend && npm run typecheck && npm test
 ## The three principles (inherited from the data pipeline, they apply here too)
 
 1. **KISS — Keep It Simple, Stupid.** The smallest thing that works. No abstraction before it's needed. If a choice makes the system harder to understand, it's wrong.
-2. **Never reinvent the wheel.** If a battle-tested library/tool already does it, use it. The whole stack (PydanticAI, LangGraph, GPT-Researcher, MCP, SKILL.md, pgvector) was chosen by surveying the frontier and picking proven pieces — not hand-rolling.
+2. **Never reinvent the wheel.** If a battle-tested library/tool already does it, use it. The stack (PydanticAI, LangGraph, GPT-Researcher, MCP, SKILL.md) was chosen by surveying the frontier and picking proven pieces — not hand-rolling.
 3. **Startup speed over enterprise completeness.** Build for the common path; optimize only when something is actually slow. **One carve-out: the data is the product — never lie to a student.** Honesty about values, sources, and recency is non-negotiable; that's why the value-reading rules and citations live in code, not in the model's head.
 
 ## How we build: startup mode, not enterprise
@@ -98,7 +100,7 @@ We are a **startup doing rapid prototyping**. The default engineering instinct i
 - **Never reinvent the wheel.** If a battle-tested library/tool does it, use it. Don't hand-roll.
 - **Never write code that doesn't add much value.** No speculative abstraction, no defensive layers for edge cases that don't matter yet, no "enterprise completeness." YAGNI.
 - **The honesty carve-out still holds** (principle 3): never lie to a student. That's the *one* place we spend extra effort regardless of ease — because it's the highest-value thing we have.
-- **No TDD, and no reflexive tests — a test has to earn its place.** Don't write tests first, don't chase a coverage number, don't add a test for every function. Ship the feature. Write a test *only* when it genuinely pays for itself: the honesty-critical paths (the R1–R12 value-reading rules, citations — anything that could lie to a student or corrupt data), a bug you want to stay fixed, or logic gnarly enough that a test is the fastest way to trust it. Skip everything else. The one hard line stays principle 3 — the data-integrity code is tested hard, always.
+- **No TDD, and no reflexive tests — a test has to earn its place.** Don't write tests first, don't chase a coverage number, don't add a test for every function. Ship the feature. Write a test *only* when it genuinely pays for itself: honesty-critical packet/availability/evidence rules, a bug you want to stay fixed, or logic gnarly enough that a test is the fastest way to trust it. Skip everything else. The one hard line stays principle 3 — data-integrity code is tested hard, always.
 - **Optimize for rewrite cost, not diff size.** The lazy version is right when it can be *extended* later without a rewrite. Only when the shortcut would *force* a future rewrite — global state that can't become per-user (cf. `user_id` nullable-until-platform, ADR 0019), a schema welded to one provider (ADR 0011), logic fused into a route handler — pay the *small* structural cost now. The trigger is strictly "would this force a rewrite," never "might structure help someday." Good structure is cheap future-proofing; speculative features are expensive. Do the first, skip the second.
 - **Clear beats short.** "Minimal" means minimal *surface and complexity*, not fewest characters. A dense one-liner you decode at 3am is debt, not laziness. Boring and readable wins over clever and short.
 
@@ -108,25 +110,26 @@ When in doubt, do the simplest thing that works and ship it.
 
 - **Agent runtime:** **PydanticAI** (model-agnostic, MCP-native, typed outputs = the citation envelope) — ADR 0003.
 - **Orchestration:** **LangGraph** (multi-agent deep research, `interrupt()` for visual clarifying questions, state for in-session memory) — ADR 0003.
-- **Database access:** a **`counselle-db` MCP server** (Python, asyncpg, read-only role) exposing 3 layers: field discovery, safe typed tools, a guarded SQL escape hatch. Tool logic lives in an in-process service layer (`counselle_db/service.py`) that the MCP server thinly wraps; `app/` imports the service directly — only the LLM's tool loop goes through MCP — ADRs 0004, 0005, 0012.
-- **Field discovery / vector search:** hybrid static category map + pgvector, with a self-healing embedding reconciler (new fields are never invisible) — ADRs 0007, 0008.
+- **Database access:** a **`counselle-db` MCP server** (Python, asyncpg, `cds_library_reader`) exposing exactly four tools: `resolve_school`, `get_school_profile`, `get_domain`, and parameterized `query_database`. Tool logic lives in an in-process service layer that the MCP server thinly wraps; `app/` imports it directly for verified rendering — ADR 0032.
+- **Catalog:** the current immutable manifest snapshot (`5.0.1`, extraction contract 8) is dynamic. Never hardcode domain ids, metric inventories/counts, profile groups, or qualified refs.
 - **Reading rules + citations in code:** the citation envelope (every value decoded, formatted, dated, source-tiered) — ADR 0006.
 - **External search:** **Tavily** — one search+extract backend for all 3 external searches (web / .edu / Reddit), scoped by domain (3 thin tools, no scraping); Reddit is agent-steered. Also GPT-Researcher's retriever — ADR 0015.
 - **Deep research:** **GPT-Researcher**, embedded, cheap-model-routed, capped depth, DB-first; on Tavily; *not* a hosted research black box (our DB must be a first-class source) — ADR 0009. **Deferred from the MVP1 implementation plan** (stub seam in the graph; follow-up plan adds it).
 - **Skills:** **SKILL.md** open standard — ADR 0010.
+- **Current skill set:** public `school-deep-dive` and `school-comparison`; internal `citation-and-recency` and `db-recipes`. The hidden `dossier-assembly` alias exists only for parked-turn compatibility and is never advertised.
 - **Model config:** model-agnostic — PydanticAI per-agent `model=` from env; **default provider Vertex AI (Google), default model Gemini 2.5 Pro** (cheap tier Gemini 2.5 Flash), any provider swappable; optional **LiteLLM** sidecar — ADR 0011.
 - **Service shape:** **API-first agent service** (FastAPI) behind a **versioned SSE event protocol** (`meta`/`delta`/`viz`/`clarify`/`sources`/`usage`/`done`/`error`); every frontend is a client — ADR 0016. (MVP1 used a throwaway dev harness as that client; it was retired in MVP2 once the React frontend went real.)
 - **Layering:** four layers, dependencies inward only (`domain/` pure honesty core → `app/` → `adapters/` → `api/`); use the stack's native seams, never wrap them — ADR 0017.
-- **Config:** one fail-fast typed Settings surface (pydantic-settings) + versioned data assets (prompts, subreddit menu, dossier shortlist, season table); facts derive live from the DB; hardcoding only for true invariants — ADR 0018.
+- **Config:** one fail-fast typed Settings surface (pydantic-settings) + versioned prompt/subreddit/season assets; the live data picture, domains, coverage, profile groups, and evidence facts derive from the DB — ADRs 0018, 0032.
 - **Sessions:** durable from day one via LangGraph's Postgres checkpointer in `counselle.*`; `session_id` required, `user_id` nullable until the platform phase; Counselle owns its schema + migrations — ADR 0019.
-- **DB:** the pipeline's **Postgres 16** (read-only), plus **pgvector** in Counselle's own schema for field-search embeddings.
+- **DB:** Postgres 16. Counselle reads exactly five `cds_library` views through a reader-login role and writes only its own `counselle.*` application schema through a separate DSN.
 - **Language:** Python (matches the pipeline; reuse asyncpg).
 - **Models:** default **Vertex AI (Google)** — `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier). Swappable per-agent to Anthropic (`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`) or others via env.
 
 ## Scope guardrails (hard, enforced in code)
 
-- **Any school in the database.** The agent works on any of the ~2,746 in-database schools — there is **no `is_tracked` scope gate** (reversed 2026-06-09). `is_tracked` is repurposed as a **CDS-depth signal** (extracted / PDF-only / base); the agent is tier-aware and falls back to IPEDS/Scorecard for non-CDS schools. The only hard boundary is "in our database or not." ADR 0002.
-- **Read-only.** The agent never writes to the pipeline DB; it uses a dedicated `counselle_ro` role. ADR 0012.
+- **Any profiled school in the database.** There is no tracked-school gate. CDS coverage is derived from the selected document and usable current-manifest domain packets; absent/current facts fall back to official web sources with disclosure. ADR 0032.
+- **Read-only.** The agent never writes to pipeline data and reads only the five views granted to `cds_library_reader`. ADRs 0012, 0032.
 - **Deferred for MVP1:** chancing, user-data personalization, agent long-term memory, essay/activity writing (PRD); plus deep research (PRD stories 39–41) — deferred from the MVP1 implementation plan to a follow-up.
 
 ## House rules
@@ -144,7 +147,7 @@ When in doubt, do the simplest thing that works and ship it.
 - Never log secrets. Secrets in `.env`/config only.
 - Generated artifacts go in `artifacts/` only. Screenshots, Playwright captures, videos, logs, design exports, one-off HTML prototypes, temporary reports, and similar scratch output must stay in the repo-root `artifacts/` folder, which is local and gitignored. Do not drop artifacts in the repo root, `docs/`, `specs/`, `mockups/`, app source, or package folders unless they are intentionally promoted into a reviewed, permanent source/documentation asset.
 - Frontend visual changes must go through the design system first. Prefer semantic tokens, shared primitives, and existing component APIs over one-off hardcoded colors, spacing, radii, or layout values in feature components. Keep UI changes clean, maintainable, DRY, and easy to evolve.
-- The value-reading rules (`docs/DATABASE_GUIDE.md` §6, R1–R12) are the spec for the normalization engine — implement them in code and test them hard.
+- The packet, availability, display, compiled-context, evidence, caveat, and selected-edition rules in `docs/DATABASE_GUIDE.md` are the honesty spec — implement them in code and test them hard.
 - Plan before non-trivial work; keep `specs/mvp1/PRD.md`, `docs/ARCHITECTURE.md`, and the ADRs current as decisions change.
 
 ## Writing the agent

@@ -237,12 +237,15 @@ def _display_profile(value: Any) -> str | None:
             return None
         return format(Decimal(str(value)), "f").rstrip("0").rstrip(".") or "0"
     if isinstance(value, str):
-        return value.strip()
+        return value.strip() or None
     if isinstance(value, list):
+        if not value:
+            return None
         displays = [_display_profile(item) for item in value]
         if any(item is None for item in displays):
             return None
-        return ", ".join(item for item in displays if item is not None)
+        display = ", ".join(item for item in displays if item is not None)
+        return display or None
     return None
 
 

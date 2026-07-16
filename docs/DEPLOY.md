@@ -11,16 +11,22 @@ The deploy image is a single same-origin container (API + built SPA). It must pr
 - **A multi-stage container**: a Node stage (`npm ci`, `npm run build`, `VITE_TRANSPORT=http`) producing `frontend/dist`, copied into the Python stage.
 - **SPA same-origin serving** in `api/main.py`: Settings-gated static serving — landing at `/`, SPA fallback, `/v1` passthrough (the API surface).
 - **Runtime hygiene**: `uv sync --frozen --no-dev` at build; `exec` the venv binaries directly (no `uv run` at runtime); **keep `psycopg2-binary` in main deps** (yoyo's driver — if it sits in the dev group, `--no-dev` bricks the migration step); a tightened `.dockerignore` (`frontend/node_modules`, `tests/`, `docs/`, `plans/`, `specs/`, `evals/report-*`).
-- **First-boot reconcile as a background task**: the field-index embed (1,093 fields, 30–90s) must not block serving, or a cold start races the host's health-check grace into a kill loop. Run it in the background and pre-warm.
+- **No catalog warm-up:** domains and definitions come from the current immutable
+  manifest view. There is no field index, embedding job, or startup reconciler.
 
 ## Database first (everything depends on a reachable DSN)
 
 1. Provision Postgres 16 (managed or VPS), **co-located with the app**.
-2. **Pre-create the `vector` extension as admin** — migration 0003 runs `CREATE EXTENSION` as the app role, which fails on managed Postgres. Without the pre-create, first boot crash-loops.
-3. `pg_dump` / `pg_restore` the pipeline DB into it.
-4. Run `scripts/setup_db.sql` as admin (roles + grants).
-5. **Verify grants as `counselle_ro`** — the `ALTER DEFAULT PRIVILEGES` trap: objects created by a different admin role are invisible to the agent, a silent honesty bug. Run the grant-verification query after every restore/refresh.
-6. Set both DSNs (`COUNSELLE_DB_RO_DSN`, `COUNSELLE_DB_APP_DSN`); use `pool_min ≥ 2` against a remote DB.
+2. Deploy the CDS Library independently, including current manifest `5.0.1`, its
+   extraction-contract-8 packets, the five reader views, and pipeline-managed
+   `cds_library_reader` grants. Do not import pipeline code into this image.
+3. Provision a LOGIN role that is a member only of `cds_library_reader`; verify it can
+   select all five views and cannot select base tables.
+4. Run `scripts/setup_db.sql` for Counselle's separate `counselle_app` role/schema and
+   apply the Counselle migration chain.
+5. Set both DSNs (`COUNSELLE_DB_RO_DSN` for the reader login,
+   `COUNSELLE_DB_APP_DSN` for `counselle.*`); use `pool_min ≥ 2` remotely. For a
+   side-by-side local cutover, bind the database to loopback only.
 
 ## The environment matrix
 
@@ -68,11 +74,12 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port 8000 --forwarde
 
 ## Deploy checklist
 
-- [ ] DB provisioned, `vector` pre-created, restored, grants verified as `counselle_ro`
+- [ ] CDS Library current pointer is `5.0.1`; all five views readable and base tables denied through the reader-login DSN
+- [ ] Counselle application schema provisioned through its separate app DSN
 - [ ] Full env matrix set; `CORS_ORIGINS` emptied; `COOKIE_SECURE=true`
 - [ ] Migrations ran on boot; `/v1/health` green
 - [ ] SSE un-buffered end-to-end (the TLS terminator must not buffer the stream)
 - [ ] Cookies set under TLS; **Google OAuth works on the prod domain** (the forwarded-proto proof)
 - [ ] One cold-boot run measured (MCP child spawn + first-turn latency)
-- [ ] Playwright smoke passes against production: signup → ask a known dossier question → stream with timeline → reload mid-stream → full-fidelity transcript
+- [ ] Playwright smoke passes against production: signup → ask a known school question → stream with timeline → reload mid-stream → full-fidelity transcript
 - [ ] Security pass: response headers, cookie flags, no secrets baked into the image, admin routes gated

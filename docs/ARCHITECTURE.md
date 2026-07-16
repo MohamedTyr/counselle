@@ -18,9 +18,9 @@
 6. [The agent API & event protocol](#6-the-agent-api--event-protocol)
 7. [Sessions, state & the platform-ready identity model](#7-sessions-state--the-platform-ready-identity-model)
 8. [The data-access layer: the `counselle-db` MCP server](#8-the-data-access-layer-the-counselle-db-mcp-server)
-9. [The citation envelope](#9-the-citation-envelope)
-10. [Field discovery (1,093 fields without overwhelm)](#10-field-discovery-1093-fields-without-overwhelm)
-11. [School coverage & the CDS tier](#11-school-coverage--the-cds-tier-no-scope-gate)
+9. [Packet, evidence, and citation truth boundary](#9-packet-evidence-and-citation-truth-boundary)
+10. [Dynamic catalog and qualified references](#10-dynamic-catalog-and-qualified-references)
+11. [School coverage](#11-school-coverage-no-scope-gate)
 12. [The agent runtime (PydanticAI + LangGraph)](#12-the-agent-runtime-pydanticai--langgraph)
 13. [The deep-research subsystem (GPT-Researcher)](#13-the-deep-research-subsystem-gpt-researcher)
 14. [External search & source control](#14-external-search--source-control)
@@ -56,7 +56,7 @@
 
 ## 1. Guiding principles
 
-1. **Honesty lives in code, never in the LLM's head.** The database is a minefield (`DATABASE_GUIDE` §6): fractions stored 0–1, coded ints, NULL semantics, national-benchmark traps, lagged earnings. The data layer returns values **already decoded, scaled, formatted, and stamped with source + vintage** (the citation envelope); the LLM reasons over clean cited facts and never parses a raw cell. This one decision makes citations, source tiering, and recency awareness *fall out of* the architecture instead of being bolted on. (ADR 0006.)
+1. **Honesty lives in code, never in the LLM's head.** The packet boundary validates edition/domain identity, availability, typed values, compiled context, physical-PDF evidence, and canonical displays/caveats. The LLM composes already-safe facts and copies evidence markers; it never interprets packet JSON or repairs a rejected value. (ADRs 0006, 0032.)
 
 2. **Use the stack's native seams; never wrap them.** Every major extension point we need already exists in a chosen tool: PydanticAI's `model=` *is* the model seam, MCP *is* the tool/transport seam, LangGraph's checkpointer protocol *is* the session-persistence seam, SKILL.md *is* the workflow seam, Tavily-behind-thin-tools *is* the search seam. A hand-rolled abstraction layered over any of these would be a shallow pass-through — interface as complex as the thing it hides, deletable without losing anything. Our own code adds exactly three seams the stack doesn't provide: the **domain core** (§4), the **event protocol** (§6), and the **configuration surface** (§18).
 
@@ -83,26 +83,26 @@
             │                     Counselle agent service (Python)                     │
             │  api/    — FastAPI edge: routes, SSE streaming, request context          │
             │  app/    — LangGraph orchestration, PydanticAI agents, research, skills  │
-            │  domain/ — pure honesty core: envelopes, reading rules, season, tiers    │
+            │  domain/ — packet/evidence/value types, caveats, season, event specs     │
             └──────┬──────────────────────┬───────────────────────────┬────────────────┘
                    │ MCP                  │ MCP / retriever           │ SQL (counselle-owned)
         ┌──────────▼─────────┐  ┌─────────▼──────────┐   ┌────────────▼─────────────────┐
         │ counselle-db       │  │ Tavily (search_web │   │ Postgres `counselle.*` schema│
         │ MCP server         │  │ /_school_site      │   │  sessions/checkpoints,       │
-        │ (read-only)        │  │ /_reddit)          │   │  field_index (pgvector)      │
+        │ (read-only)        │  │ /_reddit)          │   │  users/workspace/checkpoints │
         └──────────┬─────────┘  └────────────────────┘   └──────────────────────────────┘
-                   │ asyncpg (counselle_ro, READ ONLY)
+                   │ asyncpg (cds_library_reader, READ ONLY)
         ┌──────────▼───────────────────────┐
-        │ Pipeline Postgres 16 (localhost) │
-        │  public.* + raw.*  (READ ONLY)   │
+        │ CDS Library Postgres 16          │
+        │ exactly five reader views        │
         └──────────────────────────────────┘
 ```
 
 **Request flow (the dossier wedge, canonical):**
 
 1. A message arrives on a session: question + **source-config** (§14). The API edge attaches a trace ID and request context, and hands it to the orchestrator.
-2. The orchestrator resolves the school via `resolve_school` → unitid. **Not in the database → short-circuit** with the graceful "not in our database" answer (§11); otherwise note the school's coverage tier. Underspecified question → `interrupt()` emits a **clarify event** (§12.1) and the graph parks until the client resumes.
-3. Structured facts come from the `counselle-db` tools — every value a **citation envelope** (§9), already normalized + dated.
+2. The orchestrator calls `resolve_school` before school-specific reads. **Not in the database → short-circuit**; otherwise the result supplies profile identity and selected-edition domain coverage. Underspecified questions can park through `interrupt()` (§12.1).
+3. `get_school_profile` serves stable identity groups; `get_domain` serves a usable current-manifest domain. Both return code-owned displays, availability, caveats, and registered evidence markers. `query_database` is reserved for parameterized cross-school candidate/aggregate work.
 4. Gaps the DB can't fill (this year's deadline, campus vibe) → the agent calls the three **Tavily search tools** (`search_web` / `search_school_site` / `search_reddit`) for the *enabled* sources, steering which to use (§14). *(The dedicated deep-research subagent + verification pass — §13 — is designed but not yet wired; the inline Tavily tools fill this gap in the meantime.)*
 5. The answer streams out as protocol events: text deltas with inline citation markers, **viz events** (§17), `step`/`thinking` work-visibility events (§27), then a final `done` event with sources + usage.
 
@@ -117,12 +117,11 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 | **Agent runtime** | **PydanticAI** | Model-agnostic (`model=` from config — the model seam); native MCP client; typed outputs (the citation envelope *is* a `result_type`). | 0003 |
 | **Orchestration** | **LangGraph** | Multi-agent research subgraphs; `interrupt()` for clarifying questions; checkpointer = session persistence (and the platform's chat history later). | 0003 |
 | **API edge** | **FastAPI** (+ SSE) | Matches the Python stack; typed request/response; streaming-native. | 0016 |
-| **Database access** | **`counselle-db` MCP server** (Python, asyncpg, read-only role) | 3 layers (discovery → safe tools → guarded SQL); reading rules + citations + read-only enforced in code. | 0004, 0005, 0012 |
+| **Database access** | **`counselle-db` MCP server** (Python, asyncpg, `cds_library_reader`) | Four tools over five reader views; typed packet/evidence boundary and guarded SQL. | 0004, 0005, 0012, 0032 |
 | **Deep research** | **GPT-Researcher** (embedded) | Only OSS deep-research with pluggable MCP sources (our DB first-class); best controllable cost. Designed but not yet wired — see §13. | 0009 |
 | **External search** | **Tavily** | One search+extract backend for web / .edu / Reddit, scoped by domain; also GPT-Researcher's retriever. No scraping of our own. | 0015 |
 | **Skills** | **SKILL.md** open standard | Portable workflow layer, loaded on demand. | 0010 |
 | **Session persistence** | **LangGraph Postgres checkpointer** in `counselle.*` | Sessions survive restarts from day one; the platform's chats are the same rows + a user FK. | 0019 |
-| **Vector search** | **pgvector** (`counselle.field_index`) | Field-discovery embeddings; reuses Postgres, no new infra. | 0007, 0008 |
 | **Config** | **pydantic-settings** + versioned data assets | One typed settings surface, fail-fast at startup. | 0018 |
 | **Models** | Default **Vertex AI**: `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier — also the clarifier and auto-title models); any agent swappable to Anthropic/others via config. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011 |
 | **Language** | Python | Matches the pipeline; asyncpg expertise carries over. | — |
@@ -135,17 +134,17 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 
 | Layer | Package | Contains | May import |
 |---|---|---|---|
-| **Domain core** | `domain/` | Citation-envelope types; the **normalization engine** (reading rules R1–R12); vintage interpretation; coverage-tier logic; `admission_season(today)`; render-spec / clarify-spec / source-config / protocol-event **types**. Pure functions and Pydantic models. **No I/O, no LLM calls, no LangGraph/FastAPI imports.** | stdlib, pydantic |
-| **Application** | `app/` | The LangGraph graph; PydanticAI agent definitions (the counselor; the researcher + verifier attach with §13); source-config tool mounting; skills loading; the data calendar assembly. | `domain/`, the stack |
-| **Adapters** | `adapters/` (+ the separate `counselle-db` server) | Tavily search tools (`tavily_tools.py`), the embedding client (`embeddings.py`), the email sender (`email.py`, console arm). The LangGraph checkpointer setup lives in `app/checkpointer.py` (the ADR 0017 carve-out), not here; GPT-Researcher code lives here when §13 activates. Each adapter implements a seam consumed by `app/` — mostly the stack's own seams. | `domain/`, vendor SDKs |
+| **Domain core** | `domain/` | Typed packet values, availability/evidence/citation/caveat models, render/clarify/source/event specs, and `admission_season(today)`. Pure functions and Pydantic models. **No I/O, no LLM calls, no LangGraph/FastAPI imports.** | stdlib, pydantic |
+| **Application** | `app/` | LangGraph/PydanticAI orchestration, source-config tool mounting, skills, live data-picture injection, evidence/source registry, and verified viz assembly. | `domain/`, the stack |
+| **Adapters** | `adapters/` (+ the separate `counselle-db` server) | Tavily search, email, checkpointer/provider integrations, and asyncpg access to the five reader views. | `domain/`, vendor SDKs |
 | **API edge** | `api/` | FastAPI routes, SSE encoding, request context (trace ID + optional principal), translation of graph output → protocol events. | `app/`, `domain/` |
 
 Rules of thumb (the seam discipline):
 
-- **The domain core is the deletion-test survivor.** Deleting it would scatter the reading rules across every tool and prompt — it concentrates the product's entire honesty guarantee in one deep module with a tiny interface (`normalize(field, raw) → envelope`, `season(today) → phase`, …). It is the most-tested code in the repo (§21).
+- **The domain core is the deletion-test survivor.** Deleting it would scatter packet identity, availability, evidence, display, and caveat rules across tools and prompts. It is the most-tested code in the repo (§21).
 - **One adapter = hypothetical seam; two = real.** We do not write interfaces for things with one implementation and no honesty stake. The model seam is real (Vertex/Anthropic — via PydanticAI, not ours). The search seam is the three thin tools (Tavily today; the tool signatures are the seam). The session seam is LangGraph's checkpointer protocol (theirs, not ours).
 - **No pass-through wrappers.** If a module's interface is as complex as what it hides, delete it.
-- **Accepted deviations (ADR 0017):** (1) `app/` imports `counselle_db/service.py` directly in-process for `render_viz`, the data calendar, and tier checks — MCP is the tool seam for the LLM's tool loop only. (2) `api/main.py` and `api/routes/system.py` import `counselle_db.reconcile` directly, bypassing `app/` — the reconciler is infrastructure maintenance wired at the process boundary; an `app/` wrapper would be a pass-through with no behaviour and would fail the deletion test. Both deviations are documented in ADR 0017.
+- **Accepted deviation (ADR 0017 as amended by ADR 0032):** `app/` imports `counselle_db/service.py` directly in-process for verified rendering and workspace reference checks. MCP remains the LLM tool-loop seam; there is no field reconciler.
 
 ---
 
@@ -162,12 +161,11 @@ counselle/
 │   └── assets/                   # versioned data assets (§18)
 │       ├── prompts/              # one file per agent prompt, loaded by name
 │       ├── subreddit_menu.yaml   # the labeled Reddit menu the agent picks from
-│       ├── dossier_shortlist.yaml# the ~90 curated dossier field keys (from DATABASE_GUIDE §7)
 │       ├── season_calendar.yaml  # the generic US admission-season table
 │       ├── greeting_templates.yaml / starter_prompts.yaml  # home-screen config (§32, GET /v1/config)
 │       ├── step_labels.yaml      # tool-call → work-visibility step labels (§27.1)
 │       ├── abbreviations.yaml    # school-name abbreviation expansion (used by resolve_school)
-│       └── static_field_map.md   # the static category map fallback for field discovery
+│       └── data_picture.md       # live manifest/coverage prompt template
 ├── domain/                       # the pure honesty core (§4)
 ├── app/                          # orchestration: graph, agent node, steps/turns/records/transcript, skills
 ├── adapters/                     # tavily tools, email adapter, embedding client (§4)
@@ -238,83 +236,85 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 
 ## 8. The data-access layer: the `counselle-db` MCP server
 
-A standalone MCP server (Python, asyncpg, read-only `counselle_ro` role). PydanticAI connects natively. Three layers. (ADRs 0004, 0005.)
-
-### Layer 1 — Field discovery
-`search_fields(query, filters?)` → relevant fields from the 1,093-field catalog with how-to-read metadata. Static category map + pgvector (§10).
-
-### Layer 2 — Safe typed tools (the 90% path)
-Each applies the **normalization engine** + **vintage resolver** (both from `domain/`) and returns **citation envelopes**. They operate on any in-database school; every result carries the school's **coverage tier** (§11).
+The standalone MCP server and its in-process service share one asyncpg catalog over
+the `cds_library_reader` contract. That role can select exactly five views:
+`school_profiles`, `active_cds_documents`, `active_cds_domain_packets`,
+`cds_document_sources`, and `cds_manifest_snapshots`. Counselle never imports pipeline
+code or reads pipeline base tables. The LLM sees exactly four tools:
 
 | Tool | Purpose |
 |---|---|
-| `resolve_school(name_or_unitid)` | Fuzzy/abbreviation/multi-campus resolution over all 2,746 schools → unitid + basics + coverage tier, or the "not in our database" signal |
-| `get_values(unitid, field_keys[])` | Specific fields, normalized + cited |
-| `get_dossier(unitid, sections?)` | The wedge: the curated shortlist + programs + diversity in one cited bundle |
-| `compare_schools(unitids[], field_keys[])` | N×M matrix of envelopes, per-cell citations |
-| `find_schools(criteria)` | Filter/rank across the database |
-| `national_benchmark(field_key)` | National distribution for a field (`{median, mean, p25, p75, n}`, normalized for display) — the honest backbone for "is X high?" questions (`DATABASE_GUIDE` §14.4) |
-| `get_programs(unitid, cip?)` | Earnings/debt by major (`raw.scorecard_fos`) |
-| `get_diversity(unitid)` | Race/sex enrollment (`raw.ipeds_ef2024a`) |
+| `resolve_school(query)` | Resolve name/unitid and return safe identity plus selected-edition coverage, or ambiguity/not-found. |
+| `get_school_profile(unitid, groups?)` | Read dynamic stable profile groups with provenance and snapshot caveat. |
+| `get_domain(unitid, domain_id)` | Read one usable current-manifest domain for the selected document, with typed values/evidence/availability. |
+| `query_database(sql, params)` | One guarded parameterized `SELECT`/`WITH` over the five views for candidate selection or aggregates. |
 
-### Layer 3 — Guarded SQL escape hatch (the long tail)
-`query_database(sql, params)` — read-only parameterized SQL for arbitrary ranking/filtering/aggregation the typed tools don't cover. Guardrails: the `counselle_ro` role (`GRANT SELECT` only, `default_transaction_read_only`), statement timeout, row cap (all configurable, §18). Raw rows bypass normalization, so the tool exposes helper SQL (`decode_ipeds(...)`, `value_vintage(...)`) and its description states that the reading rules still apply.
+The first three are the normal path. SQL results are not cited student truth: state
+the as-of and covered/total denominator, then re-fetch named final values through a
+typed read. The query guard enforces schema allowlisting, positional parameters,
+statement/row/serialized-byte limits, and rejects packet/PDF/provider payloads.
 
-### Shared internals (all in `domain/`, used by every tool)
-
-- **Normalization engine** — the reading rules **R1–R12** (`DATABASE_GUIDE` §6 is the spec): decode coded ints via valuesets, ×100 percents, currency with valid negatives, strip int trailing zeros, native bools, title-case CDS enums, fix scheme-less URLs, source preference per concept, NULL/missing → "not available", BBRR range-token detection, FTE ≠ headcount. `(field_key, raw jsonb)` → `(display, raw_numeric, available, unit, decoded_label?)`. **The honesty-critical core — built once, TDD'd hard.**
-- **Vintage resolver** — the `DATABASE_GUIDE` §9 provenance query → `{source, vintage_string, caveat}` (e.g. "College Scorecard published Mar 2026; earnings reflect ~2016 entrants").
-- **Data calendar** — a small always-available summary derived **live** from `raw.files` + the Scorecard filename + the pipeline's `public.cds_settings.current_cycle_year` (read live from the DB, not a Counselle Settings knob): per source, its vintage and knowledge cutoff. Injected into agent context so the agent knows each source's cutoff *before* it fetches, and routes beyond-cutoff questions to the web. Live-derived → a pipeline re-ingest updates it automatically; never hardcoded. Also exposed as the `get_data_calendar` tool — the server's **11th tool** (Layer 1: `search_fields`; Layer 2: the 8 typed tools + `get_data_calendar`; Layer 3: `query_database`).
+At startup the catalog validates exactly one current manifest. Manifest `5.0.1`
+(extraction contract 8) is the immutable corrected successor to `5.0.0`; domains,
+metric definitions, profile groups, labels, and counts are derived rather than copied
+into prompts or code.
 
 ---
 
-## 9. The citation envelope
+## 9. Packet, evidence, and citation truth boundary
 
-Every value from every tool comes back in one shape — the single structure that realizes citations + official/community tiering + recency + the visualization data feed. (ADR 0006.)
+The active packet view explicitly includes every current-manifest domain, including a
+null packet. For a school, code selects the greatest `(academic_year, document_id)`
+document and pins every domain read to it—never merging an older edition to fill a
+hole. Typed parsing validates document/year/domain/manifest/hash identity, compatible
+extractor identifiers, physical page evidence, and value states while dropping
+provider contracts and diagnostics.
 
-```jsonc
-{
-  "field": "admissions.acceptance_rate",
-  "label": "Acceptance Rate",
-  "display": "3.6%",          // already correct per the reading rules — the agent can't misread it
-  "raw": 0.0361,              // numeric, for visualizations
-  "available": true,          // false when NULL/missing → "not available", never invented
-  "unit": "percent",
-  "citation": {
-    "source": "scorecard",    // ipeds | scorecard | cds | web | edu | reddit
-    "tier": "official",       // official (DB, .edu) | community (Reddit)
-    "vintage": "College Scorecard, published Mar 2026",
-    "caveat": null,           // e.g. "earnings reflect students who entered ~2016"
-    "raw_table": "raw.scorecard_institution"
-  }
-}
-```
+Only `extraction_status=verified` plus `availability_status=reported` produces a
+student value. Verified `not_reported`, `not_applicable`, `suppressed`, and
+`not_in_template_version` states remain explicit unavailable claims with evidence;
+`not_extracted`, `conflict`, and `invalid` never carry a value. Displays and canonical
+caveat text are copied from code. Compiled context binders supply value-specific term,
+cohort, or snapshot vintage; prose instructions are never parsed to infer it.
 
-- `display` feeds the agent's prose; the agent never re-formats it. `raw` feeds visualizations directly.
-- The web/Reddit research layer emits the **same envelope** with the appropriate `tier`, so "cite everything" is "render the envelope you already have."
-- The envelope type lives in `domain/` and is versioned with the protocol (§6).
+Every typed value exposes compact visible and internal evidence markers. The model
+copies both verbatim beside supported prose; the runtime registers the immutable PDF
+source and removes internal tokens before the student sees the answer. Live computed
+aggregates receive no fake source marker. Source chips use official school domains
+only for resolved DB schools; external official/community sources retain their own
+tier and provenance.
 
 ---
 
-## 10. Field discovery (1,093 fields without overwhelm)
+## 10. Dynamic catalog and qualified references
 
-Hybrid: compact always-loaded map for the common path + semantic search for the long tail. (ADR 0007.)
+The current manifest is the catalog. Metric IDs are only unambiguous as
+`<domain_id>.<metric_id>`; the typed packet boundary is the sole minting point for
+these refs. The same ref flows through domain results, evidence IDs, viz cells, and
+eval fixtures. Unknown refs are rejected rather than silently shown unavailable.
 
-- **Static category map** — a few-hundred-token tree of the 17 categories + the curated dossier shortlist (a versioned data asset, §18), always in context.
-- **`search_fields`** — pgvector semantic search over the long tail; returns field key + how-to-read metadata.
-
-**Self-healing embeddings (ADR 0008):** `counselle.field_index` (field_key, content_hash, embedding, embed_model_version) is a derived cache of the pipeline's `fields` table. `reconcile_field_index()` hash-diffs and embeds only the delta; runs at startup, on a short cron, and via a manual endpoint. **Fail-safe:** `search_fields` always has a keyword/trigram fallback over the full catalog, so a brand-new field is discoverable the instant it's inserted — embeddings are a precision booster, never the only path. A new field is **never invisible**.
+The runtime injects a compact **data picture** derived from the current manifest,
+profile snapshot, selected-document editions, usable-domain coverage, and safe
+aggregate counts. It guides routing without putting packets, metric inventories, or
+values into ambient context. Current-cycle deadlines and facts beyond the CDS edition
+route to official web search even when a packet exists.
 
 ---
 
-## 11. School coverage & the CDS tier (no scope gate)
+## 11. School coverage (no scope gate)
 
-The agent works on **any school in the `schools` table (2,746)**. (ADR 0002, revised.) What varies is depth, and the agent is **tier-aware** so it sets honest expectations:
+Any row in `school_profiles` is in scope; an absent school receives the explicit
+not-in-database response. Coverage is selected-edition and current-manifest based:
 
-- **Base** — IPEDS + Scorecard (≈ all schools; ~98% Scorecard fill). Answers most admissions/cost/aid/outcomes questions.
-- **CDS-tracked** — a CDS PDF exists: **extracted** (structured CDS fields — 8 schools today, the deepest tier) or **PDF-only** (downloaded, not yet extracted — e.g. Stanford).
+- **covered:** at least one domain row for the selected document has an accepted packet;
+- **fully:** accepted packets equal the current domain count and none is partial;
+- **partial:** covered but not fully.
 
-Tier is computed from **actual data presence** (extracted values → extracted; PDF without values → PDF-only; the Stanford trap: `extract_status='done'` ≠ values exist), read **live**, never hardcoded. A school absent from `schools` gets the graceful **"not in our database"** response — the only hard boundary. Honesty by awareness, not exclusion: asked for CDS-only detail on a base-tier school, the agent says it isn't available and falls back to IPEDS/Scorecard.
+Usable domains are those the typed coverage result permits. No document, no accepted
+packet, partial packet, stale edition, and current-definition mismatch remain distinct
+states with code-owned caveats. Missing/current values fall back to the school's
+official site/search with disclosure; cross-school comparisons disclose edition
+mismatch and aggregate denominators.
 
 ---
 
@@ -358,7 +358,7 @@ One focused round, 2–4 options, never an intake form. The chips are a shortcut
 
 Embedded as a research subagent inside the LangGraph orchestrator — not adopted wholesale, and **not** a hosted research black box (our DB must be a first-class source; our model routing and source tiering must apply). (ADR 0009; bake-off in `docs/research/deep-research-bakeoff.md`.)
 
-**Cost-optimized configuration (added with the deep-research follow-up):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard `DEPTH`/`BREADTH`/concurrency caps; documented cost ~$0.08–0.10/task cheap mode, ~$0.50–1.00 deep mode. **DB-first does the heavy lifting:** web research only fills gaps the DB can't answer — a base-tier dossier comes almost entirely from IPEDS/Scorecard with zero web spend.
+**Cost-optimized configuration (added with the deep-research follow-up):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard depth/breadth/concurrency caps. **DB-first does the heavy lifting:** web research fills gaps or current-cycle facts the selected profile/domain contract cannot support.
 
 **What we add (already PRD features):** source-type tagging (each source tags `official`/`community`, carried into citations), the **verification pass** (a cheap post-pass cross-checking the top 2–3 cited sources before stating a fact), and the eval set (§21).
 
@@ -368,7 +368,7 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 ## 14. External search & source control
 
-(ADR 0015.) All three external searches are **one backend — Tavily — scoped by domain**, as three thin tools. Nothing is scraped by us. The DB is the fourth, always-on source; **DB-first** — search fires only when the DB can't answer or is stale per the data calendar.
+(ADR 0015.) All three external searches are **one backend — Tavily — scoped by domain**, as three thin tools. Nothing is scraped by us. The DB is the fourth, always-on source; search fires when selected profile/domain data is unavailable or when deadlines/current-cycle facts exceed the CDS edition.
 
 | Tool | Scope | Tier |
 |---|---|---|
@@ -384,7 +384,7 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 ## 15. Skills (SKILL.md)
 
-Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body, optional scripts), living in `skills/`. (ADR 0010.) Metadata loads at startup; full instructions load only when triggered (progressive disclosure). Skills are the **workflow** layer; MCP is the **transport** layer — kept separate. Four skills ship in `skills/`: `dossier-assembly`, `school-comparison`, `decode-coded-value`, `citation-and-recency`. (`deep-research-with-citations` activates with the GPT-Researcher subsystem — ADR 0009.) Skills are data, not code — editing one never requires a deploy decision beyond shipping the file.
+Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body), living in `skills/`. Four ship: public `school-deep-dive` and `school-comparison`, plus internal `citation-and-recency` and `db-recipes`. Metadata loads at startup and bodies load through progressive disclosure. The non-advertised `dossier-assembly` alias canonicalizes to `school-deep-dive` only for parked-turn compatibility; it is not a fifth skill.
 
 Students can explicitly invoke only skills that opt into the public SKILL.md metadata (`user_invokable`, with student-facing display copy). The API exposes that catalog through config and validates submitted canonical names, visibility, uniqueness, count, and trusted body-size/path bounds before a turn is claimed. Valid selections are preloaded as a server-owned, one-turn instruction block; they cannot override the counselor's base instructions, authz, read-only constraints, or honesty rules. The selected canonical names persist in the turn record and original user transcript entry, so reload, retry, and regeneration preserve the exact invocation without adding control syntax to the student's text. Internal skills remain available to the agent's normal progressive-disclosure tool path but are never exposed as student actions.
 
@@ -392,11 +392,11 @@ Students can explicitly invoke only skills that opt into the public SKILL.md met
 
 ## 16. Citations, recency & temporal context, end to end
 
-- **Every fact carries an envelope** (§9); the `tier` field drives the official-vs-community display the PRD requires.
+- **Every named DB fact carries registered evidence** (§9); external sources retain official/community tier provenance.
 - **Citation UX:** lightweight **inline expandable markers** — each claim gets a marker with an official/community chip; expanding reveals source, vintage, caveat. The `sources` event (§6) carries the turn's full deduplicated list.
 - **Recency is per-value** (the vintage resolver) plus three always-available temporal facts, none guessed by the model:
   - **Today's date** — injected by the runtime each request.
-  - **The data calendar** (§8) — each source's vintage + cutoff, derived live. The agent measures the gap and routes DB-vs-web.
+  - **The live data picture** (§10) — manifest/profile snapshot, selected-edition and coverage context. The agent routes DB-vs-web without a hardcoded calendar.
   - **The admission season** — `admission_season(today)` (pure, in `domain/`; the phase table is a data asset) → cycle phase + active entering class. Jun–Jul = list-building/essay prep; Nov = early deadlines; Mar–Apr = decisions; etc.
 - **Boundary (KISS):** season awareness is *context*, not a deadline tracker (process management is deferred, PRD). School-specific dates are **data** — CDS fields or live web, fetched and cited like any value, never inferred from the generic calendar.
 
@@ -404,17 +404,13 @@ Students can explicitly invoke only skills that opt into the public SKILL.md met
 
 ## 17. Visualizations
 
-(ADR 0014; score band removed by ADR 0024.) Two visualization types are implemented: the **dossier stat block** and the **comparison table** (per-cell citations). Net-price-by-income bars and the factor-weight grid are designed but not yet wired. The **community card** viz type (for qualitative/Reddit content) is also designed but not yet implemented — `RenderSpec.type` accepts only `stat_block | comparison_table`; community-card support is a follow-up item. Test scores (SAT/ACT middle-50%, test policy) are presented in prose or folded into a stat block.
+(ADRs 0014, 0024, 0032.) Viz protocol v2 has an open type seam. Known `stat_block` and `comparison_table` cards render natively; unknown opaque types degrade safely. A cell must be a qualified metric ref, a profile ref, a registered external value, or explicit unavailable.
 
-**The provenance boundary (the core rule):** the **LLM decides the shape** (schools, fields, chart type); a **tool fetches the numbers** straight from citation envelopes. **Numbers never round-trip through the LLM's tokens.** Community/qualitative content renders as an explicitly community-tier qualitative card, never a quantified chart. **No trend charts** — the DB holds one vintage per source; a trend line would be fabricated.
+**The provenance boundary:** the model proposes shape and references; code fetches DB/profile refs and verifies registered external values. Rejected refs must be corrected, never converted into unavailable. No trend chart may imply editions the data does not contain.
 
-**Mechanism:** one tool — `render_viz(type, selection)`, `type ∈ {stat_block, comparison_table}` — wraps the existing `counselle-db` tools, wraps the envelopes with `type`, and returns a **render spec**. The backend stages successful specs, dedupes equivalent ones, and flushes the batch once when final-answer mode begins; the LLM receives only an acknowledgment. Dumb client components draw `display` + the tier chip and render `available:false` as "not available"; tables/stat blocks degrade to Markdown where no renderer exists. Within the one emitted batch, first-seen tool order is preserved. No placeholder anchoring machinery exists.
+**Mechanism:** `render_viz` resolves metric refs through `get_domain`, profile refs through `get_school_profile`, external refs through the source registry, and unavailable cells without lookup. The backend stages/deduplicates successful specs and returns only a compact acknowledgment to the model. Clients render canonical displays and provenance; unknown card types use the generic fallback.
 
-**Field ownership:** for both stat block and comparison the LLM picks fields contextually — what matters for *this* chat.
-
-**Accuracy guarantee:** values are always tool-fetched, so the LLM cannot misstate a number. Residual risk = wrong field for the concept, bounded by: only real catalog keys are selectable (`search_fields`/static map), the tool rejects unknown keys, R9 source preference lives in normalization, `available:false` degrades honestly, and the eval set scores field-selection accuracy. No concept→field resolver (low-value-and-hard).
-
-**The SAT-composite honesty rule:** IPEDS SAT percentiles are per *section* and must never be summed into a 1600 composite — describe EBRW and Math separately, never a fabricated composite. The middle-50% band is the **enrolled cohort's range, not a cutoff** — the agent teaches that. (This was enforced by the score-band tool's validator; with the score band removed (ADR 0024) it survives as prompt/skill guidance.)
+**Accuracy guarantee:** no visible numeric/text value is accepted from an unregistered model literal. All-or-nothing validation prevents a partly truthful card.
 
 ---
 
@@ -427,9 +423,8 @@ Students can explicitly invoke only skills that opt into the public SKILL.md met
 | Group | Knobs |
 |---|---|
 | Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_stream` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2; **default on**; `thinking_summaries` remains a compatibility alias only; see `config/settings.py`); `agent_max_model_requests`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
-| Database | pipeline DSN (`counselle_ro`), statement timeout, row cap, pool sizes |
+| Database | CDS Library reader-login DSN, application DSN, statement/row/byte limits, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
-| Discovery | embedding model + version, reconcile interval |
 | Sources | default source-config (web/Reddit/.edu on/off), Tavily key, per-tool result limits |
 | API | host/port, CORS origins, SSE keepalive, protocol version |
 | Observability | log level, cost-accounting on/off |
@@ -439,16 +434,13 @@ Students can explicitly invoke only skills that opt into the public SKILL.md met
 The settings surface also owns the hardening knobs added after MVP2: the
 live-derived school count is read from `Catalog.school_count` (not a Settings
 literal); password length is `password_min_length`; the thinking splitter uses
-`thinking_threshold_chars`; embedding retry/reconcile behavior uses the discovery
-settings; and production CORS defaults to an empty `cors_origins` list. Compare
-caps remain protocol sanity constants in `counselle_db/service.py`, not tuning
-knobs.
+`thinking_threshold_chars`; production CORS defaults to an empty `cors_origins` list.
 
-**2. Versioned data assets (`config/assets/`).** Things a developer tunes *editorially*, hot-changeable without touching code: **agent prompts** (one file per agent, loaded by name), the **subreddit menu**, the **dossier field shortlist**, the **season calendar table**. Reviewable in diffs, no magic strings in code.
+**2. Versioned data assets (`config/assets/`).** Editorial prompts (including the live data-picture template), subreddit menu, and season calendar. Reviewable in diffs, no magic strings in control flow.
 
-**3. Live-derived from the DB (never configured, never hardcoded).** The data calendar, coverage tiers, the field catalog, `current_cycle_year`, school URLs. These are *facts*, and facts come from the database at runtime.
+**3. Live-derived from the DB (never configured, never hardcoded).** Current manifest/domains, profile groups/snapshot, selected editions, coverage, evidence, and school URLs.
 
-**What may be hardcoded:** only invariants — the reading rules' logic itself (R1–R12 are the spec, not a preference), the envelope/protocol schemas (versioned, but code), SQL safety (parameterization isn't a setting). The test: *"would a developer ever plausibly want to change this without an architecture discussion?"* If yes → bucket 1 or 2.
+**What may be hardcoded:** only invariants — packet/availability/evidence validation, versioned protocol schemas, and SQL safety.
 
 ---
 
@@ -458,7 +450,7 @@ Cheap on day one, brutal to retrofit:
 
 - **Structured logging (structlog)** — JSON logs; a **trace ID** minted per request at the API edge rides through the graph, tools, and research subagent, and is returned in the `meta`/`error` events. Never log secrets (house rule); never log full student messages at INFO.
 - **Per-request usage accounting** — every model call's tokens (PydanticAI exposes usage) and Tavily/research calls roll up into the turn's `usage` event and a log line: per-session and per-turn cost visibility from the first day, which is also how the research cost caps get verified in practice.
-- **Health** — `GET /v1/health` checks the process + DB reachability; the reconciler, checkpointer, and the MCP child supervisor (`api/supervision.py`) report status there. (The turn registry and rate-limiter counters are in-process best-effort state and degrade gracefully on restart — §33 — rather than gating health.)
+- **Health** — `GET /v1/health` checks process/database reachability, checkpointer, and the MCP child supervisor. Turn-registry and limiter counters remain best-effort process state.
 - Metrics/dashboards are a platform-phase concern; the structured logs are designed so that adding them is aggregation, not re-instrumentation.
 
 ---
@@ -467,11 +459,11 @@ Cheap on day one, brutal to retrofit:
 
 **Nothing may block containerized deployment** — deployability is a property, not a phase. The full-stack app deployment delta (same-origin SPA serving, the amended statelessness clause, entrypoint migrations) is §33. The points below describe the as-designed deployability.
 
-- **12-factor:** all config from the environment (§18); the service is **stateless** — every bit of state lives in Postgres (checkpoints, sessions, field_index) — so it can restart, scale, or move at any time.
+- **12-factor:** all config comes from the environment; durable state lives in Postgres (`counselle.*`), so the service can restart or move safely.
 - **One container** (a `Containerfile` from day one) running the API service; the `counselle-db` MCP server runs as a child process inside it, supervised by `api/supervision.py` (`McpSupervisor`: exponential-backoff restart, status on `/v1/health`).
 - **Migrations** (`migrations/`, chain 0001–0006 over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch.
 - **Secrets** in `.env`/secret manager only; shared with the pipeline **credentials only** (the read-only DSN + Vertex/GCP keys) — no shared code, config, or runtime dependency. The DB is the contract.
-- **Read-only role `counselle_ro`** — `GRANT SELECT` on `public.*` + the needed `raw.*` tables; `default_transaction_read_only`; statement timeout. Never the pipeline's write role. (ADR 0012.) A read replica is a later optimization.
+- **Read-only boundary** — the reader LOGIN can select exactly the five `cds_library` views; the separate application DSN owns only `counselle.*`. (ADRs 0012, 0032.)
 
 ---
 
@@ -479,10 +471,10 @@ Cheap on day one, brutal to retrofit:
 
 (Per the PRD: test where lying to a student is possible; skip ceremony elsewhere. Behavior, not implementation.)
 
-- **The domain core is the test surface.** The normalization engine gets the full TDD treatment with `DATABASE_GUIDE` §6 as its spec — every reading rule R1–R12 has behavioral tests (fraction→percent, coded-int decode vs passthrough, NULL/missing → "not available", negative currency, range tokens never arithmetic'd, FTE≠headcount, URL fixing, benchmark fields never school values, vintage attached). Pure functions → trivial to test, no mocks.
-- **The eval set (`evals/`)** — university questions with known answers, scoring citation accuracy, field-selection accuracy, and clarify-vs-assume judgment. An engineering tool, no numeric launch gate (PRD).
+- **The honesty core is the test surface.** Packet identity/compatibility, extraction and availability states, displays, compiled contexts, evidence, caveats, editions, and ref rejection receive deterministic tests.
+- **The eval set (`evals/`)** scores routing, coverage/edition/composition/denominator honesty, citations, clarify/narration quality, and workspace behavior; live roles derive from the data picture.
 - **Runtime schema validation is the contract enforcement** — the typed specs (envelope, render, clarify, events) validate at runtime via Pydantic; no separate golden/contract-test machinery (deliberately dropped as enterprise-ish).
-- **Three pytest marker tiers** (`pyproject.toml`): `live_db` (integration tests against the live Postgres — the largest tier: auth, sessions, viz, protocol, durability, reconcile), `live_search` (live Tavily), `live_llm` (real Gemini + DB + Tavily; slow, costs money). Routine runs exclude all three.
+- **Three pytest marker tiers** (`pyproject.toml`): `live_db`, `live_search`, and `live_llm`. Routine runs exclude all three.
 - **Frontend tests** are covered in §34.
 - The layering (§4) is what keeps this strategy cheap: the honesty core needs no LLM, no DB, no network to test.
 
@@ -492,20 +484,20 @@ Cheap on day one, brutal to retrofit:
 
 | PRD feature | Component(s) |
 |---|---|
-| DB access (full power, 1,093 fields, no overwhelm) | `counselle-db` 3 layers + field discovery (§8, §10) |
+| DB access | four `counselle-db` tools over five reader views (§8, §10) |
 | Web / Reddit / .edu search | Tavily, 3 domain-scoped tools; Reddit agent-steered (§14) |
 | Source-control dropdown | per-request source-config gating the toolset (§14) |
 | Deep research + verification | GPT-Researcher subagent + verification pass (§13) — designed; activates with the follow-up plan |
 | Citations (official vs community) | citation envelope `tier` (§9); `sources` event (§6) |
 | Citation UX (inline expandable markers) | `delta` markers + `sources` event; client renders (§6, §16) |
-| Recency & temporal awareness | vintage resolver + data calendar + injected date + `admission_season` (§8, §16) |
+| Recency & temporal awareness | compiled contexts + selected edition + live data picture + injected date + `admission_season` (§9, §16) |
 | Clarifying questions | `interrupt()` + clarify spec → `clarify` event (§12.1) |
 | In-session working memory | LangGraph state via Postgres checkpointer (§7) |
 | Skills | SKILL.md in `skills/` (§15) |
 | Visualizations | `render_viz` → render spec → `viz` event → dumb components (§17) |
 | Model configurability | per-agent `model=` from Settings (§18) |
-| School coverage / CDS tier | tier-aware data layer; in-DB-or-not boundary (§11) |
-| Honesty / no-misread | normalization engine in `domain/` (§8, §21) |
+| School coverage | selected-edition, current-manifest coverage; in-DB-or-not boundary (§11) |
+| Honesty / no-misread | packet/evidence anti-corruption boundary (§9, §21) |
 | Product client | `frontend/` React SPA — the sole protocol client (§31) |
 | Work visibility (steps / thinking) | `step` + `thinking` events; `app/steps.py` (`StepMapper`/`EmissionRouter`), `domain/events.py` (§27.1–27.2) |
 | Resume & cancel | the turn registry `app/turns.py` (Last-Event-ID reattach, `POST .../cancel`); the self-contained turn record `app/records.py` (§27.3, §27.7) |
@@ -541,13 +533,13 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 |---|---|
 | **PydanticAI API churn** | APIs verified against the pinned version — `agent.iter()`, `AgentRun.next_node`/`next`, `AgentRun.all_messages()`, `AgentRun.ctx.state.message_history`, `FunctionToolCallEvent`/`FunctionToolResultEvent`, `AgentRunResultEvent`, `UsageLimits` all confirmed and in use (`app/agent_node.py`, `app/steps.py`). Re-verify on any version bump. |
 | Protocol churn breaking clients | `v` on every event/route; additive-only within v1; clients ignore unknown events. |
-| Agent misreads raw values via the SQL escape hatch | Normalization is the default path; escape hatch exposes decode/vintage helpers + "rules still apply" note; eval set watches. |
+| Agent treats SQL rows as cited truth | SQL is candidate/aggregate-only; denominator/as-of required and named finalists are re-fetched through typed reads. |
 | `COUNSELLE_JWT_SECRET` missing or too short | Fail-fast validated at boot (≥32 bytes); the service refuses to start. Set it before first launch — the most likely first-boot failure (§32). |
 | Deep-research cost blowup *(future — §13)* | When activated: DB-first + depth/breadth caps + cheap-model tiers + per-question cost ceiling + usage accounting making spend visible per turn (§19). |
 | GPT-Researcher has no published citation-accuracy benchmark *(applies when §13 activates)* | The eval set, measured before launch. |
-| CDS sparsity → thin dossiers for most schools | Tier awareness + IPEDS/Scorecard fallback; the agent says what isn't available (§11). |
+| CDS sparsity → missing domains/values | Distinct availability states plus official-site fallback with disclosure (§11). |
 | Checkpoint/session data growth | Configurable TTL/cleanup (§7, §18); rows are cheap until they aren't — knob exists from day one. |
-| Pipeline re-ingest changes counts/vintages | Everything derived live (calendar, tiers, catalog, embeddings reconcile); `DATABASE_GUIDE` is snapshot-dated — re-verify on re-ingest. |
+| Pipeline publication changes domains/coverage | Catalog and coverage derive from immutable current manifest/views; contract checks reject an invalid pointer. |
 | Config sprawl / drift | One `Settings` surface, fail-fast validation, `.env.example` as the documented inventory (§18). |
 
 ---
@@ -559,7 +551,7 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 - ~~**PydanticAI / LangGraph / checkpointer APIs & versions**~~ — *resolved:* pinned in `pyproject.toml`; APIs confirmed in use.
 - ~~**Migration tool for `counselle.*`**~~ — *resolved:* **yoyo-migrations**; chain 0001–0006 over `counselle.*` only.
 - ~~**Tavily Reddit scoping**~~ — *resolved:* `reddit.com/r/<sub>` domain scoping confirmed; `search_reddit` shipped; `config/assets/subreddit_menu.yaml` finalized.
-- ~~**Eval harness design**~~ — *resolved:* `evals/runner.py` + `questions.yaml` + `judge.md`; the set covers fact / field-selection / clarify-judgment / comparison-viz / honesty.
+- ~~**Eval harness design**~~ — *resolved:* dynamic routing, coverage, edition, composition, denominator, clarify, narration, and workspace cases.
 - ~~**SSE vs WebSocket**~~ — *resolved:* SSE kept; resume via `Last-Event-ID` over the turn registry (§27.3); cancel is a plain HTTP POST.
 
 ---
@@ -628,19 +620,20 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
       "domains": ["niche.com", "usnews.com"],
       "result_count": 5,
       "duration_ms": 1840
-      // db_tool/sql kinds instead carry: tool, field_keys[], row_count
-      // viz kind carries: viz_type, schools[]
+      // DB kinds carry safe structure only: tool plus query/result_count/schools,
+      // domain_id/value_count, or row_count as applicable
+      // viz carries: viz_type, value_count, schools, sources
     }
 }}
 ```
 
 - **Emission seam (a named build-time gate):** the preferred path is PydanticAI's native `agent.iter()` loop, with `ModelRequestNode.stream(run.ctx)` and `CallToolsNode.stream(run.ctx)` surfaced through the graph's custom stream — the stack's own seam (Part I, §1 principle 2). The node advances with `next_node` / `await run.next(node)`; that is the runtime seam the code now owns. Either way, **no hand-wrapping of tools** (ADR 0017).
 - **The step mapper is a named module, not route code:** a pure function — tool-call info in, `{kind, tier, label}` out — using the label templates. The route generator stays a dumb encode-and-yield loop; the mapper (`app/steps.py`) is table-driven-testable with zero mocks (§34).
-- **Labels are editorial:** built from templates in a new data asset `config/assets/step_labels.yaml` (per `kind`, with arg interpolation — "Querying the database: {category} fields", "Checking r/{subreddit}"). Changing the product voice never touches code (ADR 0018 bucket 2).
+- **Labels are editorial:** templates in `config/assets/step_labels.yaml` cover the exact four DB tools plus search/workspace/viz kinds. Changing product voice never touches code.
 - **Steps persist (PRD stories 15–16, decision 5):** at turn end, the turn's **step record** — steps with their receipts, the thinking lines (§27.2), and the derived one-line receipt — is written into the graph state alongside the messages. No new storage: the checkpointer already holds that state. The transcript read returns it per assistant message (§27.5). Without this, "expandable forever" and the collapsed receipt on old chats would be a lie — the timeline would exist only as ephemeral stream events.
 - **Source-control enforcement is visible for free** (PRD story 17): a disabled source's tool isn't mounted (ADR 0013), so its `kind` *cannot* appear in the timeline. No new enforcement needed — the existing mechanism becomes user-visible.
 - **`research` kind is reserved** — the deep-research follow-up emits its phases through the same event (PRD story 52's "UI room reserved").
-- **Receipts never leak secrets:** `detail` carries queries, domains, counts, field keys — never DSNs, raw SQL parameters beyond the statement, or credentials (house rule).
+- **Receipts never leak payloads:** resolve may show query/result count/safe school names; profile/domain show school/domain/value counts; SQL shows row count only; viz shows type/value count/schools/source count. No SQL, params, rows, packets, values, excerpts, diagnostics, provider metadata, DSNs, or credentials.
 
 ### 27.2 New events: `narration` and `thinking`
 
@@ -943,11 +936,11 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | Cloned components drag hidden coupling (Recoil stores, their contexts) | Strip-and-rewire at vendor time; each surface budgets its support files; shared protocol-fixture tests prove the wire stays clean |
 | In-process resume buffer lost on restart/deploy | Transcript catch-up is the correctness guarantee; the buffer is UX sugar (§27.3) |
 | ~~pydantic-ai doesn't emit tool-call stream events~~ | *Resolved:* the pinned pydantic-ai exposes `FunctionToolCallEvent`/`FunctionToolResultEvent` through the `agent.iter()` / node-stream loop; `app/steps.py` consumes them directly. The MCP-hook fallback was not needed. |
-| Step records bloat graph state on long chats | Receipts are bounded (queries/domains/counts/keys, no payloads); checkpoint growth already has the TTL knob (Part I, §7); watch, don't pre-build |
+| Step records bloat graph state on long chats | Receipts are bounded to safe structural counts/names/domain ids with no payloads; checkpoint growth already has the TTL knob. |
 | Cookie auth CSRF | `SameSite=Lax` + JSON-only state changes (§28); revisit if ever embedded cross-origin |
 | Single-instance assumptions (the turn registry + rate counters) | Explicitly documented as the one-instance posture (§33); two named owners, closed list; re-back them when scale demands |
 | SSE buffered/broken by proxies | `X-Accel-Buffering: no` + keepalives; verify on the chosen host |
-| `step`/`thinking` leak internals or fabricate | Labels templated from assets; receipts limited to queries/domains/counts/field keys; thinking narrates intent, never facts-first (prompt + eval) |
+| `step`/`thinking` leak internals or fabricate | Labels are asset-driven; receipts expose only safe structural counts/names/domain ids; thinking narrates intent, never facts-first. |
 | fastapi-users maintenance risk | Surface used is small (routers + dependency); standard FastAPI underneath; replaceable at the router layer |
 | `users.settings jsonb` grows into a junk drawer | It holds exactly theme + source preset; anything more triggers a real column/table decision |
 
@@ -1080,4 +1073,4 @@ component patterns.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032), `docs/research/` (stack survey). Keep this current as decisions change.*

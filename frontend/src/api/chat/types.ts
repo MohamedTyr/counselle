@@ -187,6 +187,10 @@ export type StepDetail = {
   row_count?: number;
   viz_type?: string;
   schools?: string[];
+  /** render_viz only — the distinct citation markers used in the rendered
+   * card (e.g. ["[1]", "[3]"]). Unrelated to `StepData.sources` (the
+   * favicon/label chip list), which lives one level up. */
+  sources?: string[];
   items?: Array<{
     content: string;
     status: "pending" | "in_progress" | "completed" | "cancelled";

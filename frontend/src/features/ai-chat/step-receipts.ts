@@ -82,6 +82,15 @@ export function receiptText(step: StepData): string | null {
       parts.push(domains);
     }
   }
+  if (detail.domain_id !== undefined && detail.domain_id !== "") {
+    parts.push(`Domain: ${detail.domain_id}`);
+  }
+  if (detail.sources !== undefined) {
+    const sources = formatList("Sources", detail.sources);
+    if (sources !== null) {
+      parts.push(sources);
+    }
+  }
   if (detail.next_actions !== undefined) {
     const actions = formatList("Next", detail.next_actions);
     if (actions !== null) {

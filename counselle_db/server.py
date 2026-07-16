@@ -77,7 +77,23 @@ def tool_errors(fn: Any) -> Any:
 @mcp.tool()
 @tool_errors
 async def resolve_school(query: str, ctx: AppContext) -> dict[str, Any]:
-    """Resolve a school name, alias, or UNITID and return live CDS edition coverage."""
+    """Resolve a school name, abbreviation, alias, or UNITID to one school.
+
+    Input: ``query`` — free text or a UNITID string.
+
+    Success returns exactly one of three ``status`` values:
+    - ``match`` — one school, plus its live coverage block (selected edition
+      year, currentness, and which domain ids currently have a usable
+      packet). Call ``get_domain`` only for a domain id this block lists.
+    - ``candidates`` — more than one campus matched; ask which campus the
+      student means, then resolve again with a more specific query.
+    - ``not_found`` — no school in the database matches; say so honestly and
+      route to web/.edu search instead of inventing a school.
+
+    Error returns ``error: tool_error`` with safe retry/stop guidance. On
+    ``tool_error``, retry once with a corrected query, or fall back to web
+    search if the school is plausibly real but unresolvable by name.
+    """
     return (await service.resolve_school(await _catalog(ctx), query)).model_dump(mode="json")
 
 
@@ -86,7 +102,22 @@ async def resolve_school(query: str, ctx: AppContext) -> dict[str, Any]:
 async def get_school_profile(
     unitid: int, ctx: AppContext, groups: list[str] | None = None
 ) -> dict[str, Any]:
-    """Read stable identity-profile groups with stored provenance and snapshot caveats."""
+    """Read a school's stable identity profile: contact, classification, and
+    official links — never a current metric.
+
+    Input: ``unitid`` (from ``resolve_school``) and optional ``groups`` — a
+    subset of the group names the profile itself defines; omit to read every
+    group. Group names are data-derived, never a fixed enum — an unknown
+    group fails with the actual valid group list for this school; retry with
+    one of those.
+
+    Success returns the school and requested groups (there is no synthetic
+    success status). Every field returned carries the profile's own snapshot vintage and a
+    per-field provenance receipt; it is identity data, not a current metric,
+    and always needs the ``profile_snapshot`` caveat when you state it. Error
+    returns ``error: tool_error``; correct the UNITID/group from
+    ``resolve_school`` or stop and say the profile field is unavailable.
+    """
     return (await service.get_school_profile(await _catalog(ctx), unitid, groups)).model_dump(
         mode="json"
     )
@@ -95,7 +126,29 @@ async def get_school_profile(
 @mcp.tool()
 @tool_errors
 async def get_domain(unitid: int, domain_id: str, ctx: AppContext) -> dict[str, Any]:
-    """Read one CDS domain from the newest selected edition through strict packet rules."""
+    """Read one CDS domain for a school — the only metric read path.
+
+    Input: ``unitid`` (from ``resolve_school``) and ``domain_id`` — call
+    ``resolve_school`` first and use only a domain id its coverage block
+    lists as usable for this school.
+
+    Success returns the domain payload (there is no synthetic success
+    status), including every metric configured for the domain in the current manifest
+    as a qualified ``domain_id.metric_id`` ref, with its display value and
+    page-level citation when verified, or an honest unavailable reason
+    otherwise (not yet extracted, in conflict, or absent from this school's
+    CDS template edition). The ``availability.verified`` count is the only
+    authoritative count of usable metrics for this domain — never estimate
+    it from the row list.
+
+    An invalid ``domain_id`` fails with the currently valid domain ids from
+    the loaded manifest; retry with one of those. When the school has no
+    active document or accepted packet for this domain, say so honestly and
+    fall back to official web/.edu search.
+
+    Error returns ``error: tool_error``; correct the UNITID/domain from the
+    resolution coverage block or stop rather than inventing another path.
+    """
     return (await service.get_domain(await _catalog(ctx), unitid, domain_id)).model_dump(
         mode="json"
     )
@@ -106,7 +159,24 @@ async def get_domain(unitid: int, domain_id: str, ctx: AppContext) -> dict[str, 
 async def query_database(
     sql: str, ctx: AppContext, params: list[Any] | None = None
 ) -> dict[str, Any]:
-    """Run bounded candidate or aggregate analysis on the five schema-qualified reader views."""
+    """Run one guarded, read-only SQL read over the five reader views, for a
+    shape no typed tool covers: cross-school candidate selection, aggregates,
+    or coverage/manifest detail.
+
+    Input: ``sql`` — a single parameterized ``SELECT``/``WITH`` statement
+    using ``$1..$n`` placeholders only — and optional ``params``.
+
+    Success returns ``columns``, ``rows``, ``row_count``, ``truncated``, and
+    ``as_of`` (there is no synthetic success status). Rows are raw and bypass
+    the typed reading rules and citations entirely:
+    never present a raw row as a cited student-facing value. Re-fetch any
+    named final value through ``get_school_profile``/``get_domain`` before
+    stating it, and state the covered/total denominator on any aggregate.
+
+    Error returns ``error: tool_error``. On failure, the error explains the
+    rejected shape (not a single bounded statement, or reaching outside the
+    five views); rewrite the query rather than retry it verbatim.
+    """
     return (await service.query_database(await _catalog(ctx), sql, params)).model_dump(mode="json")
 
 

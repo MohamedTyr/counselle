@@ -44,6 +44,7 @@ from pydantic_graph import End
 
 import app.agent_node
 import app.graph
+import app.skills
 import app.viz
 from app.deps import AppDeps
 from app.graph import build_graph
@@ -312,7 +313,7 @@ async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_i
             ]
         )
 
-    monkeypatch.setattr(app.agent_node, "load_skill", interrupting_skill)
+    monkeypatch.setattr(app.skills, "load_skill", interrupting_skill)
 
     def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         prompt = next(
@@ -1277,7 +1278,7 @@ async def test_oversized_tool_result_is_reduced_and_read_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     huge = "Admissions detail. " * 1_000
-    monkeypatch.setattr(app.agent_node, "load_skill", lambda name: huge)
+    monkeypatch.setattr(app.skills, "load_skill", lambda name: huge)
     settings = FakeSettings()
     settings.agent_tool_result_max_chars = 300
     rig = Rig(_fn_model(_overflow_then_read_back), settings=settings)
@@ -1309,7 +1310,7 @@ async def test_oversized_tool_result_handle_survives_later_turn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     huge = "Admissions detail. " * 1_000
-    monkeypatch.setattr(app.agent_node, "load_skill", lambda name: huge)
+    monkeypatch.setattr(app.skills, "load_skill", lambda name: huge)
     settings = FakeSettings()
     settings.agent_tool_result_max_chars = 300
     rig = Rig(_fn_model(_overflow_without_read_back), settings=settings)

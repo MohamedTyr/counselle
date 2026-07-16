@@ -285,16 +285,30 @@ async def render_viz(
 ) -> dict[str, Any]:
     """Compose a verified card after reading database/search results first.
 
-    Each cell is exactly one of: ``{"metric_ref": "domain.metric"}``,
-    ``{"profile_field": "group.field"}``, ``{"display": "...", "raw": ...,
-    "marker": "[n]"}`` for an external web/edu/reddit marker, or
-    ``{"unavailable": true}``. Database refs are fetched here; sourced citations
-    are copied from the turn registry. Never use sourced cells with CDS/profile
-    markers. Invalid/unavailable database refs reject the whole call: replace a
-    genuinely missing value explicitly with ``unavailable`` and retry. The cell
-    ceiling is enforced before I/O. Success returns only counts, sources and the
-    exact placement marker; failure returns every cell defect. Nothing partially
-    renders.
+    Each cell is exactly one of: ``{"metric_ref": "domain.metric"}`` (a
+    qualified CDS ref read from a prior ``get_domain`` call), ``{"profile_field":
+    "group.field"}`` (from ``get_school_profile``), ``{"display": "...", "raw":
+    ..., "marker": "[n]"}`` for an external web/edu/reddit marker already
+    registered this turn, or ``{"unavailable": true}`` for a genuine, declared
+    hole. Database refs are fetched here in-process; sourced citations are
+    copied verbatim from the turn's source registry — never merge or author
+    citation metadata. Never pair a sourced marker cell with a CDS/profile ref
+    cell as if they were the same channel of truth.
+
+    Validation runs before any fetch, including the configured max-cell
+    ceiling; an invalid or unavailable database ref, an unregistered marker, or
+    a shape violation rejects the *entire* call — nothing partially renders.
+    A genuinely missing value must be an explicit ``unavailable`` cell, never
+    a dropped row or a silently rejected-then-hidden one.
+
+    On success (``status: "rendered"``), the result carries only counts, the
+    distinct source markers actually used, and the exact ``placement_marker``
+    to place verbatim in the final answer — never the cell values themselves
+    (already in your context from the reads above). On failure (``status:
+    "rejected"``), every rejected cell comes back with its row, column, and a
+    corrective reason (e.g. a suggested ref); fix only those cells and retry
+    the same call — never invent a value or a marker to route around a
+    rejection.
     """
     defects = _validate_shape(type, columns, rows)
     cell_count = len(columns) * len(rows)

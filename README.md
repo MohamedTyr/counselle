@@ -1,20 +1,20 @@
 # Counselle
 
-Counselle is an AI agent for the US college-admissions process — a thinking and answering partner about US universities for student applicants. It reasons about any of the ~2,746 schools in its database (admissions, costs, outcomes, campus life, and everything in between), and is **always honest about values, sources, and recency** — that honesty is enforced in code, not left to the model.
+Counselle is an AI agent for the US college-admissions process — a thinking and answering partner about US universities for student applicants. It resolves any profiled school and answers from stable identity plus whatever evidence-backed CDS domains its selected edition actually covers, with official-web fallback for missing or current facts. Honesty about values, sources, editions, and coverage is enforced in code.
 
 It is two pieces:
 
 - **The agent** (this repo) — an API-first FastAPI service behind a versioned SSE event protocol, plus a React/Vite frontend that consumes it. Read-only consumer of the pipeline's Postgres database.
-- **The data pipeline** (separate repo, `ascensia-data-pipeline`) — owns the database. Counselle shares only credentials with it (the read-only DB DSN and Vertex/GCP keys); no shared code, no runtime dependency. The database is the contract — see `docs/DATABASE_GUIDE.md`.
+- **The CDS Library pipeline** (separate repo, `counselle-data-pipeline`) — owns the database. Counselle shares credentials only; no shared code, config, or runtime dependency. Five reader views are the contract — see `docs/DATABASE_GUIDE.md`.
 
 ## Project layout
 
 | Path | What lives here |
 |------|-----------------|
-| `domain/` | The pure honesty core — citation envelope, value-reading rules, events, render specs. No I/O. |
+| `domain/` | The pure honesty core — packet/value/evidence/caveat types, events, and render specs. No I/O. |
 | `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. |
 | `adapters/` | External integrations — Tavily search, email, model-provider seams. |
-| `counselle_db/` | The `counselle-db` MCP server + its in-process service layer (read-only DB access, field discovery, the guarded SQL escape hatch). |
+| `counselle_db/` | The `counselle-db` MCP server + in-process service layer: four read-only tools over the CDS Library's five reader views. |
 | `api/` | The FastAPI service — routers, auth (fastapi-users), the SSE protocol, rate limiting, lifespan. |
 | `config/` | The typed Settings surface (`settings.py`) + versioned data assets (prompts, subreddit menu, season table) in `config/assets/`. |
 | `migrations/` | yoyo migrations for Counselle's own `counselle.*` schema. |
@@ -31,14 +31,14 @@ It is two pieces:
 
 - **Python 3.12+** and **[uv](https://github.com/astral-sh/uv)**
 - **Node 20+** and **npm** (for the frontend)
-- **Postgres 16** with the **pgvector** and **pg_trgm** extensions running on `localhost:5432` (the data-pipeline DB)
-- The `counselle_ro` and `counselle_app` roles and the `counselle.*` schema provisioned — run `scripts/setup_db.sql` once, then apply migrations with `yoyo`:
+- **Postgres 16** running on `localhost:5432`, containing the independently deployed CDS Library and Counselle's application schema
+- A LOGIN role that is a member only of pipeline-managed `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. Run `scripts/setup_db.sql` for Counselle-owned state, then apply migrations with `yoyo`:
 
 ```bash
 # setup_db.sql substitutes the role passwords at run time via -v (see the
 # script header). Supply both, matching the passwords in your .env DSNs.
 psql postgres \
-  -v ro_pw="<counselle_ro password>" \
+  -v ro_pw="<CDS Library reader-login password>" \
   -v app_pw="<counselle_app password>" \
   < scripts/setup_db.sql
 # Append ?schema=counselle so yoyo keeps its bookkeeping tables in the
@@ -51,7 +51,7 @@ uv run yoyo apply --batch --database "${COUNSELLE_DB_APP_DSN}?schema=counselle" 
 ```bash
 cp .env.example .env
 # Required to start the server:
-#   COUNSELLE_DB_RO_DSN     — read-only DSN to the pipeline Postgres (counselle_ro)
+#   COUNSELLE_DB_RO_DSN     — LOGIN member of cds_library_reader (five views only)
 #   COUNSELLE_DB_APP_DSN    — read-write DSN for Counselle's own counselle.* schema
 #   COUNSELLE_VERTEX_API_KEY — Vertex express-mode API key (or GOOGLE_APPLICATION_CREDENTIALS)
 #   COUNSELLE_JWT_SECRET    — JWT cookie signing secret, ≥32 bytes
@@ -127,8 +127,8 @@ uv run python -m evals.runner
 ## Where to read more
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how the system is built (stack, layering, data access, event protocol), in two parts: Part I (MVP1 agent) and Part II (MVP2 full-stack app)
-- [`docs/DATABASE_GUIDE.md`](docs/DATABASE_GUIDE.md) — the data contract: every table, the field catalog, value-reading rules, gotchas
-- [`docs/adr/`](docs/adr/) — the 25 architectural decision records (start at `docs/adr/README.md`)
+- [`docs/DATABASE_GUIDE.md`](docs/DATABASE_GUIDE.md) — the five-view CDS Library contract, packet/availability/evidence rules, and safe SQL recipes
+- [`docs/adr/`](docs/adr/) — the 32 architectural decision records (start at `docs/adr/README.md`)
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — the deployment guide and its open gotchas (deploy itself is deferred)
 - [`specs/`](specs/) — the permanent PRDs and implementation plans for every MVP/feature ([`specs/README.md`](specs/README.md))
 - [`TODOS.md`](TODOS.md) — deferred work with full context

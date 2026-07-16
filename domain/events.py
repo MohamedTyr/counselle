@@ -81,9 +81,8 @@ class DeltaData(BaseModel):
 class StepDetail(BaseModel):
     """Kind-specific receipt payload on a step's ``end``/``error`` (§27.1).
 
-    Public, student-safe receipt fields only; never raw tool results, DSNs,
-    credentials, or hidden backend payloads. The ``sql`` kind's statement rides
-    ``query`` for transparent receipts.
+    Public, student-safe receipt fields only; never raw tool results, SQL,
+    parameters, rows, DSNs, credentials, or hidden backend payloads.
 
     Honesty invariant: ``row_count`` is eng/debug-only —
     they expose DB schema internals and MUST NOT be rendered in student-facing
@@ -101,6 +100,12 @@ class StepDetail(BaseModel):
     row_count: int | None = None
     viz_type: str | None = None
     schools: list[str] | None = None
+    #: ``render_viz`` only — the distinct citation markers used in the
+    #: rendered card (e.g. ``["[1]", "[3]"]``), copied from its
+    #: ``public_receipt.sources``. Unrelated to ``StepData.sources`` (the
+    #: favicon/label chip list on the step itself) — same word, different
+    #: level of the wire shape, never conflated.
+    sources: list[str] | None = None
     items: list[dict[str, str]] | None = None
     completed: int | None = None
     total: int | None = None

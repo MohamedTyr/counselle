@@ -1,8 +1,17 @@
 # ADR 0024 — Remove the `score_band` visualization
 
-**Status:** Accepted
+**Status:** Accepted (closed `RenderSpec` set amended by ADR 0032 — open known/opaque seam)
 
 **Supersedes:** ADR 0014 on the viz catalog (the score-band member and its honesty validator only; the render-spec contract and provenance boundary stand).
+
+> **Amendment (ADR 0032):** the decision to cut `score_band` for value×ease reasons
+> still holds. But `RenderSpec.type` is no longer a closed `stat_block |
+> comparison_table` union — viz v2 replaces it with an open known/opaque cell
+> grammar: known card types (including `stat_block`/`comparison_table` successors)
+> render natively, and any other typed cell renders as a safe, forward-compatible
+> opaque card rather than falling back to markdown. A future card (e.g. the deferred
+> `community_card`, `TODOS.md`) is added by teaching the renderer a new known type,
+> not by reopening a closed enum.
 
 ## Context
 

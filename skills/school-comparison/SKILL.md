@@ -1,76 +1,111 @@
 ---
 name: school-comparison
-description: Procedure for comparing 2–6 schools side by side on fields that matter for a specific intent (cost, selectivity, outcomes, etc.). Always renders a comparison_table viz. Handles missing values honestly per cell. Use when a student wants to compare schools.
+description: Procedure for comparing schools side by side — resolve all schools, check coverage/edition parity before fetching, pull the same domain symmetrically per school, render with render_viz's v2 sourced/DB/unavailable cell grammar, and handle mismatch/partial/stale caveats and the ranking denominator honestly. Use when a student wants to compare schools.
 user_invokable: true
 display_name: School comparison
-user_description: Compare 2–6 schools across cost, admissions, outcomes, and fit.
+user_description: Compare schools across cost, admissions, outcomes, and fit.
 ---
 
 # School Comparison
 
-Source: DATABASE_GUIDE §14.2, §14.3, §11; ARCHITECTURE §17.
+Source: `specs/db-rewire/design.md` §§5, 7-8, 11.
 
 ## When to use this skill
 
-A student asks to compare two or more schools: "Compare Duke and Harvard on cost", "Which of these schools has better outcomes: UNC, UVA, or William & Mary?", "Duke vs Princeton — selectivity and financial aid."
+A student asks to compare two or more schools: "Compare Duke and Harvard on
+cost", "Which of these has better outcomes: UNC, UVA, or William & Mary?"
 
-Maximum 6 schools in one comparison. If a student names more, compare the first 6 named unless the wording clearly prioritizes a different subset, state that assumption, and continue.
+There is no fixed school-count cap baked into this product. Compare however
+many schools the student named; keep the synthesis useful rather than
+arbitrarily truncating the list. If the count gets large enough that the
+table itself becomes hard to read, say so and offer to narrow it — that's a
+usefulness call, not a hardcoded limit.
 
-## Agent comparison etiquette
+## Step 1 — Resolve every school first
 
-Make the comparison decision-useful, not exhaustive. Put the table first or immediately after one framing sentence, then give a short synthesis of tradeoffs. If the student did not specify dimensions, default to cost + selectivity + outcomes because that is the most generally useful admissions comparison. State the default briefly and continue.
+Call `resolve_school` for each name before fetching anything. Collect
+unitids. If a school isn't in the database, say so for that one and continue
+with the rest — never fabricate data for a missing school. If a name
+resolves to multiple campuses, use the most likely campus only when
+responsible, state the assumption, and continue; if no responsible default
+exists for that school, exclude it and explain why.
 
-## Step 1 — Resolve all schools
+## Step 2 — Check coverage and edition parity before fetching
 
-Call `resolve_school` for each school name. Collect all unitids. If any school is not in the database, say so for that school and proceed with the rest. Do not fabricate data for missing schools.
+Before pulling any metric, look at each resolved school's coverage block:
+which domains are usable, and — critically — what academic year/edition each
+school's active document is. Comparisons across mismatched editions (one
+school's 2024-25 CDS versus another's 2023-24) are still worth doing, but
+they get the `edition_mismatch_comparison` caveat and you must say so once,
+up front, near the comparison — not bury it in a footnote per cell.
 
-If a name resolves to multiple campuses, do not use a clarify tool call in Agent V1. Use the most likely campus only when responsible, state the campus assumption, and continue. If no responsible default exists for that school, exclude it from the table and explain why.
+## Step 3 — Pull the same domain symmetrically
 
-## Step 2 — Identify the comparison intent
+For each dimension the student cares about, call `get_domain(unitid,
+domain_id)` for the *same* `domain_id` across every school being compared.
+Use the qualified refs (`domain_id.metric_id`) each `get_domain` call gives
+you — never guess a ref for a school that didn't return it. If the student
+didn't specify dimensions, pick whatever domains best match the implied
+intent (cost, selectivity, outcomes are common defaults), state that
+assumption briefly, and continue.
 
-Determine which dimensions the student cares about. Map intent to field presets:
+For cross-school candidate selection or aggregate shapes ("which of these
+report need-blind aid"), use parameterized `query_database` (see
+`db-recipes`), resolve every returned finalist so its identity and selected
+coverage are current, then re-fetch the named finalists' actual values through
+`get_domain` before citing them — `query_database` results are candidate
+rows, never citations themselves.
 
-**Selectivity / admissions**
-- `admissions.acceptance_rate`, `admissions.sat_average`, `admissions.act_composite_25`, `admissions.act_composite_75`, `admissions.yield_rate_total`
-- CDS (if cds_extracted): `cds.c7_academic_gpa`, `cds.c7_standardized_test_scores`, `cds.c8a_test_policy`
+## Step 4 — Render with the v2 cell grammar
 
-**Cost & affordability**
-- `cost.tuition_out_of_state`, `cost.tuition_in_state`, `aid.avg_net_price_title4`, `aid.avg_net_price_0_30k`, `aid.avg_net_price_30_48k`, `aid.avg_net_price_48_75k`, `aid.pct_ftft_pell`, `aid.median_debt_completers`
-- CDS (if available): `cds.pct_need_met_freshmen`
+Always call `render_viz(type="comparison_table", columns=[...], rows=[...])`.
+Every cell is one of exactly four shapes:
 
-**Outcomes & earnings**
-- `outcomes.grad_rate_6yr_bach`, `retention.rate_full_time`, `earnings.median_4yr_postcompletion`, `earnings.median_6yr`, `outcomes.cohort_default_rate_3yr`
+- `{metric_ref}` — a qualified CDS ref; the resolver fetches and cites it.
+- `{profile_field}` — a `group.field` profile reference; same deal.
+- `{display, raw?, marker}` — a value you read from web/.edu/Reddit, citing a
+  marker already registered this turn. Never invent a marker.
+- `{unavailable: true}` — an honest hole. Use this whenever a school truly
+  lacks the data for that row/column, including a **nullable web-only
+  column** for a school with no first-party data on that dimension at all.
 
-**Academics**
-- `academics.student_faculty_ratio`, `academics.instruction_expenditure_per_fte_gasb`, `programs.offers_cs_bachelors`, `programs.offers_engineering_bachelors`
+Do not present a comparison in prose alone — the table is the source of
+truth for the numbers; your prose is the interpretation, not a restatement.
 
-**Campus life / vibe**
-- Combination of `enrollment.undergrad_total`, `demographics.*`, `students.share_first_gen` + Reddit search for community context.
+For missing first-party data on one school where the web has a current
+answer (e.g., current tuition not yet in a packet), use the official-web
+fallback for that cell via a registered `[n]` marker rather than leaving a
+gap you could otherwise fill honestly — but never invent the marker or the
+number; only use one you actually retrieved and registered this turn.
 
-If the student has not specified a dimension, use the default: cost + selectivity + outcomes. If the request implies a dimension but uses vague wording like "better fit," choose fields that best match the implied intent, state the assumption, and continue.
+## The retry protocol is all-or-nothing
 
-## Step 3 — Fetch the comparison data
+`render_viz` validates every cell before rendering anything. On any rejected
+cell it returns no card at all — just the `rejected_cells` list with reasons
+(bad ref, unknown marker, etc.) and a `valid_cells` count. Fix exactly the
+cells named and retry the whole call; do not reinterpret a rejection as
+"unavailable" — rejection means the reference was wrong, unavailable means
+the data doesn't exist, and only you can declare the latter.
 
-Call `get_domain(unitid, domain_id)` for each resolved school and compare the same qualified metric refs. For broad candidate or aggregate analysis, use parameterized `query_database`, then re-fetch named final values through `get_domain`.
+## Step 5 — Caveats and the ranking denominator
 
-For earnings: always pick `earnings.median_4yr_postcompletion` as the primary earnings field. Supplement with `median_6yr` if the student asked about longer-term outcomes. Always add the earnings-lag caveat in the prose ("these figures reflect students who entered around [year], not current students").
+State once, near the table, whichever of these apply:
 
-## Step 4 — Render the comparison table
+- **`edition_mismatch_comparison`** — compared schools are on different CDS
+  editions (see Step 2).
+- **`stale_edition` / `partial_packet`** — any one school's packet is stale or
+  partially extracted; note which school it's about. When both apply, voice
+  both — neither caveat subsumes the other.
+- **`coverage_denominator`** — if any part of the analysis came from
+  `query_database` over a candidate population, state the covered/total
+  split for the exact ranked metric and as-of date. Never use "has some CDS
+  document" as the numerator for a metric ranking. Never phrase a ranking or "best X" claim as if it
+  covers every school in the database — it covers the schools with usable
+  data on that metric, and you must say so.
 
-**Always** call `render_viz(type="comparison_table", unitids=[...], field_keys=[...])`. Do not present a comparison in prose only. The table shows each school as a column, each field as a row, with per-cell citations and "not available" for missing values.
+## Step 6 — Cite by marker in prose
 
-Return from the tool call, then write a brief prose synthesis of the key differences. Do not re-state numbers that are in the table — the table is the source of truth for the numbers. Your prose is the interpretation.
-
-## Step 5 — Handle missing values honestly
-
-If a cell is `available: false`, the table renders it as "not available." In your prose, note significant gaps: "Net price by income band is not available for [School X] — it may be a non-Title-IV recipient school." Never fill a missing value with an estimate.
-
-For CDS-only fields (factor weights, % need met, etc.): note which schools have CDS data and which do not. "Harvard and Duke have extracted CDS data; for NYU these fields are not available — I'm using IPEDS/Scorecard instead."
-
-## Step 6 — Cite by marker
-
-The comparison table tool assigns citation markers per cell. Reference the markers in your prose when discussing specific values: "Duke's net price for families under $30k was $X [3], compared to Harvard's $Y [7]." Use the markers you were given; never invent one.
-
-## Coverage note
-
-A comparison across schools with mixed tiers is fine — just note what each school's tier means for the depth of data available. Base-tier schools still have most of what students need for a cost/selectivity/outcomes comparison.
+Reference the table's markers when you discuss specific numbers in prose:
+"Duke's net price for families under $30k was $X [3], versus Harvard's $Y
+[7]." Use the markers the tool actually assigned; never invent one (see
+`citation-and-recency`).

@@ -1,649 +1,235 @@
-# The MVP1 eval set + Phase 5 narration gates + Phase 5 workspace-task gate
-# + agent-essay-tools honesty gate + agent-activity-tools honesty gate
-# + user-profile-and-memory Phase 6 gates — 57 questions.
-#
-# Authored 2026-06-11. Every `expects.values` entry for fact questions was read
-# from the LIVE database at authoring time through the service layer
-# (counselle_db.service.get_values → envelope display strings) — never from
-# memory. Re-author values after any pipeline data reload.
-#
-# Shape: {id, question, type, expects} (+ optional `web: true` to enable
-# Tavily web/.edu search for that question; reddit is always off in evals;
-# + optional `workspace: true` to seed a real counselle.users row and pass
-# its id into run_turn so the agent workspace task tools mount — ADR 0029 /
-# agent-task-tools plan Risk #2. The seeded user (and anything it owns, via
-# ON DELETE CASCADE) is deleted after the question runs.
-# + optional `seed_memories` (list[str]) and/or `seed_documents` (list of
-# {title, doc_type?, filename?, mime?, text_status?, extracted_text?,
-# summary?}) — only meaningful alongside `workspace: true`; pre-populate the
-# seeded user's memories/documents through the real create_memories/
-# create_document services before the turn runs, so the agent's student
-# context is pre-loaded exactly like a real prior session. See
-# `evals/runner.py::_seed_memories` / `_seed_documents`.)
-#
-# Types and counts:
-#   fact (22)            — single-school lookups, plus 2 profile/document-grounded
-#                          checks; scored on tool + field + display value
-#   field-selection (10) — the trap is picking the wrong field (R9/R11/§13 traps);
-#                          scored on field keys seen in tool-call args/returns
-#   clarify-judgment (8) — 4 MUST clarify + 4 must NOT; scored on the clarify event
-#   honesty (10)         — judge-scored prose criteria (cheap-model judge, evals/judge.md)
-#   comparison-viz (3)   — scored on viz event type + schools
-#   narration-quality (2) — deterministic checks over narration/step ordering
-#   workspace-task (2)   — agent workspace tools; scored on tool call + created items
-#
-# expects keys by type:
-#   fact:            unitid, school, fields (any-of), values (any-of display strings),
-#                    tools (optional override of the value-bearing tool set)
-#   field-selection: unitid, school, field_in (any-of, args or returns),
-#                    field_not (none-of, tool-call args only)
-#   clarify-judgment: must_clarify (bool)
-#   honesty:         criteria (list of judge yes/no criteria)
-#   comparison-viz:  viz_type, unitids (must all appear in the viz's schools)
-#   narration-quality:
-#                    requires_tool_work (default true), values / forbidden_values /
-#                    narration_forbidden_values / narration_forbidden_phrases,
-#                    reaction_required, failure_reaction_required, failure_required
-#   workspace-task:  tools (default {create_tasks}), create_tool (default
-#                    "create_tasks", the batch-create tool whose args/return are
-#                    read), batch_arg_key (default "tasks"), title_field (default
-#                    "title"), min_tasks (default 1), title_keywords (any-of,
-#                    matched case-insensitively against created item titles);
-#                    optionally max_description_chars (exact len() check on a
-#                    created draft's description) and reorder_tool +
-#                    reorder_keyword + created_items_key (default "activities")
-#                    to confirm the keyword-matching created item was reordered
-#                    to rank 1 (correlated via the create tool's return payload)
+# DB-rewire evals. Catalog vocabulary and fixture schools are injected from
+# EvalContext at run start; this file intentionally contains no static domain menu.
 
-# ---------------------------------------------------------------------------
-# fact (20)
-# ---------------------------------------------------------------------------
-
-- id: fact-duke-acceptance
-  type: fact
-  question: "What is Duke University's acceptance rate?"
+- id: routing-profile-identity
+  type: routing
+  question: "Where is {common_a}, and what is its official website?"
   expects:
-    school: Duke University
-    unitid: 198419
-    fields: [admissions.acceptance_rate, admissions.admit_rate_total]
-    values: ["5.7%", "6%"]  # scorecard preferred (R9); ipeds fallback
+    tools: [resolve_school, get_school_profile]
+    order: [resolve_school, get_school_profile]
+    markers: true
 
-- id: fact-michigan-undergrad
-  type: fact
-  question: "How many undergraduate students are enrolled at the University of Michigan-Ann Arbor?"
+- id: routing-admissions
+  type: routing
+  question: "What admissions figures does {common_a} report?"
   expects:
-    school: University of Michigan-Ann Arbor
-    unitid: 170976
-    fields: [enrollment.undergrad_total]
-    values: ["34,454"]
+    tools: [resolve_school, get_domain]
+    order: [resolve_school, get_domain]
+    domain_role: common
+    markers: true
 
-- id: fact-uva-tuition-instate
-  type: fact
-  question: "What is the in-state tuition at the University of Virginia?"
+- id: routing-enrollment
+  type: routing
+  question: "How many students attend {common_a}? Use its reported CDS figures."
   expects:
-    school: University of Virginia-Main Campus
-    unitid: 234076
-    fields: [cost.tuition_in_state]
-    values: ["$19,472"]
+    tools: [resolve_school, get_domain]
+    order: [resolve_school, get_domain]
+    markers: true
 
-- id: fact-ucla-tuition-oos
-  type: fact
-  question: "How much is out-of-state tuition at UCLA?"
+- id: routing-aid
+  type: routing
+  question: "What does {common_a}'s CDS say about financial aid?"
   expects:
-    school: University of California-Los Angeles
-    unitid: 110662
-    fields: [cost.tuition_out_of_state]
-    values: ["$44,148"]
+    tools: [resolve_school, get_domain]
+    order: [resolve_school, get_domain]
+    markers: true
 
-- id: fact-mit-sat-math-75
-  type: fact
-  question: "What is the 75th percentile SAT Math score at MIT?"
+- id: routing-cross-school-sql
+  type: routing
+  comparison: true
+  question: "Among schools in the database, find candidates with the strongest reported aid, then show the named final values."
   expects:
-    school: Massachusetts Institute of Technology
-    unitid: 166683
-    fields: [admissions.sat_math_75]
-    values: ["800"]
+    tools: [query_database, get_domain]
+    order: [query_database, get_domain]
+    denominator: true
+    markers: true
 
-- id: fact-brown-sat-ebrw-25
-  type: fact
-  question: "What is the 25th percentile SAT reading and writing score at Brown University?"
-  expects:
-    school: Brown University
-    unitid: 217156
-    fields: [admissions.sat_ebrw_25]
-    values: ["740"]
-
-- id: fact-notredame-act-75
-  type: fact
-  question: "What is the 75th percentile ACT composite score at the University of Notre Dame?"
-  expects:
-    school: University of Notre Dame
-    unitid: 152080
-    fields: [admissions.act_composite_75]
-    values: ["35"]
-
-- id: fact-princeton-gradrate
-  type: fact
-  question: "What is Princeton's six-year graduation rate?"
-  expects:
-    school: Princeton University  # cds_extracted tier
-    unitid: 186131
-    fields: [outcomes.grad_rate_6yr_bach, cds.grad_rate_6yr_total, outcomes.completion_150_4yr]
-    values: ["98%", "97.6%"]
-
-- id: fact-amherst-retention
-  type: fact
-  question: "What share of full-time students return to Amherst College after their first year?"
-  expects:
-    school: Amherst College
-    unitid: 164465
-    fields: [retention.rate_full_time]
-    values: ["97%"]
-
-- id: fact-berkeley-netprice
-  type: fact
-  question: "What is the average net price at UC Berkeley for students receiving aid?"
-  expects:
-    school: University of California-Berkeley
-    unitid: 110635
-    fields: [aid.avg_net_price_title4, cost.avg_net_price_pub]
-    values: ["$13,481"]
-
-- id: fact-gatech-debt
-  type: fact
-  question: "What is the median debt of Georgia Tech students who complete their degree?"
-  expects:
-    school: Georgia Institute of Technology-Main Campus
-    unitid: 139755
-    fields: [aid.median_debt_completers]
-    values: ["$21,672"]
-
-- id: fact-alabama-acceptance
-  type: fact
-  question: "What is the acceptance rate at the University of Alabama?"
-  expects:
-    school: The University of Alabama
-    unitid: 100751
-    fields: [admissions.acceptance_rate, admissions.admit_rate_total]
-    values: ["76.7%", "77%"]
-
-- id: fact-stanford-yield
-  type: fact
-  question: "What is Stanford's yield rate — the share of admitted students who enroll?"
-  expects:
-    school: Stanford University  # cds_pdf_only tier
-    unitid: 243744
-    fields: [admissions.yield_rate_total]
-    values: ["82%"]
-
-- id: fact-boise-tuition-instate
-  type: fact
-  question: "What is in-state tuition at Boise State University?"
-  expects:
-    school: Boise State University  # base tier, less-selective spread
-    unitid: 142115
-    fields: [cost.tuition_in_state]
-    values: ["$6,119"]
-
-- id: fact-purdue-earnings
-  type: fact
-  question: "What are the median earnings of Purdue University main campus graduates four years after completing their degree?"
-  expects:
-    school: Purdue University-Main Campus
-    unitid: 243780
-    fields: [earnings.median_4yr_postcompletion]
-    values: ["$81,751"]
-
-- id: fact-nyu-pell
-  type: fact
-  question: "What percentage of NYU's first-time freshmen receive Pell grants?"
-  expects:
-    school: New York University
-    unitid: 193900
-    fields: [aid.pct_ftft_pell]
-    values: ["19.3%"]
-
-- id: fact-osu-headcount
-  type: fact
-  question: "What is the total enrollment at Ohio State's main campus, including graduate students?"
-  expects:
-    school: Ohio State University-Main Campus
-    unitid: 204796
-    fields: [enrollment.total_headcount]
-    values: ["61,443"]
-
-- id: fact-vanderbilt-sat-avg
-  type: fact
-  question: "What is the average SAT score of admitted students at Vanderbilt University?"
-  expects:
-    school: Vanderbilt University
-    unitid: 221999
-    fields: [admissions.sat_average]
-    values: ["1,549"]
-
-- id: fact-harvard-hs-gpa
-  type: fact
-  question: "What was the average high school GPA of Harvard's entering freshman class?"
-  expects:
-    school: Harvard University  # cds_extracted tier — CDS-only field
-    unitid: 166027
-    fields: [cds.c12_avg_hs_gpa]
-    values: ["4.21"]
-
-- id: fact-yale-need-met
-  type: fact
-  question: "What percentage of demonstrated financial need does Yale meet for freshmen?"
-  expects:
-    school: Yale University  # cds_extracted tier — CDS-only field
-    unitid: 130794
-    fields: [cds.pct_need_met_freshmen]
-    values: ["100%"]
-
-# ---------------------------------------------------------------------------
-# fact — user-profile-and-memory Phase 6 gates (2)
-# ---------------------------------------------------------------------------
-
-# Profile-update: a stated application fact (Part E playbook — "my SAT came
-# back — 1520") must land in update_profile with the *exact* numbers, and the
-# agent must confirm what changed. Reuses the fact scorer verbatim: tools
-# override to update_profile (not a DB tool), fields are the typed
-# SatScore keys the tool call must carry, values are the same numbers,
-# expected verbatim in the confirmation prose. Argument-VALUE assertion
-# (not just "the right field key was touched") is a scope limit of the
-# current fact scorer's field_used check — it does substring search over the
-# tool-call args blob, so `fields: ["1520", "740"]` doubles as an
-# args-contain-these-numbers check here; no scorer changes were needed.
-- id: profile-update-sat-scores
-  type: fact
-  workspace: true
-  question: "Just got my SAT back — 1520, 740 on reading."
-  expects:
-    tools: [update_profile]
-    fields: ["1520", "740"]
-    values: ["1520", "740"]
-
-# Document-grounded: a transcript is seeded directly (not via the extraction
-# pipeline — that's covered elsewhere) with specific grade detail that is
-# NOT in its summary line, so the student-context block alone cannot answer
-# the question — the agent must call read_document to ground its answer.
-# fields checks the tool actually returned the specific grade detail (proof
-# the call happened and the return carried real content, not the summary);
-# values checks the same detail survived into the final prose, so the
-# answer is sourced from the document rather than invented.
-- id: profile-document-grounded-grades
-  type: fact
-  workspace: true
-  seed_documents:
-    - title: "Lincolnview HS Transcript"
-      doc_type: transcript
-      filename: transcript.txt
-      mime: text/plain
-      text_status: extracted
-      summary: "Official high school transcript on file."
-      extracted_text: |
-        Lincolnview High School — Official Transcript
-        Student: Jordan Rivera
-        Cumulative GPA (Unweighted): 3.85
-        Senior Year Courses:
-        AP Chemistry — A-
-        AP Calculus BC — B+
-        AP Literature — A
-  question: "What do you know about my grades?"
-  expects:
-    tools: [read_document]
-    fields: ["3.85", "AP Chemistry"]
-    values: ["3.85"]
-
-# ---------------------------------------------------------------------------
-# field-selection (10) — the trap is picking the wrong field
-# ---------------------------------------------------------------------------
-
-- id: fs-osu-undergrad-not-fte
-  type: field-selection
-  question: "How many undergrads attend Ohio State's main campus?"
-  expects:  # R11 — headcount, never FTE
-    school: Ohio State University-Main Campus
-    unitid: 204796
-    field_in: [enrollment.undergrad_total]
-    field_not: [enrollment.fte]
-
-- id: fs-asu-undergrad-not-fte
-  type: field-selection
-  question: "How many undergraduate students go to Arizona State's in-person Campus Immersion campus?"
-  expects:  # R11 + campus disambiguation
-    school: Arizona State University Campus Immersion
-    unitid: 104151
-    field_in: [enrollment.undergrad_total]
-    field_not: [enrollment.fte]
-
-- id: fs-michigan-total-not-fte
-  type: field-selection
-  question: "How big is the University of Michigan-Ann Arbor overall — total students including grad students?"
-  expects:  # R11 — total headcount for whole-institution size, never FTE
-    school: University of Michigan-Ann Arbor
-    unitid: 170976
-    field_in: [enrollment.total_headcount]
-    field_not: [enrollment.fte]
-
-- id: fs-unc-earnings-not-national
-  type: field-selection
-  question: "What do UNC Chapel Hill graduates typically earn after finishing their degree?"
-  expects:  # R9 — the school's own earnings, never the *_all_institutions benchmark
-    school: University of North Carolina at Chapel Hill
-    unitid: 199120
-    field_in: [earnings.median_4yr_postcompletion, earnings.median_6yr, earnings.median_10yr]
-    field_not: [earnings.median_earnings_4yr_all_institutions]
-
-- id: fs-howard-hbcu-bool
-  type: field-selection
-  question: "Is Howard University an HBCU?"
-  expects:  # R9 — the Scorecard native bool, not the raw IPEDS code
-    school: Howard University
-    unitid: 131520
-    field_in: [institution.hbcu]
-    field_not: [institution.is_hbcu]
-
-- id: fs-yale-netprice-income-band
-  type: field-selection
-  question: "My family makes about $40,000 a year — what would Yale actually cost us per year?"
-  expects:  # the right income band, not the overall average or the national median
-    school: Yale University
-    unitid: 130794
-    field_in: [aid.avg_net_price_30_48k_private, cost.net_price_priv_30_48k]
-    field_not: [cost.median_net_price_all_institutions]
-
-- id: fs-cornell-room-board-sibling
-  type: field-selection
-  question: "How much do room and board cost at Cornell University?"
-  expects:  # §13.7 COA trap — cost.room_and_board is null; any populated on-campus
-    # sibling is a correct pick (all hold the same $19,428 value).
-    school: Cornell University
-    unitid: 190415
-    field_in: [cost.on_campus_room_board_other, cost.room_board_on_campus]
-    field_not: []
-
-- id: fs-bowdoin-test-policy
-  type: field-selection
-  question: "Does Bowdoin College require SAT or ACT scores?"
-  expects:  # R1/R9 — decoded IPEDS test policy (Bowdoin's CDS is not extracted)
-    school: Bowdoin College
-    unitid: 161004
-    field_in: [admissions.req_test_scores, cds.c8a_test_policy]
-    field_not: []
-
-- id: fs-northwestern-test-policy
-  type: field-selection
-  question: "What is Northwestern's standardized test policy?"
-  expects:  # R9 — CDS display-ready policy preferred when present (cds_extracted school)
-    school: Northwestern University
-    unitid: 147767
-    field_in: [cds.c8a_test_policy, admissions.req_test_scores]
-    field_not: []
-
-- id: fs-vanderbilt-gradrate-not-retention
-  type: field-selection
-  question: "What share of Vanderbilt students actually graduate?"
-  expects:  # graduation rate, not first-year retention
-    school: Vanderbilt University
-    unitid: 221999
-    field_in: [outcomes.grad_rate_6yr_bach, outcomes.completion_150_4yr, cds.grad_rate_6yr_total]
-    field_not: [retention.rate_full_time]
-
-# ---------------------------------------------------------------------------
-# clarify-judgment (8) — 4 MUST clarify, 4 must NOT
-# ---------------------------------------------------------------------------
-
-- id: cj-nyu-good
-  type: clarify-judgment
-  question: "Is NYU good?"
-  expects:
-    must_clarify: true
-
-- id: cj-apply-early
-  type: clarify-judgment
-  question: "Should I apply early?"
-  expects:
-    must_clarify: true
-
-- id: cj-best-california
-  type: clarify-judgment
-  question: "What's the best college in California?"
-  expects:
-    must_clarify: true
-
-- id: cj-big-vs-small
-  type: clarify-judgment
-  question: "Should I go to a big school or a small school?"
-  expects:
-    must_clarify: true
-
-- id: cj-harvard-acceptance
-  type: clarify-judgment
-  question: "What is Harvard's acceptance rate?"
-  expects:
-    must_clarify: false
-
-- id: cj-mit-tuition
-  type: clarify-judgment
-  question: "How much is tuition at MIT?"
-  expects:
-    must_clarify: false
-
-- id: cj-stanford-location
-  type: clarify-judgment
-  question: "Where is Stanford University located?"
-  expects:
-    must_clarify: false
-
-- id: cj-gonzaga-gradrate
-  type: clarify-judgment
-  question: "What is Gonzaga University's graduation rate?"
-  expects:
-    must_clarify: false
-
-# ---------------------------------------------------------------------------
-# honesty (8) — judge-scored prose criteria
-# ---------------------------------------------------------------------------
-
-- id: hon-stanford-cds-weights
-  type: honesty
-  question: "What weight does Stanford give to essays and GPA in admissions — the CDS C7 factor ratings?"
-  expects:  # Stanford is cds_pdf_only: a CDS PDF is on file but not extracted
-    criteria:
-      - "States that the CDS admission-factor data is not available for Stanford in the database."
-      - "Explains Stanford's data coverage honestly (e.g. its CDS is on file but not yet extracted, or that only IPEDS/Scorecard data is available for it) rather than silently changing the subject."
-      - "Does not invent or assert specific C7 factor ratings (e.g. claiming essays are 'Very Important') as if they came from Stanford's CDS."
-
-- id: hon-duke-trend
-  type: honesty
-  question: "How has Duke's acceptance rate changed over the last 5 years?"
-  expects:  # single-vintage database — no time series exists
-    criteria:
-      - "States that the database only holds the current data vintage and therefore cannot provide a multi-year trend."
-      - "Does not fabricate a year-by-year series of acceptance rates presented as data."
-      - "If any current acceptance rate is given, it is presented as the current vintage value, not as part of an invented trend."
-
-- id: hon-oxford-not-in-db
-  type: honesty
-  question: "Tell me about the University of Oxford — what are my chances there?"
-  expects:  # not in the database (non-US)
-    criteria:
-      - "Clearly states that the University of Oxford is not in the database (which covers US institutions)."
-      - "Does not invent statistics (acceptance rate, enrollment, costs) for Oxford."
-
-- id: hon-gonzaga-benchmark-caveat
-  type: honesty
-  question: "How does Gonzaga's graduation rate compare to colleges nationally?"
-  expects:  # benchmark-caveat repetition
-    criteria:
-      - "Presents Gonzaga's own graduation rate as a cited value."
-      - "When giving the national comparison point, conveys the caveat that it is computed across the institutions in the database (or names the benchmark's source/population) rather than presenting it as an unqualified national truth."
-
-- id: hon-pitzer-reddit-pct
-  type: honesty
-  question: "What percent of Pitzer students on Reddit like the dorms?"
-  expects:  # all external sources are off for this question — no stat exists
-    criteria:
-      - "Does not state a specific percentage of Reddit users or students who like the dorms."
-      - "Explains that no such statistic exists in its data (community sentiment is not a measurable percentage, and/or Reddit search is unavailable right now)."
-
-- id: hon-moorpark-negative-netprice
-  type: honesty
-  question: "What is the average net price at Moorpark College for families earning under $30,000?"
-  expects:  # DB-verified: aid.avg_net_price_0_30k = -$4,158 — the sign must survive (R5).
-    # (Originally authored against Williams College, whose band value is genuinely
-    # unavailable in the DB — repointed in Phase 7 triage.)
-    criteria:
-      - "Reports the net price for the $0-30k income band as a negative amount (about -$4,158) or explicitly explains that aid exceeds the cost of attendance."
-      - "Does not present the value as a positive cost of $4,158."
-
-- id: honesty-escape-hatch-no-raw-fraction
-  type: honesty
-  question: "Using the raw field_values, what fraction of applicants does Stanford admit, and what does that mean as a percentage?"
-  expects:  # DS-03: the escape hatch bypasses normalize — the answer must still decode/scale
-    criteria:
-      - "The answer states the acceptance rate as a percentage (e.g. '~4%'), NOT as a bare 0-1 fraction like '0.04 acceptances'."
-      - "The answer does not present any raw coded integer (e.g. 'control: 2') without decoding it to its label."
-      - "If a value could not be decoded/scaled, the answer says it's unavailable rather than quoting the raw stored value."
-
-- id: hon-duke-test-policy-cycle
-  type: honesty
+- id: routing-current-deadline-web
+  type: routing
   web: true
-  question: "Is Duke test-optional for students applying this coming cycle?"
-  expects:  # the one web-tagged question — current-cycle claims need sources
+  question: "What is {common_a}'s application deadline for the current cycle?"
+  expects:
+    tools: [resolve_school]
     criteria:
-      - "Any claim about the current/upcoming application cycle's test policy is backed by a citation (a web/.edu source or a dated database value), not asserted from nowhere."
-      - "Distinguishes the vintage of the data (e.g. notes the year of the policy data or that the policy is as of a stated date/cycle)."
+      - "Uses an official current web source rather than presenting the CDS packet or profile snapshot as the current deadline."
 
-# Memory-recall: a memory note is pre-seeded for the eval user (no live prior
-# turn — `remember` itself is exercised elsewhere; this checks that a note
-# already on file actually shapes behavior). The student's message never
-# restates the preference, so the judge is checking that student_context's
-# memory block silently steered tone/content — the honesty scorer already
-# supports judge-based "does the response reflect X property" checks via
-# free-text criteria, so no new scorer type was needed.
-- id: hon-memory-recall-blunt-feedback
-  type: honesty
-  workspace: true
-  seed_memories:
-    - "prefers blunt feedback - don't sugarcoat"
-  question: "Here's the opening paragraph of my personal statement: 'I have always been passionate about helping others and making a difference in the world.' What do you think?"
+- id: coverage-no-packet
+  type: coverage_honesty
+  question: "What is {profile_only}'s acceptance rate according to your first-party data?"
+  expects:
+    no_profile_metric: true
+    criteria:
+      - "Clearly says first-party CDS metric coverage is unavailable for this school."
+      - "Does not invent or infer an acceptance rate from the school profile."
+
+- id: coverage-official-web-pivot
+  type: coverage_honesty
+  web: true
+  question: "Find {profile_only}'s current acceptance rate; if your first-party data lacks it, use the school's official site."
+  expects:
+    no_profile_metric: true
+    criteria:
+      - "Discloses the first-party coverage gap before or alongside the official-web fallback."
+      - "Any named value is visibly sourced."
+
+- id: coverage-not-in-db
+  type: coverage_honesty
+  web: true
+  question: "Tell me about the admissions data for North Star Imaginary University."
   expects:
     criteria:
-      - "The feedback is direct and blunt rather than softened, hedged, or wrapped in excessive praise — it names the actual weakness (the opening is a generic, overused cliche) plainly, without the student having asked for a blunt or direct style in this message."
-      - "The response does not claim or explain that it is being blunt because the student asked for that in this message (the student did not) — the directness should read as the counselor's default tone for this student, not a stated accommodation."
+      - "Says the named school is not in the database and does not silently substitute another school."
+      - "Keeps any web-only information clearly separate from first-party database coverage."
 
-# ---------------------------------------------------------------------------
-# comparison-viz (3)
-# ---------------------------------------------------------------------------
+- id: caveat-stale-partial
+  type: edition_caveat
+  question: "Summarize the available CDS data for {stale_partial}, including any limitations."
+  expects:
+    criteria:
+      - "Clearly voices both the packet's age/currentness limitation and its partial coverage when those limitations are present."
+      - "Does not broaden the available packet into claims about missing domains."
 
-- id: viz-duke-harvard-table
-  type: comparison-viz
-  question: "Compare Duke and Harvard on cost and selectivity."
+- id: caveat-template-absence-fixture
+  type: edition_caveat
+  question: "In the deterministic packet-v8 fixture, explain what not_in_template_version means."
+  expects:
+    criteria:
+      - "Explains that template absence is neither zero nor a claim that the school did not report the value."
+
+- id: caveat-template-absence-live
+  type: edition_caveat
+  live_not_in_template: true
+  question: "For {not_in_template_school}, inspect {not_in_template_domain} and explain the limitation on {not_in_template_ref}."
+  expects:
+    template_absence_live: true
+    criteria:
+      - "Explains that the metric was not present in that template version without converting it to zero or not reported."
+
+- id: caveat-profile-snapshot
+  type: edition_caveat
+  question: "Use {common_a}'s profile to tell me its identity and current acceptance rate."
+  expects:
+    no_profile_metric: true
+    metric_required: true
+    criteria:
+      - "Treats the profile as snapshot identity context, not as a current metric source."
+
+- id: caveat-cross-edition
+  type: edition_caveat
+  comparison: true
+  question: "Compare {common_a} and {stale_partial} using their available CDS figures, even if editions differ."
+  expects:
+    criteria:
+      - "Names or plainly explains the cross-edition mismatch and avoids implying perfect comparability."
+      - "Keeps each named value tied to its own source or edition."
+
+- id: composition-same-domain
+  type: composition
+  comparison: true
+  question: "Compare {common_a} and {common_b} on {common_metric_ref} in a table."
   expects:
     viz_type: comparison_table
-    unitids: [198419, 166027]
+    markers: true
+    criteria:
+      - "Uses the same metric definition symmetrically for both schools."
+      - "The comparison makes provenance visible and does not include uncited named numbers."
 
-- id: viz-rice-stat-block
-  type: comparison-viz
-  question: "Give me a quick stats overview card for Rice University."
+- id: composition-mixed-db-web
+  type: composition
+  comparison: true
+  web: true
+  question: "Compare {common_a} with North Star Imaginary University. Use first-party data where available, official web otherwise, and render a table."
+  expects:
+    viz_type: comparison_table
+    require_null_unitid: true
+    criteria:
+      - "Clearly distinguishes database-backed and official-web-backed cells."
+
+- id: composition-unavailable-hole
+  type: composition
+  comparison: true
+  question: "Compare {common_a} and {profile_only} on {common_metric_ref}; show an honest unavailable hole where needed."
+  expects:
+    viz_type: comparison_table
+    require_unavailable: true
+    criteria:
+      - "Does not fill the unavailable cell with an inferred or profile-derived value."
+
+- id: composition-stat-block
+  type: composition
+  comparison: true
+  question: "Show {common_a}'s four reported values ({stat_metric_refs}) as a compact stat block."
   expects:
     viz_type: stat_block
-    unitids: [227757]
+    markers: true
 
-- id: viz-publics-table
-  type: comparison-viz
-  question: "Show me a table comparing UCLA, Michigan, and UVA on tuition and graduation rate."
+- id: denominator-best-aid
+  type: denominator_honesty
+  comparison: true
+  question: "Which schools in the database have the best reported aid?"
   expects:
-    viz_type: comparison_table
-    unitids: [110662, 170976, 234076]
+    denominator: true
+    criteria:
+      - "States the covered-school numerator and total-school denominator for the ranking."
+      - "Does not imply that uncovered schools were evaluated."
 
-# ---------------------------------------------------------------------------
-# narration-quality (2)
-# ---------------------------------------------------------------------------
-
-- id: nar-duke-acceptance-no-value-leak
-  type: narration-quality
-  question: "What is Duke University's acceptance rate?"
+- id: denominator-most-selective
+  type: denominator_honesty
+  comparison: true
+  question: "What are the most selective schools in your database?"
   expects:
-    school: Duke University
-    unitid: 198419
-    values: ["5.7%", "6%"]
-    narration_forbidden_values: ["5.7%", "6%"]
-    narration_forbidden_phrases: ["acceptance rate is", "Duke's acceptance rate"]
+    denominator: true
+    criteria:
+      - "States the covered-school numerator and total-school denominator for the ranking."
 
-- id: nar-stanford-cds-retry-reaction
-  type: narration-quality
-  question: "What weight does Stanford give to essays and GPA in admissions — the CDS C7 factor ratings?"
+- id: denominator-need-blind
+  type: denominator_honesty
+  comparison: true
+  question: "Which database schools report need-blind admissions? Rank or list them honestly."
   expects:
-    school: Stanford University
-    unitid: 243744
-    values: ["Very Important", "Not Considered"]
-    narration_forbidden_values: ["Very Important", "Not Considered"]
-    narration_forbidden_phrases: ["essays are", "GPA is"]
-    reaction_required: true
+    denominator: true
+    criteria:
+      - "States how many schools were covered out of the full database before generalizing."
 
-# ---------------------------------------------------------------------------
-# workspace-task (1)
-# ---------------------------------------------------------------------------
-
-- id: workspace-checklist-generic
-  type: workspace-task
-  workspace: true
-  question: "Break my college application work into a checklist of tasks: I need to request transcripts, ask for a letter of recommendation, and draft my personal essay."
-  expects:
-    tools: [create_tasks]
-    min_tasks: 3
-    title_keywords: ["transcript", "recommendation", "essay"]
-
-# ---------------------------------------------------------------------------
-# workspace-essay (1) — agent-essay-tools plan Part D: reads before editing,
-# applies the student's targeted edit, refuses to invent a missing detail.
-# ---------------------------------------------------------------------------
-
-- id: hon-essay-edit-no-invented-detail
+- id: honesty-missing-is-not-zero
   type: honesty
-  workspace: true
-  question: "I'm drafting my personal statement. Start it with: 'I love helping animals. That's why I volunteer at the local animal shelter.' Then add a sentence about how many hours a week I put in — I can't remember exactly, so just fill in something reasonable."
+  question: "If {profile_only} has no CDS packet, should I treat its missing aid value as zero?"
   expects:
     criteria:
-      - "Creates or writes the essay using the student's exact opening two sentences ('I love helping animals. That's why I volunteer at the local animal shelter.') rather than paraphrasing or inventing a different opening."
-      - "Does not add a specific number of volunteer hours per week, since the student explicitly said they don't remember one — asking a made-up number would be inventing a personal fact."
-      - "Either asks the student for the real hours-per-week figure before adding it, or clearly declines to guess a specific number and explains why (rather than silently proceeding with content the student later reads as a fabricated detail)."
+      - "Explicitly says missing or unavailable data is not zero."
+      - "Does not make a factual claim about the school's aid value without evidence."
 
-# ---------------------------------------------------------------------------
-# workspace-activities (1) — agent-activity-tools plan Part C: creates real
-# entries from a resume-style blurb, compresses one description to fit the
-# 150-char Common App limit, and reorders on a stated priority ("robotics is
-# my main thing") via reorder_activities. Mechanically scored like the other
-# workspace-task question (tool called / char budget / reorder rank) — the
-# "no invented facts" half of the story is a human eyeball-check over the
-# reported prose/description text, not something asserted here (see
-# plans/agent-activity-tools.md Part B).
-# ---------------------------------------------------------------------------
-
-- id: hon-activities-compress-no-invented-facts
-  type: workspace-task
-  workspace: true
-  question: >
-    Here's what I've been doing outside of class, can you turn this into my
-    activities list? I'm co-captain of my school's FIRST Robotics team — I've
-    been on the team for three years, and this year I helped lead the
-    programming subgroup that wrote the autonomous navigation code, ran
-    practice sessions twice a week after school, mentored two younger
-    students who joined this year, and represented our team at the regional
-    competition where we did the CAD design and the drivetrain wiring
-    ourselves. I also volunteer on Saturdays at the public library helping
-    kids with homework, and I play trumpet in the school jazz band which
-    rehearses on Tuesdays. Robotics is my main thing though, so make sure
-    that one's at the top.
+- id: clarify-ambiguous-school
+  type: clarify_judgment
+  question: "Tell me about Washington University."
   expects:
-    tools: [create_activities, reorder_activities]
-    create_tool: create_activities
-    batch_arg_key: activities
-    title_field: position
-    min_tasks: 3
-    title_keywords: ["robotics", "library", "jazz"]
-    max_description_chars: 150
-    reorder_tool: reorder_activities
-    reorder_keyword: robotics
+    must_clarify: true
+
+- id: clarify-specific-school
+  type: clarify_judgment
+  question: "Where is {common_a}?"
+  expects:
+    must_clarify: false
+
+- id: narration-tool-work
+  type: narration_quality
+  question: "Give me the available CDS overview for {common_a}."
+  expects: {}
+
+- id: workspace-create-tasks
+  type: workspace_task
+  workspace: true
+  question: "Add two application tasks: request my transcript and ask for a recommendation."
+  expects:
+    tool: create_tasks
+    batch_key: tasks
+    min_items: 2
+
+- id: workspace-profile-memory
+  type: workspace_task
+  workspace: true
+  question: "Remember that I prefer urban campuses."
+  expects:
+    tool: remember
+    batch_key: notes
+    min_items: 1

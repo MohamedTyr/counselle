@@ -187,23 +187,62 @@ def reduce_tool_result(value: Any, store: ToolResultStore, *, max_chars: int) ->
     }
 
 
+#: The only fields of an oversized tool's own result an overflow receipt may
+#: carry forward (§6.2 receipt contract) — everything else (packets, values,
+#: excerpts, diagnostics, provider metadata, ...) stays spilled in the store.
+_ALLOWED_TOP_LEVEL_STR_KEYS = ("status", "domain_id")
+
+
 def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
-    receipt: dict[str, Any] = {
-        "label": "oversized tool result",
-        "chars": chars,
-        "handle": handle,
-    }
+    """Return only the student-safe structural receipt allowlist.
+
+    ``chars`` and ``handle`` remain in ``result_for_agent`` for read-back; they
+    are deliberately absent here because this mapping crosses the public step
+    seam. The named parameters stay explicit to keep this helper's call site
+    self-documenting.
+    """
+    del chars, handle
+    receipt: dict[str, Any] = {}
     if isinstance(value, Mapping):
+        for key in _ALLOWED_TOP_LEVEL_STR_KEYS:
+            candidate = value.get(key)
+            if isinstance(candidate, str) and candidate:
+                receipt[key] = candidate
         existing_receipt = value.get("public_receipt")
         if isinstance(existing_receipt, Mapping):
             ui = tool_ui_from_payload(existing_receipt.get("ui"))
             if ui is not None:
                 receipt["ui"] = ui.model_dump()
+            for key in ("value_count", "schools", "domain_id", "status"):
+                candidate = existing_receipt.get(key)
+                if candidate not in (None, [], ""):
+                    receipt[key] = candidate
+        # A single school's name (e.g. resolve_school/get_school_profile/
+        # get_domain results) — flattened to the same "schools" list shape
+        # the step receipt expects, never the raw school object.
+        school = value.get("school")
+        if "schools" not in receipt and isinstance(school, Mapping):
+            name = school.get("name")
+            if isinstance(name, str) and name:
+                receipt["schools"] = [name]
+        availability = value.get("availability")
+        if "value_count" not in receipt and isinstance(availability, Mapping):
+            verified = availability.get("verified")
+            if isinstance(verified, int):
+                receipt["value_count"] = verified
         results = value.get("results")
         if isinstance(results, list):
             receipt["result_count"] = len(results)
-            receipt["domains"] = _domains_of(results)
-            receipt["source_results"] = _source_results(results)
+        candidates = value.get("candidates")
+        if isinstance(candidates, list):
+            receipt["result_count"] = len(candidates)
+            schools = [
+                row.get("name")
+                for row in candidates
+                if isinstance(row, Mapping) and isinstance(row.get("name"), str)
+            ]
+            if schools:
+                receipt["schools"] = schools
         rows = value.get("rows")
         if isinstance(rows, list):
             receipt["row_count"] = len(rows)

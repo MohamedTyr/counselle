@@ -550,14 +550,14 @@ async def test_config_shape(live_app: FastAPI) -> None:
         assert body["max_selected_skills"] == 3
         assert body["skills"] == [
             {
-                "name": "dossier-assembly",
-                "display_name": "School dossier",
-                "description": "Build a complete, cited overview of one school.",
-            },
-            {
                 "name": "school-comparison",
                 "display_name": "School comparison",
-                "description": "Compare 2–6 schools across cost, admissions, outcomes, and fit.",
+                "description": "Compare schools across cost, admissions, outcomes, and fit.",
+            },
+            {
+                "name": "school-deep-dive",
+                "display_name": "School deep dive",
+                "description": "Build a cited, in-depth look at one school.",
             },
         ]
 

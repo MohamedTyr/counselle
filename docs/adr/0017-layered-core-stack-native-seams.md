@@ -1,6 +1,16 @@
 # ADR 0017 — Layered architecture with a pure domain core and stack-native seams
 
-**Status:** Accepted
+**Status:** Accepted (amended by ADR 0032 — packet anti-corruption boundary, reconciler removed)
+
+> **Amendment (ADR 0032):** the layering rule and the `app/` ← `counselle_db/service`
+> in-process carve-out below still hold. Two things changed: (1) the domain core's
+> honesty guarantee is now the typed packet/profile anti-corruption boundary
+> (availability states, compiled context/vintage, evidence, caveats), not the R1–R12
+> reading rules; (2) **the field reconciler is removed** — there is no
+> `counselle_db.reconcile` module, no background embed/reconcile task, and no
+> `api/` ← `counselle_db/reconcile` deviation. Accepted deviation 2 below is retired
+> along with it; only deviation 1 (`app/` ← `counselle_db/service`, for verified
+> rendering and workspace reference checks) remains.
 
 ## Context
 The honesty-critical logic (reading rules R1–R12, the citation envelope, vintage interpretation, coverage tiers, the admission season) is the product's core guarantee and must be heavily tested and stable. Meanwhile the stack (PydanticAI, LangGraph, FastAPI, GPT-Researcher) is the fastest-churning part of the system. Without a layering rule, the two tangle and both become untestable and unswappable.

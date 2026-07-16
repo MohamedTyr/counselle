@@ -31,6 +31,17 @@ MAX_PUBLIC_SKILL_BODY_CHARS = 12_000
 MAX_SELECTED_SKILL_BODY_CHARS = 24_000
 SELECTED_SKILLS_SAFE_ERROR = "Those selected skills aren't available."
 
+# Compatibility glue, not a fifth skill: maps a retired/renamed skill name to
+# its canonical successor. Never advertised in the catalog, the model-facing
+# menu, or any docstring — an old session's persisted selection of the old
+# name must keep resolving to the same skill under its new name. Resolution
+# happens before visibility/duplicate checks (see `validate_selected_skills`)
+# so an old- and new-named selection for the same skill collide as one
+# duplicate entry instead of silently coexisting as two.
+_SKILL_NAME_ALIASES: MappingProxyType[str, str] = MappingProxyType(
+    {"dossier-assembly": "school-deep-dive"}
+)
+
 # Stable, non-sensitive reasons suitable for server-side telemetry.  These are
 # deliberately labels rather than a copy of an input name, a filesystem path,
 # or a skill body: explicit skill selection is an untrusted request boundary.
@@ -235,12 +246,18 @@ def validate_selected_skills(names: Sequence[object]) -> list[str]:
     for name in names:
         if not isinstance(name, str):
             raise SelectedSkillValidationError(_SELECTED_SKILL_UNAVAILABLE)
-        if name in seen:
+        # Canonicalize before any visibility/duplicate check — and before the
+        # `seen` set is consulted — so an old-named and new-named selection
+        # of the same skill collide as a duplicate rather than coexisting.
+        canonical_name = _SKILL_NAME_ALIASES.get(name, name)
+        if canonical_name in seen:
             raise SelectedSkillValidationError(_SELECTED_SKILL_DUPLICATE)
-        entry = registry.get(name)
+        entry = registry.get(canonical_name)
         if entry is None or not entry.user_invokable:
             raise SelectedSkillValidationError(_SELECTED_SKILL_UNAVAILABLE)
-        seen.add(name)
+        seen.add(canonical_name)
+        # Persist the canonical name, never the alias, wherever this list is
+        # subsequently stored (turn records, parked-session state, ...).
         selected.append(entry.name)
     if sum(len(registry[name].body) for name in selected) > MAX_SELECTED_SKILL_BODY_CHARS:
         raise SelectedSkillValidationError(_SELECTED_SKILL_BODY_LIMIT)
@@ -300,7 +317,7 @@ def make_load_skill_tool() -> Callable[[str], Awaitable[str]]:
         Available skills:
         {menu or '  (no skills loaded)'}
 
-        Pass the skill name exactly as shown (e.g. "dossier-assembly").
+        Pass the skill name exactly as shown (e.g. "school-deep-dive").
         Returns the skill body as Markdown text.
         If the name is wrong, returns a helpful error listing valid names.
     """)

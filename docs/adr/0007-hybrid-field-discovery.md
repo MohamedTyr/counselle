@@ -1,5 +1,7 @@
 # ADR 0007 — Hybrid field discovery: static category map + pgvector search
 
+> **Superseded by [ADR 0032](0032-db-rewire-cds-library.md).** Historical body retained unchanged.
+
 **Status:** Accepted
 
 ## Context

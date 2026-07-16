@@ -649,6 +649,47 @@ def test_missing_or_null_persisted_skills_remain_legacy_empty() -> None:
     assert turns_mod._record_selected_skills({"skills": None}) == ()
 
 
+def test_persisted_old_dossier_assembly_name_resolves_to_canonical_skill() -> None:
+    """A session parked before the dossier-assembly -> school-deep-dive rename
+    must resume with the renamed skill, not fail and not silently vanish."""
+    assert turns_mod._record_selected_skills({"skills": ["dossier-assembly"]}) == (
+        "school-deep-dive",
+    )
+
+
+def test_persisted_old_and_new_name_for_the_same_skill_collide_as_duplicate() -> None:
+    """An old- and new-named selection for the same skill must never silently
+    coexist as two entries in persisted state."""
+    with pytest.raises(InvalidSelectedSkills):
+        turns_mod._record_selected_skills({"skills": ["dossier-assembly", "school-deep-dive"]})
+
+
+async def test_parked_session_with_legacy_skill_name_resumes_with_canonical_name(
+) -> None:
+    """End-to-end: a clarify resume inherits a parked turn's pre-rename skill
+    selection and reaches run_turn under the canonical name only."""
+    rig = Rig(_plain_model())
+    captured: dict[str, Any] = {}
+
+    async def recording_run_turn(*args: Any, **kwargs: Any) -> AsyncIterator[Event]:
+        captured["selected_skills"] = kwargs.get("selected_skills")
+        yield ev_meta("trace-legacy-skill", args[0], "model", "m-skill", "u-skill")
+        yield ev_done("complete")
+
+    registry = TurnRegistry(
+        deps=rig.deps,
+        graph=rig.graph,
+        settings=rig.settings,
+        run_turn_fn=recording_run_turn,
+    )
+    session_id = str(uuid4())
+    await _seed_parked_turn(rig, session_id, selected_skills=["dossier-assembly"])
+
+    await _run_full_turn(registry, session_id, "Cost matters most.")
+
+    assert captured["selected_skills"] == ("school-deep-dive",)
+
+
 # ---------------------------------------------------------------------------
 # Cancel (G5)
 # ---------------------------------------------------------------------------

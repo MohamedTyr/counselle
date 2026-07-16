@@ -2,6 +2,14 @@
 
 **Status:** Accepted
 
+> **Old-data note (ADR 0032):** the isolation decision — a dedicated read-only role,
+> never the pipeline's write role, statement timeout + row cap on the escape hatch —
+> still holds. The specific role name, `raw.*` table grants, and pgvector schema below
+> describe the retired field store and its embedding index. The current role is
+> `cds_library_reader`, granting `SELECT` on exactly the five `cds_library.*` reader
+> views and nothing else; there is no `field_index` schema or embedding writer role.
+> See `DATABASE_GUIDE.md` §1.
+
 ## Context
 The agent reads the pipeline's Postgres and has a SQL escape hatch (ADR 0005). It must never mutate pipeline data and must be safe against runaway queries.
 

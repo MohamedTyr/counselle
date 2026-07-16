@@ -9,7 +9,14 @@ import pytest
 
 from counselle_db.catalog import Catalog, SchoolRecord, _freeze, normalize_school_name
 from counselle_db.models import SchoolBasics, ServiceError
-from counselle_db.service import _walk_profile, query_database, resolve_school
+from counselle_db.service import _display_profile, _walk_profile, query_database, resolve_school
+
+
+def test_profile_display_rejects_blank_strings_and_empty_lists() -> None:
+    assert _display_profile("") is None
+    assert _display_profile("   ") is None
+    assert _display_profile([]) is None
+    assert _display_profile(["Duke", "University"]) == "Duke, University"
 
 
 class _Context:

@@ -4,6 +4,8 @@
 
 > **History:** this ADR originally restricted the agent to `is_tracked = true` schools (8 today). That scope gate is **removed**. The agent now works on **any school in the `schools` table**, and `is_tracked` is repurposed as a **data-richness signal**, not a boundary.
 
+> **Old-data note (ADR 0032):** the scope decision below — no tracked-school gate, "in our database or not" is the real boundary — still holds. But the wide `schools`/IPEDS/Scorecard/CDS-field-count details, the `is_tracked` tier mechanics, and `field_values`/`cds_files` presence checks describe the retired field store. Coverage is now computed from `school_profiles` + the selected `active_cds_documents` edition + current-manifest domain packets (`DATABASE_GUIDE.md` §4). There is no base/PDF-only/extracted tier ladder — a school is either profiled (identity only) or additionally has usable current-manifest domains for its selected edition.
+
 ## Context
 The DB holds **2,746 schools** (curated, active, 4-year, Title-IV — *not* the full 6,072-institution IPEDS universe). Nearly all have **IPEDS + Scorecard** coverage (~98% Scorecard). A small subset additionally has **CDS** data — the deep admissions-process layer (factor weights, test policy, GPA distribution, ED/EA dates, waitlist). The pipeline marks schools `is_tracked = true` to select them for CDS collection.
 

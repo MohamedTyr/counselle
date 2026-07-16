@@ -341,23 +341,6 @@ class TestYamlAssets:
         assert by_month[1]["entering_class"] == "this_fall"
         assert by_month[5]["entering_class"] == "this_fall"
 
-    def test_dossier_shortlist_sections_a_to_f_and_coa_fallback(self, dsn_env: None) -> None:
-        shortlist = load_yaml_asset("dossier_shortlist")
-        sections = shortlist["sections"]
-        assert [section["id"] for section in sections] == ["A", "B", "C", "D", "E", "F"]
-        for section in sections:
-            assert isinstance(section["title"], str) and section["title"]
-            assert isinstance(section["fields"], list) and section["fields"]
-            for field in section["fields"]:
-                assert set(field) <= {"key", "note", "fallback"}
-                assert isinstance(field["key"], str) and "." in field["key"]
-        # The §13.7 COA trap: room_and_board must carry its sibling fallback.
-        cost_aid = next(section for section in sections if section["id"] == "B")
-        room_and_board = next(
-            field for field in cost_aid["fields"] if field["key"] == "cost.room_and_board"
-        )
-        assert room_and_board["fallback"] == "cost.on_campus_room_board_other"
-
     def test_abbreviations_schema(self, dsn_env: None) -> None:
         abbreviations = load_yaml_asset("abbreviations")
         assert isinstance(abbreviations, dict)

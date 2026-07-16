@@ -266,11 +266,11 @@ duplicate or improvise canonical wording.
 
 ## 8. Query recipes
 
-Typed tools are the normal path: resolve the school, read profile identity, then read a
-usable whole domain. `query_database` is a rare escape hatch for cross-school candidate
-selection, aggregates, and detailed coverage. It accepts one parameterized
-`SELECT`/`WITH`, applies timeout and row limits, and remains restricted to the five
-views.
+Typed tools are the normal path: `resolve_school` resolves the school, `get_school_profile`
+reads profile identity, then `get_domain` reads a usable whole domain. `query_database` is
+a rare escape hatch for cross-school candidate selection, aggregates, and detailed
+coverage. It accepts one parameterized `SELECT`/`WITH`, applies timeout and row limits,
+and remains restricted to the five views.
 
 The guarded query path accepts one `SELECT` or `WITH`, positional `$1..$n` parameters,
 and applies the configured statement timeout and row cap. Select only needed columns.
@@ -282,23 +282,23 @@ preformatted hex strings.
 
 ### Configured safety limits
 
-The Phase 1 database contract is read-only and the pipeline's current PDF upload and
-download limit is exactly `50,000,000` bytes. Counselle Phase 2 will enforce these
-additional named query settings when it implements the guarded reader; they describe
-the planned consumer implementation and are not yet active merely because Phase 1's
-views and manifest exist:
+The database contract is read-only. `query_database` enforces these named settings
+(`config/settings.py`) on every call:
 
 | Boundary | Exact configured value |
 |---|---:|
-| PostgreSQL statement timeout | `8,000` ms |
-| Guarded-query row cap | `500` rows |
-| Serialized guarded-query result cap | `262,144` bytes |
+| PostgreSQL statement timeout (`db_statement_timeout_ms`) | `8,000` ms |
+| Guarded-query row cap (`db_row_cap`) | `500` rows |
+| Serialized guarded-query result cap (`query_database_max_bytes`) | `262,144` bytes |
 | Pipeline PDF upload/download cap | `50,000,000` bytes |
 
-The statement timeout and row cap retain the existing Counselle settings contract;
-the serialized-result cap is the Phase 2 `query_database_max_bytes` setting. The PDF
-limit is the pipeline's `UPLOAD_MAX_BYTES` / `DOWNLOAD_MAX_BYTES` contract, not a
-license to select `pdf_content` through `query_database`.
+The statement timeout is set per-connection via `set_config('statement_timeout', ...)`;
+the row cap wraps the caller's query as `SELECT * FROM (<query>) AS counselle_query
+LIMIT db_row_cap + 1` and reports truncation when the extra row is present; the
+serialized-result cap rejects a response whose JSON encoding exceeds
+`query_database_max_bytes`. The PDF limit is the pipeline's own upload/download
+contract, not a Counselle setting, and is never a license to select `pdf_content`
+through `query_database`.
 
 Examples are schematic; bind all values as `$n` parameters.
 
