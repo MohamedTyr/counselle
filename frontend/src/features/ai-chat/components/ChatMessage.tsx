@@ -1,5 +1,5 @@
 import { CheckIcon, CopyIcon, RotateCcwIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Message,
@@ -10,6 +10,12 @@ import {
 import { cn } from "@/lib/utils";
 import type { SourceFocus } from "@/api/chat/types";
 
+import {
+  citationDisplayNumbers,
+  citedIndexOrderForMessage,
+  schoolDomainsFromBlocks,
+  sourcesUsedByMessage,
+} from "../citations";
 import type { Segment } from "../turn-reducer";
 import { NarrationBeat, PlanChecklist, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
 import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
@@ -135,11 +141,15 @@ function SegmentBeat({
   segment,
   sources,
   onOpenCitation,
+  displayNumbers,
+  schoolDomains,
 }: {
   isLiveSegment: boolean;
   segment: Segment;
   sources: AssistantChatMessage["sources"];
   onOpenCitation?: (focus: SourceFocus) => void;
+  displayNumbers: Map<number, number>;
+  schoolDomains: Map<number, string>;
 }) {
   switch (segment.type) {
     case "narration":
@@ -168,8 +178,10 @@ function SegmentBeat({
       return segment.text.length === 0 ? null : (
         <div>
           <CitationRenderer
+            displayNumbers={displayNumbers}
             markdown={segment.text}
             onCitationOpen={onOpenCitation}
+            schoolDomains={schoolDomains}
             sources={sources}
           />
           {isLiveSegment && <StreamingCursor />}
@@ -210,6 +222,14 @@ function AssistantBody({
       )
     : -1;
   const planStep = latestPlanStep(message.segments);
+  const displayNumbers = useMemo(() => {
+    const usedSources = sourcesUsedByMessage(message);
+    const order = citedIndexOrderForMessage(message).filter((index) =>
+      usedSources.some((entry) => entry.index === index),
+    );
+    return citationDisplayNumbers(order);
+  }, [message]);
+  const schoolDomains = useMemo(() => schoolDomainsFromBlocks(message.blocks), [message]);
 
   return (
     <>
@@ -219,6 +239,7 @@ function AssistantBody({
       )}
       {message.segments.map((segment, index) => (
         <SegmentBeat
+          displayNumbers={displayNumbers}
           isLiveSegment={
             segment.type === "answer"
               ? index === liveAnswerIndex
@@ -226,6 +247,7 @@ function AssistantBody({
           }
           key={segmentKey(segment, index)}
           onOpenCitation={onOpenCitation}
+          schoolDomains={schoolDomains}
           segment={segment}
           sources={message.sources}
         />

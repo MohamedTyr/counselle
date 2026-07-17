@@ -1,4 +1,4 @@
-import { XIcon } from "lucide-react";
+import { GlobeIcon, SchoolIcon, XIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { EvidenceItem, ReplaySourceEntry, SourceEntry } from "@/api/chat/types";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { safeExternalUrl, sourceDisplayName } from "../citations";
+import { faviconUrlForCitation, faviconUrlForDomain, safeExternalUrl, sourceDisplayName } from "../citations";
 import type { MessageSourcesPayload } from "./MessageSources";
 
 export type SourcesRailProps = {
@@ -49,7 +49,37 @@ function EvidenceRow({ entry, item, active }: { entry: SourceEntry; item: Eviden
   );
 }
 
-function SourceRow({ entry, active }: { entry: ReplaySourceEntry; active: MessageSourcesPayload["active"] }) {
+function RowIcon({ entry, schoolDomains }: { entry: ReplaySourceEntry; schoolDomains: Map<number, string> }) {
+  if (isLegacySourceEntry(entry)) {
+    return <GlobeIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />;
+  }
+  const citation = entry.citation;
+  const domain = citation.school_unitid != null ? schoolDomains.get(citation.school_unitid) : undefined;
+  if (domain !== undefined) {
+    return <img alt="" className="size-3.5 shrink-0 rounded-[2px]" src={faviconUrlForDomain(domain)} />;
+  }
+  if (citation.source === "cds" || citation.source === "profile") {
+    return <SchoolIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />;
+  }
+  const favicon = faviconUrlForCitation(citation);
+  return favicon === undefined ? (
+    <GlobeIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+  ) : (
+    <img alt="" className="size-3.5 shrink-0 rounded-[2px]" src={favicon} />
+  );
+}
+
+function SourceRow({
+  entry,
+  active,
+  displayNumber,
+  schoolDomains,
+}: {
+  entry: ReplaySourceEntry;
+  active: MessageSourcesPayload["active"];
+  displayNumber: number;
+  schoolDomains: Map<number, string>;
+}) {
   const href = safeExternalUrl(entry.citation.url);
   const legacy = isLegacySourceEntry(entry);
   const isCds = !legacy && entry.citation.source === "cds";
@@ -67,7 +97,8 @@ function SourceRow({ entry, active }: { entry: ReplaySourceEntry; active: Messag
       tabIndex={-1}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium text-foreground">[{entry.index}] {entry.label}</span>
+        <RowIcon entry={entry} schoolDomains={schoolDomains} />
+        <span className="font-medium text-foreground">[{displayNumber}] {entry.label}</span>
         <Badge variant={entry.citation.tier === "official" ? "secondary" : "outline"}>
           {entry.citation.tier === "official" ? "Official" : "Community"}
         </Badge>
@@ -123,7 +154,13 @@ function SourcesRailBody({ payload }: { payload: MessageSourcesPayload }) {
       </header>
       <ul className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         {[...payload.sources].sort((left, right) => left.index - right.index).map((entry) => (
-          <SourceRow active={payload.active} entry={entry} key={entry.index} />
+          <SourceRow
+            active={payload.active}
+            displayNumber={payload.displayNumbers.get(entry.index) ?? entry.index}
+            entry={entry}
+            key={entry.index}
+            schoolDomains={payload.schoolDomains}
+          />
         ))}
       </ul>
     </div>

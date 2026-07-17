@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import {
   createContext,
   useCallback,
@@ -53,49 +53,37 @@ export const InlineCitationCard = (props: InlineCitationCardProps) => (
   <HoverCard closeDelay={0} openDelay={0} {...props} />
 );
 
-export type InlineCitationCardTriggerProps = ComponentProps<typeof Badge> & {
-  sources: string[];
+export type InlineCitationCardTriggerProps = Omit<
+  ComponentProps<typeof Badge>,
+  "render"
+> & {
+  index: number;
+  icon?: ReactNode;
 };
 
-const getCitationSourceLabel = (source: string | undefined) => {
-  const trimmed = source?.trim();
-  if (!trimmed) {
-    return "unknown";
-  }
-
-  try {
-    return new URL(trimmed).hostname;
-  } catch {
-    if (/^[^\s/]+\.[^\s/]+/.test(trimmed)) {
-      try {
-        return new URL(`https://${trimmed}`).hostname;
-      } catch {
-        return trimmed;
-      }
-    }
-    return trimmed;
-  }
-};
-
+/** One chip shape for every citation kind — CDS, profile, web, edu, reddit,
+ * legacy — a real keyboard-operable button, not a mix of `<Button>` and a
+ * bare `<span>`. The hover-card body (not this trigger) carries per-kind
+ * metadata. */
 export const InlineCitationCardTrigger = ({
-  sources,
+  index,
+  icon,
   className,
   ...props
 }: InlineCitationCardTriggerProps) => (
   <HoverCardTrigger asChild>
     <Badge
-      className={cn("ml-1 rounded-full", className)}
       variant="secondary"
       {...props}
-    >
-      {sources[0] ? (
-        <>
-          {getCitationSourceLabel(sources[0])}{" "}
-          {sources.length > 1 && `+${sources.length - 1}`}
-        </>
-      ) : (
-        "unknown"
+      aria-label={`Open source ${index}`}
+      className={cn(
+        "ml-1 inline-flex items-center gap-1 rounded-full px-1.5",
+        className,
       )}
+      render={<button type="button" />}
+    >
+      {icon}
+      <span className="text-[10px]">[{index}]</span>
     </Badge>
   </HoverCardTrigger>
 );

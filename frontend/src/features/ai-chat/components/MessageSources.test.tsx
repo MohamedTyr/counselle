@@ -15,7 +15,12 @@ describe("MessageSources", () => {
     render(<MessageSources message={{ blocks: [{ kind: "markdown", text: "External [1]." }, { kind: "viz", spec }], text: "", sources: [source(1, web), source(2, cds), source(9, cds)], turnStatus: "complete" }} onOpen={onOpen} />);
     expect(screen.getByText("2 sources")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button"));
-    expect(onOpen).toHaveBeenCalledWith({ sources: [source(1, web), source(2, cds)], active: undefined });
+    expect(onOpen).toHaveBeenCalledWith({
+      sources: [source(1, web), source(2, cds)],
+      active: undefined,
+      displayNumbers: new Map([[1, 1], [2, 2]]),
+      schoolDomains: new Map(),
+    });
     expect(JSON.stringify(onOpen.mock.calls[0][0])).not.toContain("counselle-data");
     expect(onOpen.mock.calls[0][0]).not.toHaveProperty("dbUsed");
   });

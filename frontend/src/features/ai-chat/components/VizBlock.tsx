@@ -10,6 +10,8 @@ import { isTabularRenderSpec } from "@/api/chat/validation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { faviconUrlForDomain } from "../citations";
+
 export type VizBlockProps = {
   spec: RenderSpec;
   onSourceOpen?: (focus: SourceFocus) => void;
@@ -82,11 +84,7 @@ function SchoolHeading({ school, index }: { school: TabularRenderSpec["columns"]
     <th className="py-1.5 pr-3 text-left font-medium text-foreground" key={key}>
       <span className="inline-flex items-center gap-2">
         {school.domain !== null && school.domain !== undefined && (
-          <img
-            alt=""
-            className="size-4 rounded-sm"
-            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(school.domain)}&sz=32`}
-          />
+          <img alt="" className="size-4 rounded-sm" src={faviconUrlForDomain(school.domain)} />
         )}
         {school.name}
       </span>
