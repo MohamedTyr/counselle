@@ -7,13 +7,11 @@ description: Parameterized SQL patterns over the five schema-qualified cds_libra
 
 ## Typed tools first — this is the rare path
 
-`resolve_school`, `get_school_profile`, and `get_domain` cover almost every
-question. Use `query_database` only for cross-school selection, aggregates, or
-coverage detail a typed tool cannot answer; typed reads are already cited.
+`resolve_school`, `get_school_profile`, and `get_domain` cover almost every question.
+Use `query_database` only for cross-school selection, aggregates, or coverage detail a typed tool cannot answer; typed reads are already cited.
 
-`query_database` accepts exactly one parameterized `SELECT`/`WITH`,
-positional `$1..$n` only, under a row cap and statement timeout, restricted
-to exactly five schema-qualified views:
+`query_database` accepts exactly one parameterized `SELECT`/`WITH`, positional
+`$1..$n` only, under a row cap and statement timeout, restricted to exactly five schema-qualified views:
 
 - `cds_library.school_profiles`
 - `cds_library.active_cds_domain_packets`
@@ -23,17 +21,16 @@ to exactly five schema-qualified views:
 
 Never write a bare table name; no other relation is reachable through this tool.
 
-Profile groups come dynamically from `school_profiles.basic_profile`.
-Manifest domains/metrics come dynamically from the current
-`cds_manifest_snapshots.content`. Selected-edition facts come from
-`active_cds_documents`; per-domain status comes from
-`active_cds_domain_packets`. Never memorize those inventories or recreate
-selected-edition logic in SQL when a typed tool already exposes it.
+Profile groups come dynamically from `school_profiles.basic_profile`. Manifest
+domains/metrics come from the current `cds_manifest_snapshots.content`.
+Selected-edition facts come from `active_cds_documents`; per-domain status comes from `active_cds_domain_packets`.
+Never memorize those inventories or recreate selected-edition logic in SQL when a typed tool already exposes it.
 
 There is no `manifest.metrics` relation or column. Check one exact candidate ref in the current snapshot's `content`, carrying the denominator with it:
 
 ```sql
 SELECT m.version,
+       m.published_at AS as_of,
        jsonb_path_exists(m.content,
          '$.domains[*].metrics[*] ? (@.id == $ref)',
          jsonb_build_object('ref', to_jsonb($1::text))) AS metric_ref_present,
@@ -42,29 +39,29 @@ FROM cds_library.cds_manifest_snapshots m
 WHERE m.is_current
 ```
 
-Bind `$1` to the exact qualified ref, with no wildcard. The JSONPath checks only metric
-`id` members, so descriptions cannot create a false match. When false, say `0 out of
-total`; do not invent a packet path, ranking, or school list.
+Copy that entire statement verbatim and bind `$1` to the exact qualified ref, with no wildcard.
+If the guard rejects a manifest query, retry from this block; never improvise
+a text scan, JSON join, or alternate JSONPath. When false, say `0 out of total`; do not invent a packet path, ranking, or school list.
 
 ## Coverage denominator recipe
 
-Any cross-school aggregate must state covered/total, never just the covered
-count. Compute the covered side from `active_cds_documents` (schools with a
-usable document) and the total from `school_profiles` (every profile), and
-attach the `coverage_denominator` caveat wording — don't hand-write your own
-denominator sentence:
+Any cross-school aggregate must state covered/total, never just the covered count.
+Compute the covered side from `active_cds_documents` (schools with a usable document)
+and the total from `school_profiles` (every profile), and attach the
+`coverage_denominator` caveat wording — don't hand-write your own denominator sentence:
 
 ```sql
 SELECT count(DISTINCT d.school_id) AS covered,
-       count(DISTINCT p.id) AS total
+       count(DISTINCT p.id) AS total,
+       (SELECT published_at FROM cds_library.cds_manifest_snapshots WHERE is_current) AS as_of
 FROM cds_library.school_profiles p
 LEFT JOIN cds_library.active_cds_documents d ON d.school_id = p.id
 ```
 
-For a metric ranking, that broad document count is not the ranking
-denominator: the numerator must count only schools whose selected packet has
-that exact metric as verified, reported, and a JSON number, over the same
-all-profiled-schools denominator.
+For a metric ranking, that broad document count is not the ranking denominator: the numerator must count only schools whose selected packet has
+that exact metric as verified, reported, and a JSON number, over the same all-profiled-schools denominator.
+Every ranking query must return columns named `covered`, `total`, and `as_of`;
+do not leave those facts implicit in a candidate count or tool-result timestamp.
 
 ## Numeric packet candidate filter (the one non-obvious rule)
 
@@ -98,7 +95,8 @@ WITH selected AS (
 )
 SELECT v.school_id, p.name, v.value,
        count(*) OVER () AS covered,
-       (SELECT count(*) FROM cds_library.school_profiles) AS total
+       (SELECT count(*) FROM cds_library.school_profiles) AS total,
+       (SELECT published_at FROM cds_library.cds_manifest_snapshots WHERE is_current) AS as_of
 FROM verified v
 JOIN cds_library.school_profiles p ON p.id = v.school_id
 ORDER BY v.value DESC
@@ -111,7 +109,9 @@ strip or reconstruct the ref. After the JSON-number guard, cast
 `metric ->> 'value'` (text), never `metric -> 'value'` (jsonb). This produces a
 **candidate list**, not a citation: re-fetch each finalist's real value
 through `get_domain` for a typed reading, display string, and page citation
-before telling the student a number. Never cite the raw SQL row directly.
+before telling the student a number. If visualizing a stored metric, use that exact
+qualified ref in each finalist cell; never substitute an uncited derived value.
+Never cite the raw SQL row directly.
 
 ## What never to select
 

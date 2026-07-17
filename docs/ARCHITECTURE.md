@@ -123,7 +123,7 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 | **Skills** | **SKILL.md** open standard | Portable workflow layer, loaded on demand. | 0010 |
 | **Session persistence** | **LangGraph Postgres checkpointer** in `counselle.*` | Sessions survive restarts from day one; the platform's chats are the same rows + a user FK. | 0019 |
 | **Config** | **pydantic-settings** + versioned data assets | One typed settings surface, fail-fast at startup. | 0018 |
-| **Models** | Default **Vertex AI**: `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier — also the clarifier and auto-title models); any agent swappable to Anthropic/others via config. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011 |
+| **Models** | Default **Vertex AI**: `gemini-3.5-flash` (synthesis), `gemini-2.5-flash` (cheap tier — also the clarifier and auto-title models); any agent swappable to Anthropic/others via config. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011 |
 | **Language** | Python | Matches the pipeline; asyncpg expertise carries over. | — |
 
 ---

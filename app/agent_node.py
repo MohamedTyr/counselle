@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -55,7 +54,7 @@ from pydantic_graph import End
 from app import viz as viz_mod
 from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
-from app.prompt import build_system_prompt
+from app.prompt import build_system_prompt, render_source_availability
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
 from app.records import Emission, append_or_replace, build_turn_record, now_iso
 from app.skills import (
@@ -126,9 +125,7 @@ def _empty_resolve_completion(emissions: list[Emission]) -> str | None:
         schools = detail.get("schools")
         if detail.get("result_count") == 1:
             subject = (
-                str(schools[0])
-                if isinstance(schools, list) and schools
-                else "the requested school"
+                str(schools[0]) if isinstance(schools, list) and schools else "the requested school"
             )
             return (
                 f"I identified {subject}, but I couldn't verify enough information to "
@@ -254,9 +251,7 @@ def _make_load_skill_tool(tool_overflow: ToolMiddlewareContext | None) -> Tool[A
     return Tool(load_skill_tool, takes_ctx=False)
 
 
-def _make_read_tool_result_tool(
-    store: ToolResultStore, registry: SourceRegistry
-) -> Tool[Any]:
+def _make_read_tool_result_tool(store: ToolResultStore, registry: SourceRegistry) -> Tool[Any]:
     async def read_tool_result(handle: str) -> Any:
         """Read back a full oversized tool result spilled earlier in this run.
 
@@ -272,106 +267,6 @@ def _make_read_tool_result_tool(
 
 
 _VIZ_MARKER_START = "[[viz:"
-_CITATION_MARKER = re.compile(r"(?<!\[)\[([1-9]\d*)\](?!\])")
-_INCOMPLETE_CITATION_MARKER = re.compile(r"(?<!\[)\[(?:[1-9]\d*)?$")
-_YEAR_OR_RANGE = re.compile(r"\b(?:19|20)\d{2}(?:\s*[-–]\s*(?:\d{2}|(?:19|20)\d{2}))?\b")
-_FACT_VALUE = re.compile(r"(?<![\w])[$]?\d[\d,]*(?:\.\d+)?%?")
-_CITATION_FALLBACK = (
-    "I couldn't verify the source reference for this claim, so I'm leaving the "
-    "unsupported value out."
-)
-
-
-class _FinalCitationGuard:
-    """Release final prose sentence-by-sentence only after its markers resolve."""
-
-    def __init__(
-        self,
-        registry: SourceRegistry | None,
-        emit: Callable[[str], None],
-    ) -> None:
-        self._registry = registry
-        self._emit = emit
-        self._pending = ""
-
-    def feed(self, text: str) -> None:
-        self._pending += text
-        if not self._pending or _INCOMPLETE_CITATION_MARKER.search(self._pending):
-            return
-        if not self._invalid_markers(self._pending):
-            ready, self._pending = self._pending, ""
-            self._emit(ready)
-
-    def flush(self) -> None:
-        self._drain(final=True)
-
-    def _drain(self, *, final: bool) -> None:
-        while self._pending:
-            boundary = _sentence_boundary(self._pending, final=final)
-            if boundary is None:
-                return
-            candidate, self._pending = self._pending[:boundary], self._pending[boundary:]
-            invalid = self._invalid_markers(candidate)
-            if invalid:
-                logger.warning(
-                    "withheld final sentence with unresolved citation markers: %s",
-                    sorted(invalid),
-                )
-                self._emit(_CITATION_FALLBACK + (" " if self._pending else ""))
-            else:
-                self._emit(candidate)
-
-    def _invalid_markers(self, text: str) -> set[int]:
-        matches = list(_CITATION_MARKER.finditer(text))
-        if not matches:
-            return set()
-        if self._registry is None:
-            return {int(match.group(1)) for match in matches}
-        invalid: set[int] = set()
-        for match in matches:
-            index = int(match.group(1))
-            entry = self._registry.lookup_marker(f"[{index}]")
-            claim = _sentence_containing(text, match.start())
-            if entry is None or (
-                entry.citation.source == "cds"
-                and not entry.evidence
-                and _has_factual_value(claim)
-            ):
-                invalid.add(index)
-        return invalid
-
-
-def _sentence_boundary(text: str, *, final: bool) -> int | None:
-    """First complete sentence/newline, retaining a streaming-safe tail."""
-    for index, char in enumerate(text):
-        if char == "\n":
-            return index + 1
-        if char in ".!?" and index + 1 < len(text) and text[index + 1].isspace():
-            cursor = index + 2
-            while cursor < len(text) and text[cursor].isspace() and text[cursor] != "\n":
-                cursor += 1
-            return cursor
-    return len(text) if final else None
-
-
-def _sentence_containing(text: str, position: int) -> str:
-    start = max(text.rfind("\n", 0, position), text.rfind(". ", 0, position)) + 1
-    end = next(
-        (
-            index + 1
-            for index in range(position, len(text))
-            if text[index] == "\n"
-            or (text[index] in ".!?" and index + 1 < len(text) and text[index + 1].isspace())
-        ),
-        len(text),
-    )
-    return text[start:end]
-
-
-def _has_factual_value(text: str) -> bool:
-    without_markers = _CITATION_MARKER.sub("", text)
-    without_years = _YEAR_OR_RANGE.sub("", without_markers)
-    return _FACT_VALUE.search(without_years) is not None
 
 
 class _StreamingVizMarkerPlacer:
@@ -469,6 +364,11 @@ class _FinalContentPlacementWriter:
     ) -> None:
         self._staged_specs = staged_specs
         self._writer = writer
+        # The evidence stripper removes the hidden ``[[evidence:n:eid]]`` tokens
+        # from the visible stream and, on a valid token, promotes that exact CDS
+        # row into the sources rail. This is provenance display only — it never
+        # inspects or withholds the agent's prose. Accuracy is the agent's job,
+        # enforced solely by the inline ``[n]`` citations it writes.
         self._evidence = EvidenceMarkerStripper(
             registry.promote_pending_evidence if registry else lambda _index, _eid: False
         )
@@ -476,7 +376,6 @@ class _FinalContentPlacementWriter:
         self._flushed = False
         self._placer = _StreamingVizMarkerPlacer(staged_specs, writer)
         self._stripper = StreamingVizMarkerStripper()
-        self._citations = _FinalCitationGuard(registry, self._write_final_text)
 
     def start_final(self) -> None:
         if self._final_started or self._flushed:
@@ -487,7 +386,7 @@ class _FinalContentPlacementWriter:
         if chunk.get("type") == "delta":
             clean = self._evidence.feed(str(chunk.get("text") or ""))
             if self._final_started:
-                self._citations.feed(clean)
+                self._write_final_text(clean)
                 return
             if not clean:
                 return
@@ -500,8 +399,10 @@ class _FinalContentPlacementWriter:
         if not self._final_started:
             return
         if clean := self._evidence.flush():
-            self._citations.feed(clean)
-        self._citations.flush()
+            self._write_final_text(clean)
+        self._finish_output()
+
+    def _finish_output(self) -> None:
         if not self._flushed:
             self._flushed = True
             if self._staged_specs:
@@ -790,8 +691,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
         state.get("data_picture", "Live data picture unavailable in this test harness."),
     )
+    source_instructions = render_source_availability(source_config)
     selected_instructions = render_selected_skills(ids["selected_skills"])
-    instructions = "\n\n".join(part for part in (base_instructions, selected_instructions) if part)
+    instructions = "\n\n".join(
+        part for part in (base_instructions, source_instructions, selected_instructions) if part
+    )
     agent: Agent[TurnDeps, str] = Agent(
         model_factory(),
         instructions=instructions,
@@ -907,7 +811,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             messages_out = _replace_empty_final_response(
                 cast(list[dict[str, Any]], messages_out), completion_fallback
             )
-        run_usage = result.usage  # property in 1.107 (notes §4)
+        run_usage = result.usage
         usage = UsageData(
             input_tokens=run_usage.input_tokens or 0,
             output_tokens=run_usage.output_tokens or 0,

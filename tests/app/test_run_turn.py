@@ -370,9 +370,12 @@ async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_i
     assert rig.deps.parked_sources.restore(session_id, meta["message_id"], user_id) is None
 
 
-async def test_sse_and_transcript_withhold_hallucinated_marker_and_keep_registered_source(
+async def test_sse_and_transcript_stream_unvalidated_marker_and_promote_evidence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The runtime never inspects or withholds the agent's prose: an unregistered
+    marker ([2]) streams verbatim, while the hidden [[evidence]] token still
+    strips from view and promotes its exact CDS row into the sources rail."""
     citation = Citation(
         source="cds",
         tier="official",
@@ -430,8 +433,8 @@ async def test_sse_and_transcript_withhold_hallucinated_marker_and_keep_register
     session_id = str(uuid4())
     events = await rig.turn(session_id, "What is Yale enrollment?", _ALL_OFF)
 
-    assert _text(events) == app.agent_node._CITATION_FALLBACK
-    assert "[2]" not in _text(events)
+    assert _text(events) == "Undergraduate enrollment was 6,814 [2]."
+    assert "[[evidence:" not in _text(events)
     source_event = next(event for event in events if event.type == "sources")
     assert source_event.data["sources"][0]["index"] == 1
     assert events[-1].type == "done"
@@ -441,7 +444,8 @@ async def test_sse_and_transcript_withhold_hallucinated_marker_and_keep_register
         list(snapshot.values.get("messages") or []),
         list(snapshot.values.get("turn_records") or []),
     )
-    assert transcript[-1]["text"] == app.agent_node._CITATION_FALLBACK
+    assert transcript[-1]["text"] == "Undergraduate enrollment was 6,814 [2]."
+    assert "[[evidence:" not in str(snapshot.values.get("messages") or [])
     assert transcript[-1]["sources"][0]["index"] == source_event.data["sources"][0]["index"]
     persisted_citation = transcript[-1]["sources"][0]["citation"]
     streamed_citation = source_event.data["sources"][0]["citation"]
@@ -709,9 +713,12 @@ def test_successful_resolution_cannot_complete_with_empty_prose() -> None:
     assert "Massachusetts Institute of Technology" in fallback
     assert "unavailable, not zero" in fallback
     assert "won't invent" in fallback
-    assert app.agent_node._empty_resolve_completion(
-        cast(Any, [*emissions, ("delta", "A substantive answer.")])
-    ) is None
+    assert (
+        app.agent_node._empty_resolve_completion(
+            cast(Any, [*emissions, ("delta", "A substantive answer.")])
+        )
+        is None
+    )
     no_name = cast(
         Any,
         [
@@ -1842,6 +1849,40 @@ async def test_disabled_sources_make_search_step_kinds_impossible() -> None:
     assert not (kinds & _SEARCH_STEP_KINDS), f"disabled source surfaced a step: {kinds}"
 
 
+def _profile_only_when_external_sources_are_disabled(
+    messages: list[ModelMessage], info: AgentInfo
+) -> ModelResponse:
+    del messages
+    instructions = info.instructions or ""
+    tools = {tool.name for tool in info.function_tools}
+    assert "Broad web (`search_web`): disabled and not mounted" in instructions
+    assert "Official school sites (`search_school_site`): disabled and not mounted" in instructions
+    assert "Reddit community search (`search_reddit`): disabled and not mounted" in instructions
+    assert not ({"search_web", "search_school_site", "search_reddit"} & tools)
+    return ModelResponse(
+        parts=[
+            TextPart(
+                "Counselle's first-party data does not have this value. "
+                "The available school profile can establish the school's identity, "
+                "but I can't verify the requested current fact while external sources "
+                "are disabled."
+            )
+        ]
+    )
+
+
+async def test_all_off_profile_only_fallback_preserves_gap_without_unknown_tool() -> None:
+    rig = Rig(_fn_model(_profile_only_when_external_sources_are_disabled))
+
+    events = await rig.turn(str(uuid4()), "What is this school's current deadline?", _ALL_OFF)
+
+    assert _done_status(events) == "complete"
+    assert "error" not in _types(events)
+    assert _steps(events) == []
+    assert "Counselle's first-party data does not have this value." in _text(events)
+    assert "available school profile" in _text(events)
+
+
 def _search_unless_ask_student_mounted(
     messages: list[ModelMessage], info: AgentInfo
 ) -> ModelResponse:
@@ -2351,7 +2392,10 @@ def test_final_writer_streams_staged_viz_answer_deltas_incrementally() -> None:
     ]
 
 
-def test_final_writer_releases_cds_marker_only_with_exact_promoted_evidence() -> None:
+def test_final_writer_strips_evidence_token_and_promotes_row_while_marker_streams() -> None:
+    """Provenance display only: the hidden [[evidence]] token is scrubbed from the
+    visible stream and promotes its exact CDS row to the sources rail, while the
+    visible [n] marker streams unchanged. The writer never inspects the prose."""
     citation = Citation(
         source="cds",
         tier="official",
@@ -2378,40 +2422,88 @@ def test_final_writer_releases_cds_marker_only_with_exact_promoted_evidence() ->
 
     writer.start_final()
     writer.write({"type": "delta", "text": "Enrollment was 6,814 [1][[evidence:1:"})
-    assert emitted == []
     writer.write({"type": "delta", "text": "enrollment.undergraduate_total]]. "})
     writer.flush_final()
 
-    assert emitted == [{"type": "delta", "text": "Enrollment was 6,814 [1]. "}]
+    prose = "".join(chunk["text"] for chunk in emitted)
+    assert prose == "Enrollment was 6,814 [1]. "
+    assert "[[evidence:" not in prose
     assert registry.entries_for_wire()[0].evidence == (evidence,)
 
 
-@pytest.mark.parametrize("text", ["Tuition was $69,900 [2]. ", "Enrollment was 6,814 [1]. "])
-def test_final_writer_withholds_unresolvable_or_evidence_less_cds_marker(text: str) -> None:
-    citation = Citation(
+def _final_guard_citation(*, school_unitid: int = 130794, sha: str = "a") -> Citation:
+    return Citation(
         source="cds",
         tier="official",
         vintage="Common Data Set 2024-25",
-        document_sha256="a" * 64,
+        document_sha256=sha * 64,
         source_kind="cds_pdf",
         retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
         academic_year=2024,
         manifest_version="5.0.2",
-        school_unitid=130794,
+        school_unitid=school_unitid,
     )
-    registry = SourceRegistry()
-    registry.register_source(citation, "Yale — Common Data Set 2024-25")
+
+
+def _final_guard_evidence(eid: str, display: str) -> EvidenceItem:
+    return EvidenceItem(
+        eid=eid,
+        value_display=display,
+        label=eid,
+        page=4,
+        excerpt=f"{eid} {display}",
+    )
+
+
+def _write_guarded_final(registry: SourceRegistry, text: str) -> tuple[str, SourceRegistry]:
     emitted: list[dict[str, Any]] = []
     writer = app.agent_node._FinalContentPlacementWriter([], emitted.append, registry)
-
     writer.start_final()
     writer.write({"type": "delta", "text": text})
     writer.flush_final()
+    return "".join(chunk["text"] for chunk in emitted), registry
 
-    prose = "".join(chunk["text"] for chunk in emitted)
-    assert prose == app.agent_node._CITATION_FALLBACK
-    assert "[1]" not in prose
-    assert "[2]" not in prose
+
+def test_final_writer_streams_derived_value_without_redaction() -> None:
+    """Anti-regression: a derived number (a rate computed from two cited values)
+    is no longer inspected or withheld. The agent's inline [n] citation is the
+    only honesty gate — the runtime never second-guesses the arithmetic."""
+    registry = SourceRegistry()
+    marker = registry.register_source(_final_guard_citation(), "Yale CDS")
+    registry.register_pending_evidence(
+        marker, _final_guard_evidence("admissions.applicants", "47,893")
+    )
+    registry.register_pending_evidence(marker, _final_guard_evidence("admissions.admits", "2,003"))
+
+    text = "Yale admitted 2,003 of 47,893 applicants, or 4.2% [1]."
+    prose, _ = _write_guarded_final(registry, text)
+
+    assert prose == text
+
+
+def test_final_writer_streams_unregistered_marker_verbatim() -> None:
+    """An unregistered/hallucinated marker is never validated or stripped — it
+    reaches the student exactly as written. The registry maps what it knows and
+    stays silent about the rest."""
+    registry = SourceRegistry()
+    prose, _ = _write_guarded_final(registry, "Tuition was $69,900 [9].")
+
+    assert prose == "Tuition was $69,900 [9]."
+
+
+def test_final_writer_promotes_evidence_only_via_token_not_a_bare_value() -> None:
+    """Provenance is agent-declared, never inferred: a bare number in prose does
+    NOT promote a pending row; only the explicit hidden [[evidence]] token does."""
+    registry = SourceRegistry()
+    marker = registry.register_source(_final_guard_citation(), "Yale CDS")
+    registry.register_pending_evidence(
+        marker, _final_guard_evidence("enrollment.undergraduate_total", "6,814")
+    )
+
+    prose, _ = _write_guarded_final(registry, "Enrollment was 6,814 [1].")
+
+    assert prose == "Enrollment was 6,814 [1]."
+    assert registry.entries_for_wire()[0].evidence == ()
 
 
 def test_final_writer_allows_document_level_cds_marker_without_value_evidence() -> None:

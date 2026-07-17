@@ -591,6 +591,27 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
         ],
     )
     assert score_deterministic(expects, wrapped_success)["denominator"]["passed"] is True
+    wrapped_mismatch = make_capture(
+        prose="Harvard ranks first among the 1 out of 2,746 schools with data.",
+        tool_returns=[
+            {
+                "tool_name": "query_database",
+                "content": {
+                    "status": "overflow",
+                    "result_for_agent": {"handle": "tool-result-2"},
+                },
+            },
+            {
+                "tool_name": "read_tool_result",
+                "content": {"columns": ["covered", "total"], "rows": [[2, 2746]]},
+            },
+        ],
+        tool_calls=[
+            {"tool_name": "query_database", "args": {"sql": "SELECT 1"}},
+            {"tool_name": "read_tool_result", "args": {"handle": "tool-result-2"}},
+        ],
+    )
+    assert score_deterministic(expects, wrapped_mismatch)["denominator"]["passed"] is False
 
     metric_total_columns = make_query_capture(
         "Out of 2,746 schools, only 1 has both metrics.",
@@ -605,10 +626,13 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
         "Out of 2,746 profiled schools, only one has both required values.",
         {"columns": ["count"], "rows": [[1]]},
     )
-    assert score_deterministic(expects, derived_total)["denominator"]["passed"] is True
+    assert score_deterministic(expects, derived_total)["denominator"]["passed"] is False
     aliased_count = make_query_capture(
         "Out of 2,746 schools, 1 is eligible for this ranking.",
-        {"columns": ["eligible_school_count"], "rows": [[1]]},
+        {
+            "columns": ["eligible_school_count", "profile_total"],
+            "rows": [[1, 2746]],
+        },
     )
     assert score_deterministic(expects, aliased_count)["denominator"]["passed"] is True
 
@@ -655,6 +679,25 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
     )
     assert score_deterministic(zero_expects, unsupported)["denominator"]["passed"] is False
     assert score_deterministic(zero_expects, evidenced_zero)["denominator"]["passed"] is True
+
+    evidenced_zero_reverse = make_query_capture(
+        "Out of 2,746 schools, 0 can be evaluated.",
+        {"columns": ["covered", "total"], "rows": [[0, 2746]]},
+    )
+    assert (
+        score_deterministic(zero_expects, evidenced_zero_reverse)["denominator"]["passed"]
+        is True
+    )
+    mismatched_zero = make_query_capture(
+        "Out of 2,746 schools, 0 can be evaluated.",
+        {"columns": ["covered", "total"], "rows": [[1, 2746]]},
+    )
+    assert score_deterministic(zero_expects, mismatched_zero)["denominator"]["passed"] is False
+    mismatched_total = make_query_capture(
+        "0 out of 2,746 schools can be evaluated.",
+        {"columns": ["covered", "total"], "rows": [[0, 999]]},
+    )
+    assert score_deterministic(zero_expects, mismatched_total)["denominator"]["passed"] is False
 
 
 def test_marker_requirement_accepts_verified_visualization_cell_marker() -> None:

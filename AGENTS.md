@@ -117,14 +117,14 @@ When in doubt, do the simplest thing that works and ship it.
 - **Deep research:** **GPT-Researcher**, embedded, cheap-model-routed, capped depth, DB-first; on Tavily; *not* a hosted research black box (our DB must be a first-class source) — ADR 0009. **Deferred from the MVP1 implementation plan** (stub seam in the graph; follow-up plan adds it).
 - **Skills:** **SKILL.md** open standard — ADR 0010.
 - **Current skill set:** public `school-deep-dive` and `school-comparison`; internal `citation-and-recency` and `db-recipes`. The hidden `dossier-assembly` alias exists only for parked-turn compatibility and is never advertised.
-- **Model config:** model-agnostic — PydanticAI per-agent `model=` from env; **default provider Vertex AI (Google), default model Gemini 2.5 Pro** (cheap tier Gemini 2.5 Flash), any provider swappable; optional **LiteLLM** sidecar — ADR 0011.
+- **Model config:** model-agnostic — PydanticAI per-agent `model=` from env; **default provider Vertex AI (Google), default synthesis model Gemini 3.5 Flash** (cheap tier Gemini 2.5 Flash), any provider swappable; optional **LiteLLM** sidecar — ADR 0011.
 - **Service shape:** **API-first agent service** (FastAPI) behind a **versioned SSE event protocol** (`meta`/`delta`/`viz`/`clarify`/`sources`/`usage`/`done`/`error`); every frontend is a client — ADR 0016. (MVP1 used a throwaway dev harness as that client; it was retired in MVP2 once the React frontend went real.)
 - **Layering:** four layers, dependencies inward only (`domain/` pure honesty core → `app/` → `adapters/` → `api/`); use the stack's native seams, never wrap them — ADR 0017.
 - **Config:** one fail-fast typed Settings surface (pydantic-settings) + versioned prompt/subreddit/season assets; the live data picture, domains, coverage, profile groups, and evidence facts derive from the DB — ADRs 0018, 0032.
 - **Sessions:** durable from day one via LangGraph's Postgres checkpointer in `counselle.*`; `session_id` required, `user_id` nullable until the platform phase; Counselle owns its schema + migrations — ADR 0019.
 - **DB:** Postgres 16. Counselle reads exactly five `cds_library` views through a reader-login role and writes only its own `counselle.*` application schema through a separate DSN.
 - **Language:** Python (matches the pipeline; reuse asyncpg).
-- **Models:** default **Vertex AI (Google)** — `gemini-2.5-pro` (synthesis), `gemini-2.5-flash` (cheap tier). Swappable per-agent to Anthropic (`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`) or others via env.
+- **Models:** default **Vertex AI (Google)** — `gemini-3.5-flash` (synthesis), `gemini-2.5-flash` (cheap tier). Swappable per-agent to Anthropic (`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`) or others via env.
 
 ## Scope guardrails (hard, enforced in code)
 

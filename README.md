@@ -30,7 +30,7 @@ It is two pieces:
 ## Prerequisites
 
 - **Python 3.12+** and **[uv](https://github.com/astral-sh/uv)**
-- **Node 20+** and **npm** (for the frontend)
+- **Node 22.12+** and **npm** (for the frontend)
 - **Postgres 16** running on `localhost:5433` by default, containing the independently deployed CDS Library and Counselle's application schema
 - A LOGIN role that is a member only of pipeline-managed `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. Run `scripts/setup_db.sql` for Counselle-owned state, then apply migrations with `yoyo`:
 
@@ -70,15 +70,29 @@ cp .env.example .env
 # See .env.example for every knob and its default.
 ```
 
-The frontend has its own env file:
-
-```bash
-cp frontend/.env.example frontend/.env   # VITE_TRANSPORT=http (the real backend)
-```
+The frontend needs no separate env file for the standard local setup. Its Vite
+server uses the real backend through the local `/v1` proxy by default.
 
 ## Run it (local dev)
 
-The backend serves the `/v1` API; the frontend runs on Vite and proxies `/v1` to it. Run both in separate terminals:
+Start the complete development stack with one command:
+
+```bash
+./scripts/dev.py
+```
+
+The launcher syncs locked Python and frontend dependencies, validates the toolchain,
+configuration, applies pending Counselle-schema migrations, selects safe ports,
+starts both hot-reloading servers, waits for real health, opens the app, prefixes
+their live logs, and shuts down the entire stack on `Ctrl+C`.
+Run `./scripts/dev.py --help` for port overrides, check-only mode, and other options.
+Automatic migrations are limited to local databases unless explicitly authorized
+with `--allow-remote-migrations`.
+If Google OAuth is enabled and the launcher selects a non-default API port, register
+the callback URL using the displayed API port instead of `8000`.
+
+The backend serves the `/v1` API; the frontend runs on Vite and proxies `/v1` to it.
+To run them separately instead:
 
 ```bash
 # Terminal 1 — the API

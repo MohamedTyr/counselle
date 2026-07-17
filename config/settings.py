@@ -133,7 +133,7 @@ class Settings(BaseSettings):
         super().__init__(**values)
 
     # --- Models ---
-    model_counselor: str = "google-vertex:gemini-2.5-pro"
+    model_counselor: str = "google-vertex:gemini-3.5-flash"
     model_cheap: str = "google-vertex:gemini-2.5-flash"
     model_clarifier: str = "google-vertex:gemini-2.5-flash"
     # B4 auto-titles: the cheap model that names a chat from its first exchange
@@ -205,7 +205,11 @@ class Settings(BaseSettings):
     source_web_default: bool = True
     source_reddit_default: bool = True
     source_edu_default: bool = True
-    search_max_results: int = 5
+    search_max_results: int = 8
+    # Reddit is where volume converts into a *pattern*: one anecdote is noise,
+    # a recurring signal across many posts is evidence. It gets a higher cap
+    # than web/.edu so archetype and reputation questions can triangulate.
+    reddit_max_results: int = 12
 
     # --- GCP ---
     # Auth: the pipeline's Vertex express-mode API key (genai.Client(vertexai=True,
@@ -341,6 +345,7 @@ class Settings(BaseSettings):
         default_factory=lambda: {
             "gemini-2.5-pro": (1.25, 10.0),  # est only — Vertex list price
             "gemini-2.5-flash": (0.30, 2.50),  # est only — Vertex list price
+            "gemini-3.5-flash": (0.30, 2.50),  # est only — 3.5-flash pricing unverified
         }
     )
 

@@ -32,6 +32,7 @@ import pytest
 from app.tool_specs import build_tool_specs
 from config.settings import load_yaml_asset
 from domain.events import StepDetail
+from domain.specs import SourceConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -42,6 +43,14 @@ _EXPECTED_SKILLS = {
     "school-comparison",
     "db-recipes",
     "citation-and-recency",
+    "counselor-research",
+    "application-rounds",
+    "chancing",
+    "costs-and-aid",
+    "major-and-fit",
+    "school-list",
+    "testing-strategy",
+    "essay-fit",
 }
 
 _FAKE_TEMPORAL = "Today is 2026-06-10. TEST. Season: list-building."
@@ -221,6 +230,19 @@ def test_comparison_skill_contains_agent_defaults_and_etiquette() -> None:
     assert "coverage_denominator" in body
 
 
+def test_db_recipes_pin_denominators_and_structural_manifest_retry() -> None:
+    mod = _fresh_skills()
+    body = mod.load_skill("db-recipes")
+
+    assert "columns named `covered`, `total`, and `as_of`" in body
+    assert body.count("published_at") >= 3
+    assert body.count("AS as_of") >= 3
+    assert "Copy that entire statement verbatim" in body
+    assert "retry from this block" in body
+    assert "never improvise\na text scan, JSON join, or alternate JSONPath" in body
+    assert "use that exact\nqualified ref in each finalist cell" in body
+
+
 # ---------------------------------------------------------------------------
 # 5–7. build_system_prompt fills every slot; no un-filled template residue;
 #       contains fake temporal string; contains a subreddit line
@@ -283,12 +305,34 @@ def test_build_system_prompt_school_count(built_prompt: str) -> None:
     assert "2,746" not in built_prompt, "stale hardcoded count leaked into the prompt"
 
 
+def test_source_availability_prompt_pins_each_external_mount() -> None:
+    import app.prompt as prompt_mod
+
+    rendered = prompt_mod.render_source_availability(
+        SourceConfig(web=False, edu=True, reddit=False)
+    )
+
+    assert "Broad web (`search_web`): disabled and not mounted" in rendered
+    assert "Official school sites (`search_school_site`): enabled and mounted" in rendered
+    assert "Reddit community search (`search_reddit`): disabled and not mounted" in rendered
+    assert "Counselle's first-party data does not have this value." in rendered
+
+
 def test_prompt_requires_db_markers_for_reveal(built_prompt: str) -> None:
     """DB-derived prose needs markers even when the frontend hides DB chips."""
     assert "Database citation markers are still required in prose" in built_prompt
     assert "what came from Counselle" in built_prompt
     assert "Do not use DB markers for web, .edu, or Reddit claims" in built_prompt
     assert "cite those claims with their own external markers instead" in built_prompt
+
+
+def test_prompt_pins_ranking_columns_and_manifest_retry(built_prompt: str) -> None:
+    assert "must return `covered`, `total`, and `as_of` columns" in built_prompt
+    assert "copy the bound structural JSONPath recipe from `db-recipes` verbatim" in built_prompt
+    assert "return to that recipe and retry it verbatim" in built_prompt
+    assert "use the exact requested qualified ref in each finalist cell" in built_prompt
+    assert "SQL aggregates never get bracket source markers" in built_prompt
+    assert "copy each row's top-level `vintage` verbatim" in built_prompt
 
 
 def test_prompt_is_non_trivially_long(built_prompt: str) -> None:

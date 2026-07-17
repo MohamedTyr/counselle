@@ -21,6 +21,9 @@ There is no `get_dossier` tool and no fixed shortlist of sections to fill in.
 This skill is the procedure that replaces it: resolve, see what's actually
 covered, read only what the question needs, then compose.
 
+Use `counselor-research` for source routing and discovery breadth; this playbook
+handles one-school judgment and composition.
+
 ## Step 1 — Resolve
 
 Call `resolve_school(query)` and branch on `status`:
@@ -109,3 +112,11 @@ wasn't actually registered) and retry. A rejection is never license to render
 that fact as `unavailable`; "unavailable" is your honest declaration that the
 data doesn't exist, and a rejection means something else entirely — the
 pointer was wrong, not the data missing. Diagnose and correct it.
+
+## Final answer shape
+
+1. State the decision outcome for this school first.
+2. Provide 2–4 reasons that actually drive it.
+3. Separate official facts from community observations.
+4. Include the main limitation only if it could change action.
+5. End with one concrete next step.

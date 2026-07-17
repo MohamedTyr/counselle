@@ -90,6 +90,14 @@ class SourceRegistry:
         self.register_used_evidence(index, evidence)
         return True
 
+    def pending_evidence(self, index: int) -> tuple[EvidenceItem, ...]:
+        """Return the runtime-only evidence candidates registered for one marker."""
+        return tuple(
+            evidence
+            for (entry_index, _eid), evidence in self._pending.items()
+            if entry_index == index
+        )
+
     def restore_pending_evidence_tokens(self, payload: Any) -> Any:
         """Reattach runtime-only tokens to a scrubbed overflow read-back copy."""
         if isinstance(payload, dict):

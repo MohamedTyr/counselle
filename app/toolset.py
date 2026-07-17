@@ -64,6 +64,10 @@ class ToolDeps:
     search_max_results: int
     subreddit_menu: list[str]  # menu subs incl. the "{school}" template slot
     tavily_client_factory: Callable[[], Any]
+    # Reddit's own cap: higher than web/.edu so a discovery sweep can
+    # triangulate a pattern rather than read five posts. Defaulted so existing
+    # constructions (tests, direct wiring) keep working without the field.
+    reddit_max_results: int = 12
 
 
 def make_tool_deps(settings: Any, catalog: Any) -> ToolDeps:
@@ -76,6 +80,7 @@ def make_tool_deps(settings: Any, catalog: Any) -> ToolDeps:
         search_max_results=settings.search_max_results,
         subreddit_menu=[entry["sub"] for entry in menu],
         tavily_client_factory=lambda: tavily_tools.make_tavily_client(settings),
+        reddit_max_results=settings.reddit_max_results,
     )
 
 
@@ -110,6 +115,7 @@ async def annotate_mcp_result(
 # tool starts timing out legitimately in production.
 _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS: float = 60.0
 
+
 def build_mcp_toolset(settings: Any) -> MCPToolset:
     """The counselle-db MCP server as a stdio child (four DB tools).
 
@@ -120,9 +126,7 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
     ``read_timeout`` is bounded by settings so a dead
     child process does not hang the caller forever.
     """
-    env = serialize_db_child_environment(
-        settings, uv_cache_dir=os.environ.get("UV_CACHE_DIR")
-    )
+    env = serialize_db_child_environment(settings, uv_cache_dir=os.environ.get("UV_CACHE_DIR"))
     read_timeout = settings.agent_mcp_read_timeout_s
     return MCPToolset(
         StdioTransport(
@@ -179,11 +183,7 @@ def build_tools(
         # Reddit off must mean NO reddit content anywhere — including via the
         # open web search (gating in code, not prompt; ADR 0013).
         excludes = None if source_config.reddit else list(tavily_tools.REDDIT_DOMAINS)
-        tools.append(
-            _make_search_web(
-                client, today, deps.search_max_results, excludes, middleware
-            )
-        )
+        tools.append(_make_search_web(client, today, deps.search_max_results, excludes, middleware))
     if source_config.edu:
         tools.append(
             _make_search_school_site(
@@ -193,9 +193,7 @@ def build_tools(
     if source_config.reddit:
         allowed = _allowed_subreddits(deps.subreddit_menu, source_config.reddit_subreddits)
         tools.append(
-            _make_search_reddit(
-                client, today, deps.search_max_results, allowed, middleware
-            )
+            _make_search_reddit(client, today, deps.reddit_max_results, allowed, middleware)
         )
     tools.extend(extra_tools or [])
     return tools

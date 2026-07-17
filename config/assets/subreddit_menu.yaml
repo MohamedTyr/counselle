@@ -1,15 +1,32 @@
 # The labeled subreddit menu for agent-steered Reddit search (ARCHITECTURE §14).
 # Each entry: `sub` (subreddit name, no r/ prefix) + `label` (what it's good for).
-# "{school}" is a template slot the agent fills with the likely school subreddit.
+# "{school}" is a template slot the agent fills with the likely school subreddit;
+# while it is present, school-specific subs (r/berkeley, r/nyu, ...) are accepted
+# best-effort. Prefer a specific sub over a generic one when the question is
+# school- or major-specific — that is where lived detail actually lives.
 - sub: ApplyingToCollege
-  label: general admissions process, deadlines, culture
+  label: general admissions — rounds, deadlines, essays, ED/RD reputation, culture
 - sub: chanceme
-  label: chances/profile discussions (vibe only, never odds)
+  label: chances/profile discussions and accepted/rejected patterns (vibe only, never odds)
 - sub: financialaid
-  label: aid, FAFSA, net price experiences
+  label: aid, FAFSA/CSS, net price, appeals, professional-judgment reviews
+- sub: IntltoUSA
+  label: international applicants — need-aware policies, aid reality, the "no safety" truth
+- sub: college
+  label: general undergrad life, campus experience, transfer difficulty
+- sub: Scholarships
+  label: merit and outside scholarships, priority deadlines, real award sizes
+- sub: CollegeMajors
+  label: choosing a major, field strength, program reputation beyond prestige
 - sub: premed
-  label: pre-med tracks
+  label: pre-med tracks, prerequisite access, advising quality, grading environment
 - sub: csMajors
-  label: CS programs, recruiting
+  label: CS programs, direct-admit vs internal transfer, recruiting outcomes
+- sub: EngineeringStudents
+  label: engineering major access, direct-entry rules, rigor and workload
+- sub: business
+  label: undergraduate business/finance admissions and program access
+- sub: nursing
+  label: nursing program access, direct-admit competitiveness, clinical placement
 - sub: "{school}"
-  label: "school-specific campus life — agent substitutes the likely subreddit name (best-effort)"
+  label: "school-specific campus life, real clubs/communities, ED/RD lore — agent substitutes the likely subreddit name (best-effort)"

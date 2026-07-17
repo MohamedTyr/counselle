@@ -29,6 +29,11 @@ class EvidenceMarkerStripper:
         self._discarding = False
         self._discard_close = False
 
+    @property
+    def has_pending_candidate(self) -> bool:
+        """Whether visible prose must wait for a split hidden token to resolve."""
+        return bool(self._pending or self._discarding or self._discard_close)
+
     def feed(self, text: str) -> str:
         if self._discarding:
             text = self._discard_overlong(text)

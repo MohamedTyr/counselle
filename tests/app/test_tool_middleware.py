@@ -6,7 +6,7 @@ import json
 from datetime import UTC, datetime
 
 from app.agent_node import _make_read_tool_result_tool
-from app.evidence_markers import EvidenceMarkerStripper
+from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
 from app.sources import SourceRegistry
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
@@ -243,6 +243,13 @@ async def test_overflow_readback_restores_runtime_evidence_without_persisting_it
     assert "[1][[evidence:1:admissions.applicants]]" in readback_json
     assert "secret source excerpt" not in readback_json
 
+    scrubbed_readback = scrub_evidence_tokens(readback)
+    assert isinstance(scrubbed_readback, dict)
+    assert scrubbed_readback["rows"][0]["marker"] == "[1]"
+    assert scrubbed_readback["rows"][0]["display"] == "50,000"
+
+    # Promotion is token-driven: feeding the restored [[evidence]] token promotes
+    # the exact row into the rail. A bare value in prose never does.
     stripper = EvidenceMarkerStripper(registry.promote_pending_evidence)
     visible = stripper.feed(readback_json) + stripper.flush()
     assert "[[evidence:" not in visible

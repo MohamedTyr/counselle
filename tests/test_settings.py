@@ -109,7 +109,7 @@ class TestDefaults:
         settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
         # Models
-        assert settings.model_counselor == "google-vertex:gemini-2.5-pro"
+        assert settings.model_counselor == "google-vertex:gemini-3.5-flash"
         assert settings.model_cheap == "google-vertex:gemini-2.5-flash"
         assert settings.model_clarifier == "google-vertex:gemini-2.5-flash"
         assert settings.agent_max_model_requests == 80
@@ -212,7 +212,7 @@ class TestDefaults:
         assert settings.source_web_default is True
         assert settings.source_reddit_default is True
         assert settings.source_edu_default is True
-        assert settings.search_max_results == 5
+        assert settings.search_max_results == 8
         # GCP
         assert settings.google_cloud_project is None
         assert settings.google_cloud_location == "us-central1"
@@ -315,7 +315,7 @@ class TestYamlAssets:
     def test_subreddit_menu_schema(self, dsn_env: None) -> None:
         menu = load_yaml_asset("subreddit_menu")
         assert isinstance(menu, list)
-        assert len(menu) == 6
+        assert len(menu) == 13
         for entry in menu:
             assert isinstance(entry, dict)
             assert set(entry) == {"sub", "label"}

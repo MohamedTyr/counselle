@@ -177,6 +177,106 @@ def test_query_guard_accepts_documented_scalar_packet_candidate_query() -> None:
     )
 
 
+def test_query_guard_accepts_canonical_selected_document_ranking() -> None:
+    _guard_sql(
+        """WITH selected AS (
+             SELECT DISTINCT ON (school_id) school_id, document_id
+             FROM cds_library.active_cds_documents
+             ORDER BY school_id, academic_year DESC, document_id DESC
+           ), candidates AS (
+             SELECT d.school_id, d.packet->'metrics'->$2 AS metric
+             FROM cds_library.active_cds_domain_packets d
+             JOIN selected s
+               ON s.school_id=d.school_id AND s.document_id=d.document_id
+             WHERE d.domain_id=$1
+           )
+           SELECT school_id, metric->>'value' AS value
+           FROM candidates ORDER BY value DESC LIMIT $3""",
+        ["admissions", "admissions.rate", 10],
+    )
+
+
+@pytest.mark.parametrize(
+    "selected_sql",
+    [
+        """SELECT school_id, document_id
+             FROM cds_library.active_cds_documents""",
+        """SELECT DISTINCT ON (school_id) school_id, document_id
+             FROM cds_library.active_cds_documents
+             ORDER BY school_id, academic_year DESC""",
+        """SELECT DISTINCT ON (school_id) school_id, document_id
+             FROM cds_library.active_cds_documents
+             WHERE academic_year > 2020
+             ORDER BY school_id, academic_year DESC, document_id DESC""",
+    ],
+)
+def test_query_guard_rejects_rankings_without_canonical_selected_document_cte(
+    selected_sql: str,
+) -> None:
+    sql = f"""WITH selected AS ({selected_sql})
+              SELECT d.school_id, d.packet->'metrics'->$1->>'value' AS value
+              FROM cds_library.active_cds_domain_packets d
+              JOIN selected s
+                ON s.school_id=d.school_id AND s.document_id=d.document_id
+              ORDER BY value DESC LIMIT $2"""
+    with pytest.raises(ServiceError, match="canonical selected-document"):
+        _guard_sql(sql, ["admissions.rate", 10])
+
+
+def test_query_guard_rejects_selected_document_ranking_with_inexact_packet_join() -> None:
+    sql = """WITH selected AS (
+               SELECT DISTINCT ON (school_id) school_id, document_id
+               FROM cds_library.active_cds_documents
+               ORDER BY school_id, academic_year DESC, document_id DESC
+             )
+             SELECT d.school_id, d.packet->'metrics'->$1->>'value' AS value
+             FROM cds_library.active_cds_domain_packets d
+             JOIN selected s ON s.school_id=d.school_id
+             ORDER BY value DESC LIMIT $2"""
+    with pytest.raises(ServiceError, match=r"school_id \+ document_id"):
+        _guard_sql(sql, ["admissions.rate", 10])
+
+
+def test_query_guard_rejects_direct_cross_school_document_packet_ranking() -> None:
+    sql = """SELECT p.school_id, p.packet->'metrics'->$1->>'value' AS value
+             FROM cds_library.active_cds_domain_packets p
+             JOIN cds_library.active_cds_documents d ON d.school_id=p.school_id
+             ORDER BY value DESC LIMIT $2"""
+    with pytest.raises(ServiceError, match="selected-per-school"):
+        _guard_sql(sql, ["admissions.rate", 10])
+
+
+def test_query_guard_rejects_direct_ranking_hidden_in_cte() -> None:
+    sql = """WITH ranked AS (
+               SELECT p.school_id, p.packet->'metrics'->$1->>'value' AS value
+               FROM cds_library.active_cds_domain_packets p
+               JOIN cds_library.active_cds_documents d ON d.school_id=p.school_id
+               ORDER BY value DESC LIMIT $2
+             )
+             SELECT school_id, value FROM ranked"""
+    with pytest.raises(ServiceError, match="selected-per-school"):
+        _guard_sql(sql, ["admissions.rate", 10])
+
+
+def test_query_guard_keeps_single_school_and_aggregate_document_packet_reads() -> None:
+    _guard_sql(
+        """SELECT p.document_id
+             FROM cds_library.active_cds_domain_packets p
+             JOIN cds_library.active_cds_documents d
+               ON d.school_id=p.school_id AND d.document_id=p.document_id
+             WHERE p.school_id=$1
+             ORDER BY d.academic_year DESC LIMIT $2""",
+        [1, 1],
+    )
+    _guard_sql(
+        """SELECT count(*)
+             FROM cds_library.active_cds_domain_packets p
+             JOIN cds_library.active_cds_documents d
+               ON d.school_id=p.school_id AND d.document_id=p.document_id""",
+        [],
+    )
+
+
 @pytest.mark.parametrize(
     "sql",
     [

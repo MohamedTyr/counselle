@@ -18,6 +18,16 @@ from counselle_db.db import create_pool
 
 logger = structlog.get_logger(__name__)
 
+_GENERIC_SAFE_RETRY = "Adjust the arguments and retry once if data is still needed."
+_MANIFEST_SAFE_RETRY = (
+    "Load db-recipes and copy its exact structural manifest membership query, "
+    "keeping the metric reference in the bound parameter."
+)
+_SELECTED_DOCUMENT_SAFE_RETRY = (
+    "Load db-recipes and copy its selected-per-school ranking CTE and exact "
+    "school_id + document_id packet join."
+)
+
 
 @dataclass
 class AppState:
@@ -52,10 +62,29 @@ def _error(message: str) -> dict[str, Any]:
         for word in ("postgresql://", "password", "api_key", "secret", "token", "dsn")
     ):
         message = "database tool failed without a shareable error message"
+        lowered = message
+    manifest_rejection = "manifest" in lowered and any(
+        phrase in lowered
+        for phrase in (
+            "exact structural json membership",
+            "exact bound manifest",
+            "manifest json helper",
+        )
+    )
+    selected_document_rejection = (
+        "cross-school packet rankings require canonical selected-document semantics"
+        in lowered
+    )
     return {
         "error": "tool_error",
         "root_cause": message,
-        "safe_retry": "Adjust the arguments and retry once if data is still needed.",
+        "safe_retry": (
+            _MANIFEST_SAFE_RETRY
+            if manifest_rejection
+            else _SELECTED_DOCUMENT_SAFE_RETRY
+            if selected_document_rejection
+            else _GENERIC_SAFE_RETRY
+        ),
         "stop_condition": "If unavailable or outside the contract, say so instead of retrying.",
     }
 

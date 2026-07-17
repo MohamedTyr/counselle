@@ -118,6 +118,7 @@ _BYTEA_RELATIONS = frozenset(
     }
 )
 _PACKET_RELATION = "cds_library.active_cds_domain_packets"
+_DOCUMENT_RELATION = "cds_library.active_cds_documents"
 _MANIFEST_RELATION = "cds_library.cds_manifest_snapshots"
 _INTERNAL_PACKET_KEYS = frozenset({"provider_contract", "diagnostic_code", "evidence"})
 _SAFE_PACKET_RESULT_KEYS = frozenset(
@@ -347,6 +348,173 @@ def _reject_manifest_text_search(tree: exp.Query, relations: set[str]) -> None:
                 "Manifest metric references require exact structural JSON membership, "
                 "not a text substring search."
             )
+
+
+def _table_is(table: exp.Table, relation: str) -> bool:
+    schema, name = relation.split(".", 1)
+    return table.db.casefold() == schema and table.name.casefold() == name
+
+
+def _ordered_column(item: exp.Expression) -> tuple[str, bool] | None:
+    if not isinstance(item, exp.Ordered) or not isinstance(item.this, exp.Column):
+        return None
+    return item.this.name.casefold(), item.args.get("desc") is True
+
+
+def _selected_document_cte(tree: exp.Query) -> str | None:
+    """Find the unfiltered, deterministic selected-document CTE from db-recipes."""
+    for cte in tree.find_all(exp.CTE):
+        select = cte.this
+        if not isinstance(select, exp.Select):
+            continue
+        from_clause = select.args.get("from_")
+        source = from_clause.this if isinstance(from_clause, exp.From) else None
+        if not isinstance(source, exp.Table) or not _table_is(source, _DOCUMENT_RELATION):
+            continue
+        distinct = select.args.get("distinct")
+        on = distinct.args.get("on") if isinstance(distinct, exp.Distinct) else None
+        distinct_expressions = list(on.expressions) if isinstance(on, exp.Tuple) else []
+        order = select.args.get("order")
+        ordered = (
+            [_ordered_column(item) for item in order.expressions]
+            if isinstance(order, exp.Order)
+            else []
+        )
+        projected = {
+            projection.name.casefold()
+            for projection in select.expressions
+            if isinstance(projection, exp.Column)
+        }
+        unfiltered = (
+            not any(
+                select.args.get(key) is not None
+                for key in ("where", "limit", "group", "having", "qualify")
+            )
+            and not select.args.get("joins")
+            and not any(nested is not select for nested in select.find_all(exp.Select))
+        )
+        if (
+            len(distinct_expressions) == 1
+            and isinstance(distinct_expressions[0], exp.Column)
+            and distinct_expressions[0].name.casefold() == "school_id"
+            and {"school_id", "document_id"} <= projected
+            and unfiltered
+            and ordered[:3]
+            == [
+                ("school_id", False),
+                ("academic_year", True),
+                ("document_id", True),
+            ]
+        ):
+            return cte.alias.casefold()
+    return None
+
+
+def _join_has_exact_document_keys(
+    join: exp.Join, selected_alias: str, packet_alias: str
+) -> bool:
+    on = join.args.get("on")
+    if not isinstance(on, exp.Expression) or on.find(exp.Or) is not None:
+        return False
+    matched: set[str] = set()
+    for equality in on.find_all(exp.EQ):
+        left, right = equality.this, equality.expression
+        if not isinstance(left, exp.Column) or not isinstance(right, exp.Column):
+            continue
+        columns = (left, right)
+        names = {column.name.casefold() for column in columns}
+        tables = {column.table.casefold() for column in columns}
+        if len(names) == 1 and tables == {selected_alias, packet_alias}:
+            matched.update(names)
+    return {"school_id", "document_id"} <= matched
+
+
+def _uses_selected_document_ranking(tree: exp.Query) -> bool:
+    selected_alias = _selected_document_cte(tree)
+    if selected_alias is None:
+        return False
+    for select in tree.find_all(exp.Select):
+        from_clause = select.args.get("from_")
+        packet_table = from_clause.this if isinstance(from_clause, exp.From) else None
+        if not isinstance(packet_table, exp.Table) or not _table_is(
+            packet_table, _PACKET_RELATION
+        ):
+            continue
+        packet_alias = packet_table.alias_or_name.casefold()
+        for join in select.args.get("joins") or []:
+            relation = join.this
+            if (
+                isinstance(relation, exp.Table)
+                and relation.name.casefold() == selected_alias
+                and not join.args.get("side")
+                and join.args.get("kind") in {None, "INNER"}
+                and _join_has_exact_document_keys(
+                    join, relation.alias_or_name.casefold(), packet_alias
+                )
+            ):
+                return True
+    return False
+
+
+def _select_direct_tables(select: exp.Select) -> list[exp.Table]:
+    return [
+        table
+        for table in select.find_all(exp.Table)
+        if table.find_ancestor(exp.Select) is select
+    ]
+
+
+def _has_single_school_constraint(tree: exp.Query) -> bool:
+    """Allow a direct document/packet join only when that join is one-school scoped."""
+    for select in tree.find_all(exp.Select):
+        tables = _select_direct_tables(select)
+        relations = {
+            _DOCUMENT_RELATION
+            if _table_is(table, _DOCUMENT_RELATION)
+            else _PACKET_RELATION
+            if _table_is(table, _PACKET_RELATION)
+            else ""
+            for table in tables
+        }
+        if not {_DOCUMENT_RELATION, _PACKET_RELATION} <= relations:
+            continue
+        aliases = {table.alias_or_name.casefold() for table in tables}
+        where = select.args.get("where")
+        if not isinstance(where, exp.Where) or where.find(exp.Or) is not None:
+            continue
+        for equality in where.find_all(exp.EQ):
+            left, right = equality.this, equality.expression
+            pairs = ((left, right), (right, left))
+            if any(
+                isinstance(column, exp.Column)
+                and column.name.casefold() == "school_id"
+                and (not column.table or column.table.casefold() in aliases)
+                and isinstance(value, (exp.Parameter, exp.Literal))
+                for column, value in pairs
+            ):
+                return True
+    return False
+
+
+def _reject_unselected_cross_school_ranking(
+    tree: exp.Query, relations: set[str]
+) -> None:
+    """Prevent rankings from mixing multiple active editions per school."""
+    if not {_DOCUMENT_RELATION, _PACKET_RELATION} <= relations:
+        return
+    has_bounded_ranking = any(
+        select.args.get("order") is not None and select.args.get("limit") is not None
+        for select in tree.find_all(exp.Select)
+    )
+    if not has_bounded_ranking:
+        return
+    if _has_single_school_constraint(tree) or _uses_selected_document_ranking(tree):
+        return
+    raise ServiceError(
+        "Cross-school packet rankings require canonical selected-document semantics: "
+        "use the db-recipes DISTINCT ON selected-per-school CTE and join packets on "
+        "exact school_id + document_id."
+    )
 
 
 def _is_manifest_membership_call(
@@ -815,6 +983,7 @@ def _guard_sql(sql: str, params: list[Any]) -> str:
         raise ServiceError("Binary query parameters are not allowed.")
     _reject_binary_projection(tree, relations)
     _reject_packet_projection(tree, relations, params)
+    _reject_unselected_cross_school_ranking(tree, relations)
     _reject_manifest_text_search(tree, relations)
     _reject_non_manifest_json_helpers(tree, relations)
     return normalized

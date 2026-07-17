@@ -658,9 +658,7 @@ def _typed_refetch_complete(
     )
 
 
-def _denominator_pair_from_payload(
-    payload: Mapping[str, Any], fallback_total: int
-) -> tuple[int, int] | None:
+def _denominator_pair_from_payload(payload: Mapping[str, Any]) -> tuple[int, int] | None:
     columns = [str(column).casefold() for column in payload.get("columns") or []]
     covered_column = next((column for column in columns if column == "covered"), None) or next(
         (column for column in columns if "covered" in column), None
@@ -693,11 +691,9 @@ def _denominator_pair_from_payload(
         if not isinstance(row, list | tuple) or len(row) != len(columns):
             continue
         try:
-            total = (
-                int(row[columns.index(total_column)])
-                if total_column is not None
-                else fallback_total
-            )
+            if total_column is None:
+                continue
+            total = int(row[columns.index(total_column)])
             if covered_column is not None:
                 return int(row[columns.index(covered_column)]), total
             if presence_column is not None and row[columns.index(presence_column)] is False:
@@ -995,10 +991,13 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             for _call, payload in _successful_tool_results(capture, "query_database")
         ]
         for payload in reversed(query_payloads):
-            pair = _denominator_pair_from_payload(
-                payload, int(expects["denominator_total"])
-            )
-            if pair is not None and (required_pair is None or pair == required_pair):
+            pair = _denominator_pair_from_payload(payload)
+            expected_total = int(expects["denominator_total"])
+            if (
+                pair is not None
+                and pair[1] == expected_total
+                and (required_pair is None or pair == required_pair)
+            ):
                 expected_pair = pair
                 break
         normalized_prose = capture.prose.replace(",", "")

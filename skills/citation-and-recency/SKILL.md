@@ -61,8 +61,9 @@ Kinds you'll see, and when they matter to the student:
 - **`profile_snapshot`** — every profile fact. Mention once per section, not
   after every single bullet; repeating it line-by-line is noise.
 - **`stale_edition`** — the packet is an older CDS edition than the current
-  one. Say this whenever you cite a metric from that packet — the number may
-  not reflect the school's current class.
+  one. Say this whenever you cite a metric from it; and when a current web/.edu
+  value is verifiable, lead with that and demote the stale CDS number to cited
+  corroboration (the system prompt's CDS-recency rule — recency sets which leads).
 - **`partial_packet`** — the whole domain packet was only partially
   extracted. Say this once near the top of that domain's section, so the
   student knows some rows may simply be missing, not zero.
