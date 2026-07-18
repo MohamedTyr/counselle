@@ -72,12 +72,10 @@ function RowIcon({ entry, schoolDomains }: { entry: ReplaySourceEntry; schoolDom
 function SourceRow({
   entry,
   active,
-  displayNumber,
   schoolDomains,
 }: {
   entry: ReplaySourceEntry;
   active: MessageSourcesPayload["active"];
-  displayNumber: number;
   schoolDomains: Map<number, string>;
 }) {
   const href = safeExternalUrl(entry.citation.url);
@@ -87,7 +85,10 @@ function SourceRow({
   const exactEvidence = activeEntry && active?.evidenceId !== undefined && !legacy &&
     entry.evidence.some((item) => item.eid === active.evidenceId);
   const activeRow = activeEntry && !exactEvidence;
-  const label = sourceDisplayName(entry);
+  const caption = sourceDisplayName(entry);
+  const title = (
+    <span className="font-semibold text-foreground [overflow-wrap:anywhere]">{entry.label}</span>
+  );
   return (
     <li
       aria-current={activeRow ? "true" : undefined}
@@ -96,23 +97,21 @@ function SourceRow({
       id={`source-row-${entry.index}`}
       tabIndex={-1}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <RowIcon entry={entry} schoolDomains={schoolDomains} />
-        <span className="font-medium text-foreground">[{displayNumber}] {entry.label}</span>
-        <Badge variant={entry.citation.tier === "official" ? "secondary" : "outline"}>
+        <span className="truncate">{caption}</span>
+        <Badge className="ml-auto" variant={entry.citation.tier === "official" ? "secondary" : "outline"}>
           {entry.citation.tier === "official" ? "Official" : "Community"}
         </Badge>
       </div>
-      {isCds && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {!legacy && [entry.citation.source_kind, entry.citation.retrieved_at].filter(Boolean).join(" · ")}
-        </p>
+      {href !== undefined ? (
+        <a className="mt-1.5 block hover:underline" href={href} rel="noreferrer" target="_blank">
+          {title}
+        </a>
+      ) : (
+        <p className="mt-1.5">{title}</p>
       )}
-      {!isCds && <p className="mt-1 text-xs text-muted-foreground">{label}</p>}
       {!legacy && entry.snippet != null && <p className="mt-1 text-xs text-muted-foreground">{entry.snippet}</p>}
-      {href !== undefined && (
-        <a className="mt-1 block truncate text-xs text-primary underline" href={href} rel="noreferrer" target="_blank">{href}</a>
-      )}
       {isCds && !legacy && entry.evidence.length > 0 && (
         <ul className="mt-3 flex flex-col gap-2">
           {sortedEvidence(entry as SourceEntry).map((item) => (
@@ -156,7 +155,6 @@ function SourcesRailBody({ payload }: { payload: MessageSourcesPayload }) {
         {[...payload.sources].sort((left, right) => left.index - right.index).map((entry) => (
           <SourceRow
             active={payload.active}
-            displayNumber={payload.displayNumbers.get(entry.index) ?? entry.index}
             entry={entry}
             key={entry.index}
             schoolDomains={payload.schoolDomains}

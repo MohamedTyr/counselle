@@ -104,46 +104,6 @@ export function sourcesUsedByMessage(message: {
   );
 }
 
-/** True first-appearance order of cited indexes across the message's answer
- * content — `blocks` when present (streamed/live turns), else `text`
- * (replayed/legacy turns). Registry index reflects backend tool-call order,
- * not prose order, so this is the only correct basis for "which chip did the
- * reader see first." */
-export function citedIndexOrderForMessage(message: {
-  blocks?: AssistantChatMessage["blocks"];
-  text?: string;
-}): number[] {
-  const seen = new Set<number>();
-  const order: number[] = [];
-  const pushAll = (indexes: Iterable<number>) => {
-    for (const index of indexes) {
-      if (!seen.has(index)) {
-        seen.add(index);
-        order.push(index);
-      }
-    }
-  };
-  const blocks = message.blocks ?? [];
-  if (blocks.length > 0) {
-    for (const block of blocks) {
-      if (block.kind === "markdown") pushAll(citedIndexesIn(block.text));
-      else if (block.kind === "viz") pushAll(sourceIndexesForViz(block.spec));
-    }
-  } else if (message.text !== undefined) {
-    pushAll(citedIndexesIn(message.text));
-  }
-  return order;
-}
-
-/** Maps each raw registry index to its 1-based, sequential, first-appearance
- * display number — never a sort, since sorting would restore raw-index
- * order and reintroduce the "reads out of order" regression. */
-export function citationDisplayNumbers(
-  orderedIndexes: ReadonlyArray<number>,
-): Map<number, number> {
-  return new Map(orderedIndexes.map((index, i) => [index, i + 1]));
-}
-
 /** Maps a cited CDS/profile citation's `school_unitid` to the real school
  * domain from any tabular viz spec in the same message — the only place a
  * domain is attached to a school reference in this contract. */
@@ -188,15 +148,7 @@ export function sourcesPayloadFor(
 ): MessageSourcesPayload | null {
   const sources = sourcesUsedByMessage(message);
   if (sources.length === 0) return null;
-  const order = citedIndexOrderForMessage(message).filter((index) =>
-    sources.some((entry) => entry.index === index),
-  );
-  return {
-    sources,
-    active,
-    displayNumbers: citationDisplayNumbers(order),
-    schoolDomains: schoolDomainsFromBlocks(message.blocks),
-  };
+  return { sources, active, schoolDomains: schoolDomainsFromBlocks(message.blocks) };
 }
 
 export function citedSourcesForMessage(message: {

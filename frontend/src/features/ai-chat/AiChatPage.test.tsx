@@ -217,7 +217,7 @@ describe("AiChatPage", () => {
 
     expect(await screen.findByText("What was the old admission rate?")).toBeInTheDocument();
     expect(screen.getByText(/The legacy display was 7%/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open source 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open source: ipeds" })).toBeInTheDocument();
     expect(screen.queryByText(/couldn't load this conversation/i)).not.toBeInTheDocument();
   });
 

@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { SourceEntry, SourceName } from "@/api/chat/types";
-import { citationDisplayNumbers, citedIndexOrderForMessage } from "../citations";
 import { CitationRenderer } from "./CitationRenderer";
 
 function entry(index: number, source: SourceName): SourceEntry {
@@ -23,17 +22,25 @@ function entry(index: number, source: SourceName): SourceEntry {
 }
 
 describe("CitationRenderer", () => {
-  test.each(["cds", "profile"] as const)("renders %s markers as accessible source buttons", async (source) => {
+  test("renders cds markers as an accessible chip labeled 'Common Data Set', not a number", async () => {
     const onOpen = vi.fn();
-    render(<CitationRenderer markdown="Claim [12]." onCitationOpen={onOpen} sources={[entry(12, source)]} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open source 12" }));
+    render(<CitationRenderer markdown="Claim [12]." onCitationOpen={onOpen} sources={[entry(12, "cds")]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open source: Common Data Set" }));
+    expect(onOpen).toHaveBeenCalledWith({ index: 12 });
+    expect(screen.queryByText(/\[12\]/)).not.toBeInTheDocument();
+  });
+
+  test("renders profile markers as an accessible chip labeled 'School profile'", async () => {
+    const onOpen = vi.fn();
+    render(<CitationRenderer markdown="Claim [12]." onCitationOpen={onOpen} sources={[entry(12, "profile")]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open source: School profile" }));
     expect(onOpen).toHaveBeenCalledWith({ index: 12 });
   });
 
-  test("external markers render as a unified accessible chip", async () => {
+  test("external markers render as a chip labeled with the hostname", async () => {
     const onOpen = vi.fn();
     render(<CitationRenderer markdown="Claim [7]." onCitationOpen={onOpen} sources={[entry(7, "web")]} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Open source 7" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open source: example.com" }));
     expect(onOpen).toHaveBeenCalledWith({ index: 7 });
   });
 
@@ -54,51 +61,21 @@ describe("CitationRenderer", () => {
         sources={[cds]}
       />,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Open source 1" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open source: Common Data Set" }));
     expect(onOpen).toHaveBeenCalledWith({ index: 1 });
   });
 
-  test("raw registry indices above the cited count render as sequential display numbers", async () => {
-    const displayNumbers = citationDisplayNumbers([12, 30]);
-    render(
-      <CitationRenderer
-        displayNumbers={displayNumbers}
-        markdown="First [12], second [30]."
-        sources={[entry(12, "web"), entry(30, "edu")]}
-      />,
-    );
-    expect(await screen.findByRole("button", { name: "Open source 1" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open source 2" })).toBeInTheDocument();
-    expect(screen.queryByText(/\[12\]/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/\[30\]/)).not.toBeInTheDocument();
-  });
-
-  test("display numbers follow first-appearance prose order, not raw registry order", () => {
-    const markdown = "Community reports [14] agree, but the official figure [3] confirms it.";
-    const order = citedIndexOrderForMessage({ text: markdown });
-    const displayNumbers = citationDisplayNumbers(order);
-    render(
-      <CitationRenderer
-        displayNumbers={displayNumbers}
-        markdown={markdown}
-        sources={[entry(3, "cds"), entry(14, "reddit")]}
-      />,
-    );
-    expect(screen.getByRole("button", { name: "Open source 1" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open source 2" })).toBeInTheDocument();
-    expect(displayNumbers.get(14)).toBe(1);
-    expect(displayNumbers.get(3)).toBe(2);
-  });
-
-  test("CDS chip shows the real school favicon when a matching viz domain is supplied", () => {
+  test("CDS chip shows the real school favicon when a matching viz domain is supplied", async () => {
     const schoolDomains = new Map([[1, "yale.edu"]]);
     const withDomain = render(
       <CitationRenderer markdown="Claim [1]." schoolDomains={schoolDomains} sources={[entry(1, "cds")]} />,
     );
+    await screen.findByRole("button", { name: "Open source: Common Data Set" });
     expect(withDomain.container.querySelector("img[src*='yale.edu']")).not.toBeNull();
     withDomain.unmount();
 
     const withoutDomain = render(<CitationRenderer markdown="Claim [1]." sources={[entry(1, "cds")]} />);
+    await screen.findByRole("button", { name: "Open source: Common Data Set" });
     expect(withoutDomain.container.querySelector("img")).toBeNull();
   });
 });

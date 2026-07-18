@@ -37,9 +37,6 @@ export type CitationRendererProps = {
    *  markers that resolve to a unique entry here. */
   sources?: ReplaySourceEntry[];
   onCitationOpen?: (focus: SourceFocus) => void;
-  /** Sequential, first-appearance display numbers keyed by raw registry
-   *  index — absent for narration, which intentionally keeps raw indices. */
-  displayNumbers?: Map<number, number>;
   /** CDS/profile `school_unitid` -> real school domain, sourced from any
    *  tabular viz spec in the same message. */
   schoolDomains?: Map<number, string>;
@@ -70,16 +67,16 @@ function ChipIcon({
   const domain =
     citation.school_unitid != null ? schoolDomains?.get(citation.school_unitid) : undefined;
   if (domain !== undefined) {
-    return <img alt="" className="size-3 rounded-[2px]" src={faviconUrlForDomain(domain)} />;
+    return <img alt="" className="size-3.5 rounded-full" src={faviconUrlForDomain(domain)} />;
   }
   if (citation.source === "cds" || citation.source === "profile") {
-    return <SchoolIcon aria-hidden="true" className="size-3" />;
+    return <SchoolIcon aria-hidden="true" className="size-3.5" />;
   }
   const favicon = faviconUrlForCitation(citation);
   return favicon === undefined ? (
-    <GlobeIcon aria-hidden="true" className="size-3" />
+    <GlobeIcon aria-hidden="true" className="size-3.5" />
   ) : (
-    <img alt="" className="size-3 rounded-[2px]" src={favicon} />
+    <img alt="" className="size-3.5 rounded-full" src={favicon} />
   );
 }
 
@@ -140,24 +137,22 @@ function ChipBody({ entry, label }: { entry: ReplaySourceEntry; label: string })
  * CitationChip — what a `[n]` marker becomes in rendered prose.
  *
  * One chip shape for every source kind (CDS, profile, web, edu, reddit,
- * legacy): a real accessible button showing a sequential, first-appearance
- * display number (never the raw, gappy registry index) plus a kind-specific
- * icon — real school favicon for CDS/profile when a matching viz table
- * exists in the same message, real site favicon for web/edu/reddit, a
- * generic icon otherwise. A marker whose source hasn't streamed in yet (or
- * doesn't exist) renders nothing — never a bare, unexplained digit.
+ * legacy): a real accessible button showing the source's icon and name —
+ * real school favicon for CDS/profile when a matching viz table exists in
+ * the same message, real site favicon for web/edu/reddit, a generic icon
+ * otherwise. Never a bracketed index; this is a chat answer, not a research
+ * paper's footnote. A marker whose source hasn't streamed in yet (or
+ * doesn't exist) renders nothing — never a bare, unexplained mark.
  */
 function CitationChip({
   index,
   sources,
   onOpen,
-  displayNumbers,
   schoolDomains,
 }: {
   index: number;
   sources: ReplaySourceEntry[] | undefined;
   onOpen?: (focus: SourceFocus) => void;
-  displayNumbers?: Map<number, number>;
   schoolDomains?: Map<number, string>;
 }) {
   const entry = uniqueSourceByIndex(sources, index);
@@ -166,7 +161,6 @@ function CitationChip({
     return null;
   }
 
-  const displayNumber = displayNumbers?.get(entry.index) ?? entry.index;
   const label = isLegacySourceEntry(entry) ? entry.citation.source : friendlySourceName(entry.citation);
   const citation = isLegacySourceEntry(entry) ? undefined : entry.citation;
   const handleOpen = () => onOpen?.({ index: entry.index });
@@ -179,10 +173,10 @@ function CitationChip({
             citation !== undefined ? (
               <ChipIcon citation={citation} schoolDomains={schoolDomains} />
             ) : (
-              <GlobeIcon aria-hidden="true" className="size-3" />
+              <GlobeIcon aria-hidden="true" className="size-3.5" />
             )
           }
-          index={displayNumber}
+          label={label}
           onClick={handleOpen}
         />
         <InlineCitationCardBody>
@@ -203,7 +197,6 @@ function CitationRendererComponent({
   markdown,
   sources,
   onCitationOpen,
-  displayNumbers,
   schoolDomains,
 }: CitationRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -255,7 +248,6 @@ function CitationRendererComponent({
       {placeholders.map((node, i) =>
         createPortal(
           <CitationChip
-            displayNumbers={displayNumbers}
             index={Number(node.getAttribute(PLACEHOLDER_ATTR))}
             onOpen={onCitationOpen}
             schoolDomains={schoolDomains}

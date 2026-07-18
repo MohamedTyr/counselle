@@ -19,28 +19,28 @@ describe("SourcesRail", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("renders marker order, CDS metadata, page-sorted evidence, omitted count and safe links", () => {
+  test("renders titles (no numbers), page-sorted evidence, omitted count and safe links", () => {
     const payload: MessageSourcesPayload = {
       sources: [web(), cds()],
-      displayNumbers: new Map([[8, 1], [3, 2]]),
       schoolDomains: new Map(),
     };
     render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />);
     expect(screen.getByRole("heading", { name: "2 sources" })).toHaveFocus();
     const rows = document.querySelectorAll("[id^='source-row-']");
     expect([...rows].map((row) => row.id)).toEqual(["source-row-3", "source-row-8"]);
-    expect(screen.getByText(/upload · 2026-05-02/)).toBeInTheDocument();
+    expect(screen.queryByText(/\[\d+\]/)).not.toBeInTheDocument();
+    expect(screen.getByText(cds().label)).toBeInTheDocument();
+    expect(screen.getByText(web().label)).toBeInTheDocument();
     expect(screen.getByText(/Page 7 · Section C1 · Row: Applicants · Column: Total/)).toBeInTheDocument();
     expect(screen.getByText(/and 2 more values/)).toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(2);
   });
 
   test("focuses exact evidence and falls back to entry for missing evidence", () => {
-    const displayNumbers = new Map([[3, 1]]);
     const schoolDomains = new Map<number, string>();
-    const { rerender } = render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [cds()], active: { index: 3, evidenceId: "admissions.rate" }, displayNumbers, schoolDomains }} />);
+    const { rerender } = render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [cds()], active: { index: 3, evidenceId: "admissions.rate" }, schoolDomains }} />);
     expect(document.getElementById("source-evidence-3-admissions.rate")).toHaveFocus();
-    rerender(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [cds()], active: { index: 3, evidenceId: "legacy.missing" }, displayNumbers, schoolDomains }} />);
+    rerender(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [cds()], active: { index: 3, evidenceId: "legacy.missing" }, schoolDomains }} />);
     const fallback = document.getElementById("source-row-3");
     expect(fallback).toHaveFocus();
     expect(fallback).toHaveAttribute("data-active", "true");
@@ -50,35 +50,21 @@ describe("SourcesRail", () => {
 
   test("legacy evidence-less CDS entries do not crash and unsafe URLs stay inert", () => {
     const legacy = { ...cds(), evidence: [], evidence_omitted_count: 0, citation: { ...cds().citation, url: "javascript:alert(1)" } };
-    expect(() => render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [legacy], displayNumbers: new Map(), schoolDomains: new Map() }} />)).not.toThrow();
+    expect(() => render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={{ sources: [legacy], schoolDomains: new Map() }} />)).not.toThrow();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   test("close button and Escape close the desktop rail", () => {
     const onClose = vi.fn();
-    render(<SourcesRail isMobile={false} onClose={onClose} payload={{ sources: [web()], displayNumbers: new Map(), schoolDomains: new Map() }} />);
+    render(<SourcesRail isMobile={false} onClose={onClose} payload={{ sources: [web()], schoolDomains: new Map() }} />);
     fireEvent.click(screen.getByRole("button", { name: "Close sources" }));
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
-  test("visible number comes from the supplied displayNumbers map, not the raw registry index", () => {
-    const payload: MessageSourcesPayload = {
-      sources: [web(), cds()],
-      displayNumbers: new Map([[8, 7], [3, 4]]),
-      schoolDomains: new Map(),
-    };
-    render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />);
-    expect(screen.getByText(`[4] ${cds().label}`)).toBeInTheDocument();
-    expect(screen.getByText(`[7] ${web().label}`)).toBeInTheDocument();
-    const rows = document.querySelectorAll("[id^='source-row-']");
-    expect([...rows].map((row) => row.id)).toEqual(["source-row-3", "source-row-8"]);
-  });
-
   test("renders the real school favicon when schoolDomains resolves the entry's unitid", () => {
     const payload: MessageSourcesPayload = {
       sources: [cds()],
-      displayNumbers: new Map([[3, 1]]),
       schoolDomains: new Map([[1, "yale.edu"]]),
     };
     const { container } = render(<SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />);

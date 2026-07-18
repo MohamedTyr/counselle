@@ -149,7 +149,6 @@ export type SourceFocus = { index: number; evidenceId?: string };
 export type MessageSourcesPayload = {
   sources: ReplaySourceEntry[];
   active?: SourceFocus;
-  displayNumbers: Map<number, number>;
   schoolDomains: Map<number, string>;
 };
 

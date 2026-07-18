@@ -18,7 +18,6 @@ describe("MessageSources", () => {
     expect(onOpen).toHaveBeenCalledWith({
       sources: [source(1, web), source(2, cds)],
       active: undefined,
-      displayNumbers: new Map([[1, 1], [2, 2]]),
       schoolDomains: new Map(),
     });
     expect(JSON.stringify(onOpen.mock.calls[0][0])).not.toContain("counselle-data");

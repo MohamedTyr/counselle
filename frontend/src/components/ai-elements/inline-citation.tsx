@@ -57,16 +57,17 @@ export type InlineCitationCardTriggerProps = Omit<
   ComponentProps<typeof Badge>,
   "render"
 > & {
-  index: number;
+  label: string;
   icon?: ReactNode;
 };
 
 /** One chip shape for every citation kind — CDS, profile, web, edu, reddit,
- * legacy — a real keyboard-operable button, not a mix of `<Button>` and a
- * bare `<span>`. The hover-card body (not this trigger) carries per-kind
- * metadata. */
+ * legacy — a real keyboard-operable button showing the source's icon and
+ * name (never a bracketed index — this isn't a research paper), not a mix
+ * of `<Button>` and a bare `<span>`. The hover-card body (not this trigger)
+ * carries the rest of the per-kind metadata. */
 export const InlineCitationCardTrigger = ({
-  index,
+  label,
   icon,
   className,
   ...props
@@ -75,15 +76,15 @@ export const InlineCitationCardTrigger = ({
     <Badge
       variant="secondary"
       {...props}
-      aria-label={`Open source ${index}`}
+      aria-label={`Open source: ${label}`}
       className={cn(
-        "ml-1 inline-flex items-center gap-1 rounded-full px-1.5",
+        "ml-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
         className,
       )}
       render={<button type="button" />}
     >
       {icon}
-      <span className="text-[10px]">[{index}]</span>
+      <span className="text-xs">{label}</span>
     </Badge>
   </HoverCardTrigger>
 );

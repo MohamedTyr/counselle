@@ -2,9 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { Citation, CitationEnvelope, RenderSpec, SourceEntry } from "@/api/chat/types";
 import {
-  citationDisplayNumbers,
   citedIndexesIn,
-  citedIndexOrderForMessage,
   schoolDomainsFromBlocks,
   sourceFocusForCell,
   sourcesUsedByMessage,
@@ -58,38 +56,6 @@ describe("citation source selection", () => {
     expect(sourceFocusForCell(cell("[123]"))).toEqual({ index: 123, evidenceId: "admissions.rate" });
     expect(sourceFocusForCell(cell("[7]", "edu"))).toEqual({ index: 7 });
     expect(sourceFocusForCell(cell(null, "cds", false))).toBeUndefined();
-  });
-});
-
-describe("citedIndexOrderForMessage", () => {
-  test("orders by first appearance across mixed markdown/viz blocks, not raw index", () => {
-    const order = citedIndexOrderForMessage({
-      blocks: [
-        { kind: "markdown", text: "Community reports [14] agree." },
-        { kind: "viz", spec: viz([cell("[3]")]) },
-        { kind: "markdown", text: "The official figure [3] confirms it." },
-      ],
-    });
-    expect(order).toEqual([14, 3]);
-  });
-
-  test("dedupes repeated mentions of the same index to its first occurrence", () => {
-    const order = citedIndexOrderForMessage({ text: "See [5]. Also see [5] again, then [2]." });
-    expect(order).toEqual([5, 2]);
-  });
-
-  test("falls back to text when no blocks are present", () => {
-    expect(citedIndexOrderForMessage({ text: "Only [9] here." })).toEqual([9]);
-  });
-});
-
-describe("citationDisplayNumbers", () => {
-  test("maps an explicit order to sequential 1-based numbers, not a sort", () => {
-    expect([...citationDisplayNumbers([14, 3, 30]).entries()]).toEqual([[14, 1], [3, 2], [30, 3]]);
-  });
-
-  test("returns an empty map for an empty order", () => {
-    expect(citationDisplayNumbers([]).size).toBe(0);
   });
 });
 
