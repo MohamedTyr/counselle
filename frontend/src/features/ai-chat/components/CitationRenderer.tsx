@@ -1,5 +1,6 @@
 import { GlobeIcon, SchoolIcon } from "lucide-react";
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { defaultRemarkPlugins } from "streamdown";
 
 import type { Citation, ReplaySourceEntry, SourceFocus } from "@/api/chat/types";
@@ -192,6 +193,12 @@ function CitationChip({
   );
 }
 
+const PLACEHOLDER_ATTR = "data-citation-index";
+
+function sameNodeList(a: HTMLElement[], b: HTMLElement[]): boolean {
+  return a.length === b.length && a.every((node, i) => node === b[i]);
+}
+
 function CitationRendererComponent({
   markdown,
   sources,
@@ -199,30 +206,66 @@ function CitationRendererComponent({
   displayNumbers,
   schoolDomains,
 }: CitationRendererProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [placeholders, setPlaceholders] = useState<HTMLElement[]>([]);
+
+  // Streamdown caches each parsed markdown block's rendered output once that
+  // block's own text stops changing, and reuses it by React-element identity
+  // on later renders — so a mapped "citation-ref" component invoked only
+  // during that first pass can get permanently frozen with whatever
+  // `sources`/`displayNumbers` closure was live at that moment, even though
+  // the registry finishes arriving (and this component's own props update)
+  // afterward. The mapped renderer below is a plain, data-free placeholder
+  // node (so freezing it is harmless — it never needs to change), and this
+  // effect finds those placeholders after every render of *this* component
+  // and portals the live chip content into them directly, bypassing
+  // Streamdown's internal caching entirely. It intentionally has no
+  // dependency array — it must re-scan on every render (new placeholders
+  // can appear as streaming text grows), and `sameNodeList` makes the state
+  // update a no-op once the node set stabilizes, so this does not loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container === null) return;
+    const nodes = Array.from(container.querySelectorAll<HTMLElement>(`[${PLACEHOLDER_ATTR}]`));
+    setPlaceholders((previous) => (sameNodeList(previous, nodes) ? previous : nodes));
+  });
+
   const components = useMemo(
     () =>
       ({
         "citation-ref": ({ index }: { index?: unknown }) => (
-          <CitationChip
-            displayNumbers={displayNumbers}
-            index={typeof index === "number" ? index : Number(index)}
-            onOpen={onCitationOpen}
-            schoolDomains={schoolDomains}
-            sources={sources}
+          <span
+            {...{ [PLACEHOLDER_ATTR]: typeof index === "number" ? index : Number(index) }}
           />
         ),
       }) as unknown as MessageResponseProps["components"],
-    [displayNumbers, onCitationOpen, schoolDomains, sources],
+    [],
   );
 
   return (
-    <MessageResponse
-      allowedTags={allowedTags}
-      components={components}
-      remarkPlugins={remarkPlugins}
-    >
-      {markdown}
-    </MessageResponse>
+    <div ref={containerRef} style={{ display: "contents" }}>
+      <MessageResponse
+        allowedTags={allowedTags}
+        components={components}
+        remarkPlugins={remarkPlugins}
+      >
+        {markdown}
+      </MessageResponse>
+      {placeholders.map((node, i) =>
+        createPortal(
+          <CitationChip
+            displayNumbers={displayNumbers}
+            index={Number(node.getAttribute(PLACEHOLDER_ATTR))}
+            onOpen={onCitationOpen}
+            schoolDomains={schoolDomains}
+            sources={sources}
+          />,
+          node,
+          i,
+        ),
+      )}
+    </div>
   );
 }
 
