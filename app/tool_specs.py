@@ -68,6 +68,7 @@ class ToolSpec:
     label: str
     receipt: ReceiptBuilder
     gated_by: str | None = None
+    visible: bool = True
 
 
 def build_tool_specs(labels: Mapping[str, Any], receipt: ReceiptBuilder) -> dict[str, ToolSpec]:
@@ -90,6 +91,7 @@ def build_tool_specs(labels: Mapping[str, Any], receipt: ReceiptBuilder) -> dict
             label=str(row.get("label", "Working")),
             receipt=receipt,
             gated_by=_GATED_BY.get(name),
+            visible=row.get("visible", True) is not False,
         )
     return specs
 

@@ -538,6 +538,17 @@ def test_ask_student_call_emits_no_step_and_orphan_result_is_ignored(rig: Rig) -
     assert rig.router.step_records == []
 
 
+def test_invisible_tool_call_emits_and_persists_no_step(rig: Rig) -> None:
+    rig.feed(_call("read_tool_result", {"handle": "tool-result-1"}, "c1"))
+
+    assert rig.chunks == []
+
+    rig.feed(_result("read_tool_result", "full result", "c1"))
+
+    assert rig.chunks == []
+    assert rig.router.step_records == []
+
+
 # ---------------------------------------------------------------------------
 # Error shapes: a failed tool never gets a green check
 # ---------------------------------------------------------------------------

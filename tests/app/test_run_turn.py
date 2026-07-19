@@ -1436,8 +1436,12 @@ async def test_oversized_tool_result_is_reduced_and_read_back(
     assert _text(events) == "I read the full spilled result."
     step_labels = [event.data["label"] for event in events if event.type == "step"]
     assert "Consulting the “huge” playbook" in step_labels
-    assert "Reading an oversized tool result" in step_labels
+    assert "Reading an oversized tool result" not in step_labels
+    usage = next(event.data for event in events if event.type == "usage")
+    assert usage["tool_calls"] == 2
     values = await _state_values(rig, session_id)
+    persisted_steps = values["turn_records"][0]["steps"]
+    assert [step["label"] for step in persisted_steps] == ["Consulting the “huge” playbook"]
     tool_returns = [
         part
         for message in values["messages"]
@@ -1496,20 +1500,16 @@ async def test_oversized_tool_result_handle_survives_later_turn(
     assert read_return["content"] == huge
 
 
-async def test_missing_tool_result_handle_closes_step_as_error() -> None:
+async def test_missing_tool_result_handle_stays_out_of_public_steps() -> None:
     rig = Rig(_fn_model(_read_missing_handle))
 
     events = await rig.turn(str(uuid4()), "Read a missing spill", _ALL_OFF)
 
     assert _done_status(events) == "complete"
-    steps = [
-        event.data
-        for event in events
-        if event.type == "step"
-        and event.data["label"].startswith("Reading an oversized tool result")
-    ]
-    assert [step["status"] for step in steps] == ["start", "error"]
-    assert steps[-1]["label"] == "Reading an oversized tool result — failed"
+    assert [event for event in events if event.type == "step"] == []
+    assert _text(events) == "I handled the missing result."
+    usage = next(event.data for event in events if event.type == "usage")
+    assert usage["tool_calls"] == 1
 
 
 # ---------------------------------------------------------------------------

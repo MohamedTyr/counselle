@@ -55,6 +55,7 @@ tools:
     kind: db_tool
     tier: null
     label: "Reading an oversized tool result"
+    visible: false
   view_tasks:
     kind: workspace
     tier: null

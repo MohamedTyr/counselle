@@ -153,6 +153,11 @@ class StepMapper:
             return spec.kind
         return cast("StepKind", self._default.get("kind", "db_tool"))
 
+    def is_visible(self, tool_name: str) -> bool:
+        """Whether the tool belongs in the student-facing activity trace."""
+        spec = self._specs.get(tool_name)
+        return spec is None or spec.visible
+
     def map_call(self, tool_name: str, args: dict[str, Any]) -> MappedStep:
         # The label keeps its own row lookup (the _unknown marker rides the label
         # path); the kind routes through _kind_for so the default lives once. The
@@ -1019,6 +1024,8 @@ class EmissionRouter:
             return  # interrupt-backed: the clarify event is its UI
         if part.tool_name in self.unmounted:
             return  # disabled source ⇒ kind impossible (story 17)
+        if not self.mapper.is_visible(part.tool_name):
+            return  # internal runtime plumbing has no public activity row
         args = _args_dict(part)
         mapped = self.mapper.map_call(part.tool_name, args)
         self._counter += 1
