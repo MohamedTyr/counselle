@@ -153,6 +153,7 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
         typeof data.kind === "string" &&
         typeof data.label === "string" &&
         isStepTier(data.tier) &&
+        (!("tool" in data) || isNonEmptyString(data.tool)) &&
         (data.detail === null || isStepDetail(data.detail)) &&
         (!("sources" in data) ||
           (Array.isArray(data.sources) && data.sources.every(isStepSource))) &&

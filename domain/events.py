@@ -172,6 +172,8 @@ class StepData(BaseModel):
     kind: StepKind
     label: str
     tier: StepTier | None
+    #: Stable presentation identity. Optional for stored pre-field transcripts.
+    tool: str | None = None
     detail: StepDetail | None = None
     #: Source chips, populated only on the ``end`` event (None otherwise). None
     #: so ``ev_step`` drops it on the wire — an empty list would serialize as
@@ -275,6 +277,9 @@ def ev_delta(text: str) -> Event:
 
 def ev_step(step: StepData) -> Event:
     data = step.model_dump()
+    if data["tool"] is None:
+        # Additive v1 field: historical/manual events may omit identity.
+        del data["tool"]
     if data["detail"] is not None:
         # detail's unset fields are dropped (FE optionals are `?:`, not null);
         # top-level tier/detail stay explicit nulls (required-but-nullable).

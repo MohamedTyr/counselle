@@ -69,6 +69,7 @@ def test_step_event_contract_allows_optional_tool_ui() -> None:
             step_id="s1",
             status="end",
             kind="write_plan",
+            tool="write_plan",
             label="Updating the plan",
             tier=None,
             detail=StepDetail(completed=1, total=1),
@@ -80,6 +81,22 @@ def test_step_event_contract_allows_optional_tool_ui() -> None:
         "widget": "task_added",
         "data": {"task_id": "t1", "title": "Visit Duke"},
     }
+    assert event.data["tool"] == "write_plan"
+
+
+def test_step_event_contract_keeps_tool_optional_for_historical_data() -> None:
+    event = ev_step(
+        StepData(
+            step_id="legacy-s1",
+            status="end",
+            kind="db_tool",
+            label="Reading",
+            tier="official",
+            detail=None,
+        )
+    )
+
+    assert "tool" not in event.data
 
 
 @pytest.fixture(autouse=True)
@@ -576,6 +593,7 @@ async def test_golden_full_turn_events() -> None:
             step_id="fixture-domain-read",
             status="end",
             kind="db_tool",
+            tool="get_domain",
             label="Read admissions data",
             tier="official",
             detail=StepDetail(

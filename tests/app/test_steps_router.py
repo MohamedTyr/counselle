@@ -140,6 +140,7 @@ def test_simple_flow_narration_step_pair_then_live_answer(rig: Rig) -> None:
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "end"]
     assert steps[0]["step_id"] == steps[1]["step_id"]
+    assert [step["tool"] for step in steps] == ["get_domain", "get_domain"]
     assert "Duke University" in steps[0]["label"]
     assert steps[1]["detail"]["duration_ms"] >= 0
     deltas = [chunk["text"] for chunk in rig.of_type("delta")]
@@ -562,6 +563,7 @@ def test_error_dict_result_gives_error_status_and_search_failed_label(rig: Rig) 
 
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "error"]
+    assert [step["tool"] for step in steps] == ["search_web", "search_web"]
     assert "source unavailable" in steps[1]["label"]
     assert not any(step["status"] == "end" for step in steps)  # never a green check
 
@@ -574,6 +576,7 @@ def test_retry_prompt_result_gives_error_status_and_retry_label(rig: Rig) -> Non
 
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "error"]
+    assert [step["tool"] for step in steps] == ["get_domain", "get_domain"]
     assert "needed a correction" in steps[1]["label"]
 
 
@@ -614,6 +617,7 @@ def test_close_interrupt_ends_open_step_with_original_label_and_flushes_text_as_
     assert rig.of_type("delta") == []
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "end"]
+    assert [step["tool"] for step in steps] == ["search_web", "search_web"]
     assert steps[1]["label"] == steps[0]["label"]  # original label, no error suffix
     assert steps[1]["detail"] is None
 
@@ -649,6 +653,7 @@ def test_close_error_and_budget_close_open_steps_as_error(rig: Rig, reason: str)
 
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "error"]
+    assert [step["tool"] for step in steps] == ["get_domain", "get_domain"]
     assert steps[1]["label"].endswith("— failed")  # the tool_failed template
     assert not rig.router._open  # nothing shimmers forever
 

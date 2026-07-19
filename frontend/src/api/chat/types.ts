@@ -225,6 +225,7 @@ export type StepData = {
   kind: StepKind;
   label: string;
   tier: StepTier;
+  tool?: string;
   detail: StepDetail | null;
   sources?: StepSource[];
   ui?: ToolUi;

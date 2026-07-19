@@ -284,6 +284,7 @@ describe("parseSseStream", () => {
             step_id: "s1",
             status: "end",
             kind: "write_plan",
+            tool: "write_plan",
             label: "Updated the plan",
             tier: null,
             detail: {
@@ -311,6 +312,7 @@ describe("parseSseStream", () => {
         step_id: "s1",
         status: "end",
         kind: "write_plan",
+        tool: "write_plan",
         label: "Updated the plan",
         tier: null,
         detail: {
@@ -375,6 +377,26 @@ describe("parseSseStream", () => {
           },
         },
       },
+    });
+  });
+
+  it("accepts historical step events without tool identity", async () => {
+    const frames = await collect(
+      streamOf(
+        frame("step", {
+          step_id: "legacy-s1",
+          status: "end",
+          kind: "db_tool",
+          label: "Reading",
+          tier: "official",
+          detail: null,
+        }),
+      ),
+    );
+
+    expect(frames[0]?.data).toMatchObject({
+      type: "step",
+      data: { step_id: "legacy-s1", label: "Reading" },
     });
   });
 

@@ -606,6 +606,7 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
     "status": "start",                // start | end | error
     "kind": "web_search",             // db_tool | sql | web_search | edu_search |
                                       // reddit_search | viz | skill | research
+    "tool": "search_web",             // stable optional presentation identity
     "label": "Searching the web: nyu cs acceptance rate 2026",  // human label, pre-built server-side
     "tier": "official",               // official | community | null — drives the icon/color grammar
     "detail": null
@@ -613,7 +614,7 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
 
 // status: "end" — same step_id, carries the receipts (PRD story 15)
 { "v": 1, "type": "step", "data": {
-    "step_id": "s3", "status": "end", "kind": "web_search",
+    "step_id": "s3", "status": "end", "kind": "web_search", "tool": "search_web",
     "label": "Searching the web: nyu cs acceptance rate 2026", "tier": "official",
     "detail": {                       // kind-specific; the expandable receipt
       "query": "nyu cs acceptance rate 2026",

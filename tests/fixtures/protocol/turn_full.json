@@ -20,6 +20,7 @@
         "kind": "web_search",
         "label": "Searching the web: \u201cDuke University dorms\u201d",
         "tier": null,
+        "tool": "search_web",
         "detail": null
       }
     },
@@ -32,6 +33,7 @@
         "kind": "web_search",
         "label": "Searching the web: \u201cDuke University dorms\u201d",
         "tier": null,
+        "tool": "search_web",
         "detail": {
           "query": "Duke University dorms",
           "domains": [
@@ -65,6 +67,7 @@
         "kind": "viz",
         "label": "Building a comparison table",
         "tier": null,
+        "tool": "render_viz",
         "detail": null
       }
     },
@@ -77,6 +80,7 @@
         "kind": "viz",
         "label": "Building a comparison table",
         "tier": null,
+        "tool": "render_viz",
         "detail": {
           "value_count": 3,
           "duration_ms": 0,
@@ -109,6 +113,7 @@
         "kind": "db_tool",
         "label": "Read admissions data",
         "tier": "official",
+        "tool": "get_domain",
         "detail": {
           "value_count": 1,
           "tool": "get_domain",

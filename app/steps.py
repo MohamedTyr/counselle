@@ -109,6 +109,7 @@ class MappedStep:
     kind: StepKind
     tier: StepTier | None
     label: str
+    tool: str
 
 
 class _SafeDict(dict[str, Any]):
@@ -175,6 +176,7 @@ class StepMapper:
             kind=self._kind_for(tool_name),
             tier=cast("StepTier | None", row.get("tier")),
             label=label,
+            tool=tool_name,
         )
 
     def error_label(self, mapped: MappedStep, *, retry: bool) -> str:
@@ -1092,6 +1094,7 @@ class EmissionRouter:
             kind=mapped.kind,
             label=label,
             tier=mapped.tier,
+            tool=mapped.tool,
             detail=detail,
             sources=sources,
             ui=ui,
