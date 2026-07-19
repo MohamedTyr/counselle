@@ -166,7 +166,9 @@ function SegmentBeat({
         </Message>
       );
     case "tool":
-      return segment.step.kind === "write_plan" ? null : <ToolStepBeat step={segment.step} />;
+      return segment.step.kind === "write_plan" ? null : (
+        <ToolStepBeat isLiveSegment={isLiveSegment} step={segment.step} />
+      );
     case "answer":
       return segment.text.length === 0 ? null : (
         <div>
@@ -227,7 +229,9 @@ function AssistantBody({
           isLiveSegment={
             segment.type === "answer"
               ? index === liveAnswerIndex
-              : hasLiveSegment && index === message.segments.length - 1
+              : segment.type === "tool"
+                ? hasLiveSegment && segment.step.status === "start"
+                : hasLiveSegment && index === message.segments.length - 1
           }
           key={segmentKey(segment, index)}
           onOpenCitation={onOpenCitation}

@@ -146,6 +146,72 @@ describe("ChatMessage", () => {
     expect(screen.getByText("I added it to your workspace.")).toBeInTheDocument();
   });
 
+  test("passes live turn state to the active school-data row", () => {
+    const schoolStep = {
+      type: "tool" as const,
+      step: {
+        step_id: "school-1",
+        status: "start" as const,
+        kind: "db_tool" as const,
+        tool: "resolve_school",
+        label: "Finding “Yale”…",
+        tier: "official" as const,
+        detail: null,
+      },
+    };
+    const streaming = assistantMessage({
+      blocks: [],
+      segments: [schoolStep],
+      text: "",
+      turnStatus: "streaming",
+    });
+    const persisted = assistantMessage({ ...streaming, turnStatus: "complete" });
+
+    const { container, rerender } = render(<ChatMessage message={streaming} />);
+    expect(container.querySelector(".lucide-loader-circle")).toHaveClass(
+      "motion-safe:animate-spin",
+    );
+
+    rerender(<ChatMessage message={persisted} />);
+    expect(container.querySelector(".lucide-loader-circle")).not.toHaveClass(
+      "motion-safe:animate-spin",
+    );
+  });
+
+  test("keeps concurrent school-data starts live within the same streaming turn", () => {
+    const schoolStep = (stepId: string, tool: "resolve_school" | "get_domain") => ({
+      type: "tool" as const,
+      step: {
+        step_id: stepId,
+        status: "start" as const,
+        kind: "db_tool" as const,
+        tool,
+        label: tool === "resolve_school" ? "Finding “Yale”…" : "Reading Yale’s admissions data…",
+        tier: "official" as const,
+        detail: null,
+      },
+    });
+    const streaming = assistantMessage({
+      blocks: [],
+      segments: [
+        schoolStep("school-1", "resolve_school"),
+        schoolStep("school-2", "get_domain"),
+      ],
+      text: "",
+      turnStatus: "streaming",
+    });
+
+    const { container, rerender } = render(<ChatMessage message={streaming} />);
+    expect(
+      container.querySelectorAll(".lucide-loader-circle.motion-safe\\:animate-spin"),
+    ).toHaveLength(2);
+
+    rerender(<ChatMessage message={{ ...streaming, turnStatus: "complete" }} />);
+    expect(
+      container.querySelectorAll(".lucide-loader-circle.motion-safe\\:animate-spin"),
+    ).toHaveLength(0);
+  });
+
   test("assistant message pins the latest write_plan checklist above the stream", () => {
     render(
       <ChatMessage

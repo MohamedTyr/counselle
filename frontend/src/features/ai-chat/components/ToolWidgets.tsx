@@ -15,6 +15,11 @@ import { cn } from "@/lib/utils";
 
 import { safeExternalUrl } from "../citations";
 import {
+  isHistoricalOverflowStep,
+  schoolDataToolPresentation,
+} from "./school-data-tool-presentation";
+import { SchoolDataToolRow } from "./SchoolDataToolRow";
+import {
   dedupeStepSources,
   isSearchKind,
   MAX_VISIBLE_SOURCE_CHIPS,
@@ -22,6 +27,7 @@ import {
 } from "./activity-trace-helpers";
 
 type ToolWidgetProps = {
+  isLiveSegment?: boolean;
   step: StepData;
 };
 
@@ -288,7 +294,21 @@ const TOOL_WIDGETS: Readonly<Record<string, ToolWidgetComponent>> = {
   task_added: TaskAddedWidget,
 };
 
-export function ToolStepBeat({ step }: ToolWidgetProps) {
+export function ToolStepBeat({ isLiveSegment = false, step }: ToolWidgetProps) {
+  if (isHistoricalOverflowStep(step)) {
+    return null;
+  }
+
+  const schoolDataPresentation = schoolDataToolPresentation(step);
+  if (schoolDataPresentation !== null) {
+    return (
+      <SchoolDataToolRow
+        isLive={isLiveSegment && step.status === "start"}
+        presentation={schoolDataPresentation}
+      />
+    );
+  }
+
   const Widget = step.ui?.widget !== undefined ? TOOL_WIDGETS[step.ui.widget] : undefined;
   return Widget === undefined ? <DefaultToolWidget step={step} /> : <Widget step={step} />;
 }

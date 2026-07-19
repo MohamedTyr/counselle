@@ -18,6 +18,135 @@ function step(overrides: Partial<StepData> = {}): StepData {
 }
 
 describe("ToolStepBeat", () => {
+  test("renders a live school-data start as a compact animated row", () => {
+    const { container } = render(
+      <ToolStepBeat
+        isLiveSegment
+        step={step({
+          status: "start",
+          kind: "db_tool",
+          tool: "resolve_school",
+          label: "Finding “Yale”…",
+        })}
+      />,
+    );
+    const row = container.querySelector('[data-school-data-tool="resolve_school"]');
+
+    expect(row).toHaveAttribute("aria-live", "polite");
+    expect(row).toHaveAttribute("aria-atomic", "true");
+    expect(row).toHaveClass("grid-cols-[14px_minmax(0,1fr)]");
+    expect(row?.querySelector(".flex-wrap")).toBeInTheDocument();
+    expect(row?.querySelector(".lucide-loader-circle")).toHaveClass(
+      "absolute",
+      "opacity-100",
+      "duration-[175ms]",
+      "motion-reduce:transition-none",
+      "motion-safe:animate-spin",
+    );
+    expect(row?.querySelector(".lucide-check")).toHaveClass("absolute", "opacity-0");
+  });
+
+  test("does not animate a persisted school-data start row", () => {
+    const { container } = render(
+      <ToolStepBeat
+        step={step({
+          status: "start",
+          kind: "db_tool",
+          tool: "get_domain",
+          label: "Reading Yale’s admissions data…",
+        })}
+      />,
+    );
+
+    expect(container.querySelector(".lucide-loader-circle")).not.toHaveClass(
+      "motion-safe:animate-spin",
+    );
+  });
+
+  test("renders completed school data without details, chips, or jargon", () => {
+    const { container } = render(
+      <ToolStepBeat
+        step={step({
+          kind: "db_tool",
+          tool: "get_domain",
+          label: "Read Yale University’s admissions data",
+          detail: {
+            tool: "get_domain",
+            value_count: 72,
+            domain_id: "admissions",
+            schools: ["Yale University"],
+          },
+          sources: [{ label: "Yale University", url: "https://yale.edu" }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("72 values")).toHaveClass("tabular-nums", "basis-full");
+    expect(container.querySelector(".lucide-check")).toHaveClass("opacity-100");
+    expect(container.querySelector(".lucide-loader-circle")).toHaveClass("opacity-0");
+    expect(screen.queryByText("Details")).not.toBeInTheDocument();
+    expect(screen.queryByText("Yale University", { selector: "a" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Domain:/)).not.toBeInTheDocument();
+  });
+
+  test.each([
+    [0, ".lucide-circle-minus"],
+    [1, ".lucide-check"],
+  ])("renders the profile count %i state", (valueCount, iconSelector) => {
+    const { container } = render(
+      <ToolStepBeat
+        step={step({
+          kind: "db_tool",
+          tool: "get_school_profile",
+          label: valueCount === 0 ? "Profile data unavailable" : "Read Yale’s profile",
+          detail: { tool: "get_school_profile", value_count: valueCount },
+        })}
+      />,
+    );
+    expect(container.querySelector(iconSelector)).toBeInTheDocument();
+  });
+
+  test("renders errors without raw receipt text", () => {
+    const { container } = render(
+      <ToolStepBeat
+        step={step({
+          status: "error",
+          kind: "db_tool",
+          tool: "get_school_profile",
+          label: "Couldn’t read Yale’s profile",
+          detail: { tool: "get_school_profile", error: "postgres password leaked" },
+        })}
+      />,
+    );
+
+    expect(container.querySelector(".lucide-circle-alert")).toBeInTheDocument();
+    expect(screen.queryByText(/postgres password/)).not.toBeInTheDocument();
+  });
+
+  test("hides historical overflow plumbing", () => {
+    const { container } = render(
+      <ToolStepBeat
+        step={step({ kind: "db_tool", detail: { tool: "read_tool_result" } })}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  test("keeps deferred database tools on the generic renderer", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "sql",
+          tool: "query_database",
+          label: "Running a custom database query",
+          detail: { tool: "query_database", row_count: 2 },
+        })}
+      />,
+    );
+    expect(screen.getByText("Running a custom database query")).toBeInTheDocument();
+    expect(screen.getByText("Details")).toBeInTheDocument();
+  });
+
   test("renders the step label inline, with no drawer to expand", () => {
     render(<ToolStepBeat step={step()} />);
     expect(screen.getByText("Searching the web")).toBeInTheDocument();
