@@ -1,6 +1,5 @@
 import type { MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { MessageSquare } from "lucide-react";
 
 import type { ChatSessionSummary } from "@/api/chat/types";
 import { UNTITLED_CHAT_TITLE } from "@/api/chat/transport";
@@ -59,17 +58,19 @@ export function ChatSessionRow({
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
-        className={cn("h-9 rounded-lg px-2 pr-8", active && "font-medium")}
+        className={cn(
+          "h-11 rounded-md px-1.5 pr-8 text-sidebar-foreground transition-colors md:pointer-fine:h-8 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
+          active && "font-medium",
+        )}
         isActive={active}
-        tooltip={title}
       >
         <Link
           aria-current={active ? "page" : undefined}
           aria-label={title}
           onClick={handleClick}
+          title={title}
           to={to}
         >
-          <MessageSquare aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate">{title}</span>
           {session.isGenerating && (
             <Spinner aria-label={`${title} is generating`} />
