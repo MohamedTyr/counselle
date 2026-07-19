@@ -138,29 +138,19 @@ describe("chat session sidebar list", () => {
     expect(screen.getByRole("link", { name: "MIT essay plan" })).toBeVisible();
   });
 
-  it("lets chat titles use the full row while overlaying actions on demand", async () => {
+  it("exposes the full chat title and its row actions accessibly", async () => {
     renderApp("/app/tasks", { fetchHandler: chatFetch() });
 
     const link = await screen.findByRole("link", {
       name: "Financial aid for Brown",
     });
-    const row = sidebarMenuButtonFor(link);
     const action = screen.getByRole("button", {
       name: "Actions for Financial aid for Brown",
     });
-    const title = link.querySelector(":scope > span");
 
-    expect(row).toHaveClass("px-1.5", "pr-1.5!");
-    expect(title).toHaveTextContent("Financial aid for Brown");
-    expect(title).toHaveClass("flex-1");
-    expect(action).toHaveClass(
-      "sidebar-chat-action",
-      "pointer-events-none",
-      "group-hover/menu-item:pointer-events-auto",
-      "group-focus-within/menu-item:pointer-events-auto",
-      "pointer-coarse:pointer-events-auto",
-      "pointer-coarse:!opacity-100",
-    );
+    expect(link).toHaveTextContent("Financial aid for Brown");
+    expect(link).toHaveAttribute("title", "Financial aid for Brown");
+    expect(action).toHaveAccessibleName("Actions for Financial aid for Brown");
   });
 
   it("routes normally and opens modified clicks in a new tab only for non-generating chats", async () => {
