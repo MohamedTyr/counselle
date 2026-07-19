@@ -10,7 +10,6 @@ import {
 import {
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarInput,
   SidebarMenu,
   SidebarMenuSkeleton,
@@ -78,9 +77,6 @@ export function ChatSessionList() {
 
   return (
     <SidebarGroup className="min-h-0 flex-1 p-0">
-      <SidebarGroupLabel className="text-sidebar-foreground">
-        Recent chats
-      </SidebarGroupLabel>
       <SidebarGroupContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
         <div className="sidebar-chat-search relative">
           <Search
