@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { matchPath, useLocation, useNavigate } from "react-router";
 
 import {
@@ -79,13 +80,20 @@ export function ChatSessionList() {
     <SidebarGroup className="min-h-0 flex-1 p-0">
       <SidebarGroupLabel>Recent chats</SidebarGroupLabel>
       <SidebarGroupContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-        <SidebarInput
-          aria-label="Search chats"
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search chats"
-          type="search"
-          value={searchQuery}
-        />
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-sidebar-foreground"
+          />
+          <SidebarInput
+            aria-label="Search chats"
+            className="h-11 rounded-md border-transparent !bg-transparent !shadow-none before:hidden hover:!bg-sidebar-accent has-focus-visible:border-sidebar-ring has-focus-visible:!bg-sidebar-accent has-focus-visible:ring-sidebar-ring/40 md:pointer-fine:h-8 dark:!bg-transparent dark:hover:!bg-sidebar-accent dark:has-focus-visible:!bg-sidebar-accent [&_[data-slot=input]]:h-full [&_[data-slot=input]]:pr-3 [&_[data-slot=input]]:pl-8 [&_[data-slot=input]]:text-sidebar-accent-foreground [&_[data-slot=input]]:placeholder:text-sidebar-foreground [&_[data-slot=input]]:placeholder:opacity-100"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search"
+            type="search"
+            value={searchQuery}
+          />
+        </div>
 
         {sessionsQuery.isLoading ? (
           <div className="flex flex-col gap-1">
@@ -98,7 +106,11 @@ export function ChatSessionList() {
             Could not load chats.
           </p>
         ) : filteredSessions.length === 0 ? (
-          <p className="px-2 text-xs text-muted-foreground">No recent chats.</p>
+          <p className="px-2 text-xs text-muted-foreground">
+            {searchQuery.trim()
+              ? `No chats match “${searchQuery.trim()}”.`
+              : "No recent chats."}
+          </p>
         ) : (
           <SidebarMenu className="min-h-0 flex-1 overflow-y-auto pr-1">
             {filteredSessions.map((session) => (

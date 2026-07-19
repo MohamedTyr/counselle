@@ -112,10 +112,12 @@ describe("chat session sidebar list", () => {
     ).toBeInTheDocument();
     expect(calls).toContain("GET /v1/sessions?limit=50");
 
-    await user.type(
-      screen.getByRole("searchbox", { name: "Search chats" }),
-      "brown",
-    );
+    const searchInput = screen.getByRole("searchbox", {
+      name: "Search chats",
+    });
+    expect(searchInput).toHaveAttribute("placeholder", "Search");
+
+    await user.type(searchInput, "brown");
 
     expect(
       screen.getByRole("link", { name: "Financial aid for Brown" }),
@@ -124,6 +126,16 @@ describe("chat session sidebar list", () => {
       screen.queryByRole("link", { name: "MIT essay plan" }),
     ).not.toBeInTheDocument();
     expect(calls).not.toContain("GET /v1/sessions?limit=50&q=brown");
+
+    await user.clear(searchInput);
+    await user.type(searchInput, "princeton");
+    expect(screen.getByText('No chats match “princeton”.')).toBeVisible();
+
+    await user.clear(searchInput);
+    expect(
+      screen.getByRole("link", { name: "Financial aid for Brown" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "MIT essay plan" })).toBeVisible();
   });
 
   it("routes normally and opens modified clicks in a new tab only for non-generating chats", async () => {
