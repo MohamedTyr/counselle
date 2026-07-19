@@ -17,6 +17,7 @@ from pydantic_ai.messages import RetryPromptPart
 import counselle_db.server as db_server
 from app.steps import StepMapper
 from config.settings import load_yaml_asset
+from domain.events import StepDetail
 
 # The function tools mounted directly on the agent (app/toolset.py +
 # app/agent_node.py). ask_student is deliberately NOT here — it is
@@ -361,6 +362,127 @@ def test_error_label_tool_failed_class(mapper: StepMapper) -> None:
         label = mapper.error_label(mapped, retry=False)
 
         assert label == f"{mapped.label} — failed"
+
+
+@pytest.mark.parametrize(
+    ("tool", "args", "detail", "expected"),
+    [
+        (
+            "resolve_school",
+            {"query": "yale"},
+            StepDetail(result_count=1, schools=["Yale University"]),
+            "Found Yale University",
+        ),
+        (
+            "resolve_school",
+            {"query": "yale"},
+            StepDetail(result_count=3, schools=["Yale University", "Yale College"]),
+            "Found possible matches for “yale”",
+        ),
+        (
+            "resolve_school",
+            {"query": "yale"},
+            StepDetail(result_count=0),
+            "No school found for “yale”",
+        ),
+        (
+            "get_school_profile",
+            {"unitid": 198419},
+            StepDetail(value_count=18, schools=["Yale University"]),
+            "Read Yale University’s profile",
+        ),
+        (
+            "get_school_profile",
+            {"unitid": 198419},
+            StepDetail(value_count=0, schools=["Yale University"]),
+            "Profile data unavailable for Yale University",
+        ),
+        (
+            "get_domain",
+            {"unitid": 198419, "domain_id": "financial_aid"},
+            StepDetail(
+                value_count=1,
+                domain_id="financial_aid",
+                schools=["Yale University"],
+            ),
+            "Read Yale University’s financial aid data",
+        ),
+        (
+            "get_domain",
+            {"unitid": 198419, "domain_id": "financial_aid"},
+            StepDetail(
+                value_count=0,
+                domain_id="financial_aid",
+                schools=["Yale University"],
+            ),
+            "No financial aid data available for Yale University",
+        ),
+    ],
+)
+def test_school_data_terminal_labels_use_safe_receipts(
+    mapper: StepMapper,
+    tool: str,
+    args: dict[str, Any],
+    detail: StepDetail,
+    expected: str,
+) -> None:
+    mapped = mapper.map_call(tool, args)
+
+    assert mapper.terminal_label(
+        mapped,
+        args,
+        detail,
+        errored=False,
+        retry=False,
+    ) == expected
+
+
+@pytest.mark.parametrize(
+    ("tool", "args", "expected"),
+    [
+        ("resolve_school", {"query": "yale"}, "Couldn’t search the school database"),
+        (
+            "get_school_profile",
+            {"unitid": 198419},
+            "Couldn’t read Duke University’s profile",
+        ),
+        (
+            "get_domain",
+            {"unitid": 198419, "domain_id": "financial_aid"},
+            "Couldn’t read Duke University’s financial aid data",
+        ),
+    ],
+)
+def test_school_data_error_labels_are_specific_and_safe(
+    mapper: StepMapper,
+    tool: str,
+    args: dict[str, Any],
+    expected: str,
+) -> None:
+    mapped = mapper.map_call(tool, args)
+
+    assert mapper.terminal_label(
+        mapped,
+        args,
+        StepDetail(error="raw backend error"),
+        errored=True,
+        retry=False,
+    ) == expected
+
+
+def test_school_data_terminal_without_receipt_uses_neutral_finished_copy(
+    mapper: StepMapper,
+) -> None:
+    args = {"unitid": 198419, "domain_id": "admissions"}
+    mapped = mapper.map_call("get_domain", args)
+
+    assert mapper.terminal_label(
+        mapped,
+        args,
+        None,
+        errored=False,
+        retry=False,
+    ) == "Finished Duke University’s admissions data lookup"
 
 
 # ---------------------------------------------------------------------------

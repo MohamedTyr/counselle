@@ -147,6 +147,63 @@ def test_simple_flow_narration_step_pair_then_live_answer(rig: Rig) -> None:
     assert deltas == [long_tail, " And more."]
 
 
+@pytest.mark.parametrize(
+    ("tool", "args", "content", "start_label", "end_label"),
+    [
+        (
+            "resolve_school",
+            {"query": "yale"},
+            {"status": "match", "school": {"name": "Yale University"}},
+            "Finding “yale”…",
+            "Found Yale University",
+        ),
+        (
+            "resolve_school",
+            {"query": "yale"},
+            {"status": "candidates", "candidates": [{"name": "Yale University"}] * 3},
+            "Finding “yale”…",
+            "Found possible matches for “yale”",
+        ),
+        (
+            "resolve_school",
+            {"query": "yale"},
+            {"status": "not_found"},
+            "Finding “yale”…",
+            "No school found for “yale”",
+        ),
+        (
+            "get_school_profile",
+            {"unitid": 198419},
+            {"school": {"name": "Duke University"}, "value_count": 18},
+            "Reading Duke University’s profile…",
+            "Read Duke University’s profile",
+        ),
+        (
+            "get_domain",
+            {"unitid": 198419, "domain_id": "financial_aid"},
+            {
+                "school": {"name": "Duke University"},
+                "availability": {"available": 0},
+            },
+            "Reading Duke University’s financial aid data…",
+            "No financial aid data available for Duke University",
+        ),
+    ],
+)
+def test_school_data_router_uses_state_aware_asset_copy(
+    rig: Rig,
+    tool: str,
+    args: dict[str, Any],
+    content: Any,
+    start_label: str,
+    end_label: str,
+) -> None:
+    rig.feed(_call(tool, args, "c1"), _result(tool, content, "c1"))
+
+    steps = rig.steps()
+    assert [step["label"] for step in steps] == [start_label, end_label]
+
+
 def test_pre_final_long_text_never_streams_as_delta(rig: Rig) -> None:
     pre_final = "x" * (THINKING_THRESHOLD_CHARS + 1)
 
@@ -577,7 +634,7 @@ def test_retry_prompt_result_gives_error_status_and_retry_label(rig: Rig) -> Non
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "error"]
     assert [step["tool"] for step in steps] == ["get_domain", "get_domain"]
-    assert "needed a correction" in steps[1]["label"]
+    assert steps[1]["label"] == "Couldn’t read Duke University’s admissions data"
 
 
 def test_retry_result_leaves_row_count_unset(rig: Rig) -> None:
@@ -654,8 +711,19 @@ def test_close_error_and_budget_close_open_steps_as_error(rig: Rig, reason: str)
     steps = rig.steps()
     assert [step["status"] for step in steps] == ["start", "error"]
     assert [step["tool"] for step in steps] == ["get_domain", "get_domain"]
-    assert steps[1]["label"].endswith("— failed")  # the tool_failed template
+    assert steps[1]["label"] == "Couldn’t read Duke University’s admissions data"
     assert not rig.router._open  # nothing shimmers forever
+
+
+def test_complete_close_uses_neutral_terminal_copy_without_a_receipt(rig: Rig) -> None:
+    rig.feed(_call("get_domain", {"unitid": 198419, "domain_id": "admissions"}, "c1"))
+
+    rig.router.close("complete")
+
+    steps = rig.steps()
+    assert [step["status"] for step in steps] == ["start", "end"]
+    assert steps[1]["label"] == "Finished Duke University’s admissions data lookup"
+    assert not steps[1]["label"].endswith("…")
 
 
 def test_close_is_idempotent_and_handle_is_noop_after_close(rig: Rig) -> None:

@@ -194,7 +194,9 @@ def test_router_emits_sources_on_end(mapper: StepMapper) -> None:
         step_id="s1",
         tool_name="search_web",
         args={"query": "x"},
-        mapped=MappedStep(kind="web_search", tier=None, label="Searching"),
+        mapped=MappedStep(
+            kind="web_search", tier=None, label="Searching", tool="search_web"
+        ),
         started=0.0,
     )
     router._open["tc1"] = open_step
@@ -213,7 +215,9 @@ def test_router_omits_sources_on_error(mapper: StepMapper) -> None:
         step_id="s1",
         tool_name="search_web",
         args={"query": "x"},
-        mapped=MappedStep(kind="web_search", tier=None, label="Searching"),
+        mapped=MappedStep(
+            kind="web_search", tier=None, label="Searching", tool="search_web"
+        ),
         started=0.0,
     )
     # An {"error": ...} result is the error shape (Tavily never raises).
@@ -231,7 +235,9 @@ def test_router_close_synthesized_steps_have_no_sources() -> None:
         step_id="s1",
         tool_name="search_web",
         args={"query": "x"},
-        mapped=MappedStep(kind="web_search", tier=None, label="Searching"),
+        mapped=MappedStep(
+            kind="web_search", tier=None, label="Searching", tool="search_web"
+        ),
         started=0.0,
     )
     router.close("budget")

@@ -133,6 +133,8 @@ def test_registry_labels_resolve_and_gated_set_is_derived() -> None:
     }
     assert not specs["read_tool_result"].visible
     assert all(spec.visible for name, spec in specs.items() if name != "read_tool_result")
+    assert specs["resolve_school"].complete_label == "Found {school}"
+    assert specs["get_domain"].unavailable_label == "No {category} data available for {school}"
 
 
 def test_workspace_tools_load_as_workspace_kind_gated_by_auth() -> None:

@@ -69,6 +69,11 @@ class ToolSpec:
     receipt: ReceiptBuilder
     gated_by: str | None = None
     visible: bool = True
+    complete_label: str | None = None
+    ambiguous_label: str | None = None
+    unavailable_label: str | None = None
+    error_label: str | None = None
+    unresolved_label: str | None = None
 
 
 def build_tool_specs(labels: Mapping[str, Any], receipt: ReceiptBuilder) -> dict[str, ToolSpec]:
@@ -92,8 +97,17 @@ def build_tool_specs(labels: Mapping[str, Any], receipt: ReceiptBuilder) -> dict
             receipt=receipt,
             gated_by=_GATED_BY.get(name),
             visible=row.get("visible", True) is not False,
+            complete_label=_optional_label(row.get("complete_label")),
+            ambiguous_label=_optional_label(row.get("ambiguous_label")),
+            unavailable_label=_optional_label(row.get("unavailable_label")),
+            error_label=_optional_label(row.get("error_label")),
+            unresolved_label=_optional_label(row.get("unresolved_label")),
         )
     return specs
+
+
+def _optional_label(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 def gateable_tool_names(specs: Mapping[str, ToolSpec]) -> frozenset[str]:

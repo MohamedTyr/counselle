@@ -189,6 +189,55 @@ class StepMapper:
             template = self._errors.get("tool_failed", "{label} — failed")
         return template.format_map(_SafeDict({"label": mapped.label}))
 
+    def terminal_label(
+        self,
+        mapped: MappedStep,
+        args: dict[str, Any],
+        detail: StepDetail | None,
+        *,
+        errored: bool,
+        retry: bool,
+    ) -> str:
+        """Choose state-aware asset copy from safe receipt fields."""
+        spec = self._specs.get(mapped.tool)
+        if spec is None:
+            return self.error_label(mapped, retry=retry) if errored else mapped.label
+        if errored:
+            template = spec.error_label
+        elif detail is None:
+            template = spec.unresolved_label
+        elif mapped.tool == "resolve_school":
+            count = detail.result_count
+            template = (
+                spec.unavailable_label
+                if count == 0
+                else spec.complete_label
+                if count == 1
+                else spec.ambiguous_label
+                if isinstance(count, int) and count > 1
+                else None
+            )
+        elif mapped.tool in ("get_school_profile", "get_domain"):
+            count = detail.value_count
+            template = (
+                spec.unavailable_label
+                if count == 0
+                else spec.complete_label
+                if isinstance(count, int) and count > 0
+                else None
+            )
+        else:
+            template = None
+        if template is None:
+            return self.error_label(mapped, retry=retry) if errored else mapped.label
+        label_args = self._label_args(mapped.tool, args)
+        if detail is not None:
+            if detail.schools:
+                label_args = {**label_args, "school": detail.schools[0]}
+            if detail.domain_id:
+                label_args = {**label_args, "category": _humanize(detail.domain_id)}
+        return template.format_map(_SafeDict(label_args))
+
     # -- result time ------------------------------------------------------
 
     @staticmethod
@@ -881,9 +930,13 @@ class EmissionRouter:
                 open_step.step_id,
                 status,
                 open_step.mapped,
-                label=open_step.mapped.label
-                if status == "end"
-                else self.mapper.error_label(open_step.mapped, retry=False),
+                label=self.mapper.terminal_label(
+                    open_step.mapped,
+                    open_step.args,
+                    None,
+                    errored=status == "error",
+                    retry=False,
+                ),
                 detail=None,
             )
         self._open.clear()
@@ -1069,9 +1122,13 @@ class EmissionRouter:
             open_step.step_id,
             "error" if errored else "end",
             open_step.mapped,
-            label=self.mapper.error_label(open_step.mapped, retry=retry)
-            if errored
-            else open_step.mapped.label,
+            label=self.mapper.terminal_label(
+                open_step.mapped,
+                open_step.args,
+                detail,
+                errored=errored,
+                retry=retry,
+            ),
             detail=detail,
             sources=sources,
             ui=ui,

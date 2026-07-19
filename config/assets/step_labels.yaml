@@ -14,15 +14,28 @@ tools:
   resolve_school:
     kind: db_tool
     tier: official
-    label: "Finding “{query}” in the database"
+    label: "Finding “{query}”…"
+    complete_label: "Found {school}"
+    ambiguous_label: "Found possible matches for “{query}”"
+    unavailable_label: "No school found for “{query}”"
+    error_label: "Couldn’t search the school database"
+    unresolved_label: "Finished school lookup for “{query}”"
   get_school_profile:
     kind: db_tool
     tier: official
-    label: "Pulling {school}'s profile"
+    label: "Reading {school}’s profile…"
+    complete_label: "Read {school}’s profile"
+    unavailable_label: "Profile data unavailable for {school}"
+    error_label: "Couldn’t read {school}’s profile"
+    unresolved_label: "Finished {school}’s profile lookup"
   get_domain:
     kind: db_tool
     tier: official
-    label: "Pulling {school}'s {category} CDS data"
+    label: "Reading {school}’s {category} data…"
+    complete_label: "Read {school}’s {category} data"
+    unavailable_label: "No {category} data available for {school}"
+    error_label: "Couldn’t read {school}’s {category} data"
+    unresolved_label: "Finished {school}’s {category} data lookup"
   query_database:
     kind: sql
     tier: official
