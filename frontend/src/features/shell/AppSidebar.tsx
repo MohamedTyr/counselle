@@ -41,7 +41,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" variant="sidebar">
       <div
         className={cn(
-          "flex h-full flex-col gap-4 py-[var(--shell-sidebar-inset-block)]",
+          "flex h-full min-h-0 flex-col gap-4 py-[var(--shell-sidebar-inset-block)]",
           isCollapsed
             ? "items-center px-[var(--shell-sidebar-collapsed-inset-inline)]"
             : "px-[var(--shell-sidebar-inset-inline)]",
@@ -71,7 +71,7 @@ export function AppSidebar() {
 
           <SidebarTrigger />
         </SidebarHeader>
-        <SidebarContent className="gap-4 p-0">
+        <SidebarContent className="gap-4 overflow-hidden p-0">
           <MainNav routes={shellRoutes} />
           {!isCollapsed && <ChatSessionList />}
         </SidebarContent>

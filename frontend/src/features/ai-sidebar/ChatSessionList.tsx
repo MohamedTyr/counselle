@@ -78,7 +78,7 @@ export function ChatSessionList() {
   return (
     <SidebarGroup className="min-h-0 flex-1 p-0">
       <SidebarGroupLabel>Recent chats</SidebarGroupLabel>
-      <SidebarGroupContent className="flex min-h-0 flex-col gap-2">
+      <SidebarGroupContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
         <SidebarInput
           aria-label="Search chats"
           onChange={(event) => setSearchQuery(event.target.value)}
@@ -100,7 +100,7 @@ export function ChatSessionList() {
         ) : filteredSessions.length === 0 ? (
           <p className="px-2 text-xs text-muted-foreground">No recent chats.</p>
         ) : (
-          <SidebarMenu className="min-h-0 overflow-y-auto pr-1">
+          <SidebarMenu className="min-h-0 flex-1 overflow-y-auto pr-1">
             {filteredSessions.map((session) => (
               <ChatSessionRow
                 active={session.sessionId === activeSessionId}
