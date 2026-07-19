@@ -80,14 +80,14 @@ export function ChatSessionList() {
     <SidebarGroup className="min-h-0 flex-1 p-0">
       <SidebarGroupLabel>Recent chats</SidebarGroupLabel>
       <SidebarGroupContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-        <div className="relative">
+        <div className="sidebar-chat-search relative">
           <Search
             aria-hidden="true"
             className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-sidebar-foreground"
           />
           <SidebarInput
             aria-label="Search chats"
-            className="h-11 rounded-md border-transparent !bg-transparent !shadow-none before:hidden hover:!bg-sidebar-accent has-focus-visible:border-sidebar-ring has-focus-visible:!bg-sidebar-accent has-focus-visible:ring-sidebar-ring/40 md:pointer-fine:h-8 dark:!bg-transparent dark:hover:!bg-sidebar-accent dark:has-focus-visible:!bg-sidebar-accent [&_[data-slot=input]]:h-full [&_[data-slot=input]]:pr-3 [&_[data-slot=input]]:pl-8 [&_[data-slot=input]]:text-sidebar-accent-foreground [&_[data-slot=input]]:placeholder:text-sidebar-foreground [&_[data-slot=input]]:placeholder:opacity-100"
+            className="h-11 rounded-md border-transparent !bg-transparent !shadow-none before:hidden hover:!bg-sidebar-accent has-focus-visible:border-transparent has-focus-visible:!bg-transparent has-focus-visible:!ring-0 md:h-8 pointer-coarse:!h-11 dark:!bg-transparent dark:hover:!bg-sidebar-accent dark:has-focus-visible:!bg-transparent [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-8 [&_input]:text-sidebar-accent-foreground [&_input]:placeholder:text-sidebar-foreground [&_input]:placeholder:opacity-100 md:[&_input]:!h-8 pointer-coarse:[&_input]:!h-11"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search"
             type="search"
@@ -112,7 +112,7 @@ export function ChatSessionList() {
               : "No recent chats."}
           </p>
         ) : (
-          <SidebarMenu className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <SidebarMenu className="sidebar-chat-scrollbar-hidden min-h-0 flex-1 overflow-y-auto pr-1">
             {filteredSessions.map((session) => (
               <ChatSessionRow
                 active={session.sessionId === activeSessionId}

@@ -73,7 +73,7 @@ export function ChatSessionActions({
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction
             aria-label={`Actions for ${title}`}
-            className="sidebar-chat-action pointer-events-none !top-3 z-10 transition-[color,opacity] group-focus-within/menu-item:pointer-events-auto group-hover/menu-item:pointer-events-auto aria-expanded:pointer-events-auto pointer-coarse:pointer-events-auto pointer-coarse:!opacity-100 pointer-coarse:after:!-top-3 pointer-coarse:after:!-right-2 pointer-coarse:after:!-bottom-3 pointer-coarse:after:!-left-4 pointer-coarse:after:!block md:pointer-fine:!top-1.5"
+            className="sidebar-chat-action pointer-events-none !top-3 z-10 transition-[color,opacity] group-focus-within/menu-item:pointer-events-auto group-hover/menu-item:pointer-events-auto aria-expanded:pointer-events-auto pointer-coarse:pointer-events-auto pointer-coarse:!opacity-100 pointer-coarse:after:!-top-3 pointer-coarse:after:!-right-2 pointer-coarse:after:!-bottom-3 pointer-coarse:after:!-left-4 pointer-coarse:after:!block md:!top-1.5 pointer-coarse:!top-3"
             disabled={isBusy}
             onClick={stopPropagation}
             showOnHover

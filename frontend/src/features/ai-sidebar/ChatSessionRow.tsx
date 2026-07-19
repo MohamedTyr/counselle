@@ -59,7 +59,7 @@ export function ChatSessionRow({
       <SidebarMenuButton
         asChild
         className={cn(
-          "h-11 rounded-md px-1.5 pr-1.5! text-sidebar-foreground transition-colors md:pointer-fine:h-8 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
+          "h-11 rounded-md px-1.5 pr-1.5! text-sidebar-foreground transition-colors md:h-8 pointer-coarse:!h-11 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
           active && "font-medium",
         )}
         isActive={active}
@@ -71,7 +71,9 @@ export function ChatSessionRow({
           title={title}
           to={to}
         >
-          <span className="min-w-0 flex-1 truncate">{title}</span>
+          <span className="sidebar-chat-title min-w-0 flex-1 truncate">
+            {title}
+          </span>
           {session.isGenerating && (
             <Spinner aria-label={`${title} is generating`} />
           )}
