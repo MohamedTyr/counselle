@@ -439,7 +439,7 @@ export function ActivitiesPage() {
 
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-      <div className="workspace-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10">
         <PageHeader title="Activities" />
 
         <Tabs

@@ -154,7 +154,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
         </motion.header>
       </div>
 
-      <div className="workspace-scrollbar min-h-0 flex-1 overflow-y-auto bg-(--essay-editor-chrome-surface)">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-(--essay-editor-chrome-surface)">
         <div className="mx-auto flex w-full max-w-[1440px] px-4 pt-6 pb-28 lg:px-7 lg:pt-8 lg:pb-32">
           <main className="min-w-0 flex-1">
             <motion.div
@@ -173,7 +173,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 px-4 pb-[env(safe-area-inset-bottom)] sm:bottom-5">
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className="workspace-scrollbar pointer-events-auto mx-auto max-w-[min(820px,calc(100vw-2rem))] overflow-x-auto sm:flex sm:justify-center"
+          className="pointer-events-auto mx-auto max-w-[min(820px,calc(100vw-2rem))] overflow-x-auto sm:flex sm:justify-center"
           initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
           transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
         >

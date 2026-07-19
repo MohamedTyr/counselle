@@ -29,7 +29,7 @@ export function ScrollArea({
           scrollFade &&
             "mask-t-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-y-start)))] mask-r-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-x-end)))] mask-b-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-y-end)))] mask-l-from-[calc(100%-min(var(--fade-size),var(--scroll-area-overflow-x-start)))] [--fade-size:1.5rem]",
           scrollbarGutter &&
-            "data-has-overflow-x:pb-2.5 data-has-overflow-y:pe-2.5"
+            "data-has-overflow-x:pb-2.5 data-has-overflow-y:pe-2.5",
         )}
         data-slot="scroll-area-viewport"
       >
@@ -55,18 +55,12 @@ export function ScrollBar({
 }: ScrollAreaPrimitive.Scrollbar.Props): React.ReactElement {
   return (
     <ScrollAreaPrimitive.Scrollbar
-      className={cn(
-        "m-1 flex opacity-0 transition-opacity delay-300 data-hovering:opacity-100 data-hovering:delay-0 data-hovering:duration-100 data-scrolling:opacity-100 data-scrolling:delay-0 data-scrolling:duration-100 data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:flex-col data-[orientation=vertical]:w-1.5",
-        className
-      )}
+      className={className}
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
       {...props}
     >
-      <ScrollAreaPrimitive.Thumb
-        className="relative flex-1 rounded-full bg-foreground/20"
-        data-slot="scroll-area-thumb"
-      />
+      <ScrollAreaPrimitive.Thumb data-slot="scroll-area-thumb" />
     </ScrollAreaPrimitive.Scrollbar>
   )
 }

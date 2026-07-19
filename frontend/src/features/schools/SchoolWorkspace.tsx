@@ -439,7 +439,7 @@ export function SchoolWorkspace({ detail, onRetry }: { detail: ApplicationDetail
     })
   }
   return (
-    <section className="workspace-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-14 sm:px-6 lg:px-10">
+    <section className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-14 sm:px-6 lg:px-10">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 pt-6">
         <Breadcrumb><BreadcrumbList><BreadcrumbItem><BreadcrumbLink render={<Link to="/app/schools" />}>Schools</BreadcrumbLink></BreadcrumbItem><BreadcrumbSeparator /><BreadcrumbItem><BreadcrumbPage>{application.school_name}</BreadcrumbPage></BreadcrumbItem></BreadcrumbList></Breadcrumb>
         <header className="flex flex-col gap-6">
