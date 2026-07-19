@@ -433,6 +433,31 @@
 }
 
 @layer components {
+  .sidebar-chat-action::before {
+    position: absolute;
+    z-index: -1;
+    inset-block: -0.375rem;
+    inset-inline: -1.5rem -0.25rem;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--sidebar-background) 55%,
+      var(--sidebar-background)
+    );
+    content: "";
+    pointer-events: none;
+  }
+
+  [data-sidebar="menu-item"]:hover .sidebar-chat-action::before,
+  [data-active="true"] ~ .sidebar-chat-action::before {
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--sidebar-accent) 55%,
+      var(--sidebar-accent)
+    );
+  }
+
   [data-slot="scroll-area-scrollbar"] {
     display: flex;
     margin: 0;

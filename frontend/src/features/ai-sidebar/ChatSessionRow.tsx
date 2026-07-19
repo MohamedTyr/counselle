@@ -59,7 +59,7 @@ export function ChatSessionRow({
       <SidebarMenuButton
         asChild
         className={cn(
-          "h-11 rounded-md px-1.5 pr-8 text-sidebar-foreground transition-colors md:pointer-fine:h-8 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
+          "h-11 rounded-md px-1.5 pr-1.5! text-sidebar-foreground transition-colors md:pointer-fine:h-8 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
           active && "font-medium",
         )}
         isActive={active}
