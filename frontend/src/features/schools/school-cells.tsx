@@ -1,51 +1,51 @@
-import { ExternalLink } from "lucide-react"
+import { ExternalLink } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import type {
   ApplicationStatus,
   ListType,
   Progress,
   School,
-} from "@/domain/school"
+} from "@/domain/school";
 import {
   listTypeVariant,
   statusVariant,
-} from "@/features/schools/schools-config"
+} from "@/features/schools/schools-config";
 import {
   formatDeadline,
   getDeadlineUrgency,
-} from "@/features/schools/schools-deadline"
-import { getProgressRatio } from "@/features/schools/schools-sort"
-import { cn } from "@/lib/utils"
+} from "@/features/schools/schools-deadline";
+import { getProgressRatio } from "@/features/schools/schools-sort";
+import { cn } from "@/lib/utils";
 
 function getSchoolInitials(name: string) {
   const words = name
     .split(/\s+/)
     .map((word) => word.replace(/[^A-Za-z0-9]/g, ""))
-    .filter(Boolean)
+    .filter(Boolean);
 
   if (words.length === 0) {
-    return "?"
+    return "?";
   }
 
   return words
     .slice(0, 2)
     .map((word) => word[0])
     .join("")
-    .toUpperCase()
+    .toUpperCase();
 }
 
 function faviconUrlFromWebsite(websiteUrl: string | null) {
   if (!websiteUrl) {
-    return undefined
+    return undefined;
   }
 
   try {
-    const hostname = new URL(websiteUrl).hostname
-    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
+    const hostname = new URL(websiteUrl).hostname;
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
   } catch {
-    return undefined
+    return undefined;
   }
 }
 
@@ -53,8 +53,8 @@ export function SchoolAvatar({
   name,
   websiteUrl,
 }: {
-  name: string
-  websiteUrl: string | null
+  name: string;
+  websiteUrl: string | null;
 }) {
   return (
     <Avatar size="lg" className="rounded-lg">
@@ -67,11 +67,13 @@ export function SchoolAvatar({
         {getSchoolInitials(name)}
       </AvatarFallback>
     </Avatar>
-  )
+  );
 }
 
 export function SchoolLogo({ school }: { school: School }) {
-  return <SchoolAvatar name={school.schoolName} websiteUrl={school.websiteUrl} />
+  return (
+    <SchoolAvatar name={school.schoolName} websiteUrl={school.websiteUrl} />
+  );
 }
 
 export function SchoolIdentity({
@@ -79,11 +81,11 @@ export function SchoolIdentity({
   layout = "table",
   onOpen,
 }: {
-  school: School
-  layout?: "table" | "mobile"
-  onOpen: (schoolId: string) => void
+  school: School;
+  layout?: "table" | "mobile";
+  onOpen: (schoolId: string) => void;
 }) {
-  const isMobile = layout === "mobile"
+  const isMobile = layout === "mobile";
 
   return (
     <button
@@ -93,8 +95,8 @@ export function SchoolIdentity({
         isMobile && "flex-1",
       )}
       onClick={(event) => {
-        event.stopPropagation()
-        onOpen(school.id)
+        event.stopPropagation();
+        onOpen(school.id);
       }}
       type="button"
     >
@@ -103,7 +105,7 @@ export function SchoolIdentity({
         <span
           className={cn(
             "flex min-w-0 gap-1.5 font-medium",
-            isMobile ? "items-start" : "items-center"
+            isMobile ? "items-start" : "items-center",
           )}
         >
           <span className={isMobile ? "leading-tight" : "truncate"}>
@@ -111,16 +113,19 @@ export function SchoolIdentity({
           </span>
         </span>
         <span className="truncate text-xs text-muted-foreground">
-          {school.location} · {school.cycleYear ? `${school.cycleYear - 1}-${String(school.cycleYear).slice(-2)}` : "Cycle unconfirmed"}
+          {school.location} ·{" "}
+          {school.cycleYear
+            ? `${school.cycleYear - 1}-${String(school.cycleYear).slice(-2)}`
+            : "Cycle unconfirmed"}
         </span>
       </span>
     </button>
-  )
+  );
 }
 
 export function SchoolWebsiteLink({ school }: { school: School }) {
   if (!school.websiteUrl) {
-    return null
+    return null;
   }
 
   return (
@@ -135,37 +140,35 @@ export function SchoolWebsiteLink({ school }: { school: School }) {
     >
       <ExternalLink aria-hidden="true" className="size-4" />
     </a>
-  )
+  );
 }
 
 export function StatusBadge({ status }: { status: ApplicationStatus }) {
-  return <Badge variant={statusVariant[status]}>{status}</Badge>
+  return <Badge variant={statusVariant[status]}>{status}</Badge>;
 }
 
 export function ListTypeBadge({ listType }: { listType: ListType }) {
-  return <Badge variant={listTypeVariant[listType]}>{listType}</Badge>
+  return <Badge variant={listTypeVariant[listType]}>{listType}</Badge>;
 }
 
 export function DeadlineValue({ school }: { school: School }) {
-  const deadline = formatDeadline(school.deadline)
+  const deadline = formatDeadline(school.deadline);
 
   if (getDeadlineUrgency(school.deadline) === "close") {
-    return <Badge variant="error">{deadline}</Badge>
+    return <Badge variant="error">{deadline}</Badge>;
   }
 
   if (!school.deadline) {
-    return <span className="text-sm text-muted-foreground">{deadline}</span>
+    return <span className="text-sm text-muted-foreground">{deadline}</span>;
   }
 
   return (
-    <span className="text-sm text-foreground tabular-nums">
-      {deadline}
-    </span>
-  )
+    <span className="text-sm text-foreground tabular-nums">{deadline}</span>
+  );
 }
 
 export function ProgressValue({ progress }: { progress: Progress }) {
-  const percentage = Math.round(getProgressRatio(progress) * 100)
+  const percentage = Math.round(getProgressRatio(progress) * 100);
 
   return (
     <div className="flex min-w-[116px] items-center gap-2">
@@ -179,12 +182,12 @@ export function ProgressValue({ progress }: { progress: Progress }) {
         {progress.completed}/{progress.total}
       </span>
     </div>
-  )
+  );
 }
 
 export function EssaysValue({ essays }: { essays: Progress }) {
   if (essays.total === 0) {
-    return <span className="text-sm text-muted-foreground">None</span>
+    return <span className="text-sm text-muted-foreground">None</span>;
   }
 
   return (
@@ -194,5 +197,5 @@ export function EssaysValue({ essays }: { essays: Progress }) {
     >
       {essays.completed}/{essays.total}
     </span>
-  )
+  );
 }

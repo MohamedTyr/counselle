@@ -142,9 +142,7 @@ function wrapper({ children }: PropsWithChildren) {
 describe("useChatSession", () => {
   beforeEach(() => {
     clearChatSessionSourceConfigCacheForTests();
-    mockedQuery.useChatSessionQuery.mockImplementation(
-      () => mockedQuery.state,
-    );
+    mockedQuery.useChatSessionQuery.mockImplementation(() => mockedQuery.state);
   });
 
   test("does not expose the previous transcript while a new session loads", async () => {
@@ -246,9 +244,9 @@ describe("useChatSession", () => {
       staleSetter((previous) => [...previous]);
     });
 
-    expect(
-      result.current.messages.map((message) => message.text),
-    ).toContain("Second answer");
+    expect(result.current.messages.map((message) => message.text)).toContain(
+      "Second answer",
+    );
   });
 
   test("a stale setter firing in the same tick as a session switch does not blank the transcript", async () => {
@@ -309,9 +307,9 @@ describe("useChatSession", () => {
     );
 
     await waitFor(() =>
-      expect(first.result.current.messages.map((message) => message.text)).toContain(
-        "First answer",
-      ),
+      expect(
+        first.result.current.messages.map((message) => message.text),
+      ).toContain("First answer"),
     );
 
     act(() => {
@@ -339,9 +337,9 @@ describe("useChatSession", () => {
     );
 
     await waitFor(() =>
-      expect(second.result.current.messages.map((message) => message.text)).toContain(
-        "Second answer",
-      ),
+      expect(
+        second.result.current.messages.map((message) => message.text),
+      ).toContain("Second answer"),
     );
 
     expect(second.result.current.sourceConfig).toEqual(BUILT_IN_SOURCE_CONFIG);
@@ -408,6 +406,8 @@ describe("useChatSession", () => {
     );
     rerender({ sessionId: "s1" });
 
-    await waitFor(() => expect(result.current.sourceConfig).toEqual(serverConfig));
+    await waitFor(() =>
+      expect(result.current.sourceConfig).toEqual(serverConfig),
+    );
   });
 });

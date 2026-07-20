@@ -187,7 +187,9 @@ describe("chatTransport", () => {
   });
 
   it("hydrates the persisted v1 fixture through the session transport adapter", async () => {
-    const fixture = JSON.parse(legacyRaw) as { turn_records: Array<Record<string, unknown>> };
+    const fixture = JSON.parse(legacyRaw) as {
+      turn_records: Array<Record<string, unknown>>;
+    };
     const turn = fixture.turn_records[0]!;
     const [source] = turn.sources as Array<Record<string, unknown>>;
     vi.mocked(fetch).mockResolvedValueOnce(
@@ -197,7 +199,12 @@ describe("chatTransport", () => {
         created_at: "2026-07-06T10:00:00Z",
         source_config: null,
         transcript: [
-          { role: "user", text: turn.user_text, ts: null, message_id: turn.user_message_id },
+          {
+            role: "user",
+            text: turn.user_text,
+            ts: null,
+            message_id: turn.user_message_id,
+          },
           {
             role: "assistant",
             text: "The legacy display was 7% [1].",
@@ -205,7 +212,13 @@ describe("chatTransport", () => {
             message_id: turn.message_id,
             parts: turn.parts,
             status: "complete",
-            sources: [{ ...source, v: 1, citation: { ...(source?.citation as object), v: 1 } }],
+            sources: [
+              {
+                ...source,
+                v: 1,
+                citation: { ...(source?.citation as object), v: 1 },
+              },
+            ],
           },
         ],
       }),

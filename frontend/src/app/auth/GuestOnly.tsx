@@ -1,24 +1,24 @@
-import { Navigate, Outlet, useLocation } from "react-router"
+import { Navigate, Outlet, useLocation } from "react-router";
 
-import { useMe } from "@/app/auth"
-import { GuestAuthCheckProvider } from "@/app/auth/GuestAuthCheckProvider"
-import { safeAuthDestination } from "@/app/auth/redirects"
-import { Spinner } from "@/components/ui/spinner"
+import { useMe } from "@/app/auth";
+import { GuestAuthCheckProvider } from "@/app/auth/GuestAuthCheckProvider";
+import { safeAuthDestination } from "@/app/auth/redirects";
+import { Spinner } from "@/components/ui/spinner";
 
 export function GuestOnly() {
-  const me = useMe()
-  const location = useLocation()
+  const me = useMe();
+  const location = useLocation();
 
   if (me.isPending) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background">
         <Spinner />
       </div>
-    )
+    );
   }
 
   if (me.data) {
-    return <Navigate replace to={safeAuthDestination(location.state)} />
+    return <Navigate replace to={safeAuthDestination(location.state)} />;
   }
 
   return (
@@ -30,5 +30,5 @@ export function GuestOnly() {
     >
       <Outlet />
     </GuestAuthCheckProvider>
-  )
+  );
 }

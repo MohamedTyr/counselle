@@ -1,6 +1,6 @@
 type RouteSurfaceProps = {
-  title: string
-}
+  title: string;
+};
 
 export function RouteSurface({ title }: RouteSurfaceProps) {
   return (
@@ -10,5 +10,5 @@ export function RouteSurface({ title }: RouteSurfaceProps) {
       </header>
       <div className="min-h-0 flex-1" />
     </section>
-  )
+  );
 }

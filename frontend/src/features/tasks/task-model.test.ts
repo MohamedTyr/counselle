@@ -1,20 +1,23 @@
-import type { Task } from "@/domain/task"
-import { formatPlannedDateLabel, getDateKey } from "@/features/tasks/task-dates"
+import type { Task } from "@/domain/task";
+import {
+  formatPlannedDateLabel,
+  getDateKey,
+} from "@/features/tasks/task-dates";
 import {
   filterTasksByQuery,
   getUpcomingGroups,
   groupTasksByStatus,
   isTaskInUpcomingView,
-} from "@/features/tasks/task-filters"
-import { createNewTask } from "@/features/tasks/task-mutations"
-import { sortAllTasks, sortPlanningTasks } from "@/features/tasks/task-sort"
-import { parseTaskDragPayload } from "@/features/tasks/useTaskDrag"
+} from "@/features/tasks/task-filters";
+import { createNewTask } from "@/features/tasks/task-mutations";
+import { sortAllTasks, sortPlanningTasks } from "@/features/tasks/task-sort";
+import { parseTaskDragPayload } from "@/features/tasks/useTaskDrag";
 
-const timestamp = "2026-07-01T12:00:00.000Z"
-const referenceDate = new Date(timestamp)
+const timestamp = "2026-07-01T12:00:00.000Z";
+const referenceDate = new Date(timestamp);
 
 function task(overrides: Partial<Task> & Pick<Task, "id" | "title">): Task {
-  const { id, title, ...rest } = overrides
+  const { id, title, ...rest } = overrides;
 
   return {
     assignee: "student",
@@ -26,26 +29,26 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "title">): Task {
     title,
     updated_at: "2026-06-01T09:00:00.000Z",
     ...rest,
-  }
+  };
 }
 
 describe("task date labels", () => {
   it("labels planned dates against an explicit reference date", () => {
-    expect(formatPlannedDateLabel()).toBe("Unplanned")
+    expect(formatPlannedDateLabel()).toBe("Unplanned");
     expect(formatPlannedDateLabel("2026-06-30T09:00:00", referenceDate)).toBe(
-      "Yesterday"
-    )
+      "Yesterday",
+    );
     expect(formatPlannedDateLabel("2026-07-01T09:00:00", referenceDate)).toBe(
-      "Today"
-    )
+      "Today",
+    );
     expect(formatPlannedDateLabel("2026-07-02T09:00:00", referenceDate)).toBe(
-      "Tomorrow"
-    )
+      "Tomorrow",
+    );
     expect(formatPlannedDateLabel("2026-07-08T09:00:00", referenceDate)).toBe(
-      "Jul 8"
-    )
-  })
-})
+      "Jul 8",
+    );
+  });
+});
 
 describe("task filtering and grouping", () => {
   const tasks = [
@@ -68,35 +71,35 @@ describe("task filtering and grouping", () => {
       status: "done",
       title: "Finished task",
     }),
-  ]
+  ];
 
   it("matches search text across task fields", () => {
     expect(filterTasksByQuery(tasks, "essay").map((item) => item.id)).toEqual([
       "essay",
-    ])
+    ]);
     expect(filterTasksByQuery(tasks, "high").map((item) => item.id)).toEqual([
       "essay",
-    ])
+    ]);
     expect(filterTasksByQuery(tasks, "aid").map((item) => item.id)).toEqual([
       "aid",
-    ])
-  })
+    ]);
+  });
 
   it("keeps done tasks out of the upcoming view", () => {
     expect(
       tasks
         .filter((item) => isTaskInUpcomingView(item, referenceDate))
-        .map((item) => item.id)
-    ).toEqual(["aid"])
-  })
+        .map((item) => item.id),
+    ).toEqual(["aid"]);
+  });
 
   it("groups tasks by status immutably", () => {
-    const grouped = groupTasksByStatus(tasks)
+    const grouped = groupTasksByStatus(tasks);
 
-    expect(grouped.doing.map((item) => item.id)).toEqual(["essay"])
-    expect(grouped.todo.map((item) => item.id)).toEqual(["aid"])
-    expect(grouped.done.map((item) => item.id)).toEqual(["done"])
-  })
+    expect(grouped.doing.map((item) => item.id)).toEqual(["essay"]);
+    expect(grouped.todo.map((item) => item.id)).toEqual(["aid"]);
+    expect(grouped.done.map((item) => item.id)).toEqual(["done"]);
+  });
 
   it("builds upcoming groups from planned and unplanned work", () => {
     const groups = getUpcomingGroups(
@@ -118,23 +121,23 @@ describe("task filtering and grouping", () => {
         }),
         task({ id: "unscheduled", title: "Unscheduled" }),
       ],
-      referenceDate
-    )
+      referenceDate,
+    );
 
     expect(groups.find((group) => group.id === "overdue")?.tasks[0]?.id).toBe(
-      "overdue"
-    )
+      "overdue",
+    );
     expect(groups.find((group) => group.id === "tomorrow")?.tasks[0]?.id).toBe(
-      "tomorrow"
-    )
+      "tomorrow",
+    );
     expect(
-      groups.find((group) => group.id === "needs-planning")?.tasks[0]?.id
-    ).toBe("needs-planning")
+      groups.find((group) => group.id === "needs-planning")?.tasks[0]?.id,
+    ).toBe("needs-planning");
     expect(
-      groups.find((group) => group.id === "unscheduled")?.tasks[0]?.id
-    ).toBe("unscheduled")
-  })
-})
+      groups.find((group) => group.id === "unscheduled")?.tasks[0]?.id,
+    ).toBe("unscheduled");
+  });
+});
 
 describe("task sorting", () => {
   const tasks = [
@@ -155,47 +158,49 @@ describe("task sorting", () => {
       priority: "high",
       title: "High unplanned",
     }),
-  ]
+  ];
 
   it("sorts planning tasks by planning date first", () => {
     expect(sortPlanningTasks(tasks).map((item) => item.id)).toEqual([
       "high-sooner",
       "low-later",
       "high-unplanned",
-    ])
-  })
+    ]);
+  });
 
   it("sorts all tasks by selected columns with deterministic fallback", () => {
     expect(
       sortAllTasks(tasks, {
         columnId: "priority",
         direction: "asc",
-      }).map((item) => item.id)
-    ).toEqual(["high-sooner", "high-unplanned", "low-later"])
+      }).map((item) => item.id),
+    ).toEqual(["high-sooner", "high-unplanned", "low-later"]);
 
     expect(
       sortAllTasks(tasks, {
         columnId: "workDate",
         direction: "desc",
-      }).map((item) => item.id)
-    ).toEqual(["low-later", "high-sooner", "high-unplanned"])
-  })
-})
+      }).map((item) => item.id),
+    ).toEqual(["low-later", "high-sooner", "high-unplanned"]);
+  });
+});
 
 describe("task mutations", () => {
   it("creates new tasks from an explicit timestamp", () => {
-    const todayTask = createNewTask("today", timestamp, "task-id")
-    const upcomingTask = createNewTask("upcoming", timestamp, "task-id-2")
+    const todayTask = createNewTask("today", timestamp, "task-id");
+    const upcomingTask = createNewTask("upcoming", timestamp, "task-id-2");
 
     expect(todayTask).toMatchObject({
       id: "task-id",
       planned_for: expect.any(String),
       title: "Untitled task",
-    })
-    expect(getDateKey(new Date(todayTask.planned_for ?? ""))).toBe("2026-07-01")
-    expect(upcomingTask.planned_for).toBeUndefined()
-  })
-})
+    });
+    expect(getDateKey(new Date(todayTask.planned_for ?? ""))).toBe(
+      "2026-07-01",
+    );
+    expect(upcomingTask.planned_for).toBeUndefined();
+  });
+});
 
 describe("task drag payload parsing", () => {
   it("accepts valid task drag payloads", () => {
@@ -205,28 +210,28 @@ describe("task drag payload parsing", () => {
           sourceColumnId: "todo",
           taskId: "task-1",
           taskIds: ["task-1", "task-2"],
-        })
-      )
+        }),
+      ),
     ).toEqual({
       sourceColumnId: "todo",
       taskId: "task-1",
       taskIds: ["task-1", "task-2"],
-    })
-  })
+    });
+  });
 
   it("rejects malformed external drop payloads", () => {
-    expect(parseTaskDragPayload("not json")).toBeNull()
+    expect(parseTaskDragPayload("not json")).toBeNull();
     expect(
-      parseTaskDragPayload(JSON.stringify({ taskId: "task-1" }))
-    ).toBeNull()
+      parseTaskDragPayload(JSON.stringify({ taskId: "task-1" })),
+    ).toBeNull();
     expect(
       parseTaskDragPayload(
         JSON.stringify({
           sourceColumnId: "todo",
           taskId: "task-1",
           taskIds: ["task-1", 42],
-        })
-      )
-    ).toBeNull()
-  })
-})
+        }),
+      ),
+    ).toBeNull();
+  });
+});

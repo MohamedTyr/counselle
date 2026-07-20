@@ -1,9 +1,4 @@
-import {
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { renderApp } from "@/test/render-app";
@@ -52,7 +47,9 @@ describe("workspace shell", () => {
     renderApp("/");
 
     await waitForTasksRoute();
-    expect(await screen.findByRole("link", { name: "Counselle" })).toBeVisible();
+    expect(
+      await screen.findByRole("link", { name: "Counselle" }),
+    ).toBeVisible();
   });
 
   it("navigates top-level workspace routes from the sidebar", async () => {

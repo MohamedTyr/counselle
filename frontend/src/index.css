@@ -7,6 +7,268 @@
 
 @source "../node_modules/streamdown/dist/*.js";
 
+/*
+ * Chat markdown vertical rhythm.
+ *
+ * Spacing is a relationship, not a constant. Instead of one uniform gap
+ * between every block, the scale below expresses hierarchy: content that
+ * belongs together hugs (a heading and its body), distinct blocks breathe
+ * (lists, quotes, tables), and a new section gets real air. Every gap is a
+ * top-margin only, so sibling margins never collapse unpredictably and each
+ * pair-rule fully owns the space between the two elements it names.
+ *
+ * These rules are deliberately UNLAYERED. Streamdown ships its own Tailwind
+ * utility classes on every block (`mt-6`/`mb-2` on headings, `my-4` on quotes
+ * and tables, `py-1` on list items, nothing on `<ul>`) plus a root
+ * `space-y-0`, all in the `utilities` layer — which outranks `@layer
+ * components` no matter the specificity. Unlayered normal declarations beat
+ * every cascade layer, so this becomes the single authority on spacing; the
+ * reset below zeroes the library's own margins so nothing double-counts.
+ */
+@media (min-width: 0) {
+  .markdown-response
+    :where(
+      p,
+      blockquote,
+      hr,
+      ul,
+      ol,
+      [data-streamdown^="heading-"],
+      [data-streamdown="table-wrapper"],
+      [data-streamdown="code-block"],
+      [data-streamdown="image-wrapper"],
+      [data-streamdown="mermaid-block"]
+    ) {
+    margin-block: 0;
+  }
+
+  .markdown-response :where([data-streamdown="list-item"]) {
+    padding-block: 0;
+  }
+
+  .markdown-response {
+    --md-flow: 0.85rem; /* paragraph → paragraph */
+    --md-flow-tight: 0.65rem; /* heading → its own body */
+    --md-flow-block: 1.15rem; /* around lists, quotes, tables, code */
+    --md-flow-sub: 1.2rem; /* new subsection: above h3 */
+    --md-flow-minor: 1.05rem; /* above h4–h6 */
+    --md-flow-section: 1.5rem; /* new section: above h1 / h2 */
+    --md-flow-stack: 1rem; /* header → sub-header directly under it */
+    --md-flow-rule: 1rem; /* around a horizontal rule */
+
+    max-width: 70ch;
+    font-size: 1rem;
+    line-height: 1.72;
+    color: var(--workspace-foreground-soft);
+    text-wrap: pretty;
+  }
+
+  /* Baseline flow between top-level blocks. */
+  .markdown-response > * + * {
+    margin-block-start: var(--md-flow);
+  }
+
+  /* Rich blocks breathe on both sides — space before the block and after it. */
+  .markdown-response
+    > * + :is(
+      [data-streamdown="unordered-list"],
+      [data-streamdown="ordered-list"],
+      [data-streamdown="blockquote"],
+      [data-streamdown="table-wrapper"],
+      [data-streamdown="code-block"],
+      [data-streamdown="image-wrapper"],
+      [data-streamdown="mermaid-block"]
+    ),
+  .markdown-response
+    > :is(
+      [data-streamdown="unordered-list"],
+      [data-streamdown="ordered-list"],
+      [data-streamdown="blockquote"],
+      [data-streamdown="table-wrapper"],
+      [data-streamdown="code-block"],
+      [data-streamdown="image-wrapper"],
+      [data-streamdown="mermaid-block"]
+    )
+    + * {
+    margin-block-start: var(--md-flow-block);
+  }
+
+  /* Horizontal rule — a deliberate, symmetric pause. */
+  .markdown-response > * + [data-streamdown="horizontal-rule"],
+  .markdown-response > [data-streamdown="horizontal-rule"] + * {
+    margin-block-start: var(--md-flow-rule);
+  }
+
+  /*
+   * Headings. Declared after the block rules so, on equal specificity, a
+   * heading always wins its generous lead-in space and the element right
+   * after it always hugs tight — the coupling that makes a heading read as
+   * owning the content beneath it.
+   */
+  .markdown-response [data-streamdown^="heading-"] {
+    margin-block: 0;
+    color: var(--workspace-foreground);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.28;
+    text-wrap: balance;
+  }
+
+  .markdown-response
+    > * + :is([data-streamdown="heading-1"], [data-streamdown="heading-2"]) {
+    margin-block-start: var(--md-flow-section);
+  }
+
+  .markdown-response > * + [data-streamdown="heading-3"] {
+    margin-block-start: var(--md-flow-sub);
+  }
+
+  .markdown-response
+    > * + :is(
+      [data-streamdown="heading-4"],
+      [data-streamdown="heading-5"],
+      [data-streamdown="heading-6"]
+    ) {
+    margin-block-start: var(--md-flow-minor);
+  }
+
+  .markdown-response [data-streamdown^="heading-"] + * {
+    margin-block-start: var(--md-flow-tight);
+  }
+
+  /* A sub-header directly under a header: related, but never cramped. Declared
+     after the tight coupling above so a stacked heading wins the larger gap. */
+  .markdown-response
+    [data-streamdown^="heading-"]
+    + [data-streamdown^="heading-"] {
+    margin-block-start: var(--md-flow-stack);
+  }
+
+  .markdown-response [data-streamdown="heading-1"] {
+    font-size: 1.375rem;
+  }
+
+  .markdown-response [data-streamdown="heading-2"] {
+    font-size: 1.1875rem;
+  }
+
+  .markdown-response [data-streamdown="heading-3"] {
+    font-size: 1.0625rem;
+  }
+
+  .markdown-response
+    :is(
+      [data-streamdown="heading-4"],
+      [data-streamdown="heading-5"],
+      [data-streamdown="heading-6"]
+    ) {
+    font-size: 1rem;
+  }
+
+  /* Lists — outer spacing comes from the flow rules above; here we only tune
+     the internal rhythm so items read as a connected group. */
+  .markdown-response
+    :is([data-streamdown="ordered-list"], [data-streamdown="unordered-list"]) {
+    list-style-position: outside !important;
+    padding-inline-start: 1.1rem !important;
+  }
+
+  .markdown-response
+    [data-streamdown="list-item"]
+    + [data-streamdown="list-item"] {
+    margin-block-start: 0.35rem;
+  }
+
+  .markdown-response [data-streamdown="list-item"]::marker {
+    color: var(--workspace-muted-foreground);
+    font-weight: 600;
+  }
+
+  .markdown-response [data-streamdown="list-item"] > :is(ul, ol) {
+    margin-block: 0.35rem 0;
+  }
+
+  /* Loose (multi-paragraph) list items. */
+  .markdown-response [data-streamdown="list-item"] > p {
+    margin: 0;
+  }
+
+  .markdown-response [data-streamdown="list-item"] > p + p {
+    margin-block-start: 0.5rem;
+  }
+
+  .markdown-response [data-streamdown="strong"] {
+    color: var(--workspace-foreground);
+    font-weight: 650;
+  }
+
+  .markdown-response [data-streamdown="link"] {
+    color: var(--workspace-foreground);
+    font-weight: 550;
+    text-decoration-color: color-mix(
+      in oklch,
+      var(--workspace-foreground) 42%,
+      transparent
+    );
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+  }
+
+  .markdown-response [data-streamdown="link"]:hover {
+    text-decoration-color: currentColor;
+  }
+
+  .markdown-response [data-streamdown="blockquote"] {
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--workspace-surface-raised);
+    padding: 0.875rem 1.05rem;
+    color: var(--workspace-foreground-soft);
+    font-style: normal;
+  }
+
+  .markdown-response [data-streamdown="blockquote"] > * + * {
+    margin-block-start: 0.6rem;
+  }
+
+  .markdown-response [data-streamdown="inline-code"] {
+    border: 1px solid var(--workspace-border);
+    background: var(--workspace-surface-raised);
+    padding: 0.1em 0.35em;
+    font-size: 0.875em;
+  }
+
+  .markdown-response [data-streamdown="horizontal-rule"] {
+    border-color: var(--workspace-border);
+  }
+
+  .markdown-response
+    :is([data-streamdown="table-header-cell"], [data-streamdown="table-cell"]) {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 640px) {
+    .markdown-response {
+      --md-flow-block: 1.05rem;
+      --md-flow-section: 1.35rem;
+      --md-flow-sub: 1.1rem;
+
+      max-width: none;
+      line-height: 1.68;
+    }
+
+    .markdown-response [data-streamdown="heading-1"] {
+      font-size: 1.3125rem;
+    }
+
+    .markdown-response [data-streamdown="heading-2"] {
+      font-size: 1.125rem;
+    }
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -76,6 +338,10 @@
   --shell-sidebar-inset-block: 1rem;
   --shell-divider: #242323;
   --shell-sidebar-border: #2b2a28;
+  --shell-sidebar-scrollbar: #3a3835;
+  --shell-sidebar-scrollbar-hover: #504e49;
+  --shell-sidebar-group-label: #7c7a76;
+  --shell-sidebar-resizer: #d8d0c3;
   --workspace-foreground: #e3e0db;
   --workspace-foreground-soft: #cbc6bd;
   --workspace-muted-foreground: #969593;
@@ -481,12 +747,129 @@
     );
   }
 
-  .sidebar-chat-scrollbar-hidden {
-    scrollbar-width: none;
+  /* Whole-sidebar scroll region: one continuous scroll for nav + recents,
+     with a slim, always-present scrollbar that brightens on interaction. */
+  .sidebar-scroll {
+    scrollbar-gutter: stable;
+    scrollbar-color: transparent transparent;
+    overscroll-behavior: contain;
+    transition: scrollbar-color 200ms ease-out;
   }
 
-  .sidebar-chat-scrollbar-hidden::-webkit-scrollbar {
-    display: none;
+  /* Reveal the thumb only while the pointer is over the sidebar body. */
+  .sidebar-scroll:hover {
+    scrollbar-color: var(--shell-sidebar-scrollbar) transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 0.625rem;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    background-clip: padding-box;
+    border: 0.25rem solid transparent;
+    border-radius: 999px;
+    min-height: 2.25rem;
+    transition:
+      background-color 200ms ease-out,
+      border-width 160ms ease-out;
+  }
+
+  .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: var(--shell-sidebar-scrollbar);
+  }
+
+  .sidebar-scroll:hover::-webkit-scrollbar-thumb:hover,
+  .sidebar-scroll::-webkit-scrollbar-thumb:active {
+    background-color: var(--shell-sidebar-scrollbar-hover);
+    border-width: 0.1875rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-scroll,
+    .sidebar-scroll::-webkit-scrollbar-thumb {
+      transition: none;
+    }
+  }
+
+  /* Recency section headers (Today / Yesterday / …). */
+  .sidebar-chat-group-label {
+    padding: 0.25rem 0.625rem 0.1875rem;
+    color: var(--shell-sidebar-group-label);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    user-select: none;
+  }
+
+  /* Subtle staggered entrance for recents, capped so long lists stay snappy. */
+  @keyframes sidebar-chat-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.25rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .sidebar-chat-item {
+    animation: sidebar-chat-in 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--chat-row-index, 0) * 22ms);
+  }
+
+  /* Drag-to-resize divider at the sidebar's trailing edge. */
+  .sidebar-resizer {
+    width: 0.875rem;
+  }
+
+  .sidebar-resizer__line {
+    position: absolute;
+    inset-block: 0;
+    left: 50%;
+    width: 2px;
+    translate: -50%;
+    border-radius: 999px;
+    background: transparent;
+    transition:
+      background-color 160ms ease-out,
+      opacity 160ms ease-out;
+  }
+
+  .sidebar-resizer:hover .sidebar-resizer__line {
+    background: color-mix(
+      in oklab,
+      var(--shell-sidebar-resizer) 55%,
+      transparent
+    );
+  }
+
+  .sidebar-resizer--active .sidebar-resizer__line {
+    background: var(--shell-sidebar-resizer);
+    inset-block: -0.25rem;
+  }
+
+  .sidebar-provider--resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  .sidebar-provider--resizing [data-slot="sidebar-gap"],
+  .sidebar-provider--resizing [data-slot="sidebar-container"] {
+    transition: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-chat-item {
+      animation: none;
+    }
   }
 
   [data-slot="scroll-area-scrollbar"] {

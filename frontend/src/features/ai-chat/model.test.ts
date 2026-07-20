@@ -168,7 +168,9 @@ describe("assistantMessage", () => {
 
     expect(message.text).toBe("Final answer only.");
     expect(message.runMarkdown).toBe(
-      ["Checking aid data.", "> Also compare cost.", "Final answer only."].join("\n\n"),
+      ["Checking aid data.", "> Also compare cost.", "Final answer only."].join(
+        "\n\n",
+      ),
     );
   });
 
@@ -178,7 +180,11 @@ describe("assistantMessage", () => {
       status: "complete",
       segments: [
         { type: "narration", id: "narration-0", text: "Checking aid data." },
-        { type: "thinking", id: "thinking-0", text: "Native reasoning summary." },
+        {
+          type: "thinking",
+          id: "thinking-0",
+          text: "Native reasoning summary.",
+        },
       ],
     };
 
@@ -206,7 +212,11 @@ describe("assistantMessage", () => {
     expect(messages[0]).toMatchObject({
       kind: "assistant",
       segments: [
-        { type: "narration", id: "narration-0", text: "Reading official costs." },
+        {
+          type: "narration",
+          id: "narration-0",
+          text: "Reading official costs.",
+        },
         { type: "answer", text: "Done." },
       ],
     });

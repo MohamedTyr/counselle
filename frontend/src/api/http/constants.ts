@@ -1,1 +1,1 @@
-export const BASE = "/v1"
+export const BASE = "/v1";

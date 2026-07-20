@@ -37,7 +37,9 @@ function OptionChip({ label, hint, selected, frozen, onClick }: ChipProps) {
       type="button"
     >
       <span className="text-sm font-medium text-foreground">{label}</span>
-      {hint.length > 0 && <span className="text-xs text-muted-foreground">{hint}</span>}
+      {hint.length > 0 && (
+        <span className="text-xs text-muted-foreground">{hint}</span>
+      )}
     </button>
   );
 }
@@ -98,7 +100,9 @@ function deriveSelection(
     ? answer.split(",").map((part) => part.trim())
     : [answer.trim()];
   const labels = parts.filter((part) => optionLabels.has(part));
-  const others = parts.filter((part) => part.length > 0 && !optionLabels.has(part));
+  const others = parts.filter(
+    (part) => part.length > 0 && !optionLabels.has(part),
+  );
 
   return { labels, other: others.length > 0 ? others.join(", ") : null };
 }
@@ -112,8 +116,15 @@ function deriveSelection(
  * persisted `answer` and renders inert (the transcript record of what was
  * asked and chosen).
  */
-export function ClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidgetProps) {
-  const seeded = frozen ? deriveSelection(spec, answer) : { labels: [], other: null };
+export function ClarifyWidget({
+  spec,
+  frozen,
+  onAnswer,
+  answer,
+}: ClarifyWidgetProps) {
+  const seeded = frozen
+    ? deriveSelection(spec, answer)
+    : { labels: [], other: null };
   const [selected, setSelected] = useState<string[]>(seeded.labels);
   const [otherOpen, setOtherOpen] = useState(seeded.other !== null);
 
@@ -135,7 +146,9 @@ export function ClarifyWidget({ spec, frozen, onAnswer, answer }: ClarifyWidgetP
   };
 
   const isChipSelected = (label: string) =>
-    frozen ? seeded.labels.includes(label) : spec.multi_select && selected.includes(label);
+    frozen
+      ? seeded.labels.includes(label)
+      : spec.multi_select && selected.includes(label);
 
   return (
     <div

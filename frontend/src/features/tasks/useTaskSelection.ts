@@ -5,33 +5,33 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent,
-} from "react"
+} from "react";
 
-import { selectionDragThreshold } from "@/features/tasks/task-config"
+import { selectionDragThreshold } from "@/features/tasks/task-config";
 import type {
   SelectionBounds,
   SelectionBox,
   SelectionSession,
-} from "@/features/tasks/task-types"
+} from "@/features/tasks/task-types";
 
 export function getSelectionBounds(box: SelectionBox): SelectionBounds {
-  const left = Math.min(box.startX, box.currentX)
-  const right = Math.max(box.startX, box.currentX)
-  const top = Math.min(box.startY, box.currentY)
-  const bottom = Math.max(box.startY, box.currentY)
+  const left = Math.min(box.startX, box.currentX);
+  const right = Math.max(box.startX, box.currentX);
+  const top = Math.min(box.startY, box.currentY);
+  const bottom = Math.max(box.startY, box.currentY);
 
-  return { bottom, left, right, top }
+  return { bottom, left, right, top };
 }
 
 export function getSelectionStyle(box: SelectionBox): CSSProperties {
-  const bounds = getSelectionBounds(box)
+  const bounds = getSelectionBounds(box);
 
   return {
     height: bounds.bottom - bounds.top,
     left: bounds.left,
     top: bounds.top,
     width: bounds.right - bounds.left,
-  }
+  };
 }
 
 export function rectsIntersect(selection: SelectionBounds, rect: DOMRect) {
@@ -40,93 +40,93 @@ export function rectsIntersect(selection: SelectionBounds, rect: DOMRect) {
     selection.right >= rect.left &&
     selection.top <= rect.bottom &&
     selection.bottom >= rect.top
-  )
+  );
 }
 
 export function getTaskIdsInsideSelection(
   surface: HTMLElement,
-  selection: SelectionBounds
+  selection: SelectionBounds,
 ) {
   return Array.from(surface.querySelectorAll<HTMLElement>("[data-task-id]"))
     .filter((element) =>
-      rectsIntersect(selection, element.getBoundingClientRect())
+      rectsIntersect(selection, element.getBoundingClientRect()),
     )
     .map((element) => element.dataset.taskId)
-    .filter((taskId): taskId is string => Boolean(taskId))
+    .filter((taskId): taskId is string => Boolean(taskId));
 }
 
 export function mergeTaskIds(baseIds: string[], selectedIds: string[]) {
-  return Array.from(new Set([...baseIds, ...selectedIds]))
+  return Array.from(new Set([...baseIds, ...selectedIds]));
 }
 
 export function useTaskSelection() {
-  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
-  const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null)
-  const selectionSessionRef = useRef<SelectionSession | null>(null)
-  const selectionSurfaceRef = useRef<HTMLDivElement | null>(null)
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
+  const selectionSessionRef = useRef<SelectionSession | null>(null);
+  const selectionSurfaceRef = useRef<HTMLDivElement | null>(null);
   const selectedTaskIdSet = useMemo(
     () => new Set(selectedTaskIds),
-    [selectedTaskIds]
-  )
+    [selectedTaskIds],
+  );
 
   useEffect(() => {
     function handleEscape(event: globalThis.KeyboardEvent) {
       if (event.key !== "Escape") {
-        return
+        return;
       }
 
-      clearTaskSelection()
+      clearTaskSelection();
     }
 
-    window.addEventListener("keydown", handleEscape)
+    window.addEventListener("keydown", handleEscape);
 
-    return () => window.removeEventListener("keydown", handleEscape)
-  }, [])
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
 
   function clearTaskSelection() {
-    selectionSessionRef.current = null
-    setSelectionBox(null)
-    setSelectedTaskIds([])
+    selectionSessionRef.current = null;
+    setSelectionBox(null);
+    setSelectedTaskIds([]);
   }
 
   function toggleTaskSelection(taskId: string) {
     setSelectedTaskIds((currentIds) =>
       currentIds.includes(taskId)
         ? currentIds.filter((currentId) => currentId !== taskId)
-        : [...currentIds, taskId]
-    )
+        : [...currentIds, taskId],
+    );
   }
 
   function handleSelectionPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0 || event.pointerType === "touch") {
-      return
+      return;
     }
 
-    const target = event.target as HTMLElement
+    const target = event.target as HTMLElement;
     const isInteractiveTarget = Boolean(
       target.closest(
-        "[data-task-id],button,a,input,textarea,select,[role='button'],[role='menuitem'],[data-slot^='dropdown-menu']"
-      )
-    )
+        "[data-task-id],button,a,input,textarea,select,[role='button'],[role='menuitem'],[data-slot^='dropdown-menu']",
+      ),
+    );
 
     if (isInteractiveTarget) {
-      return
+      return;
     }
 
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
 
-    const additive = event.metaKey || event.ctrlKey || event.shiftKey
+    const additive = event.metaKey || event.ctrlKey || event.shiftKey;
     selectionSessionRef.current = {
       additive,
       baseIds: additive ? selectedTaskIds : [],
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-    }
+    };
 
     if (!additive) {
-      setSelectedTaskIds([])
+      setSelectedTaskIds([]);
     }
 
     setSelectionBox({
@@ -135,63 +135,63 @@ export function useTaskSelection() {
       hasDragged: false,
       startX: event.clientX,
       startY: event.clientY,
-    })
+    });
   }
 
   function handleSelectionPointerMove(event: PointerEvent<HTMLDivElement>) {
-    const session = selectionSessionRef.current
-    const surface = selectionSurfaceRef.current
+    const session = selectionSessionRef.current;
+    const surface = selectionSurfaceRef.current;
 
     if (!session || !surface) {
-      return
+      return;
     }
 
-    event.preventDefault()
+    event.preventDefault();
 
     const movement = Math.hypot(
       event.clientX - session.startX,
-      event.clientY - session.startY
-    )
-    const hasDragged = movement >= selectionDragThreshold
+      event.clientY - session.startY,
+    );
+    const hasDragged = movement >= selectionDragThreshold;
     const nextBox: SelectionBox = {
       currentX: event.clientX,
       currentY: event.clientY,
       hasDragged,
       startX: session.startX,
       startY: session.startY,
-    }
+    };
 
-    setSelectionBox(nextBox)
+    setSelectionBox(nextBox);
 
     if (!hasDragged) {
-      return
+      return;
     }
 
     const selectedIds = getTaskIdsInsideSelection(
       surface,
-      getSelectionBounds(nextBox)
-    )
+      getSelectionBounds(nextBox),
+    );
 
     setSelectedTaskIds(
       session.additive
         ? mergeTaskIds(session.baseIds, selectedIds)
-        : selectedIds
-    )
+        : selectedIds,
+    );
   }
 
   function handleSelectionPointerEnd(event: PointerEvent<HTMLDivElement>) {
-    const session = selectionSessionRef.current
+    const session = selectionSessionRef.current;
 
     if (!session) {
-      return
+      return;
     }
 
     if (event.currentTarget.hasPointerCapture(session.pointerId)) {
-      event.currentTarget.releasePointerCapture(session.pointerId)
+      event.currentTarget.releasePointerCapture(session.pointerId);
     }
 
-    selectionSessionRef.current = null
-    setSelectionBox(null)
+    selectionSessionRef.current = null;
+    setSelectionBox(null);
   }
 
   return {
@@ -204,5 +204,5 @@ export function useTaskSelection() {
     selectionBox,
     selectionSurfaceRef,
     toggleTaskSelection,
-  }
+  };
 }

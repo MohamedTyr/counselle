@@ -294,7 +294,9 @@ function EditorDirtySyncHarness({ essay }: { essay: ApiEssay }) {
   return (
     <div>
       <button
-        onClick={() => editor?.commands.setContent(tiptapDoc("Local dirty draft"))}
+        onClick={() =>
+          editor?.commands.setContent(tiptapDoc("Local dirty draft"))
+        }
         type="button"
       >
         Edit through Tiptap
@@ -978,9 +980,12 @@ describe("EssayEditorPage", () => {
     queryClient.setQueryDefaults(workspaceKeys.essays.list(), {
       staleTime: Infinity,
     });
-    queryClient.setQueryDefaults(workspaceKeys.essays.detail("stanford-roommate"), {
-      staleTime: Infinity,
-    });
+    queryClient.setQueryDefaults(
+      workspaceKeys.essays.detail("stanford-roommate"),
+      {
+        staleTime: Infinity,
+      },
+    );
     queryClient.setQueryData(workspaceKeys.essays.list(), [stanfordEssay]);
     queryClient.setQueryData(
       workspaceKeys.essays.detail("stanford-roommate"),
@@ -994,13 +999,17 @@ describe("EssayEditorPage", () => {
       updated_at: "2026-07-06T12:30:00Z",
       word_count: 2,
     };
-    const fetchHandler = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).includes("/v1/essays/stanford-roommate")) {
-        return jsonResponse(init?.method === "PATCH" ? savedEssay : stanfordEssayDetail);
-      }
+    const fetchHandler = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes("/v1/essays/stanford-roommate")) {
+          return jsonResponse(
+            init?.method === "PATCH" ? savedEssay : stanfordEssayDetail,
+          );
+        }
 
-      return jsonResponse([]);
-    });
+        return jsonResponse([]);
+      },
+    );
     vi.stubGlobal("fetch", fetchHandler);
 
     render(
@@ -1035,9 +1044,8 @@ describe("EssayEditorPage", () => {
       ),
     ).toBe("Autosaved text");
     expect(
-      queryClient.getQueryData<EssaySummary[]>(
-        workspaceKeys.essays.list(),
-      )?.[0]?.word_count,
+      queryClient.getQueryData<EssaySummary[]>(workspaceKeys.essays.list())?.[0]
+        ?.word_count,
     ).toBe(2);
   });
 
@@ -1046,9 +1054,12 @@ describe("EssayEditorPage", () => {
     queryClient.setQueryDefaults(workspaceKeys.essays.list(), {
       staleTime: Infinity,
     });
-    queryClient.setQueryDefaults(workspaceKeys.essays.detail("stanford-roommate"), {
-      staleTime: Infinity,
-    });
+    queryClient.setQueryDefaults(
+      workspaceKeys.essays.detail("stanford-roommate"),
+      {
+        staleTime: Infinity,
+      },
+    );
     queryClient.setQueryData(workspaceKeys.essays.list(), [stanfordEssay]);
     queryClient.setQueryData(
       workspaceKeys.essays.detail("stanford-roommate"),
@@ -1109,9 +1120,8 @@ describe("EssayEditorPage", () => {
       ).toBe("Autosaved text"),
     );
     expect(
-      queryClient.getQueryData<EssaySummary[]>(
-        workspaceKeys.essays.list(),
-      )?.[0]?.word_count,
+      queryClient.getQueryData<EssaySummary[]>(workspaceKeys.essays.list())?.[0]
+        ?.word_count,
     ).toBe(2);
   });
 
@@ -1178,17 +1188,19 @@ describe("EssayEditorPage", () => {
       word_count: 2,
     };
     let patchCount = 0;
-    const fetchHandler = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (
-        String(input).includes("/v1/essays/stanford-roommate") &&
-        init?.method === "PATCH"
-      ) {
-        patchCount += 1;
-        return patchCount === 1 ? firstSave.promise : secondSave.promise;
-      }
+    const fetchHandler = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (
+          String(input).includes("/v1/essays/stanford-roommate") &&
+          init?.method === "PATCH"
+        ) {
+          patchCount += 1;
+          return patchCount === 1 ? firstSave.promise : secondSave.promise;
+        }
 
-      return jsonResponse(stanfordEssayDetail);
-    });
+        return jsonResponse(stanfordEssayDetail);
+      },
+    );
     const queryClient = createTestQueryClient();
     queryClient.setQueryData(workspaceKeys.essays.list(), [stanfordEssay]);
     queryClient.setQueryData(
@@ -1263,24 +1275,29 @@ describe("EssayEditorPage", () => {
     };
     let serverEssay = stanfordEssayDetail;
     let patchCount = 0;
-    const fetchHandler = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (
-        String(input).includes("/v1/essays/stanford-roommate") &&
-        init?.method === "PATCH"
-      ) {
-        patchCount += 1;
-        return patchCount === 1 ? firstSave.promise : secondSave.promise;
-      }
+    const fetchHandler = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (
+          String(input).includes("/v1/essays/stanford-roommate") &&
+          init?.method === "PATCH"
+        ) {
+          patchCount += 1;
+          return patchCount === 1 ? firstSave.promise : secondSave.promise;
+        }
 
-      return jsonResponse(serverEssay);
-    });
+        return jsonResponse(serverEssay);
+      },
+    );
     const queryClient = createTestQueryClient();
     queryClient.setQueryDefaults(workspaceKeys.essays.list(), {
       staleTime: Infinity,
     });
-    queryClient.setQueryDefaults(workspaceKeys.essays.detail("stanford-roommate"), {
-      staleTime: Infinity,
-    });
+    queryClient.setQueryDefaults(
+      workspaceKeys.essays.detail("stanford-roommate"),
+      {
+        staleTime: Infinity,
+      },
+    );
     queryClient.setQueryData(workspaceKeys.essays.list(), [stanfordEssay]);
     queryClient.setQueryData(
       workspaceKeys.essays.detail("stanford-roommate"),
@@ -1354,9 +1371,8 @@ describe("EssayEditorPage", () => {
       ),
     ).toBe("Second draft");
     expect(
-      queryClient.getQueryData<EssaySummary[]>(
-        workspaceKeys.essays.list(),
-      )?.[0]?.preview,
+      queryClient.getQueryData<EssaySummary[]>(workspaceKeys.essays.list())?.[0]
+        ?.preview,
     ).toBe("Second draft");
   });
 
@@ -1375,24 +1391,29 @@ describe("EssayEditorPage", () => {
       preview: "Second draft",
     };
     let patchCount = 0;
-    const fetchHandler = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (
-        String(input).includes("/v1/essays/stanford-roommate") &&
-        init?.method === "PATCH"
-      ) {
-        patchCount += 1;
-        return patchCount === 1 ? firstSave.promise : baselineSave.promise;
-      }
+    const fetchHandler = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (
+          String(input).includes("/v1/essays/stanford-roommate") &&
+          init?.method === "PATCH"
+        ) {
+          patchCount += 1;
+          return patchCount === 1 ? firstSave.promise : baselineSave.promise;
+        }
 
-      return jsonResponse(initialEssay);
-    });
+        return jsonResponse(initialEssay);
+      },
+    );
     const queryClient = createTestQueryClient();
     queryClient.setQueryDefaults(workspaceKeys.essays.list(), {
       staleTime: Infinity,
     });
-    queryClient.setQueryDefaults(workspaceKeys.essays.detail("stanford-roommate"), {
-      staleTime: Infinity,
-    });
+    queryClient.setQueryDefaults(
+      workspaceKeys.essays.detail("stanford-roommate"),
+      {
+        staleTime: Infinity,
+      },
+    );
     queryClient.setQueryData(workspaceKeys.essays.list(), [initialEssay]);
     queryClient.setQueryData(
       workspaceKeys.essays.detail("stanford-roommate"),
@@ -1480,24 +1501,29 @@ describe("EssayEditorPage", () => {
       preview: "Second draft",
     };
     let patchCount = 0;
-    const fetchHandler = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (
-        String(input).includes("/v1/essays/stanford-roommate") &&
-        init?.method === "PATCH"
-      ) {
-        patchCount += 1;
-        return patchCount === 1 ? firstSave.promise : baselineSave.promise;
-      }
+    const fetchHandler = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (
+          String(input).includes("/v1/essays/stanford-roommate") &&
+          init?.method === "PATCH"
+        ) {
+          patchCount += 1;
+          return patchCount === 1 ? firstSave.promise : baselineSave.promise;
+        }
 
-      return jsonResponse(initialEssay);
-    });
+        return jsonResponse(initialEssay);
+      },
+    );
     const queryClient = createTestQueryClient();
     queryClient.setQueryDefaults(workspaceKeys.essays.list(), {
       staleTime: Infinity,
     });
-    queryClient.setQueryDefaults(workspaceKeys.essays.detail("stanford-roommate"), {
-      staleTime: Infinity,
-    });
+    queryClient.setQueryDefaults(
+      workspaceKeys.essays.detail("stanford-roommate"),
+      {
+        staleTime: Infinity,
+      },
+    );
     queryClient.setQueryData(workspaceKeys.essays.list(), [initialEssay]);
     queryClient.setQueryData(
       workspaceKeys.essays.detail("stanford-roommate"),
@@ -1541,7 +1567,9 @@ describe("EssayEditorPage", () => {
     const patchCalls = fetchHandler.mock.calls.filter(
       ([, init]) => init?.method === "PATCH",
     );
-    const keepaliveCalls = patchCalls.filter(([, init]) => init?.keepalive === true);
+    const keepaliveCalls = patchCalls.filter(
+      ([, init]) => init?.keepalive === true,
+    );
     expect(patchCalls).toHaveLength(2);
     expect(keepaliveCalls).toHaveLength(1);
     expect(JSON.parse(String(keepaliveCalls[0]?.[1]?.body))).toEqual({
@@ -1596,27 +1624,32 @@ describe("EssayEditorPage", () => {
       content: tiptapDoc("Second draft"),
       preview: "Second draft",
     };
-    const fetchHandler = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (
-        String(input).includes("/v1/essays/stanford-roommate") &&
-        init?.method === "PATCH"
-      ) {
-        if (init.keepalive === true) {
-          return keepaliveSave.promise;
+    const fetchHandler = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (
+          String(input).includes("/v1/essays/stanford-roommate") &&
+          init?.method === "PATCH"
+        ) {
+          if (init.keepalive === true) {
+            return keepaliveSave.promise;
+          }
+
+          return directSave.promise;
         }
 
-        return directSave.promise;
-      }
-
-      return jsonResponse(initialEssay);
-    });
+        return jsonResponse(initialEssay);
+      },
+    );
     const queryClient = createTestQueryClient();
     queryClient.setQueryDefaults(workspaceKeys.essays.list(), {
       staleTime: Infinity,
     });
-    queryClient.setQueryDefaults(workspaceKeys.essays.detail("stanford-roommate"), {
-      staleTime: Infinity,
-    });
+    queryClient.setQueryDefaults(
+      workspaceKeys.essays.detail("stanford-roommate"),
+      {
+        staleTime: Infinity,
+      },
+    );
     queryClient.setQueryData(workspaceKeys.essays.list(), [initialEssay]);
     queryClient.setQueryData(
       workspaceKeys.essays.detail("stanford-roommate"),
@@ -1712,24 +1745,29 @@ describe("EssayEditorPage", () => {
       word_count: 2,
     };
     let patchCount = 0;
-    const fetchHandler = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (
-        String(input).includes("/v1/essays/stanford-roommate") &&
-        init?.method === "PATCH"
-      ) {
-        patchCount += 1;
-        return patchCount === 1 ? firstSave.promise : baselineSave.promise;
-      }
+    const fetchHandler = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        if (
+          String(input).includes("/v1/essays/stanford-roommate") &&
+          init?.method === "PATCH"
+        ) {
+          patchCount += 1;
+          return patchCount === 1 ? firstSave.promise : baselineSave.promise;
+        }
 
-      return jsonResponse(initialEssay);
-    });
+        return jsonResponse(initialEssay);
+      },
+    );
     const queryClient = createTestQueryClient();
     queryClient.setQueryDefaults(workspaceKeys.essays.list(), {
       staleTime: Infinity,
     });
-    queryClient.setQueryDefaults(workspaceKeys.essays.detail("stanford-roommate"), {
-      staleTime: Infinity,
-    });
+    queryClient.setQueryDefaults(
+      workspaceKeys.essays.detail("stanford-roommate"),
+      {
+        staleTime: Infinity,
+      },
+    );
     queryClient.setQueryData(workspaceKeys.essays.list(), [initialEssay]);
     queryClient.setQueryData(
       workspaceKeys.essays.detail("stanford-roommate"),
@@ -1795,7 +1833,10 @@ describe("EssayEditorPage", () => {
 
   it("re-arms autosave mounted state across StrictMode effect replay", async () => {
     const save = deferredResponse();
-    vi.stubGlobal("fetch", vi.fn(() => save.promise));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => save.promise),
+    );
 
     render(
       <QueryClientProvider client={createTestQueryClient()}>
@@ -1858,7 +1899,9 @@ describe("EssayEditorPage", () => {
     vi.useFakeTimers();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Edit through Tiptap" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit through Tiptap" }),
+      );
       await Promise.resolve();
     });
 
@@ -1937,7 +1980,9 @@ describe("EssayEditorPage", () => {
     const editor = await screen.findByLabelText("Essay body");
     expect(editor).toHaveTextContent("A roommate line.");
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit through Tiptap" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit through Tiptap" }),
+    );
 
     await waitFor(() =>
       expect(screen.getByLabelText("Essay body")).toHaveTextContent(

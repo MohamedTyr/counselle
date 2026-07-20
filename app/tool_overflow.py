@@ -217,6 +217,10 @@ def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
                 candidate = existing_receipt.get(key)
                 if candidate not in (None, [], ""):
                     receipt[key] = candidate
+            for key in ("summary", "result_count", "workspace_items"):
+                candidate = existing_receipt.get(key)
+                if candidate not in (None, [], ""):
+                    receipt[key] = candidate
         # A single school's name (e.g. resolve_school/get_school_profile/
         # get_domain results) — flattened to the same "schools" list shape
         # the step receipt expects, never the raw school object.

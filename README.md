@@ -82,7 +82,8 @@ Start the complete development stack with one command:
 ```
 
 The launcher syncs locked Python and frontend dependencies, validates the toolchain,
-configuration, applies pending Counselle-schema migrations, selects safe ports,
+configuration, wakes the existing local database container when needed, applies
+pending Counselle-schema migrations, selects safe ports,
 starts both hot-reloading servers, waits for real health, opens the app, prefixes
 their live logs, and shuts down the entire stack on `Ctrl+C`.
 Run `./scripts/dev.py --help` for port overrides, check-only mode, and other options.

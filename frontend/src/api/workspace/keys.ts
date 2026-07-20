@@ -3,7 +3,8 @@ export const workspaceKeys = {
   applications: {
     all: () => [...workspaceKeys.all, "applications"] as const,
     list: () => [...workspaceKeys.applications.all(), "list"] as const,
-    detail: (id: string) => [...workspaceKeys.applications.all(), "detail", id] as const,
+    detail: (id: string) =>
+      [...workspaceKeys.applications.all(), "detail", id] as const,
   },
   tasks: {
     all: () => [...workspaceKeys.all, "tasks"] as const,
@@ -12,7 +13,8 @@ export const workspaceKeys = {
   essays: {
     all: () => [...workspaceKeys.all, "essays"] as const,
     list: () => [...workspaceKeys.essays.all(), "list"] as const,
-    detail: (id: string) => [...workspaceKeys.essays.all(), "detail", id] as const,
+    detail: (id: string) =>
+      [...workspaceKeys.essays.all(), "detail", id] as const,
   },
   activities: {
     all: () => [...workspaceKeys.all, "activities"] as const,
@@ -37,4 +39,4 @@ export const workspaceKeys = {
   schoolSearchAll: () => [...workspaceKeys.all, "schools", "search"] as const,
   schoolSearch: (q: string) =>
     [...workspaceKeys.schoolSearchAll(), q.trim()] as const,
-}
+};

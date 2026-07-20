@@ -42,17 +42,15 @@ export function AppSidebar() {
       <div
         className={cn(
           "flex h-full min-h-0 flex-col gap-4 py-[var(--shell-sidebar-inset-block)]",
-          isCollapsed
-            ? "items-center px-[var(--shell-sidebar-collapsed-inset-inline)]"
-            : "px-[var(--shell-sidebar-inset-inline)]",
+          isCollapsed && "items-center",
         )}
       >
         <SidebarHeader
           className={cn(
             "flex p-0",
             isCollapsed
-              ? "flex-row items-center justify-between gap-y-4 md:flex-col md:justify-start"
-              : "flex-row items-center justify-between",
+              ? "flex-row items-center justify-between gap-y-4 px-[var(--shell-sidebar-collapsed-inset-inline)] md:flex-col md:justify-start"
+              : "flex-row items-center justify-between px-[var(--shell-sidebar-inset-inline)]",
           )}
         >
           <Link
@@ -71,11 +69,25 @@ export function AppSidebar() {
 
           <SidebarTrigger />
         </SidebarHeader>
-        <SidebarContent className="gap-4 overflow-hidden p-0">
+        <SidebarContent
+          className={cn(
+            "min-h-0 flex-1 gap-4 p-0",
+            isCollapsed
+              ? "overflow-hidden px-[var(--shell-sidebar-collapsed-inset-inline)]"
+              : "sidebar-scroll overflow-y-auto overflow-x-hidden pr-1.5 pl-[var(--shell-sidebar-inset-inline)]",
+          )}
+        >
           <MainNav routes={shellRoutes} />
           {!isCollapsed && <ChatSessionList />}
         </SidebarContent>
-        <SidebarFooter className="mt-auto p-0">
+        <SidebarFooter
+          className={cn(
+            "mt-auto p-0",
+            isCollapsed
+              ? "px-[var(--shell-sidebar-collapsed-inset-inline)]"
+              : "px-[var(--shell-sidebar-inset-inline)]",
+          )}
+        >
           {logoutError && !isCollapsed && (
             <p className="px-2 text-xs text-destructive" role="alert">
               {logoutError}

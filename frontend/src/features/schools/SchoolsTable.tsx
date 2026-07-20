@@ -1,8 +1,8 @@
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
-} from "react"
+} from "react";
 
 import {
   Table,
@@ -11,16 +11,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import type { School } from "@/domain/school"
-import { tableColumns } from "@/features/schools/schools-config"
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import type { School } from "@/domain/school";
+import { tableColumns } from "@/features/schools/schools-config";
 import type {
   ColumnId,
   ColumnWidths,
   SortState,
   TableColumn,
-} from "@/features/schools/schools-types"
+} from "@/features/schools/schools-types";
 import {
   DeadlineValue,
   EssaysValue,
@@ -29,8 +29,8 @@ import {
   SchoolIdentity,
   SchoolWebsiteLink,
   StatusBadge,
-} from "@/features/schools/school-cells"
-import { cn } from "@/lib/utils"
+} from "@/features/schools/school-cells";
+import { cn } from "@/lib/utils";
 
 function ResizableTableHead({
   column,
@@ -39,24 +39,24 @@ function ResizableTableHead({
   onSort,
   sortState,
 }: {
-  column: TableColumn
+  column: TableColumn;
   onResizeKeyDown: (
     event: ReactKeyboardEvent<HTMLButtonElement>,
-    column: TableColumn
-  ) => void
+    column: TableColumn,
+  ) => void;
   onResizeStart: (
     event: ReactPointerEvent<HTMLButtonElement>,
-    column: TableColumn
-  ) => void
-  onSort: (columnId: ColumnId) => void
-  sortState: SortState
+    column: TableColumn,
+  ) => void;
+  onSort: (columnId: ColumnId) => void;
+  sortState: SortState;
 }) {
-  const isSorted = sortState.columnId === column.id
+  const isSorted = sortState.columnId === column.id;
   const SortIcon = isSorted
     ? sortState.direction === "asc"
       ? ArrowUp
       : ArrowDown
-    : ArrowUpDown
+    : ArrowUpDown;
 
   return (
     <TableHead
@@ -72,7 +72,7 @@ function ResizableTableHead({
       <button
         className={cn(
           "group/sort flex min-w-0 items-center gap-1.5 rounded-sm text-left transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          isSorted && "text-foreground"
+          isSorted && "text-foreground",
         )}
         onClick={() => onSort(column.id)}
         type="button"
@@ -84,7 +84,7 @@ function ResizableTableHead({
             "size-3.5 shrink-0 text-muted-foreground transition-opacity",
             isSorted
               ? "opacity-0 group-hover/sort:opacity-90 group-focus-visible/sort:opacity-90"
-              : "opacity-0 group-hover/sort:opacity-70 group-focus-visible/sort:opacity-70"
+              : "opacity-0 group-hover/sort:opacity-70 group-focus-visible/sort:opacity-70",
           )}
         />
       </button>
@@ -96,7 +96,7 @@ function ResizableTableHead({
         type="button"
       />
     </TableHead>
-  )
+  );
 }
 
 export function SchoolsTable({
@@ -109,20 +109,20 @@ export function SchoolsTable({
   sortState,
   tableWidth,
 }: {
-  columnWidths: ColumnWidths
+  columnWidths: ColumnWidths;
   onColumnResizeKeyDown: (
     event: ReactKeyboardEvent<HTMLButtonElement>,
-    column: TableColumn
-  ) => void
+    column: TableColumn,
+  ) => void;
   onColumnResizeStart: (
     event: ReactPointerEvent<HTMLButtonElement>,
-    column: TableColumn
-  ) => void
-  onOpenSchool: (schoolId: string) => void
-  onSort: (columnId: ColumnId) => void
-  schools: School[]
-  sortState: SortState
-  tableWidth: number
+    column: TableColumn,
+  ) => void;
+  onOpenSchool: (schoolId: string) => void;
+  onSort: (columnId: ColumnId) => void;
+  schools: School[];
+  sortState: SortState;
+  tableWidth: number;
 }) {
   return (
     <div className="hidden md:block">
@@ -201,5 +201,5 @@ export function SchoolsTable({
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }

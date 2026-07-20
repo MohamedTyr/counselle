@@ -3,7 +3,12 @@ import { describe, expect, test } from "vitest";
 
 import type { StepData } from "@/api/chat/types";
 
-import { NarrationBeat, PlanChecklist, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
+import {
+  NarrationBeat,
+  PlanChecklist,
+  ThinkingBeat,
+  ToolStepBeat,
+} from "./AgentRunView";
 
 function step(overrides: Partial<StepData> = {}): StepData {
   return {
@@ -30,11 +35,13 @@ describe("ToolStepBeat", () => {
         })}
       />,
     );
-    const row = container.querySelector('[data-school-data-tool="resolve_school"]');
+    const row = container.querySelector(
+      '[data-school-data-tool="resolve_school"]',
+    );
 
     expect(row).toHaveAttribute("aria-live", "polite");
     expect(row).toHaveAttribute("aria-atomic", "true");
-    expect(row).toHaveClass("grid-cols-[14px_minmax(0,1fr)]");
+    expect(row).toHaveClass("grid-cols-[16px_minmax(0,1fr)]");
     expect(row?.querySelector(".flex-wrap")).toBeInTheDocument();
     expect(row?.querySelector(".lucide-loader-circle")).toHaveClass(
       "absolute",
@@ -43,7 +50,10 @@ describe("ToolStepBeat", () => {
       "motion-reduce:transition-none",
       "motion-safe:animate-spin",
     );
-    expect(row?.querySelector(".lucide-check")).toHaveClass("absolute", "opacity-0");
+    expect(row?.querySelector(".lucide-check")).toHaveClass(
+      "absolute",
+      "opacity-0",
+    );
   });
 
   test("does not animate a persisted school-data start row", () => {
@@ -81,11 +91,18 @@ describe("ToolStepBeat", () => {
       />,
     );
 
-    expect(screen.getByText("72 values")).toHaveClass("tabular-nums", "basis-full");
+    expect(screen.getByText("72 values")).toHaveClass(
+      "tabular-nums",
+      "basis-full",
+    );
     expect(container.querySelector(".lucide-check")).toHaveClass("opacity-100");
-    expect(container.querySelector(".lucide-loader-circle")).toHaveClass("opacity-0");
+    expect(container.querySelector(".lucide-loader-circle")).toHaveClass(
+      "opacity-0",
+    );
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
-    expect(screen.queryByText("Yale University", { selector: "a" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Yale University", { selector: "a" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/Domain:/)).not.toBeInTheDocument();
   });
 
@@ -98,7 +115,10 @@ describe("ToolStepBeat", () => {
         step={step({
           kind: "db_tool",
           tool: "get_school_profile",
-          label: valueCount === 0 ? "Profile data unavailable" : "Read Yale’s profile",
+          label:
+            valueCount === 0
+              ? "Profile data unavailable"
+              : "Read Yale’s profile",
           detail: { tool: "get_school_profile", value_count: valueCount },
         })}
       />,
@@ -114,7 +134,10 @@ describe("ToolStepBeat", () => {
           kind: "db_tool",
           tool: "get_school_profile",
           label: "Couldn’t read Yale’s profile",
-          detail: { tool: "get_school_profile", error: "postgres password leaked" },
+          detail: {
+            tool: "get_school_profile",
+            error: "postgres password leaked",
+          },
         })}
       />,
     );
@@ -132,7 +155,7 @@ describe("ToolStepBeat", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("keeps deferred database tools on the generic renderer", () => {
+  test("renders database reads as a quiet outcome without developer details", () => {
     render(
       <ToolStepBeat
         step={step({
@@ -143,8 +166,34 @@ describe("ToolStepBeat", () => {
         })}
       />,
     );
-    expect(screen.getByText("Running a custom database query")).toBeInTheDocument();
-    expect(screen.getByText("Details")).toBeInTheDocument();
+    expect(
+      screen.getByText("Checked the admissions database"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Official admissions data")).toBeInTheDocument();
+    expect(screen.queryByText("Details")).not.toBeInTheDocument();
+  });
+
+  test("shows the schools used in a prepared visualization", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "viz",
+          tool: "render_viz",
+          label: "Building an admissions comparison",
+          detail: {
+            viz_type: "comparison_table",
+            schools: ["Yale University", "Stanford University"],
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Prepared an admissions comparison"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Yale University")).toBeInTheDocument();
+    expect(screen.getByText("Stanford University")).toBeInTheDocument();
+    expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 
   test("renders the step label inline, with no drawer to expand", () => {
@@ -166,19 +215,23 @@ describe("ToolStepBeat", () => {
   });
 
   test("falls back to the default widget for unknown step kinds", () => {
-    render(<ToolStepBeat step={step({ kind: "future_tool", label: "Using a future tool" })} />);
+    render(
+      <ToolStepBeat
+        step={step({ kind: "future_tool", label: "Using a future tool" })}
+      />,
+    );
 
     expect(screen.getByText("Using a future tool")).toBeInTheDocument();
   });
 
-  test("default start rows use the legacy hollow dot instead of a spinner", () => {
-    const { container } = render(<ToolStepBeat step={step({ status: "start" })} />);
+  test("persisted search starts settle to a search icon instead of spinning", () => {
+    const { container } = render(
+      <ToolStepBeat step={step({ status: "start" })} />,
+    );
 
     expect(screen.getByText("Searching the web")).toBeInTheDocument();
     expect(screen.queryByLabelText("Loading")).not.toBeInTheDocument();
-    const dot = container.querySelector(".size-2\\.5");
-    expect(dot).toHaveClass("border-foreground");
-    expect(dot).not.toHaveClass("bg-muted-foreground");
+    expect(container.querySelector(".lucide-search")).toBeInTheDocument();
   });
 
   test("renders the task_added widget from the ui payload", () => {
@@ -201,7 +254,9 @@ describe("ToolStepBeat", () => {
     );
 
     expect(screen.getByText("Task added")).toBeInTheDocument();
-    expect(screen.getByText("Submit Duke financial aid forms")).toBeInTheDocument();
+    expect(
+      screen.getByText("Submit Duke financial aid forms"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Duke University")).toBeInTheDocument();
     expect(screen.getByText("2026-11-15")).toBeInTheDocument();
     expect(screen.getByText("todo")).toBeInTheDocument();
@@ -226,13 +281,18 @@ describe("ToolStepBeat", () => {
     expect(screen.getByLabelText("Loading")).toBeInTheDocument();
   });
 
-  test("a search step reveals its query/result-count receipt", () => {
+  test("a search step shows a human result summary without developer details", () => {
     render(
       <ToolStepBeat
-        step={step({ detail: { query: "NYU acceptance rate", result_count: 3 } })}
+        step={step({
+          detail: { query: "NYU acceptance rate", result_count: 3 },
+        })}
       />,
     );
-    expect(screen.getByText('"NYU acceptance rate" · 3 results')).toBeInTheDocument();
+    expect(screen.getByText(/3 results/)).toHaveTextContent(
+      "3 results · Open web",
+    );
+    expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 
   test("db/sql steps render public details without leaking hidden internals", () => {
@@ -244,7 +304,8 @@ describe("ToolStepBeat", () => {
           label: "Reading the Common Data Set",
           detail: {
             domain_id: "admissions",
-            query: "SELECT admission_rate FROM cds_library.active_cds_domain_packets",
+            query:
+              "SELECT admission_rate FROM cds_library.active_cds_domain_packets",
             row_count: 1,
             value_count: 1,
           },
@@ -253,10 +314,14 @@ describe("ToolStepBeat", () => {
     );
 
     expect(screen.getByText("Reading the Common Data Set")).toBeInTheDocument();
-    expect(screen.getByText("1 value · Domain: admissions")).toBeInTheDocument();
+    expect(
+      screen.getByText("1 value · Domain: admissions"),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/SELECT admission_rate/)).not.toBeInTheDocument();
     expect(screen.queryByText("Query")).not.toBeInTheDocument();
-    expect(screen.queryByText(/admissions\.acceptance_rate/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/admissions\.acceptance_rate/),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Row count")).not.toBeInTheDocument();
   });
 
@@ -264,6 +329,7 @@ describe("ToolStepBeat", () => {
     render(
       <ToolStepBeat
         step={step({
+          kind: "future_tool",
           detail: {
             query: "NYU scholarships",
             summary: "Found official aid pages.",
@@ -284,8 +350,6 @@ describe("ToolStepBeat", () => {
       />,
     );
 
-    expect(screen.getByText("Query")).toBeInTheDocument();
-    expect(screen.getByText("NYU scholarships")).toBeInTheDocument();
     expect(screen.getByText("Found official aid pages.")).toBeInTheDocument();
     expect(screen.getByText("nyu.edu, studentaid.gov")).toBeInTheDocument();
     expect(screen.getByText("2", { selector: "dd" })).toBeInTheDocument();
@@ -304,6 +368,7 @@ describe("ToolStepBeat", () => {
     render(
       <ToolStepBeat
         step={step({
+          kind: "future_tool",
           detail: {
             query: "public query",
             field_keys: ["admissions.acceptance_rate"],
@@ -318,14 +383,16 @@ describe("ToolStepBeat", () => {
       />,
     );
 
-    expect(screen.getByText("public query")).toBeInTheDocument();
-    expect(screen.queryByText(/admissions\.acceptance_rate/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Details")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/admissions\.acceptance_rate/),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("99")).not.toBeInTheDocument();
     expect(screen.queryByText("must stay hidden")).not.toBeInTheDocument();
     expect(screen.queryByText("must not render")).not.toBeInTheDocument();
   });
 
-  test("source chips are deduped and capped, with a +N more expander", () => {
+  test("search result chips dedupe, open externally, and expand inline", () => {
     render(
       <ToolStepBeat
         step={step({
@@ -341,20 +408,188 @@ describe("ToolStepBeat", () => {
       />,
     );
 
-    expect(screen.getByText("US News")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /US News/ })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
     expect(screen.queryByText("US News dup")).not.toBeInTheDocument();
-    expect(screen.getByText("+1 more")).toBeInTheDocument();
+    const expand = screen.getByRole("button", { name: /\+3.*more results/ });
+    expect(expand).toHaveAttribute("aria-expanded", "false");
 
-    fireEvent.click(screen.getByText("+1 more"));
-    expect(screen.getByText("Bloomberg")).toBeInTheDocument();
+    fireEvent.click(expand);
+    expect(screen.getByRole("link", { name: /Bloomberg/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Collapse/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
   test("unsafe step source urls render as inert chips", () => {
     render(
-      <ToolStepBeat step={step({ sources: [{ label: "Unsafe", url: "javascript:alert(1)" }] })} />,
+      <ToolStepBeat
+        step={step({
+          sources: [{ label: "Unsafe", url: "javascript:alert(1)" }],
+        })}
+      />,
     );
     expect(screen.getByText("Unsafe")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Unsafe" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Unsafe" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("workspace write receipts", () => {
+  test("does not claim a task was added while the mutation is running", () => {
+    render(
+      <ToolStepBeat
+        isLiveSegment
+        step={step({
+          status: "start",
+          kind: "workspace",
+          tool: "create_tasks",
+          label: "Adding Stanford interview prep to the plan",
+          ui: {
+            widget: "task_added",
+            data: { title: "Prepare for Stanford interview" },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Adding a task")).toBeInTheDocument();
+    expect(screen.queryByText("Task added")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Prepare for Stanford interview"),
+    ).toBeInTheDocument();
+  });
+
+  test("renders a completed school mutation as a user-facing receipt", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "workspace",
+          tool: "add_schools",
+          label: "Adding Stanford University to the list",
+          detail: { summary: "Added Stanford University to the list." },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("School added to your list")).toBeInTheDocument();
+    expect(screen.queryByText("Details")).not.toBeInTheDocument();
+    expect(screen.queryByText("Change completed")).not.toBeInTheDocument();
+  });
+
+  test("announces a failed write and says the item was not added", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          status: "error",
+          kind: "workspace",
+          tool: "create_tasks",
+          label: "Adding a task",
+          detail: { error: "The due date could not be understood." },
+          ui: { widget: "task_added", data: { title: "Request transcript" } },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Task not added")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The due date could not be understood.",
+    );
+  });
+
+  test("uses the mutation count for a completed task batch", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "workspace",
+          tool: "create_tasks",
+          label: "Adding two tasks",
+          ui: { widget: "task_added", data: { title: "First task", count: 2 } },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("2 tasks added")).toBeInTheDocument();
+  });
+
+  test.each([
+    ["update_task", "Task updated"],
+    ["update_essay", "Essay updated"],
+    ["update_activity", "Activity updated"],
+    ["update_honor", "Honor updated"],
+  ])("uses singular copy for %s", (tool, expected) => {
+    render(
+      <ToolStepBeat
+        step={step({ kind: "workspace", tool, label: expected, detail: null })}
+      />,
+    );
+    expect(screen.getAllByText(expected)).toHaveLength(1);
+  });
+});
+
+describe("workspace read receipts", () => {
+  test("previews two items and expands the real grouped workspace results", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "workspace",
+          tool: "view_activities",
+          label: "Checking activities and honors",
+          detail: {
+            summary: "3 activities · 1 honor",
+            result_count: 4,
+            workspace_items: [
+              {
+                kind: "activity",
+                title: "Research assistant",
+                meta: [{ label: "Organization", value: "Stanford AI Lab" }],
+                group: "Activities",
+              },
+              {
+                kind: "activity",
+                title: "Debate captain",
+                meta: [],
+                group: "Activities",
+              },
+              {
+                kind: "activity",
+                title: "Robotics lead",
+                meta: [],
+                group: "Activities",
+              },
+              {
+                kind: "honor",
+                title: "National Merit Semifinalist",
+                meta: [],
+                group: "Honors",
+              },
+            ],
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Checked activities and honors"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("3 activities · 1 honor")).toBeInTheDocument();
+    expect(
+      screen.queryByText("National Merit Semifinalist"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 2 more workspace items" }),
+    );
+
+    expect(
+      screen.getByRole("region", { name: "Activities" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Honors" })).toBeInTheDocument();
+    expect(screen.getByText("National Merit Semifinalist")).toBeInTheDocument();
   });
 });
 
@@ -381,6 +616,32 @@ describe("PlanChecklist", () => {
     expect(screen.getByText("1/2")).toBeInTheDocument();
     expect(screen.getByText("Resolve schools")).toBeInTheDocument();
     expect(screen.getByText("Compare costs")).toBeInTheDocument();
+  });
+
+  test("announces item statuses and does not count cancelled work as remaining", () => {
+    render(
+      <PlanChecklist
+        step={step({
+          kind: "write_plan",
+          detail: {
+            completed: 1,
+            total: 2,
+            items: [
+              { content: "Done", status: "completed" },
+              { content: "Skipped", status: "cancelled" },
+            ],
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("All steps complete")).toBeInTheDocument();
+    expect(screen.getByText("completed:", { exact: false })).toHaveClass(
+      "sr-only",
+    );
+    expect(screen.getByText("cancelled:", { exact: false })).toHaveClass(
+      "sr-only",
+    );
   });
 
   test("renders nothing when the plan has no items", () => {
@@ -439,7 +700,9 @@ describe("NarrationBeat", () => {
 
 describe("ThinkingBeat", () => {
   test("collapsed by default; expands to reveal the raw text", () => {
-    render(<ThinkingBeat id="t1" text="Weighing which source to check first." />);
+    render(
+      <ThinkingBeat id="t1" text="Weighing which source to check first." />,
+    );
 
     expect(screen.getByRole("button", { name: "Thought" })).toBeInTheDocument();
     expect(
@@ -449,7 +712,9 @@ describe("ThinkingBeat", () => {
     fireEvent.click(screen.getByRole("button"));
 
     expect(screen.getByRole("button", { name: "Thought" })).toBeInTheDocument();
-    expect(screen.getByText("Weighing which source to check first.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Weighing which source to check first."),
+    ).toBeInTheDocument();
   });
 
   test("live state is rendered from data, not expanded state", () => {
@@ -461,7 +726,9 @@ describe("ThinkingBeat", () => {
 
     fireEvent.click(trigger);
 
-    expect(screen.getByRole("button", { name: "Thinking" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Thinking" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Still deciding.")).toBeInTheDocument();
   });
 });

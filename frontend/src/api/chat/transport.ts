@@ -178,7 +178,9 @@ function detailToSession(
     updatedAt: row.updated_at ?? row.created_at,
     sourceConfig: fromWireSourceConfig(row.source_config),
     isGenerating: row.is_generating ?? false,
-    transcript: adaptStoredTranscript((row as Partial<SessionDetailResponseWire>).transcript),
+    transcript: adaptStoredTranscript(
+      (row as Partial<SessionDetailResponseWire>).transcript,
+    ),
   };
 }
 

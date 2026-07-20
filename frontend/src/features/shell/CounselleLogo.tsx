@@ -1,4 +1,4 @@
-import type { SVGProps } from "react"
+import type { SVGProps } from "react";
 
 export const CounselleLogo = (props: SVGProps<SVGSVGElement>) => (
   <svg
@@ -21,4 +21,4 @@ export const CounselleLogo = (props: SVGProps<SVGSVGElement>) => (
       <path d="m13.9956 29.8973c-.9518-1.019-1.6451-2.2826-1.9751-3.6862l-10.95836 2.9363 1.05385 3.933z" />
     </g>
   </svg>
-)
+);

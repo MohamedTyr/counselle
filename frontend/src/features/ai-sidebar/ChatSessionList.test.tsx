@@ -129,7 +129,7 @@ describe("chat session sidebar list", () => {
 
     await user.clear(searchInput);
     await user.type(searchInput, "princeton");
-    expect(screen.getByText('No chats match “princeton”.')).toBeVisible();
+    expect(screen.getByText("No chats match “princeton”.")).toBeVisible();
 
     await user.clear(searchInput);
     expect(
@@ -251,7 +251,10 @@ describe("chat session sidebar list", () => {
     const user = userEvent.setup();
     renderApp("/app/tasks", {
       fetchHandler: (input, init) => {
-        if (String(input).includes("/v1/sessions/") && init?.method === "PATCH") {
+        if (
+          String(input).includes("/v1/sessions/") &&
+          init?.method === "PATCH"
+        ) {
           return Promise.resolve(
             new Response(JSON.stringify({ detail: "failed" }), {
               status: 500,
@@ -275,7 +278,9 @@ describe("chat session sidebar list", () => {
     expect(
       await screen.findByText("Could not rename this chat. Try again."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Rename chat" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Rename chat" }),
+    ).toBeInTheDocument();
   });
 
   it("deletes the active chat and returns to the AI start page", async () => {
@@ -301,7 +306,10 @@ describe("chat session sidebar list", () => {
     const user = userEvent.setup();
     renderApp(`/app/ai/${brownSession.session_id}`, {
       fetchHandler: (input, init) => {
-        if (String(input).includes("/v1/sessions/") && init?.method === "DELETE") {
+        if (
+          String(input).includes("/v1/sessions/") &&
+          init?.method === "DELETE"
+        ) {
           return Promise.resolve(new Response(null, { status: 500 }));
         }
         return chatFetch()(input, init);
@@ -317,7 +325,9 @@ describe("chat session sidebar list", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
     await waitFor(() =>
-      expect(window.location.pathname).toBe(`/app/ai/${brownSession.session_id}`),
+      expect(window.location.pathname).toBe(
+        `/app/ai/${brownSession.session_id}`,
+      ),
     );
   });
 });

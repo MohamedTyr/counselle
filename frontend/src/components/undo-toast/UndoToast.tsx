@@ -1,21 +1,21 @@
-import { Check, Undo2 } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { Check, Undo2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 
 export type UndoToastPending = {
-  kind?: string
-  label?: string
-} | null
+  kind?: string;
+  label?: string;
+} | null;
 
 function pendingLabel(pending: UndoToastPending) {
   if (!pending) {
-    return ""
+    return "";
   }
   if (pending.label) {
-    return pending.label
+    return pending.label;
   }
-  return pending.kind === "honor" ? "Honor" : "Activity"
+  return pending.kind === "honor" ? "Honor" : "Activity";
 }
 
 export function UndoToast({
@@ -24,10 +24,10 @@ export function UndoToast({
   pending,
   reduceMotion,
 }: {
-  onDismiss: () => void
-  onUndo: () => void
-  pending: UndoToastPending
-  reduceMotion: boolean
+  onDismiss: () => void;
+  onUndo: () => void;
+  pending: UndoToastPending;
+  reduceMotion: boolean;
 }) {
   return (
     <AnimatePresence>
@@ -68,5 +68,5 @@ export function UndoToast({
         </motion.div>
       ) : null}
     </AnimatePresence>
-  )
+  );
 }

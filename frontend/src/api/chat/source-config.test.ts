@@ -3,7 +3,7 @@ import {
   FULL_SUBREDDIT_MENU,
   fromWireSourceConfig,
   toWireSourceConfig,
-} from "@/api/chat/source-config"
+} from "@/api/chat/source-config";
 
 describe("source config adapter", () => {
   it("maps frontend source config to backend wire config", () => {
@@ -19,8 +19,8 @@ describe("source config adapter", () => {
       edu: false,
       reddit: true,
       reddit_subreddits: ["ApplyingToCollege", "premed"],
-    })
-  })
+    });
+  });
 
   it("collapses the full visible subreddit menu to null so backend keeps agent-internal search slots", () => {
     expect(
@@ -28,8 +28,8 @@ describe("source config adapter", () => {
         ...BUILT_IN_SOURCE_CONFIG,
         selectedSubreddits: [...FULL_SUBREDDIT_MENU],
       }).reddit_subreddits,
-    ).toBeNull()
-  })
+    ).toBeNull();
+  });
 
   it("reads null subreddit list as the full menu", () => {
     expect(
@@ -44,8 +44,8 @@ describe("source config adapter", () => {
       eduSources: true,
       reddit: false,
       selectedSubreddits: [...FULL_SUBREDDIT_MENU],
-    })
-  })
+    });
+  });
 
   it("does not expose the backend-internal school subreddit slot in UI state", () => {
     expect(
@@ -55,8 +55,8 @@ describe("source config adapter", () => {
         reddit: true,
         reddit_subreddits: ["ApplyingToCollege", "{school}", "csMajors"],
       }).selectedSubreddits,
-    ).toEqual(["r/ApplyingToCollege", "r/csMajors"])
-  })
+    ).toEqual(["r/ApplyingToCollege", "r/csMajors"]);
+  });
 
   it("drops unknown subreddit keys from wire data", () => {
     expect(
@@ -66,11 +66,11 @@ describe("source config adapter", () => {
         reddit: true,
         reddit_subreddits: ["ApplyingToCollege", "unknown", "csMajors"],
       }).selectedSubreddits,
-    ).toEqual(["r/ApplyingToCollege", "r/csMajors"])
-  })
+    ).toEqual(["r/ApplyingToCollege", "r/csMajors"]);
+  });
 
   it("falls back safely for malformed wire data", () => {
-    expect(fromWireSourceConfig("bad payload")).toEqual(BUILT_IN_SOURCE_CONFIG)
+    expect(fromWireSourceConfig("bad payload")).toEqual(BUILT_IN_SOURCE_CONFIG);
     expect(
       fromWireSourceConfig({
         web: "yes",
@@ -78,6 +78,6 @@ describe("source config adapter", () => {
         reddit: null,
         reddit_subreddits: "all",
       }),
-    ).toEqual(BUILT_IN_SOURCE_CONFIG)
-  })
-})
+    ).toEqual(BUILT_IN_SOURCE_CONFIG);
+  });
+});

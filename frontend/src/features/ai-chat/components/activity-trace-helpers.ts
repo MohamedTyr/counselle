@@ -1,7 +1,4 @@
-import type {
-  StepData,
-  StepSource,
-} from "@/api/chat/types";
+import type { StepData, StepSource } from "@/api/chat/types";
 
 import type { Segment, TurnStatus } from "../turn-reducer";
 export { isSearchKind, KIND_PRESENTATION, receiptText } from "../step-receipts";
@@ -37,7 +34,9 @@ export const MAX_VISIBLE_SOURCE_CHIPS = 4;
 
 /** Source chips capped and deduped by URL (falling back to label) — a step
  *  that reports the same page twice never doubles its receipt. */
-export function dedupeStepSources(sources: StepSource[] | undefined): StepSource[] {
+export function dedupeStepSources(
+  sources: StepSource[] | undefined,
+): StepSource[] {
   if (sources === undefined) {
     return [];
   }

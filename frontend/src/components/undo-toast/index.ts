@@ -1,1 +1,4 @@
-export { UndoToast, type UndoToastPending } from "@/components/undo-toast/UndoToast"
+export {
+  UndoToast,
+  type UndoToastPending,
+} from "@/components/undo-toast/UndoToast";

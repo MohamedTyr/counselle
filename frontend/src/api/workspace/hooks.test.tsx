@@ -500,9 +500,8 @@ describe("workspace mutation hooks", () => {
     const invalidate = vi.spyOn(queryClient, "invalidateQueries");
     const first = deferred<TestItem>();
     const second = deferred<TestItem>();
-    const updateItem = vi.fn(
-      (_id: string, patch: Partial<TestItem>) =>
-        patch.label === "First edit" ? first.promise : second.promise,
+    const updateItem = vi.fn((_id: string, patch: Partial<TestItem>) =>
+      patch.label === "First edit" ? first.promise : second.promise,
     );
 
     const { result } = renderHook(

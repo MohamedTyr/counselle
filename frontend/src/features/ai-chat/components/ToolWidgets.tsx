@@ -25,6 +25,19 @@ import {
   MAX_VISIBLE_SOURCE_CHIPS,
   receiptText,
 } from "./activity-trace-helpers";
+import { SearchToolWidget } from "./SearchToolWidget";
+import {
+  ToolBeatIcon,
+  ToolBeatLabel,
+  ToolBeatRow,
+  ToolBeatSubtitle,
+} from "./ToolBeat";
+import { isOtherReadTool } from "./other-read-tools";
+import { OtherReadWidget } from "./OtherReadWidget";
+import { isWorkspaceReadTool } from "./workspace-read-tools";
+import { WorkspaceReadWidget } from "./WorkspaceReadWidget";
+import { isWriteTool } from "./write-tools";
+import { WriteToolWidget } from "./WriteToolWidget";
 
 type ToolWidgetProps = {
   isLiveSegment?: boolean;
@@ -41,7 +54,9 @@ function SourceChips({ step }: { step: StepData }) {
     return null;
   }
 
-  const visible = expanded ? sources : sources.slice(0, MAX_VISIBLE_SOURCE_CHIPS);
+  const visible = expanded
+    ? sources
+    : sources.slice(0, MAX_VISIBLE_SOURCE_CHIPS);
   const extra = sources.length - visible.length;
 
   return (
@@ -52,7 +67,10 @@ function SourceChips({ step }: { step: StepData }) {
           "rounded-md border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground";
 
         return href === undefined ? (
-          <span className={className} key={source.url ?? `${source.label}-${index}`}>
+          <span
+            className={className}
+            key={source.url ?? `${source.label}-${index}`}
+          >
             {source.label}
           </span>
         ) : (
@@ -80,13 +98,12 @@ function SourceChips({ step }: { step: StepData }) {
     </div>
   );
 }
-
 function StepDot({ status }: { status: StepData["status"] }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "mt-1 size-2.5 justify-self-center rounded-full border",
+        "size-2.5 rounded-full border",
         status === "start" && "border-foreground",
         status === "end" && "border-transparent bg-muted-foreground",
         status === "error" && "border-transparent bg-destructive",
@@ -107,10 +124,15 @@ function textRow(label: string, value: string | undefined): DetailRow | null {
 }
 
 function numberRow(label: string, value: number | undefined): DetailRow | null {
-  return typeof value === "number" ? { label, value: value.toLocaleString() } : null;
+  return typeof value === "number"
+    ? { label, value: value.toLocaleString() }
+    : null;
 }
 
-function listRow(label: string, values: string[] | undefined): DetailRow | null {
+function listRow(
+  label: string,
+  values: string[] | undefined,
+): DetailRow | null {
   const clean = values?.map((value) => value.trim()).filter(Boolean) ?? [];
   return clean.length > 0 ? { label, value: clean.join(", ") } : null;
 }
@@ -128,7 +150,10 @@ function itemsRow(items: StepDetail["items"]): DetailRow | null {
           <li key={`${item.content}-${index}`}>
             {item.content}
             {item.status !== undefined && (
-              <span className="text-muted-foreground"> ({item.status.replaceAll("_", " ")})</span>
+              <span className="text-muted-foreground">
+                {" "}
+                ({item.status.replaceAll("_", " ")})
+              </span>
             )}
           </li>
         ))}
@@ -137,16 +162,25 @@ function itemsRow(items: StepDetail["items"]): DetailRow | null {
   };
 }
 
-function progressRow(completed: number | undefined, total: number | undefined): DetailRow | null {
+function progressRow(
+  completed: number | undefined,
+  total: number | undefined,
+): DetailRow | null {
   if (typeof completed !== "number" && typeof total !== "number") {
     return null;
   }
 
   if (typeof completed === "number" && typeof total === "number") {
-    return { label: "Progress", value: `${completed.toLocaleString()}/${total.toLocaleString()}` };
+    return {
+      label: "Progress",
+      value: `${completed.toLocaleString()}/${total.toLocaleString()}`,
+    };
   }
 
-  return numberRow(completed === undefined ? "Total" : "Completed", completed ?? total);
+  return numberRow(
+    completed === undefined ? "Total" : "Completed",
+    completed ?? total,
+  );
 }
 
 function detailRows(step: StepData): DetailRow[] {
@@ -200,28 +234,36 @@ function PublicStepDetails({ step }: { step: StepData }) {
 
 export function DefaultToolWidget({ step }: ToolWidgetProps) {
   const receipt = receiptText(step);
-  const labelClass = cn(
-    "text-sm leading-normal",
-    step.status === "start" ? "font-medium text-foreground" : "text-muted-foreground",
-    step.status === "error" && "text-destructive",
-  );
 
   return (
-    <div className="not-prose grid grid-cols-[16px_1fr] gap-3 py-1.5">
-      <StepDot status={step.status} />
+    <ToolBeatRow>
+      <ToolBeatIcon tone={step.status === "error" ? "error" : "muted"}>
+        <StepDot status={step.status} />
+      </ToolBeatIcon>
       <div className="min-w-0">
-        <span className={labelClass}>{step.label}</span>
-        {receipt !== null && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{receipt}</p>
-        )}
+        <ToolBeatLabel
+          state={
+            step.status === "start"
+              ? "running"
+              : step.status === "error"
+                ? "error"
+                : "settled"
+          }
+        >
+          {step.label}
+        </ToolBeatLabel>
+        {receipt !== null && <ToolBeatSubtitle>{receipt}</ToolBeatSubtitle>}
         <PublicStepDetails step={step} />
         <SourceChips step={step} />
       </div>
-    </div>
+    </ToolBeatRow>
   );
 }
 
-function stringValue(data: Record<string, unknown>, keys: string[]): string | null {
+function stringValue(
+  data: Record<string, unknown>,
+  keys: string[],
+): string | null {
   for (const key of keys) {
     const value = data[key];
     if (typeof value === "string" && value.trim().length > 0) {
@@ -234,7 +276,8 @@ function stringValue(data: Record<string, unknown>, keys: string[]): string | nu
 
 function TaskAddedWidget({ step }: ToolWidgetProps) {
   const data = step.ui?.data ?? {};
-  const title = stringValue(data, ["title", "task", "task_title"]) ?? step.label;
+  const title =
+    stringValue(data, ["title", "task", "task_title"]) ?? step.label;
   const school = stringValue(data, ["school", "school_name"]);
   const dueDate = stringValue(data, ["due_date", "deadline", "due"]);
   const status = stringValue(data, ["status"]);
@@ -253,18 +296,31 @@ function TaskAddedWidget({ step }: ToolWidgetProps) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               {step.status === "end" && (
-                <CheckCircle2Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                <CheckCircle2Icon
+                  aria-hidden="true"
+                  className="size-3.5 text-muted-foreground"
+                />
               )}
               {step.status === "error" && (
-                <XCircleIcon aria-hidden="true" className="size-3.5 text-destructive" />
+                <XCircleIcon
+                  aria-hidden="true"
+                  className="size-3.5 text-destructive"
+                />
               )}
               {step.status === "start" && <Spinner className="size-3.5" />}
-              <span className="text-sm font-medium text-foreground">Task added</span>
+              <span className="text-sm font-medium text-foreground">
+                Task added
+              </span>
             </div>
-            <p className="mt-1 text-sm leading-normal text-foreground">{title}</p>
+            <p className="mt-1 text-sm leading-normal text-foreground">
+              {title}
+            </p>
           </div>
           {status !== null && (
-            <Badge size="sm" variant={step.status === "error" ? "error" : "secondary"}>
+            <Badge
+              size="sm"
+              variant={step.status === "error" ? "error" : "secondary"}
+            >
               {status}
             </Badge>
           )}
@@ -309,6 +365,27 @@ export function ToolStepBeat({ isLiveSegment = false, step }: ToolWidgetProps) {
     );
   }
 
-  const Widget = step.ui?.widget !== undefined ? TOOL_WIDGETS[step.ui.widget] : undefined;
-  return Widget === undefined ? <DefaultToolWidget step={step} /> : <Widget step={step} />;
+  if (isSearchKind(step.kind)) {
+    return <SearchToolWidget isLiveSegment={isLiveSegment} step={step} />;
+  }
+
+  if (isWorkspaceReadTool(step.tool)) {
+    return <WorkspaceReadWidget isLiveSegment={isLiveSegment} step={step} />;
+  }
+
+  if (isOtherReadTool(step.tool)) {
+    return <OtherReadWidget isLiveSegment={isLiveSegment} step={step} />;
+  }
+
+  if (isWriteTool(step.tool)) {
+    return <WriteToolWidget isLiveSegment={isLiveSegment} step={step} />;
+  }
+
+  const Widget =
+    step.ui?.widget !== undefined ? TOOL_WIDGETS[step.ui.widget] : undefined;
+  return Widget === undefined ? (
+    <DefaultToolWidget step={step} />
+  ) : (
+    <Widget step={step} />
+  );
 }

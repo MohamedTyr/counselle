@@ -5,44 +5,44 @@ import type {
   Rollup,
   Round,
   TestPlan,
-} from "@/api/workspace/types"
+} from "@/api/workspace/types";
 
-export type DeadlineUrgency = "close" | "upcoming" | "normal"
+export type DeadlineUrgency = "close" | "upcoming" | "normal";
 
-export type { ApplicationStatus, ListType, Round, TestPlan }
-export type Progress = Rollup
+export type { ApplicationStatus, ListType, Round, TestPlan };
+export type Progress = Rollup;
 
 export type School = {
-  id: string
-  unitid: number
-  cycleYear: number | null
-  platform: ApplicationView["platform"]
-  checklist: ApplicationView["checklist"]
-  schoolName: string
-  location: string
-  websiteUrl: string | null
-  status: ApplicationStatus
-  listType: ListType
-  round: Round
-  deadline: string | null
-  aidDeadline: string | null
-  scholarshipDeadline: string | null
-  notes: string | null
-  intendedMajor: string | null
-  testPlan: TestPlan | null
-  progress: Progress
-  essays: Progress
-}
+  id: string;
+  unitid: number;
+  cycleYear: number | null;
+  platform: ApplicationView["platform"];
+  checklist: ApplicationView["checklist"];
+  schoolName: string;
+  location: string;
+  websiteUrl: string | null;
+  status: ApplicationStatus;
+  listType: ListType;
+  round: Round;
+  deadline: string | null;
+  aidDeadline: string | null;
+  scholarshipDeadline: string | null;
+  notes: string | null;
+  intendedMajor: string | null;
+  testPlan: TestPlan | null;
+  progress: Progress;
+  essays: Progress;
+};
 
 export function formatSchoolLocation({
   school_city: city,
   school_state: state,
 }: Pick<ApplicationView, "school_city" | "school_state">) {
   if (city && state) {
-    return `${city}, ${state}`
+    return `${city}, ${state}`;
   }
 
-  return city ?? state ?? "Location unavailable"
+  return city ?? state ?? "Location unavailable";
 }
 
 export function schoolFromApplication(application: ApplicationView): School {
@@ -66,5 +66,5 @@ export function schoolFromApplication(application: ApplicationView): School {
     testPlan: application.test_plan,
     progress: application.progress,
     essays: application.essays,
-  }
+  };
 }

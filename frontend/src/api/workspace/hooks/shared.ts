@@ -189,12 +189,10 @@ export function useQueuedUpdateInList<
 
     queuedByIdRef.current.delete(id);
     const request = updateFn(id, queued.patch);
-    const active = request
-      .then(queued.resolve, queued.reject)
-      .finally(() => {
-        activeByIdRef.current.delete(id);
-        flushQueued(id);
-      });
+    const active = request.then(queued.resolve, queued.reject).finally(() => {
+      activeByIdRef.current.delete(id);
+      flushQueued(id);
+    });
     activeByIdRef.current.set(
       id,
       active.catch(() => undefined),
@@ -210,7 +208,10 @@ export function useQueuedUpdateInList<
       });
       activeByIdRef.current.set(
         id,
-        active.then(() => undefined, () => undefined),
+        active.then(
+          () => undefined,
+          () => undefined,
+        ),
       );
       return request;
     }

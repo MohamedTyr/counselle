@@ -70,10 +70,7 @@ function optionId(listboxId: string, name: string) {
   return `${listboxId}-${name}`;
 }
 
-function hasSelectedSkillMention(
-  text: string,
-  name: string,
-) {
+function hasSelectedSkillMention(text: string, name: string) {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`@${escapedName}(?=$|[^A-Za-z0-9-])`).test(text);
 }

@@ -1,27 +1,27 @@
-import { Navigate, Outlet, useLocation } from "react-router"
+import { Navigate, Outlet, useLocation } from "react-router";
 
-import { useMe } from "@/app/auth"
-import { destinationFromLocation } from "@/app/auth/redirects"
-import { Button } from "@/components/ui/button"
+import { useMe } from "@/app/auth";
+import { destinationFromLocation } from "@/app/auth/redirects";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardPanel,
   CardTitle,
-} from "@/components/ui/card"
-import { Spinner } from "@/components/ui/spinner"
+} from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 
 export function RequireAuth() {
-  const location = useLocation()
-  const me = useMe()
+  const location = useLocation();
+  const me = useMe();
 
   if (me.isPending) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background">
         <Spinner />
       </div>
-    )
+    );
   }
 
   if (me.isError) {
@@ -41,7 +41,7 @@ export function RequireAuth() {
           </CardPanel>
         </Card>
       </div>
-    )
+    );
   }
 
   if (me.data === null) {
@@ -51,8 +51,8 @@ export function RequireAuth() {
         state={{ from: destinationFromLocation(location) }}
         to="/login"
       />
-    )
+    );
   }
 
-  return <Outlet />
+  return <Outlet />;
 }

@@ -654,8 +654,7 @@ export function TaskDetailSheet({
                 ariaLabel="Linked school"
                 onChange={(value) =>
                   updateTask({
-                    application_id:
-                      value === noSchoolValue ? undefined : value,
+                    application_id: value === noSchoolValue ? undefined : value,
                   })
                 }
                 options={schoolOptions}

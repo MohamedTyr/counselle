@@ -78,6 +78,28 @@ class DeltaData(BaseModel):
     text: str
 
 
+class WorkspacePreviewMeta(BaseModel):
+    """One labeled display fact for a workspace preview item."""
+
+    label: str
+    value: str
+
+
+class WorkspacePreviewItem(BaseModel):
+    """One display-safe workspace object in a public step receipt.
+
+    Deliberately excludes ids, notes, prompts, essay/document content, and
+    activity stories. ``meta`` contains short, already-safe display facts such
+    as a due date, school name, or word count.
+    """
+
+    kind: str
+    title: str
+    meta: list[WorkspacePreviewMeta] = Field(default_factory=list)
+    status: str | None = None
+    group: str | None = None
+
+
 class StepDetail(BaseModel):
     """Kind-specific receipt payload on a step's ``end``/``error`` (§27.1).
 
@@ -110,20 +132,23 @@ class StepDetail(BaseModel):
     completed: int | None = None
     total: int | None = None
     next_actions: list[str] | None = None
+    workspace_items: list[WorkspacePreviewItem] | None = None
     error: str | None = None
 
 
 class StepSource(BaseModel):
-    """One source chip on a completed step (§27.1): a favicon + a label.
+    """One source chip on a completed step (§27.1).
 
     The favicon is a CDN URL derived live from the source host — a school's
     homepage domain, or a search result's URL host — never a
-    stored/hardcoded logo. ``label`` is the host (web/edu), the school name
-    (db/viz), or the post title (reddit). ``url`` is the result link when one
-    exists. Display-only; honesty rules live in the citation envelope, not here.
+    stored/hardcoded logo. ``label`` is the compact host/school identity;
+    ``title`` is the optional search-result title; ``url`` is the result link
+    when one exists. Display-only; honesty rules live in the citation envelope,
+    not here.
     """
 
     label: str
+    title: str | None = None
     favicon: str | None = None
     url: str | None = None
 

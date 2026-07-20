@@ -1,72 +1,72 @@
-import type React from "react"
-import { useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router"
-import { useQueryClient } from "@tanstack/react-query"
+import type React from "react";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { authQueryKey, useLogin } from "@/app/auth"
+import { authQueryKey, useLogin } from "@/app/auth";
 import {
   noticeFromLocationState,
   safeAuthDestination,
-} from "@/app/auth/redirects"
-import { authErrorMessage, fetchMe } from "@/api/http/auth"
-import { Button } from "@/components/ui/button"
-import { CardFooter, CardPanel } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { AuthLayout } from "@/features/auth/AuthLayout"
-import { AuthField } from "@/features/auth/AuthField"
-import { describedBy } from "@/features/auth/auth-field-ids"
+} from "@/app/auth/redirects";
+import { authErrorMessage, fetchMe } from "@/api/http/auth";
+import { Button } from "@/components/ui/button";
+import { CardFooter, CardPanel } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { AuthLayout } from "@/features/auth/AuthLayout";
+import { AuthField } from "@/features/auth/AuthField";
+import { describedBy } from "@/features/auth/auth-field-ids";
 import {
   hasErrors,
   validateLogin,
   type LoginFormState,
-} from "@/features/auth/auth-validation"
+} from "@/features/auth/auth-validation";
 
-type LoginTouched = Partial<Record<keyof LoginFormState, boolean>>
+type LoginTouched = Partial<Record<keyof LoginFormState, boolean>>;
 
-const initialValues: LoginFormState = { email: "", password: "" }
+const initialValues: LoginFormState = { email: "", password: "" };
 
 export function LoginRoute() {
-  const [values, setValues] = useState<LoginFormState>(initialValues)
-  const [touched, setTouched] = useState<LoginTouched>({})
-  const [submitted, setSubmitted] = useState(false)
-  const [formError, setFormError] = useState<string | undefined>()
-  const location = useLocation()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const loginMutation = useLogin()
-  const notice = noticeFromLocationState(location.state)
-  const errors = validateLogin(values)
+  const [values, setValues] = useState<LoginFormState>(initialValues);
+  const [touched, setTouched] = useState<LoginTouched>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState<string | undefined>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const loginMutation = useLogin();
+  const notice = noticeFromLocationState(location.state);
+  const errors = validateLogin(values);
 
   const visibleError = (field: keyof LoginFormState) =>
-    submitted || touched[field] ? errors[field] : undefined
+    submitted || touched[field] ? errors[field] : undefined;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSubmitted(true)
-    setFormError(undefined)
+    event.preventDefault();
+    setSubmitted(true);
+    setFormError(undefined);
     if (hasErrors(errors)) {
-      return
+      return;
     }
 
     try {
       await loginMutation.mutateAsync({
         email: values.email.trim(),
         password: values.password,
-      })
-      setValues((current) => ({ ...current, password: "" }))
+      });
+      setValues((current) => ({ ...current, password: "" }));
       const user = await queryClient.fetchQuery({
         queryKey: authQueryKey,
         queryFn: fetchMe,
         staleTime: 0,
-      })
+      });
       if (!user) {
-        setFormError("We could not confirm your session. Please try again.")
-        return
+        setFormError("We could not confirm your session. Please try again.");
+        return;
       }
-      navigate(safeAuthDestination(location.state), { replace: true })
+      navigate(safeAuthDestination(location.state), { replace: true });
     } catch (error) {
-      setFormError(authErrorMessage(error))
+      setFormError(authErrorMessage(error));
     }
   }
 
@@ -87,7 +87,11 @@ export function LoginRoute() {
               {formError}
             </p>
           )}
-          <AuthField id="login-email" label="Email" error={visibleError("email")}>
+          <AuthField
+            id="login-email"
+            label="Email"
+            error={visibleError("email")}
+          >
             <Input
               aria-describedby={describedBy(
                 "login-email",
@@ -97,7 +101,9 @@ export function LoginRoute() {
               aria-invalid={Boolean(visibleError("email"))}
               autoComplete="email"
               id="login-email"
-              onBlur={() => setTouched((current) => ({ ...current, email: true }))}
+              onBlur={() =>
+                setTouched((current) => ({ ...current, email: true }))
+              }
               onChange={(event) =>
                 setValues((current) => ({
                   ...current,
@@ -152,5 +158,5 @@ export function LoginRoute() {
         </Link>
       </CardFooter>
     </AuthLayout>
-  )
+  );
 }

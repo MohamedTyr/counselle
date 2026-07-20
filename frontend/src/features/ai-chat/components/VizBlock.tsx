@@ -48,7 +48,9 @@ function CellValue({
     <span className="inline-flex flex-wrap items-center gap-1.5 text-foreground [overflow-wrap:anywhere]">
       <span>{cell.display}</span>
       {focus === undefined ? (
-        <Badge variant={cell.citation.tier === "official" ? "secondary" : "outline"}>
+        <Badge
+          variant={cell.citation.tier === "official" ? "secondary" : "outline"}
+        >
           {cell.citation.tier === "official" ? "Official" : "Community"}
         </Badge>
       ) : (
@@ -76,15 +78,26 @@ function VizFrame({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function SchoolHeading({ school, index }: { school: TabularRenderSpec["columns"][number]; index: number }) {
-  const key = school.unitid === null
-    ? `web:${school.name}:${school.domain ?? ""}:${index}`
-    : `db:${school.unitid}:${index}`;
+function SchoolHeading({
+  school,
+  index,
+}: {
+  school: TabularRenderSpec["columns"][number];
+  index: number;
+}) {
+  const key =
+    school.unitid === null
+      ? `web:${school.name}:${school.domain ?? ""}:${index}`
+      : `db:${school.unitid}:${index}`;
   return (
     <th className="py-1.5 pr-3 text-left font-medium text-foreground" key={key}>
       <span className="inline-flex items-center gap-2">
         {school.domain !== null && school.domain !== undefined && (
-          <img alt="" className="size-4 rounded-sm" src={faviconUrlForDomain(school.domain)} />
+          <img
+            alt=""
+            className="size-4 rounded-sm"
+            src={faviconUrlForDomain(school.domain)}
+          />
         )}
         {school.name}
       </span>
@@ -92,13 +105,24 @@ function SchoolHeading({ school, index }: { school: TabularRenderSpec["columns"]
   );
 }
 
-function StatBlockView({ spec, onSourceOpen }: { spec: TabularRenderSpec; onSourceOpen?: (focus: SourceFocus) => void }) {
+function StatBlockView({
+  spec,
+  onSourceOpen,
+}: {
+  spec: TabularRenderSpec;
+  onSourceOpen?: (focus: SourceFocus) => void;
+}) {
   return (
     <VizFrame title={spec.title}>
-      <div className="mb-2 text-xs text-muted-foreground">{spec.columns[0]?.name}</div>
+      <div className="mb-2 text-xs text-muted-foreground">
+        {spec.columns[0]?.name}
+      </div>
       <dl className="flex flex-col gap-1.5">
         {spec.rows.map((row, index) => (
-          <div className="flex items-baseline justify-between gap-3 text-sm" key={`${row.label}-${index}`}>
+          <div
+            className="flex items-baseline justify-between gap-3 text-sm"
+            key={`${row.label}-${index}`}
+          >
             <dt className="text-muted-foreground">{row.label}</dt>
             <dd className="text-right font-medium">
               <CellValue cell={row.cells[0]} onSourceOpen={onSourceOpen} />
@@ -110,21 +134,49 @@ function StatBlockView({ spec, onSourceOpen }: { spec: TabularRenderSpec; onSour
   );
 }
 
-function ComparisonTableView({ spec, onSourceOpen }: { spec: TabularRenderSpec; onSourceOpen?: (focus: SourceFocus) => void }) {
+function ComparisonTableView({
+  spec,
+  onSourceOpen,
+}: {
+  spec: TabularRenderSpec;
+  onSourceOpen?: (focus: SourceFocus) => void;
+}) {
   return (
     <VizFrame title={spec.title}>
       <div className="max-w-full overflow-x-auto">
         <table className="w-full border-collapse text-sm">
-          <thead><tr className="border-b">
-            <th className="py-1.5 pr-3 text-left font-medium text-muted-foreground">&nbsp;</th>
-            {spec.columns.map((school, index) => <SchoolHeading index={index} school={school} key={school.unitid === null ? `web:${school.name}:${school.domain ?? ""}:${index}` : `db:${school.unitid}:${index}`} />)}
-          </tr></thead>
+          <thead>
+            <tr className="border-b">
+              <th className="py-1.5 pr-3 text-left font-medium text-muted-foreground">
+                &nbsp;
+              </th>
+              {spec.columns.map((school, index) => (
+                <SchoolHeading
+                  index={index}
+                  school={school}
+                  key={
+                    school.unitid === null
+                      ? `web:${school.name}:${school.domain ?? ""}:${index}`
+                      : `db:${school.unitid}:${index}`
+                  }
+                />
+              ))}
+            </tr>
+          </thead>
           <tbody>
             {spec.rows.map((row, rowIndex) => (
-              <tr className="border-b last:border-b-0" key={`${row.label}-${rowIndex}`}>
-                <th className="py-1.5 pr-3 text-left font-normal text-muted-foreground">{row.label}</th>
+              <tr
+                className="border-b last:border-b-0"
+                key={`${row.label}-${rowIndex}`}
+              >
+                <th className="py-1.5 pr-3 text-left font-normal text-muted-foreground">
+                  {row.label}
+                </th>
                 {row.cells.map((cell, columnIndex) => (
-                  <td className="py-1.5 pr-3" key={`${rowIndex}-${columnIndex}`}>
+                  <td
+                    className="py-1.5 pr-3"
+                    key={`${rowIndex}-${columnIndex}`}
+                  >
                     <CellValue cell={cell} onSourceOpen={onSourceOpen} />
                   </td>
                 ))}
@@ -140,7 +192,9 @@ function ComparisonTableView({ spec, onSourceOpen }: { spec: TabularRenderSpec; 
 function UnknownVizFallback({ spec }: { spec: RenderSpec }) {
   return (
     <VizFrame title={spec.title ?? "Visualization"}>
-      <p className="text-sm text-muted-foreground">This visualization requires a newer client.</p>
+      <p className="text-sm text-muted-foreground">
+        This visualization requires a newer client.
+      </p>
     </VizFrame>
   );
 }
@@ -149,7 +203,9 @@ export function VizBlock({ spec, onSourceOpen }: VizBlockProps) {
   if (!isTabularRenderSpec(spec)) {
     return <UnknownVizFallback spec={spec} />;
   }
-  return spec.type === "stat_block"
-    ? <StatBlockView onSourceOpen={onSourceOpen} spec={spec} />
-    : <ComparisonTableView onSourceOpen={onSourceOpen} spec={spec} />;
+  return spec.type === "stat_block" ? (
+    <StatBlockView onSourceOpen={onSourceOpen} spec={spec} />
+  ) : (
+    <ComparisonTableView onSourceOpen={onSourceOpen} spec={spec} />
+  );
 }

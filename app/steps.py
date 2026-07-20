@@ -60,6 +60,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.run import AgentRunResultEvent
 
 from app.tool_specs import ToolSpec, build_tool_specs
+from app.workspace_step_receipts import WORKSPACE_READ_TOOLS
 from domain.events import (
     StepData,
     StepDetail,
@@ -306,6 +307,19 @@ class StepMapper:
         elif kind in ("workspace", "memory"):
             if isinstance(content, dict):
                 kwargs["summary"] = _str_or_none(content.get("summary"))
+            if kind == "workspace" and tool_name in WORKSPACE_READ_TOOLS:
+                receipt = _overflow_receipt(content)
+                if receipt is None and isinstance(content, dict):
+                    candidate = content.get("public_receipt")
+                    receipt = dict(candidate) if isinstance(candidate, dict) else None
+                items = receipt.get("workspace_items") if receipt is not None else None
+                if isinstance(items, list):
+                    kwargs["workspace_items"] = items
+                result_count = receipt.get("result_count") if receipt is not None else None
+                if isinstance(result_count, int):
+                    kwargs["result_count"] = result_count
+                if tool_name in {"search_tasks", "search_schools"}:
+                    kwargs["query"] = _str_or_none(args.get("query"))
         else:  # db_tool, skill, unknown
             kwargs.update(self._db_tool_detail_kwargs(tool_name, args, content))
         kwargs.update(_error_detail_kwargs(content))
@@ -584,10 +598,18 @@ class StepMapper:
             seen.add(url)
             host = registrable_domain(url)
             title = _str_or_none(result.get("title"))
-            # Reddit chips name the post; web/edu chips name the host.
+            # The compact identity stays stable while the optional title lets
+            # clients render a useful expanded result without raw tool access.
             label = _truncate(title) if (kind == "reddit_search" and title) else (host or url)
             fav = favicon_url(host) if host else None
-            out.append(StepSource(label=label, favicon=fav, url=url))
+            out.append(
+                StepSource(
+                    label=label,
+                    title=_truncate(title) if title else None,
+                    favicon=fav,
+                    url=url,
+                )
+            )
             if len(out) >= _MAX_STEP_SOURCES:
                 break
         return out or None

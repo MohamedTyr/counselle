@@ -101,10 +101,20 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
                 className="truncate rounded-sm font-medium text-foreground/75 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 to={`/app/schools/${essay.applicationId}`}
               >
-                {item}{index === 0 ? (essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed") : ""}
+                {item}
+                {index === 0
+                  ? essay.cycleYear
+                    ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}`
+                    : " · Cycle unconfirmed"
+                  : ""}
               </Link>
             ) : (
-              <span className={cn("truncate", index === 0 && "font-medium text-foreground/75")}>
+              <span
+                className={cn(
+                  "truncate",
+                  index === 0 && "font-medium text-foreground/75",
+                )}
+              >
                 {item}
               </span>
             )}
@@ -118,10 +128,15 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
               className="truncate rounded-sm font-medium text-foreground/75 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               to={`/app/schools/${essay.applicationId}`}
             >
-              {essay.schoolName}{essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed"}
+              {essay.schoolName}
+              {essay.cycleYear
+                ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}`
+                : " · Cycle unconfirmed"}
             </Link>
           ) : (
-            <span className="truncate font-medium text-foreground/75">{essay.schoolName}</span>
+            <span className="truncate font-medium text-foreground/75">
+              {essay.schoolName}
+            </span>
           )}
           <span aria-hidden="true" className="shrink-0 text-border">
             /

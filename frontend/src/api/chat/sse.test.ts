@@ -67,60 +67,72 @@ function currentViz() {
       { unitid: 198419, name: "Duke University", domain: "duke.edu" },
       { unitid: null, name: "Web College", domain: "example.edu" },
     ],
-    rows: [{
-      label: "Acceptance rate",
-      cells: [
-        {
-          v: 2,
-          field: "admissions.acceptance_rate",
-          label: "Acceptance rate",
-          display: "6.8%",
-          raw: 0.068,
-          available: true,
-          unit: "percent",
-          citation: cdsCitation(),
-          evidence: {
-            eid: "admissions.acceptance_rate",
-            value_display: "6.8%",
+    rows: [
+      {
+        label: "Acceptance rate",
+        cells: [
+          {
+            v: 2,
+            field: "admissions.acceptance_rate",
             label: "Acceptance rate",
-            page: 7,
-            section: "C1",
-            excerpt: "Applicants admitted: 6.8%",
+            display: "6.8%",
+            raw: 0.068,
+            available: true,
+            unit: "percent",
+            citation: cdsCitation(),
+            evidence: {
+              eid: "admissions.acceptance_rate",
+              value_display: "6.8%",
+              label: "Acceptance rate",
+              page: 7,
+              section: "C1",
+              excerpt: "Applicants admitted: 6.8%",
+            },
+            caveats: [
+              { kind: "stale_edition", text: "This value is from 2024-25." },
+            ],
+            marker: "[123]",
           },
-          caveats: [{ kind: "stale_edition", text: "This value is from 2024-25." }],
-          marker: "[123]",
-        },
-        {
-          v: 2,
-          field: null,
-          label: "Acceptance rate",
-          display: "not available",
-          raw: null,
-          available: false,
-          unit: null,
-          citation: null,
-          evidence: null,
-          caveats: [],
-          marker: null,
-        },
-      ],
-    }],
+          {
+            v: 2,
+            field: null,
+            label: "Acceptance rate",
+            display: "not available",
+            raw: null,
+            available: false,
+            unit: null,
+            citation: null,
+            evidence: null,
+            caveats: [],
+            marker: null,
+          },
+        ],
+      },
+    ],
   };
 }
 
 describe("parseSseStream", () => {
   it("validates web source-period evidence as one coherent claim", () => {
     expect(isCurrentCitation(webCitation())).toBe(true);
-    expect(isCurrentCitation({
-      ...webCitation(),
-      source_period: null,
-      source_period_basis: null,
-      source_period_evidence: null,
-      source_currentness: "undated",
-    })).toBe(true);
-    expect(isCurrentCitation({ ...webCitation(), source_period_evidence: null })).toBe(false);
-    expect(isCurrentCitation({ ...webCitation(), source_currentness: "undated" })).toBe(false);
-    expect(isCurrentCitation({ ...cdsCitation(), source_currentness: "undated" })).toBe(false);
+    expect(
+      isCurrentCitation({
+        ...webCitation(),
+        source_period: null,
+        source_period_basis: null,
+        source_period_evidence: null,
+        source_currentness: "undated",
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentCitation({ ...webCitation(), source_period_evidence: null }),
+    ).toBe(false);
+    expect(
+      isCurrentCitation({ ...webCitation(), source_currentness: "undated" }),
+    ).toBe(false);
+    expect(
+      isCurrentCitation({ ...cdsCitation(), source_currentness: "undated" }),
+    ).toBe(false);
   });
 
   it("exposes frame id, event field, and parsed protocol event data", async () => {
@@ -401,7 +413,9 @@ describe("parseSseStream", () => {
   });
 
   it("coerces unknown done statuses to a safe complete status", async () => {
-    const frames = await collect(streamOf(frame("done", { status: "archived" }, "1")));
+    const frames = await collect(
+      streamOf(frame("done", { status: "archived" }, "1")),
+    );
 
     expect(frames[0]?.data).toEqual({
       v: 1,
@@ -412,81 +426,160 @@ describe("parseSseStream", () => {
 
   it("accepts outer v1 with a strict nested v2 table, CDS evidence, and null unitid", async () => {
     const frames = await collect(streamOf(frame("viz", currentViz(), "1")));
-    expect(frames[0]?.data).toMatchObject({ v: 1, type: "viz", data: { v: 2 } });
+    expect(frames[0]?.data).toMatchObject({
+      v: 1,
+      type: "viz",
+      data: { v: 2 },
+    });
   });
 
   it.each([
     ["wrong nested version", { ...currentViz(), v: 1 }],
-    ["old schools vocabulary", { ...currentViz(), columns: undefined, schools: [] }],
-    ["row width mismatch", { ...currentViz(), rows: [{ ...currentViz().rows[0], cells: [currentViz().rows[0].cells[0]] }] }],
-    ["CDS citation without evidence", { ...currentViz(), rows: [{ ...currentViz().rows[0], cells: [{ ...currentViz().rows[0].cells[0], evidence: null }, currentViz().rows[0].cells[1]] }] }],
-    ["unavailable cell with citation", { ...currentViz(), rows: [{ ...currentViz().rows[0], cells: [currentViz().rows[0].cells[0], { ...currentViz().rows[0].cells[1], citation: cdsCitation() }] }] }],
+    [
+      "old schools vocabulary",
+      { ...currentViz(), columns: undefined, schools: [] },
+    ],
+    [
+      "row width mismatch",
+      {
+        ...currentViz(),
+        rows: [
+          { ...currentViz().rows[0], cells: [currentViz().rows[0].cells[0]] },
+        ],
+      },
+    ],
+    [
+      "CDS citation without evidence",
+      {
+        ...currentViz(),
+        rows: [
+          {
+            ...currentViz().rows[0],
+            cells: [
+              { ...currentViz().rows[0].cells[0], evidence: null },
+              currentViz().rows[0].cells[1],
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "unavailable cell with citation",
+      {
+        ...currentViz(),
+        rows: [
+          {
+            ...currentViz().rows[0],
+            cells: [
+              currentViz().rows[0].cells[0],
+              { ...currentViz().rows[0].cells[1], citation: cdsCitation() },
+            ],
+          },
+        ],
+      },
+    ],
   ])("rejects malformed known v2 visualization: %s", async (_label, viz) => {
-    await expect(collect(streamOf(frame("viz", viz, "1")))).rejects.toThrow("malformed viz");
+    await expect(collect(streamOf(frame("viz", viz, "1")))).rejects.toThrow(
+      "malformed viz",
+    );
   });
 
   it("preserves an opaque unknown visualization without inspecting its payload", async () => {
-    const opaque = { v: 2, type: "community_card", title: "Student voices", payload: { rows: "not tabular" } };
+    const opaque = {
+      v: 2,
+      type: "community_card",
+      title: "Student voices",
+      payload: { rows: "not tabular" },
+    };
     const frames = await collect(streamOf(frame("viz", opaque, "1")));
     expect(frames[0]?.data).toEqual({ v: 1, type: "viz", data: opaque });
   });
 
   it("enforces source-conditional citation and evidence shapes", async () => {
     const valid = {
-      sources: [{
-        v: 2,
-        index: 123,
-        citation: cdsCitation(),
-        label: "Duke University — Common Data Set 2024-25",
-        snippet: null,
-        evidence: [currentViz().rows[0].cells[0].evidence],
-        evidence_omitted_count: 2,
-      }],
+      sources: [
+        {
+          v: 2,
+          index: 123,
+          citation: cdsCitation(),
+          label: "Duke University — Common Data Set 2024-25",
+          snippet: null,
+          evidence: [currentViz().rows[0].cells[0].evidence],
+          evidence_omitted_count: 2,
+        },
+      ],
     };
-    const populatedFrames = await collect(streamOf(frame("sources", valid, "1")));
-    expect(populatedFrames).toEqual([{
-      id: "1",
-      event: "sources",
-      data: { v: 1, type: "sources", data: valid },
-    }]);
+    const populatedFrames = await collect(
+      streamOf(frame("sources", valid, "1")),
+    );
+    expect(populatedFrames).toEqual([
+      {
+        id: "1",
+        event: "sources",
+        data: { v: 1, type: "sources", data: valid },
+      },
+    ]);
 
     const emptyEvidence = {
-      sources: [{ ...valid.sources[0], evidence: [], evidence_omitted_count: 0 }],
+      sources: [
+        { ...valid.sources[0], evidence: [], evidence_omitted_count: 0 },
+      ],
     };
-    const emptyFrames = await collect(streamOf(frame("sources", emptyEvidence, "1")));
-    expect(emptyFrames).toEqual([{
-      id: "1",
-      event: "sources",
-      data: { v: 1, type: "sources", data: emptyEvidence },
-    }]);
+    const emptyFrames = await collect(
+      streamOf(frame("sources", emptyEvidence, "1")),
+    );
+    expect(emptyFrames).toEqual([
+      {
+        id: "1",
+        event: "sources",
+        data: { v: 1, type: "sources", data: emptyEvidence },
+      },
+    ]);
 
-    const invalidCitation = { sources: [{ ...valid.sources[0], citation: { ...cdsCitation(), tier: "community" } }] };
-    await expect(collect(streamOf(frame("sources", invalidCitation, "1")))).rejects.toThrow("malformed sources");
+    const invalidCitation = {
+      sources: [
+        {
+          ...valid.sources[0],
+          citation: { ...cdsCitation(), tier: "community" },
+        },
+      ],
+    };
+    await expect(
+      collect(streamOf(frame("sources", invalidCitation, "1"))),
+    ).rejects.toThrow("malformed sources");
 
     const invalidEvidence = {
-      sources: [{
-        ...valid.sources[0],
-        evidence: [{ ...valid.sources[0].evidence[0], page: 0 }],
-      }],
+      sources: [
+        {
+          ...valid.sources[0],
+          evidence: [{ ...valid.sources[0].evidence[0], page: 0 }],
+        },
+      ],
     };
-    await expect(collect(streamOf(frame("sources", invalidEvidence, "1")))).rejects.toThrow("malformed sources");
+    await expect(
+      collect(streamOf(frame("sources", invalidEvidence, "1"))),
+    ).rejects.toThrow("malformed sources");
 
     const nonCdsEvidence = {
-      sources: [{
-        ...valid.sources[0],
-        citation: {
-          v: 2,
-          source: "web",
-          tier: "official",
-          vintage: "2026",
-          url: "https://example.edu/admissions",
-          retrieved_at: null,
-          academic_year: null,
-          school_unitid: null,
+      sources: [
+        {
+          ...valid.sources[0],
+          citation: {
+            v: 2,
+            source: "web",
+            tier: "official",
+            vintage: "2026",
+            url: "https://example.edu/admissions",
+            retrieved_at: null,
+            academic_year: null,
+            school_unitid: null,
+          },
         },
-      }],
+      ],
     };
-    await expect(collect(streamOf(frame("sources", nonCdsEvidence, "1")))).rejects.toThrow("malformed sources");
+    await expect(
+      collect(streamOf(frame("sources", nonCdsEvidence, "1"))),
+    ).rejects.toThrow("malformed sources");
   });
 
   it.each([
@@ -502,15 +595,37 @@ describe("parseSseStream", () => {
     const cell = viz.rows[0].cells[0];
     const malformed = {
       ...viz,
-      rows: [{ ...viz.rows[0], cells: [{ ...cell, citation: { ...cdsCitation(), ...override } }, viz.rows[0].cells[1]] }],
+      rows: [
+        {
+          ...viz.rows[0],
+          cells: [
+            { ...cell, citation: { ...cdsCitation(), ...override } },
+            viz.rows[0].cells[1],
+          ],
+        },
+      ],
     };
-    await expect(collect(streamOf(frame("viz", malformed, "1")))).rejects.toThrow("malformed viz");
+    await expect(
+      collect(streamOf(frame("viz", malformed, "1"))),
+    ).rejects.toThrow("malformed viz");
   });
 
   it("rejects non-positive DB column unitids", async () => {
     const viz = currentViz();
-    await expect(collect(streamOf(frame("viz", { ...viz, columns: [{ ...viz.columns[0], unitid: -1 }, viz.columns[1]] }, "1"))))
-      .rejects.toThrow("malformed viz");
+    await expect(
+      collect(
+        streamOf(
+          frame(
+            "viz",
+            {
+              ...viz,
+              columns: [{ ...viz.columns[0], unitid: -1 }, viz.columns[1]],
+            },
+            "1",
+          ),
+        ),
+      ),
+    ).rejects.toThrow("malformed viz");
   });
 
   it("keeps data split across multiple data lines", async () => {

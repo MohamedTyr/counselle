@@ -42,6 +42,7 @@ def test_web_sources_label_is_host(mapper: StepMapper) -> None:
     sources = mapper.sources_for("search_web", {"query": "x"}, content)
     assert sources is not None
     assert [s.label for s in sources] == ["usnews.com", "eecs.mit.edu"]
+    assert [s.title for s in sources] == ["Best colleges", "EECS"]
     assert sources[0].favicon == favicon_url("usnews.com")
     assert sources[0].url == "https://www.usnews.com/best"
 
@@ -51,6 +52,7 @@ def test_reddit_sources_label_is_title(mapper: StepMapper) -> None:
     sources = mapper.sources_for("search_reddit", {"query": "x"}, content)
     assert sources is not None
     assert sources[0].label == "MIT EECS culture is no joke"
+    assert sources[0].title == "MIT EECS culture is no joke"
     # favicon derives from the result host (reddit.com), not a hardcoded asset.
     assert sources[0].favicon == favicon_url("reddit.com")
 
@@ -203,7 +205,12 @@ def test_router_emits_sources_on_end(mapper: StepMapper) -> None:
     router._finish_step(_FakeResult("tc1", _results({"url": "https://a.com/1", "title": "A"})))  # type: ignore[arg-type]
     end = next(c for c in chunks if c["type"] == "step" and c["data"]["status"] == "end")
     assert end["data"]["sources"] == [
-        {"label": "a.com", "favicon": favicon_url("a.com"), "url": "https://a.com/1"}
+        {
+            "label": "a.com",
+            "title": "A",
+            "favicon": favicon_url("a.com"),
+            "url": "https://a.com/1",
+        }
     ]
 
 

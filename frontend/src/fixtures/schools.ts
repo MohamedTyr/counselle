@@ -1,4 +1,4 @@
-import type { School } from "@/domain/school"
+import type { School } from "@/domain/school";
 
 export const schools: School[] = [
   {
@@ -193,4 +193,4 @@ export const schools: School[] = [
     progress: { completed: 3, total: 10 },
     essays: { completed: 0, total: 1 },
   },
-]
+];

@@ -1,65 +1,65 @@
-import type React from "react"
-import { useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router"
-import { useQueryClient } from "@tanstack/react-query"
+import type React from "react";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   authQueryKey,
   isAccountCreatedLoginError,
   useRegisterAndLogin,
-} from "@/app/auth"
-import { safeAuthDestination } from "@/app/auth/redirects"
-import { authErrorMessage, fetchMe } from "@/api/http/auth"
-import { Button } from "@/components/ui/button"
-import { CardFooter, CardPanel } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { AuthLayout } from "@/features/auth/AuthLayout"
-import { AuthField } from "@/features/auth/AuthField"
-import { describedBy } from "@/features/auth/auth-field-ids"
+} from "@/app/auth";
+import { safeAuthDestination } from "@/app/auth/redirects";
+import { authErrorMessage, fetchMe } from "@/api/http/auth";
+import { Button } from "@/components/ui/button";
+import { CardFooter, CardPanel } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { AuthLayout } from "@/features/auth/AuthLayout";
+import { AuthField } from "@/features/auth/AuthField";
+import { describedBy } from "@/features/auth/auth-field-ids";
 import {
   hasErrors,
   validateRegister,
   type RegisterFormState,
-} from "@/features/auth/auth-validation"
+} from "@/features/auth/auth-validation";
 
-type RegisterTouched = Partial<Record<keyof RegisterFormState, boolean>>
+type RegisterTouched = Partial<Record<keyof RegisterFormState, boolean>>;
 
 const initialValues: RegisterFormState = {
   name: "",
   email: "",
   password: "",
   confirmPassword: "",
-}
+};
 
 export function RegisterRoute() {
-  const [values, setValues] = useState<RegisterFormState>(initialValues)
-  const [touched, setTouched] = useState<RegisterTouched>({})
-  const [submitted, setSubmitted] = useState(false)
-  const [formError, setFormError] = useState<string | undefined>()
-  const location = useLocation()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const registerMutation = useRegisterAndLogin()
-  const errors = validateRegister(values)
+  const [values, setValues] = useState<RegisterFormState>(initialValues);
+  const [touched, setTouched] = useState<RegisterTouched>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState<string | undefined>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const registerMutation = useRegisterAndLogin();
+  const errors = validateRegister(values);
 
   const visibleError = (field: keyof RegisterFormState) =>
-    submitted || touched[field] ? errors[field] : undefined
+    submitted || touched[field] ? errors[field] : undefined;
 
   function clearPasswords() {
     setValues((current) => ({
       ...current,
       password: "",
       confirmPassword: "",
-    }))
+    }));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSubmitted(true)
-    setFormError(undefined)
+    event.preventDefault();
+    setSubmitted(true);
+    setFormError(undefined);
     if (hasErrors(errors)) {
-      return
+      return;
     }
 
     try {
@@ -67,31 +67,31 @@ export function RegisterRoute() {
         email: values.email.trim(),
         name: values.name.trim(),
         password: values.password,
-      })
-      clearPasswords()
+      });
+      clearPasswords();
       const user = await queryClient.fetchQuery({
         queryKey: authQueryKey,
         queryFn: fetchMe,
         staleTime: 0,
-      })
+      });
       if (!user) {
         navigate("/login", {
           replace: true,
           state: { notice: "Your account was created. Please log in." },
-        })
-        return
+        });
+        return;
       }
-      navigate(safeAuthDestination(location.state), { replace: true })
+      navigate(safeAuthDestination(location.state), { replace: true });
     } catch (error) {
       if (isAccountCreatedLoginError(error)) {
-        clearPasswords()
+        clearPasswords();
         navigate("/login", {
           replace: true,
           state: { notice: "Your account was created. Please log in." },
-        })
-        return
+        });
+        return;
       }
-      setFormError(authErrorMessage(error))
+      setFormError(authErrorMessage(error));
     }
   }
 
@@ -107,7 +107,11 @@ export function RegisterRoute() {
               {formError}
             </p>
           )}
-          <AuthField id="register-name" label="Name" error={visibleError("name")}>
+          <AuthField
+            id="register-name"
+            label="Name"
+            error={visibleError("name")}
+          >
             <Input
               aria-describedby={describedBy(
                 "register-name",
@@ -117,7 +121,9 @@ export function RegisterRoute() {
               aria-invalid={Boolean(visibleError("name"))}
               autoComplete="name"
               id="register-name"
-              onBlur={() => setTouched((current) => ({ ...current, name: true }))}
+              onBlur={() =>
+                setTouched((current) => ({ ...current, name: true }))
+              }
               onChange={(event) =>
                 setValues((current) => ({
                   ...current,
@@ -142,7 +148,9 @@ export function RegisterRoute() {
               aria-invalid={Boolean(visibleError("email"))}
               autoComplete="email"
               id="register-email"
-              onBlur={() => setTouched((current) => ({ ...current, email: true }))}
+              onBlur={() =>
+                setTouched((current) => ({ ...current, email: true }))
+              }
               onChange={(event) =>
                 setValues((current) => ({
                   ...current,
@@ -224,5 +232,5 @@ export function RegisterRoute() {
         </Link>
       </CardFooter>
     </AuthLayout>
-  )
+  );
 }

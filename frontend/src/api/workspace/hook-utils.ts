@@ -1,8 +1,8 @@
-import { toast } from "sonner"
+import { toast } from "sonner";
 
-import { authQueryKey } from "@/app/auth"
-import { isTransportError } from "@/api/http/errors"
-import { nowIso } from "@/api/workspace/optimistic"
+import { authQueryKey } from "@/app/auth";
+import { isTransportError } from "@/api/http/errors";
+import { nowIso } from "@/api/workspace/optimistic";
 import type {
   Activity,
   ActivityCreate,
@@ -15,25 +15,25 @@ import type {
   SchoolSearchResult,
   Task,
   TaskCreate,
-} from "@/api/workspace/types"
+} from "@/api/workspace/types";
 
 function workspaceErrorMessage(error: unknown) {
   if (!isTransportError(error)) {
-    return "The workspace update failed. Please try again."
+    return "The workspace update failed. Please try again.";
   }
   switch (error.kind) {
     case "unauthorized":
-      return "Your session expired. Sign in again to keep editing."
+      return "Your session expired. Sign in again to keep editing.";
     case "conflict":
-      return "That workspace item already exists."
+      return "That workspace item already exists.";
     case "invalid_edit":
-      return "That edit is invalid."
+      return "That edit is invalid.";
     case "rate_limited":
-      return "Too many workspace updates. Wait a moment and try again."
+      return "Too many workspace updates. Wait a moment and try again.";
     case "network":
-      return "Could not reach the server. Check your connection and try again."
+      return "Could not reach the server. Check your connection and try again.";
     default:
-      return "The workspace update failed. Please try again."
+      return "The workspace update failed. Please try again.";
   }
 }
 
@@ -41,21 +41,21 @@ export function handleMutationError(
   error: unknown,
   context: {
     client: {
-      invalidateQueries: (filters: { queryKey: readonly unknown[] }) => unknown
-    }
+      invalidateQueries: (filters: { queryKey: readonly unknown[] }) => unknown;
+    };
   },
 ) {
   if (isTransportError(error) && error.kind === "unauthorized") {
-    void context.client.invalidateQueries({ queryKey: authQueryKey })
+    void context.client.invalidateQueries({ queryKey: authQueryKey });
   }
-  toast.error(workspaceErrorMessage(error))
+  toast.error(workspaceErrorMessage(error));
 }
 
 export function tempApplication(
   input: ApplicationCreate,
   school?: SchoolSearchResult,
 ): ApplicationView {
-  const timestamp = nowIso()
+  const timestamp = nowIso();
   return {
     id: `temp-${crypto.randomUUID()}`,
     user_id: "optimistic",
@@ -82,11 +82,11 @@ export function tempApplication(
     created_at: timestamp,
     updated_at: timestamp,
     archived_at: null,
-  }
+  };
 }
 
 export function tempTask(input: TaskCreate): Task {
-  const timestamp = nowIso()
+  const timestamp = nowIso();
   return {
     id: `temp-${crypto.randomUUID()}`,
     user_id: "optimistic",
@@ -108,11 +108,11 @@ export function tempTask(input: TaskCreate): Task {
     created_at: timestamp,
     updated_at: timestamp,
     archived_at: null,
-  }
+  };
 }
 
 export function tempEssay(input: EssayCreate): EssaySummary {
-  const timestamp = nowIso()
+  const timestamp = nowIso();
   return {
     id: `temp-${crypto.randomUUID()}`,
     user_id: "optimistic",
@@ -135,11 +135,14 @@ export function tempEssay(input: EssayCreate): EssaySummary {
     created_at: timestamp,
     updated_at: timestamp,
     archived_at: null,
-  }
+  };
 }
 
-export function tempActivity(input: ActivityCreate, sortOrder: number): Activity {
-  const timestamp = nowIso()
+export function tempActivity(
+  input: ActivityCreate,
+  sortOrder: number,
+): Activity {
+  const timestamp = nowIso();
   return {
     id: `temp-${crypto.randomUUID()}`,
     user_id: "optimistic",
@@ -157,11 +160,11 @@ export function tempActivity(input: ActivityCreate, sortOrder: number): Activity
     created_at: timestamp,
     updated_at: timestamp,
     archived_at: null,
-  }
+  };
 }
 
 export function tempHonor(input: HonorCreate, sortOrder: number): Honor {
-  const timestamp = nowIso()
+  const timestamp = nowIso();
   return {
     id: `temp-${crypto.randomUUID()}`,
     user_id: "optimistic",
@@ -172,5 +175,5 @@ export function tempHonor(input: HonorCreate, sortOrder: number): Honor {
     created_at: timestamp,
     updated_at: timestamp,
     archived_at: null,
-  }
+  };
 }

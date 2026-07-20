@@ -1,14 +1,18 @@
-import { useEffect } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { authQueryKey, useMe } from "@/app/auth"
-import { fetchMe } from "@/api/http/auth"
+import { authQueryKey, useMe } from "@/app/auth";
+import { fetchMe } from "@/api/http/auth";
 import {
   createWorkspaceEventSource,
   type WorkspaceEventSourceFactory,
-} from "@/api/workspace/event-source"
-import { workspaceKeys } from "@/api/workspace/keys"
-import type { ChangeEvent, ChangeOp, WorkspaceObjectType } from "@/api/workspace/types"
+} from "@/api/workspace/event-source";
+import { workspaceKeys } from "@/api/workspace/keys";
+import type {
+  ChangeEvent,
+  ChangeOp,
+  WorkspaceObjectType,
+} from "@/api/workspace/types";
 
 const objectTypes: WorkspaceObjectType[] = [
   "application",
@@ -16,21 +20,21 @@ const objectTypes: WorkspaceObjectType[] = [
   "essay",
   "activity",
   "honor",
-]
-const changeOps: ChangeOp[] = ["created", "updated", "archived", "restored"]
+];
+const changeOps: ChangeOp[] = ["created", "updated", "archived", "restored"];
 const workspaceEventTypes = objectTypes.flatMap((objectType) =>
   changeOps.map((op) => `${objectType}.${op}`),
-)
+);
 
 type UseWorkspaceEventsOptions = {
-  enabled?: boolean
-}
+  enabled?: boolean;
+};
 
 function parseWorkspaceEvent(event: MessageEvent): ChangeEvent | null {
   try {
-    return JSON.parse(event.data as string) as ChangeEvent
+    return JSON.parse(event.data as string) as ChangeEvent;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -38,98 +42,104 @@ export function useWorkspaceEvents(
   factory: WorkspaceEventSourceFactory = createWorkspaceEventSource,
   options: UseWorkspaceEventsOptions = {},
 ) {
-  const enabled = options.enabled ?? true
-  const queryClient = useQueryClient()
+  const enabled = options.enabled ?? true;
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!enabled) {
-      return undefined
+      return undefined;
     }
 
-    const source = factory()
-    let authCheck: Promise<void> | null = null
+    const source = factory();
+    let authCheck: Promise<void> | null = null;
 
     function invalidateFromChange(change: ChangeEvent) {
       switch (change.data.object_type) {
         case "application":
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.applications.list(),
-          })
+          });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.applications.detail(change.data.object_id),
-          })
+          });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.schoolSearchAll(),
-          })
-          break
+          });
+          break;
         case "task":
-          void queryClient.invalidateQueries({ queryKey: workspaceKeys.tasks.list() })
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.tasks.list(),
+          });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.applications.all(),
-          })
-          break
+          });
+          break;
         case "essay":
-          void queryClient.invalidateQueries({ queryKey: workspaceKeys.essays.list() })
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.essays.list(),
+          });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.essays.detail(change.data.object_id),
-          })
+          });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.applications.all(),
-          })
-          break
+          });
+          break;
         case "activity":
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.activities.list(),
-          })
-          break
+          });
+          break;
         case "honor":
-          void queryClient.invalidateQueries({ queryKey: workspaceKeys.honors.list() })
-          break
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.honors.list(),
+          });
+          break;
       }
     }
 
     function handleMessage(event: MessageEvent) {
-      const change = parseWorkspaceEvent(event)
+      const change = parseWorkspaceEvent(event);
       if (change) {
-        invalidateFromChange(change)
+        invalidateFromChange(change);
       }
     }
 
     workspaceEventTypes.forEach((eventType) => {
-      source.addEventListener(eventType, handleMessage as EventListener)
-    })
+      source.addEventListener(eventType, handleMessage as EventListener);
+    });
 
     source.onerror = () => {
       if (authCheck) {
-        return
+        return;
       }
       authCheck = queryClient
         .fetchQuery({ queryKey: authQueryKey, queryFn: fetchMe, staleTime: 0 })
         .then((user) => {
           if (!user) {
-            queryClient.setQueryData(authQueryKey, null)
-            source.close()
+            queryClient.setQueryData(authQueryKey, null);
+            source.close();
           }
         })
         .catch(() => {
-          void queryClient.invalidateQueries({ queryKey: authQueryKey })
+          void queryClient.invalidateQueries({ queryKey: authQueryKey });
         })
         .finally(() => {
-          authCheck = null
-        })
-    }
+          authCheck = null;
+        });
+    };
 
     return () => {
       workspaceEventTypes.forEach((eventType) => {
-        source.removeEventListener(eventType, handleMessage as EventListener)
-      })
-      source.close()
-    }
-  }, [enabled, factory, queryClient])
+        source.removeEventListener(eventType, handleMessage as EventListener);
+      });
+      source.close();
+    };
+  }, [enabled, factory, queryClient]);
 }
 
 export function WorkspaceEventsMount() {
-  const { data: user } = useMe()
-  useWorkspaceEvents(undefined, { enabled: Boolean(user) })
-  return null
+  const { data: user } = useMe();
+  useWorkspaceEvents(undefined, { enabled: Boolean(user) });
+  return null;
 }

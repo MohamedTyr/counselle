@@ -1,8 +1,4 @@
-import type {
-  KnownStepKind,
-  StepData,
-  StepKind,
-} from "@/api/chat/types";
+import type { KnownStepKind, StepData, StepKind } from "@/api/chat/types";
 
 type KindPresentation = {
   resultNoun: "result" | "thread" | null;
@@ -10,7 +6,9 @@ type KindPresentation = {
 
 const DEFAULT_KIND_PRESENTATION: KindPresentation = { resultNoun: null };
 
-export const KIND_PRESENTATION: Readonly<Record<KnownStepKind, KindPresentation>> = {
+export const KIND_PRESENTATION: Readonly<
+  Record<KnownStepKind, KindPresentation>
+> = {
   db_tool: DEFAULT_KIND_PRESENTATION,
   sql: DEFAULT_KIND_PRESENTATION,
   web_search: { resultNoun: "result" },
@@ -40,7 +38,10 @@ function formatList(label: string, values: string[]): string | null {
 /** DB/sql/viz internals stay hidden; this only reveals the student-facing
  * StepDetail fields that are already safe to render in the run surface. */
 export function receiptText(step: StepData): string | null {
-  if ((step.status !== "end" && step.status !== "error") || step.kind === "write_plan") {
+  if (
+    (step.status !== "end" && step.status !== "error") ||
+    step.kind === "write_plan"
+  ) {
     return null;
   }
 
@@ -56,16 +57,24 @@ export function receiptText(step: StepData): string | null {
   if (detail.summary !== undefined && detail.summary !== "") {
     parts.push(detail.summary);
   }
-  if (isSearchKind(step.kind) && detail.query !== undefined && detail.query !== "") {
+  if (
+    isSearchKind(step.kind) &&
+    detail.query !== undefined &&
+    detail.query !== ""
+  ) {
     parts.push(`"${detail.query}"`);
   }
 
   const resultNoun = presentationForKind(step.kind).resultNoun;
   if (typeof detail.result_count === "number" && resultNoun !== null) {
-    parts.push(`${detail.result_count} ${resultNoun}${detail.result_count === 1 ? "" : "s"}`);
+    parts.push(
+      `${detail.result_count} ${resultNoun}${detail.result_count === 1 ? "" : "s"}`,
+    );
   }
   if (typeof detail.value_count === "number") {
-    parts.push(`${detail.value_count} ${detail.value_count === 1 ? "value" : "values"}`);
+    parts.push(
+      `${detail.value_count} ${detail.value_count === 1 ? "value" : "values"}`,
+    );
   }
   if (detail.viz_type !== undefined && detail.viz_type !== "") {
     parts.push(detail.viz_type.replaceAll("_", " "));

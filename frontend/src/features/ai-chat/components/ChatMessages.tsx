@@ -36,8 +36,14 @@ export function ChatMessages({
   onClarifyAnswer,
   skillLabelForName,
 }: ChatMessagesProps) {
-  const { scrollableRef, contentRef, messagesEndRef, showScrollButton, scrollToBottom, onScroll } =
-    useQuestionAnchoredScroll({ sessionId, messages, isSubmitting });
+  const {
+    scrollableRef,
+    contentRef,
+    messagesEndRef,
+    showScrollButton,
+    scrollToBottom,
+    onScroll,
+  } = useQuestionAnchoredScroll({ sessionId, messages, isSubmitting });
 
   const lastAssistantIndex = [...messages]
     .map((message, index) => ({ message, index }))
@@ -50,7 +56,9 @@ export function ChatMessages({
       <div className="flex size-full flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
         <MessageCircleIcon aria-hidden="true" className="size-8" />
         <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-medium text-foreground">No messages yet</h2>
+          <h2 className="text-sm font-medium text-foreground">
+            No messages yet
+          </h2>
           <p className="text-sm">Ask a question to start this conversation.</p>
         </div>
       </div>
@@ -65,7 +73,10 @@ export function ChatMessages({
         ref={scrollableRef}
         role="log"
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6" ref={contentRef}>
+        <div
+          className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6"
+          ref={contentRef}
+        >
           {messages.map((message, index) => (
             <ChatMessage
               canRegenerate={
@@ -95,7 +106,9 @@ export function ChatMessages({
                   : undefined
               }
               onRegenerate={
-                onRegenerate !== undefined ? () => onRegenerate(message) : undefined
+                onRegenerate !== undefined
+                  ? () => onRegenerate(message)
+                  : undefined
               }
               skillLabelForName={skillLabelForName}
             />

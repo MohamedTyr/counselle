@@ -3,7 +3,7 @@ import {
   useQuery,
   useQueryClient,
   type UseQueryResult,
-} from "@tanstack/react-query"
+} from "@tanstack/react-query";
 
 import {
   fetchMe,
@@ -13,24 +13,24 @@ import {
   type LoginInput,
   type MeData,
   type RegisterInput,
-} from "@/api/http/auth"
+} from "@/api/http/auth";
 
-export const authQueryKey = ["me"] as const
+export const authQueryKey = ["me"] as const;
 
 export class AccountCreatedLoginError extends Error {
-  readonly cause: unknown
+  readonly cause: unknown;
 
   constructor(cause: unknown) {
-    super("Account created, but automatic login failed.")
-    this.name = "AccountCreatedLoginError"
-    this.cause = cause
+    super("Account created, but automatic login failed.");
+    this.name = "AccountCreatedLoginError";
+    this.cause = cause;
   }
 }
 
 export function isAccountCreatedLoginError(
   error: unknown,
 ): error is AccountCreatedLoginError {
-  return error instanceof AccountCreatedLoginError
+  return error instanceof AccountCreatedLoginError;
 }
 
 export function useMe(): UseQueryResult<MeData | null> {
@@ -39,44 +39,44 @@ export function useMe(): UseQueryResult<MeData | null> {
     queryFn: fetchMe,
     staleTime: 60_000,
     retry: false,
-  })
+  });
 }
 
 export function useAuthUser(): MeData | null {
-  return useMe().data ?? null
+  return useMe().data ?? null;
 }
 
 export function useLogin() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: login,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKey }),
-  })
+  });
 }
 
 export function useRegisterAndLogin() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: RegisterInput) => {
-      await register(input)
+      await register(input);
       try {
-        await login({ email: input.email, password: input.password })
+        await login({ email: input.email, password: input.password });
       } catch (error) {
-        throw new AccountCreatedLoginError(error)
+        throw new AccountCreatedLoginError(error);
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKey }),
-  })
+  });
 }
 
 export function useLogout() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: logout,
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey: authQueryKey })
+      queryClient.removeQueries({ queryKey: authQueryKey });
     },
-  })
+  });
 }
 
-export type { LoginInput, MeData, RegisterInput }
+export type { LoginInput, MeData, RegisterInput };

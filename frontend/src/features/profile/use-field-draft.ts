@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState } from "react";
 
 /**
  * Local edit buffer for a field that autosaves on blur. Resyncs from the
@@ -10,17 +10,17 @@ import { useState } from "react"
  * than a `useEffect` + `setState`) to avoid an extra render pass.
  */
 export function useFieldDraft<T>(serverValue: T) {
-  const [draft, setDraft] = useState(serverValue)
-  const [lastServerValue, setLastServerValue] = useState(serverValue)
+  const [draft, setDraft] = useState(serverValue);
+  const [lastServerValue, setLastServerValue] = useState(serverValue);
 
   // Content equality, not reference equality: callers that derive
   // `serverValue` from an unset field (e.g. `itemsFromValue(undefined)`)
   // produce a fresh `[]` on every render, and reference equality would
   // wipe the draft on every keystroke's re-render.
   if (JSON.stringify(serverValue) !== JSON.stringify(lastServerValue)) {
-    setLastServerValue(serverValue)
-    setDraft(serverValue)
+    setLastServerValue(serverValue);
+    setDraft(serverValue);
   }
 
-  return [draft, setDraft] as const
+  return [draft, setDraft] as const;
 }

@@ -157,7 +157,9 @@ export function ChatComposer({
               picker.handleCompositionStart();
             }}
             onKeyDown={handleKeyDown}
-            onScroll={(event) => setTextareaScrollTop(event.currentTarget.scrollTop)}
+            onScroll={(event) =>
+              setTextareaScrollTop(event.currentTarget.scrollTop)
+            }
             onSelect={picker.handleTextareaSelect}
             placeholder={placeholder}
             ref={textareaRef}

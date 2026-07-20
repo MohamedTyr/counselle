@@ -56,7 +56,13 @@ function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
               manifest_version: "5.0.1",
               school_unitid: 100,
             },
-            evidence: { eid: "admissions.acceptance_rate", value_display: "12%", label: "Acceptance rate", page: 7, excerpt: "Rate 12%" },
+            evidence: {
+              eid: "admissions.acceptance_rate",
+              value_display: "12%",
+              label: "Acceptance rate",
+              page: 7,
+              excerpt: "Rate 12%",
+            },
             caveats: [],
             marker: "[1]",
           },
@@ -76,7 +82,9 @@ function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
               url: "https://south.edu/rate",
             },
             evidence: null,
-            caveats: [{ kind: "edition_mismatch_comparison", text: "Editions differ." }],
+            caveats: [
+              { kind: "edition_mismatch_comparison", text: "Editions differ." },
+            ],
             marker: "[2]",
           },
         ],
@@ -118,9 +126,12 @@ function assistantEntry(
   };
 }
 
-function vizBlocks(state: TurnState): Array<Extract<ContentBlock, { kind: "viz" }>> {
+function vizBlocks(
+  state: TurnState,
+): Array<Extract<ContentBlock, { kind: "viz" }>> {
   return answerBlocksOf(state).filter(
-    (block): block is Extract<ContentBlock, { kind: "viz" }> => block.kind === "viz",
+    (block): block is Extract<ContentBlock, { kind: "viz" }> =>
+      block.kind === "viz",
   );
 }
 
@@ -173,19 +184,27 @@ describe("turn reducer", () => {
   test("resolved provenance differences never dedupe", () => {
     const first = renderSpec();
     const baseline = renderSpec();
-    if (!isTabularRenderSpec(baseline)) throw new Error("expected tabular fixture");
+    if (!isTabularRenderSpec(baseline))
+      throw new Error("expected tabular fixture");
     const firstCell = baseline.rows[0].cells[0];
     const changed: RenderSpec = {
       ...baseline,
-      rows: [{
-        ...baseline.rows[0],
-        cells: [{
-          ...firstCell,
-          citation: firstCell.citation === null || firstCell.citation === undefined
-            ? firstCell.citation
-            : { ...firstCell.citation, document_sha256: "b".repeat(64) },
-        }, ...baseline.rows[0].cells.slice(1)],
-      }, ...baseline.rows.slice(1)],
+      rows: [
+        {
+          ...baseline.rows[0],
+          cells: [
+            {
+              ...firstCell,
+              citation:
+                firstCell.citation === null || firstCell.citation === undefined
+                  ? firstCell.citation
+                  : { ...firstCell.citation, document_sha256: "b".repeat(64) },
+            },
+            ...baseline.rows[0].cells.slice(1),
+          ],
+        },
+        ...baseline.rows.slice(1),
+      ],
     };
 
     const state = reduceEvents([
@@ -202,7 +221,9 @@ describe("turn reducer", () => {
       title: "Student voices",
       secret_payload: "must not export",
     };
-    const state = reduceTranscriptEntry(assistantEntry([{ type: "viz", spec }]));
+    const state = reduceTranscriptEntry(
+      assistantEntry([{ type: "viz", spec }]),
+    );
     expect(vizBlocks(state)[0].spec).toEqual(spec);
     expect(runMarkdownOf(state)).toContain("### Student voices");
     expect(runMarkdownOf(state)).toContain("requires a newer client");
@@ -210,24 +231,56 @@ describe("turn reducer", () => {
   });
 
   test.each([
-    ["array-only shell", (spec: Record<string, unknown>) => ({ ...spec, columns: [], rows: [] })],
-    ["bad cell", (spec: Record<string, unknown>) => ({ ...spec, rows: [{ label: "Rate", cells: ["12%"] }] })],
-    ["wrong row width", (spec: Record<string, unknown>) => ({ ...spec, rows: [{ label: "Rate", cells: [] }] })],
-    ["bad citation", (spec: Record<string, unknown>) => {
-      const rows = structuredClone(spec.rows) as Array<{ cells: Array<Record<string, unknown>> }>;
-      rows[0].cells[0].citation = { source: "cds" };
-      return { ...spec, rows };
-    }],
-    ["bad evidence", (spec: Record<string, unknown>) => {
-      const rows = structuredClone(spec.rows) as Array<{ cells: Array<Record<string, unknown>> }>;
-      rows[0].cells[0].evidence = { eid: "wrong" };
-      return { ...spec, rows };
-    }],
-    ["extra keys", (spec: Record<string, unknown>) => ({ ...spec, unexpected: true })],
+    [
+      "array-only shell",
+      (spec: Record<string, unknown>) => ({ ...spec, columns: [], rows: [] }),
+    ],
+    [
+      "bad cell",
+      (spec: Record<string, unknown>) => ({
+        ...spec,
+        rows: [{ label: "Rate", cells: ["12%"] }],
+      }),
+    ],
+    [
+      "wrong row width",
+      (spec: Record<string, unknown>) => ({
+        ...spec,
+        rows: [{ label: "Rate", cells: [] }],
+      }),
+    ],
+    [
+      "bad citation",
+      (spec: Record<string, unknown>) => {
+        const rows = structuredClone(spec.rows) as Array<{
+          cells: Array<Record<string, unknown>>;
+        }>;
+        rows[0].cells[0].citation = { source: "cds" };
+        return { ...spec, rows };
+      },
+    ],
+    [
+      "bad evidence",
+      (spec: Record<string, unknown>) => {
+        const rows = structuredClone(spec.rows) as Array<{
+          cells: Array<Record<string, unknown>>;
+        }>;
+        rows[0].cells[0].evidence = { eid: "wrong" };
+        return { ...spec, rows };
+      },
+    ],
+    [
+      "extra keys",
+      (spec: Record<string, unknown>) => ({ ...spec, unexpected: true }),
+    ],
   ])("rejects malformed current-v2 %s", (_label, mutate) => {
-    const malformed = mutate(structuredClone(renderSpec()) as unknown as Record<string, unknown>);
+    const malformed = mutate(
+      structuredClone(renderSpec()) as unknown as Record<string, unknown>,
+    );
     expect(isTabularRenderSpec(malformed)).toBe(false);
-    const state = reduceTranscriptEntry(assistantEntry([{ type: "viz", spec: malformed as RenderSpec }]));
+    const state = reduceTranscriptEntry(
+      assistantEntry([{ type: "viz", spec: malformed as RenderSpec }]),
+    );
     expect(runMarkdownOf(state)).toContain("requires a newer client");
   });
 
@@ -236,16 +289,26 @@ describe("turn reducer", () => {
       role: "assistant",
       text: "Legacy answer [1].",
       ts: null,
-      sources: [{
-        index: 1,
-        label: "IPEDS 2024 admissions",
-        citation: { source: "ipeds", tier: "official", vintage: "IPEDS 2024", caveat: "provisional" },
-      }],
+      sources: [
+        {
+          index: 1,
+          label: "IPEDS 2024 admissions",
+          citation: {
+            source: "ipeds",
+            tier: "official",
+            vintage: "IPEDS 2024",
+            caveat: "provisional",
+          },
+        },
+      ],
       status: "complete",
     } as unknown as TranscriptAssistantEntry;
     const state = reduceTranscriptEntry(legacy);
     expect(state.status).toBe("complete");
-    expect(state.sources[0]).toMatchObject({ index: 1, citation: { source: "ipeds" } });
+    expect(state.sources[0]).toMatchObject({
+      index: 1,
+      citation: { source: "ipeds" },
+    });
   });
 
   test("attach replay with overlapping live and persisted viz frames keeps one card", () => {
@@ -296,7 +359,11 @@ describe("turn reducer", () => {
 
   test("thinking entries stay distinct from visible narration", () => {
     const state = reduceEvents([
-      { v: 1, type: "narration", data: { text: "Checking the official site." } },
+      {
+        v: 1,
+        type: "narration",
+        data: { text: "Checking the official site." },
+      },
       { v: 1, type: "thinking", data: { text: "Native thought summary." } },
     ]);
 
@@ -575,7 +642,11 @@ describe("turn reducer", () => {
         data: { text: "I'll compare reputation and student life." },
       },
       { v: 1, type: "step", data: tool },
-      { v: 1, type: "delta", data: { text: "MIT has the stronger global brand." } },
+      {
+        v: 1,
+        type: "delta",
+        data: { text: "MIT has the stronger global brand." },
+      },
       { v: 1, type: "viz", data: viz },
       {
         v: 1,
@@ -586,7 +657,11 @@ describe("turn reducer", () => {
           injected: true,
         },
       },
-      { v: 1, type: "delta", data: { text: " Pitzer has the tighter LAC community." } },
+      {
+        v: 1,
+        type: "delta",
+        data: { text: " Pitzer has the tighter LAC community." },
+      },
       {
         v: 1,
         type: "sources",
@@ -653,8 +728,16 @@ describe("turn reducer", () => {
 
   test("sources and done settle the turn without reordering existing beats", () => {
     const beforeCompletion = reduceEvents([
-      { v: 1, type: "thinking", data: { text: "Check ranking and fit separately." } },
-      { v: 1, type: "narration", data: { text: "I'll check the current evidence." } },
+      {
+        v: 1,
+        type: "thinking",
+        data: { text: "Check ranking and fit separately." },
+      },
+      {
+        v: 1,
+        type: "narration",
+        data: { text: "I'll check the current evidence." },
+      },
       stepEvent({
         step_id: "search-1",
         status: "end",
@@ -696,8 +779,16 @@ describe("turn reducer", () => {
     expect(withSources.segments).toBe(beforeCompletion.segments);
     expect(settled.segments).toBe(beforeCompletion.segments);
     expect(settled.segments).toEqual([
-      { type: "thinking", id: "thinking-0", text: "Check ranking and fit separately." },
-      { type: "narration", id: "narration-0", text: "I'll check the current evidence." },
+      {
+        type: "thinking",
+        id: "thinking-0",
+        text: "Check ranking and fit separately.",
+      },
+      {
+        type: "narration",
+        id: "narration-0",
+        text: "I'll check the current evidence.",
+      },
       {
         type: "tool",
         step: {
@@ -801,7 +892,9 @@ describe("turn reducer", () => {
       }),
     );
 
-    const toolSegments = state.segments.filter((segment) => segment.type === "tool");
+    const toolSegments = state.segments.filter(
+      (segment) => segment.type === "tool",
+    );
     expect(toolSegments).toHaveLength(1);
     expect(toolSegments[0].step.status).toBe("end");
     expect(toolSegments[0].step.sources).toEqual([
@@ -815,7 +908,10 @@ describe("turn reducer", () => {
 
   test("step end-event ui payload merges onto the started tool segment", () => {
     let state = initialTurnState();
-    state = reduceTurn(state, stepEvent({ step_id: "task-1", status: "start" }));
+    state = reduceTurn(
+      state,
+      stepEvent({ step_id: "task-1", status: "start" }),
+    );
     state = reduceTurn(
       state,
       stepEvent({
@@ -833,7 +929,9 @@ describe("turn reducer", () => {
       }),
     );
 
-    const toolSegments = state.segments.filter((segment) => segment.type === "tool");
+    const toolSegments = state.segments.filter(
+      (segment) => segment.type === "tool",
+    );
     expect(toolSegments).toHaveLength(1);
     expect(toolSegments[0].step).toMatchObject({
       step_id: "task-1",
@@ -859,7 +957,11 @@ describe("turn reducer", () => {
       }),
       1_000,
     );
-    state = reduceLiveTurn(state, { v: 1, type: "done", data: { status: "complete" } }, 2_500);
+    state = reduceLiveTurn(
+      state,
+      { v: 1, type: "done", data: { status: "complete" } },
+      2_500,
+    );
 
     expect(state.startedAtMs).toBe(1_000);
     expect(state.completedAtMs).toBe(2_500);

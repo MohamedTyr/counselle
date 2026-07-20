@@ -273,8 +273,7 @@ export function isActivityOverLimit(activity: Activity): boolean {
     commonAppCharacterCount(activity.position) > ACTIVITY_LIMITS.position ||
     commonAppCharacterCount(activity.organization) >
       ACTIVITY_LIMITS.organization ||
-    commonAppCharacterCount(activity.description) >
-      ACTIVITY_LIMITS.description
+    commonAppCharacterCount(activity.description) > ACTIVITY_LIMITS.description
   );
 }
 

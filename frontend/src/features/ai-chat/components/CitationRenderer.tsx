@@ -3,7 +3,11 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { defaultRemarkPlugins } from "streamdown";
 
-import type { Citation, ReplaySourceEntry, SourceFocus } from "@/api/chat/types";
+import type {
+  Citation,
+  ReplaySourceEntry,
+  SourceFocus,
+} from "@/api/chat/types";
 import {
   InlineCitation,
   InlineCitationCard,
@@ -46,7 +50,10 @@ export type CitationRendererProps = {
 // list — `Object.values` reconstructs the exact `PluggableList` Streamdown
 // uses internally, so appending our citation-ref transform can't silently
 // drop GFM (tables, strikethrough, etc.) or fenced-code-meta support.
-const remarkPlugins = [...Object.values(defaultRemarkPlugins), remarkCitationRefs];
+const remarkPlugins = [
+  ...Object.values(defaultRemarkPlugins),
+  remarkCitationRefs,
+];
 const allowedTags = { "citation-ref": ["index"] };
 
 function TierBadge({ citation }: { citation: Citation }) {
@@ -65,9 +72,17 @@ function ChipIcon({
   schoolDomains: Map<number, string> | undefined;
 }) {
   const domain =
-    citation.school_unitid != null ? schoolDomains?.get(citation.school_unitid) : undefined;
+    citation.school_unitid != null
+      ? schoolDomains?.get(citation.school_unitid)
+      : undefined;
   if (domain !== undefined) {
-    return <img alt="" className="size-3.5 rounded-full" src={faviconUrlForDomain(domain)} />;
+    return (
+      <img
+        alt=""
+        className="size-3.5 rounded-full"
+        src={faviconUrlForDomain(domain)}
+      />
+    );
   }
   if (citation.source === "cds" || citation.source === "profile") {
     return <SchoolIcon aria-hidden="true" className="size-3.5" />;
@@ -80,7 +95,13 @@ function ChipIcon({
   );
 }
 
-function ChipBody({ entry, label }: { entry: ReplaySourceEntry; label: string }) {
+function ChipBody({
+  entry,
+  label,
+}: {
+  entry: ReplaySourceEntry;
+  label: string;
+}) {
   if (isLegacySourceEntry(entry)) {
     const href = safeExternalUrl(entry.citation.url);
     return (
@@ -161,7 +182,9 @@ function CitationChip({
     return null;
   }
 
-  const label = isLegacySourceEntry(entry) ? entry.citation.source : friendlySourceName(entry.citation);
+  const label = isLegacySourceEntry(entry)
+    ? entry.citation.source
+    : friendlySourceName(entry.citation);
   const citation = isLegacySourceEntry(entry) ? undefined : entry.citation;
   const handleOpen = () => onOpen?.({ index: entry.index });
 
@@ -220,8 +243,12 @@ function CitationRendererComponent({
   useEffect(() => {
     const container = containerRef.current;
     if (container === null) return;
-    const nodes = Array.from(container.querySelectorAll<HTMLElement>(`[${PLACEHOLDER_ATTR}]`));
-    setPlaceholders((previous) => (sameNodeList(previous, nodes) ? previous : nodes));
+    const nodes = Array.from(
+      container.querySelectorAll<HTMLElement>(`[${PLACEHOLDER_ATTR}]`),
+    );
+    setPlaceholders((previous) =>
+      sameNodeList(previous, nodes) ? previous : nodes,
+    );
   });
 
   const components = useMemo(
@@ -229,7 +256,10 @@ function CitationRendererComponent({
       ({
         "citation-ref": ({ index }: { index?: unknown }) => (
           <span
-            {...{ [PLACEHOLDER_ATTR]: typeof index === "number" ? index : Number(index) }}
+            {...{
+              [PLACEHOLDER_ATTR]:
+                typeof index === "number" ? index : Number(index),
+            }}
           />
         ),
       }) as unknown as MessageResponseProps["components"],

@@ -128,7 +128,10 @@ export function useQuestionAnchoredScroll({
   // A newly sent user message anchors near the top of the viewport — once.
   useEffect(() => {
     const lastUser = [...messages].reverse().find((m) => m.kind === "user");
-    if (lastUser === undefined || lastUser.messageId === lastAnchoredIdRef.current) {
+    if (
+      lastUser === undefined ||
+      lastUser.messageId === lastAnchoredIdRef.current
+    ) {
       return;
     }
 
@@ -153,11 +156,17 @@ export function useQuestionAnchoredScroll({
       const el = scrollableRef.current;
       const t = document.getElementById(anchoredId);
       const content = contentRef.current;
-      if (el === null || t === null || lastAnchoredIdRef.current !== anchoredId) {
+      if (
+        el === null ||
+        t === null ||
+        lastAnchoredIdRef.current !== anchoredId
+      ) {
         return;
       }
       const residual =
-        t.getBoundingClientRect().top - el.getBoundingClientRect().top - ANCHOR_TOP_OFFSET_PX;
+        t.getBoundingClientRect().top -
+        el.getBoundingClientRect().top -
+        ANCHOR_TOP_OFFSET_PX;
       if (Math.abs(residual) <= 4) {
         return;
       }
@@ -165,7 +174,8 @@ export function useQuestionAnchoredScroll({
       if (content !== null) {
         const needed = el.clientHeight + desired - content.offsetHeight;
         if (needed > 0) {
-          const current = Number.parseFloat(content.style.paddingBottom || "0") || 0;
+          const current =
+            Number.parseFloat(content.style.paddingBottom || "0") || 0;
           content.style.paddingBottom = `${Math.ceil(current + needed)}px`;
           void el.scrollHeight;
         }
@@ -182,7 +192,10 @@ export function useQuestionAnchoredScroll({
     updateScrollButton();
   }, [messages, updateScrollButton]);
 
-  useEffect(() => () => debouncedHandleScroll.cancel(), [debouncedHandleScroll]);
+  useEffect(
+    () => () => debouncedHandleScroll.cancel(),
+    [debouncedHandleScroll],
+  );
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

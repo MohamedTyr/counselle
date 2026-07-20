@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
 
 import type { ChatSessionSummary } from "@/api/chat/types";
@@ -15,11 +15,14 @@ import { ChatSessionActions } from "./ChatSessionActions";
 
 type ChatSessionRowProps = {
   active: boolean;
+  index: number;
   isBusy: boolean;
   onDelete: (sessionId: string) => void;
   onRename: (sessionId: string, title: string) => Promise<boolean>;
   session: ChatSessionSummary;
 };
+
+const MAX_STAGGER_STEPS = 8;
 
 function sessionTitle(session: ChatSessionSummary) {
   return session.title?.trim() || UNTITLED_CHAT_TITLE;
@@ -27,6 +30,7 @@ function sessionTitle(session: ChatSessionSummary) {
 
 export function ChatSessionRow({
   active,
+  index,
   isBusy,
   onDelete,
   onRename,
@@ -55,11 +59,18 @@ export function ChatSessionRow({
   }
 
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem
+      className="sidebar-chat-item"
+      style={
+        {
+          "--chat-row-index": Math.min(index, MAX_STAGGER_STEPS),
+        } as CSSProperties
+      }
+    >
       <SidebarMenuButton
         asChild
         className={cn(
-          "h-11 rounded-md px-1.5 pr-1.5! text-sidebar-foreground transition-colors md:h-8 pointer-coarse:!h-11 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
+          "sidebar-chat-button h-11 rounded-lg px-2.5 pr-1.5! text-sidebar-foreground transition-[color,background-color] duration-150 md:h-8 pointer-coarse:!h-11 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
           active && "font-medium",
         )}
         isActive={active}

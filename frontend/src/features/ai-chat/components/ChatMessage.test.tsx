@@ -4,7 +4,9 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { ChatMessage } from "./ChatMessage";
 import type { AssistantChatMessage, UserChatMessage } from "../model";
 
-function userMessage(overrides: Partial<UserChatMessage> = {}): UserChatMessage {
+function userMessage(
+  overrides: Partial<UserChatMessage> = {},
+): UserChatMessage {
   return {
     kind: "user",
     messageId: "user-1",
@@ -19,7 +21,9 @@ function userMessage(overrides: Partial<UserChatMessage> = {}): UserChatMessage 
   };
 }
 
-function assistantMessage(overrides: Partial<AssistantChatMessage> = {}): AssistantChatMessage {
+function assistantMessage(
+  overrides: Partial<AssistantChatMessage> = {},
+): AssistantChatMessage {
   const blocks = overrides.blocks ?? [
     { kind: "markdown" as const, text: "Aid depends on need [1]." },
   ];
@@ -45,7 +49,13 @@ function assistantMessage(overrides: Partial<AssistantChatMessage> = {}): Assist
       {
         v: 2,
         index: 1,
-        citation: { v: 2, source: "web", tier: "official", vintage: "2026", url: "https://example.com" },
+        citation: {
+          v: 2,
+          source: "web",
+          tier: "official",
+          vintage: "2026",
+          url: "https://example.com",
+        },
         label: "Example",
         evidence: [],
         evidence_omitted_count: 0,
@@ -70,7 +80,9 @@ describe("ChatMessage", () => {
   test("user message renders as a right-aligned bubble tagged with its message id", () => {
     render(<ChatMessage message={userMessage()} />);
 
-    const bubble = screen.getByText("How does financial aid work?").closest("[id]");
+    const bubble = screen
+      .getByText("How does financial aid work?")
+      .closest("[id]");
     expect(bubble).toHaveAttribute("id", "user-1");
     expect(bubble?.className).toContain("is-user");
   });
@@ -78,24 +90,28 @@ describe("ChatMessage", () => {
   test("renders historical skill chips with catalog labels and a slug fallback", () => {
     render(
       <ChatMessage
-        message={userMessage({ skills: ["school-comparison", "retired-skill"] })}
+        message={userMessage({
+          skills: ["school-comparison", "retired-skill"],
+        })}
         skillLabelForName={(name) =>
           name === "school-comparison" ? "School comparison" : undefined
         }
       />,
     );
 
-    expect(screen.getByRole("list", { name: "Invoked skills" })).toHaveTextContent(
-      "School comparison",
-    );
-    expect(screen.getByRole("list", { name: "Invoked skills" })).toHaveTextContent(
-      "retired skill",
-    );
+    expect(
+      screen.getByRole("list", { name: "Invoked skills" }),
+    ).toHaveTextContent("School comparison");
+    expect(
+      screen.getByRole("list", { name: "Invoked skills" }),
+    ).toHaveTextContent("retired skill");
   });
 
   test("assistant message renders markdown content and message actions once settled", () => {
     const onFeedback = vi.fn();
-    render(<ChatMessage message={assistantMessage()} onFeedback={onFeedback} />);
+    render(
+      <ChatMessage message={assistantMessage()} onFeedback={onFeedback} />,
+    );
 
     expect(screen.getByText(/Aid depends on need/)).toBeInTheDocument();
 
@@ -111,7 +127,11 @@ describe("ChatMessage", () => {
       <ChatMessage
         message={assistantMessage({
           segments: [
-            { type: "narration", id: "n1", text: "I'll add that to your task list." },
+            {
+              type: "narration",
+              id: "n1",
+              text: "I'll add that to your task list.",
+            },
             {
               type: "tool",
               step: {
@@ -140,10 +160,16 @@ describe("ChatMessage", () => {
       />,
     );
 
-    expect(screen.getByText("I'll add that to your task list.")).toBeInTheDocument();
+    expect(
+      screen.getByText("I'll add that to your task list."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Task added")).toBeInTheDocument();
-    expect(screen.getByText("Submit Duke financial aid forms")).toBeInTheDocument();
-    expect(screen.getByText("I added it to your workspace.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Submit Duke financial aid forms"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("I added it to your workspace."),
+    ).toBeInTheDocument();
   });
 
   test("passes live turn state to the active school-data row", () => {
@@ -165,7 +191,10 @@ describe("ChatMessage", () => {
       text: "",
       turnStatus: "streaming",
     });
-    const persisted = assistantMessage({ ...streaming, turnStatus: "complete" });
+    const persisted = assistantMessage({
+      ...streaming,
+      turnStatus: "complete",
+    });
 
     const { container, rerender } = render(<ChatMessage message={streaming} />);
     expect(container.querySelector(".lucide-loader-circle")).toHaveClass(
@@ -179,14 +208,20 @@ describe("ChatMessage", () => {
   });
 
   test("keeps concurrent school-data starts live within the same streaming turn", () => {
-    const schoolStep = (stepId: string, tool: "resolve_school" | "get_domain") => ({
+    const schoolStep = (
+      stepId: string,
+      tool: "resolve_school" | "get_domain",
+    ) => ({
       type: "tool" as const,
       step: {
         step_id: stepId,
         status: "start" as const,
         kind: "db_tool" as const,
         tool,
-        label: tool === "resolve_school" ? "Finding “Yale”…" : "Reading Yale’s admissions data…",
+        label:
+          tool === "resolve_school"
+            ? "Finding “Yale”…"
+            : "Reading Yale’s admissions data…",
         tier: "official" as const,
         detail: null,
       },
@@ -203,12 +238,18 @@ describe("ChatMessage", () => {
 
     const { container, rerender } = render(<ChatMessage message={streaming} />);
     expect(
-      container.querySelectorAll(".lucide-loader-circle.motion-safe\\:animate-spin"),
+      container.querySelectorAll(
+        ".lucide-loader-circle.motion-safe\\:animate-spin",
+      ),
     ).toHaveLength(2);
 
-    rerender(<ChatMessage message={{ ...streaming, turnStatus: "complete" }} />);
+    rerender(
+      <ChatMessage message={{ ...streaming, turnStatus: "complete" }} />,
+    );
     expect(
-      container.querySelectorAll(".lucide-loader-circle.motion-safe\\:animate-spin"),
+      container.querySelectorAll(
+        ".lucide-loader-circle.motion-safe\\:animate-spin",
+      ),
     ).toHaveLength(0);
   });
 
@@ -250,7 +291,9 @@ describe("ChatMessage", () => {
     expect(screen.getByText("Compare fit")).toBeInTheDocument();
 
     const text = document.body.textContent ?? "";
-    expect(text.indexOf("Plan")).toBeLessThan(text.indexOf("First, I will plan this."));
+    expect(text.indexOf("Plan")).toBeLessThan(
+      text.indexOf("First, I will plan this."),
+    );
   });
 
   test("assistant message suppresses the generic write_plan beat from the stream", () => {
@@ -301,7 +344,9 @@ describe("ChatMessage", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Thinking" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Thinking" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Working…")).not.toBeInTheDocument();
   });
 
@@ -347,7 +392,9 @@ describe("ChatMessage", () => {
       />,
     );
 
-    expect(screen.getByText("Streaming answer before the card.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Streaming answer before the card."),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("streaming-cursor")).toBeInTheDocument();
   });
 
@@ -421,16 +468,23 @@ describe("ChatMessage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Copy failed" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Copy failed" }),
+      ).toBeInTheDocument();
     });
     expect(writeText).toHaveBeenCalledWith("Aid depends on need [1].");
-    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Copied" }),
+    ).not.toBeInTheDocument();
   });
 
   test("a cancelled turn renders the stopped-response notice", () => {
     render(
       <ChatMessage
-        message={assistantMessage({ turnStatus: "cancelled", blocks: [{ kind: "markdown", text: "Partial" }] })}
+        message={assistantMessage({
+          turnStatus: "cancelled",
+          blocks: [{ kind: "markdown", text: "Partial" }],
+        })}
       />,
     );
 
@@ -442,7 +496,9 @@ describe("ChatMessage", () => {
       <ChatMessage
         message={assistantMessage({
           turnStatus: "error",
-          streamError: { message: "Connection lost before the answer completed." },
+          streamError: {
+            message: "Connection lost before the answer completed.",
+          },
         })}
       />,
     );
@@ -504,19 +560,31 @@ describe("ChatMessage", () => {
   test("regenerate action only appears when canRegenerate is true and calls onRegenerate", () => {
     const onRegenerate = vi.fn();
     const { rerender } = render(
-      <ChatMessage canRegenerate={false} message={assistantMessage()} onRegenerate={onRegenerate} />,
+      <ChatMessage
+        canRegenerate={false}
+        message={assistantMessage()}
+        onRegenerate={onRegenerate}
+      />,
     );
-    expect(screen.queryByRole("button", { name: "Regenerate" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Regenerate" }),
+    ).not.toBeInTheDocument();
 
     rerender(
-      <ChatMessage canRegenerate message={assistantMessage()} onRegenerate={onRegenerate} />,
+      <ChatMessage
+        canRegenerate
+        message={assistantMessage()}
+        onRegenerate={onRegenerate}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
     expect(onRegenerate).toHaveBeenCalled();
   });
 
   test("sources are hidden while a turn is still streaming", () => {
-    render(<ChatMessage message={assistantMessage({ turnStatus: "streaming" })} />);
+    render(
+      <ChatMessage message={assistantMessage({ turnStatus: "streaming" })} />,
+    );
     expect(screen.queryByText(/source/i)).not.toBeInTheDocument();
   });
 
@@ -542,7 +610,12 @@ describe("ChatMessage", () => {
     });
     const completedMessage = assistantMessage({
       ...streamingMessage,
-      blocks: [{ kind: "markdown", text: "Both are strong for different reasons [1]." }],
+      blocks: [
+        {
+          kind: "markdown",
+          text: "Both are strong for different reasons [1].",
+        },
+      ],
       runMarkdown:
         "I'll compare reputation and student life.\n\nBoth are strong for different reasons [1].",
       segments: [
@@ -567,25 +640,35 @@ describe("ChatMessage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Thinking" }));
     expect(
-      screen.getByText("I need to compare prestige separately from campus fit."),
+      screen.getByText(
+        "I need to compare prestige separately from campus fit.",
+      ),
     ).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Copy" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Copy" }),
+    ).not.toBeInTheDocument();
 
-    rerender(<ChatMessage message={completedMessage} onFeedback={onFeedback} />);
+    rerender(
+      <ChatMessage message={completedMessage} onFeedback={onFeedback} />,
+    );
 
     expect(screen.getByRole("button", { name: "Thought" })).toBeInTheDocument();
     expect(
-      screen.getByText("I need to compare prestige separately from campus fit."),
+      screen.getByText(
+        "I need to compare prestige separately from campus fit.",
+      ),
     ).toBeVisible();
     expect(screen.queryByTestId("streaming-cursor")).not.toBeInTheDocument();
 
     const text = document.body.textContent ?? "";
-    expect(text.indexOf("I'll compare reputation and student life.")).toBeLessThan(
+    expect(
+      text.indexOf("I'll compare reputation and student life."),
+    ).toBeLessThan(
       text.indexOf("I need to compare prestige separately from campus fit."),
     );
-    expect(text.indexOf("I need to compare prestige separately from campus fit.")).toBeLessThan(
-      text.indexOf("Both are strong for different reasons"),
-    );
+    expect(
+      text.indexOf("I need to compare prestige separately from campus fit."),
+    ).toBeLessThan(text.indexOf("Both are strong for different reasons"));
     expect(text.indexOf("Both are strong for different reasons")).toBeLessThan(
       text.indexOf("1 source"),
     );

@@ -17,7 +17,21 @@ import { SchoolDetailPage } from "@/pages/school-detail-page";
 import { TasksPage } from "@/pages/tasks-page";
 
 export function createAppRouter() {
+  const devRoutes = import.meta.env.DEV
+    ? [
+        {
+          path: "/dev/tool-calls",
+          lazy: async () => {
+            const module =
+              await import("@/features/dev-tool-call-gallery/ToolCallGalleryPage");
+            return { Component: module.ToolCallGalleryPage };
+          },
+        },
+      ]
+    : [];
+
   return createBrowserRouter([
+    ...devRoutes,
     {
       path: "/",
       element: <GuestOnly />,

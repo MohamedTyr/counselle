@@ -1,14 +1,14 @@
-import type React from "react"
+import type React from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 type AuthFieldProps = {
-  id: string
-  label: string
-  error?: string
-  description?: string
-  children: React.ReactNode
-}
+  id: string;
+  label: string;
+  error?: string;
+  description?: string;
+  children: React.ReactNode;
+};
 
 export function AuthField({
   id,
@@ -17,11 +17,14 @@ export function AuthField({
   description,
   children,
 }: AuthFieldProps) {
-  const descriptionId = description ? `${id}-description` : undefined
-  const errorId = error ? `${id}-error` : undefined
+  const descriptionId = description ? `${id}-description` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
 
   return (
-    <div className="flex flex-col gap-1.5" data-invalid={error ? "" : undefined}>
+    <div
+      className="flex flex-col gap-1.5"
+      data-invalid={error ? "" : undefined}
+    >
       <label className="text-sm font-medium text-foreground" htmlFor={id}>
         {label}
       </label>
@@ -37,5 +40,5 @@ export function AuthField({
         </p>
       )}
     </div>
-  )
+  );
 }

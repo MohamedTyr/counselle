@@ -79,7 +79,12 @@ export function SourcesMenu({
         <span>Sources</span>
         <ChevronDown data-icon="inline-end" />
       </MenuTrigger>
-      <MenuPopup align="start" className="w-72 px-1 py-1.5" side="top" sideOffset={8}>
+      <MenuPopup
+        align="start"
+        className="w-72 px-1 py-1.5"
+        side="top"
+        sideOffset={8}
+      >
         <div className="[zoom:var(--workspace-source-menu-density)]">
           <MenuGroup>
             <div className="flex flex-col gap-[var(--workspace-source-menu-row-gap)]">

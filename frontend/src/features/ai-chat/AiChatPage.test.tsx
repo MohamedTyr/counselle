@@ -1,5 +1,11 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
@@ -31,10 +37,16 @@ const fakeTransport: MockedChatTransport = vi.hoisted(() => ({
     status: "queued",
     userMessageId: "steer-1",
   })),
-  attachStream: vi.fn<ChatTransport["attachStream"]>(async () => ({ active: false as const })),
+  attachStream: vi.fn<ChatTransport["attachStream"]>(async () => ({
+    active: false as const,
+  })),
   streamFirstMessage: vi.fn<ChatTransport["streamFirstMessage"]>(),
-  cancelActiveTurn: vi.fn<ChatTransport["cancelActiveTurn"]>(async () => undefined),
-  setMessageFeedback: vi.fn<ChatTransport["setMessageFeedback"]>(async () => undefined),
+  cancelActiveTurn: vi.fn<ChatTransport["cancelActiveTurn"]>(
+    async () => undefined,
+  ),
+  setMessageFeedback: vi.fn<ChatTransport["setMessageFeedback"]>(
+    async () => undefined,
+  ),
 }));
 
 // `@/api/chat/hooks`' react-query `useChatSession` (session query) and
@@ -60,7 +72,9 @@ function session(overrides: Partial<ChatSession> = {}): ChatSession {
   };
 }
 
-function meta(overrides: Partial<{ messageId: string; userMessageId: string }> = {}): ProtocolEvent {
+function meta(
+  overrides: Partial<{ messageId: string; userMessageId: string }> = {},
+): ProtocolEvent {
   return {
     v: 1,
     type: "meta",
@@ -78,7 +92,9 @@ function delta(text: string): ProtocolEvent {
   return { v: 1, type: "delta", data: { text } };
 }
 
-function done(status: "complete" | "cancelled" | "awaiting_input" = "complete"): ProtocolEvent {
+function done(
+  status: "complete" | "cancelled" | "awaiting_input" = "complete",
+): ProtocolEvent {
   return { v: 1, type: "done", data: { status } };
 }
 
@@ -99,7 +115,9 @@ function clarify(): ProtocolEvent {
   };
 }
 
-async function* replay(events: ProtocolEvent[]): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
+async function* replay(
+  events: ProtocolEvent[],
+): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
   for (const event of events) {
     yield { data: event };
   }
@@ -122,7 +140,11 @@ function controllableStream() {
     resolveNext?.();
   };
 
-  async function* stream(): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
+  async function* stream(): AsyncGenerator<
+    SseFrame<ProtocolEvent>,
+    void,
+    undefined
+  > {
     for (;;) {
       if (queue.length > 0) {
         const event = queue.shift();
@@ -177,7 +199,12 @@ describe("AiChatPage", () => {
     fakeTransport.getSession.mockResolvedValue(
       session({
         transcript: [
-          { role: "user", message_id: "user-1", text: "How does aid work?", ts: null },
+          {
+            role: "user",
+            message_id: "user-1",
+            text: "How does aid work?",
+            ts: null,
+          },
           {
             role: "assistant",
             message_id: "assistant-1",
@@ -196,11 +223,18 @@ describe("AiChatPage", () => {
   });
 
   test("renders the persisted historical v1 fixture through the current chat UI", async () => {
-    const fixture = JSON.parse(legacyRaw) as { turn_records: Array<Record<string, unknown>> };
+    const fixture = JSON.parse(legacyRaw) as {
+      turn_records: Array<Record<string, unknown>>;
+    };
     const turn = fixture.turn_records[0]!;
     const [source] = turn.sources as Array<Record<string, unknown>>;
     const transcript = adaptStoredTranscript([
-      { role: "user", text: turn.user_text, ts: null, message_id: turn.user_message_id },
+      {
+        role: "user",
+        text: turn.user_text,
+        ts: null,
+        message_id: turn.user_message_id,
+      },
       {
         role: "assistant",
         text: "The legacy display was 7% [1].",
@@ -208,17 +242,29 @@ describe("AiChatPage", () => {
         message_id: turn.message_id,
         parts: turn.parts,
         status: "complete",
-        sources: [{ ...source, v: 1, citation: { ...(source?.citation as object), v: 1 } }],
+        sources: [
+          {
+            ...source,
+            v: 1,
+            citation: { ...(source?.citation as object), v: 1 },
+          },
+        ],
       },
     ]);
     fakeTransport.getSession.mockResolvedValue(session({ transcript }));
 
     renderPage();
 
-    expect(await screen.findByText("What was the old admission rate?")).toBeInTheDocument();
+    expect(
+      await screen.findByText("What was the old admission rate?"),
+    ).toBeInTheDocument();
     expect(screen.getByText(/The legacy display was 7%/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open source: ipeds" })).toBeInTheDocument();
-    expect(screen.queryByText(/couldn't load this conversation/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open source: ipeds" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/couldn't load this conversation/i),
+    ).not.toBeInTheDocument();
   });
 
   test("opens exact CDS evidence from a rendered cell and leaves unavailable cells inert", async () => {
@@ -252,30 +298,74 @@ describe("AiChatPage", () => {
         { unitid: 198419, name: "Duke University", domain: "duke.edu" },
         { unitid: null, name: "Web College", domain: null },
       ],
-      rows: [{
-        label: "Acceptance rate",
-        cells: [
-          { v: 2 as const, field: evidence.eid, label: evidence.label, display: evidence.value_display, raw: 0.068, available: true as const, unit: "percent", citation, evidence, caveats: [], marker: "[2]" },
-          { v: 2 as const, field: null, label: "Acceptance rate", display: "not available" as const, raw: null, available: false as const, unit: null, citation: null, evidence: null, caveats: [], marker: null },
-        ],
-      }],
+      rows: [
+        {
+          label: "Acceptance rate",
+          cells: [
+            {
+              v: 2 as const,
+              field: evidence.eid,
+              label: evidence.label,
+              display: evidence.value_display,
+              raw: 0.068,
+              available: true as const,
+              unit: "percent",
+              citation,
+              evidence,
+              caveats: [],
+              marker: "[2]",
+            },
+            {
+              v: 2 as const,
+              field: null,
+              label: "Acceptance rate",
+              display: "not available" as const,
+              raw: null,
+              available: false as const,
+              unit: null,
+              citation: null,
+              evidence: null,
+              caveats: [],
+              marker: null,
+            },
+          ],
+        },
+      ],
     };
-    fakeTransport.getSession.mockResolvedValue(session({
-      transcript: [{
-        role: "assistant",
-        message_id: "assistant-evidence",
-        text: "",
-        ts: null,
-        status: "complete",
-        parts: [{ type: "viz", spec }],
-        sources: [{ v: 2, index: 2, citation, label: "Duke University — Common Data Set 2024-25", snippet: null, evidence: [evidence], evidence_omitted_count: 0 }],
-      }],
-    }));
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          {
+            role: "assistant",
+            message_id: "assistant-evidence",
+            text: "",
+            ts: null,
+            status: "complete",
+            parts: [{ type: "viz", spec }],
+            sources: [
+              {
+                v: 2,
+                index: 2,
+                citation,
+                label: "Duke University — Common Data Set 2024-25",
+                snippet: null,
+                evidence: [evidence],
+                evidence_omitted_count: 0,
+              },
+            ],
+          },
+        ],
+      }),
+    );
 
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Open official source 2" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open official source 2" }),
+    );
 
-    const exact = document.getElementById("source-evidence-2-admissions.acceptance_rate");
+    const exact = document.getElementById(
+      "source-evidence-2-admissions.acceptance_rate",
+    );
     await waitFor(() => expect(exact).toHaveFocus());
     expect(exact).toHaveAttribute("data-active", "true");
     expect(screen.getByText("not available")).not.toHaveRole("button");
@@ -287,7 +377,9 @@ describe("AiChatPage", () => {
     renderPage();
 
     expect(await screen.findByText("No messages yet")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Message Counselle")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Message Counselle"),
+    ).toBeInTheDocument();
   });
 
   test("transcript load failure shows a recoverable banner with retry, not a crash", async () => {
@@ -297,7 +389,9 @@ describe("AiChatPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText(/couldn't load this conversation/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/couldn't load this conversation/i),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("No messages yet")).toBeInTheDocument();
@@ -320,7 +414,9 @@ describe("AiChatPage", () => {
     controlled.push(delta("Here's how aid works."));
     controlled.push(done());
     controlled.close();
-    expect(await screen.findByText("Here's how aid works.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Here's how aid works."),
+    ).toBeInTheDocument();
     expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: "s1", text: "Tell me about aid" }),
     );
@@ -364,12 +460,18 @@ describe("AiChatPage", () => {
   test("reattaching an active stream on open does not duplicate the assistant bubble", async () => {
     fakeTransport.getSession.mockResolvedValue(
       session({
-        transcript: [{ role: "user", message_id: "user-1", text: "Question", ts: null }],
+        transcript: [
+          { role: "user", message_id: "user-1", text: "Question", ts: null },
+        ],
       }),
     );
     fakeTransport.attachStream.mockResolvedValue({
       active: true,
-      stream: replay([meta({ userMessageId: "user-1" }), delta("Answer continues"), done()]),
+      stream: replay([
+        meta({ userMessageId: "user-1" }),
+        delta("Answer continues"),
+        done(),
+      ]),
     });
 
     renderPage();
@@ -395,7 +497,9 @@ describe("AiChatPage", () => {
     fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
       target: { value: "Tell me about aid" },
     });
-    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), {
+      key: "Enter",
+    });
 
     controlled.push(meta());
     controlled.push(delta("Partial answer"));
@@ -404,7 +508,9 @@ describe("AiChatPage", () => {
     fireEvent.click(stopButton);
 
     expect(fakeTransport.cancelActiveTurn).toHaveBeenCalledWith("s1");
-    expect(await screen.findByText("You stopped this response.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("You stopped this response."),
+    ).toBeInTheDocument();
   });
 
   test("clarify: an inline widget appears, and a normal composer submission answers it", async () => {
@@ -412,7 +518,11 @@ describe("AiChatPage", () => {
     fakeTransport.sendMessage
       .mockReturnValueOnce(replay([meta(), clarify(), done("awaiting_input")]))
       .mockReturnValueOnce(
-        replay([meta({ messageId: "assistant-2" }), delta("Great, let's talk aid."), done()]),
+        replay([
+          meta({ messageId: "assistant-2" }),
+          delta("Great, let's talk aid."),
+          done(),
+        ]),
       );
 
     renderPage();
@@ -421,14 +531,22 @@ describe("AiChatPage", () => {
     fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
       target: { value: "Help me choose" },
     });
-    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), {
+      key: "Enter",
+    });
 
-    expect(await screen.findByText("Which path interests you?")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Pick one, or just type...")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Which path interests you?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Pick one, or just type..."),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Financial aid"));
 
-    expect(await screen.findByText("Great, let's talk aid.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Great, let's talk aid."),
+    ).toBeInTheDocument();
     expect(fakeTransport.sendMessage).toHaveBeenLastCalledWith(
       expect.objectContaining({ text: "Financial aid" }),
     );
@@ -498,9 +616,15 @@ describe("AiChatPage", () => {
     );
 
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "View 1 source for this answer" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "View 1 source for this answer",
+      }),
+    );
 
-    expect(await screen.findByRole("heading", { name: "1 source" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "1 source" }),
+    ).toBeInTheDocument();
     expect(document.getElementById("source-row-1")).toBeInTheDocument();
   });
 
@@ -508,7 +632,12 @@ describe("AiChatPage", () => {
     fakeTransport.getSession.mockResolvedValue(
       session({
         transcript: [
-          { role: "user", message_id: "user-1", text: "Original question", ts: null },
+          {
+            role: "user",
+            message_id: "user-1",
+            text: "Original question",
+            ts: null,
+          },
           {
             role: "assistant",
             message_id: "assistant-1",
@@ -520,7 +649,11 @@ describe("AiChatPage", () => {
       }),
     );
     fakeTransport.sendMessage.mockReturnValue(
-      replay([meta({ messageId: "assistant-2", userMessageId: "user-1" }), delta("New answer"), done()]),
+      replay([
+        meta({ messageId: "assistant-2", userMessageId: "user-1" }),
+        delta("New answer"),
+        done(),
+      ]),
     );
 
     renderPage();
@@ -555,7 +688,9 @@ describe("AiChatPage", () => {
     fireEvent.keyDown(textarea, { key: "Enter" });
     first.push(meta());
 
-    await waitFor(() => expect(fakeTransport.sendMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(fakeTransport.sendMessage).toHaveBeenCalledTimes(1),
+    );
 
     fireEvent.change(textarea, { target: { value: "Second question" } });
     fireEvent.keyDown(textarea, { key: "Enter" });
@@ -572,7 +707,9 @@ describe("AiChatPage", () => {
 
   test("selecting a subreddit subset is preserved on the next send", async () => {
     fakeTransport.getSession.mockResolvedValue(session());
-    fakeTransport.sendMessage.mockReturnValue(replay([meta(), delta("ok"), done()]));
+    fakeTransport.sendMessage.mockReturnValue(
+      replay([meta(), delta("ok"), done()]),
+    );
 
     renderPage();
     await screen.findByText("No messages yet");
@@ -581,7 +718,9 @@ describe("AiChatPage", () => {
     // toggle is already visible without needing to enable Reddit first.
     fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
     const menu = screen.getByRole("menu");
-    fireEvent.click(within(menu).getByRole("menuitemcheckbox", { name: "chanceme" }));
+    fireEvent.click(
+      within(menu).getByRole("menuitemcheckbox", { name: "chanceme" }),
+    );
 
     const textarea = screen.getByPlaceholderText("Message Counselle");
     fireEvent.change(textarea, { target: { value: "Reddit question" } });

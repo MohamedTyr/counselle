@@ -8,6 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { SchoolDataToolPresentation } from "./school-data-tool-presentation";
+import { ToolBeatRow } from "./ToolBeat";
 
 type SchoolDataToolRowProps = {
   isLive: boolean;
@@ -59,11 +60,13 @@ export function SchoolDataToolRow({
   isLive,
   presentation,
 }: SchoolDataToolRowProps) {
+  const running = presentation.state === "running";
+  const failed = presentation.state === "error";
+
   return (
-    <div
+    <ToolBeatRow
       aria-atomic="true"
       aria-live="polite"
-      className="not-prose grid min-h-7 grid-cols-[14px_minmax(0,1fr)] items-start gap-2.5 py-1"
       data-school-data-tool={presentation.tool}
     >
       <span className="flex h-5 items-center justify-center">
@@ -72,10 +75,12 @@ export function SchoolDataToolRow({
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
         <span
           className={cn(
-            "min-w-0 flex-[1_1_18rem] text-[13px] leading-5 [overflow-wrap:anywhere]",
-            presentation.state === "error"
+            "min-w-0 flex-[1_1_18rem] text-sm leading-5 transition-colors [overflow-wrap:anywhere]",
+            failed
               ? "text-destructive"
-              : "text-muted-foreground",
+              : running
+                ? "font-medium text-foreground"
+                : "text-foreground/85",
           )}
         >
           {presentation.label}
@@ -86,6 +91,6 @@ export function SchoolDataToolRow({
           </span>
         )}
       </div>
-    </div>
+    </ToolBeatRow>
   );
 }

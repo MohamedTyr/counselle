@@ -37,9 +37,7 @@ function assistant(messageId: string, text: string): ChatMessageModel {
 
 describe("ChatMessages", () => {
   test("empty active session renders a clean empty state", () => {
-    render(
-      <ChatMessages isSubmitting={false} messages={[]} sessionId="s1" />,
-    );
+    render(<ChatMessages isSubmitting={false} messages={[]} sessionId="s1" />);
 
     expect(screen.getByText("No messages yet")).toBeInTheDocument();
   });
@@ -76,6 +74,8 @@ describe("ChatMessages", () => {
       />,
     );
 
-    expect(screen.getAllByRole("button", { name: "Regenerate" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Regenerate" })).toHaveLength(
+      1,
+    );
   });
 });

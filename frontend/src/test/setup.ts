@@ -1,47 +1,47 @@
-import "@testing-library/jest-dom/vitest"
-import { afterEach } from "vitest"
+import "@testing-library/jest-dom/vitest";
+import { afterEach } from "vitest";
 
 afterEach(() => {
-  vi.unstubAllGlobals()
-})
+  vi.unstubAllGlobals();
+});
 
-const localStorageStore = new Map<string, string>()
+const localStorageStore = new Map<string, string>();
 const localStorageMock: Storage = {
   get length() {
-    return localStorageStore.size
+    return localStorageStore.size;
   },
   clear() {
-    localStorageStore.clear()
+    localStorageStore.clear();
   },
   getItem(key: string) {
-    return localStorageStore.get(key) ?? null
+    return localStorageStore.get(key) ?? null;
   },
   key(index: number) {
-    return Array.from(localStorageStore.keys())[index] ?? null
+    return Array.from(localStorageStore.keys())[index] ?? null;
   },
   removeItem(key: string) {
-    localStorageStore.delete(key)
+    localStorageStore.delete(key);
   },
   setItem(key: string, value: string) {
-    localStorageStore.set(key, String(value))
+    localStorageStore.set(key, String(value));
   },
-}
+};
 
 Object.defineProperty(window, "localStorage", {
   configurable: true,
   value: localStorageMock,
-})
+});
 
 Object.defineProperty(globalThis, "localStorage", {
   configurable: true,
   value: localStorageMock,
-})
+});
 
 Object.defineProperty(window, "innerWidth", {
   configurable: true,
   value: 1280,
   writable: true,
-})
+});
 
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
@@ -55,78 +55,78 @@ Object.defineProperty(window, "matchMedia", {
     removeEventListener: () => undefined,
     removeListener: () => undefined,
   }),
-})
+});
 
 class ResizeObserverMock implements ResizeObserver {
   disconnect() {
-    return undefined
+    return undefined;
   }
 
   observe() {
-    return undefined
+    return undefined;
   }
 
   unobserve() {
-    return undefined
+    return undefined;
   }
 }
 
 class IntersectionObserverMock implements IntersectionObserver {
-  readonly root: Element | Document | null = null
-  readonly rootMargin = ""
-  readonly scrollMargin = ""
-  readonly thresholds: ReadonlyArray<number> = []
+  readonly root: Element | Document | null = null;
+  readonly rootMargin = "";
+  readonly scrollMargin = "";
+  readonly thresholds: ReadonlyArray<number> = [];
 
   disconnect() {
-    return undefined
+    return undefined;
   }
 
   observe() {
-    return undefined
+    return undefined;
   }
 
   takeRecords(): IntersectionObserverEntry[] {
-    return []
+    return [];
   }
 
   unobserve() {
-    return undefined
+    return undefined;
   }
 }
 
 Object.defineProperty(window, "ResizeObserver", {
   configurable: true,
   value: ResizeObserverMock,
-})
+});
 
 Object.defineProperty(globalThis, "ResizeObserver", {
   configurable: true,
   value: ResizeObserverMock,
-})
+});
 
 Object.defineProperty(window, "IntersectionObserver", {
   configurable: true,
   value: IntersectionObserverMock,
-})
+});
 
 Object.defineProperty(globalThis, "IntersectionObserver", {
   configurable: true,
   value: IntersectionObserverMock,
-})
+});
 
 Element.prototype.scrollIntoView = function scrollIntoView() {
-  return undefined
-}
+  return undefined;
+};
 
 Element.prototype.setPointerCapture = function setPointerCapture() {
-  return undefined
-}
+  return undefined;
+};
 
 Element.prototype.releasePointerCapture = function releasePointerCapture() {
-  return undefined
-}
+  return undefined;
+};
 
 Object.defineProperty(Element.prototype, "getAnimations", {
   configurable: true,
   value: () => [],
-})
+});

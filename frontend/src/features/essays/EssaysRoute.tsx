@@ -128,10 +128,7 @@ function describeAudience(audience: Record<string, unknown>) {
     .filter(([, value]) =>
       ["boolean", "number", "string"].includes(typeof value),
     )
-    .map(
-      ([key, value]) =>
-        `${key.replaceAll("_", " ")}: ${String(value)}`,
-    );
+    .map(([key, value]) => `${key.replaceAll("_", " ")}: ${String(value)}`);
   return details.length > 0
     ? details.join(" · ")
     : "Published audience conditions apply; verify them with the school.";
@@ -227,10 +224,7 @@ function NewEssayDialog({
         <div className="grid gap-4">
           <label className="grid gap-2 text-sm font-medium">
             Essay type
-            <Select
-              onValueChange={selectType}
-              value={type}
-            >
+            <Select onValueChange={selectType} value={type}>
               <SelectTrigger aria-label="Essay type">
                 <SelectValue />
               </SelectTrigger>
@@ -267,7 +261,10 @@ function NewEssayDialog({
                   </SelectItem>
                   {applications.map((application) => (
                     <SelectItem key={application.id} value={application.id}>
-                      {application.school_name} · {application.cycle_year ? `${application.cycle_year - 1}-${String(application.cycle_year).slice(-2)}` : "Cycle unconfirmed"}
+                      {application.school_name} ·{" "}
+                      {application.cycle_year
+                        ? `${application.cycle_year - 1}-${String(application.cycle_year).slice(-2)}`
+                        : "Cycle unconfirmed"}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -346,16 +343,29 @@ function NewEssayDialog({
               </span>
               {selectedPrompt ? (
                 <span className="text-xs font-normal text-muted-foreground">
-                  Source: {selectedPrompt.provenance.source} · verified {selectedPrompt.provenance.verified_at}
+                  Source: {selectedPrompt.provenance.source} · verified{" "}
+                  {selectedPrompt.provenance.verified_at}
                 </span>
               ) : null}
               {selectedPrompt?.applicability === "conditional" ? (
-                <span aria-live="polite" className="text-xs font-normal text-warning" id={promptWarningId} role="status">
-                  This prompt is conditional. Verify whether it applies to you: {describeAudience(selectedPrompt.audience)}
+                <span
+                  aria-live="polite"
+                  className="text-xs font-normal text-warning"
+                  id={promptWarningId}
+                  role="status"
+                >
+                  This prompt is conditional. Verify whether it applies to you:{" "}
+                  {describeAudience(selectedPrompt.audience)}
                 </span>
               ) : selectedPrompt?.applicability === "unknown" ? (
-                <span aria-live="polite" className="text-xs font-normal text-warning" id={promptWarningId} role="status">
-                  The school has not confirmed who must answer this prompt. Verify before relying on it.
+                <span
+                  aria-live="polite"
+                  className="text-xs font-normal text-warning"
+                  id={promptWarningId}
+                  role="status"
+                >
+                  The school has not confirmed who must answer this prompt.
+                  Verify before relying on it.
                 </span>
               ) : null}
             </label>

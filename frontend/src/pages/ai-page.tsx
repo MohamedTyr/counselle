@@ -1,1 +1,1 @@
-export { AiComposerRoute as AiPage } from "@/features/ai-composer/AiComposerRoute"
+export { AiComposerRoute as AiPage } from "@/features/ai-composer/AiComposerRoute";

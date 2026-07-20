@@ -1,37 +1,35 @@
-import { useState } from "react"
-import { useNavigate } from "react-router"
+import { useState } from "react";
+import { useNavigate } from "react-router";
 
-import type { SourceConfig } from "@/api/chat/types"
-import {
-  BUILT_IN_SOURCE_CONFIG,
-} from "@/api/chat/source-config"
-import { useChatConfig } from "@/api/chat/config"
-import { AiComposer } from "@/features/ai-composer/AiComposer"
-import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn"
+import type { SourceConfig } from "@/api/chat/types";
+import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
+import { useChatConfig } from "@/api/chat/config";
+import { AiComposer } from "@/features/ai-composer/AiComposer";
+import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn";
 
 export function AiComposerRoute() {
-  const navigate = useNavigate()
-  const configQuery = useChatConfig()
-  const startTurn = useComposerStartTurn()
-  const [value, setValue] = useState("")
+  const navigate = useNavigate();
+  const configQuery = useChatConfig();
+  const startTurn = useComposerStartTurn();
+  const [value, setValue] = useState("");
   const [sourceConfigOverride, setSourceConfigOverride] =
-    useState<SourceConfig | null>(null)
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([])
-  const resolved = configQuery.config
+    useState<SourceConfig | null>(null);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const resolved = configQuery.config;
 
   const sourceConfig =
-    sourceConfigOverride ?? resolved?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG
+    sourceConfigOverride ?? resolved?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG;
 
   async function submit() {
-    const submitted = value.trim()
+    const submitted = value.trim();
     if (submitted.length === 0) {
-      return
+      return;
     }
 
-    const result = await startTurn.submit(submitted, sourceConfig)
+    const result = await startTurn.submit(submitted, sourceConfig);
     if (result.ok) {
-      setValue("")
-      setSelectedSkills([])
+      setValue("");
+      setSelectedSkills([]);
       void navigate(`/app/ai/${result.sessionId}`, {
         state: {
           initialTurn: {
@@ -39,8 +37,8 @@ export function AiComposerRoute() {
             skills: [...selectedSkills],
           },
         },
-      })
-      return
+      });
+      return;
     }
   }
 
@@ -63,11 +61,11 @@ export function AiComposerRoute() {
           disabled={!resolved}
           isSubmitting={startTurn.isSubmitting}
           onCancel={() => {
-            void startTurn.cancel()
+            void startTurn.cancel();
           }}
           onSourceConfigChange={setSourceConfigOverride}
           onSubmit={() => {
-            void submit()
+            void submit();
           }}
           onSelectedSkillsChange={setSelectedSkills}
           onValueChange={setValue}
@@ -86,5 +84,5 @@ export function AiComposerRoute() {
         )}
       </div>
     </main>
-  )
+  );
 }

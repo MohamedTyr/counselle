@@ -7,12 +7,12 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
-} from "react"
+} from "react";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectGroup,
@@ -20,9 +20,9 @@ import {
   SelectPopup,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import type { Task } from "@/domain/task"
-import type { UpdateTask } from "@/features/tasks/task-types"
+} from "@/components/ui/select";
+import type { Task } from "@/domain/task";
+import type { UpdateTask } from "@/features/tasks/task-types";
 import {
   assigneeBadgeVariant,
   assigneeLabel,
@@ -34,14 +34,14 @@ import {
   priorityOptions,
   statusBadgeVariant,
   statusOptions,
-} from "@/features/tasks/task-config"
+} from "@/features/tasks/task-config";
 import {
   formatShortDate,
   getDueState,
   mergeDateWithTime,
-} from "@/features/tasks/task-dates"
-import { getTaskStatusPatch } from "@/features/tasks/task-mutations"
-import { cn } from "@/lib/utils"
+} from "@/features/tasks/task-dates";
+import { getTaskStatusPatch } from "@/features/tasks/task-mutations";
+import { cn } from "@/lib/utils";
 import {
   BellRing,
   CalendarClock,
@@ -49,34 +49,34 @@ import {
   CircleAlert,
   Sparkles,
   UserRound,
-} from "lucide-react"
+} from "lucide-react";
 
 function stopTaskInlineEvent(event: { stopPropagation: () => void }) {
-  event.stopPropagation()
+  event.stopPropagation();
 }
 
 function normalizeInlineText(value: string, multiline = false) {
-  const text = value.replace(/\u00a0/g, " ")
+  const text = value.replace(/\u00a0/g, " ");
 
-  return multiline ? text.trim() : text.replace(/\s+/g, " ").trim()
+  return multiline ? text.trim() : text.replace(/\s+/g, " ").trim();
 }
 
 function insertPlainTextAtSelection(value: string) {
-  const selection = window.getSelection()
+  const selection = window.getSelection();
 
   if (!selection || selection.rangeCount === 0) {
-    return
+    return;
   }
 
-  const range = selection.getRangeAt(0)
-  const textNode = document.createTextNode(value)
+  const range = selection.getRangeAt(0);
+  const textNode = document.createTextNode(value);
 
-  range.deleteContents()
-  range.insertNode(textNode)
-  range.setStartAfter(textNode)
-  range.setEndAfter(textNode)
-  selection.removeAllRanges()
-  selection.addRange(range)
+  range.deleteContents();
+  range.insertNode(textNode);
+  range.setStartAfter(textNode);
+  range.setEndAfter(textNode);
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 export function InlineTaskText({
@@ -87,67 +87,67 @@ export function InlineTaskText({
   onCommit,
   value,
 }: {
-  ariaLabel: string
-  className?: string
-  emptyFallback?: string
-  multiline?: boolean
-  onCommit: (value: string | undefined) => void
-  value?: string
+  ariaLabel: string;
+  className?: string;
+  emptyFallback?: string;
+  multiline?: boolean;
+  onCommit: (value: string | undefined) => void;
+  value?: string;
 }) {
-  const textRef = useRef<HTMLSpanElement | null>(null)
-  const displayValue = value ?? ""
+  const textRef = useRef<HTMLSpanElement | null>(null);
+  const displayValue = value ?? "";
 
   useEffect(() => {
-    const element = textRef.current
+    const element = textRef.current;
 
     if (!element || document.activeElement === element) {
-      return
+      return;
     }
 
     if (element.textContent !== displayValue) {
-      element.textContent = displayValue
+      element.textContent = displayValue;
     }
-  }, [displayValue])
+  }, [displayValue]);
 
   function commitValue(element: HTMLElement) {
     const normalizedValue = normalizeInlineText(
       element.textContent ?? "",
-      multiline
-    )
-    const nextValue = normalizedValue || emptyFallback
+      multiline,
+    );
+    const nextValue = normalizedValue || emptyFallback;
 
     if (nextValue !== value) {
-      onCommit(nextValue)
+      onCommit(nextValue);
     }
 
     if (!normalizedValue && emptyFallback) {
-      element.textContent = emptyFallback
+      element.textContent = emptyFallback;
     }
   }
 
   function handleBlur(event: FocusEvent<HTMLSpanElement>) {
-    commitValue(event.currentTarget)
+    commitValue(event.currentTarget);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
-    event.stopPropagation()
+    event.stopPropagation();
 
     if (event.key === "Enter" && (!multiline || !event.shiftKey)) {
-      event.preventDefault()
-      event.currentTarget.blur()
-      return
+      event.preventDefault();
+      event.currentTarget.blur();
+      return;
     }
 
     if (event.key === "Escape") {
-      event.preventDefault()
-      event.currentTarget.textContent = displayValue
-      event.currentTarget.blur()
+      event.preventDefault();
+      event.currentTarget.textContent = displayValue;
+      event.currentTarget.blur();
     }
   }
 
   function handlePaste(event: ClipboardEvent<HTMLSpanElement>) {
-    event.preventDefault()
-    insertPlainTextAtSelection(event.clipboardData.getData("text/plain"))
+    event.preventDefault();
+    insertPlainTextAtSelection(event.clipboardData.getData("text/plain"));
   }
 
   return (
@@ -156,7 +156,7 @@ export function InlineTaskText({
       aria-multiline={multiline || undefined}
       className={cn(
         "-mx-1 rounded-md px-1 transition-[background-color,box-shadow] outline-none hover:bg-foreground/[0.035] focus:bg-foreground/[0.045] focus-visible:ring-2 focus-visible:ring-ring/24",
-        className
+        className,
       )}
       contentEditable
       data-task-editing-field
@@ -176,7 +176,7 @@ export function InlineTaskText({
     >
       {displayValue}
     </span>
-  )
+  );
 }
 
 export function InlineTaskSelect<TValue extends string>({
@@ -187,15 +187,15 @@ export function InlineTaskSelect<TValue extends string>({
   renderOption,
   value,
 }: {
-  ariaLabel: string
-  onChange: (value: TValue) => void
-  options: readonly { label: string; value: TValue }[]
-  popupClassName?: string
-  renderOption: (option: { label: string; value: TValue }) => ReactNode
-  value: TValue
+  ariaLabel: string;
+  onChange: (value: TValue) => void;
+  options: readonly { label: string; value: TValue }[];
+  popupClassName?: string;
+  renderOption: (option: { label: string; value: TValue }) => ReactNode;
+  value: TValue;
 }) {
   const selectedOption =
-    options.find((option) => option.value === value) ?? options[0]
+    options.find((option) => option.value === value) ?? options[0];
 
   return (
     <Select
@@ -233,15 +233,15 @@ export function InlineTaskSelect<TValue extends string>({
         </SelectGroup>
       </SelectPopup>
     </Select>
-  )
+  );
 }
 
 export function InlineTaskStatusBadge({
   onUpdateTask,
   task,
 }: {
-  onUpdateTask: UpdateTask
-  task: Task
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   return (
     <InlineTaskSelect
@@ -255,7 +255,7 @@ export function InlineTaskStatusBadge({
       )}
       value={task.status}
     />
-  )
+  );
 }
 
 export function InlineTaskCategoryBadge({
@@ -263,9 +263,9 @@ export function InlineTaskCategoryBadge({
   onUpdateTask,
   task,
 }: {
-  badgeClassName?: string
-  onUpdateTask: UpdateTask
-  task: Task
+  badgeClassName?: string;
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   return (
     <InlineTaskSelect
@@ -282,15 +282,15 @@ export function InlineTaskCategoryBadge({
       )}
       value={task.category}
     />
-  )
+  );
 }
 
 export function InlineTaskPriorityBadge({
   onUpdateTask,
   task,
 }: {
-  onUpdateTask: UpdateTask
-  task: Task
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   return (
     <InlineTaskSelect
@@ -304,15 +304,15 @@ export function InlineTaskPriorityBadge({
       )}
       value={task.priority}
     />
-  )
+  );
 }
 
 export function InlineTaskAssigneeBadge({
   onUpdateTask,
   task,
 }: {
-  onUpdateTask: UpdateTask
-  task: Task
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   return (
     <InlineTaskSelect
@@ -320,8 +320,9 @@ export function InlineTaskAssigneeBadge({
       onChange={(assignee) => onUpdateTask(task.id, { assignee })}
       options={assigneeOptions}
       renderOption={(option) => {
-        const assignee = option.value
-        const needsCounselleInput = assignee === "counselle" && task.needs_input
+        const assignee = option.value;
+        const needsCounselleInput =
+          assignee === "counselle" && task.needs_input;
 
         return (
           <Badge
@@ -340,22 +341,22 @@ export function InlineTaskAssigneeBadge({
               ? "Counselle needs input"
               : assigneeLabel[assignee]}
           </Badge>
-        )
+        );
       }}
       value={task.assignee}
     />
-  )
+  );
 }
 
 export function InlineTaskNeedsInputBadge({
   onUpdateTask,
   task,
 }: {
-  onUpdateTask: UpdateTask
-  task: Task
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   if (!task.needs_input || task.assignee === "counselle") {
-    return null
+    return null;
   }
 
   return (
@@ -377,7 +378,7 @@ export function InlineTaskNeedsInputBadge({
       }
       value={task.needs_input ? "true" : "false"}
     />
-  )
+  );
 }
 
 export function InlineTaskDate({
@@ -391,34 +392,34 @@ export function InlineTaskDate({
   task,
   value,
 }: {
-  ariaLabel: string
-  children: ReactNode
-  className?: string
-  defaultHour: number
-  defaultMinute: number
-  field: "due_at" | "planned_for" | "reminder_at"
-  onUpdateTask: UpdateTask
-  task: Task
-  value?: string
+  ariaLabel: string;
+  children: ReactNode;
+  className?: string;
+  defaultHour: number;
+  defaultMinute: number;
+  field: "due_at" | "planned_for" | "reminder_at";
+  onUpdateTask: UpdateTask;
+  task: Task;
+  value?: string;
 }) {
-  const [open, setOpen] = useState(false)
-  const selectedDate = value ? new Date(value) : undefined
+  const [open, setOpen] = useState(false);
+  const selectedDate = value ? new Date(value) : undefined;
 
   function handleSelectDate(nextDate: Date | undefined) {
     if (!nextDate) {
-      return
+      return;
     }
 
     onUpdateTask(task.id, {
       [field]: mergeDateWithTime(nextDate, value, defaultHour, defaultMinute),
-    })
-    setOpen(false)
+    });
+    setOpen(false);
   }
 
   function handleClear(event: MouseEvent<HTMLButtonElement>) {
-    event.stopPropagation()
-    onUpdateTask(task.id, { [field]: undefined })
-    setOpen(false)
+    event.stopPropagation();
+    onUpdateTask(task.id, { [field]: undefined });
+    setOpen(false);
   }
 
   return (
@@ -435,7 +436,7 @@ export function InlineTaskDate({
               aria-label={ariaLabel}
               className={cn(
                 "-mx-1 inline-flex h-5 max-w-full shrink-0 items-center gap-1 rounded-md px-1 text-left whitespace-nowrap transition-[background-color,color,box-shadow] outline-none hover:bg-foreground/[0.035] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/24",
-                className
+                className,
               )}
               draggable={false}
               onKeyDown={stopTaskInlineEvent}
@@ -472,21 +473,21 @@ export function InlineTaskDate({
         ) : null}
       </PopoverPopup>
     </Popover>
-  )
+  );
 }
 
 export function TaskDueMeta({
   onUpdateTask,
   task,
 }: {
-  onUpdateTask: UpdateTask
-  task: Task
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   if (!task.due_at) {
-    return null
+    return null;
   }
 
-  const dueState = getDueState(task)
+  const dueState = getDueState(task);
 
   return (
     <InlineTaskDate
@@ -494,7 +495,7 @@ export function TaskDueMeta({
       className={cn(
         "text-xs font-medium text-[color:var(--lane-muted)] tabular-nums",
         dueState === "soon" && "text-destructive",
-        dueState === "overdue" && "text-destructive"
+        dueState === "overdue" && "text-destructive",
       )}
       defaultHour={23}
       defaultMinute={59}
@@ -506,7 +507,7 @@ export function TaskDueMeta({
       <CalendarClock aria-hidden="true" className="size-4 shrink-0" />
       <span>Due {formatShortDate(task.due_at)}</span>
     </InlineTaskDate>
-  )
+  );
 }
 
 export function TaskTrailingMeta({
@@ -514,9 +515,9 @@ export function TaskTrailingMeta({
   onUpdateTask,
   task,
 }: {
-  isDone: boolean
-  onUpdateTask: UpdateTask
-  task: Task
+  isDone: boolean;
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   const statusMeta = isDone ? (
     <span className="inline-flex h-5 shrink-0 items-center gap-1 text-xs text-[color:var(--lane-muted)]">
@@ -537,10 +538,10 @@ export function TaskTrailingMeta({
       <BellRing aria-hidden="true" className="size-4 shrink-0" />
       {formatShortDate(task.reminder_at)}
     </InlineTaskDate>
-  ) : null
+  ) : null;
 
   if (!task.due_at && !statusMeta) {
-    return null
+    return null;
   }
 
   return (
@@ -548,7 +549,7 @@ export function TaskTrailingMeta({
       <TaskDueMeta onUpdateTask={onUpdateTask} task={task} />
       {statusMeta}
     </span>
-  )
+  );
 }
 
 export function TaskMetaRail({
@@ -556,9 +557,9 @@ export function TaskMetaRail({
   onUpdateTask,
   task,
 }: {
-  isDone: boolean
-  onUpdateTask: UpdateTask
-  task: Task
+  isDone: boolean;
+  onUpdateTask: UpdateTask;
+  task: Task;
 }) {
   return (
     <div className="mt-2.5 flex min-w-0 items-center justify-between gap-3">
@@ -574,5 +575,5 @@ export function TaskMetaRail({
         task={task}
       />
     </div>
-  )
+  );
 }

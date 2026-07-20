@@ -164,7 +164,9 @@ export function EssayLibraryCard({
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="flex min-w-0 items-center gap-1">
                   <Clock3 aria-hidden="true" />
-                  <span className="truncate">{getEssayActivityLabel(essay)}</span>
+                  <span className="truncate">
+                    {getEssayActivityLabel(essay)}
+                  </span>
                 </span>
                 <span className="flex min-w-0 items-center gap-1">
                   {essay.applicationId ? (
@@ -173,13 +175,23 @@ export function EssayLibraryCard({
                       onClick={(event) => event.stopPropagation()}
                       to={`/app/schools/${essay.applicationId}`}
                     >
-                      {essay.schoolName}{essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed"}
+                      {essay.schoolName}
+                      {essay.cycleYear
+                        ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}`
+                        : " · Cycle unconfirmed"}
                     </Link>
                   ) : (
-                    <span className="truncate">{essay.schoolName}{essay.cycleYear ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}` : " · Cycle unconfirmed"}</span>
+                    <span className="truncate">
+                      {essay.schoolName}
+                      {essay.cycleYear
+                        ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}`
+                        : " · Cycle unconfirmed"}
+                    </span>
                   )}
                   <span aria-hidden="true">·</span>
-                  <span className="shrink-0">{formatEssayDeadline(essay.deadline)}</span>
+                  <span className="shrink-0">
+                    {formatEssayDeadline(essay.deadline)}
+                  </span>
                 </span>
               </div>
               <span className="ml-auto flex shrink-0 items-center gap-3">

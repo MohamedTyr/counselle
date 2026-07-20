@@ -50,7 +50,8 @@ export function AiChatPage({
   const consumeInitialTurn = onInitialTurnConsumed ?? onInitialPromptConsumed;
   const [composerValue, setComposerValue] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [sourcesPayload, setSourcesPayload] = useState<MessageSourcesPayload | null>(null);
+  const [sourcesPayload, setSourcesPayload] =
+    useState<MessageSourcesPayload | null>(null);
   const consumedInitialTurnRef = useRef(false);
   const isMobile = useIsMobile();
   const feedback = useMessageFeedback();
@@ -123,7 +124,10 @@ export function AiChatPage({
 
     consumedInitialTurnRef.current = true;
     consumeInitialTurn?.();
-    handleComposerSubmit(effectiveInitialTurn.text, effectiveInitialTurn.skills);
+    handleComposerSubmit(
+      effectiveInitialTurn.text,
+      effectiveInitialTurn.skills,
+    );
   }, [
     handleComposerSubmit,
     effectiveInitialTurn,
@@ -137,7 +141,9 @@ export function AiChatPage({
       if (message.kind !== "assistant") {
         return;
       }
-      const parent = messages.find((entry) => entry.messageId === message.parentMessageId);
+      const parent = messages.find(
+        (entry) => entry.messageId === message.parentMessageId,
+      );
       if (parent === undefined || parent.kind !== "user") {
         return;
       }
@@ -155,7 +161,12 @@ export function AiChatPage({
       feedback.mutate({
         sessionId,
         messageId: message.messageId,
-        rating: nextRating === null ? null : nextRating === "thumbsUp" ? "up" : "down",
+        rating:
+          nextRating === null
+            ? null
+            : nextRating === "thumbsUp"
+              ? "up"
+              : "down",
       });
     },
     [feedback, sessionId],
@@ -179,7 +190,9 @@ export function AiChatPage({
     return (
       <main className="flex min-h-0 flex-1 items-center justify-center px-4">
         <div className="flex max-w-sm flex-col items-center gap-3 text-center">
-          <p className="text-sm text-muted-foreground">{transcriptError.message}</p>
+          <p className="text-sm text-muted-foreground">
+            {transcriptError.message}
+          </p>
           <button
             className="rounded-lg border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
             onClick={() => void retryTranscript()}
@@ -199,7 +212,8 @@ export function AiChatPage({
           isSubmitting={isSubmitting}
           messages={messages}
           skillLabelForName={(name) =>
-            skillConfig?.skills.find((skill) => skill.name === name)?.displayName
+            skillConfig?.skills.find((skill) => skill.name === name)
+              ?.displayName
           }
           onClarifyAnswer={handleClarifyAnswer}
           onFeedback={handleFeedback}
@@ -238,7 +252,11 @@ export function AiChatPage({
           />
         </div>
       </div>
-      <SourcesRail isMobile={isMobile} onClose={closeSources} payload={sourcesPayload} />
+      <SourcesRail
+        isMobile={isMobile}
+        onClose={closeSources}
+        payload={sourcesPayload}
+      />
     </main>
   );
 }

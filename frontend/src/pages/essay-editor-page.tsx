@@ -36,7 +36,9 @@ export function EssayEditorPage() {
               The workspace could not reach this essay.
             </p>
             <div className="flex gap-2">
-              <Button onClick={() => void essayQuery.refetch()}>Try again</Button>
+              <Button onClick={() => void essayQuery.refetch()}>
+                Try again
+              </Button>
               <Button
                 onClick={() => void navigate("/app/essays")}
                 type="button"

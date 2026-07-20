@@ -9,7 +9,10 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { chatKeys, useChatSession as useChatSessionQuery } from "@/api/chat/hooks";
+import {
+  chatKeys,
+  useChatSession as useChatSessionQuery,
+} from "@/api/chat/hooks";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 import type { ChatTransport, SourceConfig } from "@/api/chat/types";
 import { chatTransport } from "@/api/chat/transport";
@@ -185,13 +188,13 @@ export function useChatSession({
 
   const effectiveSourceConfig = useMemo(
     () =>
-      sourceConfig ??
-      sessionQuery.data?.sourceConfig ??
-      BUILT_IN_SOURCE_CONFIG,
+      sourceConfig ?? sessionQuery.data?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG,
     [sessionQuery.data?.sourceConfig, sourceConfig],
   );
 
-  const setPersistedMessages = useCallback<Dispatch<SetStateAction<ChatMessage[]>>>(
+  const setPersistedMessages = useCallback<
+    Dispatch<SetStateAction<ChatMessage[]>>
+  >(
     (action) => {
       setLocalState((previous) => {
         // A stream callback bound to an earlier sessionId can still fire
@@ -246,9 +249,7 @@ export function useChatSession({
         return {
           sessionId,
           persistedMessages:
-            previous.sessionId === sessionId
-              ? previous.persistedMessages
-              : [],
+            previous.sessionId === sessionId ? previous.persistedMessages : [],
           sourceConfig: nextSourceConfig,
           transcriptError:
             previous.sessionId === sessionId ? previous.transcriptError : null,
@@ -309,7 +310,8 @@ export function useChatSession({
     // A successful query is not render-ready until its transcript/source
     // config has hydrated local state. This also prevents routed initial
     // prompts from racing hydration and being overwritten by it.
-    isLoading: sessionQuery.isLoading || (sessionQuery.isSuccess && !isLocalSession),
+    isLoading:
+      sessionQuery.isLoading || (sessionQuery.isSuccess && !isLocalSession),
     transcriptError,
     retryTranscript: sessionQuery.refetch,
     persistedMessages,

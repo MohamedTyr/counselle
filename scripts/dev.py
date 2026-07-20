@@ -6,8 +6,9 @@
     ./scripts/dev.py --check    # validate toolchain + config + ports, then exit
 
 What a normal start does, in order: validate the toolchain (uv, node, npm) and
-config (required env), sync locked Python + frontend deps, apply pending
-Counselle-schema migrations (local DB only unless ``--allow-remote-migrations``),
+config (required env), sync locked Python + frontend deps, wake the existing local
+database container when needed, apply pending Counselle-schema migrations (local DB
+only unless ``--allow-remote-migrations``),
 select free ports, start both hot-reloading servers, wait for real health,
 prefix their live logs, open the browser, and tear the whole stack down cleanly
 on Ctrl+C (or if either server dies).
@@ -33,6 +34,7 @@ import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
+from typing import NoReturn
 from urllib.parse import urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -47,6 +49,8 @@ MIN_NODE = (22, 12)
 HEALTH_TIMEOUT_S = 120
 PORT_SCAN_LIMIT = 20
 SHUTDOWN_GRACE_S = 8
+DB_PROBE_TIMEOUT_S = 0.5
+DB_START_TIMEOUT_S = 30.0
 REQUIRED_ENV = ("COUNSELLE_DB_RO_DSN", "COUNSELLE_DB_APP_DSN", "COUNSELLE_JWT_SECRET")
 LOCAL_HOSTS = {"", "localhost", "127.0.0.1", "::1", "0.0.0.0"}
 
@@ -81,7 +85,7 @@ def fail(msg: str) -> None:
     print(f"{_c('✗', _COLORS['err'])} {msg}", file=sys.stderr, flush=True)
 
 
-def die(msg: str, code: int = 1) -> None:
+def die(msg: str, code: int = 1) -> NoReturn:
     fail(msg)
     raise SystemExit(code)
 
@@ -248,6 +252,87 @@ def dsn_is_local(dsn: str) -> bool:
     return host in LOCAL_HOSTS
 
 
+def wait_for_database(dsn: str, timeout: float) -> bool:
+    """Wait until the configured Postgres accepts an authenticated connection."""
+    deadline = time.monotonic() + timeout
+    env = {**os.environ, "COUNSELLE_DEV_DB_DSN": dsn}
+    command = [
+        "uv",
+        "run",
+        "--quiet",
+        "python",
+        "-c",
+        (
+            "import os, psycopg2; "
+            "connection = psycopg2.connect(os.environ['COUNSELLE_DEV_DB_DSN'], connect_timeout=1); "
+            "connection.close()"
+        ),
+    ]
+    while True:
+        proc = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
+        if proc.returncode == 0:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.4)
+
+
+def find_container_publishing(port: int) -> tuple[str, str] | None:
+    """Return the sole existing Docker container publishing ``port``."""
+    proc = subprocess.run(
+        ["docker", "ps", "-a", "--filter", f"publish={port}", "--format", "{{.ID}}\t{{.Names}}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    matches = [line.split("\t", 1) for line in proc.stdout.splitlines() if "\t" in line]
+    if len(matches) != 1:
+        return None
+    container_id, name = matches[0]
+    return container_id, name
+
+
+def ensure_local_database(file_env: dict[str, str]) -> None:
+    """Wake the existing container for a configured local DB when its port is down."""
+    app_dsn = env_get(file_env, "COUNSELLE_DB_APP_DSN")
+    if not app_dsn or not dsn_is_local(app_dsn):
+        return
+
+    parsed = urlsplit(app_dsn)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or 5432
+    if wait_for_database(app_dsn, DB_PROBE_TIMEOUT_S):
+        ok(f"database ready at {host}:{port}")
+        return
+
+    if shutil.which("docker") is None:
+        die("local database is down and Docker is not available to start it.")
+    container = find_container_publishing(port)
+    if container is None:
+        die(
+            f"local database is not reachable at {host}:{port}, and no single Docker "
+            "container publishing that port could be identified."
+        )
+    container_id, container_name = container
+
+    info(f"starting local database container {container_name}…")
+    proc = subprocess.run(
+        ["docker", "start", container_id],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip().splitlines()
+        suffix = f" ({detail[-1]})" if detail else ""
+        die(f"could not start local database container {container_name}{suffix}")
+    if not wait_for_database(app_dsn, DB_START_TIMEOUT_S):
+        die(f"local database did not become ready at {host}:{port} within {DB_START_TIMEOUT_S:g}s.")
+    ok(f"database ready at {host}:{port}")
+
+
 def apply_migrations(file_env: dict[str, str], *, allow_remote: bool) -> None:
     app_dsn = env_get(file_env, "COUNSELLE_DB_APP_DSN")
     if not app_dsn:
@@ -381,6 +466,7 @@ def run_stack(args: argparse.Namespace, file_env: dict[str, str]) -> int:
 
     if not args.no_install:
         sync_deps(file_env)
+    ensure_local_database(file_env)
     if not args.no_migrate:
         apply_migrations(file_env, allow_remote=args.allow_remote_migrations)
 

@@ -1,5 +1,8 @@
 import { TransportError } from "@/api/http/errors";
-import { isCurrentSourceEntry, isTabularRenderSpec } from "@/api/chat/validation";
+import {
+  isCurrentSourceEntry,
+  isTabularRenderSpec,
+} from "@/api/chat/validation";
 import {
   protocolEventTypes,
   type DoneStatus,
@@ -53,7 +56,6 @@ function isClarifyOption(value: unknown) {
   return typeof value.label === "string" && typeof value.hint === "string";
 }
 
-
 function coerceDoneStatus(value: string): DoneStatus {
   return doneStatuses.has(value as DoneStatus)
     ? (value as DoneStatus)
@@ -65,7 +67,9 @@ function isStepTier(value: unknown) {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isPlanItem(value: unknown) {
@@ -83,6 +87,33 @@ function isPlanItem(value: unknown) {
 
 function isPlanItems(value: unknown) {
   return Array.isArray(value) && value.every(isPlanItem);
+}
+
+function isWorkspacePreviewItem(value: unknown) {
+  if (!isPlainRecord(value)) return false;
+  const kinds = ["task", "school", "essay", "activity", "honor", "document"];
+  return (
+    typeof value.kind === "string" &&
+    kinds.includes(value.kind) &&
+    isNonEmptyString(value.title) &&
+    Array.isArray(value.meta) &&
+    value.meta.every(
+      (meta) =>
+        isPlainRecord(meta) &&
+        isNonEmptyString(meta.label) &&
+        isNonEmptyString(meta.value),
+    ) &&
+    (!("status" in value) ||
+      value.status === null ||
+      typeof value.status === "string") &&
+    (!("group" in value) ||
+      value.group === null ||
+      typeof value.group === "string")
+  );
+}
+
+function isWorkspacePreviewItems(value: unknown) {
+  return Array.isArray(value) && value.every(isWorkspacePreviewItem);
 }
 
 function isStepDetail(value: unknown) {
@@ -107,6 +138,8 @@ function isStepDetail(value: unknown) {
     (!("completed" in value) || isNumber(value.completed)) &&
     (!("total" in value) || isNumber(value.total)) &&
     (!("next_actions" in value) || isStringArray(value.next_actions)) &&
+    (!("workspace_items" in value) ||
+      isWorkspacePreviewItems(value.workspace_items)) &&
     (!("error" in value) || typeof value.error === "string")
   );
 }
@@ -118,6 +151,7 @@ function isStepSource(value: unknown) {
 
   return (
     isNonEmptyString(value.label) &&
+    (!("title" in value) || isNonEmptyString(value.title)) &&
     (!("favicon" in value) || typeof value.favicon === "string") &&
     (!("url" in value) || typeof value.url === "string")
   );
@@ -174,9 +208,14 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
         typeof data.injected === "boolean"
       );
     case "viz":
-      if (!isPositiveInteger(data.v) || !isNonEmptyString(data.type)) return false;
+      if (!isPositiveInteger(data.v) || !isNonEmptyString(data.type))
+        return false;
       if (data.type !== "stat_block" && data.type !== "comparison_table") {
-        return !("title" in data) || data.title === null || typeof data.title === "string";
+        return (
+          !("title" in data) ||
+          data.title === null ||
+          typeof data.title === "string"
+        );
       }
       return isTabularRenderSpec(data);
     case "clarify":
@@ -189,7 +228,9 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
         data.options.every(isClarifyOption)
       );
     case "sources":
-      return Array.isArray(data.sources) && data.sources.every(isCurrentSourceEntry);
+      return (
+        Array.isArray(data.sources) && data.sources.every(isCurrentSourceEntry)
+      );
     case "usage":
       return (
         typeof data.input_tokens === "number" &&

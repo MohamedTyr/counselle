@@ -95,7 +95,11 @@ function gatedStream(events: ProtocolEvent[]) {
     release = resolve;
   });
 
-  async function* iterable(): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
+  async function* iterable(): AsyncGenerator<
+    SseFrame<ProtocolEvent>,
+    void,
+    undefined
+  > {
     await gate;
     yield* stream(events);
   }
@@ -135,7 +139,9 @@ function assistant(messageId: string, conversationId = "s1"): ChatMessage {
   };
 }
 
-function createTransport(overrides: Partial<ChatTransport> = {}): ChatTransport {
+function createTransport(
+  overrides: Partial<ChatTransport> = {},
+): ChatTransport {
   return {
     getChatConfig: vi.fn(),
     createSession: vi.fn(async () => ({
@@ -206,7 +212,9 @@ describe("useTurnEngine", () => {
 
   test("send appends optimistic user, reconciles meta ids, and persists one assistant", async () => {
     const transport = createTransport({
-      sendMessage: vi.fn(() => stream([meta("a1", "u1"), delta("final"), done()])),
+      sendMessage: vi.fn(() =>
+        stream([meta("a1", "u1"), delta("final"), done()]),
+      ),
     });
     const onSendStart = vi.fn();
     const { result } = renderEngine({ transport, onSendStart });
@@ -244,13 +252,18 @@ describe("useTurnEngine", () => {
 
     expect(sent).toEqual({ ok: false, keepText: "Keep me" });
     expect(result.current.pendingText).toBe("Keep me");
-    expect(result.current.messages.filter((message) => message.kind === "assistant")).toEqual([]);
+    expect(
+      result.current.messages.filter((message) => message.kind === "assistant"),
+    ).toEqual([]);
   });
 
   test("post-meta failure persists one partial errored assistant card", async () => {
     const transport = createTransport({
       sendMessage: vi.fn(() =>
-        streamThenThrow([meta("a1", "u1"), delta("partial")], new Error("closed")),
+        streamThenThrow(
+          [meta("a1", "u1"), delta("partial")],
+          new Error("closed"),
+        ),
       ),
     });
     const { result } = renderEngine({ transport });
@@ -306,9 +319,7 @@ describe("useTurnEngine", () => {
   test("send while streaming steers instead of cancelling the active turn", async () => {
     const first = gatedStream([meta("a1", "u1"), delta("first"), done()]);
     const transport = createTransport({
-      sendMessage: vi
-        .fn()
-        .mockReturnValueOnce(first.iterable),
+      sendMessage: vi.fn().mockReturnValueOnce(first.iterable),
       steerMessage: vi.fn(async () => ({
         status: "queued",
         userMessageId: "steer-1",
@@ -342,7 +353,9 @@ describe("useTurnEngine", () => {
       sendMessage: vi
         .fn()
         .mockReturnValueOnce(first.iterable)
-        .mockReturnValueOnce(stream([meta("a2", "u2"), delta("second"), done()])),
+        .mockReturnValueOnce(
+          stream([meta("a2", "u2"), delta("second"), done()]),
+        ),
       steerMessage: vi.fn(async () => ({ status: "idle" })),
       cancelActiveTurn: vi.fn(),
     });
@@ -378,7 +391,9 @@ describe("useTurnEngine", () => {
         .mockImplementationOnce(() => {
           throw new TransportError("conflict", "busy");
         })
-        .mockReturnValueOnce(stream([meta("a1", "u1"), delta("retried"), done()])),
+        .mockReturnValueOnce(
+          stream([meta("a1", "u1"), delta("retried"), done()]),
+        ),
       cancelActiveTurn: vi.fn(),
     });
     const { result } = renderEngine({ transport });
@@ -404,7 +419,11 @@ describe("useTurnEngine", () => {
           throw new TransportError("conflict", "busy");
         })
         .mockReturnValueOnce(
-          stream([meta("a1", "u1", "created-session"), delta("retried"), done()]),
+          stream([
+            meta("a1", "u1", "created-session"),
+            delta("retried"),
+            done(),
+          ]),
         ),
       cancelActiveTurn: vi.fn(),
     });
@@ -455,7 +474,9 @@ describe("useTurnEngine", () => {
       sendMessage: vi
         .fn()
         .mockImplementationOnce(() => streamThenThrow([], new Error("offline")))
-        .mockReturnValueOnce(stream([meta("a2", "u1"), delta("edited"), done()])),
+        .mockReturnValueOnce(
+          stream([meta("a2", "u1"), delta("edited"), done()]),
+        ),
     });
     const { result } = renderEngine({
       transport,
@@ -530,7 +551,9 @@ describe("useTurnEngine", () => {
             done(),
           ]),
         )
-        .mockReturnValueOnce(stream([meta("a2", "u2"), delta("second"), done()])),
+        .mockReturnValueOnce(
+          stream([meta("a2", "u2"), delta("second"), done()]),
+        ),
     });
     const { result } = renderEngine({ transport });
 
@@ -562,7 +585,9 @@ describe("useTurnEngine", () => {
       sendMessage: vi
         .fn()
         .mockReturnValueOnce(first.iterable)
-        .mockReturnValueOnce(stream([meta("a2", "u2"), delta("second"), done()])),
+        .mockReturnValueOnce(
+          stream([meta("a2", "u2"), delta("second"), done()]),
+        ),
       cancelActiveTurn: vi.fn(async () => undefined),
     });
     const { result } = renderEngine({
@@ -597,9 +622,7 @@ describe("useTurnEngine", () => {
     const userMessages = result.current.messages.filter(
       (message) => message.kind === "user",
     );
-    expect(userMessages.map((message) => message.text)).toEqual([
-      "First",
-    ]);
+    expect(userMessages.map((message) => message.text)).toEqual(["First"]);
   });
 
   test("attach opening failure silently degrades, leaving the loaded transcript in place", async () => {
@@ -660,7 +683,11 @@ describe("useTurnEngine", () => {
   });
 
   test("stopGenerating settles the active turn to cancelled state", async () => {
-    const active = gatedStream([meta("a1", "u1"), delta("partial"), done("cancelled")]);
+    const active = gatedStream([
+      meta("a1", "u1"),
+      delta("partial"),
+      done("cancelled"),
+    ]);
     const transport = createTransport({
       sendMessage: vi.fn().mockReturnValue(active.iterable),
       cancelActiveTurn: vi.fn(async () => undefined),
@@ -675,7 +702,9 @@ describe("useTurnEngine", () => {
     act(() => {
       result.current.stopGenerating();
     });
-    await waitFor(() => expect(transport.cancelActiveTurn).toHaveBeenCalledWith("s1"));
+    await waitFor(() =>
+      expect(transport.cancelActiveTurn).toHaveBeenCalledWith("s1"),
+    );
 
     active.release();
     await waitFor(() =>
@@ -855,7 +884,9 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     await act(async () => {
-      await result.current.submitMessage("Compare these schools", ["school-comparison"]);
+      await result.current.submitMessage("Compare these schools", [
+        "school-comparison",
+      ]);
     });
 
     expect(transport.sendMessage).toHaveBeenCalledWith(
@@ -882,7 +913,9 @@ describe("useTurnEngine", () => {
 
     let sent;
     await act(async () => {
-      sent = await result.current.submitMessage("Second", ["school-comparison"]);
+      sent = await result.current.submitMessage("Second", [
+        "school-comparison",
+      ]);
     });
 
     expect(sent).toEqual({ ok: false, keepText: "Second" });

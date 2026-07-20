@@ -28,7 +28,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/workspace/PageHeader";
-import { taskFromApi, taskPatchToApi, type Task, type TaskStatus } from "@/domain/task";
+import {
+  taskFromApi,
+  taskPatchToApi,
+  type Task,
+  type TaskStatus,
+} from "@/domain/task";
 import { UNDO_WINDOW_MS, useUndoableDelete } from "@/hooks/useUndoableDelete";
 import { AllTasksTable } from "@/features/tasks/AllTasksTable";
 import { TaskBoard } from "@/features/tasks/TaskBoard";
@@ -45,10 +50,7 @@ import {
   isTaskInUpcomingView,
 } from "@/features/tasks/task-filters";
 import { createNewTask } from "@/features/tasks/task-mutations";
-import type {
-  TaskLayoutMode,
-  TaskView,
-} from "@/features/tasks/task-types";
+import type { TaskLayoutMode, TaskView } from "@/features/tasks/task-types";
 import { useIsResizing } from "@/features/tasks/useIsResizing";
 import { useTaskDrag } from "@/features/tasks/useTaskDrag";
 import { useTaskSelection } from "@/features/tasks/useTaskSelection";
@@ -242,7 +244,8 @@ export function TasksPage() {
     [searchQuery, tasks],
   );
   const todayTasks = useMemo(
-    () => filteredTasks.filter((task) => isTaskPlannedForToday(task, todayDate)),
+    () =>
+      filteredTasks.filter((task) => isTaskPlannedForToday(task, todayDate)),
     [filteredTasks, todayDate],
   );
   const upcomingTasks = useMemo(
@@ -356,7 +359,11 @@ export function TasksPage() {
         <PageHeader
           actions={
             <>
-              <Button onClick={() => void handleNewTask()} type="button" variant="outline">
+              <Button
+                onClick={() => void handleNewTask()}
+                type="button"
+                variant="outline"
+              >
                 <Plus aria-hidden="true" data-icon="inline-start" />
                 New task
               </Button>
@@ -426,7 +433,9 @@ export function TasksPage() {
 
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="error">{highPriorityCount} high priority</Badge>
+                  <Badge variant="error">
+                    {highPriorityCount} high priority
+                  </Badge>
                   <Badge variant="success">
                     {completedTodayCount} done today
                   </Badge>
@@ -464,9 +473,13 @@ export function TasksPage() {
                 onDragStart={taskDrag.handleDragStart}
                 onDrop={taskDrag.handleDrop}
                 onOpenTask={handleOpenTask}
-                onSelectionPointerDown={taskSelection.handleSelectionPointerDown}
+                onSelectionPointerDown={
+                  taskSelection.handleSelectionPointerDown
+                }
                 onSelectionPointerEnd={taskSelection.handleSelectionPointerEnd}
-                onSelectionPointerMove={taskSelection.handleSelectionPointerMove}
+                onSelectionPointerMove={
+                  taskSelection.handleSelectionPointerMove
+                }
                 onToggleTaskSelected={taskSelection.toggleTaskSelection}
                 onUpdateTask={updateTask}
                 reduceMotion={!!reduceMotion}

@@ -1,33 +1,33 @@
-import type { Task, TaskStatus } from "@/domain/task"
-import { getNowDate } from "@/lib/time"
-import type { UpcomingGroup } from "@/features/tasks/task-types"
+import type { Task, TaskStatus } from "@/domain/task";
+import { getNowDate } from "@/lib/time";
+import type { UpcomingGroup } from "@/features/tasks/task-types";
 import {
   assigneeLabel,
   categoryLabel,
   priorityLabel,
   statusLabel,
-} from "@/features/tasks/task-config"
+} from "@/features/tasks/task-config";
 import {
   formatPlannedDateLabel,
   formatShortDate,
   getCalendarDayDiff,
   isTaskPlannedForToday,
-} from "@/features/tasks/task-dates"
-import { sortPlanningTasks } from "@/features/tasks/task-sort"
+} from "@/features/tasks/task-dates";
+import { sortPlanningTasks } from "@/features/tasks/task-sort";
 
 export function isTaskInUpcomingView(
   task: Task,
-  referenceDate: Date = getNowDate()
+  referenceDate: Date = getNowDate(),
 ) {
   if (task.status === "done") {
-    return false
+    return false;
   }
 
-  return task.planned_for ? !isTaskPlannedForToday(task, referenceDate) : true
+  return task.planned_for ? !isTaskPlannedForToday(task, referenceDate) : true;
 }
 
 export function getColumnTasks(tasks: Task[], status: TaskStatus) {
-  return tasks.filter((task) => task.status === status)
+  return tasks.filter((task) => task.status === status);
 }
 
 export function getSearchableTaskText(task: Task) {
@@ -45,56 +45,56 @@ export function getSearchableTaskText(task: Task) {
   ]
     .filter(Boolean)
     .join(" ")
-    .toLowerCase()
+    .toLowerCase();
 }
 
 export function getUpcomingGroups(
   tasks: Task[],
-  referenceDate: Date = getNowDate()
+  referenceDate: Date = getNowDate(),
 ) {
   const activeTasks = sortPlanningTasks(
-    tasks.filter((task) => isTaskInUpcomingView(task, referenceDate))
-  )
-  const overdueTasks: Task[] = []
-  const tomorrowTasks: Task[] = []
-  const thisWeekTasks: Task[] = []
-  const laterTasks: Task[] = []
-  const needsPlanningTasks: Task[] = []
-  const unscheduledTasks: Task[] = []
+    tasks.filter((task) => isTaskInUpcomingView(task, referenceDate)),
+  );
+  const overdueTasks: Task[] = [];
+  const tomorrowTasks: Task[] = [];
+  const thisWeekTasks: Task[] = [];
+  const laterTasks: Task[] = [];
+  const needsPlanningTasks: Task[] = [];
+  const unscheduledTasks: Task[] = [];
 
   activeTasks.forEach((task) => {
     if (!task.planned_for) {
       if (task.due_at) {
-        needsPlanningTasks.push(task)
-        return
+        needsPlanningTasks.push(task);
+        return;
       }
 
-      unscheduledTasks.push(task)
-      return
+      unscheduledTasks.push(task);
+      return;
     }
 
-    const workDate = new Date(task.planned_for)
-    const dayDiff = getCalendarDayDiff(workDate, referenceDate)
+    const workDate = new Date(task.planned_for);
+    const dayDiff = getCalendarDayDiff(workDate, referenceDate);
 
     if (dayDiff < 0) {
-      overdueTasks.push(task)
-      return
+      overdueTasks.push(task);
+      return;
     }
 
     if (dayDiff === 1) {
-      tomorrowTasks.push(task)
-      return
+      tomorrowTasks.push(task);
+      return;
     }
 
     if (dayDiff <= 6) {
-      thisWeekTasks.push(task)
-      return
+      thisWeekTasks.push(task);
+      return;
     }
 
-    laterTasks.push(task)
-  })
+    laterTasks.push(task);
+  });
 
-  const groups: UpcomingGroup[] = []
+  const groups: UpcomingGroup[] = [];
 
   if (overdueTasks.length > 0) {
     groups.push({
@@ -102,7 +102,7 @@ export function getUpcomingGroups(
       title: "Needs attention",
       subtitle: "Past dates that should be handled before future planning.",
       tasks: overdueTasks,
-    })
+    });
   }
 
   groups.push({
@@ -110,49 +110,49 @@ export function getUpcomingGroups(
     title: "Tomorrow",
     subtitle: "Work explicitly planned for the next day.",
     tasks: tomorrowTasks,
-  })
+  });
 
   groups.push({
     id: "this-week",
     title: "This week",
     subtitle: "Planned work after tomorrow but inside the next seven days.",
     tasks: thisWeekTasks,
-  })
+  });
 
   groups.push({
     id: "later",
     title: "Later",
     subtitle: "Planned work beyond the next seven days.",
     tasks: laterTasks,
-  })
+  });
 
   groups.push({
     id: "needs-planning",
     title: "Needs planning",
     subtitle: "Due-dated work without a work date yet.",
     tasks: needsPlanningTasks,
-  })
+  });
 
   groups.push({
     id: "unscheduled",
     title: "Unscheduled",
     subtitle: "Useful work with no work date or due date.",
     tasks: unscheduledTasks,
-  })
+  });
 
-  return groups
+  return groups;
 }
 
 export function filterTasksByQuery(tasks: Task[], query: string) {
-  const normalizedQuery = query.trim().toLowerCase()
+  const normalizedQuery = query.trim().toLowerCase();
 
   if (!normalizedQuery) {
-    return tasks
+    return tasks;
   }
 
   return tasks.filter((task) =>
-    getSearchableTaskText(task).includes(normalizedQuery)
-  )
+    getSearchableTaskText(task).includes(normalizedQuery),
+  );
 }
 
 export function groupTasksByStatus(tasks: Task[]) {
@@ -166,6 +166,6 @@ export function groupTasksByStatus(tasks: Task[]) {
       doing: [],
       waiting: [],
       done: [],
-    } as Record<TaskStatus, Task[]>
-  )
+    } as Record<TaskStatus, Task[]>,
+  );
 }

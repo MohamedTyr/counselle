@@ -22,7 +22,14 @@ function spec(overrides: Partial<ClarifySpec> = {}): ClarifySpec {
 describe("ClarifyWidget — live interaction", () => {
   test("single-select: tapping an option submits immediately", () => {
     const onAnswer = vi.fn();
-    render(<ClarifyWidget answer={null} frozen={false} onAnswer={onAnswer} spec={spec()} />);
+    render(
+      <ClarifyWidget
+        answer={null}
+        frozen={false}
+        onAnswer={onAnswer}
+        spec={spec()}
+      />,
+    );
 
     fireEvent.click(screen.getByText("Biology"));
 
@@ -52,7 +59,14 @@ describe("ClarifyWidget — live interaction", () => {
 
   test('"Other" opens free text; Enter submits it', () => {
     const onAnswer = vi.fn();
-    render(<ClarifyWidget answer={null} frozen={false} onAnswer={onAnswer} spec={spec()} />);
+    render(
+      <ClarifyWidget
+        answer={null}
+        frozen={false}
+        onAnswer={onAnswer}
+        spec={spec()}
+      />,
+    );
 
     fireEvent.click(screen.getByText("Other"));
     const input = screen.getByLabelText("Your answer");
@@ -64,7 +78,14 @@ describe("ClarifyWidget — live interaction", () => {
 
   test('"Other" free text also submits via the Send button', () => {
     const onAnswer = vi.fn();
-    render(<ClarifyWidget answer={null} frozen={false} onAnswer={onAnswer} spec={spec()} />);
+    render(
+      <ClarifyWidget
+        answer={null}
+        frozen={false}
+        onAnswer={onAnswer}
+        spec={spec()}
+      />,
+    );
 
     fireEvent.click(screen.getByText("Other"));
     const input = screen.getByLabelText("Your answer");
@@ -78,16 +99,22 @@ describe("ClarifyWidget — live interaction", () => {
 describe("ClarifyWidget — frozen (persisted) rendering", () => {
   test("single-select: the chosen option chip is pressed and inert", () => {
     const onAnswer = vi.fn();
-    render(<ClarifyWidget answer="Biology" frozen onAnswer={onAnswer} spec={spec()} />);
+    render(
+      <ClarifyWidget
+        answer="Biology"
+        frozen
+        onAnswer={onAnswer}
+        spec={spec()}
+      />,
+    );
 
     expect(screen.getByText("Biology").closest("button")).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText("Computer Science").closest("button")).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(
+      screen.getByText("Computer Science").closest("button"),
+    ).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(screen.getByText("Biology"));
     expect(onAnswer).not.toHaveBeenCalled();
@@ -103,10 +130,9 @@ describe("ClarifyWidget — frozen (persisted) rendering", () => {
       />,
     );
 
-    expect(screen.getByText("Computer Science").closest("button")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByText("Computer Science").closest("button"),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Biology").closest("button")).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -114,13 +140,22 @@ describe("ClarifyWidget — frozen (persisted) rendering", () => {
   });
 
   test("a free-text answer with no matching option renders as the Other response", () => {
-    render(<ClarifyWidget answer="Astrophysics" frozen onAnswer={vi.fn()} spec={spec()} />);
+    render(
+      <ClarifyWidget
+        answer="Astrophysics"
+        frozen
+        onAnswer={vi.fn()}
+        spec={spec()}
+      />,
+    );
 
     expect(screen.getByText("Astrophysics")).toBeInTheDocument();
   });
 
   test("answer=null (unanswered, parked-frozen) seeds nothing selected", () => {
-    render(<ClarifyWidget answer={null} frozen onAnswer={vi.fn()} spec={spec()} />);
+    render(
+      <ClarifyWidget answer={null} frozen onAnswer={vi.fn()} spec={spec()} />,
+    );
 
     expect(screen.getByText("Biology").closest("button")).toHaveAttribute(
       "aria-pressed",

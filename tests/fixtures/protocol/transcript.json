@@ -194,6 +194,7 @@
             "sources": [
               {
                 "label": "example.com",
+                "title": "Result 1",
                 "favicon": "https://www.google.com/s2/favicons?domain=example.com&sz=64",
                 "url": "https://example.com/1"
               }
@@ -341,6 +342,7 @@
             "sources": [
               {
                 "label": "example.com",
+                "title": "Result 1",
                 "favicon": "https://www.google.com/s2/favicons?domain=example.com&sz=64",
                 "url": "https://example.com/1"
               }

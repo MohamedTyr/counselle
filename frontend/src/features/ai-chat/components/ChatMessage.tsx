@@ -1,4 +1,10 @@
-import { CheckIcon, CopyIcon, RotateCcwIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CopyIcon,
+  RotateCcwIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+} from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -12,7 +18,12 @@ import type { SourceFocus } from "@/api/chat/types";
 
 import { schoolDomainsFromBlocks } from "../citations";
 import type { Segment } from "../turn-reducer";
-import { NarrationBeat, PlanChecklist, ThinkingBeat, ToolStepBeat } from "./AgentRunView";
+import {
+  NarrationBeat,
+  PlanChecklist,
+  ThinkingBeat,
+  ToolStepBeat,
+} from "./AgentRunView";
 import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
 import { CitationRenderer } from "./CitationRenderer";
 import { ClarifyWidget } from "./ClarifyWidget";
@@ -96,8 +107,16 @@ function CopyAction({
   const label = copied ? "Copied" : copyFailed ? "Copy failed" : "Copy";
 
   return (
-    <MessageAction label={label} onClick={() => void handleCopy()} tooltip={label}>
-      {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+    <MessageAction
+      label={label}
+      onClick={() => void handleCopy()}
+      tooltip={label}
+    >
+      {copied ? (
+        <CheckIcon className="size-3.5" />
+      ) : (
+        <CopyIcon className="size-3.5" />
+      )}
     </MessageAction>
   );
 }
@@ -155,13 +174,19 @@ function SegmentBeat({
       );
     case "thinking":
       return (
-        <ThinkingBeat id={segment.id} isLive={isLiveSegment} text={segment.text} />
+        <ThinkingBeat
+          id={segment.id}
+          isLive={isLiveSegment}
+          text={segment.text}
+        />
       );
     case "user":
       return (
         <Message from="user" className="not-prose max-w-full py-1">
           <MessageContent className="max-w-[80%]">
-            <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{segment.text}</p>
+            <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+              {segment.text}
+            </p>
           </MessageContent>
         </Message>
       );
@@ -182,12 +207,7 @@ function SegmentBeat({
         </div>
       );
     case "viz":
-      return (
-        <VizBlock
-          onSourceOpen={onOpenCitation}
-          spec={segment.spec}
-        />
-      );
+      return <VizBlock onSourceOpen={onOpenCitation} spec={segment.spec} />;
     default:
       assertNeverSegment(segment);
   }
@@ -216,11 +236,16 @@ function AssistantBody({
       )
     : -1;
   const planStep = latestPlanStep(message.segments);
-  const schoolDomains = useMemo(() => schoolDomainsFromBlocks(message.blocks), [message]);
+  const schoolDomains = useMemo(
+    () => schoolDomainsFromBlocks(message.blocks),
+    [message],
+  );
 
   return (
     <>
-      {planStep !== null && <PlanChecklist isLive={hasLiveSegment} step={planStep} />}
+      {planStep !== null && (
+        <PlanChecklist isLive={hasLiveSegment} step={planStep} />
+      )}
       {showEmptyLiveThinking && (
         <ThinkingBeat id={`${message.messageId}-empty-live`} isLive text="" />
       )}
@@ -278,9 +303,15 @@ function ChatMessageComponent({
     return (
       <Message from="user" id={message.messageId}>
         <MessageContent>
-          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
+          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+            {message.text}
+          </p>
           {skills.length > 0 && (
-            <div aria-label="Invoked skills" className="mt-2 flex flex-wrap gap-1" role="list">
+            <div
+              aria-label="Invoked skills"
+              className="mt-2 flex flex-wrap gap-1"
+              role="list"
+            >
               {skills.map((name) => (
                 <span
                   className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground"
@@ -315,7 +346,10 @@ function ChatMessageComponent({
       </MessageContent>
       {settled && (
         <MessageActions>
-          <CopyAction answerText={message.text} runMarkdown={message.runMarkdown} />
+          <CopyAction
+            answerText={message.text}
+            runMarkdown={message.runMarkdown}
+          />
           {onFeedback !== undefined && (
             <>
               <MessageAction
@@ -347,7 +381,11 @@ function ChatMessageComponent({
             </>
           )}
           {canRegenerate && onRegenerate !== undefined && (
-            <MessageAction label="Regenerate" onClick={onRegenerate} tooltip="Regenerate">
+            <MessageAction
+              label="Regenerate"
+              onClick={onRegenerate}
+              tooltip="Regenerate"
+            >
               <RotateCcwIcon className="size-3.5" />
             </MessageAction>
           )}

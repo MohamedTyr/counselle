@@ -1,9 +1,9 @@
-import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router"
+import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 
-import { PageHeader } from "@/components/workspace/PageHeader"
-import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/workspace/PageHeader";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -11,10 +11,10 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@/components/ui/empty"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useApplications } from "@/api/workspace/hooks"
-import { schoolFromApplication } from "@/domain/school"
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useApplications } from "@/api/workspace/hooks";
+import { schoolFromApplication } from "@/domain/school";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,31 +22,31 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
-import { AddSchoolDialog } from "@/features/schools/AddSchoolDialog"
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import { AddSchoolDialog } from "@/features/schools/AddSchoolDialog";
 import {
   defaultSortState,
   listTypeFilterOptions,
   tableColumns,
   viewFilterOptions,
-} from "@/features/schools/schools-config"
+} from "@/features/schools/schools-config";
 import {
   filterSchools,
   matchesListTypeFilter,
   matchesViewFilter,
-} from "@/features/schools/schools-filters"
-import { SchoolMobileList } from "@/features/schools/SchoolMobileList"
-import { SchoolsTable } from "@/features/schools/SchoolsTable"
-import { sortSchools } from "@/features/schools/schools-sort"
+} from "@/features/schools/schools-filters";
+import { SchoolMobileList } from "@/features/schools/SchoolMobileList";
+import { SchoolsTable } from "@/features/schools/SchoolsTable";
+import { sortSchools } from "@/features/schools/schools-sort";
 import type {
   ColumnId,
   ListTypeFilter,
   SortState,
   ViewFilter,
-} from "@/features/schools/schools-types"
-import { useColumnLayout } from "@/features/schools/useColumnLayout"
-import { WorkspaceScrollIndicator } from "@/features/schools/WorkspaceScrollIndicator"
+} from "@/features/schools/schools-types";
+import { useColumnLayout } from "@/features/schools/useColumnLayout";
+import { WorkspaceScrollIndicator } from "@/features/schools/WorkspaceScrollIndicator";
 
 function FilterTabLabel({ label, count }: { label: string; count: number }) {
   return (
@@ -56,15 +56,15 @@ function FilterTabLabel({ label, count }: { label: string; count: number }) {
         {count}
       </span>
     </>
-  )
+  );
 }
 
 function DropdownOptionLabel({
   label,
   count,
 }: {
-  label: string
-  count: number
+  label: string;
+  count: number;
 }) {
   return (
     <span className="flex min-w-0 flex-1 items-center justify-between gap-4">
@@ -73,7 +73,7 @@ function DropdownOptionLabel({
         {count}
       </span>
     </span>
-  )
+  );
 }
 
 function SchoolsSkeleton() {
@@ -84,99 +84,99 @@ function SchoolsSkeleton() {
       <Skeleton className="h-14 w-full" />
       <Skeleton className="h-14 w-full" />
     </div>
-  )
+  );
 }
 
 export function SchoolsPage() {
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const applications = useApplications()
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [addSchoolOpen, setAddSchoolOpen] = useState(false)
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const applications = useApplications();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [addSchoolOpen, setAddSchoolOpen] = useState(false);
   const {
     columnWidths,
     handleColumnResizeKeyDown,
     handleColumnResizeStart,
     tableWidth,
-  } = useColumnLayout()
-  const [viewFilter, setViewFilter] = useState<ViewFilter>("all")
-  const [listTypeFilter, setListTypeFilter] = useState<ListTypeFilter>("all")
-  const [sortState, setSortState] = useState<SortState>(defaultSortState)
-  const activeSchoolId = searchParams.get("school")
+  } = useColumnLayout();
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
+  const [listTypeFilter, setListTypeFilter] = useState<ListTypeFilter>("all");
+  const [sortState, setSortState] = useState<SortState>(defaultSortState);
+  const activeSchoolId = searchParams.get("school");
   const schools = useMemo(
     () => (applications.data ?? []).map(schoolFromApplication),
     [applications.data],
-  )
+  );
 
   const filteredSchools = useMemo(
     () => filterSchools(schools, viewFilter, listTypeFilter),
-    [listTypeFilter, schools, viewFilter]
-  )
+    [listTypeFilter, schools, viewFilter],
+  );
   const sortedSchools = useMemo(
     () => sortSchools(filteredSchools, sortState),
-    [filteredSchools, sortState]
-  )
+    [filteredSchools, sortState],
+  );
   const visibleSchoolsLabel =
     filteredSchools.length === 1
       ? "1 school shown"
-      : `${filteredSchools.length} schools shown`
+      : `${filteredSchools.length} schools shown`;
   const activeViewFilter =
     viewFilterOptions.find((option) => option.value === viewFilter) ??
-    viewFilterOptions[0]
+    viewFilterOptions[0];
   const activeSortColumn =
     tableColumns.find((column) => column.id === sortState.columnId) ??
-    tableColumns[0]
+    tableColumns[0];
 
   useEffect(() => {
     if (activeSchoolId) {
-      void navigate(`/app/schools/${activeSchoolId}`, { replace: true })
+      void navigate(`/app/schools/${activeSchoolId}`, { replace: true });
     }
-  }, [activeSchoolId, navigate])
+  }, [activeSchoolId, navigate]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault()
-        setAddSchoolOpen(true)
+        event.preventDefault();
+        setAddSchoolOpen(true);
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [])
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   function openSchool(schoolId: string) {
-    void navigate(`/app/schools/${schoolId}`)
+    void navigate(`/app/schools/${schoolId}`);
   }
 
   function handleColumnSort(columnId: ColumnId) {
     setSortState((currentSortState) => {
       if (currentSortState.columnId !== columnId) {
-        return { columnId, direction: "asc" }
+        return { columnId, direction: "asc" };
       }
 
       return {
         columnId,
         direction: currentSortState.direction === "asc" ? "desc" : "asc",
-      }
-    })
+      };
+    });
   }
 
   function handleSortColumnSelect(columnId: ColumnId) {
     setSortState((currentSortState) => {
       if (currentSortState.columnId === columnId) {
-        return currentSortState
+        return currentSortState;
       }
 
-      return { columnId, direction: "asc" }
-    })
+      return { columnId, direction: "asc" };
+    });
   }
 
   function handleSortDirectionToggle() {
     setSortState((currentSortState) => ({
       ...currentSortState,
       direction: currentSortState.direction === "asc" ? "desc" : "asc",
-    }))
+    }));
   }
 
   return (
@@ -390,5 +390,5 @@ export function SchoolsPage() {
         open={addSchoolOpen}
       />
     </section>
-  )
+  );
 }

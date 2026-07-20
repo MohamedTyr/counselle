@@ -6,9 +6,9 @@ import {
   LibraryBig,
   ListChecks,
   School,
-} from "lucide-react"
+} from "lucide-react";
 
-import type { ShellRoute } from "@/features/shell/MainNav"
+import type { ShellRoute } from "@/features/shell/MainNav";
 
 export const shellRoutes: ShellRoute[] = [
   {
@@ -53,4 +53,4 @@ export const shellRoutes: ShellRoute[] = [
     icon: <LibraryBig />,
     link: "/app/essays",
   },
-]
+];

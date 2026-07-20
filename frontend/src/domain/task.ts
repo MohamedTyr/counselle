@@ -1,42 +1,36 @@
 import type {
   Task as ApiTask,
   TaskPatch as ApiTaskPatch,
-} from "@/api/workspace/types"
+} from "@/api/workspace/types";
 
-export type TaskStatus = "todo" | "doing" | "waiting" | "done"
+export type TaskStatus = "todo" | "doing" | "waiting" | "done";
 export type TaskCategory =
-  | "essay"
-  | "lor"
-  | "aid"
-  | "research"
-  | "other"
-  | "form"
-  | "interview"
-export type TaskPriority = "low" | "med" | "high"
-export type TaskAssignee = "student" | "counselle"
+  "essay" | "lor" | "aid" | "research" | "other" | "form" | "interview";
+export type TaskPriority = "low" | "med" | "high";
+export type TaskAssignee = "student" | "counselle";
 
 export type Task = {
-  id: string
-  title: string
-  notes?: string
-  due_at?: string
-  planned_for?: string
-  status: TaskStatus
-  category: TaskCategory
-  assignee: TaskAssignee
-  created_at: string
-  updated_at: string
-  completed_at?: string
-  needs_input?: boolean
-  reminder_at?: string
-  priority: TaskPriority
-  application_id?: string
-  essay_id?: string
-  requirement_kind?: string
-}
+  id: string;
+  title: string;
+  notes?: string;
+  due_at?: string;
+  planned_for?: string;
+  status: TaskStatus;
+  category: TaskCategory;
+  assignee: TaskAssignee;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  needs_input?: boolean;
+  reminder_at?: string;
+  priority: TaskPriority;
+  application_id?: string;
+  essay_id?: string;
+  requirement_kind?: string;
+};
 
 function undefinedIfNull<T>(value: T | null | undefined): T | undefined {
-  return value === null ? undefined : value
+  return value === null ? undefined : value;
 }
 
 export function taskFromApi(task: ApiTask): Task {
@@ -58,7 +52,7 @@ export function taskFromApi(task: ApiTask): Task {
     application_id: undefinedIfNull(task.application_id),
     essay_id: undefinedIfNull(task.essay_id),
     requirement_kind: undefinedIfNull(task.requirement_kind),
-  }
+  };
 }
 
 const patchableTaskFields = [
@@ -75,7 +69,7 @@ const patchableTaskFields = [
   "application_id",
   "essay_id",
   "requirement_kind",
-] as const satisfies readonly (keyof Task)[]
+] as const satisfies readonly (keyof Task)[];
 
 /**
  * Converts a domain-level task patch (where clearing a field means setting it
@@ -84,19 +78,19 @@ const patchableTaskFields = [
  * server derives it from `status` and does not accept it as a patch field.
  */
 export function taskPatchToApi(patch: Partial<Task>): ApiTaskPatch {
-  const apiPatch: Record<string, unknown> = {}
+  const apiPatch: Record<string, unknown> = {};
 
   for (const field of patchableTaskFields) {
     if (field in patch) {
-      const value = patch[field]
-      apiPatch[field] = value === undefined ? null : value
+      const value = patch[field];
+      apiPatch[field] = value === undefined ? null : value;
     }
   }
 
   if ("application_id" in patch) {
-    if (!("essay_id" in patch)) apiPatch.essay_id = null
-    if (!("requirement_kind" in patch)) apiPatch.requirement_kind = null
+    if (!("essay_id" in patch)) apiPatch.essay_id = null;
+    if (!("requirement_kind" in patch)) apiPatch.requirement_kind = null;
   }
 
-  return apiPatch as ApiTaskPatch
+  return apiPatch as ApiTaskPatch;
 }

@@ -96,7 +96,8 @@ export function assistantMessage(
   const hasNarrationOrThinking = state.segments.some(
     (segment) => segment.type === "narration" || segment.type === "thinking",
   );
-  const isThinking = isLive && !hasActiveTool && !hasProseTail && !hasNarrationOrThinking;
+  const isThinking =
+    isLive && !hasActiveTool && !hasProseTail && !hasNarrationOrThinking;
 
   return {
     kind: "assistant",
@@ -172,7 +173,13 @@ export function messagesFromTranscript(
 
     const state = reduceTranscriptEntry(entry);
     messages.push({
-      ...assistantMessage(conversationId, messageId, parentMessageId, state, entry.ts),
+      ...assistantMessage(
+        conversationId,
+        messageId,
+        parentMessageId,
+        state,
+        entry.ts,
+      ),
       hasBackendId,
       clarifyAnswer: entry.clarify?.answer,
       feedback:

@@ -1,6 +1,10 @@
 import { BookOpenIcon } from "lucide-react";
 
-import type { MessageSourcesPayload, ReplaySourceEntry, SourceFocus } from "@/api/chat/types";
+import type {
+  MessageSourcesPayload,
+  ReplaySourceEntry,
+  SourceFocus,
+} from "@/api/chat/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -10,14 +14,23 @@ import type { AssistantChatMessage } from "../model";
 export type { MessageSourcesPayload } from "@/api/chat/types";
 
 export type MessageSourcesProps = {
-  message: Pick<AssistantChatMessage, "blocks" | "text" | "sources" | "turnStatus">;
+  message: Pick<
+    AssistantChatMessage,
+    "blocks" | "text" | "sources" | "turnStatus"
+  >;
   onOpen?: (payload: MessageSourcesPayload) => void;
   active?: SourceFocus;
 };
 
 const MAX_BADGES = 3;
 
-function SourceBadge({ entry, stacked }: { entry: ReplaySourceEntry; stacked: boolean }) {
+function SourceBadge({
+  entry,
+  stacked,
+}: {
+  entry: ReplaySourceEntry;
+  stacked: boolean;
+}) {
   return (
     <span
       aria-hidden="true"
@@ -32,8 +45,13 @@ function SourceBadge({ entry, stacked }: { entry: ReplaySourceEntry; stacked: bo
   );
 }
 
-export function MessageSources({ message, onOpen, active }: MessageSourcesProps) {
-  if (message.turnStatus !== "complete" && message.turnStatus !== "cancelled") return null;
+export function MessageSources({
+  message,
+  onOpen,
+  active,
+}: MessageSourcesProps) {
+  if (message.turnStatus !== "complete" && message.turnStatus !== "cancelled")
+    return null;
   const payload = sourcesPayloadFor(message, active);
   if (payload === null) return null;
 
@@ -52,9 +70,16 @@ export function MessageSources({ message, onOpen, active }: MessageSourcesProps)
       variant="ghost"
     >
       <span className="flex shrink-0 items-center">
-        {badges.length > 0 ? badges.map((entry, index) => (
-          <SourceBadge entry={entry} key={entry.index} stacked={index > 0} />
-        )) : <BookOpenIcon aria-hidden="true" className="size-4 text-muted-foreground" />}
+        {badges.length > 0 ? (
+          badges.map((entry, index) => (
+            <SourceBadge entry={entry} key={entry.index} stacked={index > 0} />
+          ))
+        ) : (
+          <BookOpenIcon
+            aria-hidden="true"
+            className="size-4 text-muted-foreground"
+          />
+        )}
       </span>
       <span className="shrink-0 text-sm text-muted-foreground transition-colors group-hover/strip:text-foreground">
         {countLabel}

@@ -64,7 +64,10 @@ export function SkillPicker({
           side="top"
           sideOffset={8}
         >
-          <div className="-mx-2.5 -my-2.5 flex min-h-0 flex-col" data-slot="skill-picker">
+          <div
+            className="-mx-2.5 -my-2.5 flex min-h-0 flex-col"
+            data-slot="skill-picker"
+          >
             <div
               aria-label="Skills"
               className="flex max-h-52 flex-col gap-1.5 overflow-y-auto"

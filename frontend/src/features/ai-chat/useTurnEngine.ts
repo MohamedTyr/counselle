@@ -40,8 +40,7 @@ export type LiveTurn = {
 };
 
 export type SubmitMessageResult =
-  | { ok: true; sessionId: string }
-  | { ok: false; keepText: string };
+  { ok: true; sessionId: string } | { ok: false; keepText: string };
 
 type PendingSend = {
   text: string;
@@ -115,7 +114,10 @@ function submitArguments(
   }
 
   return {
-    skills: skillsOrReplaceMessageId === undefined ? [] : [...skillsOrReplaceMessageId],
+    skills:
+      skillsOrReplaceMessageId === undefined
+        ? []
+        : [...skillsOrReplaceMessageId],
     replaceMessageId,
   };
 }
@@ -231,8 +233,10 @@ export function useTurnEngine({
 
             if (reconcileTempUserId && backendUserId !== userMessageId) {
               const previousUserId = userMessageId;
-              setPersistedMessages((previous) =>
-                reconcileMetaIds(previous, previousUserId, backendUserId).next,
+              setPersistedMessages(
+                (previous) =>
+                  reconcileMetaIds(previous, previousUserId, backendUserId)
+                    .next,
               );
             }
 
@@ -402,7 +406,13 @@ export function useTurnEngine({
       lastStartedUserMessageIdRef.current = tempUserId;
 
       onSendStart?.();
-      await runTurn(activeSessionId, tempUserId, text, skills, replaceMessageId);
+      await runTurn(
+        activeSessionId,
+        tempUserId,
+        text,
+        skills,
+        replaceMessageId,
+      );
       return {
         sessionId: activeSessionId,
         userMessageId: tempUserId,
@@ -490,7 +500,10 @@ export function useTurnEngine({
       // A temp/optimistic id has no backend id yet -- it can't anchor a
       // server-side history rewrite. Refuse rather than send a bogus
       // replace_message_id (mirrors the old engine's refusal-on-temp-id).
-      if (replaceMessageId !== undefined && replaceMessageId.startsWith("temp-")) {
+      if (
+        replaceMessageId !== undefined &&
+        replaceMessageId.startsWith("temp-")
+      ) {
         return { ok: false, keepText: text };
       }
 
@@ -501,7 +514,8 @@ export function useTurnEngine({
         if (skills.length > 0) {
           setTurnError({
             kind: "server",
-            message: "Wait for the current response to finish before using a skill.",
+            message:
+              "Wait for the current response to finish before using a skill.",
           });
           setPendingSend({ text, skills });
           return { ok: false, keepText: text };
@@ -569,7 +583,7 @@ export function useTurnEngine({
                 replaceMessageId,
                 optimisticUserMessageId:
                   replaceMessageId === undefined
-                    ? lastStartedUserMessageIdRef.current ?? undefined
+                    ? (lastStartedUserMessageIdRef.current ?? undefined)
                     : undefined,
               });
               return { ok: false, keepText: text };
@@ -584,7 +598,7 @@ export function useTurnEngine({
           replaceMessageId,
           optimisticUserMessageId:
             replaceMessageId === undefined
-              ? lastStartedUserMessageIdRef.current ?? undefined
+              ? (lastStartedUserMessageIdRef.current ?? undefined)
               : undefined,
         });
         return { ok: false, keepText: text };
@@ -648,7 +662,8 @@ export function useTurnEngine({
         .reverse()
         .find(
           (message) =>
-            message.kind === "user" && message.conversationId === activeSessionId,
+            message.kind === "user" &&
+            message.conversationId === activeSessionId,
         );
       const tail = persistedRef.current.at(-1);
       const seedAssistant =
@@ -662,7 +677,8 @@ export function useTurnEngine({
         await consumeStream({
           activeSessionId,
           stream: result.stream,
-          initialUserMessageId: lastUser?.messageId ?? createTempId("temp-user"),
+          initialUserMessageId:
+            lastUser?.messageId ?? createTempId("temp-user"),
           reconcileTempUserId: false,
           initialAssistant: seedAssistant,
         });
@@ -757,7 +773,10 @@ export function useTurnEngine({
   return {
     messages,
     liveTurn,
-    isSubmitting: liveTurn !== null && liveTurn.sessionId === sessionId && isTurnActive(liveTurn),
+    isSubmitting:
+      liveTurn !== null &&
+      liveTurn.sessionId === sessionId &&
+      isTurnActive(liveTurn),
     turnError,
     pendingText: pendingSend?.text ?? null,
     awaitingClarify,

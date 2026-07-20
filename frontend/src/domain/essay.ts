@@ -118,10 +118,10 @@ function formatSchoolLocation(city: string | null, state: string | null) {
 
 export function essayFromSummary(summary: EssaySummary): Essay {
   const applicationId = textOrNull(summary.application_id);
-  const type = isEssayType(summary.essay_type) ? summary.essay_type : "Supplement";
-  const status = isEssayStatus(summary.status)
-    ? summary.status
-    : "Not started";
+  const type = isEssayType(summary.essay_type)
+    ? summary.essay_type
+    : "Supplement";
+  const status = isEssayStatus(summary.status) ? summary.status : "Not started";
   const deadline = textOrNull(summary.deadline);
   const title = textOrEmpty(summary.title) || "Untitled essay";
   const hasLinkedApplication = applicationId !== null;

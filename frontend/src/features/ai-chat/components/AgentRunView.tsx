@@ -7,15 +7,30 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import type { ReplaySourceEntry, SourceFocus, StepData } from "@/api/chat/types";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import type {
+  ReplaySourceEntry,
+  SourceFocus,
+  StepData,
+} from "@/api/chat/types";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter";
 import { cn } from "@/lib/utils";
 
 import { CitationRenderer } from "./CitationRenderer";
 
 export { ToolStepBeat } from "./ToolWidgets";
 
-function PlanStatusIcon({ isLive, status }: { isLive: boolean; status: string }) {
+function PlanStatusIcon({
+  isLive,
+  status,
+}: {
+  isLive: boolean;
+  status: string;
+}) {
   if (status === "completed") {
     return <CheckCircle2Icon aria-hidden="true" className="mt-0.5 size-3.5" />;
   }
@@ -37,34 +52,72 @@ function PlanStatusIcon({ isLive, status }: { isLive: boolean; status: string })
  * The chronological run itself renders `write_plan` as a normal tool beat.
  * `isLive` gates the in-progress spinner — a finished or cancelled run must
  * settle, not lie about activity. */
-export function PlanChecklist({ isLive = false, step }: { isLive?: boolean; step: StepData }) {
+export function PlanChecklist({
+  isLive = false,
+  step,
+}: {
+  isLive?: boolean;
+  step: StepData;
+}) {
   const items = step.detail?.items ?? [];
   if (items.length === 0) {
     return null;
   }
 
-  const completed = step.detail?.completed ?? items.filter((item) => item.status === "completed").length;
+  const completed =
+    step.detail?.completed ??
+    items.filter((item) => item.status === "completed").length;
   const total = step.detail?.total ?? items.length;
+  const remaining = items.filter(
+    (item) => item.status === "pending" || item.status === "in_progress",
+  ).length;
 
   return (
-    <div className="not-prose mb-3 rounded-md border bg-muted/30 px-3 py-2.5">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-foreground">Plan</span>
-        <span className="text-xs tabular-nums text-muted-foreground">
+    <div className="not-prose mb-3 rounded-lg bg-muted/40 px-3.5 py-3">
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <div>
+          <span className="text-sm font-medium text-foreground">Plan</span>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {remaining === 0
+              ? "All steps complete"
+              : `${remaining} ${remaining === 1 ? "step" : "steps"} remaining`}
+          </p>
+        </div>
+        <span
+          className="rounded-full bg-background/70 px-2 py-1 text-xs tabular-nums text-muted-foreground"
+          aria-label={`${completed} of ${total} steps complete`}
+        >
           {completed}/{total}
         </span>
       </div>
+      <Meter
+        aria-label="Plan progress"
+        className="mb-3 gap-0"
+        max={Math.max(total, 1)}
+        value={completed}
+      >
+        <MeterTrack className="h-1 rounded-full">
+          <MeterIndicator className="rounded-full transition-[transform] duration-200" />
+        </MeterTrack>
+      </Meter>
       <ol className="flex flex-col gap-1.5">
         {items.map((item, index) => (
           <li
             className={cn(
               "grid grid-cols-[16px_1fr] gap-2 text-xs leading-5",
-              item.status === "completed" ? "text-muted-foreground" : "text-foreground",
+              item.status === "completed"
+                ? "text-muted-foreground"
+                : "text-foreground",
             )}
             key={`${item.content}-${index}`}
           >
             <PlanStatusIcon isLive={isLive} status={item.status} />
-            <span>{item.content}</span>
+            <span>
+              <span className="sr-only">
+                {item.status.replaceAll("_", " ")}:{" "}
+              </span>
+              {item.content}
+            </span>
           </li>
         ))}
       </ol>
@@ -117,7 +170,10 @@ export function ThinkingBeat({
       >
         <ChevronRightIcon
           aria-hidden="true"
-          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          className={cn(
+            "size-3.5 shrink-0 transition-transform",
+            open && "rotate-90",
+          )}
         />
         <span className={cn(isLive && "animate-pulse")}>{label}</span>
       </CollapsibleTrigger>

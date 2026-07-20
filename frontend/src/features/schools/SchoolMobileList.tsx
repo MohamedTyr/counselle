@@ -1,7 +1,7 @@
-import type { ReactNode } from "react"
+import type { ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge"
-import type { School } from "@/domain/school"
+import { Badge } from "@/components/ui/badge";
+import type { School } from "@/domain/school";
 import {
   DeadlineValue,
   EssaysValue,
@@ -10,29 +10,29 @@ import {
   SchoolIdentity,
   SchoolWebsiteLink,
   StatusBadge,
-} from "@/features/schools/school-cells"
+} from "@/features/schools/school-cells";
 
 function MobileMetric({
   label,
   children,
 }: {
-  label: string
-  children: ReactNode
+  label: string;
+  children: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <span className="text-xs text-muted-foreground">{label}</span>
       <div className="min-w-0">{children}</div>
     </div>
-  )
+  );
 }
 
 function SchoolMobileCard({
   onOpenSchool,
   school,
 }: {
-  onOpenSchool: (schoolId: string) => void
-  school: School
+  onOpenSchool: (schoolId: string) => void;
+  school: School;
 }) {
   return (
     <article
@@ -40,11 +40,7 @@ function SchoolMobileCard({
       onClick={() => onOpenSchool(school.id)}
     >
       <div className="flex items-start justify-between gap-3">
-        <SchoolIdentity
-          layout="mobile"
-          onOpen={onOpenSchool}
-          school={school}
-        />
+        <SchoolIdentity layout="mobile" onOpen={onOpenSchool} school={school} />
         <div className="flex shrink-0 items-center gap-2">
           <StatusBadge status={school.status} />
           <SchoolWebsiteLink school={school} />
@@ -69,15 +65,15 @@ function SchoolMobileCard({
         </MobileMetric>
       </div>
     </article>
-  )
+  );
 }
 
 export function SchoolMobileList({
   onOpenSchool,
   schools,
 }: {
-  onOpenSchool: (schoolId: string) => void
-  schools: School[]
+  onOpenSchool: (schoolId: string) => void;
+  schools: School[];
 }) {
   return (
     <div className="flex flex-col gap-3 md:hidden">
@@ -95,5 +91,5 @@ export function SchoolMobileList({
         ))
       )}
     </div>
-  )
+  );
 }

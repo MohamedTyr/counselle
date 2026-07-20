@@ -1,9 +1,9 @@
-import type { Dispatch, SetStateAction } from "react"
+import type { Dispatch, SetStateAction } from "react";
 
-import type { Task, TaskStatus } from "@/domain/task"
+import type { Task, TaskStatus } from "@/domain/task";
 
-export type TaskView = "today" | "upcoming" | "all"
-export type SortDirection = "asc" | "desc"
+export type TaskView = "today" | "upcoming" | "all";
+export type SortDirection = "asc" | "desc";
 export type AllTaskColumnId =
   | "task"
   | "status"
@@ -11,24 +11,24 @@ export type AllTaskColumnId =
   | "priority"
   | "workDate"
   | "dueDate"
-  | "reminder"
+  | "reminder";
 export type AllTaskSortState = {
-  columnId: AllTaskColumnId
-  direction: SortDirection
-}
+  columnId: AllTaskColumnId;
+  direction: SortDirection;
+};
 export type AllTaskColumn = {
-  id: AllTaskColumnId
-  label: string
-  width: number
-}
+  id: AllTaskColumnId;
+  label: string;
+  width: number;
+};
 
 export type TodayColumn = {
-  id: TaskStatus
-  title: string
-  description: string
-}
+  id: TaskStatus;
+  title: string;
+  description: string;
+};
 
-export type TaskLayoutMode = false | "position"
+export type TaskLayoutMode = false | "position";
 export type EditableTaskField =
   | "application_id"
   | "assignee"
@@ -41,50 +41,50 @@ export type EditableTaskField =
   | "priority"
   | "reminder_at"
   | "status"
-  | "title"
+  | "title";
 
 export type SelectionBox = {
-  currentX: number
-  currentY: number
-  hasDragged: boolean
-  startX: number
-  startY: number
-}
+  currentX: number;
+  currentY: number;
+  hasDragged: boolean;
+  startX: number;
+  startY: number;
+};
 
 export type UpdateTask = (
   taskId: string,
   patch: Partial<Task>,
-  options?: { touch?: boolean }
-) => void
+  options?: { touch?: boolean },
+) => void;
 
 export type UpcomingGroup = {
-  id: string
-  title: string
-  subtitle: string
-  tasks: Task[]
-}
+  id: string;
+  title: string;
+  subtitle: string;
+  tasks: Task[];
+};
 
 export type SelectionBounds = {
-  bottom: number
-  left: number
-  right: number
-  top: number
-}
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+};
 
 export type SelectionSession = {
-  additive: boolean
-  baseIds: string[]
-  pointerId: number
-  startX: number
-  startY: number
-}
+  additive: boolean;
+  baseIds: string[];
+  pointerId: number;
+  startX: number;
+  startY: number;
+};
 
 export type TasksPageProps =
   | {
-      tasks: Task[]
-      onTasksChange: Dispatch<SetStateAction<Task[]>>
+      tasks: Task[];
+      onTasksChange: Dispatch<SetStateAction<Task[]>>;
     }
   | {
-      tasks?: undefined
-      onTasksChange?: undefined
-    }
+      tasks?: undefined;
+      onTasksChange?: undefined;
+    };

@@ -1,11 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-"use client"
+"use client";
 
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
-import { cva, type VariantProps } from "class-variance-authority"
-import type React from "react"
-import { cn } from "@/lib/utils"
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
+import { cva, type VariantProps } from "class-variance-authority";
+import type React from "react";
+import { cn } from "@/lib/utils";
 
 export const badgeVariants = cva(
   "relative inline-flex shrink-0 items-center justify-center gap-1 rounded-sm border border-transparent font-medium whitespace-nowrap transition-shadow outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-3.5 sm:[&_svg:not([class*='size-'])]:size-3 [button&,a&]:cursor-pointer [button&,a&]:pointer-coarse:after:absolute [button&,a&]:pointer-coarse:after:size-full [button&,a&]:pointer-coarse:after:min-h-11 [button&,a&]:pointer-coarse:after:min-w-11",
@@ -39,12 +39,12 @@ export const badgeVariants = cva(
           "bg-[color:var(--task-waiting-pill-bg)] text-[color:var(--task-waiting-pill-fg)]",
       },
     },
-  }
-)
+  },
+);
 
 export interface BadgeProps extends useRender.ComponentProps<"span"> {
-  variant?: VariantProps<typeof badgeVariants>["variant"]
-  size?: VariantProps<typeof badgeVariants>["size"]
+  variant?: VariantProps<typeof badgeVariants>["variant"];
+  size?: VariantProps<typeof badgeVariants>["size"];
 }
 
 export function Badge({
@@ -57,11 +57,11 @@ export function Badge({
   const defaultProps = {
     className: cn(badgeVariants({ className, size, variant })),
     "data-slot": "badge",
-  }
+  };
 
   return useRender({
     defaultTagName: "span",
     props: mergeProps<"span">(defaultProps, props),
     render,
-  })
+  });
 }

@@ -66,9 +66,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   const [saveState, setSaveState] = useState<EssaySaveState>("saved");
   const savedDraftKey = useMemo(
     () =>
-      savedDraft
-        ? draftKey(savedDraft.content, savedDraft.wordCount)
-        : null,
+      savedDraft ? draftKey(savedDraft.content, savedDraft.wordCount) : null,
     [savedDraft],
   );
   const pendingDraftRef = useRef<Draft | null>(null);
@@ -132,7 +130,10 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   const syncEssayCache = useCallback(
     (essay: Essay) => {
       latestSavedEssayRef.current = essay;
-      queryClient.setQueryData<Essay>(workspaceKeys.essays.detail(essay.id), essay);
+      queryClient.setQueryData<Essay>(
+        workspaceKeys.essays.detail(essay.id),
+        essay,
+      );
       queryClient.setQueryData<EssaySummary[]>(
         workspaceKeys.essays.list(),
         (current) => replaceById(current, essay.id, essay),
@@ -147,7 +148,11 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
         workspaceKeys.essays.detail(essayId),
         (current) =>
           current
-            ? { ...current, content: draft.content, word_count: draft.wordCount }
+            ? {
+                ...current,
+                content: draft.content,
+                word_count: draft.wordCount,
+              }
             : current,
       );
       queryClient.setQueryData<EssaySummary[]>(
@@ -207,7 +212,9 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     void queryClient.invalidateQueries({
       queryKey: workspaceKeys.essays.detail(essayId),
     });
-    void queryClient.invalidateQueries({ queryKey: workspaceKeys.essays.list() });
+    void queryClient.invalidateQueries({
+      queryKey: workspaceKeys.essays.list(),
+    });
   }, [essayId, queryClient]);
 
   const clearQueuedDirectDraft = useCallback((draft: Draft) => {

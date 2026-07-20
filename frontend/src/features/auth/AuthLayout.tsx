@@ -1,22 +1,22 @@
-import type { PropsWithChildren } from "react"
-import { Link } from "react-router"
+import type { PropsWithChildren } from "react";
+import { Link } from "react-router";
 
-import { useGuestAuthCheck } from "@/app/auth/use-guest-auth-check"
-import { Button } from "@/components/ui/button"
+import { useGuestAuthCheck } from "@/app/auth/use-guest-auth-check";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 
 type AuthLayoutProps = PropsWithChildren<{
-  title: string
-  description: string
-}>
+  title: string;
+  description: string;
+}>;
 
 export function AuthLayout({ title, description, children }: AuthLayoutProps) {
-  const { hasAuthCheckError, retryAuthCheck } = useGuestAuthCheck()
+  const { hasAuthCheckError, retryAuthCheck } = useGuestAuthCheck();
 
   return (
     <main className="flex min-h-svh items-center justify-center bg-background p-6">
@@ -48,5 +48,5 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
         {children}
       </Card>
     </main>
-  )
+  );
 }

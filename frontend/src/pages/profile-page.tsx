@@ -1,1 +1,1 @@
-export { ProfileRoute as ProfilePage } from "@/features/profile/ProfileRoute"
+export { ProfileRoute as ProfilePage } from "@/features/profile/ProfileRoute";

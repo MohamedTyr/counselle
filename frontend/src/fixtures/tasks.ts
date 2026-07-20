@@ -1,4 +1,4 @@
-import type { Task } from "@/domain/task"
+import type { Task } from "@/domain/task";
 
 export const initialTasks: Task[] = [
   {
@@ -198,4 +198,4 @@ export const initialTasks: Task[] = [
     updated_at: "2026-06-29T13:55:00",
     priority: "low",
   },
-]
+];

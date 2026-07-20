@@ -1,43 +1,43 @@
-import type { DragEvent, MouseEvent } from "react"
-import { AnimatePresence } from "motion/react"
+import type { DragEvent, MouseEvent } from "react";
+import { AnimatePresence } from "motion/react";
 
-import type { ApplicationView } from "@/api/workspace/types"
-import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import type { Task, TaskStatus } from "@/domain/task"
-import { TaskCard } from "@/features/tasks/TaskCard"
-import { emptyTaskIdSet, laneThemeClass } from "@/features/tasks/task-config"
+import type { ApplicationView } from "@/api/workspace/types";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import type { Task, TaskStatus } from "@/domain/task";
+import { TaskCard } from "@/features/tasks/TaskCard";
+import { emptyTaskIdSet, laneThemeClass } from "@/features/tasks/task-config";
 import type {
   TaskLayoutMode,
   TodayColumn,
   UpdateTask,
-} from "@/features/tasks/task-types"
-import { cn } from "@/lib/utils"
+} from "@/features/tasks/task-types";
+import { cn } from "@/lib/utils";
 
 type TaskColumnProps = {
-  applicationsById: ReadonlyMap<string, ApplicationView>
-  column: TodayColumn
-  dragOverColumn: TaskStatus | null
-  draggingTaskIds: ReadonlySet<string>
-  layoutMode: TaskLayoutMode
-  onCardDragEnd: () => void
-  onClickTask: (event: MouseEvent<HTMLElement>, taskId: string) => void
-  onColumnDragLeave: () => void
-  onDeleteTask: (taskId: string) => void
-  onDragOver: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void
+  applicationsById: ReadonlyMap<string, ApplicationView>;
+  column: TodayColumn;
+  dragOverColumn: TaskStatus | null;
+  draggingTaskIds: ReadonlySet<string>;
+  layoutMode: TaskLayoutMode;
+  onCardDragEnd: () => void;
+  onClickTask: (event: MouseEvent<HTMLElement>, taskId: string) => void;
+  onColumnDragLeave: () => void;
+  onDeleteTask: (taskId: string) => void;
+  onDragOver: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void;
   onDragStart: (
     event: DragEvent<HTMLElement>,
     task: Task,
-    columnId: TaskStatus
-  ) => void
-  onDrop: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void
-  onOpenTask: (taskId: string) => void
-  onToggleTaskSelected: (taskId: string) => void
-  onUpdateTask: UpdateTask
-  reduceMotion: boolean
-  selectedTaskIds: ReadonlySet<string>
-  tasks: Task[]
-}
+    columnId: TaskStatus,
+  ) => void;
+  onDrop: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void;
+  onOpenTask: (taskId: string) => void;
+  onToggleTaskSelected: (taskId: string) => void;
+  onUpdateTask: UpdateTask;
+  reduceMotion: boolean;
+  selectedTaskIds: ReadonlySet<string>;
+  tasks: Task[];
+};
 
 export function TaskColumn({
   applicationsById,
@@ -59,19 +59,19 @@ export function TaskColumn({
   selectedTaskIds,
   tasks,
 }: TaskColumnProps) {
-  const isDropTarget = dragOverColumn === column.id
+  const isDropTarget = dragOverColumn === column.id;
 
   return (
     <Card
       className={cn(
         laneThemeClass[column.id],
         "min-h-[29rem] overflow-hidden [border-color:var(--lane-border)] [background-color:var(--lane-surface)] transition-[background-color,border-color,box-shadow]",
-        isDropTarget && "border-ring/50 bg-muted/50 shadow-sm"
+        isDropTarget && "border-ring/50 bg-muted/50 shadow-sm",
       )}
       data-task-column={column.id}
       onDragLeave={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          onColumnDragLeave()
+          onColumnDragLeave();
         }
       }}
       onDragOver={(event) => onDragOver(event, column.id)}
@@ -121,7 +121,7 @@ export function TaskColumn({
           <div
             className={cn(
               "flex min-h-32 flex-1 items-center justify-center rounded-xl border border-dashed bg-muted/30 p-4 text-center text-xs leading-5 text-muted-foreground transition-colors",
-              isDropTarget && "border-ring/50 bg-background/70"
+              isDropTarget && "border-ring/50 bg-background/70",
             )}
           >
             Finish one task to start today.
@@ -129,5 +129,5 @@ export function TaskColumn({
         ) : null}
       </div>
     </Card>
-  )
+  );
 }

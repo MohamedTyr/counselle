@@ -1,17 +1,17 @@
-import type { DragEvent, MouseEvent, PointerEvent, RefObject } from "react"
-import { AnimatePresence, motion } from "motion/react"
+import type { DragEvent, MouseEvent, PointerEvent, RefObject } from "react";
+import { AnimatePresence, motion } from "motion/react";
 
-import type { ApplicationView } from "@/api/workspace/types"
-import type { Task, TaskStatus } from "@/domain/task"
-import { TaskColumn } from "@/features/tasks/TaskColumn"
-import { todayColumns } from "@/features/tasks/task-config"
+import type { ApplicationView } from "@/api/workspace/types";
+import type { Task, TaskStatus } from "@/domain/task";
+import { TaskColumn } from "@/features/tasks/TaskColumn";
+import { todayColumns } from "@/features/tasks/task-config";
 import type {
   SelectionBox,
   TaskLayoutMode,
   UpdateTask,
-} from "@/features/tasks/task-types"
-import { getSelectionStyle } from "@/features/tasks/useTaskSelection"
-import { cn } from "@/lib/utils"
+} from "@/features/tasks/task-types";
+import { getSelectionStyle } from "@/features/tasks/useTaskSelection";
+import { cn } from "@/lib/utils";
 
 export function TaskBoard({
   applicationsById,
@@ -37,38 +37,38 @@ export function TaskBoard({
   selectionBox,
   selectionSurfaceRef,
 }: {
-  applicationsById: ReadonlyMap<string, ApplicationView>
-  dragOverColumn: TaskStatus | null
-  draggingTaskIds: ReadonlySet<string>
-  groupedTasks: Record<TaskStatus, Task[]>
-  layoutMode: TaskLayoutMode
-  onCardDragEnd: () => void
-  onClickTask: (event: MouseEvent<HTMLElement>, taskId: string) => void
-  onColumnDragLeave: () => void
-  onDeleteTask: (taskId: string) => void
-  onDragOver: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void
+  applicationsById: ReadonlyMap<string, ApplicationView>;
+  dragOverColumn: TaskStatus | null;
+  draggingTaskIds: ReadonlySet<string>;
+  groupedTasks: Record<TaskStatus, Task[]>;
+  layoutMode: TaskLayoutMode;
+  onCardDragEnd: () => void;
+  onClickTask: (event: MouseEvent<HTMLElement>, taskId: string) => void;
+  onColumnDragLeave: () => void;
+  onDeleteTask: (taskId: string) => void;
+  onDragOver: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void;
   onDragStart: (
     event: DragEvent<HTMLElement>,
     task: Task,
-    columnId: TaskStatus
-  ) => void
-  onDrop: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void
-  onOpenTask: (taskId: string) => void
-  onSelectionPointerDown: (event: PointerEvent<HTMLDivElement>) => void
-  onSelectionPointerEnd: (event: PointerEvent<HTMLDivElement>) => void
-  onSelectionPointerMove: (event: PointerEvent<HTMLDivElement>) => void
-  onToggleTaskSelected: (taskId: string) => void
-  onUpdateTask: UpdateTask
-  reduceMotion: boolean
-  selectedTaskIds: ReadonlySet<string>
-  selectionBox: SelectionBox | null
-  selectionSurfaceRef: RefObject<HTMLDivElement | null>
+    columnId: TaskStatus,
+  ) => void;
+  onDrop: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void;
+  onOpenTask: (taskId: string) => void;
+  onSelectionPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
+  onSelectionPointerEnd: (event: PointerEvent<HTMLDivElement>) => void;
+  onSelectionPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onToggleTaskSelected: (taskId: string) => void;
+  onUpdateTask: UpdateTask;
+  reduceMotion: boolean;
+  selectedTaskIds: ReadonlySet<string>;
+  selectionBox: SelectionBox | null;
+  selectionSurfaceRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <motion.div
       className={cn(
         "grid min-h-[32rem] grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4",
-        selectionBox && "select-none"
+        selectionBox && "select-none",
       )}
       data-task-selection-surface
       onPointerCancel={onSelectionPointerEnd}
@@ -114,5 +114,5 @@ export function TaskBoard({
         ) : null}
       </AnimatePresence>
     </motion.div>
-  )
+  );
 }

@@ -18,16 +18,10 @@ import { isTabularRenderSpec } from "@/api/chat/validation";
 import { receiptText } from "./step-receipts";
 
 export type ContentBlock =
-  | { kind: "markdown"; text: string }
-  | { kind: "viz"; spec: RenderSpec };
+  { kind: "markdown"; text: string } | { kind: "viz"; spec: RenderSpec };
 
 export type TurnStatus =
-  | "idle"
-  | "streaming"
-  | "awaiting_input"
-  | "complete"
-  | "cancelled"
-  | "error";
+  "idle" | "streaming" | "awaiting_input" | "complete" | "cancelled" | "error";
 
 export type TurnStep = StepData;
 
@@ -78,7 +72,10 @@ function appendAnswerText(segments: Segment[], text: string): Segment[] {
   const last = segments.at(-1);
 
   if (last?.type === "answer") {
-    return [...segments.slice(0, -1), { type: "answer", text: last.text + text }];
+    return [
+      ...segments.slice(0, -1),
+      { type: "answer", text: last.text + text },
+    ];
   }
 
   return [...segments, { type: "answer", text }];
@@ -112,7 +109,8 @@ function appendViz(state: TurnState, spec: RenderSpec): TurnState {
 
 function mergeToolSegment(segments: Segment[], step: StepData): Segment[] {
   const index = segments.findIndex(
-    (segment) => segment.type === "tool" && segment.step.step_id === step.step_id,
+    (segment) =>
+      segment.type === "tool" && segment.step.step_id === step.step_id,
   );
 
   if (index === -1) {
@@ -147,10 +145,12 @@ function appendThinkingSegment(
   return [...segments, { type: "thinking", id, text }];
 }
 
-function mergeUserSegment(segments: Segment[], data: UserMessageData): Segment[] {
+function mergeUserSegment(
+  segments: Segment[],
+  data: UserMessageData,
+): Segment[] {
   const index = segments.findIndex(
-    (segment) =>
-      segment.type === "user" && segment.id === data.user_message_id,
+    (segment) => segment.type === "user" && segment.id === data.user_message_id,
   );
   const nextSegment: Segment = {
     type: "user",
@@ -186,10 +186,17 @@ function thinkingSegmentCount(segments: Segment[]): number {
 export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
   switch (event.type) {
     case "meta":
-      return { ...state, meta: event.data, status: "streaming", lastEventType: event.type };
+      return {
+        ...state,
+        meta: event.data,
+        status: "streaming",
+        lastEventType: event.type,
+      };
     case "delta":
       return {
-        ...(state.status === "idle" ? { ...state, status: "streaming" as const } : state),
+        ...(state.status === "idle"
+          ? { ...state, status: "streaming" as const }
+          : state),
         segments: appendAnswerText(state.segments, event.data.text),
         lastEventType: event.type,
       };
@@ -204,7 +211,10 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
 
       return {
         ...state,
-        segments: [...state.segments, { type: "narration", id, text: event.data.text }],
+        segments: [
+          ...state.segments,
+          { type: "narration", id, text: event.data.text },
+        ],
         lastEventType: event.type,
       };
     }
@@ -221,7 +231,9 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
     }
     case "user_message":
       return {
-        ...(state.status === "idle" ? { ...state, status: "streaming" as const } : state),
+        ...(state.status === "idle"
+          ? { ...state, status: "streaming" as const }
+          : state),
         segments: mergeUserSegment(state.segments, event.data),
         lastEventType: event.type,
       };
@@ -230,7 +242,11 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
     case "clarify":
       return { ...state, clarify: event.data, lastEventType: event.type };
     case "sources":
-      return { ...state, sources: event.data.sources, lastEventType: event.type };
+      return {
+        ...state,
+        sources: event.data.sources,
+        lastEventType: event.type,
+      };
     case "usage":
       return { ...state, usage: event.data, lastEventType: event.type };
     case "done":
@@ -240,7 +256,12 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
         lastEventType: event.type,
       };
     case "error":
-      return { ...state, status: "error", error: event.data, lastEventType: event.type };
+      return {
+        ...state,
+        status: "error",
+        error: event.data,
+        lastEventType: event.type,
+      };
     default:
       return state;
   }
@@ -310,7 +331,9 @@ export function answerBlocksOf(state: TurnState): ContentBlock[] {
   return blocks;
 }
 
-export function pendingUserSegmentsOf(state: TurnState): Array<Extract<Segment, { type: "user" }>> {
+export function pendingUserSegmentsOf(
+  state: TurnState,
+): Array<Extract<Segment, { type: "user" }>> {
   return state.segments.filter(
     (segment): segment is Extract<Segment, { type: "user" }> =>
       segment.type === "user" && !segment.injected,
@@ -321,12 +344,17 @@ export function withoutPendingUserSegments(state: TurnState): TurnState {
   const segments = state.segments.filter(
     (segment) => segment.type !== "user" || segment.injected,
   );
-  return segments.length === state.segments.length ? state : { ...state, segments };
+  return segments.length === state.segments.length
+    ? state
+    : { ...state, segments };
 }
 
 export function stepsOf(state: TurnState): StepData[] {
   return state.segments
-    .filter((segment): segment is Extract<Segment, { type: "tool" }> => segment.type === "tool")
+    .filter(
+      (segment): segment is Extract<Segment, { type: "tool" }> =>
+        segment.type === "tool",
+    )
     .map((segment) => segment.step);
 }
 
@@ -357,14 +385,21 @@ export function proseOf(
 }
 
 function segmentsFrom(stateOrSegments: TurnState | Segment[]): Segment[] {
-  return Array.isArray(stateOrSegments) ? stateOrSegments : stateOrSegments.segments;
+  return Array.isArray(stateOrSegments)
+    ? stateOrSegments
+    : stateOrSegments.segments;
 }
 
 function escapeMarkdownTableCell(value: string): string {
-  return value.replaceAll("\\", "\\\\").replaceAll("|", "\\|").replaceAll("\n", "<br>");
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("|", "\\|")
+    .replaceAll("\n", "<br>");
 }
 
-function citationSuffix(cell: { citation?: { vintage: string; source: string } | null }): string {
+function citationSuffix(cell: {
+  citation?: { vintage: string; source: string } | null;
+}): string {
   const parts = [cell.citation?.vintage, cell.citation?.source].filter(
     (value) => value !== undefined && value !== null && value !== "",
   );
@@ -544,7 +579,8 @@ export function transcriptEntryToEvents(
         events.push({ v: 1, type: "step", data: step });
       }
 
-      const narration = entry.step_record.narration ?? entry.step_record.thinking;
+      const narration =
+        entry.step_record.narration ?? entry.step_record.thinking;
       for (const text of narration) {
         events.push({ v: 1, type: "narration", data: { text } });
       }
@@ -599,7 +635,9 @@ export function transcriptEntryToEvents(
   return events;
 }
 
-function transcriptSegmentsToEvents(segments: TranscriptSegment[]): ProtocolEvent[] {
+function transcriptSegmentsToEvents(
+  segments: TranscriptSegment[],
+): ProtocolEvent[] {
   return segments.map((segment) => {
     switch (segment.kind) {
       case "narration":
@@ -629,6 +667,11 @@ function transcriptSegmentsToEvents(segments: TranscriptSegment[]): ProtocolEven
 export function reduceTranscriptEntry(
   entry: TranscriptAssistantEntry,
 ): TurnState {
-  const state = transcriptEntryToEvents(entry).reduce(reduceTurn, initialTurnState());
-  return entry.sources === undefined ? state : { ...state, sources: [...entry.sources] };
+  const state = transcriptEntryToEvents(entry).reduce(
+    reduceTurn,
+    initialTurnState(),
+  );
+  return entry.sources === undefined
+    ? state
+    : { ...state, sources: [...entry.sources] };
 }

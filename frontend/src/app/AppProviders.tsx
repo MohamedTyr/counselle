@@ -1,17 +1,14 @@
-import type { PropsWithChildren } from "react"
-import {
-  QueryClientProvider,
-  type QueryClient,
-} from "@tanstack/react-query"
+import type { PropsWithChildren } from "react";
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 
-import { queryClient as defaultQueryClient } from "@/app/query-client"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/sonner"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { queryClient as defaultQueryClient } from "@/app/query-client";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 type AppProvidersProps = PropsWithChildren<{
-  queryClient?: QueryClient
-}>
+  queryClient?: QueryClient;
+}>;
 
 export function AppProviders({
   children,
@@ -24,5 +21,5 @@ export function AppProviders({
         <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
-  )
+  );
 }

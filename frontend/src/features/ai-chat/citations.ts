@@ -43,7 +43,8 @@ export function citedIndexesForMessage(message: {
   text?: string;
 }): Set<number> {
   const indexes = new Set<number>();
-  const markdown = message.blocks?.filter((block) => block.kind === "markdown")
+  const markdown = message.blocks
+    ?.filter((block) => block.kind === "markdown")
     .map((block) => block.text) ?? [message.text ?? ""];
   for (const text of markdown) {
     for (const index of citedIndexesIn(text)) indexes.add(index);
@@ -114,7 +115,8 @@ export function schoolDomainsFromBlocks(
   for (const block of blocks ?? []) {
     if (block.kind !== "viz" || !isTabularRenderSpec(block.spec)) continue;
     for (const column of block.spec.columns) {
-      if (column.unitid !== null && column.domain) domains.set(column.unitid, column.domain);
+      if (column.unitid !== null && column.domain)
+        domains.set(column.unitid, column.domain);
     }
   }
   return domains;
@@ -148,7 +150,11 @@ export function sourcesPayloadFor(
 ): MessageSourcesPayload | null {
   const sources = sourcesUsedByMessage(message);
   if (sources.length === 0) return null;
-  return { sources, active, schoolDomains: schoolDomainsFromBlocks(message.blocks) };
+  return {
+    sources,
+    active,
+    schoolDomains: schoolDomainsFromBlocks(message.blocks),
+  };
 }
 
 export function citedSourcesForMessage(message: {
@@ -157,12 +163,16 @@ export function citedSourcesForMessage(message: {
   sources?: ReadonlyArray<ReplaySourceEntry>;
 }): ReplaySourceEntry[] {
   const indexes = citedIndexesForMessage(message);
-  return sourcesUsedByMessage(message).filter((entry) => indexes.has(entry.index));
+  return sourcesUsedByMessage(message).filter((entry) =>
+    indexes.has(entry.index),
+  );
 }
 
 export function friendlySourceName(citation: Citation): string {
   if (citation.source === "reddit") {
-    return citation.url?.match(/reddit\.com\/(r\/[A-Za-z0-9_]+)/i)?.[1] ?? "Reddit";
+    return (
+      citation.url?.match(/reddit\.com\/(r\/[A-Za-z0-9_]+)/i)?.[1] ?? "Reddit"
+    );
   }
   if (citation.source === "cds") return "Common Data Set";
   if (citation.source === "profile") return "School profile";
@@ -177,14 +187,20 @@ export function sourceDisplayName(entry: ReplaySourceEntry): string {
 
 export function hostOf(citation: Citation): string | null {
   const href = safeExternalUrl(citation.url);
-  return href === undefined ? null : new URL(href).hostname.replace(/^www\./, "");
+  return href === undefined
+    ? null
+    : new URL(href).hostname.replace(/^www\./, "");
 }
 
-export function safeExternalUrl(url: string | null | undefined): string | undefined {
+export function safeExternalUrl(
+  url: string | null | undefined,
+): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : undefined;
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? parsed.href
+      : undefined;
   } catch {
     return undefined;
   }

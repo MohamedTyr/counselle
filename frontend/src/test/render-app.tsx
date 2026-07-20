@@ -770,10 +770,10 @@ export function defaultAuthenticatedFetch(
       conversation_starters: [],
       default_source_config: null,
       current_admissions_cycle_year: 2027,
-    })
+    });
   }
   if (url.endsWith("/v1/sessions?limit=50")) {
-    return jsonResponse({ sessions: [], next_cursor: null })
+    return jsonResponse({ sessions: [], next_cursor: null });
   }
   if (url.includes("/v1/schools/search")) {
     return jsonResponse([workspaceSchoolSearchFixture]);

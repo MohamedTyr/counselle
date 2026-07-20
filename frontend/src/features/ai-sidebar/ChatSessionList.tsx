@@ -16,11 +16,13 @@ import {
 } from "@/components/ui/sidebar";
 
 import { ChatSessionRow } from "./ChatSessionRow";
+import { groupSessionsByRecency } from "./group-sessions";
 
 const SESSION_LIST_INPUT = { limit: 50 } as const;
 
 function activeSessionIdFromPath(pathname: string) {
-  return matchPath({ path: "/app/ai/:sessionId", end: true }, pathname)?.params.sessionId;
+  return matchPath({ path: "/app/ai/:sessionId", end: true }, pathname)?.params
+    .sessionId;
 }
 
 function matchesSearch(title: string | null, searchQuery: string) {
@@ -48,6 +50,10 @@ export function ChatSessionList() {
       ),
     [searchQuery, sessionsQuery.data?.sessions],
   );
+  const groups = useMemo(
+    () => groupSessionsByRecency(filteredSessions),
+    [filteredSessions],
+  );
   const busySessionId =
     renameSession.isPending && renameSession.variables !== undefined
       ? renameSession.variables.sessionId
@@ -55,7 +61,10 @@ export function ChatSessionList() {
         ? deleteSession.variables
         : null;
 
-  async function handleRename(sessionId: string, title: string): Promise<boolean> {
+  async function handleRename(
+    sessionId: string,
+    title: string,
+  ): Promise<boolean> {
     try {
       await renameSession.mutateAsync({ sessionId, title });
       return true;
@@ -76,8 +85,8 @@ export function ChatSessionList() {
   }
 
   return (
-    <SidebarGroup className="min-h-0 flex-1 p-0">
-      <SidebarGroupContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+    <SidebarGroup className="p-0">
+      <SidebarGroupContent className="flex flex-col gap-2">
         <div className="sidebar-chat-search relative">
           <Search
             aria-hidden="true"
@@ -94,7 +103,7 @@ export function ChatSessionList() {
         </div>
 
         {sessionsQuery.isLoading ? (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 px-0.5">
             <SidebarMenuSkeleton />
             <SidebarMenuSkeleton />
             <SidebarMenuSkeleton />
@@ -104,26 +113,38 @@ export function ChatSessionList() {
             Could not load chats.
           </p>
         ) : filteredSessions.length === 0 ? (
-          <p className="px-2 text-xs text-muted-foreground">
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">
             {searchQuery.trim()
               ? `No chats match “${searchQuery.trim()}”.`
               : "No recent chats."}
           </p>
         ) : (
-          <SidebarMenu className="sidebar-chat-scrollbar-hidden min-h-0 flex-1 overflow-y-auto pr-1">
-            {filteredSessions.map((session) => (
-              <ChatSessionRow
-                active={session.sessionId === activeSessionId}
-                isBusy={busySessionId === session.sessionId}
-                key={session.sessionId}
-                onDelete={(sessionId) => void handleDelete(sessionId)}
-                onRename={(sessionId, title) =>
-                  handleRename(sessionId, title)
-                }
-                session={session}
-              />
+          <div className="flex flex-col gap-3.5">
+            {groups.map((group) => (
+              <section
+                aria-label={group.label}
+                className="sidebar-chat-group flex flex-col gap-0.5"
+                key={group.id}
+              >
+                <h3 className="sidebar-chat-group-label">{group.label}</h3>
+                <SidebarMenu className="gap-0.5">
+                  {group.sessions.map((session, index) => (
+                    <ChatSessionRow
+                      active={session.sessionId === activeSessionId}
+                      index={index}
+                      isBusy={busySessionId === session.sessionId}
+                      key={session.sessionId}
+                      onDelete={(sessionId) => void handleDelete(sessionId)}
+                      onRename={(sessionId, title) =>
+                        handleRename(sessionId, title)
+                      }
+                      session={session}
+                    />
+                  ))}
+                </SidebarMenu>
+              </section>
             ))}
-          </SidebarMenu>
+          </div>
         )}
       </SidebarGroupContent>
     </SidebarGroup>

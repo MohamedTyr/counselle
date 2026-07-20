@@ -3,13 +3,13 @@ import {
   LayoutGroup,
   motion,
   useReducedMotion,
-} from "motion/react"
-import { useLocation, useOutlet } from "react-router"
+} from "motion/react";
+import { useLocation, useOutlet } from "react-router";
 
 export function WorkspaceOutlet() {
-  const location = useLocation()
-  const outlet = useOutlet()
-  const shouldReduceMotion = useReducedMotion()
+  const location = useLocation();
+  const outlet = useOutlet();
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -36,5 +36,5 @@ export function WorkspaceOutlet() {
         </AnimatePresence>
       </LayoutGroup>
     </div>
-  )
+  );
 }

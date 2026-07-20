@@ -9,12 +9,7 @@ export type SourcePeriodBasis = "page_content" | "metadata";
 
 export type Caveat = { kind: string; text: string };
 export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type EvidenceItem = {
   eid: string;
@@ -182,6 +177,14 @@ export type StepKind = KnownStepKind | (string & {});
 
 export type StepTier = "official" | "community" | null;
 
+export type WorkspacePreviewItem = {
+  kind: "task" | "school" | "essay" | "activity" | "honor" | "document";
+  title: string;
+  meta: Array<{ label: string; value: string }>;
+  status?: string | null;
+  group?: string | null;
+};
+
 export type StepDetail = {
   query?: string;
   summary?: string;
@@ -205,11 +208,13 @@ export type StepDetail = {
   completed?: number;
   total?: number;
   next_actions?: string[];
+  workspace_items?: WorkspacePreviewItem[];
   error?: string;
 };
 
 export type StepSource = {
   label: string;
+  title?: string;
   favicon?: string;
   url?: string;
 };

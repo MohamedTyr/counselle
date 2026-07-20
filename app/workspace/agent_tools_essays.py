@@ -183,6 +183,7 @@ async def _view_essays_impl(
             "status": "ok",
             "today": today(),
             "summary": summary,
+            "result_count": 0,
             "essays": [],
             "footer": footer,
             "link_targets": link_targets(apps, essays)["applications"],
@@ -197,6 +198,7 @@ async def _view_essays_impl(
         "status": "ok",
         "today": today(),
         "summary": f"{total} essay{'s' if total != 1 else ''}.",
+        "result_count": total,
         "essays": rows,
         "footer": footer,
     }

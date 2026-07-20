@@ -8,6 +8,7 @@ from typing import Any
 from app.caveats import render_caveat
 from app.sources import SourceRegistry
 from app.tool_overflow import ToolResultStore, reduce_tool_result
+from app.workspace_step_receipts import with_workspace_public_receipt
 from counselle_db.models import ProfileProvenanceReceipt
 from domain.envelope import Citation, CitationEnvelope, EvidenceItem
 from domain.events import tool_ui_from_payload
@@ -201,6 +202,7 @@ def process_tool_result(
     result = _normalize_db_payload(result, tool_name)
     result = annotate_citations(result, context, tool_name=tool_name)
     result = error_envelope(result)
+    result = with_workspace_public_receipt(tool_name, result)
     result = demote_tool_ui(result)
     exempt_overflow = exempt_overflow or tool_name in _OVERFLOW_EXEMPT_TOOLS
     return overflow_spill(result, context, exempt_overflow=exempt_overflow)

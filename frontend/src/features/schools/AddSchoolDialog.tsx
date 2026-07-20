@@ -1,20 +1,20 @@
-import { AlertCircle, ArrowLeft, Check, Plus } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
-import { useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
+import { AlertCircle, ArrowLeft, Check, Plus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
-import { requestJson } from "@/api/http/client"
+import { requestJson } from "@/api/http/client";
 import {
   useAddApplication,
   useApplications,
   useSchoolSearch,
-} from "@/api/workspace/hooks"
+} from "@/api/workspace/hooks";
 import type {
   ListType,
   Round,
   SchoolSearchResult,
-} from "@/api/workspace/types"
-import { Button } from "@/components/ui/button"
+} from "@/api/workspace/types";
+import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandDialog,
@@ -23,56 +23,69 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectItem,
   SelectPopup,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { SchoolAvatar } from "@/features/schools/school-cells"
+} from "@/components/ui/select";
+import { SchoolAvatar } from "@/features/schools/school-cells";
 
-const listTypeOptions: ListType[] = ["Reach", "Target", "Safety"]
-const roundOptions: Round[] = ["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"]
-const MIN_CYCLE_YEAR = 2020
-const MAX_CYCLE_YEAR = 2100
+const listTypeOptions: ListType[] = ["Reach", "Target", "Safety"];
+const roundOptions: Round[] = [
+  "EA",
+  "ED",
+  "ED2",
+  "REA",
+  "RD",
+  "Rolling",
+  "Priority",
+];
+const MIN_CYCLE_YEAR = 2020;
+const MAX_CYCLE_YEAR = 2100;
 
 function validCycleYear(value: number) {
-  return Number.isFinite(value) && Number.isInteger(value) && value >= MIN_CYCLE_YEAR && value <= MAX_CYCLE_YEAR
+  return (
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= MIN_CYCLE_YEAR &&
+    value <= MAX_CYCLE_YEAR
+  );
 }
 
 function schoolLocation(school: SchoolSearchResult) {
   if (school.city && school.state) {
-    return `${school.city}, ${school.state}`
+    return `${school.city}, ${school.state}`;
   }
 
-  return school.city ?? school.state ?? "Location unavailable"
+  return school.city ?? school.state ?? "Location unavailable";
 }
 
 function trackedCycleLabel(school: SchoolSearchResult) {
   if (school.active_cycle_years.length > 0) {
     const cycles = school.active_cycle_years
       .map((year) => `${year - 1}-${String(year).slice(-2)}`)
-      .join(", ")
-    return `Tracked for ${cycles} · choose a cycle`
+      .join(", ");
+    return `Tracked for ${cycles} · choose a cycle`;
   }
   if (school.has_legacy_application) {
-    return "Tracked with an unconfirmed cycle · choose a cycle"
+    return "Tracked with an unconfirmed cycle · choose a cycle";
   }
-  return "Tracked in your workspace · choose a cycle"
+  return "Tracked in your workspace · choose a cycle";
 }
 
 function useDebouncedValue(value: string, delayMs: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value)
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setDebouncedValue(value), delayMs)
-    return () => window.clearTimeout(timeout)
-  }, [delayMs, value])
+    const timeout = window.setTimeout(() => setDebouncedValue(value), delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [delayMs, value]);
 
-  return debouncedValue
+  return debouncedValue;
 }
 
 export function AddSchoolDialog({
@@ -80,67 +93,68 @@ export function AddSchoolDialog({
   onOpenChange,
   open,
 }: {
-  onAdded?: (applicationId: string) => void
-  onOpenChange: (open: boolean) => void
-  open: boolean
+  onAdded?: (applicationId: string) => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
 }) {
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState("");
   const [selectedSchool, setSelectedSchool] =
-    useState<SchoolSearchResult | null>(null)
-  const [listType, setListType] = useState<ListType>("Target")
-  const [round, setRound] = useState<Round>("RD")
-  const [deadline, setDeadline] = useState("")
-  const [cycleYear, setCycleYear] = useState<string | null>(null)
+    useState<SchoolSearchResult | null>(null);
+  const [listType, setListType] = useState<ListType>("Target");
+  const [round, setRound] = useState<Round>("RD");
+  const [deadline, setDeadline] = useState("");
+  const [cycleYear, setCycleYear] = useState<string | null>(null);
   const cycleConfig = useQuery({
     queryKey: ["config", "current-admissions-cycle"],
-    queryFn: () => requestJson<{ current_admissions_cycle_year?: number }>("/config"),
-  })
-  const defaultCycleYear = validCycleYear(cycleConfig.data?.current_admissions_cycle_year ?? NaN)
+    queryFn: () =>
+      requestJson<{ current_admissions_cycle_year?: number }>("/config"),
+  });
+  const defaultCycleYear = validCycleYear(
+    cycleConfig.data?.current_admissions_cycle_year ?? NaN,
+  )
     ? cycleConfig.data!.current_admissions_cycle_year!
-    : null
-  const effectiveCycleYear = cycleYear ?? (defaultCycleYear ? String(defaultCycleYear) : "")
-  const debouncedQuery = useDebouncedValue(query, 250)
-  const trimmedQuery = debouncedQuery.trim()
-  const search = useSchoolSearch(trimmedQuery)
-  const applications = useApplications()
-  const addApplication = useAddApplication()
-  const isConfirmStep = selectedSchool !== null
-  const selectedCycleYear = Number(effectiveCycleYear)
-  const isCycleYearValid = validCycleYear(selectedCycleYear)
+    : null;
+  const effectiveCycleYear =
+    cycleYear ?? (defaultCycleYear ? String(defaultCycleYear) : "");
+  const debouncedQuery = useDebouncedValue(query, 250);
+  const trimmedQuery = debouncedQuery.trim();
+  const search = useSchoolSearch(trimmedQuery);
+  const applications = useApplications();
+  const addApplication = useAddApplication();
+  const isConfirmStep = selectedSchool !== null;
+  const selectedCycleYear = Number(effectiveCycleYear);
+  const isCycleYearValid = validCycleYear(selectedCycleYear);
   const isDuplicateCycle = Boolean(
     selectedSchool &&
-      selectedCycleYear &&
-      applications.data?.some(
-        (application) =>
-          application.school_unitid === selectedSchool.unitid &&
-          application.cycle_year === selectedCycleYear,
-      ),
-  )
+    selectedCycleYear &&
+    applications.data?.some(
+      (application) =>
+        application.school_unitid === selectedSchool.unitid &&
+        application.cycle_year === selectedCycleYear,
+    ),
+  );
 
-  const searchResults = useMemo(
-    () => search.data ?? [],
-    [search.data],
-  )
+  const searchResults = useMemo(() => search.data ?? [], [search.data]);
 
   function resetDialog() {
-    setQuery("")
-    setSelectedSchool(null)
-    setListType("Target")
-    setRound("RD")
-    setDeadline("")
-    setCycleYear(null)
+    setQuery("");
+    setSelectedSchool(null);
+    setListType("Target");
+    setRound("RD");
+    setDeadline("");
+    setCycleYear(null);
   }
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
-      resetDialog()
+      resetDialog();
     }
-    onOpenChange(nextOpen)
+    onOpenChange(nextOpen);
   }
 
   async function confirmAdd() {
     if (!selectedSchool) {
-      return
+      return;
     }
 
     try {
@@ -151,11 +165,11 @@ export function AddSchoolDialog({
         optimisticSchool: selectedSchool,
         round,
         unitid: selectedSchool.unitid,
-      })
-      toast.success(`${result.application.school_name} added`)
-      resetDialog()
-      onOpenChange(false)
-      onAdded?.(result.application.id)
+      });
+      toast.success(`${result.application.school_name} added`);
+      resetDialog();
+      onOpenChange(false);
+      onAdded?.(result.application.id);
     } catch {
       // The workspace mutation hook owns rollback and error toast behavior.
     }
@@ -239,7 +253,9 @@ export function AddSchoolDialog({
 
           {isDuplicateCycle ? (
             <p className="text-sm text-destructive" role="alert">
-              This school is already in your workspace for the {selectedCycleYear - 1}-{String(selectedCycleYear).slice(-2)} cycle.
+              This school is already in your workspace for the{" "}
+              {selectedCycleYear - 1}-{String(selectedCycleYear).slice(-2)}{" "}
+              cycle.
             </p>
           ) : null}
 
@@ -257,9 +273,14 @@ export function AddSchoolDialog({
               value={effectiveCycleYear}
             />
             <span className="text-xs font-normal text-muted-foreground">
-              This selects the correct admissions-cycle catalog. It cannot be guessed safely.
+              This selects the correct admissions-cycle catalog. It cannot be
+              guessed safely.
             </span>
-            {effectiveCycleYear && !isCycleYearValid ? <span className="text-xs font-normal text-destructive">Enter a whole year from {MIN_CYCLE_YEAR} to {MAX_CYCLE_YEAR}.</span> : null}
+            {effectiveCycleYear && !isCycleYearValid ? (
+              <span className="text-xs font-normal text-destructive">
+                Enter a whole year from {MIN_CYCLE_YEAR} to {MAX_CYCLE_YEAR}.
+              </span>
+            ) : null}
           </label>
 
           <div className="-mx-4 -mb-4 flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 sm:flex-row sm:justify-between">
@@ -326,13 +347,18 @@ export function AddSchoolDialog({
                       disabled={false}
                       key={school.unitid}
                       onSelect={() => {
-                        setSelectedSchool(school)
+                        setSelectedSchool(school);
                       }}
                       value={`${school.name} ${schoolLocation(school)}`}
                     >
-                      <SchoolAvatar name={school.name} websiteUrl={school.website_url} />
+                      <SchoolAvatar
+                        name={school.name}
+                        websiteUrl={school.website_url}
+                      />
                       <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate font-medium">{school.name}</span>
+                        <span className="truncate font-medium">
+                          {school.name}
+                        </span>
                         <span className="truncate text-xs text-muted-foreground">
                           {schoolLocation(school)}
                         </span>
@@ -353,5 +379,5 @@ export function AddSchoolDialog({
         </Command>
       )}
     </CommandDialog>
-  )
+  );
 }
