@@ -193,6 +193,7 @@ export type EssaySummary = {
   school_name: string | null;
   school_city: string | null;
   school_state: string | null;
+  school_website_url: string | null;
   cycle_year?: number | null;
   deadline: string | null;
   created_at: string;

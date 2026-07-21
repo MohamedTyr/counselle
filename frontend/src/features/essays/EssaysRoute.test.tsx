@@ -402,7 +402,7 @@ describe("EssaysPage", () => {
   });
 
   it("creates a school essay linked to the selected catalog prompt", async () => {
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const user = userEvent.setup();
     const promptId = "60000000-0000-4000-8000-000000000001";
     const requestBodies: Record<string, unknown>[] = [];
     const preset = createWorkspaceFetchPreset({

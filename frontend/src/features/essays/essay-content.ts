@@ -1,3 +1,4 @@
+import { faviconUrlForDomain } from "@/features/ai-chat/citations";
 import type { Essay } from "@/domain/essay";
 
 export const emptyTiptapDocument = {
@@ -27,6 +28,18 @@ export function getSchoolFallback(school: string) {
   }
 
   return school.slice(0, 2).toUpperCase();
+}
+
+export function getSchoolFaviconUrl(websiteUrl: string | null): string | undefined {
+  if (!websiteUrl) {
+    return undefined;
+  }
+
+  try {
+    return faviconUrlForDomain(new URL(websiteUrl).hostname);
+  } catch {
+    return undefined;
+  }
 }
 
 export function getEssayPrompt(essay: Essay) {

@@ -9,7 +9,7 @@ import {
 import { motion, useReducedMotion } from "motion/react";
 import { Link } from "react-router";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardPanel } from "@/components/ui/card";
@@ -22,7 +22,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Essay } from "@/domain/essay";
 import { EssayDocumentPreview } from "@/features/essays/EssayDocumentPreview";
-import { getSchoolFallback } from "@/features/essays/essay-content";
+import {
+  getSchoolFallback,
+  getSchoolFaviconUrl,
+} from "@/features/essays/essay-content";
 import {
   essayStatusVariant,
   formatEssayDeadline,
@@ -41,6 +44,11 @@ type EssayLibraryCardProps = {
 function EssaySchoolLogo({ essay }: { essay: Essay }) {
   return (
     <Avatar className="size-10 rounded-lg after:rounded-lg">
+      <AvatarImage
+        alt=""
+        className="rounded-lg"
+        src={getSchoolFaviconUrl(essay.schoolWebsiteUrl)}
+      />
       <AvatarFallback className="rounded-lg text-xs">
         {getSchoolFallback(essay.schoolName)}
       </AvatarFallback>

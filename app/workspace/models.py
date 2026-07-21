@@ -371,6 +371,7 @@ class Essay(_Model):
     school_name: str | None = None
     school_city: str | None = None
     school_state: str | None = None
+    school_website_url: str | None = None
     deadline: Date | None = None
     created_at: datetime
     updated_at: datetime
@@ -395,6 +396,7 @@ class EssaySummary(_Model):
     school_name: str | None = None
     school_city: str | None = None
     school_state: str | None = None
+    school_website_url: str | None = None
     deadline: Date | None = None
     created_at: datetime
     updated_at: datetime

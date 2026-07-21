@@ -478,6 +478,7 @@ def _merge_school(data: dict[str, Any], school: SchoolIdentity | None) -> None:
     data["school_name"] = school.name if school else None
     data["school_city"] = school.city if school else None
     data["school_state"] = school.state if school else None
+    data["school_website_url"] = school.website_url if school else None
     data.pop("school_unitid", None)
 
 

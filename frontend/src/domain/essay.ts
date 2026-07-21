@@ -22,6 +22,7 @@ export type Essay = {
   prompt: string | null;
   schoolLocation: string;
   schoolName: string;
+  schoolWebsiteUrl: string | null;
   status: EssayStatus;
   suggestions: number;
   title: string;
@@ -153,6 +154,7 @@ export function essayFromSummary(summary: EssaySummary): Essay {
     prompt: textOrNull(summary.prompt),
     schoolLocation,
     schoolName,
+    schoolWebsiteUrl: textOrNull(summary.school_website_url),
     status,
     suggestions: numberOrZero(summary.suggestion_count),
     title,

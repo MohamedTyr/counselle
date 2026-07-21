@@ -3,7 +3,7 @@ import { ArrowLeft, Clock3, MessageSquareText, Save } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   EssayContextTrail,
@@ -16,6 +16,7 @@ import { emptyToolbarState } from "@/features/essays/essay-toolbar-config";
 import {
   getEssayPrompt,
   getSchoolFallback,
+  getSchoolFaviconUrl,
 } from "@/features/essays/essay-content";
 import type { EssayEditorUpdate } from "@/features/essays/useEssayEditor";
 import type { EssayEditorPageProps } from "@/features/essays/essays-types";
@@ -88,6 +89,11 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 <ArrowLeft />
               </Button>
               <Avatar className="size-11 rounded-lg ring-1 ring-border/80">
+                <AvatarImage
+                  alt=""
+                  className="rounded-lg"
+                  src={getSchoolFaviconUrl(essay.schoolWebsiteUrl)}
+                />
                 <AvatarFallback className="rounded-lg text-xs font-semibold">
                   {schoolFallback}
                 </AvatarFallback>

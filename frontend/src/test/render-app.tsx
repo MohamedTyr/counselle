@@ -148,6 +148,7 @@ export const workspaceEssayFixture: EssaySummary = {
   school_name: "Harvard University",
   school_city: "Cambridge",
   school_state: "MA",
+  school_website_url: "https://www.harvard.edu",
   deadline: null,
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
@@ -452,6 +453,7 @@ export function createWorkspaceFetchPreset(
           school_name: application?.school_name ?? null,
           school_city: application?.school_city ?? null,
           school_state: application?.school_state ?? null,
+          school_website_url: application?.website_url ?? null,
           deadline: application?.deadline ?? null,
           content: body.content ?? {
             type: "doc",
