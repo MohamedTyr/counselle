@@ -37,7 +37,7 @@ export function safeAuthDestination(state: unknown): AuthDestination {
       hash: typeof candidate.hash === "string" ? candidate.hash : "",
     };
   }
-  return { pathname: "/app/tasks", search: "", hash: "" };
+  return { pathname: "/app/ai", search: "", hash: "" };
 }
 
 export function noticeFromLocationState(state: unknown): string | undefined {

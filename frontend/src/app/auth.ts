@@ -14,8 +14,14 @@ import {
   type MeData,
   type RegisterInput,
 } from "@/api/http/auth";
+import {
+  patchOnboarding,
+  type OnboardingCommand,
+  type OnboardingProgress,
+} from "@/api/http/onboarding";
 
 export const authQueryKey = ["me"] as const;
+export const onboardingQueryKey = ["onboarding"] as const;
 
 export class AccountCreatedLoginError extends Error {
   readonly cause: unknown;
@@ -79,4 +85,23 @@ export function useLogout() {
   });
 }
 
+/** Updates the onboarding-specific cache and the nested `settings.onboarding`
+ * inside `authQueryKey`'s cached `MeData`, immutably (plan §20.1). No
+ * optimistic update: the server owns `current_step`/timestamps. */
+export function useUpdateOnboardingProgress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (command: OnboardingCommand) => patchOnboarding(command),
+    onSuccess: (progress: OnboardingProgress) => {
+      queryClient.setQueryData(onboardingQueryKey, progress);
+      queryClient.setQueryData<MeData | null>(authQueryKey, (previous) =>
+        previous
+          ? { ...previous, settings: { ...previous.settings, onboarding: progress } }
+          : previous,
+      );
+    },
+  });
+}
+
 export type { LoginInput, MeData, RegisterInput };
+export type { OnboardingCommand, OnboardingProgress } from "@/api/http/onboarding";

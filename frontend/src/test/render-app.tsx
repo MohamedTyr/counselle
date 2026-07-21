@@ -33,6 +33,7 @@ type FetchHandler = (
 
 type RenderAppOptions = {
   fetchHandler?: FetchHandler;
+  state?: unknown;
 };
 
 function sortBySortOrder<TItem extends { sort_order: number }>(items: TItem[]) {
@@ -858,7 +859,15 @@ export function authErrorFetch(input: RequestInfo | URL) {
 }
 
 export function renderApp(path = "/", options: RenderAppOptions = {}) {
-  window.history.replaceState(null, "", path);
+  // React Router's browser history reads the initial location state from
+  // `window.history.state.usr` (see `history.js`'s `getHistoryState`), not
+  // from the raw state object — wrap it the same way `navigate(path, {
+  // state })` would so a test can set initial history state before mount.
+  window.history.replaceState(
+    options.state === undefined ? null : { usr: options.state },
+    "",
+    path,
+  );
   const queryClient = createTestQueryClient();
   installMockEventSource();
   vi.stubGlobal(

@@ -1,10 +1,12 @@
 import { createBrowserRouter, Navigate } from "react-router";
 
 import { GuestOnly } from "@/app/auth/GuestOnly";
+import { OnboardingGate } from "@/app/auth/OnboardingGate";
 import { RequireAuth } from "@/app/auth/RequireAuth";
 import { WorkspaceShell } from "@/app/shell/WorkspaceShell";
 import { RouteSurface } from "@/app/routes/RouteSurface";
 import { LoginRoute } from "@/features/auth/LoginRoute";
+import { OnboardingRoute } from "@/features/onboarding/OnboardingRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
 import { AiPage } from "@/pages/ai-page";
 import { AiChatRoute } from "@/features/ai-chat/AiChatRoute";
@@ -54,56 +56,65 @@ export function createAppRouter() {
       element: <RequireAuth />,
       children: [
         {
-          path: "/app",
-          Component: WorkspaceShell,
+          element: <OnboardingGate />,
           children: [
             {
-              index: true,
-              element: <Navigate replace to="/app/ai" />,
+              path: "/app",
+              Component: WorkspaceShell,
+              children: [
+                {
+                  index: true,
+                  element: <Navigate replace to="/app/ai" />,
+                },
+                {
+                  path: "ai",
+                  element: <AiPage />,
+                },
+                {
+                  path: "ai/:sessionId",
+                  element: <AiChatRoute />,
+                },
+                {
+                  path: "tasks",
+                  element: <TasksPage />,
+                },
+                {
+                  path: "profile",
+                  element: <ProfilePage />,
+                },
+                {
+                  path: "calendar",
+                  element: <RouteSurface title="Calendar" />,
+                },
+                {
+                  path: "schools",
+                  element: <SchoolsPage />,
+                },
+                {
+                  path: "schools/:applicationId",
+                  element: <SchoolDetailPage />,
+                },
+                {
+                  path: "activities",
+                  element: <ActivitiesPage />,
+                },
+                {
+                  path: "essays",
+                  element: <EssaysPage />,
+                },
+                {
+                  path: "essays/:essayId",
+                  element: <EssayEditorPage />,
+                },
+                {
+                  path: "*",
+                  element: <Navigate replace to="/app/tasks" />,
+                },
+              ],
             },
             {
-              path: "ai",
-              element: <AiPage />,
-            },
-            {
-              path: "ai/:sessionId",
-              element: <AiChatRoute />,
-            },
-            {
-              path: "tasks",
-              element: <TasksPage />,
-            },
-            {
-              path: "profile",
-              element: <ProfilePage />,
-            },
-            {
-              path: "calendar",
-              element: <RouteSurface title="Calendar" />,
-            },
-            {
-              path: "schools",
-              element: <SchoolsPage />,
-            },
-            {
-              path: "schools/:applicationId",
-              element: <SchoolDetailPage />,
-            },
-            {
-              path: "activities",
-              element: <ActivitiesPage />,
-            },
-            {
-              path: "essays",
-              element: <EssaysPage />,
-            },
-            {
-              path: "essays/:essayId",
-              element: <EssayEditorPage />,
-            },
-            {
-              path: "*",
-              element: <Navigate replace to="/app/tasks" />,
+              path: "/onboarding",
+              element: <OnboardingRoute />,
             },
           ],
         },

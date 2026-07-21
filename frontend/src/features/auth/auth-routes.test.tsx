@@ -26,7 +26,7 @@ describe("auth routes", () => {
   it("redirects authenticated guests into the workspace", async () => {
     renderApp("/login");
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/ai"));
   });
 
   it("renders a retry state for /me server errors on protected routes", async () => {
@@ -87,12 +87,12 @@ describe("auth routes", () => {
       safeAuthDestination({
         from: { pathname: "https://evil.example", search: "?x=1", hash: "#a" },
       }),
-    ).toEqual({ pathname: "/app/tasks", search: "", hash: "" });
+    ).toEqual({ pathname: "/app/ai", search: "", hash: "" });
     expect(
       safeAuthDestination({
         from: { pathname: "/schools", search: "", hash: "" },
       }),
-    ).toEqual({ pathname: "/app/tasks", search: "", hash: "" });
+    ).toEqual({ pathname: "/app/ai", search: "", hash: "" });
   });
 
   it("registers, logs in, and lands in the workspace", async () => {
@@ -112,7 +112,7 @@ describe("auth routes", () => {
       if (url.endsWith("/v1/auth/login") && init?.method === "POST") {
         return emptyResponse();
       }
-      return jsonResponse({});
+      return defaultAuthenticatedFetch(input, init);
     });
     renderApp("/register", { fetchHandler: fetchMock });
 
@@ -126,7 +126,7 @@ describe("auth routes", () => {
     );
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/ai"));
   });
 
   it("preserves the intended destination when switching from login to register", async () => {
@@ -238,7 +238,7 @@ describe("auth routes", () => {
     );
   });
 
-  it("falls back to /app/tasks when login state carries a non-app route", async () => {
+  it("falls back to /app/ai when login state carries a non-app route", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/v1/auth/login") && init?.method === "POST") {
@@ -274,7 +274,7 @@ describe("auth routes", () => {
     await user.click(screen.getByRole("button", { name: "Log in" }));
 
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/app/tasks"),
+      expect(router.state.location.pathname).toBe("/app/ai"),
     );
   });
 });

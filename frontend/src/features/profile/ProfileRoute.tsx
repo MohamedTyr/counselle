@@ -1,7 +1,11 @@
+import { CompassIcon } from "lucide-react";
 import { useRef, useState } from "react";
+import { Link } from "react-router";
 
 import type { ProfilePatch } from "@/api/workspace/types";
 import { useProfile, useUpdateProfile } from "@/api/workspace/hooks";
+import { parseOnboardingProgressResult } from "@/api/http/onboarding";
+import { useAuthUser } from "@/app/auth";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -79,6 +83,34 @@ function SaveStatus({
   );
 }
 
+/** Quiet re-entry for grandfathered and deferred users (README §7.3/§7.4,
+ * plan §20.6). Never shown for `completed` — the full Profile is already
+ * their primary editing surface — and `in_progress`/`not_started` users
+ * never reach this page, since `OnboardingGate` redirects them first. */
+function GuidedSetupAction() {
+  const me = useAuthUser();
+  const result = parseOnboardingProgressResult(me?.settings);
+  const isEligible =
+    result.kind === "grandfathered" ||
+    (result.kind === "progress" && result.progress.status === "deferred");
+
+  if (!isEligible) {
+    return null;
+  }
+
+  return (
+    <Button
+      render={<Link to="/onboarding" />}
+      size="sm"
+      type="button"
+      variant="ghost"
+    >
+      <CompassIcon />
+      Guided setup
+    </Button>
+  );
+}
+
 export function ProfileRoute() {
   const profileQuery = useProfile();
   const updateProfile = useUpdateProfile();
@@ -127,12 +159,15 @@ export function ProfileRoute() {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6 md:px-10">
       <PageHeader
         actions={
-          <SaveStatus
-            failedSaves={failedSaves}
-            hasSaved={hasSaved}
-            onRetryFailed={retryFailedSaves}
-            pendingCount={pendingCount}
-          />
+          <>
+            <GuidedSetupAction />
+            <SaveStatus
+              failedSaves={failedSaves}
+              hasSaved={hasSaved}
+              onRetryFailed={retryFailedSaves}
+              pendingCount={pendingCount}
+            />
+          </>
         }
         title="Profile"
       />

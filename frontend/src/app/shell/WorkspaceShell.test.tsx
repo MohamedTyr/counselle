@@ -46,7 +46,7 @@ describe("workspace shell", () => {
   it("redirects the default route into the workspace shell", async () => {
     renderApp("/");
 
-    await waitForTasksRoute();
+    await waitFor(() => expect(window.location.pathname).toBe("/app/ai"));
     expect(
       await screen.findByRole("link", { name: "Counselle" }),
     ).toBeVisible();
