@@ -31,10 +31,25 @@ logger = structlog.get_logger(__name__)
 
 _GOOGLE = "google"
 
+# `settings.onboarding` is owned exclusively by `PATCH /v1/onboarding` (README
+# §8/§19.4) — a generic `/v1/me` settings write must never read, set, or clear it.
+_RESERVED_SETTINGS_KEYS = frozenset({"onboarding"})
+
 
 class MePatchBody(BaseModel):
     name: str | None = Field(default=None, max_length=200)
     settings: dict[str, Any] | None = None
+
+
+def _merge_settings(current: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """RFC 7396-style top-level merge: omitted key = keep, explicit null = delete."""
+    merged = dict(current)
+    for key, value in patch.items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _has_password(user: UserDB) -> bool:
@@ -74,23 +89,62 @@ async def patch_me(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> JSONResponse:
-    """Update ``name`` and/or ``settings`` (the only writable profile columns)."""
+    """Update ``name`` and/or ``settings`` (the only writable profile columns).
+
+    ``settings`` is an RFC 7396-style top-level patch, not a replacement: an
+    omitted key is preserved, an explicit ``null`` value deletes that one key,
+    and ``settings: null`` (clearing the whole object) is rejected — a later
+    theme/source-config update must never erase unrelated settings, onboarding
+    progress included. Writing the reserved ``onboarding`` key here is always
+    rejected; it changes only through ``PATCH /v1/onboarding``. Name and
+    settings persist together in one atomic UPDATE.
+
+    The merge source for ``settings`` is a freshly ``SELECT ... FOR UPDATE``'d
+    row, not the ``current_active_user`` snapshot taken at request start —
+    that snapshot can be stale by the time this handler runs. Reading under
+    the row lock, inside the same transaction as the write, closes the race
+    against a concurrent ``PATCH /v1/onboarding`` (see
+    ``app.onboarding.update_onboarding_progress``, which takes the same lock):
+    whichever write commits second merges against the other's already-applied
+    change instead of clobbering it with a stale value.
+    """
     pool = request.app.state.runtime.app_pool
     fields = body.model_dump(exclude_unset=True)
-    cols = [c for c in ("name", "settings") if c in fields]
+    settings_patch: dict[str, Any] | None = None
+    if "settings" in fields:
+        settings_patch = fields["settings"]
+        if settings_patch is None:
+            raise EnvelopeError(422, "settings cannot be cleared entirely.")
+        if _RESERVED_SETTINGS_KEYS & settings_patch.keys():
+            raise EnvelopeError(422, "settings.onboarding is reserved; use PATCH /v1/onboarding.")
+
+    cols = [c for c in ("name",) if c in fields]
+    if settings_patch is not None:
+        cols.append("settings")
+
+    new_settings: dict[str, Any] | None = None
+    current_settings = user.settings or {}
     if cols:
         # Column names come ONLY from the fixed allowlist above (never user input);
         # all values bind via $N. Safe by construction.
-        assignments = ", ".join(f"{col} = ${i + 2}" for i, col in enumerate(cols))
-        args = [fields["settings"] or {} if col == "settings" else fields[col] for col in cols]
-        async with pool.acquire() as conn:
+        async with pool.acquire() as conn, conn.transaction():
+            if settings_patch is not None:
+                row = await conn.fetchrow(
+                    "SELECT settings FROM counselle.users WHERE id = $1 FOR UPDATE", user.id
+                )
+                if row is None:
+                    raise EnvelopeError(404, "user not found")
+                current_settings = row["settings"] or {}
+                new_settings = _merge_settings(current_settings, settings_patch)
+            assignments = ", ".join(f"{col} = ${i + 2}" for i, col in enumerate(cols))
+            args = [new_settings if col == "settings" else fields[col] for col in cols]
             await conn.execute(
                 f"UPDATE counselle.users SET {assignments} WHERE id = $1",  # nosec B608
                 user.id,
                 *args,
             )
     name = fields.get("name", user.name)
-    settings_value = fields.get("settings", user.settings) or {}
+    settings_value = new_settings if new_settings is not None else current_settings
     return JSONResponse(content={"id": str(user.id), "name": name, "settings": settings_value})
 
 

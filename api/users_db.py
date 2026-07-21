@@ -22,6 +22,8 @@ from typing import Any
 import asyncpg
 from fastapi_users.db import BaseUserDatabase
 
+from app.onboarding import merge_initial_onboarding_settings
+
 # The oauth_accounts columns fastapi-users round-trips, in table order.
 _OAUTH_COLS = (
     "oauth_name",
@@ -155,7 +157,11 @@ class AsyncpgUserDatabase(BaseUserDatabase[UserDB, uuid.UUID]):  # type: ignore[
     async def create(self, create_dict: dict[str, Any]) -> UserDB:
         new_id = uuid.uuid4()
         values = {key: create_dict.get(key) for key in _USER_COLS}
-        values["settings"] = values.get("settings") or {}
+        # Every new user (password or Google OAuth — both flow through this one
+        # `create`) starts version-1 onboarding at not_started/basics (README
+        # §7.1–7.2). Preserves any other supplied settings; never overwrites an
+        # explicitly-supplied trusted onboarding state (e.g. a future fixture).
+        values["settings"] = merge_initial_onboarding_settings(values.get("settings"))
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """

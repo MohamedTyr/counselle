@@ -257,6 +257,10 @@ async def test_google_callback_creates_oauth_only_user(monkeypatch: Any) -> None
         assert user.email == email
         assert user.hashed_password is None  # the gotcha-1 null-hash forcing
         assert any(a.oauth_name == "google" for a in user.oauth_accounts)
+        # OAuth users flow through the same AsyncpgUserDatabase.create as password
+        # users, so they get the same version-1 onboarding seed (README §7.2).
+        assert user.settings["onboarding"]["status"] == "not_started"
+        assert user.settings["onboarding"]["current_step"] == "basics"
     finally:
         await delete_user_by_email(pool, email)
         await orig.aclose()
@@ -447,7 +451,12 @@ async def test_oauth_callback_compensates_on_null_hash_failure(monkeypatch: Any)
 
 
 async def test_patch_me_both_fields_atomic(auth_app: FastAPI) -> None:
-    """PATCH name + settings together persists both (single atomic UPDATE)."""
+    """PATCH name + settings together persists both (single atomic UPDATE).
+
+    ``settings`` is now an RFC 7396-style top-level *patch*, not a replacement
+    (README §19.4) — a fresh user's onboarding key (seeded at registration)
+    must survive an unrelated settings write, so it stays present afterward.
+    """
     email = f"patch-{uuid.uuid4().hex}@counselle-test.com"
     pool = auth_app.state.runtime.app_pool
     try:
@@ -455,6 +464,7 @@ async def test_patch_me_both_fields_atomic(auth_app: FastAPI) -> None:
         cookie = (await _login(auth_app, email)).cookies["counselle_auth"]
         async with _client(auth_app) as c:
             c.cookies.set("counselle_auth", cookie)
+            before = (await c.get("/v1/me")).json()
             patched = await c.patch(
                 "/v1/me", json={"name": "Grace", "settings": {"theme": "dark"}}
             )
@@ -462,7 +472,134 @@ async def test_patch_me_both_fields_atomic(auth_app: FastAPI) -> None:
             me = await c.get("/v1/me")
         body = me.json()
         assert body["name"] == "Grace"
-        assert body["settings"] == {"theme": "dark"}
+        assert body["settings"]["theme"] == "dark"
+        assert body["settings"]["onboarding"] == before["settings"]["onboarding"]
+    finally:
+        await delete_user_by_email(pool, email)
+
+
+async def test_patch_me_rejects_reserved_onboarding_key(auth_app: FastAPI) -> None:
+    """A generic settings write can never set or clear the reserved onboarding key."""
+    email = f"patch-onb-{uuid.uuid4().hex}@counselle-test.com"
+    pool = auth_app.state.runtime.app_pool
+    try:
+        await _register(auth_app, email)
+        cookie = (await _login(auth_app, email)).cookies["counselle_auth"]
+        async with _client(auth_app) as c:
+            c.cookies.set("counselle_auth", cookie)
+            resp = await c.patch(
+                "/v1/me", json={"settings": {"onboarding": {"status": "completed"}}}
+            )
+        assert resp.status_code == 422
+    finally:
+        await delete_user_by_email(pool, email)
+
+
+async def test_patch_me_rejects_clearing_settings_entirely(auth_app: FastAPI) -> None:
+    """``settings: null`` (clear-everything) is rejected, not a full wipe."""
+    email = f"patch-null-{uuid.uuid4().hex}@counselle-test.com"
+    pool = auth_app.state.runtime.app_pool
+    try:
+        await _register(auth_app, email)
+        cookie = (await _login(auth_app, email)).cookies["counselle_auth"]
+        async with _client(auth_app) as c:
+            c.cookies.set("counselle_auth", cookie)
+            resp = await c.patch("/v1/me", json={"settings": None})
+        assert resp.status_code == 422
+    finally:
+        await delete_user_by_email(pool, email)
+
+
+async def test_patch_me_settings_write_does_not_clobber_concurrent_onboarding(
+    auth_app: FastAPI,
+) -> None:
+    """A ``PATCH /v1/me`` settings write must not lose a concurrent onboarding write.
+
+    Regression test for the HIGH-severity race: the old handler merged the
+    incoming settings patch against ``current_active_user``'s snapshot (taken
+    at the start of the request) and blindly overwrote the whole ``settings``
+    column. If ``PATCH /v1/onboarding`` committed an update between that
+    snapshot and the ``/v1/me`` write, the onboarding progress was silently
+    reverted.
+
+    We simulate the interleaving by overriding ``current_active_user`` to
+    return a deliberately *stale* :class:`UserDB` snapshot (settings as they
+    were before a concurrent onboarding write), then apply the real onboarding
+    write directly against the DB, then PATCH ``/v1/me`` through the stale
+    dependency. The fixed handler must source its merge from a fresh
+    ``SELECT ... FOR UPDATE`` inside its own transaction, not from the stale
+    dependency snapshot, so the onboarding key must survive.
+    """
+    from app.onboarding import OnboardingCommand, update_onboarding_progress
+
+    email = f"race-{uuid.uuid4().hex}@counselle-test.com"
+    pool = auth_app.state.runtime.app_pool
+    try:
+        await _register(auth_app, email)
+        cookie = (await _login(auth_app, email)).cookies["counselle_auth"]
+
+        # The "stale" snapshot: settings as fetched right after registration,
+        # standing in for what `current_active_user` read at request start.
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT id, email, hashed_password, is_active, is_superuser, "
+                "is_verified, name, settings FROM counselle.users WHERE lower(email) = lower($1)",
+                email,
+            )
+        assert row is not None
+        stale_settings = dict(row["settings"] or {})
+        assert "onboarding" in stale_settings
+
+        from api.users_db import UserDB
+
+        stale_user = UserDB(
+            id=row["id"],
+            email=row["email"],
+            hashed_password=row["hashed_password"],
+            is_active=row["is_active"],
+            is_superuser=row["is_superuser"],
+            is_verified=row["is_verified"],
+            name=row["name"],
+            settings=stale_settings,
+            oauth_accounts=[],
+        )
+
+        # The "concurrent" write: PATCH /v1/onboarding commits for real,
+        # advancing onboarding past the stale snapshot the /v1/me handler
+        # will be handed.
+        await update_onboarding_progress(pool, row["id"], OnboardingCommand(action="start"))
+        advanced = await update_onboarding_progress(
+            pool, row["id"], OnboardingCommand(action="advance", step="basics")
+        )
+        assert advanced.current_step == "academics"
+
+        from api.auth import current_active_user
+
+        async def _stale_user() -> Any:
+            return stale_user
+
+        auth_app.dependency_overrides[current_active_user] = _stale_user
+        try:
+            async with _client(auth_app) as c:
+                c.cookies.set("counselle_auth", cookie)
+                patched = await c.patch("/v1/me", json={"settings": {"theme": "dark"}})
+        finally:
+            del auth_app.dependency_overrides[current_active_user]
+
+        assert patched.status_code == 200, patched.text
+        body = patched.json()
+        assert body["settings"]["theme"] == "dark"
+        # The concurrent onboarding advance must survive — not the stale
+        # "basics" step captured in the pre-race snapshot.
+        assert body["settings"]["onboarding"]["current_step"] == "academics"
+
+        async with pool.acquire() as conn:
+            after = await conn.fetchrow(
+                "SELECT settings FROM counselle.users WHERE id = $1", row["id"]
+            )
+        assert after is not None
+        assert after["settings"]["onboarding"]["current_step"] == "academics"
+        assert after["settings"]["theme"] == "dark"
     finally:
         await delete_user_by_email(pool, email)
 

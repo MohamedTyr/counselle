@@ -47,6 +47,7 @@ from api.routes import (
     essays,
     me,
     memories,
+    onboarding,
     profile,
     sessions,
     system,
@@ -183,6 +184,7 @@ def create_app() -> FastAPI:
     app.include_router(essays.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")
     app.include_router(profile.router, prefix="/v1")
+    app.include_router(onboarding.router, prefix="/v1")
     app.include_router(documents.router, prefix="/v1")
     app.include_router(memories.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
