@@ -395,7 +395,9 @@ export function TaskDetailSheet({
 
       if (
         target instanceof Element &&
-        target.closest("[data-task-editing-field]")
+        target.closest(
+          "[data-task-editing-field],[data-slot='popover-positioner']",
+        )
       ) {
         return;
       }

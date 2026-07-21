@@ -144,6 +144,29 @@ describe("TasksPage", () => {
     ).toHaveValue("Revise Georgia Tech scholarship essay");
   });
 
+  it("sets a due date by clicking a day in the calendar popover", async () => {
+    const user = userEvent.setup();
+    await renderTasks();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open Revise Georgia Tech scholarship essay details",
+      }),
+    );
+    await screen.findByRole("textbox", { name: "Task title" });
+
+    const dueAtRow = screen.getByText("Due at").closest("div") as HTMLElement;
+    await user.click(within(dueAtRow).getByRole("button"));
+    const dayCells = await screen.findAllByRole("gridcell");
+    const dayButton = within(dayCells[0]).getByRole("button");
+
+    await user.click(dayButton);
+
+    await waitFor(() =>
+      expect(within(dueAtRow).queryByText("Not set")).not.toBeInTheDocument(),
+    );
+  });
+
   it("opens the detail sheet from the all tasks table action", async () => {
     const user = userEvent.setup();
     await renderTasks();
