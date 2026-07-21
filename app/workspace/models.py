@@ -437,7 +437,7 @@ class Activity(_Model):
     user_id: UUID
     sort_order: int
     activity_type: str = ""
-    position: str = Field(default="", alias="position_label")
+    position: str = Field(default="", validation_alias="position_label")
     organization: str = ""
     description: str = ""
     grades: list[str] = Field(default_factory=list)
