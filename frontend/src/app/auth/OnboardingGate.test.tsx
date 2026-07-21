@@ -91,7 +91,9 @@ describe("OnboardingGate", () => {
     });
 
     await waitFor(() => expect(window.location.pathname).toBe("/onboarding"));
-    expect(await screen.findByText(/Basics/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Let’s make Counselle yours" }),
+    ).toBeInTheDocument();
   });
 
   it("redirects and resumes an in_progress user at their persisted step", async () => {
@@ -102,21 +104,18 @@ describe("OnboardingGate", () => {
     });
 
     await waitFor(() => expect(window.location.pathname).toBe("/onboarding"));
-    expect(await screen.findByText(/Academic direction/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "What are you drawn to?" }),
+    ).toBeInTheDocument();
   });
 
   it("allows a grandfathered user opening /onboarding directly and starts it", async () => {
     renderApp("/onboarding", { fetchHandler: createOnboardingFetch(undefined) });
 
-    await waitFor(() =>
-      expect(
-        screen.getByText(
-          /this flow is still being built\. Your progress is saved as you go\./,
-        ),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByRole("heading", { name: "Let’s make Counselle yours" }),
+    ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/onboarding");
-    expect(await screen.findByText(/Basics/)).toBeInTheDocument();
   });
 
   it("does not nag a deferred user visiting the workspace", async () => {
@@ -143,7 +142,9 @@ describe("OnboardingGate", () => {
     await user.click(await screen.findByRole("link", { name: "Guided setup" }));
 
     await waitFor(() => expect(window.location.pathname).toBe("/onboarding"));
-    expect(await screen.findByText(/Context/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Context that changes the advice" }),
+    ).toBeInTheDocument();
   });
 
   it("does not show Guided setup for a completed user", async () => {
@@ -189,7 +190,9 @@ describe("OnboardingGate", () => {
       state: { onboardingCompletion: true },
     });
 
-    expect(await screen.findByText(/all set/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Counselle has the essentials" }),
+    ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/onboarding");
   });
 
