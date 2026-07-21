@@ -653,6 +653,55 @@ def test_retry_result_leaves_row_count_unset(rig: Rig) -> None:
     assert "row_count" not in detail
 
 
+def test_retry_prompt_on_known_write_tool_synthesizes_failed_unresolved_receipt(
+    rig: Rig,
+) -> None:
+    """A schema/validation rejection proves the write never committed (§5,
+    §7.4 of the mutation-receipts plan) — always "failed", never "unknown"."""
+    rig.feed(
+        _call("create_tasks", {"tasks": [{"title": "x"}]}, "c1"),
+        _retry_result("create_tasks", "c1"),
+    )
+
+    detail = rig.steps()[1]["detail"]
+    assert detail["mutation_contract"] == 1
+    mutation = detail["mutation"]
+    assert mutation["family"] == "task"
+    assert mutation["action"] == "create"
+    assert mutation["outcome"] == "failed"
+    assert mutation["body"]["kind"] == "unresolved"
+
+
+def test_close_on_still_open_known_write_tool_synthesizes_unknown_receipt(rig: Rig) -> None:
+    """A write tool call still open when the turn settles (cancel/timeout/
+    budget/unexpected error) may have committed with no terminal proof either
+    way — must settle as "unknown", never a guessed success/failure, and
+    never a lingering spinner (§7.4)."""
+    rig.feed(_call("update_task", {"task_id": "abc", "status": "doing"}, "c1"))
+
+    rig.router.close("interrupt")
+
+    steps = rig.steps()
+    assert [step["status"] for step in steps] == ["start", "error"]
+    detail = steps[1]["detail"]
+    assert detail["mutation_contract"] == 1
+    mutation = detail["mutation"]
+    assert mutation["family"] == "task"
+    assert mutation["action"] == "update"
+    assert mutation["outcome"] == "unknown"
+    assert mutation["body"]["kind"] == "unresolved"
+
+
+def test_close_on_still_open_non_write_tool_keeps_detail_none(rig: Rig) -> None:
+    """Non-mutation tools are unaffected — no marker, no synthesized receipt."""
+    rig.feed(_call("search_web", {"query": "duke dorms"}, "c1"))
+
+    rig.router.close("complete")
+
+    steps = rig.steps()
+    assert steps[1]["detail"] is None
+
+
 # ---------------------------------------------------------------------------
 # Terminal closure
 # ---------------------------------------------------------------------------

@@ -238,7 +238,11 @@ async def update_task(
     actor: Actor,
     task_id: UUID,
     data: TaskPatch,
-) -> Task:
+) -> tuple[Task, Task]:
+    """Apply ``data`` to the task; returns ``(after, before)`` from one
+    transaction — the mutation-receipt seam needs both to show authoritative
+    field diffs (agent mutation receipts plan §7.3), never a racy pre-read.
+    """
     values = data.model_dump(exclude_unset=True)
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
@@ -249,6 +253,7 @@ async def update_task(
             raise WorkspaceValidationError(
                 "task links changed concurrently; refresh and retry"
             )
+        before = Task.model_validate(dict(current))
         if values:
             row = await _update_task_row(conn, user_id, task_id, values)
         else:
@@ -258,7 +263,7 @@ async def update_task(
             await _record_task_change(conn, user_id, actor, task, "updated")
         )
     publish_events(event_bus, user_id, events)
-    return task
+    return task, before
 
 
 async def archive_task(

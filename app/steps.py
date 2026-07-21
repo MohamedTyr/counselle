@@ -44,6 +44,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
 
+from pydantic import ValidationError
 from pydantic_ai import FinalResultEvent
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
@@ -60,6 +61,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.run import AgentRunResultEvent
 
 from app.tool_specs import ToolSpec, build_tool_specs
+from app.workspace_mutation_receipts import WRITE_TOOL_FAMILY_ACTION, unresolved_receipt
 from app.workspace_step_receipts import WORKSPACE_READ_TOOLS
 from domain.events import (
     StepData,
@@ -71,6 +73,7 @@ from domain.events import (
     ev_step,
     tool_ui_from_payload,
 )
+from domain.mutation_receipts import WorkspaceMutationReceipt
 from domain.urls import favicon_url, registrable_domain
 
 logger = logging.getLogger(__name__)
@@ -320,6 +323,7 @@ class StepMapper:
                     kwargs["result_count"] = result_count
                 if tool_name in {"search_tasks", "search_schools"}:
                     kwargs["query"] = _str_or_none(args.get("query"))
+            kwargs.update(_mutation_detail_kwargs(content))
         else:  # db_tool, skill, unknown
             kwargs.update(self._db_tool_detail_kwargs(tool_name, args, content))
         kwargs.update(_error_detail_kwargs(content))
@@ -707,6 +711,28 @@ def _public_receipt_content(content: Any) -> dict[str, Any] | None:
     return receipt if isinstance(receipt, dict) else None
 
 
+def _mutation_detail_kwargs(content: Any) -> dict[str, Any]:
+    """Extract the mutation-contract marker + typed receipt from a write result.
+
+    The marker is preserved even when the nested receipt fails to validate
+    (damaged/oversized/unknown-version) — the frontend parser is the one owner
+    of "marker present but mutation invalid ⇒ safe synthesized unknown" (§6.7);
+    this function just surfaces both facts honestly rather than silently
+    dropping the marker along with a bad payload.
+    """
+    kwargs: dict[str, Any] = {}
+    if isinstance(content, dict) and content.get("mutation_contract") == 1:
+        kwargs["mutation_contract"] = 1
+    receipt = _public_receipt_content(content)
+    mutation = receipt.get("mutation") if receipt is not None else None
+    if isinstance(mutation, dict):
+        try:
+            kwargs["mutation"] = WorkspaceMutationReceipt.model_validate(mutation)
+        except ValidationError:
+            logger.warning("mutation_receipt_invalid", extra={"mutation": mutation})
+    return kwargs
+
+
 def _search_source_content(content: Any) -> Any:
     receipt = _overflow_receipt(content)
     if receipt is None:
@@ -948,18 +974,38 @@ class EmissionRouter:
         self._final_candidate = False
         status: Literal["end", "error"] = "end" if reason in ("complete", "interrupt") else "error"
         for open_step in list(self._open.values()):
+            # A known write tool that was still open when the turn settled may
+            # have entered a commit-capable region with no terminal proof
+            # either way (cancellation/timeout/budget/unexpected error) — §7.4
+            # requires this settle as "unknown", never a guessed success or
+            # failure, and never a lingering spinner (detail=None here would
+            # leave the FE showing a running row forever).
+            family_action = WRITE_TOOL_FAMILY_ACTION.get(open_step.tool_name)
+            detail = (
+                StepDetail(
+                    mutation_contract=1,
+                    mutation=unresolved_receipt(
+                        family=family_action[0], action=family_action[1], outcome="unknown"
+                    ),
+                )
+                if family_action is not None
+                else None
+            )
+            close_status: Literal["end", "error"] = (
+                "error" if family_action is not None else status
+            )
             self._emit_step(
                 open_step.step_id,
-                status,
+                close_status,
                 open_step.mapped,
                 label=self.mapper.terminal_label(
                     open_step.mapped,
                     open_step.args,
-                    None,
-                    errored=status == "error",
+                    detail,
+                    errored=close_status == "error",
                     retry=False,
                 ),
-                detail=None,
+                detail=detail,
             )
         self._open.clear()
 
@@ -1133,6 +1179,25 @@ class EmissionRouter:
         errored = self.mapper.result_is_error(result_part, content)
         duration_ms = int((time.monotonic() - open_step.started) * 1000)
         detail = self.mapper.detail_for(open_step.tool_name, open_step.args, content, duration_ms)
+        if errored and detail.mutation_contract is None:
+            # A RetryPromptPart/schema rejection or an in-tool validation
+            # error(...) return proves the write never committed — the tool
+            # function returned normally (or was never invoked) rather than
+            # dying mid-commit, so this is always "failed", never "unknown"
+            # (§5, §7.4). Only known write tools get a synthesized receipt;
+            # everything else keeps its existing errored-but-mutation-less
+            # detail unchanged.
+            family_action = WRITE_TOOL_FAMILY_ACTION.get(open_step.tool_name)
+            if family_action is not None:
+                family, action = family_action
+                detail = detail.model_copy(
+                    update={
+                        "mutation_contract": 1,
+                        "mutation": unresolved_receipt(
+                            family=family, action=action, outcome="failed"
+                        ),
+                    }
+                )
         # Source chips only on a clean end — a failed search has no sources to show.
         sources = (
             None

@@ -150,11 +150,12 @@ async def test_empty_activity_or_honor_patch_is_a_true_no_op(
     monkeypatch.setattr(service_activities, "_record_change", fail_if_change_is_recorded)
     event_bus = WorkspaceEventBus()
     result: Activity | Honor
+    before: Activity | Honor
     expected: Activity | Honor
 
     async with event_bus.subscribe(user_id) as queue:
         if isinstance(patch, ActivityPatch):
-            result = await service_activities.update_activity(
+            result, before = await service_activities.update_activity(
                 cast(Any, _ActivityPool(connection)),
                 event_bus,
                 user_id=user_id,
@@ -164,7 +165,7 @@ async def test_empty_activity_or_honor_patch_is_a_true_no_op(
             )
             expected = Activity.model_validate(connection.row)
         else:
-            result = await service_activities.update_honor(
+            result, before = await service_activities.update_honor(
                 cast(Any, _ActivityPool(connection)),
                 event_bus,
                 user_id=user_id,
@@ -176,6 +177,8 @@ async def test_empty_activity_or_honor_patch_is_a_true_no_op(
 
         assert queue.empty()
     assert result == expected
+    # An empty patch is a true no-op: the before-state equals the after-state.
+    assert before == expected
     assert connection.queries == [service_activities._REQUIRE_ACTIVE_SQL[
         "activities" if isinstance(patch, ActivityPatch) else "honors"
     ]]

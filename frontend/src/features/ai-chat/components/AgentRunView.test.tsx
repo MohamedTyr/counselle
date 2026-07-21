@@ -173,6 +173,88 @@ describe("ToolStepBeat", () => {
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 
+  test("routes a terminal write with a valid mutation to the typed receipt", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "workspace",
+          tool: "create_tasks",
+          label: "Added a task",
+          detail: {
+            mutation_contract: 1,
+            mutation: {
+              v: 1,
+              family: "task",
+              action: "create",
+              outcome: "success",
+              body: {
+                kind: "batch",
+                items: [
+                  {
+                    input_index: 0,
+                    disposition: "changed",
+                    subject: {
+                      title: {
+                        text: "Submit FAFSA",
+                        truncated: false,
+                        original_graphemes: null,
+                      },
+                    },
+                  },
+                ],
+              },
+              notices: [],
+              omissions: {
+                subjects: 0,
+                changes: 0,
+                item_details: 0,
+                notices: 0,
+                edit_operations: 0,
+              },
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Added 1 task")).toBeInTheDocument();
+  });
+
+  test("routes a marker-present but invalid mutation to a safe unknown row, never legacy success text", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "workspace",
+          tool: "update_task",
+          status: "error",
+          label: "Task unchanged",
+          detail: { mutation_contract: 1, mutation: { not: "valid" } },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Action interrupted — final task state is unknown"),
+    ).toBeInTheDocument();
+  });
+
+  test("marker-absent terminal write keeps the legacy fallback presentation", () => {
+    render(
+      <ToolStepBeat
+        step={step({
+          kind: "workspace",
+          tool: "update_task",
+          label: "Updated a task",
+          detail: { summary: "Change completed" },
+        })}
+      />,
+    );
+
+    // Legacy WriteToolWidget shows a generic family-based outcome — no
+    // mutation-shell disclosure control renders for pre-feature history.
+    expect(screen.queryByText(/View \d+ changes/)).not.toBeInTheDocument();
+  });
+
   test("shows the schools used in a prepared visualization", () => {
     render(
       <ToolStepBeat

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, overload
 from uuid import UUID
 
 import asyncpg
@@ -18,6 +18,7 @@ from app.workspace.models import (
     ChangeOp,
     Honor,
     HonorCreate,
+    HonorDuplicateError,
     HonorPatch,
     ObjectType,
     WorkspaceNotFoundError,
@@ -84,6 +85,16 @@ _ACTIVITY_LOCK_SQL = """
 # lock; a future second advisory-lock caller should pick a different constant
 # to avoid key collisions with this one.
 
+_HONOR_LOCK_SQL = """
+    SELECT pg_advisory_xact_lock(hashtextextended($1::text, 1))
+"""
+# Namespace tag ``1`` — distinct from the activities lock's ``0`` above; a
+# future third advisory-lock caller should pick a different constant.
+
+_ACTIVE_HONOR_TITLES_SQL = """
+    SELECT id, title FROM counselle.honors WHERE user_id = $1 AND archived_at IS NULL
+"""
+
 _ACTIVE_ACTIVITY_DUPLICATES_SQL = """
     SELECT id, position_label, organization
     FROM counselle.activities
@@ -122,12 +133,12 @@ _RESTORE_SQL: dict[WorkspaceTable, str] = {
 
 _ACTIVE_IDS_SQL: dict[WorkspaceTable, str] = {
     "activities": """
-        SELECT id
+        SELECT id, sort_order
         FROM counselle.activities
         WHERE user_id = $1 AND archived_at IS NULL
         """,
     "honors": """
-        SELECT id
+        SELECT id, sort_order
         FROM counselle.honors
         WHERE user_id = $1 AND archived_at IS NULL
         """,
@@ -294,14 +305,17 @@ async def update_activity(
     actor: Actor,
     activity_id: UUID,
     data: ActivityPatch,
-) -> Activity:
+) -> tuple[Activity, Activity]:
+    """Apply ``data``; returns ``(after, before)`` from one transaction — the
+    mutation-receipt seam needs both for authoritative field diffs (agent
+    mutation receipts plan §7.3), never a racy pre-read."""
     values = data.model_dump(exclude_unset=True)
-    row, event = await _update_row(
+    row, before_row, event = await _update_row(
         app_pool, user_id, actor, "activities", "activity", activity_id, values
     )
     if event is not None:
         publish_events(event_bus, user_id, [event])
-    return Activity.model_validate(dict(row))
+    return Activity.model_validate(dict(row)), Activity.model_validate(dict(before_row))
 
 
 async def archive_activity(
@@ -331,6 +345,7 @@ async def restore_activity(
     return Activity.model_validate(dict(row))
 
 
+@overload
 async def reorder_activities(
     app_pool: asyncpg.Pool,
     event_bus: WorkspaceEventBus,
@@ -338,10 +353,36 @@ async def reorder_activities(
     user_id: UUID,
     actor: Actor,
     ids: list[UUID],
-) -> list[Activity]:
-    rows, events = await _reorder_rows(app_pool, user_id, actor, "activities", "activity", ids)
+) -> list[Activity]: ...
+
+
+@overload
+async def reorder_activities(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    ids: list[UUID],
+    with_old_ranks: Literal[True],
+) -> tuple[list[Activity], dict[UUID, int]]: ...
+
+
+async def reorder_activities(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    ids: list[UUID],
+    with_old_ranks: bool = False,
+) -> list[Activity] | tuple[list[Activity], dict[UUID, int]]:
+    rows, events, old_ranks = await _reorder_rows(
+        app_pool, user_id, actor, "activities", "activity", ids
+    )
     publish_events(event_bus, user_id, events)
-    return [Activity.model_validate(dict(row)) for row in rows]
+    activities = [Activity.model_validate(dict(row)) for row in rows]
+    return (activities, old_ranks) if with_old_ranks else activities
 
 
 async def list_honors(app_pool: asyncpg.Pool, *, user_id: UUID) -> list[Honor]:
@@ -379,6 +420,55 @@ async def create_honor(
     return honor
 
 
+async def create_honors_batch(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    data: list[HonorCreate],
+    reject_duplicate_pairs: bool = False,
+) -> list[Honor]:
+    """Create one honor batch atomically (agent mutation receipts plan §7.2)
+    — mirrors ``create_activities``'s locked-batch-transaction shape, so
+    duplicate/cap checks and inserts cannot race into a partial result. This
+    replaces the previous per-draft ``create_honor`` loop, which left earlier
+    creates committed on a later item's failure.
+    """
+    if not data:
+        return []
+    async with app_pool.acquire() as conn, conn.transaction():
+        await _lock_honors(conn, user_id)
+        await _require_distinct_honor_pairs(
+            conn, user_id, data, reject_active_duplicates=reject_duplicate_pairs
+        )
+        count = await conn.fetchval(_COUNT_ACTIVE_SQL["honors"], user_id)
+        if count + len(data) > HONOR_CAP:
+            raise WorkspaceValidationError("active honors cap reached")
+        sort_order = await _next_sort_order(conn, "honors", user_id)
+        honors: list[Honor] = []
+        events: list[ChangeEvent] = []
+        for index, honor_data in enumerate(data):
+            row = await conn.fetchrow(
+                """
+                INSERT INTO counselle.honors
+                  (user_id, sort_order, title, grades, levels)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+                """,
+                user_id,
+                sort_order + index,
+                honor_data.title,
+                honor_data.grades,
+                honor_data.levels,
+            )
+            honor = Honor.model_validate(dict(row))
+            honors.append(honor)
+            events.append(await _record_change(conn, user_id, actor, "honor", honor.id, "created"))
+    publish_events(event_bus, user_id, events)
+    return honors
+
+
 async def update_honor(
     app_pool: asyncpg.Pool,
     event_bus: WorkspaceEventBus,
@@ -387,13 +477,15 @@ async def update_honor(
     actor: Actor,
     honor_id: UUID,
     data: HonorPatch,
-) -> Honor:
-    row, event = await _update_row(
+) -> tuple[Honor, Honor]:
+    """Apply ``data``; returns ``(after, before)`` from one transaction — see
+    ``update_activity`` for why both are needed."""
+    row, before_row, event = await _update_row(
         app_pool, user_id, actor, "honors", "honor", honor_id, data.model_dump(exclude_unset=True)
     )
     if event is not None:
         publish_events(event_bus, user_id, [event])
-    return Honor.model_validate(dict(row))
+    return Honor.model_validate(dict(row)), Honor.model_validate(dict(before_row))
 
 
 async def archive_honor(
@@ -423,6 +515,7 @@ async def restore_honor(
     return Honor.model_validate(dict(row))
 
 
+@overload
 async def reorder_honors(
     app_pool: asyncpg.Pool,
     event_bus: WorkspaceEventBus,
@@ -430,10 +523,34 @@ async def reorder_honors(
     user_id: UUID,
     actor: Actor,
     ids: list[UUID],
-) -> list[Honor]:
-    rows, events = await _reorder_rows(app_pool, user_id, actor, "honors", "honor", ids)
+) -> list[Honor]: ...
+
+
+@overload
+async def reorder_honors(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    ids: list[UUID],
+    with_old_ranks: Literal[True],
+) -> tuple[list[Honor], dict[UUID, int]]: ...
+
+
+async def reorder_honors(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    ids: list[UUID],
+    with_old_ranks: bool = False,
+) -> list[Honor] | tuple[list[Honor], dict[UUID, int]]:
+    rows, events, old_ranks = await _reorder_rows(app_pool, user_id, actor, "honors", "honor", ids)
     publish_events(event_bus, user_id, events)
-    return [Honor.model_validate(dict(row)) for row in rows]
+    honors = [Honor.model_validate(dict(row)) for row in rows]
+    return (honors, old_ranks) if with_old_ranks else honors
 
 
 async def _list_rows(
@@ -514,6 +631,42 @@ async def _require_distinct_activity_pairs(
         batch_pairs[pair] = index
 
 
+async def _lock_honors(conn: asyncpg.Connection, user_id: UUID) -> None:
+    """Serialize honor list writes for a user without affecting activities."""
+    await conn.execute(_HONOR_LOCK_SQL, str(user_id))
+
+
+def _honor_pair(data: HonorCreate) -> str:
+    return data.title.strip().casefold()
+
+
+async def _require_distinct_honor_pairs(
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    data: list[HonorCreate],
+    *,
+    reject_active_duplicates: bool,
+) -> None:
+    """Reject duplicate honor titles — same shape as
+    ``_require_distinct_activity_pairs``, one namespace lower (honors, not
+    activities)."""
+    active_pairs: dict[str, UUID] = {}
+    if reject_active_duplicates:
+        rows = await conn.fetch(_ACTIVE_HONOR_TITLES_SQL, user_id)
+        active_pairs = {str(row["title"]).strip().casefold(): row["id"] for row in rows}
+    batch_pairs: dict[str, int] = {}
+    for index, honor_data in enumerate(data):
+        pair = _honor_pair(honor_data)
+        if reject_active_duplicates and (active_honor_id := active_pairs.get(pair)):
+            raise HonorDuplicateError(duplicate_index=index, active_honor_id=active_honor_id)
+        earlier_batch_index = batch_pairs.get(pair)
+        if earlier_batch_index is not None:
+            raise HonorDuplicateError(
+                duplicate_index=index, earlier_batch_index=earlier_batch_index
+            )
+        batch_pairs[pair] = index
+
+
 async def _update_row(
     app_pool: asyncpg.Pool,
     user_id: UUID,
@@ -522,14 +675,17 @@ async def _update_row(
     object_type: WorkspaceObject,
     row_id: UUID,
     values: dict[str, object],
-) -> tuple[asyncpg.Record, ChangeEvent | None]:
+) -> tuple[asyncpg.Record, asyncpg.Record, ChangeEvent | None]:
+    """Returns ``(after, before, event)`` — the before-row is captured inside
+    the same locked transaction so mutation-receipt diffs are authoritative,
+    never a racy pre-read (agent mutation receipts plan §7.3)."""
     async with app_pool.acquire() as conn, conn.transaction():
         current = await _require_active(conn, table, user_id, row_id)
         if not values:
-            return current, None
+            return current, current, None
         row = await _apply_update(conn, table, user_id, row_id, values)
         event = await _record_change(conn, user_id, actor, object_type, row["id"], "updated")
-    return row, event
+    return row, current, event
 
 
 async def _archive_row(
@@ -586,7 +742,12 @@ async def _reorder_rows(
     table: WorkspaceTable,
     object_type: WorkspaceObject,
     ids: list[UUID],
-) -> tuple[list[asyncpg.Record], list[ChangeEvent]]:
+) -> tuple[list[asyncpg.Record], list[ChangeEvent], dict[UUID, int]]:
+    """Reorder atomically; also returns each id's authoritative pre-reorder
+    rank (1-indexed, agent mutation receipts plan §7.3) — captured from the
+    same locked-transaction read used to validate the id set, never a
+    separate racy pre-read.
+    """
     if len(set(ids)) != len(ids):
         raise WorkspaceValidationError("ordered ids must be unique")
     async with app_pool.acquire() as conn, conn.transaction():
@@ -599,6 +760,10 @@ async def _reorder_rows(
         active_ids = {row["id"] for row in active}
         if active_ids != set(ids):
             raise WorkspaceValidationError("ordered ids must match active rows")
+        old_ranks_by_id = {
+            row["id"]: rank
+            for rank, row in enumerate(sorted(active, key=lambda r: r["sort_order"]), start=1)
+        }
         rows: list[asyncpg.Record] = []
         events: list[ChangeEvent] = []
         for index, row_id in enumerate(ids):
@@ -614,7 +779,7 @@ async def _reorder_rows(
             events.append(
                 await _record_change(conn, user_id, actor, object_type, row_id, "updated")
             )
-    return rows, events
+    return rows, events, old_ranks_by_id
 
 
 async def _require_active(

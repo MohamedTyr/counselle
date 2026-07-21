@@ -4,6 +4,7 @@ import { useMessageFeedback } from "@/api/chat/hooks";
 import { useChatConfig } from "@/api/chat/config";
 import type { ChatTransport } from "@/api/chat/types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatMessages } from "./components/ChatMessages";
@@ -205,9 +206,16 @@ export function AiChatPage({
     );
   }
 
+  const railOpen = !isMobile && sourcesPayload !== null;
+
   return (
-    <main className="flex min-h-0 flex-1">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <main className="flex min-h-0 flex-1 md:bg-sidebar">
+      <div
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 flex-col bg-background",
+          railOpen && "md:overflow-hidden md:rounded-r-xl",
+        )}
+      >
         <ChatMessages
           isSubmitting={isSubmitting}
           messages={messages}

@@ -433,7 +433,7 @@ def test_new_status_values_are_accepted_on_patch(status_value: str) -> None:
 
 
 def test_task_category_interview_is_accepted_on_patch() -> None:
-    service = AsyncMock(return_value=_task())
+    service = AsyncMock(return_value=(_task(), _task()))
     with (
         patch("api.routes.tasks.update_task", new=service),
         TestClient(_app(), raise_server_exceptions=False) as client,

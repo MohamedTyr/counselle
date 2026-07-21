@@ -44,6 +44,7 @@ ENV_FILE = REPO_ROOT / ".env"
 
 DEFAULT_API_HOST = "127.0.0.1"
 DEFAULT_API_PORT = 8000
+DEFAULT_WEB_HOST = "localhost"
 DEFAULT_WEB_PORT = 5173
 MIN_NODE = (22, 12)
 HEALTH_TIMEOUT_S = 120
@@ -180,13 +181,21 @@ def check_config(file_env: dict[str, str]) -> None:
 
 
 def port_free(host: str, port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    """Return whether every address used by ``host`` can bind ``port``."""
+    addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    checked: set[tuple[int, tuple[object, ...]]] = set()
+    for family, socktype, proto, _, address in addresses:
+        key = (family, address)
+        if key in checked:
+            continue
+        checked.add(key)
         try:
-            sock.bind((host, port))
-            return True
+            with socket.socket(family, socktype, proto) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(address)
         except OSError:
             return False
+    return bool(checked)
 
 
 def free_port(host: str, label: str, desired: int, *, kill: bool) -> int:
@@ -440,10 +449,11 @@ def wait_for_health(host: str, api_port: int, servers: list[Server]) -> bool:
 def wait_for_tcp(host: str, port: int, timeout: float = 30.0) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)
-            if sock.connect_ex((host, port)) == 0:
+        try:
+            with socket.create_connection((host, port), timeout=1):
                 return True
+        except OSError:
+            pass
         time.sleep(0.4)
     return False
 
@@ -458,7 +468,7 @@ def run_stack(args: argparse.Namespace, file_env: dict[str, str]) -> int:
     check_config(file_env)
 
     api_port = free_port(args.host, "api", args.api_port, kill=args.kill)
-    web_port = free_port(args.host, "web", args.web_port, kill=args.kill)
+    web_port = free_port(DEFAULT_WEB_HOST, "web", args.web_port, kill=args.kill)
 
     if args.check:
         ok("check-only: toolchain, config, and ports all good — not starting servers.")
@@ -527,7 +537,7 @@ def run_stack(args: argparse.Namespace, file_env: dict[str, str]) -> int:
         return 1
     ok(f"api healthy at http://{args.host}:{api_port}/v1/health")
 
-    if wait_for_tcp(args.host, web_port):
+    if wait_for_tcp(DEFAULT_WEB_HOST, web_port):
         ok(f"frontend live at http://localhost:{web_port}")
     else:
         warn("frontend did not open a port yet — it may still be starting.")

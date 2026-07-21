@@ -125,7 +125,56 @@ describe("SourcesRail", () => {
     expect(fallback).toHaveFocus();
     expect(fallback).toHaveAttribute("data-active", "true");
     expect(fallback).toHaveAttribute("aria-current", "true");
-    expect(fallback).toHaveClass("ring-2", "ring-ring");
+    expect(fallback).toHaveClass("bg-primary/[0.03]");
+  });
+
+  test("moves the highlight when a different citation is opened, clearing the old one", () => {
+    const schoolDomains = new Map<number, string>();
+    const payload: MessageSourcesPayload = {
+      sources: [cds(), web()],
+      active: { index: 8 },
+      schoolDomains,
+    };
+    const { rerender } = render(
+      <SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />,
+    );
+    const rowThree = () => document.getElementById("source-row-3")!;
+    const rowEight = () => document.getElementById("source-row-8")!;
+
+    expect(rowEight()).toHaveAttribute("data-active", "true");
+    expect(rowThree()).toHaveAttribute("data-active", "false");
+
+    rerender(
+      <SourcesRail
+        isMobile={false}
+        onClose={vi.fn()}
+        payload={{ ...payload, active: { index: 3 } }}
+      />,
+    );
+
+    expect(rowThree()).toHaveAttribute("data-active", "true");
+    expect(rowThree()).toHaveFocus();
+    expect(rowEight()).toHaveAttribute("data-active", "false");
+    expect(rowEight()).not.toHaveClass("bg-primary/[0.03]");
+  });
+
+  test("clicking a source card selects it directly, moving the highlight off any prior one", () => {
+    const payload: MessageSourcesPayload = {
+      sources: [cds(), web()],
+      active: { index: 3 },
+      schoolDomains: new Map(),
+    };
+    render(
+      <SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />,
+    );
+    const rowThree = document.getElementById("source-row-3")!;
+    const rowEight = document.getElementById("source-row-8")!;
+    expect(rowThree).toHaveAttribute("data-active", "true");
+
+    fireEvent.click(rowEight);
+
+    expect(rowEight).toHaveAttribute("data-active", "true");
+    expect(rowThree).toHaveAttribute("data-active", "false");
   });
 
   test("legacy evidence-less CDS entries do not crash and unsafe URLs stay inert", () => {

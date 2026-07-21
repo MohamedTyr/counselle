@@ -122,6 +122,22 @@ class ActivityDuplicateError(WorkspaceValidationError):
         self.earlier_batch_index = earlier_batch_index
 
 
+class HonorDuplicateError(WorkspaceValidationError):
+    """Raised when an agent batch repeats an active honor identity."""
+
+    def __init__(
+        self,
+        *,
+        duplicate_index: int,
+        active_honor_id: UUID | None = None,
+        earlier_batch_index: int | None = None,
+    ) -> None:
+        super().__init__("duplicate honor")
+        self.duplicate_index = duplicate_index
+        self.active_honor_id = active_honor_id
+        self.earlier_batch_index = earlier_batch_index
+
+
 class _Model(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 

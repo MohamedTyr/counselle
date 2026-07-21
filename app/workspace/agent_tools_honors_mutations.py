@@ -37,19 +37,29 @@ from app.workspace.agent_tools_shared import (
 from app.workspace.models import (
     Honor,
     HonorCreate,
+    HonorDuplicateError,
     HonorPatch,
     WorkspaceNotFoundError,
     WorkspaceValidationError,
 )
+from app.workspace_mutation_receipts import (
+    attach_mutation,
+    batch_item,
+    batch_receipt,
+    change,
+    reorder_receipt,
+    state_transition_receipt,
+    subject,
+    text_list_value,
+    text_value,
+    update_receipt,
+)
+from domain.mutation_receipts import MutationChange
 
 _REORDER_RECOVERY = (
     "ids must be exactly the current active honors — call view_activities and resubmit the "
     "full list."
 )
-
-
-def _honor_pair(title: str) -> str:
-    return title.strip().casefold()
 
 
 def _honor_warning(honors: list[Honor]) -> str | None:
@@ -72,20 +82,19 @@ def _honor_summary(honor: Honor, patch: dict[str, Any]) -> str:
     return f'Updated "{honor.title}" — {changes}. '
 
 
-def _duplicate_honor_error(
-    index: int, *, active_honor_id: UUID | None = None, earlier_batch_index: int | None = None
-) -> dict[str, Any]:
-    if active_honor_id is not None:
+def _duplicate_honor_error(exc: HonorDuplicateError) -> dict[str, Any]:
+    index = exc.duplicate_index
+    if exc.active_honor_id is not None:
         return error(
-            f"honors[{index}] duplicates active honor id {active_honor_id} with the same "
+            f"honors[{index}] duplicates active honor id {exc.active_honor_id} with the same "
             "title. Nothing was created.",
             retryable=False,
             recovery="Update the existing honor, or resubmit with force=true after confirming "
             "these are genuinely separate entries.",
         )
     return error(
-        f"honors[{index}] duplicates another honor earlier in this batch ({earlier_batch_index}). "
-        "Nothing was created.",
+        f"honors[{index}] duplicates another honor earlier in this batch "
+        f"({exc.earlier_batch_index}). Nothing was created.",
         retryable=True,
         recovery="Give each honor a distinct title, or remove the duplicate and resubmit.",
     )
@@ -129,63 +138,32 @@ async def _create_honors_impl(
     if not (BATCH_MIN <= len(drafts) <= BATCH_MAX):
         return batch_size_error("create_honors", len(drafts))
 
-    active = await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
-
-    # Pre-validate the whole batch before any write: there is no per-user
-    # advisory lock on honors (unlike activities), so this tool-layer check is
-    # the only guard against a partial, silently-inconsistent batch under
-    # normal single-request conditions. A concurrent request racing this same
-    # check is an accepted gap — Phase 3 scoped its transactional hardening to
-    # activities only, and 5-row honor lists make that race rare and low-cost
-    # (the service's own capacity check still rejects an over-cap insert).
-    active_pairs = {_honor_pair(honor.title): honor.id for honor in active}
-    batch_pairs: dict[str, int] = {}
-    for index, draft in enumerate(drafts):
-        pair = _honor_pair(draft.title)
-        if not force and (active_honor_id := active_pairs.get(pair)):
-            return _duplicate_honor_error(index, active_honor_id=active_honor_id)
-        earlier_index = batch_pairs.get(pair)
-        if earlier_index is not None:
-            return _duplicate_honor_error(index, earlier_batch_index=earlier_index)
-        batch_pairs[pair] = index
-
-    if len(active) + len(drafts) > MAX_HONORS:
-        return slot_cap_error("honor", MAX_HONORS, len(active))
-
-    created: list[Honor] = []
-    for draft in drafts:
-        try:
-            honor = await service_activities.create_honor(
-                ctx.app_pool,
-                ctx.workspace_events,
-                user_id=ctx.user_id,
-                actor="counselle",
-                data=HonorCreate(
+    try:
+        # One locked service transaction for the whole batch (agent mutation
+        # receipts plan §7.2) — mirrors create_activities; duplicate/cap
+        # checks and inserts cannot race into a partial result, replacing
+        # the previous per-draft create_honor loop's accepted partial-commit
+        # gap.
+        created = await service_activities.create_honors_batch(
+            ctx.app_pool,
+            ctx.workspace_events,
+            user_id=ctx.user_id,
+            actor="counselle",
+            data=[
+                HonorCreate(
                     title=draft.title,
                     grades=[str(grade) for grade in draft.grades],
                     levels=[str(level) for level in draft.levels],
-                ),
-            )
-        except WorkspaceValidationError:
-            active_now = await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
-            cap_error = slot_cap_error("honor", MAX_HONORS, len(active_now))
-            if created:
-                # A concurrent request filled the remaining cap between our
-                # pre-check and this loop (the accepted gap described above):
-                # some honors from this same batch already exist. Say so
-                # explicitly rather than implying the whole call was a no-op.
-                ranks = {honor.id: index for index, honor in enumerate(active_now, start=1)}
-                cap_error["error"] = (
-                    f"{cap_error['error']} {len(created)} honor"
-                    f"{'s' if len(created) != 1 else ''} from this same call "
-                    f"{'were' if len(created) != 1 else 'was'} already created before the cap "
-                    "was reached."
                 )
-                cap_error["created"] = [
-                    render_honor_row(honor, rank=ranks[honor.id]) for honor in created
-                ]
-            return cap_error
-        created.append(honor)
+                for draft in drafts
+            ],
+            reject_duplicate_pairs=not force,
+        )
+    except HonorDuplicateError as exc:
+        return _duplicate_honor_error(exc)
+    except WorkspaceValidationError:
+        active = await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
+        return slot_cap_error("honor", MAX_HONORS, len(active))
 
     ordered = await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
     ranks = {honor.id: index for index, honor in enumerate(ordered, start=1)}
@@ -199,6 +177,11 @@ async def _create_honors_impl(
     }
     if warning := _honor_warning(created):
         payload["warning"] = warning
+    items = [
+        batch_item(index, "changed", item_subject=subject(honor.title, honor.id))
+        for index, honor in enumerate(created)
+    ]
+    payload = attach_mutation(payload, batch_receipt(family="honor", action="create", items=items))
     return payload
 
 
@@ -246,7 +229,7 @@ async def _update_honor_impl(ctx: ToolCtx, honor_id: str, **fields: Any) -> dict
     patch: dict[str, Any] = {key: value for key, value in fields.items() if value is not None}
 
     try:
-        honor = await service_activities.update_honor(
+        honor, before = await service_activities.update_honor(
             ctx.app_pool,
             ctx.workspace_events,
             user_id=ctx.user_id,
@@ -265,7 +248,46 @@ async def _update_honor_impl(ctx: ToolCtx, honor_id: str, **fields: Any) -> dict
     }
     if warning := _honor_warning([honor]):
         payload["warning"] = warning
+    honor_changes = _honor_changes(before, patch)
+    if honor_changes:
+        receipt = update_receipt(
+            family="honor",
+            action="update",
+            update_subject=subject(honor.title, honor.id),
+            changes=honor_changes,
+        )
+        payload = attach_mutation(payload, receipt)
     return payload
+
+
+_HONOR_RECEIPT_FIELD_KEY = {"title": "title", "grades": "grades", "levels": "recognition_level"}
+
+
+def _honor_changes(before: Honor, patch: dict[str, Any]) -> list[MutationChange]:
+    changes: list[MutationChange] = []
+    for key, field_key in _HONOR_RECEIPT_FIELD_KEY.items():
+        if key not in patch:
+            continue
+        value = patch[key]
+        if key == "title":
+            changes.append(
+                change(
+                    field_key,
+                    "replace",
+                    before=text_value(before.title),
+                    after=text_value(value),
+                )
+            )
+        else:
+            changes.append(
+                change(
+                    field_key,
+                    "replace",
+                    before=text_list_value(list(getattr(before, key))),
+                    after=text_list_value(list(value)),
+                )
+            )
+    return changes
 
 
 # --------------------------------------------------------------------------
@@ -292,12 +314,18 @@ async def _archive_honors_impl(ctx: ToolCtx, honor_ids: list[str]) -> dict[str, 
     if not (BATCH_MIN <= len(honor_ids) <= BATCH_MAX):
         return batch_size_error("archive_honors", len(honor_ids))
 
+    active_titles = {
+        str(honor.id): honor.title
+        for honor in await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
+    }
     archived: list[str] = []
     skipped: list[dict[str, str]] = []
-    for raw_id in honor_ids:
+    items = []
+    for index, raw_id in enumerate(honor_ids):
         parsed_id = try_uuid(raw_id)
         if parsed_id is None:
             skipped.append({"id": raw_id, "reason": "not a valid honor id"})
+            items.append(batch_item(index, "skipped", reason="not a valid honor id"))
             continue
         try:
             await service_activities.archive_honor(
@@ -308,8 +336,16 @@ async def _archive_honors_impl(ctx: ToolCtx, honor_ids: list[str]) -> dict[str, 
                 honor_id=parsed_id,
             )
             archived.append(raw_id)
+            items.append(
+                batch_item(
+                    index,
+                    "changed",
+                    item_subject=subject(active_titles.get(raw_id, "Honor"), raw_id),
+                )
+            )
         except WorkspaceNotFoundError:
             skipped.append({"id": raw_id, "reason": "no active honor with this id"})
+            items.append(batch_item(index, "skipped", reason="no active honor with this id"))
 
     if not archived and len(honor_ids) == 1:
         return stale_honor_error(honor_ids[0])
@@ -329,6 +365,7 @@ async def _archive_honors_impl(ctx: ToolCtx, honor_ids: list[str]) -> dict[str, 
     }
     if skipped:
         payload["skipped"] = skipped
+    payload = attach_mutation(payload, batch_receipt(family="honor", action="archive", items=items))
     return payload
 
 
@@ -389,12 +426,19 @@ async def _restore_honor_impl(ctx: ToolCtx, honor_id: str) -> dict[str, Any]:
 
     ordered = await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
     rank = next(index for index, item in enumerate(ordered, start=1) if item.id == honor.id)
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f'Restored "{honor.title}" at rank {rank}.',
         "honor": render_honor_row(honor, rank=rank),
     }
+    receipt = state_transition_receipt(
+        family="honor",
+        action="restore",
+        state="restored",
+        subjects=[subject(honor.title, honor.id)],
+    )
+    return attach_mutation(payload, receipt)
 
 
 # --------------------------------------------------------------------------
@@ -425,16 +469,17 @@ async def _reorder_honors_impl(ctx: ToolCtx, ids: list[str]) -> dict[str, Any]:
             return error(_REORDER_RECOVERY, retryable=True, recovery=_REORDER_RECOVERY)
         parsed_ids.append(parsed_id)
     try:
-        honors = await service_activities.reorder_honors(
+        honors, old_ranks_by_id = await service_activities.reorder_honors(
             ctx.app_pool,
             ctx.workspace_events,
             user_id=ctx.user_id,
             actor="counselle",
             ids=parsed_ids,
+            with_old_ranks=True,
         )
     except (WorkspaceNotFoundError, WorkspaceValidationError):
         return error(_REORDER_RECOVERY, retryable=True, recovery=_REORDER_RECOVERY)
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f"Reordered {len(honors)} honor{'s' if len(honors) != 1 else ''}.",
@@ -443,3 +488,16 @@ async def _reorder_honors_impl(ctx: ToolCtx, ids: list[str]) -> dict[str, Any]:
         ],
         "footer": "Rank is Common App importance order: 1 is the top honor.",
     }
+    new_order = [subject(honor.title, honor.id) for honor in honors]
+    old_ranks = [old_ranks_by_id[honor.id] for honor in honors]
+    moved_index = next((i for i, old_rank in enumerate(old_ranks) if old_rank != i + 1), None)
+    return attach_mutation(
+        payload,
+        reorder_receipt(
+            family="honor",
+            new_order=new_order,
+            old_ranks=old_ranks,
+            moved_index=moved_index,
+            moved_from_rank=old_ranks[moved_index] if moved_index is not None else None,
+        ),
+    )

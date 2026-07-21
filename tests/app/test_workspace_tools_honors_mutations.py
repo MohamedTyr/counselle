@@ -11,7 +11,6 @@ import pytest
 import pytest_asyncio
 from pydantic_ai import Tool
 
-from app.workspace import service_activities
 from app.workspace.agent_tools_honors_mutations import (
     make_archive_honors_tool,
     make_create_honors_tool,
@@ -109,11 +108,18 @@ async def test_create_and_update_warn_without_blocking_over_limit_title(
     assert created["status"] == "ok"
     assert "title 101/100" in created["warning"]
     honor_id = created["honors"][0]["id"]
+    created_mutation = created["public_receipt"]["mutation"]
+    assert created_mutation["family"] == "honor"
+    assert created_mutation["action"] == "create"
 
     updated = await _call_tool(make_update_honor_tool(ctx), honor_id=honor_id, title="y" * 101)
 
     assert updated["status"] == "ok"
     assert "title 101/100" in updated["warning"]
+    updated_mutation = updated["public_receipt"]["mutation"]
+    title_change = updated_mutation["body"]["changes"][0]
+    assert title_change["field_key"] == "title"
+    assert title_change["after"]["text"]["text"] == "y" * 101
 
 
 async def test_create_duplicate_requires_force_and_force_preserves_batch_contract(
@@ -213,52 +219,30 @@ async def test_create_at_cap_teaches_the_student_how_to_make_room(
     )
 
 
-async def test_create_reports_already_created_honors_when_a_concurrent_request_wins_the_cap(
+async def test_create_honors_batch_is_atomic_on_cap_violation(
     app_pool: asyncpg.Pool,
     make_user: Callable[[], Awaitable[UUID]],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression test for the mid-batch race: the pre-check passes, but a
-    concurrent request fills the remaining cap before this batch's loop
-    finishes creating all of its own drafts. The handler must not discard the
-    honors this same call already created — it must tell the truth about
-    partial state instead of implying nothing happened.
+    """``create_honors_batch`` (agent mutation receipts plan §7.2) is one
+    locked transaction — a batch that would exceed the cap rolls back in
+    full. This replaces the old per-draft ``create_honor`` loop's accepted
+    partial-commit gap: that implementation could leave earlier drafts in a
+    batch committed when a later one hit the cap; the new one cannot.
     """
     user_id = await make_user()
     for index in range(3):
         await _honor(app_pool, user_id, f"Existing {index}")
 
-    original_create_honor = service_activities.create_honor
-    calls = {"n": 0}
-
-    async def _create_honor_with_concurrent_race(*args: Any, **kwargs: Any) -> Honor:
-        calls["n"] += 1
-        honor = await original_create_honor(*args, **kwargs)
-        if calls["n"] == 1:
-            # Simulate a second, concurrent request filling the last
-            # remaining slot right after this call's first honor lands but
-            # before its second honor is attempted.
-            await original_create_honor(
-                app_pool,
-                WorkspaceEventBus(),
-                user_id=user_id,
-                actor="student",
-                data=HonorCreate(title="Concurrent Filler"),
-            )
-        return honor
-
-    monkeypatch.setattr(service_activities, "create_honor", _create_honor_with_concurrent_race)
-
     result = await _call_tool(
         make_create_honors_tool(_ctx(app_pool, user_id)),
-        honors=[HonorDraft(title="Batch One"), HonorDraft(title="Batch Two")],
+        honors=[
+            HonorDraft(title="Batch One"),
+            HonorDraft(title="Batch Two"),
+            HonorDraft(title="Batch Three"),
+        ],
     )
 
     assert result["status"] == "error"
-    assert "5 honors" in result["error"]
-    assert "1 honor from this same call was already created before the cap" in result["error"]
-    assert [row["title"] for row in result["created"]] == ["Batch One"]
-
     async with app_pool.acquire() as conn:
         titles = {
             row["title"]
@@ -267,8 +251,9 @@ async def test_create_reports_already_created_honors_when_a_concurrent_request_w
                 user_id,
             )
         }
-    assert titles == {"Existing 0", "Existing 1", "Existing 2", "Batch One", "Concurrent Filler"}
-    assert "Batch Two" not in titles
+    assert titles == {"Existing 0", "Existing 1", "Existing 2"}, (
+        "no honor from the rejected batch may be committed"
+    )
 
 
 async def test_restore_keeps_its_original_sort_order_and_cap_error_uses_honors_plural(
@@ -294,6 +279,9 @@ async def test_restore_keeps_its_original_sort_order_and_cap_error_uses_honors_p
 
     assert restored["status"] == "ok"
     assert restored["honor"]["rank"] == 2
+    restored_mutation = restored["public_receipt"]["mutation"]
+    assert restored_mutation["action"] == "restore"
+    assert restored_mutation["body"]["subjects"][0]["title"]["text"] == "First"
 
     for index in range(2):
         await _honor(app_pool, user_id, f"Extra {index}")
@@ -323,6 +311,15 @@ async def test_reorder_returns_ranked_rows_and_rejects_duplicate_ids(
     assert [row["rank"] for row in reordered["honors"]] == [1, 2]
     assert rejected["status"] == "error"
     assert "view_activities" in rejected["recovery"]
+    reorder_mutation = reordered["public_receipt"]["mutation"]
+    assert reorder_mutation["action"] == "reorder"
+    assert [s["title"]["text"] for s in reorder_mutation["body"]["new_order"]] == [
+        "Second",
+        "First",
+    ]
+    assert reorder_mutation["body"]["old_ranks"] == [2, 1]
+    assert reorder_mutation["body"]["moved_index"] == 0
+    assert reorder_mutation["body"]["moved_from_rank"] == 2
 
 
 async def test_reorder_rejects_an_incomplete_active_id_set(
@@ -356,6 +353,9 @@ async def test_archive_mixed_valid_and_stale_ids_reports_both(
     assert result["status"] == "warning"
     assert result["archived"] == [str(honor.id)]
     assert result["skipped"] == [{"id": stale_id, "reason": "no active honor with this id"}]
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["outcome"] == "partial"
+    assert [item["disposition"] for item in mutation["body"]["items"]] == ["changed", "skipped"]
 
 
 async def test_update_no_fields_is_a_retryable_error(

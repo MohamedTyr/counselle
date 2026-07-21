@@ -676,6 +676,920 @@ const otherReadFixtures: readonly ToolCallFixture[] = [
   }),
 ];
 
+// Tools whose mutation-receipt fixtures are hand-authored below (real typed
+// `detail.mutation` shapes matching domain/mutation_receipts.py) instead of
+// the generic "Change completed" stub — grows as each family is wired.
+const MUTATION_RECEIPT_TOOLS = new Set([
+  "create_tasks",
+  "update_task",
+  "archive_tasks",
+  "restore_task",
+  "add_schools",
+  "update_school",
+  "archive_schools",
+  "restore_school",
+  "create_essays",
+  "update_essay",
+  "duplicate_essay",
+  "archive_essays",
+  "restore_essay",
+  "edit_essay",
+  "write_essay",
+  "create_activities",
+  "update_activity",
+  "archive_activities",
+  "restore_activity",
+  "reorder_activities",
+  "create_honors",
+  "update_honor",
+  "archive_honors",
+  "restore_honor",
+  "reorder_honors",
+  "update_profile",
+  "remember",
+  "update_memory",
+  "forget",
+]);
+
+const OMISSIONS_ZERO = Object.freeze({
+  subjects: 0,
+  changes: 0,
+  item_details: 0,
+  notices: 0,
+  edit_operations: 0,
+});
+
+function mutationSubject(title: string) {
+  return { title: { text: title, truncated: false, original_graphemes: null } };
+}
+
+const mutationWriteFixtures: readonly ToolCallFixture[] = [
+  fixture({
+    group: "Writes",
+    tool: "create_tasks",
+    label: "Adding two tasks to the plan",
+    note: "Typed receipt · batch create · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "task",
+        action: "create",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            { input_index: 0, disposition: "changed", subject: mutationSubject("Submit FAFSA") },
+            {
+              input_index: 1,
+              disposition: "changed",
+              subject: mutationSubject("Request transcript"),
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "update_task",
+    label: "Updating a task",
+    note: "Typed receipt · update · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "task",
+        action: "update",
+        outcome: "success",
+        body: {
+          kind: "update",
+          subject: mutationSubject("Submit FAFSA"),
+          changes: [
+            {
+              field_key: "status",
+              operation: "replace",
+              before: { kind: "enum", enum: "todo" },
+              after: { kind: "enum", enum: "doing" },
+            },
+            {
+              field_key: "due_at",
+              operation: "replace",
+              before: { kind: "date", date: "2026-10-01" },
+              after: { kind: "date", date: "2026-10-15" },
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "archive_tasks",
+    label: "Archiving tasks",
+    note: "Typed receipt · batch archive · partial",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "task",
+        action: "archive",
+        outcome: "partial",
+        body: {
+          kind: "batch",
+          items: [
+            { input_index: 0, disposition: "changed", subject: mutationSubject("Old draft task") },
+            {
+              input_index: 1,
+              disposition: "skipped",
+              reason: {
+                text: "not found or already archived",
+                truncated: false,
+                original_graphemes: null,
+              },
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "restore_task",
+    label: "Restoring a task",
+    note: "Typed receipt · restore · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "task",
+        action: "restore",
+        outcome: "success",
+        body: {
+          kind: "state_transition",
+          state: "restored",
+          subjects: [mutationSubject("Bring me back")],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "update_task",
+    label: "Task unchanged",
+    status: "error",
+    note: "Typed receipt · unresolved · failed (schema rejection)",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "task",
+        action: "update",
+        outcome: "failed",
+        body: { kind: "unresolved", family: "task", verification: "task_list" },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "create_tasks",
+    label: "Action interrupted",
+    status: "error",
+    note: "Typed receipt · unresolved · unknown (cancelled mid-commit)",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "task",
+        action: "create",
+        outcome: "unknown",
+        body: { kind: "unresolved", family: "task", verification: "task_list" },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+
+  // -- Schools ---------------------------------------------------------
+  fixture({
+    group: "Writes",
+    tool: "add_schools",
+    label: "Adding a school to the list",
+    note: "Typed receipt · batch create · partial",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "school",
+        action: "create",
+        outcome: "partial",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("Stanford University"),
+            },
+            {
+              input_index: 1,
+              disposition: "skipped",
+              subject: mutationSubject("Yale University"),
+              reason: {
+                text: "already on your list",
+                truncated: false,
+                original_graphemes: null,
+              },
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "update_school",
+    label: "Updating a school",
+    note: "Typed receipt · update · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "school",
+        action: "update",
+        outcome: "success",
+        body: {
+          kind: "update",
+          subject: mutationSubject("Stanford University"),
+          changes: [
+            {
+              field_key: "application_status",
+              operation: "replace",
+              before: { kind: "enum", enum: "Applying" },
+              after: { kind: "enum", enum: "Submitted" },
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "archive_schools",
+    label: "Removing a school from the list",
+    note: "Typed receipt · batch archive · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "school",
+        action: "archive",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("Brown University"),
+            },
+          ],
+        },
+        notices: [
+          {
+            kind: "info",
+            code: "cascade_removed",
+            message: {
+              text: "Also removed 2 tasks and 1 essay linked to this school.",
+              truncated: false,
+              original_graphemes: null,
+            },
+          },
+        ],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "restore_school",
+    label: "Restoring a school to the list",
+    note: "Typed receipt · restore · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "school",
+        action: "restore",
+        outcome: "success",
+        body: {
+          kind: "state_transition",
+          state: "restored",
+          subjects: [mutationSubject("Brown University")],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+
+  // -- Essays -----------------------------------------------------------
+  fixture({
+    group: "Writes",
+    tool: "create_essays",
+    label: "Adding an essay to the library",
+    note: "Typed receipt · batch create · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "essay",
+        action: "create",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("Common App personal statement"),
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "update_essay",
+    label: "Updating an essay",
+    note: "Typed receipt · update · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "essay",
+        action: "update",
+        outcome: "success",
+        body: {
+          kind: "update",
+          subject: mutationSubject("Why Stanford?"),
+          changes: [
+            {
+              field_key: "status",
+              operation: "replace",
+              before: { kind: "enum", enum: "Drafting" },
+              after: { kind: "enum", enum: "Ready" },
+            },
+            { field_key: "prompt", operation: "state_only" },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "duplicate_essay",
+    label: "Copying an essay",
+    note: "Typed receipt · duplicate · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "essay",
+        action: "duplicate",
+        outcome: "success",
+        body: {
+          kind: "duplicate",
+          source: mutationSubject("Common App personal statement"),
+          copy: mutationSubject("Common App personal statement — v2"),
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "archive_essays",
+    label: "Archiving an essay",
+    note: "Typed receipt · batch archive · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "essay",
+        action: "archive",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("Old draft essay"),
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "restore_essay",
+    label: "Bringing back an archived essay",
+    note: "Typed receipt · restore · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "essay",
+        action: "restore",
+        outcome: "success",
+        body: {
+          kind: "state_transition",
+          state: "restored",
+          subjects: [mutationSubject("Old draft essay")],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+
+  // -- Essay content ------------------------------------------------------
+  fixture({
+    group: "Writes",
+    tool: "edit_essay",
+    label: "Editing an essay",
+    note: "Typed receipt · structural edit · no prose",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "essay_content",
+        action: "edit",
+        outcome: "success",
+        body: {
+          kind: "essay_edit",
+          subject: mutationSubject("Common App personal statement"),
+          operations: [
+            {
+              location: { kind: "paragraph_range", start: 1, end: 1 },
+              operation: "replace",
+              before_words: 14,
+              after_words: 18,
+            },
+            {
+              location: { kind: "paragraph_range", start: 4, end: 4 },
+              operation: "delete",
+              before_words: 9,
+              after_words: 0,
+            },
+          ],
+          final_word_count: 612,
+          word_limit: 650,
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "write_essay",
+    label: "Drafting an essay",
+    note: "Typed receipt · full draft · no excerpt",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "essay_content",
+        action: "write",
+        outcome: "success",
+        body: {
+          kind: "essay_write",
+          subject: mutationSubject("Why Stanford?"),
+          mode: "drafted",
+          previous_word_count: null,
+          final_word_count: 287,
+          word_limit: 250,
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+
+  // -- Activities ---------------------------------------------------------
+  fixture({
+    group: "Writes",
+    tool: "create_activities",
+    label: "Adding an activity",
+    note: "Typed receipt · batch create · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "activity",
+        action: "create",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("Research Assistant · Stanford AI Lab"),
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "update_activity",
+    label: "Updating an activity",
+    note: "Typed receipt · update · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "activity",
+        action: "update",
+        outcome: "success",
+        body: {
+          kind: "update",
+          subject: mutationSubject("Debate Captain"),
+          changes: [
+            {
+              field_key: "hours_per_week",
+              operation: "replace",
+              before: { kind: "integer", integer: 5 },
+              after: { kind: "integer", integer: 8 },
+            },
+            { field_key: "description", operation: "state_only" },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "archive_activities",
+    label: "Removing an activity",
+    note: "Typed receipt · batch archive · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "activity",
+        action: "archive",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("Robotics Team Lead"),
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "restore_activity",
+    label: "Bringing back an activity",
+    note: "Typed receipt · restore · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "activity",
+        action: "restore",
+        outcome: "success",
+        body: {
+          kind: "state_transition",
+          state: "restored",
+          subjects: [mutationSubject("Robotics Team Lead")],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "reorder_activities",
+    label: "Reordering the activities list",
+    note: "Typed receipt · reorder · authoritative order only",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "activity",
+        action: "reorder",
+        outcome: "success",
+        body: {
+          kind: "reorder",
+          new_order: [
+            mutationSubject("Research Assistant"),
+            mutationSubject("Debate Captain"),
+            mutationSubject("Robotics Team Lead"),
+          ],
+          old_ranks: null,
+          moved_index: null,
+          moved_from_rank: null,
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+
+  // -- Honors ---------------------------------------------------------
+  fixture({
+    group: "Writes",
+    tool: "create_honors",
+    label: "Adding an honor",
+    note: "Typed receipt · batch create · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "honor",
+        action: "create",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("National Physics Olympiad Finalist"),
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "update_honor",
+    label: "Updating an honor",
+    note: "Typed receipt · update · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "honor",
+        action: "update",
+        outcome: "success",
+        body: {
+          kind: "update",
+          subject: mutationSubject("National Physics Olympiad Finalist"),
+          changes: [
+            {
+              field_key: "recognition_level",
+              operation: "replace",
+              before: { kind: "enum", enum: "State" },
+              after: { kind: "enum", enum: "National" },
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "archive_honors",
+    label: "Removing an honor",
+    note: "Typed receipt · batch archive · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "honor",
+        action: "archive",
+        outcome: "success",
+        body: {
+          kind: "batch",
+          items: [
+            {
+              input_index: 0,
+              disposition: "changed",
+              subject: mutationSubject("Regional Debate Champion"),
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "restore_honor",
+    label: "Bringing back an honor",
+    note: "Typed receipt · restore · success",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "honor",
+        action: "restore",
+        outcome: "success",
+        body: {
+          kind: "state_transition",
+          state: "restored",
+          subjects: [mutationSubject("Regional Debate Champion")],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "reorder_honors",
+    label: "Reordering the honors list",
+    note: "Typed receipt · reorder · authoritative order only",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "honor",
+        action: "reorder",
+        outcome: "success",
+        body: {
+          kind: "reorder",
+          new_order: [
+            mutationSubject("National Physics Olympiad Finalist"),
+            mutationSubject("Regional Debate Champion"),
+          ],
+          old_ranks: null,
+          moved_index: null,
+          moved_from_rank: null,
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+
+  // -- Profile ---------------------------------------------------------
+  fixture({
+    group: "Writes",
+    tool: "update_profile",
+    label: "Updating your profile",
+    note: "Typed receipt · section-grouped · exposure-matrix enforced",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "profile",
+        action: "update",
+        outcome: "success",
+        body: {
+          kind: "profile",
+          sections: [
+            {
+              section_key: "testing",
+              section_label: "Testing",
+              changes: [
+                {
+                  field_key: "testing.planned_tests[].test",
+                  operation: "set",
+                  after: { kind: "enum", enum: "SAT" },
+                },
+              ],
+            },
+            {
+              section_key: "circumstances",
+              section_label: "Personal context",
+              changes: [{ field_key: "circumstances.notes", operation: "state_only" }],
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+
+  // -- Memory ---------------------------------------------------------
+  fixture({
+    group: "Writes",
+    tool: "remember",
+    label: "Remembering a preference",
+    note: "Typed receipt · active content shown only on expand",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "memory",
+        action: "remember",
+        outcome: "success",
+        body: {
+          kind: "memory",
+          operation: "remember",
+          note_count: 1,
+          active_notes: [
+            {
+              text: "Prefers urban campuses near public transit.",
+              truncated: false,
+              original_graphemes: null,
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "update_memory",
+    label: "Updating a memory",
+    note: "Typed receipt · new content only, old content never retained",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "memory",
+        action: "update_memory",
+        outcome: "success",
+        body: {
+          kind: "memory",
+          operation: "update_memory",
+          note_count: 1,
+          active_notes: [
+            {
+              text: "Needs strong need-based financial aid.",
+              truncated: false,
+              original_graphemes: null,
+            },
+          ],
+        },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+  fixture({
+    group: "Writes",
+    tool: "forget",
+    label: "Forgetting a memory",
+    note: "Typed receipt · forget never repeats forgotten content",
+    detail: {
+      mutation_contract: 1,
+      mutation: {
+        v: 1,
+        family: "memory",
+        action: "forget",
+        outcome: "success",
+        body: { kind: "memory", operation: "forget", note_count: 1, active_notes: [] },
+        notices: [],
+        omissions: OMISSIONS_ZERO,
+      },
+    },
+  }),
+];
+
 const writeTools = [
   ["create_tasks", "Adding two tasks to the plan"],
   ["update_task", "Updating a task"],
@@ -708,15 +1622,17 @@ const writeTools = [
   ["forget", "Forgetting one memory"],
 ] as const;
 
-const genericWriteFixtures = writeTools.map(([tool, label]) =>
-  fixture({
-    group: "Writes",
-    tool,
-    label,
-    detail: { summary: "Change completed" },
-    note: "Generic mutation",
-  }),
-);
+const genericWriteFixtures = writeTools
+  .filter(([tool]) => !MUTATION_RECEIPT_TOOLS.has(tool))
+  .map(([tool, label]) =>
+    fixture({
+      group: "Writes",
+      tool,
+      label,
+      detail: { summary: "Change completed" },
+      note: "Generic mutation (not yet upgraded to a typed receipt)",
+    }),
+  );
 
 const specializedWriteFixtures: readonly ToolCallFixture[] = [
   fixture({
@@ -792,6 +1708,7 @@ export const TOOL_CALL_FIXTURES = Object.freeze([
   ...workspaceReadFixtures,
   ...otherReadFixtures,
   ...specializedWriteFixtures,
+  ...mutationWriteFixtures,
   ...genericWriteFixtures,
 ]);
 

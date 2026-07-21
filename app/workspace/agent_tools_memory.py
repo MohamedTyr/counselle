@@ -35,6 +35,7 @@ from app.workspace.models import (
     WorkspaceNotFoundError,
     WorkspaceValidationError,
 )
+from app.workspace_mutation_receipts import attach_mutation, memory_receipt
 
 _MEMORY_ID_PREFIX_LENGTH = 8
 _CAPACITY_RECOVERY = (
@@ -172,12 +173,18 @@ async def _remember_impl(ctx: ToolCtx, notes: list[str]) -> dict[str, Any]:
         for memory in created
     ]
     usage = _usage_header(await service_memory.list_memories(ctx.app_pool, user_id=ctx.user_id))
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "summary": f"Remembered {len(rows)} note{'' if len(rows) == 1 else 's'}.",
         "notes": rows,
         "usage": usage,
     }
+    receipt = memory_receipt(
+        operation="remember",
+        note_count=len(created),
+        active_notes=[memory.content for memory in created],
+    )
+    return attach_mutation(payload, receipt)
 
 
 # --------------------------------------------------------------------------
@@ -251,7 +258,7 @@ async def _update_memory_impl(ctx: ToolCtx, memory_ref: str, content: str) -> di
             return _capacity_error()
         return error(message, retryable=True, recovery=_CAPACITY_RECOVERY)
 
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "summary": f'Updated note {str(memory.id)[:_MEMORY_ID_PREFIX_LENGTH]}.',
         "note": {
@@ -259,6 +266,10 @@ async def _update_memory_impl(ctx: ToolCtx, memory_ref: str, content: str) -> di
             "content": memory.content,
         },
     }
+    receipt = memory_receipt(
+        operation="update_memory", note_count=1, active_notes=[memory.content]
+    )
+    return attach_mutation(payload, receipt)
 
 
 # --------------------------------------------------------------------------
@@ -334,4 +345,5 @@ async def _forget_impl(ctx: ToolCtx, memory_refs: list[str]) -> dict[str, Any]:
     }
     if skipped:
         payload["skipped"] = skipped
-    return payload
+    receipt = memory_receipt(operation="forget", note_count=len(forgotten))
+    return attach_mutation(payload, receipt)

@@ -923,6 +923,17 @@
     }
   }
 
+  /* Sources rail: scrollbar stays fully hidden until the pointer is over it
+     or a scroll is in progress, matching the app sidebar's scroll affordance. */
+  .sources-rail-scroll [data-slot="scroll-area-scrollbar"] {
+    opacity: 0;
+  }
+
+  .sources-rail-scroll [data-slot="scroll-area-scrollbar"][data-hovering],
+  .sources-rail-scroll [data-slot="scroll-area-scrollbar"][data-scrolling] {
+    opacity: 1;
+  }
+
   .essay-editor-shell .ProseMirror {
     min-height: 740px;
     outline: none;

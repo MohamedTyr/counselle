@@ -73,8 +73,9 @@ async def update_activity_route(
     user: UserDB = Depends(current_active_user),
 ) -> object:
     app_pool, _, event_bus = runtime_parts(request)
-    return await map_workspace_errors(
-        lambda: update_activity(
+
+    async def _update() -> object:
+        activity, _before = await update_activity(
             app_pool,
             event_bus,
             user_id=user.id,
@@ -82,7 +83,9 @@ async def update_activity_route(
             activity_id=activity_id,
             data=body,
         )
-    )
+        return activity
+
+    return await map_workspace_errors(_update)
 
 
 @router.delete(
@@ -184,8 +187,9 @@ async def update_honor_route(
     user: UserDB = Depends(current_active_user),
 ) -> object:
     app_pool, _, event_bus = runtime_parts(request)
-    return await map_workspace_errors(
-        lambda: update_honor(
+
+    async def _update() -> object:
+        honor, _before = await update_honor(
             app_pool,
             event_bus,
             user_id=user.id,
@@ -193,7 +197,9 @@ async def update_honor_route(
             honor_id=honor_id,
             data=body,
         )
-    )
+        return honor
+
+    return await map_workspace_errors(_update)
 
 
 @router.delete(

@@ -210,6 +210,255 @@ export type StepDetail = {
   next_actions?: string[];
   workspace_items?: WorkspacePreviewItem[];
   error?: string;
+  /** The typed mutation receipt (agent mutation receipts plan §6). Present
+   * only on workspace/memory write steps. */
+  mutation?: unknown;
+  /** Independent capability marker — present on every newly terminalized
+   * write, including synthesized failed/unknown ones. Marker present with a
+   * missing/invalid `mutation` is a CURRENT corrupted receipt (never legacy
+   * fallback); marker absent is pre-feature history (§6.7). */
+  mutation_contract?: 1;
+};
+
+// ---------------------------------------------------------------------------
+// Mutation receipt contract (agent mutation receipts plan §6) — mirrors
+// domain/mutation_receipts.py. `unknown`-typed at the parse boundary; only
+// `parseMutationReceipt` (mutation-receipts/parseMutationReceipt.ts) may
+// widen raw JSON into these types.
+// ---------------------------------------------------------------------------
+
+export type MutationFamily =
+  | "task"
+  | "school"
+  | "essay"
+  | "essay_content"
+  | "activity"
+  | "honor"
+  | "profile"
+  | "memory";
+
+export type MutationAction =
+  | "create"
+  | "update"
+  | "archive"
+  | "restore"
+  | "duplicate"
+  | "reorder"
+  | "edit"
+  | "write"
+  | "remember"
+  | "update_memory"
+  | "forget";
+
+export type MutationOutcome =
+  | "success"
+  | "no_change"
+  | "partial"
+  | "failed"
+  | "unknown";
+
+export type BoundedDisplayText = {
+  text: string;
+  truncated: boolean;
+  original_graphemes?: number | null;
+};
+
+export type MutationSubject = {
+  title: BoundedDisplayText;
+  resource_ref?: string | null;
+};
+
+export type MutationValueKind =
+  | "text"
+  | "enum"
+  | "enum_list"
+  | "text_list"
+  | "reference"
+  | "reference_list"
+  | "date"
+  | "datetime"
+  | "integer"
+  | "decimal"
+  | "boolean"
+  | "count"
+  | "word_budget";
+
+export type MutationValue = {
+  kind: MutationValueKind;
+  text?: BoundedDisplayText | null;
+  enum?: string | null;
+  list_items?: string[] | null;
+  reference?: MutationSubject | null;
+  reference_list?: MutationSubject[] | null;
+  date?: string | null;
+  datetime?: string | null;
+  integer?: number | null;
+  decimal?: string | null;
+  boolean?: boolean | null;
+  count?: number | null;
+  word_budget_used?: number | null;
+  word_budget_limit?: number | null;
+};
+
+export type MutationChangeOperation =
+  | "set"
+  | "clear"
+  | "replace"
+  | "delete"
+  | "move"
+  | "state_only";
+
+export type MutationChange = {
+  field_key: string;
+  operation: MutationChangeOperation;
+  before?: MutationValue | null;
+  after?: MutationValue | null;
+};
+
+export type MutationNotice = {
+  kind: "info" | "warning";
+  code: string;
+  message: BoundedDisplayText;
+};
+
+export type MutationItemDisposition =
+  | "changed"
+  | "unchanged"
+  | "skipped"
+  | "failed"
+  | "not_attempted"
+  | "unknown";
+
+export type MutationItem = {
+  input_index: number;
+  disposition: MutationItemDisposition;
+  subject?: MutationSubject | null;
+  reason?: BoundedDisplayText | null;
+  recovery?: BoundedDisplayText | null;
+};
+
+export type MutationOmissions = {
+  subjects: number;
+  changes: number;
+  item_details: number;
+  notices: number;
+  edit_operations: number;
+};
+
+export type BatchMutationBody = {
+  kind: "batch";
+  items: MutationItem[];
+};
+
+export type UpdateMutationBody = {
+  kind: "update";
+  subject: MutationSubject;
+  changes: MutationChange[];
+};
+
+export type StateTransitionMutationBody = {
+  kind: "state_transition";
+  state: "created" | "restored" | "archived";
+  subjects: MutationSubject[];
+  cascade?: MutationNotice | null;
+};
+
+export type DuplicateMutationBody = {
+  kind: "duplicate";
+  source: MutationSubject;
+  copy: MutationSubject;
+};
+
+export type ReorderMutationBody = {
+  kind: "reorder";
+  new_order: MutationSubject[];
+  old_ranks?: number[] | null;
+  moved_index?: number | null;
+  moved_from_rank?: number | null;
+};
+
+export type EssayEditLocation = {
+  kind: "paragraph_range" | "word_range" | "unavailable";
+  start?: number | null;
+  end?: number | null;
+};
+
+export type EssayEditOperation = {
+  location: EssayEditLocation;
+  operation: "insert" | "delete" | "replace";
+  before_words: number;
+  after_words: number;
+};
+
+export type EssayEditMutationBody = {
+  kind: "essay_edit";
+  subject: MutationSubject;
+  operations: EssayEditOperation[];
+  final_word_count: number;
+  word_limit?: number | null;
+};
+
+export type EssayWriteMutationBody = {
+  kind: "essay_write";
+  subject: MutationSubject;
+  mode: "drafted" | "replaced";
+  previous_word_count?: number | null;
+  final_word_count: number;
+  word_limit?: number | null;
+};
+
+export type ProfileSectionChange = {
+  section_key: string;
+  section_label: string;
+  changes: MutationChange[];
+};
+
+export type ProfileMutationBody = {
+  kind: "profile";
+  sections: ProfileSectionChange[];
+};
+
+export type MemoryMutationBody = {
+  kind: "memory";
+  operation: "remember" | "update_memory" | "forget";
+  note_count: number;
+  active_notes: BoundedDisplayText[];
+};
+
+export type UnresolvedMutationBody = {
+  kind: "unresolved";
+  family: MutationFamily;
+  verification:
+    | "task_list"
+    | "school_list"
+    | "essay_list"
+    | "activity_list"
+    | "honor_list"
+    | "profile"
+    | "memory_list";
+  attempted_count?: number | null;
+};
+
+export type MutationBody =
+  | BatchMutationBody
+  | UpdateMutationBody
+  | StateTransitionMutationBody
+  | DuplicateMutationBody
+  | ReorderMutationBody
+  | EssayEditMutationBody
+  | EssayWriteMutationBody
+  | ProfileMutationBody
+  | MemoryMutationBody
+  | UnresolvedMutationBody;
+
+export type WorkspaceMutationReceipt = {
+  v: 1;
+  family: MutationFamily;
+  action: MutationAction;
+  outcome: MutationOutcome;
+  body: MutationBody;
+  notices: MutationNotice[];
+  omissions: MutationOmissions;
 };
 
 export type StepSource = {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Literal, overload
 from uuid import UUID
 
 import asyncpg
@@ -179,6 +180,7 @@ async def add_application(
     return ApplicationAddResult(application=application)
 
 
+@overload
 async def update_application(
     app_pool: asyncpg.Pool,
     catalog: Catalog,
@@ -188,7 +190,51 @@ async def update_application(
     actor: Actor,
     application_id: UUID,
     data: ApplicationPatch,
-) -> ApplicationView:
+) -> ApplicationView: ...
+
+
+@overload
+async def update_application(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    application_id: UUID,
+    data: ApplicationPatch,
+    with_before: Literal[True],
+) -> tuple[ApplicationView, ApplicationView]: ...
+
+
+async def update_application(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    application_id: UUID,
+    data: ApplicationPatch,
+    with_before: bool = False,
+) -> ApplicationView | tuple[ApplicationView, ApplicationView]:
+    """Apply ``data`` to the application; with ``with_before=True`` also
+    returns the pre-update view (agent mutation receipts plan §7.3) so the
+    tool layer can diff typed fields. The one blast-radius tradeoff versus
+    ``service_tasks.update_task``'s always-tuple return: this function has
+    many unrelated callers (HTTP route, live service tests), so the before
+    snapshot is opt-in via a keyword-only flag rather than changing every
+    caller's unpacking. The snapshot read happens immediately before the
+    locked update transaction begins — a best-effort, not lock-protected,
+    ordering (a concurrent edit in that narrow window is unlikely for a
+    single-actor agent tool call and not the atomicity property this receipt
+    depends on; the receipt's own item-level accounting is unaffected).
+    """
+    before = (
+        await _application_view_by_id(app_pool, catalog, user_id, application_id)
+        if with_before
+        else None
+    )
     values = data.model_dump(exclude_unset=True)
     checklist_patch = values.pop("checklist", None)
     checklist_upserts = {
@@ -196,7 +242,8 @@ async def update_application(
     }
     checklist_deletes = [key for key, value in (checklist_patch or {}).items() if value is None]
     if not values and checklist_patch is None:
-        return await _application_view_by_id(app_pool, catalog, user_id, application_id)
+        after = await _application_view_by_id(app_pool, catalog, user_id, application_id)
+        return (after, before) if with_before and before is not None else after
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
         current = await _require_active_application(conn, user_id, application_id)
@@ -284,7 +331,8 @@ async def update_application(
             )
         )
     publish_events(event_bus, user_id, events)
-    return await _application_view_by_id(app_pool, catalog, user_id, application_id)
+    after = await _application_view_by_id(app_pool, catalog, user_id, application_id)
+    return (after, before) if with_before and before is not None else after
 
 
 async def archive_application(

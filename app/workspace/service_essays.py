@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal, overload
 from uuid import UUID
 
 import asyncpg
@@ -53,6 +53,20 @@ LEFT JOIN counselle.applications a
   ON a.id = e.application_id AND a.user_id = e.user_id
 LEFT JOIN counselle.school_essay_prompts p ON p.id = e.prompt_ref
 WHERE e.user_id = $1 AND e.archived_at IS NULL AND e.id = $2
+"""
+
+_ESSAY_GET_BATCH_SQL = """
+SELECT e.*, a.school_unitid,
+       CASE WHEN e.prompt_ref IS NOT NULL THEN p.prompt ELSE e.prompt END AS prompt,
+       CASE WHEN e.prompt_ref IS NOT NULL THEN p.word_limit ELSE e.word_limit END AS word_limit,
+       COALESCE(e.deadline, a.deadline) AS deadline,
+       jsonb_array_length(e.comments) AS comment_count,
+       jsonb_array_length(e.suggestions) AS suggestion_count
+FROM counselle.essays e
+LEFT JOIN counselle.applications a
+  ON a.id = e.application_id AND a.user_id = e.user_id
+LEFT JOIN counselle.school_essay_prompts p ON p.id = e.prompt_ref
+WHERE e.user_id = $1 AND e.id = ANY($2::uuid[])
 """
 
 
@@ -123,6 +137,67 @@ async def create_essay(
     return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
 
 
+async def create_essays_batch(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    drafts: list[EssayCreate],
+) -> list[Essay]:
+    """Create every draft in one service transaction — true all-or-nothing
+    (agent mutation receipts plan §7.2): any draft's validation/insert
+    failure rolls back every insert in the batch, unlike looping
+    ``create_essay`` (one transaction per call), which left earlier
+    successful creates committed on a later failure.
+    """
+    events: list[ChangeEvent] = []
+    rows: list[asyncpg.Record] = []
+    try:
+        async with app_pool.acquire() as conn, conn.transaction():
+            for data in drafts:
+                await _validate_application(conn, user_id, data.application_id)
+                prompt_row = await _validate_prompt_link(
+                    conn, user_id, data.application_id, data.prompt_ref
+                )
+                prompt = None if prompt_row is not None else data.prompt
+                word_limit = None if prompt_row is not None else data.word_limit
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO counselle.essays
+                      (user_id, application_id, prompt_ref, title, essay_type, status, prompt,
+                       content, word_count, word_limit)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    RETURNING *
+                    """,
+                    user_id,
+                    data.application_id,
+                    data.prompt_ref,
+                    data.title,
+                    data.essay_type,
+                    data.status,
+                    prompt,
+                    data.content,
+                    _word_count(data.content),
+                    word_limit,
+                )
+                rows.append(row)
+                essay = Essay.model_validate(dict(row))
+                events.append(await _record_essay_change(conn, user_id, actor, essay, "created"))
+    except asyncpg.UniqueViolationError as exc:
+        raise WorkspaceValidationError(
+            "this application already has an active essay linked to that prompt"
+        ) from exc
+    publish_events(event_bus, user_id, events)
+    ids = [row["id"] for row in rows]
+    async with app_pool.acquire() as conn:
+        enriched_rows = await conn.fetch(_ESSAY_GET_BATCH_SQL, user_id, ids)
+    by_id = {row["id"]: row for row in enriched_rows}
+    return await _essays_from_rows(catalog, [by_id[essay_id] for essay_id in ids])
+
+
+@overload
 async def update_essay(
     app_pool: asyncpg.Pool,
     catalog: Catalog,
@@ -132,7 +207,42 @@ async def update_essay(
     actor: Actor,
     essay_id: UUID,
     data: EssayPatch,
-) -> Essay:
+) -> Essay: ...
+
+
+@overload
+async def update_essay(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    essay_id: UUID,
+    data: EssayPatch,
+    with_before: Literal[True],
+) -> tuple[Essay, Essay]: ...
+
+
+async def update_essay(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    essay_id: UUID,
+    data: EssayPatch,
+    with_before: bool = False,
+) -> Essay | tuple[Essay, Essay]:
+    """Apply ``data`` to the essay; with ``with_before=True`` also returns the
+    pre-update view (agent mutation receipts plan §7.3) so the tool layer can
+    diff typed fields. Opt-in (like ``update_application``'s ``with_before``)
+    rather than an always-tuple return, since this function has several
+    unrelated callers (HTTP route, ``edit_essay``/``write_essay`` content
+    writes, live test suites). The snapshot is the same transaction-locked
+    ``current`` row already read before the update — no second racy read.
+    """
     values = data.model_dump(exclude_unset=True)
     expected_updated_at = values.pop("expected_updated_at", None)
     if "content" in values:
@@ -146,6 +256,7 @@ async def update_essay(
             if application_id is not None:
                 await _validate_application(conn, user_id, application_id)
             current = await _require_essay(conn, user_id, essay_id, for_update=True)
+            before = Essay.model_validate(dict(current))
             if _essay_link_identity(current) != _essay_link_identity(snapshot):
                 raise WorkspaceValidationError(
                     "essay links changed concurrently; refresh and retry"
@@ -190,7 +301,8 @@ async def update_essay(
             "this application already has an active essay linked to that prompt"
         ) from exc
     publish_events(event_bus, user_id, events)
-    return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
+    after = await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
+    return (after, before) if with_before else after
 
 
 async def duplicate_essay(
@@ -237,7 +349,9 @@ async def archive_essay(
     user_id: UUID,
     actor: Actor,
     essay_id: UUID,
-) -> None:
+) -> Essay:
+    """Returns the archived essay (transaction-authoritative identity) — the
+    mutation-receipt seam needs the title without a second, racy read."""
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
         row = await conn.fetchrow(
@@ -255,6 +369,7 @@ async def archive_essay(
         essay = Essay.model_validate(dict(row))
         events.append(await _record_essay_change(conn, user_id, actor, essay, "archived"))
     publish_events(event_bus, user_id, events)
+    return essay
 
 
 async def restore_essay(

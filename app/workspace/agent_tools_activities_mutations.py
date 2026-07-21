@@ -46,6 +46,22 @@ from app.workspace.models import (
     WorkspaceNotFoundError,
     WorkspaceValidationError,
 )
+from app.workspace_mutation_receipts import (
+    attach_mutation,
+    batch_item,
+    batch_receipt,
+    boolean_value,
+    change,
+    enum_value,
+    integer_value,
+    reorder_receipt,
+    state_transition_receipt,
+    subject,
+    text_list_value,
+    text_value,
+    update_receipt,
+)
+from domain.mutation_receipts import MutationChange
 
 _CLEARABLE = "clear"
 _REORDER_RECOVERY = (
@@ -194,6 +210,13 @@ async def _create_activities_impl(
     }
     if warning := _activity_warning(created):
         payload["warning"] = warning
+    items = [
+        batch_item(index, "changed", item_subject=subject(activity.position, activity.id))
+        for index, activity in enumerate(created)
+    ]
+    payload = attach_mutation(
+        payload, batch_receipt(family="activity", action="create", items=items)
+    )
     return payload
 
 
@@ -276,7 +299,7 @@ async def _update_activity_impl(ctx: ToolCtx, activity_id: str, **fields: Any) -
             patch[key] = None if value == _CLEARABLE else value
 
     try:
-        activity = await service_activities.update_activity(
+        activity, before = await service_activities.update_activity(
             ctx.app_pool,
             ctx.workspace_events,
             user_id=ctx.user_id,
@@ -295,7 +318,103 @@ async def _update_activity_impl(ctx: ToolCtx, activity_id: str, **fields: Any) -
     }
     if warning := _activity_warning([activity]):
         payload["warning"] = warning
+    activity_changes = _activity_changes(before, patch)
+    if activity_changes:
+        receipt = update_receipt(
+            family="activity",
+            action="update",
+            update_subject=subject(activity.position, activity.id),
+            changes=activity_changes,
+        )
+        payload = attach_mutation(payload, receipt)
     return payload
+
+
+_RECEIPT_FIELD_KEY = {
+    "activity_type": "type",
+    "position": "position",
+    "organization": "organization",
+    "grades": "grades",
+    "timing": "timing",
+    "hours_per_week": "hours_per_week",
+    "weeks_per_year": "weeks_per_year",
+    "continue_in_college": "continuation",
+    "description": "description",
+    "story": "story",
+}
+
+
+def _activity_changes(before: Activity, patch: dict[str, Any]) -> list[MutationChange]:
+    """Typed field changes for the exposure-matrix-allowed activity fields.
+
+    ``description`` and ``story`` are ``changed_only`` (§8.2) — never their
+    text content, only that they changed or were cleared.
+    """
+    changes: list[MutationChange] = []
+    for key, field_key in _RECEIPT_FIELD_KEY.items():
+        if key not in patch:
+            continue
+        value = patch[key]
+        if key in ("description", "story"):
+            changes.append(change(field_key, "clear" if value is None else "state_only"))
+        elif key == "activity_type":
+            changes.append(
+                change(
+                    field_key,
+                    "replace",
+                    before=enum_value(before.activity_type),
+                    after=enum_value(value),
+                )
+            )
+        elif key in ("position", "organization"):
+            changes.append(
+                change(
+                    field_key,
+                    "replace",
+                    before=text_value(getattr(before, key)),
+                    after=text_value(value),
+                )
+            )
+        elif key in ("grades", "timing"):
+            changes.append(
+                change(
+                    field_key,
+                    "replace",
+                    before=text_list_value(list(getattr(before, key))),
+                    after=text_list_value(list(value)),
+                )
+            )
+        elif key in ("hours_per_week", "weeks_per_year"):
+            before_value = getattr(before, key)
+            if value is None:
+                changes.append(change(field_key, "clear"))
+            elif before_value is None:
+                changes.append(change(field_key, "set", after=integer_value(value)))
+            else:
+                changes.append(
+                    change(
+                        field_key,
+                        "replace",
+                        before=integer_value(before_value),
+                        after=integer_value(value),
+                    )
+                )
+        else:  # continue_in_college
+            before_value = before.continue_in_college
+            if value is None:
+                changes.append(change(field_key, "clear"))
+            elif before_value is None:
+                changes.append(change(field_key, "set", after=boolean_value(value)))
+            else:
+                changes.append(
+                    change(
+                        field_key,
+                        "replace",
+                        before=boolean_value(before_value),
+                        after=boolean_value(value),
+                    )
+                )
+    return changes
 
 
 async def _activity_rank(ctx: ToolCtx, activity_id: UUID) -> int:
@@ -330,12 +449,18 @@ async def _archive_activities_impl(ctx: ToolCtx, activity_ids: list[str]) -> dic
     if not (BATCH_MIN <= len(activity_ids) <= BATCH_MAX):
         return batch_size_error("archive_activities", len(activity_ids))
 
+    active_positions = {
+        str(activity.id): activity.position
+        for activity in await service_activities.list_activities(ctx.app_pool, user_id=ctx.user_id)
+    }
     archived: list[str] = []
     skipped: list[dict[str, str]] = []
-    for raw_id in activity_ids:
+    items = []
+    for index, raw_id in enumerate(activity_ids):
         parsed_id = try_uuid(raw_id)
         if parsed_id is None:
             skipped.append({"id": raw_id, "reason": "not a valid activity id"})
+            items.append(batch_item(index, "skipped", reason="not a valid activity id"))
             continue
         try:
             await service_activities.archive_activity(
@@ -346,8 +471,16 @@ async def _archive_activities_impl(ctx: ToolCtx, activity_ids: list[str]) -> dic
                 activity_id=parsed_id,
             )
             archived.append(raw_id)
+            items.append(
+                batch_item(
+                    index,
+                    "changed",
+                    item_subject=subject(active_positions.get(raw_id, "Activity"), raw_id),
+                )
+            )
         except WorkspaceNotFoundError:
             skipped.append({"id": raw_id, "reason": "no active activity with this id"})
+            items.append(batch_item(index, "skipped", reason="no active activity with this id"))
 
     if not archived and len(activity_ids) == 1:
         return stale_activity_error(activity_ids[0])
@@ -367,6 +500,9 @@ async def _archive_activities_impl(ctx: ToolCtx, activity_ids: list[str]) -> dic
     }
     if skipped:
         payload["skipped"] = skipped
+    payload = attach_mutation(
+        payload, batch_receipt(family="activity", action="archive", items=items)
+    )
     return payload
 
 
@@ -428,12 +564,19 @@ async def _restore_activity_impl(ctx: ToolCtx, activity_id: str) -> dict[str, An
 
     ordered = await service_activities.list_activities(ctx.app_pool, user_id=ctx.user_id)
     rank = next(index for index, item in enumerate(ordered, start=1) if item.id == activity.id)
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f'Restored "{activity.position}" at rank {rank}.',
         "activity": render_activity_row(activity, rank=rank),
     }
+    receipt = state_transition_receipt(
+        family="activity",
+        action="restore",
+        state="restored",
+        subjects=[subject(activity.position, activity.id)],
+    )
+    return attach_mutation(payload, receipt)
 
 
 # --------------------------------------------------------------------------
@@ -468,16 +611,17 @@ async def _reorder_activities_impl(ctx: ToolCtx, ids: list[str]) -> dict[str, An
             )
         parsed_ids.append(parsed_id)
     try:
-        activities = await service_activities.reorder_activities(
+        activities, old_ranks_by_id = await service_activities.reorder_activities(
             ctx.app_pool,
             ctx.workspace_events,
             user_id=ctx.user_id,
             actor="counselle",
             ids=parsed_ids,
+            with_old_ranks=True,
         )
     except (WorkspaceNotFoundError, WorkspaceValidationError):
         return error(_REORDER_RECOVERY, retryable=True, recovery=_REORDER_RECOVERY)
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f"Reordered {len(activities)} activit{'y' if len(activities) == 1 else 'ies'}.",
@@ -487,3 +631,21 @@ async def _reorder_activities_impl(ctx: ToolCtx, ids: list[str]) -> dict[str, An
         ],
         "footer": "Rank is Common App importance order: 1 is the headline activity.",
     }
+    # `activities` is already in the requested new order (§7.3); old_ranks and
+    # the first moved position are authoritative from the same locked
+    # reorder transaction — never inferred.
+    new_order = [subject(activity.position, activity.id) for activity in activities]
+    old_ranks = [old_ranks_by_id[activity.id] for activity in activities]
+    moved_index = next(
+        (i for i, old_rank in enumerate(old_ranks) if old_rank != i + 1), None
+    )
+    return attach_mutation(
+        payload,
+        reorder_receipt(
+            family="activity",
+            new_order=new_order,
+            old_ranks=old_ranks,
+            moved_index=moved_index,
+            moved_from_rank=old_ranks[moved_index] if moved_index is not None else None,
+        ),
+    )

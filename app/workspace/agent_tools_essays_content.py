@@ -10,8 +10,9 @@ typing right now.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 from pydantic_ai import Tool
@@ -27,8 +28,16 @@ from app.workspace.agent_tools_shared import (
     today,
     try_uuid,
 )
-from app.workspace.models import EssayPatch, WorkspaceNotFoundError, WorkspaceValidationError
+from app.workspace.models import Essay, EssayPatch, WorkspaceNotFoundError, WorkspaceValidationError
 from app.workspace.service_essays import get_essay, update_essay
+from app.workspace_mutation_receipts import (
+    attach_mutation,
+    essay_edit_operation,
+    essay_edit_receipt,
+    essay_write_receipt,
+    subject,
+)
+from domain.mutation_receipts import WorkspaceMutationReceipt
 
 _EDIT_BATCH_MIN = 1
 _EDIT_BATCH_MAX = 20
@@ -53,6 +62,8 @@ async def _apply_content_write(
     essay_id: str,
     expected_version: str,
     new_content: dict[str, Any],
+    *,
+    build_mutation: Callable[[Essay], WorkspaceMutationReceipt] | None = None,
 ) -> dict[str, Any]:
     parsed_id = try_uuid(essay_id)
     if parsed_id is None:
@@ -82,6 +93,8 @@ async def _apply_content_write(
         "words": words_display(essay.word_count, essay.word_limit),
         "version": essay.updated_at.isoformat(),
     }
+    if build_mutation is not None:
+        payload = attach_mutation(payload, build_mutation(essay))
     if essay.word_limit is not None and essay.word_count > essay.word_limit:
         payload["warning"] = (
             f"Over the word limit: {essay.word_count}/{essay.word_limit}. Consider cutting "
@@ -172,7 +185,31 @@ async def _edit_essay_impl(
             recovery=recovery,
         )
 
-    payload = await _apply_content_write(ctx, essay_id, expected_version, result.new_doc)
+    def _build_edit_mutation(post_write: Essay) -> WorkspaceMutationReceipt:
+        # Authoritative word deltas come from the exact substituted text of
+        # each applied edit — never a guess. No essay prose rides the
+        # receipt: only structural word counts (plan §6.1/§9.4). Paragraph/
+        # word locations aren't tracked per-edit by `apply_edits` today, so
+        # each operation falls back to `EssayEditLocation(kind="unavailable")`
+        # rather than inventing one.
+        operations = [
+            essay_edit_operation(
+                kind="delete" if edit.new_text == "" else "replace",
+                before_words=len(edit.old_text.split()),
+                after_words=len(edit.new_text.split()),
+            )
+            for edit in edits
+        ]
+        return essay_edit_receipt(
+            essay_subject=subject(post_write.title, post_write.id),
+            operations=operations,
+            final_word_count=post_write.word_count,
+            word_limit=post_write.word_limit,
+        )
+
+    payload = await _apply_content_write(
+        ctx, essay_id, expected_version, result.new_doc, build_mutation=_build_edit_mutation
+    )
     if payload.get("status") == "ok":
         payload["summary"] = f"Applied {result.applied} edit{'s' if result.applied != 1 else ''}."
     return payload
@@ -216,8 +253,28 @@ async def _write_essay_impl(
             recovery="If the student wants the essay gone, use archive_essays instead.",
         )
 
+    parsed_id = try_uuid(essay_id)
+    if parsed_id is None:
+        return stale_essay_error(essay_id)
+    try:
+        before = await get_essay(ctx.app_pool, ctx.catalog, user_id=ctx.user_id, essay_id=parsed_id)
+    except WorkspaceNotFoundError:
+        return stale_essay_error(essay_id)
+    mode: Literal["drafted", "replaced"] = "drafted" if before.word_count == 0 else "replaced"
+
+    def _build_write_mutation(post_write: Essay) -> WorkspaceMutationReceipt:
+        return essay_write_receipt(
+            essay_subject=subject(post_write.title, post_write.id),
+            mode=mode,
+            previous_word_count=before.word_count,
+            final_word_count=post_write.word_count,
+            word_limit=post_write.word_limit,
+        )
+
     new_content = essay_markdown.to_tiptap(content_markdown)
-    payload = await _apply_content_write(ctx, essay_id, expected_version, new_content)
+    payload = await _apply_content_write(
+        ctx, essay_id, expected_version, new_content, build_mutation=_build_write_mutation
+    )
     if payload.get("status") == "ok":
         payload["summary"] = "Replaced the essay's content."
     return payload

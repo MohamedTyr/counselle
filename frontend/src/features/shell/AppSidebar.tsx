@@ -38,7 +38,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar className="border-r-0!" collapsible="icon" variant="sidebar">
       <div
         className={cn(
           "flex h-full min-h-0 flex-col gap-4 py-[var(--shell-sidebar-inset-block)]",

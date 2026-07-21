@@ -875,7 +875,7 @@ async def test_activity_lifecycle_cap_and_ownership(
             data=ActivityPatch(position="Nope"),
         )
 
-    updated = await update_activity(
+    updated, _updated_before = await update_activity(
         app_pool,
         WorkspaceEventBus(),
         user_id=user_id,
@@ -975,7 +975,7 @@ async def test_honor_lifecycle_cap_and_ownership(
             honor_id=first.id,
         )
 
-    updated = await update_honor(
+    updated, _updated_before = await update_honor(
         app_pool,
         WorkspaceEventBus(),
         user_id=user_id,

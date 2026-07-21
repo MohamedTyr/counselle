@@ -38,6 +38,7 @@ import { isWorkspaceReadTool } from "./workspace-read-tools";
 import { WorkspaceReadWidget } from "./WorkspaceReadWidget";
 import { isWriteTool } from "./write-tools";
 import { WriteToolWidget } from "./WriteToolWidget";
+import { MutationReceiptRenderer } from "./mutation-receipts/MutationReceiptRenderer";
 
 type ToolWidgetProps = {
   isLiveSegment?: boolean;
@@ -378,6 +379,15 @@ export function ToolStepBeat({ isLiveSegment = false, step }: ToolWidgetProps) {
   }
 
   if (isWriteTool(step.tool)) {
+    // Routing priority (plan §11.1): a pending (start) write keeps the
+    // existing presentation; a terminal write with the mutation-contract
+    // marker routes to the typed receipt (which itself synthesizes a safe
+    // "unknown" row if the nested mutation is missing/invalid — §6.7);
+    // marker-absent terminal steps are pre-feature history and keep the
+    // legacy fallback.
+    if (step.status !== "start" && step.detail?.mutation_contract === 1) {
+      return <MutationReceiptRenderer isLiveSegment={isLiveSegment} step={step} />;
+    }
     return <WriteToolWidget isLiveSegment={isLiveSegment} step={step} />;
   }
 

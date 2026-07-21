@@ -10,6 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from domain.envelope import Citation, EvidenceItem
+from domain.mutation_receipts import WorkspaceMutationReceipt
 from domain.specs import ClarifySpec, ParsedRenderSpec
 
 PROTOCOL_VERSION = 1
@@ -134,6 +135,14 @@ class StepDetail(BaseModel):
     next_actions: list[str] | None = None
     workspace_items: list[WorkspacePreviewItem] | None = None
     error: str | None = None
+    #: The typed mutation receipt (agent mutation receipts plan §6). ``None``
+    #: for non-mutation steps and for pre-feature historical steps.
+    mutation: WorkspaceMutationReceipt | None = None
+    #: Independent capability marker on every newly terminalized write,
+    #: including synthesized failed/unknown writes (§6.7). Distinguishes a
+    #: current corrupted receipt (marker present, mutation missing/invalid)
+    #: from pre-feature history (marker absent) — never conflate the two.
+    mutation_contract: Literal[1] | None = None
 
 
 class StepSource(BaseModel):
@@ -301,7 +310,11 @@ def ev_delta(text: str) -> Event:
 
 
 def ev_step(step: StepData) -> Event:
-    data = step.model_dump()
+    # by_alias=True: WorkspaceMutationReceipt.body's DuplicateMutationBody uses
+    # a Python-side ``copy_subject`` attribute (BaseModel.copy shadow) that
+    # must still serialize on the wire as ``copy`` per the mutation contract
+    # (§6.1). No other field in this tree has an alias, so this is safe.
+    data = step.model_dump(by_alias=True)
     if data["tool"] is None:
         # Additive v1 field: historical/manual events may omit identity.
         del data["tool"]

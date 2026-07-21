@@ -73,8 +73,9 @@ async def update_task_route(
     user: UserDB = Depends(current_active_user),
 ) -> object:
     app_pool, _, event_bus = runtime_parts(request)
-    return await map_workspace_errors(
-        lambda: update_task(
+
+    async def _update() -> object:
+        task, _before = await update_task(
             app_pool,
             event_bus,
             user_id=user.id,
@@ -82,7 +83,9 @@ async def update_task_route(
             task_id=task_id,
             data=body,
         )
-    )
+        return task
+
+    return await map_workspace_errors(_update)
 
 
 @router.delete(

@@ -43,6 +43,19 @@ from app.workspace.service_applications import (
     restore_application,
     update_application,
 )
+from app.workspace_mutation_receipts import (
+    attach_mutation,
+    batch_item,
+    batch_receipt,
+    change,
+    date_value,
+    enum_value,
+    state_transition_receipt,
+    subject,
+    text_value,
+    update_receipt,
+)
+from domain.mutation_receipts import MutationChange
 
 #: Valid ``test_plan`` values. Typed as ``str`` (not the ``TestPlan`` Literal) on
 #: the tool signature so the ``"clear"`` sentinel survives schema validation and
@@ -110,7 +123,8 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
 
     added: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
-    for draft in drafts:
+    items = []
+    for index, draft in enumerate(drafts):
         deadline = validate_date_only(draft.deadline, "deadline")[0] if draft.deadline else None
         try:
             result = await add_application(
@@ -129,7 +143,9 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
             )
         except WorkspaceValidationError as exc:
             name = ctx.catalog.school_name(draft.unitid) or f"unitid {draft.unitid}"
-            skipped.append({"school": name, "reason": str(exc)})
+            reason = str(exc)
+            skipped.append({"school": name, "reason": reason})
+            items.append(batch_item(index, "skipped", reason=reason))
             continue
         app = result.application
         added.append(
@@ -139,6 +155,7 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
                 "cycle_year": app.cycle_year,
             }
         )
+        items.append(batch_item(index, "changed", item_subject=subject(app.school_name, app.id)))
 
     if not added:
         return error(
@@ -163,6 +180,9 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
     }
     if skipped:
         payload["skipped"] = skipped
+    payload = attach_mutation(
+        payload, batch_receipt(family="school", action="create", items=items)
+    )
     return payload
 
 
@@ -275,6 +295,62 @@ def _change_summary(name: str, patch: dict[str, Any]) -> str:
     return f"Updated {name} — " + ", ".join(parts) + "."
 
 
+_SCHOOL_ENUM_FIELDS = (
+    ("status", "application_status"),
+    ("list_type", "list_type"),
+    ("round", "round"),
+)
+_SCHOOL_DATE_FIELDS = ("deadline", "aid_deadline", "scholarship_deadline")
+
+
+def _school_changes(before: ApplicationView, patch: dict[str, Any]) -> list[MutationChange]:
+    changes: list[MutationChange] = []
+    for patch_key, field_key in _SCHOOL_ENUM_FIELDS:
+        if patch_key in patch:
+            changes.append(
+                change(
+                    field_key,
+                    "replace",
+                    before=enum_value(str(getattr(before, patch_key))),
+                    after=enum_value(str(patch[patch_key])),
+                )
+            )
+    for field_key in _SCHOOL_DATE_FIELDS:
+        if field_key in patch:
+            after_raw = patch[field_key]
+            before_raw = getattr(before, field_key)
+            if after_raw is None:
+                changes.append(change(field_key, "clear"))
+            elif before_raw is None:
+                changes.append(change(field_key, "set", after=date_value(str(after_raw))))
+            else:
+                changes.append(
+                    change(
+                        field_key,
+                        "replace",
+                        before=date_value(str(before_raw)),
+                        after=date_value(str(after_raw)),
+                    )
+                )
+    if "test_plan" in patch:
+        after_value = patch["test_plan"]
+        changes.append(
+            change("test_plan", "clear")
+            if after_value is None
+            else change("test_plan", "set", after=enum_value(str(after_value)))
+        )
+    if "intended_major" in patch:
+        after_value = patch["intended_major"]
+        changes.append(
+            change("intended_major", "clear")
+            if after_value is None
+            else change("intended_major", "set", after=text_value(str(after_value)))
+        )
+    if "notes" in patch:
+        changes.append(change("notes", "clear" if patch["notes"] is None else "state_only"))
+    return changes
+
+
 async def _update_school_impl(ctx: ToolCtx, application_id: str, **fields: Any) -> dict[str, Any]:
     parsed_id = try_uuid(application_id)
     if parsed_id is None:
@@ -291,7 +367,7 @@ async def _update_school_impl(ctx: ToolCtx, application_id: str, **fields: Any) 
         )
 
     try:
-        app: ApplicationView = await update_application(
+        app, before = await update_application(
             ctx.app_pool,
             ctx.catalog,
             ctx.workspace_events,
@@ -299,15 +375,26 @@ async def _update_school_impl(ctx: ToolCtx, application_id: str, **fields: Any) 
             actor="counselle",
             application_id=parsed_id,
             data=ApplicationPatch(**patch_kwargs),
+            with_before=True,
         )
     except WorkspaceNotFoundError:
         return stale_school_error(application_id)
 
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "summary": _change_summary(app.school_name, patch_kwargs),
         "school": render_school_row(app),
     }
+    school_changes = _school_changes(before, patch_kwargs)
+    if school_changes:
+        receipt = update_receipt(
+            family="school",
+            action="update",
+            update_subject=subject(app.school_name, app.id),
+            changes=school_changes,
+        )
+        payload = attach_mutation(payload, receipt)
+    return payload
 
 
 # --------------------------------------------------------------------------
@@ -421,6 +508,26 @@ async def _archive_schools_impl(ctx: ToolCtx, application_ids: list[str]) -> dic
     }
     if skipped:
         payload["skipped"] = skipped
+    skipped_by_id = {row["id"]: row["reason"] for row in skipped}
+    archived_ids = {row["id"] for row in archived}
+    archived_school_by_id = {row["id"]: row["school"] for row in archived}
+    items = [
+        batch_item(
+            index,
+            "changed",
+            item_subject=subject(archived_school_by_id[raw_id], parsed[raw_id]),
+        )
+        if raw_id in archived_ids
+        else batch_item(
+            index,
+            "skipped",
+            reason=skipped_by_id.get(raw_id, "not found or already archived"),
+        )
+        for index, raw_id in enumerate(application_ids)
+    ]
+    payload = attach_mutation(
+        payload, batch_receipt(family="school", action="archive", items=items)
+    )
     return payload
 
 
@@ -490,7 +597,14 @@ async def _restore_school_impl(ctx: ToolCtx, application_id: str) -> dict[str, A
     except WorkspaceNotFoundError:
         return stale_school_error(application_id)
 
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "summary": f"Restored {name} to the student's list, with its tasks and essays.",
     }
+    receipt = state_transition_receipt(
+        family="school",
+        action="restore",
+        state="restored",
+        subjects=[subject(name, parsed_id)],
+    )
+    return attach_mutation(payload, receipt)

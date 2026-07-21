@@ -1,4 +1,4 @@
-import { GlobeIcon, SchoolIcon } from "lucide-react";
+import { ExternalLinkIcon, GlobeIcon, SchoolIcon } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { defaultRemarkPlugins } from "streamdown";
@@ -95,6 +95,32 @@ function ChipIcon({
   );
 }
 
+/** The page path (not the full URL) a source link shows below the fold —
+ * the domain is already the chip's title, so repeating it here would just
+ * be the same text read a third time. Falls back to the hostname only when
+ * the URL has no meaningful path (e.g. a bare homepage link). */
+function SourceLink({ href }: { href: string }) {
+  let display = href;
+  try {
+    const url = new URL(href);
+    const path = `${url.pathname}${url.search}`.replace(/\/+$/, "");
+    display = path.length > 0 ? path : url.hostname;
+  } catch {
+    display = href;
+  }
+  return (
+    <a
+      className="flex min-w-0 items-center gap-1 text-muted-foreground transition-colors hover:text-primary hover:underline"
+      href={href}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0" />
+      <span className="truncate">{display}</span>
+    </a>
+  );
+}
+
 function ChipBody({
   entry,
   label,
@@ -105,18 +131,11 @@ function ChipBody({
   if (isLegacySourceEntry(entry)) {
     const href = safeExternalUrl(entry.citation.url);
     return (
-      <div className="flex flex-col gap-1 p-3 text-xs">
-        <div className="font-medium text-foreground">{label}</div>
-        {href !== undefined && (
-          <a
-            className="block truncate text-primary underline"
-            href={href}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {href}
-          </a>
-        )}
+      <div className="flex flex-col gap-2 p-3 text-xs">
+        <div className="font-medium text-foreground leading-snug">
+          {label}
+        </div>
+        {href !== undefined && <SourceLink href={href} />}
       </div>
     );
   }
@@ -126,29 +145,31 @@ function ChipBody({
   const year = citationYearLabel(citation);
   const href = isDb ? undefined : safeExternalUrl(citation.url);
   const host = isDb ? undefined : hostOf(citation);
+  // The header already shows `label` (the domain, for web/edu sources) — only
+  // surface the host again when it says something the label didn't, e.g. a
+  // Reddit chip labeled "r/CollegeAdmissions" whose host is "reddit.com".
+  const metaLine = [host !== label ? host : undefined, year]
+    .filter((value): value is string => value !== undefined && value !== null)
+    .join(" · ");
 
   return (
-    <div className="flex flex-col gap-1 p-3 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-foreground">{label}</span>
+    <div className="flex flex-col gap-2 p-3 text-xs">
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-medium text-foreground leading-snug">
+          {label}
+        </span>
         <TierBadge citation={citation} />
       </div>
-      {host !== undefined && host !== null && (
-        <p className="text-muted-foreground">{host}</p>
-      )}
-      {year !== undefined && <p className="text-muted-foreground">{year}</p>}
+      {metaLine !== "" && <p className="text-muted-foreground">{metaLine}</p>}
       {entry.snippet !== undefined && entry.snippet !== null && (
-        <p className="text-muted-foreground">{entry.snippet}</p>
+        <p className="line-clamp-4 text-muted-foreground leading-relaxed">
+          {entry.snippet}
+        </p>
       )}
       {href !== undefined && (
-        <a
-          className="block truncate text-primary underline"
-          href={href}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {href}
-        </a>
+        <div className="-mx-3 -mb-3 border-t px-3 py-2">
+          <SourceLink href={href} />
+        </div>
       )}
     </div>
   );

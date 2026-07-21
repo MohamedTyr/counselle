@@ -23,6 +23,7 @@ from app.workspace.agent_tools_shared import (
     EssayDraft,
     ToolCtx,
     active_workspace_links,
+    application_name,
     batch_size_error,
     error,
     link_targets,
@@ -46,13 +47,30 @@ from app.workspace.service_essays import (
     archive_essay as _archive_essay_service,
 )
 from app.workspace.service_essays import (
-    create_essay,
+    create_essays_batch,
     duplicate_essay,
+    get_essay,
     update_essay,
 )
 from app.workspace.service_essays import (
     restore_essay as _restore_essay_service,
 )
+from app.workspace_mutation_receipts import (
+    attach_mutation,
+    batch_item,
+    batch_receipt,
+    change,
+    date_value,
+    duplicate_receipt,
+    enum_value,
+    integer_value,
+    reference_value,
+    state_transition_receipt,
+    subject,
+    text_value,
+    update_receipt,
+)
+from domain.mutation_receipts import MutationChange
 
 _CLEARABLE = "clear"
 
@@ -146,7 +164,7 @@ async def _create_essays_impl(ctx: ToolCtx, drafts: list[EssayDraft]) -> dict[st
         seen_in_batch.add(batch_key)
         parsed.append((draft, app_uuid))
 
-    created: list[Essay] = []
+    batch_data: list[EssayCreate] = []
     for draft, app_uuid in parsed:
         content = (
             essay_markdown.to_tiptap(draft.content_markdown) if draft.content_markdown else None
@@ -154,48 +172,52 @@ async def _create_essays_impl(ctx: ToolCtx, drafts: list[EssayDraft]) -> dict[st
         status = draft.status
         if content is not None and status == "Not started":
             status = "Drafting"
-        data = EssayCreate.model_validate(
-            {
-                "title": draft.title,
-                "application_id": app_uuid,
-                "essay_type": draft.essay_type,
-                "status": status,
-                "prompt": draft.prompt,
-                "word_limit": draft.word_limit,
-                **({"content": content} if content is not None else {}),
-            }
+        batch_data.append(
+            EssayCreate.model_validate(
+                {
+                    "title": draft.title,
+                    "application_id": app_uuid,
+                    "essay_type": draft.essay_type,
+                    "status": status,
+                    "prompt": draft.prompt,
+                    "word_limit": draft.word_limit,
+                    **({"content": content} if content is not None else {}),
+                }
+            )
         )
-        try:
-            essay = await create_essay(
-                ctx.app_pool,
-                ctx.catalog,
-                ctx.workspace_events,
-                user_id=ctx.user_id,
-                actor="counselle",
-                data=data,
-            )
-        except (WorkspaceNotFoundError, WorkspaceValidationError):
-            # A link resolved fine above but its application was archived in the
-            # window since (rare TOCTOU) — report plainly rather than leak a 500.
-            # Essays already created earlier in this loop are NOT rolled back
-            # (each create_essay call is its own transaction); their ids are
-            # reported so the agent doesn't re-offer to create them again.
-            return error(
-                f'"{draft.title}" could not be created — its linked school may have just been '
-                "archived.",
-                retryable=True,
-                recovery="Call view_schools to check the school is still active, then retry "
-                "with the remaining essays.",
-                created=[render_essay_row(_to_summary(e)) for e in created],
-            )
-        created.append(essay)
 
-    return {
+    try:
+        # One service transaction for the whole batch (agent mutation
+        # receipts plan §7.2) — a validation/TOCTOU failure on any draft
+        # rolls back every insert, matching the tool's all-or-nothing promise.
+        created: list[Essay] = await create_essays_batch(
+            ctx.app_pool,
+            ctx.catalog,
+            ctx.workspace_events,
+            user_id=ctx.user_id,
+            actor="counselle",
+            drafts=batch_data,
+        )
+    except (WorkspaceNotFoundError, WorkspaceValidationError) as exc:
+        return error(
+            f"Nothing was created — {exc}",
+            retryable=True,
+            recovery="Call view_schools to check the linked schools are still active, then "
+            "resubmit the whole batch.",
+        )
+
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f"Created {len(created)} essay{'s' if len(created) != 1 else ''}.",
         "essays": [render_essay_row(_to_summary(e)) for e in created],
     }
+    items = [
+        batch_item(index, "changed", item_subject=subject(essay.title, essay.id))
+        for index, essay in enumerate(created)
+    ]
+    payload = attach_mutation(payload, batch_receipt(family="essay", action="create", items=items))
+    return payload
 
 
 def _to_summary(essay: Essay) -> EssaySummary:
@@ -301,6 +323,8 @@ async def _update_essay_impl(
     if parsed_id is None:
         return stale_essay_error(essay_id)
 
+    apps, essays = await active_workspace_links(ctx)
+
     patch_fields: dict[str, Any] = {}
     if title is not None:
         patch_fields["title"] = title
@@ -315,7 +339,6 @@ async def _update_essay_impl(
         if application_id == _CLEARABLE:
             patch_fields["application_id"] = None
         else:
-            apps, essays = await active_workspace_links(ctx)
             app_uuid, link_error = resolve_link(
                 application_id, "application_id", {a.id for a in apps}
             )
@@ -351,7 +374,7 @@ async def _update_essay_impl(
             patch_fields["deadline"] = parsed_deadline
 
     try:
-        essay = await update_essay(
+        essay, before = await update_essay(
             ctx.app_pool,
             ctx.catalog,
             ctx.workspace_events,
@@ -359,16 +382,119 @@ async def _update_essay_impl(
             actor="counselle",
             essay_id=parsed_id,
             data=EssayPatch(**patch_fields),
+            with_before=True,
         )
     except WorkspaceNotFoundError:
         return stale_essay_error(essay_id)
 
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f'Updated "{essay.title}".',
         "essay": render_essay_row(_to_summary(essay)),
     }
+    essay_changes = _essay_changes(patch_fields, before, apps)
+    if essay_changes:
+        receipt = update_receipt(
+            family="essay",
+            action="update",
+            update_subject=subject(essay.title, essay.id),
+            changes=essay_changes,
+        )
+        payload = attach_mutation(payload, receipt)
+    return payload
+
+
+def _essay_changes(
+    patch_fields: dict[str, Any], before: Essay, apps: list[Any]
+) -> list[MutationChange]:
+    """Typed changes, transaction-authoritative before/after where the
+    exposure matrix (plan §8.2) calls for an exact typed value; ``prompt``
+    stays state-only/clear regardless (essay prompts are ``changed_only`` —
+    content never crosses the receipt seam).
+    """
+    changes: list[MutationChange] = []
+    if "title" in patch_fields:
+        changes.append(
+            change(
+                "title",
+                "replace",
+                before=text_value(before.title),
+                after=text_value(patch_fields["title"]),
+            )
+        )
+    if "essay_type" in patch_fields:
+        changes.append(
+            change(
+                "type",
+                "replace",
+                before=enum_value(str(before.essay_type)),
+                after=enum_value(str(patch_fields["essay_type"])),
+            )
+        )
+    if "status" in patch_fields:
+        changes.append(
+            change(
+                "status",
+                "replace",
+                before=enum_value(str(before.status)),
+                after=enum_value(str(patch_fields["status"])),
+            )
+        )
+    if "prompt" in patch_fields:
+        changes.append(
+            change("prompt", "clear" if patch_fields["prompt"] is None else "state_only")
+        )
+    if "application_id" in patch_fields:
+        after_id = patch_fields["application_id"]
+        before_name = application_name(before.application_id, apps)
+        after_name = application_name(after_id, apps)
+        if after_id is None:
+            changes.append(change("school", "clear"))
+        elif before.application_id is None:
+            changes.append(
+                change("school", "set", after=reference_value(subject(after_name or "School")))
+            )
+        else:
+            changes.append(
+                change(
+                    "school",
+                    "replace",
+                    before=reference_value(subject(before_name or "School")),
+                    after=reference_value(subject(after_name or "School")),
+                )
+            )
+    if "word_limit" in patch_fields:
+        value = patch_fields["word_limit"]
+        if value is None:
+            changes.append(change("word_limit", "clear"))
+        elif before.word_limit is None:
+            changes.append(change("word_limit", "set", after=integer_value(value)))
+        else:
+            changes.append(
+                change(
+                    "word_limit",
+                    "replace",
+                    before=integer_value(before.word_limit),
+                    after=integer_value(value),
+                )
+            )
+    if "deadline" in patch_fields:
+        value = patch_fields["deadline"]
+        if value is None:
+            changes.append(change("deadline", "clear"))
+        elif before.deadline is None:
+            changes.append(change("deadline", "set", after=date_value(str(value))))
+        else:
+            changes.append(
+                change(
+                    "deadline",
+                    "replace",
+                    before=date_value(str(before.deadline)),
+                    after=date_value(str(value)),
+                )
+            )
+    return changes
 
 
 # --------------------------------------------------------------------------
@@ -397,6 +523,12 @@ async def _duplicate_essay_impl(ctx: ToolCtx, essay_id: str) -> dict[str, Any]:
     if parsed_id is None:
         return stale_essay_error(essay_id)
     try:
+        original = await get_essay(
+            ctx.app_pool, ctx.catalog, user_id=ctx.user_id, essay_id=parsed_id
+        )
+    except WorkspaceNotFoundError:
+        return stale_essay_error(essay_id)
+    try:
         essay = await duplicate_essay(
             ctx.app_pool,
             ctx.catalog,
@@ -407,12 +539,18 @@ async def _duplicate_essay_impl(ctx: ToolCtx, essay_id: str) -> dict[str, Any]:
         )
     except WorkspaceNotFoundError:
         return stale_essay_error(essay_id)
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f'Created "{essay.title}".',
         "essay": render_essay_row(_to_summary(essay)),
     }
+    receipt = duplicate_receipt(
+        family="essay",
+        source=subject(original.title, original.id),
+        copy=subject(essay.title, essay.id),
+    )
+    return attach_mutation(payload, receipt)
 
 
 # --------------------------------------------------------------------------
@@ -444,13 +582,15 @@ async def _archive_essays_impl(ctx: ToolCtx, essay_ids: list[str]) -> dict[str, 
 
     archived: list[str] = []
     skipped: list[dict[str, str]] = []
-    for raw_id in essay_ids:
+    items = []
+    for index, raw_id in enumerate(essay_ids):
         parsed_id = try_uuid(raw_id)
         if parsed_id is None:
             skipped.append({"id": raw_id, "reason": "not a valid essay id"})
+            items.append(batch_item(index, "skipped", reason="not a valid essay id"))
             continue
         try:
-            await _archive_essay_service(
+            essay = await _archive_essay_service(
                 ctx.app_pool,
                 ctx.workspace_events,
                 user_id=ctx.user_id,
@@ -458,8 +598,12 @@ async def _archive_essays_impl(ctx: ToolCtx, essay_ids: list[str]) -> dict[str, 
                 essay_id=parsed_id,
             )
             archived.append(raw_id)
+            items.append(
+                batch_item(index, "changed", item_subject=subject(essay.title, essay.id))
+            )
         except WorkspaceNotFoundError:
             skipped.append({"id": raw_id, "reason": "no active essay with this id"})
+            items.append(batch_item(index, "skipped", reason="no active essay with this id"))
 
     summary = f"Archived {len(archived)} essay{'s' if len(archived) != 1 else ''}."
     if skipped:
@@ -472,6 +616,9 @@ async def _archive_essays_impl(ctx: ToolCtx, essay_ids: list[str]) -> dict[str, 
     }
     if skipped:
         payload["skipped"] = skipped
+    payload = attach_mutation(
+        payload, batch_receipt(family="essay", action="archive", items=items)
+    )
     return payload
 
 
@@ -538,9 +685,16 @@ async def _restore_essay_impl(ctx: ToolCtx, essay_id: str) -> dict[str, Any]:
     except WorkspaceValidationError as exc:
         return error(str(exc), retryable=True, recovery="Check view_essays and try again.")
 
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
         "summary": f'Restored "{essay.title}".',
         "essay": render_essay_row(_to_summary(essay)),
     }
+    receipt = state_transition_receipt(
+        family="essay",
+        action="restore",
+        state="restored",
+        subjects=[subject(essay.title, essay.id)],
+    )
+    return attach_mutation(payload, receipt)

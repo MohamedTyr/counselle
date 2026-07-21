@@ -111,6 +111,10 @@ async def test_create_and_update_warn_without_blocking_over_limit_description(
     assert created["status"] == "ok"
     assert "description 151/150" in created["warning"]
     activity_id = created["activities"][0]["id"]
+    created_mutation = created["public_receipt"]["mutation"]
+    assert created_mutation["family"] == "activity"
+    assert created_mutation["action"] == "create"
+    assert created_mutation["outcome"] == "success"
 
     updated = await _call_tool(
         make_update_activity_tool(ctx), activity_id=activity_id, description="y" * 151
@@ -118,6 +122,12 @@ async def test_create_and_update_warn_without_blocking_over_limit_description(
 
     assert updated["status"] == "ok"
     assert "description 151/150" in updated["warning"]
+    updated_mutation = updated["public_receipt"]["mutation"]
+    assert updated_mutation["action"] == "update"
+    # description is changed_only (§8.2) — never the prose content itself.
+    change = updated_mutation["body"]["changes"][0]
+    assert change["field_key"] == "description"
+    assert change["operation"] == "state_only"
 
 
 async def test_create_duplicate_requires_force_and_force_preserves_batch_contract(
@@ -240,6 +250,10 @@ async def test_restore_appends_at_actual_rank_and_cap_error_uses_activities_plur
 
     assert restored["status"] == "ok"
     assert restored["activity"]["rank"] == 3
+    restored_mutation = restored["public_receipt"]["mutation"]
+    assert restored_mutation["action"] == "restore"
+    assert restored_mutation["body"]["state"] == "restored"
+    assert restored_mutation["body"]["subjects"][0]["title"]["text"] == "First"
     async with app_pool.acquire() as conn:
         sort_orders = await conn.fetch(
             """
@@ -284,6 +298,18 @@ async def test_reorder_returns_ranked_rows_and_rejects_duplicate_ids(
     assert [row["rank"] for row in reordered["activities"]] == [1, 2]
     assert rejected["status"] == "error"
     assert "view_activities" in rejected["recovery"]
+    reorder_mutation = reordered["public_receipt"]["mutation"]
+    assert reorder_mutation["action"] == "reorder"
+    assert [s["title"]["text"] for s in reorder_mutation["body"]["new_order"]] == [
+        "Second",
+        "First",
+    ]
+    # Authoritative old ranks, captured from the same locked reorder
+    # transaction (agent mutation receipts plan §7.3) — "Second" was rank 2
+    # before this call and is now rank 1, so it's the reported move.
+    assert reorder_mutation["body"]["old_ranks"] == [2, 1]
+    assert reorder_mutation["body"]["moved_index"] == 0
+    assert reorder_mutation["body"]["moved_from_rank"] == 2
 
 
 async def test_create_at_cap_teaches_the_student_how_to_make_room(
@@ -338,3 +364,6 @@ async def test_archive_mixed_valid_and_stale_ids_reports_both(
     assert result["status"] == "warning"
     assert result["archived"] == [str(activity.id)]
     assert result["skipped"] == [{"id": stale_id, "reason": "no active activity with this id"}]
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["outcome"] == "partial"
+    assert [item["disposition"] for item in mutation["body"]["items"]] == ["changed", "skipped"]

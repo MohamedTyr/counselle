@@ -20,6 +20,7 @@ from typing import Any, Literal
 
 from pydantic_ai import Tool
 
+from app.profile_exposure import SECTION_LABELS, classify_leaf, flatten_profile_patch
 from app.student_context import render_profile_block
 from app.tool_middleware import process_tool_result
 from app.workspace.agent_tools_shared import ToolCtx, error, resolve_ref
@@ -41,6 +42,18 @@ from app.workspace.models import (
 )
 from app.workspace.service_documents import get_document, list_documents, read_document
 from app.workspace.service_profile import update_profile
+from app.workspace_mutation_receipts import (
+    attach_mutation,
+    boolean_value,
+    change,
+    decimal_value,
+    integer_value,
+    profile_receipt,
+    profile_section,
+    text_list_value,
+    text_value,
+)
+from domain.mutation_receipts import MutationChange, MutationValue
 
 _NO_SECTION_RECOVERY = (
     "Pass at least one section (basics, academics, testing, background, circumstances, "
@@ -157,6 +170,49 @@ def _build_patch_dict(sections: dict[str, Any]) -> dict[str, Any]:
     return patch
 
 
+def _typed_exact_value(value: Any) -> MutationValue:
+    """Dispatch a profile leaf's raw (JSON-mode) value to a typed
+    `MutationValue` for an `exact`-classified field (§8.2). `text_value` is
+    the safe default for any string — it's grapheme-bounded regardless of
+    whether the underlying field is free text or a fixed vocabulary."""
+    if isinstance(value, bool):
+        return boolean_value(value)
+    if isinstance(value, int):
+        return integer_value(value)
+    if isinstance(value, list):
+        return text_list_value([str(item) for item in value])
+    if isinstance(value, (float, str)):
+        return text_value(str(value))
+    # Decimal (GPA fields) and any other JSON-mode scalar not covered above.
+    return decimal_value(value)
+
+
+def _profile_change(path: str, value: Any) -> MutationChange:
+    if "." not in path:
+        # A whole-section clear (the "clear" sentinel on the section itself,
+        # not a specific leaf) — always safe to render state-only regardless
+        # of the section's individual field classifications.
+        return change(path, "clear")
+    classification = classify_leaf(path)
+    if value is None:
+        return change(path, "clear")
+    if classification == "changed_only":
+        return change(path, "state_only")
+    return change(path, "set", after=_typed_exact_value(value))
+
+
+def _profile_mutation_sections(patch_dict: dict[str, Any]) -> list[Any]:
+    by_section = flatten_profile_patch(patch_dict)
+    sections = []
+    for section_key, leaves in by_section.items():
+        changes = [_profile_change(path, value) for path, value in leaves]
+        if changes:
+            sections.append(
+                profile_section(section_key, SECTION_LABELS.get(section_key, section_key), changes)
+            )
+    return sections
+
+
 async def _update_profile_impl(ctx: ToolCtx, **sections: Any) -> dict[str, Any]:
     patch_dict = _build_patch_dict(sections)
     if not patch_dict:
@@ -170,11 +226,15 @@ async def _update_profile_impl(ctx: ToolCtx, **sections: Any) -> dict[str, Any]:
         ctx.app_pool, ctx.workspace_events, user_id=ctx.user_id, actor="counselle", data=patch
     )
     changed = ", ".join(sorted(patch_dict))
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "summary": f"Updated the profile ({changed}).",
         "profile": render_profile_block(profile),
     }
+    mutation_sections = _profile_mutation_sections(patch_dict)
+    if mutation_sections:
+        payload = attach_mutation(payload, profile_receipt(sections=mutation_sections))
+    return payload
 
 
 # --------------------------------------------------------------------------

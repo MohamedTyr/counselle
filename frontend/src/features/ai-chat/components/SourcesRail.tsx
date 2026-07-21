@@ -1,14 +1,16 @@
 import { GlobeIcon, SchoolIcon, XIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type {
   EvidenceItem,
   ReplaySourceEntry,
   SourceEntry,
+  SourceFocus,
 } from "@/api/chat/types";
 import { isLegacySourceEntry } from "@/api/chat/legacy-replay";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +38,18 @@ function sortedEvidence(entry: SourceEntry): EvidenceItem[] {
   );
 }
 
+/** Respects reduced-motion for the programmatic focus-follow scroll so the
+ * highlight jump doesn't fight a user's OS-level motion preference. */
+function scrollBehavior(): ScrollBehavior {
+  return typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
+}
+
+const activeCardClasses =
+  "bg-primary/[0.03] shadow-[inset_1.5px_0_0_var(--color-primary)] dark:bg-primary/[0.045]";
+
 function EvidenceRow({
   entry,
   item,
@@ -48,8 +62,8 @@ function EvidenceRow({
   return (
     <li
       className={cn(
-        "rounded-md border bg-background p-2 focus:outline-none",
-        active && "ring-2 ring-ring",
+        "rounded-lg border border-transparent bg-background/60 p-2.5 transition-colors duration-200 ease-out focus:outline-none",
+        active && activeCardClasses,
       )}
       aria-current={active ? "true" : undefined}
       data-active={active}
@@ -58,34 +72,37 @@ function EvidenceRow({
     >
       <div className="flex items-start justify-between gap-3 text-xs font-medium text-foreground">
         <span>{item.label}</span>
-        <span>{item.value_display}</span>
+        <span className="shrink-0 tabular-nums">{item.value_display}</span>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="mt-1 text-[11px] text-muted-foreground">
         Page {item.page}
         {item.section != null ? ` · Section ${item.section}` : ""}
         {item.row_label != null ? ` · Row: ${item.row_label}` : ""}
         {item.column_label != null ? ` · Column: ${item.column_label}` : ""}
       </p>
-      <blockquote className="mt-1 border-l-2 pl-2 text-xs text-muted-foreground">
+      <blockquote className="mt-1.5 border-l-2 border-l-border pl-2 text-xs text-muted-foreground italic">
         {item.excerpt}
       </blockquote>
     </li>
   );
 }
 
-function RowIcon({
+function SourceAvatar({
   entry,
   schoolDomains,
 }: {
   entry: ReplaySourceEntry;
   schoolDomains: Map<number, string>;
 }) {
+  const iconClasses = "size-3.5 shrink-0 text-muted-foreground";
+  const frame =
+    "grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted/50";
+
   if (isLegacySourceEntry(entry)) {
     return (
-      <GlobeIcon
-        aria-hidden="true"
-        className="size-3.5 shrink-0 text-muted-foreground"
-      />
+      <span className={frame}>
+        <GlobeIcon aria-hidden="true" className={iconClasses} />
+      </span>
     );
   }
   const citation = entry.citation;
@@ -95,39 +112,43 @@ function RowIcon({
       : undefined;
   if (domain !== undefined) {
     return (
-      <img
-        alt=""
-        className="size-3.5 shrink-0 rounded-[2px]"
-        src={faviconUrlForDomain(domain)}
-      />
+      <span className={frame}>
+        <img
+          alt=""
+          className="size-4 rounded-[3px]"
+          src={faviconUrlForDomain(domain)}
+        />
+      </span>
     );
   }
   if (citation.source === "cds" || citation.source === "profile") {
     return (
-      <SchoolIcon
-        aria-hidden="true"
-        className="size-3.5 shrink-0 text-muted-foreground"
-      />
+      <span className={frame}>
+        <SchoolIcon aria-hidden="true" className={iconClasses} />
+      </span>
     );
   }
   const favicon = faviconUrlForCitation(citation);
-  return favicon === undefined ? (
-    <GlobeIcon
-      aria-hidden="true"
-      className="size-3.5 shrink-0 text-muted-foreground"
-    />
-  ) : (
-    <img alt="" className="size-3.5 shrink-0 rounded-[2px]" src={favicon} />
+  return (
+    <span className={frame}>
+      {favicon === undefined ? (
+        <GlobeIcon aria-hidden="true" className={iconClasses} />
+      ) : (
+        <img alt="" className="size-4 rounded-[3px]" src={favicon} />
+      )}
+    </span>
   );
 }
 
 function SourceRow({
   entry,
   active,
+  onSelect,
   schoolDomains,
 }: {
   entry: ReplaySourceEntry;
-  active: MessageSourcesPayload["active"];
+  active: SourceFocus | undefined;
+  onSelect: (index: number) => void;
   schoolDomains: Map<number, string>;
 }) {
   const href = safeExternalUrl(entry.citation.url);
@@ -150,40 +171,51 @@ function SourceRow({
     <li
       aria-current={activeRow ? "true" : undefined}
       className={cn(
-        "rounded-lg border bg-card p-3 focus:outline-none",
-        activeRow && "ring-2 ring-ring",
+        "scroll-mt-3 cursor-pointer rounded-xl border border-transparent bg-card p-3 shadow-xs shadow-black/[0.02] transition-colors duration-200 ease-out focus:outline-none",
+        !activeRow && "hover:border-border hover:bg-accent/30",
+        activeRow && activeCardClasses,
       )}
       data-active={activeRow}
       id={`source-row-${entry.index}`}
+      onClick={() => onSelect(entry.index)}
       tabIndex={-1}
     >
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <RowIcon entry={entry} schoolDomains={schoolDomains} />
-        <span className="truncate">{caption}</span>
-        <Badge
-          className="ml-auto"
-          variant={entry.citation.tier === "official" ? "secondary" : "outline"}
-        >
-          {entry.citation.tier === "official" ? "Official" : "Community"}
-        </Badge>
+      <div className="flex items-start gap-2">
+        <SourceAvatar entry={entry} schoolDomains={schoolDomains} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="truncate">{caption}</span>
+            <Badge
+              className="ml-auto shrink-0"
+              size="sm"
+              variant={
+                entry.citation.tier === "official" ? "secondary" : "outline"
+              }
+            >
+              {entry.citation.tier === "official" ? "Official" : "Community"}
+            </Badge>
+          </div>
+          {href !== undefined ? (
+            <a
+              className="mt-1 block text-sm leading-snug hover:underline"
+              href={href}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {title}
+            </a>
+          ) : (
+            <p className="mt-1 text-sm leading-snug">{title}</p>
+          )}
+          {!legacy && entry.snippet != null && (
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+              {entry.snippet}
+            </p>
+          )}
+        </div>
       </div>
-      {href !== undefined ? (
-        <a
-          className="mt-1.5 block hover:underline"
-          href={href}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {title}
-        </a>
-      ) : (
-        <p className="mt-1.5">{title}</p>
-      )}
-      {!legacy && entry.snippet != null && (
-        <p className="mt-1 text-xs text-muted-foreground">{entry.snippet}</p>
-      )}
       {isCds && !legacy && entry.evidence.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-2">
+        <ul className="mt-3 flex flex-col gap-2 border-t pt-3">
           {sortedEvidence(entry as SourceEntry).map((item) => (
             <EvidenceRow
               active={activeEntry && active?.evidenceId === item.eid}
@@ -203,8 +235,68 @@ function SourceRow({
   );
 }
 
-function SourcesRailBody({ payload }: { payload: MessageSourcesPayload }) {
+function SourcesRailHeader({
+  count,
+  headingRef,
+  onClose,
+}: {
+  count: number;
+  headingRef: RefObject<HTMLHeadingElement | null>;
+  onClose: () => void;
+}) {
+  return (
+    <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-b-[color:var(--workspace-border)] bg-card/95 px-4 backdrop-blur-sm">
+      <h2
+        className="text-sm font-semibold text-foreground focus:outline-none"
+        ref={headingRef}
+        tabIndex={-1}
+      >
+        {count} {count === 1 ? "source" : "sources"}
+      </h2>
+      <Button
+        aria-label="Close sources"
+        onClick={onClose}
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <XIcon data-icon="inline-start" />
+      </Button>
+    </header>
+  );
+}
+
+/** The one panel body shared by the desktop rail and the mobile sheet — a
+ * single header (no duplicate close bars) plus the scrollable source list.
+ * `selected` is the card the sidebar visibly marks as current: it starts at
+ * whatever citation opened the panel and moves the instant a different
+ * citation or card is clicked — it never lingers on a stale source once a
+ * new one is chosen, and it is the *only* thing driving the active-card
+ * style, so exactly one card can ever carry it. */
+function SourcesRailPanel({
+  payload,
+  onClose,
+}: {
+  payload: MessageSourcesPayload;
+  onClose: () => void;
+}) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // Resets `selected` to whatever citation just opened the panel whenever a
+  // *new* payload arrives (a different citation/message was clicked) — done
+  // during render, React's documented pattern for state that must track a
+  // prop, rather than via a setState-in-effect that would cause an extra
+  // render pass. `payload` is a fresh object per open, so identity alone is
+  // the right change signal.
+  const [priorPayload, setPriorPayload] = useState(payload);
+  const [selected, setSelected] = useState<SourceFocus | undefined>(
+    payload.active,
+  );
+  if (priorPayload !== payload) {
+    setPriorPayload(payload);
+    setSelected(payload.active);
+  }
+
   useEffect(() => {
     const focusedEntry =
       payload.active === undefined
@@ -228,33 +320,33 @@ function SourcesRailBody({ payload }: { payload: MessageSourcesPayload }) {
               : `source-row-${payload.active.index}`,
           ) ?? headingRef.current);
     target?.focus();
-    target?.scrollIntoView({ block: "nearest" });
+    target?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
   }, [payload]);
 
+  const count = payload.sources.length;
+
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <header className="border-b px-4 py-3">
-        <h2
-          className="text-sm font-semibold text-foreground focus:outline-none"
-          ref={headingRef}
-          tabIndex={-1}
-        >
-          {payload.sources.length}{" "}
-          {payload.sources.length === 1 ? "source" : "sources"}
-        </h2>
-      </header>
-      <ul className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-        {[...payload.sources]
-          .sort((left, right) => left.index - right.index)
-          .map((entry) => (
-            <SourceRow
-              active={payload.active}
-              entry={entry}
-              key={entry.index}
-              schoolDomains={payload.schoolDomains}
-            />
-          ))}
-      </ul>
+    <div className="flex h-full min-h-0 flex-col">
+      <SourcesRailHeader count={count} headingRef={headingRef} onClose={onClose} />
+      <ScrollArea
+        className="sources-rail-scroll min-h-0 flex-1"
+        scrollFade
+        scrollbarGutter
+      >
+        <ul className="flex flex-col gap-2 p-1">
+          {[...payload.sources]
+            .sort((left, right) => left.index - right.index)
+            .map((entry) => (
+              <SourceRow
+                active={selected}
+                entry={entry}
+                key={entry.index}
+                onSelect={(index) => setSelected({ index })}
+                schoolDomains={payload.schoolDomains}
+              />
+            ))}
+        </ul>
+      </ScrollArea>
     </div>
   );
 }
@@ -272,9 +364,14 @@ export function SourcesRail({ payload, onClose, isMobile }: SourcesRailProps) {
   if (isMobile) {
     return (
       <Sheet onOpenChange={(open) => !open && onClose()} open>
-        <SheetContent aria-label="Sources for this answer" side="right">
+        <SheetContent
+          aria-label="Sources for this answer"
+          className="w-full max-w-full rounded-none border-s-0"
+          showCloseButton={false}
+          side="right"
+        >
           <SheetTitle className="sr-only">Sources for this answer</SheetTitle>
-          <SourcesRailBody payload={payload} />
+          <SourcesRailPanel onClose={onClose} payload={payload} />
         </SheetContent>
       </Sheet>
     );
@@ -282,22 +379,9 @@ export function SourcesRail({ payload, onClose, isMobile }: SourcesRailProps) {
   return (
     <aside
       aria-label="Sources panel"
-      className="hidden h-full w-80 shrink-0 border-l bg-card md:flex md:flex-col"
+      className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-2 hidden h-full w-[26rem] shrink-0 bg-sidebar text-sidebar-foreground duration-200 ease-out md:flex md:flex-col"
     >
-      <div className="flex items-center justify-end border-b px-2 py-1.5">
-        <Button
-          aria-label="Close sources"
-          onClick={onClose}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <XIcon data-icon="inline-start" />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1">
-        <SourcesRailBody payload={payload} />
-      </div>
+      <SourcesRailPanel onClose={onClose} payload={payload} />
     </aside>
   );
 }

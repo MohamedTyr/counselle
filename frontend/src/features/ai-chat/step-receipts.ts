@@ -1,5 +1,8 @@
 import type { KnownStepKind, StepData, StepKind } from "@/api/chat/types";
 
+import { mutationGlanceText } from "./components/mutation-receipts/mutation-format";
+import { parseMutationReceipt } from "./components/mutation-receipts/parseMutationReceipt";
+
 type KindPresentation = {
   resultNoun: "result" | "thread" | null;
 };
@@ -35,9 +38,21 @@ function formatList(label: string, values: string[]): string | null {
   return clean.length > 0 ? `${label}: ${clean.join(", ")}` : null;
 }
 
+/** The same safe glance formatter the mutation receipt shell renders — used
+ * so the visible collapsed row and `runMarkdownOf()` copy/export always
+ * agree (plan §11.2). `null` when there's no valid mutation to glance. */
+export function stepMutationGlance(step: StepData): string | null {
+  const receipt = parseMutationReceipt(step.detail?.mutation);
+  return receipt === null ? null : mutationGlanceText(receipt);
+}
+
 /** DB/sql/viz internals stay hidden; this only reveals the student-facing
  * StepDetail fields that are already safe to render in the run surface. */
 export function receiptText(step: StepData): string | null {
+  const mutationGlance = stepMutationGlance(step);
+  if (mutationGlance !== null) {
+    return mutationGlance;
+  }
   if (
     (step.status !== "end" && step.status !== "error") ||
     step.kind === "write_plan"

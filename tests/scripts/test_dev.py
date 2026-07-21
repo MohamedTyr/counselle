@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import socket
 import subprocess
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -15,6 +16,71 @@ def load_dev_script() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_port_free_checks_every_address_family(monkeypatch: pytest.MonkeyPatch) -> None:
+    dev = load_dev_script()
+    bound_addresses: list[tuple[int, tuple[object, ...]]] = []
+
+    class FakeSocket:
+        def __init__(self, family: int, *_args: object) -> None:
+            self.family = family
+
+        def __enter__(self) -> FakeSocket:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            pass
+
+        def setsockopt(self, *_args: object) -> None:
+            pass
+
+        def bind(self, address: tuple[object, ...]) -> None:
+            bound_addresses.append((self.family, address))
+            if self.family == socket.AF_INET6:
+                raise OSError("busy")
+
+    monkeypatch.setattr(
+        dev.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 5173)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 5173, 0, 0)),
+        ],
+    )
+    monkeypatch.setattr(dev.socket, "socket", FakeSocket)
+
+    assert dev.port_free("localhost", 5173) is False
+    assert bound_addresses == [
+        (socket.AF_INET, ("127.0.0.1", 5173)),
+        (socket.AF_INET6, ("::1", 5173, 0, 0)),
+    ]
+
+
+def test_run_stack_checks_web_port_on_vite_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    dev = load_dev_script()
+    checked_ports: list[tuple[str, str, int]] = []
+    args = SimpleNamespace(
+        host="127.0.0.1",
+        api_port=8000,
+        web_port=5173,
+        kill=False,
+        check=True,
+    )
+
+    def free_port(host: str, label: str, port: int, **_kwargs: object) -> int:
+        checked_ports.append((host, label, port))
+        return port
+
+    monkeypatch.setattr(dev, "check_toolchain", lambda: None)
+    monkeypatch.setattr(dev, "check_config", lambda _env: None)
+    monkeypatch.setattr(dev, "free_port", free_port)
+
+    assert dev.run_stack(args, {}) == 0
+    assert checked_ports == [
+        ("127.0.0.1", "api", 8000),
+        (dev.DEFAULT_WEB_HOST, "web", 5173),
+    ]
 
 
 def test_ensure_local_database_starts_existing_container_and_waits(

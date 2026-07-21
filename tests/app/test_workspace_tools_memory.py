@@ -109,6 +109,10 @@ async def test_remember_creates_notes_and_returns_usage_meter(
     assert len(result["notes"]) == 1
     assert result["notes"][0]["content"] == "prefers blunt feedback"
     assert "chars" in result["usage"]
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["family"] == "memory"
+    assert mutation["body"]["operation"] == "remember"
+    assert mutation["body"]["active_notes"][0]["text"] == "prefers blunt feedback"
 
 
 async def test_remember_rejects_exact_duplicate_naming_the_existing_note(
@@ -170,6 +174,9 @@ async def test_update_memory_resolves_prefix_and_rewrites_content(
 
     assert result["status"] == "ok"
     assert result["note"]["content"] == "decided firmly: pure research track"
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["body"]["operation"] == "update_memory"
+    assert mutation["body"]["active_notes"][0]["text"] == "decided firmly: pure research track"
 
 
 # --------------------------------------------------------------------------
@@ -191,6 +198,9 @@ async def test_forget_reports_forgotten_and_skipped_per_item(
     assert result["status"] == "warning"
     assert result["forgotten"] == [{"id": forget_id, "content": "note two"}]
     assert result["skipped"] == [{"id": "deadbeef", "reason": "not found or already forgotten"}]
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["body"]["operation"] == "forget"
+    assert mutation["body"]["active_notes"] == []
 
     remaining = await list_memories(app_pool, user_id=ctx.user_id)
     assert [str(m.id)[:8] for m in remaining] == [keep_id]

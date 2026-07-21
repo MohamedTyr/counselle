@@ -44,6 +44,21 @@ from app.workspace.models import (
     TaskStatus,
     WorkspaceNotFoundError,
 )
+from app.workspace_mutation_receipts import (
+    attach_mutation,
+    batch_item,
+    batch_receipt,
+    boolean_value,
+    change,
+    date_value,
+    enum_value,
+    reference_value,
+    state_transition_receipt,
+    subject,
+    text_value,
+    update_receipt,
+)
+from domain.mutation_receipts import MutationChange, MutationChangeOperation, MutationValue
 
 # --------------------------------------------------------------------------
 # A.3 create_tasks
@@ -179,7 +194,8 @@ async def _create_tasks_impl(
         warnings.append(message)
 
     created: list[dict[str, str]] = []
-    for draft, fields in zip(drafts, parsed, strict=True):
+    items = []
+    for index, (draft, fields) in enumerate(zip(drafts, parsed, strict=True)):
         task = await service_tasks.create_task(
             ctx.app_pool,
             ctx.workspace_events,
@@ -188,6 +204,7 @@ async def _create_tasks_impl(
             data=_draft_to_task_create(draft, fields),
         )
         created.append({"id": str(task.id), "title": task.title})
+        items.append(batch_item(index, "changed", item_subject=subject(task.title, task.id)))
 
     payload: dict[str, Any] = {
         "status": "warning" if warnings else "ok",
@@ -204,6 +221,7 @@ async def _create_tasks_impl(
     }
     if warnings:
         payload["warnings"] = warnings
+    payload = attach_mutation(payload, batch_receipt(family="task", action="create", items=items))
     return payload
 
 
@@ -359,6 +377,84 @@ def _build_task_patch(
     return patch, None
 
 
+def _link_op_value(
+    before_id: UUID | None, after_id: UUID | None, apps: list[Any], essays: list[Any], *, kind: str
+) -> tuple[MutationChangeOperation, MutationValue | None, MutationValue | None]:
+    resolver = application_name if kind == "application_id" else essay_name
+    links = apps if kind == "application_id" else essays
+    if after_id is None:
+        return "clear", None, None
+    after_value = reference_value(subject(resolver(after_id, links) or "Linked"))
+    if before_id is None:
+        return "set", None, after_value
+    before_value = reference_value(subject(resolver(before_id, links) or "Linked"))
+    return "replace", before_value, after_value
+
+
+def _task_changes(
+    before: Any, patch_kwargs: dict[str, Any], apps: list[Any], essays: list[Any]
+) -> list[MutationChange]:
+    changes: list[MutationChange] = []
+    if "title" in patch_kwargs:
+        changes.append(
+            change(
+                "title",
+                "replace",
+                before=text_value(before.title),
+                after=text_value(patch_kwargs["title"]),
+            )
+        )
+    if "notes" in patch_kwargs:
+        changes.append(change("notes", "clear" if patch_kwargs["notes"] is None else "state_only"))
+    for field_key in ("status", "category", "priority", "assignee"):
+        if field_key in patch_kwargs:
+            changes.append(
+                change(
+                    field_key,
+                    "replace",
+                    before=enum_value(str(getattr(before, field_key))),
+                    after=enum_value(str(patch_kwargs[field_key])),
+                )
+            )
+    if "needs_input" in patch_kwargs:
+        changes.append(
+            change(
+                "needs_input",
+                "replace",
+                before=boolean_value(bool(before.needs_input)),
+                after=boolean_value(bool(patch_kwargs["needs_input"])),
+            )
+        )
+    for field_key in ("due_at", "planned_for", "reminder_at"):
+        if field_key in patch_kwargs:
+            after_raw = patch_kwargs[field_key]
+            before_raw = getattr(before, field_key)
+            if after_raw is None:
+                changes.append(change(field_key, "clear"))
+            elif before_raw is None:
+                changes.append(change(field_key, "set", after=date_value(str(after_raw))))
+            else:
+                changes.append(
+                    change(
+                        field_key,
+                        "replace",
+                        before=date_value(str(before_raw)),
+                        after=date_value(str(after_raw)),
+                    )
+                )
+    for field_key in ("application_id", "essay_id"):
+        if field_key in patch_kwargs:
+            op, before_value, after_value = _link_op_value(
+                getattr(before, field_key),
+                patch_kwargs[field_key],
+                apps,
+                essays,
+                kind=field_key,
+            )
+            changes.append(change(field_key, op, before=before_value, after=after_value))
+    return changes
+
+
 async def _update_task_impl(ctx: ToolCtx, task_id: str, **fields: Any) -> dict[str, Any]:
     parsed_id = try_uuid(task_id)
     if parsed_id is None:
@@ -373,7 +469,7 @@ async def _update_task_impl(ctx: ToolCtx, task_id: str, **fields: Any) -> dict[s
         return patch_error
 
     try:
-        task = await service_tasks.update_task(
+        task, before = await service_tasks.update_task(
             ctx.app_pool,
             ctx.workspace_events,
             user_id=ctx.user_id,
@@ -393,11 +489,21 @@ async def _update_task_impl(ctx: ToolCtx, task_id: str, **fields: Any) -> dict[s
         essay_name=essay_display_name,
         include_completed=task.status == "done",
     )
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "summary": _change_summary(task.title, patch_kwargs, row),
         "task": row,
     }
+    task_changes = _task_changes(before, patch_kwargs, apps, essays)
+    if task_changes:
+        receipt = update_receipt(
+            family="task",
+            action="update",
+            update_subject=subject(task.title, task.id),
+            changes=task_changes,
+        )
+        payload = attach_mutation(payload, receipt)
+    return payload
 
 
 # --------------------------------------------------------------------------
@@ -488,6 +594,26 @@ async def _archive_tasks_impl(ctx: ToolCtx, task_ids: list[str]) -> dict[str, An
     }
     if skipped:
         payload["skipped"] = skipped
+    skipped_by_id = {row["id"]: row["reason"] for row in skipped}
+    archived_uuids = set(archived_ids)
+    items = []
+    for index, raw_id in enumerate(task_ids):
+        uuid_id = parsed.get(raw_id)
+        if uuid_id is not None and uuid_id in archived_uuids:
+            items.append(
+                batch_item(
+                    index, "changed", item_subject=subject(active_rows[uuid_id], uuid_id)
+                )
+            )
+        else:
+            items.append(
+                batch_item(
+                    index,
+                    "skipped",
+                    reason=skipped_by_id.get(raw_id, "not found or already archived"),
+                )
+            )
+    payload = attach_mutation(payload, batch_receipt(family="task", action="archive", items=items))
     return payload
 
 
@@ -610,8 +736,12 @@ async def _restore_task_impl(ctx: ToolCtx, task_id: str) -> dict[str, Any]:
         essay_name=essay_display_name,
         include_completed=task.status == "done",
     )
-    return {
+    payload: dict[str, Any] = {
         "status": "ok",
         "summary": f'Restored "{task.title}" to the active board.',
         "task": row,
     }
+    receipt = state_transition_receipt(
+        family="task", action="restore", state="restored", subjects=[subject(task.title, task.id)]
+    )
+    return attach_mutation(payload, receipt)

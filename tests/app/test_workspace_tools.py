@@ -434,6 +434,12 @@ async def test_create_tasks_single_and_batch_with_links_and_ui(
         "data": {"title": "2 tasks", "count": 2},
     }
     assert result["footer"] == "The student sees these on their board now."
+    assert result["mutation_contract"] == 1
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["family"] == "task"
+    assert mutation["action"] == "create"
+    assert mutation["outcome"] == "success"
+    assert [item["disposition"] for item in mutation["body"]["items"]] == ["changed", "changed"]
 
 
 async def test_create_tasks_single_ui_uses_title(
@@ -566,6 +572,16 @@ async def test_update_task_partial_patch_and_summary(
     assert 'Updated "Original title"' in result["summary"]
     assert "status → doing" in result["summary"]
     assert "due → 2026-07-15" in result["summary"]
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["family"] == "task"
+    assert mutation["action"] == "update"
+    assert mutation["outcome"] == "success"
+    assert mutation["body"]["subject"]["title"]["text"] == "Original title"
+    changed_fields = {c["field_key"] for c in mutation["body"]["changes"]}
+    assert changed_fields == {"status", "due_at"}
+    status_change = next(c for c in mutation["body"]["changes"] if c["field_key"] == "status")
+    assert status_change["before"]["enum"] == "todo"
+    assert status_change["after"]["enum"] == "doing"
 
 
 async def test_update_task_clear_sentinel_on_every_clearable_field(
@@ -770,6 +786,10 @@ async def test_archive_tasks_full_success(
     assert {row["id"] for row in result["archived"]} == {str(first.id), str(second.id)}
     assert "skipped" not in result
     assert result["footer"] == "restore_task(task_id=...) undoes any of these."
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["action"] == "archive"
+    assert mutation["outcome"] == "success"
+    assert [item["disposition"] for item in mutation["body"]["items"]] == ["changed", "changed"]
 
 
 async def test_archive_tasks_partial_success_reports_skipped(
@@ -791,6 +811,10 @@ async def test_archive_tasks_partial_success_reports_skipped(
     assert result["status"] == "warning"
     assert [row["id"] for row in result["archived"]] == [str(valid.id)]
     assert result["skipped"] == [{"id": bogus_id, "reason": "not found or already archived"}]
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["outcome"] == "partial"
+    dispositions = [item["disposition"] for item in mutation["body"]["items"]]
+    assert dispositions == ["changed", "skipped"]
 
 
 async def test_archive_tasks_all_skipped_single_id_uses_a7_stale_error(
@@ -862,6 +886,11 @@ async def test_restore_task_success(
     assert result["summary"] == 'Restored "Bring me back" to the active board.'
     assert result["task"]["id"] == str(task.id)
     assert result["task"]["status"] == "todo"
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["action"] == "restore"
+    assert mutation["outcome"] == "success"
+    assert mutation["body"]["state"] == "restored"
+    assert mutation["body"]["subjects"][0]["title"]["text"] == "Bring me back"
 
 
 async def test_restore_task_blocked_by_archived_application(

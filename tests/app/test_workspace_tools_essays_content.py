@@ -117,6 +117,11 @@ async def test_edit_essay_applies_targeted_edit(
 
     assert edit_result["status"] == "ok"
     assert edit_result["summary"] == "Applied 1 edit."
+    mutation = edit_result["public_receipt"]["mutation"]
+    assert mutation["family"] == "essay_content"
+    assert mutation["action"] == "edit"
+    assert len(mutation["body"]["operations"]) == 1
+    assert mutation["body"]["operations"][0]["operation"] == "replace"
 
     reread = await read_tool.function(essay_id=str(essay.id))
     assert reread["content_markdown"] == "The board hissed back."
@@ -241,6 +246,11 @@ async def test_write_essay_replaces_content(
     )
 
     assert write_result["status"] == "ok"
+    mutation = write_result["public_receipt"]["mutation"]
+    assert mutation["family"] == "essay_content"
+    assert mutation["action"] == "write"
+    assert mutation["body"]["mode"] == "replaced"
+    assert mutation["body"]["previous_word_count"] == 2
     reread = await read_tool.function(essay_id=str(essay.id))
     assert reread["content_markdown"] == "Brand new full draft."
 

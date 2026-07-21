@@ -171,7 +171,7 @@ def reduce_tool_result(value: Any, store: ToolResultStore, *, max_chars: int) ->
     # checkpointed ToolResultStore state.
     handle = store.put(scrub_evidence_tokens(value))
     preview_chars = max(200, min(max_chars // 2, 2_000))
-    return {
+    overflowed: dict[str, Any] = {
         "status": "overflow",
         "summary": (
             f"Tool result was {chars:,} characters, so the full payload was spilled. "
@@ -185,6 +185,53 @@ def reduce_tool_result(value: Any, store: ToolResultStore, *, max_chars: int) ->
         },
         "public_receipt": _public_receipt(value, chars=chars, handle=handle),
     }
+    # The mutation-contract marker (agent mutation receipts plan §6.7/§7.4)
+    # rides the top level, alongside — not inside — public_receipt; preserve
+    # it through overflow so a corrupted/oversized mutation still resolves to
+    # a safe synthesized "unknown" row instead of falling back to legacy.
+    if isinstance(value, Mapping) and value.get("mutation_contract") == 1:
+        overflowed["mutation_contract"] = 1
+        overflowed = _shrink_to_compact_budget(overflowed)
+    return overflowed
+
+
+#: Separate budget for the *entire* compact overflow envelope of a mutation
+#: tool (§6.6) — independent of ``max_chars`` (the spill trigger), and larger
+#: than the raw mutation-receipt cap since it also carries the agent-facing
+#: preview/sketch.
+WORKSPACE_COMPACT_RESULT_MAX_BYTES = 10_240
+
+
+def _shrink_to_compact_budget(overflowed: dict[str, Any]) -> dict[str, Any]:
+    """Shrink preview/sketch/receipt-detail until the envelope fits the budget.
+
+    The mutation receipt itself is preserved first and never touched here —
+    it is already bounded by its own builder. Reduction order: shrink the
+    agent-facing preview, then drop the sketch, before anything under
+    ``public_receipt`` is touched.
+    """
+    if len(to_bytes(overflowed)) <= WORKSPACE_COMPACT_RESULT_MAX_BYTES:
+        return overflowed
+
+    result_for_agent = dict(overflowed.get("result_for_agent") or {})
+    preview = result_for_agent.get("preview")
+    if isinstance(preview, str) and preview:
+        for shrunk_chars in (400, 100, 0):
+            result_for_agent["preview"] = (
+                truncate_text(preview, shrunk_chars, TruncationStrategy.head)
+                if shrunk_chars
+                else "[preview omitted: compact result over budget]"
+            )
+            candidate = {**overflowed, "result_for_agent": result_for_agent}
+            if len(to_bytes(candidate)) <= WORKSPACE_COMPACT_RESULT_MAX_BYTES:
+                return candidate
+        overflowed = candidate
+
+    result_for_agent = dict(overflowed.get("result_for_agent") or {})
+    if result_for_agent.get("sketch"):
+        result_for_agent["sketch"] = ""
+        overflowed = {**overflowed, "result_for_agent": result_for_agent}
+    return overflowed
 
 
 #: The only fields of an oversized tool's own result an overflow receipt may
@@ -221,6 +268,12 @@ def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
                 candidate = existing_receipt.get(key)
                 if candidate not in (None, [], ""):
                     receipt[key] = candidate
+            # The mutation receipt is already bounded to <=6,144 bytes by its
+            # own builder (app.workspace_mutation_receipts.attach_mutation);
+            # preserve it whole rather than reducing it a second time here.
+            mutation = existing_receipt.get("mutation")
+            if isinstance(mutation, Mapping):
+                receipt["mutation"] = dict(mutation)
         # A single school's name (e.g. resolve_school/get_school_profile/
         # get_domain results) — flattened to the same "schools" list shape
         # the step receipt expects, never the raw school object.

@@ -124,6 +124,16 @@ async def test_update_profile_sets_fields_verbatim_never_rounds_gpa(
     assert result["status"] == "ok"
     assert "3.87" in result["profile"]
     assert "4.0" in result["profile"]
+    mutation = result["public_receipt"]["mutation"]
+    assert mutation["family"] == "profile"
+    assert mutation["action"] == "update"
+    section = next(s for s in mutation["body"]["sections"] if s["section_key"] == "academics")
+    changed_fields = {c["field_key"] for c in section["changes"]}
+    assert "academics.gpa_unweighted" in changed_fields
+    gpa_change = next(
+        c for c in section["changes"] if c["field_key"] == "academics.gpa_unweighted"
+    )
+    assert gpa_change["operation"] == "set"
 
 
 async def test_update_profile_merges_new_fields_without_touching_others(
@@ -169,6 +179,10 @@ async def test_update_profile_clear_sentinel_empties_a_whole_section(
 
     assert "Maya" not in result["profile"]
     assert "Lincoln HS" not in result["profile"]
+    mutation = result["public_receipt"]["mutation"]
+    section = next(s for s in mutation["body"]["sections"] if s["section_key"] == "basics")
+    assert [c["field_key"] for c in section["changes"]] == ["basics"]
+    assert section["changes"][0]["operation"] == "clear"
 
 
 # --------------------------------------------------------------------------
