@@ -289,23 +289,22 @@ describe("TasksPage delete with undo", () => {
     fireEvent.click(berkeleyCard, { ctrlKey: true });
 
     await user.click(
-      screen.getByRole("combobox", {
-        name: `Change type for ${georgiaTechTask.title}`,
+      screen.getByRole("button", {
+        name: "Open Revise Georgia Tech scholarship essay details",
       }),
     );
+    await screen.findByRole("textbox", { name: "Task title" });
+
+    await user.click(screen.getByRole("combobox", { name: "Category" }));
     const [option] = await screen.findAllByRole("option");
 
     fireEvent.keyDown(option, { key: "Backspace" });
 
     expect(
-      screen.getByRole("button", {
-        name: "Open Revise Georgia Tech scholarship essay details",
-      }),
+      document.querySelector(`[data-task-id="${georgiaTechTask.id}"]`),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
-        name: "Open Submit CSS Profile correction for Berkeley details",
-      }),
+      document.querySelector(`[data-task-id="${berkeleyTask.id}"]`),
     ).toBeInTheDocument();
     expect(screen.queryByText("2 tasks deleted")).not.toBeInTheDocument();
   });

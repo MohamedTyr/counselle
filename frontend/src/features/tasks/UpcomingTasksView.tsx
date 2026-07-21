@@ -28,7 +28,6 @@ import {
 } from "@/features/tasks/task-actions";
 import { laneThemeClass } from "@/features/tasks/task-config";
 import {
-  formatPlannedDateLabel,
   getCalendarDayDiff,
   getPlanningDate,
   getPlanningDateLabel,
@@ -40,15 +39,14 @@ import type {
   UpdateTask,
 } from "@/features/tasks/task-types";
 import {
-  InlineTaskAssigneeBadge,
-  InlineTaskCategoryBadge,
-  InlineTaskDate,
-  InlineTaskNeedsInputBadge,
-  InlineTaskPriorityBadge,
-  InlineTaskStatusBadge,
-  InlineTaskText,
-  TaskDueMeta,
-} from "@/features/tasks/task-inline-controls";
+  StaticTaskAssigneeBadge,
+  StaticTaskCategoryBadge,
+  StaticTaskNeedsInputBadge,
+  StaticTaskPriorityBadge,
+  StaticTaskStatusBadge,
+  StaticTaskText,
+  StaticUpcomingDateMeta,
+} from "@/features/tasks/task-static-controls";
 import { sortPlanningTasks } from "@/features/tasks/task-sort";
 import { cn } from "@/lib/utils";
 import {
@@ -61,57 +59,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { getNowDate } from "@/lib/time";
-
-export function UpcomingDateMeta({
-  onUpdateTask,
-  task,
-}: {
-  onUpdateTask: UpdateTask;
-  task: Task;
-}) {
-  const plannedFor = task.planned_for;
-
-  if (!plannedFor && !task.due_at) {
-    return (
-      <span className="ml-auto shrink-0">
-        <InlineTaskDate
-          ariaLabel={`Set work date for ${task.title}`}
-          className="text-xs font-medium text-[color:var(--lane-muted)] tabular-nums"
-          defaultHour={9}
-          defaultMinute={0}
-          field="planned_for"
-          onUpdateTask={onUpdateTask}
-          task={task}
-          value={task.planned_for}
-        >
-          <CalendarClock aria-hidden="true" className="size-4 shrink-0" />
-          No date
-        </InlineTaskDate>
-      </span>
-    );
-  }
-
-  return (
-    <span className="ml-auto flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1">
-      {plannedFor ? (
-        <InlineTaskDate
-          ariaLabel={`Change work date for ${task.title}`}
-          className="text-xs font-medium text-[color:var(--lane-muted)] tabular-nums"
-          defaultHour={9}
-          defaultMinute={0}
-          field="planned_for"
-          onUpdateTask={onUpdateTask}
-          task={task}
-          value={plannedFor}
-        >
-          <CalendarClock aria-hidden="true" className="size-4 shrink-0" />
-          Work {formatPlannedDateLabel(plannedFor)}
-        </InlineTaskDate>
-      ) : null}
-      <TaskDueMeta onUpdateTask={onUpdateTask} task={task} />
-    </span>
-  );
-}
 
 export function UpcomingTaskItem({
   applicationsById,
@@ -164,22 +111,14 @@ export function UpcomingTaskItem({
       tabIndex={0}
     >
       <div className="min-w-0 rounded-lg text-left">
-        <h3 className="min-w-0 text-sm leading-5 font-medium">
-          <InlineTaskText
-            ariaLabel={`Edit title for ${task.title}`}
-            className="block min-w-0 leading-5"
-            emptyFallback="Untitled task"
-            onCommit={(title) => onUpdateTask(task.id, { title })}
-            value={task.title}
-          />
+        <h3 className="min-w-0 truncate text-sm leading-5 font-medium">
+          {task.title || "Untitled task"}
         </h3>
 
         {task.notes ? (
-          <InlineTaskText
-            ariaLabel={`Edit notes for ${task.title}`}
-            className="mt-2 line-clamp-2 block min-w-0 text-[13px] leading-5 text-[color:var(--lane-muted)]"
+          <StaticTaskText
+            className="mt-2 line-clamp-2 min-w-0 text-[13px] leading-5 text-[color:var(--lane-muted)]"
             multiline
-            onCommit={(notes) => onUpdateTask(task.id, { notes })}
             value={task.notes}
           />
         ) : null}
@@ -190,9 +129,8 @@ export function UpcomingTaskItem({
           applicationId={task.application_id}
           applicationsById={applicationsById}
         />
-        <InlineTaskCategoryBadge
+        <StaticTaskCategoryBadge
           badgeClassName="h-7 min-w-7 rounded-md px-[calc(--spacing(2)-1px)] text-sm sm:h-6 sm:min-w-6 sm:text-xs"
-          onUpdateTask={onUpdateTask}
           task={task}
         />
         <TaskDeleteMenu
@@ -215,13 +153,13 @@ export function UpcomingTaskItem({
 
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 sm:col-span-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <InlineTaskPriorityBadge onUpdateTask={onUpdateTask} task={task} />
-          <InlineTaskStatusBadge onUpdateTask={onUpdateTask} task={task} />
-          <InlineTaskAssigneeBadge onUpdateTask={onUpdateTask} task={task} />
-          <InlineTaskNeedsInputBadge onUpdateTask={onUpdateTask} task={task} />
+          <StaticTaskPriorityBadge task={task} />
+          <StaticTaskStatusBadge task={task} />
+          <StaticTaskAssigneeBadge task={task} />
+          <StaticTaskNeedsInputBadge task={task} />
         </div>
 
-        <UpcomingDateMeta onUpdateTask={onUpdateTask} task={task} />
+        <StaticUpcomingDateMeta task={task} />
       </div>
     </article>
   );

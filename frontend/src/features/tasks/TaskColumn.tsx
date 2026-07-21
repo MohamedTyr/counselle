@@ -7,11 +7,7 @@ import { Card } from "@/components/ui/card";
 import type { Task, TaskStatus } from "@/domain/task";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { emptyTaskIdSet, laneThemeClass } from "@/features/tasks/task-config";
-import type {
-  TaskLayoutMode,
-  TodayColumn,
-  UpdateTask,
-} from "@/features/tasks/task-types";
+import type { TaskLayoutMode, TodayColumn } from "@/features/tasks/task-types";
 import { cn } from "@/lib/utils";
 
 type TaskColumnProps = {
@@ -33,7 +29,6 @@ type TaskColumnProps = {
   onDrop: (event: DragEvent<HTMLElement>, columnId: TaskStatus) => void;
   onOpenTask: (taskId: string) => void;
   onToggleTaskSelected: (taskId: string) => void;
-  onUpdateTask: UpdateTask;
   reduceMotion: boolean;
   selectedTaskIds: ReadonlySet<string>;
   tasks: Task[];
@@ -54,7 +49,6 @@ export function TaskColumn({
   onDrop,
   onOpenTask,
   onToggleTaskSelected,
-  onUpdateTask,
   reduceMotion,
   selectedTaskIds,
   tasks,
@@ -110,7 +104,6 @@ export function TaskColumn({
               onDragStart={onDragStart}
               onOpen={onOpenTask}
               onToggleSelected={onToggleTaskSelected}
-              onUpdateTask={onUpdateTask}
               reduceMotion={reduceMotion}
               task={task}
             />

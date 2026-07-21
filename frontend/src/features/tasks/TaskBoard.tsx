@@ -5,11 +5,7 @@ import type { ApplicationView } from "@/api/workspace/types";
 import type { Task, TaskStatus } from "@/domain/task";
 import { TaskColumn } from "@/features/tasks/TaskColumn";
 import { todayColumns } from "@/features/tasks/task-config";
-import type {
-  SelectionBox,
-  TaskLayoutMode,
-  UpdateTask,
-} from "@/features/tasks/task-types";
+import type { SelectionBox, TaskLayoutMode } from "@/features/tasks/task-types";
 import { getSelectionStyle } from "@/features/tasks/useTaskSelection";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +27,6 @@ export function TaskBoard({
   onSelectionPointerEnd,
   onSelectionPointerMove,
   onToggleTaskSelected,
-  onUpdateTask,
   reduceMotion,
   selectedTaskIds,
   selectionBox,
@@ -58,7 +53,6 @@ export function TaskBoard({
   onSelectionPointerEnd: (event: PointerEvent<HTMLDivElement>) => void;
   onSelectionPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
   onToggleTaskSelected: (taskId: string) => void;
-  onUpdateTask: UpdateTask;
   reduceMotion: boolean;
   selectedTaskIds: ReadonlySet<string>;
   selectionBox: SelectionBox | null;
@@ -94,7 +88,6 @@ export function TaskBoard({
           onDrop={onDrop}
           onOpenTask={onOpenTask}
           onToggleTaskSelected={onToggleTaskSelected}
-          onUpdateTask={onUpdateTask}
           reduceMotion={reduceMotion}
           selectedTaskIds={selectedTaskIds}
           tasks={groupedTasks[column.id]}

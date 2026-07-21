@@ -481,7 +481,6 @@ export function TasksPage() {
                   taskSelection.handleSelectionPointerMove
                 }
                 onToggleTaskSelected={taskSelection.toggleTaskSelection}
-                onUpdateTask={updateTask}
                 reduceMotion={!!reduceMotion}
                 selectedTaskIds={taskSelection.selectedTaskIdSet}
                 selectionBox={taskSelection.selectionBox}
@@ -508,7 +507,6 @@ export function TasksPage() {
                 applicationsById={applicationsById}
                 onDeleteTask={deleteTask}
                 onOpenTask={handleOpenTask}
-                onUpdateTask={updateTask}
                 tasks={filteredTasks}
               />
             </TabsPanel>

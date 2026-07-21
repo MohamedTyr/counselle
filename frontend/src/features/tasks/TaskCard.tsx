@@ -4,12 +4,11 @@ import { motion } from "motion/react";
 import type { ApplicationView } from "@/api/workspace/types";
 import type { Task, TaskStatus } from "@/domain/task";
 import { TaskDeleteMenu, TaskSchoolChip } from "@/features/tasks/task-actions";
-import type { TaskLayoutMode, UpdateTask } from "@/features/tasks/task-types";
+import type { TaskLayoutMode } from "@/features/tasks/task-types";
 import {
-  InlineTaskCategoryBadge,
-  InlineTaskText,
-  TaskMetaRail,
-} from "@/features/tasks/task-inline-controls";
+  StaticTaskCategoryBadge,
+  StaticTaskMetaRail,
+} from "@/features/tasks/task-static-controls";
 import { cn } from "@/lib/utils";
 
 type TaskCardProps = {
@@ -27,7 +26,6 @@ type TaskCardProps = {
   ) => void;
   onOpen: (taskId: string) => void;
   onToggleSelected: (taskId: string) => void;
-  onUpdateTask: UpdateTask;
   reduceMotion: boolean;
   task: Task;
 };
@@ -43,7 +41,6 @@ export function TaskCard({
   onDragStart,
   onOpen,
   onToggleSelected,
-  onUpdateTask,
   reduceMotion,
   task,
 }: TaskCardProps) {
@@ -103,16 +100,10 @@ export function TaskCard({
           >
             {isSelected ? "Deselect task" : "Select task"}
           </button>
-          <h3 className="min-w-0 flex-1 text-sm leading-5 font-medium">
-            <InlineTaskText
-              ariaLabel={`Edit title for ${task.title}`}
-              className="block min-w-0 leading-5"
-              emptyFallback="Untitled task"
-              onCommit={(title) => onUpdateTask(task.id, { title })}
-              value={task.title}
-            />
+          <h3 className="min-w-0 flex-1 truncate text-sm leading-5 font-medium">
+            {task.title || "Untitled task"}
           </h3>
-          <InlineTaskCategoryBadge onUpdateTask={onUpdateTask} task={task} />
+          <StaticTaskCategoryBadge task={task} />
           <TaskDeleteMenu
             onDeleteTask={onDeleteTask}
             taskId={task.id}
@@ -130,16 +121,12 @@ export function TaskCard({
         ) : null}
 
         {task.notes ? (
-          <InlineTaskText
-            ariaLabel={`Edit notes for ${task.title}`}
-            className="mt-2 line-clamp-2 block min-w-0 text-[13px] leading-5 text-[color:var(--lane-muted)]"
-            multiline
-            onCommit={(notes) => onUpdateTask(task.id, { notes })}
-            value={task.notes}
-          />
+          <p className="mt-2 line-clamp-2 min-w-0 text-[13px] leading-5 text-[color:var(--lane-muted)]">
+            {task.notes}
+          </p>
         ) : null}
 
-        <TaskMetaRail isDone={isDone} onUpdateTask={onUpdateTask} task={task} />
+        <StaticTaskMetaRail isDone={isDone} task={task} />
       </article>
     </motion.div>
   );

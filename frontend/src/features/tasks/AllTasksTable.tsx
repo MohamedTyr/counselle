@@ -23,26 +23,21 @@ import {
   allTaskColumns,
   allTasksTableWidth,
 } from "@/features/tasks/task-config";
-import {
-  formatPlannedDateLabel,
-  formatReminderLabel,
-  formatShortDate,
-  getDueState,
-} from "@/features/tasks/task-dates";
 import { sortAllTasks } from "@/features/tasks/task-sort";
 import type {
   AllTaskColumn,
   AllTaskColumnId,
   AllTaskSortState,
-  UpdateTask,
 } from "@/features/tasks/task-types";
 import {
-  InlineTaskCategoryBadge,
-  InlineTaskDate,
-  InlineTaskPriorityBadge,
-  InlineTaskStatusBadge,
-  InlineTaskText,
-} from "@/features/tasks/task-inline-controls";
+  StaticDueDateValue,
+  StaticReminderValue,
+  StaticTaskCategoryBadge,
+  StaticTaskPriorityBadge,
+  StaticTaskStatusBadge,
+  StaticTaskText,
+  StaticWorkDateValue,
+} from "@/features/tasks/task-static-controls";
 import { cn } from "@/lib/utils";
 import {
   ArrowDown,
@@ -102,120 +97,27 @@ function AllTasksTableHead({
   );
 }
 
-function AllTaskDueDateValue({
-  onUpdateTask,
-  task,
-}: {
-  onUpdateTask: UpdateTask;
-  task: Task;
-}) {
-  const dueState = getDueState(task);
-  const label = task.due_at ? formatShortDate(task.due_at) : "No due";
-
-  return (
-    <InlineTaskDate
-      ariaLabel={`Change due date for ${task.title}`}
-      className={cn(
-        "h-6 text-sm tabular-nums",
-        !task.due_at && "text-muted-foreground",
-        dueState === "soon" && "font-medium text-destructive",
-        dueState === "overdue" && "font-medium text-destructive",
-      )}
-      defaultHour={23}
-      defaultMinute={59}
-      field="due_at"
-      onUpdateTask={onUpdateTask}
-      task={task}
-      value={task.due_at}
-    >
-      {label}
-    </InlineTaskDate>
-  );
-}
-
-function AllTaskWorkDateValue({
-  onUpdateTask,
-  task,
-}: {
-  onUpdateTask: UpdateTask;
-  task: Task;
-}) {
-  return (
-    <InlineTaskDate
-      ariaLabel={`Change work date for ${task.title}`}
-      className={cn(
-        "h-6 text-sm tabular-nums",
-        !task.planned_for && "text-muted-foreground",
-      )}
-      defaultHour={9}
-      defaultMinute={0}
-      field="planned_for"
-      onUpdateTask={onUpdateTask}
-      task={task}
-      value={task.planned_for}
-    >
-      {task.planned_for
-        ? formatPlannedDateLabel(task.planned_for)
-        : "Unplanned"}
-    </InlineTaskDate>
-  );
-}
-
-function AllTaskReminderValue({
-  onUpdateTask,
-  task,
-}: {
-  onUpdateTask: UpdateTask;
-  task: Task;
-}) {
-  return (
-    <InlineTaskDate
-      ariaLabel={`Change reminder for ${task.title}`}
-      className={cn(
-        "h-6 text-sm tabular-nums",
-        !task.reminder_at && "text-muted-foreground",
-      )}
-      defaultHour={9}
-      defaultMinute={0}
-      field="reminder_at"
-      onUpdateTask={onUpdateTask}
-      task={task}
-      value={task.reminder_at}
-    >
-      {formatReminderLabel(task.reminder_at)}
-    </InlineTaskDate>
-  );
-}
-
 function AllTaskTitleCell({
   applicationsById,
   onDeleteTask,
   onOpenTask,
-  onUpdateTask,
   task,
 }: {
   applicationsById: ReadonlyMap<string, ApplicationView>;
   onDeleteTask: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
-  onUpdateTask: UpdateTask;
   task: Task;
 }) {
   return (
     <div className="flex min-w-0 items-start gap-2">
       <div className="min-w-0 flex-1">
-        <InlineTaskText
-          ariaLabel={`Edit title for ${task.title}`}
-          className="block truncate text-sm leading-5 font-medium"
-          emptyFallback="Untitled task"
-          onCommit={(title) => onUpdateTask(task.id, { title })}
-          value={task.title}
-        />
+        <span className="block truncate text-sm leading-5 font-medium">
+          {task.title || "Untitled task"}
+        </span>
         {task.notes ? (
-          <InlineTaskText
-            ariaLabel={`Edit notes for ${task.title}`}
+          <StaticTaskText
             className="mt-1 block truncate text-xs leading-4 text-muted-foreground"
             multiline
-            onCommit={(notes) => onUpdateTask(task.id, { notes })}
             value={task.notes}
           />
         ) : null}
@@ -252,13 +154,11 @@ function AllTasksMobileItem({
   applicationsById,
   onDeleteTask,
   onOpenTask,
-  onUpdateTask,
   task,
 }: {
   applicationsById: ReadonlyMap<string, ApplicationView>;
   onDeleteTask: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
-  onUpdateTask: UpdateTask;
   task: Task;
 }) {
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -292,24 +192,18 @@ function AllTasksMobileItem({
     >
       <span className="flex min-w-0 items-start justify-between gap-3">
         <span className="min-w-0">
-          <InlineTaskText
-            ariaLabel={`Edit title for ${task.title}`}
-            className="block truncate text-sm leading-5 font-medium"
-            emptyFallback="Untitled task"
-            onCommit={(title) => onUpdateTask(task.id, { title })}
-            value={task.title}
-          />
+          <span className="block truncate text-sm leading-5 font-medium">
+            {task.title || "Untitled task"}
+          </span>
           {task.notes ? (
-            <InlineTaskText
-              ariaLabel={`Edit notes for ${task.title}`}
+            <StaticTaskText
               className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground"
               multiline
-              onCommit={(notes) => onUpdateTask(task.id, { notes })}
               value={task.notes}
             />
           ) : null}
         </span>
-        <InlineTaskStatusBadge onUpdateTask={onUpdateTask} task={task} />
+        <StaticTaskStatusBadge task={task} />
         <TaskDeleteMenu
           onDeleteTask={onDeleteTask}
           taskId={task.id}
@@ -318,8 +212,8 @@ function AllTasksMobileItem({
       </span>
 
       <span className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
-        <InlineTaskCategoryBadge onUpdateTask={onUpdateTask} task={task} />
-        <InlineTaskPriorityBadge onUpdateTask={onUpdateTask} task={task} />
+        <StaticTaskCategoryBadge task={task} />
+        <StaticTaskPriorityBadge task={task} />
         <TaskSchoolChip
           applicationId={task.application_id}
           applicationsById={applicationsById}
@@ -330,19 +224,19 @@ function AllTasksMobileItem({
         <span className="min-w-0 rounded-lg bg-muted/22 px-2 py-1.5">
           <span className="block text-muted-foreground">Work</span>
           <span className="mt-1 block truncate">
-            <AllTaskWorkDateValue onUpdateTask={onUpdateTask} task={task} />
+            <StaticWorkDateValue task={task} />
           </span>
         </span>
         <span className="min-w-0 rounded-lg bg-muted/22 px-2 py-1.5">
           <span className="block text-muted-foreground">Due</span>
           <span className="mt-1 block truncate">
-            <AllTaskDueDateValue onUpdateTask={onUpdateTask} task={task} />
+            <StaticDueDateValue task={task} />
           </span>
         </span>
         <span className="min-w-0 rounded-lg bg-muted/22 px-2 py-1.5">
           <span className="block text-muted-foreground">Reminder</span>
           <span className="mt-1 block truncate">
-            <AllTaskReminderValue onUpdateTask={onUpdateTask} task={task} />
+            <StaticReminderValue task={task} />
           </span>
         </span>
       </span>
@@ -354,13 +248,11 @@ export function AllTasksTable({
   applicationsById,
   onDeleteTask,
   onOpenTask,
-  onUpdateTask,
   tasks,
 }: {
   applicationsById: ReadonlyMap<string, ApplicationView>;
   onDeleteTask: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
-  onUpdateTask: UpdateTask;
   tasks: Task[];
 }) {
   const [sortState, setSortState] = useState<AllTaskSortState>({
@@ -421,53 +313,39 @@ export function AllTasksTable({
             ) : (
               sortedTasks.map((task) => (
                 <TableRow
-                  className={cn(task.status === "done" && "opacity-70")}
+                  aria-label={`Open ${task.title} details`}
+                  className={cn(
+                    "cursor-pointer",
+                    task.status === "done" && "opacity-70",
+                  )}
                   key={task.id}
+                  onClick={() => onOpenTask(task.id)}
                 >
                   <TableCell className="overflow-hidden py-3">
                     <AllTaskTitleCell
                       applicationsById={applicationsById}
                       onDeleteTask={onDeleteTask}
                       onOpenTask={onOpenTask}
-                      onUpdateTask={onUpdateTask}
                       task={task}
                     />
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <InlineTaskStatusBadge
-                      onUpdateTask={onUpdateTask}
-                      task={task}
-                    />
+                    <StaticTaskStatusBadge task={task} />
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <InlineTaskCategoryBadge
-                      onUpdateTask={onUpdateTask}
-                      task={task}
-                    />
+                    <StaticTaskCategoryBadge task={task} />
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <InlineTaskPriorityBadge
-                      onUpdateTask={onUpdateTask}
-                      task={task}
-                    />
+                    <StaticTaskPriorityBadge task={task} />
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <AllTaskWorkDateValue
-                      onUpdateTask={onUpdateTask}
-                      task={task}
-                    />
+                    <StaticWorkDateValue task={task} />
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <AllTaskDueDateValue
-                      onUpdateTask={onUpdateTask}
-                      task={task}
-                    />
+                    <StaticDueDateValue task={task} />
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <AllTaskReminderValue
-                      onUpdateTask={onUpdateTask}
-                      task={task}
-                    />
+                    <StaticReminderValue task={task} />
                   </TableCell>
                 </TableRow>
               ))
@@ -494,7 +372,6 @@ export function AllTasksTable({
               key={task.id}
               onDeleteTask={onDeleteTask}
               onOpenTask={onOpenTask}
-              onUpdateTask={onUpdateTask}
               task={task}
             />
           ))
