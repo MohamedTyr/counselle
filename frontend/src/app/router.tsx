@@ -29,6 +29,15 @@ export function createAppRouter() {
             return { Component: module.ToolCallGalleryPage };
           },
         },
+        {
+          path: "/dev/onboarding-shell",
+          lazy: async () => {
+            const module = await import(
+              "@/features/dev-onboarding-shell-gallery/OnboardingShellGalleryPage"
+            );
+            return { Component: module.OnboardingShellGalleryPage };
+          },
+        },
       ]
     : [];
 

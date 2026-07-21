@@ -469,6 +469,26 @@
   --essay-editor-toolbar-active: var(--workspace-surface-active);
   --essay-editor-toolbar-shadow: 0 8px 18px
     color-mix(in oklch, var(--shell-background) 70%, transparent);
+  --onboarding-page-background: var(--shell-background);
+  --onboarding-frame-surface: var(--workspace-surface);
+  --onboarding-form-surface: var(--workspace-surface-raised);
+  --onboarding-caption-surface: var(--workspace-surface);
+  --onboarding-border: var(--workspace-border);
+  --onboarding-border-soft: var(--workspace-border-soft);
+  --onboarding-primary: var(--workspace-primary);
+  --onboarding-primary-foreground: var(--workspace-primary-foreground);
+  --onboarding-control-surface: var(--workspace-composer-control-surface);
+  --onboarding-control-border: var(--workspace-composer-control-border);
+  --onboarding-control-hover-surface: var(--workspace-composer-control-hover-surface);
+  --onboarding-control-hover-border: var(--workspace-composer-control-hover-border);
+  --onboarding-selected-surface: var(--profile-control-selected-surface);
+  --onboarding-selected-border: var(--profile-control-selected-border);
+  --onboarding-foreground: var(--workspace-foreground);
+  --onboarding-foreground-soft: var(--workspace-foreground-soft);
+  --onboarding-muted-foreground: var(--workspace-muted-foreground);
+  --onboarding-ring: var(--workspace-ring);
+  --onboarding-error-foreground: var(--workspace-error-pill-fg);
+  --onboarding-error-surface: var(--workspace-error-pill-bg);
   --background: var(--shell-background);
   --foreground: var(--workspace-foreground);
   --card: var(--workspace-surface-raised);

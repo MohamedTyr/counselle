@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1b1a19"/>
+      <stop offset="55%" stop-color="#201f1d"/>
+      <stop offset="100%" stop-color="#141312"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="70%" cy="70%" r="55%">
+      <stop offset="0%" stop-color="#d8d0c3" stop-opacity="0.22"/>
+      <stop offset="55%" stop-color="#d8d0c3" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#d8d0c3" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="50%" cy="55%" r="75%">
+      <stop offset="55%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.38"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#bg)"/>
+  <rect width="800" height="1000" fill="url(#glow)"/>
+  <g stroke="#3a3733" stroke-width="1.5" fill="none" opacity="0.55">
+    <path d="M140 460 C 300 420, 500 500, 660 440"/>
+    <path d="M140 520 C 320 480, 480 560, 660 500"/>
+    <path d="M140 580 C 300 560, 520 620, 660 560"/>
+  </g>
+  <g fill="#d8d0c3" opacity="0.5">
+    <circle cx="300" cy="480" r="5"/>
+    <circle cx="470" cy="540" r="5"/>
+    <circle cx="590" cy="470" r="5"/>
+  </g>
+  <rect width="800" height="1000" fill="url(#vignette)"/>
+</svg>

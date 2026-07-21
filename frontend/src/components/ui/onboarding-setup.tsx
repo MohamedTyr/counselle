@@ -1,249 +1,448 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, ChevronDown, Check } from 'lucide-react';
+"use client";
 
-type FocusOption = {
-  id: string;
-  label: string;
-};
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
-interface OnboardingSetupProps {
-  title: string;
-  subtitle: string;
-  focusOptions: FocusOption[];
-  selectedFocus: string;
-  onFocusChange: (id: string) => void;
-  revenue: string;
-  onRevenueChange: (value: string) => void;
-  role: string;
-  onRoleChange: (value: string) => void;
-  step: number;
-  totalSteps: number;
-  onContinue: () => void;
-  imageUrl: string;
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+/**
+ * Generic Watermelon-derived onboarding shell (plan `02-ui-ux-spec.md` §11.4).
+ * Presentation only: composition, tokens, motion, and focus/loading/error
+ * chrome. It never knows about Profile fields — the caller supplies the
+ * question content as `children` and the step copy/media as props.
+ */
+export interface OnboardingMedia {
+  src: string;
+  alt: "";
+  position?: string;
+  caption: ReactNode;
 }
 
-const spring = {
-  type: 'spring',
-  stiffness: 320,
-  damping: 30,
-  mass: 0.7,
-} as const;
+export type OnboardingSaveStatus = "idle" | "saving" | "saved" | "error";
 
-export const OnboardingSetup: React.FC<OnboardingSetupProps> = ({
-  title,
-  subtitle,
-  focusOptions,
-  selectedFocus,
-  onFocusChange,
-  revenue,
-  onRevenueChange,
-  role,
-  onRoleChange,
+export interface OnboardingSetupProps {
+  step: number;
+  totalSteps: number;
+  title: string;
+  description: string;
+  children: ReactNode;
+  media: OnboardingMedia;
+  canGoBack: boolean;
+  continueLabel: string;
+  isSaving: boolean;
+  saveStatus?: OnboardingSaveStatus;
+  error?: string;
+  /**
+   * Called on Back. Per spec §15.12 ("Rapid double-clicks cannot queue
+   * multiple transitions or writes"), the caller must synchronously flip
+   * `isSaving` to true when starting work. The shell also guards against
+   * duplicate clicks internally as defense in depth.
+   */
+  onBack: () => void;
+  /**
+   * Called on Continue. Per spec §15.12 ("Rapid double-clicks cannot queue
+   * multiple transitions or writes"), the caller must synchronously flip
+   * `isSaving` to true when starting work. The shell also guards against
+   * duplicate clicks internally as defense in depth.
+   */
+  onContinue: () => void;
+  onDefer: () => void;
+}
+
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+
+const stepVariants = {
+  enter: (direction: number) => ({ opacity: 0, x: direction > 0 ? 16 : -16 }),
+  center: { opacity: 1, x: 0 },
+  exit: (direction: number) => ({ opacity: 0, x: direction > 0 ? -12 : 12 }),
+};
+
+const stepVariantsReduced = {
+  enter: { opacity: 0 },
+  center: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
+export function OnboardingSetup({
   step,
   totalSteps,
+  title,
+  description,
+  children,
+  media,
+  canGoBack,
+  continueLabel,
+  isSaving,
+  saveStatus = "idle",
+  error,
+  onBack,
   onContinue,
-  imageUrl,
-}) => {
-  const [isRevenueOpen, setIsRevenueOpen] = useState(false);
-  const revenueRef = useRef<HTMLDivElement>(null);
+  onDefer,
+}: OnboardingSetupProps) {
+  const shouldReduceMotion = useReducedMotion();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const errorId = useId();
+  const statusId = useId();
 
-  const revenueOptions = ['$100k – $200k', '$200k – $500k', '$500k+'];
+  // Derive forward/back motion direction from the previous render's step
+  // without reading a ref during render (see React docs on adjusting state
+  // during rendering — this is the sanctioned pattern for that).
+  const [prevStep, setPrevStep] = useState(step);
+  const [direction, setDirection] = useState(1);
+  if (step !== prevStep) {
+    setDirection(step > prevStep ? 1 : -1);
+    setPrevStep(step);
+  }
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        revenueRef.current &&
-        !revenueRef.current.contains(event.target as Node)
-      ) {
-        setIsRevenueOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    // First paint has no entrance transition to wait out; focus immediately.
+    headingRef.current?.focus();
   }, []);
 
+  const frameTransition = shouldReduceMotion
+    ? { duration: 0.12 }
+    : { duration: 0.22, ease: EASE_OUT };
+
+  function focusHeadingOnEnter(definition: string) {
+    if (definition === "center") {
+      headingRef.current?.focus();
+    }
+  }
+
   return (
-    <div
-      className={`relative flex w-full flex-col items-center justify-center bg-transparent py-0 transition-all duration-500`}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={spring}
-        className="relative z-10 grid w-full max-w-5xl grid-cols-1 rounded-[24px] border-2 border-[#EFEDF5] bg-[#F5F5F7] shadow-xl lg:grid-cols-[1.2fr_0.8fr] dark:border-[#1a1a1a] dark:bg-[#0A0A0A]"
+    <div className="flex min-h-dvh w-full items-center justify-center bg-[var(--onboarding-page-background)] px-4 py-6 sm:px-6 md:py-10">
+      <motion.main
+        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={frameTransition}
+        className="grid w-full max-w-full grid-cols-1 overflow-hidden rounded-2xl border border-[var(--onboarding-border)] bg-[var(--onboarding-frame-surface)] md:max-w-[680px] lg:max-w-[1120px] lg:grid-cols-[3fr_2fr]"
       >
-        {/* LEFT CONTENT */}
-        <div className="inter order-2 flex flex-col lg:order-1">
-          <div className="m-1.5 flex h-full flex-col rounded-[18px] bg-white p-5 shadow-sm sm:p-8 dark:bg-[#111]">
-            <h1 className="text-[22px] font-medium text-[#111] sm:text-[24px] dark:text-[#EEE]">
-              {title}
-            </h1>
-            <p className="mt-1 text-[12px] text-[#99999B] dark:text-[#666]">
-              {subtitle}
-            </p>
+        {/*
+         * Step-change announcement (spec §16): announces "Step N of M,
+         * <title>" whenever `step` changes. Kept separate from
+         * OnboardingStatusRow's live region, which only announces
+         * save status and can fire independently.
+         */}
+        <div aria-live="polite" className="sr-only" role="status">
+          {`Step ${step} of ${totalSteps}, ${title}`}
+        </div>
 
-            <div className="my-5 border-t-[1.6px] border-dashed border-gray-200 dark:border-[#222]" />
+        <div className="order-2 flex min-h-0 flex-col lg:order-1">
+          <div className="m-1.5 flex min-h-0 grow flex-col rounded-xl bg-[var(--onboarding-form-surface)] px-4 pt-5 pb-4 sm:px-8 sm:pt-7 sm:pb-6">
+            <OnboardingBrandRow isSaving={isSaving} onDefer={onDefer} />
+            <OnboardingProgress step={step} totalSteps={totalSteps} />
 
-            {/* Focus Options */}
-            <div className="grow">
-              <p className="mb-4 text-[13px] font-normal tracking-tight text-[#8F8E92]">
-                Your main focus
-              </p>
-
-              <div className="flex flex-wrap gap-2">
-                {focusOptions.map((option) => {
-                  const active = option.id === selectedFocus;
-                  return (
-                    <motion.button
-                      key={option.id}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => onFocusChange(option.id)}
-                      className={`relative flex grow items-center justify-center gap-2 rounded-xl border-[1.5px] px-4 py-2.5 text-[12px] font-medium transition-all duration-200 sm:grow-0 sm:justify-start ${
-                        active
-                          ? 'border-[#F87742]/40 bg-[#FFF0E9] text-[#F87742] dark:border-[#F87742]/50 dark:bg-[#2A1A14]'
-                          : 'border-[#E5E7EB] bg-white text-[#4B5563] hover:border-[#D1D5DB] dark:border-[#222] dark:bg-[#111] dark:text-[#999] dark:hover:border-[#333]'
-                      } `}
-                    >
-                      {active && (
-                        <CheckCircle2
-                          size={18}
-                          fill="#FA692E"
-                          className="text-white dark:text-[#2A1A14]"
-                        />
-                      )}
-                      {option.label}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Revenue & Role Row */}
-            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div>
-                <label className="text-[13px] font-normal text-[#979799]">
-                  Monthly revenue
-                </label>
-                <div className="relative mt-2" ref={revenueRef}>
-                  <button
-                    type="button"
-                    onClick={() => setIsRevenueOpen(!isRevenueOpen)}
-                    className="relative h-10 w-full rounded-full border border-[#EEEDF3] bg-white pr-12 pl-6 text-left text-[13px] whitespace-nowrap text-[#111] transition-all outline-none focus:ring-1 focus:ring-[#d6d5db] dark:border-[#222] dark:bg-[#111] dark:text-[#999] dark:focus:ring-[#333]"
-                  >
-                    <span className="block truncate">
-                      {revenue || 'Select revenue'}
-                    </span>
-                    <motion.div
-                      animate={{ rotate: isRevenueOpen ? 180 : 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute top-1/2 right-5 flex -translate-y-1/2 items-center"
-                    >
-                      <ChevronDown size={14} className="text-[#979799]" />
-                    </motion.div>
-                  </button>
-
-                  <AnimatePresence>
-                    {isRevenueOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute z-[100] mt-1.5 w-full overflow-hidden rounded-xl border border-[#EEEDF3] bg-white py-1 shadow-2xl dark:border-[#222] dark:bg-[#111]"
-                      >
-                        {revenueOptions.map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => {
-                              onRevenueChange(option);
-                              setIsRevenueOpen(false);
-                            }}
-                            className="group flex w-full items-center justify-between px-4 py-2.5 text-left text-[13px] transition-colors hover:bg-[#F5F5F7] dark:hover:bg-[#1a1a1a]"
-                          >
-                            <span
-                              className={
-                                revenue === option
-                                  ? 'font-medium text-[#111] dark:text-[#EEE]'
-                                  : 'text-[#666] dark:text-[#999]'
-                              }
-                            >
-                              {option}
-                            </span>
-                            {revenue === option && (
-                              <Check
-                                size={14}
-                                className="text-[#111] dark:text-[#EEE]"
-                              />
-                            )}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[13px] font-normal text-[#979799]">
-                  Your role
-                </label>
-                <input
-                  value={role}
-                  onChange={(e) => onRoleChange(e.target.value)}
-                  placeholder="e.g. Sales Manager"
-                  className="mt-2 h-10 w-full rounded-full border border-[#EEEDF3] bg-white px-6 text-left text-[13px] text-[#111] transition-all outline-none placeholder:text-[#A2A2A4] focus:ring-1 focus:ring-[#d6d5db] dark:border-[#222] dark:bg-[#111] dark:text-[#EEE] dark:placeholder:text-[#444] dark:focus:ring-[#333]"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-auto flex flex-wrap items-center justify-between gap-4 p-5 pt-2 sm:px-8 sm:pb-8">
-            <div className="flex items-center gap-2 text-[11px] font-medium text-[#8B8B8D]">
-              <span className="whitespace-nowrap">
-                STEP {step} / {totalSteps}
-              </span>
-              <div className="ml-2 flex gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-4 w-1 rounded-full transition-colors ${i < Math.ceil((step / totalSteps) * 5) ? 'bg-[#ff6a32]' : 'bg-[#E5E5ED] dark:bg-[#222]'}`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              transition={spring}
-              onClick={onContinue}
-              className="xs:w-auto h-10 w-full rounded-full bg-[#0F0F0F] px-8 text-[13px] font-medium text-[#D7D7D7] shadow-lg transition-all active:shadow-sm sm:w-auto dark:bg-[#EEE] dark:text-black"
+            <OnboardingStepContent
+              description={description}
+              direction={direction}
+              headingRef={headingRef}
+              media={media}
+              onAnimationComplete={focusHeadingOnEnter}
+              shouldReduceMotion={Boolean(shouldReduceMotion)}
+              step={step}
+              title={title}
             >
-              Continue
-            </motion.button>
+              {children}
+            </OnboardingStepContent>
+
+            <OnboardingStatusRow
+              error={error}
+              errorId={errorId}
+              saveStatus={saveStatus}
+              statusId={statusId}
+            />
           </div>
+
+          <OnboardingFooter
+            canGoBack={canGoBack}
+            continueLabel={continueLabel}
+            errorId={error ? errorId : undefined}
+            isSaving={isSaving}
+            onBack={onBack}
+            onContinue={onContinue}
+          />
         </div>
 
-        {/* RIGHT IMAGE SECTION */}
-        <div className="relative order-1 h-48 overflow-hidden rounded-t-[24px] sm:h-64 md:h-auto md:min-h-full lg:order-2 lg:rounded-t-none lg:rounded-r-[24px]">
-          <AnimatePresence mode="popLayout">
-            <motion.img
-              key={imageUrl}
-              src={imageUrl}
-              initial={{ opacity: 0, scale: 1.03 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={spring}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <div className="pointer-events-none absolute inset-0 bg-black/5 dark:bg-black/20" />
-          </AnimatePresence>
-        </div>
-      </motion.div>
+        <OnboardingMediaPanel
+          media={media}
+          shouldReduceMotion={Boolean(shouldReduceMotion)}
+        />
+      </motion.main>
     </div>
   );
-};
+}
+
+function OnboardingStepContent({
+  children,
+  description,
+  direction,
+  headingRef,
+  media,
+  onAnimationComplete,
+  shouldReduceMotion,
+  step,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  direction: number;
+  headingRef: RefObject<HTMLHeadingElement | null>;
+  media: OnboardingMedia;
+  onAnimationComplete: (definition: string) => void;
+  shouldReduceMotion: boolean;
+  step: number;
+  title: string;
+}) {
+  return (
+    <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
+      <AnimatePresence custom={direction} initial={false} mode="wait">
+        <motion.div
+          key={step}
+          custom={direction}
+          variants={shouldReduceMotion ? stepVariantsReduced : stepVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{
+            duration: shouldReduceMotion ? 0.1 : 0.21,
+            ease: EASE_OUT,
+          }}
+          onAnimationComplete={onAnimationComplete}
+        >
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-[26px] leading-[1.15] font-semibold tracking-[-0.025em] text-[var(--onboarding-foreground)] outline-none sm:text-[28px]"
+          >
+            {title}
+          </h1>
+          <p className="mt-1.5 max-w-[60ch] text-[15px] leading-[1.55] text-[var(--onboarding-foreground-soft)] sm:text-base">
+            {description}
+          </p>
+
+          {media.caption ? (
+            <p className="mt-4 text-sm leading-[1.5] text-[var(--onboarding-foreground-soft)] lg:hidden">
+              {media.caption}
+            </p>
+          ) : null}
+
+          <div className="mt-6">{children}</div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function OnboardingBrandRow({
+  isSaving,
+  onDefer,
+}: {
+  isSaving: boolean;
+  onDefer: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm font-medium text-[var(--onboarding-foreground)]">
+        Counselle
+      </span>
+      <button
+        className="text-sm text-[var(--onboarding-muted-foreground)] underline-offset-4 transition-colors hover:text-[var(--onboarding-foreground-soft)] hover:underline disabled:pointer-events-none disabled:opacity-50"
+        disabled={isSaving}
+        onClick={onDefer}
+        type="button"
+      >
+        Do this later
+      </button>
+    </div>
+  );
+}
+
+function OnboardingProgress({
+  step,
+  totalSteps,
+}: {
+  step: number;
+  totalSteps: number;
+}) {
+  const segments = Array.from({ length: totalSteps });
+
+  return (
+    <div className="mt-5 flex items-center gap-3">
+      <div
+        aria-label={`Step ${step} of ${totalSteps}`}
+        aria-valuemax={totalSteps}
+        aria-valuemin={1}
+        aria-valuenow={step}
+        className="flex flex-1 gap-1.5"
+        role="progressbar"
+      >
+        {segments.map((_, index) => (
+          <span
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors duration-150",
+              index < step
+                ? "bg-[var(--onboarding-primary)]"
+                : "bg-[var(--onboarding-border)]",
+            )}
+            key={index}
+          />
+        ))}
+      </div>
+      <span className="shrink-0 text-sm whitespace-nowrap text-[var(--onboarding-muted-foreground)]">
+        Step {step} of {totalSteps}
+      </span>
+    </div>
+  );
+}
+
+function OnboardingStatusRow({
+  error,
+  errorId,
+  saveStatus,
+  statusId,
+}: {
+  error?: string;
+  errorId: string;
+  saveStatus: OnboardingSaveStatus;
+  statusId: string;
+}) {
+  const statusText =
+    saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : "";
+
+  return (
+    <>
+      <div className="sr-only" id={statusId} role="status">
+        {statusText}
+      </div>
+      {error ? (
+        <div
+          className="mt-4 rounded-lg bg-[var(--onboarding-error-surface)] px-4 py-3 text-sm text-[var(--onboarding-error-foreground)]"
+          id={errorId}
+          role="alert"
+        >
+          {error}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function OnboardingFooter({
+  canGoBack,
+  continueLabel,
+  errorId,
+  isSaving,
+  onBack,
+  onContinue,
+}: {
+  canGoBack: boolean;
+  continueLabel: string;
+  errorId?: string;
+  isSaving: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  // Defense-in-depth guard for spec §15.12 ("Rapid double-clicks cannot
+  // queue multiple transitions or writes"). `isSaving` should already
+  // disable/loading-gate these buttons, but that depends on the caller
+  // setting it synchronously. This ref blocks re-dispatch of the same
+  // click until the `isSaving` prop actually flips, closing any gap
+  // between the click and the caller's state update taking effect.
+  const dispatchedRef = useRef(false);
+
+  useEffect(() => {
+    if (isSaving) {
+      dispatchedRef.current = true;
+    } else {
+      dispatchedRef.current = false;
+    }
+  }, [isSaving]);
+
+  function guardedOnBack() {
+    if (dispatchedRef.current) return;
+    dispatchedRef.current = true;
+    onBack();
+  }
+
+  function guardedOnContinue() {
+    if (dispatchedRef.current) return;
+    dispatchedRef.current = true;
+    onContinue();
+  }
+
+  return (
+    <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-[var(--onboarding-border-soft)] bg-[var(--onboarding-form-surface)] px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:static sm:border-t-0 sm:bg-transparent sm:px-8 sm:pt-0 sm:pb-6">
+      {canGoBack ? (
+        <Button
+          disabled={isSaving}
+          onClick={guardedOnBack}
+          type="button"
+          variant="outline"
+        >
+          Back
+        </Button>
+      ) : (
+        <span />
+      )}
+      <Button
+        aria-describedby={errorId}
+        className="w-full sm:w-auto"
+        loading={isSaving}
+        onClick={guardedOnContinue}
+        type="button"
+      >
+        {continueLabel}
+      </Button>
+    </div>
+  );
+}
+
+function OnboardingMediaPanel({
+  media,
+  shouldReduceMotion,
+}: {
+  media: OnboardingMedia;
+  shouldReduceMotion: boolean;
+}) {
+  const transition = shouldReduceMotion
+    ? { duration: 0.1 }
+    : { duration: 0.26, ease: EASE_OUT };
+
+  return (
+    <div className="order-1 hidden lg:order-2 lg:flex lg:h-full lg:flex-col">
+      <div className="relative flex-[0_0_72%] overflow-hidden bg-[var(--onboarding-caption-surface)]">
+        <AnimatePresence mode="popLayout">
+          <motion.img
+            alt={media.alt}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 h-full w-full object-cover"
+            exit={{ opacity: 0 }}
+            initial={
+              shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.015 }
+            }
+            key={media.src}
+            src={media.src}
+            style={media.position ? { objectPosition: media.position } : undefined}
+            transition={transition}
+          />
+        </AnimatePresence>
+      </div>
+      <div className="flex flex-[0_0_28%] flex-col justify-center gap-1.5 bg-[var(--onboarding-caption-surface)] px-6 py-5">
+        <span className="text-sm font-medium text-[var(--onboarding-foreground)]">
+          What Counselle will keep in mind
+        </span>
+        <p className="text-sm leading-[1.45] text-[var(--onboarding-foreground-soft)]">
+          {media.caption}
+        </p>
+      </div>
+    </div>
+  );
+}
