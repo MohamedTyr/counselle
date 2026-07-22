@@ -1002,7 +1002,7 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             ):
                 expected_pair = pair
                 break
-        normalized_prose = capture.prose.replace(",", "")
+        normalized_prose = re.sub(r"[*_`~]+", "", capture.prose).replace(",", "")
         number_words = {
             "zero": "0",
             "one": "1",
@@ -1019,13 +1019,23 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
         for word, digit in number_words.items():
             normalized_prose = re.sub(rf"\b{word}\b", digit, normalized_prose, flags=re.I)
         direct = (
-            rf"\b{expected_pair[0]}(?:\s+\w+){{0,3}}\s+(?:of|out of)\s+"
+            rf"\b{expected_pair[0]}\b"
+            rf"(?:\s+(?:covered|verified|reported|eligible|profiled|schools?|institutions?"
+            rf"|candidates?|values?|with|usable|exact|metric|data|that|can|be|evaluated"
+            rf"|have|has|a|an|the|for|this|ranking|only|count|of|total|database"
+            rf"|contains|reflects|our|current|reported)){{0,24}}\s+"
+            rf"(?:of|out of)\s+"
             rf"(?:the\s+)?{expected_pair[1]}\b"
             if expected_pair
             else r"(?!)"
         )
         reverse = (
-            rf"\b(?:of|out of)\s+(?:the\s+)?{expected_pair[1]}\b[^.\n]*\b{expected_pair[0]}\b"
+            rf"\b(?:of|out of)\s+(?:the\s+)?{expected_pair[1]}\b"
+            rf"(?:\s+(?:covered|verified|reported|eligible|profiled|schools?|institutions?"
+            rf"|candidates?|values?|with|usable|exact|metric|data|that|can|be|evaluated"
+            rf"|have|has|a|an|the|for|this|ranking|only|count|of|total|database"
+            rf"|contains|reflects|our|current|reported|only|among|there|are|is|,))*"
+            rf"\s+{expected_pair[0]}\b"
             if expected_pair
             else r"(?!)"
         )

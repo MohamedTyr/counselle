@@ -630,8 +630,26 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
         "Of the 2,746 profiled schools, 2 have a verified value.", payload
     )
     assert score_deterministic(expects, reverse)["denominator"]["passed"] is True
+    reverse_unrelated = make_query_capture(
+        "Out of 2,746 profiled schools, we pulled examples for 12 counselor notes, "
+        "and 2 have this metric.",
+        payload,
+    )
+    assert score_deterministic(expects, reverse_unrelated)["denominator"]["passed"] is False
     noun_between = make_query_capture("Two schools out of 2,746 have the exact metric.", payload)
     assert score_deterministic(expects, noun_between)["denominator"]["passed"] is True
+    markdown_emphasis = make_query_capture(
+        "Our database contains **3** covered schools with verified values for this exact "
+        "metric out of **2,746** total profiled institutions.",
+        {"columns": ["covered", "total"], "rows": [[3, 2746]]},
+    )
+    assert score_deterministic(expects, markdown_emphasis)["denominator"]["passed"] is True
+    unrelated_out_of = make_query_capture(
+        "We found 3 schools with this metric, and pulled examples out of 2,746 total "
+        "profiled institutions.",
+        {"columns": ["covered", "total"], "rows": [[3, 2746]]},
+    )
+    assert score_deterministic(expects, unrelated_out_of)["denominator"]["passed"] is False
     aliases_and_word = make_query_capture(
         "Of the 2,746 profiled schools, two have a verified value.",
         {"columns": ["covered_schools", "total_schools"], "rows": [[2, 2746]]},
@@ -747,6 +765,14 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
     )
     assert score_deterministic(zero_expects, unsupported)["denominator"]["passed"] is False
     assert score_deterministic(zero_expects, evidenced_zero)["denominator"]["passed"] is True
+    evidenced_zero_markdown = make_query_capture(
+        "The covered count of schools that can be evaluated is **0** out of **2,746**.",
+        {"columns": ["metric_ref_present", "total"], "rows": [[False, 2746]]},
+    )
+    assert (
+        score_deterministic(zero_expects, evidenced_zero_markdown)["denominator"]["passed"]
+        is True
+    )
 
     evidenced_zero_reverse = make_query_capture(
         "Out of 2,746 schools, 0 can be evaluated.",
