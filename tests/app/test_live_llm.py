@@ -24,6 +24,7 @@ import pytest_asyncio
 from app.deps import Runtime, build_runtime
 from app.run_turn import run_turn
 from domain.events import Event
+from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
 
 pytestmark = pytest.mark.live_llm
@@ -61,15 +62,25 @@ async def _turn(
     text: str,
     config: SourceConfig | None = None,
     label: str = "",
+    response_mode: ResponseMode = ResponseMode.QUICK,
 ) -> list[Event]:
     events = [
-        event async for event in run_turn(session_id, text, config, deps=rt.deps, graph=rt.graph)
+        event
+        async for event in run_turn(
+            session_id,
+            text,
+            config,
+            deps=rt.deps,
+            graph=rt.graph,
+            response_mode=response_mode,
+        )
     ]
     usage = _usage(events)
     if usage:
         print(
-            f"\n[usage] {label or text[:40]!r}: in={usage['input_tokens']} "
-            f"out={usage['output_tokens']} tool_calls={usage['tool_calls']}"
+            f"\n[usage] {response_mode.value}:{label or text[:40]!r}: "
+            f"in={usage['input_tokens']} out={usage['output_tokens']} "
+            f"tool_calls={usage['tool_calls']}"
         )
     return events
 
@@ -103,6 +114,10 @@ def _sources(events: list[Event]) -> list[dict[str, Any]]:
 def _usage(events: list[Event]) -> dict[str, Any] | None:
     usage_events = [event for event in events if event.type == "usage"]
     return dict(usage_events[-1].data) if usage_events else None
+
+
+def _meta(events: list[Event]) -> dict[str, Any]:
+    return dict(next(event.data for event in events if event.type == "meta"))
 
 
 def _markers_in_prose(events: list[Event]) -> list[int]:
@@ -294,5 +309,89 @@ async def test_6_compare_admission_rates_streams_a_clean_step_timeline(rt: Runti
         ), f"no narration before the first step: {_types(events[: first_step + 1])}"
         # Label sanity: no unfilled template ever reaches a student.
         assert all("{" not in step["label"] for step in steps), steps
+    finally:
+        await _cleanup(rt, session_id)
+
+
+# ---------------------------------------------------------------------------
+# 7 + 8. Response-mode provider-path smokes (Phase 6)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("response_mode", "expected_model"),
+    [
+        (ResponseMode.QUICK, "google-vertex:gemini-3.5-flash"),
+        (ResponseMode.THINK, "google-vertex:gemini-3.1-pro-preview"),
+    ],
+)
+async def test_7_response_modes_report_expected_model_and_usage(
+    rt: Runtime,
+    response_mode: ResponseMode,
+    expected_model: str,
+) -> None:
+    session_id = str(uuid4())
+    try:
+        events = await _turn(
+            rt,
+            session_id,
+            "Answer in one short sentence: what is the Common Data Set?",
+            SourceConfig(web=False, reddit=False, edu=False),
+            label="mode-smoke",
+            response_mode=response_mode,
+        )
+
+        _assert_clean_complete(events)
+        meta = _meta(events)
+        assert meta["response_mode"] == response_mode.value
+        assert meta["model"] == expected_model
+        usage = _usage(events)
+        assert usage is not None
+        assert usage["input_tokens"] > 0 and usage["output_tokens"] > 0
+    finally:
+        await _cleanup(rt, session_id)
+
+
+async def test_8_quick_think_quick_history_switch_keeps_mode_metadata(
+    rt: Runtime,
+) -> None:
+    session_id = str(uuid4())
+    try:
+        quick_1 = await _turn(
+            rt,
+            session_id,
+            "Answer briefly: what is Duke University?",
+            SourceConfig(web=False, reddit=False, edu=False),
+            label="history-quick-1",
+            response_mode=ResponseMode.QUICK,
+        )
+        think = await _turn(
+            rt,
+            session_id,
+            "Now compare that answer with Vanderbilt in two bullets.",
+            SourceConfig(web=False, reddit=False, edu=False),
+            label="history-think",
+            response_mode=ResponseMode.THINK,
+        )
+        quick_2 = await _turn(
+            rt,
+            session_id,
+            "Summarize the comparison in one sentence.",
+            SourceConfig(web=False, reddit=False, edu=False),
+            label="history-quick-2",
+            response_mode=ResponseMode.QUICK,
+        )
+
+        for events in (quick_1, think, quick_2):
+            _assert_clean_complete(events)
+            usage = _usage(events)
+            assert usage is not None
+            assert usage["input_tokens"] > 0 and usage["output_tokens"] > 0
+        assert _meta(quick_1)["response_mode"] == "quick"
+        assert _meta(quick_1)["model"] == "google-vertex:gemini-3.5-flash"
+        assert _meta(think)["response_mode"] == "think"
+        assert _meta(think)["model"] == "google-vertex:gemini-3.1-pro-preview"
+        assert _meta(quick_2)["response_mode"] == "quick"
+        assert _meta(quick_2)["model"] == "google-vertex:gemini-3.5-flash"
     finally:
         await _cleanup(rt, session_id)
