@@ -17,6 +17,11 @@ Author skills as **SKILL.md** files (the open standard: YAML frontmatter with `n
 - Framework-specific tool decorators (LangChain `@tool`, CrewAI tasks, OpenAI agents-as-tools) as the canonical skill — rejected (vendor lock-in). Use thin per-framework adapters if needed, with SKILL.md as the canonical definition.
 
 ## Consequences
-- The core skills are: `dossier-assembly`, `school-comparison`, `decode-coded-value`, `citation-and-recency`. (`deep-research-with-citations` activates with the GPT-Researcher subsystem — ADR 0009.)
-- Skill metadata loads at startup; the full body is returned on demand via a `load_skill(name)` tool always present in the agent's toolset (progressive disclosure).
+- The current skill set is:
+  - public response-mode workflows: `focused-answer`, `deep-research`, `guided-counselor`;
+  - public task workflows: `school-comparison`, `school-deep-dive`;
+  - internal support workflows: `citation-and-recency`, `db-recipes`.
+- `dossier-assembly` remains only as a non-advertised compatibility alias that canonicalizes to `school-deep-dive` for old parked/persisted selections. `decode-coded-value` was removed when the CDS Library packet contract eliminated the old IPEDS-code problem class.
+- Public skills can optionally belong to trusted product groups. The `response-mode` group powers the composer counseling-mode selector while still executing through the existing selected-skills contract; group validation prevents selecting multiple response modes in one turn.
+- Skill metadata loads at startup; the full body is returned on demand via a `load_skill(name)` tool always present in the agent's toolset (progressive disclosure), or preloaded server-side when the student explicitly selects public skills for a turn.
 - Skills load on top of PydanticAI (ADR 0003).
