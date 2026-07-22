@@ -6,18 +6,22 @@ from typing import Any
 import pytest
 
 from domain.events import Event
+from domain.response_mode import ResponseMode
 from evals.runner import (
     EvalContext,
     EvalSchool,
     JudgeOutput,
     TurnCapture,
     _comparison_stats,
+    _report_stem,
     _require_metric_ref,
     _safe_event_summary,
     build_judge_case,
+    build_report,
     capture_turn,
     load_questions,
     materialize_questions,
+    parse_args,
     score_clarify,
     score_composition,
     score_deterministic,
@@ -59,6 +63,36 @@ def make_query_capture(prose: str, *payloads: dict[str, Any]) -> TurnCapture:
     )
 
 
+def make_context() -> EvalContext:
+    school = EvalSchool(
+        unitid=1,
+        name="Example University",
+        domains=("admissions",),
+        year=2026,
+        currentness="current",
+        partials=0,
+    )
+    return EvalContext(
+        manifest_version="test",
+        domains=("admissions",),
+        covered=1,
+        total=1,
+        stale_partial=school,
+        profile_only=school,
+        common_a=school,
+        common_b=school,
+        comparison_peer=school,
+        common_domain="admissions",
+        common_metric_ref="admissions.applicants_total",
+        stat_metric_refs=("admissions.applicants_total",) * 4,
+        aid_metric_ref="financial_aid.need_met",
+        selectivity_applicants_ref="admissions.applicants_total",
+        selectivity_admitted_ref="admissions.admitted_total",
+        need_blind_ref=None,
+        not_in_template_available=False,
+    )
+
+
 _SELECTED_DOCUMENT_SQL = """WITH selected AS (
   SELECT DISTINCT ON (school_id) school_id, document_id
   FROM cds_library.active_cds_documents
@@ -96,6 +130,40 @@ def test_capture_turn_collects_v2_events_and_structural_messages() -> None:
     assert capture.tool_calls == [{"tool_name": "get_domain", "args": {"unitid": 1}}]
     assert capture.vizzes[0]["v"] == 2
     assert capture.usage == {"input_tokens": 3, "output_tokens": 2}
+
+
+def test_parse_args_defaults_to_quick_and_supports_compare() -> None:
+    default = parse_args([])
+    assert default.response_mode == "quick"
+    assert default.compare_response_modes is False
+
+    compare = parse_args(["--compare-response-modes", "--response-mode", "think"])
+    assert compare.response_mode == "think"
+    assert compare.compare_response_modes is True
+
+
+def test_report_records_response_mode_and_uses_mode_suffix() -> None:
+    report = build_report(
+        [
+            {
+                "id": "q1",
+                "type": "routing",
+                "skipped": False,
+                "passed": True,
+                "checks": {},
+                "comparison": False,
+                "response_mode": "think",
+            }
+        ],
+        ResponseMode.THINK,
+        "google-vertex:gemini-3.1-pro-preview",
+        make_context(),
+    )
+    assert report["response_mode"] == "think"
+    assert report["model"] == "google-vertex:gemini-3.1-pro-preview"
+    dated = {**report, "generated_at": "2026-07-22T00:00:00+00:00"}
+    assert _report_stem(dated) == "report-2026-07-22"
+    assert _report_stem(dated, suffix_mode=True) == "report-2026-07-22-think"
 
 
 def test_safe_summary_excludes_payload_values_and_excerpts() -> None:

@@ -26,6 +26,7 @@ from sqlglot.errors import ParseError, TokenError
 
 from app.agent_node import model_name_from_setting
 from app.deps import Runtime, build_runtime
+from app.model_selection import counselor_model_selection
 from app.run_turn import run_turn
 from app.sessions import create_session
 from app.workspace.changes import WorkspaceEventBus
@@ -36,6 +37,7 @@ from config.logging import setup_logging
 from config.settings import get_settings
 from counselle_db.service import get_domain
 from domain.events import Event
+from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
 
 logger = structlog.get_logger(__name__)
@@ -1239,7 +1241,12 @@ async def _seed_workspace(runtime: Runtime, user_id: UUID, question: dict[str, A
         )
 
 
-async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -> dict[str, Any]:
+async def run_question(
+    runtime: Runtime,
+    judge: Any,
+    question: dict[str, Any],
+    response_mode: ResponseMode,
+) -> dict[str, Any]:
     if question.get("skip_reason"):
         return {
             "id": question["id"],
@@ -1248,6 +1255,7 @@ async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -
             "comparison": bool(question.get("comparison")),
             "skipped": True,
             "skip_reason": question["skip_reason"],
+            "response_mode": response_mode.value,
             "passed": True,
             "checks": {},
             "duration_s": None,
@@ -1258,7 +1266,10 @@ async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -
     workspace = bool(question.get("workspace"))
     config = SourceConfig(web=web, reddit=False, edu=web)
     session_id = await create_session(
-        runtime.app_pool, config.model_dump(mode="json"), title=f"eval:{question['id']}"
+        runtime.app_pool,
+        config.model_dump(mode="json"),
+        title=f"eval:{response_mode.value}:{question['id']}",
+        response_mode=response_mode,
     )
     user_id = await _seed_eval_user(runtime.app_pool, question["id"]) if workspace else None
     if user_id:
@@ -1274,6 +1285,7 @@ async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -
                 deps=runtime.deps,
                 graph=runtime.graph,
                 user_id=str(user_id) if user_id else None,
+                response_mode=response_mode,
             ):
                 events.append(event)
         capture = capture_turn(events, await _thread_messages(runtime, session_id))
@@ -1285,6 +1297,7 @@ async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -
             "comparison": bool(question.get("comparison")),
             "skipped": False,
             "session_id": session_id,
+            "response_mode": response_mode.value,
             "passed": all(c["passed"] for c in checks.values()),
             "checks": checks,
             "prose": capture.prose,
@@ -1304,10 +1317,13 @@ async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -
 
 
 async def run_question_safely(
-    runtime: Runtime, judge: Any, question: dict[str, Any]
+    runtime: Runtime,
+    judge: Any,
+    question: dict[str, Any],
+    response_mode: ResponseMode,
 ) -> dict[str, Any]:
     try:
-        return await run_question(runtime, judge, question)
+        return await run_question(runtime, judge, question, response_mode)
     except Exception as exc:
         logger.exception("eval question crashed", id=question["id"])
         return {
@@ -1316,6 +1332,7 @@ async def run_question_safely(
             "question": question["question"],
             "comparison": bool(question.get("comparison")),
             "skipped": False,
+            "response_mode": response_mode.value,
             "passed": False,
             "checks": {"runner": _check(False, f"{type(exc).__name__}: {exc}")},
             "error": {"type": type(exc).__name__, "message": str(exc)},
@@ -1416,7 +1433,12 @@ def _comparison_stats(results: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def build_report(results: list[dict[str, Any]], model: str, context: EvalContext) -> dict[str, Any]:
+def build_report(
+    results: list[dict[str, Any]],
+    response_mode: ResponseMode,
+    model: str,
+    context: EvalContext,
+) -> dict[str, Any]:
     per_category = {}
     for kind in QUESTION_TYPES:
         scoped = [r for r in results if r["type"] == kind]
@@ -1429,6 +1451,7 @@ def build_report(results: list[dict[str, Any]], model: str, context: EvalContext
             }
     return {
         "generated_at": datetime.now(UTC).isoformat(),
+        "response_mode": response_mode.value,
         "model": model,
         "eval_context": {
             "manifest_version": context.manifest_version,
@@ -1456,7 +1479,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines = [
         f"# Eval report — {report['generated_at'][:10]}",
         "",
-        f"Model: `{report['model']}` · attempted: {attempted} · "
+        f"Mode: `{report['response_mode']}` · Model: `{report['model']}` · "
+        f"attempted: {attempted} · "
         f"passed: {report['passed']} · skipped: {report['skipped']}",
         "",
         "| Category | Passed | Total | Skipped |",
@@ -1480,11 +1504,18 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_reports(report: dict[str, Any]) -> None:
+def _report_stem(report: dict[str, Any], *, suffix_mode: bool = False) -> str:
     stamp = report["generated_at"][:10]
-    (EVALS_DIR / f"report-{stamp}.json").write_text(json.dumps(report, indent=2, default=str))
+    mode = str(report.get("response_mode") or "").strip()
+    suffix = f"-{mode}" if suffix_mode and mode else ""
+    return f"report-{stamp}{suffix}"
+
+
+def write_reports(report: dict[str, Any], *, suffix_mode: bool = False) -> None:
+    stem = _report_stem(report, suffix_mode=suffix_mode)
+    (EVALS_DIR / f"{stem}.json").write_text(json.dumps(report, indent=2, default=str))
     markdown = render_markdown(report)
-    (EVALS_DIR / f"report-{stamp}.md").write_text(markdown)
+    (EVALS_DIR / f"{stem}.md").write_text(markdown)
     print(markdown)
 
 
@@ -1492,6 +1523,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="evals.runner")
     parser.add_argument("--only", action="append")
     parser.add_argument("--type", dest="question_type", choices=QUESTION_TYPES)
+    parser.add_argument(
+        "--response-mode",
+        choices=[mode.value for mode in ResponseMode],
+        default=ResponseMode.QUICK.value,
+        help="Counselor response mode for this eval run (default: quick).",
+    )
+    parser.add_argument(
+        "--compare-response-modes",
+        action="store_true",
+        help="Run the selected eval set once in Quick and once in Think.",
+    )
     return parser.parse_args(argv)
 
 
@@ -1510,10 +1552,23 @@ async def amain(args: argparse.Namespace) -> int:
             if any(q["expects"].get("criteria") for q in selected)
             else None
         )
-        results = [await run_question_safely(runtime, judge, q) for q in selected]
+        modes = (
+            (ResponseMode.QUICK, ResponseMode.THINK)
+            if args.compare_response_modes
+            else (ResponseMode(args.response_mode),)
+        )
+        for response_mode in modes:
+            selection = counselor_model_selection(response_mode, settings)
+            results = [
+                await run_question_safely(runtime, judge, q, response_mode)
+                for q in selected
+            ]
+            write_reports(
+                build_report(results, response_mode, selection.model_setting, context),
+                suffix_mode=args.compare_response_modes or response_mode is ResponseMode.THINK,
+            )
     finally:
         await runtime.aclose()
-    write_reports(build_report(results, settings.model_counselor, context))
     return 0
 
 
