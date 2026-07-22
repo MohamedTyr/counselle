@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
@@ -48,6 +49,30 @@ const fakeTransport: MockedChatTransport = vi.hoisted(() => ({
     async () => undefined,
   ),
 }));
+
+const skillModes = [
+  {
+    name: "focused-answer",
+    display_name: "Focused Answer",
+    description: "Clear, direct help.",
+    order: 10,
+    default: true,
+  },
+  {
+    name: "deep-research",
+    display_name: "Deep Research",
+    description: "Investigate carefully.",
+    order: 20,
+    default: false,
+  },
+  {
+    name: "guided-counselor",
+    display_name: "Guided Counselor",
+    description: "Work through it together.",
+    order: 30,
+    default: false,
+  },
+];
 
 // `@/api/chat/hooks`' react-query `useChatSession` (session query) and
 // `useMessageFeedback` both call the `chatTransport` singleton directly
@@ -669,6 +694,145 @@ describe("AiChatPage", () => {
         }),
       ),
     );
+  });
+
+  test("direct refresh derives the sticky counseling mode from persisted user skills", async () => {
+    fakeTransport.getChatConfig.mockResolvedValue({
+      greeting: "Welcome",
+      season_note: null,
+      conversation_starters: [],
+      default_source_config: null,
+      skills: [],
+      skill_modes: skillModes,
+      max_selected_skills: 3,
+    });
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          {
+            role: "user",
+            message_id: "user-1",
+            text: "Help me decide",
+            skills: ["guided-counselor"],
+            ts: null,
+          },
+          {
+            role: "assistant",
+            message_id: "assistant-1",
+            text: "Let's work through it.",
+            status: "complete",
+            ts: null,
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Counseling mode: Guided Counselor",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test("mode selection is sticky across sends while task skills clear", async () => {
+    const user = userEvent.setup();
+    fakeTransport.getChatConfig.mockResolvedValue({
+      greeting: "Welcome",
+      season_note: null,
+      conversation_starters: [],
+      default_source_config: null,
+      skills: [],
+      skill_modes: skillModes,
+      max_selected_skills: 3,
+    });
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage.mockReturnValue(
+      replay([meta(), delta("ok"), done()]),
+    );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    await user.click(
+      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: /Deep Research/ }),
+    );
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    await user.type(textarea, "Research aid{Enter}");
+
+    await waitFor(() =>
+      expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "Research aid",
+          skills: ["deep-research"],
+        }),
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: "Counseling mode: Deep Research" }),
+    ).toBeInTheDocument();
+  });
+
+  test("regeneration reuses parent skills and rewinds the selected mode", async () => {
+    fakeTransport.getChatConfig.mockResolvedValue({
+      greeting: "Welcome",
+      season_note: null,
+      conversation_starters: [],
+      default_source_config: null,
+      skills: [],
+      skill_modes: skillModes,
+      max_selected_skills: 3,
+    });
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          {
+            role: "user",
+            message_id: "user-1",
+            text: "Original question",
+            skills: ["guided-counselor"],
+            ts: null,
+          },
+          {
+            role: "assistant",
+            message_id: "assistant-1",
+            text: "Original answer",
+            status: "complete",
+            ts: null,
+          },
+        ],
+      }),
+    );
+    fakeTransport.sendMessage.mockReturnValue(
+      replay([
+        meta({ messageId: "assistant-2", userMessageId: "user-1" }),
+        delta("New answer"),
+        done(),
+      ]),
+    );
+
+    renderPage();
+    await screen.findByText("Original answer");
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+
+    await waitFor(() =>
+      expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "Original question",
+          skills: ["guided-counselor"],
+          replaceMessageId: "user-1",
+        }),
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: "Counseling mode: Guided Counselor" }),
+    ).toBeInTheDocument();
   });
 
   test("active send steers the running turn instead of cancelling it", async () => {

@@ -76,12 +76,42 @@ function sessionWithSourceConfig(
   };
 }
 
+function sessionWithModeSkill(
+  sessionId: string,
+  modeSkill: string,
+): ChatSession {
+  return {
+    ...session(sessionId, "Old answer"),
+    isGenerating: true,
+    transcript: [
+      {
+        role: "user",
+        message_id: `${sessionId}-user`,
+        text: "Question",
+        skills: [modeSkill],
+        ts: "2026-07-06T12:00:00Z",
+      },
+    ],
+  };
+}
+
 function delta(text: string): ProtocolEvent {
   return { v: 1, type: "delta", data: { text } };
 }
 
 function done(): ProtocolEvent {
   return { v: 1, type: "done", data: { status: "complete" } };
+}
+
+function userMessageEvent(
+  text: string,
+  userMessageId = "steer-1",
+): ProtocolEvent {
+  return {
+    v: 1,
+    type: "user_message",
+    data: { text, user_message_id: userMessageId, injected: false },
+  };
 }
 
 async function* replayStream(
@@ -203,6 +233,36 @@ describe("useChatSession", () => {
         text: " continues",
       });
     });
+  });
+
+  test("reattach derives the active mode before config mode names load", async () => {
+    const transport = createTransport();
+    transport.attachStream = vi.fn(async () => ({
+      active: true,
+      stream: replayStream([userMessageEvent("Follow-up"), done()]),
+    }));
+    transport.sendMessage = vi.fn(() => replayStream([done()]));
+    mockedQuery.state = successQuery(
+      sessionWithModeSkill("s1", "guided-counselor"),
+    );
+
+    renderHook(
+      ({ sessionId }) =>
+        useChatSession({ sessionId, transport, modeSkillNames: [] }),
+      {
+        initialProps: { sessionId: "s1" },
+        wrapper,
+      },
+    );
+
+    await waitFor(() =>
+      expect(transport.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "Follow-up",
+          skills: ["guided-counselor"],
+        }),
+      ),
+    );
   });
 
   test("a setter bound to a stale sessionId does not blank the current session's transcript", async () => {
@@ -394,7 +454,7 @@ describe("useChatSession", () => {
     });
 
     await act(async () => {
-      await result.current.submitMessage("Use these sources");
+      await result.current.submitMessage({ text: "Use these sources" });
     });
 
     const serverConfig = {

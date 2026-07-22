@@ -59,6 +59,9 @@ export function AiComposer({
   onModeChange = () => undefined,
 }: AiComposerProps) {
   const [textareaScrollTop, setTextareaScrollTop] = useState(0);
+  const maxTaskSkills = mode
+    ? Math.max(0, maxSelectedSkills - 1)
+    : maxSelectedSkills;
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 74,
     maxHeight: 220,
@@ -71,8 +74,8 @@ export function AiComposer({
     catalog: skills,
     selectedSkills,
     onSelectedSkillsChange,
-    maxSelectedSkills,
-    disabled: disabled || isSubmitting || maxSelectedSkills === 0,
+    maxSelectedSkills: maxTaskSkills,
+    disabled: disabled || isSubmitting || maxTaskSkills === 0,
   });
   const canSubmit = value.trim().length > 0 && !isSubmitting && !disabled;
   const hasSkillMention = hasInlineSkillMention(value, selectedSkills);
@@ -154,7 +157,7 @@ export function AiComposer({
           <div className="flex flex-wrap items-center gap-1.5">
             {mode && modes.length > 0 ? (
               <CounselingModeMenu
-                canBrowseSkills={selectedSkills.length < maxSelectedSkills}
+                canBrowseSkills={selectedSkills.length < maxTaskSkills}
                 disabled={disabled || isSubmitting}
                 mode={mode}
                 modes={modes}

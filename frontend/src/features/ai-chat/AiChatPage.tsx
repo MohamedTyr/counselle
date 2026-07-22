@@ -3,6 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMessageFeedback } from "@/api/chat/hooks";
 import { useChatConfig } from "@/api/chat/config";
 import type { ChatTransport } from "@/api/chat/types";
+import {
+  deriveHistoricalModeSkill,
+  findCounselingMode,
+  mergeModeAndTaskSkills,
+  splitSelectedSkills,
+} from "@/features/ai-composer/counseling-mode";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +19,8 @@ import { SourcesRail } from "./components/SourcesRail";
 import type { ChatMessage, FeedbackRating } from "./model";
 import { useChatSession } from "./useChatSession";
 import type { InitialTurn } from "./AiChatRoute";
+
+const EMPTY_SKILL_MODES = [] as const;
 
 export type AiChatPageProps = {
   sessionId: string;
@@ -50,14 +58,28 @@ export function AiChatPage({
   );
   const consumeInitialTurn = onInitialTurnConsumed ?? onInitialPromptConsumed;
   const [composerValue, setComposerValue] = useState("");
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedModeSkill, setSelectedModeSkill] = useState<string | null>(null);
+  const [selectedTaskSkills, setSelectedTaskSkills] = useState<string[]>([]);
   const [sourcesPayload, setSourcesPayload] =
     useState<MessageSourcesPayload | null>(null);
   const consumedInitialTurnRef = useRef(false);
+  const hydratedModeRef = useRef(false);
+  const modeTouchedRef = useRef(false);
   const isMobile = useIsMobile();
   const feedback = useMessageFeedback();
   const configQuery = useChatConfig();
   const skillConfig = configQuery.config;
+  const skillModes = useMemo(
+    () => skillConfig?.skillModes ?? EMPTY_SKILL_MODES,
+    [skillConfig?.skillModes],
+  );
+  const defaultMode = skillConfig?.defaultSkillMode ?? null;
+  const modeSkillNames = useMemo(
+    () => skillModes.map((mode) => mode.skillName),
+    [skillModes],
+  );
+  const selectedMode =
+    findCounselingMode(skillModes, selectedModeSkill) ?? defaultMode;
 
   const resetScrollFollow = useCallback(() => {
     // Reactive coverage: useQuestionAnchoredScroll re-derives the anchor and
@@ -82,7 +104,12 @@ export function AiChatPage({
     turnError,
     pendingText,
     retryLastSend,
-  } = useChatSession({ sessionId, transport, onSendStart: resetScrollFollow });
+  } = useChatSession({
+    sessionId,
+    transport,
+    onSendStart: resetScrollFollow,
+    modeSkillNames,
+  });
 
   useEffect(() => {
     document.title = documentTitleFor(session?.title);
@@ -92,26 +119,49 @@ export function AiChatPage({
   }, [session?.title]);
 
   const handleComposerSubmit = useCallback(
-    (text: string, skills = selectedSkills) => {
-      const submittedSkills = [...skills];
+    (
+      text: string,
+      taskSkills = selectedTaskSkills,
+      modeSkill = selectedMode?.skillName,
+    ) => {
+      const submittedTaskSkills = [...taskSkills];
       setComposerValue("");
-      setSelectedSkills([]);
-      void submitMessage(text, submittedSkills).then((result) => {
+      setSelectedTaskSkills([]);
+      void submitMessage({
+        text,
+        modeSkill,
+        taskSkills: submittedTaskSkills,
+      }).then((result) => {
         if (!result.ok) {
           setComposerValue(result.keepText);
-          setSelectedSkills(submittedSkills);
+          setSelectedTaskSkills(submittedTaskSkills);
         }
       });
     },
-    [selectedSkills, submitMessage],
+    [selectedMode?.skillName, selectedTaskSkills, submitMessage],
   );
 
   const handleClarifyAnswer = useCallback(
     (text: string) => {
-      void submitMessage(text, []);
+      void submitMessage({ text });
     },
     [submitMessage],
   );
+
+  useEffect(() => {
+    if (
+      hydratedModeRef.current ||
+      modeTouchedRef.current ||
+      isLoading ||
+      transcriptError !== null ||
+      skillModes.length === 0
+    ) {
+      return;
+    }
+
+    hydratedModeRef.current = true;
+    setSelectedModeSkill(deriveHistoricalModeSkill(messages, skillModes));
+  }, [isLoading, messages, skillModes, transcriptError]);
 
   useEffect(() => {
     if (
@@ -125,15 +175,24 @@ export function AiChatPage({
 
     consumedInitialTurnRef.current = true;
     consumeInitialTurn?.();
-    handleComposerSubmit(
-      effectiveInitialTurn.text,
-      effectiveInitialTurn.skills,
-    );
+    const split = splitSelectedSkills(effectiveInitialTurn.skills, skillModes);
+    const initialModeSkill = split.modeSkill ?? defaultMode?.skillName;
+    setSelectedModeSkill(initialModeSkill ?? null);
+    setSelectedTaskSkills([]);
+    void submitMessage({
+      text: effectiveInitialTurn.text,
+      historicalSkills: mergeModeAndTaskSkills(
+        initialModeSkill,
+        split.taskSkills,
+      ),
+    });
   }, [
-    handleComposerSubmit,
+    defaultMode?.skillName,
     effectiveInitialTurn,
     isLoading,
     consumeInitialTurn,
+    skillModes,
+    submitMessage,
     transcriptError,
   ]);
 
@@ -148,9 +207,16 @@ export function AiChatPage({
       if (parent === undefined || parent.kind !== "user") {
         return;
       }
-      void submitMessage(parent.text, parent.skills, parent.messageId);
+      const split = splitSelectedSkills(parent.skills ?? [], skillModes);
+      setSelectedModeSkill(split.modeSkill ?? defaultMode?.skillName ?? null);
+      setSelectedTaskSkills([]);
+      void submitMessage({
+        text: parent.text,
+        historicalSkills: parent.skills ?? [],
+        replaceMessageId: parent.messageId,
+      });
     },
-    [messages, submitMessage],
+    [defaultMode?.skillName, messages, skillModes, submitMessage],
   );
 
   const handleFeedback = useCallback(
@@ -249,11 +315,17 @@ export function AiChatPage({
             isSubmitting={isSubmitting}
             onStop={stopGenerating}
             onSourceConfigChange={setSourceConfig}
-            onSelectedSkillsChange={setSelectedSkills}
+            onModeChange={(mode) => {
+              modeTouchedRef.current = true;
+              setSelectedModeSkill(mode.skillName);
+            }}
+            onSelectedSkillsChange={setSelectedTaskSkills}
             onSubmit={handleComposerSubmit}
             onValueChange={setComposerValue}
             maxSelectedSkills={skillConfig?.maxSelectedSkills ?? 0}
-            selectedSkills={selectedSkills}
+            mode={selectedMode}
+            modes={skillModes}
+            selectedSkills={selectedTaskSkills}
             skills={skillConfig?.skills ?? []}
             sourceConfig={sourceConfig}
             value={composerValue}

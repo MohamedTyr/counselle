@@ -16,6 +16,7 @@ import {
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 import type { ChatTransport, SourceConfig } from "@/api/chat/types";
 import { chatTransport } from "@/api/chat/transport";
+import { isCounselingModeSkillName } from "@/features/ai-composer/counseling-mode";
 import { messagesFromTranscript, type ChatMessage } from "./model";
 import { transcriptErrorOf, type TranscriptError } from "./errors";
 import { useTurnEngine } from "./useTurnEngine";
@@ -24,6 +25,7 @@ export type UseChatSessionOptions = {
   sessionId: string;
   transport?: ChatTransport;
   onSendStart?: () => void;
+  modeSkillNames?: readonly string[];
 };
 
 type LocalSessionState = {
@@ -76,6 +78,29 @@ function sameSourceConfig(left: SourceConfig | null, right: SourceConfig) {
   );
 }
 
+function newestModeSkill(
+  messages: readonly ChatMessage[],
+  modeSkillNames: readonly string[],
+): string | null {
+  const modeNames =
+    modeSkillNames.length > 0 ? new Set(modeSkillNames) : null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.kind !== "user" || message.synthesized === true) {
+      continue;
+    }
+    const modeSkill = message.skills?.find((skill) =>
+      modeNames === null
+        ? isCounselingModeSkillName(skill)
+        : modeNames.has(skill),
+    );
+    if (modeSkill !== undefined) {
+      return modeSkill;
+    }
+  }
+  return null;
+}
+
 export function clearChatSessionSourceConfigCacheForTests() {
   sessionSourceConfigCache.clear();
 }
@@ -84,6 +109,7 @@ export function useChatSession({
   sessionId,
   transport = chatTransport,
   onSendStart,
+  modeSkillNames = [],
 }: UseChatSessionOptions) {
   const queryClient = useQueryClient();
   const sessionQuery = useChatSessionQuery(sessionId);
@@ -114,6 +140,9 @@ export function useChatSession({
 
   const isLocalSession = localState.sessionId === sessionId;
   const persistedMessages = isLocalSession ? localState.persistedMessages : [];
+  const persistedMessagesRef = useRef(persistedMessages);
+  // eslint-disable-next-line react-hooks/refs -- render-time ref sync mirrors sessionIdRef for attach callbacks.
+  persistedMessagesRef.current = persistedMessages;
   const cachedSourceConfig = useMemo(
     () => readCachedSourceConfig(sessionId),
     [sessionId],
@@ -301,9 +330,18 @@ export function useChatSession({
     // above: it only fires once localState has actually caught up to the
     // current sessionId (see the LocalSessionState comment).
     if (sessionQuery.isSuccess && isLocalSession) {
-      void attachActiveTurn(sessionId);
+      void attachActiveTurn(
+        sessionId,
+        newestModeSkill(persistedMessagesRef.current, modeSkillNames),
+      );
     }
-  }, [attachActiveTurn, isLocalSession, sessionId, sessionQuery.isSuccess]);
+  }, [
+    attachActiveTurn,
+    isLocalSession,
+    modeSkillNames,
+    sessionId,
+    sessionQuery.isSuccess,
+  ]);
 
   return {
     session: sessionQuery.data,

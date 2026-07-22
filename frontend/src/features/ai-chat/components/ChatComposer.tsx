@@ -63,6 +63,9 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const [isComposing, setIsComposing] = useState(false);
   const [textareaScrollTop, setTextareaScrollTop] = useState(0);
+  const maxTaskSkills = mode
+    ? Math.max(0, maxSelectedSkills - 1)
+    : maxSelectedSkills;
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 74,
     maxHeight: 220,
@@ -75,9 +78,9 @@ export function ChatComposer({
     catalog: skills,
     selectedSkills,
     onSelectedSkillsChange,
-    maxSelectedSkills,
+    maxSelectedSkills: maxTaskSkills,
     disabled:
-      disabled || isSubmitting || awaitingClarify || maxSelectedSkills === 0,
+      disabled || isSubmitting || awaitingClarify || maxTaskSkills === 0,
   });
   const placeholder = awaitingClarify
     ? CLARIFY_PLACEHOLDER
@@ -179,7 +182,7 @@ export function ChatComposer({
           <div className="flex flex-wrap items-center gap-1.5">
             {mode && modes.length > 0 ? (
               <CounselingModeMenu
-                canBrowseSkills={selectedSkills.length < maxSelectedSkills}
+                canBrowseSkills={selectedSkills.length < maxTaskSkills}
                 disabled={disabled || isSubmitting || awaitingClarify}
                 mode={mode}
                 modes={modes}

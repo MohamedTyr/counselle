@@ -6,6 +6,16 @@ export type SplitSelectedSkills = {
   taskSkills: string[];
 };
 
+export const COUNSELING_MODE_SKILL_NAMES = [
+  "focused-answer",
+  "deep-research",
+  "guided-counselor",
+] as const;
+
+export function isCounselingModeSkillName(skillName: string): boolean {
+  return COUNSELING_MODE_SKILL_NAMES.some((name) => name === skillName);
+}
+
 function modeNameSet(modes: readonly CounselingMode[]): Set<string> {
   return new Set(modes.map((mode) => mode.skillName));
 }

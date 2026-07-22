@@ -58,6 +58,23 @@ type StartedTurn = {
 type AutoForwardMessage = {
   id: string;
   text: string;
+  modeSkill?: string;
+};
+
+export type SubmitMessageInput = {
+  text: string;
+  modeSkill?: string;
+  taskSkills?: readonly string[];
+  historicalSkills?: readonly string[];
+  replaceMessageId?: string;
+};
+
+type NormalizedSubmitMessage = {
+  text: string;
+  modeSkill?: string;
+  taskSkills: string[];
+  skills: string[];
+  replaceMessageId?: string;
 };
 
 export type UseTurnEngineOptions = {
@@ -83,13 +100,12 @@ export type UseTurnEngineResult = {
   turnError: TurnError | null;
   pendingText: string | null;
   awaitingClarify: boolean;
-  submitMessage: (
-    text: string,
-    skillsOrReplaceMessageId?: readonly string[] | string,
-    replaceMessageId?: string,
-  ) => Promise<SubmitMessageResult>;
+  submitMessage: (input: SubmitMessageInput) => Promise<SubmitMessageResult>;
   retryLastSend: () => void;
-  attachActiveTurn: (sessionId: string) => Promise<void>;
+  attachActiveTurn: (
+    sessionId: string,
+    activeModeSkill?: string | null,
+  ) => Promise<void>;
   stopGenerating: () => void;
   clearTurnState: () => void;
 };
@@ -105,20 +121,34 @@ function createTempId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-function submitArguments(
-  skillsOrReplaceMessageId: readonly string[] | string | undefined,
-  replaceMessageId: string | undefined,
-) {
-  if (typeof skillsOrReplaceMessageId === "string") {
-    return { skills: [], replaceMessageId: skillsOrReplaceMessageId };
+function normalizeSubmitMessageInput(
+  input: SubmitMessageInput,
+): NormalizedSubmitMessage {
+  if (
+    input.historicalSkills !== undefined &&
+    (input.modeSkill !== undefined || input.taskSkills !== undefined)
+  ) {
+    throw new Error(
+      "historicalSkills cannot be combined with modeSkill or taskSkills.",
+    );
   }
 
+  if (input.historicalSkills !== undefined) {
+    return {
+      text: input.text,
+      taskSkills: [],
+      skills: [...input.historicalSkills],
+      replaceMessageId: input.replaceMessageId,
+    };
+  }
+
+  const taskSkills = input.taskSkills === undefined ? [] : [...input.taskSkills];
   return {
-    skills:
-      skillsOrReplaceMessageId === undefined
-        ? []
-        : [...skillsOrReplaceMessageId],
-    replaceMessageId,
+    text: input.text,
+    modeSkill: input.modeSkill,
+    taskSkills,
+    skills: input.modeSkill ? [input.modeSkill, ...taskSkills] : taskSkills,
+    replaceMessageId: input.replaceMessageId,
   };
 }
 
@@ -152,6 +182,7 @@ export function useTurnEngine({
   const turnAbortControllerRef = useRef<AbortController | null>(null);
   const autoForwardQueueRef = useRef<AutoForwardMessage[]>([]);
   const autoForwardSeenRef = useRef(new Set<string>());
+  const autoForwardModeByUserMessageIdRef = useRef(new Map<string, string>());
 
   sessionIdRef.current = sessionId;
   liveTurnRef.current = liveTurn;
@@ -189,6 +220,7 @@ export function useTurnEngine({
       reconcileTempUserId,
       initialAssistant,
       replaceMessageId,
+      autoForwardFallbackModeSkill,
     }: {
       activeSessionId: string;
       stream: AsyncIterable<SseFrame<ProtocolEvent>>;
@@ -196,6 +228,7 @@ export function useTurnEngine({
       reconcileTempUserId: boolean;
       initialAssistant?: { messageId: string; hasBackendId: boolean };
       replaceMessageId?: string;
+      autoForwardFallbackModeSkill?: string | null;
     }): Promise<boolean> => {
       let state = initialTurnState();
       let assistantMessageId =
@@ -279,6 +312,10 @@ export function useTurnEngine({
             ...newForwards.map((segment) => ({
               id: segment.id,
               text: segment.text,
+              modeSkill:
+                autoForwardModeByUserMessageIdRef.current.get(segment.id) ??
+                autoForwardFallbackModeSkill ??
+                undefined,
             })),
           ];
           setAutoForwardVersion((version) => version + 1);
@@ -483,15 +520,9 @@ export function useTurnEngine({
   }, [cancelWaitTimeoutMs]);
 
   const submitMessage = useCallback(
-    async (
-      text: string,
-      skillsOrReplaceMessageId?: readonly string[] | string,
-      requestedReplaceMessageId?: string,
-    ): Promise<SubmitMessageResult> => {
-      const { skills, replaceMessageId } = submitArguments(
-        skillsOrReplaceMessageId,
-        requestedReplaceMessageId,
-      );
+    async (input: SubmitMessageInput): Promise<SubmitMessageResult> => {
+      const { text, modeSkill, taskSkills, skills, replaceMessageId } =
+        normalizeSubmitMessageInput(input);
       const trimmed = text.trim();
       if (!trimmed) {
         return { ok: false, keepText: text };
@@ -511,7 +542,7 @@ export function useTurnEngine({
       setTurnError(null);
 
       if (liveTurnRef.current !== null && replaceMessageId === undefined) {
-        if (skills.length > 0) {
+        if (taskSkills.length > 0) {
           setTurnError({
             kind: "server",
             message:
@@ -527,6 +558,12 @@ export function useTurnEngine({
             text: trimmed,
           });
           if (steer.status === "queued") {
+            if (modeSkill !== undefined) {
+              autoForwardModeByUserMessageIdRef.current.set(
+                steer.userMessageId,
+                modeSkill,
+              );
+            }
             return { ok: true, sessionId: active.sessionId };
           }
           const cleared = await awaitLiveClear();
@@ -614,7 +651,10 @@ export function useTurnEngine({
 
     const next = autoForwardQueueRef.current[0];
     autoForwardQueueRef.current = autoForwardQueueRef.current.slice(1);
-    void submitMessage(next.text, []);
+    if (next.modeSkill !== undefined) {
+      autoForwardModeByUserMessageIdRef.current.delete(next.id);
+    }
+    void submitMessage({ text: next.text, modeSkill: next.modeSkill });
   }, [autoForwardVersion, liveTurn, submitMessage]);
 
   const retryLastSend = useCallback(() => {
@@ -632,11 +672,15 @@ export function useTurnEngine({
         ),
       );
     }
-    void submitMessage(pending.text, pending.skills, pending.replaceMessageId);
+    void submitMessage({
+      text: pending.text,
+      historicalSkills: pending.skills,
+      replaceMessageId: pending.replaceMessageId,
+    });
   }, [pendingSend, setPersistedMessages, submitMessage]);
 
   const attachActiveTurn = useCallback(
-    async (activeSessionId: string) => {
+    async (activeSessionId: string, activeModeSkill?: string | null) => {
       if (liveTurnRef.current !== null) {
         return;
       }
@@ -681,6 +725,7 @@ export function useTurnEngine({
             lastUser?.messageId ?? createTempId("temp-user"),
           reconcileTempUserId: false,
           initialAssistant: seedAssistant,
+          autoForwardFallbackModeSkill: activeModeSkill,
         });
       } catch (error) {
         setTurnError(turnErrorOf(error));

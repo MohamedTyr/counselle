@@ -5,6 +5,10 @@ import type { SourceConfig } from "@/api/chat/types";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 import { useChatConfig } from "@/api/chat/config";
 import { AiComposer } from "@/features/ai-composer/AiComposer";
+import {
+  findCounselingMode,
+  mergeModeAndTaskSkills,
+} from "@/features/ai-composer/counseling-mode";
 import { parseDraftPromptState } from "@/features/ai-composer/draft-prompt";
 import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn";
 
@@ -16,10 +20,15 @@ export function AiComposerRoute() {
   // Hydrate from an onboarding-handoff draft prompt (plan §20.7) via the
   // lazy `useState` initializer, not an effect: it only needs to run once,
   // reading `location.state` as it existed at mount.
-  const [value, setValue] = useState(() => parseDraftPromptState(location.state) ?? "");
+  const [value, setValue] = useState(
+    () => parseDraftPromptState(location.state) ?? "",
+  );
   const [sourceConfigOverride, setSourceConfigOverride] =
     useState<SourceConfig | null>(null);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedModeSkill, setSelectedModeSkill] = useState<string | null>(
+    null,
+  );
+  const [selectedTaskSkills, setSelectedTaskSkills] = useState<string[]>([]);
   const resolved = configQuery.config;
   const hasClearedDraftStateRef = useRef(false);
 
@@ -38,6 +47,11 @@ export function AiComposerRoute() {
 
   const sourceConfig =
     sourceConfigOverride ?? resolved?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG;
+  const selectedMode =
+    resolved == null
+      ? null
+      : (findCounselingMode(resolved.skillModes, selectedModeSkill) ??
+        resolved.defaultSkillMode);
 
   async function submit() {
     const submitted = value.trim();
@@ -45,15 +59,19 @@ export function AiComposerRoute() {
       return;
     }
 
+    const submittedSkills = mergeModeAndTaskSkills(
+      selectedMode?.skillName,
+      selectedTaskSkills,
+    );
     const result = await startTurn.submit(submitted, sourceConfig);
     if (result.ok) {
       setValue("");
-      setSelectedSkills([]);
+      setSelectedTaskSkills([]);
       void navigate(`/app/ai/${result.sessionId}`, {
         state: {
           initialTurn: {
             text: submitted,
-            skills: [...selectedSkills],
+            skills: submittedSkills,
           },
         },
       });
@@ -86,10 +104,13 @@ export function AiComposerRoute() {
           onSubmit={() => {
             void submit();
           }}
-          onSelectedSkillsChange={setSelectedSkills}
+          onModeChange={(mode) => setSelectedModeSkill(mode.skillName)}
+          onSelectedSkillsChange={setSelectedTaskSkills}
           onValueChange={setValue}
           maxSelectedSkills={resolved?.maxSelectedSkills ?? 0}
-          selectedSkills={selectedSkills}
+          mode={selectedMode}
+          modes={resolved?.skillModes ?? []}
+          selectedSkills={selectedTaskSkills}
           skills={resolved?.skills ?? []}
           sourceConfig={sourceConfig}
           value={value}
