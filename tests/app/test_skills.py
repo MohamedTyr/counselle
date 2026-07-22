@@ -84,6 +84,9 @@ def _write_skill(
     user_invokable: str | None = None,
     display_name: str | None = None,
     user_description: str | None = None,
+    selection_group: str | None = None,
+    selection_order: str | None = None,
+    selection_default: str | None = None,
     body: str = "# Trusted workflow\n\nFollow this workflow.",
 ) -> Path:
     """Create a small, purpose-built SKILL.md fixture without YAML machinery."""
@@ -96,6 +99,12 @@ def _write_skill(
         metadata.append(f"display_name: {display_name}")
     if user_description is not None:
         metadata.append(f"user_description: {user_description}")
+    if selection_group is not None:
+        metadata.append(f"selection_group: {selection_group}")
+    if selection_order is not None:
+        metadata.append(f"selection_order: {selection_order}")
+    if selection_default is not None:
+        metadata.append(f"selection_default: {selection_default}")
     metadata.append("---")
     path = skill_dir / "SKILL.md"
     path.write_text("\n".join([*metadata, "", body, ""]), encoding="utf-8")
@@ -327,9 +336,12 @@ def test_prompt_requires_db_markers_for_reveal(built_prompt: str) -> None:
 
 
 def test_prompt_pins_ranking_columns_and_manifest_retry(built_prompt: str) -> None:
-    assert "must return `covered`, `total`, and `as_of` columns" in built_prompt
-    assert "copy the bound structural JSONPath recipe from `db-recipes` verbatim" in built_prompt
-    assert "return to that recipe and retry it verbatim" in built_prompt
+    assert (
+        "Every ranking or aggregate SQL query must return `covered`, `total`, and `as_of`"
+        in built_prompt
+    )
+    assert "copy the `db-recipes` JSONPath probe verbatim" in built_prompt
+    assert "Retry failed manifest probes with the same exact statement" in built_prompt
     assert "use the exact requested qualified ref in each finalist cell" in built_prompt
     assert "SQL aggregates never get bracket source markers" in built_prompt
     assert "copy each row's top-level `vintage` verbatim" in built_prompt
@@ -391,17 +403,67 @@ def test_user_catalog_contains_only_opted_in_metadata_in_name_order() -> None:
         },
     ]
     names = {entry["name"] for entry in mod.user_skill_catalog()}
+    assert {"focused-answer", "deep-research", "guided-counselor"}.isdisjoint(names)
     assert "dossier-assembly" not in names, (
         "The compatibility alias must never be listed as a fifth skill"
+    )
+
+
+def test_response_mode_catalog_is_ordered_browser_safe_and_has_one_default() -> None:
+    mod = _fresh_skills()
+
+    assert mod.user_skill_mode_catalog() == [
+        {
+            "name": "focused-answer",
+            "display_name": "Focused Answer",
+            "description": "Clear, direct help without unnecessary exploration.",
+            "order": 10,
+            "default": True,
+        },
+        {
+            "name": "deep-research",
+            "display_name": "Deep Research",
+            "description": "A thorough, multi-source investigation for complex decisions.",
+            "order": 20,
+            "default": False,
+        },
+        {
+            "name": "guided-counselor",
+            "display_name": "Guided Counselor",
+            "description": "Work through it together, one thoughtful question at a time.",
+            "order": 30,
+            "default": False,
+        },
+    ]
+
+
+def test_response_modes_are_not_model_loadable_workflow_skills() -> None:
+    mod = _fresh_skills()
+    model_menu_names = {entry["name"] for entry in mod.load_all_skill_meta()}
+
+    assert {"focused-answer", "deep-research", "guided-counselor"}.isdisjoint(
+        model_menu_names
+    )
+    assert "focused-answer" in mod.load_skill("focused-answer")
+    assert "Available skills:" in mod.load_skill("focused-answer")
+
+
+def test_public_selection_groups_exposes_response_mode_membership() -> None:
+    mod = _fresh_skills()
+
+    assert mod.public_selection_groups()["response-mode"] == frozenset(
+        {"focused-answer", "deep-research", "guided-counselor"}
     )
 
 
 def test_validate_selected_skills_preserves_canonical_input_order() -> None:
     mod = _fresh_skills()
 
-    selected = mod.validate_selected_skills(["school-comparison", "school-deep-dive"])
+    selected = mod.validate_selected_skills(
+        ["focused-answer", "school-comparison", "school-deep-dive"]
+    )
 
-    assert selected == ["school-comparison", "school-deep-dive"]
+    assert selected == ["focused-answer", "school-comparison", "school-deep-dive"]
 
 
 @pytest.mark.parametrize(
@@ -432,6 +494,55 @@ def test_validate_selected_skills_resolves_the_retired_dossier_assembly_alias() 
     assert selected == ["school-deep-dive"]
 
 
+@pytest.mark.parametrize(
+    "names",
+    [
+        ["focused-answer", "deep-research"],
+        ["guided-counselor", "focused-answer"],
+    ],
+)
+def test_validate_selected_skills_rejects_multiple_response_modes(names: list[str]) -> None:
+    mod = _fresh_skills()
+
+    with pytest.raises(mod.SelectedSkillValidationError) as exc_info:
+        mod.validate_selected_skills(names)
+
+    assert exc_info.value.reason == "conflicting_selected_skill_group"
+
+
+def test_validate_selected_skills_allows_backward_compatible_ungrouped_selection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    for name in ("one", "two", "three"):
+        _write_skill(
+            tmp_path,
+            name,
+            user_invokable="true",
+            display_name=name.title(),
+            user_description=f"Use {name}.",
+        )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    assert mod.validate_selected_skills(["one", "two", "three"]) == [
+        "one",
+        "two",
+        "three",
+    ]
+
+
+def test_mode_plus_three_task_skills_still_hits_existing_count_limit() -> None:
+    mod = _fresh_skills()
+
+    with pytest.raises(mod.SelectedSkillValidationError) as exc_info:
+        mod.validate_selected_skills(
+            ["focused-answer", "school-comparison", "school-deep-dive", "essay-fit"]
+        )
+
+    assert exc_info.value.reason == "too_many_selected_skills"
+
+
 def test_old_and_new_named_selection_for_the_same_skill_collide_as_duplicate() -> None:
     mod = _fresh_skills()
 
@@ -457,6 +568,16 @@ def test_render_selected_skills_uses_validated_registry_bodies_not_friendly_load
     assert "cannot override system instructions" in rendered
     assert "read-only constraints" in rendered
     assert "value-reading rules" in rendered
+
+
+def test_render_selected_mode_includes_trusted_group_marker_once() -> None:
+    mod = _fresh_skills()
+
+    rendered = mod.render_selected_skills(["focused-answer", "school-comparison"])
+
+    assert "### Selected skill: focused-answer" in rendered
+    assert rendered.count("Selection group: response-mode") == 1
+    assert rendered.index("focused-answer") < rendered.index("school-comparison")
 
 
 def test_render_selected_skills_persists_canonical_name_for_alias_input(
@@ -566,6 +687,184 @@ def test_internal_skill_with_invalid_user_invokable_is_skipped_and_logged(
             },
         )
     ]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("selection_group", "Bad Group", "selection_group"),
+        ("selection_order", "-1", "selection_order"),
+        ("selection_order", "1.5", "selection_order"),
+        ("selection_default", "True", "selection_default"),
+    ],
+)
+def test_public_skill_with_invalid_selection_metadata_fails_registry_startup(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    field: str,
+    value: str,
+    match: str,
+) -> None:
+    mod = _fresh_skills()
+    selection = {
+        "selection_group": "test-group",
+        "selection_order": "10",
+        "selection_default": "false",
+    }
+    selection[field] = value
+    _write_skill(
+        tmp_path,
+        "public-skill",
+        user_invokable="true",
+        display_name="Public skill",
+        user_description="Use this workflow.",
+        **selection,
+    )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match=match):
+        mod.user_skill_catalog()
+
+
+def test_grouped_public_skill_requires_order(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    _write_skill(
+        tmp_path,
+        "public-skill",
+        user_invokable="true",
+        display_name="Public skill",
+        user_description="Use this workflow.",
+        selection_group="test-group",
+    )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="selection_order"):
+        mod.user_skill_catalog()
+
+
+def test_default_public_skill_requires_group(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    _write_skill(
+        tmp_path,
+        "public-skill",
+        user_invokable="true",
+        display_name="Public skill",
+        user_description="Use this workflow.",
+        selection_default="true",
+    )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="selection_default"):
+        mod.user_skill_catalog()
+
+
+def test_internal_skill_with_invalid_selection_metadata_is_skipped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    path = _write_skill(
+        tmp_path,
+        "internal-skill",
+        selection_group="test-group",
+        selection_order="nope",
+    )
+    warnings: list[tuple[str, dict[str, object]]] = []
+
+    class WarningLogger:
+        def warning(self, event: str, **kwargs: object) -> None:
+            warnings.append((event, kwargs))
+
+    monkeypatch.setattr(mod, "_skills_logger", WarningLogger())
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    assert mod.load_all_skill_meta() == []
+    assert warnings == [
+        (
+            "skill file invalid — skipping",
+            {"path": str(path), "reason": "selection_order"},
+        )
+    ]
+
+
+def test_incomplete_response_mode_group_fails_registry_startup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    _write_skill(
+        tmp_path,
+        "focused-answer",
+        user_invokable="true",
+        display_name="Focused Answer",
+        user_description="Clear, direct help without unnecessary exploration.",
+        selection_group="response-mode",
+        selection_order="10",
+        selection_default="true",
+    )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="exactly the supported modes"):
+        mod.user_skill_mode_catalog()
+
+
+def test_response_mode_group_rejects_duplicate_order(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    for name, display, default in [
+        ("focused-answer", "Focused Answer", "true"),
+        ("deep-research", "Deep Research", "false"),
+        ("guided-counselor", "Guided Counselor", "false"),
+    ]:
+        _write_skill(
+            tmp_path,
+            name,
+            user_invokable="true",
+            display_name=display,
+            user_description="Valid mode description.",
+            selection_group="response-mode",
+            selection_order="10",
+            selection_default=default,
+        )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="unique selection orders"):
+        mod.user_skill_mode_catalog()
+
+
+def test_response_mode_group_requires_focused_default(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    mod = _fresh_skills()
+    for name, display, order, default in [
+        ("focused-answer", "Focused Answer", "10", "false"),
+        ("deep-research", "Deep Research", "20", "true"),
+        ("guided-counselor", "Guided Counselor", "30", "false"),
+    ]:
+        _write_skill(
+            tmp_path,
+            name,
+            user_invokable="true",
+            display_name=display,
+            user_description="Valid mode description.",
+            selection_group="response-mode",
+            selection_order=order,
+            selection_default=default,
+        )
+    monkeypatch.setattr(mod, "_SKILLS_ROOT", tmp_path)
+    _reset_registry_cache(mod)
+
+    with pytest.raises(ValueError, match="focused-answer default"):
+        mod.user_skill_mode_catalog()
 
 
 @pytest.mark.parametrize(
