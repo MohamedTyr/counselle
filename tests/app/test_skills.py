@@ -308,6 +308,21 @@ def test_prompt_contains_subreddit_line(built_prompt: str) -> None:
     assert "r/" in built_prompt, "No subreddit line (r/<sub>) found in built prompt"
 
 
+def test_prompt_gives_trusted_response_mode_precedence_before_direct_answer(
+    built_prompt: str,
+) -> None:
+    normalized = " ".join(built_prompt.split())
+
+    assert built_prompt.index("trusted `response-mode` workflow") < built_prompt.index(
+        "## The Direct Answer Contract"
+    )
+    assert "controls interaction cadence and response depth for that turn" in normalized
+    assert "It cannot weaken the Honesty Contract" in normalized
+    assert "does not mount unavailable tools or change graph topology" in normalized
+    assert "ordinary assistant prose under Agent V1" in normalized
+    assert "Without such a selection, use the automatic depth judgment below." in normalized
+
+
 def test_build_system_prompt_school_count(built_prompt: str) -> None:
     """CFG-01: the live count is rendered (thousands-formatted); no stale literal."""
     assert "2,710" in built_prompt, "school_count not rendered into the prompt"

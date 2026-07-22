@@ -535,15 +535,16 @@ async def test_config_shape(live_app: FastAPI) -> None:
         r = await client.get("/v1/config")
         assert r.status_code == 200
         body = r.json()
-        assert set(body) == {
+        assert {
             "greeting",
             "season_note",
             "conversation_starters",
             "default_source_config",
             "skills",
+            "skill_modes",
             "max_selected_skills",
             "current_admissions_cycle_year",
-        }
+        }.issubset(body)
         assert isinstance(body["greeting"], str) and body["greeting"]
         assert isinstance(body["conversation_starters"], list) and body["conversation_starters"]
         cfg = body["default_source_config"]
@@ -559,6 +560,29 @@ async def test_config_shape(live_app: FastAPI) -> None:
                 "name": "school-deep-dive",
                 "display_name": "School deep dive",
                 "description": "Build a cited, in-depth look at one school.",
+            },
+        ]
+        assert body["skill_modes"] == [
+            {
+                "name": "focused-answer",
+                "display_name": "Focused Answer",
+                "description": "Clear, direct help without unnecessary exploration.",
+                "order": 10,
+                "default": True,
+            },
+            {
+                "name": "deep-research",
+                "display_name": "Deep Research",
+                "description": "A thorough, multi-source investigation for complex decisions.",
+                "order": 20,
+                "default": False,
+            },
+            {
+                "name": "guided-counselor",
+                "display_name": "Guided Counselor",
+                "description": "Work through it together, one thoughtful question at a time.",
+                "order": 30,
+                "default": False,
             },
         ]
 

@@ -2037,6 +2037,35 @@ async def test_explicit_skill_is_preloaded_once_persisted_and_not_leaked() -> No
     assert values["turn_records"][-1]["skills"] == []
 
 
+async def test_selected_response_mode_is_injected_once_with_precedence() -> None:
+    """Runtime prompt assembly carries the trusted mode marker and body once."""
+    seen_prompts: list[str] = []
+
+    def answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_prompts.append(str(messages))
+        return ModelResponse(parts=[TextPart("Focused complete.")])
+
+    rig = Rig(_fn_model(answer))
+    session_id = str(uuid4())
+    events = [
+        event
+        async for event in run_turn(
+            session_id,
+            "Should I submit a 1490 to Duke?",
+            _ALL_OFF,
+            deps=rig.deps,
+            graph=rig.graph,
+            selected_skills=["focused-answer"],
+        )
+    ]
+
+    assert _done_status(events) == "complete"
+    prompt = "\n".join(seen_prompts)
+    assert prompt.count("Selection group: response-mode") == 1
+    assert prompt.count("### Selected skill: focused-answer") == 1
+    assert prompt.count("Use the smallest evidence set that changes the decision.") == 1
+
+
 async def test_malformed_restored_selection_fails_before_meta_or_record_write() -> None:
     rig = Rig(_fn_model(lambda _messages, _info: ModelResponse(parts=[TextPart("unused")])))
     session_id = str(uuid4())

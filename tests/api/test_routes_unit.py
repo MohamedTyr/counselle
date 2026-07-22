@@ -1027,6 +1027,29 @@ def test_config_exposes_only_public_skills_and_selection_limit_without_live_db()
             "description": "Build a cited, in-depth look at one school.",
         },
     ]
+    assert body["skill_modes"] == [
+        {
+            "name": "focused-answer",
+            "display_name": "Focused Answer",
+            "description": "Clear, direct help without unnecessary exploration.",
+            "order": 10,
+            "default": True,
+        },
+        {
+            "name": "deep-research",
+            "display_name": "Deep Research",
+            "description": "A thorough, multi-source investigation for complex decisions.",
+            "order": 20,
+            "default": False,
+        },
+        {
+            "name": "guided-counselor",
+            "display_name": "Guided Counselor",
+            "description": "Work through it together, one thoughtful question at a time.",
+            "order": 30,
+            "default": False,
+        },
+    ]
 
 
 def test_post_message_accepts_omitted_and_public_skills() -> None:
