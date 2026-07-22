@@ -276,3 +276,40 @@
     tool: remember
     batch_key: notes
     min_items: 1
+
+- id: response-mode-focused-direct
+  type: response_mode_behavior
+  skills: [focused-answer]
+  question: "I'm choosing between {common_a} and {common_b}. Give me the answer I can act on today: what are the 2-3 biggest admissions-data differences that should shape my next step?"
+  expects:
+    markers: true
+    criteria:
+      - "Answers directly and concisely instead of turning the request into an open-ended research plan."
+      - "Uses cited first-party data for named factual comparisons and avoids uncited numeric claims."
+      - "Ends with a concrete next step the student can act on today."
+
+- id: response-mode-deep-research-triangulates
+  type: response_mode_behavior
+  comparison: true
+  web: true
+  skills: [deep-research]
+  question: "Do a deeper read on whether {common_a} or {common_b} is likely to be the stronger fit for a student prioritizing affordability, academic intensity, and campus environment. Use first-party data first and official web sources only where current context matters."
+  expects:
+    criteria:
+      - "Triangulates across at least the requested affordability, academic-intensity, and campus-environment axes without padding with unrelated filler."
+      - "Keeps first-party database evidence and official-web context visibly separated when both are used."
+      - "Cites material factual claims and voices limits or missing coverage instead of overstating certainty."
+
+- id: response-mode-guided-counselor-converges
+  type: response_mode_behavior
+  workspace: true
+  seed_memories:
+    - "The student prefers urban campuses and wants strong advising support."
+  skills: [guided-counselor]
+  question: "Help me decide how to start narrowing my college list."
+  expects:
+    criteria:
+      - "Uses the saved preference context when framing the guidance."
+      - "Gives useful guidance before asking for more information, rather than only interviewing the student."
+      - "Asks at most one natural-language follow-up question and does not emit a clarify widget or parked-turn behavior."
+      - "Shows a plausible path toward convergence instead of keeping the conversation indefinitely exploratory."

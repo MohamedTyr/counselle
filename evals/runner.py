@@ -52,6 +52,7 @@ QUESTION_TYPES = (
     "honesty",
     "clarify_judgment",
     "narration_quality",
+    "response_mode_behavior",
     "workspace_task",
 )
 #: Every tool name §5.6 of the design doc cut or replaced by this rewire — a
@@ -1274,6 +1275,7 @@ async def run_question(runtime: Runtime, judge: Any, question: dict[str, Any]) -
                 deps=runtime.deps,
                 graph=runtime.graph,
                 user_id=str(user_id) if user_id else None,
+                selected_skills=tuple(question.get("skills") or ()),
             ):
                 events.append(event)
         capture = capture_turn(events, await _thread_messages(runtime, session_id))

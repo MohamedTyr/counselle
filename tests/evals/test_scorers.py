@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+import evals.runner as runner
 from domain.events import Event
 from evals.runner import (
     EvalContext,
@@ -18,6 +19,7 @@ from evals.runner import (
     capture_turn,
     load_questions,
     materialize_questions,
+    run_question,
     score_clarify,
     score_composition,
     score_deterministic,
@@ -998,6 +1000,50 @@ def test_eval_context_materializes_live_roles_without_mutating_template() -> Non
         "admissions.admitted",
         "admissions.applicants",
     ]
+
+    mode_case = next(
+        question
+        for question in materialize_questions(load_questions(), context)
+        if question["id"] == "response-mode-focused-direct"
+    )
+    assert mode_case["type"] == "response_mode_behavior"
+    assert mode_case["skills"] == ["focused-answer"]
+    assert "Live School" in mode_case["question"]
+
+
+@pytest.mark.asyncio
+async def test_response_mode_eval_forwards_selected_skills(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    async def fake_create_session(*_args: Any, **_kwargs: Any) -> str:
+        return "eval-session"
+
+    async def fake_run_turn(*_args: Any, **kwargs: Any) -> Any:
+        captured["selected_skills"] = kwargs.get("selected_skills")
+        yield Event(type="delta", data={"text": "Direct answer."})
+        yield Event(type="done", data={"status": "complete"})
+
+    class FakeGraph:
+        async def aget_state(self, _config: dict[str, Any]) -> Any:
+            return SimpleNamespace(values={"messages": []})
+
+    monkeypatch.setattr(runner, "create_session", fake_create_session)
+    monkeypatch.setattr(runner, "run_turn", fake_run_turn)
+
+    result = await run_question(
+        cast(Any, SimpleNamespace(app_pool=None, deps=object(), graph=FakeGraph())),
+        None,
+        {
+            "id": "response-mode-focused-direct",
+            "type": "response_mode_behavior",
+            "question": "Answer directly.",
+            "skills": ["focused-answer"],
+            "expects": {},
+        },
+    )
+
+    assert result["passed"] is True
+    assert captured["selected_skills"] == ("focused-answer",)
 
 
 def test_comparison_stats_report_median_p95_and_max() -> None:
