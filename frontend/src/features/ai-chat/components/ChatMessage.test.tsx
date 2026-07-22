@@ -107,6 +107,61 @@ describe("ChatMessage", () => {
     ).toHaveTextContent("retired skill");
   });
 
+  test("filters counseling mode skills from historical skill chips", () => {
+    const message = userMessage({
+      skills: ["focused-answer", "school-comparison", "guided-counselor"],
+    });
+    render(
+      <ChatMessage
+        message={message}
+        modeSkillNames={["focused-answer", "guided-counselor"]}
+        skillLabelForName={(name) =>
+          name === "school-comparison" ? "School comparison" : undefined
+        }
+      />,
+    );
+
+    const invokedSkills = screen.getByRole("list", { name: "Invoked skills" });
+    expect(invokedSkills).toHaveTextContent("School comparison");
+    expect(invokedSkills).not.toHaveTextContent("Focused Answer");
+    expect(invokedSkills).not.toHaveTextContent("guided counselor");
+    expect(message.skills).toEqual([
+      "focused-answer",
+      "school-comparison",
+      "guided-counselor",
+    ]);
+  });
+
+  test("does not render an invoked-skill list when only a mode skill is present", () => {
+    render(
+      <ChatMessage
+        message={userMessage({
+          skills: ["focused-answer"],
+        })}
+        modeSkillNames={["focused-answer"]}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("list", { name: "Invoked skills" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("filters mode chips from config-derived names, not only locked slugs", () => {
+    render(
+      <ChatMessage
+        message={userMessage({
+          skills: ["future-response-mode", "retired-skill"],
+        })}
+        modeSkillNames={["future-response-mode"]}
+      />,
+    );
+
+    const invokedSkills = screen.getByRole("list", { name: "Invoked skills" });
+    expect(invokedSkills).not.toHaveTextContent("future response mode");
+    expect(invokedSkills).toHaveTextContent("retired skill");
+  });
+
   test("assistant message renders markdown content and message actions once settled", () => {
     const onFeedback = vi.fn();
     render(

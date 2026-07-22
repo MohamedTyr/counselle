@@ -84,6 +84,16 @@ export function filterModeSkills(
   skills: readonly string[],
   modes: readonly CounselingMode[],
 ): string[] {
-  const modeNames = modeNameSet(modes);
+  return filterModeSkillNames(
+    skills,
+    modes.map((mode) => mode.skillName),
+  );
+}
+
+export function filterModeSkillNames(
+  skills: readonly string[],
+  modeSkillNames: readonly string[],
+): string[] {
+  const modeNames = new Set(modeSkillNames);
   return skills.filter((skill) => !modeNames.has(skill));
 }

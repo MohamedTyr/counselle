@@ -17,6 +17,7 @@ export type ChatMessagesProps = {
   onOpenSources?: (payload: MessageSourcesPayload) => void;
   onClarifyAnswer?: (text: string) => void;
   skillLabelForName?: (name: string) => string | undefined;
+  modeSkillNames?: readonly string[];
 };
 
 /**
@@ -35,6 +36,7 @@ export function ChatMessages({
   onOpenSources,
   onClarifyAnswer,
   skillLabelForName,
+  modeSkillNames = [],
 }: ChatMessagesProps) {
   const {
     scrollableRef,
@@ -111,6 +113,7 @@ export function ChatMessages({
                   : undefined
               }
               skillLabelForName={skillLabelForName}
+              modeSkillNames={modeSkillNames}
             />
           ))}
           <div ref={messagesEndRef} />

@@ -285,6 +285,7 @@ export function AiChatPage({
         <ChatMessages
           isSubmitting={isSubmitting}
           messages={messages}
+          modeSkillNames={modeSkillNames}
           skillLabelForName={(name) =>
             skillConfig?.skills.find((skill) => skill.name === name)
               ?.displayName
