@@ -327,9 +327,12 @@ def test_prompt_requires_db_markers_for_reveal(built_prompt: str) -> None:
 
 
 def test_prompt_pins_ranking_columns_and_manifest_retry(built_prompt: str) -> None:
-    assert "must return `covered`, `total`, and `as_of` columns" in built_prompt
-    assert "copy the bound structural JSONPath recipe from `db-recipes` verbatim" in built_prompt
-    assert "return to that recipe and retry it verbatim" in built_prompt
+    assert (
+        "Every ranking or aggregate SQL query must return `covered`, `total`, and `as_of`"
+        in built_prompt
+    )
+    assert "copy the `db-recipes` JSONPath probe verbatim" in built_prompt
+    assert "Retry failed manifest probes with the same exact statement" in built_prompt
     assert "use the exact requested qualified ref in each finalist cell" in built_prompt
     assert "SQL aggregates never get bracket source markers" in built_prompt
     assert "copy each row's top-level `vintage` verbatim" in built_prompt

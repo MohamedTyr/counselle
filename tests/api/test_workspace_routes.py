@@ -101,7 +101,7 @@ def _activity(activity_id: UUID | None = None) -> Activity:
         id=activity_id or uuid4(),
         user_id=TEST_USER_ID,
         sort_order=0,
-        position_label="Founder",
+        position="Founder",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )

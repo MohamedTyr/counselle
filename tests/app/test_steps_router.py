@@ -540,6 +540,7 @@ def test_step_end_includes_ui_from_overflow_public_receipt(rig: Rig) -> None:
     assert end["sources"] == [
         {
             "label": "admissions.duke.edu",
+            "title": "Duke dorms",
             "favicon": "https://www.google.com/s2/favicons?domain=admissions.duke.edu&sz=64",
             "url": "https://admissions.duke.edu/dorms",
         }
