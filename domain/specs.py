@@ -62,7 +62,7 @@ class ClarifySpec(BaseModel):
     these options, and a typed reply is always treated as the answer.
     """
 
-    v: int = 1
+    v: Literal[1] = 1
     question: str
     header: str
     multi_select: bool
