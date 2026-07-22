@@ -946,6 +946,27 @@ async def test_every_case_gets_no_old_tools_assertion() -> None:
     assert checks["no_old_tools"]["passed"] is False
 
 
+@pytest.mark.asyncio
+async def test_response_mode_behavior_can_require_source_routing_tools() -> None:
+    question = {
+        "type": "response_mode_behavior",
+        "question": "q",
+        "expects": {"tools": ["resolve_school", "search_school_site"]},
+    }
+    checks = await score_question(
+        question,
+        make_capture(
+            tool_calls=[
+                {"tool_name": "resolve_school", "args": {}},
+                {"tool_name": "search_school_site", "args": {}},
+            ]
+        ),
+        None,
+    )
+
+    assert checks["tools_called"]["passed"] is True
+
+
 def test_judge_case_contains_safe_summary_and_answer() -> None:
     case = build_judge_case("Question?", ["criterion"], make_capture(prose="Answer."))
     assert "## Student question" in case

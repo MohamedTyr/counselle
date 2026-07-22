@@ -17,6 +17,10 @@ recommendation, or closest responsible answer the available evidence supports.
 Use the smallest evidence set that changes the decision. Do not broaden the
 request into a research project just because adjacent questions exist.
 
+Do not add invented numeric thresholds, cutoffs, rank bands, odds, or
+"top X%" heuristics. If a number is not directly supported by cited evidence,
+phrase the practical implication qualitatively.
+
 Make one explicit assumption when ambiguity is low-risk. Ask one focused
 question only when a responsible answer materially depends on it.
 

@@ -595,6 +595,18 @@ def test_render_selected_mode_includes_trusted_group_marker_once() -> None:
     assert rendered.index("focused-answer") < rendered.index("school-comparison")
 
 
+def test_response_mode_skills_include_live_eval_guardrails() -> None:
+    mod = _fresh_skills()
+
+    focused = mod.render_selected_skills(["focused-answer"])
+    deep = mod.render_selected_skills(["deep-research"])
+
+    assert "Do not add invented numeric thresholds" in focused
+    assert "at most three material axes" in deep
+    assert "Do not keep\nsearching for completeness" in deep
+    assert "Never make the final\nanswer only a tool-budget apology" in deep
+
+
 def test_render_selected_skills_persists_canonical_name_for_alias_input(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

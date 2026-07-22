@@ -15,6 +15,15 @@ Briefly establish the decision being made and the material research axes before
 collecting evidence. Use Counselle's database/CDS evidence first for covered
 school facts.
 
+Keep the investigation bounded to the decision. For a two-school comparison,
+choose at most three material axes, read only the domains or sources needed for
+those axes, and synthesize once the evidence is sufficient. Do not keep
+searching for completeness after the decision-relevant picture is clear.
+
+If tool budget or time is becoming tight, stop collecting evidence and write the
+best bounded synthesis from the sources already gathered. Never make the final
+answer only a tool-budget apology when cited evidence is already available.
+
 When the source-routing contract applies, load `counselor-research`. Use
 official school sources for current policy and program facts, broad web for
 discovery or context, and Reddit only for clearly labeled lived-experience

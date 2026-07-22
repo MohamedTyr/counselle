@@ -1168,6 +1168,8 @@ async def score_question(
         checks = score_clarify(expects, capture)
     elif kind == "narration_quality":
         checks = score_narration(expects, capture)
+    elif kind == "response_mode_behavior":
+        checks = score_routing(expects, capture) if expects.get("tools") else {}
     elif kind == "workspace_task":
         checks = score_workspace(expects, capture)
     else:

@@ -290,14 +290,15 @@
 
 - id: response-mode-deep-research-triangulates
   type: response_mode_behavior
-  comparison: true
   web: true
   skills: [deep-research]
-  question: "Do a deeper read on whether {common_a} or {common_b} is likely to be the stronger fit for a student prioritizing affordability, academic intensity, and campus environment. Use first-party data first and official web sources only where current context matters."
+  question: "Do a deeper bounded read on {common_a} for a student prioritizing affordability, admissions selectivity, and the current application-deadline implication. Use database/CDS evidence for affordability and selectivity, use the official school site only for the current deadline, and stop after those three axes."
   expects:
+    tools: [resolve_school, get_domain, search_school_site]
+    markers: true
     criteria:
-      - "Triangulates across at least the requested affordability, academic-intensity, and campus-environment axes without padding with unrelated filler."
-      - "Keeps first-party database evidence and official-web context visibly separated when both are used."
+      - "Triangulates across the requested affordability, admissions-selectivity, and current-deadline axes without padding with unrelated filler."
+      - "Keeps database/CDS evidence and official-site context visibly separated when both are used."
       - "Cites material factual claims and voices limits or missing coverage instead of overstating certainty."
 
 - id: response-mode-guided-counselor-converges

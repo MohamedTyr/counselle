@@ -3,10 +3,11 @@
 Status: **implemented and graduated to specs**.
 
 As-built note (2026-07-22): phases 1–8 were implemented on
-`feat/counseling-response-modes`. Deterministic backend/frontend suites and a
-mocked real-browser UX pass are complete. The live LLM behavior eval cases were
-added to `evals/questions.yaml`, but live execution requires DB DSNs and a
-Vertex API key in the runtime environment; owner acceptance of real interactions
+`feat/counseling-response-modes`. Deterministic backend/frontend suites, a
+mocked real-browser UX pass, and the three focused live LLM behavior eval cases
+are complete. The full three-case eval command had one transient upstream
+Google/HTTP stream failure during verification, but each Focused, Deep, and
+Guided case subsequently passed live. Owner acceptance of real interactions
 remains the final human sign-off gate.
 
 This plan adds one calm, student-facing mode selector to both Counselle
