@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   Menu,
   MenuGroup,
-  MenuGroupLabel,
   MenuItem,
   MenuPopup,
   MenuRadioGroup,
@@ -92,62 +91,59 @@ export function CounselingModeMenu({
       </MenuTrigger>
       <MenuPopup
         align="start"
-        className="w-[22rem] max-w-[calc(100vw_-_2rem)] px-1 py-1.5"
+        className="w-72 max-w-[calc(100vw_-_2rem)] px-1 py-1.5"
         side="top"
         sideOffset={8}
       >
-        <MenuGroup>
-          <MenuGroupLabel className="px-2 pt-1 pb-2 text-[11px] tracking-[0.08em] uppercase">
-            How should Counselle help?
-          </MenuGroupLabel>
-          <MenuRadioGroup
-            onValueChange={(value) => {
-              const selected = modes.find((entry) => entry.skillName === value);
-              if (selected) {
-                onModeChange(selected);
-              }
-            }}
-            value={mode.skillName}
-          >
-            <div className="flex flex-col gap-1">
-              {modes.map((entry) => (
-                <MenuRadioItem
-                  className="pointer-coarse:min-h-11 grid-cols-[.75rem_1fr] rounded-lg py-2"
-                  key={entry.skillName}
-                  value={entry.skillName}
-                >
-                  <span className="flex items-start gap-2">
-                    <ModeIcon
-                      className="mt-0.5 size-4 shrink-0"
-                      mode={entry}
-                    />
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-[13px] leading-4 font-medium">
+        <div className="[zoom:var(--workspace-source-menu-density)]">
+          <MenuGroup>
+            <MenuRadioGroup
+              onValueChange={(value) => {
+                const selected = modes.find(
+                  (entry) => entry.skillName === value,
+                );
+                if (selected) {
+                  onModeChange(selected);
+                }
+              }}
+              value={mode.skillName}
+            >
+              <div className="flex flex-col gap-[var(--workspace-source-menu-row-gap)]">
+                {modes.map((entry) => (
+                  <MenuRadioItem
+                    className="group/mode h-7 rounded-lg px-2 py-1 text-[var(--workspace-dropdown-foreground)] transition-[background-color,color] duration-150 data-checked:bg-[var(--workspace-dropdown-hover)] data-highlighted:bg-[var(--workspace-dropdown-hover)] motion-reduce:transition-none"
+                    indicator="none"
+                    key={entry.skillName}
+                    value={entry.skillName}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <ModeIcon
+                        className="-mx-0.5 size-4.5 shrink-0"
+                        mode={entry}
+                      />
+                      <span className="truncate text-[13px] leading-5 font-medium text-[var(--workspace-composer-sources-foreground)] group-data-checked/mode:text-[var(--workspace-foreground)]">
                         {entry.displayName}
                       </span>
-                      <span className="text-xs leading-4 text-muted-foreground">
-                        {entry.description}
-                      </span>
                     </span>
-                  </span>
-                </MenuRadioItem>
-              ))}
-            </div>
-          </MenuRadioGroup>
-        </MenuGroup>
-        <MenuSeparator />
-        <MenuItem
-          className="pointer-coarse:min-h-11 rounded-lg"
-          disabled={!canBrowseSkills}
-          onClick={browseSkills}
-        >
-          <AtSign aria-hidden="true" data-icon="inline-start" />
-          <span>
-            {canBrowseSkills
-              ? "More specialized skills..."
-              : "Specialized skill limit reached"}
-          </span>
-        </MenuItem>
+                  </MenuRadioItem>
+                ))}
+              </div>
+            </MenuRadioGroup>
+          </MenuGroup>
+          <MenuSeparator className="mx-2 my-1 bg-[var(--workspace-dropdown-border)]" />
+          <MenuItem
+            className="pointer-coarse:min-h-11 rounded-lg px-2 py-1.5 text-[13px] text-[var(--workspace-composer-sources-foreground)] transition-[background-color,color] duration-150 data-highlighted:bg-[var(--workspace-dropdown-hover)] data-highlighted:text-[var(--workspace-composer-sources-foreground)] motion-reduce:transition-none"
+            disabled={!canBrowseSkills}
+            onClick={browseSkills}
+          >
+            <AtSign aria-hidden="true" data-icon="inline-start" />
+            <span>
+              {canBrowseSkills
+                ? "More specialized skills..."
+                : "Specialized skill limit reached"}
+            </span>
+          </MenuItem>
+        </div>
       </MenuPopup>
     </Menu>
   );
