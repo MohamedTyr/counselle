@@ -1,6 +1,6 @@
 # Counselle — System Architecture
 
-> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–36)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, and the student profile/document/memory stores. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
+> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–37)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, the student profile/document/memory stores, and first-run onboarding. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
 >
 > **This document describes the target architecture — how Counselle is designed and built, not what has shipped to date.** A few subsystems below are designed but not yet wired (e.g. the deep-research subagent, §13). For the current build status — what's implemented vs. pending, and the deployment state — see `CLAUDE.md`; it is the single source of progress truth.
 
@@ -49,6 +49,7 @@
 34. [Frontend testing strategy](#34-frontend-testing-strategy)
 35. [Risks & open questions](#35-risks--open-questions)
 36. [Student profile, documents & agent memory](#36-student-profile-documents--agent-memory)
+37. [Onboarding](#37-onboarding)
 
 ---
 
@@ -1086,4 +1087,61 @@ component patterns.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032), `docs/research/` (stack survey). Keep this current as decisions change.*
+## 37. Onboarding
+
+(ADR 0033.) A five-step, all-optional first-run flow that gives Counselle
+the small subset of the Profile (§36) it uses most often, without putting a
+new student through the full ten-section form on day one. Full product/UX
+spec and phase-by-phase execution record: `specs/user-onboarding/plan/`.
+
+**Progress is flow state, not Profile data.** `app/onboarding.py` owns a
+typed, versioned state machine (`OnboardingStatus`: `not_started \|
+in_progress \| deferred \| completed`, plus a `current_step` over the fixed
+`basics → academics → direction → context → fit` order) stored at
+`users.settings.onboarding` — no new table or column. The transition
+function (`apply_onboarding_command`) is pure and idempotent (a repeated
+`advance`/`complete` returns the already-reached state instead of erroring);
+persistence (`update_onboarding_progress`) applies it under a row lock and
+writes back with a key-scoped `jsonb_set`, never a whole-column replace.
+`PATCH /v1/onboarding` (`api/routes/onboarding.py`) is the only writer — a
+thin, authenticated, rate-limited route scoped to the caller's own id, no
+workspace change row or SSE event (this is UI navigation state, not student
+data the agent or other clients need to observe). New users, password or
+Google OAuth, are seeded into `not_started` at creation
+(`merge_initial_onboarding_settings`, called from `AsyncpgUserDatabase.create`);
+an account created before this feature has no `onboarding` key at all and is
+treated as grandfathered, never force-routed into the flow.
+
+**`OnboardingGate`** (`frontend/src/app/auth/OnboardingGate.tsx`) sits
+between `RequireAuth` and both the workspace routes and `/onboarding`
+itself, reading `useMe()`'s `settings.onboarding` on every navigation.
+`not_started`/`in_progress` redirect any `/app/*` visit to `/onboarding`,
+preserving the original destination as one-time React Router history state
+(never the URL or `settings`) so deferral can return the student there.
+`deferred` and grandfathered accounts pass through to the workspace
+untouched and pick up `/onboarding` again only via the `Guided setup`
+affordance on Profile. `completed` redirects any direct `/onboarding` visit
+back to `/app/profile`, except for the one render immediately after the
+completion mutation (an ephemeral `onboardingCompletion` history-state flag,
+independently checked against the Navigation Timing API so a hard reload of
+that same screen still redirects). A malformed `settings.onboarding` value
+never traps the user out of the app — it degrades to a recoverable retry
+screen only when `/onboarding` is opened directly, and to pass-through
+everywhere else. Onboarding's own answers write through the existing
+`PATCH /v1/profile` service path (§36), never a parallel schema.
+
+**The `/v1/me` settings-merge lock (ADR 0033).** Because `settings jsonb`
+now has two independent writers — the generic `PATCH /v1/me` (theme,
+source-config preset) and `PATCH /v1/onboarding` — `api/routes/me.py`
+treats `settings` as an RFC 7396-style top-level patch (omitted key =
+unchanged, explicit `null` = delete that key, `settings: null` = 422, never
+a full replace) and rejects any attempt to write the reserved `onboarding`
+key directly (422, pointing at `PATCH /v1/onboarding`). Both routes read
+their merge source from a `SELECT ... FOR UPDATE`'d row inside the same
+transaction as their write, rather than the `current_active_user` snapshot
+taken at request start, so whichever of the two commits second merges
+against the other's already-applied change instead of clobbering it.
+
+---
+
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033), `docs/research/` (stack survey). Keep this current as decisions change.*
