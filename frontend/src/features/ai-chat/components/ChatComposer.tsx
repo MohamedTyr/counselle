@@ -9,7 +9,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { SkillCatalogEntry, SourceConfig } from "@/api/chat/types";
+import type { CounselingMode, SkillCatalogEntry, SourceConfig } from "@/api/chat/types";
+import { CounselingModeMenu } from "@/features/ai-composer/CounselingModeMenu";
 import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
 import {
   hasInlineSkillMention,
@@ -37,6 +38,9 @@ export type ChatComposerProps = {
   selectedSkills?: readonly string[];
   onSelectedSkillsChange?: (skills: string[]) => void;
   maxSelectedSkills?: number;
+  mode?: CounselingMode | null;
+  modes?: readonly CounselingMode[];
+  onModeChange?: (mode: CounselingMode) => void;
 };
 
 export function ChatComposer({
@@ -53,6 +57,9 @@ export function ChatComposer({
   selectedSkills = [],
   onSelectedSkillsChange = () => undefined,
   maxSelectedSkills = 0,
+  mode = null,
+  modes = [],
+  onModeChange = () => undefined,
 }: ChatComposerProps) {
   const [isComposing, setIsComposing] = useState(false);
   const [textareaScrollTop, setTextareaScrollTop] = useState(0);
@@ -170,7 +177,16 @@ export function ChatComposer({
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
           <div className="flex flex-wrap items-center gap-1.5">
-            {maxSelectedSkills > 0 && !awaitingClarify && (
+            {mode && modes.length > 0 ? (
+              <CounselingModeMenu
+                canBrowseSkills={selectedSkills.length < maxSelectedSkills}
+                disabled={disabled || isSubmitting || awaitingClarify}
+                mode={mode}
+                modes={modes}
+                onBrowseSkills={picker.insertTrigger}
+                onModeChange={onModeChange}
+              />
+            ) : maxSelectedSkills > 0 && !awaitingClarify ? (
               <Button
                 aria-label="Add a skill (@)"
                 className="size-8 !rounded-[var(--workspace-composer-control-radius)] !border-[var(--workspace-composer-control-border)] !bg-[var(--workspace-composer-control-surface)] !text-[var(--workspace-composer-sources-foreground)] !shadow-none before:!rounded-[calc(var(--workspace-composer-control-radius)-1px)] before:!shadow-none hover:!border-[var(--workspace-composer-control-hover-border)] hover:!bg-[var(--workspace-composer-control-hover-surface)] hover:!text-[var(--workspace-composer-sources-foreground)] data-pressed:!border-[var(--workspace-composer-control-hover-border)] data-pressed:!bg-[var(--workspace-composer-control-hover-surface)]"
@@ -182,7 +198,7 @@ export function ChatComposer({
               >
                 <AtSign className="!mx-0 size-4" data-icon="inline-start" />
               </Button>
-            )}
+            ) : null}
             <SourcesMenu
               disabled={disabled || isSubmitting}
               onSourceConfigChange={onSourceConfigChange}
