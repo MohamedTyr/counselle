@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 
+import type { ResponseMode } from "@/api/chat/types";
+import { isResponseMode } from "@/api/chat/response-mode";
+
 import { AiChatPage } from "./AiChatPage";
 
 type AiChatLocationState = {
@@ -10,6 +13,7 @@ type AiChatLocationState = {
 export type InitialTurn = {
   text: string;
   skills: string[];
+  responseMode: ResponseMode;
 };
 
 function initialTurnFromState(state: unknown): InitialTurn | null {
@@ -32,7 +36,17 @@ function initialTurnFromState(state: unknown): InitialTurn | null {
     return null;
   }
 
-  return { text: candidate.text, skills: [...candidate.skills] };
+  // Invalid/missing legacy router state uses Quick without rejecting
+  // otherwise valid text/skills (plan §8.3).
+  const responseMode = isResponseMode(candidate.responseMode)
+    ? candidate.responseMode
+    : "quick";
+
+  return {
+    text: candidate.text,
+    skills: [...candidate.skills],
+    responseMode,
+  };
 }
 
 /** Route shell for `/app/ai/:sessionId` — `WorkspaceOutlet` keys routes by

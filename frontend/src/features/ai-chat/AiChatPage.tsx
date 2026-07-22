@@ -44,11 +44,12 @@ export function AiChatPage({
     () =>
       initialTurn ??
       (initialPrompt !== null && initialPrompt.trim().length > 0
-        ? { text: initialPrompt, skills: [] }
+        ? { text: initialPrompt, skills: [], responseMode: "quick" as const }
         : null),
     [initialPrompt, initialTurn],
   );
   const consumeInitialTurn = onInitialTurnConsumed ?? onInitialPromptConsumed;
+  const initialResponseMode = effectiveInitialTurn?.responseMode;
   const [composerValue, setComposerValue] = useState("");
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [sourcesPayload, setSourcesPayload] =
@@ -75,6 +76,7 @@ export function AiChatPage({
     messages,
     sourceConfig,
     setSourceConfig,
+    selectedResponseMode,
     submitMessage,
     stopGenerating,
     isSubmitting,
@@ -82,7 +84,15 @@ export function AiChatPage({
     turnError,
     pendingText,
     retryLastSend,
-  } = useChatSession({ sessionId, transport, onSendStart: resetScrollFollow });
+    modelUnavailableRecovery,
+    retryModelUnavailableSameMode,
+    retryModelUnavailableWithQuick,
+  } = useChatSession({
+    sessionId,
+    transport,
+    onSendStart: resetScrollFollow,
+    initialResponseMode,
+  });
 
   useEffect(() => {
     document.title = documentTitleFor(session?.title);
@@ -92,25 +102,52 @@ export function AiChatPage({
   }, [session?.title]);
 
   const handleComposerSubmit = useCallback(
-    (text: string, skills = selectedSkills) => {
+    (
+      text: string,
+      skills = selectedSkills,
+      // A normal send snapshots the CURRENT selected next-turn mode at the
+      // moment of this call -- never a later selector read once the turn is
+      // in flight (plan §5.5/§8.4). The initial-turn dispatch effect below
+      // passes its own captured mode explicitly here, bypassing whatever
+      // `selectedResponseMode` happens to show before hydration settles.
+      responseMode = selectedResponseMode,
+    ) => {
       const submittedSkills = [...skills];
       setComposerValue("");
       setSelectedSkills([]);
-      void submitMessage(text, submittedSkills).then((result) => {
+      void submitMessage({
+        text,
+        skills: submittedSkills,
+        executionResponseMode: responseMode,
+      }).then((result) => {
         if (!result.ok) {
           setComposerValue(result.keepText);
           setSelectedSkills(submittedSkills);
         }
       });
     },
-    [selectedSkills, submitMessage],
+    [selectedResponseMode, selectedSkills, submitMessage],
   );
 
   const handleClarifyAnswer = useCallback(
     (text: string) => {
-      void submitMessage(text, []);
+      // A clarify answer continues the ORIGINAL turn's mode, not whatever
+      // the next-turn selector shows now (plan §1 rule 4). The engine omits
+      // `response_mode` from the wire body itself once it detects this is a
+      // parked continuation, regardless of what's passed here; this local
+      // value only drives the optimistic display until `meta` replays it.
+      const tail = messages.at(-1);
+      const parkedMode =
+        tail?.kind === "assistant" && tail.responseMode.supported
+          ? tail.responseMode.mode
+          : "quick";
+      void submitMessage({
+        text,
+        skills: [],
+        executionResponseMode: parkedMode,
+      });
     },
-    [submitMessage],
+    [messages, submitMessage],
   );
 
   useEffect(() => {
@@ -125,9 +162,13 @@ export function AiChatPage({
 
     consumedInitialTurnRef.current = true;
     consumeInitialTurn?.();
+    // Must use the captured initial-turn mode explicitly -- not the
+    // default-parameter read of `selectedResponseMode`, which can still be
+    // the pre-hydration fallback at this point (plan §8.3).
     handleComposerSubmit(
       effectiveInitialTurn.text,
       effectiveInitialTurn.skills,
+      effectiveInitialTurn.responseMode,
     );
   }, [
     handleComposerSubmit,
@@ -142,13 +183,26 @@ export function AiChatPage({
       if (message.kind !== "assistant") {
         return;
       }
+      // Regenerate replays the ORIGINAL assistant answer's execution mode,
+      // never the chat's current next-turn selector, and never mutates
+      // stickiness (plan §1 rule 6). A present-but-unsupported historical
+      // mode can't regenerate (plan §8.4) rather than silently falling back
+      // to Quick.
+      if (!message.responseMode.supported) {
+        return;
+      }
       const parent = messages.find(
         (entry) => entry.messageId === message.parentMessageId,
       );
       if (parent === undefined || parent.kind !== "user") {
         return;
       }
-      void submitMessage(parent.text, parent.skills, parent.messageId);
+      void submitMessage({
+        text: parent.text,
+        skills: parent.skills,
+        executionResponseMode: message.responseMode.mode,
+        replaceMessageId: parent.messageId,
+      });
     },
     [messages, submitMessage],
   );
@@ -230,6 +284,35 @@ export function AiChatPage({
           sessionId={sessionId}
         />
         <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+          {modelUnavailableRecovery !== null && (
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+              <span>
+                {modelUnavailableRecovery.failedResponseMode === "think"
+                  ? "Think is temporarily unavailable. Try again, or switch to Quick."
+                  : "That response failed. Try again."}
+              </span>
+              <div className="flex shrink-0 items-center gap-3">
+                <button
+                  className="font-medium underline"
+                  onClick={retryModelUnavailableSameMode}
+                  type="button"
+                >
+                  {modelUnavailableRecovery.failedResponseMode === "think"
+                    ? "Retry Think"
+                    : "Retry"}
+                </button>
+                {modelUnavailableRecovery.failedResponseMode === "think" && (
+                  <button
+                    className="font-medium underline"
+                    onClick={retryModelUnavailableWithQuick}
+                    type="button"
+                  >
+                    Retry with Quick
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {turnError !== null && (
             <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
               <span>{turnError.message}</span>

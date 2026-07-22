@@ -6,16 +6,19 @@ import { chatTransport } from "@/api/chat/transport";
 import type {
   ChatTransport,
   ProtocolEvent,
+  ResponseMode,
   SourceConfig,
   SseFrame,
 } from "@/api/chat/types";
 import { isTransportError, TransportError } from "@/api/http/errors";
+import { isResponseMode } from "@/api/chat/response-mode";
 
 import {
   initialTurnState,
   pendingUserSegmentsOf,
   reduceLiveTurn,
   type TurnState,
+  type TurnStatus,
   withoutPendingUserSegments,
 } from "./turn-reducer";
 import { userMessage, assistantMessage, type ChatMessage } from "./model";
@@ -28,6 +31,7 @@ import {
 import { turnErrorOf, type TurnError } from "./errors";
 
 const DEFAULT_CANCEL_WAIT_TIMEOUT_MS = 5_000;
+const MODEL_UNAVAILABLE_ERROR_CODE = "model_unavailable";
 
 export type LiveTurn = {
   sessionId: string;
@@ -36,15 +40,35 @@ export type LiveTurn = {
   parentMessageId: string;
   hasBackendId: boolean;
   replaceMessageId?: string;
+  /** The immutable mode locked in for this active/retried turn (plan
+   * §5.5/§8.4) -- never re-read from a later selector change. Resolved from
+   * the replayed `meta` once seen (authoritative confirmation of the same
+   * decision, not a competing signal), which is how a reattach recovers it
+   * before the local caller ever knew it. */
+  executionResponseMode: ResponseMode;
   state: TurnState;
 };
 
 export type SubmitMessageResult =
   { ok: true; sessionId: string } | { ok: false; keepText: string };
 
+export type SubmitMessageOptions = {
+  text: string;
+  skills?: readonly string[];
+  /** The immutable mode for this specific attempt -- snapshotted by the
+   * caller from whatever is correct for this call (the current next-turn
+   * selector for a normal send, the failed attempt's captured mode for a
+   * retry, the original assistant's historical mode for regenerate, or the
+   * active turn's captured mode for an auto-forwarded steer). The engine
+   * never substitutes a different, later value. */
+  executionResponseMode: ResponseMode;
+  replaceMessageId?: string;
+};
+
 type PendingSend = {
   text: string;
   skills: string[];
+  executionResponseMode: ResponseMode;
   replaceMessageId?: string;
   optimisticUserMessageId?: string;
 };
@@ -58,6 +82,20 @@ type StartedTurn = {
 type AutoForwardMessage = {
   id: string;
   text: string;
+  /** The active turn's mode at the moment it was queued -- not whatever the
+   * selector shows once it later auto-forwards (plan §5.5/§8.4). */
+  executionResponseMode: ResponseMode;
+};
+
+/** Recovery snapshot for a post-`meta` `model_unavailable` terminal error
+ * (plan §5.4/§8.4): the failed turn is anchored on its backend
+ * `userMessageId`, which is the server's edit/regenerate rewrite target. */
+export type ModelUnavailableRecovery = {
+  sessionId: string;
+  userMessageId: string;
+  text: string;
+  skills: string[];
+  failedResponseMode: ResponseMode;
 };
 
 export type UseTurnEngineOptions = {
@@ -73,6 +111,11 @@ export type UseTurnEngineOptions = {
     sessionId: string,
     sourceConfig: SourceConfig,
   ) => void;
+  /** Fired once a normal new turn's `meta` confirms the backend has claimed
+   * and persisted this mode as the session's sticky preference (plan §8.2) --
+   * never fired for a parked clarify continuation or a replace/regenerate,
+   * neither of which mutate stickiness. */
+  onResponseModeCommitted?: (sessionId: string, mode: ResponseMode) => void;
   onSendStart?: () => void;
 };
 
@@ -84,14 +127,21 @@ export type UseTurnEngineResult = {
   pendingText: string | null;
   awaitingClarify: boolean;
   submitMessage: (
-    text: string,
-    skillsOrReplaceMessageId?: readonly string[] | string,
-    replaceMessageId?: string,
+    options: SubmitMessageOptions,
   ) => Promise<SubmitMessageResult>;
   retryLastSend: () => void;
   attachActiveTurn: (sessionId: string) => Promise<void>;
   stopGenerating: () => void;
   clearTurnState: () => void;
+  /** Set only after a post-`meta` `model_unavailable` terminal error -- the
+   * two explicit recovery actions below become available. */
+  modelUnavailableRecovery: ModelUnavailableRecovery | null;
+  /** `Retry Think` (or whatever mode failed): history-rewrites the failed
+   * turn with the SAME captured mode. Does not touch the sticky preference. */
+  retryModelUnavailableSameMode: () => void;
+  /** Explicit one-off `Retry with Quick`: history-rewrites the failed turn
+   * in Quick without changing the chat's next-turn preference. */
+  retryModelUnavailableWithQuick: () => void;
 };
 
 function isTurnActive(turn: LiveTurn | null) {
@@ -105,22 +155,28 @@ function createTempId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-function submitArguments(
-  skillsOrReplaceMessageId: readonly string[] | string | undefined,
-  replaceMessageId: string | undefined,
-) {
-  if (typeof skillsOrReplaceMessageId === "string") {
-    return { skills: [], replaceMessageId: skillsOrReplaceMessageId };
-  }
-
-  return {
-    skills:
-      skillsOrReplaceMessageId === undefined
-        ? []
-        : [...skillsOrReplaceMessageId],
-    replaceMessageId,
-  };
+/** The engine derives parked-clarify continuation from its own persisted
+ * state -- it never trusts an arbitrary caller-supplied continuation flag
+ * (plan §5.5/§8.4). Covers both the inline clarify-answer widget and a
+ * free-text composer submit, since both call through the same `submitMessage`
+ * with no special-cased argument. */
+function isAwaitingClarifyContinuation(messages: readonly ChatMessage[]) {
+  const tail = messages.at(-1);
+  return (
+    tail !== undefined &&
+    tail.kind === "assistant" &&
+    tail.turnStatus === "awaiting_input" &&
+    tail.clarify !== undefined
+  );
 }
+
+type ConsumeStreamOutcome = {
+  metaSeen: boolean;
+  assistantMessageId: string;
+  userMessageId: string;
+  status: TurnStatus;
+  errorCode?: string;
+};
 
 export function useTurnEngine({
   sessionId,
@@ -132,6 +188,7 @@ export function useTurnEngine({
   onSessionCreated,
   onTranscriptRefreshNeeded,
   onSourceConfigCommitted,
+  onResponseModeCommitted,
   onSendStart,
 }: UseTurnEngineOptions): UseTurnEngineResult {
   const queryClient = useQueryClient();
@@ -139,6 +196,8 @@ export function useTurnEngine({
   const [turnError, setTurnError] = useState<TurnError | null>(null);
   const [pendingSend, setPendingSend] = useState<PendingSend | null>(null);
   const [autoForwardVersion, setAutoForwardVersion] = useState(0);
+  const [modelUnavailableRecovery, setModelUnavailableRecovery] =
+    useState<ModelUnavailableRecovery | null>(null);
 
   const sessionIdRef = useRef(sessionId);
   const liveTurnRef = useRef(liveTurn);
@@ -187,22 +246,29 @@ export function useTurnEngine({
       stream,
       initialUserMessageId,
       reconcileTempUserId,
+      executionResponseMode,
       initialAssistant,
       replaceMessageId,
+      onMetaSeen,
     }: {
       activeSessionId: string;
       stream: AsyncIterable<SseFrame<ProtocolEvent>>;
       initialUserMessageId: string;
       reconcileTempUserId: boolean;
+      /** `null` only for an attach with no locally-known mode yet (it is
+       * resolved from the replayed `meta` below). */
+      executionResponseMode: ResponseMode | null;
       initialAssistant?: { messageId: string; hasBackendId: boolean };
       replaceMessageId?: string;
-    }): Promise<boolean> => {
+      onMetaSeen?: () => void;
+    }): Promise<ConsumeStreamOutcome> => {
       let state = initialTurnState();
       let assistantMessageId =
         initialAssistant?.messageId ?? createTempId("temp-asst");
       let userMessageId = initialUserMessageId;
       let hasBackendId = initialAssistant?.hasBackendId ?? false;
       let metaSeen = false;
+      let resolvedMode: ResponseMode = executionResponseMode ?? "quick";
 
       cancelCommittedRef.current = false;
       cancelInFlightRef.current = false;
@@ -215,6 +281,7 @@ export function useTurnEngine({
           parentMessageId: userMessageId,
           hasBackendId,
           replaceMessageId,
+          executionResponseMode: resolvedMode,
           state,
         });
       };
@@ -230,6 +297,10 @@ export function useTurnEngine({
             hasBackendId = true;
             assistantMessageId = event.data.message_id;
             const backendUserId = event.data.user_message_id;
+            if (isResponseMode(event.data.response_mode)) {
+              resolvedMode = event.data.response_mode;
+            }
+            onMetaSeen?.();
 
             if (reconcileTempUserId && backendUserId !== userMessageId) {
               const previousUserId = userMessageId;
@@ -262,6 +333,7 @@ export function useTurnEngine({
           userMessageId,
           hasBackendId,
           state: terminalState,
+          executionResponseMode: resolvedMode,
         });
 
         setPersistedMessages((previous) =>
@@ -279,6 +351,7 @@ export function useTurnEngine({
             ...newForwards.map((segment) => ({
               id: segment.id,
               text: segment.text,
+              executionResponseMode: resolvedMode,
             })),
           ];
           setAutoForwardVersion((version) => version + 1);
@@ -289,7 +362,13 @@ export function useTurnEngine({
         void queryClient.invalidateQueries({
           queryKey: chatKeys.session(activeSessionId),
         });
-        return metaSeen;
+        return {
+          metaSeen,
+          assistantMessageId,
+          userMessageId,
+          status: terminalState.status,
+          errorCode: terminalState.error?.code,
+        };
       } catch (error) {
         const mapped = turnErrorOf(error);
         setTurnError(mapped);
@@ -302,11 +381,17 @@ export function useTurnEngine({
             hasBackendId,
             state,
             message: mapped.message,
+            executionResponseMode: resolvedMode,
           });
           setPersistedMessages((previous) =>
             upsertAssistantMessage(previous, errored),
           );
-          return true;
+          return {
+            metaSeen,
+            assistantMessageId,
+            userMessageId,
+            status: "error",
+          };
         }
 
         throw error;
@@ -324,12 +409,28 @@ export function useTurnEngine({
       tempUserMessageId: string,
       text: string,
       skills: readonly string[],
+      executionResponseMode: ResponseMode,
       replaceMessageId?: string,
     ) => {
       const controller = beginTurnAbort();
       const committedSourceConfig = sourceConfigRef.current;
+      // The engine derives parked-clarify continuation itself; it never
+      // trusts a caller flag (plan §5.5/§8.4). A regenerate/replace call is
+      // never a clarify continuation (it always supplies replaceMessageId,
+      // which a real clarify answer never does), so it always sends its
+      // mode explicitly.
+      const isClarifyContinuation = isAwaitingClarifyContinuation(
+        persistedRef.current,
+      );
+      // A genuine normal new turn -- not a parked clarify continuation, not
+      // a replace/regenerate -- is the only kind that may commit its mode as
+      // the chat's sticky next-turn preference (plan §8.2/§8.4).
+      const isCommittableNormalTurn =
+        !isClarifyContinuation && replaceMessageId === undefined;
+
+      let outcome: ConsumeStreamOutcome;
       try {
-        await consumeStream({
+        outcome = await consumeStream({
           activeSessionId,
           stream: transport.sendMessage({
             sessionId: activeSessionId,
@@ -337,16 +438,47 @@ export function useTurnEngine({
             sourceConfig: committedSourceConfig,
             skills: [...skills],
             replaceMessageId,
+            responseMode: isClarifyContinuation
+              ? undefined
+              : executionResponseMode,
             signal: controller.signal,
           }),
           initialUserMessageId: tempUserMessageId,
           reconcileTempUserId: true,
+          executionResponseMode,
           replaceMessageId,
+          onMetaSeen: isCommittableNormalTurn
+            ? () =>
+                onResponseModeCommitted?.(
+                  activeSessionId,
+                  executionResponseMode,
+                )
+            : undefined,
         });
         onSourceConfigCommitted?.(activeSessionId, committedSourceConfig);
       } catch (error) {
-        setPendingSend({ text, skills: [...skills], replaceMessageId });
+        setPendingSend({
+          text,
+          skills: [...skills],
+          executionResponseMode,
+          replaceMessageId,
+        });
         throw error;
+      }
+
+      if (
+        outcome.status === "error" &&
+        outcome.errorCode === MODEL_UNAVAILABLE_ERROR_CODE
+      ) {
+        setModelUnavailableRecovery({
+          sessionId: activeSessionId,
+          userMessageId: outcome.userMessageId,
+          text,
+          skills: [...skills],
+          failedResponseMode: executionResponseMode,
+        });
+      } else {
+        setModelUnavailableRecovery(null);
       }
 
       if (replaceMessageId !== undefined) {
@@ -356,6 +488,7 @@ export function useTurnEngine({
     [
       beginTurnAbort,
       consumeStream,
+      onResponseModeCommitted,
       onSourceConfigCommitted,
       onTranscriptRefreshNeeded,
       transport,
@@ -366,6 +499,7 @@ export function useTurnEngine({
     async (
       text: string,
       skills: readonly string[],
+      executionResponseMode: ResponseMode,
       replaceMessageId?: string,
     ): Promise<StartedTurn> => {
       if (liveTurnRef.current !== null) {
@@ -376,6 +510,7 @@ export function useTurnEngine({
       if (activeSessionId === null) {
         const created = await transport.createSession({
           sourceConfig: sourceConfigRef.current,
+          responseMode: executionResponseMode,
         });
         activeSessionId = created.sessionId;
         onSessionCreated?.(activeSessionId);
@@ -411,6 +546,7 @@ export function useTurnEngine({
         tempUserId,
         text,
         skills,
+        executionResponseMode,
         replaceMessageId,
       );
       return {
@@ -483,15 +619,13 @@ export function useTurnEngine({
   }, [cancelWaitTimeoutMs]);
 
   const submitMessage = useCallback(
-    async (
-      text: string,
-      skillsOrReplaceMessageId?: readonly string[] | string,
-      requestedReplaceMessageId?: string,
-    ): Promise<SubmitMessageResult> => {
-      const { skills, replaceMessageId } = submitArguments(
-        skillsOrReplaceMessageId,
-        requestedReplaceMessageId,
-      );
+    async ({
+      text,
+      skills: skillsOption,
+      executionResponseMode,
+      replaceMessageId,
+    }: SubmitMessageOptions): Promise<SubmitMessageResult> => {
+      const skills = skillsOption === undefined ? [] : [...skillsOption];
       const trimmed = text.trim();
       if (!trimmed) {
         return { ok: false, keepText: text };
@@ -509,6 +643,7 @@ export function useTurnEngine({
 
       setPendingSend(null);
       setTurnError(null);
+      setModelUnavailableRecovery(null);
 
       if (liveTurnRef.current !== null && replaceMessageId === undefined) {
         if (skills.length > 0) {
@@ -517,7 +652,7 @@ export function useTurnEngine({
             message:
               "Wait for the current response to finish before using a skill.",
           });
-          setPendingSend({ text, skills });
+          setPendingSend({ text, skills, executionResponseMode });
           return { ok: false, keepText: text };
         }
         const active = liveTurnRef.current;
@@ -531,12 +666,12 @@ export function useTurnEngine({
           }
           const cleared = await awaitLiveClear();
           if (!cleared) {
-            setPendingSend({ text, skills });
+            setPendingSend({ text, skills, executionResponseMode });
             return { ok: false, keepText: text };
           }
         } catch (error) {
           setTurnError(turnErrorOf(error));
-          setPendingSend({ text, skills });
+          setPendingSend({ text, skills, executionResponseMode });
           return { ok: false, keepText: text };
         }
       }
@@ -544,13 +679,23 @@ export function useTurnEngine({
       if (liveTurnRef.current !== null) {
         const cleared = await cancelAndAwaitClear();
         if (!cleared) {
-          setPendingSend({ text, skills, replaceMessageId });
+          setPendingSend({
+            text,
+            skills,
+            executionResponseMode,
+            replaceMessageId,
+          });
           return { ok: false, keepText: text };
         }
       }
 
       try {
-        const started = await startSend(trimmed, skills, replaceMessageId);
+        const started = await startSend(
+          trimmed,
+          skills,
+          executionResponseMode,
+          replaceMessageId,
+        );
         return { ok: true, sessionId: started.sessionId };
       } catch (error) {
         if (isTransportError(error) && error.kind === "conflict") {
@@ -564,7 +709,9 @@ export function useTurnEngine({
               // Retry via runTurn (not startSend): the optimistic user
               // bubble from the original attempt is already in
               // persistedMessages, so re-calling startSend here would
-              // append a second one.
+              // append a second one. Reuses the same executionResponseMode
+              // captured for this whole submitMessage call -- never a
+              // fresher selector read.
               await runTurn(
                 activeSessionId,
                 replaceMessageId ??
@@ -572,6 +719,7 @@ export function useTurnEngine({
                   createTempId("temp-user"),
                 trimmed,
                 skills,
+                executionResponseMode,
                 replaceMessageId,
               );
               return { ok: true, sessionId: activeSessionId };
@@ -580,6 +728,7 @@ export function useTurnEngine({
               setPendingSend({
                 text,
                 skills,
+                executionResponseMode,
                 replaceMessageId,
                 optimisticUserMessageId:
                   replaceMessageId === undefined
@@ -595,6 +744,7 @@ export function useTurnEngine({
         setPendingSend({
           text,
           skills,
+          executionResponseMode,
           replaceMessageId,
           optimisticUserMessageId:
             replaceMessageId === undefined
@@ -614,7 +764,11 @@ export function useTurnEngine({
 
     const next = autoForwardQueueRef.current[0];
     autoForwardQueueRef.current = autoForwardQueueRef.current.slice(1);
-    void submitMessage(next.text, []);
+    void submitMessage({
+      text: next.text,
+      skills: [],
+      executionResponseMode: next.executionResponseMode,
+    });
   }, [autoForwardVersion, liveTurn, submitMessage]);
 
   const retryLastSend = useCallback(() => {
@@ -632,8 +786,41 @@ export function useTurnEngine({
         ),
       );
     }
-    void submitMessage(pending.text, pending.skills, pending.replaceMessageId);
+    void submitMessage({
+      text: pending.text,
+      skills: pending.skills,
+      executionResponseMode: pending.executionResponseMode,
+      replaceMessageId: pending.replaceMessageId,
+    });
   }, [pendingSend, setPersistedMessages, submitMessage]);
+
+  const retryModelUnavailableSameMode = useCallback(() => {
+    const recovery = modelUnavailableRecovery;
+    if (recovery === null || liveTurnRef.current !== null) {
+      return;
+    }
+    setModelUnavailableRecovery(null);
+    void submitMessage({
+      text: recovery.text,
+      skills: recovery.skills,
+      executionResponseMode: recovery.failedResponseMode,
+      replaceMessageId: recovery.userMessageId,
+    });
+  }, [modelUnavailableRecovery, submitMessage]);
+
+  const retryModelUnavailableWithQuick = useCallback(() => {
+    const recovery = modelUnavailableRecovery;
+    if (recovery === null || liveTurnRef.current !== null) {
+      return;
+    }
+    setModelUnavailableRecovery(null);
+    void submitMessage({
+      text: recovery.text,
+      skills: recovery.skills,
+      executionResponseMode: "quick",
+      replaceMessageId: recovery.userMessageId,
+    });
+  }, [modelUnavailableRecovery, submitMessage]);
 
   const attachActiveTurn = useCallback(
     async (activeSessionId: string) => {
@@ -674,12 +861,16 @@ export function useTurnEngine({
           : undefined;
 
       try {
+        // The active turn's mode isn't locally known on attach -- it's
+        // resolved from the replayed `meta` inside consumeStream (plan
+        // §8.4: "Active attach: execution mode restores from meta").
         await consumeStream({
           activeSessionId,
           stream: result.stream,
           initialUserMessageId:
             lastUser?.messageId ?? createTempId("temp-user"),
           reconcileTempUserId: false,
+          executionResponseMode: null,
           initialAssistant: seedAssistant,
         });
       } catch (error) {
@@ -737,6 +928,7 @@ export function useTurnEngine({
         liveTurn.parentMessageId,
         liveTurn.state,
         null,
+        { supported: true, mode: liveTurn.executionResponseMode },
       ),
       hasBackendId: liveTurn.hasBackendId,
     };
@@ -785,5 +977,8 @@ export function useTurnEngine({
     attachActiveTurn,
     stopGenerating,
     clearTurnState,
+    modelUnavailableRecovery,
+    retryModelUnavailableSameMode,
+    retryModelUnavailableWithQuick,
   };
 }

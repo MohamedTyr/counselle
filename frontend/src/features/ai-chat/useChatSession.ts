@@ -14,7 +14,12 @@ import {
   useChatSession as useChatSessionQuery,
 } from "@/api/chat/hooks";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
-import type { ChatTransport, SourceConfig } from "@/api/chat/types";
+import { BUILT_IN_DEFAULT_RESPONSE_MODE } from "@/api/chat/response-mode";
+import type {
+  ChatTransport,
+  ResponseMode,
+  SourceConfig,
+} from "@/api/chat/types";
 import { chatTransport } from "@/api/chat/transport";
 import { messagesFromTranscript, type ChatMessage } from "./model";
 import { transcriptErrorOf, type TranscriptError } from "./errors";
@@ -24,6 +29,11 @@ export type UseChatSessionOptions = {
   sessionId: string;
   transport?: ChatTransport;
   onSendStart?: () => void;
+  /** The mode captured at the home composer, if this session was just
+   * created from the handoff (plan §8.2/§8.3). Only consulted the first time
+   * this session's local state is seeded -- once hydration or a local
+   * override lands, this initial value never overwrites it again. */
+  initialResponseMode?: ResponseMode;
 };
 
 type LocalSessionState = {
@@ -34,10 +44,12 @@ type LocalSessionState = {
   sessionId: string | null;
   persistedMessages: ChatMessage[];
   sourceConfig: SourceConfig | null;
+  selectedResponseMode: ResponseMode | null;
   transcriptError: TranscriptError | null;
 };
 
 const sessionSourceConfigCache = new Map<string, SourceConfig>();
+const sessionResponseModeCache = new Map<string, ResponseMode>();
 
 function copySourceConfig(config: SourceConfig): SourceConfig {
   return {
@@ -76,22 +88,54 @@ function sameSourceConfig(left: SourceConfig | null, right: SourceConfig) {
   );
 }
 
+function readCachedResponseMode(sessionId: string): ResponseMode | null {
+  return sessionResponseModeCache.get(sessionId) ?? null;
+}
+
+function writeCachedResponseMode(sessionId: string, mode: ResponseMode | null) {
+  if (mode === null) {
+    sessionResponseModeCache.delete(sessionId);
+    return;
+  }
+  sessionResponseModeCache.set(sessionId, mode);
+}
+
 export function clearChatSessionSourceConfigCacheForTests() {
   sessionSourceConfigCache.clear();
+}
+
+export function clearChatSessionResponseModeCacheForTests() {
+  sessionResponseModeCache.clear();
 }
 
 export function useChatSession({
   sessionId,
   transport = chatTransport,
   onSendStart,
+  initialResponseMode,
 }: UseChatSessionOptions) {
   const queryClient = useQueryClient();
   const sessionQuery = useChatSessionQuery(sessionId);
-  const [localState, setLocalState] = useState<LocalSessionState>({
-    sessionId: null,
-    persistedMessages: [],
-    sourceConfig: null,
-    transcriptError: null,
+  // Hydration order (plan §8.2): 1) the initial-turn mode from the home
+  // handoff (seeded once, lazily, at mount -- this hook's owning route keys
+  // by sessionId so it remounts fresh per session); 2) a locally captured
+  // session mode bridging an in-flight navigation/commit race; 3) the
+  // hydrated server session mode; 4) the config default (applied by the
+  // caller when reading `selectedResponseMode`); 5) built-in Quick.
+  const [localState, setLocalState] = useState<LocalSessionState>(() => {
+    if (
+      initialResponseMode !== undefined &&
+      readCachedResponseMode(sessionId) === null
+    ) {
+      writeCachedResponseMode(sessionId, initialResponseMode);
+    }
+    return {
+      sessionId: null,
+      persistedMessages: [],
+      sourceConfig: null,
+      selectedResponseMode: null,
+      transcriptError: null,
+    };
   });
 
   // Live sessionId, kept in sync with the prop so setters bound to a stale
@@ -118,9 +162,16 @@ export function useChatSession({
     () => readCachedSourceConfig(sessionId),
     [sessionId],
   );
+  const cachedResponseMode = useMemo(
+    () => readCachedResponseMode(sessionId),
+    [sessionId],
+  );
   const sourceConfig = isLocalSession
     ? localState.sourceConfig
     : cachedSourceConfig;
+  const selectedResponseMode = isLocalSession
+    ? (localState.selectedResponseMode ?? cachedResponseMode)
+    : cachedResponseMode;
   const transcriptError = isLocalSession ? localState.transcriptError : null;
 
   useEffect(() => {
@@ -131,6 +182,9 @@ export function useChatSession({
     const data = sessionQuery.data;
     const cached = readCachedSourceConfig(data.sessionId);
     const nextSourceConfig = cached ?? copySourceConfig(data.sourceConfig);
+    const cachedMode = readCachedResponseMode(data.sessionId);
+    const nextResponseMode =
+      cachedMode ?? data.responseMode ?? BUILT_IN_DEFAULT_RESPONSE_MODE;
 
     // Set state synchronously here (not via queueMicrotask). The attach
     // effect below is gated on `isLocalSession`, so it only runs once this
@@ -146,6 +200,7 @@ export function useChatSession({
         data.transcript,
       ),
       sourceConfig: nextSourceConfig,
+      selectedResponseMode: nextResponseMode,
       transcriptError: null,
     });
   }, [sessionQuery.data]);
@@ -166,6 +221,10 @@ export function useChatSession({
               previous.sessionId === sessionId
                 ? previous.sourceConfig
                 : readCachedSourceConfig(sessionId),
+            selectedResponseMode:
+              previous.sessionId === sessionId
+                ? previous.selectedResponseMode
+                : readCachedResponseMode(sessionId),
             transcriptError: transcriptErrorOf(error),
           }));
         }
@@ -192,6 +251,14 @@ export function useChatSession({
     [sessionQuery.data?.sourceConfig, sourceConfig],
   );
 
+  const effectiveResponseMode = useMemo(
+    () =>
+      selectedResponseMode ??
+      sessionQuery.data?.responseMode ??
+      BUILT_IN_DEFAULT_RESPONSE_MODE,
+    [selectedResponseMode, sessionQuery.data?.responseMode],
+  );
+
   const setPersistedMessages = useCallback<
     Dispatch<SetStateAction<ChatMessage[]>>
   >(
@@ -214,11 +281,16 @@ export function useChatSession({
           previous.sessionId === sessionId
             ? previous.sourceConfig
             : readCachedSourceConfig(sessionId);
+        const previousResponseMode =
+          previous.sessionId === sessionId
+            ? previous.selectedResponseMode
+            : readCachedResponseMode(sessionId);
 
         return {
           sessionId,
           persistedMessages: nextMessages,
           sourceConfig: previousSourceConfig,
+          selectedResponseMode: previousResponseMode,
           transcriptError:
             previous.sessionId === sessionId ? previous.transcriptError : null,
         };
@@ -245,12 +317,44 @@ export function useChatSession({
         const nextSourceConfig =
           typeof action === "function" ? action(previousSourceConfig) : action;
         writeCachedSourceConfig(sessionId, nextSourceConfig);
+        const previousResponseMode =
+          previous.sessionId === sessionId
+            ? previous.selectedResponseMode
+            : readCachedResponseMode(sessionId);
 
         return {
           sessionId,
           persistedMessages:
             previous.sessionId === sessionId ? previous.persistedMessages : [],
           sourceConfig: nextSourceConfig,
+          selectedResponseMode: previousResponseMode,
+          transcriptError:
+            previous.sessionId === sessionId ? previous.transcriptError : null,
+        };
+      });
+    },
+    [sessionId],
+  );
+
+  const setSelectedResponseMode = useCallback(
+    (mode: ResponseMode) => {
+      setLocalState((previous) => {
+        if (sessionId !== sessionIdRef.current) {
+          return previous;
+        }
+
+        writeCachedResponseMode(sessionId, mode);
+        const previousSourceConfig =
+          previous.sessionId === sessionId
+            ? previous.sourceConfig
+            : readCachedSourceConfig(sessionId);
+
+        return {
+          sessionId,
+          persistedMessages:
+            previous.sessionId === sessionId ? previous.persistedMessages : [],
+          sourceConfig: previousSourceConfig,
+          selectedResponseMode: mode,
           transcriptError:
             previous.sessionId === sessionId ? previous.transcriptError : null,
         };
@@ -284,6 +388,26 @@ export function useChatSession({
     [],
   );
 
+  const clearCommittedResponseMode = useCallback(
+    (activeSessionId: string, committedMode: ResponseMode) => {
+      // Clear only when both the session id and the captured mode still
+      // match (plan §8.2) -- a mismatch means either a newer local override
+      // has since replaced it, or this callback is stale for another
+      // session; either way, blindly clearing would drop a live user
+      // choice or a different session's cache entry. `selectedResponseMode`
+      // itself lives in `localState`, not derived from this cache while
+      // `isLocalSession` -- clearing the bridge cache here needs no
+      // accompanying state update.
+      const cached = readCachedResponseMode(activeSessionId);
+      if (cached !== committedMode) {
+        return;
+      }
+
+      writeCachedResponseMode(activeSessionId, null);
+    },
+    [],
+  );
+
   const engine = useTurnEngine({
     sessionId,
     sourceConfig: effectiveSourceConfig,
@@ -292,6 +416,7 @@ export function useChatSession({
     transport,
     onTranscriptRefreshNeeded: refreshTranscript,
     onSourceConfigCommitted: clearCommittedSourceConfig,
+    onResponseModeCommitted: clearCommittedResponseMode,
     onSendStart,
   });
   const { attachActiveTurn } = engine;
@@ -318,6 +443,8 @@ export function useChatSession({
     setPersistedMessages,
     sourceConfig: effectiveSourceConfig,
     setSourceConfig,
+    selectedResponseMode: effectiveResponseMode,
+    setSelectedResponseMode,
     ...engine,
   };
 }

@@ -394,7 +394,10 @@ describe("useChatSession", () => {
     });
 
     await act(async () => {
-      await result.current.submitMessage("Use these sources");
+      await result.current.submitMessage({
+        text: "Use these sources",
+        executionResponseMode: "quick",
+      });
     });
 
     const serverConfig = {

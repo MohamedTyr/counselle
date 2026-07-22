@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 
 import type { SourceConfig } from "@/api/chat/types";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
+import { BUILT_IN_DEFAULT_RESPONSE_MODE } from "@/api/chat/response-mode";
 import { useChatConfig } from "@/api/chat/config";
 import { AiComposer } from "@/features/ai-composer/AiComposer";
 import { parseDraftPromptState } from "@/features/ai-composer/draft-prompt";
@@ -16,7 +17,9 @@ export function AiComposerRoute() {
   // Hydrate from an onboarding-handoff draft prompt (plan §20.7) via the
   // lazy `useState` initializer, not an effect: it only needs to run once,
   // reading `location.state` as it existed at mount.
-  const [value, setValue] = useState(() => parseDraftPromptState(location.state) ?? "");
+  const [value, setValue] = useState(
+    () => parseDraftPromptState(location.state) ?? "",
+  );
   const [sourceConfigOverride, setSourceConfigOverride] =
     useState<SourceConfig | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -38,6 +41,11 @@ export function AiComposerRoute() {
 
   const sourceConfig =
     sourceConfigOverride ?? resolved?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG;
+  // Phase 5 adds the visible Quick/Think selector and a matching override
+  // state (mirroring `sourceConfigOverride` above); until then this composer
+  // always starts a new chat at the server's advertised default (plan §8.3).
+  const responseMode =
+    resolved?.defaultResponseMode ?? BUILT_IN_DEFAULT_RESPONSE_MODE;
 
   async function submit() {
     const submitted = value.trim();
@@ -45,7 +53,11 @@ export function AiComposerRoute() {
       return;
     }
 
-    const result = await startTurn.submit(submitted, sourceConfig);
+    const result = await startTurn.submit(
+      submitted,
+      sourceConfig,
+      responseMode,
+    );
     if (result.ok) {
       setValue("");
       setSelectedSkills([]);
@@ -54,6 +66,7 @@ export function AiComposerRoute() {
           initialTurn: {
             text: submitted,
             skills: [...selectedSkills],
+            responseMode,
           },
         },
       });

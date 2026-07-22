@@ -140,7 +140,10 @@ describe("assistantMessage", () => {
       status: "complete",
     };
 
-    const message = assistantMessage("c1", "a1", "u1", state, null);
+    const message = assistantMessage("c1", "a1", "u1", state, null, {
+      supported: true,
+      mode: "quick",
+    });
 
     expect(message.segments).toBe(segments);
     expect(message.stepRecord?.steps).toHaveLength(1);
@@ -164,7 +167,10 @@ describe("assistantMessage", () => {
       ],
     };
 
-    const message = assistantMessage("c1", "a1", "u1", state, null);
+    const message = assistantMessage("c1", "a1", "u1", state, null, {
+      supported: true,
+      mode: "quick",
+    });
 
     expect(message.text).toBe("Final answer only.");
     expect(message.runMarkdown).toBe(
@@ -188,7 +194,10 @@ describe("assistantMessage", () => {
       ],
     };
 
-    const message = assistantMessage("c1", "a1", "u1", state, null);
+    const message = assistantMessage("c1", "a1", "u1", state, null, {
+      supported: true,
+      mode: "quick",
+    });
 
     expect(message.segments).toEqual(state.segments);
     expect(message.stepRecord?.thinking).toEqual(["Checking aid data."]);
@@ -243,7 +252,10 @@ describe("assistantMessage", () => {
       ],
     };
 
-    const message = assistantMessage("c1", "a1", "u1", state, null);
+    const message = assistantMessage("c1", "a1", "u1", state, null, {
+      supported: true,
+      mode: "quick",
+    });
 
     expect(message.durationMs).toBe(1_500);
   });

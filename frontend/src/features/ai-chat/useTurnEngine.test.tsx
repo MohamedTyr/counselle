@@ -220,7 +220,10 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport, onSendStart });
 
     await act(async () => {
-      await result.current.submitMessage("Tell me about MIT.");
+      await result.current.submitMessage({
+        text: "Tell me about MIT.",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(result.current.messages).toHaveLength(2);
@@ -247,7 +250,10 @@ describe("useTurnEngine", () => {
 
     let sent;
     await act(async () => {
-      sent = await result.current.submitMessage("Keep me");
+      sent = await result.current.submitMessage({
+        text: "Keep me",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(sent).toEqual({ ok: false, keepText: "Keep me" });
@@ -270,7 +276,10 @@ describe("useTurnEngine", () => {
 
     let sent;
     await act(async () => {
-      sent = await result.current.submitMessage("Question");
+      sent = await result.current.submitMessage({
+        text: "Question",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(sent).toEqual({ ok: true, sessionId: "s1" });
@@ -329,13 +338,19 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     act(() => {
-      void result.current.submitMessage("First");
+      void result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
 
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
     await act(async () => {
-      await result.current.submitMessage("Second");
+      await result.current.submitMessage({
+        text: "Second",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(transport.steerMessage).toHaveBeenCalledWith({
@@ -362,13 +377,19 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     act(() => {
-      void result.current.submitMessage("First");
+      void result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
     let second!: Promise<unknown>;
     act(() => {
-      second = result.current.submitMessage("Second");
+      second = result.current.submitMessage({
+        text: "Second",
+        executionResponseMode: "quick",
+      });
     });
     first.release();
     await act(async () => {
@@ -399,7 +420,10 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     await act(async () => {
-      await result.current.submitMessage("Retry");
+      await result.current.submitMessage({
+        text: "Retry",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(transport.cancelActiveTurn).toHaveBeenCalledWith("s1");
@@ -430,7 +454,10 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ sessionId: null, transport });
 
     await act(async () => {
-      await result.current.submitMessage("Retry");
+      await result.current.submitMessage({
+        text: "Retry",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(transport.createSession).toHaveBeenCalledTimes(1);
@@ -455,7 +482,11 @@ describe("useTurnEngine", () => {
 
     let send!: Promise<unknown>;
     act(() => {
-      send = result.current.submitMessage("Edited question", "u1");
+      send = result.current.submitMessage({
+        text: "Edited question",
+        executionResponseMode: "quick",
+        replaceMessageId: "u1",
+      });
     });
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
@@ -484,7 +515,11 @@ describe("useTurnEngine", () => {
     });
 
     await act(async () => {
-      await result.current.submitMessage("Edited question", "u1");
+      await result.current.submitMessage({
+        text: "Edited question",
+        executionResponseMode: "quick",
+        replaceMessageId: "u1",
+      });
     });
     expect(result.current.pendingText).toBe("Edited question");
 
@@ -518,13 +553,20 @@ describe("useTurnEngine", () => {
     });
 
     act(() => {
-      void result.current.submitMessage("First");
+      void result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
     let second: Promise<unknown>;
     act(() => {
-      second = result.current.submitMessage("Edited", "u1");
+      second = result.current.submitMessage({
+        text: "Edited",
+        executionResponseMode: "quick",
+        replaceMessageId: "u1",
+      });
     });
     await act(async () => {
       await second;
@@ -558,7 +600,10 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     await act(async () => {
-      await result.current.submitMessage("First");
+      await result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
 
     await waitFor(() => expect(transport.sendMessage).toHaveBeenCalledTimes(2));
@@ -597,12 +642,19 @@ describe("useTurnEngine", () => {
 
     let firstSend: Promise<unknown>;
     act(() => {
-      firstSend = result.current.submitMessage("First");
+      firstSend = result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
     await act(async () => {
-      await result.current.submitMessage("Edited", "u1");
+      await result.current.submitMessage({
+        text: "Edited",
+        executionResponseMode: "quick",
+        replaceMessageId: "u1",
+      });
     });
 
     first.release();
@@ -695,7 +747,10 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     act(() => {
-      void result.current.submitMessage("First");
+      void result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
@@ -744,7 +799,10 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     await act(async () => {
-      await result.current.submitMessage("What's the best campus?");
+      await result.current.submitMessage({
+        text: "What's the best campus?",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(result.current.awaitingClarify).toBe(true);
@@ -758,7 +816,10 @@ describe("useTurnEngine", () => {
     // A normal composer submit while awaiting clarify is accepted as the
     // clarify answer -- no special "answer" API, just the regular send path.
     await act(async () => {
-      await result.current.submitMessage("Main");
+      await result.current.submitMessage({
+        text: "Main",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(result.current.awaitingClarify).toBe(false);
@@ -779,10 +840,11 @@ describe("useTurnEngine", () => {
 
     let sent;
     await act(async () => {
-      sent = await result.current.submitMessage(
-        "Regenerate this",
-        "temp-user-abc",
-      );
+      sent = await result.current.submitMessage({
+        text: "Regenerate this",
+        executionResponseMode: "quick",
+        replaceMessageId: "temp-user-abc",
+      });
     });
 
     expect(sent).toEqual({ ok: false, keepText: "Regenerate this" });
@@ -797,7 +859,10 @@ describe("useTurnEngine", () => {
     const { result, unmount } = renderEngine({ transport });
 
     act(() => {
-      void result.current.submitMessage("First");
+      void result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
@@ -846,7 +911,10 @@ describe("useTurnEngine", () => {
 
     let sent;
     await act(async () => {
-      sent = await result.current.submitMessage("Question");
+      sent = await result.current.submitMessage({
+        text: "Question",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(sent).toEqual({ ok: true, sessionId: "s1" });
@@ -868,7 +936,10 @@ describe("useTurnEngine", () => {
 
     let sent;
     await act(async () => {
-      sent = await result.current.submitMessage("Keep me");
+      sent = await result.current.submitMessage({
+        text: "Keep me",
+        executionResponseMode: "quick",
+      });
     });
 
     expect(sent).toEqual({ ok: false, keepText: "Keep me" });
@@ -884,9 +955,11 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     await act(async () => {
-      await result.current.submitMessage("Compare these schools", [
-        "school-comparison",
-      ]);
+      await result.current.submitMessage({
+        text: "Compare these schools",
+        skills: ["school-comparison"],
+        executionResponseMode: "quick",
+      });
     });
 
     expect(transport.sendMessage).toHaveBeenCalledWith(
@@ -907,15 +980,20 @@ describe("useTurnEngine", () => {
     const { result } = renderEngine({ transport });
 
     act(() => {
-      void result.current.submitMessage("First");
+      void result.current.submitMessage({
+        text: "First",
+        executionResponseMode: "quick",
+      });
     });
     await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
 
     let sent;
     await act(async () => {
-      sent = await result.current.submitMessage("Second", [
-        "school-comparison",
-      ]);
+      sent = await result.current.submitMessage({
+        text: "Second",
+        skills: ["school-comparison"],
+        executionResponseMode: "quick",
+      });
     });
 
     expect(sent).toEqual({ ok: false, keepText: "Second" });

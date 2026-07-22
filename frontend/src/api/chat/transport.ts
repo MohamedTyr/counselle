@@ -10,6 +10,7 @@ import type {
   ChatTransport,
   CreatedSession,
   ProtocolEvent,
+  ResponseMode,
   SendMessageInput,
   SourceConfigWire,
   SseFrame,
@@ -20,6 +21,7 @@ import {
   fromWireSourceConfig,
   toWireSourceConfig,
 } from "@/api/chat/source-config";
+import { isResponseMode } from "@/api/chat/response-mode";
 import { parseSseStream } from "@/api/chat/sse";
 import { adaptStoredTranscript } from "@/api/chat/legacy-replay";
 import {
@@ -31,6 +33,7 @@ import {
 type CreateSessionWire = {
   session_id: string;
   source_config: SourceConfigWire | null;
+  response_mode?: string;
 };
 
 type SessionRowWire = {
@@ -54,7 +57,12 @@ type SessionMetadataWire = {
   updated_at?: string;
   source_config: SourceConfigWire | null;
   is_generating?: boolean;
+  response_mode?: string;
 };
+
+function responseModeFromWire(value: unknown): ResponseMode {
+  return isResponseMode(value) ? value : "quick";
+}
 
 type SessionDetailResponseWire = SessionMetadataWire & {
   transcript?: unknown[];
@@ -178,6 +186,7 @@ function detailToSession(
     updatedAt: row.updated_at ?? row.created_at,
     sourceConfig: fromWireSourceConfig(row.source_config),
     isGenerating: row.is_generating ?? false,
+    responseMode: responseModeFromWire(row.response_mode),
     transcript: adaptStoredTranscript(
       (row as Partial<SessionDetailResponseWire>).transcript,
     ),
@@ -270,17 +279,19 @@ export const chatTransport: ChatTransport = {
     return requestJson<ChatConfigWire>("/config");
   },
 
-  async createSession({ sourceConfig }): Promise<CreatedSession> {
+  async createSession({ sourceConfig, responseMode }): Promise<CreatedSession> {
     const wire = await requestJson<CreateSessionWire>(
       "/sessions",
       jsonRequestInit("POST", {
         source_config: toWireSourceConfig(sourceConfig),
+        ...(responseMode !== undefined ? { response_mode: responseMode } : {}),
       }),
     );
 
     return {
       sessionId: wire.session_id,
       sourceConfig: fromWireSourceConfig(wire.source_config),
+      responseMode: responseModeFromWire(wire.response_mode),
     };
   },
 
@@ -337,6 +348,7 @@ export const chatTransport: ChatTransport = {
     skills,
     signal,
     replaceMessageId,
+    responseMode,
   }: SendMessageInput) {
     clearStoredCursor(sessionId);
     const response = await streamFetch(`${sessionPath(sessionId)}/messages`, {
@@ -350,6 +362,7 @@ export const chatTransport: ChatTransport = {
         ...(replaceMessageId !== undefined
           ? { replace_message_id: replaceMessageId }
           : {}),
+        ...(responseMode !== undefined ? { response_mode: responseMode } : {}),
       }),
     });
 

@@ -192,6 +192,7 @@ describe("AiComposerRoute", () => {
       ).toEqual({
         text: "Compare aid\nat UCLA",
         skills: [],
+        response_mode: "quick",
         source_config: {
           web: true,
           edu: false,

@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { chatTransport } from "@/api/chat/transport";
 import type {
   ChatTransport,
+  ResponseMode,
   SourceConfig,
   StartTurnResult,
 } from "@/api/chat/types";
@@ -16,6 +17,7 @@ export type UseComposerStartTurnResult = {
   submit: (
     text: string,
     sourceConfig: SourceConfig,
+    responseMode: ResponseMode,
   ) => Promise<StartTurnResult>;
   cancel: () => Promise<void>;
   isSubmitting: boolean;
@@ -39,6 +41,7 @@ export function useComposerStartTurn({
     async (
       text: string,
       sourceConfig: SourceConfig,
+      responseMode: ResponseMode,
     ): Promise<StartTurnResult> => {
       const trimmed = text.trim();
       if (trimmed.length === 0 || submittingRef.current) {
@@ -51,7 +54,10 @@ export function useComposerStartTurn({
 
       let sessionId: string;
       try {
-        const created = await transport.createSession({ sourceConfig });
+        const created = await transport.createSession({
+          sourceConfig,
+          responseMode,
+        });
         sessionId = created.sessionId;
         activeSessionIdRef.current = sessionId;
       } catch (cause) {

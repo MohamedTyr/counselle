@@ -1,5 +1,9 @@
 export const PROTOCOL_VERSION = 1;
 
+/** The Quick/Think product selector (plan §3.1/§8.1). Additive protocol-v1
+ * data; server-validated, never a raw model id. */
+export type ResponseMode = "quick" | "think";
+
 export type Tier = "official" | "community";
 
 export const SOURCE_NAMES = ["cds", "profile", "web", "edu", "reddit"] as const;
@@ -107,6 +111,10 @@ export type MetaData = {
   model: string;
   message_id: string;
   user_message_id: string;
+  /** Additive (plan §3.3). Absent only for pre-feature callers; current
+   * server code always supplies "quick"/"think". Validate before trusting —
+   * see `@/api/chat/response-mode`. */
+  response_mode?: string;
 };
 
 export type DeltaData = { text: string };
@@ -158,7 +166,11 @@ export type DoneStatus = "complete" | "awaiting_input" | "cancelled";
 
 export type DoneData = { status: DoneStatus };
 
-export type ErrorData = { message: string; trace_id?: string };
+/** `code` is additive (plan §5.4): `"model_unavailable"` only for the
+ * explicitly-mapped provider-capacity/not-found statuses that support
+ * mode-aware recovery (`Retry Think` / `Retry with Quick`). Unknown/absent
+ * codes mean "message-only", exactly like before. */
+export type ErrorData = { message: string; trace_id?: string; code?: string };
 
 export type KnownStepKind =
   | "db_tool"
@@ -251,11 +263,7 @@ export type MutationAction =
   | "forget";
 
 export type MutationOutcome =
-  | "success"
-  | "no_change"
-  | "partial"
-  | "failed"
-  | "unknown";
+  "success" | "no_change" | "partial" | "failed" | "unknown";
 
 export type BoundedDisplayText = {
   text: string;
@@ -301,12 +309,7 @@ export type MutationValue = {
 };
 
 export type MutationChangeOperation =
-  | "set"
-  | "clear"
-  | "replace"
-  | "delete"
-  | "move"
-  | "state_only";
+  "set" | "clear" | "replace" | "delete" | "move" | "state_only";
 
 export type MutationChange = {
   field_key: string;
@@ -322,12 +325,7 @@ export type MutationNotice = {
 };
 
 export type MutationItemDisposition =
-  | "changed"
-  | "unchanged"
-  | "skipped"
-  | "failed"
-  | "not_attempted"
-  | "unknown";
+  "changed" | "unchanged" | "skipped" | "failed" | "not_attempted" | "unknown";
 
 export type MutationItem = {
   input_index: number;
@@ -567,6 +565,15 @@ export type TranscriptAssistantEntry = {
   status?: DoneStatus | "error";
   error?: ErrorData;
   feedback?: { rating: "up" | "down" };
+  /** Historical execution mode (plan §6.2). A genuinely legacy record omits
+   * this key entirely; the server always sends it (defaulting to "quick")
+   * for every current record, so `undefined` means pre-feature history, not
+   * "quick". A present but unknown value must still render, just as
+   * unsupported for regenerate — see `@/api/chat/response-mode`. */
+  response_mode?: string;
+  /** The exact configured model string actually invoked. Absent for legacy
+   * history — Counselle never fabricates what served an old answer. */
+  model?: string;
 };
 
 export type TranscriptEntry = TranscriptUserEntry | TranscriptAssistantEntry;
@@ -604,6 +611,23 @@ export type SkillCatalogEntry = {
   description: string;
 };
 
+/** Presentation-safe response-mode capability (plan §3.3): the backend owns
+ * the available ids, configured model identity, and display name; the
+ * frontend owns the Quick/Think product labels/copy. */
+export type ResponseModeOptionWire = {
+  id: string;
+  model: string;
+  model_display_name: string;
+  preview: boolean;
+};
+
+export type ResponseModeOption = {
+  id: ResponseMode;
+  model: string;
+  modelDisplayName: string;
+  preview: boolean;
+};
+
 export type ChatConfigWire = {
   greeting: string;
   season_note: string | null;
@@ -611,6 +635,8 @@ export type ChatConfigWire = {
   default_source_config: SourceConfigWire | null;
   skills?: SkillCatalogEntryWire[];
   max_selected_skills?: number;
+  default_response_mode?: string;
+  response_modes?: ResponseModeOptionWire[];
 };
 
 export type ComposerConfig = {
@@ -618,11 +644,14 @@ export type ComposerConfig = {
   sourceConfig: SourceConfig;
   skills: SkillCatalogEntry[];
   maxSelectedSkills: number;
+  defaultResponseMode: ResponseMode;
+  responseModes: ResponseModeOption[];
 };
 
 export type CreatedSession = {
   sessionId: string;
   sourceConfig: SourceConfig;
+  responseMode: ResponseMode;
 };
 
 export type ChatSessionSummary = {
@@ -641,6 +670,10 @@ export type ChatSessionList = {
 
 export type ChatSession = ChatSessionSummary & {
   transcript: TranscriptEntry[];
+  /** The chat's sticky next-turn mode (plan §3.3). Optional in the type only
+   * so hand-built test fixtures don't all need updating; the live transport
+   * always populates it (falling back to "quick" for a legacy row). */
+  responseMode?: ResponseMode;
 };
 
 export type StreamResult = {
@@ -663,6 +696,9 @@ export type SendMessageInput = {
   skills?: string[];
   signal?: AbortSignal;
   replaceMessageId?: string;
+  /** Omitted for a parked clarification continuation (server inherits the
+   * parked mode); a normal new turn always sends it (plan §3.3/§8.4). */
+  responseMode?: ResponseMode;
 };
 
 export type SteerMessageInput = {
@@ -693,6 +729,7 @@ export type ChatTransport = {
   getChatConfig: () => Promise<ChatConfigWire>;
   createSession: (input: {
     sourceConfig: SourceConfig;
+    responseMode?: ResponseMode;
   }) => Promise<CreatedSession>;
   listSessions: (input?: {
     limit?: number;

@@ -1,3 +1,5 @@
+import type { ResponseMode } from "@/api/chat/types";
+
 import type { TurnState } from "./turn-reducer";
 import { assistantMessage, type ChatMessage } from "./model";
 
@@ -45,12 +47,14 @@ export function persistTerminalTurn({
   userMessageId,
   hasBackendId,
   state,
+  executionResponseMode,
 }: {
   sessionId: string;
   assistantMessageId: string;
   userMessageId: string;
   hasBackendId: boolean;
   state: TurnState;
+  executionResponseMode: ResponseMode;
 }): ChatMessage {
   return {
     ...assistantMessage(
@@ -59,6 +63,7 @@ export function persistTerminalTurn({
       userMessageId,
       state,
       new Date().toISOString(),
+      { supported: true, mode: executionResponseMode },
     ),
     hasBackendId,
   };
@@ -71,6 +76,7 @@ export function persistErroredTurn({
   hasBackendId,
   state,
   message,
+  executionResponseMode,
 }: {
   sessionId: string;
   assistantMessageId: string;
@@ -78,6 +84,7 @@ export function persistErroredTurn({
   hasBackendId: boolean;
   state: TurnState;
   message: string;
+  executionResponseMode: ResponseMode;
 }): ChatMessage {
   return persistTerminalTurn({
     sessionId,
@@ -89,5 +96,6 @@ export function persistErroredTurn({
       status: "error",
       error: state.error ?? { message, trace_id: "" },
     },
+    executionResponseMode,
   });
 }

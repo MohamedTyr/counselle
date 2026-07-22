@@ -11,6 +11,7 @@ import {
   BUILT_IN_SOURCE_CONFIG,
   fromWireSourceConfig,
 } from "@/api/chat/source-config";
+import { resolveResponseModeCapability } from "@/api/chat/response-mode";
 
 export const FALLBACK_GREETING = "Where should we begin?";
 const NO_SELECTED_SKILLS = 0;
@@ -73,11 +74,14 @@ export function resolveComposerConfig(
   input: ResolveComposerConfigInput,
 ): ComposerConfig {
   if (input.status === "error") {
+    const capability = resolveResponseModeCapability({});
     return {
       greeting: FALLBACK_GREETING,
       sourceConfig: BUILT_IN_SOURCE_CONFIG,
       skills: [],
       maxSelectedSkills: NO_SELECTED_SKILLS,
+      defaultResponseMode: capability.defaultResponseMode,
+      responseModes: [...capability.responseModes],
     };
   }
 
@@ -87,6 +91,7 @@ export function resolveComposerConfig(
   );
   const supportsSkillPicker =
     skills.length > 0 && maxSelectedSkills > NO_SELECTED_SKILLS;
+  const capability = resolveResponseModeCapability(input.config);
 
   return {
     greeting: input.config.greeting.trim() || FALLBACK_GREETING,
@@ -95,6 +100,8 @@ export function resolveComposerConfig(
     maxSelectedSkills: supportsSkillPicker
       ? maxSelectedSkills
       : NO_SELECTED_SKILLS,
+    defaultResponseMode: capability.defaultResponseMode,
+    responseModes: [...capability.responseModes],
   };
 }
 

@@ -20,6 +20,7 @@ function transportMock(overrides: Partial<ChatTransport> = {}): ChatTransport {
     createSession: vi.fn().mockResolvedValue({
       sessionId: "session-1",
       sourceConfig: BUILT_IN_SOURCE_CONFIG,
+      responseMode: "quick",
     }),
     listSessions: vi.fn().mockResolvedValue({ sessions: [], nextCursor: null }),
     getSession: vi.fn(),
@@ -44,7 +45,9 @@ describe("useComposerStartTurn", () => {
     const { result } = renderHook(() => useComposerStartTurn({ transport }));
 
     await expect(
-      act(async () => result.current.submit("   ", BUILT_IN_SOURCE_CONFIG)),
+      act(async () =>
+        result.current.submit("   ", BUILT_IN_SOURCE_CONFIG, "quick"),
+      ),
     ).resolves.toEqual({ ok: false });
 
     expect(transport.createSession).not.toHaveBeenCalled();
@@ -59,12 +62,14 @@ describe("useComposerStartTurn", () => {
         result.current.submit(
           "  Compare aid at UCLA  ",
           BUILT_IN_SOURCE_CONFIG,
+          "quick",
         ),
       ),
     ).resolves.toEqual({ ok: true, sessionId: "session-1" });
 
     expect(transport.createSession).toHaveBeenCalledWith({
       sourceConfig: BUILT_IN_SOURCE_CONFIG,
+      responseMode: "quick",
     });
     expect(transport.streamFirstMessage).not.toHaveBeenCalled();
     expect(transport.sendMessage).not.toHaveBeenCalled();
@@ -74,6 +79,7 @@ describe("useComposerStartTurn", () => {
     const created = deferred<{
       sessionId: string;
       sourceConfig: typeof BUILT_IN_SOURCE_CONFIG;
+      responseMode: "quick";
     }>();
     const transport = transportMock({
       createSession: vi.fn(() => created.promise),
@@ -81,13 +87,13 @@ describe("useComposerStartTurn", () => {
     const { result } = renderHook(() => useComposerStartTurn({ transport }));
 
     act(() => {
-      void result.current.submit("First", BUILT_IN_SOURCE_CONFIG);
+      void result.current.submit("First", BUILT_IN_SOURCE_CONFIG, "quick");
     });
     await waitFor(() => expect(result.current.isSubmitting).toBe(true));
 
     await act(async () => {
       await expect(
-        result.current.submit("Second", BUILT_IN_SOURCE_CONFIG),
+        result.current.submit("Second", BUILT_IN_SOURCE_CONFIG, "quick"),
       ).resolves.toEqual({ ok: false });
     });
 
@@ -95,6 +101,7 @@ describe("useComposerStartTurn", () => {
     created.resolve({
       sessionId: "session-1",
       sourceConfig: BUILT_IN_SOURCE_CONFIG,
+      responseMode: "quick",
     });
     await waitFor(() => expect(result.current.isSubmitting).toBe(false));
   });
@@ -107,7 +114,7 @@ describe("useComposerStartTurn", () => {
 
     await expect(
       act(async () =>
-        result.current.submit("Question", BUILT_IN_SOURCE_CONFIG),
+        result.current.submit("Question", BUILT_IN_SOURCE_CONFIG, "quick"),
       ),
     ).resolves.toEqual({ ok: false });
 

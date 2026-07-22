@@ -5,6 +5,10 @@ import type {
   StepRecord,
   TranscriptEntry,
 } from "@/api/chat/types";
+import {
+  responseModeStatusFromWire,
+  type ResponseModeStatus,
+} from "@/api/chat/response-mode";
 
 import {
   answerBlocksOf,
@@ -66,6 +70,15 @@ export type AssistantChatMessage = ChatMessageBase & {
   streamError?: ErrorData;
   isThinking?: boolean;
   feedback?: { rating: FeedbackRating };
+  /** This answer's execution mode (plan §6.2/§8.1) — the immutable mode
+   * actually used, never the chat's later next-turn selector. A legacy
+   * record with no key resolves to `{supported: true, mode: "quick"}`; a
+   * present-but-unknown future mode resolves to `{supported: false, mode:
+   * null}` and disables Regenerate. */
+  responseMode: ResponseModeStatus;
+  /** The exact configured model string, when known (absent for legacy
+   * history). */
+  model?: string;
 };
 
 export type ChatMessage = UserChatMessage | AssistantChatMessage;
@@ -83,6 +96,8 @@ export function assistantMessage(
   parentMessageId: string | null,
   state: TurnState,
   ts: string | null,
+  responseMode: ResponseModeStatus,
+  model?: string,
 ): AssistantChatMessage {
   const blocks = answerBlocksOf(state);
   const steps = stepsOf(state);
@@ -119,6 +134,8 @@ export function assistantMessage(
     streamError: state.error ?? undefined,
     isThinking,
     ts,
+    responseMode,
+    model: model ?? state.meta?.model,
   };
 }
 
@@ -179,6 +196,8 @@ export function messagesFromTranscript(
         parentMessageId,
         state,
         entry.ts,
+        responseModeStatusFromWire(entry.response_mode),
+        entry.model,
       ),
       hasBackendId,
       clarifyAnswer: entry.clarify?.answer,

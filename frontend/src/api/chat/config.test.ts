@@ -28,6 +28,15 @@ describe("resolveComposerConfig", () => {
       }),
     ).toEqual({
       greeting: "Ready to compare schools?",
+      defaultResponseMode: "quick",
+      responseModes: [
+        {
+          id: "quick",
+          model: "",
+          modelDisplayName: "Quick",
+          preview: false,
+        },
+      ],
       sourceConfig: {
         webSearch: false,
         eduSources: true,
@@ -48,6 +57,15 @@ describe("resolveComposerConfig", () => {
   it("uses fallback copy and built-in defaults after config failure", () => {
     expect(resolveComposerConfig({ status: "error" })).toEqual({
       greeting: "Where should we begin?",
+      defaultResponseMode: "quick",
+      responseModes: [
+        {
+          id: "quick",
+          model: "",
+          modelDisplayName: "Quick",
+          preview: false,
+        },
+      ],
       sourceConfig: BUILT_IN_SOURCE_CONFIG,
       skills: [],
       maxSelectedSkills: 0,
