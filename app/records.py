@@ -38,8 +38,15 @@ from app.viz_signature import viz_payload_signature
 from domain.events import DoneStatus
 
 #: Cheap stopgap narrowing — the full per-kind discriminated union is deferred to B2.
+#: ``"clarify"`` (plans/clarifying-questions.md, architecture decision §3) is a
+#: bare positional marker — no payload — appended once, only for a v2
+#: ``ask_student`` result, immediately after any pre-question work. It has no
+#: bearing on ``parts`` (answer/viz compatibility data only): the spec/response
+#: live solely on the record's ``clarify`` field, and this emission exists only
+#: so ``build_segments`` can place a ``{"kind": "clarify"}`` pointer at the
+#: correct chronological position for reload.
 Emission = tuple[
-    Literal["delta", "viz", "step", "thinking", "narration", "user"],
+    Literal["delta", "viz", "step", "thinking", "narration", "user", "clarify"],
     Any,
 ]
 
@@ -154,6 +161,12 @@ def build_segments(emissions: list[Emission]) -> list[dict[str, Any]]:
                 segments.append(segment)
             else:
                 segments[index] = segment
+        elif kind == "clarify":
+            # A bare pointer — the spec/response live only on the record's
+            # top-level ``clarify`` field (architecture decision §3: never a
+            # second copy). At most one per A1, always the last visible thing
+            # (the question IS the turn's terminal output).
+            segments.append({"kind": "clarify"})
 
     flush_delta()
     return [
@@ -223,6 +236,11 @@ def build_turn_record(
     synthesized_answer: bool = False,
     selected_skills: Sequence[str] | None = None,
     continuation_of: str | None = None,
+    source_config: dict[str, Any] | None = None,
+    editable_root_message_id: str | None = None,
+    trigger_request_id: str | None = None,
+    response_origin: Literal["widget", "reply"] | None = None,
+    project_user: bool | None = None,
 ) -> dict[str, Any]:
     """One turn record (ship-plan §0.1 G2), msgpack-plain and self-contained.
 
@@ -277,7 +295,35 @@ def build_turn_record(
         # A1. ``None`` for every ordinary/legacy record — a v2 continuation is
         # the only writer of a non-None value here.
         "continuation_of": continuation_of,
+        # Phase 4 (plan "Persist an immutable source_config snapshot on every
+        # v2 A1"): populated ONLY by the agent node when this record is a
+        # fresh v2 ``ask_student`` result. ``None`` for every other record —
+        # legacy v1 keeps its existing sticky-session fallback and never
+        # claims an inherited config the stored data can't prove.
+        "source_config": source_config,
+        # Phase 4 (plan "Turn-record identity" / "Expose
+        # editable_root_message_id=U1"): U1's own ``user_message_id`` — equal
+        # to this record's own ``user_message_id`` on A1, and threaded onto a
+        # v2 continuation (A2) so either record names the same deterministic
+        # edit/regenerate root without cross-referencing. ``None`` for legacy
+        # v1 and for a normal (non-v2) turn with nothing to name.
+        "editable_root_message_id": editable_root_message_id,
+        # Phase 4 ("Turn-record identity"): A2's internal trigger request and
+        # projection metadata. These fields are intentionally explicit so the
+        # transcript/action layer never infers widget vs. composer origin from
+        # a missing user bubble or overloaded message id.
+        "trigger_request_id": trigger_request_id,
+        "response_origin": response_origin,
+        "project_user": project_user,
+        "clarification_reply": bool(continuation_of and response_origin == "reply"),
     }
+
+
+def _is_v2_clarify(record: dict[str, Any]) -> bool:
+    clarify = record.get("clarify")
+    return isinstance(clarify, dict) and isinstance(clarify.get("spec"), dict) and (
+        clarify["spec"].get("v") == 2
+    )
 
 
 def append_or_replace(
@@ -290,11 +336,65 @@ def append_or_replace(
     (``awaiting_input``, same id), the new record REPLACES it — one assistant
     message, one record, however many park/resume cycles produced it.
     Never mutates ``prior`` (house immutability rule).
+
+    Phase 4 (plan "Restrict append_or_replace ... to legacy v1 behavior
+    only"): a v2 pending A1 is NEVER re-run through this legacy replace path —
+    once accepted it moves straight to ``complete`` via
+    :func:`replace_latest_pending_v2`, and a fresh v2 A1 always gets its own
+    new ``message_id``. If a caller's ``prior``/``record`` pair somehow still
+    matches the legacy replace shape while the parked record is v2, that is a
+    caller bug, not a legitimate resume — append instead of silently
+    misapplying v1 replace semantics to a v2 record.
     """
     if (
         prior
         and prior[-1].get("status") == "awaiting_input"
         and prior[-1].get("message_id") == record.get("message_id")
+        and not _is_v2_clarify(prior[-1])
     ):
         return prior[:-1] + [record]
     return prior + [record]
+
+
+def replace_latest_pending_v2(
+    prior: list[dict[str, Any]], record: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """The v2-specific twin of the legacy replace branch above.
+
+    Immutably replaces the latest pending v2 A1 with its answered form (or any
+    other in-place update of that same record) — used by
+    ``app.clarify_lifecycle.accept_clarification``. Unlike
+    :func:`append_or_replace`, this never falls back to appending: the caller
+    has already validated ``prior[-1]`` is the exact pending v2 A1 being
+    updated, so a mismatch here is a caller bug that must fail loudly rather
+    than silently duplicate or skip the record.
+    """
+    if not prior:
+        raise ValueError("no prior records to update")
+    latest = prior[-1]
+    if latest.get("status") != "awaiting_input" or latest.get("message_id") != record.get(
+        "message_id"
+    ):
+        raise ValueError("target is not the latest pending record")
+    return prior[:-1] + [record]
+
+
+def find_root_user_message_id(
+    records: list[dict[str, Any]], root_message_id: str | None
+) -> str | None:
+    """A2's ``editable_root_message_id``: A1's own ``user_message_id``.
+
+    Looks up A1 (identified by its ``message_id == root_message_id``) among
+    already-persisted records and returns the ``user_message_id`` it retained
+    from U1 (plan "Turn-record identity": "A1 retains U1's
+    ``user_message_id``"). Returns ``None`` when there is no
+    ``root_message_id`` or no matching record — never raises, since this is a
+    best-effort forward-compat field, not a correctness-critical anchor.
+    """
+    if root_message_id is None:
+        return None
+    for record in records:
+        if record.get("message_id") == root_message_id:
+            value = record.get("user_message_id")
+            return str(value) if value is not None else None
+    return None

@@ -264,6 +264,8 @@ class _Turn:
     is_continuation: bool = False
     continuation_of: str | None = None
     project_user: bool = True
+    response_origin: Literal["widget", "reply"] | None = None
+    trigger_request_id: str | None = None
     continuation_record_user_text: str | None = None
 
 
@@ -534,6 +536,8 @@ class TurnRegistry:
             is_continuation=True,
             continuation_of=prepared.root_message_id,
             project_user=prepared.project_user,
+            response_origin=prepared.origin,
+            trigger_request_id=prepared.trigger_request_id,
             continuation_record_user_text=prepared.record_user_text,
         )
         turn.model_setting = counselor_model_selection(response_mode, self._settings).model_setting
@@ -872,6 +876,18 @@ class TurnRegistry:
                 "response_mode": event.data.get("response_mode"),
                 "model": event.data.get("model"),
             }
+            if turn.is_continuation:
+                turn.ids.update(
+                    {
+                        "continuation_of": turn.continuation_of,
+                        "project_user": turn.project_user,
+                        "response_origin": turn.response_origin,
+                        "trigger_request_id": turn.trigger_request_id,
+                        "record_user_text": turn.continuation_record_user_text
+                        if turn.project_user
+                        else None,
+                    }
+                )
         elif kind == "delta":
             turn.emissions.append(("delta", event.data["text"]))
         elif kind == "thinking":
@@ -1340,6 +1356,15 @@ def _resolve_edit_target(
     target = records[index]
     if target.get("synthesized_answer"):
         raise InvalidEditTarget("A clarify answer can't be edited.")
+    if target.get("continuation_of") is not None:
+        # Phase 4 (plan "Turn-record identity": "U2 is marked as a
+        # clarification reply and is not an edit/regenerate target" / "A1 and
+        # its linked A2 never offer Regenerate in this slice"). A2's own
+        # ``user_message_id`` is either U2's real id (composer origin) or an
+        # internal trigger id (widget origin) — neither is a valid edit
+        # target; only a deliberate edit of U1 itself (A1's record, which
+        # never carries ``continuation_of``) may truncate this chain.
+        raise InvalidEditTarget("A clarification reply can't be edited.")
     offset = target.get("messages_offset")
     if not isinstance(offset, int) or not 0 <= offset <= len(messages):
         logger.error(

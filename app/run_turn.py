@@ -616,6 +616,7 @@ async def run_continuation_turn(
         # by the record builder to stamp ``continuation_of``.
         "continuation_of": prepared.root_message_id,
         "project_user": prepared.project_user,
+        "response_origin": prepared.origin,
         "trigger_request_id": prepared.trigger_request_id,
         # The exact transcript projection (module docstring / agent_node.py's
         # record-building branch) — None for widget origin, U2's exact text

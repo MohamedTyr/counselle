@@ -63,6 +63,18 @@ def _user_entries_for_record(record: dict[str, Any]) -> list[dict[str, Any]]:
     the record's fresh ``user_message_id`` belongs to the synthesized answer
     bubble (G4) — the original question still renders, but id-less (its
     parked-era record was replaced). A record with neither yields nothing.
+
+    Phase 4 (plan architecture decision §2/§3, "Turn-record identity"): this
+    same generic path is what projects a v2 continuation's optional U2 without
+    any v2-specific branch here. A2's OWN record carries ``user_text``/
+    ``user_message_id`` set to exactly U2's text/id for a composer-origin
+    reply, or left ``None`` for a widget-origin answer (the model's
+    server-rendered payload never becomes ``user_text`` — architecture
+    decision §5), so a widget answer naturally yields no entry here and a
+    composer answer naturally yields exactly one ordinary user bubble,
+    positioned between A1's and A2's assistant entries by record order alone.
+    A1's own clarification question/answer never rides this function — that
+    is rendered entirely through A1's ``clarify`` block on its assistant entry.
     """
     question = record.get("user_text")
     entries: list[dict[str, Any]] = []
@@ -91,6 +103,10 @@ def _user_entries_for_record(record: dict[str, Any]) -> list[dict[str, Any]]:
         }
         if record.get("skills"):
             entry["skills"] = list(record["skills"])
+        if record.get("clarification_reply"):
+            entry["clarification_reply"] = True
+            if record.get("continuation_of") is not None:
+                entry["in_reply_to"] = record["continuation_of"]
         entries.append(entry)
     return entries
 
@@ -142,6 +158,19 @@ def _assistant_entry_for_record(
         entry["error"] = record["error"]
     if record.get("clarify") is not None:
         entry["clarify"] = record["clarify"]
+    if record.get("editable_root_message_id") is not None:
+        # Phase 4 (plan "Expose editable_root_message_id=U1 for deterministic
+        # chain ownership and action gating"). Additive/optional — absent for
+        # every non-clarify and legacy v1 entry.
+        entry["editable_root_message_id"] = record["editable_root_message_id"]
+    if record.get("continuation_of") is not None:
+        entry["continuation_of"] = record["continuation_of"]
+    if record.get("trigger_request_id") is not None:
+        entry["trigger_request_id"] = record["trigger_request_id"]
+    if record.get("response_origin") is not None:
+        entry["response_origin"] = record["response_origin"]
+    if record.get("project_user") is not None:
+        entry["project_user"] = record["project_user"]
     rating = (feedback_by_id or {}).get(record.get("message_id") or "")
     if rating:
         entry["feedback"] = {"rating": rating}

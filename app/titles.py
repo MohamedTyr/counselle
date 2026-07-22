@@ -52,10 +52,24 @@ def default_title(text: str, max_len: int) -> str:
 
 
 def _first_exchange(transcript: list[dict[str, Any]]) -> tuple[str | None, str | None]:
-    """The first user text and first assistant text from a transcript, or Nones."""
+    """The first user text and first nonblank assistant text from a transcript.
+
+    Phase 4 (plan "Update title extraction to choose the first nonblank
+    assistant text, allowing A2 to title a conversation whose A1 was
+    question-only"): a v2 A1 that ends in a pure ``ask_student`` question has
+    no answer prose at all (``record["parts"]`` is empty by construction —
+    the question IS the turn's output), so the FIRST assistant entry alone is
+    no longer a safe pick. Skip blank/whitespace-only assistant text and keep
+    looking — A2's first substantive prose then titles the chat.
+    """
     first_user = next((e.get("text") for e in transcript if e.get("role") == "user"), None)
     first_assistant = next(
-        (e.get("text") for e in transcript if e.get("role") == "assistant"), None
+        (
+            text
+            for e in transcript
+            if e.get("role") == "assistant" and (text := e.get("text")) and text.strip()
+        ),
+        None,
     )
     return first_user, first_assistant
 

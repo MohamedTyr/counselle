@@ -166,6 +166,41 @@ async def test_accept_composer_reply_projects_exact_text_and_user_id() -> None:
     assert prepared.user_message_id is not None
 
 
+async def test_accept_prefers_a1s_own_source_config_snapshot_over_session_state() -> None:
+    # Phase 4 (plan "Persist an immutable source_config snapshot on every v2
+    # A1"): A1's own stamped snapshot is self-contained and must win over the
+    # session-level sticky value, even if the two have since diverged.
+    values = _pending_values(source_config={"web": False, "reddit": True, "edu": False})
+    graph = FakeGraph(values)
+    prepared = await accept_clarification(
+        graph,
+        "sess-1",
+        in_reply_to="a1-msg",
+        widget_response_payload={
+            "mode": "widget",
+            "answers": [{"question_id": "q1", "option_ids": ["q1_o1"]}],
+        },
+    )
+    assert prepared.inherited_source_config == {"web": False, "reddit": True, "edu": False}
+
+
+async def test_accept_falls_back_to_session_source_config_when_a1_has_no_snapshot() -> None:
+    # A record written before this field existed has no ``source_config`` key
+    # — falls back to the session-level sticky value (never claims an
+    # inheritance the stored data can't prove).
+    graph = FakeGraph(_pending_values())
+    prepared = await accept_clarification(
+        graph,
+        "sess-1",
+        in_reply_to="a1-msg",
+        widget_response_payload={
+            "mode": "widget",
+            "answers": [{"question_id": "q1", "option_ids": ["q1_o1"]}],
+        },
+    )
+    assert prepared.inherited_source_config == {"web": True, "reddit": False, "edu": True}
+
+
 # ---------------------------------------------------------------------------
 # accept_clarification — every failure path leaves state untouched
 # ---------------------------------------------------------------------------

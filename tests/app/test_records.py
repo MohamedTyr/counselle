@@ -19,7 +19,9 @@ from app.records import (
     build_segments,
     build_turn_record,
     derive_receipt,
+    find_root_user_message_id,
     prose_of,
+    replace_latest_pending_v2,
 )
 from domain.envelope import Citation, CitationEnvelope
 
@@ -449,3 +451,143 @@ def test_no_replace_when_parked_id_differs() -> None:
     prior = [_rec("m-1", "awaiting_input")]
     out = append_or_replace(prior, _rec("m-2", "complete"))
     assert len(out) == 2
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: the "clarify" emission/segment kind
+# ---------------------------------------------------------------------------
+
+
+def test_segments_places_clarify_pointer_after_pre_question_work() -> None:
+    segments = build_segments(
+        [
+            ("narration", "Let me check something first."),
+            ("step", _step("s1", "web_search")),
+            ("delta", "One quick thing before I answer."),
+            ("clarify", {}),
+        ]
+    )
+    assert segments == [
+        {"kind": "narration", "text": "Let me check something first."},
+        {"kind": "step", "data": _step("s1", "web_search")},
+        {"kind": "delta", "text": "One quick thing before I answer."},
+        {"kind": "clarify"},
+    ]
+
+
+def test_build_parts_ignores_clarify_emission() -> None:
+    # parts stays answer/viz compatibility data only — the clarify pointer
+    # never appears there (architecture decision §3).
+    assert build_parts([("delta", "Hi"), ("clarify", {})]) == [{"type": "text", "text": "Hi"}]
+
+
+def test_record_carries_source_config_and_editable_root_message_id_for_v2_a1() -> None:
+    record = build_turn_record(
+        [("clarify", {})],
+        ids=_IDS,
+        status="awaiting_input",
+        sources=[],
+        user_text="Should I apply to NYU?",
+        clarify={"spec": {"v": 2, "questions": []}, "response": None},
+        ts="2026-06-12T00:00:00+00:00",
+        messages_offset=0,
+        source_config={"web": True, "reddit": False, "edu": True},
+        editable_root_message_id="u-1",
+    )
+    assert record["source_config"] == {"web": True, "reddit": False, "edu": True}
+    assert record["editable_root_message_id"] == "u-1"
+    assert record["segments"][-1] == {"kind": "clarify"}
+
+
+def test_record_carries_a2_projection_metadata() -> None:
+    record = build_turn_record(
+        [("delta", "Answer.")],
+        ids=_IDS,
+        status="complete",
+        sources=[],
+        messages_offset=0,
+        continuation_of="a1-msg",
+        editable_root_message_id="u-1",
+        trigger_request_id="trigger-1",
+        response_origin="reply",
+        project_user=True,
+    )
+    assert record["continuation_of"] == "a1-msg"
+    assert record["editable_root_message_id"] == "u-1"
+    assert record["trigger_request_id"] == "trigger-1"
+    assert record["response_origin"] == "reply"
+    assert record["project_user"] is True
+    assert record["clarification_reply"] is True
+
+
+def test_record_defaults_phase4_metadata_to_inert_values() -> None:
+    record = build_turn_record([], ids=_IDS, status="complete", sources=[], messages_offset=0)
+    assert record["source_config"] is None
+    assert record["editable_root_message_id"] is None
+    assert record["trigger_request_id"] is None
+    assert record["response_origin"] is None
+    assert record["project_user"] is None
+    assert record["clarification_reply"] is False
+
+
+# ---------------------------------------------------------------------------
+# append_or_replace never applies v1 replace semantics to a v2 pending A1
+# ---------------------------------------------------------------------------
+
+
+def _v2_rec(message_id: str, status: str) -> dict[str, Any]:
+    return {
+        "message_id": message_id,
+        "status": status,
+        "clarify": {"spec": {"v": 2, "questions": []}, "response": None},
+    }
+
+
+def test_append_or_replace_never_replaces_a_pending_v2_record() -> None:
+    prior = [_v2_rec("m-1", "awaiting_input")]
+    # Same message_id + awaiting_input would trigger the legacy v1 replace
+    # branch; a v2 pending record must never be silently overwritten by it.
+    out = append_or_replace(prior, _v2_rec("m-1", "awaiting_input"))
+    assert len(out) == 2
+    assert [r["message_id"] for r in out] == ["m-1", "m-1"]
+
+
+# ---------------------------------------------------------------------------
+# replace_latest_pending_v2 — the v2-specific accept-time update
+# ---------------------------------------------------------------------------
+
+
+def test_replace_latest_pending_v2_replaces_the_matching_pending_record() -> None:
+    prior = [_rec("m-0", "complete"), _v2_rec("m-1", "awaiting_input")]
+    answered = {**prior[-1], "status": "complete"}
+    out = replace_latest_pending_v2(prior, answered)
+    assert [r["message_id"] for r in out] == ["m-0", "m-1"]
+    assert out[-1]["status"] == "complete"
+    assert prior[-1]["status"] == "awaiting_input"  # never mutated
+
+
+def test_replace_latest_pending_v2_raises_on_id_mismatch() -> None:
+    prior = [_v2_rec("m-1", "awaiting_input")]
+    with pytest.raises(ValueError, match="target is not the latest pending record"):
+        replace_latest_pending_v2(prior, _v2_rec("m-2", "complete"))
+
+
+def test_replace_latest_pending_v2_raises_on_empty_prior() -> None:
+    with pytest.raises(ValueError, match="no prior records"):
+        replace_latest_pending_v2([], _v2_rec("m-1", "complete"))
+
+
+# ---------------------------------------------------------------------------
+# find_root_user_message_id — A2's editable_root_message_id lookup
+# ---------------------------------------------------------------------------
+
+
+def test_find_root_user_message_id_resolves_from_root_message() -> None:
+    records = [{"message_id": "a1", "user_message_id": "u-1"}, {"message_id": "a2"}]
+    assert find_root_user_message_id(records, "a1") == "u-1"
+
+
+def test_find_root_user_message_id_none_when_no_root_or_no_match() -> None:
+    records = [{"message_id": "a1", "user_message_id": "u-1"}]
+    assert find_root_user_message_id(records, None) is None
+    assert find_root_user_message_id(records, "missing") is None

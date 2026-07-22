@@ -65,7 +65,13 @@ from app.model_selection import counselor_model_selection
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
 from app.prompt import build_system_prompt, render_source_availability
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
-from app.records import Emission, append_or_replace, build_turn_record, now_iso
+from app.records import (
+    Emission,
+    append_or_replace,
+    build_turn_record,
+    find_root_user_message_id,
+    now_iso,
+)
 from app.skills import (
     SelectedSkillValidationError,
     make_load_skill_tool,
@@ -906,6 +912,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     is_clarify_result = clarify_draft is not None
     if clarify_draft is not None:
         clarify = build_pending_clarification(clarify_draft)
+        # Phase 4 (plan architecture decision §3): the ordered pointer to
+        # where the question sits in the replay chronology — always last,
+        # since the question IS this run's terminal output. No payload: the
+        # spec itself lives only on ``record["clarify"]``.
+        emissions.append(("clarify", {}))
     # messages_offset: run_turn computes the authoritative value per path (new
     # turn vs resume) and threads it through turn_ids — the node never
     # recomputes it. resolve_offset's fallback covers direct-graph invocations
@@ -930,6 +941,21 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         record_user_text = str(prior_records[-1].get("user_text") or user_text)
     else:
         record_user_text = user_text
+    # Phase 4 ("Persist an immutable source_config snapshot on every v2 A1"):
+    # only a fresh v2 ask_student result gets one — legacy v1 and ordinary
+    # turns keep relying on the session-level sticky config, never a claimed
+    # inheritance the record itself doesn't prove.
+    record_source_config = source_config.model_dump(mode="json") if is_clarify_result else None
+    # Phase 4 ("Expose editable_root_message_id=U1"): A1 names itself; A2
+    # (continuation) resolves A1's own user_message_id from the
+    # already-persisted prior records rather than duplicating it through a
+    # second transport field.
+    if continuation_of is not None:
+        editable_root_message_id = find_root_user_message_id(prior_records, continuation_of)
+    elif is_clarify_result:
+        editable_root_message_id = str(ids["user_message_id"])
+    else:
+        editable_root_message_id = None
     record = build_turn_record(
         emissions,
         ids=ids,
@@ -943,6 +969,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         synthesized_answer=synthesized,
         selected_skills=ids["selected_skills"],
         continuation_of=continuation_of,
+        source_config=record_source_config,
+        editable_root_message_id=editable_root_message_id,
+        trigger_request_id=ids.get("trigger_request_id") if continuation_of is not None else None,
+        response_origin=ids.get("response_origin") if continuation_of is not None else None,
+        project_user=ids.get("project_user") if continuation_of is not None else None,
     )
 
     emitted_viz = [payload for kind, payload in emissions if kind == "viz"]

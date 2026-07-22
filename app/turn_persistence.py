@@ -26,6 +26,7 @@ from app.records import (
     TurnStatus,
     append_or_replace,
     build_turn_record,
+    find_root_user_message_id,
     now_iso,
 )
 
@@ -139,6 +140,12 @@ def build_terminal_update(
 ) -> dict[str, Any]:
     """The single ``aupdate_state`` payload for ANY terminal path.
 
+    ``continuation_of``, when set, also resolves A2's ``editable_root_message_id``
+    from A1's own persisted ``user_message_id`` (plan "Turn-record identity") —
+    best-effort via :func:`app.records.find_root_user_message_id`, so A2's
+    cancel/error/timeout record names the same deterministic edit root as its
+    happy-path twin built directly in ``app/agent_node.py``.
+
     Computes the messages delta (empty-partial rule), builds the record, and
     returns ``{"turn_records": …, ["messages": …]}`` — the ``messages`` key is
     present only when the partial actually changed it. The caller passes the
@@ -171,6 +178,10 @@ def build_terminal_update(
         synthesized_answer=synthesized_answer,
         selected_skills=selected_skills,
         continuation_of=continuation_of,
+        editable_root_message_id=find_root_user_message_id(records, continuation_of),
+        trigger_request_id=ids.get("trigger_request_id") if continuation_of is not None else None,
+        response_origin=ids.get("response_origin") if continuation_of is not None else None,
+        project_user=ids.get("project_user") if continuation_of is not None else None,
     )
     if used_partial_snapshot:
         record["partial_history"] = "snapshot"

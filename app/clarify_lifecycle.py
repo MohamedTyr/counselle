@@ -38,6 +38,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
 
+from app.records import replace_latest_pending_v2
 from app.turn_persistence import AGENT_NODE
 from domain.clarification import (
     ClarifyResponseInvalid,
@@ -212,7 +213,17 @@ async def accept_clarification(
         origin = "widget"
 
     inherited_skills = tuple(str(name) for name in (latest.get("skills") or []))
-    inherited_source_config_raw = values.get("source_config")
+    # Phase 4 (plan "Persist an immutable source_config snapshot on every v2
+    # A1"): prefer A1's OWN stamped snapshot — self-contained and immune to
+    # anything that might later change the session-level sticky config —
+    # falling back to the session-level value only for a record written
+    # before this field existed.
+    latest_source_config = latest.get("source_config")
+    inherited_source_config_raw = (
+        latest_source_config
+        if isinstance(latest_source_config, dict)
+        else values.get("source_config")
+    )
     inherited_source_config = (
         dict(inherited_source_config_raw) if isinstance(inherited_source_config_raw, dict) else None
     )
@@ -229,7 +240,7 @@ async def accept_clarification(
         "status": "complete",
         "clarify": {"spec": spec_payload, "response": response.model_dump(mode="json")},
     }
-    updated_records = records[:-1] + [answered_record]
+    updated_records = replace_latest_pending_v2(records, answered_record)
 
     intent = ContinuationIntent(
         phase="accepted",
