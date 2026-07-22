@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from domain.clarification import ClarifySpecV2
+from domain.clarification import ClarifyResponseV2, ClarifySpecV2
 from domain.envelope import Citation, EvidenceItem
 from domain.mutation_receipts import WorkspaceMutationReceipt
 from domain.specs import ClarifySpec, ParsedRenderSpec
@@ -25,6 +25,7 @@ EventType = Literal[
     "user_message",
     "viz",
     "clarify",
+    "clarify_response",
     "sources",
     "usage",
     "done",
@@ -76,6 +77,10 @@ class MetaData(BaseModel):
     #: stays 1). ``None`` only for pre-feature callers that never pass it —
     #: current server code always supplies ``"quick"``/``"think"``.
     response_mode: str | None = None
+    continuation_of: str | None = None
+    response_origin: Literal["widget", "reply"] | None = None
+    project_user: bool | None = None
+    editable_root_message_id: str | None = None
 
 
 class DeltaData(BaseModel):
@@ -252,6 +257,19 @@ class UserMessageData(BaseModel):
     injected: bool
 
 
+class ClarifyResponseData(BaseModel):
+    """A2 stream acknowledgement that A1's v2 clarification was accepted.
+
+    The response updates A1 in the client/replay buffer; it is never an A2
+    content segment. Custom text stays inside the already-validated response
+    payload and is not logged by event constructors.
+    """
+
+    clarify_message_id: str
+    continuation_message_id: str
+    response: ClarifyResponseV2
+
+
 class SourceEntry(BaseModel):
     """One deduplicated source for the turn, referenced by inline markers."""
 
@@ -312,6 +330,10 @@ def ev_meta(
     message_id: str,
     user_message_id: str,
     response_mode: str | None = None,
+    continuation_of: str | None = None,
+    response_origin: Literal["widget", "reply"] | None = None,
+    project_user: bool | None = None,
+    editable_root_message_id: str | None = None,
 ) -> Event:
     meta = MetaData(
         trace_id=trace_id,
@@ -320,6 +342,10 @@ def ev_meta(
         message_id=message_id,
         user_message_id=user_message_id,
         response_mode=response_mode,
+        continuation_of=continuation_of,
+        response_origin=response_origin,
+        project_user=project_user,
+        editable_root_message_id=editable_root_message_id,
     )
     return Event(type="meta", data=meta.model_dump())
 
@@ -382,6 +408,22 @@ def ev_clarify(spec: ClarifySpec | ClarifySpecV2) -> Event:
     """The SSE envelope stays protocol v1; the nested spec owns its own version
     (``v: 1`` legacy vs ``v: 2`` — plan "Versioned contracts" / "SSE additions")."""
     return Event(type="clarify", data=spec.model_dump(mode="json"))
+
+
+def ev_clarify_response(
+    *,
+    clarify_message_id: str,
+    continuation_message_id: str,
+    response: ClarifyResponseV2,
+) -> Event:
+    return Event(
+        type="clarify_response",
+        data=ClarifyResponseData(
+            clarify_message_id=clarify_message_id,
+            continuation_message_id=continuation_message_id,
+            response=response,
+        ).model_dump(mode="json"),
+    )
 
 
 def ev_sources(sources: list[SourceEntry]) -> Event:

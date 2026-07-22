@@ -991,11 +991,9 @@ def test_post_message_malformed_skill_uses_the_same_safe_route_error(skills: Any
 
 
 def test_malformed_skill_logs_a_canonical_schema_reason() -> None:
-    from api import context as context_mod
-
     app, session_id = _known_session_app()
     with (
-        patch.object(context_mod.logger, "warning") as warning,
+        patch.object(session_routes.logger, "warning") as warning,
         TestClient(app, raise_server_exceptions=False) as tc,
     ):
         response = tc.post(
@@ -1007,6 +1005,7 @@ def test_malformed_skill_logs_a_canonical_schema_reason() -> None:
     assert response.json()["error"]["message"] == "Those selected skills aren't available."
     warning.assert_called_once_with(
         "invalid explicit skill selection",
+        session_id=session_id,
         reason="invalid_selected_skill_item_schema",
     )
 
@@ -1057,6 +1056,194 @@ def test_post_message_accepts_omitted_and_public_skills() -> None:
     assert selected.status_code == 200
     assert omitted.status_code == 200
     assert captured == [("school-comparison",), ()]
+
+
+class _FakeClarifyRegistry:
+    def __init__(self, *, pending_v2: bool = False, conflict_code: str | None = None) -> None:
+        self.pending_v2 = pending_v2
+        self.conflict_code = conflict_code
+        self.accept_kwargs: dict[str, Any] | None = None
+        self.started = False
+
+    async def has_pending_v2_clarification(self, session_id: str) -> bool:
+        return self.pending_v2
+
+    async def accept_clarification(self, session_id: str, **kwargs: Any) -> Any:
+        from app.clarify_lifecycle import ClarificationConflict
+
+        if self.conflict_code is not None:
+            raise ClarificationConflict(self.conflict_code)
+        self.accept_kwargs = kwargs
+        return SimpleNamespace(
+            inherited_response_mode="quick",
+            root_message_id="a1-msg",
+            continuation_message_id="a2-msg",
+            trigger_request_id="trigger-1",
+            origin="widget" if kwargs.get("widget_response_payload") is not None else "reply",
+            project_user=kwargs.get("widget_response_payload") is None,
+            editable_root_message_id="u1-msg",
+            response_payload=kwargs.get("widget_response_payload")
+            or {
+                "v": 2,
+                "mode": "reply",
+                "text": kwargs.get("composer_text"),
+                "user_message_id": "u2",
+            },
+        )
+
+    async def start_continuation(self, session_id: str, prepared: Any, **kwargs: Any) -> Any:
+        from domain.clarification import WidgetClarifyResponseV2
+        from domain.events import ev_clarify_response, ev_done, ev_meta
+
+        self.started = True
+
+        async def stream() -> Any:
+            yield (
+                ev_meta(
+                    "trace-clarify",
+                    session_id,
+                    "model",
+                    prepared.continuation_message_id,
+                    prepared.trigger_request_id,
+                    "quick",
+                    continuation_of=prepared.root_message_id,
+                    response_origin=prepared.origin,
+                    project_user=prepared.project_user,
+                    editable_root_message_id=prepared.editable_root_message_id,
+                ),
+                0,
+            )
+            yield (
+                ev_clarify_response(
+                    clarify_message_id=prepared.root_message_id,
+                    continuation_message_id=prepared.continuation_message_id,
+                    response=WidgetClarifyResponseV2.model_validate(
+                        {"v": 2, "mode": "widget", "answers": []}
+                    ),
+                ),
+                1,
+            )
+            yield ev_done("complete"), 2
+
+        return stream()
+
+
+def test_post_message_structured_clarify_response_starts_continuation_stream() -> None:
+    import json
+
+    app, session_id = _known_session_app()
+    registry = _FakeClarifyRegistry()
+    app.state.turn_registry = registry
+
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "in_reply_to": "a1-msg",
+                "clarify_response": {"v": 2, "mode": "widget", "answers": []},
+            },
+        )
+
+    assert response.status_code == 200
+    assert registry.started is True
+    assert registry.accept_kwargs == {
+        "in_reply_to": "a1-msg",
+        "widget_response_payload": {"v": 2, "mode": "widget", "answers": []},
+        "composer_text": None,
+    }
+    payloads = [
+        json.loads(line[len("data: ") :])
+        for frame in response.text.split("\r\n\r\n")
+        for line in frame.splitlines()
+        if line.startswith("data: ")
+    ]
+    assert [payload["type"] for payload in payloads] == [
+        "meta",
+        "clarify_response",
+        "done",
+    ]
+    assert payloads[0]["data"]["continuation_of"] == "a1-msg"
+    assert payloads[1]["data"]["clarify_message_id"] == "a1-msg"
+
+
+def test_post_message_clarify_conflict_returns_stable_code() -> None:
+    app, session_id = _known_session_app()
+    app.state.turn_registry = _FakeClarifyRegistry(conflict_code="clarification_stale")
+
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "in_reply_to": "wrong-a1",
+                "clarify_response": {"v": 2, "mode": "widget", "answers": []},
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "clarification_stale"
+
+
+def test_post_message_malformed_clarify_answer_uses_safe_code_without_echoing_text() -> None:
+    app, session_id = _known_session_app()
+    app.state.turn_registry = _FakeClarifyRegistry()
+    private_text = "private custom answer text"
+
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "text": private_text,
+                "in_reply_to": "a1-msg",
+                "skills": ["school-comparison"],
+            },
+        )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == "malformed_response"
+    assert private_text not in response.text
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"response_mode": "bogus"},
+        {"source_config": {"official": "bad"}},
+        {"replace_message_id": "x" * 65},
+    ],
+)
+def test_post_message_malformed_clarify_forbidden_fields_bypass_raw_validation(
+    extra: dict[str, Any],
+) -> None:
+    app, session_id = _known_session_app()
+    app.state.turn_registry = _FakeClarifyRegistry()
+    private_text = "private custom answer text"
+
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"text": private_text, "in_reply_to": "a1-msg", **extra},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "malformed_response"
+    assert private_text not in response.text
+
+
+def test_post_message_text_only_pending_v2_routes_as_composer_answer() -> None:
+    app, session_id = _known_session_app()
+    registry = _FakeClarifyRegistry(pending_v2=True)
+    app.state.turn_registry = registry
+
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        response = tc.post(f"/v1/sessions/{session_id}/messages", json={"text": "Fall works."})
+
+    assert response.status_code == 200
+    assert registry.accept_kwargs == {
+        "in_reply_to": None,
+        "widget_response_payload": None,
+        "composer_text": "Fall works.",
+    }
 
 
 # ---------------------------------------------------------------------------

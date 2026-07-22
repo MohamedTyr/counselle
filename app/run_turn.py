@@ -45,6 +45,7 @@ from uuid import uuid4
 
 import asyncpg
 import pydantic_ai.exceptions
+from pydantic import TypeAdapter
 from pydantic_ai.messages import (
     ModelMessagesTypeAdapter,
     ModelRequest,
@@ -60,12 +61,13 @@ from app.skills import SelectedSkillValidationError, validate_selected_skills
 from app.sources import SourceRegistry
 from app.turn_persistence import AGENT_NODE, build_terminal_update, parked_record
 from config.settings import get_settings
-from domain.clarification import ContinuationIntent, mark_continuation_running
+from domain.clarification import ClarifyResponseV2, ContinuationIntent, mark_continuation_running
 from domain.events import (
     Event,
     StepData,
     UsageData,
     ev_clarify,
+    ev_clarify_response,
     ev_delta,
     ev_done,
     ev_error,
@@ -630,6 +632,15 @@ async def run_continuation_turn(
         message_id,
         user_message_id,
         turn_ids["response_mode"],
+        continuation_of=prepared.root_message_id,
+        response_origin=prepared.origin,
+        project_user=prepared.project_user,
+        editable_root_message_id=prepared.editable_root_message_id,
+    )
+    yield ev_clarify_response(
+        clarify_message_id=prepared.root_message_id,
+        continuation_message_id=prepared.continuation_message_id,
+        response=TypeAdapter(ClarifyResponseV2).validate_python(prepared.response_payload),
     )
 
     emissions: list[Emission] = []

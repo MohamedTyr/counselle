@@ -51,6 +51,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 from uuid import uuid4
 
+from app.clarification import latest_awaiting_v2_clarify_spec
 from app.clarify_lifecycle import ClarificationConflict, ClarifyClaimRegistry, PreparedContinuation
 from app.clarify_lifecycle import accept_clarification as _accept_clarification
 from app.model_selection import counselor_model_selection
@@ -318,6 +319,17 @@ class TurnRegistry:
         turn = self._turns.get(session_id)
         return turn is not None and not turn.finalized
 
+    async def has_pending_v2_clarification(self, session_id: str) -> bool:
+        """Best-effort route classifier for text-only compatibility answers.
+
+        Acceptance itself revalidates under the clarify claim; this read only
+        decides whether a text-only POST should try the native v2 accept path
+        or fall through to the normal/legacy start path.
+        """
+        snapshot = await self._graph.aget_state({"configurable": {"thread_id": session_id}})
+        values = dict(snapshot.values) if snapshot else {}
+        return latest_awaiting_v2_clarify_spec(values.get("turn_records")) is not None
+
     # -- the shared byte budget (BC-01) -------------------------------------
 
     def _charge_bytes(self, nbytes: int) -> int:
@@ -519,6 +531,7 @@ class TurnRegistry:
         """
         if session_id in self._turns:
             raise StreamActive(session_id)
+        self._require_response_mode_available(response_mode)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
             on_charge=self._charge_bytes,

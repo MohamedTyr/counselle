@@ -138,6 +138,13 @@ async def test_widget_origin_transcript_order_is_u1_a1_a2_no_extra_bubble() -> N
     assert prepared.origin == "widget"
     a2_events = await _run_a2(rig, session_id, prepared)
     assert a2_events[-1].data["status"] == "complete"
+    assert [event.type for event in a2_events[:2]] == ["meta", "clarify_response"]
+    assert a2_events[0].data["continuation_of"] == a1["message_id"]
+    assert a2_events[0].data["response_origin"] == "widget"
+    assert a2_events[0].data["project_user"] is False
+    assert a2_events[1].data["clarify_message_id"] == a1["message_id"]
+    assert a2_events[1].data["continuation_message_id"] == prepared.continuation_message_id
+    assert a2_events[1].data["response"]["mode"] == "widget"
 
     values = await _state_values(rig, session_id)
     transcript = extract_transcript(values["messages"], values["turn_records"])

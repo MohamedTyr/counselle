@@ -126,6 +126,9 @@ class PreparedContinuation:
     user_message_id: str | None
     inherited_skills: tuple[str, ...]
     inherited_source_config: dict[str, Any] | None
+    inherited_response_mode: str
+    response_payload: dict[str, Any]
+    editable_root_message_id: str
     messages_offset: int
 
 
@@ -213,6 +216,7 @@ async def accept_clarification(
         origin = "widget"
 
     inherited_skills = tuple(str(name) for name in (latest.get("skills") or []))
+    inherited_response_mode = str(latest.get("response_mode") or "quick")
     # Phase 4 (plan "Persist an immutable source_config snapshot on every v2
     # A1"): prefer A1's OWN stamped snapshot — self-contained and immune to
     # anything that might later change the session-level sticky config —
@@ -278,6 +282,9 @@ async def accept_clarification(
         user_message_id=user_message_id,
         inherited_skills=inherited_skills,
         inherited_source_config=inherited_source_config,
+        inherited_response_mode=inherited_response_mode,
+        response_payload=response.model_dump(mode="json"),
+        editable_root_message_id=str(latest.get("user_message_id") or ""),
         messages_offset=len(messages),
     )
 
