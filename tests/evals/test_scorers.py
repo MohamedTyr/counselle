@@ -976,29 +976,54 @@ def test_live_template_absence_requires_typed_row_evidence() -> None:
     assert evidenced["template_absence_live_evidence"]["passed"] is True
 
 
-def test_v1_clarification_accepts_direct_prose_question() -> None:
-    checks = score_clarify(
+def test_clarification_requires_v2_event_when_mandatory() -> None:
+    prose_only = score_clarify(
         {"must_clarify": True},
         make_capture(prose="Which Washington University or campus do you mean?"),
     )
-    assert checks["clarify_judgment"]["passed"] is True
-    listed = score_clarify(
+    assert prose_only["clarify_judgment"]["passed"] is False
+
+    v1_event = score_clarify(
         {"must_clarify": True},
-        make_capture(prose="Which school do you mean?\n\n- Washington\n- WashU"),
+        make_capture(clarifies=[{"v": 1}], done_status="awaiting_input"),
     )
-    assert listed["clarify_judgment"]["passed"] is True
-    asking_about = score_clarify(
+    assert v1_event["clarify_judgment"]["passed"] is False
+
+    v2_complete = score_clarify(
         {"must_clarify": True},
-        make_capture(
-            prose="Are you asking about University of Washington or another school?"
-        ),
+        make_capture(clarifies=[{"v": 2}], done_status="complete"),
     )
-    assert asking_about["clarify_judgment"]["passed"] is True
-    thinking_of = score_clarify(
+    assert v2_complete["clarify_judgment"]["passed"] is False
+
+    v2_parked = score_clarify(
         {"must_clarify": True},
-        make_capture(prose="Are you thinking of UW, WashU, or George Washington University?"),
+        make_capture(clarifies=[{"v": 2}], done_status="awaiting_input"),
     )
-    assert thinking_of["clarify_judgment"]["passed"] is True
+    assert v2_parked["clarify_judgment"]["passed"] is True
+
+
+def test_non_required_clarification_rejects_prose_or_widget_question() -> None:
+    assert (
+        score_clarify(
+            {"must_clarify": False},
+            make_capture(prose="Which school do you mean?"),
+        )["clarify_judgment"]["passed"]
+        is False
+    )
+    assert (
+        score_clarify(
+            {"must_clarify": False},
+            make_capture(clarifies=[{"v": 2}], done_status="awaiting_input"),
+        )["clarify_judgment"]["passed"]
+        is False
+    )
+    assert (
+        score_clarify(
+            {"must_clarify": False},
+            make_capture(prose="It is in New Haven."),
+        )["clarify_judgment"]["passed"]
+        is True
+    )
 
 
 @pytest.mark.asyncio

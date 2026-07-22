@@ -1052,11 +1052,20 @@ def score_clarify(expects: dict[str, Any], capture: TurnCapture) -> dict[str, di
             re.I,
         )
     )
-    clarified = bool(capture.clarifies) or asks_in_prose
-    passed = clarified if must else not clarified
+    clarify_versions = [
+        event.get("v") for event in capture.clarifies if isinstance(event, dict)
+    ]
+    has_v2_clarify = any(version == 2 for version in clarify_versions)
+    if must:
+        passed = has_v2_clarify and capture.done_status == "awaiting_input"
+    else:
+        passed = not capture.clarifies and not asks_in_prose
     return {
         "clarify_judgment": _check(
-            passed, f"clarify_events={len(capture.clarifies)}; prose_clarification={asks_in_prose}"
+            passed,
+            "clarify_events="
+            f"{len(capture.clarifies)}; clarify_versions={clarify_versions}; "
+            f"done={capture.done_status}; prose_clarification={asks_in_prose}",
         )
     }
 

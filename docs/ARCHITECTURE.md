@@ -102,7 +102,7 @@
 **Request flow (the dossier wedge, canonical):**
 
 1. A message arrives on a session: question + **source-config** (§14). The API edge attaches a trace ID and request context, and hands it to the orchestrator.
-2. The orchestrator calls `resolve_school` before school-specific reads. **Not in the database → short-circuit**; otherwise the result supplies profile identity and selected-edition domain coverage. Underspecified questions can park through `interrupt()` (§12.1).
+2. The orchestrator calls `resolve_school` before school-specific reads. **Not in the database → short-circuit**; otherwise the result supplies profile identity and selected-edition domain coverage. Material underspecification can produce a structured clarifying-question bundle (§12.1).
 3. `get_school_profile` serves stable identity groups; `get_domain` serves a usable current-manifest domain. Both return code-owned displays, availability, caveats, and registered evidence markers. `query_database` is reserved for parameterized cross-school candidate/aggregate work.
 4. Gaps the DB can't fill (this year's deadline, campus vibe) → the agent calls the three **Tavily search tools** (`search_web` / `search_school_site` / `search_reddit`) for the *enabled* sources, steering which to use (§14). *(The dedicated deep-research subagent + verification pass — §13 — is designed but not yet wired; the inline Tavily tools fill this gap in the meantime.)*
 5. The answer streams out as protocol events: text deltas with inline citation markers, **viz events** (§17), `step`/`thinking` work-visibility events (§27), then a final `done` event with sources + usage.
@@ -116,7 +116,7 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 | Layer | Choice | Why (for us specifically) | ADR |
 |---|---|---|---|
 | **Agent runtime** | **PydanticAI** | Model-agnostic (`model=` from config — the model seam); native MCP client; typed outputs (the citation envelope *is* a `result_type`). | 0003 |
-| **Orchestration** | **LangGraph** | Multi-agent research subgraphs; `interrupt()` for clarifying questions; checkpointer = session persistence (and the platform's chat history later). | 0003 |
+| **Orchestration** | **LangGraph** | Multi-agent research subgraphs; checkpointer = session persistence (and the platform's chat history later). Clarifying questions are a PydanticAI typed-output lifecycle (§12.1). | 0003, 0035 |
 | **API edge** | **FastAPI** (+ SSE) | Matches the Python stack; typed request/response; streaming-native. | 0016 |
 | **Database access** | **`counselle-db` MCP server** (Python, asyncpg, `cds_library_reader`) | Four tools over five reader views; typed packet/evidence boundary and guarded SQL. | 0004, 0005, 0012, 0032 |
 | **Deep research** | **GPT-Researcher** (embedded) | Only OSS deep-research with pluggable MCP sources (our DB first-class); best controllable cost. Designed but not yet wired — see §13. | 0009 |
@@ -194,7 +194,7 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 | Endpoint | Purpose |
 |---|---|
 | `POST /v1/sessions` | Create a session → `{session_id}`. Accepts an optional default source-config. |
-| `POST /v1/sessions/{id}/messages` | Send a user message (text + per-request source-config override) → **SSE stream** of events. A clarify answer is sent the same way — `run_turn` autonomously detects the parked interrupt from the last turn record; `in_reply_to` is accepted for forward-compat but ignored beyond validation. |
+| `POST /v1/sessions/{id}/messages` | Send a user message (text + per-request source-config override) → **SSE stream** of events. A clarify answer is sent the same way with `in_reply_to`; widget answers also send a structured `clarify_response`, while composer replies send text and are validated server-side against the pending A1 record. |
 | `GET /v1/sessions/{id}` | Session metadata + transcript (the platform's chat-history read, working from day one). |
 | `GET /v1/health` | Liveness + DB reachability. |
 
@@ -204,11 +204,12 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 
 | Event | Payload | Notes |
 |---|---|---|
-| `meta` | trace_id, session_id, model, `message_id`, `user_message_id` | First event of every stream. The two ids anchor feedback and edit/regenerate (§27, §30). |
+| `meta` | trace_id, session_id, model, `message_id`, `user_message_id`, response mode, optional continuation metadata | First event of every stream. The two ids anchor feedback and edit/regenerate (§27, §30); A2 continuations point back to A1 with `continuation_of`. |
 | `narration` | agent-visible prose / status text | What the assistant says out loud while it works; shown in the timeline and transcript replay. Separate from native model thoughts (§27.2). |
 | `delta` | text tokens (with inline citation markers) | Final-answer prose only. Only the answer rides `delta`; narration and native thoughts use their own events (§27.2). |
 | `viz` | a **render spec** (§17) — cells are citation envelopes | The backend stages and dedupes viz specs during work, then emits the batch once at final-answer start. Numbers never ride in `delta` tokens. |
-| `clarify` | a **clarify spec** (§12.1) | Stream ends `awaiting_input`; client answers via a new message. |
+| `clarify` | a v2 **clarify spec** (§12.1) | Stream ends `awaiting_input`; client answers via a new message naming A1 with `in_reply_to`. |
+| `clarify_response` | A1 id, A2 id, structured widget/reply response | Acknowledges acceptance before A2 `meta`, so clients freeze A1 while the separate A2 streams. |
 | `sources` | the deduplicated citation list for the turn (official/community, vintages) | Feeds the expandable-marker UX (PRD). |
 | `usage` | tokens + estimated cost for the turn (§19) | |
 | `user_message` | text, `user_message_id`, `injected` | Mid-run steering text rendered inside the active assistant run; `injected:false` means queued but not yet accepted. |
@@ -227,7 +228,7 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 (ADR 0019.) The classic retrofit pain in chat products is bolting persistent identity onto an in-memory prototype. We avoid it by making the *shape* platform-ready on day one while building none of the platform:
 
 - **Every conversation is a session with a durable `session_id` from day one.** In-session working memory (PRD) *is* the LangGraph state for that session — one mechanism, not two.
-- **State persists in Postgres via LangGraph's own Postgres checkpointer**, in Counselle's `counselle.*` schema. Sessions survive restarts; a parked `interrupt()` (clarify question) survives too. No bespoke session store — the checkpointer protocol is the seam, and swapping it (memory in unit tests, Postgres in prod) is configuration.
+- **State persists in Postgres via LangGraph's own Postgres checkpointer**, in Counselle's `counselle.*` schema. Sessions survive restarts; pending clarification records and continuation intent survive too. No bespoke session store — the checkpointer protocol is the seam, and swapping it (memory in unit tests, Postgres in prod) is configuration.
 - **A thin `counselle.sessions` row** (session_id, created_at, `user_id`, title, default source-config) fronts the checkpoint data. `user_id` is populated and FK-enforced for new rows (migration 0004 added `counselle.users` + the FK; §28) — chat history, profiles, and per-user memory attach to rows that already exist. No migration of meaning, only addition.
 - **Counselle owns its schema and migration chain** (`migrations/`, over `counselle.*` only — never `public.*`/`raw.*`, which belong to the pipeline and are read-only to us; ADR 0012).
 - **Long-term memory & personalization are deferred** (PRD) — but they will live behind the same session/user rows, which is why those rows exist now.
@@ -321,26 +322,33 @@ mismatch and aggregate denominators.
 
 ## 12. The agent runtime (PydanticAI + LangGraph)
 
-(ADR 0003.) PydanticAI defines each agent with `model=` from config, native MCP connections, and typed `result_type`s. LangGraph orchestrates: state passing, session persistence via the checkpointer (§7), and `interrupt()` for clarifying questions.
+(ADR 0003, amended by ADR 0035.) PydanticAI defines each agent with `model=` from config, native MCP connections, and typed outputs. LangGraph orchestrates: state passing and session persistence via the checkpointer (§7). Clarifying questions are now a structured PydanticAI output path, not the product's live `interrupt()` lifecycle.
 
 The **counselor** agent is the primary agent. The **researcher** and **verifier** agents are designed (§13) but not yet wired — they are part of the deep-research follow-up (`specs/deep-research/plan.md`). Parallel research subgraphs attach when that subsystem is activated.
 
 ### 12.1 Clarifying questions
 
-A clarifying question is the interactive sibling of a visualization: the agent emits a **typed clarify spec**, the API edge streams it as a `clarify` event (§6), a dumb widget renders it — this one just *waits for an answer*. Mechanism: **LangGraph `interrupt()`** — the graph parks (durably, §7) and resumes when the answer arrives as the next message.
+(ADR 0035.) A clarifying question is the interactive sibling of a visualization:
+the agent emits a **typed clarify spec**, the API edge streams it as a `clarify`
+event (§6), and the frontend renders a dumb widget that waits for an answer.
+The model authors only the questions and option copy; the product owns layout,
+progress, buttons, validation presentation, and the free-text "Something else"
+affordance.
 
 ```jsonc
 {
-  "question": "Good for what? A few things shape the answer:",
-  "header": "What matters",
-  "multiSelect": false,
-  "options": [
-    { "label": "My intended major",        "hint": "programs, rigor, outcomes in your field" },
-    { "label": "Cost & affordability",     "hint": "net price for your situation" },
-    { "label": "Campus life & vibe",       "hint": "what it's actually like there" },
-    { "label": "My chances of getting in", "hint": "selectivity vs your profile" }
+  "v": 2,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Which lens should I use?",
+      "selection": "single",
+      "options": [
+        { "id": "q1_o1", "label": "Cost & affordability", "hint": "net price for your situation" },
+        { "id": "q1_o2", "label": "Campus life", "hint": "what it is like there" }
+      ]
+    }
   ]
-  // "Other" free-text is ALWAYS rendered by the widget — not the agent's job to add
 }
 ```
 
@@ -349,7 +357,19 @@ A clarifying question is the interactive sibling of a visualization: the agent e
 2. **Assume + state** — when one reading is clearly likeliest: answer it and say the assumption.
 3. **Default** — when a reasonable default exists, just answer.
 
-One focused round, 2–4 options, never an intake form. The chips are a shortcut, not a modal: a typed reply is always treated as the answer. A clarifier that resolves a comparison axis feeds straight into the comparison-table field selection (§17).
+One focused round, one to three questions, two to five options per question,
+never an intake form. Options are shortcuts, not a modal: a typed reply is
+always treated as the answer. A clarifier that resolves a comparison axis feeds
+straight into the comparison-table field selection (§17).
+
+The lifecycle is split into two assistant records. A1 is the durable question:
+the backend commits the pending turn record and provider history before
+streaming `clarify` + `done(awaiting_input)`. The answer is accepted through
+`POST /v1/sessions/{id}/messages` with `in_reply_to=A1`. Widget answers carry a
+structured `clarify_response`; composer replies carry text and become a typed
+reply response server-side. The continuation is A2, a new assistant record with
+`continuation_of=A1`, inherited source/skill/response-mode settings, and no
+`ask_student` output available.
 
 ---
 
@@ -497,7 +517,7 @@ Cheap on day one, brutal to retrofit:
 | Citations (official vs community) | citation envelope `tier` (§9); `sources` event (§6) |
 | Citation UX (inline expandable markers) | `delta` markers + `sources` event; client renders (§6, §16) |
 | Recency & temporal awareness | compiled contexts + selected edition + live data picture + injected date + `admission_season` (§9, §16) |
-| Clarifying questions | `interrupt()` + clarify spec → `clarify` event (§12.1) |
+| Clarifying questions | PydanticAI `ask_student` typed output → durable A1 `clarify` event → A2 continuation (§12.1) |
 | In-session working memory | LangGraph state via Postgres checkpointer (§7) |
 | Skills | SKILL.md in `skills/` (§15) |
 | Visualizations | `render_viz` → render spec → `viz` event → dumb components (§17) |
@@ -676,7 +696,7 @@ with terminal persistence factored into `app/turn_persistence.py` (ADR 0025):
 - `POST .../steer` queues ordinary live user text into the active run. The backend emits `user_message` immediately; `injected:false` is the immediate ack and may later be upgraded/replayed as `true` with the same id if the active run accepts the text. If the run ends first, the leftover `false` stays client-owned for the next normal turn; the settled turn record does not persist that false segment.
 - **Single-writer rule** (PRD story 40): a second `POST .../messages` while a turn is active → `409 {error: "stream_active"}` (the existing guard moves into the registry). Ordinary live re-asks go through `POST .../steer`; `cancel` is reserved for explicit stop/edit semantics, not routine live sends. The sessions list (§29) reads `is_generating` from the registry for the cross-tab indicator.
 - **Backpressure caps** (both Settings knobs): a reattach beyond `max_consumers_per_turn` → `429`; a start beyond `max_concurrent_turns` process-wide → `503`. Both degrade gracefully — the client falls back to the transcript read.
-- **The buffer is best-effort UX; persisted state is the correctness guarantee** — prose in the checkpointer, the step record in the graph state (§27.1). `app/turn_persistence.py` is the single owner of terminal update payloads, the empty-partial prose rule, and parked-turn predicates, so transcript writes do not drift across the node, runner, and registry. A deploy mid-turn loses the buffer, not the chat. No Redis, no event store.
+- **The buffer is best-effort UX; persisted state is the correctness guarantee** — prose in the checkpointer, the step record in the graph state (§27.1). `app/turn_persistence.py` is the single owner of terminal update payloads and the empty-partial prose rule, so transcript writes do not drift across the node, runner, and registry. A deploy mid-turn loses the buffer, not the chat. No Redis, no event store.
 - **Every piece of single-instance state lives inside this one module** — §33's scale-out story becomes "re-back the turn registry", not a hunt across route handlers. Deletion test: removing the registry would smear task ownership, buffering, locking, and cancellation across four route handlers — it concentrates complexity, so it earns its keep.
 
 ### 27.4 Cancel
@@ -684,7 +704,7 @@ with terminal persistence factored into `app/turn_persistence.py` (ADR 0025):
 - **`POST /v1/sessions/{id}/steer`** — queues a user message into the active run. The route emits `user_message` immediately; `injected:false` is the immediate ack and may later be upgraded/replayed as `true` with the same id when the active run accepts it. If the active run ends first, the leftover `false` stays client-owned for the next normal turn; the settled turn record does not persist that false segment.
 - **New endpoint: `POST /v1/sessions/{id}/cancel`** — the registry cancels the detached task via asyncio cancellation at the graph boundary. The run is suspended, not forgotten: the partial provider history snapshot and partial turn record persist, then the stream terminates with `done`; partial prose persists (the student keeps what streamed).
 - **`done.data.status` gains `cancelled`** — extending the *existing* enum (`complete | awaiting_input` today, `domain/events.py`) rather than introducing a parallel `stop_reason` field. Additive within v1. The composer's send⇄stop swap (PRD story 38) is cancel + this field.
-- *Full cancel semantics (idle / parked / racing completion / watchdog) are recorded in §27.7 (G5).*
+- *Full cancel semantics (idle / pending A1 / racing completion / watchdog) are recorded in §27.7 (G5).*
 
 ### 27.5 The transcript contract
 
@@ -713,12 +733,12 @@ All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `P
 
 Five design questions resolved here as architecture (ADR 0022 carries the decision trail). The field-level FE↔BE contract that realizes these on the wire is **the wire contract** (`specs/mvp2/plan/wire-contract.md`, archived with the ship plan).
 
-- **Message identity (G1).** Every turn mints two UUIDs at start — `user_message_id` and `message_id` (the assistant message). Both ride `meta.data` (additive within v1 — the live stream can address the in-flight message for feedback/edit) and persist in the turn record. Feedback keys on the globally-unique assistant `message_id`. A clarify resume **reuses the parked turn's `message_id`** — one assistant message, one id, however many park/resume cycles produced it.
+- **Message identity (G1).** Every turn mints two UUIDs at start — `user_message_id` and `message_id` (the assistant message). Both ride `meta.data` (additive within v1 — the live stream can address the in-flight message for feedback/edit) and persist in the turn record. Feedback keys on the globally-unique assistant `message_id`. For new clarifications, A1 and A2 are separate assistant records connected by `continuation_of`; historical interrupt-backed records keep their original identity semantics through compatibility replay.
 - **The turn record (G2 — supersedes §27.5's step record).** The run is the message: per assistant turn, persisted in graph state (`app/records.py`): the G1 ids; the immutable `response_mode` and exact resolved `model`; ordered `parts[]` — **materialized** segments in stream order (`{"type":"text","text":…}` and `{"type":"viz","spec":…}`; adjacent deltas merged, verbatim text, **never offsets into `messages`**) so the record is self-contained and the transcript read never slices prose out of the message history; `segments[]` — the whole-run replay surface used by transcript replay and copy/export (`narration`, `thinking`, `delta`, `viz`, `step`, `user` beats in stream order); steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and a separate `messages_offset` field — the index of this turn's user `ModelRequest` in `messages`, the graph-state slice point for history rewrite (server-internal, never on the wire). One prose invariant holds everywhere: when a snapshot exists, transcript reads are snapshot-first partial history; the prose invariant applies only to the uncommitted tail and record surface, so every terminal path (complete, cancelled, error, tool-budget) leaves the record's `parts[]` and the live `messages` tail aligned with the streamed prose. The transcript read returns the consumer-contract wire shape; turns predating the full-stack app have no record and render prose-only.
 - **Whole-run copy/export.** Clipboard/share actions should use the ordered run record, not final prose alone. The run is the message, so the assistant-side copy target is the whole run.
-- **Edit & regenerate = history rewrite (G3).** `POST /v1/sessions/{id}/messages` gains optional `replace_message_id` (a prior `user_message_id`): with the single-flight lock held and no active turn, one `aupdate_state` rewrite — messages sliced at the target turn's `messages_offset`, turn records truncated, the source registry restored from the last surviving record's cumulative snapshot, any pending interrupt cleared (per G4) — then the new text runs as a normal turn. **Regenerate = edit of the last user message with the same text** — one mechanism. Turns without a `user_message_id` **cannot be edit targets** (`422`; the FE hides Edit on id-less entries) — the rewrite never slices into record-less history; synthesized clarify-answer entries are likewise refused (`422`, by an explicit synthesized flag, not id-absence).
-- **The clarify-park lifecycle (G4).** `interrupt()` ends the turn — `done(awaiting_input)`, the task completes, the lock releases; **no parked task exists**, so the answering POST is never 409'd and cancel-on-parked is a no-op + **unpark** (clear the interrupt; freeze the clarify as *unanswered*). A plain next message remains the answer. The answered case persists: the answer rides `Command(resume=text)` and never enters `messages`, so the resumed turn's record stores it alongside the spec, and the transcript read synthesizes the student's answer bubble from it — a first-class, feedback-anchorable entry carrying the resume's `user_message_id` (but not an edit target, per G3). Writing the parked turn record via `aupdate_state` while the interrupt is pending works, and `Command(resume)` survives it — but the write clears `tasks[*].interrupts`, so **parked-detection reads the turn record itself** (last record `status == "awaiting_input"`), never the interrupts; **unpark = `aupdate_state(..., as_node="agent")`** (clears the interrupt and `next`; the next plain message runs a complete fresh turn). Resume-replay: LangGraph re-executes the node — pre-clarify tools re-run and re-stream as fresh steps in the answering turn; shown as-is (the work *is* re-done), and the resumed run's record **replaces** the parked record, same `message_id` (ADR 0022's consequences).
-- **Cancel semantics (G5).** Active turn → `202` + a single-shot `done(cancelled)`; idle → `204` no-op; parked → `204` + unpark. Cancel racing completion = the idle no-op. **A watchdog timeout terminates with `error`, not `done(cancelled)`** — the student didn't press stop.
+- **Edit & regenerate = history rewrite (G3).** `POST /v1/sessions/{id}/messages` gains optional `replace_message_id` (a prior `user_message_id`): with the single-flight lock held and no active turn, one `aupdate_state` rewrite — messages sliced at the target turn's `messages_offset`, turn records truncated, the source registry restored from the last surviving record's cumulative snapshot, and any pending clarification/continuation state cleared (per G4) — then the new text runs as a normal turn. **Regenerate = edit of the last user message with the same text** — one mechanism. Turns without a `user_message_id` **cannot be edit targets** (`422`; the FE hides Edit on id-less entries) — the rewrite never slices into record-less history; synthesized clarify-answer entries are likewise refused (`422`, by an explicit synthesized flag, not id-absence).
+- **The clarify lifecycle (G4, superseded for new records by ADR 0035).** New clarifications do not use LangGraph `interrupt()` as the product mechanism. The agent emits `ask_student` as a typed PydanticAI output; early output semantics stop sibling tool execution, and the backend atomically persists A1 (the pending question record plus provider history) before streaming `clarify` and `done(awaiting_input)`. The answering POST names A1 with `in_reply_to` and either carries a widget `clarify_response` or composer text. Acceptance validates against the persisted A1 spec, emits `clarify_response`, then starts A2 as a separate assistant record with `continuation_of=A1`, inherited skills/source config/response mode, and no `ask_student` output tool. Widget-origin answers create no user bubble; composer-origin replies project exactly one user bubble. A durable `continuation_intent` covers accept-then-continue restarts: `accepted` can resume the same A2 id, while `running` never auto-replays A2 tools and instead exposes recovery. Historical v1 interrupt-backed records remain readable through compatibility replay, but ADR 0022's resume-replay consequence is no longer the new-record behavior.
+- **Cancel semantics (G5).** Active turn → `202` + a single-shot `done(cancelled)`; idle → `204` no-op; pending A1 → `204` and the question freezes unanswered; A2 cancellation preserves the accepted A1 and any partial A2. Cancel racing completion = the idle no-op. **A watchdog timeout terminates with `error`, not `done(cancelled)`** — the student didn't press stop.
 
 ---
 
@@ -957,7 +977,7 @@ before the next send.
 
 (The Part I, §21 philosophy carries: **test where lying to a student is possible**; behavior, not implementation.)
 
-- **The turn registry is the new deep-module test surface** — unit-tested with a fake event source, no HTTP: client disconnect leaves the detached turn running; reattach replays exactly from `Last-Event-ID`; cancel persists partial prose and emits `done.status = cancelled`; double-send → 409; buffer overflow degrades to transcript fallback. The existing parked-interrupt durability regression extends to mid-stream reconnect.
+- **The turn registry is the new deep-module test surface** — unit-tested with a fake event source, no HTTP: client disconnect leaves the detached turn running; reattach replays exactly from `Last-Event-ID`; cancel persists partial prose and emits `done.status = cancelled`; double-send → 409; buffer overflow degrades to transcript fallback. Clarification durability and A2 continuation regressions cover restart/reconnect around pending A1 and accepted continuations.
 - **The step mapper is table-driven:** tool-call fixture in → `{kind, tier, label}` out, one row per tool — zero mocks, the labels asset exercised directly.
 - **Backend delta — routine pytest, no live LLM:** auth flows + the `owned_session` dependency (foreign session → 404; plus a route-inventory test asserting every `/v1/sessions/*` route declares it), rate-limit behavior (429 + Retry-After + window reset), step persistence (the step record survives into the transcript read), **disabled source ⇒ its step kind cannot appear** (story 17's test), feedback idempotency, auto-title failure never blocks a turn.
 - **Shared protocol fixtures are the contract test:** the backend's protocol tests export their emitted event payloads (including a full turn with steps, viz, clarify, and the transcript with step records) as JSON fixture files; the frontend's turn-reducer tests consume the same files. Python↔TypeScript drift is caught by a failing fixture without a separate cross-service contract-test harness.
