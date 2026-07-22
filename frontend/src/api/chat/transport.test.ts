@@ -368,6 +368,66 @@ describe("chatTransport", () => {
     );
   });
 
+  it("sends composer clarification replies with in_reply_to and no turn settings", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      sseResponse(frame("done", { status: "complete" })),
+    );
+
+    await collect(
+      chatTransport.sendMessage({
+        sessionId: "session-1",
+        text: "Fall 2027",
+        sourceConfig: BUILT_IN_SOURCE_CONFIG,
+        skills: ["school-comparison"],
+        responseMode: "think",
+        inReplyTo: "a1",
+      }),
+    );
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/v1/sessions/session-1/messages",
+      expect.objectContaining({
+        body: JSON.stringify({
+          text: "Fall 2027",
+          in_reply_to: "a1",
+        }),
+      }),
+    );
+  });
+
+  it("sends widget clarification responses without an optimistic text payload", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      sseResponse(frame("done", { status: "complete" })),
+    );
+
+    await collect(
+      chatTransport.sendMessage({
+        sessionId: "session-1",
+        text: "",
+        inReplyTo: "a1",
+        clarifyResponse: {
+          v: 2,
+          mode: "widget",
+          answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+        },
+      }),
+    );
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/v1/sessions/session-1/messages",
+      expect.objectContaining({
+        body: JSON.stringify({
+          in_reply_to: "a1",
+          clarify_response: {
+            v: 2,
+            mode: "widget",
+            answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+          },
+        }),
+      }),
+    );
+  });
+
   it("accepts user_message SSE frames", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       sseResponse(

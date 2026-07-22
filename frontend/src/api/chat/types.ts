@@ -763,13 +763,15 @@ export type StartTurnResult =
 export type SendMessageInput = {
   sessionId: string;
   text: string;
-  sourceConfig: SourceConfig;
+  sourceConfig?: SourceConfig;
   skills?: string[];
   signal?: AbortSignal;
   replaceMessageId?: string;
   /** Omitted for a parked clarification continuation (server inherits the
    * parked mode); a normal new turn always sends it (plan §3.3/§8.4). */
   responseMode?: ResponseMode;
+  inReplyTo?: string;
+  clarifyResponse?: WidgetClarifyResponseV2;
 };
 
 export type SteerMessageInput = {

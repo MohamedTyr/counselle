@@ -9,6 +9,7 @@ import type {
   ResponseMode,
   SourceConfig,
   SseFrame,
+  WidgetClarifyResponseV2,
 } from "@/api/chat/types";
 import { isTransportError, TransportError } from "@/api/http/errors";
 import { isResponseMode } from "@/api/chat/response-mode";
@@ -64,6 +65,13 @@ export type SubmitMessageOptions = {
    * never substitutes a different, later value. */
   executionResponseMode: ResponseMode;
   replaceMessageId?: string;
+  clarifyReplyTo?: string;
+};
+
+export type SubmitClarifyResponseOptions = {
+  inReplyTo: string;
+  response: WidgetClarifyResponseV2;
+  executionResponseMode: ResponseMode;
 };
 
 type PendingSend = {
@@ -71,8 +79,18 @@ type PendingSend = {
   skills: string[];
   executionResponseMode: ResponseMode;
   replaceMessageId?: string;
+  clarifyReplyTo?: string;
+  clarifyResponse?: WidgetClarifyResponseV2;
   optimisticUserMessageId?: string;
 };
+
+type ClarifySubmission =
+  | { origin: "composer"; inReplyTo: string }
+  | {
+      origin: "widget";
+      inReplyTo: string;
+      response: WidgetClarifyResponseV2;
+    };
 
 type StartedTurn = {
   sessionId: string;
@@ -129,6 +147,9 @@ export type UseTurnEngineResult = {
   awaitingClarify: boolean;
   submitMessage: (
     options: SubmitMessageOptions,
+  ) => Promise<SubmitMessageResult>;
+  submitClarifyResponse: (
+    options: SubmitClarifyResponseOptions,
   ) => Promise<SubmitMessageResult>;
   retryLastSend: () => void;
   attachActiveTurn: (sessionId: string) => Promise<void>;
@@ -425,6 +446,7 @@ export function useTurnEngine({
       skills: readonly string[],
       executionResponseMode: ResponseMode,
       replaceMessageId?: string,
+      clarifySubmission?: ClarifySubmission,
     ) => {
       const controller = beginTurnAbort();
       const committedSourceConfig = sourceConfigRef.current;
@@ -433,9 +455,9 @@ export function useTurnEngine({
       // never a clarify continuation (it always supplies replaceMessageId,
       // which a real clarify answer never does), so it always sends its
       // mode explicitly.
-      const isClarifyContinuation = isAwaitingClarifyContinuation(
-        persistedRef.current,
-      );
+      const isClarifyContinuation =
+        clarifySubmission !== undefined ||
+        isAwaitingClarifyContinuation(persistedRef.current);
       // A genuine normal new turn -- not a parked clarify continuation, not
       // a replace/regenerate -- is the only kind that may commit its mode as
       // the chat's sticky next-turn preference (plan §8.2/§8.4).
@@ -449,12 +471,21 @@ export function useTurnEngine({
           stream: transport.sendMessage({
             sessionId: activeSessionId,
             text,
-            sourceConfig: committedSourceConfig,
-            skills: [...skills],
-            replaceMessageId,
+            sourceConfig: isClarifyContinuation
+              ? undefined
+              : committedSourceConfig,
+            skills: isClarifyContinuation ? undefined : [...skills],
+            replaceMessageId: isClarifyContinuation
+              ? undefined
+              : replaceMessageId,
             responseMode: isClarifyContinuation
               ? undefined
               : executionResponseMode,
+            inReplyTo: clarifySubmission?.inReplyTo,
+            clarifyResponse:
+              clarifySubmission?.origin === "widget"
+                ? clarifySubmission.response
+                : undefined,
             signal: controller.signal,
           }),
           initialUserMessageId: tempUserMessageId,
@@ -469,13 +500,37 @@ export function useTurnEngine({
                 )
             : undefined,
         });
-        onSourceConfigCommitted?.(activeSessionId, committedSourceConfig);
+        if (!isClarifyContinuation) {
+          onSourceConfigCommitted?.(activeSessionId, committedSourceConfig);
+        }
       } catch (error) {
+        if (
+          clarifySubmission !== undefined &&
+          isTransportError(error) &&
+          error.kind === "conflict"
+        ) {
+          onTranscriptRefreshNeeded?.(activeSessionId);
+          setTurnError({
+            kind: "server",
+            message:
+              "That clarification was already answered or is no longer current.",
+          });
+          setPendingSend(null);
+          return;
+        }
         setPendingSend({
           text,
           skills: [...skills],
           executionResponseMode,
           replaceMessageId,
+          clarifyReplyTo:
+            clarifySubmission?.origin === "composer"
+              ? clarifySubmission.inReplyTo
+              : undefined,
+          clarifyResponse:
+            clarifySubmission?.origin === "widget"
+              ? clarifySubmission.response
+              : undefined,
         });
         throw error;
       }
@@ -515,6 +570,7 @@ export function useTurnEngine({
       skills: readonly string[],
       executionResponseMode: ResponseMode,
       replaceMessageId?: string,
+      clarifySubmission?: ClarifySubmission,
     ): Promise<StartedTurn> => {
       if (liveTurnRef.current !== null) {
         throw new Error("A turn is already running.");
@@ -536,7 +592,10 @@ export function useTurnEngine({
 
       let tempUserId = createTempId("temp-user");
       let optimisticUserMessageId: string | undefined;
-      if (replaceMessageId === undefined) {
+      if (
+        replaceMessageId === undefined &&
+        clarifySubmission?.origin !== "widget"
+      ) {
         optimisticUserMessageId = tempUserId;
         setPersistedMessages((previous) => [
           ...previous,
@@ -550,7 +609,11 @@ export function useTurnEngine({
           ),
         ]);
       } else {
-        tempUserId = replaceMessageId;
+        tempUserId =
+          replaceMessageId ??
+          (clarifySubmission?.origin === "widget"
+            ? clarifySubmission.inReplyTo
+            : tempUserId);
       }
       lastStartedUserMessageIdRef.current = tempUserId;
 
@@ -562,6 +625,7 @@ export function useTurnEngine({
         skills,
         executionResponseMode,
         replaceMessageId,
+        clarifySubmission,
       );
       return {
         sessionId: activeSessionId,
@@ -638,9 +702,14 @@ export function useTurnEngine({
       skills: skillsOption,
       executionResponseMode,
       replaceMessageId,
+      clarifyReplyTo,
     }: SubmitMessageOptions): Promise<SubmitMessageResult> => {
       const skills = skillsOption === undefined ? [] : [...skillsOption];
       const trimmed = text.trim();
+      const clarifySubmission =
+        clarifyReplyTo === undefined
+          ? undefined
+          : ({ origin: "composer", inReplyTo: clarifyReplyTo } as const);
       if (!trimmed) {
         return { ok: false, keepText: text };
       }
@@ -659,7 +728,11 @@ export function useTurnEngine({
       setTurnError(null);
       setModelUnavailableRecovery(null);
 
-      if (liveTurnRef.current !== null && replaceMessageId === undefined) {
+      if (
+        liveTurnRef.current !== null &&
+        replaceMessageId === undefined &&
+        clarifySubmission === undefined
+      ) {
         if (skills.length > 0) {
           setTurnError({
             kind: "server",
@@ -698,6 +771,7 @@ export function useTurnEngine({
             skills,
             executionResponseMode,
             replaceMessageId,
+            clarifyReplyTo,
           });
           return { ok: false, keepText: text };
         }
@@ -709,6 +783,7 @@ export function useTurnEngine({
           skills,
           executionResponseMode,
           replaceMessageId,
+          clarifySubmission,
         );
         return { ok: true, sessionId: started.sessionId };
       } catch (error) {
@@ -735,6 +810,7 @@ export function useTurnEngine({
                 skills,
                 executionResponseMode,
                 replaceMessageId,
+                clarifySubmission,
               );
               return { ok: true, sessionId: activeSessionId };
             } catch (retryError) {
@@ -744,6 +820,7 @@ export function useTurnEngine({
                 skills,
                 executionResponseMode,
                 replaceMessageId,
+                clarifyReplyTo,
                 optimisticUserMessageId:
                   replaceMessageId === undefined
                     ? (lastStartedUserMessageIdRef.current ?? undefined)
@@ -760,6 +837,7 @@ export function useTurnEngine({
           skills,
           executionResponseMode,
           replaceMessageId,
+          clarifyReplyTo,
           optimisticUserMessageId:
             replaceMessageId === undefined
               ? (lastStartedUserMessageIdRef.current ?? undefined)
@@ -769,6 +847,57 @@ export function useTurnEngine({
       }
     },
     [awaitLiveClear, cancelAndAwaitClear, runTurn, startSend, transport],
+  );
+
+  const submitClarifyResponse = useCallback(
+    async ({
+      inReplyTo,
+      response,
+      executionResponseMode,
+    }: SubmitClarifyResponseOptions): Promise<SubmitMessageResult> => {
+      setPendingSend(null);
+      setTurnError(null);
+      setModelUnavailableRecovery(null);
+
+      if (liveTurnRef.current !== null) {
+        const cleared = await cancelAndAwaitClear();
+        if (!cleared) {
+          return { ok: false, keepText: "" };
+        }
+      }
+
+      try {
+        const started = await startSend(
+          "",
+          [],
+          executionResponseMode,
+          undefined,
+          { origin: "widget", inReplyTo, response },
+        );
+        return { ok: true, sessionId: started.sessionId };
+      } catch (error) {
+        if (isTransportError(error) && error.kind === "conflict") {
+          onTranscriptRefreshNeeded?.(sessionIdRef.current ?? inReplyTo);
+          setTurnError({
+            kind: "server",
+            message:
+              "That clarification was already answered or is no longer current.",
+          });
+          setPendingSend(null);
+          return { ok: true, sessionId: sessionIdRef.current ?? inReplyTo };
+        }
+        setPendingSend({
+          text: "",
+          skills: [],
+          executionResponseMode,
+          clarifyReplyTo: inReplyTo,
+          clarifyResponse: response,
+        });
+        setTurnError(turnErrorOf(error));
+        return { ok: false, keepText: "" };
+      }
+    },
+    [cancelAndAwaitClear, onTranscriptRefreshNeeded, startSend],
   );
 
   useEffect(() => {
@@ -800,13 +929,22 @@ export function useTurnEngine({
         ),
       );
     }
+    if (pending.clarifyResponse !== undefined && pending.clarifyReplyTo !== undefined) {
+      void submitClarifyResponse({
+        inReplyTo: pending.clarifyReplyTo,
+        response: pending.clarifyResponse,
+        executionResponseMode: pending.executionResponseMode,
+      });
+      return;
+    }
     void submitMessage({
       text: pending.text,
       skills: pending.skills,
       executionResponseMode: pending.executionResponseMode,
       replaceMessageId: pending.replaceMessageId,
+      clarifyReplyTo: pending.clarifyReplyTo,
     });
-  }, [pendingSend, setPersistedMessages, submitMessage]);
+  }, [pendingSend, setPersistedMessages, submitClarifyResponse, submitMessage]);
 
   const retryModelUnavailableSameMode = useCallback(() => {
     const recovery = modelUnavailableRecovery;
@@ -994,6 +1132,7 @@ export function useTurnEngine({
     pendingText: pendingSend?.text ?? null,
     awaitingClarify,
     submitMessage,
+    submitClarifyResponse,
     retryLastSend,
     attachActiveTurn,
     stopGenerating,

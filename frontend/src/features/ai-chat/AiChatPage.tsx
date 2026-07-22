@@ -12,9 +12,11 @@ import { cn } from "@/lib/utils";
 
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatMessages } from "./components/ChatMessages";
+import type { ClarifyWidgetAnswer } from "./components/ClarifyWidget";
 import type { MessageSourcesPayload } from "./components/MessageSources";
 import { SourcesRail } from "./components/SourcesRail";
 import type { ChatMessage, FeedbackRating } from "./model";
+import { useClarifyDraft, type ClarifyDraftKey } from "./useClarifyDraft";
 import { useChatSession } from "./useChatSession";
 import type { InitialTurn } from "./AiChatRoute";
 
@@ -34,6 +36,10 @@ function documentTitleFor(title: string | null | undefined): string {
   return title !== null && title !== undefined && title.trim().length > 0
     ? `${title} · Counselle`
     : "New chat · Counselle";
+}
+
+function clarifySpecIdentity(clarify: ChatMessage["clarify"]): string {
+  return JSON.stringify(clarify);
 }
 
 export function AiChatPage({
@@ -59,6 +65,7 @@ export function AiChatPage({
   const [sourcesPayload, setSourcesPayload] =
     useState<MessageSourcesPayload | null>(null);
   const consumedInitialTurnRef = useRef(false);
+  const clarifySubmitInFlightRef = useRef<string | null>(null);
   const isMobile = useIsMobile();
   const feedback = useMessageFeedback();
   const configQuery = useChatConfig();
@@ -83,6 +90,7 @@ export function AiChatPage({
     selectedResponseMode,
     setSelectedResponseMode,
     submitMessage,
+    submitClarifyResponse,
     stopGenerating,
     isSubmitting,
     awaitingClarify,
@@ -106,6 +114,27 @@ export function AiChatPage({
         responseModes,
       }).mode
     : selectedResponseMode;
+  const latestMessage = messages.at(-1);
+  const clarifyDraftKey: ClarifyDraftKey =
+    latestMessage?.kind === "assistant" &&
+    latestMessage.turnStatus === "awaiting_input" &&
+    latestMessage.clarify !== undefined
+      ? {
+          sessionId,
+          clarifyMessageId: latestMessage.messageId,
+          specVersion: latestMessage.clarify.v,
+          specIdentity: clarifySpecIdentity(latestMessage.clarify),
+        }
+      : null;
+  const clarifyDraftIdentity =
+    clarifyDraftKey === null
+      ? "none"
+      : `${clarifyDraftKey.sessionId}:${clarifyDraftKey.clarifyMessageId}:${clarifyDraftKey.specVersion}:${clarifyDraftKey.specIdentity}`;
+  const clarifyDraft = useClarifyDraft(clarifyDraftKey);
+
+  useEffect(() => {
+    clarifySubmitInFlightRef.current = null;
+  }, [clarifyDraftIdentity]);
 
   useEffect(() => {
     document.title = documentTitleFor(session?.title);
@@ -125,25 +154,51 @@ export function AiChatPage({
       // `selectedResponseMode` happens to show before hydration settles.
       responseMode = normalizedSelectedResponseMode,
     ) => {
-      const submittedSkills = [...skills];
+      const clarifyReplyTo =
+        latestMessage?.kind === "assistant" &&
+        latestMessage.turnStatus === "awaiting_input" &&
+        latestMessage.clarify !== undefined
+          ? latestMessage.messageId
+          : undefined;
+      const submittedSkills =
+        clarifyReplyTo === undefined ? [...skills] : [];
+      const submittedMode =
+        clarifyReplyTo !== undefined &&
+        latestMessage?.kind === "assistant" &&
+        latestMessage.responseMode.supported
+          ? latestMessage.responseMode.mode
+          : responseMode;
       setComposerValue("");
-      setSelectedSkills([]);
+      if (clarifyReplyTo === undefined) {
+        setSelectedSkills([]);
+      }
       void submitMessage({
         text,
         skills: submittedSkills,
-        executionResponseMode: responseMode,
+        executionResponseMode: submittedMode,
+        clarifyReplyTo,
       }).then((result) => {
         if (!result.ok) {
           setComposerValue(result.keepText);
-          setSelectedSkills(submittedSkills);
+          if (clarifyReplyTo === undefined) {
+            setSelectedSkills(submittedSkills);
+          }
         }
       });
     },
-    [normalizedSelectedResponseMode, selectedSkills, submitMessage],
+    [
+      latestMessage,
+      normalizedSelectedResponseMode,
+      selectedSkills,
+      submitMessage,
+    ],
   );
 
   const handleClarifyAnswer = useCallback(
-    (text: string) => {
+    (answer: ClarifyWidgetAnswer) => {
+      if (!clarifyDraft.canSubmit) {
+        return;
+      }
       // A clarify answer continues the ORIGINAL turn's mode, not whatever
       // the next-turn selector shows now (plan §1 rule 4). The engine omits
       // `response_mode` from the wire body itself once it detects this is a
@@ -154,13 +209,30 @@ export function AiChatPage({
         tail?.kind === "assistant" && tail.responseMode.supported
           ? tail.responseMode.mode
           : "quick";
-      void submitMessage({
-        text,
-        skills: [],
+      clarifyDraft.markSending();
+      const inReplyTo = tail?.kind === "assistant" ? tail.messageId : undefined;
+      if (inReplyTo === undefined) {
+        clarifyDraft.markChecking();
+        return;
+      }
+      if (clarifySubmitInFlightRef.current === inReplyTo) {
+        return;
+      }
+      clarifySubmitInFlightRef.current = inReplyTo;
+      void submitClarifyResponse({
+        inReplyTo,
+        response: answer.response,
         executionResponseMode: parkedMode,
+      }).then((result) => {
+        if (result.ok) {
+          clarifyDraft.markAnswered();
+        } else {
+          clarifySubmitInFlightRef.current = null;
+          clarifyDraft.markChecking();
+        }
       });
     },
-    [messages, submitMessage],
+    [clarifyDraft, messages, submitClarifyResponse],
   );
 
   useEffect(() => {
@@ -284,6 +356,7 @@ export function AiChatPage({
         )}
       >
         <ChatMessages
+          clarifyDraft={clarifyDraft}
           isSubmitting={isSubmitting}
           messages={messages}
           skillLabelForName={(name) =>

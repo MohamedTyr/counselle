@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { ChatMessage } from "./ChatMessage";
+import type { ClarifyDraftController } from "../useClarifyDraft";
 import type { AssistantChatMessage, UserChatMessage } from "../model";
 
 function userMessage(
@@ -70,6 +71,29 @@ function setClipboard(value: Pick<Clipboard, "writeText"> | undefined) {
     configurable: true,
     value,
   });
+}
+
+function clarifyDraft(
+  overrides: Partial<ClarifyDraftController> = {},
+): ClarifyDraftController {
+  return {
+    draft: {
+      currentQuestionIndex: 0,
+      selectedOptionIds: [],
+      customText: "",
+      validationError: null,
+      sendState: "idle",
+    },
+    canSubmit: true,
+    setCurrentQuestionIndex: vi.fn(),
+    setSelectedOptionIds: vi.fn(),
+    setCustomText: vi.fn(),
+    setValidationError: vi.fn(),
+    markSending: vi.fn(),
+    markChecking: vi.fn(),
+    markAnswered: vi.fn(),
+    ...overrides,
+  };
 }
 
 afterEach(() => {
@@ -530,7 +554,13 @@ describe("ChatMessage", () => {
     );
 
     fireEvent.click(screen.getByText("Financial aid"));
-    expect(onClarifyAnswer).toHaveBeenCalledWith("Financial aid");
+    expect(onClarifyAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origin: "widget",
+        text: "Financial aid",
+        response: expect.objectContaining({ mode: "widget" }),
+      }),
+    );
   });
 
   test("clarify: a historical awaiting-input card is frozen and cannot answer", () => {
@@ -646,6 +676,76 @@ describe("ChatMessage", () => {
     expect(screen.getByText("One more detail.")).toBeInTheDocument();
     expect(screen.getByText("Which term?")).toBeInTheDocument();
     expect(screen.getByText(/Fall/)).toBeInTheDocument();
+  });
+
+  test("clarify: live v2 segment answers with real option ids", () => {
+    const onClarifyAnswer = vi.fn();
+    const draft = clarifyDraft({
+      draft: {
+        currentQuestionIndex: 0,
+        selectedOptionIds: ["q1_o1"],
+        customText: "",
+        validationError: null,
+        sendState: "idle",
+      },
+    });
+    render(
+      <ChatMessage
+        clarifyDraft={draft}
+        isLatestMessage
+        message={assistantMessage({
+          blocks: [],
+          turnStatus: "awaiting_input",
+          clarify: {
+            v: 2,
+            questions: [
+              {
+                id: "q1",
+                question: "Which term?",
+                selection: "single",
+                options: [
+                  { id: "q1_o1", label: "Fall" },
+                  { id: "q1_o2", label: "Spring" },
+                ],
+              },
+            ],
+          },
+          segments: [
+            {
+              type: "clarify",
+              spec: {
+                v: 2,
+                questions: [
+                  {
+                    id: "q1",
+                    question: "Which term?",
+                    selection: "single",
+                    options: [
+                      { id: "q1_o1", label: "Fall" },
+                      { id: "q1_o2", label: "Spring" },
+                    ],
+                  },
+                ],
+              },
+              response: null,
+            },
+          ],
+        })}
+        onClarifyAnswer={onClarifyAnswer}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(onClarifyAnswer).toHaveBeenCalledWith({
+      origin: "widget",
+      text: "Fall",
+      response: {
+        v: 2,
+        mode: "widget",
+        answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+      },
+    });
   });
 
   test("clarify: future nested specs render a safe textual fallback", () => {

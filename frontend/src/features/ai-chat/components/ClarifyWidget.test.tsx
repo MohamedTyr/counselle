@@ -33,7 +33,13 @@ describe("ClarifyWidget — live interaction", () => {
 
     fireEvent.click(screen.getByText("Biology"));
 
-    expect(onAnswer).toHaveBeenCalledWith("Biology");
+    expect(onAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origin: "widget",
+        text: "Biology",
+        response: expect.objectContaining({ mode: "widget" }),
+      }),
+    );
   });
 
   test("multi-select: chips toggle, then Send joins selected labels", () => {
@@ -54,7 +60,9 @@ describe("ClarifyWidget — live interaction", () => {
     expect(send).toBeEnabled();
     fireEvent.click(send);
 
-    expect(onAnswer).toHaveBeenCalledWith("Computer Science, Biology");
+    expect(onAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Computer Science, Biology" }),
+    );
   });
 
   test('"Other" opens free text; Enter submits it', () => {
@@ -73,7 +81,9 @@ describe("ClarifyWidget — live interaction", () => {
     fireEvent.change(input, { target: { value: "Astrophysics" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    expect(onAnswer).toHaveBeenCalledWith("Astrophysics");
+    expect(onAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Astrophysics" }),
+    );
   });
 
   test('"Other" free text also submits via the Send button', () => {
@@ -92,7 +102,9 @@ describe("ClarifyWidget — live interaction", () => {
     fireEvent.change(input, { target: { value: "Astrophysics" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Send" })[0]);
 
-    expect(onAnswer).toHaveBeenCalledWith("Astrophysics");
+    expect(onAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Astrophysics" }),
+    );
   });
 });
 

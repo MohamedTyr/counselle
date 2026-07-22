@@ -16,10 +16,12 @@ import {
 import { cn } from "@/lib/utils";
 import type {
   ClarifyResponseV2,
+  ClarifyQuestionV2,
   ClarifySpec,
   ClarifySpecV1,
   ClarifySpecV2,
   SourceFocus,
+  WidgetClarifyResponseV2,
 } from "@/api/chat/types";
 
 import { schoolDomainsFromBlocks } from "../citations";
@@ -32,9 +34,10 @@ import {
 } from "./AgentRunView";
 import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
 import { CitationRenderer } from "./CitationRenderer";
-import { ClarifyWidget } from "./ClarifyWidget";
+import { ClarifyWidget, type ClarifyWidgetAnswer } from "./ClarifyWidget";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
 import { VizBlock } from "./VizBlock";
+import type { ClarifyDraftController } from "../useClarifyDraft";
 import type {
   AssistantChatMessage,
   ChatMessage as ChatMessageModel,
@@ -51,7 +54,8 @@ export type ChatMessageProps = {
   onFeedback?: (rating: FeedbackRating) => void;
   onOpenSources?: (payload: MessageSourcesPayload) => void;
   onOpenCitation?: (focus: SourceFocus) => void;
-  onClarifyAnswer?: (text: string) => void;
+  onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
+  clarifyDraft?: ClarifyDraftController;
   isLatestMessage?: boolean;
   skillLabelForName?: (name: string) => string | undefined;
 };
@@ -165,11 +169,17 @@ function clarifyAnswerSummary(
 }
 
 function ClarifySegmentView({
+  draft,
+  frozen,
+  onAnswer,
   response,
   spec,
 }: {
   spec: ClarifySpec;
   response: ClarifyResponseV2 | null;
+  frozen: boolean;
+  draft?: ClarifyDraftController;
+  onAnswer?: (answer: ClarifyWidgetAnswer) => void;
 }) {
   if (isLegacyClarifySpec(spec)) {
     return null;
@@ -184,14 +194,142 @@ function ClarifySegmentView({
   }
 
   const answer = clarifyAnswerSummary(spec, response);
+  const activeIndex = Math.min(
+    draft?.draft.currentQuestionIndex ?? 0,
+    Math.max(0, spec.questions.length - 1),
+  );
+  const activeQuestion = spec.questions[activeIndex];
+  const canAnswer =
+    !frozen &&
+    response === null &&
+    draft !== undefined &&
+    onAnswer !== undefined &&
+    activeQuestion !== undefined;
+  const selected = draft?.draft.selectedOptionIds ?? [];
+  const customText = draft?.draft.customText ?? "";
+  const validationError = draft?.draft.validationError ?? null;
+  const sendState = draft?.draft.sendState ?? "idle";
+
+  const toggleOption = (question: ClarifyQuestionV2, optionId: string) => {
+    if (!canAnswer) {
+      return;
+    }
+    if (question.selection === "single") {
+      draft.setSelectedOptionIds([optionId]);
+      return;
+    }
+    draft.setSelectedOptionIds(
+      selected.includes(optionId)
+        ? selected.filter((id) => id !== optionId)
+        : [...selected, optionId],
+    );
+  };
+
+  const submitAnswer = () => {
+    if (!canAnswer) {
+      return;
+    }
+    const trimmedCustomText = customText.trim();
+    if (selected.length === 0 && trimmedCustomText.length === 0) {
+      draft.setValidationError("Choose an option or type an answer.");
+      return;
+    }
+    const optionLabels = activeQuestion.options
+      .filter((option) => selected.includes(option.id))
+      .map((option) => option.label);
+    const text = [...optionLabels, trimmedCustomText]
+      .filter((value) => value.length > 0)
+      .join(", ");
+    const responsePayload: WidgetClarifyResponseV2 = {
+      v: 2,
+      mode: "widget",
+      answers: [
+        {
+          question_id: activeQuestion.id,
+          option_ids: selected,
+          ...(trimmedCustomText.length > 0
+            ? { custom_text: trimmedCustomText }
+            : {}),
+        },
+      ],
+    };
+    onAnswer({ origin: "widget", text, response: responsePayload });
+  };
+
   return (
     <div className="not-prose my-3 rounded-lg border bg-card px-3 py-2 text-sm">
       <div className="space-y-2">
-        {spec.questions.map((question) => (
-          <div key={question.id}>
-            <p className="font-medium text-foreground">{question.question}</p>
+        {canAnswer && activeQuestion !== undefined ? (
+          <div key={activeQuestion.id}>
+            <p className="font-medium text-foreground">
+              {activeQuestion.question}
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {activeQuestion.options.map((option) => (
+                <button
+                  aria-pressed={selected.includes(option.id)}
+                  className={cn(
+                    "flex min-h-11 w-full flex-col items-start justify-center rounded-xl border px-3 py-2 text-left sm:w-auto",
+                    "hover:bg-accent",
+                    selected.includes(option.id) && "border-primary bg-accent",
+                  )}
+                  key={option.id}
+                  onClick={() => toggleOption(activeQuestion, option.id)}
+                  type="button"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {option.label}
+                  </span>
+                  {option.hint !== undefined &&
+                    option.hint !== null &&
+                    option.hint.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {option.hint}
+                      </span>
+                    )}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                aria-label="Your answer"
+                className="min-h-11 flex-1 rounded-xl border bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                maxLength={280}
+                onChange={(event) => draft.setCustomText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    submitAnswer();
+                  }
+                }}
+                placeholder="Type your own answer"
+                type="text"
+                value={customText}
+              />
+              <button
+                className="min-h-11 rounded-xl border px-3 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
+                disabled={!draft.canSubmit || sendState === "answered"}
+                onClick={submitAnswer}
+                type="button"
+              >
+                Send
+              </button>
+            </div>
+            {validationError !== null && (
+              <p className="mt-2 text-xs text-destructive">
+                {validationError}
+              </p>
+            )}
           </div>
-        ))}
+        ) : (
+          spec.questions.map((question) => (
+            <div key={question.id}>
+              <p className="font-medium text-foreground">
+                {question.question}
+              </p>
+            </div>
+          ))
+        )}
       </div>
       {answer !== null && (
         <p className="mt-2 text-muted-foreground">
@@ -229,15 +367,21 @@ function segmentKey(segment: Segment, index: number): string {
  * `write_plan` tool segments are suppressed here; the pinned `PlanChecklist`
  * above the stream renders the latest one instead. */
 function SegmentBeat({
+  clarifyDraft,
+  clarifyFrozen,
   isLiveSegment,
   segment,
   sources,
+  onClarifyAnswer,
   onOpenCitation,
   schoolDomains,
 }: {
+  clarifyDraft?: ClarifyDraftController;
+  clarifyFrozen: boolean;
   isLiveSegment: boolean;
   segment: Segment;
   sources: AssistantChatMessage["sources"];
+  onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   onOpenCitation?: (focus: SourceFocus) => void;
   schoolDomains: Map<number, string>;
 }) {
@@ -289,6 +433,9 @@ function SegmentBeat({
     case "clarify":
       return (
         <ClarifySegmentView
+          draft={clarifyDraft}
+          frozen={clarifyFrozen}
+          onAnswer={onClarifyAnswer}
           response={segment.response}
           spec={segment.spec}
         />
@@ -299,13 +446,15 @@ function SegmentBeat({
 }
 
 function AssistantBody({
+  clarifyDraft,
   message,
   onClarifyAnswer,
   onOpenCitation,
   clarifyFrozen,
 }: {
+  clarifyDraft?: ClarifyDraftController;
   message: AssistantChatMessage;
-  onClarifyAnswer?: (text: string) => void;
+  onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   onOpenCitation?: (focus: SourceFocus) => void;
   clarifyFrozen: boolean;
 }) {
@@ -336,6 +485,8 @@ function AssistantBody({
       )}
       {message.segments.map((segment, index) => (
         <SegmentBeat
+          clarifyDraft={clarifyDraft}
+          clarifyFrozen={clarifyFrozen}
           isLiveSegment={
             segment.type === "answer"
               ? index === liveAnswerIndex
@@ -344,6 +495,7 @@ function AssistantBody({
                 : hasLiveSegment && index === message.segments.length - 1
           }
           key={segmentKey(segment, index)}
+          onClarifyAnswer={onClarifyAnswer}
           onOpenCitation={onOpenCitation}
           schoolDomains={schoolDomains}
           segment={segment}
@@ -364,7 +516,7 @@ function AssistantBody({
         <ClarifyWidget
           answer={message.clarifyAnswer}
           frozen={clarifyFrozen}
-          onAnswer={(text) => onClarifyAnswer?.(text)}
+          onAnswer={(answer) => onClarifyAnswer?.(answer)}
           spec={message.clarify}
         />
       )}
@@ -380,6 +532,7 @@ function ChatMessageComponent({
   onOpenSources,
   onOpenCitation,
   onClarifyAnswer,
+  clarifyDraft,
   isLatestMessage = false,
   skillLabelForName,
 }: ChatMessageProps) {
@@ -420,6 +573,7 @@ function ChatMessageComponent({
     <Message from="assistant" id={message.messageId}>
       <MessageContent>
         <AssistantBody
+          clarifyDraft={clarifyDraft}
           clarifyFrozen={
             !(isLatestMessage && message.turnStatus === "awaiting_input")
           }

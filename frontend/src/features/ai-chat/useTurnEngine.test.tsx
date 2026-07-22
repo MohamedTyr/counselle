@@ -192,12 +192,14 @@ function renderEngine({
   transport = createTransport(),
   cancelWaitTimeoutMs,
   onSendStart,
+  onTranscriptRefreshNeeded,
 }: {
   sessionId?: string | null;
   initialMessages?: ChatMessage[];
   transport?: ChatTransport;
   cancelWaitTimeoutMs?: number;
   onSendStart?: () => void;
+  onTranscriptRefreshNeeded?: (sessionId: string) => void;
 } = {}) {
   const queryClient = createTestQueryClient();
   function Wrapper({ children }: PropsWithChildren) {
@@ -218,6 +220,7 @@ function renderEngine({
         transport,
         cancelWaitTimeoutMs,
         onSendStart,
+        onTranscriptRefreshNeeded,
       });
     },
     { wrapper: Wrapper },
@@ -922,6 +925,7 @@ describe("useTurnEngine", () => {
       await result.current.submitMessage({
         text: "Main",
         executionResponseMode: "quick",
+        clarifyReplyTo: "a1",
       });
     });
 
@@ -937,10 +941,137 @@ describe("useTurnEngine", () => {
       text: "final answer",
       turnStatus: "complete",
     });
+    expect(transport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: "Main",
+        inReplyTo: "a1",
+        responseMode: undefined,
+        sourceConfig: undefined,
+        skills: undefined,
+      }),
+    );
     const a2 = result.current.messages.at(-1);
     expect(a2?.kind === "assistant" ? a2.segments.map((segment) => segment.type) : []).toEqual([
       "answer",
     ]);
+  });
+
+  test("widget clarify response starts A2 without an optimistic user bubble", async () => {
+    const transport = createTransport({
+      sendMessage: vi.fn(() =>
+        stream([
+          meta("a2", "trigger-1"),
+          clarifyResponse("a1", "a2", "Fall"),
+          delta("final answer"),
+          done(),
+        ]),
+      ),
+    });
+    const parked: ChatMessage = {
+      ...assistant("a1"),
+      text: "",
+      blocks: [],
+      clarify: {
+        v: 2,
+        questions: [
+          {
+            id: "q1",
+            question: "Which term?",
+            selection: "single",
+            options: [
+              { id: "q1_o1", label: "Fall" },
+              { id: "q1_o2", label: "Spring" },
+            ],
+          },
+        ],
+      },
+      segments: [
+        {
+          type: "clarify",
+          spec: {
+            v: 2,
+            questions: [
+              {
+                id: "q1",
+                question: "Which term?",
+                selection: "single",
+                options: [
+                  { id: "q1_o1", label: "Fall" },
+                  { id: "q1_o2", label: "Spring" },
+                ],
+              },
+            ],
+          },
+          response: null,
+        },
+      ],
+      turnStatus: "awaiting_input",
+    };
+    const { result } = renderEngine({
+      transport,
+      initialMessages: [user("u1"), parked],
+    });
+
+    await act(async () => {
+      await result.current.submitClarifyResponse({
+        inReplyTo: "a1",
+        executionResponseMode: "quick",
+        response: {
+          v: 2,
+          mode: "widget",
+          answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+        },
+      });
+    });
+
+    expect(result.current.messages.filter((message) => message.kind === "user")).toHaveLength(1);
+    expect(result.current.messages.at(-1)).toMatchObject({
+      kind: "assistant",
+      messageId: "a2",
+      text: "final answer",
+    });
+    expect(transport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "",
+        inReplyTo: "a1",
+        clarifyResponse: {
+          v: 2,
+          mode: "widget",
+          answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+        },
+        sourceConfig: undefined,
+        skills: undefined,
+        responseMode: undefined,
+      }),
+    );
+  });
+
+  test("clarify conflict refreshes transcript instead of cancelling and retrying", async () => {
+    const onTranscriptRefreshNeeded = vi.fn();
+    const transport = createTransport({
+      sendMessage: vi.fn(() => {
+        throw new TransportError("conflict", "already answered");
+      }),
+      cancelActiveTurn: vi.fn(),
+    });
+    const { result } = renderEngine({
+      transport,
+      initialMessages: [user("u1"), assistant("a1")],
+      onTranscriptRefreshNeeded,
+    });
+
+    const sent = await act(async () =>
+      result.current.submitClarifyResponse({
+        inReplyTo: "a1",
+        executionResponseMode: "quick",
+        response: { v: 2, mode: "widget", answers: [] },
+      }),
+    );
+
+    expect(sent).toEqual({ ok: true, sessionId: "s1" });
+    expect(onTranscriptRefreshNeeded).toHaveBeenCalledWith("s1");
+    expect(transport.cancelActiveTurn).not.toHaveBeenCalled();
+    expect(result.current.turnError?.message).toContain("already answered");
   });
 
   test("submitMessage refuses a replaceMessageId that is still a temp/optimistic id", async () => {

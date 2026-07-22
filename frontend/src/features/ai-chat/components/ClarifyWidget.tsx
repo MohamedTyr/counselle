@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { ClarifySpec } from "@/api/chat/types";
+import type { ClarifySpec, WidgetClarifyResponseV2 } from "@/api/chat/types";
 import { cn } from "@/lib/utils";
 
 export type ClarifyWidgetProps = {
@@ -8,10 +8,16 @@ export type ClarifyWidgetProps = {
   /** True for a persisted transcript entry — the widget renders inert
    *  (chips disabled, no submit affordance), seeded from `answer`. */
   frozen: boolean;
-  onAnswer: (text: string) => void;
+  onAnswer: (input: ClarifyWidgetAnswer) => void;
   /** The persisted answer (frozen transcript record). null/undefined means
    *  unanswered. */
   answer?: string | null;
+};
+
+export type ClarifyWidgetAnswer = {
+  origin: "widget";
+  text: string;
+  response: WidgetClarifyResponseV2;
 };
 
 type ChipProps = {
@@ -46,13 +52,32 @@ function OptionChip({ label, hint, selected, frozen, onClick }: ChipProps) {
 
 const OTHER_MAX_LEN = 280;
 
-function OtherInput({ onAnswer }: { onAnswer: (text: string) => void }) {
+function widgetAnswer(labels: string[], customText?: string): ClarifyWidgetAnswer {
+  const text = customText ?? labels.join(", ");
+  return {
+    origin: "widget",
+    text,
+    response: {
+      v: 2,
+      mode: "widget",
+      answers: [
+        {
+          question_id: "q1",
+          option_ids: [],
+          custom_text: text,
+        },
+      ],
+    },
+  };
+}
+
+function OtherInput({ onAnswer }: { onAnswer: (input: ClarifyWidgetAnswer) => void }) {
   const [text, setText] = useState("");
 
   const send = () => {
     const trimmed = text.trim();
     if (trimmed.length > 0) {
-      onAnswer(trimmed);
+      onAnswer(widgetAnswer([], trimmed));
     }
   };
 
@@ -142,7 +167,7 @@ export function ClarifyWidget({
       return;
     }
 
-    onAnswer(label);
+    onAnswer(widgetAnswer([label]));
   };
 
   const isChipSelected = (label: string) =>
@@ -189,7 +214,7 @@ export function ClarifyWidget({
         <button
           className="mt-3 min-h-11 rounded-xl border px-4 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
           disabled={selected.length === 0}
-          onClick={() => onAnswer(selected.join(", "))}
+          onClick={() => onAnswer(widgetAnswer(selected))}
           type="button"
         >
           Send

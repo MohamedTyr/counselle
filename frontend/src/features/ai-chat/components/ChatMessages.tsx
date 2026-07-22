@@ -3,9 +3,11 @@ import { ArrowDownIcon, MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { ChatMessage } from "./ChatMessage";
+import type { ClarifyWidgetAnswer } from "./ClarifyWidget";
 import type { MessageSourcesPayload, SourceFocus } from "@/api/chat/types";
 import { sourcesPayloadFor } from "../citations";
 import type { ChatMessage as ChatMessageModel, FeedbackRating } from "../model";
+import type { ClarifyDraftController } from "../useClarifyDraft";
 import { useQuestionAnchoredScroll } from "../useQuestionAnchoredScroll";
 
 export type ChatMessagesProps = {
@@ -15,7 +17,8 @@ export type ChatMessagesProps = {
   onRegenerate?: (message: ChatMessageModel) => void;
   onFeedback?: (message: ChatMessageModel, rating: FeedbackRating) => void;
   onOpenSources?: (payload: MessageSourcesPayload) => void;
-  onClarifyAnswer?: (text: string) => void;
+  onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
+  clarifyDraft?: ClarifyDraftController;
   skillLabelForName?: (name: string) => string | undefined;
 };
 
@@ -34,6 +37,7 @@ export function ChatMessages({
   onFeedback,
   onOpenSources,
   onClarifyAnswer,
+  clarifyDraft,
   skillLabelForName,
 }: ChatMessagesProps) {
   const {
@@ -87,6 +91,9 @@ export function ChatMessages({
               }
               key={message.messageId}
               isLatestMessage={index === latestMessageIndex}
+              clarifyDraft={
+                index === latestMessageIndex ? clarifyDraft : undefined
+              }
               message={message}
               onClarifyAnswer={onClarifyAnswer}
               onFeedback={

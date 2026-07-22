@@ -349,21 +349,37 @@ export const chatTransport: ChatTransport = {
     signal,
     replaceMessageId,
     responseMode,
+    inReplyTo,
+    clarifyResponse,
   }: SendMessageInput) {
     clearStoredCursor(sessionId);
+    const isClarificationAnswer =
+      inReplyTo !== undefined || clarifyResponse !== undefined;
+    const body = isClarificationAnswer
+      ? {
+          ...(text.trim().length > 0 ? { text: text.trim() } : {}),
+          ...(inReplyTo !== undefined ? { in_reply_to: inReplyTo } : {}),
+          ...(clarifyResponse !== undefined
+            ? { clarify_response: clarifyResponse }
+            : {}),
+        }
+      : {
+          text: text.trim(),
+          source_config:
+            sourceConfig === undefined
+              ? undefined
+              : toWireSourceConfig(sourceConfig),
+          ...(skills !== undefined ? { skills } : {}),
+          ...(replaceMessageId !== undefined
+            ? { replace_message_id: replaceMessageId }
+            : {}),
+          ...(responseMode !== undefined ? { response_mode: responseMode } : {}),
+        };
     const response = await streamFetch(`${sessionPath(sessionId)}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal,
-      body: JSON.stringify({
-        text: text.trim(),
-        source_config: toWireSourceConfig(sourceConfig),
-        ...(skills !== undefined ? { skills } : {}),
-        ...(replaceMessageId !== undefined
-          ? { replace_message_id: replaceMessageId }
-          : {}),
-        ...(responseMode !== undefined ? { response_mode: responseMode } : {}),
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

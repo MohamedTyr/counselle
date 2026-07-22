@@ -115,6 +115,27 @@ function clarify(): ProtocolEvent {
   };
 }
 
+function clarifyV2(): ProtocolEvent {
+  return {
+    v: 1,
+    type: "clarify",
+    data: {
+      v: 2,
+      questions: [
+        {
+          id: "q1",
+          question: "Which path interests you?",
+          selection: "single",
+          options: [
+            { id: "q1_o1", label: "Financial aid", hint: "Grants & loans" },
+            { id: "q1_o2", label: "Scholarships", hint: "Merit-based" },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 async function* replay(
   events: ProtocolEvent[],
 ): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
@@ -548,7 +569,115 @@ describe("AiChatPage", () => {
       await screen.findByText("Great, let's talk aid."),
     ).toBeInTheDocument();
     expect(fakeTransport.sendMessage).toHaveBeenLastCalledWith(
-      expect.objectContaining({ text: "Financial aid" }),
+      expect.objectContaining({
+        text: "",
+        inReplyTo: "assistant-1",
+        clarifyResponse: expect.objectContaining({ mode: "widget" }),
+        sourceConfig: undefined,
+        skills: undefined,
+      }),
+    );
+  });
+
+  test("clarify: composer reply sends in_reply_to and omits turn settings", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage
+      .mockReturnValueOnce(replay([meta(), clarifyV2(), done("awaiting_input")]))
+      .mockReturnValueOnce(
+        replay([
+          meta({ messageId: "assistant-2" }),
+          delta("Great, let's talk aid."),
+          done(),
+        ]),
+      );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
+      target: { value: "Help me choose" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), {
+      key: "Enter",
+    });
+
+    expect(
+      await screen.findByText("Which path interests you?"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Message Counselle" }),
+      {
+        target: { value: "I care most about grants" },
+      },
+    );
+    fireEvent.keyDown(
+      screen.getByRole("combobox", { name: "Message Counselle" }),
+      {
+        key: "Enter",
+      },
+    );
+
+    expect(
+      await screen.findByText("Great, let's talk aid."),
+    ).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: "I care most about grants",
+        inReplyTo: "assistant-1",
+        clarifyResponse: undefined,
+        sourceConfig: undefined,
+        skills: undefined,
+        responseMode: undefined,
+      }),
+    );
+  });
+
+  test("clarify: current v2 card submits a structured widget answer", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage
+      .mockReturnValueOnce(replay([meta(), clarifyV2(), done("awaiting_input")]))
+      .mockReturnValueOnce(
+        replay([
+          meta({ messageId: "assistant-2" }),
+          delta("Great, let's talk aid."),
+          done(),
+        ]),
+      );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
+      target: { value: "Help me choose" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), {
+      key: "Enter",
+    });
+
+    expect(
+      await screen.findByText("Which path interests you?"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Financial aid"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Send" })[0]!);
+
+    expect(
+      await screen.findByText("Great, let's talk aid."),
+    ).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: "",
+        inReplyTo: "assistant-1",
+        clarifyResponse: {
+          v: 2,
+          mode: "widget",
+          answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+        },
+        sourceConfig: undefined,
+        skills: undefined,
+        responseMode: undefined,
+      }),
     );
   });
 
