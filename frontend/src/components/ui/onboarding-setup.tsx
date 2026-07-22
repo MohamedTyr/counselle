@@ -100,6 +100,17 @@ export function OnboardingSetup({
   // submission) until the `isSaving` prop actually flips.
   const submitDispatchedRef = useRef(false);
 
+  // Mirrors the latest `isSaving` prop unconditionally on every render (not
+  // gated behind a dependency-array effect below), so it is always accurate
+  // even on a render where `isSaving` didn't change value. `guardedOnContinue`
+  // needs that: the caller (`OnboardingRoute.handleContinue`) can validate
+  // the draft and return *before* ever flipping `isSaving` to `true` (e.g.
+  // client-side validation failure). In that case the `[isSaving]` effect
+  // below never reruns — the value never changed — so it alone can't be
+  // trusted to release the guard.
+  const isSavingRef = useRef(isSaving);
+  isSavingRef.current = isSaving;
+
   useEffect(() => {
     submitDispatchedRef.current = isSaving;
   }, [isSaving]);
@@ -108,6 +119,24 @@ export function OnboardingSetup({
     if (submitDispatchedRef.current) return;
     submitDispatchedRef.current = true;
     onContinue();
+    // If `onContinue` returned without ever entering a saving state (e.g.
+    // a validation failure short-circuits before the caller sets
+    // `isSaving`), release the guard so the next Continue click (with
+    // corrected input) isn't silently swallowed. `requestAnimationFrame`
+    // (not `queueMicrotask`) is required here: `isSavingRef.current` is
+    // only guaranteed current once React has committed the render(s)
+    // triggered synchronously by this click and flushed their passive
+    // effects, and passive effects are scheduled on a macrotask, not a
+    // microtask — a `queueMicrotask` callback can run before that flush
+    // completes. `requestAnimationFrame` fires after the browser's
+    // per-frame work (which includes that effect flush), matching the
+    // same assumption `OnboardingRoute.focusField` already relies on
+    // elsewhere in this feature.
+    requestAnimationFrame(() => {
+      if (!isSavingRef.current) {
+        submitDispatchedRef.current = false;
+      }
+    });
   }
 
   // Derive forward/back motion direction from the previous render's step

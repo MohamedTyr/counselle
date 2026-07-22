@@ -142,6 +142,45 @@ describe("OnboardingRoute", () => {
     expect(screen.getByRole("heading", { name: "Your academic snapshot" })).toBeInTheDocument();
   });
 
+  it("lets a second Continue click through after a validation failure is fixed (regression: guardedOnContinue latch)", async () => {
+    // Regression test for a bug where `OnboardingSetup`'s double-submit guard
+    // (`submitDispatchedRef`) latched permanently shut whenever `onContinue`
+    // returned without the caller ever flipping `isSaving` to `true` — which
+    // is exactly what happens on a client-side validation failure
+    // (`handleContinue` sets a field error and returns before `setSaveStatus
+    // ("saving")`). Without the fix, the second click below (with the field
+    // corrected) would silently do nothing and the heading would never
+    // change.
+    //
+    // Clear the session draft first: this suite reuses the same fixture
+    // user id across tests within this file, and an earlier "academics"
+    // step test in this file leaves a saved-but-incomplete session draft
+    // (plan §18) that would otherwise hydrate here instead of a clean step.
+    window.sessionStorage.clear();
+    const user = userEvent.setup();
+    renderApp("/onboarding", {
+      fetchHandler: createOnboardingRouteFetch({
+        progress: progressFixture({ current_step: "academics" }),
+      }),
+    });
+
+    await user.click(await screen.findByRole("radio", { name: "Weighted" }));
+    await user.type(await screen.findByLabelText("GPA"), "3.8");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByText("Add the scale so Counselle reads this GPA correctly."),
+    ).toBeInTheDocument();
+
+    // Fix the field that failed validation, then click Continue again.
+    await user.type(screen.getByLabelText("Out of"), "4.0");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "What are you drawn to?" }),
+    ).toBeInTheDocument();
+  });
+
   it("shows saved conditional values on hydration (visa status opens automatically)", async () => {
     const user = userEvent.setup();
     renderApp("/onboarding", {
