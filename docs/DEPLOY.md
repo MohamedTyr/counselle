@@ -40,7 +40,9 @@ A first deploy easily forgets the agent-core half. The complete set:
 **Models / GCP**
 - `COUNSELLE_VERTEX_API_KEY` (preferred) **or** `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON) — use the API key, not an ADC file, where possible
 - `COUNSELLE_GOOGLE_CLOUD_PROJECT`, `COUNSELLE_GOOGLE_CLOUD_LOCATION`
-- `COUNSELLE_MODEL_COUNSELOR`, `_CHEAP`, `_CLARIFIER`, `_TITLE`, and `COUNSELLE_MODEL_PRICES`
+- `COUNSELLE_MODEL_COUNSELOR` (Quick), `COUNSELLE_MODEL_COUNSELOR_THINK` (Think), `_CHEAP`, `_CLARIFIER`, `_TITLE`, display-name/preview fields, and `COUNSELLE_MODEL_PRICES`
+- `COUNSELLE_RESPONSE_MODE_THINK_ENABLED` — leave false until Think's target environment has verified Vertex/Express Mode quota, live smokes, and accepted quality/cost; disabled Think is omitted from `/v1/config` and never silently falls back to Quick
+- `COUNSELLE_THINKING_STREAM` — native provider thought-summary gate for Think, not the Quick/Think selector
 
 **Sources**
 - `COUNSELLE_TAVILY_API_KEY` (required when any external source is enabled)

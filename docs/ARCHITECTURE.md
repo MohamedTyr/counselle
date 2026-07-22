@@ -124,7 +124,7 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 | **Skills** | **SKILL.md** open standard | Portable workflow layer, loaded on demand. | 0010 |
 | **Session persistence** | **LangGraph Postgres checkpointer** in `counselle.*` | Sessions survive restarts from day one; the platform's chats are the same rows + a user FK. | 0019 |
 | **Config** | **pydantic-settings** + versioned data assets | One typed settings surface, fail-fast at startup. | 0018 |
-| **Models** | Default **Vertex AI**: `gemini-3.5-flash` (synthesis), `gemini-2.5-flash` (cheap tier — also the clarifier and auto-title models); any agent swappable to Anthropic/others via config. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011 |
+| **Models** | Default **Vertex AI**: counselor **Quick** uses `gemini-3.5-flash`; counselor **Think** uses `gemini-3.1-pro-preview` behind the advertised response-mode capability list; `gemini-2.5-flash` remains the cheap tier for clarifier and auto-title work. Other agents remain swappable through PydanticAI's per-agent `model=` config. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011, 0034 |
 | **Language** | Python | Matches the pipeline; asyncpg expertise carries over. | — |
 
 ---
@@ -423,7 +423,7 @@ Students can explicitly invoke only skills that opt into the public SKILL.md met
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` — `model_counselor`, `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); `thinking_stream` (bool — gates native Gemini thought-summary emission into `thinking` events, §27.2; **default on**; `thinking_summaries` remains a compatibility alias only; see `config/settings.py`); `agent_max_model_requests`; provider credentials. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
+| Models | per-agent `model=` — `model_counselor` (Quick), `model_counselor_think` (Think), `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); counselor display/preview labels for `/v1/config`; `response_mode_think_enabled` (honest-disable switch: omit Think, never remap it); `thinking_stream` (bool — gates native Gemini thought-summary requests/display for Think, §27.2; **default on**; `thinking_summaries` remains a compatibility alias only; see `config/settings.py`); `agent_max_model_requests`; provider credentials; per-model prices including Pro's >200K tier. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
 | Database | CDS Library reader-login DSN, application DSN, statement/row/byte limits, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Sources | default source-config (web/Reddit/.edu on/off), Tavily key, per-tool result limits |
@@ -476,6 +476,11 @@ Cheap on day one, brutal to retrofit:
 - **The eval set (`evals/`)** scores routing, coverage/edition/composition/denominator honesty, citations, clarify/narration quality, and workspace behavior; live roles derive from the data picture.
 - **Runtime schema validation and shared protocol fixtures enforce the contract** — typed specs (envelope, render, clarify, events) validate at runtime via Pydantic, while the small checked-in backend/frontend fixtures catch Python↔TypeScript drift without a separate contract-test service.
 - **Three pytest marker tiers** (`pyproject.toml`): `live_db`, `live_search`, and `live_llm`. Routine runs exclude all three.
+- **Response-mode verification:** routine tests pin server-side mode routing,
+  sticky-vs-execution semantics, usage/cost attribution, and frontend
+  normalization. Live close-out runs the same school prompts in Quick and Think
+  and compares citation honesty, tool behavior, latency, and cost before Think
+  is enabled broadly.
 - **Frontend tests** are covered in §34.
 - The layering (§4) is what keeps this strategy cheap: the honesty core needs no LLM, no DB, no network to test.
 
@@ -651,6 +656,12 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
 
 The live gate is final-answer mode: `delta` starts once the answer phase begins. Native thought output is controlled by `thinking_stream` (default on); `thinking_summaries` remains a compatibility alias only. The timeline keeps the visible narration lines in the turn's step record (§27.1), so revisited chats preserve the run surface under the expanded receipt. See `config/settings.py`.
 
+With counselor response modes (ADR 0034), `thinking_stream` is deliberately not
+the mode selector. Quick always uses the Quick model with minimal Gemini
+thinking and no requested provider-thought summaries. Think uses the Think
+model with high Gemini thinking; `thinking_stream` only decides whether native
+provider thought summaries are requested and emitted as `thinking` events.
+
 ### 27.3 The turn registry (one module owns the turn lifecycle)
 
 **The load-bearing structural change in the backend delta.** Today the turn *is* the request-handler coroutine: `api/routes/sessions.py` runs `run_turn()` inside the SSE response generator, and the single-flight guard is a bare `set` on `app.state`. In that shape, a client disconnect (an F5!) cancels the coroutine and **kills the turn** — refresh-proof streams (PRD story 39) are impossible — and cancel/reattach would be different routes with no shared object to act on.
@@ -694,7 +705,7 @@ The transcript read (`GET /v1/sessions/{id}`) returns user/assistant text pairs 
 | `POST /v1/sessions/{id}/messages/{message_id}/feedback` | Thumbs up/down — §30 |
 | `POST /v1/auth/*` | fastapi-users routers (register, login, logout, forgot/reset, Google OAuth) — §28 |
 | `GET/PATCH/DELETE /v1/me` | Account read/update/delete; `DELETE /v1/me/chats` for delete-all — §28 |
-| `GET /v1/config` | Runtime client config: starter chips, greeting, default source-config — §32 |
+| `GET /v1/config` | Runtime client config: starter chips, greeting, default source-config, response-mode capability list — §32 |
 
 All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `POST .../messages` now require auth and stamp `user_id`.
 
@@ -703,7 +714,7 @@ All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `P
 Five design questions resolved here as architecture (ADR 0022 carries the decision trail). The field-level FE↔BE contract that realizes these on the wire is **the wire contract** (`specs/mvp2/plan/wire-contract.md`, archived with the ship plan).
 
 - **Message identity (G1).** Every turn mints two UUIDs at start — `user_message_id` and `message_id` (the assistant message). Both ride `meta.data` (additive within v1 — the live stream can address the in-flight message for feedback/edit) and persist in the turn record. Feedback keys on the globally-unique assistant `message_id`. A clarify resume **reuses the parked turn's `message_id`** — one assistant message, one id, however many park/resume cycles produced it.
-- **The turn record (G2 — supersedes §27.5's step record).** The run is the message: per assistant turn, persisted in graph state (`app/records.py`): the G1 ids; ordered `parts[]` — **materialized** segments in stream order (`{"type":"text","text":…}` and `{"type":"viz","spec":…}`; adjacent deltas merged, verbatim text, **never offsets into `messages`**) so the record is self-contained and the transcript read never slices prose out of the message history; `segments[]` — the whole-run replay surface used by transcript replay and copy/export (`narration`, `thinking`, `delta`, `viz`, `step`, `user` beats in stream order); steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and a separate `messages_offset` field — the index of this turn's user `ModelRequest` in `messages`, the graph-state slice point for history rewrite (server-internal, never on the wire). One prose invariant holds everywhere: when a snapshot exists, transcript reads are snapshot-first partial history; the prose invariant applies only to the uncommitted tail and record surface, so every terminal path (complete, cancelled, error, tool-budget) leaves the record's `parts[]` and the live `messages` tail aligned with the streamed prose. The transcript read returns the consumer-contract wire shape; turns predating the full-stack app have no record and render prose-only.
+- **The turn record (G2 — supersedes §27.5's step record).** The run is the message: per assistant turn, persisted in graph state (`app/records.py`): the G1 ids; the immutable `response_mode` and exact resolved `model`; ordered `parts[]` — **materialized** segments in stream order (`{"type":"text","text":…}` and `{"type":"viz","spec":…}`; adjacent deltas merged, verbatim text, **never offsets into `messages`**) so the record is self-contained and the transcript read never slices prose out of the message history; `segments[]` — the whole-run replay surface used by transcript replay and copy/export (`narration`, `thinking`, `delta`, `viz`, `step`, `user` beats in stream order); steps + receipts; thinking lines; the one-line receipt; the sources payload; usage; terminal status (plus the error payload when status is `error`); the clarify record (spec + answer/unanswered); timestamps; and a separate `messages_offset` field — the index of this turn's user `ModelRequest` in `messages`, the graph-state slice point for history rewrite (server-internal, never on the wire). One prose invariant holds everywhere: when a snapshot exists, transcript reads are snapshot-first partial history; the prose invariant applies only to the uncommitted tail and record surface, so every terminal path (complete, cancelled, error, tool-budget) leaves the record's `parts[]` and the live `messages` tail aligned with the streamed prose. The transcript read returns the consumer-contract wire shape; turns predating the full-stack app have no record and render prose-only.
 - **Whole-run copy/export.** Clipboard/share actions should use the ordered run record, not final prose alone. The run is the message, so the assistant-side copy target is the whole run.
 - **Edit & regenerate = history rewrite (G3).** `POST /v1/sessions/{id}/messages` gains optional `replace_message_id` (a prior `user_message_id`): with the single-flight lock held and no active turn, one `aupdate_state` rewrite — messages sliced at the target turn's `messages_offset`, turn records truncated, the source registry restored from the last surviving record's cumulative snapshot, any pending interrupt cleared (per G4) — then the new text runs as a normal turn. **Regenerate = edit of the last user message with the same text** — one mechanism. Turns without a `user_message_id` **cannot be edit targets** (`422`; the FE hides Edit on id-less entries) — the rewrite never slices into record-less history; synthesized clarify-answer entries are likewise refused (`422`, by an explicit synthesized flag, not id-absence).
 - **The clarify-park lifecycle (G4).** `interrupt()` ends the turn — `done(awaiting_input)`, the task completes, the lock releases; **no parked task exists**, so the answering POST is never 409'd and cancel-on-parked is a no-op + **unpark** (clear the interrupt; freeze the clarify as *unanswered*). A plain next message remains the answer. The answered case persists: the answer rides `Command(resume=text)` and never enters `messages`, so the resumed turn's record stores it alongside the spec, and the transcript read synthesizes the student's answer bubble from it — a first-class, feedback-anchorable entry carrying the resume's `user_message_id` (but not an edit target, per G3). Writing the parked turn record via `aupdate_state` while the interrupt is pending works, and `Command(resume)` survives it — but the write clears `tasks[*].interrupts`, so **parked-detection reads the turn record itself** (last record `status == "awaiting_input"`), never the interrupts; **unpark = `aupdate_state(..., as_node="agent")`** (clears the interrupt and `next`; the next plain message runs a complete fresh turn). Resume-replay: LangGraph re-executes the node — pre-clarify tools re-run and re-stream as fresh steps in the answering turn; shown as-is (the work *is* re-done), and the resumed run's record **replaces** the parked record, same `message_id` (ADR 0022's consequences).
@@ -777,6 +788,15 @@ and turn reduction.
 The first rebuilt module is the workspace shell: app bootstrap, provider stack,
 router, frame, sidebar primitive, and product sidebar composition. Feature pages
 and the backend client seam are imported after that shell is verified.
+
+The active chat composer has one shared response-mode selector beside Sources
+(ADR 0034). The selected mode is a next-turn preference; when a turn starts, the
+execution mode is snapshotted and then treated as immutable for that run.
+Clarify answers, retry, regenerate, steer, reload, and session switching preserve
+that distinction: UI stickiness can change for the next turn, but it never
+rewrites the historical `response_mode`/`model` attached to an assistant entry.
+The browser renders only `/v1/config.response_modes`, so a disabled Think mode
+cannot be selected without a fresh server advertisement.
 
 ### Workspace module
 
@@ -904,13 +924,19 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | Auth | `jwt_secret` (required, ≥32 bytes) + `jwt_lifetime_seconds`, `cookie_name`/`cookie_secure`, `google_oauth_client_id`/`_secret`, `oauth_state_secret` (falls back to the JWT secret), `oauth_redirect_url`, `password_min_length`. *(Reset-token TTL is a fastapi-users class default, not a Settings knob.)* |
 | Email | `email_provider` (`Literal["console"]` today; `smtp`/`resend` stubbed), `email_from` |
 | Rate limit | `turns_per_hour`, `turns_per_day` (per-user); `auth_attempts_per_window`, `auth_window_seconds` (per-IP, on login + forgot-password) |
-| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, `thinking_stream` (default on; `thinking_summaries` compatibility alias), `thinking_threshold_chars` |
+| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, response-mode display/capability knobs, `thinking_stream` (default on; `thinking_summaries` compatibility alias), `thinking_threshold_chars` |
 | Streaming | `agent_stream_buffer_size` (resume ring buffer), `stream_buffer_bytes` (process-wide buffer byte budget), `persist_partial_timeout_s`, `reattach_enabled`, `agent_turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
 | Frontend | static bundle dir, serve on/off — planned per §33; in dev `frontend/` runs on the Vite dev server proxying `/v1` to the API |
 
 **Data assets added (`config/assets/`):** `starter_prompts.yaml` (the home-screen chips, one per signature capability), `greeting_templates.yaml` (keyed by `admission_season` phase — the season-aware greeting reuses Part I, §16's machinery), `step_labels.yaml` (§27.1), the title prompt, email templates.
 
 **`GET /v1/config`** serves the client-relevant assets at runtime (starter chips, greeting for today's season, default source-config) — editorial changes ship without a frontend rebuild, and the greeting derives from the same season function the agent uses (one mechanism, never two).
+
+It also serves the response-mode capability list: `default_response_mode`
+(`quick`) and `response_modes[]` with presentation-safe ids/model display
+names. The frontend renders only this list. If `response_mode_think_enabled` is
+false, Think is omitted and stale client-side Think choices normalize to Quick
+before the next send.
 
 ---
 
@@ -937,7 +963,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 - **Shared protocol fixtures are the contract test:** the backend's protocol tests export their emitted event payloads (including a full turn with steps, viz, clarify, and the transcript with step records) as JSON fixture files; the frontend's turn-reducer tests consume the same files. Python↔TypeScript drift is caught by a failing fixture without a separate cross-service contract-test harness.
 - **Frontend — the honesty surfaces are the test surface** (Vitest + Testing Library; the turn reducer tested headlessly against the shared fixtures, components against fixture render specs): "not available" renders the designed muted state, never an empty cell; tier chips always match envelope tier; comparison table never winner-highlights; unknown card type → titled, contained “requires a newer client” fallback; the clarify widget freezes to a record after answering; citation popover content matches the envelope.
 - **One Playwright smoke** (the only E2E): signup → ask → stream completes with timeline → refresh mid-answer lands on a sane state → transcript intact. Nothing more — no visual-regression infra, no cross-browser matrix.
-- **The eval set re-baseline:** the `thinking`-rerouting prompt delta (§27.2) shifted the eval baseline by design, so the close-out must re-run the routine subset once and compare like-with-like, per-criterion — not headline accuracy. Thumbs feedback feeds the regression-question workflow (§30).
+- **The eval set re-baseline:** the `thinking`-rerouting prompt delta (§27.2) shifted the eval baseline by design, so the close-out must re-run the routine subset once and compare like-with-like, per-criterion — not headline accuracy. Response-mode rollout adds a two-mode eval run over identical cases: compare quality, citation honesty, latency, tool behavior, and cost before enabling Think beyond verified environments. Thumbs feedback feeds the regression-question workflow (§30).
 
 ---
 
@@ -957,6 +983,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | `step`/`thinking` leak internals or fabricate | Labels are asset-driven; receipts expose only safe structural counts/names/domain ids; thinking narrates intent, never facts-first. |
 | fastapi-users maintenance risk | Surface used is small (routers + dependency); standard FastAPI underneath; replaceable at the router layer |
 | `users.settings jsonb` grows into a junk drawer | It holds exactly theme + source preset; anything more triggers a real column/table decision |
+| Think preview/quota/cost changes underneath us | `response_mode_think_enabled` removes Think from advertised capabilities; explicit Think requests fail before claim/model call; pricing/lifecycle docs are rechecked before rollout. |
 
 **Open questions — resolved (kept as the decision trail):**
 
@@ -968,6 +995,9 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 **Still open:**
 
 - `thinking` density — the model's own "Narrate As You Work" one-liner per round is the dead-air mitigation that ships (`thinking_stream` is on by default; `thinking_summaries` is compatibility-only). If dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
+- Think rollout — live smokes and two-mode eval comparison require Vertex/Tavily
+  credentials plus owner approval of quality/cost. Until then Quick remains the
+  default and Think can be disabled honestly with `response_mode_think_enabled`.
 - Virtualization library — clone theirs vs a lighter modern one; decide when the long-chat surface needs it.
 
 ---
@@ -1144,4 +1174,4 @@ against the other's already-applied change instead of clobbering it.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034), `docs/research/` (stack survey). Keep this current as decisions change.*

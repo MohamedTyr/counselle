@@ -19,6 +19,7 @@ Envelope (every event, both sides agree today): `{ v: 1, type: <string>, data: <
 | `model` | `string` | required | same | same | EXISTING |
 | `message_id` | `string` (UUID) | required (MVP2) | `ev_meta` gains it — **B1a/B1b** (G1: the assistant message id, minted at turn start; a clarify resume re-emits the parked turn's id) | B5a ChatContext reconciles optimistic temp id → this | **NEW** — B2 protocol.ts edit |
 | `user_message_id` | `string` (UUID) | required (MVP2) | same (G1) | B5a ChatContext: canonical id of the just-sent user bubble; edit addressing | **NEW** — B2 protocol.ts edit |
+| `response_mode` | `'quick' \| 'think'` | optional additive; required for current turns | `ev_meta` receives the server-resolved execution mode (ADR 0034) | FE snapshots immutable execution mode; old clients ignore it | **NEW** — quick/think delta |
 
 ### 1.2 `narration`
 
@@ -81,17 +82,35 @@ Consumers: `turn-reducer.ts mergeStep` (merge by `step_id`), `components/timelin
 
 ### 1.12 `error`
 
-`data = { message: string, trace_id: string }`. Terminal. EXISTING both sides.
+`data = { message: string, trace_id: string, code?: string }`. Terminal. `code`
+is additive; `model_unavailable` is reserved for provider-capacity/not-found
+failures where mode-aware recovery is safe. EXISTING clients keep using
+`message`.
 
 ### 1.13 `POST /v1/sessions/{id}/steer`
 
 Request body: `{ text: string }` (same auth + ownership rules as `POST /v1/sessions/{id}/messages`). Active steerable turn → `202 { status: "queued", user_message_id }` and a `user_message` event to all attached consumers; idle/no steerable run → `409 { status: "idle" }`. The emitted `user_message` is an immediate ack (`injected:false`) that may later be upgraded/replayed as `true` with the same id; if the run ends first, the leftover `false` is client-owned for the next normal turn and is not persisted in settled record segments.
 
+### 1.14 Response-mode request delta
+
+The quick/think response-mode work is additive within protocol v1 (ADR 0034).
+
+- `POST /v1/sessions` accepts optional `{ response_mode?: 'quick'|'think' }`
+  and returns `{ session_id, source_config, response_mode }`. Omitted defaults
+  to `quick`; disabled Think returns a user-safe error before any row is
+  created.
+- `POST /v1/sessions/{id}/messages` accepts optional
+  `{ response_mode?: 'quick'|'think' }` for normal turns. Omitted inherits the
+  session's sticky mode; clarification answers inherit the parked turn's
+  historical mode; regenerate preserves the target turn's execution mode.
+- Clients never send model ids, thinking levels, or provider thought flags.
+  The server owns mode-to-model mapping and persists the exact model used.
+
 ---
 
 ## 2. Transcript wire shape — `GET /v1/sessions/{id}`
 
-Response envelope (existing route, B1b rewrites `_extract_transcript`): `{ session_id: string, title: string|null, created_at: string|null, source_config: object|null (backend wire shape, §4), transcript: TranscriptEntry[] }`. B4 adds the per-send `source_config` upsert so this field is the dropdown seed.
+Response envelope (existing route, B1b rewrites `_extract_transcript`): `{ session_id: string, title: string|null, created_at: string|null, source_config: object|null (backend wire shape, §4), response_mode: 'quick'|'think' (sticky next-turn preference), transcript: TranscriptEntry[] }`. B4 adds the per-send `source_config` upsert so this field is the dropdown seed. The quick/think delta adds `response_mode` for the chat's sticky next-turn preference; malformed/unknown historical values degrade to Quick in current clients.
 
 ### 2.1 User entry
 
@@ -116,8 +135,10 @@ Response envelope (existing route, B1b rewrites `_extract_transcript`): `{ sessi
 | `step_record` | `{ steps: StepData[], narration?: string[], thinking: string[], receipt: string }` | optional (absent pre-MVP2) | declared (`StepRecord`) | no |
 | `sources` | `SourceEntry[]` | optional — the **cumulative** registry snapshot at that turn's end (§5) | declared | no |
 | `usage` | `UsageData` | optional | declared | no |
+| `response_mode` | `'quick' \| 'think' \| string` | optional for legacy; current entries include it | **added after B5** | quick/think delta: immutable historical execution mode; unknown historical modes render safely and cannot be silently regenerated as Quick |
+| `model` | `string` | optional for legacy; current entries include it | **added after B5** | quick/think delta: exact resolved model setting used for this assistant turn |
 | `status` | `'complete' \| 'awaiting_input' \| 'cancelled' \| 'error'` | required on MVP2 entries; optional in the type (pre-MVP2 entries omit → FE defaults `'complete'`) | declared as `DoneStatus \| 'error'` — exact same literal set | no |
-| `error` | `{ message: string, trace_id: string }` | optional — present iff `status === 'error'` (the ErrorData the student saw live, trace_id included) | declared | no |
+| `error` | `{ message: string, trace_id: string, code?: string }` | optional — present iff `status === 'error'` (the ErrorData the student saw live, trace_id included; `model_unavailable` can persist here too) | declared | quick/think delta adds optional `code` |
 | `clarify` | `{ spec: ClarifySpec, answer: string \| null }` | optional — present on any turn that asked; `answer: null` = unanswered/unparked-frozen; non-null = the resume text (the same string the synthesized user bubble carries) | declared as **`clarify?: ClarifySpec`** | **yes — B2: `clarify?: { spec: ClarifySpec; answer: string \| null };`** (breaking for the mock fixtures — they regenerate in B5 from the golden JSON) |
 | `feedback` | `{ rating: 'up' \| 'down' }` | optional — the **caller's** stored rating, joined by B4's transcript read | **missing** | **yes — B2: `feedback?: { rating: 'up' \| 'down' };`** (FE maps to `thumbsUp`/`thumbsDown` at the ChatContext projection, mirroring the existing `feedbackOf` seam) |
 
@@ -129,10 +150,10 @@ Response envelope (existing route, B1b rewrites `_extract_transcript`): `{ sessi
 
 ## 3. `/v1/config` shape
 
-What the FE actually consumes today (all from `api/mock/fixtures/config.ts` `APP_CONFIG`):
-- `Landing.tsx`: `greeting` (string), `season_note` (string; conditionally rendered — falsy hides it)
-- `ConversationStarters.tsx`: `conversation_starters` (`readonly string[]`)
-- `Footer.tsx`: `footer` (string, `'|'`-split into segments) — **stays an FE constant; NOT served**
+What the shipped FE consumes today comes from `frontend/src/api/chat/config.ts`
+(`resolveComposerConfig`) and the composer/session routes. The footer remains an
+FE constant; `/v1/config` serves only runtime client capabilities and editorial
+copy.
 
 **Pinned response shape** (`GET /v1/config`, authed, B4):
 
@@ -142,12 +163,30 @@ type AppConfigResponse = {
   season_note: string | null;              // null/'' → Landing hides the line
   conversation_starters: string[];         // starter_prompts.yaml
   default_source_config: SourceConfigWire; // backend names — §4; the user's preset falling back to Settings defaults
+  skills: SkillCatalogEntry[];             // public user-invokable skills
+  max_selected_skills: number;             // 0 disables the skill picker
+  current_admissions_cycle_year: number;   // shared date context
+  default_response_mode: 'quick';          // server default, always advertised
+  response_modes: ResponseModeOption[];    // server-owned mode capability list
+};
+
+type SkillCatalogEntry = {
+  name: string;
+  display_name: string;
+  description: string;
+};
+
+type ResponseModeOption = {
+  id: 'quick' | 'think';
+  model: string;
+  model_display_name: string;
+  preview: boolean;
 };
 ```
 
 B5c consumes it async (the three vendored components rewire from the import-time constant + loading state); `default_source_config` runs through the §4 mapper before seeding `sourceStore` defaults.
 
-`thinking_stream` is not part of `/v1/config`; it is a server-side runtime setting that only controls whether native Gemini thought summaries are emitted.
+`thinking_stream` is not part of `/v1/config`; it is a server-side runtime setting that only controls whether native Gemini thought summaries are requested/emitted for Think. Disabled modes are omitted from `response_modes`; clients render only this list.
 
 ---
 
