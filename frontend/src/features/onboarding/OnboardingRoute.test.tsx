@@ -189,6 +189,34 @@ describe("OnboardingRoute", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the real completion view after Fit succeeds, with no auto model call", async () => {
+    const user = userEvent.setup();
+    const requests: string[] = [];
+    const baseFetch = createOnboardingRouteFetch({
+      progress: progressFixture({ current_step: "fit" }),
+      profile: { interests: { intended_majors: ["biology"] } },
+    });
+    renderApp("/onboarding", {
+      fetchHandler: (input, init) => {
+        requests.push(String(input));
+        return baseFetch(input, init);
+      },
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Finish setup" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Counselle has the essentials" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Direction")).toBeInTheDocument();
+    expect(screen.getByText("biology")).toBeInTheDocument();
+
+    // Reaching the completion view itself never talks to a chat/session
+    // endpoint — only Profile and onboarding-progress calls happened.
+    expect(requests.some((url) => url.includes("/v1/sessions"))).toBe(false);
+    expect(requests.some((url) => url.includes("/v1/config"))).toBe(false);
+  });
+
   it("preserves entered state when navigating Back", async () => {
     const user = userEvent.setup();
     renderApp("/onboarding", {

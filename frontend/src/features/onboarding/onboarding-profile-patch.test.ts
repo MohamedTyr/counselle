@@ -59,6 +59,14 @@ describe("buildBasicsPatch", () => {
     expect(patch.basics).not.toHaveProperty("grade_level");
     expect(patch.basics).not.toHaveProperty("preferred_name");
   });
+
+  it("sends grade_level: null when a previously-saved grade level is deselected", () => {
+    const profile: Profile = { basics: { grade_level: "11" } };
+    const draft = hydrateBasicsDraft(profile);
+    draft.gradeLevel = "";
+    const patch = buildBasicsPatch(draft, profile);
+    expect(patch).toEqual({ basics: { grade_level: null } });
+  });
 });
 
 describe("buildAcademicPatch", () => {
@@ -121,6 +129,15 @@ describe("buildAcademicPatch", () => {
     const patch = buildAcademicPatch(draft, undefined);
     expect(patch).toEqual({});
   });
+
+  it("writes an edited GPA scale even when the GPA value itself is unchanged", () => {
+    const profile: Profile = { academics: { gpa_unweighted: "3.8", gpa_scale: "4.0" } };
+    const draft = hydrateAcademicDraft(profile);
+    draft.gpaScale = "5.0";
+    const patch = buildAcademicPatch(draft, profile);
+    expect(patch).toEqual({ academics: { gpa_scale: "5.0" } });
+    expect(patch.academics).not.toHaveProperty("gpa_unweighted");
+  });
 });
 
 describe("buildDirectionPatch", () => {
@@ -155,6 +172,22 @@ describe("buildDirectionPatch", () => {
     const draft = hydrateDirectionDraft(profile);
     const patch = buildDirectionPatch(draft, profile);
     expect(patch).toEqual({});
+  });
+
+  it("sends major_certainty: null when a previously-saved certainty is deselected", () => {
+    const profile: Profile = { interests: { major_certainty: "leaning" } };
+    const draft = hydrateDirectionDraft(profile);
+    draft.certainty = "";
+    const patch = buildDirectionPatch(draft, profile);
+    expect(patch).toEqual({ interests: { major_certainty: null } });
+  });
+
+  it("sends preprofessional: null when all previously-saved chips are deselected", () => {
+    const profile: Profile = { interests: { preprofessional: ["pre_law"] } };
+    const draft = hydrateDirectionDraft(profile);
+    draft.preprofessional = [];
+    const patch = buildDirectionPatch(draft, profile);
+    expect(patch).toEqual({ interests: { preprofessional: null } });
   });
 });
 

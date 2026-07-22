@@ -1,21 +1,40 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 
 import type { SourceConfig } from "@/api/chat/types";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 import { useChatConfig } from "@/api/chat/config";
 import { AiComposer } from "@/features/ai-composer/AiComposer";
+import { parseDraftPromptState } from "@/features/ai-composer/draft-prompt";
 import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn";
 
 export function AiComposerRoute() {
   const navigate = useNavigate();
+  const location = useLocation();
   const configQuery = useChatConfig();
   const startTurn = useComposerStartTurn();
-  const [value, setValue] = useState("");
+  // Hydrate from an onboarding-handoff draft prompt (plan §20.7) via the
+  // lazy `useState` initializer, not an effect: it only needs to run once,
+  // reading `location.state` as it existed at mount.
+  const [value, setValue] = useState(() => parseDraftPromptState(location.state) ?? "");
   const [sourceConfigOverride, setSourceConfigOverride] =
     useState<SourceConfig | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const resolved = configQuery.config;
+  const hasClearedDraftStateRef = useRef(false);
+
+  useEffect(() => {
+    if (hasClearedDraftStateRef.current) return;
+    hasClearedDraftStateRef.current = true;
+    if (!parseDraftPromptState(location.state)) return;
+    // Clear the router state once it's been read so a refresh or Back
+    // navigation never re-applies it over whatever the student has since
+    // typed (plan §20.7). This never submits anything — only Send does.
+    void navigate(location.pathname, { replace: true, state: null });
+    // Intentionally runs once on mount only: `location`/`navigate` are read
+    // for their value at that moment, not tracked as reactive dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sourceConfig =
     sourceConfigOverride ?? resolved?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG;

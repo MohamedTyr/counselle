@@ -285,4 +285,57 @@ describe("AiComposerRoute", () => {
       await screen.findByRole("button", { name: "Add a skill (@)" }),
     ).toBeEnabled();
   });
+
+  it("hydrates the composer from an onboarding draftPrompt without submitting it", async () => {
+    const requests: { url: string; body: unknown }[] = [];
+    renderApp("/app/ai", {
+      state: { draftPrompt: "Help me plan my timeline." },
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (init?.body) requests.push({ url, body: JSON.parse(String(init.body)) });
+        return aiFetchHandler(input, init);
+      },
+    });
+
+    const textarea = await screen.findByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await waitFor(() => expect(textarea).toHaveValue("Help me plan my timeline."));
+
+    // No session/message call happened just from loading with a prefilled
+    // draft — only an explicit Send creates a turn (plan §20.7).
+    expect(requests.find((request) => request.url.endsWith("/sessions"))).toBeUndefined();
+    expect(requests.find((request) => request.url.endsWith("/messages"))).toBeUndefined();
+
+    // The composer stays editable: the student can change the prefilled text.
+    await userEvent.setup().type(textarea, " Also mention my budget.");
+    expect(textarea).toHaveValue("Help me plan my timeline. Also mention my budget.");
+  });
+
+  it("clears the draftPrompt router state after hydrating so it isn't reapplied on refresh", async () => {
+    renderApp("/app/ai", {
+      state: { draftPrompt: "Help me plan my timeline." },
+      fetchHandler: aiFetchHandler,
+    });
+
+    const textarea = await screen.findByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await waitFor(() => expect(textarea).toHaveValue("Help me plan my timeline."));
+
+    await waitFor(() => expect(window.history.state?.usr ?? null).toBeNull());
+  });
+
+  it("ignores a malformed draftPrompt and shows the normal empty composer", async () => {
+    renderApp("/app/ai", {
+      state: { draftPrompt: 12345 },
+      fetchHandler: aiFetchHandler,
+    });
+
+    const textarea = await screen.findByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await waitFor(() => expect(textarea).toBeEnabled());
+    expect(textarea).toHaveValue("");
+  });
 });

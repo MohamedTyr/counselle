@@ -190,8 +190,12 @@ describe("OnboardingGate", () => {
       state: { onboardingCompletion: true },
     });
 
+    // `defaultAuthenticatedFetch` returns an empty Profile for this fixture,
+    // so the truthful (no-facts) completion heading is the correct one here
+    // (plan §9 "Completion state") — this test is about the Gate keeping
+    // the completion view mounted, not about receipt content.
     expect(
-      await screen.findByRole("heading", { name: "Counselle has the essentials" }),
+      await screen.findByRole("heading", { name: "You’re ready to start" }),
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/onboarding");
   });

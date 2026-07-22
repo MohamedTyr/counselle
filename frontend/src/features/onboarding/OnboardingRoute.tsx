@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
 import type { OnboardingCommand, OnboardingStep } from "@/api/http/onboarding";
@@ -24,7 +25,14 @@ import {
 } from "@/features/onboarding/onboarding-profile-patch";
 import { ONBOARDING_STEP_ORDER } from "@/features/onboarding/onboarding-steps";
 import { validateForStep } from "@/features/onboarding/onboarding-validation";
+import { OnboardingCompletion } from "@/features/onboarding/OnboardingCompletion";
 import { OnboardingStepForm } from "@/features/onboarding/OnboardingStepForm";
+
+/** Router state used to open `/app/ai` with a prefilled, still-editable
+ * draft (plan §20.7). Consumed once by `AiComposerRoute` and then cleared. */
+interface AiHandoffState {
+  draftPrompt?: string;
+}
 
 interface FieldError {
   fieldId: string;
@@ -145,15 +153,30 @@ export function OnboardingRoute() {
 
     if (pendingProgressRetry) {
       setSaveStatus("saving");
-      try {
-        await updateProgress.mutateAsync(pendingProgressRetry);
-        finishStepSuccess(userId, stepId);
-      } catch {
-        setSaveStatus("error");
-        setSaveError(
-          "Your answers were saved, but we couldn’t move to the next step. Try again.",
-        );
-      }
+      // `.mutate` + `onSuccess` (not `mutateAsync`/`await`, plan §20.2): the
+      // navigation must happen in the same synchronous callback react-query
+      // uses to notify observers, matching `handleDefer` below — otherwise
+      // `OnboardingGate` can re-render off the already-updated cache before
+      // this code resumes past an `await`, redirecting away before the
+      // ephemeral completion flag is ever set. `navigateToCompletion()` is
+      // itself wrapped in `flushSync` (rather than the completion flag being
+      // set outside it) so the location/state update that carries the
+      // ephemeral flag is guaranteed to commit atomically with the "advance"
+      // handling above, before this callback returns control to react-query.
+      updateProgress.mutate(pendingProgressRetry, {
+        onSuccess: () => {
+          flushSync(() => {
+            finishStepSuccess(userId, stepId);
+            if (stepId === "fit") navigateToCompletion();
+          });
+        },
+        onError: () => {
+          setSaveStatus("error");
+          setSaveError(
+            "Your answers were saved, but we couldn’t move to the next step. Try again.",
+          );
+        },
+      });
       return;
     }
 
@@ -184,16 +207,29 @@ export function OnboardingRoute() {
       ? { action: "complete", step: "fit" }
       : { action: "advance", step: stepId };
 
-    try {
-      await updateProgress.mutateAsync(command);
-      finishStepSuccess(userId, stepId);
-    } catch {
-      setPendingProgressRetry(command);
-      setSaveStatus("error");
-      setSaveError(
-        "Your answers were saved, but we couldn’t move to the next step. Try again.",
-      );
-    }
+    // Same synchronous-callback reasoning as the retry branch above: the
+    // completion flag must be set inside `onSuccess`, not after an
+    // `await`'d `mutateAsync`, so `OnboardingGate` never observes the
+    // now-completed cache without it. `navigateToCompletion()` runs inside
+    // the same `flushSync` as `finishStepSuccess` so the flag-carrying
+    // navigation commits atomically with it, rather than relying on
+    // react-query's deferred (`setTimeout`) subscriber notifications to
+    // happen to run after this callback returns.
+    updateProgress.mutate(command, {
+      onSuccess: () => {
+        flushSync(() => {
+          finishStepSuccess(userId, stepId);
+          if (isLastStep) navigateToCompletion();
+        });
+      },
+      onError: () => {
+        setPendingProgressRetry(command);
+        setSaveStatus("error");
+        setSaveError(
+          "Your answers were saved, but we couldn’t move to the next step. Try again.",
+        );
+      },
+    });
   }
 
   function finishStepSuccess(currentUserId: string, currentStepId: OnboardingStep) {
@@ -203,6 +239,31 @@ export function OnboardingRoute() {
     if (currentStepId !== "fit") {
       setVisibleStepIndex((current) => (current !== null ? current + 1 : current));
     }
+  }
+
+  // README §7.5.3: the ephemeral flag must land in router state before the
+  // progress mutation's cache write can cause `OnboardingGate` to see
+  // `status: "completed"` and redirect away — otherwise the gate would send
+  // a just-finished student straight to Profile instead of the completion
+  // view. Replacing the current `/onboarding` entry (rather than pushing)
+  // means a refresh intentionally drops the flag (spec §17 "Completion
+  // reload").
+  function navigateToCompletion() {
+    const state: OnboardingLocationState = { onboardingCompletion: true };
+    navigate("/onboarding", { replace: true, state });
+  }
+
+  function handleAskCounselle() {
+    navigate("/app/ai");
+  }
+
+  function handleSelectPrompt(prompt: string) {
+    const state: AiHandoffState = { draftPrompt: prompt };
+    navigate("/app/ai", { state });
+  }
+
+  function handleReviewProfile() {
+    navigate("/app/profile");
   }
 
   if (meQuery.isPending || !progress || profileQuery.isPending || !userId) {
@@ -240,22 +301,12 @@ export function OnboardingRoute() {
 
   if (isCompleted) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-background p-6">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle render={<h1 />}>Counselle has the essentials</CardTitle>
-            <CardDescription>
-              Your answers are already part of your Profile, and Counselle can use them
-              in every conversation. You can change or add details anytime.
-            </CardDescription>
-          </CardHeader>
-          <CardPanel className="flex gap-2">
-            <Button onClick={() => navigate("/app/ai")} type="button">
-              Ask Counselle
-            </Button>
-          </CardPanel>
-        </Card>
-      </div>
+      <OnboardingCompletion
+        onAskCounselle={handleAskCounselle}
+        onReviewProfile={handleReviewProfile}
+        onSelectPrompt={handleSelectPrompt}
+        profile={profile ?? {}}
+      />
     );
   }
 

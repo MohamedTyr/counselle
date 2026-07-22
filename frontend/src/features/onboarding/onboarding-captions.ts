@@ -33,7 +33,7 @@ export function academicCaption(draft: AcademicDraft): string {
   return `Counselle will keep ${parts.join(" and ")} in mind.`;
 }
 
-const PREPROFESSIONAL_LABELS: Record<string, string> = {
+export const PREPROFESSIONAL_LABELS: Record<string, string> = {
   pre_med: "Pre-med",
   pre_law: "Pre-law",
   bs_md: "BS/MD",
@@ -71,8 +71,8 @@ export function contextCaption(draft: ContextDraft): string {
   return `Counselle will consider ${parts.join(", ")}.`;
 }
 
-const SIZE_LABELS: Record<string, string> = { small: "small", medium: "medium", large: "large" };
-const SETTING_LABELS: Record<string, string> = {
+export const SIZE_LABELS: Record<string, string> = { small: "small", medium: "medium", large: "large" };
+export const SETTING_LABELS: Record<string, string> = {
   urban: "urban",
   suburban: "suburban",
   college_town: "college town",

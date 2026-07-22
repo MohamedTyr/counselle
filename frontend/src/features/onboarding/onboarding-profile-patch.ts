@@ -49,6 +49,18 @@ export function trimmedTextPatchValue(
   return trimmed !== initialText ? trimmed : undefined;
 }
 
+/** A single/multi-choice value backed by a plain string (not a boolean tri-state):
+ * mirrors `triStatePatchValue`'s hasInitial logic so deselecting a previously-saved
+ * choice sends explicit `null` instead of silently omitting the key. */
+export function choicePatchValue(
+  initial: string | null | undefined,
+  draft: string,
+): string | null | undefined {
+  const hasInitial = initial != null && initial !== "";
+  if (draft === "") return hasInitial ? null : undefined;
+  return draft !== (initial ?? "") ? draft : undefined;
+}
+
 export function decimalPatchValue(
   initial: string | null | undefined,
   draftText: string,
@@ -136,9 +148,8 @@ export function buildBasicsPatch(
   const preferredName = trimmedTextPatchValue(initial?.preferred_name, draft.preferredName);
   if (preferredName !== undefined) patch.preferred_name = preferredName;
 
-  if (draft.gradeLevel !== (initial?.grade_level ?? "") && draft.gradeLevel !== "") {
-    patch.grade_level = draft.gradeLevel;
-  }
+  const gradeLevel = choicePatchValue(initial?.grade_level, draft.gradeLevel);
+  if (gradeLevel !== undefined) patch.grade_level = gradeLevel;
 
   if (draft.graduationYear !== (initial?.graduation_year ?? null) && draft.graduationYear !== null) {
     patch.graduation_year = draft.graduationYear;
@@ -210,9 +221,14 @@ export function buildAcademicPatch(
     const gpaValue = draft.gpaValue.trim();
     const initialValue =
       draft.gpaType === "unweighted" ? academics?.gpa_unweighted : academics?.gpa_weighted;
-    if (gpaValue !== "" && gpaValue !== (initialValue ?? "")) {
+    const gpaActive = gpaValue !== "";
+    if (gpaActive && gpaValue !== (initialValue ?? "")) {
       const key = draft.gpaType === "unweighted" ? "gpa_unweighted" : "gpa_weighted";
       academicsPatch[key] = gpaValue;
+    }
+    // Scale is written whenever it changed, independent of whether the GPA
+    // value itself changed — editing only "Out of" must still persist.
+    if (gpaActive) {
       const scale = decimalPatchValue(academics?.gpa_scale, draft.gpaScale);
       if (scale !== undefined) academicsPatch.gpa_scale = scale;
     }
@@ -297,18 +313,11 @@ export function buildDirectionPatch(
   const majors = cappedListPatchValue(draft.majors, interests?.intended_majors, 3);
   if (majors !== undefined) patch.intended_majors = majors;
 
-  if (draft.certainty !== "" && draft.certainty !== (interests?.major_certainty ?? "")) {
-    patch.major_certainty = draft.certainty;
-  }
+  const certainty = choicePatchValue(interests?.major_certainty, draft.certainty);
+  if (certainty !== undefined) patch.major_certainty = certainty;
 
   const preprofessional = fullListPatchValue(draft.preprofessional, interests?.preprofessional);
-  // Direction Q3 write rule: an empty untouched selection is omitted, never
-  // cleared — onboarding never sends `null` here even if the profile has
-  // existing preprofessional values, because no explicit clear affordance
-  // exists on this screen.
-  if (preprofessional !== undefined && preprofessional !== null) {
-    patch.preprofessional = preprofessional;
-  }
+  if (preprofessional !== undefined) patch.preprofessional = preprofessional;
 
   return Object.keys(patch).length > 0 ? { interests: patch } : {};
 }
