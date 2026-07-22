@@ -543,12 +543,22 @@ async def test_config_shape(live_app: FastAPI) -> None:
             "skills",
             "max_selected_skills",
             "current_admissions_cycle_year",
+            "default_response_mode",
+            "response_modes",
         }
         assert isinstance(body["greeting"], str) and body["greeting"]
         assert isinstance(body["conversation_starters"], list) and body["conversation_starters"]
         cfg = body["default_source_config"]
         assert set(cfg) >= {"web", "edu", "reddit", "reddit_subreddits"}
         assert body["max_selected_skills"] == 3
+        assert body["default_response_mode"] == "quick"
+        assert body["response_modes"][0] == {
+            "id": "quick",
+            "model": "google-vertex:gemini-3.5-flash",
+            "model_display_name": "Gemini 3.5 Flash",
+            "preview": False,
+        }
+        assert {mode["id"] for mode in body["response_modes"]} <= {"quick", "think"}
         assert body["skills"] == [
             {
                 "name": "school-comparison",

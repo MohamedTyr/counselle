@@ -62,6 +62,7 @@ from app.turns import (
     TooManyTurns,
     TurnRegistry,
 )
+from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
 
 router = APIRouter(tags=["sessions"])
@@ -86,11 +87,13 @@ SelectedSkillName = Annotated[
 
 class CreateSessionBody(BaseModel):
     source_config: SourceConfig | None = None
+    response_mode: ResponseMode | None = None
 
 
 class CreateSessionResponse(BaseModel):
     session_id: str
     source_config: dict[str, Any]
+    response_mode: str
 
 
 class MessageBody(BaseModel):
@@ -105,6 +108,10 @@ class MessageBody(BaseModel):
     # Accepted for forward-compat (clarify event id); ignored beyond validation.
     # run_turn detects parked interrupts autonomously — see module docstring.
     in_reply_to: str | None = None
+    # Optional (plan §3.3): a normal new turn should always send it; omission
+    # falls back to the session's persisted mode. Clarification answers omit
+    # it and inherit the parked record's mode (wired in Phase 3).
+    response_mode: ResponseMode | None = None
 
 
 class SteerBody(BaseModel):
@@ -122,6 +129,7 @@ class SessionResponse(BaseModel):
     title: str | None
     created_at: str | None
     source_config: dict[str, Any] | None
+    response_mode: str
     transcript: list[dict[str, Any]]
 
 
@@ -148,6 +156,18 @@ class FeedbackBody(BaseModel):
 def _registry(request: Request) -> TurnRegistry:
     """The process-wide turn registry, created in the lifespan."""
     return request.app.state.turn_registry  # type: ignore[no-any-return]
+
+
+def _response_mode_unavailable(
+    response_mode: ResponseMode | None, settings: Any
+) -> bool:
+    """True when *response_mode* is well-formed but administratively disabled.
+
+    Malformed values never reach here — FastAPI rejects them as 422 before the
+    route body executes (plan §3.3: "well-formed but unavailable" is distinct
+    from invalid input).
+    """
+    return response_mode is ResponseMode.THINK and not settings.response_mode_think_enabled
 
 
 #: Upper bound on a sane Last-Event-ID — well past any real buffer seq; a value
@@ -222,16 +242,28 @@ async def create_session_route(
     """
     settings = request.app.state.settings
     runtime = request.app.state.runtime
+    trace_id = getattr(request.state, "trace_id", None)
+
+    requested_mode = body.response_mode if body else None
+    if _response_mode_unavailable(requested_mode, settings):
+        return _error_json(
+            503, "Think is temporarily unavailable. Try again, or switch to Quick.", trace_id
+        )
+    response_mode = requested_mode or ResponseMode.QUICK
 
     effective = (body.source_config if body else None) or SourceConfig.defaults_from(settings)
     session_id = await create_session(
-        runtime.app_pool, effective.model_dump(mode="json"), user_id=str(user.id)
+        runtime.app_pool,
+        effective.model_dump(mode="json"),
+        user_id=str(user.id),
+        response_mode=response_mode,
     )
     return JSONResponse(
         status_code=201,
         content={
             "session_id": session_id,
             "source_config": effective.model_dump(mode="json"),
+            "response_mode": response_mode.value,
         },
     )
 
@@ -268,6 +300,13 @@ async def post_message(
     except SelectedSkillValidationError as exc:
         logger.warning("invalid explicit skill selection", session_id=sid, reason=exc.reason)
         return _error_json(422, SELECTED_SKILLS_SAFE_ERROR, trace_id)  # type: ignore[return-value]
+
+    # Well-formed but administratively disabled is a 503, not a 422 (plan §3.3);
+    # checked before any claim/write.
+    if _response_mode_unavailable(body.response_mode, settings):
+        return _error_json(  # type: ignore[return-value]
+            503, "Think is temporarily unavailable. Try again, or switch to Quick.", trace_id
+        )
 
     # BC-12: claim before side-effect writes.
     # Claim the session FIRST (single-flight): a rejected start (409/503/422)
@@ -464,6 +503,7 @@ async def get_session_route(
             "title": row.get("title"),
             "created_at": _iso(row.get("created_at")),
             "source_config": row.get("source_config"),
+            "response_mode": row.get("response_mode") or ResponseMode.QUICK.value,
             "transcript": transcript,
         }
     )
@@ -534,6 +574,7 @@ async def rename_session_route(
             "title": title,
             "created_at": _iso(row.get("created_at")),
             "source_config": row.get("source_config"),
+            "response_mode": row.get("response_mode") or ResponseMode.QUICK.value,
         }
     )
 

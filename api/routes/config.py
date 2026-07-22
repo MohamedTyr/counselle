@@ -29,6 +29,7 @@ from api.auth import current_active_user
 from api.users_db import UserDB
 from app.skills import MAX_SELECTED_SKILLS, user_skill_catalog
 from config.settings import load_yaml_asset
+from domain.response_mode import ResponseMode
 from domain.season import SeasonWindow, admission_season
 from domain.specs import SourceConfig
 
@@ -36,6 +37,32 @@ router = APIRouter(tags=["config"])
 logger = structlog.get_logger(__name__)
 
 _DEFAULT_KEY = "default"
+
+
+def _response_modes(settings: Any) -> list[dict[str, Any]]:
+    """Presentation-safe response-mode capability list (plan §3.3).
+
+    Quick is always available. Think is omitted entirely when the honest-
+    disable switch is off, never silently remapped to Quick.
+    """
+    modes: list[dict[str, Any]] = [
+        {
+            "id": ResponseMode.QUICK.value,
+            "model": settings.model_counselor,
+            "model_display_name": settings.model_counselor_display_name,
+            "preview": False,
+        }
+    ]
+    if settings.response_mode_think_enabled:
+        modes.append(
+            {
+                "id": ResponseMode.THINK.value,
+                "model": settings.model_counselor_think,
+                "model_display_name": settings.model_counselor_think_display_name,
+                "preview": settings.model_counselor_think_preview,
+            }
+        )
+    return modes
 
 
 def _season_copy(today: date) -> dict[str, Any]:
@@ -78,5 +105,7 @@ async def get_config(
             "skills": user_skill_catalog(),
             "max_selected_skills": MAX_SELECTED_SKILLS,
             "current_admissions_cycle_year": settings.current_admissions_cycle_year,
+            "default_response_mode": ResponseMode.QUICK.value,
+            "response_modes": _response_modes(settings),
         }
     )

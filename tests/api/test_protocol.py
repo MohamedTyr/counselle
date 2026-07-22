@@ -203,6 +203,113 @@ async def test_create_session_with_explicit_source_config(live_app: FastAPI) -> 
     await delete_session(live_app.state.runtime.app_pool, resp.json()["session_id"])
 
 
+async def test_create_session_defaults_to_quick_response_mode(live_app: FastAPI) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+    ) as client:
+        resp = await client.post("/v1/sessions", json={})
+
+    assert resp.status_code == 201
+    assert resp.json()["response_mode"] == "quick"
+    await delete_session(live_app.state.runtime.app_pool, resp.json()["session_id"])
+
+
+async def test_create_session_with_explicit_think_mode(live_app: FastAPI) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+    ) as client:
+        resp = await client.post("/v1/sessions", json={"response_mode": "think"})
+
+    assert resp.status_code == 201
+    assert resp.json()["response_mode"] == "think"
+
+    async with live_app.state.runtime.app_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT response_mode FROM counselle.sessions WHERE session_id = $1",
+            resp.json()["session_id"],
+        )
+    assert row["response_mode"] == "think"
+    await delete_session(live_app.state.runtime.app_pool, resp.json()["session_id"])
+
+
+async def test_create_session_malformed_response_mode_returns_422(live_app: FastAPI) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+    ) as client:
+        resp = await client.post("/v1/sessions", json={"response_mode": "pro"})
+
+    assert resp.status_code == 422
+
+
+async def test_create_session_disabled_think_returns_503_no_session_created(
+    live_app: FastAPI,
+) -> None:
+    live_app.state.settings.response_mode_think_enabled = False
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+        ) as client:
+            before = await client.get("/v1/sessions")
+            resp = await client.post("/v1/sessions", json={"response_mode": "think"})
+            after = await client.get("/v1/sessions")
+    finally:
+        live_app.state.settings.response_mode_think_enabled = True
+
+    assert resp.status_code == 503
+    assert len(after.json()["sessions"]) == len(before.json()["sessions"])
+
+
+async def test_get_session_response_includes_response_mode(live_app: FastAPI) -> None:
+    session_id = await _create_session(live_app)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+        ) as client:
+            resp = await client.get(f"/v1/sessions/{session_id}")
+        assert resp.status_code == 200
+        assert resp.json()["response_mode"] == "quick"
+    finally:
+        await delete_session(live_app.state.runtime.app_pool, session_id)
+
+
+async def test_post_message_malformed_response_mode_returns_422(live_app: FastAPI) -> None:
+    session_id = await _create_session(live_app)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                f"/v1/sessions/{session_id}/messages",
+                json={"text": "hi", "response_mode": "pro"},
+            )
+        assert resp.status_code == 422
+    finally:
+        await delete_session(live_app.state.runtime.app_pool, session_id)
+
+
+async def test_post_message_disabled_think_returns_503_no_writes(live_app: FastAPI) -> None:
+    session_id = await _create_session(live_app)
+    live_app.state.settings.response_mode_think_enabled = False
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=live_app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                f"/v1/sessions/{session_id}/messages",
+                json={"text": "hi", "response_mode": "think"},
+            )
+        assert resp.status_code == 503
+
+        async with live_app.state.runtime.app_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT title FROM counselle.sessions WHERE session_id = $1", session_id
+            )
+        assert row["title"] is None  # no side-effect write happened
+    finally:
+        live_app.state.settings.response_mode_think_enabled = True
+        await delete_session(live_app.state.runtime.app_pool, session_id)
+
+
 # ---------------------------------------------------------------------------
 # Test 2: Happy-path message → correct SSE event sequence
 # ---------------------------------------------------------------------------

@@ -8,9 +8,10 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from app.sessions import create_session, get_session, touch_session
+from app.sessions import create_session, get_session, set_session_response_mode, touch_session
 from config.settings import get_settings
 from counselle_db.db import create_pool
+from domain.response_mode import ResponseMode
 
 pytestmark = pytest.mark.live_db
 
@@ -43,12 +44,41 @@ async def test_create_then_get_roundtrip(app_pool: asyncpg.Pool) -> None:
         assert row["title"] == "Duke questions"
         assert row["source_config"] == _SOURCE_CONFIG
         assert row["created_at"] == row["updated_at"]
+        assert row["response_mode"] == "quick"
     finally:
         await _delete(app_pool, session_id)
 
 
 async def test_get_unknown_session_returns_none(app_pool: asyncpg.Pool) -> None:
     assert await get_session(app_pool, str(uuid4())) is None
+
+
+async def test_create_session_with_explicit_think_mode(app_pool: asyncpg.Pool) -> None:
+    session_id = await create_session(
+        app_pool, _SOURCE_CONFIG, response_mode=ResponseMode.THINK
+    )
+    try:
+        row = await get_session(app_pool, session_id)
+        assert row is not None
+        assert row["response_mode"] == "think"
+    finally:
+        await _delete(app_pool, session_id)
+
+
+async def test_set_session_response_mode_updates_row(app_pool: asyncpg.Pool) -> None:
+    session_id = await create_session(app_pool, _SOURCE_CONFIG)
+    try:
+        await set_session_response_mode(app_pool, session_id, ResponseMode.THINK)
+        row = await get_session(app_pool, session_id)
+        assert row is not None
+        assert row["response_mode"] == "think"
+
+        await set_session_response_mode(app_pool, session_id, ResponseMode.QUICK)
+        row = await get_session(app_pool, session_id)
+        assert row is not None
+        assert row["response_mode"] == "quick"
+    finally:
+        await _delete(app_pool, session_id)
 
 
 async def test_touch_bumps_updated_at(app_pool: asyncpg.Pool) -> None:

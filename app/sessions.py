@@ -16,12 +16,14 @@ from uuid import uuid4
 
 import asyncpg
 
+from domain.response_mode import ResponseMode
+
 _INSERT_SQL = """
-INSERT INTO counselle.sessions (session_id, source_config, title, user_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO counselle.sessions (session_id, source_config, title, user_id, response_mode)
+VALUES ($1, $2, $3, $4, $5)
 """
 _SELECT_SQL = """
-SELECT session_id, user_id, title, source_config, created_at, updated_at
+SELECT session_id, user_id, title, source_config, created_at, updated_at, response_mode
 FROM counselle.sessions
 WHERE session_id = $1
 """
@@ -29,6 +31,9 @@ _TOUCH_SQL = "UPDATE counselle.sessions SET updated_at = now() WHERE session_id 
 _SET_TITLE_SQL = "UPDATE counselle.sessions SET title = $2 WHERE session_id = $1"
 _SET_SOURCE_CONFIG_SQL = (
     "UPDATE counselle.sessions SET source_config = $2 WHERE session_id = $1"
+)
+_SET_RESPONSE_MODE_SQL = (
+    "UPDATE counselle.sessions SET response_mode = $2 WHERE session_id = $1"
 )
 
 #: List-page defaults — small page, hard ceiling (KISS pagination guard).
@@ -48,15 +53,22 @@ async def create_session(
     title: str | None = None,
     *,
     user_id: str | None = None,
+    response_mode: ResponseMode = ResponseMode.QUICK,
 ) -> str:
     """Insert a new session row; returns the new ``session_id`` (uuid4 string).
 
     ``user_id`` is optional (the eval runner still calls without it — those rows
     are dev-only and re-runnable; B3's FK purge sweeps any NULL-user rows once).
+
+    ``response_mode`` seeds the sticky next-turn preference (plan §4.2); the DB
+    column default (``'quick'``) is the final compatibility backstop for call
+    sites that predate this parameter.
     """
     session_id = str(uuid4())
     async with pool.acquire() as conn:
-        await conn.execute(_INSERT_SQL, session_id, source_config, title, user_id)
+        await conn.execute(
+            _INSERT_SQL, session_id, source_config, title, user_id, response_mode.value
+        )
     return session_id
 
 
@@ -95,6 +107,19 @@ async def set_session_source_config(
     """
     async with pool.acquire() as conn:
         await conn.execute(_SET_SOURCE_CONFIG_SQL, session_id, source_config)
+
+
+async def set_session_response_mode(
+    pool: asyncpg.Pool, session_id: str, response_mode: ResponseMode
+) -> None:
+    """Persist the chat's sticky next-turn response mode (plan §4.2/§4.3).
+
+    Callers are responsible for only invoking this for an explicitly selected
+    normal new turn — clarification, steering, and regenerate must never call
+    this (plan §4.3 step 5).
+    """
+    async with pool.acquire() as conn:
+        await conn.execute(_SET_RESPONSE_MODE_SQL, session_id, response_mode.value)
 
 
 def encode_cursor(updated_at: datetime, session_id: str) -> str:
