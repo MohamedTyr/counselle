@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import asyncpg
@@ -60,6 +60,7 @@ from app.skills import SelectedSkillValidationError, validate_selected_skills
 from app.sources import SourceRegistry
 from app.turn_persistence import AGENT_NODE, build_terminal_update, parked_record
 from config.settings import get_settings
+from domain.clarification import ContinuationIntent, mark_continuation_running
 from domain.events import (
     Event,
     StepData,
@@ -79,6 +80,14 @@ from domain.events import (
 )
 from domain.response_mode import ResponseMode
 from domain.specs import ClarifySpec, SourceConfig, parse_render_spec
+
+if TYPE_CHECKING:
+    # Deferred to avoid a real-time cycle: app.clarify_lifecycle imports
+    # nothing from this module, but keeping the dependency type-only here
+    # documents that run_turn.py stays the wiring layer (plan "File-level
+    # change map": schema/validation/lifecycle logic lives in the focused
+    # module, not scattered into run_turn.py).
+    from app.clarify_lifecycle import PreparedContinuation
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +223,7 @@ async def _write_failure_record(
     partial_history: list[dict[str, Any]] | None = None,
     emissions_len_at_snapshot: int = 0,
     selected_skills: Sequence[str] | None = None,
+    continuation_of: str | None = None,
 ) -> None:
     """Best-effort error persistence (G2): the error turn record plus — when
     prose streamed — a partial ``ModelResponse`` so ``messages`` keeps exactly
@@ -225,10 +235,14 @@ async def _write_failure_record(
     # B2's turn registry single-flight lock owns turn-lifecycle recovery.
     """
     prose = "".join(text for kind, text in emissions if kind == "delta")
-    if not user_text and not prose:
+    if not user_text and not prose and not continuation_of:
         # Ghost-turn guard: with no user text to anchor the turn and no prose
         # streamed, a record would render as an empty userless error bubble on
         # reload — the live error event already reached the student, so skip.
+        # Phase 3 (plan Phase 3 bullet on A2's ghost-turn guard): a widget-
+        # origin A2 that errors before any prose is an intentionally userless
+        # continuation, NOT a ghost turn — ``continuation_of`` is itself a
+        # valid durable anchor, so this record must still be written.
         logger.info("skipping anchorless empty error record (trace_id=%s)", trace_id)
         return
     snapshot = await graph.aget_state(config)
@@ -263,7 +277,14 @@ async def _write_failure_record(
         partial_history=partial_history,
         emissions_len_at_snapshot=emissions_len_at_snapshot,
         selected_skills=selected_skills,
+        continuation_of=continuation_of,
     )
+    if continuation_of is not None:
+        # A2 reached a terminal state (error) — clear the durable intent in
+        # the SAME update that commits the terminal record (plan architecture
+        # decision §4: "cleared only in the same terminal update that commits
+        # A2"), so a hard restart afterward never sees a stale "running" intent.
+        update["continuation_intent"] = None
     if restored_fallback:
         # Equivalence with the pre-refactor code: a fallback restore ALWAYS
         # persists the restored messages, even when the empty-partial rule
@@ -497,6 +518,252 @@ async def _finish_failed_turn(
             trace_id,
             exc_info=True,
         )
+
+
+async def _finish_failed_continuation(
+    *,
+    graph: Any,
+    config: dict[str, Any],
+    emissions: list[Emission],
+    turn_ids: dict[str, Any],
+    prepared: PreparedContinuation,
+    trace_id: str,
+    messages_offset: int,
+    registry_dump: list[Any],
+) -> None:
+    """A2's twin of ``_finish_failed_turn``: routes through the SAME single
+    terminal-persistence owner (``_write_failure_record`` ->
+    ``build_terminal_update``, plan Phase 3 bullet 5), passing
+    ``continuation_of`` so the ghost-turn guard keeps this record even for a
+    widget-origin A2 with no user text and no streamed prose (plan Phase 3,
+    "A2 is an intentionally userless assistant continuation").
+    """
+    try:
+        await _write_failure_record(
+            graph,
+            config,
+            emissions=emissions,
+            ids=turn_ids,
+            user_text=prepared.record_user_text if prepared.project_user else None,
+            trace_id=trace_id,
+            messages_offset=messages_offset,
+            fallback_messages=None,
+            registry_dump=registry_dump,
+            selected_skills=list(prepared.inherited_skills),
+            continuation_of=prepared.root_message_id,
+        )
+    except Exception:
+        logger.warning(
+            "A2 error turn-record write failed (trace_id=%s) — ignoring",
+            trace_id,
+            exc_info=True,
+        )
+
+
+async def run_continuation_turn(
+    session_id: str,
+    prepared: PreparedContinuation,
+    source_config: SourceConfig | None = None,
+    *,
+    deps: GraphDeps,
+    graph: Any,
+    user_id: str | None = None,
+    response_mode: ResponseMode = ResponseMode.QUICK,
+) -> AsyncIterator[Event]:
+    """A2: a fresh run over A1's completed history (plan architecture decision
+    §5 / Phase 3).
+
+    Never parked-detected (acceptance already resolved A1's pending state
+    before this is called) and never advertises ``ask_student``: the agent
+    node reads ``turn_ids["continuation_of"]`` and restricts to
+    ``output_type=[str]`` for any turn carrying it, so
+    ``ask_student_output_type()`` (Phase 2) is never even considered here — a
+    second clarification round stays impossible even if the model ignores the
+    prompt (plan architecture decision §5).
+
+    ``prepared.model_input_text`` is the server-rendered contextual payload —
+    content transport only, never a new instruction hierarchy, never persisted
+    as ``user_text`` for a widget-origin A2 (``prepared.project_user`` is
+    False in that case).
+    """
+    settings = getattr(deps, "settings", None) or get_settings()
+    trace_id = str(uuid4())
+    try:
+        selection = counselor_model_selection(response_mode, settings)
+    except UnsupportedCounselorProvider:
+        logger.exception(
+            "counselor model selection failed for A2 (trace_id=%s, session_id=%s)",
+            trace_id,
+            session_id,
+        )
+        yield ev_error(_USER_SAFE_ERROR, trace_id)
+        return
+
+    message_id = prepared.continuation_message_id
+    user_message_id = prepared.user_message_id or prepared.trigger_request_id
+    config = {"configurable": {"thread_id": session_id}}
+
+    turn_ids: dict[str, Any] = {
+        "message_id": message_id,
+        "user_message_id": user_message_id,
+        "session_id": session_id,
+        "user_id": user_id,
+        "selected_skills": list(prepared.inherited_skills),
+        "response_mode": selection.response_mode.value,
+        "model": selection.model_setting,
+        # Phase 3 identity additions (plan "SSE additions" / "Turn-record
+        # identity"): read by the agent node to restrict A2's output type and
+        # by the record builder to stamp ``continuation_of``.
+        "continuation_of": prepared.root_message_id,
+        "project_user": prepared.project_user,
+        "trigger_request_id": prepared.trigger_request_id,
+        # The exact transcript projection (module docstring / agent_node.py's
+        # record-building branch) — None for widget origin, U2's exact text
+        # for reply origin. Never the server-rendered model_input_text.
+        "record_user_text": prepared.record_user_text if prepared.project_user else None,
+    }
+    yield ev_meta(
+        trace_id,
+        session_id,
+        turn_ids["model"],
+        message_id,
+        user_message_id,
+        turn_ids["response_mode"],
+    )
+
+    emissions: list[Emission] = []
+    last_registry_dump: list[Any] = []
+    last_usage_dict_inline: dict[str, Any] | None = None
+    messages_offset = prepared.messages_offset
+
+    inherited_source_config = (
+        SourceConfig.model_validate(prepared.inherited_source_config)
+        if prepared.inherited_source_config is not None
+        else source_config
+    )
+    effective_config = await _ensure_session(
+        deps.app_pool, session_id, inherited_source_config, settings, response_mode
+    )
+    graph_input = {
+        "messages": prepared.completed_message_history
+        + _serialized_user_message(prepared.model_input_text),
+        "source_config": effective_config.model_dump(mode="json"),
+        "turn_ids": turn_ids,
+    }
+
+    # Move the durable intent "accepted" -> "running" before A2's first model
+    # request (plan architecture decision §4): a hard restart after this point
+    # must never auto-replay A2's tools. Best-effort — a write failure here
+    # does not abort the turn (the intent staying "accepted" is a safe,
+    # idempotent-retry state, not a correctness hazard on its own).
+    try:
+        snapshot = await graph.aget_state(config)
+        raw_intent = snapshot.values.get("continuation_intent") if snapshot else None
+        if isinstance(raw_intent, dict):
+            intent = ContinuationIntent.model_validate(raw_intent)
+            running_intent = mark_continuation_running(intent)
+            await graph.aupdate_state(
+                config, {"continuation_intent": running_intent.model_dump(mode="json")}
+            )
+    except Exception:
+        logger.warning(
+            "failed to mark continuation intent running (trace_id=%s, session_id=%s)",
+            trace_id,
+            session_id,
+            exc_info=True,
+        )
+
+    try:
+        async for mode, chunk in graph.astream(
+            graph_input, config, stream_mode=["custom", "updates"]
+        ):
+            if mode == "custom" and isinstance(chunk, dict):
+                kind = chunk.get("type")
+                if kind == "delta":
+                    if (text := chunk.get("text")) is not None:
+                        emissions.append(("delta", text))
+                        yield ev_delta(text)
+                elif kind == "step":
+                    if (data := chunk.get("data")) is not None:
+                        emissions.append(("step", data))
+                        yield ev_step(StepData.model_validate(data))
+                elif kind == "thinking":
+                    if (text := chunk.get("text")) is not None:
+                        emissions.append(("thinking", text))
+                        yield ev_thinking(text)
+                elif kind == "narration":
+                    if (text := chunk.get("text")) is not None:
+                        emissions.append(("narration", text))
+                        yield ev_narration(text)
+                elif kind == "viz" and (spec := chunk.get("spec")) is not None:
+                    emissions.append(("viz", spec))
+                    yield ev_viz(parse_render_spec(spec))
+            elif mode == "updates" and isinstance(chunk, dict):
+                for node_update in chunk.values():
+                    if isinstance(node_update, dict):
+                        sr = node_update.get("source_registry")
+                        if sr is not None:
+                            last_registry_dump = sr
+                        us = node_update.get("usage")
+                        if us is not None:
+                            last_usage_dict_inline = us
+
+        if deps.app_pool is not None:
+            try:
+                await touch_session(deps.app_pool, session_id)
+            except Exception:
+                logger.warning(
+                    "touch_session failed for A2 (session_id=%s) — turn continues",
+                    session_id,
+                    exc_info=True,
+                )
+
+        try:
+            final = await graph.aget_state(config)
+            entries = SourceRegistry(final.values.get("source_registry") or []).entries_for_wire()
+            usage_dict: dict[str, Any] | None = final.values.get("usage")
+        except Exception:
+            logger.error(
+                "Failed to build ev_sources post-run for A2 (trace_id=%s, session_id=%s)"
+                " — falling back to in-stream registry",
+                trace_id,
+                session_id,
+                exc_info=True,
+            )
+            entries = SourceRegistry(last_registry_dump).entries_for_wire()
+            usage_dict = last_usage_dict_inline
+        try:
+            # Clear the durable intent now that A2 committed a terminal
+            # "complete" record (plan architecture decision §4: cleared only
+            # once A2 is committed) — best-effort, matching touch_session above.
+            await graph.aupdate_state(config, {"continuation_intent": None})
+        except Exception:
+            logger.warning(
+                "failed to clear continuation intent after A2 success"
+                " (trace_id=%s, session_id=%s)",
+                trace_id,
+                session_id,
+                exc_info=True,
+            )
+        yield ev_sources(entries)
+        if usage_dict:
+            yield ev_usage(UsageData.model_validate(usage_dict))
+        yield ev_done("complete")
+    except Exception:
+        logger.exception(
+            "A2 continuation failed (trace_id=%s, session_id=%s)", trace_id, session_id
+        )
+        await _finish_failed_continuation(
+            graph=graph,
+            config=config,
+            emissions=emissions,
+            turn_ids=turn_ids,
+            prepared=prepared,
+            trace_id=trace_id,
+            messages_offset=messages_offset,
+            registry_dump=last_registry_dump,
+        )
+        yield ev_error(_USER_SAFE_ERROR, trace_id)
 
 
 async def run_turn(

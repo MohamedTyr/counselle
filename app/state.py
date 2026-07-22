@@ -96,6 +96,13 @@ class TurnState(TypedDict, total=False):
       re-resolves the model from ``response_mode`` rather than trusting
       ``model`` directly, so ``model`` here is audit/record data, not an
       execution input.
+    - ``continuation_intent``: :class:`domain.clarification.ContinuationIntent`
+      dump while a durable accept-then-continue is in flight (plan
+      "Architecture decision" §4), else ``None``. Written atomically with A1's
+      answered ``turn_records`` entry in the same ``aupdate_state`` call
+      (``app/clarify_lifecycle.accept_clarification``); cleared once A2
+      reaches a terminal state (success, cancel, error, or timeout) so a hard
+      restart mid-flight is the only time this key is non-``None`` at rest.
     """
 
     messages: list[dict[str, Any]]
@@ -110,3 +117,4 @@ class TurnState(TypedDict, total=False):
     data_picture: str
     turn_records: list[dict[str, Any]]
     turn_ids: dict[str, Any] | None
+    continuation_intent: dict[str, Any] | None

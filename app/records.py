@@ -222,6 +222,7 @@ def build_turn_record(
     messages_offset: int,
     synthesized_answer: bool = False,
     selected_skills: Sequence[str] | None = None,
+    continuation_of: str | None = None,
 ) -> dict[str, Any]:
     """One turn record (ship-plan §0.1 G2), msgpack-plain and self-contained.
 
@@ -272,6 +273,10 @@ def build_turn_record(
         "ts": ts or now_iso(),
         "messages_offset": messages_offset,
         "synthesized_answer": synthesized_answer,
+        # Phase 3 (plan architecture decision §2): A2's link back to its root
+        # A1. ``None`` for every ordinary/legacy record — a v2 continuation is
+        # the only writer of a non-None value here.
+        "continuation_of": continuation_of,
     }
 
 

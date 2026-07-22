@@ -214,6 +214,43 @@ class PendingClarificationV2(BaseModel):
     response: ClarifyResponseV2 | None = None
 
 
+# --- Continuation lifecycle (Phase 3, architecture decision §4) ------------
+
+
+class ContinuationIntent(BaseModel):
+    """Durable A2-continuation lifecycle record.
+
+    NOT a second copy of the clarification: A1's ``PendingClarificationV2``
+    remains the only source for the spec and response. This stores only the
+    continuation lifecycle/identity needed to recover safely across a process
+    death — written atomically with A1's answer-acceptance update, and cleared
+    only in the same terminal update that commits A2.
+
+    ``phase`` starts ``"accepted"`` (an idempotent retry before the first A2
+    model request may safely resume the same planned A2) and moves to
+    ``"running"`` immediately before that first request (a hard restart in
+    this phase must never auto-replay A2's tools — plan architecture decision
+    §4).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    v: Literal[1] = 1
+    phase: Literal["accepted", "running"]
+    root_message_id: str
+    continuation_message_id: str
+    trigger_request_id: str
+    response_origin: Literal["widget", "reply"]
+    inherited_skills: tuple[str, ...] = ()
+    inherited_source_config: Mapping[str, Any] | None = None
+
+
+def mark_continuation_running(intent: ContinuationIntent) -> ContinuationIntent:
+    """Immutably move an accepted intent to ``running`` (before A2's first
+    model request) — never mutates ``intent`` in place."""
+    return intent.model_copy(update={"phase": "running"})
+
+
 # --- Version-aware dispatch -------------------------------------------------
 
 

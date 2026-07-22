@@ -135,6 +135,7 @@ def build_terminal_update(
     partial_history: list[dict[str, Any]] | None = None,
     emissions_len_at_snapshot: int = 0,
     selected_skills: Sequence[str] | None = None,
+    continuation_of: str | None = None,
 ) -> dict[str, Any]:
     """The single ``aupdate_state`` payload for ANY terminal path.
 
@@ -169,6 +170,7 @@ def build_terminal_update(
         messages_offset=resolve_offset(messages_offset, new_messages),
         synthesized_answer=synthesized_answer,
         selected_skills=selected_skills,
+        continuation_of=continuation_of,
     )
     if used_partial_snapshot:
         record["partial_history"] = "snapshot"

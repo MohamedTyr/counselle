@@ -12,7 +12,9 @@ from domain.clarification import (
     ClarifyQuestionDraft,
     ClarifyResponseInvalid,
     ClarifySpecV2,
+    ContinuationIntent,
     WidgetClarifyResponseV2,
+    mark_continuation_running,
     normalize_clarify_draft,
     parse_clarify_spec,
     render_clarify_model_payload,
@@ -360,3 +362,37 @@ def test_render_clarify_model_payload_preserves_custom_text_verbatim() -> None:
     payload = render_clarify_model_payload(spec, answers)
     assert "My own answer" in payload
     assert payload.startswith("Good for what? -> My own answer")
+
+
+# --- ContinuationIntent (Phase 3, architecture decision §4) ----------------
+
+
+def test_continuation_intent_defaults_and_round_trips() -> None:
+    intent = ContinuationIntent(
+        phase="accepted",
+        root_message_id="a1",
+        continuation_message_id="a2",
+        trigger_request_id="trig-1",
+        response_origin="widget",
+    )
+    assert intent.inherited_skills == ()
+    assert intent.inherited_source_config is None
+    dumped = intent.model_dump(mode="json")
+    assert ContinuationIntent.model_validate(dumped) == intent
+
+
+def test_mark_continuation_running_does_not_mutate_the_original() -> None:
+    accepted = ContinuationIntent(
+        phase="accepted",
+        root_message_id="a1",
+        continuation_message_id="a2",
+        trigger_request_id="trig-1",
+        response_origin="reply",
+        inherited_skills=("financial_aid",),
+        inherited_source_config={"web": True, "reddit": False, "edu": True},
+    )
+    running = mark_continuation_running(accepted)
+    assert accepted.phase == "accepted"
+    assert running.phase == "running"
+    assert running.root_message_id == accepted.root_message_id
+    assert running.inherited_skills == accepted.inherited_skills

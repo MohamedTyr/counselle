@@ -730,6 +730,14 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     instructions = "\n\n".join(
         part for part in (base_instructions, source_instructions, selected_instructions) if part
     )
+    # Phase 3 (plan architecture decision §5): a continuation turn (A2) is
+    # identified by `turn_ids["continuation_of"]` (set by
+    # app/run_turn.py's run_continuation_turn) and restricts to a text-only
+    # output — ask_student is not merely unlikely to be re-emitted, it is not
+    # in the advertised schema at all, so a second clarification round stays
+    # impossible even if the model ignores the prompt.
+    is_continuation = ids.get("continuation_of") is not None
+    output_type: list[Any] = [str] if is_continuation else ask_student_output_type()
     agent: Agent[TurnDeps, str | ClarifyDraftV2] = Agent(
         injected_model_factory()
         if injected_model_factory is not None
@@ -745,9 +753,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         retries=2,
         capabilities=[PlanReminder(plan_state)],
         # Normal-run output: prose or one validated ask_student draft
-        # (app/clarification.py — factored out so a future A2 continuation run
-        # can pass output_type=[str] without duplicating this list).
-        output_type=ask_student_output_type(),
+        # (app/clarification.py — factored out so an A2 continuation run can
+        # pass output_type=[str] without duplicating this list). A2 never
+        # includes ClarifyDraftV2 (above).
+        output_type=output_type,
         # Explicit (plan Phase 2 bullet 2): PydanticAI's own default is already
         # "early", but a sibling function-tool call being skipped rather than
         # executed is safety-critical here, so it must never depend on an
@@ -902,15 +911,25 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # recomputes it. resolve_offset's fallback covers direct-graph invocations
     # only (tests, pre-B1b checkpoints), where the tail is the user request.
     offset = resolve_offset(ids.get("messages_offset"), state["messages"])
-    record_user_text = (
-        str(prior_records[-1].get("user_text") or user_text)
-        if synthesized and prior_records
-        else user_text
-    )
-    # user_text is the turn's QUESTION even on a synthesized legacy clarify
-    # continuation. Agent V1 may feed a compatibility prompt to the model, but
-    # the persisted record stays self-contained around the original question so
-    # the read can render it id-less next to the synthesized answer bubble.
+    continuation_of = ids.get("continuation_of")
+    if continuation_of is not None:
+        # Phase 3 (plan "Turn-record identity"): `user_text` here is the
+        # split MODEL prompt (the server-rendered clarify payload for a
+        # widget origin, or the exact composer text for a reply origin) —
+        # never the transcript projection by itself. run_continuation_turn
+        # threads the exact projection (None for widget, U2's exact text for
+        # reply) through turn_ids["record_user_text"] precisely so this never
+        # accidentally becomes an editable user bubble/record anchor.
+        record_user_text = ids.get("record_user_text")
+    elif synthesized and prior_records:
+        # user_text is the turn's QUESTION even on a synthesized legacy clarify
+        # continuation. Agent V1 may feed a compatibility prompt to the model,
+        # but the persisted record stays self-contained around the original
+        # question so the read can render it id-less next to the synthesized
+        # answer bubble.
+        record_user_text = str(prior_records[-1].get("user_text") or user_text)
+    else:
+        record_user_text = user_text
     record = build_turn_record(
         emissions,
         ids=ids,
@@ -923,6 +942,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         messages_offset=offset,
         synthesized_answer=synthesized,
         selected_skills=ids["selected_skills"],
+        continuation_of=continuation_of,
     )
 
     emitted_viz = [payload for kind, payload in emissions if kind == "viz"]

@@ -45,17 +45,19 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import AsyncGenerator, AsyncIterator, Callable, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Mapping, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 from uuid import uuid4
 
+from app.clarify_lifecycle import ClarificationConflict, ClarifyClaimRegistry, PreparedContinuation
+from app.clarify_lifecycle import accept_clarification as _accept_clarification
 from app.model_selection import counselor_model_selection
 from app.parked_sources import ParkedSourceStore
 from app.records import Emission, FinalEmissionDeduper, TurnStatus
 from app.run_handle import RunHandle, SteeringMessage
-from app.run_turn import _USER_SAFE_ERROR, run_turn
+from app.run_turn import _USER_SAFE_ERROR, run_continuation_turn, run_turn
 from app.sessions import set_session_response_mode
 from app.skills import SelectedSkillValidationError, validate_selected_skills
 from app.sources import SourceRegistry
@@ -254,6 +256,15 @@ class _Turn:
     terminal_appended: bool = False  # a done/error event reached the buffer
     consumers: int = 0  # currently-attached streams (per-turn consumer cap)
     run_handle: RunHandle | None = None
+    # Phase 3 (plan architecture decision §5): set only for an A2 continuation
+    # turn, driven by `_drive_continuation` instead of `_drive`. `user_text`
+    # above carries A2's model_input_text (the run input); these carry the
+    # SEPARATE transcript-projection fields `_partial_anchor` needs so a
+    # cancelled/timed-out A2 never turns the model payload into a user bubble.
+    is_continuation: bool = False
+    continuation_of: str | None = None
+    project_user: bool = True
+    continuation_record_user_text: str | None = None
 
 
 class TurnRegistry:
@@ -292,6 +303,11 @@ class TurnRegistry:
         #: finalize coroutine. Heavy work belongs in an async hook (spawned,
         #: drained in aclose). The auto-titler is async by design.
         self.on_turn_complete: Callable[[str], Any] | None = None
+        #: Phase 3 (plan Phase 3 / architecture decision §4): the clarify
+        #: acceptance/cancel serialization claim — deliberately separate from
+        #: `_turns` (acceptance can be mid-flight, a checkpoint read/write,
+        #: before any turn task exists for A2).
+        self._clarify_claims = ClarifyClaimRegistry()
 
     # -- public surface ------------------------------------------------------
 
@@ -437,6 +453,98 @@ class TurnRegistry:
         # a slot (BC-02). Release is symmetric in _follow's finally. The starter
         # slot is uncapped by design (BC-18): the cap is enforced on attach only,
         # never on the POST that created the turn.
+        return self._follow(turn, None)
+
+    # -- Phase 3: clarification acceptance + A2 continuation -----------------
+
+    async def accept_clarification(
+        self,
+        session_id: str,
+        *,
+        in_reply_to: str | None,
+        widget_response_payload: Mapping[str, Any] | None = None,
+        composer_text: str | None = None,
+        composer_user_message_id: str | None = None,
+    ) -> PreparedContinuation:
+        """Claim, validate, and durably accept A1's clarification (plan
+        architecture decision §4). Raises :class:`ClarificationConflict` for
+        any stale/duplicate/malformed/mismatched state (state left untouched)
+        and :class:`ClarifyClaimBusy`/:class:`StreamActive` if a racing
+        cancel/delete or an already-active turn holds the session.
+
+        Call :meth:`start_continuation` immediately afterward with the
+        returned :class:`PreparedContinuation` — this method only performs the
+        durable accept; it does not spawn A2's task.
+        """
+        if session_id in self._turns:
+            # An ordinary turn or a still-active prior A2 owns the session —
+            # a double/stale submit must surface as a typed conflict, never
+            # the generic 409 cancel-and-retry behavior (plan Phase 3).
+            raise ClarificationConflict("clarification_conflict_active_turn")
+        self._clarify_claims.try_claim(session_id, kind="accept")
+        try:
+            return await _accept_clarification(
+                self._graph,
+                session_id,
+                in_reply_to=in_reply_to,
+                widget_response_payload=widget_response_payload,
+                composer_text=composer_text,
+                composer_user_message_id=composer_user_message_id,
+            )
+        finally:
+            # Every preparation failure (and the success path alike) releases
+            # the claim here — it can never strand a follower (plan Phase 3).
+            self._clarify_claims.release(session_id)
+
+    async def start_continuation(
+        self,
+        session_id: str,
+        prepared: PreparedContinuation,
+        source_config: SourceConfig | None = None,
+        *,
+        user_id: str | None = None,
+        response_mode: ResponseMode = ResponseMode.QUICK,
+    ) -> AsyncIterator[tuple[Event, int]]:
+        """Spawn A2 through the SAME detached-task/buffer/cancel/timeout
+        machinery as an ordinary turn (plan Phase 3 bullet: "route A2 cancel/
+        error/timeout through the existing terminal persistence owner") —
+        cancel/timeout/finalize all fall out of reusing ``_Turn``/``_drive``'s
+        contract for free, rather than a second bespoke lifecycle.
+
+        Call immediately after :meth:`accept_clarification` succeeds — the
+        durable A1-answered + ContinuationIntent write has already landed;
+        this only spawns A2's task and buffer.
+        """
+        if session_id in self._turns:
+            raise StreamActive(session_id)
+        buffer = _RingBuffer(
+            self._settings.agent_stream_buffer_size,
+            on_charge=self._charge_bytes,
+            on_refund=self._refund_bytes,
+        )
+        turn = _Turn(
+            session_id=session_id,
+            user_text=prepared.model_input_text,
+            user_id=user_id,
+            selected_skills=prepared.inherited_skills,
+            selected_skills_inherited=True,
+            response_mode=response_mode,
+            response_mode_inherited=True,
+            buffer=buffer,
+            is_continuation=True,
+            continuation_of=prepared.root_message_id,
+            project_user=prepared.project_user,
+            continuation_record_user_text=prepared.record_user_text,
+        )
+        turn.model_setting = counselor_model_selection(response_mode, self._settings).model_setting
+        handle_store = getattr(self._deps, "run_handles", None)
+        if handle_store is not None:
+            turn.run_handle = handle_store.register(session_id)
+        self._turns[session_id] = turn
+        turn.task = asyncio.create_task(
+            self._drive_continuation(turn, prepared, source_config),
+            name=f"continuation-{session_id}",
+        )
         return self._follow(turn, None)
 
     def attach(
@@ -673,6 +781,62 @@ class TurnRegistry:
             # safety-net error ONLY if nothing terminal landed yet, then
             # finalize. buffer.append is a no-op once closed (BC-05), so even a
             # lost race can't push an event past the terminal.
+            if not turn.cancel_requested:
+                if not turn.terminal_appended:
+                    turn.terminal_appended = True
+                    turn.buffer.append(ev_error(_USER_SAFE_ERROR, turn.trace_id))
+                self._finalize(turn)
+            if handle_store is not None and turn.run_handle is not None:
+                handle_store.unregister(turn.session_id, turn.run_handle)
+            self._log_complete(turn, start_mono)
+
+    async def _drive_continuation(
+        self,
+        turn: _Turn,
+        prepared: PreparedContinuation,
+        source_config: SourceConfig | None,
+    ) -> None:
+        """A2's twin of :meth:`_drive` — identical timeout/cancel/finalize
+        contract, running :func:`app.run_turn.run_continuation_turn` instead
+        of the ordinary ``run_turn`` (plan Phase 3 bullet 5: A2's cancel/
+        error/timeout route through the SAME terminal-persistence owner).
+        """
+        start_mono = time.monotonic()
+        timeout_s = self._settings.agent_turn_timeout_s
+        handle_store = getattr(self._deps, "run_handles", None)
+        try:
+            try:
+                async with asyncio.timeout(timeout_s):
+                    events = cast(
+                        "AsyncGenerator[Event, None]",
+                        run_continuation_turn(
+                            turn.session_id,
+                            prepared,
+                            source_config,
+                            deps=self._deps,
+                            graph=self._graph,
+                            user_id=turn.user_id,
+                            response_mode=turn.response_mode,
+                        ),
+                    )
+                    async with aclosing(events) as stream:
+                        async for event in stream:
+                            observed = self._observe(turn, event)
+                            if observed is not None:
+                                turn.buffer.append(observed)
+            except TimeoutError:
+                await self._handle_timeout(turn, timeout_s)
+            except asyncio.CancelledError:
+                raise  # cancel() owns persistence + the single-shot terminal
+            except Exception:
+                logger.exception(
+                    "continuation task failed after stream start (session_id=%s, trace_id=%s)",
+                    turn.session_id,
+                    turn.trace_id,
+                )
+                turn.terminal_appended = True
+                turn.buffer.append(ev_error(_USER_SAFE_ERROR, turn.trace_id))
+        finally:
             if not turn.cancel_requested:
                 if not turn.terminal_appended:
                     turn.terminal_appended = True
@@ -999,7 +1163,13 @@ class TurnRegistry:
             emissions_len_at_snapshot=turn.run_handle.emissions_len_at_snapshot
             if turn.run_handle is not None
             else 0,
+            continuation_of=turn.continuation_of,
         )
+        if turn.continuation_of is not None:
+            # A2 reached a terminal state (cancel/timeout) — clear the durable
+            # intent in the SAME update that commits the terminal record (plan
+            # architecture decision §4).
+            update["continuation_intent"] = None
         await self._graph.aupdate_state(config, update, as_node=AGENT_NODE)
 
     async def _unpark_if_parked(self, session_id: str) -> bool:
@@ -1090,7 +1260,17 @@ def _partial_anchor(
     question stays the user_text, the parked offset carries forward, and the
     answer freezes into ``clarify.answer``. A fresh-turn cancel anchors on the
     tail user request (or past-the-end when the input never landed).
+
+    Phase 3: an A2 continuation is NEVER a legacy resume (A1 already moved to
+    ``complete`` at acceptance, so ``is_parked`` can't match it) — it short-
+    circuits here to its own separate transcript-projection fields
+    (``turn.project_user``/``continuation_record_user_text``) rather than
+    ``turn.user_text`` (A2's model-rendered payload), so a cancelled/timed-out
+    widget-origin A2 never turns that payload into a user bubble.
     """
+    if turn.is_continuation:
+        record_user_text = turn.continuation_record_user_text if turn.project_user else None
+        return record_user_text, resolve_offset(None, messages), None, False, turn.selected_skills
     ids = turn.ids or {}
     # The resume-replace predicate: parked AND this turn reused the parked
     # message_id (the base parked test is is_parked; the id-match distinguishes
