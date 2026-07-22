@@ -66,7 +66,7 @@ export function AiComposerRoute() {
           initialTurn: {
             text: submitted,
             skills: [...selectedSkills],
-            responseMode,
+            responseMode: result.responseMode,
           },
         },
       });

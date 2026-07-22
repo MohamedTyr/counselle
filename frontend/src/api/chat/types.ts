@@ -684,6 +684,7 @@ export type StartTurnResult =
   | {
       ok: true;
       sessionId: string;
+      responseMode: ResponseMode;
     }
   | {
       ok: false;

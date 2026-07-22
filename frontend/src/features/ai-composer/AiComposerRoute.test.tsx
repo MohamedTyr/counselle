@@ -209,6 +209,52 @@ describe("AiComposerRoute", () => {
     expect(textarea).toHaveValue("");
   });
 
+  it("uses the server-confirmed response mode for the first-message handoff", async () => {
+    const user = userEvent.setup();
+    const requests: { url: string; body: unknown }[] = [];
+
+    renderApp("/app/ai", {
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (init?.body) {
+          requests.push({ url, body: JSON.parse(String(init.body)) });
+        }
+        if (url.endsWith("/v1/sessions") && init?.method === "POST") {
+          return jsonResponse(
+            {
+              session_id: "60000000-0000-4000-8000-000000000001",
+              source_config: {
+                web: true,
+                edu: false,
+                reddit: true,
+                reddit_subreddits: null,
+              },
+              response_mode: "think",
+            },
+            { status: 201 },
+          );
+        }
+        return aiFetchHandler(input, init);
+      },
+    });
+
+    const textarea = await screen.findByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await waitFor(() => expect(textarea).toBeEnabled());
+
+    await user.type(textarea, "Compare honors colleges{Enter}");
+
+    await waitFor(() =>
+      expect(
+        requests.find((request) => request.url.endsWith("/messages"))?.body,
+      ).toMatchObject({
+        text: "Compare honors colleges",
+        response_mode: "think",
+      }),
+    );
+  });
+
   it("offers source choices from the composer menu", async () => {
     renderApp("/app/ai", { fetchHandler: aiFetchHandler });
     await screen.findByRole("heading", {

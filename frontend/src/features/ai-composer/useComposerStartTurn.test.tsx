@@ -65,7 +65,11 @@ describe("useComposerStartTurn", () => {
           "quick",
         ),
       ),
-    ).resolves.toEqual({ ok: true, sessionId: "session-1" });
+    ).resolves.toEqual({
+      ok: true,
+      sessionId: "session-1",
+      responseMode: "quick",
+    });
 
     expect(transport.createSession).toHaveBeenCalledWith({
       sourceConfig: BUILT_IN_SOURCE_CONFIG,

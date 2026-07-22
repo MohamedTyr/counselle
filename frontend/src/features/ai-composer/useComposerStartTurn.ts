@@ -52,14 +52,13 @@ export function useComposerStartTurn({
       setIsSubmitting(true);
       setError(null);
 
-      let sessionId: string;
+      let created: Awaited<ReturnType<ChatTransport["createSession"]>>;
       try {
-        const created = await transport.createSession({
+        created = await transport.createSession({
           sourceConfig,
           responseMode,
         });
-        sessionId = created.sessionId;
-        activeSessionIdRef.current = sessionId;
+        activeSessionIdRef.current = created.sessionId;
       } catch (cause) {
         setError(createUserMessage(cause, "Could not start the conversation."));
         submittingRef.current = false;
@@ -71,7 +70,11 @@ export function useComposerStartTurn({
       submittingRef.current = false;
       setIsSubmitting(false);
       activeSessionIdRef.current = null;
-      return { ok: true, sessionId };
+      return {
+        ok: true,
+        sessionId: created.sessionId,
+        responseMode: created.responseMode,
+      };
     },
     [transport],
   );
