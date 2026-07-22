@@ -8,8 +8,8 @@ from domain.response_mode import ResponseMode
 
 
 def test_values_are_exactly_quick_and_think() -> None:
-    assert ResponseMode.QUICK == "quick"
-    assert ResponseMode.THINK == "think"
+    assert ResponseMode.QUICK.value == "quick"
+    assert ResponseMode.THINK.value == "think"
     assert {m.value for m in ResponseMode} == {"quick", "think"}
 
 

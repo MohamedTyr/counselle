@@ -23,7 +23,7 @@ def _settings(**overrides: object) -> Settings:
         thinking_summaries=None,
     )
     base.update(overrides)
-    return Settings(**base)  # type: ignore[arg-type]
+    return Settings(**base)
 
 
 class TestCounselorModelSelection:

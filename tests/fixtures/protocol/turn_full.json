@@ -9,7 +9,11 @@
         "model": "google-vertex:gemini-2.5-pro",
         "message_id": "id-3",
         "user_message_id": "id-4",
-        "response_mode": "quick"
+        "response_mode": "quick",
+        "continuation_of": null,
+        "response_origin": null,
+        "project_user": null,
+        "editable_root_message_id": null
       }
     },
     {
