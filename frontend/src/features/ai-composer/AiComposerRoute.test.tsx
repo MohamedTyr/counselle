@@ -32,9 +32,26 @@ function aiFetchHandler(
         },
       ],
       max_selected_skills: 3,
+      default_response_mode: "quick",
+      response_modes: [
+        {
+          id: "quick",
+          model: "google-vertex:gemini-3.5-flash",
+          model_display_name: "Gemini 3.5 Flash",
+          preview: false,
+        },
+        {
+          id: "think",
+          model: "google-vertex:gemini-3.1-pro-preview",
+          model_display_name: "Gemini 3.1 Pro",
+          preview: true,
+        },
+      ],
     });
   }
   if (url.endsWith("/v1/sessions") && init?.method === "POST") {
+    const body =
+      init.body === undefined ? null : JSON.parse(String(init.body));
     return jsonResponse(
       {
         session_id: "60000000-0000-4000-8000-000000000001",
@@ -44,6 +61,13 @@ function aiFetchHandler(
           reddit: true,
           reddit_subreddits: null,
         },
+        response_mode:
+          body !== null &&
+          typeof body === "object" &&
+          "response_mode" in body &&
+          body.response_mode === "think"
+            ? "think"
+            : "quick",
       },
       { status: 201 },
     );
@@ -252,6 +276,43 @@ describe("AiComposerRoute", () => {
         text: "Compare honors colleges",
         response_mode: "think",
       }),
+    );
+  });
+
+  it("lets the landing composer select Think for the new session and first message", async () => {
+    const user = userEvent.setup();
+    const requests: { url: string; body: unknown }[] = [];
+
+    renderApp("/app/ai", {
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (init?.body) {
+          requests.push({ url, body: JSON.parse(String(init.body)) });
+        }
+        return aiFetchHandler(input, init);
+      },
+    });
+
+    const textarea = await screen.findByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await waitFor(() => expect(textarea).toBeEnabled());
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Response mode: Quick" }),
+    );
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Think/ }));
+    await user.type(textarea, "Compare honors colleges{Enter}");
+
+    await waitFor(() =>
+      expect(
+        requests.find((request) => request.url.endsWith("/v1/sessions"))?.body,
+      ).toMatchObject({ response_mode: "think" }),
+    );
+    await waitFor(() =>
+      expect(
+        requests.find((request) => request.url.endsWith("/messages"))?.body,
+      ).toMatchObject({ response_mode: "think" }),
     );
   });
 

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
-import type { SourceConfig } from "@/api/chat/types";
+import type { ResponseMode, SourceConfig } from "@/api/chat/types";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
-import { BUILT_IN_DEFAULT_RESPONSE_MODE } from "@/api/chat/response-mode";
+import {
+  BUILT_IN_DEFAULT_RESPONSE_MODE,
+  normalizeResponseModeSelection,
+} from "@/api/chat/response-mode";
 import { useChatConfig } from "@/api/chat/config";
 import { AiComposer } from "@/features/ai-composer/AiComposer";
 import { parseDraftPromptState } from "@/features/ai-composer/draft-prompt";
@@ -22,6 +25,8 @@ export function AiComposerRoute() {
   );
   const [sourceConfigOverride, setSourceConfigOverride] =
     useState<SourceConfig | null>(null);
+  const [responseModeOverride, setResponseModeOverride] =
+    useState<ResponseMode | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const resolved = configQuery.config;
   const hasClearedDraftStateRef = useRef(false);
@@ -41,11 +46,23 @@ export function AiComposerRoute() {
 
   const sourceConfig =
     sourceConfigOverride ?? resolved?.sourceConfig ?? BUILT_IN_SOURCE_CONFIG;
-  // Phase 5 adds the visible Quick/Think selector and a matching override
-  // state (mirroring `sourceConfigOverride` above); until then this composer
-  // always starts a new chat at the server's advertised default (plan §8.3).
-  const responseMode =
-    resolved?.defaultResponseMode ?? BUILT_IN_DEFAULT_RESPONSE_MODE;
+  // The visible selector owns only the next new-turn preference; final
+  // execution still uses the server-confirmed mode returned by session create.
+  const responseModeCapability = resolved
+    ? {
+        defaultResponseMode: resolved.defaultResponseMode,
+        responseModes: resolved.responseModes,
+      }
+    : {
+        defaultResponseMode: BUILT_IN_DEFAULT_RESPONSE_MODE,
+        responseModes: [],
+      };
+  const responseMode = resolved
+    ? normalizeResponseModeSelection(
+        responseModeOverride ?? resolved.defaultResponseMode,
+        responseModeCapability,
+      ).mode
+    : BUILT_IN_DEFAULT_RESPONSE_MODE;
 
   async function submit() {
     const submitted = value.trim();
@@ -95,6 +112,7 @@ export function AiComposerRoute() {
           onCancel={() => {
             void startTurn.cancel();
           }}
+          onResponseModeChange={setResponseModeOverride}
           onSourceConfigChange={setSourceConfigOverride}
           onSubmit={() => {
             void submit();
@@ -105,6 +123,8 @@ export function AiComposerRoute() {
           selectedSkills={selectedSkills}
           skills={resolved?.skills ?? []}
           sourceConfig={sourceConfig}
+          responseMode={responseMode}
+          responseModes={resolved?.responseModes ?? []}
           value={value}
         />
         {startTurn.error ? (

@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useMessageFeedback } from "@/api/chat/hooks";
 import { useChatConfig } from "@/api/chat/config";
+import {
+  BUILT_IN_RESPONSE_MODE_OPTIONS,
+  normalizeResponseModeSelection,
+} from "@/api/chat/response-mode";
 import type { ChatTransport } from "@/api/chat/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -77,6 +81,7 @@ export function AiChatPage({
     sourceConfig,
     setSourceConfig,
     selectedResponseMode,
+    setSelectedResponseMode,
     submitMessage,
     stopGenerating,
     isSubmitting,
@@ -93,6 +98,14 @@ export function AiChatPage({
     onSendStart: resetScrollFollow,
     initialResponseMode,
   });
+  const responseModes =
+    skillConfig?.responseModes ?? BUILT_IN_RESPONSE_MODE_OPTIONS;
+  const normalizedSelectedResponseMode = skillConfig
+    ? normalizeResponseModeSelection(selectedResponseMode, {
+        defaultResponseMode: skillConfig.defaultResponseMode,
+        responseModes,
+      }).mode
+    : selectedResponseMode;
 
   useEffect(() => {
     document.title = documentTitleFor(session?.title);
@@ -110,7 +123,7 @@ export function AiChatPage({
       // in flight (plan §5.5/§8.4). The initial-turn dispatch effect below
       // passes its own captured mode explicitly here, bypassing whatever
       // `selectedResponseMode` happens to show before hydration settles.
-      responseMode = selectedResponseMode,
+      responseMode = normalizedSelectedResponseMode,
     ) => {
       const submittedSkills = [...skills];
       setComposerValue("");
@@ -126,7 +139,7 @@ export function AiChatPage({
         }
       });
     },
-    [selectedResponseMode, selectedSkills, submitMessage],
+    [normalizedSelectedResponseMode, selectedSkills, submitMessage],
   );
 
   const handleClarifyAnswer = useCallback(
@@ -331,6 +344,7 @@ export function AiChatPage({
             awaitingClarify={awaitingClarify}
             isSubmitting={isSubmitting}
             onStop={stopGenerating}
+            onResponseModeChange={setSelectedResponseMode}
             onSourceConfigChange={setSourceConfig}
             onSelectedSkillsChange={setSelectedSkills}
             onSubmit={handleComposerSubmit}
@@ -339,6 +353,8 @@ export function AiChatPage({
             selectedSkills={selectedSkills}
             skills={skillConfig?.skills ?? []}
             sourceConfig={sourceConfig}
+            responseMode={normalizedSelectedResponseMode}
+            responseModes={responseModes}
             value={composerValue}
           />
         </div>

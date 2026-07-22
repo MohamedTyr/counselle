@@ -11,6 +11,7 @@ import { FULL_SUBREDDIT_MENU } from "@/api/chat/source-config";
 import type { SourceConfig, Subreddit } from "@/api/chat/types";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuGroup, MenuPopup, MenuTrigger } from "@/components/ui/menu";
+import { composerControlButtonClass } from "@/features/ai-composer/composer-control";
 
 type SourceKey = "webSearch" | "eduSources" | "reddit";
 
@@ -67,7 +68,7 @@ export function SourcesMenu({
         render={
           <Button
             aria-label={sourceMenuLabel(sourceConfig)}
-            className="h-8 !rounded-[var(--workspace-composer-control-radius)] !border-[var(--workspace-composer-control-border)] !bg-[var(--workspace-composer-control-surface)] px-2.5 text-[13px] font-medium tracking-[-0.01em] !text-[var(--workspace-composer-sources-foreground)] !shadow-none before:!rounded-[calc(var(--workspace-composer-control-radius)-1px)] before:!shadow-none hover:!border-[var(--workspace-composer-control-hover-border)] hover:!bg-[var(--workspace-composer-control-hover-surface)] hover:!text-[var(--workspace-composer-sources-foreground)] data-pressed:!border-[var(--workspace-composer-control-hover-border)] data-pressed:!bg-[var(--workspace-composer-control-hover-surface)] data-popup-open:!border-[var(--workspace-composer-control-hover-border)] data-popup-open:!bg-[var(--workspace-composer-control-hover-surface)] data-popup-open:!text-[var(--workspace-composer-sources-foreground)] sm:h-8"
+            className={composerControlButtonClass}
             disabled={disabled}
             size="sm"
             type="button"

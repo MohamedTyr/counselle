@@ -11,8 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
-import type { SourceConfig } from "@/api/chat/types";
-import type { SkillCatalogEntry } from "@/api/chat/types";
+import {
+  BUILT_IN_DEFAULT_RESPONSE_MODE,
+  BUILT_IN_RESPONSE_MODE_OPTIONS,
+} from "@/api/chat/response-mode";
+import type {
+  ResponseMode,
+  ResponseModeOption,
+  SkillCatalogEntry,
+  SourceConfig,
+} from "@/api/chat/types";
+import { ResponseModeMenu } from "@/features/ai-composer/ResponseModeMenu";
 import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
 import {
   hasInlineSkillMention,
@@ -26,6 +35,9 @@ type AiComposerProps = {
   onValueChange: (value: string) => void;
   sourceConfig: SourceConfig;
   onSourceConfigChange: (sourceConfig: SourceConfig) => void;
+  responseMode?: ResponseMode;
+  responseModes?: readonly ResponseModeOption[];
+  onResponseModeChange?: (mode: ResponseMode) => void;
   onSubmit: () => void;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -42,6 +54,9 @@ export function AiComposer({
   onValueChange,
   sourceConfig,
   onSourceConfigChange,
+  responseMode = BUILT_IN_DEFAULT_RESPONSE_MODE,
+  responseModes = BUILT_IN_RESPONSE_MODE_OPTIONS,
+  onResponseModeChange = () => undefined,
   onSubmit,
   onCancel,
   isSubmitting,
@@ -163,6 +178,12 @@ export function AiComposer({
               disabled={disabled || isSubmitting}
               onSourceConfigChange={onSourceConfigChange}
               sourceConfig={sourceConfig}
+            />
+            <ResponseModeMenu
+              disabled={disabled || isSubmitting}
+              mode={responseMode}
+              modes={responseModes}
+              onModeChange={onResponseModeChange}
             />
           </div>
 

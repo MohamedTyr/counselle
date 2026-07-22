@@ -737,4 +737,46 @@ describe("AiChatPage", () => {
       ),
     );
   });
+
+  test("normalizes a stale sticky Think session to Quick when Think is unavailable", async () => {
+    fakeTransport.getChatConfig.mockResolvedValue({
+      greeting: "Welcome",
+      season_note: null,
+      conversation_starters: [],
+      default_source_config: null,
+      skills: [],
+      max_selected_skills: 0,
+      default_response_mode: "quick",
+      response_modes: [
+        {
+          id: "quick",
+          model: "google-vertex:gemini-3.5-flash",
+          model_display_name: "Gemini 3.5 Flash",
+          preview: false,
+        },
+      ],
+    });
+    fakeTransport.getSession.mockResolvedValue(
+      session({ responseMode: "think" }),
+    );
+    fakeTransport.sendMessage.mockReturnValue(
+      replay([meta(), delta("ok"), done()]),
+    );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+    expect(
+      screen.getByRole("button", { name: "Response mode: Quick" }),
+    ).toBeInTheDocument();
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    fireEvent.change(textarea, { target: { value: "Aid question" } });
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ responseMode: "quick" }),
+      ),
+    );
+  });
 });

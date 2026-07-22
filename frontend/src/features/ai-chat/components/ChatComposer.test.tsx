@@ -104,6 +104,43 @@ describe("ChatComposer", () => {
     });
   });
 
+  test("choosing a response mode reports the selected mode", () => {
+    const onResponseModeChange = vi.fn();
+    renderComposer({
+      onResponseModeChange,
+      responseMode: "quick",
+      responseModes: [
+        {
+          id: "quick",
+          model: "google-vertex:gemini-3.5-flash",
+          modelDisplayName: "Gemini 3.5 Flash",
+          preview: false,
+        },
+        {
+          id: "think",
+          model: "google-vertex:gemini-3.1-pro-preview",
+          modelDisplayName: "Gemini 3.1 Pro",
+          preview: true,
+        },
+      ],
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Response mode: Quick" }),
+    );
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Think/ }));
+
+    expect(onResponseModeChange).toHaveBeenCalledWith("think");
+  });
+
+  test("response mode is locked while awaiting clarification", () => {
+    renderComposer({ awaitingClarify: true, responseMode: "think" });
+
+    expect(
+      screen.getByRole("button", { name: "Response mode: Think" }),
+    ).toBeDisabled();
+  });
+
   test("subreddit subset selection updates selectedSubreddits and preserves the legacy five-item order", () => {
     const props = renderComposer();
     fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
