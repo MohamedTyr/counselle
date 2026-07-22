@@ -82,6 +82,7 @@ function clarifyDraft(
       selectedOptionIds: [],
       customText: "",
       validationError: null,
+      answersByQuestionId: {},
       sendState: "idle",
     },
     canSubmit: true,
@@ -89,6 +90,14 @@ function clarifyDraft(
     setSelectedOptionIds: vi.fn(),
     setCustomText: vi.fn(),
     setValidationError: vi.fn(),
+    answerForQuestion: (questionId) =>
+      overrides.draft?.answersByQuestionId?.[questionId] ?? {
+        selectedOptionIds: overrides.draft?.selectedOptionIds ?? [],
+        customText: overrides.draft?.customText ?? "",
+        validationError: overrides.draft?.validationError ?? null,
+      },
+    setQuestionAnswer: vi.fn(),
+    setQuestionValidationError: vi.fn(),
     markSending: vi.fn(),
     markChecking: vi.fn(),
     markAnswered: vi.fn(),
@@ -686,6 +695,13 @@ describe("ChatMessage", () => {
         selectedOptionIds: ["q1_o1"],
         customText: "",
         validationError: null,
+        answersByQuestionId: {
+          q1: {
+            selectedOptionIds: ["q1_o1"],
+            customText: "",
+            validationError: null,
+          },
+        },
         sendState: "idle",
       },
     });
@@ -735,7 +751,7 @@ describe("ChatMessage", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send answers" }));
 
     expect(onClarifyAnswer).toHaveBeenCalledWith({
       origin: "widget",

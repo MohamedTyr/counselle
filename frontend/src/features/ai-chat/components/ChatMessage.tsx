@@ -14,15 +14,7 @@ import {
   MessageContent,
 } from "@/components/ai-elements/message";
 import { cn } from "@/lib/utils";
-import type {
-  ClarifyResponseV2,
-  ClarifyQuestionV2,
-  ClarifySpec,
-  ClarifySpecV1,
-  ClarifySpecV2,
-  SourceFocus,
-  WidgetClarifyResponseV2,
-} from "@/api/chat/types";
+import type { SourceFocus } from "@/api/chat/types";
 
 import { schoolDomainsFromBlocks } from "../citations";
 import type { Segment } from "../turn-reducer";
@@ -34,7 +26,10 @@ import {
 } from "./AgentRunView";
 import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
 import { CitationRenderer } from "./CitationRenderer";
-import { ClarifyWidget, type ClarifyWidgetAnswer } from "./ClarifyWidget";
+import { ClarifyBundle } from "./clarify/ClarifyBundle";
+import { isLegacyClarifySpec } from "./clarify/clarify-format";
+import type { ClarifyWidgetAnswer } from "./clarify/types";
+import { ClarifyWidget } from "./ClarifyWidget";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
 import { VizBlock } from "./VizBlock";
 import type { ClarifyDraftController } from "../useClarifyDraft";
@@ -135,211 +130,6 @@ function assertNeverSegment(segment: never): never {
   throw new Error(`Unhandled segment type: ${JSON.stringify(segment)}`);
 }
 
-function isLegacyClarifySpec(spec: ClarifySpec): spec is ClarifySpecV1 {
-  return spec.v === 1 && "options" in spec;
-}
-
-function isCurrentClarifySpec(spec: ClarifySpec): spec is ClarifySpecV2 {
-  return spec.v === 2 && "questions" in spec;
-}
-
-function clarifyAnswerSummary(
-  spec: ClarifySpecV2,
-  response: ClarifyResponseV2 | null,
-): string | null {
-  if (response === null) return null;
-  if (response.mode === "reply") return response.text;
-
-  const questionById = new Map(
-    spec.questions.map((question) => [question.id, question]),
-  );
-  const lines = response.answers.flatMap((answer) => {
-    const question = questionById.get(answer.question_id);
-    if (question === undefined) return [];
-    const optionLabels = answer.option_ids.map(
-      (id) => question.options.find((option) => option.id === id)?.label ?? id,
-    );
-    const text = [...optionLabels, answer.custom_text]
-      .filter((value): value is string => value !== undefined && value !== null)
-      .filter((value) => value.trim().length > 0)
-      .join(", ");
-    return text.trim().length > 0 ? [text] : [];
-  });
-  return lines.length > 0 ? lines.join("; ") : null;
-}
-
-function ClarifySegmentView({
-  draft,
-  frozen,
-  onAnswer,
-  response,
-  spec,
-}: {
-  spec: ClarifySpec;
-  response: ClarifyResponseV2 | null;
-  frozen: boolean;
-  draft?: ClarifyDraftController;
-  onAnswer?: (answer: ClarifyWidgetAnswer) => void;
-}) {
-  if (isLegacyClarifySpec(spec)) {
-    return null;
-  }
-
-  if (!isCurrentClarifySpec(spec)) {
-    return (
-      <div className="not-prose rounded-lg border px-3 py-2 text-sm text-muted-foreground">
-        Clarifying question from a newer client version.
-      </div>
-    );
-  }
-
-  const answer = clarifyAnswerSummary(spec, response);
-  const activeIndex = Math.min(
-    draft?.draft.currentQuestionIndex ?? 0,
-    Math.max(0, spec.questions.length - 1),
-  );
-  const activeQuestion = spec.questions[activeIndex];
-  const canAnswer =
-    !frozen &&
-    response === null &&
-    draft !== undefined &&
-    onAnswer !== undefined &&
-    activeQuestion !== undefined;
-  const selected = draft?.draft.selectedOptionIds ?? [];
-  const customText = draft?.draft.customText ?? "";
-  const validationError = draft?.draft.validationError ?? null;
-  const sendState = draft?.draft.sendState ?? "idle";
-
-  const toggleOption = (question: ClarifyQuestionV2, optionId: string) => {
-    if (!canAnswer) {
-      return;
-    }
-    if (question.selection === "single") {
-      draft.setSelectedOptionIds([optionId]);
-      return;
-    }
-    draft.setSelectedOptionIds(
-      selected.includes(optionId)
-        ? selected.filter((id) => id !== optionId)
-        : [...selected, optionId],
-    );
-  };
-
-  const submitAnswer = () => {
-    if (!canAnswer) {
-      return;
-    }
-    const trimmedCustomText = customText.trim();
-    if (selected.length === 0 && trimmedCustomText.length === 0) {
-      draft.setValidationError("Choose an option or type an answer.");
-      return;
-    }
-    const optionLabels = activeQuestion.options
-      .filter((option) => selected.includes(option.id))
-      .map((option) => option.label);
-    const text = [...optionLabels, trimmedCustomText]
-      .filter((value) => value.length > 0)
-      .join(", ");
-    const responsePayload: WidgetClarifyResponseV2 = {
-      v: 2,
-      mode: "widget",
-      answers: [
-        {
-          question_id: activeQuestion.id,
-          option_ids: selected,
-          ...(trimmedCustomText.length > 0
-            ? { custom_text: trimmedCustomText }
-            : {}),
-        },
-      ],
-    };
-    onAnswer({ origin: "widget", text, response: responsePayload });
-  };
-
-  return (
-    <div className="not-prose my-3 rounded-lg border bg-card px-3 py-2 text-sm">
-      <div className="space-y-2">
-        {canAnswer && activeQuestion !== undefined ? (
-          <div key={activeQuestion.id}>
-            <p className="font-medium text-foreground">
-              {activeQuestion.question}
-            </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {activeQuestion.options.map((option) => (
-                <button
-                  aria-pressed={selected.includes(option.id)}
-                  className={cn(
-                    "flex min-h-11 w-full flex-col items-start justify-center rounded-xl border px-3 py-2 text-left sm:w-auto",
-                    "hover:bg-accent",
-                    selected.includes(option.id) && "border-primary bg-accent",
-                  )}
-                  key={option.id}
-                  onClick={() => toggleOption(activeQuestion, option.id)}
-                  type="button"
-                >
-                  <span className="text-sm font-medium text-foreground">
-                    {option.label}
-                  </span>
-                  {option.hint !== undefined &&
-                    option.hint !== null &&
-                    option.hint.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {option.hint}
-                      </span>
-                    )}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <input
-                aria-label="Your answer"
-                className="min-h-11 flex-1 rounded-xl border bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                maxLength={280}
-                onChange={(event) => draft.setCustomText(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    submitAnswer();
-                  }
-                }}
-                placeholder="Type your own answer"
-                type="text"
-                value={customText}
-              />
-              <button
-                className="min-h-11 rounded-xl border px-3 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
-                disabled={!draft.canSubmit || sendState === "answered"}
-                onClick={submitAnswer}
-                type="button"
-              >
-                Send
-              </button>
-            </div>
-            {validationError !== null && (
-              <p className="mt-2 text-xs text-destructive">
-                {validationError}
-              </p>
-            )}
-          </div>
-        ) : (
-          spec.questions.map((question) => (
-            <div key={question.id}>
-              <p className="font-medium text-foreground">
-                {question.question}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-      {answer !== null && (
-        <p className="mt-2 text-muted-foreground">
-          <span className="font-medium text-foreground">Answer:</span> {answer}
-        </p>
-      )}
-    </div>
-  );
-}
-
 /** A stable React key by segment identity, not position — `narration`/
  * `thinking` carry their own `id`, `tool` carries `step_id`; only `answer`/
  * `viz` (which never reorder relative to each other) fall back to index. */
@@ -432,7 +222,7 @@ function SegmentBeat({
       return <VizBlock onSourceOpen={onOpenCitation} spec={segment.spec} />;
     case "clarify":
       return (
-        <ClarifySegmentView
+        <ClarifyBundle
           draft={clarifyDraft}
           frozen={clarifyFrozen}
           onAnswer={onClarifyAnswer}
@@ -568,6 +358,9 @@ function ChatMessageComponent({
 
   const settled =
     message.turnStatus === "complete" || message.turnStatus === "cancelled";
+  const suppressActions = message.clarify !== undefined;
+  const canRegenerateThisMessage =
+    canRegenerate && message.continuationOf === undefined;
 
   return (
     <Message from="assistant" id={message.messageId}>
@@ -583,7 +376,7 @@ function ChatMessageComponent({
         />
         {settled && <MessageSources message={message} onOpen={onOpenSources} />}
       </MessageContent>
-      {settled && (
+      {settled && !suppressActions && (
         <MessageActions>
           <CopyAction
             answerText={message.text}
@@ -619,7 +412,7 @@ function ChatMessageComponent({
               </MessageAction>
             </>
           )}
-          {canRegenerate && onRegenerate !== undefined && (
+          {canRegenerateThisMessage && onRegenerate !== undefined && (
             <MessageAction
               label="Regenerate"
               onClick={onRegenerate}

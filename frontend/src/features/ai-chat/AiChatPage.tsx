@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatMessages } from "./components/ChatMessages";
-import type { ClarifyWidgetAnswer } from "./components/ClarifyWidget";
+import type { ClarifyWidgetAnswer } from "./components/clarify/types";
 import type { MessageSourcesPayload } from "./components/MessageSources";
 import { SourcesRail } from "./components/SourcesRail";
 import type { ChatMessage, FeedbackRating } from "./model";

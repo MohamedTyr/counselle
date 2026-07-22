@@ -31,7 +31,7 @@ import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_PLACEHOLDER = "Message Counselle";
-const CLARIFY_PLACEHOLDER = "Pick one, or just type...";
+const CLARIFY_PLACEHOLDER = "Answer above, or reply in your own words...";
 
 export type ChatComposerProps = {
   value: string;
@@ -184,6 +184,11 @@ export function ChatComposer({
           />
         </div>
 
+        {awaitingClarify && (
+          <p className="px-[var(--workspace-composer-inset)] pb-2 text-xs text-muted-foreground">
+            This reply answers the existing question.
+          </p>
+        )}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
           <div className="flex flex-wrap items-center gap-1.5">
             {maxSelectedSkills > 0 && !awaitingClarify && (
@@ -199,17 +204,21 @@ export function ChatComposer({
                 <AtSign className="!mx-0 size-4" data-icon="inline-start" />
               </Button>
             )}
-            <SourcesMenu
-              disabled={disabled || isSubmitting}
-              onSourceConfigChange={onSourceConfigChange}
-              sourceConfig={sourceConfig}
-            />
-            <ResponseModeMenu
-              disabled={disabled || isSubmitting || awaitingClarify}
-              mode={responseMode}
-              modes={responseModes}
-              onModeChange={onResponseModeChange}
-            />
+            {!awaitingClarify && (
+              <>
+                <SourcesMenu
+                  disabled={disabled || isSubmitting}
+                  onSourceConfigChange={onSourceConfigChange}
+                  sourceConfig={sourceConfig}
+                />
+                <ResponseModeMenu
+                  disabled={disabled || isSubmitting}
+                  mode={responseMode}
+                  modes={responseModes}
+                  onModeChange={onResponseModeChange}
+                />
+              </>
+            )}
           </div>
 
           {isSubmitting ? (

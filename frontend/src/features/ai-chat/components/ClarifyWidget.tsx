@@ -1,7 +1,9 @@
 import { useState } from "react";
 
-import type { ClarifySpec, WidgetClarifyResponseV2 } from "@/api/chat/types";
+import type { ClarifySpec } from "@/api/chat/types";
 import { cn } from "@/lib/utils";
+
+import type { ClarifyWidgetAnswer } from "./clarify/types";
 
 export type ClarifyWidgetProps = {
   spec: ClarifySpec;
@@ -12,12 +14,6 @@ export type ClarifyWidgetProps = {
   /** The persisted answer (frozen transcript record). null/undefined means
    *  unanswered. */
   answer?: string | null;
-};
-
-export type ClarifyWidgetAnswer = {
-  origin: "widget";
-  text: string;
-  response: WidgetClarifyResponseV2;
 };
 
 type ChipProps = {

@@ -82,7 +82,10 @@ describe("ChatComposer", () => {
   test("awaitingClarify swaps the placeholder", () => {
     renderComposer({ awaitingClarify: true });
     expect(
-      screen.getByPlaceholderText("Pick one, or just type..."),
+      screen.getByPlaceholderText("Answer above, or reply in your own words..."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("This reply answers the existing question."),
     ).toBeInTheDocument();
   });
 
@@ -133,12 +136,15 @@ describe("ChatComposer", () => {
     expect(onResponseModeChange).toHaveBeenCalledWith("think");
   });
 
-  test("response mode is locked while awaiting clarification", () => {
+  test("response mode and source controls are hidden while awaiting clarification", () => {
     renderComposer({ awaitingClarify: true, responseMode: "think" });
 
     expect(
-      screen.getByRole("button", { name: "Response mode: Think" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Response mode: Think" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Sources:/ }),
+    ).not.toBeInTheDocument();
   });
 
   test("subreddit subset selection updates selectedSubreddits and preserves the legacy five-item order", () => {

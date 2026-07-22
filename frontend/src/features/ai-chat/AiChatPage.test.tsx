@@ -136,6 +136,36 @@ function clarifyV2(): ProtocolEvent {
   };
 }
 
+function clarifyV2TwoQuestions(): ProtocolEvent {
+  return {
+    v: 1,
+    type: "clarify",
+    data: {
+      v: 2,
+      questions: [
+        {
+          id: "q1",
+          question: "Which path interests you?",
+          selection: "single",
+          options: [
+            { id: "q1_o1", label: "Financial aid", hint: "Grants & loans" },
+            { id: "q1_o2", label: "Scholarships", hint: "Merit-based" },
+          ],
+        },
+        {
+          id: "q2",
+          question: "Which campuses should I include?",
+          selection: "multiple",
+          options: [
+            { id: "q2_o1", label: "Urban" },
+            { id: "q2_o2", label: "Suburban" },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 async function* replay(
   events: ProtocolEvent[],
 ): AsyncGenerator<SseFrame<ProtocolEvent>, void, undefined> {
@@ -560,7 +590,7 @@ describe("AiChatPage", () => {
       await screen.findByText("Which path interests you?"),
     ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText("Pick one, or just type..."),
+      screen.getByPlaceholderText("Answer above, or reply in your own words..."),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Financial aid"));
@@ -660,7 +690,7 @@ describe("AiChatPage", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Financial aid"));
-    fireEvent.click(screen.getAllByRole("button", { name: "Send" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Send answers" }));
 
     expect(
       await screen.findByText("Great, let's talk aid."),
@@ -677,6 +707,112 @@ describe("AiChatPage", () => {
         sourceConfig: undefined,
         skills: undefined,
         responseMode: undefined,
+      }),
+    );
+  });
+
+  test("clarify: v2 bundle advances through multiple questions and submits all answers", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage
+      .mockReturnValueOnce(
+        replay([meta(), clarifyV2TwoQuestions(), done("awaiting_input")]),
+      )
+      .mockReturnValueOnce(
+        replay([
+          meta({ messageId: "assistant-2" }),
+          delta("Great, let's talk aid."),
+          done(),
+        ]),
+      );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
+      target: { value: "Help me choose" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), {
+      key: "Enter",
+    });
+
+    expect(
+      await screen.findByText("Which path interests you?"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Financial aid"));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      await screen.findByText("Which campuses should I include?"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Urban"));
+    fireEvent.click(screen.getByText("Suburban"));
+    fireEvent.click(screen.getByRole("button", { name: "Send answers" }));
+
+    expect(
+      await screen.findByText("Great, let's talk aid."),
+    ).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: "",
+        inReplyTo: "assistant-1",
+        clarifyResponse: {
+          v: 2,
+          mode: "widget",
+          answers: [
+            { question_id: "q1", option_ids: ["q1_o1"] },
+            { question_id: "q2", option_ids: ["q2_o1", "q2_o2"] },
+          ],
+        },
+        sourceConfig: undefined,
+        skills: undefined,
+        responseMode: undefined,
+      }),
+    );
+  });
+
+  test("clarify: single-select option clears stale custom text before submit", async () => {
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage
+      .mockReturnValueOnce(replay([meta(), clarifyV2(), done("awaiting_input")]))
+      .mockReturnValueOnce(
+        replay([
+          meta({ messageId: "assistant-2" }),
+          delta("Great, let's talk aid."),
+          done(),
+        ]),
+      );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    fireEvent.change(screen.getByPlaceholderText("Message Counselle"), {
+      target: { value: "Help me choose" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Message Counselle"), {
+      key: "Enter",
+    });
+
+    expect(
+      await screen.findByText("Which path interests you?"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Type your own answer"), {
+      target: { value: "Need-based grants" },
+    });
+    fireEvent.click(screen.getByText("Financial aid"));
+    expect(screen.getByPlaceholderText("Type your own answer")).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "Send answers" }));
+
+    expect(
+      await screen.findByText("Great, let's talk aid."),
+    ).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        clarifyResponse: {
+          v: 2,
+          mode: "widget",
+          answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+        },
       }),
     );
   });

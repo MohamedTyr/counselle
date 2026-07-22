@@ -3,7 +3,7 @@ import { ArrowDownIcon, MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { ChatMessage } from "./ChatMessage";
-import type { ClarifyWidgetAnswer } from "./ClarifyWidget";
+import type { ClarifyWidgetAnswer } from "./clarify/types";
 import type { MessageSourcesPayload, SourceFocus } from "@/api/chat/types";
 import { sourcesPayloadFor } from "../citations";
 import type { ChatMessage as ChatMessageModel, FeedbackRating } from "../model";

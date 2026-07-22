@@ -12,7 +12,14 @@ export type ClarifyDraftState = {
   selectedOptionIds: string[];
   customText: string;
   validationError: string | null;
+  answersByQuestionId: Record<string, ClarifyQuestionDraft>;
   sendState: "idle" | "sending" | "checking" | "answered";
+};
+
+export type ClarifyQuestionDraft = {
+  selectedOptionIds: string[];
+  customText: string;
+  validationError: string | null;
 };
 
 export type ClarifyDraftController = {
@@ -22,6 +29,15 @@ export type ClarifyDraftController = {
   setSelectedOptionIds: (optionIds: readonly string[]) => void;
   setCustomText: (customText: string) => void;
   setValidationError: (validationError: string | null) => void;
+  answerForQuestion: (questionId: string) => ClarifyQuestionDraft;
+  setQuestionAnswer: (
+    questionId: string,
+    update: (previous: ClarifyQuestionDraft) => ClarifyQuestionDraft,
+  ) => void;
+  setQuestionValidationError: (
+    questionId: string,
+    validationError: string | null,
+  ) => void;
   markSending: () => void;
   markChecking: () => void;
   markAnswered: () => void;
@@ -33,7 +49,16 @@ function initialDraft(): ClarifyDraftState {
     selectedOptionIds: [],
     customText: "",
     validationError: null,
+    answersByQuestionId: {},
     sendState: "idle",
+  };
+}
+
+function initialQuestionDraft(): ClarifyQuestionDraft {
+  return {
+    selectedOptionIds: [],
+    customText: "",
+    validationError: null,
   };
 }
 
@@ -59,6 +84,22 @@ export function useClarifyDraft(key: ClarifyDraftKey): ClarifyDraftController {
       draft: update(previous.key === stableKey ? previous.draft : initialDraft()),
     }));
 
+  const updateQuestionDraft = (
+    questionId: string,
+    update: (previous: ClarifyQuestionDraft) => ClarifyQuestionDraft,
+  ) =>
+    updateDraft((previous) => {
+      const previousQuestion =
+        previous.answersByQuestionId[questionId] ?? initialQuestionDraft();
+      return {
+        ...previous,
+        answersByQuestionId: {
+          ...previous.answersByQuestionId,
+          [questionId]: update(previousQuestion),
+        },
+      };
+    });
+
   return {
     draft,
     canSubmit: draft.sendState === "idle" || draft.sendState === "checking",
@@ -82,6 +123,17 @@ export function useClarifyDraft(key: ClarifyDraftKey): ClarifyDraftController {
       })),
     setValidationError: (validationError: string | null) =>
       updateDraft((previous) => ({ ...previous, validationError })),
+    answerForQuestion: (questionId: string) =>
+      draft.answersByQuestionId[questionId] ?? initialQuestionDraft(),
+    setQuestionAnswer: updateQuestionDraft,
+    setQuestionValidationError: (
+      questionId: string,
+      validationError: string | null,
+    ) =>
+      updateQuestionDraft(questionId, (previous) => ({
+        ...previous,
+        validationError,
+      })),
     markSending: () =>
       updateDraft((previous) => ({
         ...previous,
