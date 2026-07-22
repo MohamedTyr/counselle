@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from domain.clarification import ClarifySpecV2
 from domain.envelope import Citation, EvidenceItem
 from domain.mutation_receipts import WorkspaceMutationReceipt
 from domain.specs import ClarifySpec, ParsedRenderSpec
@@ -359,8 +360,10 @@ def ev_viz(spec: ParsedRenderSpec) -> Event:
     return Event(type="viz", data=spec.model_dump(mode="json"))
 
 
-def ev_clarify(spec: ClarifySpec) -> Event:
-    return Event(type="clarify", data=spec.model_dump())
+def ev_clarify(spec: ClarifySpec | ClarifySpecV2) -> Event:
+    """The SSE envelope stays protocol v1; the nested spec owns its own version
+    (``v: 1`` legacy vs ``v: 2`` — plan "Versioned contracts" / "SSE additions")."""
+    return Event(type="clarify", data=spec.model_dump(mode="json"))
 
 
 def ev_sources(sources: list[SourceEntry]) -> Event:

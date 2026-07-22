@@ -667,8 +667,23 @@ async def test_agent_node_attaches_gemini_include_thoughts_from_effective_settin
     assert legacy_off_model_settings is None
 
 
+def _plain_text_model(text: str) -> FunctionModel:
+    """A plain-text-only reply, no tool calls — the ``TestModel(call_tools=[],
+    custom_output_text=...)`` shortcut no longer applies now that the normal
+    run's ``output_type`` includes the ``ask_student`` output tool alongside
+    ``str`` (plans/clarifying-questions.md Phase 2): PydanticAI's
+    ``TestModel._get_output`` asserts ``output_mode != 'tool'`` whenever
+    ``custom_output_text`` is set, and a mixed str/ToolOutput schema reports
+    ``output_mode == 'tool'`` even though plain text remains allowed."""
+
+    def fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[TextPart(text)])
+
+    return _fn_model(fn)
+
+
 async def test_simple_turn_streams_deltas_persists_messages_creates_session() -> None:
-    rig = Rig(TestModel(call_tools=[], custom_output_text="Hello! Ask me about any school."))
+    rig = Rig(_plain_text_model("Hello! Ask me about any school."))
     session_id = str(uuid4())
 
     events = await rig.turn(session_id, "hi", _ALL_OFF)
@@ -757,7 +772,7 @@ def test_empty_completion_fallback_replaces_empty_provider_response() -> None:
 
 
 async def test_run_turn_threads_user_id_into_turn_ids() -> None:
-    rig = Rig(TestModel(call_tools=[], custom_output_text="Hi there."))
+    rig = Rig(_plain_text_model("Hi there."))
     session_id = str(uuid4())
     user_id = str(uuid4())
 
@@ -771,7 +786,7 @@ async def test_run_turn_threads_user_id_into_turn_ids() -> None:
 async def test_run_turn_without_user_id_defaults_to_none_in_turn_ids() -> None:
     """The eval runner / CLI call run_turn with no user_id — the unmounted
     agent-tools path (ADR 0013) must see None, not a missing key or a mint."""
-    rig = Rig(TestModel(call_tools=[], custom_output_text="Hi there."))
+    rig = Rig(_plain_text_model("Hi there."))
     session_id = str(uuid4())
 
     events = await rig.turn(session_id, "hi", _ALL_OFF)
@@ -1238,6 +1253,12 @@ class _GoldenIterResult:
     @property
     def usage(self) -> SimpleNamespace:
         return SimpleNamespace(input_tokens=3, output_tokens=4, tool_calls=1)
+
+    @property
+    def output(self) -> str:
+        # A plain string, never ClarifyDraftV2 — the agent_node result branch
+        # (isinstance check) must fall through to the normal "complete" path.
+        return "Here is the final answer."
 
     def all_messages(self) -> list[ModelMessage]:
         return [

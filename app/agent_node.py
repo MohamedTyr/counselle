@@ -14,10 +14,17 @@ Design (notes-p4-apis §1/§3/§4/§6/§7):
   ``messages[:-1]`` is the ``message_history``, the tail's prompt text is the
   ``user_prompt``. One state key, one convention, replay-safe (the tail is still
   there on re-execution).
-- **Clarify:** Agent V1 does not mount ``ask_student`` in the PydanticAI toolset.
-  The legacy interrupt plumbing still exists below this node, so
-  ``GraphInterrupt`` is allowed to propagate if a lower-level path raises it,
-  but the V1 agent is expected to make reasonable assumptions and continue.
+- **Clarify (v2):** the normal run advertises ``ask_student`` as a PydanticAI
+  structured OUTPUT tool (``ToolOutput(ClarifyDraftV2, name="ask_student")``,
+  ``app/clarification.py``) — not a mounted function tool and not the legacy
+  ``langgraph.types.interrupt()`` path. ``end_strategy="early"`` means a
+  sibling function-tool call in the same model response is skipped, never
+  raced with the clarification output (plans/clarifying-questions.md,
+  architecture decision §1). A ``ClarifyDraftV2`` result ends the turn
+  ``awaiting_input`` with no final-answer delta instead of ``complete``. The
+  legacy interrupt plumbing still exists below this node purely for parked/
+  resumed v1 checkpoint compatibility — ``GraphInterrupt`` is still allowed to
+  propagate if that lower-level path raises it.
 - **Streaming:** text reaches the client mid-run via the LangGraph custom
   stream (``get_stream_writer()``, notes §7). The first chunk of a text part
   arrives inside ``PartStartEvent`` (not as a delta) — both are forwarded.
@@ -52,6 +59,7 @@ from pydantic_ai.usage import UsageLimits
 from pydantic_graph import End
 
 from app import viz as viz_mod
+from app.clarification import ask_student_output_type, build_pending_clarification
 from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
 from app.prompt import build_system_prompt, render_source_availability
@@ -73,6 +81,7 @@ from app.turn_persistence import partial_messages, resolve_offset
 from app.viz_placement import StreamingVizMarkerStripper
 from app.workspace.agent_tools import build_workspace_tools
 from config.settings import get_settings, load_yaml_asset
+from domain.clarification import ClarifyDraftV2
 from domain.events import UsageData
 from domain.specs import ColumnInput, SourceConfig, VizRowInput
 
@@ -696,7 +705,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     instructions = "\n\n".join(
         part for part in (base_instructions, source_instructions, selected_instructions) if part
     )
-    agent: Agent[TurnDeps, str] = Agent(
+    agent: Agent[TurnDeps, str | ClarifyDraftV2] = Agent(
         model_factory(),
         instructions=instructions,
         deps_type=TurnDeps,
@@ -708,6 +717,15 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         # plans/fix-search-fields-resilience.md Bug C).
         retries=2,
         capabilities=[PlanReminder(plan_state)],
+        # Normal-run output: prose or one validated ask_student draft
+        # (app/clarification.py — factored out so a future A2 continuation run
+        # can pass output_type=[str] without duplicating this list).
+        output_type=ask_student_output_type(),
+        # Explicit (plan Phase 2 bullet 2): PydanticAI's own default is already
+        # "early", but a sibling function-tool call being skipped rather than
+        # executed is safety-critical here, so it must never depend on an
+        # unstated library default.
+        end_strategy="early",
     )
     limits = UsageLimits(
         request_limit=settings.agent_max_model_requests,
@@ -751,7 +769,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             while not isinstance(node, End):
                 _emit_injected_steers(run, handle, recording_writer)
                 if Agent.is_model_request_node(node):
-                    model_node: ModelRequestNode[Any, str] = node
+                    model_node: ModelRequestNode[Any, str | ClarifyDraftV2] = node
                     async with model_node.stream(run.ctx) as stream:
                         async for model_event in stream:
                             router.handle(model_event)
@@ -760,7 +778,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
                     if isinstance(node, End):
                         record_replayable_snapshot(run, handle, emissions_len=len(emissions))
                 elif Agent.is_call_tools_node(node):
-                    tool_node: CallToolsNode[Any, str] = node
+                    tool_node: CallToolsNode[Any, str | ClarifyDraftV2] = node
                     async with tool_node.stream(run.ctx) as stream:
                         async for tool_event in stream:
                             router.handle(tool_event)
@@ -794,10 +812,22 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         # Deliberately NOT guarded: a close() failure on the happy path is a
         # real turn failure (the final flush/steps never reached the student).
         router.close("complete")
-        final_writer.flush_final()
-        completion_fallback = _empty_resolve_completion(emissions)
-        if completion_fallback:
-            writer({"type": "delta", "text": completion_fallback})
+        if result is not None and isinstance(result.output, ClarifyDraftV2):
+            # ask_student output: the model never streamed final-answer prose
+            # (the question IS the output), so final_writer never saw a
+            # natural start_final() call. Force it here so any render_viz
+            # staged before the question still flushes deterministically
+            # (plan Phase 2: never lose staged visible work merely because the
+            # run ended in a question) — and deliberately bypass
+            # _empty_resolve_completion below: a clarification result must
+            # never synthesize a false final-answer delta.
+            final_writer.start_final()
+            final_writer.flush_final()
+        else:
+            final_writer.flush_final()
+            completion_fallback = _empty_resolve_completion(emissions)
+            if completion_fallback:
+                writer({"type": "delta", "text": completion_fallback})
 
     # Both a normal answer and the handled tool-budget answer are terminal.
     if parked_store is not None:
@@ -828,6 +858,18 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # --- the turn record (B1b, G1/G2): built from exactly what streamed ---
     prior_records = list(state.get("turn_records") or [])
     clarify, synthesized = _resume_clarify(prior_records, ids)
+    # A v2 ask_student result (normal run only — Phase 3's future A2
+    # continuation excludes the output type entirely, so this can't collide
+    # with a legitimate second round): overrides any legacy resume clarify
+    # metadata computed above, since a fresh clarification always wins.
+    clarify_draft: ClarifyDraftV2 | None = (
+        result.output
+        if result is not None and isinstance(result.output, ClarifyDraftV2)
+        else None
+    )
+    is_clarify_result = clarify_draft is not None
+    if clarify_draft is not None:
+        clarify = build_pending_clarification(clarify_draft)
     # messages_offset: run_turn computes the authoritative value per path (new
     # turn vs resume) and threads it through turn_ids — the node never
     # recomputes it. resolve_offset's fallback covers direct-graph invocations
@@ -845,7 +887,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     record = build_turn_record(
         emissions,
         ids=ids,
-        status="complete",
+        status="awaiting_input" if is_clarify_result else "complete",
         sources=registry.wire_dump(),
         user_text=record_user_text,
         usage=usage.model_dump(mode="json"),

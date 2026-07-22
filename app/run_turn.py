@@ -15,10 +15,16 @@ exactly this stream (ADR 0016). Per turn it:
    ``ModelRequest`` appended to the prior messages (the agent node's tail
    convention, app/agent_node.py).
 3. Streams with ``stream_mode=["custom", "updates"]``: custom ``delta``/``viz``
-   chunks become ``delta``/``viz`` events live; an ``__interrupt__`` update
-   becomes ``clarify`` + ``done(awaiting_input)``; a completed run ends with
-   ``sources`` (the registry verbatim — the LLM never built citation metadata),
-   ``usage``, and ``done(complete)``.
+   chunks become ``delta``/``viz`` events live; a legacy ``__interrupt__``
+   update becomes ``clarify`` + ``done(awaiting_input)``. A native v2
+   ``ask_student`` result (the agent node's structured output, not an
+   interrupt) ends the same graph run normally, so the post-commit read
+   detects it as the latest turn record's ``awaiting_input`` status and emits
+   ``clarify`` -> ``sources`` -> optional ``usage`` -> ``done(awaiting_input)``
+   — the model's pre-question citations/usage are honest, unlike the legacy
+   interrupt path. Any other completed run ends with ``sources`` (the registry
+   verbatim — the LLM never built citation metadata), ``usage``, and
+   ``done(complete)``.
 4. Persists the turn record (B1b, ship-plan G2): the node writes the complete
    record in its state delta; this runner writes the parked-clarify record
    (after ``done(awaiting_input)``) and the error record (best-effort) via
@@ -45,6 +51,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from app.clarification import latest_awaiting_v2_clarify_spec
 from app.graph import GraphDeps
 from app.records import Emission, FinalEmissionDeduper
 from app.sessions import get_session, touch_session
@@ -568,6 +575,7 @@ async def run_turn(
     # fallback AND the parked/error records' sources snapshot.
     last_registry_dump: list[Any] = []
     last_usage_dict_inline: dict[str, Any] | None = None
+    last_turn_records_dump: list[Any] = []
     messages_offset: int | None = None
     graph_input: Any = None
     try:
@@ -664,6 +672,9 @@ async def run_turn(
                         us = node_update.get("usage")
                         if us is not None:
                             last_usage_dict_inline = us
+                        tr = node_update.get("turn_records")
+                        if tr is not None:
+                            last_turn_records_dump = tr
 
         # Fix 3: touch_session must not fail a successful turn — wrap it.
         if deps.app_pool is not None:
@@ -719,6 +730,7 @@ async def run_turn(
                 final.values.get("source_registry") or []
             ).entries_for_wire()
             usage_dict: dict[str, Any] | None = final.values.get("usage")
+            pending_v2_spec = latest_awaiting_v2_clarify_spec(final.values.get("turn_records"))
         except Exception:
             logger.error(
                 "Failed to build ev_sources post-run (trace_id=%s, session_id=%s)"
@@ -729,10 +741,18 @@ async def run_turn(
             )
             entries = SourceRegistry(last_registry_dump).entries_for_wire()
             usage_dict = last_usage_dict_inline
+            pending_v2_spec = latest_awaiting_v2_clarify_spec(last_turn_records_dump)
+        if pending_v2_spec is not None:
+            # Native v2 ask_student pending (plan Phase 2, distinct from the
+            # legacy `__interrupt__` branch above): pre-question citations and
+            # usage must still surface honestly before the widget parks, so
+            # the exact post-commit order is clarify -> sources -> optional
+            # usage -> done(awaiting_input).
+            yield ev_clarify(pending_v2_spec)
         yield ev_sources(entries)
         if usage_dict:
             yield ev_usage(UsageData.model_validate(usage_dict))
-        yield ev_done("complete")
+        yield ev_done("awaiting_input" if pending_v2_spec is not None else "complete")
     except pydantic_ai.exceptions.UnexpectedModelBehavior as exc:
         # Distinct from the generic catch below so a tool that exhausts its
         # retry budget (see app/agent_node.py Agent(retries=2)) is easy to spot
