@@ -23,6 +23,29 @@ describe("resolveComposerConfig", () => {
               description: "Compare schools side by side.",
             },
           ],
+          skill_modes: [
+            {
+              name: "guided-counselor",
+              display_name: "Guided Counselor",
+              description: "Work through it together.",
+              order: 30,
+              default: false,
+            },
+            {
+              name: "focused-answer",
+              display_name: "Focused Answer",
+              description: "Clear, direct help.",
+              order: 10,
+              default: true,
+            },
+            {
+              name: "deep-research",
+              display_name: "Deep Research",
+              description: "Investigate carefully.",
+              order: 20,
+              default: false,
+            },
+          ],
           max_selected_skills: 3,
         },
       }),
@@ -41,6 +64,36 @@ describe("resolveComposerConfig", () => {
           description: "Compare schools side by side.",
         },
       ],
+      skillModes: [
+        {
+          skillName: "focused-answer",
+          displayName: "Focused Answer",
+          description: "Clear, direct help.",
+          order: 10,
+          isDefault: true,
+        },
+        {
+          skillName: "deep-research",
+          displayName: "Deep Research",
+          description: "Investigate carefully.",
+          order: 20,
+          isDefault: false,
+        },
+        {
+          skillName: "guided-counselor",
+          displayName: "Guided Counselor",
+          description: "Work through it together.",
+          order: 30,
+          isDefault: false,
+        },
+      ],
+      defaultSkillMode: {
+        skillName: "focused-answer",
+        displayName: "Focused Answer",
+        description: "Clear, direct help.",
+        order: 10,
+        isDefault: true,
+      },
       maxSelectedSkills: 3,
     });
   });
@@ -50,6 +103,8 @@ describe("resolveComposerConfig", () => {
       greeting: "Where should we begin?",
       sourceConfig: BUILT_IN_SOURCE_CONFIG,
       skills: [],
+      skillModes: [],
+      defaultSkillMode: null,
       maxSelectedSkills: 0,
     });
   });
@@ -88,12 +143,37 @@ describe("resolveComposerConfig", () => {
             description: "Should not be shown.",
           },
         ],
+        skill_modes: [
+          {
+            name: "focused-answer",
+            display_name: "Focused Answer",
+            description: "Clear, direct help.",
+            order: 10,
+            default: true,
+          },
+          {
+            name: "deep-research",
+            display_name: "Deep Research",
+            description: "Investigate carefully.",
+            order: 20,
+            default: false,
+          },
+          {
+            name: "guided-counselor",
+            display_name: "Guided Counselor",
+            description: "Work through it together.",
+            order: 30,
+            default: false,
+          },
+        ],
         max_selected_skills: 3,
       },
     });
 
     expect(config.skills).toEqual([]);
     expect(config.maxSelectedSkills).toBe(0);
+    expect(config.skillModes).toHaveLength(3);
+    expect(config.defaultSkillMode?.skillName).toBe("focused-answer");
   });
 
   it("disables the catalog when its selection limit is missing or invalid", () => {
@@ -116,5 +196,303 @@ describe("resolveComposerConfig", () => {
     });
 
     expect(config).toMatchObject({ skills: [], maxSelectedSkills: 0 });
+  });
+
+  it("degrades malformed modes without disabling ordinary skills", () => {
+    const config = resolveComposerConfig({
+      status: "success",
+      config: {
+        greeting: "Welcome",
+        season_note: null,
+        conversation_starters: [],
+        default_source_config: null,
+        skills: [
+          {
+            name: "school-comparison",
+            display_name: "School comparison",
+            description: "Compare schools side by side.",
+          },
+        ],
+        skill_modes: [
+          {
+            name: "focused-answer",
+            display_name: "Focused Answer",
+            description: "Clear, direct help.",
+            order: 10,
+            default: true,
+          },
+          {
+            name: "focused-answer",
+            display_name: "Duplicate",
+            description: "Duplicate name.",
+            order: 20,
+            default: false,
+          },
+          {
+            name: "guided-counselor",
+            display_name: "Guided Counselor",
+            description: "Work through it together.",
+            order: 30,
+            default: false,
+          },
+        ],
+        max_selected_skills: 3,
+      },
+    });
+
+    expect(config.skills).toEqual([
+      {
+        name: "school-comparison",
+        displayName: "School comparison",
+        description: "Compare schools side by side.",
+      },
+    ]);
+    expect(config.maxSelectedSkills).toBe(3);
+    expect(config.skillModes).toEqual([]);
+    expect(config.defaultSkillMode).toBeNull();
+  });
+
+  it.each([
+    { name: "missing mode key", skill_modes: undefined },
+    { name: "wrong count", skill_modes: [] },
+    {
+      name: "duplicate order",
+      skill_modes: [
+        {
+          name: "focused-answer",
+          display_name: "Focused Answer",
+          description: "Clear, direct help.",
+          order: 10,
+          default: true,
+        },
+        {
+          name: "deep-research",
+          display_name: "Deep Research",
+          description: "Investigate carefully.",
+          order: 10,
+          default: false,
+        },
+        {
+          name: "guided-counselor",
+          display_name: "Guided Counselor",
+          description: "Work through it together.",
+          order: 30,
+          default: false,
+        },
+      ],
+    },
+    {
+      name: "unsupported mode name",
+      skill_modes: [
+        {
+          name: "focused-answer",
+          display_name: "Focused Answer",
+          description: "Clear, direct help.",
+          order: 10,
+          default: true,
+        },
+        {
+          name: "deep-research",
+          display_name: "Deep Research",
+          description: "Investigate carefully.",
+          order: 20,
+          default: false,
+        },
+        {
+          name: "made-up-mode",
+          display_name: "Made Up",
+          description: "Should not be shown.",
+          order: 30,
+          default: false,
+        },
+      ],
+    },
+    {
+      name: "negative order",
+      skill_modes: [
+        {
+          name: "focused-answer",
+          display_name: "Focused Answer",
+          description: "Clear, direct help.",
+          order: -1,
+          default: true,
+        },
+        {
+          name: "deep-research",
+          display_name: "Deep Research",
+          description: "Investigate carefully.",
+          order: 20,
+          default: false,
+        },
+        {
+          name: "guided-counselor",
+          display_name: "Guided Counselor",
+          description: "Work through it together.",
+          order: 30,
+          default: false,
+        },
+      ],
+    },
+    {
+      name: "swapped order",
+      skill_modes: [
+        {
+          name: "focused-answer",
+          display_name: "Focused Answer",
+          description: "Clear, direct help.",
+          order: 30,
+          default: true,
+        },
+        {
+          name: "deep-research",
+          display_name: "Deep Research",
+          description: "Investigate carefully.",
+          order: 20,
+          default: false,
+        },
+        {
+          name: "guided-counselor",
+          display_name: "Guided Counselor",
+          description: "Work through it together.",
+          order: 10,
+          default: false,
+        },
+      ],
+    },
+    {
+      name: "missing default",
+      skill_modes: [
+        {
+          name: "focused-answer",
+          display_name: "Focused Answer",
+          description: "Clear, direct help.",
+          order: 10,
+          default: false,
+        },
+        {
+          name: "deep-research",
+          display_name: "Deep Research",
+          description: "Investigate carefully.",
+          order: 20,
+          default: false,
+        },
+        {
+          name: "guided-counselor",
+          display_name: "Guided Counselor",
+          description: "Work through it together.",
+          order: 30,
+          default: false,
+        },
+      ],
+    },
+    {
+      name: "wrong default mode",
+      skill_modes: [
+        {
+          name: "focused-answer",
+          display_name: "Focused Answer",
+          description: "Clear, direct help.",
+          order: 10,
+          default: false,
+        },
+        {
+          name: "deep-research",
+          display_name: "Deep Research",
+          description: "Investigate carefully.",
+          order: 20,
+          default: true,
+        },
+        {
+          name: "guided-counselor",
+          display_name: "Guided Counselor",
+          description: "Work through it together.",
+          order: 30,
+          default: false,
+        },
+      ],
+    },
+    {
+      name: "multiple defaults",
+      skill_modes: [
+        {
+          name: "focused-answer",
+          display_name: "Focused Answer",
+          description: "Clear, direct help.",
+          order: 10,
+          default: true,
+        },
+        {
+          name: "deep-research",
+          display_name: "Deep Research",
+          description: "Investigate carefully.",
+          order: 20,
+          default: true,
+        },
+        {
+          name: "guided-counselor",
+          display_name: "Guided Counselor",
+          description: "Work through it together.",
+          order: 30,
+          default: false,
+        },
+      ],
+    },
+  ])("hides invalid optional mode config: $name", ({ skill_modes }) => {
+    const config = resolveComposerConfig({
+      status: "success",
+      config: {
+        greeting: "Welcome",
+        season_note: null,
+        conversation_starters: [],
+        default_source_config: null,
+        skill_modes,
+      },
+    });
+
+    expect(config.skillModes).toEqual([]);
+    expect(config.defaultSkillMode).toBeNull();
+  });
+
+  it("does not mutate the incoming mode array while sorting", () => {
+    const skillModes = [
+      {
+        name: "guided-counselor",
+        display_name: "Guided Counselor",
+        description: "Work through it together.",
+        order: 30,
+        default: false,
+      },
+      {
+        name: "focused-answer",
+        display_name: "Focused Answer",
+        description: "Clear, direct help.",
+        order: 10,
+        default: true,
+      },
+      {
+        name: "deep-research",
+        display_name: "Deep Research",
+        description: "Investigate carefully.",
+        order: 20,
+        default: false,
+      },
+    ];
+
+    resolveComposerConfig({
+      status: "success",
+      config: {
+        greeting: "Welcome",
+        season_note: null,
+        conversation_starters: [],
+        default_source_config: null,
+        skill_modes: skillModes,
+      },
+    });
+
+    expect(skillModes.map((mode) => mode.name)).toEqual([
+      "guided-counselor",
+      "focused-answer",
+      "deep-research",
+    ]);
   });
 });
