@@ -95,15 +95,59 @@ export type OpaqueRenderSpec = {
 
 export type RenderSpec = TabularRenderSpec | OpaqueRenderSpec;
 
-export type ClarifyOption = { label: string; hint: string };
+export type ClarifyOptionV1 = { label: string; hint: string };
 
-export type ClarifySpec = {
-  v: number;
+export type ClarifySpecV1 = {
+  v: 1;
   question: string;
   header: string;
   multi_select: boolean;
-  options: ClarifyOption[];
+  options: ClarifyOptionV1[];
 };
+
+export type ClarifyOptionV2 = { id: string; label: string; hint?: string | null };
+
+export type ClarifyQuestionV2 = {
+  id: string;
+  question: string;
+  selection: "single" | "multiple";
+  options: ClarifyOptionV2[];
+};
+
+export type ClarifySpecV2 = {
+  v: 2;
+  questions: ClarifyQuestionV2[];
+};
+
+export type UnknownClarifySpec = {
+  v: number;
+  [key: string]: unknown;
+};
+
+export type ClarifySpec = ClarifySpecV1 | ClarifySpecV2 | UnknownClarifySpec;
+
+export type ClarifyAnswerV2 = {
+  question_id: string;
+  option_ids: string[];
+  custom_text?: string | null;
+};
+
+export type WidgetClarifyResponseV2 = {
+  v: 2;
+  mode: "widget";
+  answers: ClarifyAnswerV2[];
+};
+
+export type ReplyClarifyResponseV2 = {
+  v: 2;
+  mode: "reply";
+  text: string;
+  user_message_id: string;
+};
+
+export type ClarifyResponseV2 =
+  | WidgetClarifyResponseV2
+  | ReplyClarifyResponseV2;
 
 export type MetaData = {
   trace_id: string;
@@ -115,6 +159,10 @@ export type MetaData = {
    * server code always supplies "quick"/"think". Validate before trusting —
    * see `@/api/chat/response-mode`. */
   response_mode?: string;
+  continuation_of?: string | null;
+  response_origin?: "widget" | "reply" | null;
+  project_user?: boolean | null;
+  editable_root_message_id?: string | null;
 };
 
 export type DeltaData = { text: string };
@@ -493,6 +541,12 @@ export type UserMessageData = {
   injected: boolean;
 };
 
+export type ClarifyResponseData = {
+  clarify_message_id: string;
+  continuation_message_id: string;
+  response: ClarifyResponseV2;
+};
+
 export type ProtocolEvent =
   | { v?: number; type: "meta"; data: MetaData }
   | { v?: number; type: "delta"; data: DeltaData }
@@ -502,6 +556,7 @@ export type ProtocolEvent =
   | { v?: number; type: "user_message"; data: UserMessageData }
   | { v?: number; type: "viz"; data: RenderSpec }
   | { v?: number; type: "clarify"; data: ClarifySpec }
+  | { v?: number; type: "clarify_response"; data: ClarifyResponseData }
   | { v?: number; type: "sources"; data: SourcesData }
   | { v?: number; type: "usage"; data: UsageData }
   | { v?: number; type: "done"; data: DoneData }
@@ -518,6 +573,7 @@ export const protocolEventTypes = [
   "user_message",
   "viz",
   "clarify",
+  "clarify_response",
   "sources",
   "usage",
   "done",
@@ -549,7 +605,16 @@ export type TranscriptSegment =
   | { kind: "user"; text: string; user_message_id: string; injected: boolean }
   | { kind: "step"; data: StepData }
   | { kind: "delta"; text: string }
-  | { kind: "viz"; spec: RenderSpec };
+  | { kind: "viz"; spec: RenderSpec }
+  | { kind: "clarify" };
+
+export type TranscriptClarification =
+  | { spec: ClarifySpecV1; answer: string | null }
+  | {
+      spec: ClarifySpecV2 | UnknownClarifySpec;
+      response?: ClarifyResponseV2 | null;
+      answer?: string | null;
+    };
 
 export type TranscriptAssistantEntry = {
   role: "assistant";
@@ -559,7 +624,7 @@ export type TranscriptAssistantEntry = {
   step_record?: StepRecord;
   parts?: AssistantContentPart[];
   segments?: TranscriptSegment[];
-  clarify?: { spec: ClarifySpec; answer: string | null };
+  clarify?: TranscriptClarification;
   sources?: ReplaySourceEntry[];
   usage?: UsageData;
   status?: DoneStatus | "error";
@@ -574,6 +639,11 @@ export type TranscriptAssistantEntry = {
   /** The exact configured model string actually invoked. Absent for legacy
    * history — Counselle never fabricates what served an old answer. */
   model?: string;
+  continuation_of?: string;
+  trigger_request_id?: string;
+  response_origin?: "widget" | "reply";
+  project_user?: boolean;
+  editable_root_message_id?: string;
 };
 
 export type TranscriptEntry = TranscriptUserEntry | TranscriptAssistantEntry;

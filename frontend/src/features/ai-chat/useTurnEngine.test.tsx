@@ -59,6 +59,27 @@ function done(
   return { v: 1, type: "done", data: { status } };
 }
 
+function clarifyResponse(
+  clarifyMessageId = "a1",
+  continuationMessageId = "a2",
+  text = "Main",
+): ProtocolEvent {
+  return {
+    v: 1,
+    type: "clarify_response",
+    data: {
+      clarify_message_id: clarifyMessageId,
+      continuation_message_id: continuationMessageId,
+      response: {
+        v: 2,
+        mode: "reply",
+        text,
+        user_message_id: "u2",
+      },
+    },
+  };
+}
+
 function userMessageEvent(
   text: string,
   userMessageId = "steer-1",
@@ -321,6 +342,83 @@ describe("useTurnEngine", () => {
     expect(assistants[0]).toMatchObject({
       messageId: "a1",
       text: "final",
+      turnStatus: "complete",
+    });
+  });
+
+  test("attach continuation seeds A2 identity when meta and acknowledgement are behind the cursor", async () => {
+    const transport = createTransport({
+      attachStream: vi.fn(async () => ({
+        active: true,
+        stream: stream([delta("continued answer"), done()]),
+      })),
+    });
+    const parkedA1: ChatMessage = {
+      ...assistant("a1"),
+      text: "",
+      blocks: [],
+      segments: [
+        {
+          type: "clarify",
+          spec: {
+            v: 2,
+            questions: [
+              {
+                id: "q1",
+                question: "Which term?",
+                selection: "single",
+                options: [
+                  { id: "q1_o1", label: "Fall" },
+                  { id: "q1_o2", label: "Spring" },
+                ],
+              },
+            ],
+          },
+          response: {
+            v: 2,
+            mode: "reply",
+            text: "Fall",
+            user_message_id: "u2",
+          },
+        },
+      ],
+      clarify: {
+        v: 2,
+        questions: [
+          {
+            id: "q1",
+            question: "Which term?",
+            selection: "single",
+            options: [
+              { id: "q1_o1", label: "Fall" },
+              { id: "q1_o2", label: "Spring" },
+            ],
+          },
+        ],
+      },
+      clarifyAnswer: "Fall",
+      continuationMessageId: "a2",
+      turnStatus: "complete",
+    };
+    const { result } = renderEngine({
+      transport,
+      initialMessages: [user("u1"), parkedA1],
+    });
+
+    await act(async () => {
+      await result.current.attachActiveTurn("s1");
+    });
+
+    expect(result.current.messages).toHaveLength(3);
+    expect(result.current.messages[1]).toMatchObject({
+      kind: "assistant",
+      messageId: "a1",
+      clarifyAnswer: "Fall",
+    });
+    expect(result.current.messages[2]).toMatchObject({
+      kind: "assistant",
+      messageId: "a2",
+      text: "continued answer",
       turnStatus: "complete",
     });
   });
@@ -793,7 +891,12 @@ describe("useTurnEngine", () => {
           ]),
         )
         .mockReturnValueOnce(
-          stream([meta("a2", "u2"), delta("final answer"), done()]),
+          stream([
+            meta("a2", "u2"),
+            clarifyResponse("a1", "a2"),
+            delta("final answer"),
+            done(),
+          ]),
         ),
     });
     const { result } = renderEngine({ transport });
@@ -823,12 +926,21 @@ describe("useTurnEngine", () => {
     });
 
     expect(result.current.awaitingClarify).toBe(false);
+    expect(result.current.messages.find((message) => message.messageId === "a1")).toMatchObject({
+      kind: "assistant",
+      clarifyAnswer: "Main",
+      turnStatus: "complete",
+    });
     expect(result.current.messages.at(-1)).toMatchObject({
       kind: "assistant",
       messageId: "a2",
       text: "final answer",
       turnStatus: "complete",
     });
+    const a2 = result.current.messages.at(-1);
+    expect(a2?.kind === "assistant" ? a2.segments.map((segment) => segment.type) : []).toEqual([
+      "answer",
+    ]);
   });
 
   test("submitMessage refuses a replaceMessageId that is still a temp/optimistic id", async () => {

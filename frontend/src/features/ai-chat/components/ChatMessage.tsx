@@ -14,7 +14,13 @@ import {
   MessageContent,
 } from "@/components/ai-elements/message";
 import { cn } from "@/lib/utils";
-import type { SourceFocus } from "@/api/chat/types";
+import type {
+  ClarifyResponseV2,
+  ClarifySpec,
+  ClarifySpecV1,
+  ClarifySpecV2,
+  SourceFocus,
+} from "@/api/chat/types";
 
 import { schoolDomainsFromBlocks } from "../citations";
 import type { Segment } from "../turn-reducer";
@@ -125,6 +131,77 @@ function assertNeverSegment(segment: never): never {
   throw new Error(`Unhandled segment type: ${JSON.stringify(segment)}`);
 }
 
+function isLegacyClarifySpec(spec: ClarifySpec): spec is ClarifySpecV1 {
+  return spec.v === 1 && "options" in spec;
+}
+
+function isCurrentClarifySpec(spec: ClarifySpec): spec is ClarifySpecV2 {
+  return spec.v === 2 && "questions" in spec;
+}
+
+function clarifyAnswerSummary(
+  spec: ClarifySpecV2,
+  response: ClarifyResponseV2 | null,
+): string | null {
+  if (response === null) return null;
+  if (response.mode === "reply") return response.text;
+
+  const questionById = new Map(
+    spec.questions.map((question) => [question.id, question]),
+  );
+  const lines = response.answers.flatMap((answer) => {
+    const question = questionById.get(answer.question_id);
+    if (question === undefined) return [];
+    const optionLabels = answer.option_ids.map(
+      (id) => question.options.find((option) => option.id === id)?.label ?? id,
+    );
+    const text = [...optionLabels, answer.custom_text]
+      .filter((value): value is string => value !== undefined && value !== null)
+      .filter((value) => value.trim().length > 0)
+      .join(", ");
+    return text.trim().length > 0 ? [text] : [];
+  });
+  return lines.length > 0 ? lines.join("; ") : null;
+}
+
+function ClarifySegmentView({
+  response,
+  spec,
+}: {
+  spec: ClarifySpec;
+  response: ClarifyResponseV2 | null;
+}) {
+  if (isLegacyClarifySpec(spec)) {
+    return null;
+  }
+
+  if (!isCurrentClarifySpec(spec)) {
+    return (
+      <div className="not-prose rounded-lg border px-3 py-2 text-sm text-muted-foreground">
+        Clarifying question from a newer client version.
+      </div>
+    );
+  }
+
+  const answer = clarifyAnswerSummary(spec, response);
+  return (
+    <div className="not-prose my-3 rounded-lg border bg-card px-3 py-2 text-sm">
+      <div className="space-y-2">
+        {spec.questions.map((question) => (
+          <div key={question.id}>
+            <p className="font-medium text-foreground">{question.question}</p>
+          </div>
+        ))}
+      </div>
+      {answer !== null && (
+        <p className="mt-2 text-muted-foreground">
+          <span className="font-medium text-foreground">Answer:</span> {answer}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** A stable React key by segment identity, not position — `narration`/
  * `thinking` carry their own `id`, `tool` carries `step_id`; only `answer`/
  * `viz` (which never reorder relative to each other) fall back to index. */
@@ -139,6 +216,7 @@ function segmentKey(segment: Segment, index: number): string {
       return `tool-${segment.step.step_id}`;
     case "answer":
     case "viz":
+    case "clarify":
       return `${segment.type}-${index}`;
     default:
       return assertNeverSegment(segment);
@@ -208,6 +286,13 @@ function SegmentBeat({
       );
     case "viz":
       return <VizBlock onSourceOpen={onOpenCitation} spec={segment.spec} />;
+    case "clarify":
+      return (
+        <ClarifySegmentView
+          response={segment.response}
+          spec={segment.spec}
+        />
+      );
     default:
       assertNeverSegment(segment);
   }
@@ -275,7 +360,7 @@ function AssistantBody({
           {message.streamError.message}
         </p>
       )}
-      {message.clarify !== undefined && (
+      {message.clarify !== undefined && isLegacyClarifySpec(message.clarify) && (
         <ClarifyWidget
           answer={message.clarifyAnswer}
           frozen={clarifyFrozen}

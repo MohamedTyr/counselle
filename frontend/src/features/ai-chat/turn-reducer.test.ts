@@ -136,6 +136,50 @@ function vizBlocks(
 }
 
 describe("turn reducer", () => {
+  test("live v2 clarify and acknowledgement become one ordered clarify segment", () => {
+    const spec = {
+      v: 2 as const,
+      questions: [
+        {
+          id: "q1",
+          question: "Which term?",
+          selection: "single" as const,
+          options: [
+            { id: "q1_o1", label: "Fall", hint: "Fall start" },
+            { id: "q1_o2", label: "Spring" },
+          ],
+        },
+      ],
+    };
+    const response = {
+      v: 2 as const,
+      mode: "widget" as const,
+      answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+    };
+    const state = reduceEvents([
+      { v: 1, type: "narration", data: { text: "I need one detail." } },
+      { v: 1, type: "clarify", data: spec },
+      {
+        v: 1,
+        type: "clarify_response",
+        data: {
+          clarify_message_id: "a1",
+          continuation_message_id: "a2",
+          response,
+        },
+      },
+      { v: 1, type: "done", data: { status: "complete" } },
+    ]);
+
+    expect(state.segments).toEqual([
+      { type: "narration", id: "narration-0", text: "I need one detail." },
+      { type: "clarify", spec, response },
+    ]);
+    expect(runMarkdownOf(state)).toBe(
+      "I need one detail.\n\nClarifying question\nQ: Which term?\nA: Fall",
+    );
+  });
+
   test("live inline viz order preserves answer/viz/answer segment order", () => {
     const state = reduceEvents([
       { v: 1, type: "delta", data: { text: "Intro" } },
@@ -1020,5 +1064,49 @@ describe("turn reducer", () => {
     expect(state.clarify?.question).toBe("Which one?");
     expect(state.sources).toHaveLength(1);
     expect(state.usage?.tool_calls).toBe(3);
+  });
+
+  test("v2 transcript clarify segment replays once and preserves response text", () => {
+    const state = reduceTranscriptEntry({
+      role: "assistant",
+      text: "",
+      ts: null,
+      message_id: "a1",
+      segments: [
+        { kind: "narration", text: "I need one detail." },
+        { kind: "clarify" },
+      ],
+      clarify: {
+        spec: {
+          v: 2,
+          questions: [
+            {
+              id: "q1",
+              question: "Which term?",
+              selection: "single",
+              options: [
+                { id: "q1_o1", label: "Fall" },
+                { id: "q1_o2", label: "Spring" },
+              ],
+            },
+          ],
+        },
+        response: {
+          v: 2,
+          mode: "reply",
+          text: "Fall 2027",
+          user_message_id: "u2",
+        },
+      },
+      status: "complete",
+    });
+
+    expect(state.segments.map((segment) => segment.type)).toEqual([
+      "narration",
+      "clarify",
+    ]);
+    expect(runMarkdownOf(state)).toBe(
+      "I need one detail.\n\nClarifying question\nQ: Which term?\nA: Fall 2027",
+    );
   });
 });

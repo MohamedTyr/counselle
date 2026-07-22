@@ -4,6 +4,7 @@ import type { Segment } from "./turn-reducer";
 import { initialTurnState, type TurnState } from "./turn-reducer";
 import { assistantMessage, messagesFromTranscript } from "./model";
 import type { TranscriptEntry } from "@/api/chat/types";
+import { adaptStoredTranscript } from "@/api/chat/legacy-replay";
 
 describe("messagesFromTranscript", () => {
   test("projects user and assistant entries with preserved ids and parents", () => {
@@ -114,6 +115,75 @@ describe("messagesFromTranscript", () => {
     expect(messages[0]).toMatchObject({
       kind: "assistant",
       clarifyAnswer: "Regular Decision",
+    });
+  });
+
+  test("v2 clarify response summary is projected from the stored response", () => {
+    const messages = messagesFromTranscript("c1", [
+      {
+        role: "assistant",
+        text: "",
+        ts: null,
+        message_id: "a1",
+        segments: [{ kind: "clarify" }],
+        clarify: {
+          spec: {
+            v: 2,
+            questions: [
+              {
+                id: "q1",
+                question: "Which round?",
+                selection: "single",
+                options: [
+                  { id: "q1_o1", label: "Early Decision" },
+                  { id: "q1_o2", label: "Regular Decision" },
+                ],
+              },
+            ],
+          },
+          response: {
+            v: 2,
+            mode: "widget",
+            answers: [{ question_id: "q1", option_ids: ["q1_o2"] }],
+          },
+        },
+      },
+    ]);
+
+    expect(messages[0]).toMatchObject({
+      kind: "assistant",
+      clarifyAnswer: "Regular Decision",
+      runMarkdown:
+        "Clarifying question\nQ: Which round?\nA: Regular Decision",
+    });
+  });
+
+  test("stored clarify sanitizer drops malformed current blocks and preserves future versions safely", () => {
+    const entries = adaptStoredTranscript([
+      {
+        role: "assistant",
+        text: "",
+        ts: null,
+        message_id: "bad",
+        clarify: { spec: { v: 2, questions: [] }, response: null },
+      },
+      {
+        role: "assistant",
+        text: "",
+        ts: null,
+        message_id: "future",
+        segments: [{ kind: "clarify" }],
+        clarify: { spec: { v: 42, shape: "next" }, response: null },
+        status: "awaiting_input",
+      },
+    ]);
+
+    expect(entries[0]).not.toHaveProperty("clarify");
+    const messages = messagesFromTranscript("c1", entries);
+    expect(messages[1]).toMatchObject({
+      kind: "assistant",
+      runMarkdown:
+        "Clarifying question\nQ: Clarifying question from a newer client version.",
     });
   });
 });

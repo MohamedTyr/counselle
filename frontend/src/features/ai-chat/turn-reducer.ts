@@ -1,5 +1,6 @@
 import type {
   ClarifySpec,
+  ClarifyResponseV2,
   DoneStatus,
   ErrorData,
   MetaData,
@@ -9,6 +10,7 @@ import type {
   StepData,
   StepRecord,
   TranscriptAssistantEntry,
+  TranscriptClarification,
   TranscriptSegment,
   UsageData,
   UserMessageData,
@@ -36,13 +38,15 @@ export type Segment =
   | { type: "user"; id: string; text: string; injected: boolean }
   | { type: "tool"; step: StepData }
   | { type: "answer"; text: string }
-  | { type: "viz"; spec: RenderSpec };
+  | { type: "viz"; spec: RenderSpec }
+  | { type: "clarify"; spec: ClarifySpec; response: ClarifyResponseV2 | null };
 
 export type TurnState = {
   meta: MetaData | null;
   segments: Segment[];
   vizSignatures: ReadonlySet<string>;
   clarify: ClarifySpec | null;
+  clarifyResponse: ClarifyResponseV2 | null;
   sources: ReplaySourceEntry[];
   usage: UsageData | null;
   status: TurnStatus;
@@ -58,6 +62,7 @@ export function initialTurnState(): TurnState {
     segments: [],
     vizSignatures: new Set(),
     clarify: null,
+    clarifyResponse: null,
     sources: [],
     usage: null,
     status: "idle",
@@ -175,6 +180,22 @@ function mergeUserSegment(
   ];
 }
 
+function applyClarifyResponseToSegments(
+  segments: Segment[],
+  response: ClarifyResponseV2,
+): Segment[] {
+  const index = segments.findLastIndex((segment) => segment.type === "clarify");
+  if (index === -1) {
+    return segments;
+  }
+
+  return [
+    ...segments.slice(0, index),
+    { ...(segments[index] as Extract<Segment, { type: "clarify" }>), response },
+    ...segments.slice(index + 1),
+  ];
+}
+
 function narrationSegmentCount(segments: Segment[]): number {
   return segments.filter((segment) => segment.type === "narration").length;
 }
@@ -240,7 +261,25 @@ export function reduceTurn(state: TurnState, event: ProtocolEvent): TurnState {
     case "viz":
       return { ...appendViz(state, event.data), lastEventType: event.type };
     case "clarify":
-      return { ...state, clarify: event.data, lastEventType: event.type };
+      return {
+        ...state,
+        clarify: event.data,
+        segments: [
+          ...state.segments,
+          { type: "clarify", spec: event.data, response: null },
+        ],
+        lastEventType: event.type,
+      };
+    case "clarify_response":
+      return {
+        ...state,
+        clarifyResponse: event.data.response,
+        segments: applyClarifyResponseToSegments(
+          state.segments,
+          event.data.response,
+        ),
+        lastEventType: event.type,
+      };
     case "sources":
       return {
         ...state,
@@ -276,6 +315,7 @@ const ARRIVAL_START_EVENTS = new Set<ProtocolEvent["type"]>([
   "user_message",
   "viz",
   "clarify",
+  "clarify_response",
   "sources",
   "usage",
 ]);
@@ -448,6 +488,74 @@ function userBlockquote(text: string): string {
     .join("\n");
 }
 
+function questionLines(spec: ClarifySpec): string[] {
+  if (spec.v === 1) {
+    return [spec.question];
+  }
+
+  if (spec.v === 2) {
+    return spec.questions.map((question) => question.question);
+  }
+
+  return ["Clarifying question from a newer client version."];
+}
+
+export function clarifyResponseText(
+  spec: ClarifySpec,
+  response: ClarifyResponseV2 | null | undefined,
+): string | null {
+  if (response === null || response === undefined) {
+    return null;
+  }
+
+  if (response.mode === "reply") {
+    return response.text;
+  }
+
+  if (spec.v !== 2) {
+    return "Answered in the clarify widget.";
+  }
+
+  const questionById = new Map(
+    spec.questions.map((question) => [question.id, question]),
+  );
+  return response.answers
+    .map((answer) => {
+      const question = questionById.get(answer.question_id);
+      const optionLabels =
+        question === undefined
+          ? answer.option_ids
+          : answer.option_ids.map(
+              (id) =>
+                question.options.find((option) => option.id === id)?.label ??
+                id,
+            );
+      return [...optionLabels, answer.custom_text]
+        .filter(
+          (value): value is string =>
+            value !== undefined && value !== null && value !== "",
+        )
+        .join(", ");
+    })
+    .filter((line) => line.trim().length > 0)
+    .join("; ");
+}
+
+function clarifyMarkdown(
+  spec: ClarifySpec,
+  response: ClarifyResponseV2 | null,
+): string {
+  const lines = ["Clarifying question"];
+  for (const question of questionLines(spec)) {
+    lines.push(`Q: ${question}`);
+  }
+  const answer = clarifyResponseText(spec, response);
+  if (answer !== null && answer.trim().length > 0) {
+    lines.push(`A: ${answer}`);
+  }
+  return lines.join("\n");
+}
+
 /** Serialize the whole assistant run in chronological order for copy/export.
  * Native thinking is intentionally omitted; visible narration, tool receipts,
  * inline user steering, final answer prose, and viz cards are included. */
@@ -484,6 +592,9 @@ export function runMarkdownOf(stateOrSegments: TurnState | Segment[]): string {
         break;
       case "viz":
         chunks.push(vizMarkdown(segment.spec));
+        break;
+      case "clarify":
+        chunks.push(clarifyMarkdown(segment.spec, segment.response));
         break;
     }
   }
@@ -570,9 +681,11 @@ export function transcriptEntryToEvents(
   entry: TranscriptAssistantEntry,
 ): ProtocolEvent[] {
   const events: ProtocolEvent[] = [];
+  const hasClarifySegment =
+    entry.segments?.some((segment) => segment.kind === "clarify") ?? false;
 
   if (entry.segments !== undefined) {
-    events.push(...transcriptSegmentsToEvents(entry.segments));
+    events.push(...transcriptSegmentsToEvents(entry.segments, entry.clarify));
   } else {
     if (entry.step_record !== undefined) {
       for (const step of entry.step_record.steps) {
@@ -605,7 +718,20 @@ export function transcriptEntryToEvents(
   }
 
   if (entry.clarify !== undefined) {
-    events.push({ v: 1, type: "clarify", data: entry.clarify.spec });
+    if (!hasClarifySegment) {
+      events.push({ v: 1, type: "clarify", data: entry.clarify.spec });
+    }
+    if ("response" in entry.clarify && entry.clarify.response !== null) {
+      events.push({
+        v: 1,
+        type: "clarify_response",
+        data: {
+          clarify_message_id: entry.message_id ?? "",
+          continuation_message_id: entry.message_id ?? "",
+          response: entry.clarify.response,
+        },
+      });
+    }
   }
 
   // Legacy replay sources are storage-only and cannot be reintroduced as live
@@ -637,6 +763,7 @@ export function transcriptEntryToEvents(
 
 function transcriptSegmentsToEvents(
   segments: TranscriptSegment[],
+  clarify?: TranscriptClarification,
 ): ProtocolEvent[] {
   return segments.map((segment) => {
     switch (segment.kind) {
@@ -660,6 +787,15 @@ function transcriptSegmentsToEvents(
         return { v: 1, type: "delta", data: { text: segment.text } };
       case "viz":
         return { v: 1, type: "viz", data: segment.spec };
+      case "clarify":
+        return {
+          v: 1,
+          type: "clarify",
+          data: clarify?.spec ?? {
+            v: 999,
+            type: "missing_clarify_spec",
+          },
+        };
     }
   });
 }

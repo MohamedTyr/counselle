@@ -12,6 +12,7 @@ import {
 
 import {
   answerBlocksOf,
+  clarifyResponseText,
   deriveDurationMs,
   narrationTextsOf,
   proseOf,
@@ -79,6 +80,12 @@ export type AssistantChatMessage = ChatMessageBase & {
   /** The exact configured model string, when known (absent for legacy
    * history). */
   model?: string;
+  continuationOf?: string;
+  continuationMessageId?: string;
+  triggerRequestId?: string;
+  responseOrigin?: "widget" | "reply";
+  projectUser?: boolean;
+  editableRootMessageId?: string;
 };
 
 export type ChatMessage = UserChatMessage | AssistantChatMessage;
@@ -130,12 +137,17 @@ export function assistantMessage(
     durationMs: deriveDurationMs(state, steps),
     sources: state.sources.length > 0 ? state.sources : undefined,
     clarify: state.clarify ?? undefined,
+    clarifyAnswer: clarifyResponseText(state.clarify ?? { v: 999 }, state.clarifyResponse),
     turnStatus: state.status,
     streamError: state.error ?? undefined,
     isThinking,
     ts,
     responseMode,
     model: model ?? state.meta?.model,
+    continuationOf: state.meta?.continuation_of ?? undefined,
+    responseOrigin: state.meta?.response_origin ?? undefined,
+    projectUser: state.meta?.project_user ?? undefined,
+    editableRootMessageId: state.meta?.editable_root_message_id ?? undefined,
   };
 }
 
@@ -200,7 +212,12 @@ export function messagesFromTranscript(
         entry.model,
       ),
       hasBackendId,
-      clarifyAnswer: entry.clarify?.answer,
+      clarifyAnswer:
+        entry.clarify === undefined
+          ? undefined
+          : "response" in entry.clarify
+            ? clarifyResponseText(entry.clarify.spec, entry.clarify.response)
+            : entry.clarify.answer,
       feedback:
         entry.feedback !== undefined
           ? {
@@ -208,6 +225,11 @@ export function messagesFromTranscript(
                 entry.feedback.rating === "up" ? "thumbsUp" : "thumbsDown",
             }
           : undefined,
+      continuationOf: entry.continuation_of,
+      triggerRequestId: entry.trigger_request_id,
+      responseOrigin: entry.response_origin,
+      projectUser: entry.project_user,
+      editableRootMessageId: entry.editable_root_message_id,
     });
   });
 

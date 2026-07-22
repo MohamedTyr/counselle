@@ -25,6 +25,7 @@ import { userMessage, assistantMessage, type ChatMessage } from "./model";
 import {
   persistErroredTurn,
   persistTerminalTurn,
+  patchClarifyResponse,
   reconcileMetaIds,
   upsertAssistantMessage,
 } from "./stream-reconcile";
@@ -312,6 +313,19 @@ export function useTurnEngine({
             }
 
             userMessageId = backendUserId;
+          }
+
+          if (event.type === "clarify_response") {
+            hasBackendId = true;
+            assistantMessageId = event.data.continuation_message_id;
+            setPersistedMessages((previous) =>
+              patchClarifyResponse(
+                previous,
+                event.data.clarify_message_id,
+                event.data.continuation_message_id,
+                event.data.response,
+              ),
+            );
           }
 
           state = reduceLiveTurn(state, event);
@@ -853,12 +867,19 @@ export function useTurnEngine({
             message.conversationId === activeSessionId,
         );
       const tail = persistedRef.current.at(-1);
-      const seedAssistant =
+      const continuationSeed =
         tail?.kind === "assistant" &&
+        tail.conversationId === activeSessionId &&
+        tail.continuationMessageId !== undefined
+          ? { messageId: tail.continuationMessageId, hasBackendId: true }
+          : undefined;
+      const seedAssistant =
+        continuationSeed ??
+        (tail?.kind === "assistant" &&
         tail.conversationId === activeSessionId &&
         tail.hasBackendId === true
           ? { messageId: tail.messageId, hasBackendId: true }
-          : undefined;
+          : undefined);
 
       try {
         // The active turn's mode isn't locally known on attach -- it's

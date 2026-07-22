@@ -167,6 +167,52 @@ describe("parseSseStream", () => {
     ]);
   });
 
+  it("accepts strict v2 clarify specs and clarify_response acknowledgements", async () => {
+    const spec = {
+      v: 2,
+      questions: [
+        {
+          id: "q1",
+          question: "Which start term?",
+          selection: "single",
+          options: [
+            { id: "q1_o1", label: "Fall", hint: "Fall start" },
+            { id: "q1_o2", label: "Spring" },
+          ],
+        },
+      ],
+    };
+    const response = {
+      v: 2,
+      mode: "widget",
+      answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+    };
+
+    const frames = await collect(
+      streamOf(
+        frame("clarify", spec, "1"),
+        frame(
+          "clarify_response",
+          {
+            clarify_message_id: "a1",
+            continuation_message_id: "a2",
+            response,
+          },
+          "2",
+        ),
+      ),
+    );
+
+    expect(frames.map((item) => item.data.type)).toEqual([
+      "clarify",
+      "clarify_response",
+    ]);
+    expect(frames[1].data).toMatchObject({
+      type: "clarify_response",
+      data: { clarify_message_id: "a1", response },
+    });
+  });
+
   it("rejects malformed identity-bearing frames", async () => {
     await expect(
       collect(
@@ -259,6 +305,45 @@ describe("parseSseStream", () => {
         header: "Choose",
         multi_select: false,
         options: [{}],
+      },
+    ],
+    [
+      "clarify",
+      {
+        v: 2,
+        questions: [
+          {
+            id: "q1",
+            question: "Which term?",
+            selection: "single",
+            options: [{ id: "q1_o1", label: "Fall" }],
+          },
+        ],
+      },
+    ],
+    [
+      "clarify",
+      {
+        v: 2,
+        questions: [
+          {
+            id: "q1",
+            question: "Which term?",
+            selection: "single",
+            options: [
+              { id: "q1_o1", label: "Fall", extra: true },
+              { id: "q1_o2", label: "Spring" },
+            ],
+          },
+        ],
+      },
+    ],
+    [
+      "clarify_response",
+      {
+        clarify_message_id: "a1",
+        continuation_message_id: "a2",
+        response: { v: 2, mode: "reply", text: "", user_message_id: "u2" },
       },
     ],
     ["sources", { sources: "bad" }],

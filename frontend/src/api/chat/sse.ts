@@ -49,11 +49,137 @@ const doneStatuses = new Set<DoneStatus>([
   "awaiting_input",
   "cancelled",
 ]);
-function isClarifyOption(value: unknown) {
-  if (!isRecord(value)) {
+
+function hasOnlyKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const allowed = new Set(keys);
+  return Object.keys(value).every((key) => allowed.has(key));
+}
+
+function isBoundedString(
+  value: unknown,
+  maxChars: number,
+  { nonblank = false }: { nonblank?: boolean } = {},
+): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= maxChars &&
+    (!nonblank || value.trim().length > 0)
+  );
+}
+
+function isClarifyOptionV1(value: unknown) {
+  if (!isPlainRecord(value) || !hasOnlyKeys(value, ["label", "hint"])) {
     return false;
   }
   return typeof value.label === "string" && typeof value.hint === "string";
+}
+
+function isClarifyOptionV2(value: unknown) {
+  if (!isPlainRecord(value) || !hasOnlyKeys(value, ["id", "label", "hint"])) {
+    return false;
+  }
+  return (
+    isNonEmptyString(value.id) &&
+    isBoundedString(value.label, 80, { nonblank: true }) &&
+    (!("hint" in value) ||
+      value.hint === null ||
+      isBoundedString(value.hint, 160))
+  );
+}
+
+function isClarifyQuestionV2(value: unknown) {
+  if (
+    !isPlainRecord(value) ||
+    !hasOnlyKeys(value, ["id", "question", "selection", "options"])
+  ) {
+    return false;
+  }
+  return (
+    isNonEmptyString(value.id) &&
+    isBoundedString(value.question, 240, { nonblank: true }) &&
+    (value.selection === "single" || value.selection === "multiple") &&
+    Array.isArray(value.options) &&
+    value.options.length >= 2 &&
+    value.options.length <= 5 &&
+    value.options.every(isClarifyOptionV2)
+  );
+}
+
+function isClarifySpec(value: Record<string, unknown>) {
+  if (value.v === 1) {
+    return (
+      hasOnlyKeys(value, [
+        "v",
+        "question",
+        "header",
+        "multi_select",
+        "options",
+      ]) &&
+      typeof value.question === "string" &&
+      typeof value.header === "string" &&
+      typeof value.multi_select === "boolean" &&
+      Array.isArray(value.options) &&
+      value.options.length >= 2 &&
+      value.options.length <= 4 &&
+      value.options.every(isClarifyOptionV1)
+    );
+  }
+
+  if (value.v === 2) {
+    return (
+      hasOnlyKeys(value, ["v", "questions"]) &&
+      Array.isArray(value.questions) &&
+      value.questions.length >= 1 &&
+      value.questions.length <= 3 &&
+      value.questions.every(isClarifyQuestionV2)
+    );
+  }
+
+  return typeof value.v === "number";
+}
+
+function isClarifyAnswerV2(value: unknown) {
+  if (
+    !isPlainRecord(value) ||
+    !hasOnlyKeys(value, ["question_id", "option_ids", "custom_text"])
+  ) {
+    return false;
+  }
+  return (
+    isNonEmptyString(value.question_id) &&
+    Array.isArray(value.option_ids) &&
+    value.option_ids.every(isNonEmptyString) &&
+    (!("custom_text" in value) ||
+      value.custom_text === null ||
+      isBoundedString(value.custom_text, 1000))
+  );
+}
+
+function isClarifyResponseV2(value: unknown) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (value.mode === "widget") {
+    return (
+      hasOnlyKeys(value, ["v", "mode", "answers"]) &&
+      value.v === 2 &&
+      Array.isArray(value.answers) &&
+      value.answers.length <= 3 &&
+      value.answers.every(isClarifyAnswerV2)
+    );
+  }
+  if (value.mode === "reply") {
+    return (
+      hasOnlyKeys(value, ["v", "mode", "text", "user_message_id"]) &&
+      value.v === 2 &&
+      isBoundedString(value.text, 4000, { nonblank: true }) &&
+      isNonEmptyString(value.user_message_id)
+    );
+  }
+  return false;
 }
 
 function coerceDoneStatus(value: string): DoneStatus {
@@ -176,7 +302,20 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
         isNonEmptyString(data.message_id) &&
         isNonEmptyString(data.user_message_id) &&
         isNonEmptyString(data.session_id) &&
-        isNonEmptyString(data.model)
+        isNonEmptyString(data.model) &&
+        (!("continuation_of" in data) ||
+          data.continuation_of === null ||
+          isNonEmptyString(data.continuation_of)) &&
+        (!("response_origin" in data) ||
+          data.response_origin === null ||
+          data.response_origin === "widget" ||
+          data.response_origin === "reply") &&
+        (!("project_user" in data) ||
+          data.project_user === null ||
+          typeof data.project_user === "boolean") &&
+        (!("editable_root_message_id" in data) ||
+          data.editable_root_message_id === null ||
+          isNonEmptyString(data.editable_root_message_id))
       );
     case "step":
       return (
@@ -219,13 +358,12 @@ function hasIdentityFields(type: ProtocolEventType, data: unknown) {
       }
       return isTabularRenderSpec(data);
     case "clarify":
+      return isClarifySpec(data);
+    case "clarify_response":
       return (
-        typeof data.v === "number" &&
-        typeof data.question === "string" &&
-        typeof data.header === "string" &&
-        typeof data.multi_select === "boolean" &&
-        Array.isArray(data.options) &&
-        data.options.every(isClarifyOption)
+        isNonEmptyString(data.clarify_message_id) &&
+        isNonEmptyString(data.continuation_message_id) &&
+        isClarifyResponseV2(data.response)
       );
     case "sources":
       return (

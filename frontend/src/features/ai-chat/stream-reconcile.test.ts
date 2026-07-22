@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ChatMessage } from "./model";
-import { upsertAssistantMessage } from "./stream-reconcile";
+import { patchClarifyResponse, upsertAssistantMessage } from "./stream-reconcile";
 
 function user(messageId: string, conversationId = "s1"): ChatMessage {
   return {
@@ -53,5 +53,65 @@ describe("stream reconcile", () => {
         replacement,
       ),
     ).toEqual([existingUser, otherConversationAssistant, replacement]);
+  });
+
+  test("patchClarifyResponse freezes the parked A1 message only", () => {
+    const parked: ChatMessage = {
+      ...assistant("a1"),
+      text: "",
+      blocks: [],
+      segments: [
+        {
+          type: "clarify",
+          spec: {
+            v: 2,
+            questions: [
+              {
+                id: "q1",
+                question: "Which term?",
+                selection: "single",
+                options: [
+                  { id: "q1_o1", label: "Fall" },
+                  { id: "q1_o2", label: "Spring" },
+                ],
+              },
+            ],
+          },
+          response: null,
+        },
+      ],
+      clarify: {
+        v: 2,
+        questions: [
+          {
+            id: "q1",
+            question: "Which term?",
+            selection: "single",
+            options: [
+              { id: "q1_o1", label: "Fall" },
+              { id: "q1_o2", label: "Spring" },
+            ],
+          },
+        ],
+      },
+      turnStatus: "awaiting_input",
+    };
+    const a2 = assistant("a2");
+
+    const next = patchClarifyResponse([parked, a2], "a1", "a2", {
+      v: 2,
+      mode: "widget",
+      answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+    });
+
+    expect(next[0]).toMatchObject({
+      kind: "assistant",
+      messageId: "a1",
+      clarifyAnswer: "Fall",
+      continuationMessageId: "a2",
+      turnStatus: "complete",
+      runMarkdown: "Clarifying question\nQ: Which term?\nA: Fall",
+    });
+    expect(next[1]).toBe(a2);
   });
 });

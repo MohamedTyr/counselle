@@ -557,6 +557,119 @@ describe("ChatMessage", () => {
     expect(onClarifyAnswer).not.toHaveBeenCalled();
   });
 
+  test("clarify: v1 segment does not render the future-version fallback", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          turnStatus: "awaiting_input",
+          blocks: [],
+          clarify: {
+            v: 1,
+            question: "Which path?",
+            header: "Narrow it down",
+            multi_select: false,
+            options: [{ label: "Financial aid", hint: "" }],
+          },
+          segments: [
+            {
+              type: "clarify",
+              spec: {
+                v: 1,
+                question: "Which path?",
+                header: "Narrow it down",
+                multi_select: false,
+                options: [{ label: "Financial aid", hint: "" }],
+              },
+              response: null,
+            },
+          ],
+        })}
+        isLatestMessage
+      />,
+    );
+
+    expect(screen.getByText("Which path?")).toBeInTheDocument();
+    expect(screen.getByText("Financial aid")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Clarifying question from a newer client version."),
+    ).not.toBeInTheDocument();
+  });
+
+  test("clarify: v2 segment renders the actual question and answer in order", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          blocks: [],
+          clarify: {
+            v: 2,
+            questions: [
+              {
+                id: "q1",
+                question: "Which term?",
+                selection: "single",
+                options: [
+                  { id: "q1_o1", label: "Fall" },
+                  { id: "q1_o2", label: "Spring" },
+                ],
+              },
+            ],
+          },
+          segments: [
+            { type: "narration", id: "narration-0", text: "One more detail." },
+            {
+              type: "clarify",
+              spec: {
+                v: 2,
+                questions: [
+                  {
+                    id: "q1",
+                    question: "Which term?",
+                    selection: "single",
+                    options: [
+                      { id: "q1_o1", label: "Fall" },
+                      { id: "q1_o2", label: "Spring" },
+                    ],
+                  },
+                ],
+              },
+              response: {
+                v: 2,
+                mode: "widget",
+                answers: [{ question_id: "q1", option_ids: ["q1_o1"] }],
+              },
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("One more detail.")).toBeInTheDocument();
+    expect(screen.getByText("Which term?")).toBeInTheDocument();
+    expect(screen.getByText(/Fall/)).toBeInTheDocument();
+  });
+
+  test("clarify: future nested specs render a safe textual fallback", () => {
+    render(
+      <ChatMessage
+        message={assistantMessage({
+          blocks: [],
+          clarify: { v: 42, shape: "future" },
+          segments: [
+            {
+              type: "clarify",
+              spec: { v: 42, shape: "future" },
+              response: null,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Clarifying question from a newer client version."),
+    ).toBeInTheDocument();
+  });
+
   test("regenerate action only appears when canRegenerate is true and calls onRegenerate", () => {
     const onRegenerate = vi.fn();
     const { rerender } = render(
