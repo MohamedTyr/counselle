@@ -22,7 +22,7 @@ from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 import yaml
-from pydantic import AliasChoices, Field, ValidationError, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _ENV_PREFIX = "COUNSELLE_"
@@ -119,6 +119,25 @@ def _mask_secret(name: str, value: str) -> str:
     return "***"
 
 
+class ModelPriceTier(BaseModel):
+    """USD-per-1M-token rates for one model, with an optional long-context tier.
+
+    Google applies the long-context tier to ALL tokens once input context
+    exceeds ``long_context_threshold_tokens`` — it is not incremental pricing
+    on the overage alone. All three long-context fields are set together or
+    left ``None`` together; a model with a uniform price (e.g. Flash) omits
+    them.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    input_per_1m: float
+    output_per_1m: float
+    long_context_input_per_1m: float | None = None
+    long_context_output_per_1m: float | None = None
+    long_context_threshold_tokens: int | None = None
+
+
 class Settings(BaseSettings):
     """Every deploy- or cost-relevant knob, in one place (ADR 0018, ARCHITECTURE §18)."""
 
@@ -134,6 +153,16 @@ class Settings(BaseSettings):
 
     # --- Models ---
     model_counselor: str = "google-vertex:gemini-3.5-flash"
+    # Think mode's model (plans/quick-think-response-mode.md §3.2). Kept
+    # configurable so the preview successor can change without touching
+    # turn-lifecycle code.
+    model_counselor_think: str = "google-vertex:gemini-3.1-pro-preview"
+    model_counselor_display_name: str = "Gemini 3.5 Flash"
+    model_counselor_think_display_name: str = "Gemini 3.1 Pro"
+    model_counselor_think_preview: bool = True
+    # Honest-disable switch: remove Think from GET /v1/config response_modes
+    # without silently remapping it to Flash (plan §14 Emergency disable).
+    response_mode_think_enabled: bool = True
     model_cheap: str = "google-vertex:gemini-2.5-flash"
     model_clarifier: str = "google-vertex:gemini-2.5-flash"
     # B4 auto-titles: the cheap model that names a chat from its first exchange
@@ -339,13 +368,23 @@ class Settings(BaseSettings):
     # --- Observability ---
     log_level: str = "INFO"
     usage_accounting: bool = True
-    # Per-model token prices (USD per 1 M tokens): {model_name: (input, output)}.
-    # Vertex AI list prices as of 2025-Q3 — est only, no billing guarantee.
-    model_prices: dict[str, tuple[float, float]] = Field(
+    # Per-model token prices (USD per 1 M tokens). Long-context rates apply to
+    # ALL tokens once input_tokens exceeds the threshold (Google's tiering,
+    # not incremental) — see ModelPriceTier / estimate_cost in app/usage.py.
+    # Standard PayGo, global endpoint, verified 2026-07-22
+    # (plans/quick-think-response-mode.md §7.2).
+    model_prices: dict[str, ModelPriceTier] = Field(
         default_factory=lambda: {
-            "gemini-2.5-pro": (1.25, 10.0),  # est only — Vertex list price
-            "gemini-2.5-flash": (0.30, 2.50),  # est only — Vertex list price
-            "gemini-3.5-flash": (0.30, 2.50),  # est only — 3.5-flash pricing unverified
+            "gemini-2.5-pro": ModelPriceTier(input_per_1m=1.25, output_per_1m=10.0),
+            "gemini-2.5-flash": ModelPriceTier(input_per_1m=0.30, output_per_1m=2.50),
+            "gemini-3.5-flash": ModelPriceTier(input_per_1m=1.50, output_per_1m=9.00),
+            "gemini-3.1-pro-preview": ModelPriceTier(
+                input_per_1m=2.00,
+                output_per_1m=12.0,
+                long_context_input_per_1m=4.00,
+                long_context_output_per_1m=18.0,
+                long_context_threshold_tokens=200_000,
+            ),
         }
     )
 

@@ -8,15 +8,16 @@ from dataclasses import dataclass
 import pytest
 
 from app.usage import enrich_usage_event, estimate_cost, log_turn_complete
+from config.settings import ModelPriceTier
 from domain.events import Event, UsageData, ev_usage
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
-PRICES: dict[str, tuple[float, float]] = {
-    "gemini-2.5-pro": (1.25, 10.0),
-    "gemini-2.5-flash": (0.30, 2.50),
+PRICES: dict[str, ModelPriceTier] = {
+    "gemini-2.5-pro": ModelPriceTier(input_per_1m=1.25, output_per_1m=10.0),
+    "gemini-2.5-flash": ModelPriceTier(input_per_1m=0.30, output_per_1m=2.50),
 }
 
 
@@ -25,7 +26,7 @@ class FakeSettings:
     """Minimal settings stub for enrich_usage_event."""
 
     usage_accounting: bool = True
-    model_prices: dict[str, tuple[float, float]] = None  # type: ignore[assignment]
+    model_prices: dict[str, ModelPriceTier] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         if self.model_prices is None:
@@ -86,9 +87,35 @@ class TestEstimateCost:
     def test_exact_match_takes_priority_over_suffix(self) -> None:
         # If the full qualified name is in prices, use that entry.
         prices_with_full = dict(PRICES)
-        prices_with_full["google-vertex:gemini-2.5-pro"] = (99.0, 99.0)
+        prices_with_full["google-vertex:gemini-2.5-pro"] = ModelPriceTier(
+            input_per_1m=99.0, output_per_1m=99.0
+        )
         cost = estimate_cost("google-vertex:gemini-2.5-pro", 1_000_000, 0, prices_with_full)
         assert cost == pytest.approx(99.0)
+
+    def test_long_context_threshold_applies_to_all_tokens(self) -> None:
+        prices = dict(PRICES)
+        prices["gemini-3.1-pro-preview"] = ModelPriceTier(
+            input_per_1m=2.00,
+            output_per_1m=12.0,
+            long_context_input_per_1m=4.00,
+            long_context_output_per_1m=18.0,
+            long_context_threshold_tokens=200_000,
+        )
+        cost = estimate_cost("gemini-3.1-pro-preview", 200_001, 1000, prices)
+        assert cost == pytest.approx((200_001 * 4.00 + 1000 * 18.0) / 1_000_000)
+
+    def test_long_context_threshold_boundary_uses_normal_rate(self) -> None:
+        prices = dict(PRICES)
+        prices["gemini-3.1-pro-preview"] = ModelPriceTier(
+            input_per_1m=2.00,
+            output_per_1m=12.0,
+            long_context_input_per_1m=4.00,
+            long_context_output_per_1m=18.0,
+            long_context_threshold_tokens=200_000,
+        )
+        cost = estimate_cost("gemini-3.1-pro-preview", 200_000, 1000, prices)
+        assert cost == pytest.approx((200_000 * 2.00 + 1000 * 12.0) / 1_000_000)
 
 
 # ---------------------------------------------------------------------------

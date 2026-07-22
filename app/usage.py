@@ -14,9 +14,12 @@ layering). The former ``api/usage.py`` re-export shim was deleted in M5; import
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from domain.events import Event, UsageData
+
+if TYPE_CHECKING:
+    from config.settings import ModelPriceTier
 
 
 def _bare_model_name(model_name: str) -> str:
@@ -37,7 +40,7 @@ def estimate_cost(
     model_name: str,
     input_tokens: int,
     output_tokens: int,
-    prices: dict[str, tuple[float, float]],
+    prices: dict[str, ModelPriceTier],
 ) -> float | None:
     """Return the estimated USD cost for one turn, or ``None`` for an unknown model.
 
@@ -46,23 +49,36 @@ def estimate_cost(
     2. Bare-name suffix match — strips the provider prefix
        (``"google-vertex:gemini-2.5-pro"`` → tries ``"gemini-2.5-pro"``).
 
+    When the matched tier has a long-context threshold and *input_tokens*
+    exceeds it, Google's long-context rates apply to ALL tokens in the turn
+    (not just the overage) — this mirrors that billing behavior exactly.
+
     Args:
         model_name:    The model identifier used for the turn.
         input_tokens:  Number of prompt/input tokens consumed.
         output_tokens: Number of completion/output tokens generated.
-        prices:        Mapping of bare model name → ``(input_per_1m, output_per_1m)``
-                       USD rates.
+        prices:        Mapping of bare model name -> :class:`ModelPriceTier`.
 
     Returns:
         Estimated cost in USD, or ``None`` when the model is not in *prices*.
     """
-    pair = prices.get(model_name)
-    if pair is None:
-        bare = _bare_model_name(model_name)
-        pair = prices.get(bare)
-    if pair is None:
+    tier = prices.get(model_name)
+    if tier is None:
+        tier = prices.get(_bare_model_name(model_name))
+    if tier is None:
         return None
-    input_rate, output_rate = pair
+
+    input_rate = tier.input_per_1m
+    output_rate = tier.output_per_1m
+    if (
+        tier.long_context_threshold_tokens is not None
+        and input_tokens > tier.long_context_threshold_tokens
+        and tier.long_context_input_per_1m is not None
+        and tier.long_context_output_per_1m is not None
+    ):
+        input_rate = tier.long_context_input_per_1m
+        output_rate = tier.long_context_output_per_1m
+
     return (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
 
 
