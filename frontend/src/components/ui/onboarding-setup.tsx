@@ -165,12 +165,12 @@ export function OnboardingSetup({
   }
 
   return (
-    <div className="flex min-h-dvh w-full items-center justify-center bg-[var(--onboarding-page-background)] px-4 py-6 sm:px-6 md:py-10">
+    <div className="flex min-h-dvh w-full items-center justify-center bg-[var(--onboarding-page-background)] px-4 py-8 sm:px-6 md:py-14">
       <motion.main
-        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={frameTransition}
-        className="grid w-full max-w-full grid-cols-1 overflow-hidden rounded-2xl border border-[var(--onboarding-border)] bg-[var(--onboarding-frame-surface)] md:max-w-[680px] lg:max-w-[1120px] lg:grid-cols-[3fr_2fr]"
+        className="w-full max-w-[640px] overflow-hidden rounded-2xl border border-[var(--onboarding-border)] bg-[var(--onboarding-frame-surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
       >
         {/*
          * Step-change announcement (spec §16): announces "Step N of M,
@@ -183,7 +183,7 @@ export function OnboardingSetup({
         </div>
 
         <form
-          className="order-2 flex min-h-0 flex-col lg:order-1"
+          className="flex min-h-0 flex-col"
           noValidate
           onSubmit={(event) => {
             // Spec §15.3: Enter submits from a normal text/number field only
@@ -196,7 +196,7 @@ export function OnboardingSetup({
             guardedOnContinue();
           }}
         >
-          <div className="m-1.5 flex min-h-0 grow flex-col rounded-xl bg-[var(--onboarding-form-surface)] px-4 pt-5 pb-4 sm:px-8 sm:pt-7 sm:pb-6">
+          <div className="m-1.5 flex min-h-0 grow flex-col rounded-xl bg-[var(--onboarding-form-surface)] px-6 pt-6 pb-5 sm:px-10 sm:pt-9 sm:pb-7">
             <OnboardingBrandRow isSaving={isSaving} onDefer={onDefer} />
             <OnboardingProgress step={step} totalSteps={totalSteps} />
 
@@ -229,11 +229,6 @@ export function OnboardingSetup({
             onBack={onBack}
           />
         </form>
-
-        <OnboardingMediaPanel
-          media={media}
-          shouldReduceMotion={Boolean(shouldReduceMotion)}
-        />
       </motion.main>
     </div>
   );
@@ -288,12 +283,18 @@ function OnboardingStepContent({
           </p>
 
           {media.caption ? (
-            <p className="mt-4 text-sm leading-[1.5] text-[var(--onboarding-foreground-soft)] lg:hidden">
-              {media.caption}
-            </p>
+            <div className="mt-4 flex items-center gap-2.5 rounded-lg bg-[var(--onboarding-caption-surface)] px-3.5 py-3">
+              <span
+                aria-hidden="true"
+                className="size-1.5 shrink-0 rounded-full bg-[var(--onboarding-primary)]"
+              />
+              <p className="text-[13px] leading-[1.5] text-[var(--onboarding-foreground-soft)]">
+                {media.caption}
+              </p>
+            </div>
           ) : null}
 
-          <div className="mt-6">{children}</div>
+          <div className="mt-7">{children}</div>
         </motion.div>
       </AnimatePresence>
     </div>
@@ -425,7 +426,7 @@ function OnboardingFooter({
   }
 
   return (
-    <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-[var(--onboarding-border-soft)] bg-[var(--onboarding-form-surface)] px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:static sm:border-t-0 sm:bg-transparent sm:px-8 sm:pt-0 sm:pb-6">
+    <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-[var(--onboarding-border-soft)] bg-[var(--onboarding-form-surface)] px-6 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:static sm:border-t-0 sm:bg-transparent sm:px-10 sm:py-5">
       {canGoBack ? (
         <Button
           disabled={isSaving}
@@ -450,44 +451,3 @@ function OnboardingFooter({
   );
 }
 
-function OnboardingMediaPanel({
-  media,
-  shouldReduceMotion,
-}: {
-  media: OnboardingMedia;
-  shouldReduceMotion: boolean;
-}) {
-  const transition = shouldReduceMotion
-    ? { duration: 0.1 }
-    : { duration: 0.26, ease: EASE_OUT };
-
-  return (
-    <div className="order-1 hidden lg:order-2 lg:flex lg:h-full lg:flex-col">
-      <div className="relative flex-[0_0_72%] overflow-hidden bg-[var(--onboarding-caption-surface)]">
-        <AnimatePresence mode="popLayout">
-          <motion.img
-            alt={media.alt}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 h-full w-full object-cover"
-            exit={{ opacity: 0 }}
-            initial={
-              shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.015 }
-            }
-            key={media.src}
-            src={media.src}
-            style={media.position ? { objectPosition: media.position } : undefined}
-            transition={transition}
-          />
-        </AnimatePresence>
-      </div>
-      <div className="flex flex-[0_0_28%] flex-col justify-center gap-1.5 bg-[var(--onboarding-caption-surface)] px-6 py-5">
-        <span className="text-sm font-medium text-[var(--onboarding-foreground)]">
-          What Counselle will keep in mind
-        </span>
-        <p className="text-sm leading-[1.45] text-[var(--onboarding-foreground-soft)]">
-          {media.caption}
-        </p>
-      </div>
-    </div>
-  );
-}
