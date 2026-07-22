@@ -92,6 +92,24 @@ export function OnboardingSetup({
   const errorId = useId();
   const statusId = useId();
 
+  // Defense-in-depth guard for spec §15.12 ("Rapid double-clicks cannot
+  // queue multiple transitions or writes"). `isSaving` should already
+  // disable/loading-gate the Continue button, but that depends on the
+  // caller setting it synchronously. This ref blocks re-dispatch of the
+  // same submit (via Enter or button click, both route through form
+  // submission) until the `isSaving` prop actually flips.
+  const submitDispatchedRef = useRef(false);
+
+  useEffect(() => {
+    submitDispatchedRef.current = isSaving;
+  }, [isSaving]);
+
+  function guardedOnContinue() {
+    if (submitDispatchedRef.current) return;
+    submitDispatchedRef.current = true;
+    onContinue();
+  }
+
   // Derive forward/back motion direction from the previous render's step
   // without reading a ref during render (see React docs on adjusting state
   // during rendering — this is the sanctioned pattern for that).
@@ -135,7 +153,20 @@ export function OnboardingSetup({
           {`Step ${step} of ${totalSteps}, ${title}`}
         </div>
 
-        <div className="order-2 flex min-h-0 flex-col lg:order-1">
+        <form
+          className="order-2 flex min-h-0 flex-col lg:order-1"
+          noValidate
+          onSubmit={(event) => {
+            // Spec §15.3: Enter submits from a normal text/number field only
+            // when no combobox/tag menu is open. Native form submission
+            // already gives us that for free — a tag input commits its own
+            // Enter (see OnboardingTagInput) and an open Select/Popover
+            // listbox consumes Enter itself, so only a plain field's Enter
+            // (or a Continue click) reaches here.
+            event.preventDefault();
+            guardedOnContinue();
+          }}
+        >
           <div className="m-1.5 flex min-h-0 grow flex-col rounded-xl bg-[var(--onboarding-form-surface)] px-4 pt-5 pb-4 sm:px-8 sm:pt-7 sm:pb-6">
             <OnboardingBrandRow isSaving={isSaving} onDefer={onDefer} />
             <OnboardingProgress step={step} totalSteps={totalSteps} />
@@ -167,9 +198,8 @@ export function OnboardingSetup({
             errorId={error ? errorId : undefined}
             isSaving={isSaving}
             onBack={onBack}
-            onContinue={onContinue}
           />
-        </div>
+        </form>
 
         <OnboardingMediaPanel
           media={media}
@@ -341,41 +371,28 @@ function OnboardingFooter({
   errorId,
   isSaving,
   onBack,
-  onContinue,
 }: {
   canGoBack: boolean;
   continueLabel: string;
   errorId?: string;
   isSaving: boolean;
   onBack: () => void;
-  onContinue: () => void;
 }) {
   // Defense-in-depth guard for spec §15.12 ("Rapid double-clicks cannot
-  // queue multiple transitions or writes"). `isSaving` should already
-  // disable/loading-gate these buttons, but that depends on the caller
-  // setting it synchronously. This ref blocks re-dispatch of the same
-  // click until the `isSaving` prop actually flips, closing any gap
-  // between the click and the caller's state update taking effect.
+  // queue multiple transitions or writes"). Back's handler is a synchronous,
+  // local-only step decrement (it never flips `isSaving`), so the guard
+  // can't wait on `isSaving` resetting it — that never happens, which would
+  // otherwise permanently disable the button after its first use. Reset
+  // immediately after the synchronous call instead; the JS event loop can't
+  // deliver a second click event "inside" this one, so this still collapses
+  // a genuine double-fire without wedging the button shut.
   const dispatchedRef = useRef(false);
-
-  useEffect(() => {
-    if (isSaving) {
-      dispatchedRef.current = true;
-    } else {
-      dispatchedRef.current = false;
-    }
-  }, [isSaving]);
 
   function guardedOnBack() {
     if (dispatchedRef.current) return;
     dispatchedRef.current = true;
     onBack();
-  }
-
-  function guardedOnContinue() {
-    if (dispatchedRef.current) return;
-    dispatchedRef.current = true;
-    onContinue();
+    dispatchedRef.current = false;
   }
 
   return (
@@ -396,8 +413,7 @@ function OnboardingFooter({
         aria-describedby={errorId}
         className="w-full sm:w-auto"
         loading={isSaving}
-        onClick={guardedOnContinue}
-        type="button"
+        type="submit"
       >
         {continueLabel}
       </Button>

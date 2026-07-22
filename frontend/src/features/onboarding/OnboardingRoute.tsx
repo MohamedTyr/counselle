@@ -248,9 +248,19 @@ export function OnboardingRoute() {
   // view. Replacing the current `/onboarding` entry (rather than pushing)
   // means a refresh intentionally drops the flag (spec §17 "Completion
   // reload").
+  //
+  // Wrapping this call in React's own `flushSync` (see the caller) is not
+  // enough on its own: react-router's data router applies a navigation
+  // through its own internal (async-capable) state machine, so `useLocation`
+  // subscribers can still observe the mutation's cache write one render
+  // ahead of this navigation's location/state landing — over a real network
+  // (unlike a mocked test transport), that gap is wide enough for
+  // `OnboardingGate` to redirect to `/app/profile` before this state ever
+  // commits. React Router's own `flushSync: true` navigate option forces its
+  // internal update to apply synchronously too, closing that gap.
   function navigateToCompletion() {
     const state: OnboardingLocationState = { onboardingCompletion: true };
-    navigate("/onboarding", { replace: true, state });
+    navigate("/onboarding", { flushSync: true, replace: true, state });
   }
 
   function handleAskCounselle() {

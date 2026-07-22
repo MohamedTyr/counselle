@@ -1,6 +1,7 @@
 import { OnboardingChoiceGroup } from "@/features/onboarding/OnboardingChoiceGroup";
 import { OnboardingTagInput } from "@/features/onboarding/OnboardingTagInput";
 import type { FitDraft } from "@/features/onboarding/onboarding-profile-patch";
+import { ONBOARDING_LIST_CAP } from "@/features/onboarding/onboarding-steps";
 
 const SUGGESTED_REGIONS = [
   "Northeast",
@@ -95,17 +96,17 @@ export function FitStep({
       />
 
       <OnboardingTagInput
-        helper="Add up to 3. Examples: strong co-op program, easy access to research, active campus life."
+        helper={`Add up to ${ONBOARDING_LIST_CAP}. Examples: strong co-op program, easy access to research, active campus life.`}
         label="What are your must-haves?"
-        max={3}
+        max={ONBOARDING_LIST_CAP}
         onChange={(next) => onChange({ ...value, mustHaves: next })}
         value={value.mustHaves}
       />
 
       <OnboardingTagInput
-        helper="Add up to 3. Examples: too far from home, required religious services, very large classes."
+        helper={`Add up to ${ONBOARDING_LIST_CAP}. Examples: too far from home, required religious services, very large classes.`}
         label="Any dealbreakers?"
-        max={3}
+        max={ONBOARDING_LIST_CAP}
         onChange={(next) => onChange({ ...value, dealbreakers: next })}
         value={value.dealbreakers}
       />

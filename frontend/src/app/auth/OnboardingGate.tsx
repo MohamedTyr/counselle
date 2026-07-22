@@ -26,6 +26,23 @@ export type OnboardingLocationState = {
 const ONBOARDING_PATH = "/onboarding";
 const REDIRECT_TO_ONBOARDING_STATUSES = new Set(["not_started", "in_progress"]);
 
+/** The browser's native History API persists `history.state` (and so
+ * `location.state`) across a hard page reload — it is not, as a client-side
+ * router's own in-memory state would be, cleared just because the page
+ * reloaded. A genuine refresh of the completion screen must still drop the
+ * ephemeral `onboardingCompletion` flag (spec §17 "Completion reload"), so
+ * this checks the Navigation Timing API for a reload independently of what
+ * `location.state` still carries. Falls back to allowing the state through
+ * (matching the pre-existing behavior) if the API isn't available, e.g. in
+ * a test environment without it stubbed. */
+function wasHardReload(): boolean {
+  if (typeof performance === "undefined" || !performance.getEntriesByType) {
+    return false;
+  }
+  const [entry] = performance.getEntriesByType("navigation");
+  return (entry as PerformanceNavigationTiming | undefined)?.type === "reload";
+}
+
 /** Sits between `RequireAuth` and the workspace routes / `/onboarding`,
  * implementing the state matrix in plan §20.2. */
 export function OnboardingGate() {
@@ -64,7 +81,7 @@ export function OnboardingGate() {
 
   if (result.kind === "progress" && result.progress.status === "completed") {
     const state = location.state as OnboardingLocationState | null;
-    if (state?.onboardingCompletion === true) {
+    if (state?.onboardingCompletion === true && !wasHardReload()) {
       return <Outlet />;
     }
     return <Navigate replace to="/app/profile" />;

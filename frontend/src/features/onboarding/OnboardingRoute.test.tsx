@@ -189,6 +189,35 @@ describe("OnboardingRoute", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the Profile-save-failure copy and keeps the student on the step (02-ui-ux-spec.md §17)", async () => {
+    const user = userEvent.setup();
+    let profilePatchCalls = 0;
+    renderApp("/onboarding", {
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (url.endsWith("/v1/profile") && init?.method === "PATCH") {
+          profilePatchCalls += 1;
+          return jsonResponse({ detail: "unprocessable" }, { status: 422 });
+        }
+        return createOnboardingRouteFetch({
+          progress: progressFixture({ current_step: "basics" }),
+        })(input, init);
+      },
+    });
+
+    const nameInput = await screen.findByLabelText("What should Counselle call you?");
+    await user.type(nameInput, "Maya");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByText("We couldn’t save this step. Your answers are still here."),
+    ).toBeInTheDocument();
+    // Still on the same step, and the draft wasn't cleared.
+    expect(screen.getByRole("heading", { name: "Let’s make Counselle yours" })).toBeInTheDocument();
+    expect(screen.getByLabelText("What should Counselle call you?")).toHaveValue("Maya");
+    expect(profilePatchCalls).toBe(1);
+  });
+
   it("renders the real completion view after Fit succeeds, with no auto model call", async () => {
     const user = userEvent.setup();
     const requests: string[] = [];

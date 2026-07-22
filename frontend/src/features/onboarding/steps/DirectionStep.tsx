@@ -1,6 +1,7 @@
 import { OnboardingChoiceGroup } from "@/features/onboarding/OnboardingChoiceGroup";
 import { OnboardingTagInput } from "@/features/onboarding/OnboardingTagInput";
 import type { DirectionDraft, MajorCertainty } from "@/features/onboarding/onboarding-profile-patch";
+import { ONBOARDING_LIST_CAP } from "@/features/onboarding/onboarding-steps";
 
 const CERTAINTY_OPTIONS = [
   { value: "locked", label: "I’m set", description: "I’m unlikely to change it." },
@@ -27,9 +28,9 @@ export function DirectionStep({
   return (
     <div className="flex flex-col gap-6">
       <OnboardingTagInput
-        helper="Add up to 3. Broad interests are fine."
+        helper={`Add up to ${ONBOARDING_LIST_CAP}. Broad interests are fine.`}
         label="What might you want to study?"
-        max={3}
+        max={ONBOARDING_LIST_CAP}
         onChange={(next) => onChange({ ...value, majors: next })}
         placeholder="Type a major and press Enter"
         value={value.majors}

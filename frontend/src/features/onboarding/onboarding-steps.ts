@@ -75,3 +75,10 @@ export const ONBOARDING_STEP_META: Record<OnboardingStep, OnboardingStepMeta> = 
 };
 
 export const ONBOARDING_TOTAL_STEPS = ONBOARDING_STEP_ORDER.length;
+
+/** Shared cap for every onboarding tag list (majors, must-haves,
+ * dealbreakers): the max a step will let a student add, and the number of
+ * pre-existing values a patch keeps visible/editable in-flow before falling
+ * back to `cappedListPatchValue`'s tail-preservation. One source so the
+ * question copy ("Add up to 3.") and the patch-building cap can't drift. */
+export const ONBOARDING_LIST_CAP = 3;

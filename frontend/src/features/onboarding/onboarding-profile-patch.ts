@@ -1,5 +1,6 @@
 import type { Profile, ProfilePatch } from "@/api/workspace/types";
 import type { OnboardingStep } from "@/api/http/onboarding";
+import { ONBOARDING_LIST_CAP } from "@/features/onboarding/onboarding-steps";
 
 /**
  * Pure per-step draft shapes, hydration (Profile -> draft), and patch
@@ -261,9 +262,9 @@ function buildPlannedTestsPatch(
   draft: AcademicDraft,
   initialPlannedTests: readonly { test: string; date?: string | null }[] | null | undefined,
 ): { test: string; date?: string }[] | null | undefined {
-  const others = (initialPlannedTests ?? []).filter(
-    (entry) => entry.test !== "SAT" && entry.test !== "ACT",
-  );
+  const others: { test: string; date?: string }[] = (initialPlannedTests ?? [])
+    .filter((entry) => entry.test !== "SAT" && entry.test !== "ACT")
+    .map((entry) => (entry.date ? { test: entry.test, date: entry.date } : { test: entry.test }));
   const owned: { test: string; date?: string }[] = [];
   if (draft.plannedSat) {
     owned.push(
@@ -297,7 +298,7 @@ export interface DirectionDraft {
 export function hydrateDirectionDraft(profile: Profile | undefined): DirectionDraft {
   const interests = profile?.interests;
   return {
-    majors: (interests?.intended_majors ?? []).slice(0, 3),
+    majors: (interests?.intended_majors ?? []).slice(0, ONBOARDING_LIST_CAP),
     certainty: interests?.major_certainty ?? "",
     preprofessional: interests?.preprofessional ?? [],
   };
@@ -310,7 +311,7 @@ export function buildDirectionPatch(
   const interests = profile?.interests;
   const patch: Record<string, unknown> = {};
 
-  const majors = cappedListPatchValue(draft.majors, interests?.intended_majors, 3);
+  const majors = cappedListPatchValue(draft.majors, interests?.intended_majors, ONBOARDING_LIST_CAP);
   if (majors !== undefined) patch.intended_majors = majors;
 
   const certainty = choicePatchValue(interests?.major_certainty, draft.certainty);
@@ -415,8 +416,8 @@ export function hydrateFitDraft(profile: Profile | undefined): FitDraft {
     openAnywhere: false,
     sizes: preferences?.sizes ?? [],
     settings: preferences?.settings ?? [],
-    mustHaves: (preferences?.must_haves ?? []).slice(0, 3),
-    dealbreakers: (preferences?.dealbreakers ?? []).slice(0, 3),
+    mustHaves: (preferences?.must_haves ?? []).slice(0, ONBOARDING_LIST_CAP),
+    dealbreakers: (preferences?.dealbreakers ?? []).slice(0, ONBOARDING_LIST_CAP),
   };
 }
 
@@ -438,10 +439,14 @@ export function buildFitPatch(draft: FitDraft, profile: Profile | undefined): Pr
   const settings = fullListPatchValue(draft.settings, preferences?.settings);
   if (settings !== undefined) patch.settings = settings;
 
-  const mustHaves = cappedListPatchValue(draft.mustHaves, preferences?.must_haves, 3);
+  const mustHaves = cappedListPatchValue(draft.mustHaves, preferences?.must_haves, ONBOARDING_LIST_CAP);
   if (mustHaves !== undefined) patch.must_haves = mustHaves;
 
-  const dealbreakers = cappedListPatchValue(draft.dealbreakers, preferences?.dealbreakers, 3);
+  const dealbreakers = cappedListPatchValue(
+    draft.dealbreakers,
+    preferences?.dealbreakers,
+    ONBOARDING_LIST_CAP,
+  );
   if (dealbreakers !== undefined) patch.dealbreakers = dealbreakers;
 
   return Object.keys(patch).length > 0 ? { preferences: patch } : {};
