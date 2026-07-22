@@ -120,6 +120,8 @@ def log_turn_complete(
     duration_ms: int,
     est_cost_usd: float | None,
     user_id: str | None = None,
+    response_mode: str | None = None,
+    model: str | None = None,
 ) -> None:
     """Emit one structured ``turn_complete`` log line (ARCHITECTURE §19).
 
@@ -135,6 +137,9 @@ def log_turn_complete(
     - ``tool_calls``
     - ``duration_ms``
     - ``est_cost_usd`` (float or ``None``)
+    - ``response_mode`` / ``model`` (plan/quick-think-response-mode.md §7.1 —
+      so mode latency/cost can be compared without joining transcript state;
+      ``None`` for a caller that predates response modes)
     """
     logger.info(
         "turn_complete",
@@ -148,5 +153,7 @@ def log_turn_complete(
             "tool_calls": usage.get("tool_calls", 0),
             "duration_ms": duration_ms,
             "est_cost_usd": est_cost_usd,
+            "response_mode": response_mode,
+            "model": model,
         },
     )

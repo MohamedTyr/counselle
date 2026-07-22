@@ -244,6 +244,14 @@ def build_turn_record(
     return {
         "message_id": ids["message_id"],
         "user_message_id": ids["user_message_id"],
+        # plans/quick-think-response-mode.md §6.1: required in validated
+        # ``ids`` — reading them here (once) is what keeps complete/error/
+        # park/cancel/timeout records from ever independently diverging.
+        # Absent ``response_mode`` means Quick (legacy/pre-feature callers);
+        # absent ``model`` stays absent — never fabricate what served an
+        # answer Counselle doesn't actually know.
+        "response_mode": ids.get("response_mode") or "quick",
+        "model": ids.get("model"),
         "user_text": user_text,
         # Only ``None`` denotes an omitted legacy selection.  Do not coerce
         # other falsy/corrupt values (for example ``False``) to an innocent

@@ -51,10 +51,12 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 from uuid import uuid4
 
+from app.model_selection import counselor_model_selection
 from app.parked_sources import ParkedSourceStore
 from app.records import Emission, FinalEmissionDeduper, TurnStatus
 from app.run_handle import RunHandle, SteeringMessage
 from app.run_turn import _USER_SAFE_ERROR, run_turn
+from app.sessions import set_session_response_mode
 from app.skills import SelectedSkillValidationError, validate_selected_skills
 from app.sources import SourceRegistry
 from app.turn_persistence import (
@@ -66,6 +68,7 @@ from app.turn_persistence import (
 )
 from app.usage import enrich_usage_event, log_turn_complete
 from domain.events import Event, ev_done, ev_error, ev_user_message
+from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
 
 logger = logging.getLogger(__name__)
@@ -111,6 +114,24 @@ class InvalidEditTarget(Exception):
 
 class InvalidSelectedSkills(Exception):
     """Explicit skills are invalid for this turn or clarify continuation."""
+
+
+class InvalidResponseMode(Exception):
+    """An explicit response mode conflicts with a parked clarify's mode.
+
+    Raised before any model call; the parked record is left untouched and
+    resumable (plans/quick-think-response-mode.md §5.1).
+    """
+
+
+class ResponseModeUnavailable(Exception):
+    """A well-formed response mode is administratively disabled (route: 503).
+
+    Distinct from :class:`InvalidResponseMode`: this is not a malformed or
+    conflicting request, it is a valid mode the deployment has switched off
+    (``settings.response_mode_think_enabled``) — no claim, no writes, no model
+    call (plan §3.3/§12).
+    """
 
 
 def _event_nbytes(event: Event) -> int:
@@ -217,6 +238,11 @@ class _Turn:
     buffer: _RingBuffer
     selected_skills: tuple[str, ...] = ()
     selected_skills_inherited: bool = False
+    # Immutable-at-claim (plan §5.1): resolved once from the pure resolver and
+    # never re-derived from a later mutable UI preference or global setting.
+    response_mode: ResponseMode = ResponseMode.QUICK
+    model_setting: str = ""
+    response_mode_inherited: bool = False
     task: asyncio.Task[None] | None = None
     trace_id: str = ""
     ids: dict[str, Any] | None = None  # {message_id, user_message_id} from meta
@@ -297,6 +323,8 @@ class TurnRegistry:
         user_id: str | None = None,
         replace_message_id: str | None = None,
         selected_skills: Sequence[str] = (),
+        response_mode: ResponseMode | None = None,
+        session_response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[tuple[Event, int]]:
         """Claim the session, spawn the detached turn, return an attach handle.
 
@@ -304,6 +332,16 @@ class TurnRegistry:
         check and claim — atomic under asyncio's cooperative scheduling). The
         G3 history rewrite runs under the held claim, BEFORE the spawn; a
         rewrite failure releases the claim and propagates.
+
+        ``response_mode`` is the request's explicit selection (``None`` when
+        the client omitted it — a normal turn then falls back to
+        ``session_response_mode``, the chat's persisted sticky mode). Response
+        mode resolution, inheritance from a parked clarify, and (for a normal
+        new turn) persistence back to the session row all happen under the
+        SAME held claim as the skills read (plans/quick-think-response-mode.md
+        §4.3/§5.1) — a rejected/failed preparation releases the claim and
+        spawns no task, so no model call happens for a preference that never
+        durably applied.
 
         The returned handle is bound to the turn's buffer object directly (not
         a registry lookup), so the starter always replays from seq 0 even if
@@ -321,6 +359,14 @@ class TurnRegistry:
             selected = tuple(validate_selected_skills(selected_skills))
         except SelectedSkillValidationError as exc:
             raise InvalidSelectedSkills from exc
+        if response_mode is not None:
+            # Fast, pure, no-await guard on the EXPLICIT request before the
+            # claim (plan §3.3/§12: "well-formed but unavailable" never claims
+            # or writes). The registry re-checks the fully-resolved mode again
+            # post-claim (below) — that second check is the real authority,
+            # since an implicit session-sticky Think can only be known once the
+            # continuation read runs.
+            self._require_response_mode_available(response_mode)
         if session_id in self._turns:
             raise StreamActive(session_id)
         # The global backstop: a process-wide ceiling on detached turns so an
@@ -349,13 +395,36 @@ class TurnRegistry:
         try:
             # Inspect a parked clarify before a history rewrite can remove the
             # record that owns its original selection. This also ensures a
-            # non-empty answer request is rejected under the held claim.
+            # non-empty answer request is rejected under the held claim, and
+            # resolves/validates the turn's response mode from the SAME graph
+            # read (plan §5.1: never two separate reads for skills and mode).
             (
                 turn.selected_skills,
                 turn.selected_skills_inherited,
-            ) = await self._selected_skills_for_start(session_id, selected)
+                turn.response_mode,
+                turn.response_mode_inherited,
+            ) = await self._continuation_for_start(
+                session_id, selected, response_mode, session_response_mode
+            )
+            turn.model_setting = counselor_model_selection(
+                turn.response_mode, self._settings
+            ).model_setting
             if replace_message_id is not None:
                 await self._rewrite_history(session_id, replace_message_id)
+            # Sticky-mode persistence (plan §4.3 step 4/5): only for an
+            # explicitly-selected NORMAL new turn — never a clarify/steer
+            # continuation (response_mode_inherited) nor a regenerate
+            # (replace_message_id set). Lives inside this guarded pre-spawn
+            # section so a write failure releases the claim and never spawns
+            # the detached task / calls the model.
+            if (
+                not turn.response_mode_inherited
+                and replace_message_id is None
+                and self._deps.app_pool is not None
+            ):
+                await set_session_response_mode(
+                    self._deps.app_pool, session_id, turn.response_mode
+                )
         except BaseException:
             self._turns.pop(session_id, None)
             if handle_store is not None and turn.run_handle is not None:
@@ -493,24 +562,59 @@ class TurnRegistry:
             return
         await self._unpark_if_parked(session_id)
 
-    async def _selected_skills_for_start(
-        self, session_id: str, selected_skills: tuple[str, ...]
-    ) -> tuple[tuple[str, ...], bool]:
-        """Resolve a parked clarify's authoritative original selection.
+    def _require_response_mode_available(self, response_mode: ResponseMode) -> None:
+        """Raise :class:`ResponseModeUnavailable` for a disabled-but-valid mode.
 
-        This runs only after the registry has claimed the session. A clarify
-        answer may not add a workflow midway through the parked turn; an empty
-        request inherits the original record's validated names.
+        The registry is the actual authority (the route's own check is a
+        fast-fail UX nicety only) — every path that decides a turn's mode
+        funnels through this guard, including inherited parked-clarify modes.
+        """
+        if response_mode is ResponseMode.THINK and not self._settings.response_mode_think_enabled:
+            raise ResponseModeUnavailable(response_mode.value)
+
+    async def _continuation_for_start(
+        self,
+        session_id: str,
+        selected_skills: tuple[str, ...],
+        response_mode: ResponseMode | None,
+        session_response_mode: ResponseMode,
+    ) -> tuple[tuple[str, ...], bool, ResponseMode, bool]:
+        """Resolve a parked clarify's authoritative selection AND response mode.
+
+        Returns ``(selected_skills, selected_skills_inherited, response_mode,
+        response_mode_inherited)``. Both are resolved from the SAME graph read
+        (plan §5.1: never two separate reads for skills and mode). This runs
+        only after the registry has claimed the session.
+
+        Not parked: the effective mode is the request's explicit selection, or
+        the session's persisted sticky mode when omitted (§3.3).
+
+        Parked: a clarify answer may not add a workflow midway through the
+        parked turn (unchanged skills rule); an explicit mode that conflicts
+        with the parked record's mode raises :class:`InvalidResponseMode`
+        (releasing the claim, leaving the parked record untouched); a missing
+        mode inherits the parked record's mode, resolved through the CURRENT
+        approved Settings mapping — not blindly executing a possibly-retired
+        checkpoint model string (§5.1). A legacy parked record with no mode
+        field falls back to Quick.
         """
         config = {"configurable": {"thread_id": session_id}}
         snapshot = await self._graph.aget_state(config)
         values = dict(snapshot.values) if snapshot else {}
         parked = parked_record(list(values.get("turn_records") or []))
         if parked is None:
-            return selected_skills, False
+            effective_mode = response_mode or session_response_mode
+            self._require_response_mode_available(effective_mode)
+            return selected_skills, False, effective_mode, False
         if selected_skills:
             raise InvalidSelectedSkills("clarify answers cannot select skills")
-        return _record_selected_skills(parked), True
+        parked_mode = _record_response_mode(parked)
+        if response_mode is not None and response_mode is not parked_mode:
+            raise InvalidResponseMode(
+                "response mode conflicts with the pending clarification"
+            )
+        self._require_response_mode_available(parked_mode)
+        return _record_selected_skills(parked), True, parked_mode, True
 
     # -- the detached task ----------------------------------------------------
 
@@ -526,6 +630,7 @@ class TurnRegistry:
                         "graph": self._graph,
                         "user_id": turn.user_id,
                         "selected_skills": turn.selected_skills,
+                        "response_mode": turn.response_mode,
                     }
                     if turn.selected_skills_inherited:
                         run_kwargs["selected_skills_inherited"] = True
@@ -593,9 +698,15 @@ class TurnRegistry:
             turn.terminal_appended = True
         if kind == "meta":
             turn.trace_id = str(event.data.get("trace_id") or "")
+            # Copy response_mode/model into turn.ids (plan §6.1) so every
+            # terminal-record builder (cancel/timeout/shutdown-drain) shares
+            # this ONE identity instead of each independently remembering to
+            # add them.
             turn.ids = {
                 "message_id": event.data.get("message_id"),
                 "user_message_id": event.data.get("user_message_id"),
+                "response_mode": event.data.get("response_mode"),
+                "model": event.data.get("model"),
             }
         elif kind == "delta":
             turn.emissions.append(("delta", event.data["text"]))
@@ -613,9 +724,7 @@ class TurnRegistry:
             turn.emissions.append(("viz", event.data))
         elif kind == "usage":
             try:
-                event = enrich_usage_event(
-                    event, self._settings.model_counselor, self._settings
-                )
+                event = enrich_usage_event(event, turn.model_setting, self._settings)
             except Exception:
                 # A malformed usage payload must NOT sink an already-correct
                 # turn with a false error (the student saw a good answer). Log
@@ -675,6 +784,8 @@ class TurnRegistry:
             duration_ms=int((time.monotonic() - start_mono) * 1000),
             est_cost_usd=usage.get("est_cost_usd"),
             user_id=turn.user_id,
+            response_mode=turn.response_mode.value,
+            model=turn.model_setting,
         )
 
     # -- consumers -------------------------------------------------------------
@@ -996,6 +1107,18 @@ def _partial_anchor(
         clarify = {"spec": spec, "answer": turn.user_text} if spec else None
         return parked.get("user_text"), offset, clarify, True, _record_selected_skills(parked)
     return turn.user_text, resolve_offset(None, messages), None, False, turn.selected_skills
+
+
+def _record_response_mode(record: dict[str, Any]) -> ResponseMode:
+    """A parked record's response mode — Quick for a legacy record with no
+    stored mode, or for any malformed/unknown persisted value."""
+    raw = record.get("response_mode")
+    if raw is None:
+        return ResponseMode.QUICK
+    try:
+        return ResponseMode(raw)
+    except ValueError:
+        return ResponseMode.QUICK
 
 
 def _record_selected_skills(record: dict[str, Any]) -> tuple[str, ...]:

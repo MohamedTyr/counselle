@@ -8,7 +8,8 @@
         "session_id": "id-2",
         "model": "google-vertex:gemini-2.5-pro",
         "message_id": "id-3",
-        "user_message_id": "id-4"
+        "user_message_id": "id-4",
+        "response_mode": "quick"
       }
     },
     {

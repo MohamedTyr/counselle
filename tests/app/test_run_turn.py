@@ -59,6 +59,7 @@ from app.transcript import extract_transcript
 from app.viz_signature import render_spec_signature, viz_payload_signature
 from domain.envelope import Citation, EvidenceItem
 from domain.events import Event
+from domain.response_mode import ResponseMode
 from domain.season import Season
 from domain.specs import AvailableResolvedCell, RenderSpec, SchoolRef, SourceConfig, VizRow
 
@@ -71,6 +72,8 @@ class FakeSettings:
     """The slice of Settings the runner + node + registry read."""
 
     model_counselor = "google-vertex:gemini-2.5-pro"
+    model_counselor_think = "google-vertex:gemini-3.1-pro-preview"
+    response_mode_think_enabled = True
     agent_max_model_requests = 80
     agent_max_total_tokens = 2_000_000
     vertex_api_key = None
@@ -80,8 +83,11 @@ class FakeSettings:
     search_max_results = 5
     thinking_stream = True
     thinking_summaries: bool | None = None
-    effective_thinking_stream: bool | None = None
     thinking_threshold_chars = 240  # CFG-07: agent_node reads this at router build
+
+    @property
+    def effective_thinking_stream(self) -> bool:
+        return self.thinking_stream if self.thinking_summaries is None else self.thinking_summaries
     # Turn-registry knobs (CFG-02: the registry reads these directly, no getattr
     # fallback). The existing per-test overrides (settings.agent_stream_buffer_size = 2,
     # etc.) now override a real default instead of a non-existent attribute.
@@ -579,17 +585,20 @@ def _fake_render_specs(*specs: RenderSpec) -> Callable[..., Any]:
     return fake
 
 
-def _node_state(prompt: str = "hi") -> dict[str, Any]:
+def _node_state(prompt: str = "hi", response_mode: str | None = None) -> dict[str, Any]:
     messages = ModelMessagesTypeAdapter.dump_python(
         [ModelRequest(parts=[UserPromptPart(content=prompt)])],
         mode="json",
     )
+    turn_ids: dict[str, Any] = {"message_id": "assistant-1", "user_message_id": "user-1"}
+    if response_mode is not None:
+        turn_ids["response_mode"] = response_mode
     return {
         "messages": messages,
         "source_registry": [],
         "source_config": _ALL_OFF.model_dump(mode="json"),
         "temporal": {"today": _TEMPORAL.today, "context": _TEMPORAL.context},
-        "turn_ids": {"message_id": "assistant-1", "user_message_id": "user-1"},
+        "turn_ids": turn_ids,
         "turn_records": [],
         "tool_result_store": {},
     }
@@ -598,6 +607,7 @@ def _node_state(prompt: str = "hi") -> dict[str, Any]:
 async def _run_node_capturing_model_settings(
     monkeypatch: pytest.MonkeyPatch,
     settings: FakeSettings,
+    response_mode: str | None = None,
 ) -> Any:
     _CapturingAgent.captured_model_settings = []
     monkeypatch.setattr(app.agent_node, "Agent", _CapturingAgent)
@@ -619,7 +629,7 @@ async def _run_node_capturing_model_settings(
         model_factory=lambda: cast(Any, object()),
     )
 
-    await app.agent_node.run_agent_node(_node_state(), deps)
+    await app.agent_node.run_agent_node(_node_state(response_mode=response_mode), deps)
 
     assert len(_CapturingAgent.captured_model_settings) == 1
     return _CapturingAgent.captured_model_settings[0]
@@ -640,31 +650,40 @@ def _google_thinking_config(model_settings: Any) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
-async def test_agent_node_attaches_gemini_include_thoughts_from_effective_setting(
+async def test_agent_node_thinking_config_follows_response_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    default_settings = FakeSettings()
-    default_model_settings = await _run_node_capturing_model_settings(
-        monkeypatch,
-        default_settings,
+    """Quick is always MINIMAL/no-thoughts; Think is HIGH and requests provider
+    thoughts only when settings.effective_thinking_stream is on (plan
+    plans/quick-think-response-mode.md §5.2) — the node never re-derives this
+    from a global default, only from counselor_model_selection(response_mode)."""
+    quick_settings = FakeSettings()
+    quick_model_settings = await _run_node_capturing_model_settings(
+        monkeypatch, quick_settings, response_mode="quick"
     )
-    assert _google_thinking_config(default_model_settings) == {"include_thoughts": True}
+    assert _google_thinking_config(quick_model_settings) == {
+        "thinking_level": "MINIMAL",
+        "include_thoughts": False,
+    }
 
-    explicit_off = FakeSettings()
-    explicit_off.effective_thinking_stream = False
-    explicit_off_model_settings = await _run_node_capturing_model_settings(
-        monkeypatch,
-        explicit_off,
+    think_settings = FakeSettings()
+    think_model_settings = await _run_node_capturing_model_settings(
+        monkeypatch, think_settings, response_mode="think"
     )
-    assert explicit_off_model_settings is None
+    assert _google_thinking_config(think_model_settings) == {
+        "thinking_level": "HIGH",
+        "include_thoughts": True,
+    }
 
-    legacy_off = FakeSettings()
-    legacy_off.thinking_summaries = False
-    legacy_off_model_settings = await _run_node_capturing_model_settings(
-        monkeypatch,
-        legacy_off,
+    think_no_stream = FakeSettings()
+    think_no_stream.thinking_stream = False
+    think_no_stream_model_settings = await _run_node_capturing_model_settings(
+        monkeypatch, think_no_stream, response_mode="think"
     )
-    assert legacy_off_model_settings is None
+    assert _google_thinking_config(think_no_stream_model_settings) == {
+        "thinking_level": "HIGH",
+        "include_thoughts": False,
+    }
 
 
 def _plain_text_model(text: str) -> FunctionModel:
@@ -3266,6 +3285,7 @@ async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None
         snapshot=_Snap(),
         parked=parked,
         turn_ids=turn_ids,
+        response_mode=ResponseMode.QUICK,
     )
     assert isinstance(resume_input.graph_input, dict)
     # The answer is fed back to Agent V1 explicitly; no legacy Command resume.
@@ -3291,6 +3311,7 @@ async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None
         snapshot=_SnapNew(),
         parked=None,
         turn_ids={"message_id": "m-new", "user_message_id": "u-new"},
+        response_mode=ResponseMode.QUICK,
     )
     assert isinstance(new_input.graph_input, dict)
     # The new turn appends the serialized user ModelRequest to the prior messages.
@@ -3330,6 +3351,7 @@ async def test_prepare_turn_input_resume_when_parked_new_turn_when_not() -> None
         snapshot=_SnapCancelled(),
         parked=None,
         turn_ids={"message_id": "m-cont", "user_message_id": "u-cont"},
+        response_mode=ResponseMode.QUICK,
     )
     prompt = continued.graph_input["messages"][-1]["parts"][0]["content"]
     assert prompt.startswith(
@@ -3387,6 +3409,7 @@ async def test_prepare_turn_input_does_not_mark_normal_or_non_snapshot_history(
         snapshot=_Snap(),
         parked=None,
         turn_ids={"message_id": "m-new", "user_message_id": "u-new"},
+        response_mode=ResponseMode.QUICK,
     )
 
     prompt = prepared.graph_input["messages"][-1]["parts"][0]["content"]
@@ -3425,6 +3448,7 @@ async def test_prepare_turn_input_does_not_mark_snapshot_without_assistant_conte
         snapshot=_Snap(),
         parked=None,
         turn_ids={"message_id": "m-new", "user_message_id": "u-new"},
+        response_mode=ResponseMode.QUICK,
     )
 
     prompt = prepared.graph_input["messages"][-1]["parts"][0]["content"]

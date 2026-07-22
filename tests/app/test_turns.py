@@ -67,6 +67,7 @@ from domain.events import (
     ev_usage,
     ev_viz,
 )
+from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
 from tests.app.test_run_turn import (
     _ALL_OFF,
@@ -319,6 +320,7 @@ def _resume_parked_run_turn(
         user_id: str | None = None,
         selected_skills: tuple[str, ...] = (),
         selected_skills_inherited: bool = False,
+        response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[Event]:
         config = {"configurable": {"thread_id": session_id}}
         snapshot = await graph.aget_state(config)
@@ -366,6 +368,7 @@ def _gated_narration_run_turn(
         graph: Any,
         user_id: str | None = None,
         selected_skills: tuple[str, ...] = (),
+        response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[Event]:
         yield ev_meta("trace-buffer", session_id, "test-model", str(uuid4()), str(uuid4()))
         for chunk in chunks:
@@ -984,6 +987,7 @@ async def test_cancel_after_final_partial_preserves_honest_prose_once() -> None:
         graph: Any,
         user_id: str | None = None,
         selected_skills: tuple[str, ...] = (),
+        response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[Event]:
         messages = list(
             ModelMessagesTypeAdapter.dump_python(
@@ -1055,6 +1059,7 @@ async def test_cancel_prefers_run_handle_snapshot_over_prose_reconstruction() ->
         graph: Any,
         user_id: str | None = None,
         selected_skills: tuple[str, ...] = (),
+        response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -1116,6 +1121,7 @@ async def test_cancel_preserves_completed_tool_work_for_next_turn_context() -> N
         graph: Any,
         user_id: str | None = None,
         selected_skills: tuple[str, ...] = (),
+        response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -1189,6 +1195,7 @@ async def test_timeout_prefers_run_handle_snapshot_over_prose_reconstruction() -
         graph: Any,
         user_id: str | None = None,
         selected_skills: tuple[str, ...] = (),
+        response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},
@@ -1240,6 +1247,7 @@ async def test_shutdown_prefers_run_handle_snapshot_over_prose_reconstruction() 
         graph: Any,
         user_id: str | None = None,
         selected_skills: tuple[str, ...] = (),
+        response_mode: ResponseMode = ResponseMode.QUICK,
     ) -> AsyncIterator[Event]:
         await graph.aupdate_state(
             {"configurable": {"thread_id": session_id}},

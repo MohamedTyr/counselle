@@ -87,7 +87,15 @@ class TurnState(TypedDict, total=False):
       selected workflow instructions. Finally it carries ``user_id``
       (``str | None``) from the authenticated HTTP session — ``None`` for
       the eval runner/CLI, which is the agent-tool mount-gate signal a later
-      phase reads (ADR 0013: unmounted, not hidden).
+      phase reads (ADR 0013: unmounted, not hidden). Also carries
+      ``response_mode`` (``"quick"``/``"think"``, msgpack-plain str) and
+      ``model`` (the exact resolved ``model_setting`` string) — both
+      resolved once by ``run_turn``/the registry from
+      :func:`app.model_selection.counselor_model_selection`
+      (plans/quick-think-response-mode.md §5.1/§5.2); the agent node
+      re-resolves the model from ``response_mode`` rather than trusting
+      ``model`` directly, so ``model`` here is audit/record data, not an
+      execution input.
     """
 
     messages: list[dict[str, Any]]

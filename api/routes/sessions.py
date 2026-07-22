@@ -55,8 +55,10 @@ from app.titles import default_title
 from app.transcript import extract_transcript
 from app.turns import (
     InvalidEditTarget,
+    InvalidResponseMode,
     InvalidSelectedSkills,
     NoActiveTurn,
+    ResponseModeUnavailable,
     StreamActive,
     TooManyConsumers,
     TooManyTurns,
@@ -322,6 +324,10 @@ async def post_message(
             user_id=str(user.id),
             replace_message_id=body.replace_message_id,
             selected_skills=selected_skills,
+            response_mode=body.response_mode,
+            session_response_mode=ResponseMode(
+                row.get("response_mode") or ResponseMode.QUICK.value
+            ),
         )
     except StreamActive:
         return _error_json(  # type: ignore[return-value]
@@ -343,6 +349,19 @@ async def post_message(
             reason="registry_revalidation_failed",
         )
         return _error_json(422, SELECTED_SKILLS_SAFE_ERROR, trace_id)  # type: ignore[return-value]
+    except ResponseModeUnavailable:
+        # The registry-level guard (the real authority — the earlier
+        # `_response_mode_unavailable` check above is a fast-fail UX nicety
+        # only); catches an implicit session-sticky Think that's since been
+        # disabled, and a parked-resume mode no longer available.
+        return _error_json(  # type: ignore[return-value]
+            503, "Think is temporarily unavailable. Try again, or switch to Quick.", trace_id
+        )
+    except InvalidResponseMode:
+        logger.warning("response mode conflicts with pending clarification", session_id=sid)
+        return _error_json(  # type: ignore[return-value]
+            422, "That response mode conflicts with the pending clarification.", trace_id
+        )
 
     # The claim succeeded — now persist the side effects (BC-12).
     # Source-config stickiness (PRD story 10): upsert the per-message toggle so

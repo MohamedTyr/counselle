@@ -72,6 +72,10 @@ class MetaData(BaseModel):
     model: str
     message_id: str
     user_message_id: str
+    #: Additive (plan/quick-think-response-mode.md §3.3, ``PROTOCOL_VERSION``
+    #: stays 1). ``None`` only for pre-feature callers that never pass it —
+    #: current server code always supplies ``"quick"``/``"think"``.
+    response_mode: str | None = None
 
 
 class DeltaData(BaseModel):
@@ -287,14 +291,27 @@ class DoneData(BaseModel):
 
 
 class ErrorData(BaseModel):
-    """Terminal error: a user-safe message plus the trace id."""
+    """Terminal error: a user-safe message plus the trace id.
+
+    ``code`` is additive and optional (protocol-v1, plan
+    plans/quick-think-response-mode.md §5.4): ``"model_unavailable"`` only for
+    the explicitly-mapped provider-capacity/not-found statuses that support
+    mode-aware recovery. New clients use ``code`` to decide whether
+    "Retry with Quick" is safe; old clients keep parsing ``message``.
+    """
 
     message: str
     trace_id: str
+    code: str | None = None
 
 
 def ev_meta(
-    trace_id: str, session_id: str, model: str, message_id: str, user_message_id: str
+    trace_id: str,
+    session_id: str,
+    model: str,
+    message_id: str,
+    user_message_id: str,
+    response_mode: str | None = None,
 ) -> Event:
     meta = MetaData(
         trace_id=trace_id,
@@ -302,6 +319,7 @@ def ev_meta(
         model=model,
         message_id=message_id,
         user_message_id=user_message_id,
+        response_mode=response_mode,
     )
     return Event(type="meta", data=meta.model_dump())
 
@@ -378,5 +396,7 @@ def ev_done(status: DoneStatus) -> Event:
     return Event(type="done", data=DoneData(status=status).model_dump())
 
 
-def ev_error(message: str, trace_id: str) -> Event:
-    return Event(type="error", data=ErrorData(message=message, trace_id=trace_id).model_dump())
+def ev_error(message: str, trace_id: str, code: str | None = None) -> Event:
+    return Event(
+        type="error", data=ErrorData(message=message, trace_id=trace_id, code=code).model_dump()
+    )

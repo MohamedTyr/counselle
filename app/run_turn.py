@@ -53,6 +53,7 @@ from pydantic_ai.messages import (
 
 from app.clarification import latest_awaiting_v2_clarify_spec
 from app.graph import GraphDeps
+from app.model_selection import UnsupportedCounselorProvider, counselor_model_selection
 from app.records import Emission, FinalEmissionDeduper
 from app.sessions import get_session, touch_session
 from app.skills import SelectedSkillValidationError, validate_selected_skills
@@ -76,6 +77,7 @@ from domain.events import (
     ev_user_message,
     ev_viz,
 )
+from domain.response_mode import ResponseMode
 from domain.specs import ClarifySpec, SourceConfig, parse_render_spec
 
 logger = logging.getLogger(__name__)
@@ -93,8 +95,8 @@ _SERVER_ERROR_CONTINUATION_MARKER = (
 # row under the CALLER's session_id (= thread_id), so it carries this one
 # idempotent insert itself (parameterized; ADR 0019).
 _ENSURE_SESSION_SQL = """
-INSERT INTO counselle.sessions (session_id, source_config)
-VALUES ($1, $2)
+INSERT INTO counselle.sessions (session_id, source_config, response_mode)
+VALUES ($1, $2, $3)
 ON CONFLICT (session_id) DO NOTHING
 """
 
@@ -104,12 +106,18 @@ async def _ensure_session(
     session_id: str,
     requested: SourceConfig | None,
     settings: Any,
+    response_mode: ResponseMode,
 ) -> SourceConfig:
     """Create the session row if missing; return the turn's effective source config.
 
     Precedence: the request's explicit config > the session row's stored config
     > the settings defaults. With no app pool (unit tests) the row step is
     skipped and precedence collapses to request > defaults.
+
+    ``response_mode`` seeds a freshly-created row with the turn's actual mode
+    (plan §4.2) — an explicit direct/eval Think call must not silently take the
+    DB column's ``'quick'`` default; that default is the compatibility backstop
+    for call sites that predate this parameter, not the source of truth here.
     """
     if pool is None:
         return requested or SourceConfig.defaults_from(settings)
@@ -117,7 +125,12 @@ async def _ensure_session(
     if row is None:
         effective = requested or SourceConfig.defaults_from(settings)
         async with pool.acquire() as conn:
-            await conn.execute(_ENSURE_SESSION_SQL, session_id, effective.model_dump(mode="json"))
+            await conn.execute(
+                _ENSURE_SESSION_SQL,
+                session_id,
+                effective.model_dump(mode="json"),
+                response_mode.value,
+            )
         return effective
     if requested is not None:
         return requested
@@ -340,6 +353,7 @@ async def _prepare_turn_input(
     snapshot: Any,
     parked: dict[str, Any] | None,
     turn_ids: dict[str, Any],
+    response_mode: ResponseMode,
 ) -> _TurnInput:
     """Build the graph input for this turn: parked-compat continuation vs new.
 
@@ -351,7 +365,9 @@ async def _prepare_turn_input(
     :class:`_ResumePrewriteError` (the BC-11 path: the caller turns it into an
     ``ev_error`` + return, leaving the thread parked).
     """
-    effective_config = await _ensure_session(deps.app_pool, session_id, source_config, settings)
+    effective_config = await _ensure_session(
+        deps.app_pool, session_id, source_config, settings, response_mode
+    )
     if parked is not None:
         # Agent V1 does not mount ask_student, so do not replay the old
         # interrupt continuation. Feed the student's answer back to the current
@@ -493,10 +509,28 @@ async def run_turn(
     user_id: str | None = None,
     selected_skills: Sequence[str] = (),
     selected_skills_inherited: bool = False,
+    response_mode: ResponseMode = ResponseMode.QUICK,
 ) -> AsyncIterator[Event]:
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
     trace_id = str(uuid4())
+    # Server-owned Quick/Think resolution (plans/quick-think-response-mode.md
+    # §3.2/§5.2): the registry already validated/inherited *response_mode*
+    # before spawning this turn; resolving it here (rather than trusting a
+    # separately-threaded model string) is the single source that meta,
+    # turn_ids, and the agent node's own re-resolution all agree with by
+    # construction — never `settings.model_counselor` directly.
+    try:
+        selection = counselor_model_selection(response_mode, settings)
+    except UnsupportedCounselorProvider:
+        logger.exception(
+            "counselor model selection failed (trace_id=%s, session_id=%s, response_mode=%s)",
+            trace_id,
+            session_id,
+            response_mode.value,
+        )
+        yield ev_error(_USER_SAFE_ERROR, trace_id)
+        return
     # G1 message identity: the turn's two UUIDs, minted at start so the live
     # stream is addressable for feedback/edit (ADR 0022). A clarify resume
     # reuses the parked record's message_id — detected BEFORE ev_meta so the
@@ -557,8 +591,6 @@ async def run_turn(
         yield ev_error(_USER_SAFE_ERROR, trace_id)
         return
 
-    yield ev_meta(trace_id, session_id, settings.model_counselor, message_id, user_message_id)
-
     turn_ids: dict[str, Any] = {
         "message_id": message_id,
         "user_message_id": user_message_id,
@@ -568,7 +600,20 @@ async def run_turn(
         # off turn_ids (ADR 0013: unmounted, not hidden).
         "user_id": user_id,
         "selected_skills": list(effective_selected_skills),
+        # msgpack-plain strings (app/state.py's serde rule) — the agent node
+        # re-resolves the model from response_mode rather than trusting this
+        # string directly; it rides turn_ids purely for record/audit fidelity.
+        "response_mode": selection.response_mode.value,
+        "model": selection.model_setting,
     }
+    yield ev_meta(
+        trace_id,
+        session_id,
+        turn_ids["model"],
+        message_id,
+        user_message_id,
+        turn_ids["response_mode"],
+    )
     emissions: list[Emission] = []
     final_emissions = FinalEmissionDeduper()
     # The last source_registry/usage dumps from the updates stream — the FIX 2
@@ -592,6 +637,7 @@ async def run_turn(
                 snapshot=snapshot,
                 parked=parked,
                 turn_ids=turn_ids,
+                response_mode=response_mode,
             )
         except _ResumePrewriteError:
             # BC-11: the resume pre-write failed — leave the thread parked (the
@@ -781,6 +827,46 @@ async def run_turn(
             selected_skills=_selected_skills_from_turn_ids(turn_ids),
         )
         yield ev_error(_USER_SAFE_ERROR, trace_id)
+    except pydantic_ai.exceptions.ModelHTTPError as exc:
+        # Caught separately from the generic catch-all below (plan §5.4): in
+        # the pinned pydantic-ai version this is NOT an UnexpectedModelBehavior
+        # subclass. Only the explicit provider-capacity/not-found statuses get
+        # `code="model_unavailable"` and mode-aware copy — 400/401/403 and
+        # anything else fall through to the generic user-safe message so a
+        # content-filter or auth error is never told "try Quick instead".
+        logger.error(
+            "model http error (trace_id=%s, session_id=%s, status=%s, model=%s,"
+            " response_mode=%s)",
+            trace_id,
+            session_id,
+            exc.status_code,
+            turn_ids.get("model"),
+            turn_ids.get("response_mode"),
+        )
+        await _finish_failed_turn(
+            deps=deps,
+            session_id=session_id,
+            trace_id=trace_id,
+            graph=graph,
+            config=config,
+            emissions=emissions,
+            turn_ids=turn_ids,
+            record_user_text=record_user_text,
+            messages_offset=messages_offset,
+            graph_input=graph_input,
+            last_registry_dump=last_registry_dump,
+            parked=parked,
+            selected_skills=_selected_skills_from_turn_ids(turn_ids),
+        )
+        if exc.status_code in (404, 429, 503):
+            safe_message = (
+                "Think is temporarily unavailable. Try again, or switch to Quick."
+                if turn_ids.get("response_mode") == ResponseMode.THINK.value
+                else _USER_SAFE_ERROR
+            )
+            yield ev_error(safe_message, trace_id, code="model_unavailable")
+        else:
+            yield ev_error(_USER_SAFE_ERROR, trace_id)
     except Exception:
         logger.exception("turn failed (trace_id=%s, session_id=%s)", trace_id, session_id)
         await _finish_failed_turn(

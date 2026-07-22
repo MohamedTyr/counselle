@@ -61,6 +61,7 @@ from pydantic_graph import End
 from app import viz as viz_mod
 from app.clarification import ask_student_output_type, build_pending_clarification
 from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
+from app.model_selection import counselor_model_selection
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
 from app.prompt import build_system_prompt, render_source_availability
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
@@ -83,6 +84,7 @@ from app.workspace.agent_tools import build_workspace_tools
 from config.settings import get_settings, load_yaml_asset
 from domain.clarification import ClarifyDraftV2
 from domain.events import UsageData
+from domain.response_mode import ResponseMode
 from domain.specs import ColumnInput, SourceConfig, VizRowInput
 
 if TYPE_CHECKING:
@@ -175,8 +177,14 @@ def model_name_from_setting(model_setting: str) -> str:
     return model_setting.split(":", 1)[-1]
 
 
-def default_model_factory(settings: Any) -> Model:
-    """The real Gemini on Vertex Express Mode (notes §1 — the ONLY working auth path)."""
+def default_model_factory(settings: Any, model_setting: str) -> Model:
+    """The real Gemini on Vertex Express Mode (notes §1 — the ONLY working auth path).
+
+    ``model_setting`` is the already-resolved per-turn setting (Quick's
+    ``settings.model_counselor`` or Think's ``settings.model_counselor_think`` —
+    plans/quick-think-response-mode.md §3.2/§5.2); this factory never re-reads a
+    global default itself.
+    """
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
@@ -186,7 +194,7 @@ def default_model_factory(settings: Any) -> Model:
             "authenticate (Vertex Express Mode key required)."
         )
     return GoogleModel(
-        model_name_from_setting(settings.model_counselor),
+        model_name_from_setting(model_setting),
         provider=GoogleCloudProvider(api_key=settings.vertex_api_key),
     )
 
@@ -600,14 +608,17 @@ def _record_uninjected_steers(
         emissions.append(("user", payload))
 
 
-def _effective_thinking_stream(settings: Any) -> bool:
-    effective = getattr(settings, "effective_thinking_stream", None)
-    if isinstance(effective, bool):
-        return effective
-    legacy = getattr(settings, "thinking_summaries", None)
-    if isinstance(legacy, bool):
-        return legacy
-    return bool(getattr(settings, "thinking_stream", True))
+def _response_mode_from_ids(ids: dict[str, Any]) -> ResponseMode:
+    """The turn's response mode from ``turn_ids`` — Quick for any absent/
+    malformed value (a pre-feature checkpoint or a direct-graph test call)."""
+    raw = ids.get("response_mode")
+    if raw is None:
+        return ResponseMode.QUICK
+    try:
+        return ResponseMode(raw)
+    except ValueError:
+        logger.warning("unknown response_mode %r in turn_ids — defaulting to quick", raw)
+        return ResponseMode.QUICK
 
 
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
@@ -685,16 +696,30 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     )
     mcp_toolset = getattr(deps, "mcp_toolset", None)
 
-    model_factory = getattr(deps, "model_factory", None) or (
-        lambda: default_model_factory(settings)
-    )
-    model_settings = None
-    if _effective_thinking_stream(settings):
-        # Native Gemini thought output → `thinking` events. Gemini exposes this
-        # through include_thoughts; non-Google models ignore the google_* key.
-        from pydantic_ai.models.google import GoogleModelSettings
+    # Server-owned Quick/Think resolution (plans/quick-think-response-mode.md
+    # §5.2): the node never accepts a browser model ID or trusts an old
+    # checkpoint's model string — it re-resolves from the SAME pure function
+    # run_turn used, off the response_mode run_turn already persisted into
+    # turn_ids, so meta/turn_ids/usage/model-invoked can never diverge.
+    response_mode = _response_mode_from_ids(ids)
+    selection = counselor_model_selection(response_mode, settings)
+    injected_model_factory = getattr(deps, "model_factory", None)
+    # Native Gemini thought output → `thinking` events, requested only for
+    # Think (subject to thinking_stream); non-Google models ignore the
+    # google_* key. Always explicit about thinking_level — never rely on a
+    # provider default that can differ by model or change over time.
+    from pydantic_ai.models.google import GoogleModelSettings
 
-        model_settings = GoogleModelSettings(google_thinking_config={"include_thoughts": True})
+    model_settings = GoogleModelSettings(
+        google_thinking_config={
+            # google-genai's ThinkingConfigDict types this against its own
+            # ThinkingLevel enum; pydantic-ai's own internals cast a bare
+            # level string the same way (models/google.py) — the plain
+            # "MINIMAL"/"HIGH" string is what the wire actually accepts.
+            "thinking_level": cast(Any, selection.thinking_level),
+            "include_thoughts": selection.include_thoughts,
+        }
+    )
     base_instructions = build_system_prompt(
         state["temporal"]["context"],
         state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
@@ -706,7 +731,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         part for part in (base_instructions, source_instructions, selected_instructions) if part
     )
     agent: Agent[TurnDeps, str | ClarifyDraftV2] = Agent(
-        model_factory(),
+        injected_model_factory()
+        if injected_model_factory is not None
+        else default_model_factory(settings, selection.model_setting),
         instructions=instructions,
         deps_type=TurnDeps,
         tools=tools,

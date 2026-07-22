@@ -128,6 +128,13 @@ def _assistant_entry_for_record(
         "sources": adapt_completed_sources(record.get("sources") or []),
         "status": record.get("status"),
     }
+    # Mode belongs to the assistant answer (wire-contract §6.2), never the user
+    # entry. A genuinely legacy record (key absent) reads as Quick; a present
+    # value — known or not — passes through unchanged so a future/unsupported
+    # mode still renders instead of being silently relabeled Quick (§6.1).
+    entry["response_mode"] = record.get("response_mode") if "response_mode" in record else "quick"
+    if record.get("model") is not None:
+        entry["model"] = record["model"]
     entry["segments"] = _segments_for_record(record, parts)
     if record.get("usage") is not None:
         entry["usage"] = record["usage"]
