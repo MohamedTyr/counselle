@@ -10,6 +10,12 @@ Google/HTTP stream failure during verification, but each Focused, Deep, and
 Guided case subsequently passed live. Owner acceptance of real interactions
 remains the final human sign-off gate.
 
+Acceptance-polish note (2026-07-23): during owner review, the open menu was
+changed from larger two-line descriptive rows with a check indicator to compact
+one-line rows matching the adjacent Sources menu chrome. The descriptions
+remain in the `/v1/config` catalog for metadata and future surfaces, but they
+are not rendered in the composer mode menu.
+
 This plan adds one calm, student-facing mode selector to both Counselle
 composers. The selector exposes exactly three choices:
 
@@ -38,8 +44,8 @@ in `docs/ARCHITECTURE.md`; the SKILL.md decision record is ADR 0010.
   mode control.
 - The control always shows the selected mode's human-readable name; students
   never need to understand skill slugs.
-- Opening the control shows exactly three radio choices, their concise
-  descriptions, and a progressive-disclosure path to specialized `@` skills.
+- Opening the control shows exactly three compact radio choices and a
+  progressive-disclosure path to specialized `@` skills.
 - Each of the three modes is implemented as a new public `SKILL.md` workflow.
 - Existing skill bodies are not edited or repurposed.
 - Existing specialized skills remain available through `@` mentions.
@@ -276,21 +282,15 @@ Suggested icons, using already-installed Lucide only:
 - Guided Counselor: `MessagesSquare`.
 
 Do not assign different colors to the modes. Selection is communicated by
-name, icon, and check state, not color or decoration.
+name, icon, and the same selected-row surface treatment used by the Sources
+menu, not color or decoration.
 
 ### 2.2 Open menu
 
 ```text
-HOW SHOULD COUNSELLE HELP?
-
-✓  Focused Answer
-   Clear, direct help without unnecessary exploration.
-
-   Deep Research
-   A thorough, multi-source investigation for complex decisions.
-
-   Guided Counselor
-   Work through it together, one thoughtful question at a time.
+Focused Answer
+Deep Research
+Guided Counselor
 
 ────────────────────────────────────
 @  More specialized skills…
@@ -300,19 +300,21 @@ Use `Menu`, `MenuTrigger`, `MenuPopup`, `MenuRadioGroup`, and `MenuRadioItem`
 from `components/ui/menu.tsx`, matching `SourcesMenu`:
 
 - `side="top"`, `align="start"`, `sideOffset={8}`;
-- width approximately 22rem, capped to viewport width;
+- same compact width and outer padding as `SourcesMenu`, capped to viewport
+  width;
 - opaque existing dropdown/composer surfaces;
-- a quiet group label, not a marketing headline;
-- three two-line radio rows with comfortable vertical rhythm;
-- check indicator from the existing primitive;
+- no group label;
+- three one-line radio rows with the same compact density and icon gutter as
+  `SourcesMenu`;
+- no visible check or secondary selection glyph;
 - one subtle separator before the secondary action;
 - existing menu transition only, with reduced-motion support;
 - Escape closes and restores focus; arrow keys, Home/End, Enter/Space, and
   checked-state announcements come from Base UI.
 
 Do not use a modal, command palette, segmented control, horizontal tabs, or
-three permanent cards. The explanatory text belongs inside the transient menu;
-the composer should remain visually quiet after selection.
+three permanent cards. The composer and menu should remain visually quiet and
+consistent with the adjacent Sources control.
 
 ### 2.3 “More specialized skills…” behavior
 
@@ -349,9 +351,9 @@ The ordinary picker must exclude skills whose `selection_group` is
 - At narrower reflow widths/200% zoom, collapse the lower-priority Sources
   trigger's visible text before truncating or hiding the mode name; preserve its
   full accessible label.
-- Cap the menu to `calc(100vw - 2rem)` and let descriptions wrap naturally.
+- Cap the menu to `calc(100vw - 2rem)`.
 - Do not introduce horizontal scrolling.
-- Verify long labels/descriptions do not overlap the check column or viewport.
+- Verify long labels do not overlap the viewport.
 - Preserve textarea and send-button alignment when the toolbar reflows.
 
 ### 2.5 Loading, failure, and disabled states
@@ -945,8 +947,7 @@ regeneration belongs to the clarification feature itself.
 
 - Trigger announces `Counseling mode: <name>`, expanded/collapsed state, and
   disabled state through native primitives.
-- Popup uses menu radio semantics; each choice exposes name, description, and
-  checked state.
+- Popup uses menu radio semantics; each choice exposes name and checked state.
 - Icons are `aria-hidden`/decorative.
 - “More specialized skills…” has a visible accessible label.
 - Existing skill-picker live announcements continue to report added/duplicate/
@@ -1297,7 +1298,7 @@ Cover in `useTurnEngine.test.tsx`, `AiChatPage.test.tsx`, and
 - direct typed `@` still opens picker;
 - invalid/missing mode config restores the current visible `@` button;
 - disabled active/legacy-clarify state does not allow changes;
-- mode descriptions are visible, not tooltip-only;
+- mode menu rows match the compact Sources menu treatment;
 - mode is not communicated by color alone;
 - no mode chips appear in messages; task skill chips do.
 

@@ -11,7 +11,7 @@ feature.
 ## Evidence already available
 
 - Implementation branch: `feat/counseling-response-modes`.
-- Latest verification/fix commit: `44b9376 test(counseling-modes): harden live behavior evals`.
+- Latest verification/fix commit: `2ceba08 fix(counseling-modes): align mode menu styling`.
 - Browser QA artifacts:
   `artifacts/counseling-response-modes/20260722T135009Z/`
   - `desktop-focused-default.png`
@@ -41,7 +41,9 @@ Open the app and verify these interactions:
 
 1. Start a new chat. Confirm **Focused Answer** is visible by default.
 2. Open the mode menu. Confirm exactly three choices appear:
-   **Focused Answer**, **Deep Research**, and **Guided Counselor**.
+   **Focused Answer**, **Deep Research**, and **Guided Counselor**. Confirm
+   the mode rows use the same compact one-line chrome and outer padding as the
+   Sources menu.
 3. Select each mode and confirm the closed composer label updates.
 4. Use **More specialized skills...** to select a task skill; confirm the mode
    remains selected and the typed `@` skill behavior still works.
