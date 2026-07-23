@@ -54,6 +54,7 @@ QUESTION_TYPES = (
     "honesty",
     "clarify_judgment",
     "narration_quality",
+    "response_mode_behavior",
     "workspace_task",
 )
 #: Every tool name §5.6 of the design doc cut or replaced by this rewire — a
@@ -1240,6 +1241,8 @@ async def score_question(
         checks = score_clarify(expects, capture)
     elif kind == "narration_quality":
         checks = score_narration(expects, capture)
+    elif kind == "response_mode_behavior":
+        checks = score_routing(expects, capture) if expects.get("tools") else {}
     elif kind == "workspace_task":
         checks = score_workspace(expects, capture)
     else:
@@ -1357,6 +1360,7 @@ async def run_question(
                 graph=runtime.graph,
                 user_id=str(user_id) if user_id else None,
                 response_mode=response_mode,
+                selected_skills=tuple(question.get("skills") or ()),
             ):
                 events.append(event)
         capture = capture_turn(events, await _thread_messages(runtime, session_id))

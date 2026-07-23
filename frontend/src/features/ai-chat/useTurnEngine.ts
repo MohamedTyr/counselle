@@ -15,6 +15,11 @@ import { isTransportError, TransportError } from "@/api/http/errors";
 import { isResponseMode } from "@/api/chat/response-mode";
 
 import {
+  forgetQueuedCounselingMode,
+  readQueuedCounselingMode,
+  rememberQueuedCounselingMode,
+} from "./queued-counseling-mode";
+import {
   initialTurnState,
   pendingUserSegmentsOf,
   reduceLiveTurn,
@@ -56,7 +61,12 @@ export type SubmitMessageResult =
 
 export type SubmitMessageOptions = {
   text: string;
+  /** Exact skill history for retries, regenerate, and initial-turn handoff. */
   skills?: readonly string[];
+  /** The sticky counseling style for a normal new turn. */
+  modeSkill?: string;
+  /** Explicit one-shot skills selected for a normal new turn. */
+  taskSkills?: readonly string[];
   /** The immutable mode for this specific attempt -- snapshotted by the
    * caller from whatever is correct for this call (the current next-turn
    * selector for a normal send, the failed attempt's captured mode for a
@@ -99,11 +109,19 @@ type StartedTurn = {
 };
 
 type AutoForwardMessage = {
+  sessionId: string;
   id: string;
   text: string;
+  modeSkill?: string;
   /** The active turn's mode at the moment it was queued -- not whatever the
    * selector shows once it later auto-forwards (plan §5.5/§8.4). */
   executionResponseMode: ResponseMode;
+};
+
+type NormalizedSkills = {
+  skills: string[];
+  modeSkill?: string;
+  taskSkills: string[];
 };
 
 /** Recovery snapshot for a post-`meta` `model_unavailable` terminal error
@@ -152,7 +170,10 @@ export type UseTurnEngineResult = {
     options: SubmitClarifyResponseOptions,
   ) => Promise<SubmitMessageResult>;
   retryLastSend: () => void;
-  attachActiveTurn: (sessionId: string) => Promise<void>;
+  attachActiveTurn: (
+    sessionId: string,
+    activeModeSkill?: string | null,
+  ) => Promise<void>;
   stopGenerating: () => void;
   clearTurnState: () => void;
   /** Set only after a post-`meta` `model_unavailable` terminal error -- the
@@ -175,6 +196,37 @@ function isTurnActive(turn: LiveTurn | null) {
 
 function createTempId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function normalizeSkills({
+  skills,
+  modeSkill,
+  taskSkills,
+}: Pick<
+  SubmitMessageOptions,
+  "skills" | "modeSkill" | "taskSkills"
+>): NormalizedSkills {
+  if (
+    skills !== undefined &&
+    (modeSkill !== undefined || taskSkills !== undefined)
+  ) {
+    throw new Error(
+      "Exact skills cannot be combined with modeSkill or taskSkills.",
+    );
+  }
+  if (skills !== undefined) {
+    return { skills: [...skills], taskSkills: [...skills] };
+  }
+
+  const normalizedTaskSkills = taskSkills === undefined ? [] : [...taskSkills];
+  return {
+    skills:
+      modeSkill === undefined
+        ? normalizedTaskSkills
+        : [modeSkill, ...normalizedTaskSkills],
+    modeSkill,
+    taskSkills: normalizedTaskSkills,
+  };
 }
 
 /** The engine derives parked-clarify continuation from its own persisted
@@ -233,6 +285,7 @@ export function useTurnEngine({
   const turnAbortControllerRef = useRef<AbortController | null>(null);
   const autoForwardQueueRef = useRef<AutoForwardMessage[]>([]);
   const autoForwardSeenRef = useRef(new Set<string>());
+  const autoForwardModeByUserMessageIdRef = useRef(new Map<string, string>());
 
   sessionIdRef.current = sessionId;
   liveTurnRef.current = liveTurn;
@@ -272,6 +325,7 @@ export function useTurnEngine({
       initialAssistant,
       replaceMessageId,
       onMetaSeen,
+      autoForwardFallbackModeSkill,
     }: {
       activeSessionId: string;
       stream: AsyncIterable<SseFrame<ProtocolEvent>>;
@@ -283,6 +337,7 @@ export function useTurnEngine({
       initialAssistant?: { messageId: string; hasBackendId: boolean };
       replaceMessageId?: string;
       onMetaSeen?: () => void;
+      autoForwardFallbackModeSkill?: string | null;
     }): Promise<ConsumeStreamOutcome> => {
       let state = initialTurnState();
       let assistantMessageId =
@@ -384,8 +439,14 @@ export function useTurnEngine({
           autoForwardQueueRef.current = [
             ...autoForwardQueueRef.current,
             ...newForwards.map((segment) => ({
+              sessionId: activeSessionId,
               id: segment.id,
               text: segment.text,
+              modeSkill:
+                autoForwardModeByUserMessageIdRef.current.get(segment.id) ??
+                readQueuedCounselingMode(activeSessionId, segment.id) ??
+                autoForwardFallbackModeSkill ??
+                undefined,
               executionResponseMode: resolvedMode,
             })),
           ];
@@ -700,11 +761,17 @@ export function useTurnEngine({
     async ({
       text,
       skills: skillsOption,
+      modeSkill: modeSkillOption,
+      taskSkills: taskSkillsOption,
       executionResponseMode,
       replaceMessageId,
       clarifyReplyTo,
     }: SubmitMessageOptions): Promise<SubmitMessageResult> => {
-      const skills = skillsOption === undefined ? [] : [...skillsOption];
+      const { skills, modeSkill, taskSkills } = normalizeSkills({
+        skills: skillsOption,
+        modeSkill: modeSkillOption,
+        taskSkills: taskSkillsOption,
+      });
       const trimmed = text.trim();
       const clarifySubmission =
         clarifyReplyTo === undefined
@@ -733,7 +800,7 @@ export function useTurnEngine({
         replaceMessageId === undefined &&
         clarifySubmission === undefined
       ) {
-        if (skills.length > 0) {
+        if (taskSkills.length > 0) {
           setTurnError({
             kind: "server",
             message:
@@ -749,6 +816,17 @@ export function useTurnEngine({
             text: trimmed,
           });
           if (steer.status === "queued") {
+            if (modeSkill !== undefined) {
+              autoForwardModeByUserMessageIdRef.current.set(
+                steer.userMessageId,
+                modeSkill,
+              );
+              rememberQueuedCounselingMode(
+                active.sessionId,
+                steer.userMessageId,
+                modeSkill,
+              );
+            }
             return { ok: true, sessionId: active.sessionId };
           }
           const cleared = await awaitLiveClear();
@@ -907,9 +985,13 @@ export function useTurnEngine({
 
     const next = autoForwardQueueRef.current[0];
     autoForwardQueueRef.current = autoForwardQueueRef.current.slice(1);
+    if (next.modeSkill !== undefined) {
+      autoForwardModeByUserMessageIdRef.current.delete(next.id);
+    }
+    forgetQueuedCounselingMode(next.sessionId, next.id);
     void submitMessage({
       text: next.text,
-      skills: [],
+      modeSkill: next.modeSkill,
       executionResponseMode: next.executionResponseMode,
     });
   }, [autoForwardVersion, liveTurn, submitMessage]);
@@ -929,7 +1011,10 @@ export function useTurnEngine({
         ),
       );
     }
-    if (pending.clarifyResponse !== undefined && pending.clarifyReplyTo !== undefined) {
+    if (
+      pending.clarifyResponse !== undefined &&
+      pending.clarifyReplyTo !== undefined
+    ) {
       void submitClarifyResponse({
         inReplyTo: pending.clarifyReplyTo,
         response: pending.clarifyResponse,
@@ -975,7 +1060,7 @@ export function useTurnEngine({
   }, [modelUnavailableRecovery, submitMessage]);
 
   const attachActiveTurn = useCallback(
-    async (activeSessionId: string) => {
+    async (activeSessionId: string, activeModeSkill?: string | null) => {
       if (liveTurnRef.current !== null) {
         return;
       }
@@ -1031,6 +1116,7 @@ export function useTurnEngine({
           reconcileTempUserId: false,
           executionResponseMode: null,
           initialAssistant: seedAssistant,
+          autoForwardFallbackModeSkill: activeModeSkill,
         });
       } catch (error) {
         setTurnError(turnErrorOf(error));

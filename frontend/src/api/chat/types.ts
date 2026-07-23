@@ -698,12 +698,29 @@ export type ResponseModeOption = {
   preview: boolean;
 };
 
+export type SkillModeWire = {
+  name: string;
+  display_name: string;
+  description: string;
+  order: number;
+  default: boolean;
+};
+
+export type CounselingMode = {
+  skillName: string;
+  displayName: string;
+  description: string;
+  order: number;
+  isDefault: boolean;
+};
+
 export type ChatConfigWire = {
   greeting: string;
   season_note: string | null;
   conversation_starters: string[];
   default_source_config: SourceConfigWire | null;
   skills?: SkillCatalogEntryWire[];
+  skill_modes?: SkillModeWire[];
   max_selected_skills?: number;
   default_response_mode?: string;
   response_modes?: ResponseModeOptionWire[];
@@ -713,6 +730,8 @@ export type ComposerConfig = {
   greeting: string;
   sourceConfig: SourceConfig;
   skills: SkillCatalogEntry[];
+  skillModes: CounselingMode[];
+  defaultSkillMode: CounselingMode | null;
   maxSelectedSkills: number;
   defaultResponseMode: ResponseMode;
   responseModes: ResponseModeOption[];

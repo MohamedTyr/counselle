@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+import evals.runner as runner
 from domain.events import Event
 from domain.response_mode import ResponseMode
 from evals.runner import (
@@ -22,6 +23,7 @@ from evals.runner import (
     load_questions,
     materialize_questions,
     parse_args,
+    run_question,
     score_clarify,
     score_composition,
     score_deterministic,
@@ -1144,6 +1146,27 @@ async def test_every_case_gets_no_old_tools_assertion() -> None:
     assert checks["no_old_tools"]["passed"] is False
 
 
+@pytest.mark.asyncio
+async def test_response_mode_behavior_can_require_source_routing_tools() -> None:
+    question = {
+        "type": "response_mode_behavior",
+        "question": "q",
+        "expects": {"tools": ["resolve_school", "search_school_site"]},
+    }
+    checks = await score_question(
+        question,
+        make_capture(
+            tool_calls=[
+                {"tool_name": "resolve_school", "args": {}},
+                {"tool_name": "search_school_site", "args": {}},
+            ]
+        ),
+        None,
+    )
+
+    assert checks["tools_called"]["passed"] is True
+
+
 def test_judge_case_contains_safe_summary_and_answer() -> None:
     case = build_judge_case("Question?", ["criterion"], make_capture(prose="Answer."))
     assert "## Student question" in case
@@ -1198,6 +1221,53 @@ def test_eval_context_materializes_live_roles_without_mutating_template() -> Non
         "admissions.admitted",
         "admissions.applicants",
     ]
+
+    mode_case = next(
+        question
+        for question in materialize_questions(load_questions(), context)
+        if question["id"] == "response-mode-focused-direct"
+    )
+    assert mode_case["type"] == "response_mode_behavior"
+    assert mode_case["skills"] == ["focused-answer"]
+    assert "Live School" in mode_case["question"]
+
+
+@pytest.mark.asyncio
+async def test_response_mode_eval_forwards_selected_skills(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    async def fake_create_session(*_args: Any, **_kwargs: Any) -> str:
+        return "eval-session"
+
+    async def fake_run_turn(*_args: Any, **kwargs: Any) -> Any:
+        captured["selected_skills"] = kwargs.get("selected_skills")
+        captured["response_mode"] = kwargs.get("response_mode")
+        yield Event(type="delta", data={"text": "Direct answer."})
+        yield Event(type="done", data={"status": "complete"})
+
+    class FakeGraph:
+        async def aget_state(self, _config: dict[str, Any]) -> Any:
+            return SimpleNamespace(values={"messages": []})
+
+    monkeypatch.setattr(runner, "create_session", fake_create_session)
+    monkeypatch.setattr(runner, "run_turn", fake_run_turn)
+
+    result = await run_question(
+        cast(Any, SimpleNamespace(app_pool=None, deps=object(), graph=FakeGraph())),
+        None,
+        {
+            "id": "response-mode-focused-direct",
+            "type": "response_mode_behavior",
+            "question": "Answer directly.",
+            "skills": ["focused-answer"],
+            "expects": {},
+        },
+        ResponseMode.QUICK,
+    )
+
+    assert result["passed"] is True
+    assert captured["selected_skills"] == ("focused-answer",)
+    assert captured["response_mode"] is ResponseMode.QUICK
 
 
 def test_comparison_stats_report_median_p95_and_max() -> None:

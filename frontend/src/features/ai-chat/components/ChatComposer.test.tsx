@@ -5,11 +5,45 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
+import type { CounselingMode, SkillCatalogEntry } from "@/api/chat/types";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 
 import { ChatComposer } from "./ChatComposer";
+
+const modes: CounselingMode[] = [
+  {
+    skillName: "focused-answer",
+    displayName: "Focused Answer",
+    description: "Clear, direct help.",
+    order: 10,
+    isDefault: true,
+  },
+  {
+    skillName: "deep-research",
+    displayName: "Deep Research",
+    description: "Investigate carefully.",
+    order: 20,
+    isDefault: false,
+  },
+  {
+    skillName: "guided-counselor",
+    displayName: "Guided Counselor",
+    description: "Work through it together.",
+    order: 30,
+    isDefault: false,
+  },
+];
+
+const skills: SkillCatalogEntry[] = [
+  {
+    name: "school-comparison",
+    displayName: "School comparison",
+    description: "Compare schools side by side.",
+  },
+];
 
 function renderComposer(
   overrides: Partial<Parameters<typeof ChatComposer>[0]> = {},
@@ -173,5 +207,105 @@ describe("ChatComposer", () => {
         "r/csMajors",
       ],
     });
+  });
+
+  test("shows and changes the selected counseling mode", async () => {
+    const user = userEvent.setup();
+    const onModeChange = vi.fn();
+    renderComposer({
+      mode: modes[0],
+      modes,
+      onModeChange,
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+    );
+    expect(await screen.findAllByRole("menuitemradio")).toHaveLength(3);
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: /Deep Research/ }),
+    );
+
+    expect(onModeChange).toHaveBeenCalledWith(modes[1]);
+  });
+
+  test("hands off More specialized skills to the existing picker", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    renderComposer({
+      maxSelectedSkills: 2,
+      mode: modes[0],
+      modes,
+      onValueChange,
+      skills,
+      value: "Compare Duke",
+    });
+
+    const textarea = screen.getByRole("combobox", {
+      name: "Message Counselle",
+    }) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(12, 12);
+
+    await user.click(
+      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", {
+        name: "More specialized skills...",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(onValueChange).toHaveBeenCalledWith("Compare Duke @"),
+    );
+  });
+
+  test("disables specialized skill browsing when task slots are full", async () => {
+    const user = userEvent.setup();
+    renderComposer({
+      maxSelectedSkills: 1,
+      mode: modes[0],
+      modes,
+      selectedSkills: ["school-comparison"],
+      skills,
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+    );
+
+    expect(
+      await screen.findByRole("menuitem", {
+        name: "Specialized skill limit reached",
+      }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
+  test("falls back to the visible @ button when mode config is unavailable", () => {
+    renderComposer({ maxSelectedSkills: 1, skills });
+
+    expect(
+      screen.getByRole("button", { name: "Add a skill (@)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Counseling mode:/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("hides the counseling mode during clarification answers", () => {
+    renderComposer({
+      awaitingClarify: true,
+      maxSelectedSkills: 1,
+      mode: modes[0],
+      modes,
+      skills,
+    });
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Counseling mode: Focused Answer",
+      }),
+    ).not.toBeInTheDocument();
   });
 });

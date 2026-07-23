@@ -49,6 +49,10 @@ _SELECTED_SKILL_TOO_MANY = "too_many_selected_skills"
 _SELECTED_SKILL_DUPLICATE = "duplicate_selected_skill"
 _SELECTED_SKILL_UNAVAILABLE = "unknown_or_internal_skill"
 _SELECTED_SKILL_BODY_LIMIT = "selected_skill_body_limit"
+_SELECTED_SKILL_GROUP_CONFLICT = "conflicting_selected_skill_group"
+RESPONSE_MODE_SELECTION_GROUP = "response-mode"
+_RESPONSE_MODE_NAMES = frozenset({"focused-answer", "deep-research", "guided-counselor"})
+_RESPONSE_MODE_DEFAULT = "focused-answer"
 
 
 class SelectedSkillValidationError(ValueError):
@@ -70,6 +74,9 @@ class SkillEntry:
     user_invokable: bool
     display_name: str | None = None
     user_description: str | None = None
+    selection_group: str | None = None
+    selection_order: int | None = None
+    selection_default: bool = False
 
 
 _registry_cache: MappingProxyType[str, SkillEntry] | None = None
@@ -135,6 +142,54 @@ def _invalid_internal_skill(path: Path, reason: str) -> None:
     _skills_logger.warning("skill file invalid — skipping", path=str(path), reason=reason)
 
 
+def _invalid_skill_metadata(path: Path, is_public: bool, public_name: str, reason: str) -> bool:
+    """Return true when the caller should skip; public skills fail startup."""
+    if is_public:
+        raise ValueError(f"public skill {public_name!r} has invalid {reason}")
+    _invalid_internal_skill(path, reason)
+    return True
+
+
+def _parse_selection_order(value: str | None) -> int | None:
+    if value is None or value == "":
+        return None
+    if not value.isdecimal():
+        raise ValueError("selection_order")
+    return int(value)
+
+
+def _parse_selection_default(value: str | None) -> bool:
+    if value is None or value == "":
+        return False
+    if value not in {"true", "false"}:
+        raise ValueError("selection_default")
+    return value == "true"
+
+
+def _validate_response_mode_group(entries: dict[str, SkillEntry]) -> None:
+    modes = [
+        entry
+        for entry in entries.values()
+        if entry.user_invokable and entry.selection_group == RESPONSE_MODE_SELECTION_GROUP
+    ]
+    mode_names = {entry.name for entry in modes}
+    if not modes and not (_RESPONSE_MODE_NAMES & set(entries)):
+        return
+    if mode_names != _RESPONSE_MODE_NAMES:
+        raise ValueError("response-mode skill group must contain exactly the supported modes")
+    defaults = [entry.name for entry in modes if entry.selection_default]
+    if defaults != [_RESPONSE_MODE_DEFAULT]:
+        raise ValueError("response-mode skill group must have exactly one focused-answer default")
+    orders = [entry.selection_order for entry in modes]
+    if len(set(orders)) != len(orders):
+        raise ValueError("response-mode skill group must have unique selection orders")
+    for entry in modes:
+        if entry.selection_order is None:
+            raise ValueError("response-mode skill group entries require selection_order")
+        if not entry.display_name or not entry.user_description:
+            raise ValueError("response-mode skill group entries require browser-safe copy")
+
+
 def _build_registry() -> tuple[MappingProxyType[str, SkillEntry], tuple[SkillEntry, ...]]:
     """Discover every skill once, failing only for ambiguous/public violations."""
     root = _SKILLS_ROOT.resolve()
@@ -182,6 +237,37 @@ def _build_registry() -> tuple[MappingProxyType[str, SkillEntry], tuple[SkillEnt
             continue
         display_name = frontmatter.get("display_name", "").strip() or None
         user_description = frontmatter.get("user_description", "").strip() or None
+        selection_group = frontmatter.get("selection_group", "").strip() or None
+        try:
+            selection_order = _parse_selection_order(frontmatter.get("selection_order"))
+            selection_default = _parse_selection_default(frontmatter.get("selection_default"))
+        except ValueError as exc:
+            if _invalid_skill_metadata(path, is_public, name, str(exc)):
+                continue
+        if (
+            selection_group is not None
+            and not _SKILL_NAME_RE.fullmatch(selection_group)
+            and _invalid_skill_metadata(path, is_public, name, "selection_group")
+        ):
+            continue
+        if (
+            selection_group is not None
+            and selection_order is None
+            and _invalid_skill_metadata(path, is_public, name, "selection_order")
+        ):
+            continue
+        if (
+            selection_group is None
+            and selection_order is not None
+            and _invalid_skill_metadata(path, is_public, name, "selection_order")
+        ):
+            continue
+        if (
+            selection_default
+            and selection_group is None
+            and _invalid_skill_metadata(path, is_public, name, "selection_default")
+        ):
+            continue
         body = _body(text)
         if is_public:
             if not _is_single_line_copy(display_name or ""):
@@ -199,8 +285,12 @@ def _build_registry() -> tuple[MappingProxyType[str, SkillEntry], tuple[SkillEnt
             user_invokable=is_public,
             display_name=display_name,
             user_description=user_description,
+            selection_group=selection_group,
+            selection_order=selection_order,
+            selection_default=selection_default,
         )
 
+    _validate_response_mode_group(entries)
     ordered = tuple(sorted(entries.values(), key=lambda entry: entry.name))
     return MappingProxyType({entry.name: entry for entry in ordered}), ordered
 
@@ -217,7 +307,11 @@ def load_all_skill_meta() -> list[dict[str, str]]:
     global _meta_cache
     if _meta_cache is None:
         _, entries = _registry()
-        _meta_cache = [{"name": entry.name, "description": entry.description} for entry in entries]
+        _meta_cache = [
+            {"name": entry.name, "description": entry.description}
+            for entry in entries
+            if entry.selection_group is None
+        ]
     return _meta_cache
 
 
@@ -231,8 +325,38 @@ def user_skill_catalog() -> list[dict[str, str]]:
             "description": entry.user_description or "",
         }
         for entry in entries
-        if entry.user_invokable
+        if entry.user_invokable and entry.selection_group is None
     ]
+
+
+def user_skill_mode_catalog() -> list[dict[str, object]]:
+    """Return the browser-safe counseling response-mode catalog."""
+    _, entries = _registry()
+    modes = [
+        entry
+        for entry in entries
+        if entry.user_invokable and entry.selection_group == RESPONSE_MODE_SELECTION_GROUP
+    ]
+    return [
+        {
+            "name": entry.name,
+            "display_name": entry.display_name or "",
+            "description": entry.user_description or "",
+            "order": entry.selection_order,
+            "default": entry.selection_default,
+        }
+        for entry in sorted(modes, key=lambda entry: entry.selection_order or 0)
+    ]
+
+
+def public_selection_groups() -> MappingProxyType[str, frozenset[str]]:
+    """Return public grouped-skill membership for validation/presentation."""
+    _, entries = _registry()
+    groups: dict[str, set[str]] = {}
+    for entry in entries:
+        if entry.user_invokable and entry.selection_group is not None:
+            groups.setdefault(entry.selection_group, set()).add(entry.name)
+    return MappingProxyType({group: frozenset(names) for group, names in groups.items()})
 
 
 def validate_selected_skills(names: Sequence[object]) -> list[str]:
@@ -243,6 +367,7 @@ def validate_selected_skills(names: Sequence[object]) -> list[str]:
     registry, _ = _registry()
     selected: list[str] = []
     seen: set[str] = set()
+    seen_groups: set[str] = set()
     for name in names:
         if not isinstance(name, str):
             raise SelectedSkillValidationError(_SELECTED_SKILL_UNAVAILABLE)
@@ -255,6 +380,10 @@ def validate_selected_skills(names: Sequence[object]) -> list[str]:
         entry = registry.get(canonical_name)
         if entry is None or not entry.user_invokable:
             raise SelectedSkillValidationError(_SELECTED_SKILL_UNAVAILABLE)
+        if entry.selection_group is not None:
+            if entry.selection_group in seen_groups:
+                raise SelectedSkillValidationError(_SELECTED_SKILL_GROUP_CONFLICT)
+            seen_groups.add(entry.selection_group)
         seen.add(canonical_name)
         # Persist the canonical name, never the alias, wherever this list is
         # subsequently stored (turn records, parked-session state, ...).
@@ -283,7 +412,13 @@ def render_selected_skills(names: Sequence[str]) -> str:
         ),
     ]
     for name, body in zip(selected, bodies, strict=True):
-        rendered.extend((f"### Selected skill: {name}", body))
+        entry = registry[name]
+        metadata = (
+            f"\n\nSelection group: {entry.selection_group}"
+            if entry.selection_group is not None
+            else ""
+        )
+        rendered.extend((f"### Selected skill: {name}{metadata}", body))
     return "\n\n".join(rendered)
 
 
@@ -294,7 +429,7 @@ def load_skill(name: str) -> str:
 
     registry, _ = _registry()
     entry = registry.get(name)
-    if entry is not None:
+    if entry is not None and entry.selection_group is None:
         _body_cache[name] = entry.body
         return entry.body
 

@@ -7,6 +7,30 @@ import {
   renderApp,
 } from "@/test/render-app";
 
+const skillModes = [
+  {
+    name: "focused-answer",
+    display_name: "Focused Answer",
+    description: "Clear, direct help.",
+    order: 10,
+    default: true,
+  },
+  {
+    name: "deep-research",
+    display_name: "Deep Research",
+    description: "Investigate carefully.",
+    order: 20,
+    default: false,
+  },
+  {
+    name: "guided-counselor",
+    display_name: "Guided Counselor",
+    description: "Work through it together.",
+    order: 30,
+    default: false,
+  },
+];
+
 function aiFetchHandler(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -108,6 +132,31 @@ function aiFetchHandler(
   }
 
   return createWorkspaceFetchPreset()(input, init);
+}
+
+function aiFetchHandlerWithModes(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Response | Promise<Response> {
+  const url = String(input);
+  if (url.endsWith("/v1/config")) {
+    return jsonResponse({
+      greeting: "What should we untangle first?",
+      season_note: "Ignored here",
+      conversation_starters: [],
+      default_source_config: null,
+      skills: [
+        {
+          name: "school-comparison",
+          display_name: "School comparison",
+          description: "Compare schools side by side.",
+        },
+      ],
+      skill_modes: skillModes,
+      max_selected_skills: 3,
+    });
+  }
+  return aiFetchHandler(input, init);
 }
 
 describe("AiComposerRoute", () => {
@@ -380,6 +429,41 @@ describe("AiComposerRoute", () => {
       ).toMatchObject({
         text: "Compare  @school-comparison  Duke and Northwestern",
         skills: ["school-comparison"],
+      }),
+    );
+  });
+
+  it("sends the default counseling mode through the first-message handoff", async () => {
+    const user = userEvent.setup();
+    const requests: { url: string; body: unknown }[] = [];
+    renderApp("/app/ai", {
+      fetchHandler: (input, init) => {
+        if (init?.body) {
+          requests.push({
+            url: String(input),
+            body: JSON.parse(String(init.body)),
+          });
+        }
+        return aiFetchHandlerWithModes(input, init);
+      },
+    });
+
+    const textarea = await screen.findByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await waitFor(() => expect(textarea).toBeEnabled());
+    expect(
+      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+    ).toBeInTheDocument();
+
+    await user.type(textarea, "Compare aid{Enter}");
+
+    await waitFor(() =>
+      expect(
+        requests.find((request) => request.url.endsWith("/messages"))?.body,
+      ).toMatchObject({
+        text: "Compare aid",
+        skills: ["focused-answer"],
       }),
     );
   });

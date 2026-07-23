@@ -9,6 +9,10 @@ import {
 } from "@/api/chat/response-mode";
 import { useChatConfig } from "@/api/chat/config";
 import { AiComposer } from "@/features/ai-composer/AiComposer";
+import {
+  findCounselingMode,
+  mergeModeAndTaskSkills,
+} from "@/features/ai-composer/counseling-mode";
 import { parseDraftPromptState } from "@/features/ai-composer/draft-prompt";
 import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn";
 
@@ -27,7 +31,10 @@ export function AiComposerRoute() {
     useState<SourceConfig | null>(null);
   const [responseModeOverride, setResponseModeOverride] =
     useState<ResponseMode | null>(null);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedModeSkill, setSelectedModeSkill] = useState<string | null>(
+    null,
+  );
+  const [selectedTaskSkills, setSelectedTaskSkills] = useState<string[]>([]);
   const resolved = configQuery.config;
   const hasClearedDraftStateRef = useRef(false);
 
@@ -63,6 +70,11 @@ export function AiComposerRoute() {
         responseModeCapability,
       ).mode
     : BUILT_IN_DEFAULT_RESPONSE_MODE;
+  const selectedMode =
+    resolved == null
+      ? null
+      : (findCounselingMode(resolved.skillModes, selectedModeSkill) ??
+        resolved.defaultSkillMode);
 
   async function submit() {
     const submitted = value.trim();
@@ -70,6 +82,10 @@ export function AiComposerRoute() {
       return;
     }
 
+    const submittedSkills = mergeModeAndTaskSkills(
+      selectedMode?.skillName,
+      selectedTaskSkills,
+    );
     const result = await startTurn.submit(
       submitted,
       sourceConfig,
@@ -77,12 +93,12 @@ export function AiComposerRoute() {
     );
     if (result.ok) {
       setValue("");
-      setSelectedSkills([]);
+      setSelectedTaskSkills([]);
       void navigate(`/app/ai/${result.sessionId}`, {
         state: {
           initialTurn: {
             text: submitted,
-            skills: [...selectedSkills],
+            skills: submittedSkills,
             responseMode: result.responseMode,
           },
         },
@@ -114,13 +130,16 @@ export function AiComposerRoute() {
           }}
           onResponseModeChange={setResponseModeOverride}
           onSourceConfigChange={setSourceConfigOverride}
+          onModeChange={(mode) => setSelectedModeSkill(mode.skillName)}
           onSubmit={() => {
             void submit();
           }}
-          onSelectedSkillsChange={setSelectedSkills}
+          onSelectedSkillsChange={setSelectedTaskSkills}
           onValueChange={setValue}
           maxSelectedSkills={resolved?.maxSelectedSkills ?? 0}
-          selectedSkills={selectedSkills}
+          mode={selectedMode}
+          modes={resolved?.skillModes ?? []}
+          selectedSkills={selectedTaskSkills}
           skills={resolved?.skills ?? []}
           sourceConfig={sourceConfig}
           responseMode={responseMode}

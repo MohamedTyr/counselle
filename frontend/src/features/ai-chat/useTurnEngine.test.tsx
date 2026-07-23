@@ -1214,6 +1214,83 @@ describe("useTurnEngine", () => {
     });
   });
 
+  test("snapshots mode before task skills for a normal turn", async () => {
+    const transport = createTransport();
+    const { result } = renderEngine({ transport });
+
+    await act(async () => {
+      await result.current.submitMessage({
+        text: "Compare these schools",
+        modeSkill: "guided-counselor",
+        taskSkills: ["school-comparison"],
+        executionResponseMode: "quick",
+      });
+    });
+
+    expect(transport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skills: ["guided-counselor", "school-comparison"],
+      }),
+    );
+    expect(result.current.messages[0]).toMatchObject({
+      kind: "user",
+      skills: ["guided-counselor", "school-comparison"],
+    });
+  });
+
+  test("active steer with mode only stays text-only and can auto-forward with that mode", async () => {
+    const first = gatedStream([
+      meta("a1", "u1"),
+      delta("first"),
+      userMessageEvent("Second", "steer-late", false),
+      done(),
+    ]);
+    const transport = createTransport({
+      sendMessage: vi
+        .fn()
+        .mockReturnValueOnce(first.iterable)
+        .mockReturnValueOnce(
+          stream([meta("a2", "u2"), delta("second"), done()]),
+        ),
+      steerMessage: vi.fn(async () => ({
+        status: "queued",
+        userMessageId: "steer-late",
+      })),
+    });
+    const { result } = renderEngine({ transport });
+
+    act(() => {
+      void result.current.submitMessage({
+        text: "First",
+        modeSkill: "focused-answer",
+        executionResponseMode: "quick",
+      });
+    });
+    await waitFor(() => expect(result.current.liveTurn).not.toBeNull());
+
+    await act(async () => {
+      await result.current.submitMessage({
+        text: "Second",
+        modeSkill: "guided-counselor",
+        executionResponseMode: "quick",
+      });
+    });
+
+    expect(transport.steerMessage).toHaveBeenCalledWith({
+      sessionId: "s1",
+      text: "Second",
+    });
+    first.release();
+
+    await waitFor(() => expect(transport.sendMessage).toHaveBeenCalledTimes(2));
+    expect(transport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: "Second",
+        skills: ["guided-counselor"],
+      }),
+    );
+  });
+
   test("does not silently steer a selected skill into an active turn", async () => {
     const first = gatedStream([meta("a1", "u1"), delta("first"), done()]);
     const transport = createTransport({
@@ -1234,7 +1311,8 @@ describe("useTurnEngine", () => {
     await act(async () => {
       sent = await result.current.submitMessage({
         text: "Second",
-        skills: ["school-comparison"],
+        modeSkill: "focused-answer",
+        taskSkills: ["school-comparison"],
         executionResponseMode: "quick",
       });
     });

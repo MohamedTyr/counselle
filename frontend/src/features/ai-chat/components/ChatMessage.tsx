@@ -13,6 +13,7 @@ import {
   MessageActions,
   MessageContent,
 } from "@/components/ai-elements/message";
+import { filterModeSkillNames } from "@/features/ai-composer/counseling-mode";
 import { cn } from "@/lib/utils";
 import type { SourceFocus } from "@/api/chat/types";
 
@@ -53,6 +54,7 @@ export type ChatMessageProps = {
   clarifyDraft?: ClarifyDraftController;
   isLatestMessage?: boolean;
   skillLabelForName?: (name: string) => string | undefined;
+  modeSkillNames?: readonly string[];
 };
 
 const COPY_FEEDBACK_MS = 1500;
@@ -325,9 +327,10 @@ function ChatMessageComponent({
   clarifyDraft,
   isLatestMessage = false,
   skillLabelForName,
+  modeSkillNames = [],
 }: ChatMessageProps) {
   if (message.kind === "user") {
-    const skills = message.skills ?? [];
+    const skills = filterModeSkillNames(message.skills ?? [], modeSkillNames);
     return (
       <Message from="user" id={message.messageId}>
         <MessageContent>

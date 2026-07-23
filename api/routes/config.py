@@ -27,7 +27,7 @@ from pydantic import ValidationError
 
 from api.auth import current_active_user
 from api.users_db import UserDB
-from app.skills import MAX_SELECTED_SKILLS, user_skill_catalog
+from app.skills import MAX_SELECTED_SKILLS, user_skill_catalog, user_skill_mode_catalog
 from config.settings import load_yaml_asset
 from domain.response_mode import ResponseMode
 from domain.season import SeasonWindow, admission_season
@@ -103,6 +103,7 @@ async def get_config(
             "conversation_starters": starters,
             "default_source_config": _default_source_config(user, settings),
             "skills": user_skill_catalog(),
+            "skill_modes": user_skill_mode_catalog(),
             "max_selected_skills": MAX_SELECTED_SKILLS,
             "current_admissions_cycle_year": settings.current_admissions_cycle_year,
             "default_response_mode": ResponseMode.QUICK.value,

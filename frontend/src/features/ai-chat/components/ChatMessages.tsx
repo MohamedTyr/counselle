@@ -20,6 +20,7 @@ export type ChatMessagesProps = {
   onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   clarifyDraft?: ClarifyDraftController;
   skillLabelForName?: (name: string) => string | undefined;
+  modeSkillNames?: readonly string[];
 };
 
 /**
@@ -39,6 +40,7 @@ export function ChatMessages({
   onClarifyAnswer,
   clarifyDraft,
   skillLabelForName,
+  modeSkillNames = [],
 }: ChatMessagesProps) {
   const {
     scrollableRef,
@@ -118,6 +120,7 @@ export function ChatMessages({
                   : undefined
               }
               skillLabelForName={skillLabelForName}
+              modeSkillNames={modeSkillNames}
             />
           ))}
           <div ref={messagesEndRef} />

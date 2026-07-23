@@ -7,6 +7,11 @@ import {
   normalizeResponseModeSelection,
 } from "@/api/chat/response-mode";
 import type { ChatTransport } from "@/api/chat/types";
+import {
+  deriveHistoricalModeSkill,
+  findCounselingMode,
+  splitSelectedSkills,
+} from "@/features/ai-composer/counseling-mode";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +24,8 @@ import type { ChatMessage, FeedbackRating } from "./model";
 import { useClarifyDraft, type ClarifyDraftKey } from "./useClarifyDraft";
 import { useChatSession } from "./useChatSession";
 import type { InitialTurn } from "./AiChatRoute";
+
+const EMPTY_SKILL_MODES = [] as const;
 
 export type AiChatPageProps = {
   sessionId: string;
@@ -61,15 +68,31 @@ export function AiChatPage({
   const consumeInitialTurn = onInitialTurnConsumed ?? onInitialPromptConsumed;
   const initialResponseMode = effectiveInitialTurn?.responseMode;
   const [composerValue, setComposerValue] = useState("");
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedModeSkill, setSelectedModeSkill] = useState<string | null>(
+    null,
+  );
+  const [selectedTaskSkills, setSelectedTaskSkills] = useState<string[]>([]);
   const [sourcesPayload, setSourcesPayload] =
     useState<MessageSourcesPayload | null>(null);
   const consumedInitialTurnRef = useRef(false);
   const clarifySubmitInFlightRef = useRef<string | null>(null);
+  const hydratedModeRef = useRef(false);
+  const modeTouchedRef = useRef(false);
   const isMobile = useIsMobile();
   const feedback = useMessageFeedback();
   const configQuery = useChatConfig();
   const skillConfig = configQuery.config;
+  const skillModes = useMemo(
+    () => skillConfig?.skillModes ?? EMPTY_SKILL_MODES,
+    [skillConfig?.skillModes],
+  );
+  const defaultMode = skillConfig?.defaultSkillMode ?? null;
+  const modeSkillNames = useMemo(
+    () => skillModes.map((mode) => mode.skillName),
+    [skillModes],
+  );
+  const selectedMode =
+    findCounselingMode(skillModes, selectedModeSkill) ?? defaultMode;
 
   const resetScrollFollow = useCallback(() => {
     // Reactive coverage: useQuestionAnchoredScroll re-derives the anchor and
@@ -105,6 +128,7 @@ export function AiChatPage({
     transport,
     onSendStart: resetScrollFollow,
     initialResponseMode,
+    modeSkillNames,
   });
   const responseModes =
     skillConfig?.responseModes ?? BUILT_IN_RESPONSE_MODE_OPTIONS;
@@ -143,10 +167,26 @@ export function AiChatPage({
     };
   }, [session?.title]);
 
+  useEffect(() => {
+    if (
+      hydratedModeRef.current ||
+      modeTouchedRef.current ||
+      isLoading ||
+      transcriptError !== null ||
+      skillModes.length === 0
+    ) {
+      return;
+    }
+
+    hydratedModeRef.current = true;
+    setSelectedModeSkill(deriveHistoricalModeSkill(messages, skillModes));
+  }, [isLoading, messages, skillModes, transcriptError]);
+
   const handleComposerSubmit = useCallback(
     (
       text: string,
-      skills = selectedSkills,
+      taskSkills = selectedTaskSkills,
+      modeSkill = selectedMode?.skillName,
       // A normal send snapshots the CURRENT selected next-turn mode at the
       // moment of this call -- never a later selector read once the turn is
       // in flight (plan §5.5/§8.4). The initial-turn dispatch effect below
@@ -160,8 +200,8 @@ export function AiChatPage({
         latestMessage.clarify !== undefined
           ? latestMessage.messageId
           : undefined;
-      const submittedSkills =
-        clarifyReplyTo === undefined ? [...skills] : [];
+      const submittedTaskSkills =
+        clarifyReplyTo === undefined ? [...taskSkills] : [];
       const submittedMode =
         clarifyReplyTo !== undefined &&
         latestMessage?.kind === "assistant" &&
@@ -170,18 +210,19 @@ export function AiChatPage({
           : responseMode;
       setComposerValue("");
       if (clarifyReplyTo === undefined) {
-        setSelectedSkills([]);
+        setSelectedTaskSkills([]);
       }
       void submitMessage({
         text,
-        skills: submittedSkills,
+        modeSkill: clarifyReplyTo === undefined ? modeSkill : undefined,
+        taskSkills: submittedTaskSkills,
         executionResponseMode: submittedMode,
         clarifyReplyTo,
       }).then((result) => {
         if (!result.ok) {
           setComposerValue(result.keepText);
           if (clarifyReplyTo === undefined) {
-            setSelectedSkills(submittedSkills);
+            setSelectedTaskSkills(submittedTaskSkills);
           }
         }
       });
@@ -189,7 +230,8 @@ export function AiChatPage({
     [
       latestMessage,
       normalizedSelectedResponseMode,
-      selectedSkills,
+      selectedMode?.skillName,
+      selectedTaskSkills,
       submitMessage,
     ],
   );
@@ -247,19 +289,26 @@ export function AiChatPage({
 
     consumedInitialTurnRef.current = true;
     consumeInitialTurn?.();
+    const split = splitSelectedSkills(effectiveInitialTurn.skills, skillModes);
+    const initialModeSkill = split.modeSkill ?? defaultMode?.skillName;
+    setSelectedModeSkill(initialModeSkill ?? null);
+    setSelectedTaskSkills([]);
     // Must use the captured initial-turn mode explicitly -- not the
     // default-parameter read of `selectedResponseMode`, which can still be
     // the pre-hydration fallback at this point (plan §8.3).
     handleComposerSubmit(
       effectiveInitialTurn.text,
-      effectiveInitialTurn.skills,
+      split.taskSkills,
+      initialModeSkill,
       effectiveInitialTurn.responseMode,
     );
   }, [
+    defaultMode?.skillName,
     handleComposerSubmit,
     effectiveInitialTurn,
     isLoading,
     consumeInitialTurn,
+    skillModes,
     transcriptError,
   ]);
 
@@ -282,6 +331,9 @@ export function AiChatPage({
       if (parent === undefined || parent.kind !== "user") {
         return;
       }
+      const split = splitSelectedSkills(parent.skills ?? [], skillModes);
+      setSelectedModeSkill(split.modeSkill ?? defaultMode?.skillName ?? null);
+      setSelectedTaskSkills([]);
       void submitMessage({
         text: parent.text,
         skills: parent.skills,
@@ -289,7 +341,7 @@ export function AiChatPage({
         replaceMessageId: parent.messageId,
       });
     },
-    [messages, submitMessage],
+    [defaultMode?.skillName, messages, skillModes, submitMessage],
   );
 
   const handleFeedback = useCallback(
@@ -359,6 +411,7 @@ export function AiChatPage({
           clarifyDraft={clarifyDraft}
           isSubmitting={isSubmitting}
           messages={messages}
+          modeSkillNames={modeSkillNames}
           skillLabelForName={(name) =>
             skillConfig?.skills.find((skill) => skill.name === name)
               ?.displayName
@@ -419,11 +472,17 @@ export function AiChatPage({
             onStop={stopGenerating}
             onResponseModeChange={setSelectedResponseMode}
             onSourceConfigChange={setSourceConfig}
-            onSelectedSkillsChange={setSelectedSkills}
+            onModeChange={(mode) => {
+              modeTouchedRef.current = true;
+              setSelectedModeSkill(mode.skillName);
+            }}
+            onSelectedSkillsChange={setSelectedTaskSkills}
             onSubmit={handleComposerSubmit}
             onValueChange={setComposerValue}
             maxSelectedSkills={skillConfig?.maxSelectedSkills ?? 0}
-            selectedSkills={selectedSkills}
+            mode={selectedMode}
+            modes={skillModes}
+            selectedSkills={selectedTaskSkills}
             skills={skillConfig?.skills ?? []}
             sourceConfig={sourceConfig}
             responseMode={normalizedSelectedResponseMode}
