@@ -9,6 +9,8 @@ import type {
   ApplicationCreate,
   ApplicationView,
   EssayCreate,
+  EssayPromptDraftCreate,
+  EssayPromptDraftSummary,
   EssaySummary,
   Honor,
   HonorCreate,
@@ -132,6 +134,34 @@ export function tempEssay(input: EssayCreate): EssaySummary {
     school_city: null,
     school_state: null,
     deadline: null,
+    created_at: timestamp,
+    updated_at: timestamp,
+    archived_at: null,
+  };
+}
+
+export function tempEssayPromptDraft(
+  input: EssayPromptDraftCreate,
+  school?: {
+    name: string;
+    city: string | null;
+    state: string | null;
+    website_url: string | null;
+  },
+): EssayPromptDraftSummary {
+  const timestamp = nowIso();
+  return {
+    id: `temp-${crypto.randomUUID()}`,
+    user_id: "optimistic",
+    application_id: input.application_id,
+    prompt: input.prompt,
+    word_limit: input.word_limit ?? null,
+    archived_via_application: null,
+    converted_to_essay_id: null,
+    school_name: school?.name ?? "",
+    school_city: school?.city ?? null,
+    school_state: school?.state ?? null,
+    school_website_url: school?.website_url ?? null,
     created_at: timestamp,
     updated_at: timestamp,
     archived_at: null,

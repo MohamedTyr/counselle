@@ -10,15 +10,20 @@ import {
   Sparkles,
   Unlink,
 } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import {
+  useArchiveEssayPromptDraft,
+  useConvertEssayPromptDraft,
   useCreateEssay,
+  useCreateEssayPromptDraft,
   useCreateTask,
   useArchiveApplication,
   useRestoreApplication,
+  useRestoreEssayPromptDraft,
   useUpdateApplication,
   useUpdateEssay,
 } from "@/api/workspace/hooks";
@@ -27,6 +32,7 @@ import type {
   ApplicationPatch,
   ApplicationPlatform,
   ApplicationStatus,
+  EssayPromptDraft,
   EssaySummary,
   ListType,
   RequirementApplicability,
@@ -91,7 +97,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { UndoToast } from "@/components/undo-toast";
+import { PromptDraftRow } from "@/features/essays/PromptDraftRow";
 import { SchoolAvatar } from "@/features/schools/school-cells";
+import { useUndoableDelete } from "@/hooks/useUndoableDelete";
 
 const statuses: ApplicationStatus[] = [
   "Considering",
@@ -567,6 +576,115 @@ function PromptRow({
   );
 }
 
+function PromptDraftsCard({ detail }: { detail: ApplicationDetail }) {
+  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
+  const [promptText, setPromptText] = useState("");
+  const [wordLimitText, setWordLimitText] = useState("");
+  const createDraft = useCreateEssayPromptDraft();
+  const convertDraft = useConvertEssayPromptDraft();
+  const archiveDraft = useArchiveEssayPromptDraft();
+  const restoreDraft = useRestoreEssayPromptDraft();
+  const draftUndo = useUndoableDelete<EssayPromptDraft>({
+    archiveMutation: archiveDraft,
+    getLabel: () => "Prompt",
+    restoreMutation: restoreDraft,
+  });
+
+  async function submit() {
+    const trimmed = promptText.trim();
+    if (!trimmed) return;
+    const wordLimit = wordLimitText.trim()
+      ? Number.parseInt(wordLimitText, 10)
+      : null;
+    await createDraft.mutateAsync({
+      application_id: detail.application.id,
+      prompt: trimmed,
+      word_limit: wordLimit && wordLimit > 0 ? wordLimit : null,
+    });
+    setPromptText("");
+    setWordLimitText("");
+  }
+
+  async function startWriting(draft: EssayPromptDraft) {
+    const created = await convertDraft.mutateAsync({
+      id: draft.id,
+      title: `${detail.application.school_name} supplement`,
+    });
+    void navigate(`/app/essays/${created.id}`);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Prompts you're tracking</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <InputGroup className="flex-1">
+            <InputGroupInput
+              aria-label="Add a prompt you're tracking"
+              onChange={(event) => setPromptText(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void submit();
+              }}
+              placeholder="Add a prompt you know about — you can turn it into a full essay later"
+              value={promptText}
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                disabled={!promptText.trim() || createDraft.isPending}
+                onClick={() => void submit()}
+              >
+                Add
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+          <Input
+            aria-label="Word limit (optional)"
+            className="sm:w-32"
+            min={1}
+            onChange={(event) => setWordLimitText(event.currentTarget.value)}
+            placeholder="Word limit"
+            type="number"
+            value={wordLimitText}
+          />
+        </div>
+        {detail.prompt_drafts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No tracked prompts yet. Add one above, or start writing directly
+            from a catalog prompt above.
+          </p>
+        ) : (
+          <div className="flex flex-col divide-y">
+            {detail.prompt_drafts.map((draft) => (
+              <PromptDraftRow
+                draft={{
+                  ...draft,
+                  school_name: detail.application.school_name,
+                  school_city: detail.application.school_city,
+                  school_state: detail.application.school_state,
+                  school_website_url: detail.application.website_url,
+                }}
+                isConverting={convertDraft.isPending}
+                key={draft.id}
+                onConvert={() => void startWriting(draft)}
+                onDelete={() => draftUndo.archive(draft)}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+      <UndoToast
+        onDismiss={draftUndo.clearPending}
+        onUndo={draftUndo.undo}
+        pending={draftUndo.pending}
+        reduceMotion={!!reduceMotion}
+      />
+    </Card>
+  );
+}
+
 function EssaysSection({ detail }: { detail: ApplicationDetail }) {
   const navigate = useNavigate();
   const createEssay = useCreateEssay();
@@ -689,6 +807,7 @@ function EssaysSection({ detail }: { detail: ApplicationDetail }) {
           )}
         </CardContent>
       </Card>
+      <PromptDraftsCard detail={detail} />
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-3">

@@ -106,6 +106,7 @@ function statefulAddSchoolFetch({
         application: applications[0],
         tasks: [],
         essays: [],
+        prompt_drafts: [],
         reference: workspaceReferenceFixture,
       });
     }

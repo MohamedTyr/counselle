@@ -272,6 +272,9 @@ export function useArchiveApplication() {
         queryKey: workspaceKeys.essays.list(),
       });
       void context.client.invalidateQueries({
+        queryKey: workspaceKeys.essayPromptDrafts.list(),
+      });
+      void context.client.invalidateQueries({
         queryKey: workspaceKeys.schoolSearchAll(),
       });
     },
@@ -299,6 +302,9 @@ export function useRestoreApplication() {
       });
       void context.client.invalidateQueries({
         queryKey: workspaceKeys.essays.list(),
+      });
+      void context.client.invalidateQueries({
+        queryKey: workspaceKeys.essayPromptDrafts.list(),
       });
     },
   });

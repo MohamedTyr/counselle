@@ -44,24 +44,23 @@ export function ClarifyBundle({
     );
   }
 
-  if (frozen || response !== null || draft === undefined || onAnswer === undefined) {
+  if (
+    frozen ||
+    response !== null ||
+    draft === undefined ||
+    onAnswer === undefined
+  ) {
     return (
       <section
         aria-label="Clarifying questions"
-        className="not-prose my-3 flex flex-col gap-3 rounded-lg border bg-card px-3 py-3 text-sm"
+        className="not-prose my-3 flex flex-col gap-2 rounded-xl border bg-card p-3 text-sm"
       >
         <ClarifySummary response={response} spec={spec} />
       </section>
     );
   }
 
-  return (
-    <ActiveClarifyBundle
-      draft={draft}
-      onAnswer={onAnswer}
-      spec={spec}
-    />
-  );
+  return <ActiveClarifyBundle draft={draft} onAnswer={onAnswer} spec={spec} />;
 }
 
 function ActiveClarifyBundle({
@@ -172,7 +171,7 @@ function ActiveClarifyBundle({
   return (
     <section
       aria-label="Clarifying questions"
-      className="not-prose my-3 flex flex-col gap-3 rounded-lg border bg-card px-3 py-3 text-sm"
+      className="not-prose my-3 flex flex-col gap-3 rounded-xl border bg-card p-3 text-sm"
     >
       <div className="flex flex-col gap-2">
         {spec.questions.map((question, index) => {
@@ -232,7 +231,7 @@ function ActiveClarifyBundle({
               className="flex items-start justify-between gap-3 rounded-lg border bg-background px-3 py-2"
               key={question.id}
             >
-              <div>
+              <div className="min-w-0">
                 <button
                   className="text-left text-sm font-medium text-foreground outline-none"
                   onClick={() => focusQuestion(index)}
@@ -243,13 +242,17 @@ function ActiveClarifyBundle({
                 >
                   {question.question}
                 </button>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {isAnswered
-                    ? answerTextForQuestion(spec, {
-                        v: 2,
-                        mode: "widget",
-                        answers: [buildAnswer(question.id)],
-                      }, question.id)
+                    ? answerTextForQuestion(
+                        spec,
+                        {
+                          v: 2,
+                          mode: "widget",
+                          answers: [buildAnswer(question.id)],
+                        },
+                        question.id,
+                      )
                     : "Not answered yet."}
                 </p>
               </div>

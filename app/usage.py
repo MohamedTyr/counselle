@@ -111,6 +111,41 @@ def enrich_usage_event(event: Event, model: str, settings: Any) -> Event:
     return Event(v=event.v, type=event.type, data=enriched_usage.model_dump())
 
 
+def aggregate_continuation_usage(
+    a1_usage: dict[str, Any] | None, a2_usage: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Presentation-only sum of A1 + A2 usage for a "one logical turn" UI.
+
+    Phase 4 (plan "Define usage explicitly": "preserve per-physical-run
+    accounting ... if the UI presents logical-turn usage, aggregate ONLY at
+    the presentation/read layer, exactly once, without changing billing
+    logs"). This is that single presentation-layer aggregator — it has no
+    caller in the billing path: ``TurnRegistry._log_complete`` already calls
+    :func:`log_turn_complete` once per PHYSICAL run (once for A1, once for
+    A2), and this function never touches that log. A frontend/read layer that
+    wants one combined number for a clarify+continuation pair calls this
+    exactly once per pair; it must never be called more than once for the
+    same pair (double-aggregation would double-count cost).
+
+    ``est_cost_usd`` sums only when BOTH sides know their cost — a partially
+    unknown cost must render as unknown, never as a silently-too-low partial
+    sum.
+    """
+    if a1_usage is None and a2_usage is None:
+        return None
+    a1 = a1_usage or {}
+    a2 = a2_usage or {}
+    a1_cost = a1.get("est_cost_usd")
+    a2_cost = a2.get("est_cost_usd")
+    combined_cost = a1_cost + a2_cost if a1_cost is not None and a2_cost is not None else None
+    return {
+        "input_tokens": int(a1.get("input_tokens", 0)) + int(a2.get("input_tokens", 0)),
+        "output_tokens": int(a1.get("output_tokens", 0)) + int(a2.get("output_tokens", 0)),
+        "tool_calls": int(a1.get("tool_calls", 0)) + int(a2.get("tool_calls", 0)),
+        "est_cost_usd": combined_cost,
+    }
+
+
 def log_turn_complete(
     logger: logging.Logger,
     *,

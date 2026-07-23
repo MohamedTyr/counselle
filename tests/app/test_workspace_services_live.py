@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
@@ -17,8 +18,11 @@ from app.workspace.models import (
     ActivityPatch,
     ApplicationCreate,
     ApplicationPatch,
+    Essay,
     EssayCreate,
     EssayPatch,
+    EssayPromptDraftConvert,
+    EssayPromptDraftCreate,
     HonorCreate,
     HonorPatch,
     TaskCreate,
@@ -47,6 +51,12 @@ from app.workspace.service_applications import (
     restore_application,
     search_schools,
     update_application,
+)
+from app.workspace.service_essay_prompt_drafts import (
+    archive_essay_prompt_draft,
+    convert_essay_prompt_draft,
+    create_essay_prompt_draft,
+    list_essay_prompt_drafts,
 )
 from app.workspace.service_essays import (
     archive_essay,
@@ -1411,3 +1421,249 @@ async def test_task_board_counts(
     assert counts.done == 2
     assert counts.done_recent == 1
     assert counts.archived == 1
+
+
+async def test_convert_essay_prompt_draft_double_conversion_race(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    """Two concurrent conversions of the same draft: exactly one succeeds, the
+    other's FOR UPDATE blocks until the first commits, then correctly sees
+    archived_at IS NOT NULL and raises WorkspaceNotFoundError."""
+    user_id = await make_user()
+    application = await add_application(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
+    )
+    draft = await create_essay_prompt_draft(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayPromptDraftCreate(
+            application_id=application.application.id, prompt="Describe a challenge."
+        ),
+    )
+
+    async def _convert() -> Essay | Exception:
+        try:
+            return await convert_essay_prompt_draft(
+                app_pool,
+                catalog,
+                WorkspaceEventBus(),
+                user_id=user_id,
+                actor="student",
+                draft_id=draft.id,
+                data=EssayPromptDraftConvert(title="Supplement"),
+            )
+        except WorkspaceNotFoundError as exc:
+            return exc
+
+    results = await asyncio.gather(_convert(), _convert())
+    successes = [r for r in results if not isinstance(r, Exception)]
+    failures = [r for r in results if isinstance(r, WorkspaceNotFoundError)]
+    assert len(successes) == 1
+    assert len(failures) == 1
+
+    async with app_pool.acquire() as conn:
+        essay_count = await conn.fetchval(
+            "SELECT count(*) FROM counselle.essays WHERE user_id = $1", user_id
+        )
+    assert essay_count == 1
+
+
+async def test_convert_essay_prompt_draft_no_deadlock_with_application_archive(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    """Regression test for the lock-order fix: converting a draft locks the
+    application before the draft, matching archive_application's order, so
+    concurrent conversion + archive can never deadlock each other."""
+    user_id = await make_user()
+    application = await add_application(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
+    )
+    draft = await create_essay_prompt_draft(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayPromptDraftCreate(
+            application_id=application.application.id, prompt="Describe a challenge."
+        ),
+    )
+
+    async def _convert() -> None:
+        with contextlib.suppress(WorkspaceNotFoundError):
+            await convert_essay_prompt_draft(
+                app_pool,
+                catalog,
+                WorkspaceEventBus(),
+                user_id=user_id,
+                actor="student",
+                draft_id=draft.id,
+                data=EssayPromptDraftConvert(title="Supplement"),
+            )
+
+    async def _archive() -> None:
+        with contextlib.suppress(WorkspaceNotFoundError):
+            await archive_application(
+                app_pool,
+                WorkspaceEventBus(),
+                user_id=user_id,
+                actor="student",
+                application_id=application.application.id,
+            )
+
+    # Neither branch should raise a Postgres deadlock error.
+    await asyncio.gather(_convert(), _archive())
+
+
+async def test_prompt_draft_archive_restore_cascade_excludes_converted(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    application = await add_application(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
+    )
+    active_draft = await create_essay_prompt_draft(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayPromptDraftCreate(
+            application_id=application.application.id, prompt="Still tracking this one."
+        ),
+    )
+    converted_draft = await create_essay_prompt_draft(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayPromptDraftCreate(
+            application_id=application.application.id, prompt="Already converted."
+        ),
+    )
+    await convert_essay_prompt_draft(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        draft_id=converted_draft.id,
+        data=EssayPromptDraftConvert(title="Supplement"),
+    )
+
+    await archive_application(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        application_id=application.application.id,
+    )
+    async with app_pool.acquire() as conn:
+        active_row = await conn.fetchrow(
+            "SELECT archived_at, archived_via_application FROM counselle.essay_prompt_drafts "
+            "WHERE id = $1",
+            active_draft.id,
+        )
+        converted_row = await conn.fetchrow(
+            "SELECT archived_at, archived_via_application, converted_to_essay_id "
+            "FROM counselle.essay_prompt_drafts WHERE id = $1",
+            converted_draft.id,
+        )
+    assert active_row["archived_at"] is not None
+    assert active_row["archived_via_application"] == application.application.id
+    # Converted draft was already archived (with a tombstone) before the
+    # cascade; the cascade must not overwrite archived_via_application.
+    assert converted_row["archived_via_application"] is None
+    assert converted_row["converted_to_essay_id"] is not None
+
+    await restore_application(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        application_id=application.application.id,
+    )
+    active_drafts = await list_essay_prompt_drafts(app_pool, catalog, user_id=user_id)
+    assert {d.id for d in active_drafts} == {active_draft.id}
+
+    async with app_pool.acquire() as conn:
+        converted_row = await conn.fetchrow(
+            "SELECT archived_at FROM counselle.essay_prompt_drafts WHERE id = $1",
+            converted_draft.id,
+        )
+    assert converted_row["archived_at"] is not None
+
+
+async def test_archive_essay_prompt_draft_manual_delete(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    user_id = await make_user()
+    application = await add_application(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=ApplicationCreate(
+            unitid=_unitid(catalog), cycle_year=2027, list_type="Target", round="RD"
+        ),
+    )
+    draft = await create_essay_prompt_draft(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayPromptDraftCreate(
+            application_id=application.application.id, prompt="A prompt to delete."
+        ),
+    )
+    await archive_essay_prompt_draft(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        draft_id=draft.id,
+    )
+    assert await list_essay_prompt_drafts(app_pool, catalog, user_id=user_id) == []
+    with pytest.raises(WorkspaceNotFoundError):
+        await archive_essay_prompt_draft(
+            app_pool,
+            WorkspaceEventBus(),
+            user_id=user_id,
+            actor="student",
+            draft_id=draft.id,
+        )

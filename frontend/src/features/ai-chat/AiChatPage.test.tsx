@@ -821,11 +821,19 @@ describe("AiChatPage", () => {
       await screen.findByText("Which path interests you?"),
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Type your own answer"), {
+    fireEvent.click(screen.getByRole("button", { name: "Something else" }));
+    const customAnswer = screen.getByPlaceholderText("Type your own answer");
+    expect(customAnswer).toHaveFocus();
+    fireEvent.change(customAnswer, {
       target: { value: "Need-based grants" },
     });
     fireEvent.click(screen.getByText("Financial aid"));
-    expect(screen.getByPlaceholderText("Type your own answer")).toHaveValue("");
+    expect(
+      screen.queryByPlaceholderText("Type your own answer"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Something else" }),
+    ).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByRole("button", { name: "Send answers" }));
 
     expect(

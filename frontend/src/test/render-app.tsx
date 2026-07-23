@@ -327,11 +327,15 @@ export function createWorkspaceFetchPreset(
         application,
         tasks,
         essays,
+        prompt_drafts: [],
         reference: {
           ...data.reference,
           cycle_year: application.cycle_year,
         },
       });
+    }
+    if (url.includes("/v1/essay-prompt-drafts")) {
+      return jsonResponse([]);
     }
     if (url.endsWith("/v1/tasks/bulk-status")) {
       const body = JSON.parse(String(init?.body ?? "{}")) as {
@@ -797,8 +801,12 @@ export function defaultAuthenticatedFetch(
       application: workspaceApplicationFixture,
       tasks: [workspaceTaskFixture],
       essays: [workspaceEssayFixture],
+      prompt_drafts: [],
       reference: workspaceReferenceFixture,
     });
+  }
+  if (url.includes("/v1/essay-prompt-drafts")) {
+    return jsonResponse([]);
   }
   if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture]);
   if (url.endsWith("/v1/essays")) return jsonResponse([workspaceEssayFixture]);

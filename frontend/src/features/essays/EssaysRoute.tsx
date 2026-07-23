@@ -1,19 +1,26 @@
 import { Archive, FileText, Plus, Search } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import {
   useApplications,
   useApplication,
   useArchiveEssay,
+  useArchiveEssayPromptDraft,
+  useConvertEssayPromptDraft,
   useCreateEssay,
+  useCreateEssayPromptDraft,
   useDuplicateEssay,
+  useEssayPromptDrafts,
   useEssays,
   useRestoreEssay,
+  useRestoreEssayPromptDraft,
   useUpdateEssay,
 } from "@/api/workspace/hooks";
 import type {
   ApplicationView,
+  EssayPromptDraftSummary,
   EssayType,
   RequirementApplicability,
 } from "@/api/workspace/types";
@@ -46,9 +53,10 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import { essayFromSummary, type Essay } from "@/domain/essay";
-import { UNDO_WINDOW_MS } from "@/hooks/useUndoableDelete";
+import { UNDO_WINDOW_MS, useUndoableDelete } from "@/hooks/useUndoableDelete";
 import { EssayLibraryCard } from "@/features/essays/EssayLibraryCard";
 import {
   countEssaysByFilter,
@@ -57,6 +65,7 @@ import {
   filterOptions,
 } from "@/features/essays/essay-filters";
 import type { EssaysPageProps } from "@/features/essays/essays-types";
+import { PromptDraftRow } from "@/features/essays/PromptDraftRow";
 import { cn } from "@/lib/utils";
 
 const noApplicationValue = "none";
@@ -134,17 +143,29 @@ function describeAudience(audience: Record<string, unknown>) {
     : "Published audience conditions apply; verify them with the school.";
 }
 
+const draftPromptValuePrefix = "draft-";
+const savePromptHelpId = "new-essay-save-prompt-help";
+
+type DialogMode = "essay" | "prompt";
+
 function NewEssayDialog({
   applications,
   initialType,
   isCreating,
+  isConvertingDraftPrompt,
+  isSavingPromptDraft,
+  onConvertDraftPrompt,
   onCreate,
   onOpenChange,
+  onSavePromptDraft,
   open,
 }: {
   applications: ApplicationView[];
   initialType: EssayType;
   isCreating: boolean;
+  isConvertingDraftPrompt: boolean;
+  isSavingPromptDraft: boolean;
+  onConvertDraftPrompt: (input: { draftId: string; type: EssayType }) => void;
   onCreate: (input: {
     applicationId: string | null;
     promptOrdinal: number | null;
@@ -152,25 +173,41 @@ function NewEssayDialog({
     type: EssayType;
   }) => void;
   onOpenChange: (open: boolean) => void;
+  onSavePromptDraft: (input: {
+    applicationId: string;
+    prompt: string;
+    wordLimit: number | null;
+  }) => void;
   open: boolean;
 }) {
+  const [mode, setMode] = useState<DialogMode>("essay");
   const [type, setType] = useState<EssayType>(initialType);
   const [applicationId, setApplicationId] = useState(noApplicationValue);
   const [promptRef, setPromptRef] = useState(unselectedPromptValue);
+  const [draftPromptText, setDraftPromptText] = useState("");
+  const [draftWordLimitText, setDraftWordLimitText] = useState("");
   const selectedApplicationId =
-    type === "Personal statement" || applicationId === noApplicationValue
+    applicationId === noApplicationValue ||
+    (mode === "essay" && type === "Personal statement")
       ? null
       : applicationId;
   const applicationQuery = useApplication(selectedApplicationId);
   const prompts = applicationQuery.data?.reference.prompts ?? [];
+  const promptDrafts = applicationQuery.data?.prompt_drafts ?? [];
   const linkedPromptIds = new Set(
     applicationQuery.data?.essays.flatMap((essay) =>
       essay.prompt_ref ? [essay.prompt_ref] : [],
     ) ?? [],
   );
   const selectedPrompt = prompts.find((prompt) => prompt.id === promptRef);
+  const selectedDraftPrompt = promptRef.startsWith(draftPromptValuePrefix)
+    ? promptDrafts.find(
+        (draft) => `${draftPromptValuePrefix}${draft.id}` === promptRef,
+      )
+    : undefined;
   const selectedPromptIsAvailable =
     promptRef === customPromptValue ||
+    !!selectedDraftPrompt ||
     (!applicationQuery.isError &&
       !!selectedPrompt &&
       !linkedPromptIds.has(selectedPrompt.id) &&
@@ -192,7 +229,31 @@ function NewEssayDialog({
     setPromptRef(unselectedPromptValue);
   }
 
+  function selectMode(next: DialogMode) {
+    if (next === "prompt" && !selectedApplicationId) return;
+    setMode(next);
+    setPromptRef(unselectedPromptValue);
+  }
+
   function submit() {
+    if (mode === "prompt") {
+      if (!selectedApplicationId) return;
+      const trimmed = draftPromptText.trim();
+      if (!trimmed) return;
+      const wordLimit = draftWordLimitText.trim()
+        ? Number.parseInt(draftWordLimitText, 10)
+        : null;
+      onSavePromptDraft({
+        applicationId: selectedApplicationId,
+        prompt: trimmed,
+        wordLimit: wordLimit && wordLimit > 0 ? wordLimit : null,
+      });
+      return;
+    }
+    if (selectedDraftPrompt) {
+      onConvertDraftPrompt({ draftId: selectedDraftPrompt.id, type });
+      return;
+    }
     onCreate({
       applicationId:
         type === "Personal statement" || applicationId === noApplicationValue
@@ -210,6 +271,18 @@ function NewEssayDialog({
     });
   }
 
+  const submitDisabled =
+    mode === "prompt"
+      ? isSavingPromptDraft ||
+        !selectedApplicationId ||
+        !draftPromptText.trim()
+      : isCreating ||
+        isConvertingDraftPrompt ||
+        (!!selectedApplicationId &&
+          (applicationQuery.isFetching ||
+            promptRef === unselectedPromptValue ||
+            !selectedPromptIsAvailable));
+
   return (
     <Dialog modal={false} onOpenChange={onOpenChange} open={open}>
       <DialogContent>
@@ -217,36 +290,72 @@ function NewEssayDialog({
           <DialogTitle>New essay</DialogTitle>
           <DialogDescription>
             Choose the essay type and link a school when this draft belongs to a
-            specific application.
+            specific application, or save just the prompt for later.
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid gap-1.5">
+          <div className="flex gap-2">
+            <Button
+              onClick={() => selectMode("essay")}
+              size="sm"
+              type="button"
+              variant={mode === "essay" ? "default" : "outline"}
+            >
+              Write essay now
+            </Button>
+            <Button
+              aria-describedby={
+                selectedApplicationId ? undefined : savePromptHelpId
+              }
+              disabled={!selectedApplicationId}
+              onClick={() => selectMode("prompt")}
+              size="sm"
+              type="button"
+              variant={mode === "prompt" ? "default" : "outline"}
+            >
+              Save prompt for now
+            </Button>
+          </div>
+          {!selectedApplicationId ? (
+            <span
+              className="text-xs text-muted-foreground"
+              id={savePromptHelpId}
+            >
+              Select a school first — draft prompts always belong to one
+              application.
+            </span>
+          ) : null}
+        </div>
+
         <div className="grid gap-4">
-          <label className="grid gap-2 text-sm font-medium">
-            Essay type
-            <Select onValueChange={selectType} value={type}>
-              <SelectTrigger aria-label="Essay type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectPopup>
-                <SelectGroup>
-                  {essayTypeOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectPopup>
-            </Select>
-          </label>
+          {mode === "essay" ? (
+            <label className="grid gap-2 text-sm font-medium">
+              Essay type
+              <Select onValueChange={selectType} value={type}>
+                <SelectTrigger aria-label="Essay type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectGroup>
+                    {essayTypeOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectPopup>
+              </Select>
+            </label>
+          ) : null}
 
           <label className="grid gap-2 text-sm font-medium">
             School link
             <Select
-              disabled={type === "Personal statement"}
+              disabled={mode === "essay" && type === "Personal statement"}
               onValueChange={selectApplication}
               value={
-                type === "Personal statement"
+                mode === "essay" && type === "Personal statement"
                   ? noApplicationValue
                   : applicationId
               }
@@ -272,7 +381,35 @@ function NewEssayDialog({
             </Select>
           </label>
 
-          {selectedApplicationId ? (
+          {mode === "prompt" ? (
+            selectedApplicationId ? (
+              <>
+                <label className="grid gap-2 text-sm font-medium">
+                  Prompt
+                  <Textarea
+                    aria-label="Prompt text"
+                    onChange={(event) =>
+                      setDraftPromptText(event.currentTarget.value)
+                    }
+                    placeholder="Add a prompt you know about — you can turn it into a full essay later"
+                    value={draftPromptText}
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-medium">
+                  Word limit (optional)
+                  <Input
+                    aria-label="Word limit"
+                    min={1}
+                    onChange={(event) =>
+                      setDraftWordLimitText(event.currentTarget.value)
+                    }
+                    type="number"
+                    value={draftWordLimitText}
+                  />
+                </label>
+              </>
+            ) : null
+          ) : selectedApplicationId ? (
             <label className="grid gap-2 text-sm font-medium">
               Essay prompt
               <Select
@@ -294,6 +431,14 @@ function NewEssayDialog({
                     <SelectItem value={customPromptValue}>
                       Custom essay (no catalog prompt)
                     </SelectItem>
+                    {promptDrafts.map((draft) => (
+                      <SelectItem
+                        key={draft.id}
+                        value={`${draftPromptValuePrefix}${draft.id}`}
+                      >
+                        Tracked prompt: {draft.prompt}
+                      </SelectItem>
+                    ))}
                     {prompts.map((prompt) => {
                       const alreadyLinked = linkedPromptIds.has(prompt.id);
                       const unavailable =
@@ -373,19 +518,9 @@ function NewEssayDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            disabled={
-              isCreating ||
-              (!!selectedApplicationId &&
-                (applicationQuery.isFetching ||
-                  promptRef === unselectedPromptValue ||
-                  !selectedPromptIsAvailable))
-            }
-            onClick={submit}
-            type="button"
-          >
+          <Button disabled={submitDisabled} onClick={submit} type="button">
             <Plus aria-hidden="true" data-icon="inline-start" />
-            Create essay
+            {mode === "prompt" ? "Save prompt" : "Create essay"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -396,11 +531,21 @@ function NewEssayDialog({
 export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
   const essaysQuery = useEssays();
   const applicationsQuery = useApplications();
+  const promptDraftsQuery = useEssayPromptDrafts();
   const createEssayMutation = useCreateEssay();
   const duplicateEssayMutation = useDuplicateEssay();
   const updateEssayMutation = useUpdateEssay();
   const archiveEssayMutation = useArchiveEssay();
   const restoreEssayMutation = useRestoreEssay();
+  const createPromptDraftMutation = useCreateEssayPromptDraft();
+  const convertPromptDraftMutation = useConvertEssayPromptDraft();
+  const archivePromptDraftMutation = useArchiveEssayPromptDraft();
+  const restorePromptDraftMutation = useRestoreEssayPromptDraft();
+  const promptDraftUndo = useUndoableDelete<EssayPromptDraftSummary>({
+    archiveMutation: archivePromptDraftMutation,
+    getLabel: () => "Prompt",
+    restoreMutation: restorePromptDraftMutation,
+  });
   const reduceMotion = useReducedMotion();
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -423,6 +568,24 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
     () => filterEssays(essays, filter, query),
     [essays, filter, query],
   );
+  const promptDraftsBySchool = useMemo(() => {
+    const groups = new Map<
+      string,
+      { schoolName: string; drafts: EssayPromptDraftSummary[] }
+    >();
+    for (const draft of listOrEmpty(promptDraftsQuery.data)) {
+      const existing = groups.get(draft.application_id);
+      if (existing) {
+        existing.drafts.push(draft);
+      } else {
+        groups.set(draft.application_id, {
+          drafts: [draft],
+          schoolName: draft.school_name,
+        });
+      }
+    }
+    return [...groups.values()];
+  }, [promptDraftsQuery.data]);
   const clearArchiveUndo = useCallback(() => {
     window.clearTimeout(archiveUndoTimeoutRef.current);
     setPendingArchiveUndo(null);
@@ -508,6 +671,46 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
     clearArchiveUndo();
   }
 
+  async function savePromptDraft(input: {
+    applicationId: string;
+    prompt: string;
+    wordLimit: number | null;
+  }) {
+    try {
+      await createPromptDraftMutation.mutateAsync({
+        application_id: input.applicationId,
+        prompt: input.prompt,
+        word_limit: input.wordLimit,
+      });
+      setCreateOpen(false);
+      toast.success("Prompt saved");
+    } catch {
+      // Mutation hook owns optimistic rollback and error toast behavior.
+    }
+  }
+
+  async function convertDraftPrompt(input: {
+    draftId: string;
+    type: EssayType;
+  }) {
+    const draft = listOrEmpty(promptDraftsQuery.data).find(
+      (item) => item.id === input.draftId,
+    );
+    try {
+      const created = await convertPromptDraftMutation.mutateAsync({
+        essayType: input.type,
+        id: input.draftId,
+        title: draft
+          ? `${draft.school_name} ${input.type.toLowerCase()}`
+          : defaultEssayTitle(input.type),
+      });
+      setCreateOpen(false);
+      onOpenEssay?.(essayFromSummary(created));
+    } catch {
+      // Mutation hook owns optimistic rollback and error toast behavior.
+    }
+  }
+
   const hasNoEssays =
     !essaysQuery.isLoading && !essaysQuery.isError && essays.length === 0;
 
@@ -527,6 +730,40 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
           }
           title="Essay workspace"
         />
+
+        {!promptDraftsQuery.isLoading &&
+        !promptDraftsQuery.isError &&
+        promptDraftsBySchool.length > 0 ? (
+          <div className="rounded-xl border bg-card p-4">
+            <h2 className="font-heading text-sm font-medium">
+              Prompts you're tracking
+            </h2>
+            <div className="mt-2 flex flex-col divide-y">
+              {promptDraftsBySchool.map((group) => (
+                <div
+                  className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0"
+                  key={group.drafts[0]?.application_id}
+                >
+                  {group.drafts.map((draft) => (
+                    <PromptDraftRow
+                      draft={draft}
+                      isConverting={convertPromptDraftMutation.isPending}
+                      key={draft.id}
+                      onConvert={() =>
+                        void convertDraftPrompt({
+                          draftId: draft.id,
+                          type: "Supplement",
+                        })
+                      }
+                      onDelete={() => promptDraftUndo.archive(draft)}
+                      showSchool
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {essaysQuery.isLoading ? (
           <EssaysSkeleton />
@@ -656,9 +893,13 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
         <NewEssayDialog
           applications={applications}
           initialType={initialCreateType}
+          isConvertingDraftPrompt={convertPromptDraftMutation.isPending}
           isCreating={createEssayMutation.isPending}
+          isSavingPromptDraft={createPromptDraftMutation.isPending}
+          onConvertDraftPrompt={(input) => void convertDraftPrompt(input)}
           onCreate={(input) => void createEssay(input)}
           onOpenChange={setCreateOpen}
+          onSavePromptDraft={(input) => void savePromptDraft(input)}
           open={createOpen}
         />
       ) : null}
@@ -668,6 +909,12 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
         pending={
           pendingArchiveUndo ? { label: pendingArchiveUndo.label } : null
         }
+        reduceMotion={!!reduceMotion}
+      />
+      <UndoToast
+        onDismiss={promptDraftUndo.clearPending}
+        onUndo={promptDraftUndo.undo}
+        pending={promptDraftUndo.pending}
         reduceMotion={!!reduceMotion}
       />
     </section>

@@ -18,6 +18,7 @@ const objectTypes: WorkspaceObjectType[] = [
   "application",
   "task",
   "essay",
+  "essay_prompt_draft",
   "activity",
   "honor",
 ];
@@ -80,6 +81,14 @@ export function useWorkspaceEvents(
           });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.essays.detail(change.data.object_id),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.applications.all(),
+          });
+          break;
+        case "essay_prompt_draft":
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.essayPromptDrafts.list(),
           });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.applications.all(),

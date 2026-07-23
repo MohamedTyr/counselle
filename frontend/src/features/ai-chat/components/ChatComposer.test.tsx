@@ -116,11 +116,22 @@ describe("ChatComposer", () => {
   test("awaitingClarify swaps the placeholder", () => {
     renderComposer({ awaitingClarify: true });
     expect(
-      screen.getByPlaceholderText("Answer above, or reply in your own words..."),
+      screen.getByPlaceholderText(
+        "Answer above, or reply in your own words...",
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("This reply answers the existing question."),
+      screen.getByText("Answering the question above"),
     ).toBeInTheDocument();
+  });
+
+  test("awaitingClarify uses the compact reply shell", () => {
+    const { container } = renderComposer({ awaitingClarify: true });
+
+    const shell = container.querySelector("form > div");
+    expect(shell).toHaveClass("min-h-0");
+    expect(shell).not.toHaveClass("min-h-28");
+    expect(screen.getByRole("button", { name: "Send" })).toHaveClass("size-8");
   });
 
   test("submit button becomes a stop control while submitting", () => {

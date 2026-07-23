@@ -5,6 +5,7 @@ import type { ResponseMode, ResponseModeOption } from "@/api/chat/types";
 import { Button } from "@/components/ui/button";
 import {
   Menu,
+  MenuGroup,
   MenuPopup,
   MenuRadioGroup,
   MenuRadioItem,
@@ -21,26 +22,19 @@ type ResponseModeMenuProps = {
 
 type ModeCopy = {
   label: string;
-  description: string;
   icon: typeof Zap;
 };
 
 const COPY: Record<ResponseMode, ModeCopy> = {
   quick: {
     label: "Quick",
-    description: "Fast answers for everyday questions.",
     icon: Zap,
   },
   think: {
     label: "Think",
-    description: "More time for complex comparisons and important decisions.",
     icon: BrainCircuit,
   },
 };
-
-function modeLabel(mode: ResponseMode) {
-  return COPY[mode].label;
-}
 
 function modelDisclosure(option: ResponseModeOption) {
   if (!option.model) {
@@ -86,42 +80,44 @@ export function ResponseModeMenu({
       </MenuTrigger>
       <MenuPopup
         align="start"
-        className="w-80 px-1 py-1.5"
+        className="w-72 max-w-[calc(100vw_-_2rem)] px-1 py-1.5"
         side="top"
         sideOffset={8}
       >
-        <MenuRadioGroup onValueChange={handleValueChange} value={mode}>
-          <div className="flex flex-col gap-1">
-            {modes.map((option) => {
-              const copy = COPY[option.id];
-              const Icon = copy.icon;
-              const disclosure = modelDisclosure(option);
+        <div className="[zoom:var(--workspace-source-menu-density)]">
+          <MenuGroup>
+            <MenuRadioGroup onValueChange={handleValueChange} value={mode}>
+              <div className="flex flex-col gap-[var(--workspace-source-menu-row-gap)]">
+                {modes.map((option) => {
+                  const copy = COPY[option.id];
+                  const Icon = copy.icon;
+                  const disclosure = modelDisclosure(option);
 
-              return (
-                <MenuRadioItem
-                  className="min-h-16 items-start rounded-lg py-2 pe-2"
-                  key={option.id}
-                  value={option.id}
-                >
-                  <span className="flex min-w-0 items-start gap-2">
-                    <Icon className="mt-0.5" data-icon="inline-start" />
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="font-medium">{copy.label}</span>
-                      <span className="text-[12px] leading-4 text-muted-foreground">
-                        {copy.description}
-                      </span>
-                      {disclosure && (
-                        <span className="text-[11px] leading-4 text-muted-foreground">
-                          {disclosure}
+                  return (
+                    <MenuRadioItem
+                      className="group/mode h-7 rounded-lg px-2 py-1 text-[var(--workspace-dropdown-foreground)] transition-[background-color,color] duration-150 data-checked:bg-[var(--workspace-dropdown-hover)] data-highlighted:bg-[var(--workspace-dropdown-hover)] motion-reduce:transition-none"
+                      indicator="none"
+                      key={option.id}
+                      value={option.id}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Icon className="-mx-0.5 size-4.5 shrink-0" />
+                        <span className="min-w-0 truncate text-[13px] leading-5 font-medium text-[var(--workspace-composer-sources-foreground)] group-data-checked/mode:text-[var(--workspace-foreground)]">
+                          {copy.label}
                         </span>
-                      )}
-                    </span>
-                  </span>
-                </MenuRadioItem>
-              );
-            })}
-          </div>
-        </MenuRadioGroup>
+                        {disclosure && (
+                          <span className="ms-auto shrink-0 text-[11px] leading-4 text-[var(--workspace-dropdown-foreground)]">
+                            {disclosure}
+                          </span>
+                        )}
+                      </span>
+                    </MenuRadioItem>
+                  );
+                })}
+              </div>
+            </MenuRadioGroup>
+          </MenuGroup>
+        </div>
       </MenuPopup>
     </Menu>
   );

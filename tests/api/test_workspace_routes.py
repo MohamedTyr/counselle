@@ -19,7 +19,14 @@ from sse_starlette import ServerSentEvent
 from api.auth import current_active_user
 from api.context import install_middleware
 from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter
-from api.routes import activities, applications, essays, tasks, workspace_events
+from api.routes import (
+    activities,
+    applications,
+    essay_prompt_drafts,
+    essays,
+    tasks,
+    workspace_events,
+)
 from app.workspace.changes import WorkspaceEventBus, make_change_event
 from app.workspace.models import (
     Activity,
@@ -46,6 +53,7 @@ def _app(*, authed: bool = True, workspace_writes_per_minute: int = 240) -> Fast
     app.include_router(applications.router, prefix="/v1")
     app.include_router(tasks.router, prefix="/v1")
     app.include_router(essays.router, prefix="/v1")
+    app.include_router(essay_prompt_drafts.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
     app.state.settings = settings
@@ -274,6 +282,24 @@ def test_unknown_workspace_item_maps_to_404() -> None:
             "post",
             f"/v1/essays/{_UNKNOWN_UUID}/duplicate",
             None,
+        ),
+        (
+            "api.routes.essay_prompt_drafts.archive_essay_prompt_draft",
+            "delete",
+            f"/v1/essay-prompt-drafts/{_UNKNOWN_UUID}",
+            None,
+        ),
+        (
+            "api.routes.essay_prompt_drafts.restore_essay_prompt_draft",
+            "post",
+            f"/v1/essay-prompt-drafts/{_UNKNOWN_UUID}/restore",
+            None,
+        ),
+        (
+            "api.routes.essay_prompt_drafts.convert_essay_prompt_draft",
+            "post",
+            f"/v1/essay-prompt-drafts/{_UNKNOWN_UUID}/convert",
+            {"title": "Supplement"},
         ),
         (
             "api.routes.activities.update_activity",

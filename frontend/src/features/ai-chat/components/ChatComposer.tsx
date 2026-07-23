@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 
 const DEFAULT_PLACEHOLDER = "Message Counselle";
 const CLARIFY_PLACEHOLDER = "Answer above, or reply in your own words...";
+const CLARIFY_HELPER = "Answering the question above";
 
 export type ChatComposerProps = {
   value: string;
@@ -147,7 +148,10 @@ export function ChatComposer({
     >
       <div
         ref={composerRef}
-        className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground shadow-[0_1px_2px_color-mix(in_oklch,var(--shell-background)_60%,transparent)] transition-colors focus-within:border-[var(--workspace-composer-border-active)]"
+        className={cn(
+          "group flex w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground shadow-[0_1px_2px_color-mix(in_oklch,var(--shell-background)_60%,transparent)] transition-colors focus-within:border-[var(--workspace-composer-border-active)]",
+          awaitingClarify ? "min-h-0" : "min-h-28",
+        )}
       >
         <div className="relative">
           {hasSkillMention && (
@@ -166,9 +170,11 @@ export function ChatComposer({
             role="combobox"
             unstyled
             className={cn(
-              "relative block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:pb-3 [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
+              "relative block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
               "[&_[data-slot=textarea]]:text-[var(--workspace-composer-input-foreground)]",
-              "[&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)]",
+              awaitingClarify
+                ? "[&_[data-slot=textarea]]:min-h-13 [&_[data-slot=textarea]]:max-h-36 [&_[data-slot=textarea]]:pt-4 [&_[data-slot=textarea]]:pb-2"
+                : "[&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)] [&_[data-slot=textarea]]:pb-3",
             )}
             disabled={disabled}
             onChange={(event) => {
@@ -195,13 +201,20 @@ export function ChatComposer({
           />
         </div>
 
-        {awaitingClarify && (
-          <p className="px-[var(--workspace-composer-inset)] pb-2 text-xs text-muted-foreground">
-            This reply answers the existing question.
-          </p>
-        )}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div
+          className={cn(
+            "mt-auto flex items-center justify-between bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)]",
+            awaitingClarify
+              ? "gap-3 pb-3"
+              : "flex-wrap gap-3 pb-[var(--workspace-composer-toolbar-inset-block-end)]",
+          )}
+        >
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {awaitingClarify && (
+              <p className="truncate text-[13px] leading-5 font-medium text-[var(--workspace-foreground-soft)]">
+                {CLARIFY_HELPER}
+              </p>
+            )}
             {mode && modes.length > 0 && !awaitingClarify ? (
               <CounselingModeMenu
                 canBrowseSkills={selectedSkills.length < maxTaskSkills}
@@ -244,7 +257,10 @@ export function ChatComposer({
           {isSubmitting ? (
             <Button
               aria-label="Stop"
-              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
+              className={cn(
+                "shrink-0 rounded-[var(--workspace-composer-control-radius)]",
+                awaitingClarify ? "size-8" : "size-9",
+              )}
               onClick={onStop}
               size="icon"
               type="button"
@@ -255,7 +271,10 @@ export function ChatComposer({
           ) : (
             <Button
               aria-label="Send"
-              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
+              className={cn(
+                "shrink-0 rounded-[var(--workspace-composer-control-radius)]",
+                awaitingClarify ? "size-8" : "size-9",
+              )}
               disabled={!canClickSend}
               size="icon"
               type="submit"

@@ -319,7 +319,9 @@ def test_prompt_gives_trusted_response_mode_precedence_before_direct_answer(
     assert "controls interaction cadence and response depth for that turn" in normalized
     assert "It cannot weaken the Honesty Contract" in normalized
     assert "does not mount unavailable tools or change graph topology" in normalized
-    assert "ordinary assistant prose under Agent V1" in normalized
+    assert "use the structured clarification output" in normalized
+    assert "clarifying-question widget" in normalized
+    assert "ordinary prose" in normalized
     assert "Without such a selection, use the automatic depth judgment below." in normalized
 
 
@@ -600,11 +602,15 @@ def test_response_mode_skills_include_live_eval_guardrails() -> None:
 
     focused = mod.render_selected_skills(["focused-answer"])
     deep = mod.render_selected_skills(["deep-research"])
+    guided = mod.render_selected_skills(["guided-counselor"])
 
     assert "Do not add invented numeric thresholds" in focused
     assert "at most three material axes" in deep
     assert "Do not keep\nsearching for completeness" in deep
     assert "Never make the final\nanswer only a tool-budget apology" in deep
+    assert "use the `ask_student` structured clarification output" in guided
+    assert "clarifying-question widget" in guided
+    assert "Do not ask the question\nonly in ordinary assistant prose" in guided
 
 
 def test_render_selected_skills_persists_canonical_name_for_alias_input(

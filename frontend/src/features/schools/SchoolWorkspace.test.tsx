@@ -81,6 +81,7 @@ describe("SchoolWorkspace honesty states", () => {
             application: workspaceApplicationFixture,
             tasks: [],
             essays: [],
+            prompt_drafts: [],
             reference: workspaceReferenceFixture,
           });
         }
@@ -134,6 +135,7 @@ describe("SchoolWorkspace honesty states", () => {
     renderWorkspace({
       application: { ...workspaceApplicationFixture, cycle_year: null },
       essays: [],
+      prompt_drafts: [],
       reference: {
         ...workspaceReferenceFixture,
         cycle_year: null,
@@ -157,6 +159,7 @@ describe("SchoolWorkspace honesty states", () => {
     renderWorkspace({
       application: workspaceApplicationFixture,
       essays: [],
+      prompt_drafts: [],
       reference: {
         ...workspaceReferenceFixture,
         populated: true,
@@ -194,6 +197,7 @@ describe("SchoolWorkspace honesty states", () => {
           title: "Preserved historical draft",
         },
       ],
+      prompt_drafts: [],
       reference: workspaceReferenceFixture,
       tasks: [],
     });

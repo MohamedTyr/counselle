@@ -52,6 +52,7 @@ ObjectType = Literal[
     "application",
     "task",
     "essay",
+    "essay_prompt_draft",
     "activity",
     "honor",
     "profile",
@@ -432,6 +433,58 @@ class EssayPatch(_Model):
         if value is None:
             raise ValueError("field may be omitted but cannot be null")
         return value
+
+
+PROMPT_DRAFT_TEXT_MAX_LENGTH = 2_000  # generous ceiling for a supplement prompt
+
+
+def _reject_blank_prompt(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("prompt cannot be blank")
+    return stripped
+
+
+PromptDraftText = Annotated[
+    str,
+    AfterValidator(_reject_blank_prompt),
+    Field(max_length=PROMPT_DRAFT_TEXT_MAX_LENGTH),
+]
+
+
+class EssayPromptDraft(_Model):
+    id: UUID
+    user_id: UUID
+    application_id: UUID
+    prompt: str
+    word_limit: int | None = None
+    archived_via_application: UUID | None = None
+    converted_to_essay_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+    archived_at: datetime | None = None
+
+
+class EssayPromptDraftSummary(EssayPromptDraft):
+    school_name: str
+    school_city: str | None = None
+    school_state: str | None = None
+    school_website_url: str | None = None
+
+
+class EssayPromptDraftCreate(_Model):
+    application_id: UUID
+    prompt: PromptDraftText
+    word_limit: int | None = Field(default=None, gt=0)
+
+
+class EssayPromptDraftConvert(_Model):
+    """Title is caller-supplied, matching how every other essay-create path
+    (catalog "Start writing", "Add essay") already builds its own title
+    string client-side rather than having the backend guess one."""
+
+    title: str = Field(min_length=1)
+    essay_type: EssayType = "Supplement"
 
 
 class Activity(_Model):
@@ -956,4 +1009,5 @@ class ApplicationDetail(_Model):
     application: ApplicationView
     tasks: list[Task]
     essays: list[EssaySummary]
+    prompt_drafts: list[EssayPromptDraft] = Field(default_factory=list)
     reference: SchoolReference
