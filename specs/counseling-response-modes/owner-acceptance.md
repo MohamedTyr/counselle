@@ -21,6 +21,11 @@ feature.
   - `mobile-specialized-skill-handoff.png`
   - `keyboard-reduced-motion-guided.png`
   - `qa-notes.md`
+- Refreshed menu-polish QA artifacts after the compact one-line menu decision:
+  `artifacts/counseling-response-modes/20260723T0830Z-menu-polish/`
+  - `desktop-mode-menu-compact.png`
+  - `mobile-375-mode-menu-compact.png`
+  - `qa-notes.md`
 - Focused live behavior eval cases in `evals/questions.yaml`:
   - `response-mode-focused-direct`
   - `response-mode-deep-research-triangulates`
