@@ -11,7 +11,8 @@ feature.
 ## Evidence already available
 
 - Implementation branch: `feat/counseling-response-modes`.
-- Latest verification/fix commit: `2ceba08 fix(counseling-modes): align mode menu styling`.
+- Latest implementation/fix commit: `2ceba08 fix(counseling-modes): align mode menu styling`.
+- Latest evidence-reference commit: `b6b6505 docs(counseling-modes): reference refreshed menu QA`.
 - Browser QA artifacts:
   `artifacts/counseling-response-modes/20260722T135009Z/`
   - `desktop-focused-default.png`
