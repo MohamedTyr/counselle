@@ -26,6 +26,7 @@ from evals.runner import (
     score_composition,
     score_deterministic,
     score_judge,
+    score_narration,
     score_question,
     score_routing,
     score_workspace,
@@ -636,6 +637,26 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
         payload,
     )
     assert score_deterministic(expects, reverse_unrelated)["denominator"]["passed"] is False
+    reverse_examples = make_query_capture(
+        "Out of 2,746 profiled institutions, there are 3 examples with verified "
+        "numeric data for the metric.",
+        {"columns": ["covered", "total"], "rows": [[3, 2746]]},
+    )
+    assert score_deterministic(expects, reverse_examples)["denominator"]["passed"] is False
+    reverse_bare_count = make_query_capture(
+        "Out of 2,746 profiled institutions, there are 3.",
+        {"columns": ["covered", "total"], "rows": [[3, 2746]]},
+    )
+    assert score_deterministic(expects, reverse_bare_count)["denominator"]["passed"] is False
+    reverse_qualified_school_noun = make_query_capture(
+        "Out of 2,746 profiled institutions, there are 3 covered schools with "
+        "verified numeric data for the metric.",
+        {"columns": ["covered", "total"], "rows": [[3, 2746]]},
+    )
+    assert (
+        score_deterministic(expects, reverse_qualified_school_noun)["denominator"]["passed"]
+        is True
+    )
     noun_between = make_query_capture("Two schools out of 2,746 have the exact metric.", payload)
     assert score_deterministic(expects, noun_between)["denominator"]["passed"] is True
     markdown_emphasis = make_query_capture(
@@ -644,12 +665,24 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
         {"columns": ["covered", "total"], "rows": [[3, 2746]]},
     )
     assert score_deterministic(expects, markdown_emphasis)["denominator"]["passed"] is True
+    live_routing_phrase = make_query_capture(
+        "A total of 3 schools are covered with verified, reported numeric data for the "
+        "metric, out of 2,746 profiled institutions.",
+        {"columns": ["covered", "total"], "rows": [[3, 2746]]},
+    )
+    assert score_deterministic(expects, live_routing_phrase)["denominator"]["passed"] is True
     unrelated_out_of = make_query_capture(
         "We found 3 schools with this metric, and pulled examples out of 2,746 total "
         "profiled institutions.",
         {"columns": ["covered", "total"], "rows": [[3, 2746]]},
     )
     assert score_deterministic(expects, unrelated_out_of)["denominator"]["passed"] is False
+    split_reporting_phrase = make_query_capture(
+        "There are 3 schools with verified numeric data. I pulled examples out of "
+        "2,746 profiled institutions.",
+        {"columns": ["covered", "total"], "rows": [[3, 2746]]},
+    )
+    assert score_deterministic(expects, split_reporting_phrase)["denominator"]["passed"] is False
     aliases_and_word = make_query_capture(
         "Of the 2,746 profiled schools, two have a verified value.",
         {"columns": ["covered_schools", "total_schools"], "rows": [[2, 2746]]},
@@ -1026,6 +1059,54 @@ def test_clarification_requires_v2_event_when_mandatory() -> None:
         make_capture(clarifies=[{"v": 2}], done_status="awaiting_input"),
     )
     assert v2_parked["clarify_judgment"]["passed"] is True
+
+
+def test_narration_requires_first_visible_work_event_and_no_final_boilerplate() -> None:
+    narration = Event(type="narration", data={"text": "I will check the coverage block."})
+    resolve_step = Event(
+        type="step",
+        data={"status": "start", "kind": "resolve_school", "label": "Resolving school"},
+    )
+    good = score_narration({}, make_capture(events=[narration, resolve_step], prose="Answer."))
+    assert good["narration_present"]["passed"] is True
+    assert good["narration_before_work"]["passed"] is True
+    assert good["no_write_plan_for_narration"]["passed"] is True
+    assert good["no_final_boilerplate"]["passed"] is True
+
+    write_plan_step = Event(
+        type="step",
+        data={"status": "start", "kind": "write_plan", "label": "Updating the plan"},
+    )
+    write_plan_first = score_narration(
+        {},
+        make_capture(events=[write_plan_step, narration, resolve_step], prose="Answer."),
+    )
+    assert write_plan_first["narration_present"]["passed"] is True
+    assert write_plan_first["narration_before_work"]["passed"] is False
+    assert write_plan_first["no_write_plan_for_narration"]["passed"] is False
+
+    write_plan_after_narration = score_narration(
+        {},
+        make_capture(events=[narration, write_plan_step, resolve_step], prose="Answer."),
+    )
+    assert write_plan_after_narration["narration_before_work"]["passed"] is True
+    assert write_plan_after_narration["no_write_plan_for_narration"]["passed"] is False
+
+    late_narration = score_narration(
+        {},
+        make_capture(events=[narration, resolve_step, narration], prose="Answer."),
+    )
+    assert late_narration["narration_present"]["passed"] is True
+    assert late_narration["narration_before_work"]["passed"] is False
+
+    final_boilerplate = score_narration(
+        {},
+        make_capture(
+            events=[narration, resolve_step],
+            prose="The coverage block is partial. Execution finished. Ready for next instructions.",
+        ),
+    )
+    assert final_boilerplate["no_final_boilerplate"]["passed"] is False
 
 
 def test_non_required_clarification_rejects_prose_or_widget_question() -> None:

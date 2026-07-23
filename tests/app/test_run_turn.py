@@ -1581,6 +1581,234 @@ async def test_registry_resets_for_each_completed_answer() -> None:
     assert sources_2[0]["citation"]["url"] == "https://example.com/2"
 
 
+async def test_explicit_work_narration_streams_before_first_tool_and_persists() -> None:
+    seen_tools: list[str] = []
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return _search_then_answer(messages, info)
+
+    rig = Rig(_fn_model(model))
+    session_id = str(uuid4())
+
+    events = await rig.turn(
+        session_id,
+        "Resolve Harvard and keep work narration to one intent-only sentence.",
+        SourceConfig(web=True, reddit=False, edu=False),
+    )
+
+    types = _types(events)
+    assert types.index("narration") < types.index("step")
+    assert _narration(events) == "I will check the requested evidence before answering."
+    values = await _state_values(rig, session_id)
+    record = values["turn_records"][-1]
+    assert record["narration"] == ["I will check the requested evidence before answering."]
+    assert record["segments"][0] == {
+        "kind": "narration",
+        "text": "I will check the requested evidence before answering.",
+    }
+    assert "write_plan" not in seen_tools
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "Please narrate your work as you go.",
+        "Tell me what you're doing as you look this up.",
+        "Talk me through your steps while checking this.",
+    ],
+)
+async def test_common_work_narration_requests_emit_code_owned_narration(prompt: str) -> None:
+    rig = Rig(_fn_model(lambda _messages, _info: ModelResponse(parts=[TextPart("Answer only.")])))
+
+    events = await rig.turn(str(uuid4()), prompt, _ALL_OFF)
+
+    assert _narration(events) == "I will check the requested evidence before answering."
+
+
+async def test_negated_work_narration_request_does_not_emit_code_owned_narration() -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+    session_id = str(uuid4())
+
+    events = await rig.turn(
+        session_id,
+        "Resolve Harvard without work narration; just answer.",
+        _ALL_OFF,
+    )
+
+    assert "narration" not in _types(events)
+    assert _text(events) == "Answer only."
+    assert "write_plan" in seen_tools
+    values = await _state_values(rig, session_id)
+    assert values["turn_records"][-1]["narration"] == []
+
+
+async def test_work_narration_with_explicit_plan_request_keeps_write_plan_mounted() -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    events = await rig.turn(
+        str(uuid4()),
+        "Keep work narration brief and write a plan before answering.",
+        _ALL_OFF,
+    )
+
+    assert "narration" in _types(events)
+    assert "write_plan" in seen_tools
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "Keep work narration brief and outline a plan before answering.",
+        "Keep work narration brief and use the plan tool first.",
+        "Keep work narration brief and walk me through your plan.",
+        "Keep work narration brief and show your plan before answering.",
+        "Keep work narration brief and write the plan before answering.",
+        "Keep work narration brief and give me your plan before answering.",
+        "I have no plan for this, so keep work narration brief and show me a plan.",
+        "Without a plan I'll miss something; keep work narration brief and outline a plan.",
+    ],
+)
+async def test_common_explicit_plan_requests_keep_write_plan_mounted(prompt: str) -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    await rig.turn(str(uuid4()), prompt, _ALL_OFF)
+
+    assert "write_plan" in seen_tools
+
+
+async def test_work_narration_with_negated_plan_request_keeps_write_plan_unmounted() -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    events = await rig.turn(
+        str(uuid4()),
+        "Keep work narration brief and don't write a plan before answering.",
+        _ALL_OFF,
+    )
+
+    assert "narration" in _types(events)
+    assert "write_plan" not in seen_tools
+
+
+async def test_negated_narration_and_negated_plan_keep_write_plan_unmounted() -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    events = await rig.turn(
+        str(uuid4()),
+        "Resolve Harvard without work narration and don't write a plan.",
+        _ALL_OFF,
+    )
+
+    assert "narration" not in _types(events)
+    assert "write_plan" not in seen_tools
+
+
+async def test_unrelated_negation_does_not_suppress_explicit_plan_request() -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    events = await rig.turn(
+        str(uuid4()),
+        "Do not answer yet; keep work narration brief and plan this out first.",
+        _ALL_OFF,
+    )
+
+    assert "narration" in _types(events)
+    assert "write_plan" in seen_tools
+
+
+async def test_bare_planning_tool_mention_does_not_remount_write_plan() -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    await rig.turn(
+        str(uuid4()),
+        "Keep work narration brief. The planning tool exists, but do not use extra tools.",
+        _ALL_OFF,
+    )
+
+    assert "write_plan" not in seen_tools
+
+
+async def test_direct_planning_tool_negation_keeps_write_plan_unmounted() -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    await rig.turn(
+        str(uuid4()),
+        "Keep work narration brief without a planning tool.",
+        _ALL_OFF,
+    )
+
+    assert "write_plan" not in seen_tools
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "Keep work narration brief and don't use the plan tool.",
+        "Keep work narration brief and do not call the plan tool.",
+    ],
+)
+async def test_direct_plan_tool_negation_keeps_write_plan_unmounted(prompt: str) -> None:
+    seen_tools: list[str] = []
+
+    def answer_only(_messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        seen_tools.extend(tool.name for tool in info.function_tools)
+        return ModelResponse(parts=[TextPart("Answer only.")])
+
+    rig = Rig(_fn_model(answer_only))
+
+    await rig.turn(str(uuid4()), prompt, _ALL_OFF)
+
+    assert "write_plan" not in seen_tools
+
+
 # ---------------------------------------------------------------------------
 # (e) Agent V1 does not mount ask_student
 # ---------------------------------------------------------------------------

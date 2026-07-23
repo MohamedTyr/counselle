@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -127,6 +128,73 @@ _TOOL_BUDGET_MESSAGE = (
     "\n\nI hit my tool budget for this turn, so I'm stopping here — this is what "
     "I have so far. Ask me to continue and I'll pick up where I left off."
 )
+
+
+def _requested_work_narration(user_text: str) -> str | None:
+    """Return code-owned pre-tool narration only when the student asked for it."""
+    if _forbid_work_narration(user_text):
+        return None
+    if not (
+        re.search(r"\b(?:keep|use|show|emit|include)\s+(?:work\s+)?narration\b", user_text, re.I)
+        or re.search(r"\bnarrate\s+(?:your\s+)?work\b", user_text, re.I)
+        or re.search(r"\btell me what (?:you are|you're) doing\b", user_text, re.I)
+        or re.search(r"\btalk me through (?:your\s+)?(?:steps?|work)\b", user_text, re.I)
+    ):
+        return None
+    return "I will check the requested evidence before answering."
+
+
+def _forbid_work_narration(user_text: str) -> bool:
+    return bool(
+        re.search(
+            r"\b("
+            r"no\s+(?:work\s+)?narration|"
+            r"without\s+(?:work\s+)?narration|"
+            r"(?:skip|avoid)\s+(?:the\s+)?(?:work\s+)?narration|"
+            r"(?:don't|do not)\s+(?:use\s+)?(?:the\s+)?(?:work\s+)?narration|"
+            r"(?:don't|do not)\s+narrate\s+(?:your\s+)?work"
+            r")\b",
+            user_text,
+            re.I,
+        )
+    )
+
+
+def _explicit_plan_request(user_text: str) -> bool:
+    if _forbid_plan_request(user_text):
+        return False
+    plan_object = r"(?:(?:a|the|your)\s+)?plan"
+    return bool(
+        re.search(
+            r"\b("
+            r"(?:use|call)\s+(?:the\s+)?(?:write_plan|planning tool|plan tool)|"
+            rf"(?:make|show|write|give me|outline)\s+{plan_object}|"
+            rf"show me\s+{plan_object}|"
+            r"plan this out|"
+            r"walk me through (?:your\s+)?plan"
+            r")\b",
+            user_text,
+            re.I,
+        )
+    )
+
+
+def _forbid_plan_request(user_text: str) -> bool:
+    return bool(
+        re.search(
+            r"\b("
+            r"no\s+(?:write_plan|planning tool|plan tool)|"
+            r"without\s+(?:a\s+)?(?:write_plan|planning tool|plan tool)|"
+            r"(?:skip|avoid)\s+(?:the\s+)?(?:write_plan|planning tool|plan)|"
+            r"(?:don't|do not)\s+(?:use|call)?\s*(?:the\s+)?"
+            r"(?:write_plan|planning tool|plan tool)|"
+            r"(?:don't|do not)\s+write\s+(?:a\s+)?plan|"
+            r"(?:don't|do not)\s+make\s+(?:a\s+)?plan"
+            r")\b",
+            user_text,
+            re.I,
+        )
+    )
 
 
 def _empty_resolve_completion(emissions: list[Emission]) -> str | None:
@@ -649,6 +717,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     registry = restored_registry or SourceRegistry(state.get("source_registry") or [])
     source_config = SourceConfig.model_validate(state["source_config"])
     history, user_text = _split_user_message(state["messages"])
+    requested_narration = _requested_work_narration(user_text)
     viz_list: list[dict[str, Any]] = []
     viz_signature_indexes: dict[str, int] = {}
     final_writer = _FinalContentPlacementWriter(viz_list, recording_writer, registry)
@@ -670,13 +739,16 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     plan_state = PlanState()
     extra_tools: list[Tool[Any]] = [
-        Tool(make_write_plan_tool(plan_state), takes_ctx=False),
         _make_render_viz_tool(
             deps.catalog, registry, viz_list, viz_signature_indexes, tool_overflow
         ),
         _make_read_tool_result_tool(overflow_store, registry),
         _make_load_skill_tool(tool_overflow),
     ]
+    if not _forbid_plan_request(user_text) and (
+        requested_narration is None or _explicit_plan_request(user_text)
+    ):
+        extra_tools.insert(0, Tool(make_write_plan_tool(plan_state), takes_ctx=False))
     # Workspace tools (ADR 0013: unmounted, not hidden) — only exist this turn
     # when the turn carries an authenticated user AND the app pool + workspace
     # event bus are wired in (eval runner / CLI pass no user_id → unmounted).
@@ -797,6 +869,8 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     result = None
     completion_fallback: str | None = None
     try:
+        if requested_narration:
+            recording_writer({"type": "narration", "text": requested_narration})
         # `async with agent` enters the MCP toolset for the run (notes §2 lifecycle).
         async with (
             agent,

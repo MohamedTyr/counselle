@@ -1022,7 +1022,7 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             rf"\b{expected_pair[0]}\b"
             rf"(?:\s+(?:covered|verified|reported|eligible|profiled|schools?|institutions?"
             rf"|candidates?|values?|with|usable|exact|metric|data|that|can|be|evaluated"
-            rf"|have|has|a|an|the|for|this|ranking|only|count|of|total|database"
+            rf"|have|has|are|numeric|a|an|the|for|this|ranking|only|count|of|total|database"
             rf"|contains|reflects|our|current|reported)){{0,24}}\s+"
             rf"(?:of|out of)\s+"
             rf"(?:the\s+)?{expected_pair[1]}\b"
@@ -1033,9 +1033,11 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             rf"\b(?:of|out of)\s+(?:the\s+)?{expected_pair[1]}\b"
             rf"(?:\s+(?:covered|verified|reported|eligible|profiled|schools?|institutions?"
             rf"|candidates?|values?|with|usable|exact|metric|data|that|can|be|evaluated"
-            rf"|have|has|a|an|the|for|this|ranking|only|count|of|total|database"
+            rf"|have|has|are|numeric|a|an|the|for|this|ranking|only|count|of|total|database"
             rf"|contains|reflects|our|current|reported|only|among|there|are|is|,))*"
             rf"\s+{expected_pair[0]}\b"
+            rf"(?=(?:\s+(?:covered|verified|reported|eligible|profiled|numeric|usable|exact)){{0,8}}"
+            rf"\s+(?:schools?|institutions?|candidates?|values?|have|has|is|are|can)\b)"
             if expected_pair
             else r"(?!)"
         )
@@ -1082,12 +1084,62 @@ def score_clarify(expects: dict[str, Any], capture: TurnCapture) -> dict[str, di
 
 def score_narration(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
     beats = [str(e.data.get("text") or "") for e in capture.events if e.type == "narration"]
+    visible_work_events = [
+        e
+        for e in capture.events
+        if e.type == "narration" or (e.type == "step" and e.data.get("status") == "start")
+    ]
+    first_visible = visible_work_events[0].type if visible_work_events else None
+    first_step_index = next(
+        (
+            index
+            for index, event in enumerate(visible_work_events)
+            if event.type == "step" and event.data.get("status") == "start"
+        ),
+        None,
+    )
+    late_narration = any(
+        event.type == "narration"
+        for event in (
+            visible_work_events[first_step_index + 1 :] if first_step_index is not None else []
+        )
+    )
+    write_plan_started = any(
+        event.type == "step"
+        and event.data.get("status") == "start"
+        and event.data.get("kind") == "write_plan"
+        for event in visible_work_events
+    )
+    boilerplate = re.search(
+        r"\b("
+        r"ready for next instructions|waiting for next user prompt|execution finished|"
+        r"finished executing the plan|system bookkeeping|finalizing plan|"
+        r"all steps are now completed|end of response|end of turn"
+        r")\b",
+        capture.prose,
+        re.I,
+    )
     return {
         "narration_present": _check(bool(beats), f"beats={len(beats)}"),
+        "narration_before_work": _check(
+            bool(beats) and first_visible == "narration" and not late_narration,
+            (
+                f"first_visible={first_visible}; "
+                f"late_narration={late_narration}"
+            ),
+        ),
+        "no_write_plan_for_narration": _check(
+            not write_plan_started,
+            f"write_plan_started={write_plan_started}",
+        ),
         "concise": _check(
             all(len(re.findall(r"[.!?]+(?:\s|$)", b)) <= 2 for b in beats), f"beats={beats}"
         ),
         "no_markers": _check(not any(_markers(b) for b in beats), "narration must not cite"),
+        "no_final_boilerplate": _check(
+            boilerplate is None,
+            f"matched={boilerplate.group(0) if boilerplate else None}",
+        ),
     }
 
 
