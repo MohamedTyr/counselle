@@ -23,10 +23,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from api.auth import (
     UserCreate,
@@ -56,7 +59,7 @@ from api.routes import (
     workspace_events,
 )
 from api.routes import config as config_routes
-from api.supervision import McpSupervisor
+from api.supervision import McpSupervisor, NoopMcpSupervisor
 from app.caveats import caveat_catalog
 from app.deps import build_runtime
 from app.prompt import validate_prompt_assets
@@ -84,7 +87,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     load_all_skill_meta()
     runtime = await build_runtime(settings)  # pools + catalog + checkpointer (D3) + graph
     try:
-        supervisor = McpSupervisor(runtime.deps.mcp_toolset)
+        supervisor = (
+            McpSupervisor(runtime.deps.mcp_toolset)
+            if runtime.deps.mcp_toolset is not None
+            else NoopMcpSupervisor()
+        )
         supervisor.start()  # first probe spawns/verifies the counselle-db child (D4)
         # Wire supervisor.kick to deps.on_failure so any turn crash immediately
         # triggers a probe + restart of the MCP child (FIX 3; ADR 0017 carve-out).
@@ -129,18 +136,36 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
         tags=["auth"],
         dependencies=auth_post_dependencies,
     )
-    app.include_router(
-        fastapi_users.get_register_router(UserRead, UserCreate),
-        prefix="/v1/auth",
-        tags=["auth"],
-        dependencies=auth_post_dependencies,
-    )
-    app.include_router(
-        fastapi_users.get_reset_password_router(),
-        prefix="/v1/auth",
-        tags=["auth"],
-        dependencies=auth_post_dependencies,
-    )
+    if settings.auth_self_signup_enabled:
+        app.include_router(
+            fastapi_users.get_register_router(UserRead, UserCreate),
+            prefix="/v1/auth",
+            tags=["auth"],
+            dependencies=auth_post_dependencies,
+        )
+    if settings.password_reset_enabled:
+        app.include_router(
+            fastapi_users.get_reset_password_router(),
+            prefix="/v1/auth",
+            tags=["auth"],
+            dependencies=auth_post_dependencies,
+        )
+    else:
+        async def _disabled_password_reset() -> None:
+            raise HTTPException(status_code=404)
+
+        app.add_api_route(
+            "/v1/auth/forgot-password",
+            _disabled_password_reset,
+            methods=["POST"],
+            include_in_schema=False,
+        )
+        app.add_api_route(
+            "/v1/auth/reset-password",
+            _disabled_password_reset,
+            methods=["POST"],
+            include_in_schema=False,
+        )
     app.include_router(
         fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/v1/auth", tags=["auth"]
     )
@@ -170,6 +195,49 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
         )
 
 
+def _install_spa_routes(app: FastAPI, settings: Any) -> None:
+    """Serve the static logged-out landing page and SPA when ADR 0023 mode is enabled."""
+    if not settings.serve_spa:
+        return
+
+    dist_dir = Path(settings.spa_dist_dir)
+    index_path = dist_dir / "index.html"
+    landing_path = dist_dir / "landing.html"
+    landing_preview_path = dist_dir / "landing-workspace-preview.webp"
+    assets_dir = dist_dir / "assets"
+    missing = [
+        str(path)
+        for path in (dist_dir, index_path, landing_path, landing_preview_path, assets_dir)
+        if not path.exists()
+    ]
+    if missing:
+        raise RuntimeError(
+            "COUNSELLE_SERVE_SPA=true but the built frontend is incomplete: "
+            + ", ".join(missing)
+        )
+
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="spa-assets")
+
+    @app.get("/", include_in_schema=False)
+    async def landing() -> FileResponse:
+        return FileResponse(landing_path)
+
+    @app.get("/landing-workspace-preview.webp", include_in_schema=False)
+    async def landing_preview() -> FileResponse:
+        return FileResponse(landing_preview_path)
+
+    @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
+    async def spa_fallback(full_path: str) -> FileResponse | JSONResponse:
+        if full_path == "landing.html":
+            return FileResponse(landing_path)
+        if full_path.startswith("v1/"):
+            return JSONResponse(
+                status_code=404,
+                content={"error": {"message": "Not found", "trace_id": None}},
+            )
+        return FileResponse(index_path)
+
+
 def create_app() -> FastAPI:
     """Build the Counselle API service (ADR 0016): middleware, /v1 routers, lifespan."""
     settings = get_settings()  # fail-fast: misconfiguration kills boot at the factory
@@ -190,4 +258,5 @@ def create_app() -> FastAPI:
     app.include_router(documents.router, prefix="/v1")
     app.include_router(memories.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
+    _install_spa_routes(app, settings)
     return app

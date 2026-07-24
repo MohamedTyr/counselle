@@ -22,7 +22,15 @@ from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 import yaml
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _ENV_PREFIX = "COUNSELLE_"
@@ -198,6 +206,7 @@ class Settings(BaseSettings):
     # --- Database ---
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required
     db_app_dsn: str  # counselle.* schema (sessions, users, workspace) — required
+    cds_data_enabled: bool = True
     db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
     db_row_cap: int = Field(default=500, gt=0)
     query_database_max_bytes: int = Field(default=262_144, gt=0)
@@ -250,12 +259,16 @@ class Settings(BaseSettings):
     google_cloud_location: str = "us-central1"
 
     # --- API ---
+    environment: Literal["development", "recording", "staging"] = "development"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     # Prod: empty (same-origin serving, ADR 0023); dev sets its own origin via env
     # (the split-origin Vite setup runs the SPA on :5173). Default-empty is the
     # fail-safe — a prod deploy never accidentally ships a localhost CORS allowance.
     cors_origins: list[str] = Field(default_factory=list)  # 06-L1
+    allowed_hosts: list[str] = Field(default_factory=lambda: ["*"])
+    serve_spa: bool = False
+    spa_dist_dir: Path = Path("frontend/dist")
     sse_keepalive_s: int = 15
     # --- Turn registry (B2: detached turns, reattach, cancel) ---
     # Ring-buffer capacity in events, sized to a full worst-case turn so
@@ -325,10 +338,24 @@ class Settings(BaseSettings):
     oauth_state_secret: str | None = None
     oauth_redirect_url: str = "/"  # where the OAuth callback 302s the SPA
     password_min_length: int = 8  # the password-policy floor (CFG-03; security knob)
+    auth_self_signup_enabled: bool = True
+    password_reset_enabled: bool = True
 
     # --- Email (B3) ---
     email_provider: Literal["console"] = "console"
     email_from: str = "noreply@counselle.app"
+
+    @model_validator(mode="after")
+    def _validate_deploy_auth_posture(self) -> Settings:
+        if self.environment != "development":
+            if self.password_reset_enabled and self.email_provider == "console":
+                raise ValueError(
+                    "password_reset_enabled cannot use the console email provider "
+                    "outside development"
+                )
+            if not self.cookie_secure:
+                raise ValueError("cookie_secure must be true outside development")
+        return self
 
     @field_validator("jwt_secret")
     @classmethod

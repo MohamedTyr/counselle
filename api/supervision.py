@@ -170,3 +170,26 @@ class McpSupervisor:
         self._consecutive_failures = 0
         self._last_error = None
         self._status = "ok"
+
+
+class NoopMcpSupervisor:
+    """Supervisor used when the temporary demo intentionally disables CDS tools."""
+
+    def start(self) -> None:
+        return None
+
+    async def aclose(self) -> None:
+        return None
+
+    def kick(self) -> None:
+        return None
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "mode": "disabled",
+            "consecutive_failures": 0,
+            "restarts": 0,
+            "last_probe_at": None,
+            "last_error": None,
+        }

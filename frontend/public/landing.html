@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Counselle</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #171615;
+        --panel: #211f1d;
+        --text: #e3e0db;
+        --muted: #a39e95;
+        --border: #34312e;
+        --primary: #d8d0c3;
+        --primary-fg: #171615;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 30% 10%, rgba(216, 208, 195, 0.12), transparent 30rem),
+          var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+      main {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: 2rem;
+      }
+      section {
+        display: grid;
+        width: min(64rem, 100%);
+        gap: 1.5rem;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 1.5rem;
+        background: color-mix(in srgb, var(--panel) 92%, transparent);
+        padding: clamp(1.5rem, 4vw, 3rem);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(2.5rem, 8vw, 5.5rem);
+        letter-spacing: -0.06em;
+        line-height: 0.95;
+      }
+      p {
+        margin: 1rem 0 0;
+        max-width: 42rem;
+        color: var(--muted);
+        font-size: clamp(1rem, 2vw, 1.25rem);
+        line-height: 1.6;
+      }
+      a {
+        display: inline-flex;
+        min-height: 2.75rem;
+        margin-top: 1.5rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.875rem;
+        background: var(--primary);
+        color: var(--primary-fg);
+        padding: 0 1.1rem;
+        font-weight: 650;
+        text-decoration: none;
+      }
+      .screenshot {
+        border: 1px solid var(--border);
+        border-radius: 1.25rem;
+        background: #1d1b19;
+        padding: 1rem;
+      }
+      .screenshot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 0.875rem;
+      }
+      @media (max-width: 720px) {
+        main {
+          padding: 1rem;
+        }
+      }
+    </style>
+    <script>
+      fetch("/v1/me", { credentials: "same-origin" })
+        .then((response) => {
+          if (response.ok) window.location.replace("/app/ai");
+        })
+        .catch(() => {});
+    </script>
+  </head>
+  <body>
+    <main>
+      <section>
+        <div class="card">
+          <h1>Counselle</h1>
+          <p>
+            An AI counselor that knows the student, answers with evidence, and turns
+            advice into an application plan.
+          </p>
+          <a href="/login">Sign in</a>
+        </div>
+        <div class="screenshot">
+          <img
+            alt="Counselle workspace showing a task created from an admissions plan"
+            decoding="async"
+            height="700"
+            src="/landing-workspace-preview.webp"
+            width="1038"
+          />
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

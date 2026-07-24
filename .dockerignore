@@ -1,9 +1,7 @@
-# Secrets & VCS
 .env
 .git/
 .gitignore
 
-# Python build / cache artifacts
 .venv/
 __pycache__/
 *.pyc
@@ -19,9 +17,9 @@ dist/
 htmlcov/
 coverage.xml
 
-# Frontend source/prototypes/backups — the backend runtime image does not serve
-# the SPA build here (same-origin serving is a deferred B6 concern).
-frontend/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
 frontend.backup-*/
 mvp3-frontend/
 node_modules/
@@ -29,7 +27,6 @@ build/
 test-results/
 playwright-report/
 
-# Not needed at runtime: tests, plans, specs, docs, design mockups, eval reports
 tests/
 plans/
 specs/
@@ -37,14 +34,12 @@ mockups/
 docs/
 evals/report-*
 
-# Nested worktrees (1.2 GB of duplicated source) and local agent tooling
 .worktrees/
 .agents/
 .claude/
 .gstack/
 .playwright-mcp/
 
-# Design-iteration screenshot scratch
 *.png
 *.jpg
 *.jpeg

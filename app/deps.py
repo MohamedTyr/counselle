@@ -13,8 +13,9 @@ compiled graph — and one ``aclose()`` that puts it all away.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 import asyncpg
@@ -29,7 +30,7 @@ from app.toolset import ToolDeps, build_mcp_toolset, make_tool_deps
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.document_summary import DocumentSummaryGenerator, make_document_summary_generator
 from config.settings import get_settings
-from counselle_db.catalog import Catalog
+from counselle_db.catalog import Catalog, CatalogSnapshot
 from counselle_db.db import create_pool
 
 
@@ -75,12 +76,40 @@ class Runtime:
             await self.checkpointer.conn.close()
 
 
+class EmptyCatalog:
+    """Minimal catalog for temporary demos that intentionally run without CDS data."""
+
+    snapshot: None = None
+    school_count = 0
+    school_names: Mapping[int, str] = MappingProxyType({})
+
+    async def maybe_refresh(self, *, force: bool = False) -> CatalogSnapshot | None:
+        return None
+
+    def school_name(self, unitid: int) -> str | None:
+        return None
+
+    def school_domain(self, unitid: int) -> str | None:
+        return None
+
+    def resolve_candidates(self, query: str) -> tuple[Any, ...]:
+        return ()
+
+
 async def build_runtime(settings: Any = None) -> Runtime:
     """Production wiring: pools, catalog, checkpointer, MCP toolset, graph."""
     settings = settings or get_settings()
     ro_pool = await create_pool(settings=settings)
     try:
-        catalog = await Catalog.load(ro_pool, settings=settings)
+        catalog: Any
+        if settings.cds_data_enabled:
+            catalog = await Catalog.load(ro_pool, settings=settings)
+            tool_deps = make_tool_deps(settings, catalog)
+            mcp_toolset = build_mcp_toolset(settings)
+        else:
+            catalog = EmptyCatalog()
+            tool_deps = make_tool_deps(settings, catalog)
+            mcp_toolset = None
         app_pool = await create_pool(dsn=settings.db_app_dsn, settings=settings)
     except BaseException:
         await ro_pool.close()
@@ -96,8 +125,8 @@ async def build_runtime(settings: Any = None) -> Runtime:
         app_pool=app_pool,
         settings=settings,
         run_handles=RunHandleStore(),
-        tool_deps=make_tool_deps(settings, catalog),
-        mcp_toolset=build_mcp_toolset(settings),
+        tool_deps=tool_deps,
+        mcp_toolset=mcp_toolset,
         workspace_events=WorkspaceEventBus(queue_size=settings.workspace_event_queue_size),
         document_summary_generator=make_document_summary_generator(settings),
     )

@@ -51,6 +51,14 @@ def _render_temporal(today: date, season: Season) -> str:
     return f"Today is {today.isoformat()}. {season.cycle_note}"
 
 
+_NO_CDS_DATA_PICTURE = (
+    "Temporary demo mode: the CDS Library database is not connected. Do not use "
+    "or claim access to resolve_school, get_school_profile, get_domain, or "
+    "query_database. For school-specific facts, use available web search tools "
+    "and say that the CDS-backed database is disabled for this demo."
+)
+
+
 async def build_temporal_context(catalog: Catalog, today: date | None = None) -> TemporalContext:
     """Assemble the per-turn temporal context (validated; dict-dumped into state)."""
     today = today or datetime.now().date()
@@ -86,7 +94,13 @@ def build_graph(checkpointer: Any, deps: GraphDeps) -> CompiledStateGraph[TurnSt
         data_picture = (
             render_data_picture(snapshot)
             if snapshot is not None
-            else state.get("data_picture", "Live data picture unavailable in this test harness.")
+            else (
+                _NO_CDS_DATA_PICTURE
+                if not getattr(getattr(deps, "settings", None), "cds_data_enabled", True)
+                else state.get(
+                    "data_picture", "Live data picture unavailable in this test harness."
+                )
+            )
         )
         student_context = await _build_turn_student_context(state, deps.app_pool)
         return {

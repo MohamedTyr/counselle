@@ -184,7 +184,7 @@ def build_tools(
         # open web search (gating in code, not prompt; ADR 0013).
         excludes = None if source_config.reddit else list(tavily_tools.REDDIT_DOMAINS)
         tools.append(_make_search_web(client, today, deps.search_max_results, excludes, middleware))
-    if source_config.edu:
+    if source_config.edu and getattr(deps.catalog, "school_count", 0) > 0:
         tools.append(
             _make_search_school_site(
                 client, deps.catalog, today, deps.search_max_results, middleware
