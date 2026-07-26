@@ -35,6 +35,7 @@ COPY domain/ domain/
 COPY evals/ evals/
 COPY migrations/ migrations/
 COPY scripts/ scripts/
+COPY skills/ skills/
 COPY --from=frontend-build /app/frontend/dist frontend/dist
 RUN uv sync --frozen --no-dev
 
