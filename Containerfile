@@ -6,7 +6,7 @@ RUN npm ci
 COPY frontend/ ./
 ENV VITE_TRANSPORT=http \
     VITE_AUTH_SELF_SIGNUP_ENABLED=false
-RUN npm run build
+RUN npx vite build
 
 FROM python:3.12-slim AS runtime
 
