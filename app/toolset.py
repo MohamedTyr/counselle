@@ -25,6 +25,7 @@ Two halves:
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -130,8 +131,8 @@ def build_mcp_toolset(settings: Any) -> MCPToolset:
     read_timeout = settings.agent_mcp_read_timeout_s
     return MCPToolset(
         StdioTransport(
-            command="uv",
-            args=["run", "python", "-m", "counselle_db.server"],
+            command=sys.executable,
+            args=["-m", "counselle_db.server"],
             env=env,
             cwd=str(_REPO_ROOT),
         ),
