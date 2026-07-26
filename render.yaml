@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: counselle
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Containerfile
+    dockerContext: .
+    healthCheckPath: /v1/health
+    envVars:
+      - key: COUNSELLE_ENVIRONMENT
+        value: staging
+      - key: COUNSELLE_COOKIE_SECURE
+        value: "true"
+      - key: COUNSELLE_AUTH_SELF_SIGNUP_ENABLED
+        value: "false"
+      - key: COUNSELLE_PASSWORD_RESET_ENABLED
+        value: "false"
+      - key: COUNSELLE_CHECKPOINTER
+        value: postgres
+      - key: COUNSELLE_SERVE_SPA
+        value: "true"
+      - key: COUNSELLE_SPA_DIST_DIR
+        value: /app/frontend/dist
+      - key: COUNSELLE_API_HOST
+        value: 0.0.0.0
+      - key: COUNSELLE_DB_POOL_MIN
+        value: "1"
+      - key: COUNSELLE_DB_POOL_MAX
+        value: "5"
+      - key: COUNSELLE_RESPONSE_MODE_THINK_ENABLED
+        value: "false"
+      - key: COUNSELLE_THINKING_STREAM
+        value: "false"
+      - key: COUNSELLE_JWT_SECRET
+        generateValue: true
+      - key: COUNSELLE_DB_RO_DSN
+        sync: false
+      - key: COUNSELLE_DB_APP_DSN
+        sync: false
+      - key: COUNSELLE_VERTEX_API_KEY
+        sync: false
+      - key: COUNSELLE_TAVILY_API_KEY
+        sync: false

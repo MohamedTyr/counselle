@@ -1,4 +1,4 @@
--- Counselle role & schema bootstrap for the counselle_data (CDS Library) database.
+-- Counselle role & schema bootstrap for the connected CDS Library database.
 -- Idempotent: safe to rerun. Passwords are read from the environment, never argv.
 -- ADR 0012 (read-only role), ADR 0019 (counselle-owned schema), ADR 0032 (db-rewire).
 
@@ -9,6 +9,7 @@
 \getenv counselle_app_password COUNSELLE_APP_PASSWORD
 SELECT nullif(:'counselle_ro_password', '') IS NOT NULL AS ro_password_present,
        nullif(:'counselle_app_password', '') IS NOT NULL AS app_password_present \gset
+SELECT current_database() AS target_database \gset
 -- \quit takes no exit-code argument in psql 16, so a missing password is
 -- enforced as a real SQL error under ON_ERROR_STOP, not a silent \quit.
 \if :ro_password_present
@@ -30,6 +31,10 @@ BEGIN
     CREATE ROLE counselle_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
       NOREPLICATION NOBYPASSRLS;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cds_library_reader') THEN
+    CREATE ROLE cds_library_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
+  END IF;
 END
 $$;
 
@@ -37,6 +42,8 @@ $$;
 ALTER ROLE counselle_ro LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
 ALTER ROLE counselle_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOREPLICATION NOBYPASSRLS;
+ALTER ROLE cds_library_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
 
 -- Remove inherited authority before granting the one intended reader membership.
@@ -60,20 +67,29 @@ SELECT format('ALTER ROLE counselle_ro PASSWORD %L', :'counselle_ro_password') \
 SELECT format('ALTER ROLE counselle_app PASSWORD %L', :'counselle_app_password') \gexec
 
 -- Read role: the five cds_library reader views only, read-only session defaults.
+GRANT USAGE ON SCHEMA cds_library TO cds_library_reader;
+REVOKE ALL ON ALL TABLES IN SCHEMA cds_library FROM cds_library_reader;
+GRANT SELECT ON TABLE
+  cds_library.school_profiles,
+  cds_library.active_cds_documents,
+  cds_library.active_cds_domain_packets,
+  cds_library.cds_document_sources,
+  cds_library.cds_manifest_snapshots
+TO cds_library_reader;
 GRANT cds_library_reader TO counselle_ro;
 ALTER ROLE counselle_ro RESET ALL;
-ALTER ROLE counselle_ro IN DATABASE counselle_data RESET ALL;
+ALTER ROLE counselle_ro IN DATABASE :"target_database" RESET ALL;
 ALTER ROLE counselle_ro SET default_transaction_read_only = on;
 ALTER ROLE counselle_ro SET statement_timeout = '8s';
-ALTER ROLE counselle_ro IN DATABASE counselle_data
+ALTER ROLE counselle_ro IN DATABASE :"target_database"
   SET search_path = cds_library, pg_catalog;
 
 -- App role: owns the counselle schema, no pipeline membership.
 ALTER ROLE counselle_app RESET ALL;
-ALTER ROLE counselle_app IN DATABASE counselle_data RESET ALL;
+ALTER ROLE counselle_app IN DATABASE :"target_database" RESET ALL;
 CREATE SCHEMA IF NOT EXISTS counselle AUTHORIZATION counselle_app;
 ALTER SCHEMA counselle OWNER TO counselle_app;
-ALTER ROLE counselle_app IN DATABASE counselle_data
+ALTER ROLE counselle_app IN DATABASE :"target_database"
   SET search_path = counselle, pg_catalog;
 REVOKE ALL ON SCHEMA counselle FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA counselle TO counselle_app;

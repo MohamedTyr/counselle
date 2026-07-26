@@ -25,8 +25,59 @@ The deploy image is a single same-origin container (API + built SPA). It must pr
 4. Run `scripts/setup_db.sql` for Counselle's separate `counselle_app` role/schema and
    apply the Counselle migration chain.
 5. Set both DSNs (`COUNSELLE_DB_RO_DSN` for the reader login,
-   `COUNSELLE_DB_APP_DSN` for `counselle.*`); use `pool_min ≥ 2` remotely. For a
-   side-by-side local cutover, bind the database to loopback only.
+   `COUNSELLE_DB_APP_DSN` for `counselle.*`); use `pool_min ≥ 2` on non-free
+   production databases. For a side-by-side local cutover, bind the database to
+   loopback only.
+
+### Render Free + Supabase Free staging path
+
+This is the five-user staging/demo target. It accepts Render web-service cold
+starts and Supabase free-project pausing; it is not the public-production target.
+
+1. Keep the Render app and Supabase database in the closest available US regions
+   to each other. The checked-in `render.yaml` uses Render `oregon`.
+2. Confirm the source database fits Supabase Free before importing. The local
+   2026-07-26 snapshot is about 207 MB, below Supabase Free's 500 MB database
+   limit:
+
+   ```bash
+   psql "$COUNSELLE_DB_APP_DSN" -Atqc \
+     "select pg_size_pretty(pg_database_size(current_database()));"
+   ```
+
+3. Export the current database into a local, gitignored artifact:
+
+   ```bash
+   mkdir -p artifacts/deploy
+   pg_dump --format=custom --no-owner --no-acl \
+     --file artifacts/deploy/counselle-supabase.dump \
+     "$COUNSELLE_DB_APP_DSN"
+   ```
+
+4. Create a Supabase project. Prefer Postgres 16 if the dashboard offers a
+   version choice; otherwise run the gates below against the Supabase version.
+   Use the Supabase admin connection string only for restore/bootstrap.
+5. Restore the dump, then create the runtime roles and exact reader-view grants:
+
+   ```bash
+   pg_restore --no-owner --no-acl --dbname "$SUPABASE_ADMIN_DSN" \
+     artifacts/deploy/counselle-supabase.dump
+
+   COUNSELLE_RO_PASSWORD="<new reader password>" \
+   COUNSELLE_APP_PASSWORD="<new app password>" \
+     psql "$SUPABASE_ADMIN_DSN" -f scripts/setup_db.sql
+   ```
+
+6. In Render, create a Blueprint-backed web service from `render.yaml`. Fill the
+   secret env vars that are marked `sync: false`. For Render-to-Supabase traffic,
+   use Supabase's session-pooler connection strings when direct database
+   connections are unavailable from IPv4-only networks. The pooler username form
+   is role-qualified, for example `counselle_app.<project-ref>` and
+   `counselle_ro.<project-ref>`.
+7. For Supabase Free, keep `COUNSELLE_DB_POOL_MIN=1` and
+   `COUNSELLE_DB_POOL_MAX=5` unless measured traffic says otherwise. Counselle
+   opens separate app/read pools plus the MCP child read pool, so idle connection
+   count matters on small free databases.
 
 ## The environment matrix
 
@@ -52,24 +103,33 @@ A first deploy easily forgets the agent-core half. The complete set:
 - `COUNSELLE_OAUTH_STATE_SECRET` (DS-09) — **required and DISTINCT in prod** (do not reuse the JWT secret). The dev fallback to `COUNSELLE_JWT_SECRET` is **dev-only**: reusing one secret for two crypto purposes (session JWTs + OAuth CSRF state) couples their blast radius. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
 - `COUNSELLE_COOKIE_SECURE=true` (HTTPS only in prod)
 - `COUNSELLE_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET`, with the **production** redirect URI registered: `https://<domain>/v1/auth/google/callback`
+- Five-user staging is invite-only email/password: leave Google OAuth credentials
+  unset, set `COUNSELLE_AUTH_SELF_SIGNUP_ENABLED=false`, and set
+  `COUNSELLE_PASSWORD_RESET_ENABLED=false`. Create tester accounts with
+  `uv run python scripts/manage_tester.py create --email ... --name ...`.
 
 **API**
 - `COUNSELLE_CORS_ORIGINS` — the default is now **empty** (06-L1; the fail-safe under same-origin serving, ADR 0023). Leave it empty in prod; the split-origin **dev** setup sets `["http://localhost:5173"]`.
 - `COUNSELLE_API_HOST=0.0.0.0`, `COUNSELLE_API_PORT=8000`
 
-> **`$PORT`-injecting hosts (CFG-11):** the `Containerfile` CMD binds a fixed `--port 8000`. If a deploy target injects `$PORT` (e.g. Cloud Run), change the CMD to `--port ${PORT:-8000}` at the deploy phase (B6). No `Containerfile` change is made now (deploy is deferred).
+> **`$PORT`-injecting hosts (CFG-11):** `scripts/entrypoint.sh` binds
+> `--port "${PORT:-8000}"`, so Render's injected port works without a target-specific
+> command override.
 
 ## Open security items (must close before public traffic)
 
 - **DS-04 — OAuth `associate_by_email=True` + no email verification.** Email-based account linking without proof of email ownership is an account-takeover surface (a password account on an email links with a later Google sign-in for that email, and vice-versa). A documented MVP tradeoff (ADR 0021, PRD decision 6), **NOT shipped fixed in the hardening pass**. Before any non-trivial user base, do one of: (1) require email verification before login, (2) only associate-by-email when the existing account is verified, or (3) gate `current_active_user` on `is_verified` for password accounts. See `plans/audit/phase-6-configurability.md` DS-04 and `TODOS.md`. **Blocks B6.**
 - **DS-09 — distinct `COUNSELLE_OAUTH_STATE_SECRET`** in prod (see the env matrix above).
 
+DS-04 blocks public OAuth launch. It does not block the five-user staging slice
+when Google OAuth is unconfigured and public signup/password reset are disabled.
+
 ## Entrypoint & the one flag that breaks first
 
 The entrypoint runs `yoyo apply --batch` (app DSN — migrations stay additive, so a failure crash-loops back to the previous image) then:
 
 ```bash
-exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port 8000 --forwarded-allow-ips='*'
+exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips='*'
 ```
 
 **`--forwarded-allow-ips='*'` is the flag the first OAuth attempt dies without.** Behind the host's TLS terminator, an untrusted `X-Forwarded-Proto` makes the app think it's on `http`, so the Google `redirect_uri` generates as `http://` → `redirect_uri_mismatch`.
@@ -77,11 +137,16 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port 8000 --forwarde
 ## Deploy checklist
 
 - [ ] CDS Library current pointer is `5.0.2`; all five views readable and base tables denied through the reader-login DSN
+- [ ] DB handoff artifact captured: `uv run python scripts/mcp_smoke.py --expected-manifest 5.0.2 --expected-contract 8 --environment-label <env> > artifacts/demo-readiness/db-handoff/mcp-smoke.json`
 - [ ] Counselle application schema provisioned through its separate app DSN
 - [ ] Full env matrix set; `CORS_ORIGINS` emptied; `COOKIE_SECURE=true`
-- [ ] Migrations ran on boot; `/v1/health` green
+- [ ] Five-user staging only: signup, Google OAuth, and password reset are closed; tester accounts are pre-created with `scripts/manage_tester.py`
+- [ ] Five-user staging only: `uv run python scripts/check_staging_auth_closed.py --base-url <staging-url>` passes
+- [ ] Pre-deploy live release gate passes against the candidate commit and source environment: `bash scripts/release_gate.sh --base-url <candidate-url>`
+- [ ] Migrations ran on boot; `/v1/health` green and strict `/v1/ready` returns HTTP 200
 - [ ] SSE un-buffered end-to-end (the TLS terminator must not buffer the stream)
 - [ ] Cookies set under TLS; **Google OAuth works on the prod domain** (the forwarded-proto proof)
 - [ ] One cold-boot run measured (MCP child spawn + first-turn latency)
-- [ ] Playwright smoke passes against production: signup → ask a known school question → stream with timeline → reload mid-stream → full-fidelity transcript
+- [ ] Post-deploy live release gate passes against production: `bash scripts/release_gate.sh --base-url <production-url>`
+- [ ] Playwright smoke passes against production: invite login → ask a known school question → stream with timeline → reload mid-stream → full-fidelity transcript
 - [ ] Security pass: response headers, cookie flags, no secrets baked into the image, admin routes gated
