@@ -56,25 +56,22 @@ starts and Supabase free-project pausing; it is not the public-production target
 
 4. Create a Supabase project. Prefer Postgres 16 if the dashboard offers a
    version choice; otherwise run the gates below against the Supabase version.
-   Use the Supabase admin connection string only for restore/bootstrap.
-5. Restore the dump, then create the runtime roles and exact reader-view grants:
+   Use the Supabase admin connection string only for restore/bootstrap. Then
+   restore the dump, create the runtime roles, verify the five-view contract,
+   and print the Render secret env vars:
 
    ```bash
-   pg_restore --no-owner --no-acl --dbname "$SUPABASE_ADMIN_DSN" \
-     artifacts/deploy/counselle-supabase.dump
-
-   COUNSELLE_RO_PASSWORD="<new reader password>" \
-   COUNSELLE_APP_PASSWORD="<new app password>" \
-     psql "$SUPABASE_ADMIN_DSN" -f scripts/setup_db.sql
+   SUPABASE_ADMIN_DSN="postgresql://postgres..." \
+     uv run python scripts/finish_supabase_staging.py
    ```
 
-6. In Render, create a Blueprint-backed web service from `render.yaml`. Fill the
+5. In Render, create a Blueprint-backed web service from `render.yaml`. Fill the
    secret env vars that are marked `sync: false`. For Render-to-Supabase traffic,
    use Supabase's session-pooler connection strings when direct database
    connections are unavailable from IPv4-only networks. The pooler username form
    is role-qualified, for example `counselle_app.<project-ref>` and
    `counselle_ro.<project-ref>`.
-7. For Supabase Free, keep `COUNSELLE_DB_POOL_MIN=1` and
+6. For Supabase Free, keep `COUNSELLE_DB_POOL_MIN=1` and
    `COUNSELLE_DB_POOL_MAX=5` unless measured traffic says otherwise. Counselle
    opens separate app/read pools plus the MCP child read pool, so idle connection
    count matters on small free databases.
