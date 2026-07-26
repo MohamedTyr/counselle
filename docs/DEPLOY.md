@@ -65,11 +65,22 @@ starts and Supabase free-project pausing; it is not the public-production target
      uv run python scripts/finish_supabase_staging.py
    ```
 
-5. In Render, create a Blueprint-backed web service from `render.yaml`. Fill the
-   secret env vars that are marked `sync: false`. For Render-to-Supabase traffic,
-   use Supabase's session-pooler connection strings when direct database
-   connections are unavailable from IPv4-only networks. The pooler username form
-   is role-qualified, for example `counselle_app.<project-ref>` and
+5. Export the two runtime DSNs printed by the Supabase helper, then create/update
+   the Render Free web service, trigger the current commit deploy, and verify
+   `/v1/health` plus `/v1/ready`:
+
+   ```bash
+   export COUNSELLE_DB_RO_DSN="postgresql://counselle_ro..."
+   export COUNSELLE_DB_APP_DSN="postgresql://counselle_app..."
+   uv run python scripts/finish_render_staging.py --wait
+   ```
+
+   The helper uses the logged-in Render CLI API key, `deploy/render-demo`, the
+   Docker `Containerfile`, Render `oregon`, and the model/search keys from the
+   environment or `.env`. For Render-to-Supabase traffic, use Supabase's
+   session-pooler connection strings when direct database connections are
+   unavailable from IPv4-only networks. The pooler username form is
+   role-qualified, for example `counselle_app.<project-ref>` and
    `counselle_ro.<project-ref>`.
 6. For Supabase Free, keep `COUNSELLE_DB_POOL_MIN=1` and
    `COUNSELLE_DB_POOL_MAX=5` unless measured traffic says otherwise. Counselle
