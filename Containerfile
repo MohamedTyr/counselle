@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libpq5 \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 ENV UV_CACHE_DIR=/tmp/uv-cache \
+    UV_NO_CACHE=1 \
     COUNSELLE_SERVE_SPA=true \
     COUNSELLE_SPA_DIST_DIR=/app/frontend/dist
 
@@ -38,8 +39,7 @@ COPY --from=frontend-build /app/frontend/dist frontend/dist
 RUN uv sync --frozen --no-dev
 
 RUN chmod +x scripts/entrypoint.sh \
-    && adduser --system --group --no-create-home counselle \
-    && chown -R counselle /app /tmp/uv-cache
+    && adduser --system --group --no-create-home counselle
 
 USER counselle
 
