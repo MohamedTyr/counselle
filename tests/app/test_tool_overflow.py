@@ -48,8 +48,13 @@ def test_oversized_search_result_preserves_public_receipt_metadata() -> None:
     result = reduce_tool_result(payload, store, max_chars=200)
 
     assert result["status"] == "overflow"
-    assert result["public_receipt"]["result_count"] == 2
-    assert set(result["public_receipt"]) == {"result_count"}
+    assert result["public_receipt"] == {
+        "result_count": 2,
+        "source_results": [
+            {"title": "A", "url": "https://www.duke.edu/a"},
+            {"title": "B", "url": "https://admissions.duke.edu/b"},
+        ],
+    }
 
 
 def test_oversized_domain_result_uses_available_value_count() -> None:

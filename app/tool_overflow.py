@@ -290,6 +290,9 @@ def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
         results = value.get("results")
         if isinstance(results, list):
             receipt["result_count"] = len(results)
+            source_results = _source_results(results)
+            if source_results:
+                receipt["source_results"] = source_results
         candidates = value.get("candidates")
         if isinstance(candidates, list):
             receipt["result_count"] = len(candidates)
