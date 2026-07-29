@@ -22,6 +22,7 @@ import type { Segment } from "../turn-reducer";
 import {
   NarrationBeat,
   PlanChecklist,
+  StartingRunBeat,
   ThinkingBeat,
   ToolStepBeat,
 } from "./AgentRunView";
@@ -272,9 +273,7 @@ function AssistantBody({
       {planStep !== null && (
         <PlanChecklist isLive={hasLiveSegment} step={planStep} />
       )}
-      {showEmptyLiveThinking && (
-        <ThinkingBeat id={`${message.messageId}-empty-live`} isLive text="" />
-      )}
+      {showEmptyLiveThinking && <StartingRunBeat />}
       {message.segments.map((segment, index) => (
         <SegmentBeat
           clarifyDraft={clarifyDraft}

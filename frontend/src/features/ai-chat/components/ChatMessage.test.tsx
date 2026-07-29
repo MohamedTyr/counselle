@@ -419,7 +419,7 @@ describe("ChatMessage", () => {
     expect(screen.queryByText("Updated the plan")).not.toBeInTheDocument();
   });
 
-  test("empty live assistant run shows the collapsed thinking row immediately", () => {
+  test("empty live assistant run shows a visible starting row immediately", () => {
     render(
       <ChatMessage
         message={assistantMessage({
@@ -432,10 +432,10 @@ describe("ChatMessage", () => {
       />,
     );
 
+    expect(screen.getByText("Starting response...")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Thinking" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Working…")).not.toBeInTheDocument();
+      screen.queryByRole("button", { name: "Thinking" }),
+    ).not.toBeInTheDocument();
   });
 
   test("live final answer renders a streaming cursor", () => {

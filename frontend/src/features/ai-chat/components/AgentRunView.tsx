@@ -21,6 +21,7 @@ import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter";
 import { cn } from "@/lib/utils";
 
 import { CitationRenderer } from "./CitationRenderer";
+import { ToolBeatIcon, ToolBeatLabel, ToolBeatRow } from "./ToolBeat";
 
 export { ToolStepBeat } from "./ToolWidgets";
 
@@ -185,5 +186,21 @@ export function ThinkingBeat({
         )}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+export function StartingRunBeat() {
+  return (
+    <ToolBeatRow aria-live="polite" aria-atomic="true">
+      <ToolBeatIcon>
+        <LoaderCircleIcon
+          aria-hidden="true"
+          className="size-3.5 motion-safe:animate-spin"
+        />
+      </ToolBeatIcon>
+      <div className="min-w-0">
+        <ToolBeatLabel state="running">Starting response...</ToolBeatLabel>
+      </div>
+    </ToolBeatRow>
   );
 }
