@@ -1,6 +1,9 @@
 ---
 name: school-list
 description: Judgment procedure for building, trimming, or auditing a college list — treat the list as a portfolio, test membership on affordability and would-attend, verify current selectivity instead of trusting stale public rates, and recommend concrete cuts and adds. Use when a student wants list help or asks whether their list is balanced.
+user_invokable: true
+display_name: School list
+user_description: Build, trim, or audit a balanced college list.
 ---
 
 # School List

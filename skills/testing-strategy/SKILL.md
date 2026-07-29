@@ -1,6 +1,9 @@
 ---
 name: testing-strategy
 description: Judgment procedure for SAT/ACT choice, retaking, test-optional policy, and submit-or-withhold decisions — verify each school's current-cycle rules, compare the student's composite and sections with current score bands, account for intended major and superscoring, and end with a school-by-school move. Use when a student asks whether a score is good, whether to submit it, which test to take, or whether to retake.
+user_invokable: true
+display_name: Testing strategy
+user_description: Decide SAT/ACT retakes, policies, and submit-or-withhold moves.
 ---
 # Testing Strategy
 

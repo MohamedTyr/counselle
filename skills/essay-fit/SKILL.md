@@ -1,6 +1,9 @@
 ---
 name: essay-fit
 description: Judgment procedure for supplemental-essay positioning and "why us / community / how I'll contribute" essays — anchor the essay in real, named, currently-existing programs, clubs, and communities at this specific school that match the student's actual activity, discovered by search and never invented, and turn them into a credible contribution narrative. Use when a student is writing a why-school, community, or contribution supplement and needs concrete campus specifics.
+user_invokable: true
+display_name: Essay fit
+user_description: Find real school-specific details for essays and fit.
 ---
 
 # Essay Fit

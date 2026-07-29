@@ -5,10 +5,10 @@ from the actual ``skills/*/SKILL.md`` tree; the prompt builder reads from
 ``config/assets/prompts/counselor.md`` and the YAML assets.
 
 Covered behaviors:
-1. All 4 SKILL.md files parse: name + description non-empty, body non-empty.
+1. All model-loadable SKILL.md files parse: name + description non-empty, body non-empty.
 2. Each skill body is ≤ 120 lines.
 3. load_skill("school-deep-dive") returns body without frontmatter markers.
-4. load_skill with an unknown name returns an error string listing all 4 names.
+4. load_skill with an unknown name returns an error string listing valid names.
 5. build_system_prompt fills every slot (no un-filled template residue; the six
    slot names do not appear as bare {slot} tokens in the output).
 6. build_system_prompt output contains the fake temporal string passed in.
@@ -52,6 +52,54 @@ _EXPECTED_SKILLS = {
     "testing-strategy",
     "essay-fit",
 }
+
+_EXPECTED_USER_SKILL_CATALOG = [
+    {
+        "name": "application-rounds",
+        "display_name": "Application rounds",
+        "description": "Choose ED/EA/REA/RD timing and deadline strategy.",
+    },
+    {
+        "name": "chancing",
+        "display_name": "Chancing",
+        "description": "Classify reach, target, and likely odds without fake predictions.",
+    },
+    {
+        "name": "costs-and-aid",
+        "display_name": "Costs and aid",
+        "description": "Plan affordability, financial aid, FAFSA/CSS, and scholarships.",
+    },
+    {
+        "name": "essay-fit",
+        "display_name": "Essay fit",
+        "description": "Find real school-specific details for essays and fit.",
+    },
+    {
+        "name": "major-and-fit",
+        "display_name": "Major and fit",
+        "description": "Decide major strategy, program fit, and major-specific constraints.",
+    },
+    {
+        "name": "school-comparison",
+        "display_name": "School comparison",
+        "description": "Compare schools across cost, admissions, outcomes, and fit.",
+    },
+    {
+        "name": "school-deep-dive",
+        "display_name": "School deep dive",
+        "description": "Build a cited, in-depth look at one school.",
+    },
+    {
+        "name": "school-list",
+        "display_name": "School list",
+        "description": "Build, trim, or audit a balanced college list.",
+    },
+    {
+        "name": "testing-strategy",
+        "display_name": "Testing strategy",
+        "description": "Decide SAT/ACT retakes, policies, and submit-or-withhold moves.",
+    },
+]
 
 _FAKE_TEMPORAL = "Today is 2026-06-10. TEST. Season: list-building."
 _FAKE_STUDENT_CONTEXT = "## About This Student\nTEST. No profile yet."
@@ -129,7 +177,7 @@ def _tool_references(markdown: str, tool_names: set[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# 1–2. All 4 skills parse; name + description non-empty; body ≤ 120 lines
+# 1–2. All model-loadable skills parse; name + description non-empty; body ≤ 120 lines
 # ---------------------------------------------------------------------------
 
 
@@ -138,7 +186,7 @@ class TestAllSkillsParse:
         self.skills_mod = _fresh_skills()
         self.meta = self.skills_mod.load_all_skill_meta()
 
-    def test_all_four_skills_present(self) -> None:
+    def test_all_model_loadable_skills_present(self) -> None:
         names = {m["name"] for m in self.meta}
         assert names == _EXPECTED_SKILLS, f"Expected skills {_EXPECTED_SKILLS}, got {names}"
 
@@ -407,20 +455,10 @@ def test_make_load_skill_tool_has_docstring() -> None:
 def test_user_catalog_contains_only_opted_in_metadata_in_name_order() -> None:
     mod = _fresh_skills()
 
-    assert mod.user_skill_catalog() == [
-        {
-            "name": "school-comparison",
-            "display_name": "School comparison",
-            "description": "Compare schools across cost, admissions, outcomes, and fit.",
-        },
-        {
-            "name": "school-deep-dive",
-            "display_name": "School deep dive",
-            "description": "Build a cited, in-depth look at one school.",
-        },
-    ]
+    assert mod.user_skill_catalog() == _EXPECTED_USER_SKILL_CATALOG
     names = {entry["name"] for entry in mod.user_skill_catalog()}
     assert {"focused-answer", "deep-research", "guided-counselor"}.isdisjoint(names)
+    assert {"citation-and-recency", "counselor-research", "db-recipes"}.isdisjoint(names)
     assert "dossier-assembly" not in names, (
         "The compatibility alias must never be listed as a fifth skill"
     )

@@ -1,6 +1,9 @@
 ---
 name: costs-and-aid
 description: Judgment procedure for affordability, net price, FAFSA/CSS, and merit questions — need-blind is not affordable, admitted-but-priced-out is real, aid mechanics are cycle-perishable facts to verify, and the answer is a process with the earliest deadline that matters. Use when a student asks about cost, financial aid, or scholarships.
+user_invokable: true
+display_name: Costs and aid
+user_description: Plan affordability, financial aid, FAFSA/CSS, and scholarships.
 ---
 
 # Costs and Aid

@@ -1,6 +1,9 @@
 ---
 name: application-rounds
 description: Judgment procedure for ED/EA/REA/RD strategy and deadline questions — get this school's current-cycle plan definitions and restrictions from its official site, decide the round by whether the file is stronger now or by regular decision, and name the opportunity cost. Use when a student asks when or in which round to apply, or about deadlines.
+user_invokable: true
+display_name: Application rounds
+user_description: Choose ED/EA/REA/RD timing and deadline strategy.
 ---
 
 # Application Rounds

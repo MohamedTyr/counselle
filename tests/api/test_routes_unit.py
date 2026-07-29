@@ -1021,6 +1021,31 @@ def test_config_exposes_only_public_skills_and_selection_limit_without_live_db()
     assert body["max_selected_skills"] == 3
     assert body["skills"] == [
         {
+            "name": "application-rounds",
+            "display_name": "Application rounds",
+            "description": "Choose ED/EA/REA/RD timing and deadline strategy.",
+        },
+        {
+            "name": "chancing",
+            "display_name": "Chancing",
+            "description": "Classify reach, target, and likely odds without fake predictions.",
+        },
+        {
+            "name": "costs-and-aid",
+            "display_name": "Costs and aid",
+            "description": "Plan affordability, financial aid, FAFSA/CSS, and scholarships.",
+        },
+        {
+            "name": "essay-fit",
+            "display_name": "Essay fit",
+            "description": "Find real school-specific details for essays and fit.",
+        },
+        {
+            "name": "major-and-fit",
+            "display_name": "Major and fit",
+            "description": "Decide major strategy, program fit, and major-specific constraints.",
+        },
+        {
             "name": "school-comparison",
             "display_name": "School comparison",
             "description": "Compare schools across cost, admissions, outcomes, and fit.",
@@ -1029,6 +1054,16 @@ def test_config_exposes_only_public_skills_and_selection_limit_without_live_db()
             "name": "school-deep-dive",
             "display_name": "School deep dive",
             "description": "Build a cited, in-depth look at one school.",
+        },
+        {
+            "name": "school-list",
+            "display_name": "School list",
+            "description": "Build, trim, or audit a balanced college list.",
+        },
+        {
+            "name": "testing-strategy",
+            "display_name": "Testing strategy",
+            "description": "Decide SAT/ACT retakes, policies, and submit-or-withhold moves.",
         },
     ]
     assert body["skill_modes"] == [

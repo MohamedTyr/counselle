@@ -1,6 +1,9 @@
 ---
 name: major-and-fit
 description: Judgment procedure for intended-major strategy and major-driven school choice — separate admission odds from curriculum, access, outcomes, and personal fit; verify direct-entry and internal-transfer rules; treat crowded majors and switching constraints honestly; correct the misconception that pre-med is a major; and reject strategic major choices unsupported by the student's record. Use when a student asks what to major in, whether a major changes admission chances, or which school is best for a field or career path.
+user_invokable: true
+display_name: Major and fit
+user_description: Decide major strategy, program fit, and major-specific constraints.
 ---
 # Majors and Fit
 

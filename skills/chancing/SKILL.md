@@ -1,6 +1,9 @@
 ---
 name: chancing
 description: Judgment procedure for "what are my chances" and reach-target-safety questions — read the student before the school, classify risk instead of predicting outcomes, check major pressure and affordability, and end with what the classification means for the list and round strategy. Use when a student asks about admission chances or how realistic a school is.
+user_invokable: true
+display_name: Chancing
+user_description: Classify reach, target, and likely odds without fake predictions.
 ---
 
 # Chancing
