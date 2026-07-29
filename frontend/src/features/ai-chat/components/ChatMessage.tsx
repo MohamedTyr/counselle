@@ -366,7 +366,7 @@ function ChatMessageComponent({
 
   return (
     <Message from="assistant" id={message.messageId}>
-      <MessageContent>
+      <MessageContent className="w-full">
         <AssistantBody
           clarifyDraft={clarifyDraft}
           clarifyFrozen={

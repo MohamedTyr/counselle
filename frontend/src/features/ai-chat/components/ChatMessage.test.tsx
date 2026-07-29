@@ -197,11 +197,14 @@ describe("ChatMessage", () => {
 
   test("assistant message renders markdown content and message actions once settled", () => {
     const onFeedback = vi.fn();
-    render(
+    const { container } = render(
       <ChatMessage message={assistantMessage()} onFeedback={onFeedback} />,
     );
 
     expect(screen.getByText(/Aid depends on need/)).toBeInTheDocument();
+    expect(container.querySelector(".is-assistant > div")).toHaveClass(
+      "w-full",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Good response" }));
     expect(onFeedback).toHaveBeenCalledWith("thumbsUp");
