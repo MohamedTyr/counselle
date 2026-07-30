@@ -91,9 +91,12 @@ class Citation(BaseModel):
             if any(db_fields[:5]):
                 raise ValueError("profile citations cannot carry CDS document identity")
         else:
-            expected = "community" if self.source == "reddit" else "official"
-            if self.tier != expected or not self.url:
-                raise ValueError(f"{self.source} citations require tier {expected} and a URL")
+            if not self.url:
+                raise ValueError(f"{self.source} citations require a URL")
+            if self.source == "reddit" and self.tier != "community":
+                raise ValueError("reddit citations require tier community")
+            if self.source == "edu" and self.tier != "official":
+                raise ValueError("edu citations require tier official")
             if any(db_fields):
                 raise ValueError("external citations cannot carry database identity")
         period_fields = (

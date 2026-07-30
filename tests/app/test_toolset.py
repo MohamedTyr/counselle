@@ -171,7 +171,7 @@ class TestToolAnnotation:
         assert payload["results"][0]["marker"] == "[1]"
         assert len(rig.registry) == 1
         assert rig.registry.entries[0].label == "A result"
-        assert rig.registry.entries[0].citation.tier == "official"
+        assert rig.registry.entries[0].citation.tier == "community"
 
     async def test_search_reddit_passes_allowlisted_domains(self) -> None:
         rig = Rig()

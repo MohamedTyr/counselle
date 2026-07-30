@@ -134,9 +134,19 @@ class TestSearchWebTierAssignment:
         client = StubTavilyClient([_make_result("https://collegeknowhow.com/post/123")])
         result = await search_web(client, "college tips", today=TODAY, max_results=MAX_RESULTS)
         citation = result["results"][0]["citation"]
-        assert citation["tier"] == "official"
+        assert citation["tier"] == "community"
         assert citation["source"] == "web"
         assert "caveat" not in citation
+
+    @pytest.mark.asyncio
+    async def test_reddit_found_by_open_web_is_community_tier(self) -> None:
+        client = StubTavilyClient(
+            [_make_result("https://www.reddit.com/r/ApplyingToCollege/comments/abc")]
+        )
+        result = await search_web(client, "uchicago reddit", today=TODAY, max_results=MAX_RESULTS)
+        citation = result["results"][0]["citation"]
+        assert citation["tier"] == "community"
+        assert citation["source"] == "web"
 
     @pytest.mark.asyncio
     async def test_vintage_format(self) -> None:

@@ -128,10 +128,10 @@ def _reddit_result_allowed(url: object, subreddits: list[str]) -> bool:
 
 
 def _citation_for_web_result(url: str, today: date) -> Citation:
-    """Build the strict v2 general-web citation."""
+    """Build a v2 general-web citation from the actual result URL."""
     return Citation(
         source="web",
-        tier="official",
+        tier="official" if _is_official_domain(url) else "community",
         vintage=f"Retrieved {today:%b %d, %Y} (live web)",
         url=url,
     )

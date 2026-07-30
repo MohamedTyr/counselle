@@ -16,8 +16,11 @@ def test_source_conditional_citation_identities() -> None:
     assert profile.model_dump(mode="json")["v"] == 2
     with pytest.raises(ValidationError):
         Citation(source="reddit", tier="official", vintage="now", url="https://reddit.com/x")
+    assert Citation(
+        source="web", tier="community", vintage="now", url="https://example.com"
+    ).tier == "community"
     with pytest.raises(ValidationError):
-        Citation(source="web", tier="community", vintage="now", url="https://example.com")
+        Citation(source="edu", tier="community", vintage="now", url="https://example.edu")
 
 
 def test_web_currentness_requires_page_or_metadata_period_evidence() -> None:
