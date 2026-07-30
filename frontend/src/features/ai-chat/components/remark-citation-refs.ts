@@ -16,7 +16,7 @@
 import type { Parent, Root, Text } from "mdast";
 import type { Node } from "unist";
 
-import { CITATION_PATTERN } from "../citations";
+import { CITATION_PATTERN, citationIndexesFromMarker } from "../citations";
 
 type CitationRefNode = Node & {
   type: "citationRef";
@@ -51,7 +51,11 @@ function splitTextNode(node: Text): Node[] | null {
       out.push({ type: "text", value: value.slice(cursor, start) } as Text);
     }
 
-    out.push(makeCitationRefNode(Number(match[1])));
+    out.push(
+      ...citationIndexesFromMarker(match[1] ?? "").map((index) =>
+        makeCitationRefNode(index),
+      ),
+    );
     cursor = start + match[0].length;
   }
 

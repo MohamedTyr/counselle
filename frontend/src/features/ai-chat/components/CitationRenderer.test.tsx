@@ -97,6 +97,17 @@ describe("CitationRenderer", () => {
     expect(onOpen).toHaveBeenCalledWith({ index: 7 });
   });
 
+  test("grouped markers render as separate chips instead of bracketed numbers", async () => {
+    render(
+      <CitationRenderer
+        markdown="Claim [15, 38]."
+        sources={[entry(15, "web"), entry(38, "edu")]}
+      />,
+    );
+    expect(await screen.findAllByRole("button")).toHaveLength(2);
+    expect(screen.queryByText(/\[15, 38\]/)).not.toBeInTheDocument();
+  });
+
   test("unresolved markers fail closed", async () => {
     render(<CitationRenderer markdown="Claim [99]." sources={[]} />);
     expect(await screen.findByText(/Claim/)).toBeInTheDocument();

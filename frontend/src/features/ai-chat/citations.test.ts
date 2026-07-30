@@ -127,12 +127,12 @@ function viz(cells: CitationEnvelope[]): RenderSpec {
 }
 
 describe("citation source selection", () => {
-  test("parses positive markers of arbitrary width and ignores zero/code/links", () => {
+  test("parses positive markers and grouped markers while ignoring zero/code/links", () => {
     expect([
       ...citedIndexesIn(
-        "Use [1], [1234], not [0], `[2]`, or [link](https://x.test/[3]).",
+        "Use [1], [15, 38], [1234], not [0], `[2]`, or [link](https://x.test/[3]).",
       ),
-    ]).toEqual([1, 1234]);
+    ]).toEqual([1, 15, 38, 1234]);
   });
 
   test("unions prose and viz markers in registry order and excludes unused entries", () => {

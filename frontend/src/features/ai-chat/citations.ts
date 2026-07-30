@@ -14,8 +14,15 @@ import { visit } from "unist-util-visit";
 import type { AssistantChatMessage } from "./model";
 import { isLegacySourceEntry } from "@/api/chat/legacy-replay";
 
-export const CITATION_PATTERN = /\[(\d+)\]/g;
+export const CITATION_PATTERN = /\[((?:[1-9]\d*)(?:\s*,\s*[1-9]\d*)*)\]/g;
 const markdownParser = unified().use(remarkParse).use(remarkGfm);
+
+export function citationIndexesFromMarker(value: string): number[] {
+  return value
+    .split(",")
+    .map((part) => Number(part.trim()))
+    .filter((index) => Number.isSafeInteger(index) && index > 0);
+}
 
 export function uniqueSourceByIndex(
   sources: ReadonlyArray<ReplaySourceEntry> | undefined,
@@ -31,8 +38,9 @@ export function citedIndexesIn(markdown: string): Set<number> {
   visit(tree, "text", (node: { value?: unknown }) => {
     if (typeof node.value !== "string") return;
     for (const match of node.value.matchAll(CITATION_PATTERN)) {
-      const index = Number(match[1]);
-      if (Number.isSafeInteger(index) && index > 0) indexes.add(index);
+      for (const index of citationIndexesFromMarker(match[1] ?? "")) {
+        indexes.add(index);
+      }
     }
   });
   return indexes;
