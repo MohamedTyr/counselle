@@ -111,10 +111,10 @@ A first deploy easily forgets the agent-core half. The complete set:
 - `COUNSELLE_OAUTH_STATE_SECRET` (DS-09) — **required and DISTINCT in prod** (do not reuse the JWT secret). The dev fallback to `COUNSELLE_JWT_SECRET` is **dev-only**: reusing one secret for two crypto purposes (session JWTs + OAuth CSRF state) couples their blast radius. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
 - `COUNSELLE_COOKIE_SECURE=true` (HTTPS only in prod)
 - `COUNSELLE_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET`, with the **production** redirect URI registered: `https://<domain>/v1/auth/google/callback`
-- Five-user staging is invite-only email/password: leave Google OAuth credentials
-  unset, set `COUNSELLE_AUTH_SELF_SIGNUP_ENABLED=false`, and set
-  `COUNSELLE_PASSWORD_RESET_ENABLED=false`. Create tester accounts with
-  `uv run python scripts/manage_tester.py create --email ... --name ...`.
+- Public staging allows email/password self-signup:
+  `COUNSELLE_AUTH_SELF_SIGNUP_ENABLED=true`. Password reset can stay disabled
+  with `COUNSELLE_PASSWORD_RESET_ENABLED=false` until real email delivery is
+  configured.
 
 **API**
 - `COUNSELLE_CORS_ORIGINS` — the default is now **empty** (06-L1; the fail-safe under same-origin serving, ADR 0023). Leave it empty in prod; the split-origin **dev** setup sets `["http://localhost:5173"]`.

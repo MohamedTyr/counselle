@@ -13,7 +13,7 @@ services:
       - key: COUNSELLE_COOKIE_SECURE
         value: "true"
       - key: COUNSELLE_AUTH_SELF_SIGNUP_ENABLED
-        value: "false"
+        value: "true"
       - key: COUNSELLE_PASSWORD_RESET_ENABLED
         value: "false"
       - key: COUNSELLE_CHECKPOINTER
