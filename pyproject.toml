@@ -123,6 +123,13 @@ disable_error_code = ["arg-type", "call-arg", "index", "misc", "no-untyped-def"]
 module = "tests.domain.cds.test_pages"
 disable_error_code = ["no-untyped-call", "no-any-return"]
 
+# Same PyMuPDF stub gap as domain.cds.pages: this test file also builds a
+# real in-memory PDF (routing-tuning.md §9's multi-batch remap-isolation
+# regression test) rather than mocking narrow_document out.
+[[tool.mypy.overrides]]
+module = "tests.app.cds.test_batch_run"
+disable_error_code = ["no-untyped-call", "no-any-return"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

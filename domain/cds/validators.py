@@ -36,7 +36,18 @@ _WHITESPACE = re.compile(r"\s+")
 _LEADING_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 _ACADEMIC_YEAR = re.compile(r"^(\d{4})[-/](?:\d{2}|\d{4})$")
 _FUZZY_WORD_HIT_RATIO = 0.8
-_MIN_WORDS_FOR_FUZZY = 3
+#: A 2-word "<label> <value>" excerpt (e.g. "Total 798") is exactly the shape
+#: `packet_build`'s findings take for CDS grid cells (recon-cds-corpus.md §5's
+#: label/number-decoupled Excel-exported tables), and the label and value
+#: routinely land in different rows of the extracted text -- verbatim-adjacent
+#: only by luck. Requiring both words present (not adjacent) still demands
+#: real evidence; it only stops penalizing a real value for the exporter's
+#: layout, not for actually being unverifiable. Below 2 words there's nothing
+#: left to fuzzy-match against, so a lone token still needs an exact
+#: substring hit. Raised from 3 after `plans/cds-pipeline/flag-precision.md`
+#: found 2-word decoupled excerpts as a real false-alarm source with the
+#: value confirmed correct on the same page.
+_MIN_WORDS_FOR_FUZZY = 2
 
 # Glyph variants that mean the same character but break a naive substring
 # match: curly quotes, en/em/minus dashes, and common typeset ligatures.

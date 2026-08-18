@@ -27,6 +27,33 @@ from .claims import Finding, WindowExtraction
 EXTRACTION_STATUSES = ("verified", "not_extracted", "conflict", "invalid")
 
 
+class ZeroVerifiedMetricsError(Exception):
+    """Raised by :func:`build_packet` instead of returning a packet dict when a
+    domain resolves zero ``verified`` metrics this call.
+
+    ``counselle_db.packets.Packet.status`` (the frozen reader contract) only
+    accepts ``"validated"`` or ``"partial"`` — there is no legal packet shape
+    for "nothing this domain claimed survived verification". Building one
+    anyway and handing it to ``adapters.cds_store.insert_packet`` would always
+    be refused by the reader's own round-trip self-validation
+    (``parse_packet_row``), but as the same generic, unspecific
+    ``packet_shape_invalid`` a real schema defect would produce — silently
+    conflating "this domain legitimately has nothing to report" with "the
+    builder emitted a broken shape" (see module docstring, honesty core of the
+    write side). Raising a typed error here lets the caller record this
+    domain's *actual* outcome — zero verifiable claims, not a shape bug —
+    without ever attempting a doomed insert.
+    """
+
+    def __init__(self, domain_id: str, counts: dict[str, int]) -> None:
+        self.domain_id = domain_id
+        self.counts = counts
+        super().__init__(
+            f"domain {domain_id!r} produced zero verified metrics this call "
+            f"(counts={counts!r}); no packet can be stored for it"
+        )
+
+
 def domain_metric_definitions(
     manifest_content: dict[str, Any], domain_id: str
 ) -> dict[str, dict[str, Any]]:
@@ -215,13 +242,14 @@ def _resolve_domain_metrics(
     return result
 
 
-def _packet_status(result_metrics: dict[str, dict[str, Any]]) -> str:
-    statuses = [value["extraction_status"] for value in result_metrics.values()]
-    if statuses and all(value == "verified" for value in statuses):
+def _packet_status(result_metrics: dict[str, dict[str, Any]], counts: dict[str, int]) -> str:
+    """``"validated"``/``"partial"`` only — the two packet shapes the frozen
+    reader contract accepts. Callers must check ``counts["verified"] == 0``
+    (via :class:`ZeroVerifiedMetricsError`) before calling this; there is no
+    third status for "nothing verified" (see that error's docstring)."""
+    if counts["verified"] == len(result_metrics) and result_metrics:
         return "validated"
-    if "verified" in statuses:
-        return "partial"
-    return "parse_failed"
+    return "partial"
 
 
 def build_packet(
@@ -249,6 +277,12 @@ def build_packet(
     inherits its prior resolved outcome from there instead of becoming
     ``not_extracted`` — this is how a human correction that only touches a few refs
     stays a full, self-consistent packet. Omit it for a fresh model extraction.
+
+    Raises :class:`ZeroVerifiedMetricsError` instead of returning a dict when
+    this domain resolves zero ``verified`` metrics — there is no packet shape
+    for that outcome the reader's frozen contract accepts (see that error's
+    docstring). Callers must catch it and report the domain's outcome
+    honestly instead of attempting to store the result.
     """
     domain_metrics = domain_metric_definitions(manifest_content, domain_id)
     allowed = allowed_metric_ids if allowed_metric_ids is not None else frozenset(domain_metrics)
@@ -258,6 +292,8 @@ def build_packet(
         key: sum(1 for value in result_metrics.values() if value["extraction_status"] == key)
         for key in EXTRACTION_STATUSES
     }
+    if counts["verified"] == 0:
+        raise ZeroVerifiedMetricsError(domain_id, counts)
 
     return {
         "document_sha256": document_sha256.hex(),
@@ -271,12 +307,13 @@ def build_packet(
         "metrics": result_metrics,
         "provider_contract": provider_contract,
         "counts": counts,
-        "status": _packet_status(result_metrics),
+        "status": _packet_status(result_metrics, counts),
     }
 
 
 __all__ = [
     "EXTRACTION_STATUSES",
+    "ZeroVerifiedMetricsError",
     "build_packet",
     "domain_metric_definitions",
     "metric_index",

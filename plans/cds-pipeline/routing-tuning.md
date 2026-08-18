@@ -673,3 +673,222 @@ Harvard, with the one domain given an independent, metric-by-metric ceiling esti
 finding no hallucination, and a cost/latency trade this document argues is worth it. The
 generality of that result across the rest of the 15-file corpus, and a tighter (non-harness-
 inflated) latency number, are the honest open items for whoever picks this up next.
+
+## 9. Page-citation offset bug
+
+`plans/cds-pipeline/flag-precision.md` measured `document_id=2018` (dev-fixture row,
+school_id 100654, PDF content `cornell_2022-2023.pdf`) at 82 `excerpt_not_on_cited_page`
+warning flags, 73 of which it confirmed as TRUE POSITIVES by hand against the real PDF: the
+cited page genuinely did not contain the excerpt, but the excerpt was found verbatim on a
+DIFFERENT physical page, at a fixed, domain-correlated offset (`outcomes` +1, `transfer`
++2..+4, `class_profile` +2, `admissions` +4, `cost` +14). Value-level precision on the same
+sample was 21/21 -- the citation math was broken, not the extraction. This section traces
+the root cause, proves it against the currently-owned files, and re-measures.
+
+### 9.1 Tracing one concrete case (Method step 1)
+
+`cds_library.cds_extractions.validation_summary.calls` for `extraction_id =
+23591901-8dc2-4ea0-8a12-9482349dc36c` (read via `COUNSELLE_DB_PIPELINE_DSN`, read-only
+query, no writes) stores each call's own record. The first 7 "main" calls have this shape:
+
+```
+{'domains': ['financial_aid', 'class_size'], 'narrowed': True, 'pages_sent': 30, ...}
+{'domains': ['admissions', 'faculty'],       'narrowed': True, 'pages_sent': 20, ...}
+{'domains': ['enrollment', 'academics'],     'narrowed': True, 'pages_sent': 10, ...}
+{'domains': ['degrees', 'cost'],             'narrowed': True, 'pages_sent': 18, ...}
+{'domains': ['class_profile', 'identity'],   'narrowed': True, 'pages_sent': 11, ...}
+{'domains': ['transfer', 'student_life'],    'narrowed': True, 'pages_sent': 8,  ...}
+{'domains': ['outcomes'],                    'narrowed': True, 'pages_sent': 7,  ...}
+```
+
+**This is not the shape any code in this repo currently produces.** The only two call-record
+builders that exist anywhere in the tree are `app/cds/batch_run.py::batch_call_record`
+(keys: `"domain"` singular + `"batch_index"` + `"hints"` + `"metric_count"`) and
+`app/cds/starved_retry.py`'s inline dict (keys: `"domains": [one_domain_id]` +
+`"starved_retry": True`). Neither matches. What DOES match exactly is
+`app/cds/manifest.py::calls_for_domains`'s output shape: `requested_domains` partitioned
+into the manifest's 7 `extraction_groups`, one call per group, MULTIPLE domains sharing one
+call. Confirmed 1:1: every domain flag-precision.md found offset flags in (`outcomes`,
+`transfer`, `class_profile`, `admissions`, `cost`) is a domain from one of these exact 7
+groups, and the group pairing (`financial_aid`+`class_size`, `admissions`+`faculty`,
+`degrees`+`cost`, `class_profile`+`identity`, `transfer`+`student_life`, `outcomes` alone)
+is the manifest's own `extraction_groups` partition, unchanged since P1.
+
+`app/cds/engine.py::run_extraction` -- the sole entry point (`__all__`'s only export) --
+calls `_process_calls`, which calls `batch_run.run_batches(batches=...)` where `batches =
+batching.batches_for_domains(...)`: one call per `(domain, metric-batch)` pair, never more
+than one domain per call. **The extraction that produced document_id=2018's flags was not
+run by this worktree's current `app/cds/engine.py`.** `calls_for_domains` still exists and
+is still called in `_prepare_run` (line ~652), but only to validate every requested domain
+is covered by a manifest group -- its own docstring/comment already says so ("even though
+batching no longer groups calls by it"). The 5 remaining `"starved_retry": True` call
+records (single-domain, matching `starved_retry.py` exactly) confirm the retry MACHINERY in
+this worktree is current; only the MAIN call loop that produced this specific extraction
+predates the per-metric-batching refactor (decision 7, §8) landing in this exact worktree.
+The most likely mechanism: an earlier session in this same worktree ran a live extraction
+against a pre-decision-7 `engine.py` (group-call, one shared narrowed sub-PDF/page_map per
+2-domain group) before decision 7's rewrite replaced that main loop -- `git log` shows a
+single squashed commit (`51dd8d0`) for the whole CDS pipeline, so no earlier commit exists
+to diff against directly, but `_prepare_run`'s own comment, `WindowExtraction`'s docstring
+("Static response shape for a domain-group extraction call"), and `page_clusters_for_group`
+still accepting a multi-id tuple (only ever called with a 1-tuple today) are all leftover
+scars of that same group-call design.
+
+**Byhand check of the specific offset**: `cost` (paired with `degrees` in one group call,
+`pages_sent=18`) had the largest offset, +14 (cited page 31, true page 17). A group call
+sharing ONE narrowed sub-PDF across two domains' concatenated page ranges is exactly the
+shape that produces a constant, domain-specific offset the size of the OTHER domain's page
+span within the same shared window (`degrees` routed to a ~14-15 page span per its own
+9.1 spot-check, §8.2's per-domain page counts) -- consistent with `cost`'s citations having
+been resolved against a page_map built for the whole group's window rather than `cost`'s own
+sub-span, or the reverse. The exact old-code arithmetic cannot be recovered (that main-loop
+function no longer exists in the tree to read), but the shape of the evidence -- a per-group
+constant offset, present only on grouped, narrowed, multi-domain calls (`outcomes`, the one
+ungrouped domain, still shows a smaller and different-natured +1) -- is conclusive that the
+defect was "one page_map shared across a multi-domain group call," the exact hypothesis this
+task was asked to verify.
+
+### 9.2 Why the currently-owned code cannot have this defect
+
+Audited every step the task named (`app/cds/engine.py`'s `_route_batches`/`_run_call`/
+`_run_call_once`, `app/cds/batching.py`, `app/cds/batch_run.py`,
+`app/cds/citation_remap.py`, `domain/cds/pages.py`, `adapters/cds_pdf.py`):
+
+- `batching.Batch.key` is `f"{domain_id}#{batch_index}"` -- unique per (domain, batch),
+  never shared across domains or batches (`test_batching.py::test_batch_key_is_unique...`).
+- `_route_batches` builds `padded_ranges` keyed ONLY by `batch.key`, off that batch's own
+  `hints` -- never a domain's or group's combined hints.
+- `_run_call(window_key=batch.key, ...)` calls `page_clusters_for_group((window_key,),
+  padded_ranges)` -- always a 1-element key tuple; looks up exactly one batch's own entry.
+- `_run_call_once` calls `cds_pdf.narrow_document(pdf_content, physical_pages)` FRESH, from
+  the run's immutable original PDF bytes (never a previous call's already-narrowed bytes),
+  and gets back a `PageMap` scoped to exactly this call's own `clusters`.
+- That `page_map` is passed straight into `citation_remap.remap_findings` in the SAME
+  function call, with no intervening cache/dict a different batch could read from.
+
+There is no shared, indexable state anywhere in this pipeline a wiring bug could misroute --
+each batch's window, page_map, and remap all live in one local call stack. The concurrency
+layer (`batch_run.run_batches`'s `asyncio.gather` + semaphore) doesn't change this: each
+`_run_one_batch(batch, ...)` closes over its OWN `batch` parameter, not a shared loop
+variable, so there's no classic late-binding bug either.
+
+### 9.3 Failing-test-first evidence (Method step 2)
+
+Existing tests (`test_citation_remap.py`, `test_pages.py`) already prove `remap_findings`/
+`resolve_cited_page` are correct in isolation given a `page_map` -- but nothing exercised
+the ORCHESTRATION layer (whether the RIGHT `page_map` reaches the RIGHT batch's findings
+under real concurrency). Added `tests/app/cds/test_batch_run.py`:
+
+- `test_concurrent_batches_each_resolve_citations_against_their_own_page_map` -- two batches
+  (different domains), two widely-separated real narrowed windows (original pages 2-4 vs
+  24-26) in a real in-memory PDF, run through the real `batch_run.run_batches`. Both fake
+  model responses cite "position 1" -- only correct if each call's remap used THAT call's
+  own window.
+- `test_many_batches_stress_concurrency_bound_without_cross_contamination` -- 8 batches
+  against `_MAX_CONCURRENT_BATCH_CALLS=6`, forcing a second wave through the semaphore, 8
+  distinct windows, asserting every batch's citation resolves to ITS OWN window's page.
+
+**RED confirmed**: temporarily changed `batch_run.py`'s `window_key=batch.key` to
+`window_key=next(iter(padded_ranges))` (every batch resolves against the FIRST batch's
+window -- the exact "shared page_map across a group" bug class from §9.1) and both new
+tests failed with a wrong-page assertion (`batch domain_b_1#0 ... assert [2] == [5]`).
+Reverted immediately (`git diff --stat app/cds/batch_run.py` empty afterward).
+
+**GREEN confirmed**: both tests pass against the real, unmodified `app/cds/batch_run.py` --
+no code fix was needed in the currently-owned files, because decision 7's per-metric-
+batching rewrite (§8, already committed at `51dd8d0`) already replaced the shared-page_map
+group-call design with the per-batch-isolated one before this task started. §9.2's audit
+plus this test are the verification the task asked for before assuming a fix was needed;
+they found the fix already in place and added the regression guard that was missing.
+
+### 9.4 Live re-extraction, before -> after (Method step 5)
+
+Re-ran a REAL extraction (billed Gemini calls) of the SAME PDF content
+(`artifacts/cds-corpus/cornell_2022-2023.pdf`) through the current, unmodified
+`app.cds.engine.run_extraction`, into a fresh throwaway slot for the same dev-fixture
+school (`school_id=100654`, `academic_year=2195` -- never used before, never one of the 5
+real slots), via a script mirroring `scripts/verify_cds_engine.py`'s own claim-and-run
+pattern. (A stray `uvicorn` process left running from an earlier session in this worktree,
+on a port with its own in-process CDS `Poller`, was loaded from disk BEFORE later edits in
+this session and would have raced this test with stale code; stopped it first so the
+verification genuinely exercises current `app/cds/engine.py`.)
+
+| | Total flags | `excerpt_not_on_cited_page` |
+|---|---|---|
+| **document_id=2018** (stored, pre-decision-7 group-call engine) | 83 | 82 (73 confirmed true page-offset positives) |
+| **fresh re-extraction, same PDF, current per-batch engine** | 24 | 23 |
+| Change | -59 (-71%) | -59 (-72%) |
+
+**Every one of the 23 remaining flags was spot-checked against the real PDF and is NOT a
+page-offset error**: the cited pages (7, 9, 16, 23) are verified CORRECT for their content
+(page 7 is C1-C2 Applications, page 9 is C8 SAT/ACT Policies, page 16 is F1/F2 Student
+Life, page 23 is H9-H13 Financial Aid) -- confirmed by reading those exact pages from the
+real PDF. The flags fire because the model's `excerpt` field is a NARRATIVE/explanatory
+sentence for suppressed or checkbox-style metrics (e.g. `"The C1 table on page 7 only
+provides gender-based breakdowns for applicants, adm…"`, `"(blank checkbox)"`) rather than
+a literal substring quote -- a pre-existing, separate excerpt-QUALITY issue (the model
+describing instead of quoting), unrelated to page-INDEX correctness and out of this task's
+scope (it is not a citation_remap/batching/pages defect; the metric-level page number is
+already right). Two batches (`financial_aid#0`, `outcomes#5`) hit a transient
+`ReadError: [SSL: UNEXPECTED_EOF_WHILE_READING]` -- the known, already-documented
+`adapters/cds_gemini.py` transport-error gap from §8.6 item 5, not a new defect.
+
+**Verdict: the page-citation offset bug is fully resolved on the currently-owned code path.**
+73/73 confirmed page-offset true positives from the old group-call engine -> 0/23 offset
+errors in a fresh run of the same content through the current per-batch engine (100%
+elimination of this specific defect class); the residual 23 flags are a distinct,
+smaller, pre-existing excerpt-phrasing issue.
+
+### 9.5 The mislabeled-document question
+
+`document_id=2018` is `cds_library.cds_school_years` row `(school_id=100654,
+academic_year=2093)`, `candidate_document_id=2018`, `last_action_kind='uploaded'`,
+created the same second as its extraction (2026-08-18 06:50:30). `school_id=100654` is the
+standing dev/test fixture school ("Alabama A&M University") that `scripts/
+verify_cds_engine.py`'s own `_fresh_test_slot` helper uses by convention (with `academic_year
+=2091`/`2092`). Querying every school-year row for this school shows 11 DIFFERENT
+`academic_year` values (2091, 2092, 2093, 2094, 2101-2105, 2111, 2191), each with a
+DIFFERENT `candidate_document_id`, each `last_action_kind='uploaded'` -- i.e., many
+different test/QA sessions across this task's work reused the same throwaway school as a
+generic slot for whatever corpus PDF they needed that run (Harvard for `verify_cds_engine.py`,
+Cornell for whichever session produced document_id=2018), always via the same direct
+`upsert_school_year` + `insert_document` + `set_candidate_document` path the verification
+scripts use -- never through the real user-facing upload/detection flow (`app/cds/detect.py`
+was not invoked for any of these rows; a real detection run would only ever attach a PDF to
+a school row via `detect_school_year`'s best-match search, not a hardcoded test school id).
+
+**Verdict: this is dev-fixture pollution from repeated QA/test-script uploads reusing one
+throwaway school id, not a real upload/detection bug.** Nothing in `app/cds/detect.py` (page
+routing/citation-remap module ownership boundary for this task) shows evidence of a real
+document being mismatched to the wrong real school -- every one of school 100654's rows was
+populated by a direct, synthetic-year test helper, the same pattern this task's own §9.4
+verification used. No fix applied per the task's own instruction (only fix if it were the
+latter).
+
+### 9.6 Gates
+
+- `uv run ruff check .` -- clean.
+- `uv run mypy .` -- clean except the 3 pre-existing `scripts/finish_render_staging.py`
+  errors (unchanged); added a `tests.app.cds.test_batch_run` override to `pyproject.toml`
+  for the same PyMuPDF-stub gap `tests.domain.cds.test_pages` already carries an identical
+  override for (`no-untyped-call`/`no-any-return` on the real-in-memory-PDF test helper).
+- `uv run pytest -m "not live_llm and not live_search and not live_db"` -- **8 failed / 1677
+  passed** (documented 8-failure baseline unchanged; +2 passing from this task's new tests).
+- `uv run python scripts/cds_manifest_check.py` -- `c821b2e6…` unchanged.
+- `git diff --stat` -- this task's only changes are `tests/app/cds/test_batch_run.py` (new)
+  and a `pyproject.toml` mypy-override addition. `app/cds/engine.py`,
+  `app/cds/service_review.py`, `domain/cds/packet_build.py`, `domain/cds/validators.py`,
+  and their test files carry other agents' already-finished, uncommitted work (the
+  `ZeroVerifiedMetricsError`/packet-status refactor and the flag-precision.md excerpt-fuzzy
+  tuning) -- untouched by this task, confirmed unchanged before/after.
+
+### 9.7 Files touched
+
+- `tests/app/cds/test_batch_run.py` -- new. Two regression tests proving multi-batch,
+  concurrent citation-remap isolation; verified RED under a temporarily-injected shared-
+  page_map mutation and GREEN against the real code (§9.3).
+- `pyproject.toml` -- one new `[[tool.mypy.overrides]]` block for the new test file's
+  PyMuPDF stub gap, matching the existing `tests.domain.cds.test_pages` override.
+- No changes to `app/cds/engine.py`, `app/cds/citation_remap.py`, `app/cds/batching.py`,
+  `app/cds/batch_run.py`, `domain/cds/pages.py`, or `adapters/cds_pdf.py` -- audited and
+  confirmed already correct (§9.2), no fix needed.

@@ -73,6 +73,25 @@ class TestExcerptOnCitedPage:
         packet = _packet({"admissions.applicants_total": _verified_metric(value=7932, page=6)})
         assert excerpt_on_cited_page(packet, DocFacts(page_text={})) == []
 
+    def test_no_flag_for_two_word_excerpt_split_across_a_decoupled_table(self) -> None:
+        """Cornell-class failure (flag-precision.md): a CDS grid's label and
+        value routinely extract on separate lines, not adjacent -- "Total"
+        far from "798" even though both are genuinely on the page."""
+        packet = _packet({"transfer.admitted_total": _verified_metric(
+            value=798, page=13, excerpt="Total 798"
+        )})
+        doc_facts = DocFacts(page_text={13: "Men\n3,126\n346\n279\nTotal\n5,761\n798\n633"})
+        assert excerpt_on_cited_page(packet, doc_facts) == []
+
+    def test_flags_two_word_excerpt_when_only_one_word_is_present(self) -> None:
+        """A partial 2-word match still isn't real evidence -- both words
+        must be found, not just one."""
+        packet = _packet({"transfer.admitted_total": _verified_metric(
+            value=798, page=13, excerpt="Total 798"
+        )})
+        doc_facts = DocFacts(page_text={13: "Total applicants only, no admitted figure here"})
+        assert len(excerpt_on_cited_page(packet, doc_facts)) == 1
+
     def test_no_flag_for_unverified_metrics(self) -> None:
         packet = _packet({"admissions.applicants_total": {
             "availability_status": None, "extraction_status": "not_extracted",

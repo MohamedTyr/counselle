@@ -108,9 +108,11 @@ _OUTPUT_PRICE_PER_1M = 1.50
 @dataclass(frozen=True)
 class DomainOutcome:
     """One requested domain's result for this run -- `status is None` means
-    no packet was stored (the call failed outright, or produced zero
-    verifiable claims for this domain and `parse_failed` packets can never be
-    stored, per P2's `insert_packet` self-validation)."""
+    no packet was stored: either the call failed outright, or the domain
+    verified zero claims this call (`packet_build.ZeroVerifiedMetricsError`,
+    reported honestly via `error` instead of attempting a doomed store), or
+    the packet the builder did produce failed the reader's own round-trip
+    self-validation in `insert_packet` (a genuine shape/identity defect)."""
 
     domain_id: str
     status: str | None
@@ -417,24 +419,35 @@ async def _build_and_store_domain_packet(
     original_page_count: int,
     doc_facts: validators.DocFacts,
 ) -> DomainOutcome:
-    """Build one domain's packet from this run's claims and store it. A
-    packet with zero verified metrics (`parse_failed`) is expected, not an
-    error -- P2's `insert_packet` refuses to store it (self-validation via
-    `parse_packet_row()`), reported here as this domain's outcome."""
-    packet = packet_build.build_packet(
-        manifest_content=manifest.content,
-        domain_hashes=manifest.domain_hashes,
-        domain_id=domain_id,
-        findings=findings,
-        provider_contract=run_contract,
-        document_page_count=original_page_count,
-        document_sha256=doc.pdf_sha256,
-        academic_year=doc.academic_year,
-        extraction_id=str(extraction.id),
-        manifest_version=manifest.version,
-        model_id=model_id,
-        extractor_version=extraction.extractor_version,
-    )
+    """Build one domain's packet from this run's claims and store it. A call
+    that verifies zero metrics for this domain is expected, not an error --
+    `build_packet` raises `ZeroVerifiedMetricsError` instead of returning a
+    packet in that case (there is no packet shape for it the reader's frozen
+    contract accepts), reported here as this domain's outcome without ever
+    attempting a doomed store."""
+    try:
+        packet = packet_build.build_packet(
+            manifest_content=manifest.content,
+            domain_hashes=manifest.domain_hashes,
+            domain_id=domain_id,
+            findings=findings,
+            provider_contract=run_contract,
+            document_page_count=original_page_count,
+            document_sha256=doc.pdf_sha256,
+            academic_year=doc.academic_year,
+            extraction_id=str(extraction.id),
+            manifest_version=manifest.version,
+            model_id=model_id,
+            extractor_version=extraction.extractor_version,
+        )
+    except packet_build.ZeroVerifiedMetricsError as exc:
+        return DomainOutcome(
+            domain_id,
+            None,
+            exc.counts,
+            0,
+            f"domain {domain_id!r} verified zero metrics from this document; no packet stored",
+        )
     flags = validators.run_validators(packet, doc_facts)
     try:
         async with pool.acquire() as conn, conn.transaction():

@@ -427,12 +427,19 @@ async def _apply_edits_and_activate(
         domain_summary = by_domain.get(domain_id)
         if domain_summary is None:
             raise CdsAdminValidationError(f"unknown domain {domain_id!r} in pending edits")
-        packet = _human_reviewed_packet(
-            manifest=manifest, domain_id=domain_id, edit_rows=edit_rows,
-            base_metrics=_base_metrics_dict(domain_summary.metrics), document=document,
-            original_page_count=original_page_count, extraction_id=str(extraction.id),
-            actor_user_id=actor_user_id, base_extraction_id=domain_summary.extraction_id, note=note,
-        )
+        try:
+            packet = _human_reviewed_packet(
+                manifest=manifest, domain_id=domain_id, edit_rows=edit_rows,
+                base_metrics=_base_metrics_dict(domain_summary.metrics), document=document,
+                original_page_count=original_page_count, extraction_id=str(extraction.id),
+                actor_user_id=actor_user_id, base_extraction_id=domain_summary.extraction_id,
+                note=note,
+            )
+        except packet_build.ZeroVerifiedMetricsError as exc:
+            raise CdsAdminValidationError(
+                f"review edits leave domain {domain_id!r} with zero verified metrics "
+                f"(counts={exc.counts!r}); a domain packet must verify at least one metric"
+            ) from exc
         try:
             await cds_store.insert_packet(
                 conn, settings=settings, document_id=document_id, extraction_id=extraction.id,
