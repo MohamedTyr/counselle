@@ -355,6 +355,50 @@
 }
 
 @layer components {
+  /*
+   * Sidebar grain. Applied to [data-sidebar="sidebar"] — the one attribute
+   * both real rail surfaces share (the desktop `sidebar-inner` panel and
+   * the mobile Sheet), so the texture can't drift between the two.
+   *
+   * `isolation: isolate` + `z-index: -1` is the same layering trick
+   * .sidebar-chat-action::before already uses below: the isolate makes the
+   * rail its own stacking context, which pins the negative-z layer above
+   * the rail's own background but beneath every in-flow child. Nav rows,
+   * the selected pill and all text therefore paint clean on top — the
+   * grain is in the panel, not over the UI. It also means the texture
+   * doesn't scroll with .sidebar-scroll's contents, which is right: it's
+   * a property of the panel, not of the list inside it.
+   */
+  [data-sidebar="sidebar"] {
+    isolation: isolate;
+    position: relative;
+  }
+
+  [data-sidebar="sidebar"]::before {
+    background-color: var(--shell-sidebar-texture-ink);
+    content: "";
+    inset: 0;
+    mask-image: var(--shell-sidebar-texture);
+    mask-size: var(--shell-sidebar-texture-size)
+      var(--shell-sidebar-texture-size);
+    opacity: var(--shell-sidebar-texture-opacity);
+    pointer-events: none;
+    position: absolute;
+    z-index: -1;
+  }
+
+  /*
+   * Texture is decoration, and decoration is the first thing to go when a
+   * user has asked the OS for maximum legibility or is sending the page to
+   * paper. In forced-colors the mask would paint a system colour across
+   * the whole rail, which is worse than no texture at all.
+   */
+  @media (prefers-contrast: more), (forced-colors: active), print {
+    [data-sidebar="sidebar"]::before {
+      display: none;
+    }
+  }
+
   .sidebar-chat-title {
     color: var(--shell-sidebar-history-foreground);
     font-size: 0.84375rem;

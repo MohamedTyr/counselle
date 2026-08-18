@@ -55,15 +55,16 @@
   --task-done-dot: var(--success-solid);
 
   /* ---- category chips — 7 categories, each a surface/fg/border triad.
-   * essay/aid/interview/other reuse existing semantic roles directly
-   * (brand-subtle, warning, info, neutral) instead of duplicating tokens
-   * that already exist; lor/research/form use the category-specific roles
-   * semantic.css defines for exactly this (mauve/teal/slate have no other
-   * use in the app). Zero primitive refs — every value below is a
+   * aid/interview/other reuse existing semantic roles directly (warning,
+   * info, neutral) instead of duplicating tokens that already exist;
+   * essay/lor/research/form use the category-specific roles semantic.css
+   * defines for exactly this (plum/mauve/teal/slate have no other use in
+   * the app — essay moved off --brand-subtle when the brand went green,
+   * see semantic.css). Zero primitive refs — every value below is a
    * semantic role. ---- */
-  --task-category-essay-bg: var(--brand-subtle);
-  --task-category-essay-fg: var(--brand-subtle-ink);
-  --task-category-essay-border: var(--brand-subtle-border);
+  --task-category-essay-bg: var(--category-essay-surface);
+  --task-category-essay-fg: var(--category-essay-ink);
+  --task-category-essay-border: var(--category-essay-border);
   --task-category-lor-bg: var(--category-lor-surface);
   --task-category-lor-fg: var(--category-lor-ink);
   --task-category-lor-border: var(--category-lor-border);

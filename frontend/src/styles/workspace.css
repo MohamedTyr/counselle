@@ -15,11 +15,11 @@
  * --edge-control-strong grey, so a focused composer used to be visually
  * identical to a hovered control chip — and carried no brand color at all,
  * unlike every shadcn-primitive Input/Select (which focuses to solid
- * --plum-500 via `border-ring`). Border stays --edge-control-strong (keeps
+ * --ivy-500 via `border-ring`). Border stays --edge-control-strong (keeps
  * the checked ≥3:1 boundary); the consumers (AiComposer.tsx, ChatComposer.tsx,
  * profile-control-styles.ts) now layer `focus-within:ring-2
  * focus-within:ring-[var(--focus-ring)]/30` on top so focus reads as
- * plum + distinct from hover, matching the shadcn focus language instead
+ * ivy + distinct from hover, matching the shadcn focus language instead
  * of introducing a second one.
  */
 
@@ -93,7 +93,7 @@
 
   /* App-wide (canvas-area) scrollbar — distinct from the sidebar's own
    * --shell-sidebar-scrollbar*, which is tuned separately against the
-   * chrome track's own (lighter, plum-tinted) lightness. */
+   * chrome track's own (lighter, sage-tinted) lightness. */
   --scrollbar-size: 0.625rem;
   --scrollbar-thumb: color-mix(in oklch, var(--ink) 28%, transparent);
   --scrollbar-thumb-hover: color-mix(in oklch, var(--ink) 42%, transparent);

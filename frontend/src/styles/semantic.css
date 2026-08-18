@@ -8,9 +8,9 @@
  * component. Two independent naming zones live here on purpose:
  *
  *  - the workspace canvas (canvas / surface-raised / ink / edge / brand)
- *  - the sidebar chrome (chrome / chrome-ink) — also light, whisper-
- *    recessed (2.5-3 L points, plus a threshold-of-perception plum tint)
- *    rather than sharply greyer. See plans/light-theme-m1-handoff.md.
+ *  - the sidebar chrome (chrome / chrome-ink) — also light, but sage-
+ *    tinted and recessed ~2.5 L points rather than sharply greyer. This
+ *    is where the brand hue lives. See plans/light-theme-m1-handoff.md.
  *
  * Names are chosen to never collide with the shadcn contract names this
  * codebase already exposes (--accent, --border, --card, --muted, --primary,
@@ -72,7 +72,7 @@
    * Mixed from --canvas, the workspace's base tone. */
   --surface-hover: color-mix(in oklch, var(--neutral-900) 5%, var(--canvas));
   --surface-active: color-mix(in oklch, var(--neutral-900) 8%, var(--canvas));
-  --surface-selected: color-mix(in oklch, var(--plum-500) 10%, var(--canvas));
+  --surface-selected: color-mix(in oklch, var(--ivy-500) 10%, var(--canvas));
 
   /* ---- ink — text on the light canvas. Four genuinely distinct
    * legibility tiers, not four names sharing one value — each still
@@ -89,31 +89,49 @@
   --ink-disabled: var(--neutral-400);
 
   /* ---- chrome — the sidebar surface (product identity, see README).
-   * Light, whisper-recessed: --plum-25 sits ~2.5 L points below --canvas
-   * and carries a threshold-of-perception plum tint (chroma 0.004) so the
-   * rail reads as designed rather than default grey, without reading as
-   * "purple" or drifting into the banned cream band.
+   * PRODUCT.md asks the sidebar to establish the product identity, so the
+   * rail is where the brand hue actually lands: a light sage surface
+   * (--ivy-25, ~2.5 L points below --canvas) that reads as a deliberate
+   * green rail rather than default grey, while the workspace it frames
+   * stays neutral. Chroma 0.012 is a real cast at a glance without
+   * tipping into "mint", and hue 157 stays clear of the banned cream band.
    *
-   * Three real, distinct steps — not "hover ≈ active": chrome (96.5%) →
-   * chrome-hover (97.5%, a small nudge toward canvas) → chrome-active
-   * (100%, white, continuous with --surface-raised — the selected row
-   * reads as already part of the surface it opens). Ink escalates the same
-   * way: chrome-ink (resting) → chrome-ink-strong (hover, one step
-   * darker) → on-chrome-active (active, darkest). This three-way split
-   * matters because the real active-nav-row consumer
-   * (--shell-sidebar-active-background/-foreground, wired in shell.css and
-   * bridged to Tailwind's `bg-sidebar-active` via shadcn.css/theme.css)
-   * used to collapse onto the same value as hover — see the M1 handoff
-   * doc's "Active vs. hover" section for the defect and the fix. */
-  --chrome: var(--plum-25);
-  --chrome-hover: var(--neutral-50);
-  --chrome-active: var(--neutral-0);
-  --chrome-border: var(--neutral-200);
+   * Hover and selected move in OPPOSITE directions, which is what keeps
+   * them from collapsing into each other on a rail this light: hover
+   * lifts toward white (--neutral-25, 99%, a transient "you're pointing
+   * at this" highlight that stays colourless) while selected commits
+   * downward into the brand hue (--ivy-100, 92%, a filled sage pill).
+   * Tried both steps going the same way (rail 96.5 → hover 94.5 → active
+   * 92, all sage) and hover read as a weaker copy of selected rather than
+   * a different thing. A white selected row — the previous
+   * --chrome-active — is the opposite failure: it can only ever be the
+   * absence of colour, so the rail could never carry the brand at all.
+   *
+   * Ink escalates alongside but stays neutral until selection:
+   * chrome-ink (resting grey) → chrome-ink-strong (hover, darkest grey) →
+   * on-chrome-active (selected, deep ivy). Colour arrives only on the
+   * selected row, which is the product register's rule for accent use.
+   * --on-chrome-active is deliberately ivy-800 and not a neutral: grey
+   * text on the tinted --chrome-active surface is exactly the washed-out
+   * pairing to avoid. The active-row consumer chain
+   * (--shell-sidebar-active-background/-foreground in shell.css →
+   * Tailwind's `bg-sidebar-active` via shadcn.css/theme.css) is unchanged;
+   * see the M1 handoff doc's "Active vs. hover" section. */
+  --chrome: var(--ivy-25);
+  --chrome-hover: var(--neutral-25);
+  --chrome-active: var(--ivy-100);
+  --chrome-border: var(--ivy-150);
   --chrome-ink: var(--neutral-800);
   --chrome-ink-secondary: var(--neutral-700);
   --chrome-ink-muted: var(--neutral-600);
-  --chrome-ink-strong: var(--neutral-900);
-  --on-chrome-active: var(--neutral-950);
+  --chrome-ink-strong: var(--neutral-950);
+  --on-chrome-active: var(--ivy-800);
+  /* The ink the chrome's grain texture is printed in (shell.css owns the
+   * noise image and its intensity; this owns its colour). Deliberately
+   * --ivy-900 and not a neutral: grain in the brand's own hue reads as
+   * the panel being made of something, where grey grain on a tinted
+   * surface just reads as dust on a screen. */
+  --chrome-texture-ink: var(--ivy-900);
 
   /* ---- edges — borders and dividers. Two categories, not one:
    *
@@ -141,29 +159,29 @@
   --edge-control: var(--neutral-450);
   --edge-control-strong: var(--neutral-600);
 
-  /* ---- brand — the one committed accent (deep plum). Used sparingly:
+  /* ---- brand — the one committed accent (deep ivy). Used sparingly:
    * primary actions, links, focus rings, selected/active identity marks.
    * NOT the same token family as shadcn's --accent (a generic hover
    * surface) — see shadcn.css. --brand-active is wired into the default
    * button variant's hover/data-pressed states in components/ui/button.tsx,
    * replacing the old `hover:bg-primary/90` / `data-pressed:bg-primary/90`
-   * alpha-modifier pattern with a named pressed-state token (plum-800,
-   * L 0.28 vs. --brand's L 0.44 — a 1.83:1 surface-to-surface contrast,
+   * alpha-modifier pattern with a named pressed-state token (ivy-800,
+   * L 0.27 vs. --brand's L 0.43 — a 1.90:1 surface-to-surface contrast,
    * clearly perceptible as a real state change; white text stays at
-   * 15.10:1 against it). */
-  --brand: var(--plum-600);
-  --brand-hover: var(--plum-700);
-  --brand-active: var(--plum-800);
-  --brand-subtle: var(--plum-50);
-  --brand-subtle-ink: var(--plum-700);
-  --brand-subtle-border: var(--plum-200);
+   * 14.76:1 against it, and 7.76:1 on --brand itself). */
+  --brand: var(--ivy-600);
+  --brand-hover: var(--ivy-700);
+  --brand-active: var(--ivy-800);
+  --brand-subtle: var(--ivy-50);
+  --brand-subtle-ink: var(--ivy-700);
+  --brand-subtle-border: var(--ivy-200);
   /* A softer brand tone for decorative affordances (the sidebar resizer
    * handle) that shouldn't read as CTA-strength — distinct from
    * --brand-subtle, which is a pale background tint, not a line color. */
-  --brand-muted: var(--plum-400);
+  --brand-muted: var(--ivy-400);
   --on-brand: var(--neutral-0);
 
-  --focus-ring: var(--plum-500);
+  --focus-ring: var(--ivy-500);
 
   /* ---- status roles — pale surface + saturated, AA-checked text.
    * --danger-border, --warning-border, and --info-border are real M1/M2
@@ -176,9 +194,14 @@
    * (checked: zero `border-success` usage anywhere in the app). Add it
    * back if a bordered success banner is ever built; don't carry it as
    * unused symmetry with the other three. */
-  --success-surface: var(--green-50);
-  --success-fg: var(--green-700);
-  --success-solid: var(--green-600);
+  /* Success resolves through --leaf-*, not the brand's --ivy-*: with a
+   * green brand, "green = done" only survives if the status green is a
+   * visibly different green. See primitives.css for the two separation
+   * axes (hue 142 vs. 157, roughly double the chroma). Status still never
+   * rides on colour alone — every consumer pairs it with a label or icon. */
+  --success-surface: var(--leaf-50);
+  --success-fg: var(--leaf-700);
+  --success-solid: var(--leaf-600);
 
   --warning-surface: var(--amber-50);
   --warning-border: var(--amber-200);
@@ -206,7 +229,18 @@
    * brand-subtle, warning, info, and neutral role groups directly (see
    * task.css) rather than duplicating tokens that already exist; lor,
    * research, and form get their own roles because no other semantic
-   * concept in the app uses mauve/teal/slate. ---- */
+   * concept in the app uses mauve/teal/slate.
+   *
+   * essay used to resolve through --brand-subtle-*, which was free when
+   * the brand was plum and the categories had no other green. With an ivy
+   * brand it stops being free: the essay chip and the "done" pill would
+   * both be pale green, side by side on the same task card, one meaning a
+   * category and one meaning a status. essay keeps the exact plum it
+   * renders today via its own role, so wayfinding is unchanged and the
+   * brand hue is reserved for identity. ---- */
+  --category-essay-surface: var(--plum-50);
+  --category-essay-ink: var(--plum-700);
+  --category-essay-border: var(--plum-200);
   --category-lor-surface: var(--mauve-50);
   --category-lor-ink: var(--mauve-700);
   --category-lor-border: var(--mauve-200);
