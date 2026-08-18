@@ -1,0 +1,214 @@
+"""Loads + caches the compiled CDS manifest at process start, and exposes the
+domain/metric catalog and extraction-group partition to the engine and (later)
+the review service (plan §B1 `app/cds/manifest.py`).
+
+Never hardcode domain ids or metric inventories here (ADR 0032) -- every
+function in this module derives its answer from the compiled manifest, which
+in turn comes from `config/cds/` (P1's `domain/cds/manifest_compile.py`). The
+only two constants below are the *identity* of the port (its filesystem
+location and, informationally, the expected content hash asserted by
+`scripts/cds_manifest_check.py`), not a domain or metric name.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+import asyncpg
+
+from domain.cds.manifest_compile import CompiledManifest, compile_manifest
+
+CDS_CONFIG_DIR = Path(__file__).resolve().parents[2] / "config" / "cds"
+
+# routing-tuning.md §8: a single call asking for a whole domain's metric
+# catalog at once (up to 152 metrics on `admissions`) measured ~1-2% recall
+# live; spike-part-a.md measured 99.3% field accuracy on a ~25-metric
+# schema. This is the batch-size ceiling `metric_batches_for_domain` chunks
+# to when a single CDS section alone still exceeds it -- not a manifest
+# value (ADR 0032: never hardcode the metric catalog itself), purely an
+# engine-side call-shaping knob.
+DEFAULT_METRIC_BATCH_SIZE = 25
+
+
+class ManifestDriftError(RuntimeError):
+    """`config/cds/` no longer compiles to the manifest version's published
+    `content_sha256` in `cds_library.cds_manifests` (plan §B2, Risk 1). This
+    must stop a run rather than silently extract against a manifest the
+    read path does not actually have on file -- a mismatched
+    `domain_schema_hash` would make every packet self-reject in
+    `parse_packet_row()` anyway, but catching it here gives an operator an
+    actionable error instead of 51 silent per-domain failures.
+    """
+
+
+@lru_cache(maxsize=1)
+def load_compiled_manifest(config_dir: Path | None = None) -> CompiledManifest:
+    """Compile `config/cds/` once per process and cache it. `config_dir` is a
+    seam for tests; production call sites always use the default."""
+    return compile_manifest(config_dir or CDS_CONFIG_DIR)
+
+
+def domain_ids(manifest: CompiledManifest) -> tuple[str, ...]:
+    """Every domain id the current manifest defines, in manifest order."""
+    return tuple(domain["id"] for domain in manifest.content["domains"])
+
+
+def extraction_groups(manifest: CompiledManifest) -> tuple[tuple[str, ...], ...]:
+    """The manifest's configured call granularity (plan §B4 `CallPlan` seam --
+    spike settled on keeping the inherited 7 groups; no per-domain or
+    routing-call splitting)."""
+    return tuple(tuple(group) for group in manifest.content["root"]["extraction_groups"])
+
+
+def calls_for_domains(
+    manifest: CompiledManifest, requested_domains: tuple[str, ...]
+) -> list[tuple[str, ...]]:
+    """Partition `requested_domains` into one model call per configured
+    extraction group that has >=1 requested domain, preserving manifest
+    order and never re-grouping across a configured group boundary.
+
+    Raises `ValueError` if a requested domain is not covered by any group --
+    an authoring bug in the manifest (`extraction_groups` must exactly
+    partition every domain, enforced at compile time), or a caller passing an
+    unknown domain id.
+    """
+    wanted = set(requested_domains)
+    calls = [
+        selected
+        for group in extraction_groups(manifest)
+        if (selected := tuple(domain_id for domain_id in group if domain_id in wanted))
+    ]
+    covered = {domain_id for call in calls for domain_id in call}
+    missing = wanted - covered
+    if missing:
+        raise ValueError(
+            f"requested domains not covered by any extraction group: {sorted(missing)}"
+        )
+    return calls
+
+
+def metric_batches_for_domain(
+    manifest: CompiledManifest, domain_id: str, *, max_batch_size: int = DEFAULT_METRIC_BATCH_SIZE
+) -> tuple[tuple[dict[str, Any], ...], ...]:
+    """One domain's compiled metrics, split into ordered, disjoint batches --
+    the unit `app/cds/engine.py` now issues one model call per (routing-tuning.md
+    §8), instead of a whole domain's catalog in one call.
+
+    The natural boundary is the CDS question/section itself: metrics sharing
+    a first `source_hints` entry (e.g. every `C1` metric) form one
+    contiguous run (manifest metric order already groups by section --
+    verified empirically, never interleaved). Consecutive small sections
+    PACK into the same batch up to `max_batch_size` (most CDS sections are
+    far smaller than the ceiling -- e.g. `admissions`'s `C3`/`C4` are each a
+    single metric -- so batching strictly one-section-per-call would turn a
+    13-domain run into 100+ tiny calls for no accuracy benefit). A section
+    that alone exceeds `max_batch_size` is chunked further at that fixed
+    size -- the fallback only, not the default, since a section split
+    mid-question would separate metrics that share the same page context
+    for no benefit. A batch never straddles a section boundary AND spills
+    into fixed-size chunking at once: either a section fits whole into a
+    (possibly shared) batch, or it alone is split.
+
+    Every metric appears in exactly one batch -- batches partition the
+    domain's metrics, never duplicate or drop one -- so accumulating
+    findings across every batch's call is safe from double-counting.
+    """
+    domain = next((d for d in manifest.content["domains"] if d["id"] == domain_id), None)
+    if domain is None:
+        raise ValueError(f"unknown domain in manifest: {domain_id!r}")
+    batches: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    for section in _contiguous_sections(domain["metrics"]):
+        if len(section) > max_batch_size:
+            if current:
+                batches.append(current)
+                current = []
+            batches.extend(
+                section[start : start + max_batch_size]
+                for start in range(0, len(section), max_batch_size)
+            )
+            continue
+        if current and len(current) + len(section) > max_batch_size:
+            batches.append(current)
+            current = []
+        current.extend(section)
+    if current:
+        batches.append(current)
+    return tuple(tuple(batch) for batch in batches)
+
+
+def _contiguous_sections(metrics: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    """Group `metrics` (already in manifest order) into contiguous runs
+    sharing the same first `source_hints` entry -- the CDS-section boundary
+    `metric_batches_for_domain` packs batches around. `source_hints` is
+    validated non-empty at manifest-compile time (manifest_types.py), so
+    every metric has a real first hint to group by."""
+    sections: list[list[dict[str, Any]]] = []
+    open_hint: str | None = None
+    for metric in metrics:
+        hint = metric["source_hints"][0]
+        if not sections or hint != open_hint:
+            sections.append([])
+            open_hint = hint
+        sections[-1].append(metric)
+    return sections
+
+
+def source_hints_for_domains(
+    manifest: CompiledManifest, requested_domains: tuple[str, ...]
+) -> tuple[str, ...]:
+    """The union of every requested domain's metric `source_hints` (CDS
+    section codes like "C1", "I-2") -- the page-routing seam's regex targets
+    (plan §B4 `PageSelector`)."""
+    wanted = set(requested_domains)
+    hints: set[str] = set()
+    for domain in manifest.content["domains"]:
+        if domain["id"] in wanted:
+            for metric in domain["metrics"]:
+                hints.update(metric["source_hints"])
+    return tuple(sorted(hints))
+
+
+async def verify_manifest_current(pool: asyncpg.Pool, manifest: CompiledManifest) -> None:
+    """Confirm the compiled `config/cds/` still matches the DB's published
+    manifest row for `manifest.version` before it is trusted for a run.
+
+    This is a drift *detector*, not a publisher -- P4 never writes
+    `cds_manifests` (that stays a rare, manual `scripts/`-run action per plan
+    §I2). Raises `ManifestDriftError` on any mismatch or missing row.
+    """
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT content_sha256 FROM cds_library.cds_manifests WHERE version = $1",
+            manifest.version,
+        )
+    if row is None:
+        raise ManifestDriftError(
+            f"manifest version {manifest.version!r} (compiled from config/cds/) has no row in "
+            "cds_library.cds_manifests -- publish it before running the engine against it"
+        )
+    db_hash = row["content_sha256"]
+    db_hash_hex = bytes(db_hash).hex()
+    if db_hash_hex != manifest.content_sha256:
+        raise ManifestDriftError(
+            f"config/cds/ compiles to content_sha256={manifest.content_sha256} but "
+            f"cds_library.cds_manifests version {manifest.version!r} has {db_hash_hex} -- "
+            "config/cds/ has drifted from the published manifest; do not run the engine "
+            "until this is resolved (plan §B2)"
+        )
+
+
+__all__ = [
+    "CDS_CONFIG_DIR",
+    "DEFAULT_METRIC_BATCH_SIZE",
+    "ManifestDriftError",
+    "calls_for_domains",
+    "domain_ids",
+    "extraction_groups",
+    "load_compiled_manifest",
+    "metric_batches_for_domain",
+    "source_hints_for_domains",
+    "verify_manifest_current",
+]

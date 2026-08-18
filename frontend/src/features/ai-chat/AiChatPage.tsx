@@ -6,7 +6,7 @@ import {
   BUILT_IN_RESPONSE_MODE_OPTIONS,
   normalizeResponseModeSelection,
 } from "@/api/chat/response-mode";
-import type { ChatTransport } from "@/api/chat/types";
+import type { ChatTransport, ClarifySpec } from "@/api/chat/types";
 import {
   deriveHistoricalModeSkill,
   findCounselingMode,
@@ -45,7 +45,7 @@ function documentTitleFor(title: string | null | undefined): string {
     : "New chat · Counselle";
 }
 
-function clarifySpecIdentity(clarify: ChatMessage["clarify"]): string {
+function clarifySpecIdentity(clarify: ClarifySpec): string {
   return JSON.stringify(clarify);
 }
 

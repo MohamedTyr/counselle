@@ -1,0 +1,2444 @@
+id: outcomes
+context_bindings:
+- id: b3_awards_window
+  label: awards reporting window
+  binders:
+  - awards_window_start
+  - awards_window_end
+  targets:
+    metric_ids:
+    - awards_certificate_diploma
+    - awards_associate
+    - awards_bachelors
+    - awards_postbachelors_certificate
+    - awards_masters
+    - awards_postmasters_certificate
+    - awards_doctoral_research_scholarship
+    - awards_doctoral_professional_practice
+    - awards_doctoral_other
+- id: primary_bachelors_cohort
+  label: primary bachelor's cohort
+  binders:
+  - bachelors_primary_cohort_year
+  targets:
+    metric_ids:
+    - primary_four_year_completion_cutoff
+    - primary_fifth_year_interval_start
+    - primary_fifth_year_interval_end
+    - primary_sixth_year_interval_start
+    - primary_sixth_year_interval_end
+    - primary_pell_grant_initial_cohort_count
+    - primary_pell_grant_allowable_exclusions_count
+    - primary_pell_grant_adjusted_cohort_count
+    - primary_pell_grant_completed_within_four_years_count
+    - primary_pell_grant_completed_after_four_within_five_years_count
+    - primary_pell_grant_completed_after_five_within_six_years_count
+    - primary_pell_grant_completed_within_six_years_count
+    - primary_pell_grant_six_year_graduation_rate_ratio
+    - primary_subsidized_stafford_no_pell_initial_cohort_count
+    - primary_subsidized_stafford_no_pell_allowable_exclusions_count
+    - primary_subsidized_stafford_no_pell_adjusted_cohort_count
+    - primary_subsidized_stafford_no_pell_completed_within_four_years_count
+    - primary_subsidized_stafford_no_pell_completed_after_four_within_five_years_count
+    - primary_subsidized_stafford_no_pell_completed_after_five_within_six_years_count
+    - primary_subsidized_stafford_no_pell_completed_within_six_years_count
+    - primary_subsidized_stafford_no_pell_six_year_graduation_rate_ratio
+    - primary_neither_pell_nor_subsidized_stafford_initial_cohort_count
+    - primary_neither_pell_nor_subsidized_stafford_allowable_exclusions_count
+    - primary_neither_pell_nor_subsidized_stafford_adjusted_cohort_count
+    - primary_neither_pell_nor_subsidized_stafford_completed_within_four_years_count
+    - primary_neither_pell_nor_subsidized_stafford_completed_after_four_within_five_years_count
+    - primary_neither_pell_nor_subsidized_stafford_completed_after_five_within_six_years_count
+    - primary_neither_pell_nor_subsidized_stafford_completed_within_six_years_count
+    - primary_neither_pell_nor_subsidized_stafford_six_year_graduation_rate_ratio
+    - primary_all_students_initial_cohort_count
+    - primary_all_students_allowable_exclusions_count
+    - primary_all_students_adjusted_cohort_count
+    - primary_all_students_completed_within_four_years_count
+    - primary_all_students_completed_after_four_within_five_years_count
+    - primary_all_students_completed_after_five_within_six_years_count
+    - primary_all_students_completed_within_six_years_count
+    - primary_all_students_six_year_graduation_rate_ratio
+- id: comparison_bachelors_cohort
+  label: comparison bachelor's cohort
+  binders:
+  - bachelors_comparison_cohort_year
+  targets:
+    metric_ids:
+    - comparison_four_year_completion_cutoff
+    - comparison_fifth_year_interval_start
+    - comparison_fifth_year_interval_end
+    - comparison_sixth_year_interval_start
+    - comparison_sixth_year_interval_end
+    - comparison_pell_grant_initial_cohort_count
+    - comparison_pell_grant_allowable_exclusions_count
+    - comparison_pell_grant_adjusted_cohort_count
+    - comparison_pell_grant_completed_within_four_years_count
+    - comparison_pell_grant_completed_after_four_within_five_years_count
+    - comparison_pell_grant_completed_after_five_within_six_years_count
+    - comparison_pell_grant_completed_within_six_years_count
+    - comparison_pell_grant_six_year_graduation_rate_ratio
+    - comparison_subsidized_stafford_no_pell_initial_cohort_count
+    - comparison_subsidized_stafford_no_pell_allowable_exclusions_count
+    - comparison_subsidized_stafford_no_pell_adjusted_cohort_count
+    - comparison_subsidized_stafford_no_pell_completed_within_four_years_count
+    - comparison_subsidized_stafford_no_pell_completed_after_four_within_five_years_count
+    - comparison_subsidized_stafford_no_pell_completed_after_five_within_six_years_count
+    - comparison_subsidized_stafford_no_pell_completed_within_six_years_count
+    - comparison_subsidized_stafford_no_pell_six_year_graduation_rate_ratio
+    - comparison_neither_pell_nor_subsidized_stafford_initial_cohort_count
+    - comparison_neither_pell_nor_subsidized_stafford_allowable_exclusions_count
+    - comparison_neither_pell_nor_subsidized_stafford_adjusted_cohort_count
+    - comparison_neither_pell_nor_subsidized_stafford_completed_within_four_years_count
+    - comparison_neither_pell_nor_subsidized_stafford_completed_after_four_within_five_years_count
+    - comparison_neither_pell_nor_subsidized_stafford_completed_after_five_within_six_years_count
+    - comparison_neither_pell_nor_subsidized_stafford_completed_within_six_years_count
+    - comparison_neither_pell_nor_subsidized_stafford_six_year_graduation_rate_ratio
+    - comparison_all_students_initial_cohort_count
+    - comparison_all_students_allowable_exclusions_count
+    - comparison_all_students_adjusted_cohort_count
+    - comparison_all_students_completed_within_four_years_count
+    - comparison_all_students_completed_after_four_within_five_years_count
+    - comparison_all_students_completed_after_five_within_six_years_count
+    - comparison_all_students_completed_within_six_years_count
+    - comparison_all_students_six_year_graduation_rate_ratio
+- id: primary_two_year_cohort
+  label: primary two-year-equivalent cohort
+  binders:
+  - two_year_primary_cohort_year
+  targets:
+    metric_ids:
+    - primary_two_year_initial_cohort_count
+    - primary_two_year_allowable_exclusions_count
+    - primary_two_year_adjusted_cohort_count
+    - primary_two_year_less_than_two_year_completers_total
+    - primary_two_year_less_than_two_year_completers_within_150_percent
+    - primary_two_year_two_to_less_than_four_year_completers_total
+    - primary_two_year_two_to_less_than_four_year_completers_within_150_percent
+    - primary_two_year_transfers_out_within_three_years_count
+    - primary_two_year_transfers_to_two_year_institutions_count
+    - primary_two_year_transfers_to_four_year_institutions_count
+- id: comparison_two_year_cohort
+  label: comparison two-year-equivalent cohort
+  binders:
+  - two_year_comparison_cohort_year
+  targets:
+    metric_ids:
+    - comparison_two_year_initial_cohort_count
+    - comparison_two_year_allowable_exclusions_count
+    - comparison_two_year_adjusted_cohort_count
+    - comparison_two_year_less_than_two_year_completers_total
+    - comparison_two_year_less_than_two_year_completers_within_150_percent
+    - comparison_two_year_two_to_less_than_four_year_completers_total
+    - comparison_two_year_two_to_less_than_four_year_completers_within_150_percent
+    - comparison_two_year_transfers_out_within_three_years_count
+    - comparison_two_year_transfers_to_two_year_institutions_count
+    - comparison_two_year_transfers_to_four_year_institutions_count
+- id: b22_retention_window
+  label: retention entering and follow-up terms
+  binders:
+  - first_year_retention_entering_term
+  - first_year_retention_followup_term
+  targets:
+    metric_ids:
+    - first_year_retention_entering_cohort_count
+    - first_year_retention_still_enrolled_next_fall_count
+    - first_year_retention_reported_percent
+title: Awards, completion cohorts, transfer-out outcomes, and retention
+metrics:
+  - id: awards_window_start
+    description: Start date of the degree/award reporting window printed on B3.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Copy the B3 award-window start date exactly as printed in the item
+      header (for example the July 1 start of the reporting year). This is
+      the degree award window, not the CDS edition
+      (`identity.academic_year`) and not a fall-snapshot or admission-cycle
+      term. Every B3 award count metric below is bound to this window.
+
+  - id: awards_window_end
+    description: End date of the degree/award reporting window printed on B3.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Copy the B3 award-window end date exactly as printed in the item
+      header (for example the June 30 end of the reporting year). Pair with
+      `awards_window_start`; never assume a year not printed.
+
+  - id: awards_certificate_diploma
+    description: >-
+      Certificate/diploma awards below the associate level conferred during
+      the `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. The exact visible row label in both versions is
+      "Certificate/diploma".
+
+  - id: awards_associate
+    description: >-
+      Associate degree awards conferred during the
+      `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. The exact visible row label in both versions is
+      "Associate degrees".
+
+  - id: awards_bachelors
+    description: >-
+      Bachelor's degree awards conferred during the
+      `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. Exact visible row aliases are Harvard "Bachelor's
+      degrees" and Yale "Bachelor’s degrees".
+
+  - id: awards_postbachelors_certificate
+    description: >-
+      Post-bachelor's certificate awards conferred during the
+      `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. Exact visible row aliases are Harvard
+      "Postbachelor's certificates" and Yale "Post-bachelor’s certificates".
+
+  - id: awards_masters
+    description: >-
+      Master's degree awards conferred during the
+      `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. Exact visible row aliases are Harvard "Master's
+      degrees" and Yale "Master’s degrees".
+
+  - id: awards_postmasters_certificate
+    description: >-
+      Post-master's certificate awards conferred during the
+      `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. Exact visible row aliases are Harvard
+      "Post-Master's certificates" and Yale "Post-master’s certificates".
+
+  - id: awards_doctoral_research_scholarship
+    description: >-
+      Doctoral degree awards classified as research/scholarship conferred
+      during the `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. Exact visible row aliases are Harvard "Doctoral
+      degrees – research/scholarship" (en dash) and Yale "Doctoral degrees -
+      research/scholarship" (hyphen-minus).
+
+  - id: awards_doctoral_professional_practice
+    description: >-
+      Doctoral degree awards classified as professional practice conferred
+      during the `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. Exact visible row aliases are Harvard "Doctoral
+      degrees – professional practice" (en dash) and Yale "Doctoral degrees -
+      professional practice" (hyphen-minus).
+
+  - id: awards_doctoral_other
+    description: >-
+      Doctoral degree awards classified as "other" conferred during the
+      `awards_window_start`-`awards_window_end` reporting window.
+    type: integer
+    unit: awards
+    population: institution
+    denominator: none
+    definition_variant: total
+    period_kind: reporting_cycle
+    source_hints: [B3]
+    instructions: >-
+      Extract the B3 award-count response only from the exact visible row
+      alias named below. This counts awards conferred, not unique graduates (a
+      student earning two credentials in the window is counted in each row)
+      and B3 combines certificate and diploma awards in one row. Do not sum
+      rows to produce a total not printed on the form, and do not confuse with
+      the A5 degree-offered checklist, which reports offerings rather than
+      annual award counts. Bind this value to `awards_window_start` and
+      `awards_window_end`. Exact visible row aliases are Harvard "Doctoral
+      degrees – other" (en dash) and Yale "Doctoral degrees - other"
+      (hyphen-minus).
+
+  - id: bachelors_primary_cohort_year
+    description: >-
+      Entry year of the primary bachelor's completion cohort from the
+      first/most recent visible B4-B11 cohort grid.
+    type: integer
+    unit: academic_year
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the cohort entry year printed in the header of the first/most
+      recent visible B4-B11 cohort grid (for example the entering class the
+      grid tracks). `primary` and `comparison` are static slot labels for
+      the first and second visible grids, never a calendar year baked into a
+      durable metric ID; the actual year value belongs only in this context
+      metric. Every row below for this slot is bound to this cohort year.
+      The B4-B11 grid is a wide table: each lettered row (A through H) repeats
+      across up to four population columns (Pell Grant recipients, Subsidized
+      Stafford Loan recipients without Pell, students with neither, and the
+      Total column), and the same lettered rows recur again in the second,
+      visually similar comparison-cohort grid elsewhere in this section.
+      Treat every printed row/column cell in this grid as a separate metric
+      to check; do not stop partway through the grid or skip a cell only
+      because its row label looks like one already handled in the other
+      grid. Only omit a specific cell if that cell's value is genuinely not
+      printed.
+
+  - id: primary_four_year_completion_cutoff
+    description: >-
+      Printed four-year completion cutoff date/description for the primary
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed four-year cutoff context from the first/most
+      recent visible B4-B11 cohort grid verbatim, including qualifying words
+      such as "by" or "after" (for example "by August 2019"). Do not reduce it
+      to a bare year; this is source context for the four-year completion rows
+      below. Bind this context to `bachelors_primary_cohort_year`.
+
+  - id: primary_fifth_year_interval_start
+    description: >-
+      Printed start of the fifth-year completion interval for the primary
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed start of the "after four, within five years"
+      interval from the first/most recent visible B4-B11 cohort grid verbatim.
+      Keep distinct from the four-year cutoff and the interval end; this is
+      incremental context, not the cumulative six-year window. Bind this
+      context to `bachelors_primary_cohort_year`.
+
+  - id: primary_fifth_year_interval_end
+    description: >-
+      Printed end of the fifth-year completion interval for the primary
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed end of the "after four, within five years"
+      interval from the first/most recent visible B4-B11 cohort grid verbatim.
+      Do not merge with the sixth-year interval end. Bind this context to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_sixth_year_interval_start
+    description: >-
+      Printed start of the sixth-year completion interval for the primary
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed start of the "after five, within six years"
+      interval from the first/most recent visible B4-B11 cohort grid verbatim.
+      Bind this context to `bachelors_primary_cohort_year`.
+
+  - id: primary_sixth_year_interval_end
+    description: >-
+      Printed end of the sixth-year completion interval for the primary
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed end of the "after five, within six years"
+      interval from the first/most recent visible B4-B11 cohort grid verbatim;
+      this is the six-year cutoff referenced by the aid-group-specific
+      six-year graduation-rate metrics below. Bind this context to
+      `bachelors_primary_cohort_year`.
+
+  - id: bachelors_comparison_cohort_year
+    description: >-
+      Entry year of the comparison bachelor's completion cohort from the
+      second/prior visible B4-B11 cohort grid.
+    type: integer
+    unit: academic_year
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the cohort entry year printed in the header of the second/prior
+      visible B4-B11 cohort grid (for example the entering class the grid
+      tracks). `primary` and `comparison` are static slot labels for the
+      first and second visible grids, never a calendar year baked into a
+      durable metric ID; the actual year value belongs only in this context
+      metric. Every row below for this slot is bound to this cohort year.
+      This is a second, visually similar B4-B11 grid with the same lettered
+      rows (A through H) and the same four population columns (Pell Grant
+      recipients, Subsidized Stafford Loan recipients without Pell, students
+      with neither, and the Total column) as the primary cohort's grid.
+      Treat every printed row/column cell in this grid as a separate metric
+      to check; do not skip a cell only because its row label repeats one
+      already handled in the primary grid. Only omit a specific cell if that
+      cell's value is genuinely not printed.
+
+  - id: comparison_four_year_completion_cutoff
+    description: >-
+      Printed four-year completion cutoff date/description for the
+      comparison B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed four-year cutoff context from the second/prior
+      visible B4-B11 cohort grid verbatim, including qualifying words such as
+      "by" or "after" (for example "by August 2019"). Do not reduce it to a
+      bare year; this is source context for the four-year completion rows
+      below. Bind this context to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_fifth_year_interval_start
+    description: >-
+      Printed start of the fifth-year completion interval for the comparison
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed start of the "after four, within five years"
+      interval from the second/prior visible B4-B11 cohort grid verbatim. Keep
+      distinct from the four-year cutoff and the interval end; this is
+      incremental context, not the cumulative six-year window. Bind this
+      context to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_fifth_year_interval_end
+    description: >-
+      Printed end of the fifth-year completion interval for the comparison
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed end of the "after four, within five years"
+      interval from the second/prior visible B4-B11 cohort grid verbatim. Do
+      not merge with the sixth-year interval end. Bind this context to
+      `bachelors_comparison_cohort_year`.
+
+  - id: comparison_sixth_year_interval_start
+    description: >-
+      Printed start of the sixth-year completion interval for the comparison
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed start of the "after five, within six years"
+      interval from the second/prior visible B4-B11 cohort grid verbatim. Bind
+      this context to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_sixth_year_interval_end
+    description: >-
+      Printed end of the sixth-year completion interval for the comparison
+      B4-B11 cohort.
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Copy the complete printed end of the "after five, within six years"
+      interval from the second/prior visible B4-B11 cohort grid verbatim; this
+      is the six-year cutoff referenced by the aid-group-specific six-year
+      graduation-rate metrics below. Bind this context to
+      `bachelors_comparison_cohort_year`.
+
+  - id: primary_pell_grant_initial_cohort_count
+    description: >-
+      Initial cohort count of students who received a Federal Pell Grant
+      entering as first-time, full-time bachelor's-degree-seeking students
+      in the primary cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column initial-cohort
+      row from the first/most recent visible B4-B11 cohort grid independently
+      as printed; this is a source total, not a value derived from later rows.
+      This is CDS item B4 and is bound to `bachelors_primary_cohort_year`.
+      Students who also received a subsidized Stafford Loan remain in the Pell
+      Grant Recipients column.
+
+  - id: primary_pell_grant_allowable_exclusions_count
+    description: >-
+      Count of students who received a Federal Pell Grant in the primary
+      initial cohort removed under CDS-allowable exclusion reasons (for
+      example death, permanent disability, or foreign-service, military, or
+      religious-mission service).
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column
+      allowable-exclusions row from the first/most recent visible B4-B11
+      cohort grid independently as printed. The form prints no separate
+      breakdown by exclusion reason; do not manufacture one. This is CDS item
+      B5 and is bound to `bachelors_primary_cohort_year`. Students who also
+      received a subsidized Stafford Loan remain in the "Recipients of a
+      Federal Pell Grant" column.
+
+  - id: primary_pell_grant_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of students who received a Federal Pell Grant in
+      the primary cohort after allowable exclusions are removed from the
+      initial cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column adjusted-cohort
+      row from the first/most recent visible B4-B11 cohort grid independently
+      as printed. Use arithmetic against
+      `primary_pell_grant_initial_cohort_count` and
+      `primary_pell_grant_allowable_exclusions_count` only for validation;
+      never overwrite a printed disagreement. This is CDS item B6 and is bound
+      to `bachelors_primary_cohort_year`. Students who also received a
+      subsidized Stafford Loan remain in the "Recipients of a Federal Pell
+      Grant" column.
+
+  - id: primary_pell_grant_completed_within_four_years_count
+    description: >-
+      Count of students who received a Federal Pell Grant from the primary
+      adjusted cohort who completed a bachelor's or equivalent program within
+      four years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column "completed
+      within four years" row from the first/most recent visible B4-B11 cohort
+      grid, bound to `primary_four_year_completion_cutoff`. This is CDS item
+      B7 and is bound to `bachelors_primary_cohort_year`. Students who also
+      received a subsidized Stafford Loan remain in the "Recipients of a
+      Federal Pell Grant" column.
+
+  - id: primary_pell_grant_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of students who received a Federal Pell Grant from the
+      primary adjusted cohort who completed a bachelor's or equivalent program
+      after four years but within five years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column "completed after
+      four, within five years" row from the first/most recent visible B4-B11
+      cohort grid, bound to `primary_fifth_year_interval_start` and
+      `primary_fifth_year_interval_end`. This is incremental, not cumulative
+      with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_primary_cohort_year`. Students who also received a subsidized
+      Stafford Loan remain in the "Recipients of a Federal Pell Grant" column.
+
+  - id: primary_pell_grant_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of students who received a Federal Pell Grant from the
+      primary adjusted cohort who completed a bachelor's or equivalent program
+      after five years but within six years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column "completed after
+      five, within six years" row from the first/most recent visible B4-B11
+      cohort grid, bound to `primary_sixth_year_interval_start` and
+      `primary_sixth_year_interval_end`. This is incremental, not cumulative
+      with the four- or five-year counts. This is CDS item B9 and is bound to
+      `bachelors_primary_cohort_year`. Students who also received a subsidized
+      Stafford Loan remain in the "Recipients of a Federal Pell Grant" column.
+
+  - id: primary_pell_grant_completed_within_six_years_count
+    description: >-
+      Cumulative count of students who received a Federal Pell Grant from the
+      primary adjusted cohort who completed a bachelor's or equivalent program
+      within six years total.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column cumulative
+      "total completed within six years" row from the first/most recent
+      visible B4-B11 cohort grid. This is the cumulative six-year count,
+      distinct from the incremental fifth- and sixth-year rows above. This is
+      CDS item B10 and is bound to `bachelors_primary_cohort_year`. Bind the
+      six-year cutoff to `primary_sixth_year_interval_end`. Students who also
+      received a subsidized Stafford Loan remain in the "Recipients of a
+      Federal Pell Grant" column.
+
+  - id: primary_pell_grant_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for students who
+      received a Federal Pell Grant in the primary adjusted cohort.
+    type: number
+    unit: ratio
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column printed six-year
+      graduation rate from the first/most recent visible B4-B11 cohort grid as
+      the printed 0-1 ratio (for example 0.94), never as a percent and never
+      recomputed from the count rows above. Preserve the exact printed decimal
+      in `raw_value`. This is CDS item B11 and is bound to
+      `bachelors_primary_cohort_year`. Bind the six-year cutoff to
+      `primary_sixth_year_interval_end`. Students who also received a
+      subsidized Stafford Loan remain in the "Recipients of a Federal Pell
+      Grant" column.
+
+  - id: primary_subsidized_stafford_no_pell_initial_cohort_count
+    description: >-
+      Initial cohort count of students who received a subsidized Stafford
+      Loan and did not receive a Federal Pell Grant entering as first-time,
+      full-time bachelor's-degree-seeking students in the primary cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column initial-cohort row from the first/most
+      recent visible B4-B11 cohort grid independently as printed; this is a
+      source total, not a value derived from later rows. This is CDS item B4
+      and is bound to `bachelors_primary_cohort_year`.
+
+  - id: primary_subsidized_stafford_no_pell_allowable_exclusions_count
+    description: >-
+      Count of students who received a subsidized Stafford Loan and did not
+      receive a Federal Pell Grant in the primary initial cohort removed
+      under CDS-allowable exclusion reasons (for example death, permanent
+      disability, or foreign-service, military, or religious-mission
+      service).
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column allowable-exclusions row from the
+      first/most recent visible B4-B11 cohort grid independently as printed.
+      The form prints no separate breakdown by exclusion reason; do not
+      manufacture one. This is CDS item B5 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_subsidized_stafford_no_pell_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of students who received a subsidized Stafford
+      Loan and did not receive a Federal Pell Grant in the primary cohort
+      after allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column adjusted-cohort row from the first/most
+      recent visible B4-B11 cohort grid independently as printed. Use
+      arithmetic against
+      `primary_subsidized_stafford_no_pell_initial_cohort_count` and
+      `primary_subsidized_stafford_no_pell_allowable_exclusions_count` only
+      for validation; never overwrite a printed disagreement. This is CDS item
+      B6 and is bound to `bachelors_primary_cohort_year`.
+
+  - id: primary_subsidized_stafford_no_pell_completed_within_four_years_count
+    description: >-
+      Count of students who received a subsidized Stafford Loan and did not
+      receive a Federal Pell Grant from the primary adjusted cohort who
+      completed a bachelor's or equivalent program within four years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column "completed within four years" row from the
+      first/most recent visible B4-B11 cohort grid, bound to
+      `primary_four_year_completion_cutoff`. This is CDS item B7 and is bound
+      to `bachelors_primary_cohort_year`.
+
+  - id: primary_subsidized_stafford_no_pell_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of students who received a subsidized Stafford Loan
+      and did not receive a Federal Pell Grant from the primary adjusted
+      cohort who completed a bachelor's or equivalent program after four years
+      but within five years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column "completed after four, within five years"
+      row from the first/most recent visible B4-B11 cohort grid, bound to
+      `primary_fifth_year_interval_start` and
+      `primary_fifth_year_interval_end`. This is incremental, not cumulative
+      with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_subsidized_stafford_no_pell_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of students who received a subsidized Stafford Loan
+      and did not receive a Federal Pell Grant from the primary adjusted
+      cohort who completed a bachelor's or equivalent program after five years
+      but within six years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column "completed after five, within six years"
+      row from the first/most recent visible B4-B11 cohort grid, bound to
+      `primary_sixth_year_interval_start` and
+      `primary_sixth_year_interval_end`. This is incremental, not cumulative
+      with the four- or five-year counts. This is CDS item B9 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_subsidized_stafford_no_pell_completed_within_six_years_count
+    description: >-
+      Cumulative count of students who received a subsidized Stafford Loan and
+      did not receive a Federal Pell Grant from the primary adjusted cohort
+      who completed a bachelor's or equivalent program within six years total.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column cumulative "total completed within six
+      years" row from the first/most recent visible B4-B11 cohort grid. This
+      is the cumulative six-year count, distinct from the incremental fifth-
+      and sixth-year rows above. This is CDS item B10 and is bound to
+      `bachelors_primary_cohort_year`. Bind the six-year cutoff to
+      `primary_sixth_year_interval_end`.
+
+  - id: primary_subsidized_stafford_no_pell_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for students who
+      received a subsidized Stafford Loan and did not receive a Federal Pell
+      Grant in the primary adjusted cohort.
+    type: number
+    unit: ratio
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column printed six-year graduation rate from the
+      first/most recent visible B4-B11 cohort grid as the printed 0-1 ratio
+      (for example 0.94), never as a percent and never recomputed from the
+      count rows above. Preserve the exact printed decimal in `raw_value`.
+      This is CDS item B11 and is bound to `bachelors_primary_cohort_year`.
+      Bind the six-year cutoff to `primary_sixth_year_interval_end`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_initial_cohort_count
+    description: >-
+      Initial cohort count of students who received neither a Federal Pell
+      Grant nor a subsidized Stafford Loan entering as first-time, full-time
+      bachelor's-degree-seeking students in the primary cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column initial-cohort row from the first/most
+      recent visible B4-B11 cohort grid independently as printed; this is a
+      source total, not a value derived from later rows. This is CDS item B4
+      and is bound to `bachelors_primary_cohort_year`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_allowable_exclusions_count
+    description: >-
+      Count of students who received neither a Federal Pell Grant nor a
+      subsidized Stafford Loan in the primary initial cohort removed under
+      CDS-allowable exclusion reasons (for example death, permanent
+      disability, or foreign-service, military, or religious-mission
+      service).
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column allowable-exclusions row from the
+      first/most recent visible B4-B11 cohort grid independently as printed.
+      The form prints no separate breakdown by exclusion reason; do not
+      manufacture one. This is CDS item B5 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of students who received neither a Federal Pell
+      Grant nor a subsidized Stafford Loan in the primary cohort after
+      allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column adjusted-cohort row from the first/most
+      recent visible B4-B11 cohort grid independently as printed. Use
+      arithmetic against
+      `primary_neither_pell_nor_subsidized_stafford_initial_cohort_count` and
+      `primary_neither_pell_nor_subsidized_stafford_allowable_exclusions_count`
+      only for validation; never overwrite a printed disagreement. This is CDS
+      item B6 and is bound to `bachelors_primary_cohort_year`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_completed_within_four_years_count
+    description: >-
+      Count of students who received neither a Federal Pell Grant nor a
+      subsidized Stafford Loan from the primary adjusted cohort who completed
+      a bachelor's or equivalent program within four years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column "completed within four years" row from
+      the first/most recent visible B4-B11 cohort grid, bound to
+      `primary_four_year_completion_cutoff`. This is CDS item B7 and is bound
+      to `bachelors_primary_cohort_year`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of students who received neither a Federal Pell Grant
+      nor a subsidized Stafford Loan from the primary adjusted cohort who
+      completed a bachelor's or equivalent program after four years but within
+      five years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column "completed after four, within five
+      years" row from the first/most recent visible B4-B11 cohort grid, bound
+      to `primary_fifth_year_interval_start` and
+      `primary_fifth_year_interval_end`. This is incremental, not cumulative
+      with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of students who received neither a Federal Pell Grant
+      nor a subsidized Stafford Loan from the primary adjusted cohort who
+      completed a bachelor's or equivalent program after five years but within
+      six years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column "completed after five, within six
+      years" row from the first/most recent visible B4-B11 cohort grid, bound
+      to `primary_sixth_year_interval_start` and
+      `primary_sixth_year_interval_end`. This is incremental, not cumulative
+      with the four- or five-year counts. This is CDS item B9 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_completed_within_six_years_count
+    description: >-
+      Cumulative count of students who received neither a Federal Pell Grant
+      nor a subsidized Stafford Loan from the primary adjusted cohort who
+      completed a bachelor's or equivalent program within six years total.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column cumulative "total completed within six
+      years" row from the first/most recent visible B4-B11 cohort grid. This
+      is the cumulative six-year count, distinct from the incremental fifth-
+      and sixth-year rows above. This is CDS item B10 and is bound to
+      `bachelors_primary_cohort_year`. Bind the six-year cutoff to
+      `primary_sixth_year_interval_end`.
+
+  - id: primary_neither_pell_nor_subsidized_stafford_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for students who
+      received neither a Federal Pell Grant nor a subsidized Stafford Loan
+      in the primary adjusted cohort.
+    type: number
+    unit: ratio
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column printed six-year graduation rate from
+      the first/most recent visible B4-B11 cohort grid as the printed 0-1
+      ratio (for example 0.94), never as a percent and never recomputed from
+      the count rows above. Preserve the exact printed decimal in `raw_value`.
+      This is CDS item B11 and is bound to `bachelors_primary_cohort_year`.
+      Bind the six-year cutoff to `primary_sixth_year_interval_end`.
+
+  - id: primary_all_students_initial_cohort_count
+    description: >-
+      Initial primary cohort count of all first-time, full-time
+      bachelor's-degree-seeking students, regardless of aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column initial-cohort
+      row from the first/most recent visible B4-B11 cohort grid independently
+      as printed; this is a source total, not a value derived from later rows.
+      This is CDS item B4 and is bound to `bachelors_primary_cohort_year`.
+
+  - id: primary_all_students_allowable_exclusions_count
+    description: >-
+      Count of all first-time, full-time bachelor's-degree-seeking students
+      removed from the primary initial cohort under CDS-allowable exclusion
+      reasons, regardless of aid group (for example death, permanent
+      disability, or foreign-service, military, or religious-mission service).
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column
+      allowable-exclusions row from the first/most recent visible B4-B11
+      cohort grid independently as printed. The form prints no separate
+      breakdown by exclusion reason; do not manufacture one. This is CDS item
+      B5 and is bound to `bachelors_primary_cohort_year`.
+
+  - id: primary_all_students_adjusted_cohort_count
+    description: >-
+      Adjusted primary cohort count of all first-time, full-time
+      bachelor's-degree-seeking students, regardless of aid group, after
+      allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column
+      adjusted-cohort row from the first/most recent visible B4-B11 cohort
+      grid independently as printed. Use arithmetic against
+      `primary_all_students_initial_cohort_count` and
+      `primary_all_students_allowable_exclusions_count` only for validation;
+      never overwrite a printed disagreement. This is CDS item B6 and is bound
+      to `bachelors_primary_cohort_year`.
+
+  - id: primary_all_students_completed_within_four_years_count
+    description: >-
+      Count of all first-time, full-time bachelor's-degree-seeking students in
+      the adjusted primary cohort who completed a bachelor's or equivalent
+      program within four years, regardless of aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column "completed
+      within four years" row from the first/most recent visible B4-B11 cohort
+      grid, bound to `primary_four_year_completion_cutoff`. This is CDS item
+      B7 and is bound to `bachelors_primary_cohort_year`.
+
+  - id: primary_all_students_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of all first-time, full-time bachelor's-degree-seeking
+      students in the adjusted primary cohort who completed a bachelor's or
+      equivalent program after four years but within five years, regardless of
+      aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column "completed
+      after four, within five years" row from the first/most recent visible
+      B4-B11 cohort grid, bound to `primary_fifth_year_interval_start` and
+      `primary_fifth_year_interval_end`. This is incremental, not cumulative
+      with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_all_students_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of all first-time, full-time bachelor's-degree-seeking
+      students in the adjusted primary cohort who completed a bachelor's or
+      equivalent program after five years but within six years, regardless of
+      aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column "completed
+      after five, within six years" row from the first/most recent visible
+      B4-B11 cohort grid, bound to `primary_sixth_year_interval_start` and
+      `primary_sixth_year_interval_end`. This is incremental, not cumulative
+      with the four- or five-year counts. This is CDS item B9 and is bound to
+      `bachelors_primary_cohort_year`.
+
+  - id: primary_all_students_completed_within_six_years_count
+    description: >-
+      Cumulative count of all first-time, full-time bachelor's-degree-seeking
+      students in the adjusted primary cohort who completed a bachelor's or
+      equivalent program within six years, regardless of aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column cumulative
+      "total completed within six years" row from the first/most recent
+      visible B4-B11 cohort grid. This is the cumulative six-year count,
+      distinct from the incremental fifth- and sixth-year rows above. This is
+      CDS item B10 and is bound to `bachelors_primary_cohort_year`. Bind the
+      six-year cutoff to `primary_sixth_year_interval_end`.
+
+  - id: primary_all_students_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for all first-time,
+      full-time bachelor's-degree-seeking students in the adjusted primary
+      cohort, regardless of aid group.
+    type: number
+    unit: ratio
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column printed
+      six-year graduation rate from the first/most recent visible B4-B11
+      cohort grid as the printed 0-1 ratio (for example 0.94), never as a
+      percent and never recomputed from the count rows above. Preserve the
+      exact printed decimal in `raw_value`. This is CDS item B11 and is bound
+      to `bachelors_primary_cohort_year`. Bind the six-year cutoff to
+      `primary_sixth_year_interval_end`.
+
+  - id: comparison_pell_grant_initial_cohort_count
+    description: >-
+      Initial cohort count of students who received a Federal Pell Grant
+      entering as first-time, full-time bachelor's-degree-seeking students
+      in the comparison cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column initial-cohort
+      row from the second/prior visible B4-B11 cohort grid independently as
+      printed; this is a source total, not a value derived from later rows.
+      This is CDS item B4 and is bound to `bachelors_comparison_cohort_year`.
+      Students who also received a subsidized Stafford Loan remain in the Pell
+      Grant Recipients column.
+
+  - id: comparison_pell_grant_allowable_exclusions_count
+    description: >-
+      Count of students who received a Federal Pell Grant in the comparison
+      initial cohort removed under CDS-allowable exclusion reasons (for
+      example death, permanent disability, or foreign-service, military, or
+      religious-mission service).
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column
+      allowable-exclusions row from the second/prior visible B4-B11 cohort
+      grid independently as printed. The form prints no separate breakdown by
+      exclusion reason; do not manufacture one. This is CDS item B5 and is
+      bound to `bachelors_comparison_cohort_year`. Students who also received
+      a subsidized Stafford Loan remain in the "Recipients of a Federal Pell
+      Grant" column.
+
+  - id: comparison_pell_grant_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of students who received a Federal Pell Grant in
+      the comparison cohort after allowable exclusions are removed from the
+      initial cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column adjusted-cohort
+      row from the second/prior visible B4-B11 cohort grid independently as
+      printed. Use arithmetic against
+      `comparison_pell_grant_initial_cohort_count` and
+      `comparison_pell_grant_allowable_exclusions_count` only for validation;
+      never overwrite a printed disagreement. This is CDS item B6 and is bound
+      to `bachelors_comparison_cohort_year`. Students who also received a
+      subsidized Stafford Loan remain in the "Recipients of a Federal Pell
+      Grant" column.
+
+  - id: comparison_pell_grant_completed_within_four_years_count
+    description: >-
+      Count of students who received a Federal Pell Grant from the comparison
+      adjusted cohort who completed a bachelor's or equivalent program within
+      four years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column "completed
+      within four years" row from the second/prior visible B4-B11 cohort grid,
+      bound to `comparison_four_year_completion_cutoff`. This is CDS item B7
+      and is bound to `bachelors_comparison_cohort_year`. Students who also
+      received a subsidized Stafford Loan remain in the "Recipients of a
+      Federal Pell Grant" column.
+
+  - id: comparison_pell_grant_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of students who received a Federal Pell Grant from the
+      comparison adjusted cohort who completed a bachelor's or equivalent
+      program after four years but within five years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column "completed after
+      four, within five years" row from the second/prior visible B4-B11 cohort
+      grid, bound to `comparison_fifth_year_interval_start` and
+      `comparison_fifth_year_interval_end`. This is incremental, not
+      cumulative with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_comparison_cohort_year`. Students who also received a
+      subsidized Stafford Loan remain in the "Recipients of a Federal Pell
+      Grant" column.
+
+  - id: comparison_pell_grant_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of students who received a Federal Pell Grant from the
+      comparison adjusted cohort who completed a bachelor's or equivalent
+      program after five years but within six years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column "completed after
+      five, within six years" row from the second/prior visible B4-B11 cohort
+      grid, bound to `comparison_sixth_year_interval_start` and
+      `comparison_sixth_year_interval_end`. This is incremental, not
+      cumulative with the four- or five-year counts. This is CDS item B9 and
+      is bound to `bachelors_comparison_cohort_year`. Students who also
+      received a subsidized Stafford Loan remain in the Pell Grant Recipients
+      column.
+
+  - id: comparison_pell_grant_completed_within_six_years_count
+    description: >-
+      Cumulative count of students who received a Federal Pell Grant from the
+      comparison adjusted cohort who completed a bachelor's or equivalent
+      program within six years total.
+    type: integer
+    unit: students
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column cumulative
+      "total completed within six years" row from the second/prior visible
+      B4-B11 cohort grid. This is the cumulative six-year count, distinct from
+      the incremental fifth- and sixth-year rows above. This is CDS item B10
+      and is bound to `bachelors_comparison_cohort_year`. Bind the six-year
+      cutoff to `comparison_sixth_year_interval_end`. Students who also
+      received a subsidized Stafford Loan remain in the "Recipients of a
+      Federal Pell Grant" column.
+
+  - id: comparison_pell_grant_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for students who
+      received a Federal Pell Grant in the comparison adjusted cohort.
+    type: number
+    unit: ratio
+    population: bachelors_cohort_pell_grant
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Federal Pell Grant" column printed six-year
+      graduation rate from the second/prior visible B4-B11 cohort grid as the
+      printed 0-1 ratio (for example 0.94), never as a percent and never
+      recomputed from the count rows above. Preserve the exact printed decimal
+      in `raw_value`. This is CDS item B11 and is bound to
+      `bachelors_comparison_cohort_year`. Bind the six-year cutoff to
+      `comparison_sixth_year_interval_end`. Students who also received a
+      subsidized Stafford Loan remain in the "Recipients of a Federal Pell Grant" column.
+
+  - id: comparison_subsidized_stafford_no_pell_initial_cohort_count
+    description: >-
+      Initial cohort count of students who received a subsidized Stafford
+      Loan and did not receive a Federal Pell Grant entering as first-time,
+      full-time bachelor's-degree-seeking students in the comparison cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column initial-cohort row from the second/prior
+      visible B4-B11 cohort grid independently as printed; this is a source
+      total, not a value derived from later rows. This is CDS item B4 and is
+      bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_subsidized_stafford_no_pell_allowable_exclusions_count
+    description: >-
+      Count of students who received a subsidized Stafford Loan and did not
+      receive a Federal Pell Grant in the comparison initial cohort removed
+      under CDS-allowable exclusion reasons (for example death, permanent
+      disability, or foreign-service, military, or religious-mission
+      service).
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column allowable-exclusions row from the
+      second/prior visible B4-B11 cohort grid independently as printed. The
+      form prints no separate breakdown by exclusion reason; do not
+      manufacture one. This is CDS item B5 and is bound to
+      `bachelors_comparison_cohort_year`.
+
+  - id: comparison_subsidized_stafford_no_pell_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of students who received a subsidized Stafford
+      Loan and did not receive a Federal Pell Grant in the comparison cohort
+      after allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column adjusted-cohort row from the second/prior
+      visible B4-B11 cohort grid independently as printed. Use arithmetic
+      against `comparison_subsidized_stafford_no_pell_initial_cohort_count`
+      and `comparison_subsidized_stafford_no_pell_allowable_exclusions_count`
+      only for validation; never overwrite a printed disagreement. This is CDS
+      item B6 and is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_subsidized_stafford_no_pell_completed_within_four_years_count
+    description: >-
+      Count of students who received a subsidized Stafford Loan and did not
+      receive a Federal Pell Grant from the comparison adjusted cohort who
+      completed a bachelor's or equivalent program within four years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column "completed within four years" row from the
+      second/prior visible B4-B11 cohort grid, bound to
+      `comparison_four_year_completion_cutoff`. This is CDS item B7 and is
+      bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_subsidized_stafford_no_pell_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of students who received a subsidized Stafford Loan
+      and did not receive a Federal Pell Grant from the comparison adjusted
+      cohort who completed a bachelor's or equivalent program after four years
+      but within five years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column "completed after four, within five years"
+      row from the second/prior visible B4-B11 cohort grid, bound to
+      `comparison_fifth_year_interval_start` and
+      `comparison_fifth_year_interval_end`. This is incremental, not
+      cumulative with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_comparison_cohort_year`.
+
+  - id: comparison_subsidized_stafford_no_pell_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of students who received a subsidized Stafford Loan
+      and did not receive a Federal Pell Grant from the comparison adjusted
+      cohort who completed a bachelor's or equivalent program after five years
+      but within six years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column "completed after five, within six years"
+      row from the second/prior visible B4-B11 cohort grid, bound to
+      `comparison_sixth_year_interval_start` and
+      `comparison_sixth_year_interval_end`. This is incremental, not
+      cumulative with the four- or five-year counts. This is CDS item B9 and
+      is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_subsidized_stafford_no_pell_completed_within_six_years_count
+    description: >-
+      Cumulative count of students who received a subsidized Stafford Loan and
+      did not receive a Federal Pell Grant from the comparison adjusted cohort
+      who completed a bachelor's or equivalent program within six years total.
+    type: integer
+    unit: students
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column cumulative "total completed within six
+      years" row from the second/prior visible B4-B11 cohort grid. This is the
+      cumulative six-year count, distinct from the incremental fifth- and
+      sixth-year rows above. This is CDS item B10 and is bound to
+      `bachelors_comparison_cohort_year`. Bind the six-year cutoff to
+      `comparison_sixth_year_interval_end`.
+
+  - id: comparison_subsidized_stafford_no_pell_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for students who
+      received a subsidized Stafford Loan and did not receive a Federal Pell
+      Grant in the comparison adjusted cohort.
+    type: number
+    unit: ratio
+    population: bachelors_cohort_subsidized_stafford_no_pell
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Recipients of a Subsidized Stafford Loan who did not
+      receive a Pell Grant" column printed six-year graduation rate from the
+      second/prior visible B4-B11 cohort grid as the printed 0-1 ratio (for
+      example 0.94), never as a percent and never recomputed from the count
+      rows above. Preserve the exact printed decimal in `raw_value`. This is
+      CDS item B11 and is bound to `bachelors_comparison_cohort_year`. Bind
+      the six-year cutoff to `comparison_sixth_year_interval_end`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_initial_cohort_count
+    description: >-
+      Initial cohort count of students who received neither a Federal Pell
+      Grant nor a subsidized Stafford Loan entering as first-time, full-time
+      bachelor's-degree-seeking students in the comparison cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column initial-cohort row from the
+      second/prior visible B4-B11 cohort grid independently as printed; this
+      is a source total, not a value derived from later rows. This is CDS item
+      B4 and is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_allowable_exclusions_count
+    description: >-
+      Count of students who received neither a Federal Pell Grant nor a
+      subsidized Stafford Loan in the comparison initial cohort removed
+      under CDS-allowable exclusion reasons (for example death, permanent
+      disability, or foreign-service, military, or religious-mission
+      service).
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column allowable-exclusions row from the
+      second/prior visible B4-B11 cohort grid independently as printed. The
+      form prints no separate breakdown by exclusion reason; do not
+      manufacture one. This is CDS item B5 and is bound to
+      `bachelors_comparison_cohort_year`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of students who received neither a Federal Pell
+      Grant nor a subsidized Stafford Loan in the comparison cohort after
+      allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column adjusted-cohort row from the
+      second/prior visible B4-B11 cohort grid independently as printed. Use
+      arithmetic against
+      `comparison_neither_pell_nor_subsidized_stafford_initial_cohort_count`
+      and
+      `comparison_neither_pell_nor_subsidized_stafford_allowable_exclusions_count`
+      only for validation; never overwrite a printed disagreement. This is CDS
+      item B6 and is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_completed_within_four_years_count
+    description: >-
+      Count of students who received neither a Federal Pell Grant nor a
+      subsidized Stafford Loan from the comparison adjusted cohort who
+      completed a bachelor's or equivalent program within four years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column "completed within four years" row from
+      the second/prior visible B4-B11 cohort grid, bound to
+      `comparison_four_year_completion_cutoff`. This is CDS item B7 and is
+      bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of students who received neither a Federal Pell Grant
+      nor a subsidized Stafford Loan from the comparison adjusted cohort who
+      completed a bachelor's or equivalent program after four years but within
+      five years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column "completed after four, within five
+      years" row from the second/prior visible B4-B11 cohort grid, bound to
+      `comparison_fifth_year_interval_start` and
+      `comparison_fifth_year_interval_end`. This is incremental, not
+      cumulative with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_comparison_cohort_year`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of students who received neither a Federal Pell Grant
+      nor a subsidized Stafford Loan from the comparison adjusted cohort who
+      completed a bachelor's or equivalent program after five years but within
+      six years.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column "completed after five, within six
+      years" row from the second/prior visible B4-B11 cohort grid, bound to
+      `comparison_sixth_year_interval_start` and
+      `comparison_sixth_year_interval_end`. This is incremental, not
+      cumulative with the four- or five-year counts. This is CDS item B9 and
+      is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_completed_within_six_years_count
+    description: >-
+      Cumulative count of students who received neither a Federal Pell Grant
+      nor a subsidized Stafford Loan from the comparison adjusted cohort who
+      completed a bachelor's or equivalent program within six years total.
+    type: integer
+    unit: students
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column cumulative "total completed within six
+      years" row from the second/prior visible B4-B11 cohort grid. This is the
+      cumulative six-year count, distinct from the incremental fifth- and
+      sixth-year rows above. This is CDS item B10 and is bound to
+      `bachelors_comparison_cohort_year`. Bind the six-year cutoff to
+      `comparison_sixth_year_interval_end`.
+
+  - id: comparison_neither_pell_nor_subsidized_stafford_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for students who
+      received neither a Federal Pell Grant nor a subsidized Stafford Loan
+      in the comparison adjusted cohort.
+    type: number
+    unit: ratio
+    population: bachelors_cohort_neither_pell_nor_subsidized_stafford
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Students who did not receive either a Pell Grant or a
+      subsidized Stafford Loan" column printed six-year graduation rate from
+      the second/prior visible B4-B11 cohort grid as the printed 0-1 ratio
+      (for example 0.94), never as a percent and never recomputed from the
+      count rows above. Preserve the exact printed decimal in `raw_value`.
+      This is CDS item B11 and is bound to `bachelors_comparison_cohort_year`.
+      Bind the six-year cutoff to `comparison_sixth_year_interval_end`.
+
+  - id: comparison_all_students_initial_cohort_count
+    description: >-
+      Initial comparison cohort count of all first-time, full-time
+      bachelor's-degree-seeking students, regardless of aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column initial-cohort
+      row from the second/prior visible B4-B11 cohort grid independently as
+      printed; this is a source total, not a value derived from later rows.
+      This is CDS item B4 and is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_all_students_allowable_exclusions_count
+    description: >-
+      Count of all first-time, full-time bachelor's-degree-seeking students
+      removed from the comparison initial cohort under CDS-allowable exclusion
+      reasons, regardless of aid group (for example death, permanent
+      disability, or foreign-service, military, or religious-mission service).
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column
+      allowable-exclusions row from the second/prior visible B4-B11 cohort
+      grid independently as printed. The form prints no separate breakdown by
+      exclusion reason; do not manufacture one. This is CDS item B5 and is
+      bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_all_students_adjusted_cohort_count
+    description: >-
+      Adjusted comparison cohort count of all first-time, full-time
+      bachelor's-degree-seeking students, regardless of aid group, after
+      allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column
+      adjusted-cohort row from the second/prior visible B4-B11 cohort grid
+      independently as printed. Use arithmetic against
+      `comparison_all_students_initial_cohort_count` and
+      `comparison_all_students_allowable_exclusions_count` only for
+      validation; never overwrite a printed disagreement. This is CDS item B6
+      and is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_all_students_completed_within_four_years_count
+    description: >-
+      Count of all first-time, full-time bachelor's-degree-seeking students in
+      the adjusted comparison cohort who completed a bachelor's or equivalent
+      program within four years, regardless of aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column "completed
+      within four years" row from the second/prior visible B4-B11 cohort grid,
+      bound to `comparison_four_year_completion_cutoff`. This is CDS item B7
+      and is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_all_students_completed_after_four_within_five_years_count
+    description: >-
+      Incremental count of all first-time, full-time bachelor's-degree-seeking
+      students in the adjusted comparison cohort who completed a bachelor's or
+      equivalent program after four years but within five years, regardless of
+      aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column "completed
+      after four, within five years" row from the second/prior visible B4-B11
+      cohort grid, bound to `comparison_fifth_year_interval_start` and
+      `comparison_fifth_year_interval_end`. This is incremental, not
+      cumulative with the four-year count. This is CDS item B8 and is bound to
+      `bachelors_comparison_cohort_year`.
+
+  - id: comparison_all_students_completed_after_five_within_six_years_count
+    description: >-
+      Incremental count of all first-time, full-time bachelor's-degree-seeking
+      students in the adjusted comparison cohort who completed a bachelor's or
+      equivalent program after five years but within six years, regardless of
+      aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column "completed
+      after five, within six years" row from the second/prior visible B4-B11
+      cohort grid, bound to `comparison_sixth_year_interval_start` and
+      `comparison_sixth_year_interval_end`. This is incremental, not
+      cumulative with the four- or five-year counts. This is CDS item B9 and
+      is bound to `bachelors_comparison_cohort_year`.
+
+  - id: comparison_all_students_completed_within_six_years_count
+    description: >-
+      Cumulative count of all first-time, full-time bachelor's-degree-seeking
+      students in the adjusted comparison cohort who completed a bachelor's or
+      equivalent program within six years, regardless of aid group.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column cumulative
+      "total completed within six years" row from the second/prior visible
+      B4-B11 cohort grid. This is the cumulative six-year count, distinct from
+      the incremental fifth- and sixth-year rows above. This is CDS item B10
+      and is bound to `bachelors_comparison_cohort_year`. Bind the six-year
+      cutoff to `comparison_sixth_year_interval_end`.
+
+  - id: comparison_all_students_six_year_graduation_rate_ratio
+    description: >-
+      Printed six-year graduation rate, as a 0-1 ratio, for all first-time,
+      full-time bachelor's-degree-seeking students in the adjusted comparison
+      cohort, regardless of aid group.
+    type: number
+    unit: ratio
+    population: first_time_full_time_bachelors_cohort
+    denominator: adjusted_cohort
+    definition_variant: rate
+    period_kind: cohort_year
+    source_hints: [B4-B11]
+    instructions: >-
+      Extract the "Total (sum of 3 columns to the left)" column printed
+      six-year graduation rate from the second/prior visible B4-B11 cohort
+      grid as the printed 0-1 ratio (for example 0.94), never as a percent and
+      never recomputed from the count rows above. Preserve the exact printed
+      decimal in `raw_value`. This is CDS item B11 and is bound to
+      `bachelors_comparison_cohort_year`. Bind the six-year cutoff to
+      `comparison_sixth_year_interval_end`.
+
+  - id: two_year_primary_cohort_year
+    description: >-
+      Entry year of the primary two-year-college outcome cohort from the
+      first/most recent visible B12-B21 two-year-college cohort column.
+    type: integer
+    unit: academic_year
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Copy the cohort entry year printed for the first/most recent visible
+      B12-B21 two-year-college cohort column. `primary` and `comparison` are
+      static slot labels for the first and second visible cohort columns,
+      never a calendar year baked into a durable metric ID; a missing table
+      for either slot is version/template absence, not zero. Every row below
+      for this slot is bound to this cohort year.
+
+  - id: two_year_comparison_cohort_year
+    description: >-
+      Entry year of the comparison two-year-college outcome cohort from the
+      second/prior visible B12-B21 two-year-college cohort column.
+    type: integer
+    unit: academic_year
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Copy the cohort entry year printed for the second/prior visible
+      B12-B21 two-year-college cohort column. `primary` and `comparison` are
+      static slot labels for the first and second visible cohort columns,
+      never a calendar year baked into a durable metric ID; a missing table
+      for either slot is version/template absence, not zero. Every row below
+      for this slot is bound to this cohort year.
+
+  - id: primary_two_year_initial_cohort_count
+    description: >-
+      Initial cohort count of full-time, first-time,
+      degree/certificate-seeking students in the primary two-year-college
+      cohort.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the initial-cohort row from the first/most recent visible
+      B12-B21 two-year-college cohort column independently as printed. This is
+      CDS item B12 and is bound to `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_allowable_exclusions_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort removed under CDS-allowable
+      exclusion reasons.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the allowable-exclusions row from the first/most recent visible
+      B12-B21 two-year-college cohort column independently as printed; the
+      form prints no separate breakdown by exclusion reason. This is CDS item
+      B13 and is bound to `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of full-time, first-time,
+      degree/certificate-seeking students in the primary two-year-college
+      cohort after allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the adjusted-cohort row from the first/most recent visible
+      B12-B21 two-year-college cohort column independently as printed. Use
+      arithmetic against the initial-cohort and allowable-exclusions rows only
+      for validation; never overwrite a printed disagreement. This is CDS item
+      B14 and is bound to `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_less_than_two_year_completers_total
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort who completed a less-than-two-year
+      award in any timeframe.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "less than two years" total-completers row from the
+      first/most recent visible B12-B21 two-year-college cohort column. This
+      is CDS item B15 and is bound to `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_less_than_two_year_completers_within_150_percent
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort who completed a less-than-two-year
+      award within 150% of normal program time.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "less than two years, within 150% of normal time" row from
+      the first/most recent visible B12-B21 two-year-college cohort column.
+      This is a count of completers filtered by the 150%-of-normal-time
+      window, not a percentage. This is CDS item B16 and is bound to
+      `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_two_to_less_than_four_year_completers_total
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort who completed a
+      two-to-less-than-four-year award in any timeframe.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "two but less than four years" total-completers row from the
+      first/most recent visible B12-B21 two-year-college cohort column. This
+      is CDS item B17 and is bound to `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_two_to_less_than_four_year_completers_within_150_percent
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort who completed a
+      two-to-less-than-four-year award within 150% of normal program time.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "two but less than four years, within 150% of normal time"
+      row from the first/most recent visible B12-B21 two-year-college cohort
+      column. This is a count of completers filtered by the
+      150%-of-normal-time window, not a percentage. This is CDS item B18 and
+      is bound to `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_transfers_out_within_three_years_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort who transferred to another
+      institution within three years before completing a credential.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "transferred out" total row from the first/most recent
+      visible B12-B21 two-year-college cohort column. This is the overall
+      transfer-out total, not the two-year or four-year destination subsets
+      below. This is CDS item B19 and is bound to
+      `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_transfers_to_two_year_institutions_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort, included in the reported
+      transfer-out total, whose destination was another two-year institution.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "transferred to a two-year institution" destination subset
+      row from the first/most recent visible B12-B21 two-year-college cohort
+      column. This is a subset of the overall transfer-out total, not an
+      amount to add on top of it. This is CDS item B20 and is bound to
+      `two_year_primary_cohort_year`.
+
+  - id: primary_two_year_transfers_to_four_year_institutions_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the primary two-year-college cohort, included in the reported
+      transfer-out total, whose destination was a four-year institution.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "transferred to a four-year institution" destination subset
+      row from the first/most recent visible B12-B21 two-year-college cohort
+      column. This is a subset of the overall transfer-out total, not an
+      amount to add on top of it. This is CDS item B21 and is bound to
+      `two_year_primary_cohort_year`.
+
+  - id: comparison_two_year_initial_cohort_count
+    description: >-
+      Initial cohort count of full-time, first-time,
+      degree/certificate-seeking students in the comparison two-year-college
+      cohort.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: none
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the initial-cohort row from the second/prior visible B12-B21
+      two-year-college cohort column independently as printed. This is CDS
+      item B12 and is bound to `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_allowable_exclusions_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort removed under CDS-allowable
+      exclusion reasons.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the allowable-exclusions row from the second/prior visible
+      B12-B21 two-year-college cohort column independently as printed; the
+      form prints no separate breakdown by exclusion reason. This is CDS item
+      B13 and is bound to `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_adjusted_cohort_count
+    description: >-
+      Adjusted cohort count of full-time, first-time,
+      degree/certificate-seeking students in the comparison two-year-college
+      cohort after allowable exclusions are removed from the initial cohort.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the adjusted-cohort row from the second/prior visible B12-B21
+      two-year-college cohort column independently as printed. Use arithmetic
+      against the initial-cohort and allowable-exclusions rows only for
+      validation; never overwrite a printed disagreement. This is CDS item B14
+      and is bound to `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_less_than_two_year_completers_total
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort who completed a
+      less-than-two-year award in any timeframe.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "less than two years" total-completers row from the
+      second/prior visible B12-B21 two-year-college cohort column. This is CDS
+      item B15 and is bound to `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_less_than_two_year_completers_within_150_percent
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort who completed a
+      less-than-two-year award within 150% of normal program time.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "less than two years, within 150% of normal time" row from
+      the second/prior visible B12-B21 two-year-college cohort column. This is
+      a count of completers filtered by the 150%-of-normal-time window, not a
+      percentage. This is CDS item B16 and is bound to
+      `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_two_to_less_than_four_year_completers_total
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort who completed a
+      two-to-less-than-four-year award in any timeframe.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "two but less than four years" total-completers row from the
+      second/prior visible B12-B21 two-year-college cohort column. This is CDS
+      item B17 and is bound to `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_two_to_less_than_four_year_completers_within_150_percent
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort who completed a
+      two-to-less-than-four-year award within 150% of normal program time.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "two but less than four years, within 150% of normal time"
+      row from the second/prior visible B12-B21 two-year-college cohort
+      column. This is a count of completers filtered by the
+      150%-of-normal-time window, not a percentage. This is CDS item B18 and
+      is bound to `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_transfers_out_within_three_years_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort who transferred to another
+      institution within three years before completing a credential.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "transferred out" total row from the second/prior visible
+      B12-B21 two-year-college cohort column. This is the overall transfer-out
+      total, not the two-year or four-year destination subsets below. This is
+      CDS item B19 and is bound to `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_transfers_to_two_year_institutions_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort, included in the reported
+      transfer-out total, whose destination was another two-year institution.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "transferred to a two-year institution" destination subset
+      row from the second/prior visible B12-B21 two-year-college cohort
+      column. This is a subset of the overall transfer-out total, not an
+      amount to add on top of it. This is CDS item B20 and is bound to
+      `two_year_comparison_cohort_year`.
+
+  - id: comparison_two_year_transfers_to_four_year_institutions_count
+    description: >-
+      Count of full-time, first-time, degree/certificate-seeking students in
+      the comparison two-year-college cohort, included in the reported
+      transfer-out total, whose destination was a four-year institution.
+    type: integer
+    unit: students
+    population: two_year_cohort
+    denominator: adjusted_cohort
+    definition_variant: total
+    period_kind: cohort_year
+    source_hints: [B12-B21]
+    instructions: >-
+      Extract the "transferred to a four-year institution" destination subset
+      row from the second/prior visible B12-B21 two-year-college cohort
+      column. This is a subset of the overall transfer-out total, not an
+      amount to add on top of it. This is CDS item B21 and is bound to
+      `two_year_comparison_cohort_year`.
+
+  - id: first_year_retention_entering_term
+    description: >-
+      Entering fall term of the first-year retention cohort printed on B22.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: fall_term
+    source_hints: [B22]
+    instructions: >-
+      Copy the B22 entering-cohort term label exactly as printed (for
+      example "Fall 2024"). This is source context binding the counts and
+      percent below, not the CDS edition or a B4-B11/B12-B21 cohort-year
+      slot.
+
+  - id: first_year_retention_followup_term
+    description: >-
+      Follow-up fall term of the first-year retention cohort printed on B22.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: fall_term
+    source_hints: [B22]
+    instructions: >-
+      Copy the B22 follow-up term label exactly as printed (for example
+      "Fall 2025"), paired with `first_year_retention_entering_term`.
+
+  - id: first_year_retention_entering_cohort_count
+    description: >-
+      Number of full-time, first-time, bachelor's (or equivalent)
+      degree-seeking undergraduate students entering in
+      `first_year_retention_entering_term`, including entrants from the
+      preceding summer term.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: none
+    definition_variant: total
+    period_kind: fall_term
+    source_hints: [B22]
+    instructions: >-
+      Extract the B22 entering-cohort count row independently as printed. This
+      count is new in the 2025-26 CDS edition; treat its absence in earlier
+      editions (for example Yale 2024-25, which reports only the percent) as
+      template-version absence, not zero. The reported entering count is not
+      necessarily the same as an adjusted-cohort denominator used elsewhere.
+      Bind this count to `first_year_retention_entering_term`. The B22
+      population is all full-time, first-time, bachelor's (or equivalent)
+      degree-seeking undergraduate students who entered in
+      `first_year_retention_entering_term` or the preceding summer term.
+
+  - id: first_year_retention_still_enrolled_next_fall_count
+    description: >-
+      Number of full-time, first-time, bachelor's (or equivalent)
+      degree-seeking undergraduate students who entered in
+      `first_year_retention_entering_term` or the preceding summer term and
+      were still enrolled in `first_year_retention_followup_term`.
+    type: integer
+    unit: students
+    population: first_time_full_time_bachelors_cohort
+    denominator: cohort
+    definition_variant: total
+    period_kind: fall_term
+    source_hints: [B22]
+    instructions: >-
+      Extract the B22 still-enrolled-next-fall count row independently as
+      printed. This count is new in the 2025-26 CDS edition; treat its absence
+      in earlier editions as template-version absence, not zero. Bind this
+      count to `first_year_retention_entering_term` and
+      `first_year_retention_followup_term`. The B22 population is all
+      full-time, first-time, bachelor's (or equivalent) degree-seeking
+      undergraduate students who entered in
+      `first_year_retention_entering_term` or the preceding summer term.
+
+  - id: first_year_retention_reported_percent
+    description: >-
+      Printed first-year retention rate for full-time, first-time, bachelor's
+      (or equivalent) degree-seeking undergraduate students who entered in
+      `first_year_retention_entering_term` or the preceding summer term.
+    type: string
+    unit: percent
+    population: first_time_full_time_bachelors_cohort
+    denominator: cohort
+    definition_variant: rate
+    period_kind: fall_term
+    source_hints: [B22]
+    instructions: >-
+      Copy the B22 printed retention percent exactly as a string (for example
+      "96%"), preserving any qualifier such as "<1%". The official printed
+      rate can include early completers and specific exclusions defined by the
+      form; never recompute it from the entering and still-enrolled counts.
+      Bind this rate to `first_year_retention_entering_term` and
+      `first_year_retention_followup_term`. The B22 population is all
+      full-time, first-time, bachelor's (or equivalent) degree-seeking
+      undergraduate students who entered in
+      `first_year_retention_entering_term` or the preceding summer term.

@@ -136,6 +136,8 @@ class TestDefaults:
                 "gemini-native-pdf-v5",
                 "gemini-routed-extraction-v7",
                 "gemini-routed-extraction-v8",
+                "counselle-cds-v1",
+                "human-review-v1",
             }
         )
 

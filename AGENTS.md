@@ -2,13 +2,11 @@
 
 ## What we're building
 
-**Counselle** is an **AI agent** for the college-admissions process — a "thinking and answering partner" about US universities for **student applicants**. It sits on top of the existing **data pipeline**.
+**Counselle** is an **AI agent** for the college-admissions process — a "thinking and answering partner" about US universities for **student applicants**. It sits on top of the CDS Library, the Postgres database of school identity profiles and Common Data Set evidence.
 
 The ultimate goal: **the perfect AI agent for thinking about, and answering anything about, any university or school** — able to think, take steps, reason about those steps, and take further actions.
 
-This repo is the **agent**. The pipeline repo is the **data**. The agent is a **read-only consumer** of the pipeline's Postgres database.
-
-**Counselle is an independent service.** It shares only **credentials** with the pipeline — the read-only DB connection and Vertex/GCP keys — and nothing else: no shared code, no shared config, no runtime dependency. Don't couple to the pipeline or rely on its behavior; treat the DB as the contract (per `docs/DATABASE_GUIDE.md`).
+This repo is the **agent** — and, since ADR 0036, it is also the **CDS extraction pipeline and its admin tool**. The old `counselle-data-pipeline` repo that used to write this data independently is retired (decommissioned, archived, not deleted). **The student-facing agent path is still a strictly read-only consumer** of the CDS Library: it authenticates as `cds_library_reader` over `COUNSELLE_DB_RO_DSN` and never writes. What's new is a separate, superuser-gated admin write path (`app/cds/`, `adapters/cds_store.py`, `api/routes/cds_admin.py`) that authenticates as `cds_library_app` over its own `COUNSELLE_DB_PIPELINE_DSN` — isolated by Postgres role and by DSN, not just by code, and never touched by the agent's own connections. Treat the DB as the contract for both paths (per `docs/DATABASE_GUIDE.md`); ADR 0036 is the decision record.
 
 ## Status
 
@@ -23,6 +21,8 @@ This repo is the **agent**. The pipeline repo is the **data**. The agent is a **
 **MVP3 workspace shipped (2026-07-06).** The rebuilt frontend now has a persistent, auth-scoped workspace for Schools, Tasks, Essays, and Activities. Workspace mutations go through `app/workspace/`, write actor-attributed change rows, and publish workspace change events so HTTP calls and future Counselle-agent actions share the same path. The graduated design and plan live in `specs/mvp3/`; ADR 0027 records the service/event decision.
 
 **CDS Library DB rewire technically cut over (2026-07-16); owner acceptance is pending.** The retired wide field store is replaced by five reader views, four DB tools, manifest `5.0.2`/packet v8, code-owned evidence and availability semantics, a live data picture, viz v2, and four focused skills. PostgreSQL 16 runs locally on `localhost:5433`; role isolation and rollback rehearsal are verified. The protected operational cleanup evidence is under `artifacts/db-rewire/20260716T205303Z-round3-cleanup/`: every deleted test row has a contemporaneous ID manifest, while two post-boundary sessions with uncertain ownership were deliberately retained. Because post-boundary writes exist, zero-loss rollback has expired. Counselle traffic remains closed until the remaining technical gates pass and the owner signs the current evidence; never switch back to the old DSN and discard those writes. ADR 0032 is the decision record.
+
+**CDS extraction pipeline moved in-app (ADR 0036); owner acceptance is pending.** The extraction engine, admin review tool, and job poller that used to live in the separate `counselle-data-pipeline` repo are rebuilt inside this repo — `domain/cds/`, `adapters/cds_*`, `app/cds/`, `api/routes/cds_admin.py` — writing `cds_library` through a third DSN (`cds_library_app`, no `DELETE` grant), gated end-to-end by `current_superuser`. The reader contract, honesty rules, and agent-path isolation in `docs/DATABASE_GUIDE.md` are unchanged. Per-metric recall after the routing/citation and metric-batching fixes is measured at 65.6% on Harvard (up from 17.9%), corroborated structurally on Cornell but not re-measured across the wider corpus; only `admissions` has an independently estimated answerable ceiling (~65% of 152, already close to saturated) — `degrees` and `transfer` likely retain real headroom. See `plans/cds-pipeline/routing-tuning.md` §8 for the full numbers. The old pipeline's `app`/`worker` containers are stopped; the shared Postgres container is still up and still required. The cutover runbook — password rotation, old-repo archival, drift flags, verification checklist — is `plans/cds-pipeline/CUTOVER.md`.
 
 ## Commands
 
@@ -42,7 +42,9 @@ uv run ruff check . && uv run mypy .
 # Run the eval set (~$2-3, produces evals/report-<date>.json)
 uv run python -m evals.runner
 
-# Start the API server (serves /v1)
+# Start the API server (serves /v1; also starts the in-process CDS extraction
+# worker from the FastAPI lifespan when COUNSELLE_DB_PIPELINE_DSN is set and
+# COUNSELLE_CDS_WORKER_ENABLED=true — no separate container, ADR 0036)
 uv run uvicorn api.main:create_app --factory --port 8000
 
 # Start the frontend (separate terminal; proxies /v1 → :8000)
@@ -50,6 +52,14 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 
 # Frontend checks
 cd frontend && npm run typecheck && npm test
+
+# Grant/revoke CDS admin access for a user (the only way to set is_superuser)
+uv run python scripts/promote_admin.py --email a@b.c            # grant
+uv run python scripts/promote_admin.py --email a@b.c --revoke   # revoke
+
+# Verify the ported CDS manifest still compiles to the byte-identical hash
+# (P1 hard gate — stop and escalate per plan §B2 if this ever prints a different hash)
+uv run python scripts/cds_manifest_check.py
 ```
 
 ## Documentation map
@@ -123,7 +133,7 @@ When in doubt, do the simplest thing that works and ship it.
 - **Layering:** four layers, dependencies inward only (`domain/` pure honesty core → `app/` → `adapters/` → `api/`); use the stack's native seams, never wrap them — ADR 0017.
 - **Config:** one fail-fast typed Settings surface (pydantic-settings) + versioned prompt/subreddit/season assets; the live data picture, domains, coverage, profile groups, and evidence facts derive from the DB — ADRs 0018, 0032.
 - **Sessions:** durable from day one via LangGraph's Postgres checkpointer in `counselle.*`; `session_id` required, `user_id` nullable until the platform phase; Counselle owns its schema + migrations — ADR 0019.
-- **DB:** Postgres 16. Counselle reads exactly five `cds_library` views through a reader-login role and writes only its own `counselle.*` application schema through a separate DSN.
+- **DB:** Postgres 16. The agent path reads exactly five `cds_library` views through a reader-login role and writes only `counselle.*` through a separate DSN; the CDS admin write path (ADR 0036) is the one exception, writing `cds_library` base tables through a third role/DSN, gated by `current_superuser` and never reachable from the agent's own connections.
 - **Language:** Python (matches the pipeline; reuse asyncpg).
 - **Models:** default **Vertex AI (Google)** — `gemini-3.5-flash` (synthesis), `gemini-2.5-flash` (cheap tier). Swappable per-agent to Anthropic (`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`) or others via env.
 

@@ -1,12 +1,12 @@
 import { useState } from "react";
 
-import type { ClarifySpec } from "@/api/chat/types";
+import type { ClarifySpecV1 } from "@/api/chat/types";
 import { cn } from "@/lib/utils";
 
 import type { ClarifyWidgetAnswer } from "./clarify/types";
 
 export type ClarifyWidgetProps = {
-  spec: ClarifySpec;
+  spec: ClarifySpecV1;
   /** True for a persisted transcript entry — the widget renders inert
    *  (chips disabled, no submit affordance), seeded from `answer`. */
   frozen: boolean;
@@ -109,7 +109,7 @@ function OtherInput({ onAnswer }: { onAnswer: (input: ClarifyWidgetAnswer) => vo
 /** Which option labels a persisted answer selected; anything left over is a
  *  free-text ("Other") response. */
 function deriveSelection(
-  spec: ClarifySpec,
+  spec: ClarifySpecV1,
   answer: string | null | undefined,
 ): { labels: string[]; other: string | null } {
   if (answer === null || answer === undefined || answer.length === 0) {

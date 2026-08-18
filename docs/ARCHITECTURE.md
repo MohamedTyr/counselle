@@ -50,6 +50,7 @@
 35. [Risks & open questions](#35-risks--open-questions)
 36. [Student profile, documents & agent memory](#36-student-profile-documents--agent-memory)
 37. [Onboarding](#37-onboarding)
+38. [The CDS extraction pipeline & admin surface](#38-the-cds-extraction-pipeline--admin-surface)
 
 ---
 
@@ -146,6 +147,7 @@ Rules of thumb (the seam discipline):
 - **One adapter = hypothetical seam; two = real.** We do not write interfaces for things with one implementation and no honesty stake. The model seam is real (Vertex/Anthropic — via PydanticAI, not ours). The search seam is the three thin tools (Tavily today; the tool signatures are the seam). The session seam is LangGraph's checkpointer protocol (theirs, not ours).
 - **No pass-through wrappers.** If a module's interface is as complex as what it hides, delete it.
 - **Accepted deviation (ADR 0017 as amended by ADR 0032):** `app/` imports `counselle_db/service.py` directly in-process for verified rendering and workspace reference checks. MCP remains the LLM tool-loop seam; there is no field reconciler.
+- **The CDS admin write path (ADR 0036, §38) follows the same four layers as a self-contained subsystem** — `domain/cds/`, `adapters/cds_*.py`, `app/cds/`, `api/routes/cds_admin.py` — and is additive to this table, not an exception to it. It is called out separately here only because it is the one place in the repo that writes `cds_library` at all; everywhere else in this table, "adapters" reading the five views is the entire pipeline-database story.
 
 ---
 
@@ -168,12 +170,19 @@ counselle/
 │       ├── abbreviations.yaml    # school-name abbreviation expansion (used by resolve_school)
 │       └── data_picture.md       # live manifest/coverage prompt template
 ├── domain/                       # the pure honesty core (§4)
+│   └── cds/                      # manifest compile, packet build, claims, page math — the CDS write-side honesty core (§38)
 ├── app/                          # orchestration: graph, agent node, steps/turns/records/transcript, skills
+│   └── cds/                      # extraction engine, job poller, ingest/review services (§38)
 ├── adapters/                     # tavily tools, email adapter, embedding client (§4)
+│   ├── cds_gemini.py             # Vertex gemini-3.1-flash-lite extraction calls (§38)
+│   ├── cds_pdf.py                # PyMuPDF page ops (§38)
+│   └── cds_store.py / cds_admin_queries.py   # the only writer of cds_library base tables (§38)
 ├── api/                          # FastAPI edge: routes, SSE, auth, request context
-├── counselle_db/                 # the counselle-db MCP server (own process; imports domain/)
+│   └── routes/cds_admin.py       # /v1/admin/cds/*, current_superuser-gated (§38)
+├── counselle_db/                 # the counselle-db MCP server (own process; imports domain/) — read path only
+├── config/cds/                   # ported, versioned CDS manifest/prompt/domain YAMLs (§38)
 ├── skills/                       # SKILL.md files (§15)
-├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY (0001–0006)
+├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY (0001–0015)
 ├── evals/                        # the eval question set + runner (§21)
 ├── frontend/                     # the React SPA (§31) — the sole protocol client
 ├── scripts/                      # one-off utilities (setup_db.sql, chat_cli.py, smoke scripts)
@@ -238,11 +247,17 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 
 ## 8. The data-access layer: the `counselle-db` MCP server
 
+*This section describes the agent's read path only. Since ADR 0036, Counselle
+also contains a separate, superuser-gated write path (§38) that produces the
+rows this section reads — on its own DSN and Postgres role, never touched by
+the agent runtime or the MCP server below.*
+
 The standalone MCP server and its in-process service share one asyncpg catalog over
 the `cds_library_reader` contract. That role can select exactly five views:
 `school_profiles`, `active_cds_documents`, `active_cds_domain_packets`,
-`cds_document_sources`, and `cds_manifest_snapshots`. Counselle never imports pipeline
-code or reads pipeline base tables. The LLM sees exactly four tools:
+`cds_document_sources`, and `cds_manifest_snapshots`. The agent path never imports
+pipeline-writer code or reads pipeline base tables — it only ever connects through
+`COUNSELLE_DB_RO_DSN`. The LLM sees exactly four tools:
 
 | Tool | Purpose |
 |---|---|

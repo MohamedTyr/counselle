@@ -22,6 +22,7 @@ export interface MeData {
   has_password: boolean;
   google_connected: boolean;
   settings: UserSettings;
+  is_superuser: boolean;
 }
 
 export interface UserSettings {

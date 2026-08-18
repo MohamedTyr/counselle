@@ -17,6 +17,10 @@ import type {
 } from "@/api/chat/types";
 import { isTabularRenderSpec } from "@/api/chat/validation";
 
+import {
+  isCurrentClarifySpec,
+  isLegacyClarifySpec,
+} from "./components/clarify/clarify-format";
 import { receiptText } from "./step-receipts";
 
 export type ContentBlock =
@@ -489,11 +493,11 @@ function userBlockquote(text: string): string {
 }
 
 function questionLines(spec: ClarifySpec): string[] {
-  if (spec.v === 1) {
+  if (isLegacyClarifySpec(spec)) {
     return [spec.question];
   }
 
-  if (spec.v === 2) {
+  if (isCurrentClarifySpec(spec)) {
     return spec.questions.map((question) => question.question);
   }
 
@@ -512,7 +516,7 @@ export function clarifyResponseText(
     return response.text;
   }
 
-  if (spec.v !== 2) {
+  if (!isCurrentClarifySpec(spec)) {
     return "Answered in the clarify widget.";
   }
 
@@ -721,7 +725,11 @@ export function transcriptEntryToEvents(
     if (!hasClarifySegment) {
       events.push({ v: 1, type: "clarify", data: entry.clarify.spec });
     }
-    if ("response" in entry.clarify && entry.clarify.response !== null) {
+    if (
+      "response" in entry.clarify &&
+      entry.clarify.response !== null &&
+      entry.clarify.response !== undefined
+    ) {
       events.push({
         v: 1,
         type: "clarify_response",

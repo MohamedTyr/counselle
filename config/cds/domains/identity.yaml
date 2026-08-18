@@ -1,0 +1,809 @@
+id: identity
+title: Document identity and institutional characteristics
+metrics:
+  - id: institution_name
+    description: Institution name printed in A1 "Name of College/University".
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy A1 "Name of College/University" exactly as printed. Do not take
+      Harvard's misaligned private A0 respondent fields, and never infer the
+      name from a URL or any other cell.
+
+  - id: academic_year
+    description: Academic year label covered by the CDS.
+    type: string
+    unit: academic_year
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: document
+    source_hints: ["cover page", A1]
+    instructions: >-
+      Return the printed academic-year label from the document title/edition
+      only. Do not substitute any item-specific reporting period (for
+      example a fall-snapshot term or a cohort year) for this document-level
+      edition label.
+
+  - id: cds_responses_posted
+    description: >-
+      Whether the institution reports, in A0, that its CDS survey responses
+      are posted on a public website.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A0]
+    instructions: >-
+      Return true/false only from a safely associated Yes/No selection in
+      A0 "Is your Common Data Set posted on your institution's web site?".
+      Do not guess from Harvard's malformed combined control (for example
+      "No Yes or No"); an ambiguous or unresolvable selection stays
+      unresolved rather than becoming a value. Do not extract A0 respondent
+      name, title, office, or other private contact details.
+
+  - id: cds_responses_url
+    description: >-
+      URL where the institution says its CDS survey responses are posted,
+      from A0, conditional on `cds_responses_posted`.
+    type: string
+    unit: url
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A0]
+    instructions: >-
+      Copy the A0 URL cell exactly as printed only when a URL is visibly
+      present. A blank URL beside a "No" or unresolved posted-selection is
+      not evidence of a URL; never construct or guess a URL from the
+      institution's main website.
+
+  - id: street_address_line_1
+    description: First line of the institution's main mailing address, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy A1 main-address line 1 exactly as printed. This is the
+      institution's main address, not the separately reported A1 admissions
+      office address.
+
+  - id: street_address_line_2
+    description: Second line of the institution's main mailing address, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy A1 main-address line 2 exactly as printed. Use `not_reported`
+      when the line is visibly blank; do not merge content from line 1 or
+      line 3, and do not copy from the admissions address block. When the
+      template version has no separately labeled address-line-2 control,
+      use `not_in_template_version`, not `not_reported`.
+
+  - id: street_address_line_3
+    description: Third line of the institution's main mailing address, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy A1 main-address line 3 exactly as printed. Use `not_reported`
+      when the line is visibly blank; do not merge content from lines 1-2,
+      and do not copy from the admissions address block. When the template
+      version has no separately labeled address-line-3 control, use
+      `not_in_template_version`, not `not_reported`.
+
+  - id: city
+    description: City of the institution's main mailing address, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main-address city cell exactly as printed. Do not confuse
+      with the separately reported admissions office city.
+
+  - id: state_or_region
+    description: State or region of the institution's main mailing address, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main-address state/region cell exactly as printed. Do not
+      confuse with the separately reported admissions office state/region.
+
+  - id: postal_code
+    description: Postal code of the institution's main mailing address, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main-address postal code exactly as printed text,
+      preserving leading zeros and formatting. Do not restore or infer a
+      missing leading zero, and do not confuse with the admissions postal
+      code.
+
+  - id: country
+    description: Country of the institution's main mailing address, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main-address country cell exactly as printed when
+      present. Do not confuse with the separately reported admissions
+      country.
+
+  - id: main_phone_area_code
+    description: Area code of the institution's main phone number, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main phone area-code cell exactly as printed, when the
+      area code is split into its own labeled control. Do not confuse with
+      the admissions office phone area code. When the template version has
+      only a combined main-phone control, use `not_in_template_version` for
+      this split-only field.
+
+  - id: main_phone_number
+    description: >-
+      Main institutional phone response from A1: the local number component
+      in a split template or the complete number in a combined template.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main phone number cell exactly as printed. When the
+      institution reports one combined phone response instead of split
+      area-code/number/extension controls (for example Yale's combined
+      phone response), place the full combined string here rather than
+      splitting or reformatting it. Do not confuse with the admissions
+      office phone.
+
+  - id: main_phone_extension
+    description: Extension of the institution's main phone number, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main phone extension cell exactly as printed only when a
+      distinct extension control is visibly present and populated. Do not
+      confuse with the admissions office phone extension. When the template
+      version has only a combined main-phone control, use
+      `not_in_template_version` for this split-only field.
+
+  - id: main_website
+    description: Main institutional website, from A1.
+    type: string
+    unit: url
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Extract the A1 main institution website URL exactly as printed. Keep
+      distinct from the online `application_url` and from `cds_responses_url`.
+
+  - id: main_email
+    description: Main institutional email address, from A1.
+    type: string
+    unit: email
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 main institution email address exactly as printed. Keep
+      distinct from `admissions_email`.
+
+  - id: admissions_street_address_line_1
+    description: >-
+      First line of the admissions office mailing address, from A1, when
+      separately reported.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy A1 admissions-address line 1 exactly as printed only when the
+      admissions office address is separately reported. Do not backfill
+      this field from the main institution address.
+
+  - id: admissions_street_address_line_2
+    description: >-
+      Second line of the admissions office mailing address, from A1, when
+      separately reported.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy A1 admissions-address line 2 exactly as printed when present.
+      Use `not_reported` when blank; do not backfill from the main address
+      or merge with other admissions address lines. When the template
+      version has no separately labeled admissions-address-line-2 control,
+      use `not_in_template_version`, not `not_reported`.
+
+  - id: admissions_street_address_line_3
+    description: >-
+      Third line of the admissions office mailing address, from A1, when
+      separately reported.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy A1 admissions-address line 3 exactly as printed when present.
+      Use `not_reported` when blank; do not backfill from the main address
+      or merge with other admissions address lines. When the template
+      version has no separately labeled admissions-address-line-3 control,
+      use `not_in_template_version`, not `not_reported`.
+
+  - id: admissions_city
+    description: City of the admissions office mailing address, from A1, when separately reported.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 admissions-address city cell exactly as printed when the
+      admissions office address is separately reported. Do not backfill
+      from the main institution city.
+
+  - id: admissions_state_or_region
+    description: >-
+      State or region of the admissions office mailing address, from A1,
+      when separately reported.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 admissions-address state/region cell exactly as printed
+      when the admissions office address is separately reported. Do not
+      backfill from the main institution state/region.
+
+  - id: admissions_postal_code
+    description: >-
+      Postal code of the admissions office mailing address, from A1, when
+      separately reported.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 admissions-address postal code exactly as printed text,
+      preserving leading zeros and formatting, when the admissions office
+      address is separately reported. Do not backfill from the main
+      institution postal code.
+
+  - id: admissions_country
+    description: >-
+      Country of the admissions office mailing address, from A1, when
+      separately reported.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 admissions-address country cell exactly as printed when
+      present and the admissions office address is separately reported. Do
+      not backfill from the main institution country.
+
+  - id: admissions_phone_area_code
+    description: Area code of the ordinary admissions office phone number, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 admissions phone area-code cell exactly as printed, from
+      the ordinary (non-toll-free) admissions phone control. Do not confuse
+      with the main institution phone area code or with the toll-free
+      admissions phone area code. When the template version has only a
+      combined admissions-phone control, use `not_in_template_version` for
+      this split-only field.
+
+  - id: admissions_phone_number
+    description: >-
+      Ordinary admissions office phone response from A1: the local number
+      component in a split template or the complete number in a combined
+      template.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 ordinary admissions phone number cell exactly as printed.
+      When the institution reports one combined phone response instead of
+      split area-code/number/extension controls (for example Yale's
+      combined phone response), place the full combined string here. Do
+      not confuse with the main institution phone or the toll-free
+      admissions phone.
+
+  - id: admissions_phone_extension
+    description: Extension of the ordinary admissions office phone number, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 ordinary admissions phone extension cell exactly as
+      printed only when a distinct extension control is visibly present
+      and populated. Do not confuse with the toll-free admissions phone
+      extension. When the template version has only a combined
+      admissions-phone control, use `not_in_template_version` for this
+      split-only field.
+
+  - id: admissions_toll_free_phone_area_code
+    description: Area code of the toll-free admissions office phone number, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 toll-free admissions phone area-code cell exactly as
+      printed. Do not confuse with the ordinary admissions phone area code
+      or the main institution phone. When the template version has only a
+      combined toll-free-phone control, use `not_in_template_version` for
+      this split-only field.
+
+  - id: admissions_toll_free_phone_number
+    description: >-
+      Toll-free admissions office phone response from A1: the local number
+      component in a split template or the complete number in a combined
+      template.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 toll-free admissions phone number cell exactly as
+      printed. When the institution reports one combined toll-free phone
+      response instead of split area-code/number/extension controls, place
+      the full combined string here without splitting or reformatting it.
+      Do not confuse with the ordinary admissions phone number.
+
+  - id: admissions_toll_free_phone_extension
+    description: Extension of the toll-free admissions office phone number, from A1.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 toll-free admissions phone extension cell exactly as
+      printed only when a distinct extension control is visibly present
+      and populated. Do not confuse with the ordinary admissions phone
+      extension. When the template version has only a combined toll-free
+      phone control, use `not_in_template_version` for this split-only field.
+
+  - id: admissions_email
+    description: Admissions office email address, from A1.
+    type: string
+    unit: email
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Extract the A1 admissions office email address exactly as printed.
+      Keep distinct from `main_email`.
+
+  - id: application_url
+    description: Separate online application URL, from A1, when printed.
+    type: string
+    unit: url
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Extract the A1 online application URL only from its own separately
+      labeled row. Do not reuse `main_website` when no distinct application
+      URL is printed.
+
+  - id: application_mailing_address
+    description: Application mailing address, from A1, when separately printed.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A1]
+    instructions: >-
+      Copy the A1 application mailing address exactly as printed as one
+      string when it is presented as a single response area distinct from
+      the structured admissions address lines. Do not construct it from
+      the admissions address components.
+
+  - id: institutional_control
+    description: Source of institutional control, from A2.
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    enums: [public, private_nonprofit, proprietary]
+    source_hints: [A2]
+    instructions: >-
+      Return the exact selected A2 control category using return IDs
+      `public`, `private_nonprofit`, or `proprietary` for the visible
+      labels "Public", "Private (nonprofit)", or "Proprietary". Never guess
+      from school reputation or context.
+
+  - id: undergraduate_gender_model
+    description: Undergraduate institution gender classification, from A3.
+    type: enum
+    unit: category
+    population: undergraduate_institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    enums: [coeducational, mens_college, womens_college]
+    source_hints: [A3]
+    instructions: >-
+      Return the exact selected A3 classification using return IDs
+      `coeducational`, `mens_college`, or `womens_college` for the visible
+      labels "Coeducational college", "Men's college", or "Women's
+      college". This is the institution's undergraduate classification, not
+      enrollment gender composition (see the `enrollment` domain for
+      composition counts).
+
+  - id: academic_calendar
+    description: Academic year calendar, from A4.
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    enums: [semester, quarter, trimester, four_one_four, continuous, differs_by_program, other]
+    source_hints: [A4]
+    instructions: >-
+      Return the selected A4 calendar category using return IDs
+      `semester`, `quarter`, `trimester`, `four_one_four`, `continuous`,
+      `differs_by_program`, or `other` for the visible labels "Semester",
+      "Quarter", "Trimester", "4-1-4", "Continuous", "Differs by program",
+      or "Other". Return the selected category, not any explanatory text
+      beside it.
+
+  - id: academic_calendar_differs_by_program_description
+    description: >-
+      Narrative describing how the academic calendar differs by program,
+      from A4, conditional on the "Differs by program" selection.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A4]
+    instructions: >-
+      Copy the A4 "differs by program" description cell verbatim only when
+      that specific labeled cell is populated. Never copy the A4 "Other"
+      description into this field.
+
+  - id: academic_calendar_other_description
+    description: >-
+      Narrative describing the "Other" academic calendar selection, from
+      A4, conditional on the "Other" selection.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A4]
+    instructions: >-
+      Copy the A4 "Other" description cell verbatim only when that
+      specific labeled cell is populated. Never copy the A4
+      "differs by program" description into this field.
+
+  - id: degree_offered_certificate
+    description: >-
+      Whether the institution offers a certificate, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Certificate" checkbox is visibly
+      checked and false only when the complete visible A5 checklist shows
+      this box unambiguously unmarked. This is an offering, not an annual
+      award count (see the `outcomes` domain for B3 award counts).
+
+  - id: degree_offered_diploma
+    description: >-
+      Whether the institution offers a diploma, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Diploma" checkbox is visibly checked
+      and false only when the complete visible A5 checklist shows this box
+      unambiguously unmarked. This is an offering, not an annual award
+      count.
+
+  - id: degree_offered_associate
+    description: Whether the institution offers the associate degree, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Associate" checkbox is visibly checked
+      and false only when the complete visible A5 checklist shows this box
+      unambiguously unmarked. Do not conflate with the transfer or
+      terminal associate rows below.
+
+  - id: degree_offered_transfer_associate
+    description: >-
+      Whether the institution offers an associate degree designed for
+      transfer to a bachelor's program, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 transfer-associate checkbox is visibly
+      checked and false only when the complete visible A5 checklist shows
+      this box unambiguously unmarked. Do not conflate with the general
+      associate or terminal associate rows.
+
+  - id: degree_offered_terminal_associate
+    description: >-
+      Whether the institution offers an associate degree designed as a
+      terminal/career award, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 terminal-associate checkbox is visibly
+      checked and false only when the complete visible A5 checklist shows
+      this box unambiguously unmarked. Do not conflate with the general
+      associate or transfer associate rows.
+
+  - id: degree_offered_bachelors
+    description: Whether the institution offers the bachelor's degree, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Bachelor's" checkbox is visibly checked
+      and false only when the complete visible A5 checklist shows this box
+      unambiguously unmarked.
+
+  - id: degree_offered_postbachelors_certificate
+    description: >-
+      Whether the institution offers a post-bachelor's certificate, from
+      the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Post-bachelor's certificate" (Yale) or
+      "Postbachelor's certificate" (Harvard) checkbox is visibly checked,
+      and false only when the complete visible A5 checklist shows this box
+      unambiguously unmarked. Do not conflate with the post-master's
+      certificate row.
+
+  - id: degree_offered_masters
+    description: Whether the institution offers the master's degree, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Master's" checkbox is visibly checked
+      and false only when the complete visible A5 checklist shows this box
+      unambiguously unmarked.
+
+  - id: degree_offered_postmasters_certificate
+    description: >-
+      Whether the institution offers a post-master's certificate, from the
+      A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Post-master's certificate" checkbox is
+      visibly checked and false only when the complete visible A5
+      checklist shows this box unambiguously unmarked. Do not conflate
+      with the post-bachelor's certificate row.
+
+  - id: degree_offered_doctoral_research_scholarship
+    description: >-
+      Whether the institution offers a doctoral degree classified as
+      research/scholarship, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Doctoral degree research/scholarship"
+      checkbox is visibly checked and false only when the complete visible
+      A5 checklist shows this box unambiguously unmarked. Accept the same
+      label with a hyphen or dash before "research/scholarship" as a version
+      spelling alias. Do not conflate with the professional-practice or
+      other doctoral rows.
+
+  - id: degree_offered_doctoral_professional_practice
+    description: >-
+      Whether the institution offers a doctoral degree classified as
+      professional practice, from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Doctoral degree – professional practice"
+      checkbox is visibly checked and false only when the complete visible
+      A5 checklist shows this box unambiguously unmarked. Accept hyphen and
+      dash variants of that exact label as version spelling aliases. Do not
+      conflate with the research/scholarship or other doctoral rows.
+
+  - id: degree_offered_doctoral_other
+    description: >-
+      Whether the institution offers a doctoral degree classified as
+      "other", from the A5 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: document
+    source_hints: [A5]
+    instructions: >-
+      Return true only when the A5 "Doctoral degree – other" checkbox itself
+      is visibly checked and false only when the complete visible A5
+      checklist shows this box unambiguously unmarked. Accept Harvard's
+      "Doctoral degree -- other" as a version spelling alias. There is no
+      distinct response-bearing doctoral-other description cell in either
+      supplied form; ignore Harvard's duplicated `$A$5` artifact and do not
+      manufacture a description field for it.
+
+  - id: campus_belonging_url
+    description: >-
+      URL for the office responsible for fostering a welcoming/supportive
+      campus climate, from A6.
+    type: string
+    unit: url
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: document
+    source_hints: [A6]
+    instructions: >-
+      Copy the A6 URL exactly as printed, whether the form uses Yale's DEI
+      wording or Harvard's "Campus Belonging" wording. A blank A6 response
+      means not reported; never claim the office exists or construct a URL
+      when the cell is blank.

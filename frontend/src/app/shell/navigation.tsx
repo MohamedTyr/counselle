@@ -7,6 +7,7 @@ import {
   SchoolsIcon,
   TasksIcon,
 } from "@/features/shell/sidebar-icons";
+import { DatabaseZap } from "lucide-react";
 
 import type { ShellRoute } from "@/features/shell/MainNav";
 
@@ -63,5 +64,16 @@ export const shellRoutes: ShellRoute[] = [
     title: "Profile",
     icon: <ProfileIcon />,
     link: "/app/profile",
+  },
+];
+
+/** Appended to `shellRoutes` by `AppSidebar` only when `is_superuser` is
+ * true (plan §F1) — one entry, not a section. */
+export const adminShellRoutes: ShellRoute[] = [
+  {
+    id: "cds",
+    title: "CDS",
+    icon: <DatabaseZap />,
+    link: "/app/admin/cds",
   },
 ];

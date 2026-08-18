@@ -1,0 +1,1273 @@
+id: student_life
+context_bindings:
+- id: f1_reporting_period
+  label: student-life reporting period
+  binders:
+  - student_life_reporting_term
+  - student_life_reporting_year
+  targets:
+    metric_ids:
+    - out_of_state_percent_first_time_first_year
+    - out_of_state_percent_undergraduates
+    - fraternity_joiners_percent_first_time_first_year
+    - fraternity_joiners_percent_undergraduates
+    - sorority_joiners_percent_first_time_first_year
+    - sorority_joiners_percent_undergraduates
+    - college_owned_housing_percent_first_time_first_year
+    - college_owned_housing_percent_undergraduates
+    - off_campus_or_commute_percent_first_time_first_year
+    - off_campus_or_commute_percent_undergraduates
+    - age_25_or_older_percent_first_time_first_year
+    - age_25_or_older_percent_undergraduates
+    - average_age_full_time_first_time_first_year
+    - average_age_full_time_undergraduates
+    - average_age_all_full_and_part_time_first_time_first_year
+    - average_age_all_full_and_part_time_undergraduates
+- id: cds_edition
+  label: CDS edition
+  binders:
+  - identity.academic_year
+  targets:
+    metric_ids:
+    - campus_ministries_available
+    - choral_groups_available
+    - concert_band_available
+    - dance_available
+    - drama_theater_available
+    - international_student_organization_available
+    - jazz_band_available
+    - literary_magazine_available
+    - marching_band_available
+    - model_un_available
+    - music_ensembles_available
+    - musical_theater_available
+    - opera_available
+    - pep_band_available
+    - radio_station_available
+    - student_government_available
+    - student_newspaper_available
+    - student_run_film_society_available
+    - symphony_orchestra_available
+    - television_station_available
+    - yearbook_available
+    - army_rotc_on_campus
+    - army_rotc_at_cooperating_institution
+    - army_rotc_cooperating_institution_names
+    - naval_rotc_on_campus
+    - naval_rotc_at_cooperating_institution
+    - naval_rotc_cooperating_institution_names
+    - naval_rotc_marine_option
+    - air_force_rotc_on_campus
+    - air_force_rotc_at_cooperating_institution
+    - air_force_rotc_cooperating_institution_names
+title: Student residence/age/origin, activities, ROTC locations, and housing types
+metrics:
+  - id: student_life_reporting_term
+    description: >-
+      Reporting term printed in the F1 heading that establishes the snapshot
+      context for every F1 residence, origin, and age metric.
+    type: string
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Copy the reporting term from the F1 heading exactly as printed (for
+      example "Fall"). This is source context binding every other F1 metric in
+      this domain; do not substitute the CDS edition, infer a term from another
+      section, or combine the term with `student_life_reporting_year`. It does
+      not bind F2-F4, which use `identity.academic_year`.
+
+  - id: student_life_reporting_year
+    description: >-
+      Single fall calendar year printed in the F1 heading that establishes the
+      snapshot context for every F1 residence, origin, and age metric.
+    type: integer
+    unit: years
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Extract the single calendar year from the F1 heading as a JSON integer
+      and preserve the exact printed year token in raw_value. This is source
+      context binding every other F1 metric in this domain; do not substitute
+      the CDS edition academic-year range, infer a year from another section,
+      or combine the year with `student_life_reporting_term`. It does not bind
+      F2-F4, which use `identity.academic_year`.
+
+  # F1 — percent/age metrics for the two printed populations: first-time,
+  # first-year degree-seeking students and degree-seeking undergraduates.
+  - id: out_of_state_percent_first_time_first_year
+    description: >-
+      Percent of first-time, first-year degree-seeking students who are from
+      out of state, excluding international/nonresident students from both the
+      numerator and denominator, from F1.
+    type: string
+    unit: percent
+    population: enrolled_first_time_first_year
+    denominator: domestic_enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent of students who are from out of state" row for
+      the first-time, first-year degree-seeking students column (the first
+      F1 column, not the degree-seeking undergraduates column). Out-of-state
+      excludes international/nonresident students from both numerator and
+      denominator; do not confuse with B2 nonresident counts or C1 residency.
+      Preserve the exact printed percent string, including any "<" or ">"
+      qualifier; a visibly blank cell is not_reported, never zero.
+
+  - id: out_of_state_percent_undergraduates
+    description: >-
+      Percent of degree-seeking undergraduates who are from out of state,
+      excluding international/nonresident students from both the numerator and
+      denominator, from F1.
+    type: string
+    unit: percent
+    population: degree_seeking_undergraduates
+    denominator: domestic_enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent of students who are from out of state" row for
+      the degree-seeking undergraduates column (the second F1 column, not
+      the first-time, first-year column). Out-of-state excludes
+      international/nonresident students from both numerator and
+      denominator. Preserve the exact printed percent string; a visibly
+      blank cell is not_reported, never zero.
+
+  - id: fraternity_joiners_percent_first_time_first_year
+    description: >-
+      Percent of men among first-time, first-year degree-seeking students
+      who join a fraternity, from F1.
+    type: string
+    unit: percent
+    population: enrolled_first_time_first_year
+    denominator: men_enrolled
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who join a fraternity" row for the
+      first-time, first-year degree-seeking students column. The
+      denominator is men within this population, not all students of
+      either sex. Do not confuse with the F2 checklist (which has no
+      fraternity/sorority row) or the F4 `fraternity_sorority_housing`
+      boolean. Preserve the exact printed percent string, including any
+      qualifier; a visibly blank cell is not_reported, never zero.
+
+  - id: fraternity_joiners_percent_undergraduates
+    description: >-
+      Percent of men among degree-seeking undergraduates who join a
+      fraternity, from F1.
+    type: string
+    unit: percent
+    population: degree_seeking_undergraduates
+    denominator: men_enrolled
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who join a fraternity" row for the
+      degree-seeking undergraduates column. The denominator is men within
+      this population. Preserve the exact printed percent string; a
+      visibly blank cell is not_reported, never zero.
+
+  - id: sorority_joiners_percent_first_time_first_year
+    description: >-
+      Percent of women among first-time, first-year degree-seeking
+      students who join a sorority, from F1.
+    type: string
+    unit: percent
+    population: enrolled_first_time_first_year
+    denominator: women_enrolled
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who join a sorority" row for the first-time,
+      first-year degree-seeking students column. The denominator is women
+      within this population, not all students of either sex. Do not
+      confuse with the F4 `fraternity_sorority_housing` boolean. Preserve
+      the exact printed percent string, including any qualifier; a
+      visibly blank cell is not_reported, never zero.
+
+  - id: sorority_joiners_percent_undergraduates
+    description: >-
+      Percent of women among degree-seeking undergraduates who join a
+      sorority, from F1.
+    type: string
+    unit: percent
+    population: degree_seeking_undergraduates
+    denominator: women_enrolled
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who join a sorority" row for the
+      degree-seeking undergraduates column. The denominator is women
+      within this population. Preserve the exact printed percent string; a
+      visibly blank cell is not_reported, never zero.
+
+  - id: college_owned_housing_percent_first_time_first_year
+    description: >-
+      Percent of first-time, first-year degree-seeking students who live
+      in college-owned, -operated, or -affiliated housing, from F1.
+    type: string
+    unit: percent
+    population: enrolled_first_time_first_year
+    denominator: enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who live in college-owned, -operated, or
+      -affiliated housing" row for the first-time, first-year
+      degree-seeking students column. Do not confuse with the generic
+      housing-offered concept (removed) or with any single F4 housing-type
+      boolean; this is one aggregate percent, not a housing-type
+      breakdown. Preserve the exact printed percent string; a visibly
+      blank cell is not_reported, never zero.
+
+  - id: college_owned_housing_percent_undergraduates
+    description: >-
+      Percent of degree-seeking undergraduates who live in college-owned,
+      -operated, or -affiliated housing, from F1.
+    type: string
+    unit: percent
+    population: degree_seeking_undergraduates
+    denominator: enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who live in college-owned, -operated, or
+      -affiliated housing" row for the degree-seeking undergraduates
+      column. Preserve the exact printed percent string; a visibly blank
+      cell is not_reported, never zero.
+
+  - id: off_campus_or_commute_percent_first_time_first_year
+    description: >-
+      Percent of first-time, first-year degree-seeking students who live
+      off campus or commute, from F1.
+    type: string
+    unit: percent
+    population: enrolled_first_time_first_year
+    denominator: enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who live off campus or commute" row for the
+      first-time, first-year degree-seeking students column. Do not derive
+      this value from the college-owned-housing row above; both are
+      independently printed cells. Preserve the exact printed percent
+      string; a visibly blank cell is not_reported, never zero.
+
+  - id: off_campus_or_commute_percent_undergraduates
+    description: >-
+      Percent of degree-seeking undergraduates who live off campus or
+      commute, from F1.
+    type: string
+    unit: percent
+    population: degree_seeking_undergraduates
+    denominator: enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent who live off campus or commute" row for the
+      degree-seeking undergraduates column. Do not derive this value from
+      the college-owned-housing row above. Preserve the exact printed
+      percent string; a visibly blank cell is not_reported, never zero.
+
+  - id: age_25_or_older_percent_first_time_first_year
+    description: >-
+      Percent of first-time, first-year degree-seeking students age 25 or
+      older, from F1.
+    type: string
+    unit: percent
+    population: enrolled_first_time_first_year
+    denominator: enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent age 25 or older" row for the first-time,
+      first-year degree-seeking students column. Age 25 is inclusive.
+      Preserve the exact printed percent string, including any qualifier; a
+      visibly blank cell is not_reported, never zero.
+
+  - id: age_25_or_older_percent_undergraduates
+    description: >-
+      Percent of degree-seeking undergraduates age 25 or older, from F1.
+    type: string
+    unit: percent
+    population: degree_seeking_undergraduates
+    denominator: enrolled_students
+    definition_variant: share
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "percent age 25 or older" row for the degree-seeking
+      undergraduates column. Age 25 is inclusive. Preserve the exact
+      printed percent string; a visibly blank cell is not_reported, never
+      zero.
+
+  - id: average_age_full_time_first_time_first_year
+    description: >-
+      Average age of full-time first-time, first-year degree-seeking
+      students, from F1.
+    type: number
+    unit: years
+    population: enrolled_first_time_first_year
+    denominator: none
+    definition_variant: average
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "average age of full-time students" row for the
+      first-time, first-year degree-seeking students column. This is
+      distinct from the all-full-and-part-time-students row below; never
+      substitute one for the other or average them together. Do not reuse
+      the removed generic `average_student_age` concept.
+
+  - id: average_age_full_time_undergraduates
+    description: >-
+      Average age of full-time degree-seeking undergraduates, from F1.
+    type: number
+    unit: years
+    population: degree_seeking_undergraduates
+    denominator: none
+    definition_variant: average
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "average age of full-time students" row for the
+      degree-seeking undergraduates column. This is distinct from the
+      all-full-and-part-time-students row below.
+
+  - id: average_age_all_full_and_part_time_first_time_first_year
+    description: >-
+      Average age of all full- and part-time first-time, first-year
+      degree-seeking students, from F1.
+    type: number
+    unit: years
+    population: enrolled_first_time_first_year
+    denominator: none
+    definition_variant: average
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "average age of all students (full-time and
+      part-time)" row for the first-time, first-year degree-seeking
+      students column. This is distinct from the full-time-only row above;
+      never substitute one for the other.
+
+  - id: average_age_all_full_and_part_time_undergraduates
+    description: >-
+      Average age of all full- and part-time degree-seeking
+      undergraduates, from F1.
+    type: number
+    unit: years
+    population: degree_seeking_undergraduates
+    denominator: none
+    definition_variant: average
+    period_kind: fall_term
+    source_hints: [F1]
+    instructions: >-
+      Bind this metric to `student_life_reporting_term` and
+      `student_life_reporting_year` from the F1 heading.
+      Extract the F1 "average age of all students (full-time and
+      part-time)" row for the degree-seeking undergraduates column. This
+      is distinct from the full-time-only row above.
+
+  # F2 — one boolean per printed activity-availability checklist row.
+  - id: campus_ministries_available
+    description: Whether campus ministries are offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Campus ministries" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. This records only that the
+      activity is offered, not participation, size, competitiveness, or
+      funding.
+
+  - id: choral_groups_available
+    description: Whether choral groups are offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Choral groups" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. This records only offering,
+      not participation, size, competitiveness, or funding.
+
+  - id: concert_band_available
+    description: Whether concert band is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Concert band" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. Do not conflate with marching
+      band or pep band below. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: dance_available
+    description: Whether dance is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Dance" checkbox is visibly checked, and
+      false only when the complete visible F2 checklist shows this box
+      unambiguously unmarked; a row absent from this form version is
+      not_in_template_version, not false. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: drama_theater_available
+    description: Whether drama/theater is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Drama/Theater" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. Do not conflate with musical
+      theater or opera below. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: international_student_organization_available
+    description: >-
+      Whether an international student organization is offered, from the
+      F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "International student organization"
+      checkbox is visibly checked, and false only when the complete
+      visible F2 checklist shows this box unambiguously unmarked; a row
+      absent from this form version is not_in_template_version, not false.
+      This records only offering, not participation, size,
+      competitiveness, or funding.
+
+  - id: jazz_band_available
+    description: Whether jazz band is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Jazz band" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. This records only offering,
+      not participation, size, competitiveness, or funding.
+
+  - id: literary_magazine_available
+    description: Whether a literary magazine is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Literary magazine" checkbox is
+      visibly checked, and false only when the complete visible F2
+      checklist shows this box unambiguously unmarked; a row absent from
+      this form version is not_in_template_version, not false. This
+      records only offering, not participation, size, competitiveness, or
+      funding.
+
+  - id: marching_band_available
+    description: Whether marching band is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Marching band" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. Do not conflate with concert
+      band or pep band. This records only offering, not participation,
+      size, competitiveness, or funding.
+
+  - id: model_un_available
+    description: Whether Model UN is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Model UN" checkbox is visibly checked,
+      and false only when the complete visible F2 checklist shows this box
+      unambiguously unmarked; a row absent from this form version is
+      not_in_template_version, not false. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: music_ensembles_available
+    description: Whether music ensembles are offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Music ensembles" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. Do not conflate with the
+      symphony orchestra row below. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: musical_theater_available
+    description: Whether musical theater is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Musical theater" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. Do not conflate with
+      drama/theater or opera. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: opera_available
+    description: Whether opera is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Opera" checkbox is visibly checked,
+      and false only when the complete visible F2 checklist shows this box
+      unambiguously unmarked; a row absent from this form version is
+      not_in_template_version, not false. Do not conflate with musical
+      theater or drama/theater. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: pep_band_available
+    description: Whether pep band is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Pep band" checkbox is visibly checked,
+      and false only when the complete visible F2 checklist shows this box
+      unambiguously unmarked; a row absent from this form version is
+      not_in_template_version, not false. Do not conflate with concert
+      band or marching band. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: radio_station_available
+    description: Whether a radio station is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Radio station" checkbox is visibly
+      checked, and false only when the complete visible F2 checklist shows
+      this box unambiguously unmarked; a row absent from this form version
+      is not_in_template_version, not false. Do not conflate with the
+      television station row below. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  - id: student_government_available
+    description: Whether student government is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Student government" checkbox is
+      visibly checked, and false only when the complete visible F2
+      checklist shows this box unambiguously unmarked; a row absent from
+      this form version is not_in_template_version, not false. This
+      records only offering, not participation, size, competitiveness, or
+      funding.
+
+  - id: student_newspaper_available
+    description: Whether a student newspaper is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Student newspaper" checkbox is
+      visibly checked, and false only when the complete visible F2
+      checklist shows this box unambiguously unmarked; a row absent from
+      this form version is not_in_template_version, not false. This
+      records only offering, not participation, size, competitiveness, or
+      funding.
+
+  - id: student_run_film_society_available
+    description: >-
+      Whether a student-run film society is offered, from the F2
+      checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Student-run film society" checkbox is
+      visibly checked, and false only when the complete visible F2
+      checklist shows this box unambiguously unmarked; a row absent from
+      this form version is not_in_template_version, not false. This
+      records only offering, not participation, size, competitiveness, or
+      funding.
+
+  - id: symphony_orchestra_available
+    description: Whether a symphony orchestra is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Symphony orchestra" checkbox is
+      visibly checked, and false only when the complete visible F2
+      checklist shows this box unambiguously unmarked; a row absent from
+      this form version is not_in_template_version, not false. Do not
+      conflate with the music ensembles row above. This records only
+      offering, not participation, size, competitiveness, or funding.
+
+  - id: television_station_available
+    description: Whether a television station is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Television station" checkbox is
+      visibly checked, and false only when the complete visible F2
+      checklist shows this box unambiguously unmarked; a row absent from
+      this form version is not_in_template_version, not false. Do not
+      conflate with the radio station row above. This records only
+      offering, not participation, size, competitiveness, or funding.
+
+  - id: yearbook_available
+    description: Whether a yearbook is offered, from the F2 checklist.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F2]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F2 "Yearbook" checkbox is visibly checked,
+      and false only when the complete visible F2 checklist shows this box
+      unambiguously unmarked; a row absent from this form version is
+      not_in_template_version, not false. This records only offering, not
+      participation, size, competitiveness, or funding.
+
+  # F3 — Army, Naval, and Air Force ROTC, each with on-campus and
+  # cooperating-institution availability plus cooperating-institution names;
+  # Naval ROTC additionally has a Marine option.
+  - id: army_rotc_on_campus
+    description: Whether Army ROTC is offered on campus, from F3.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F3 Army ROTC "offered on campus" checkbox
+      is visibly checked, and false only when this box is visibly present
+      and unambiguously unmarked in the complete F3 matrix. Do not conflate
+      with the "at a cooperating institution" row below, and never invent
+      an overall combined ROTC boolean; report Army ROTC only.
+
+  - id: army_rotc_at_cooperating_institution
+    description: >-
+      Whether Army ROTC is offered at a cooperating institution, from F3.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F3 Army ROTC "offered at a cooperating
+      institution" checkbox is visibly checked, and false only when this
+      box is visibly present and unambiguously unmarked in the complete F3
+      matrix. Do not conflate with the on-campus row above.
+
+  - id: army_rotc_cooperating_institution_names
+    description: >-
+      Names of institutions cooperating on Army ROTC, from F3.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Copy every cooperating-institution name visibly printed on the Army
+      ROTC row into one exact string, preserving punctuation and order.
+      When the cell is visibly blank, return value null with status
+      not_reported. Never copy a name from the Naval or Air Force ROTC rows
+      into this field.
+
+  - id: naval_rotc_on_campus
+    description: Whether Naval ROTC is offered on campus, from F3.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F3 Naval ROTC "offered on campus" checkbox
+      is visibly checked, and false only when this box is visibly present
+      and unambiguously unmarked in the complete F3 matrix. Do not conflate
+      with the "at a cooperating institution" row below or the Marine
+      option below; report Naval ROTC only.
+
+  - id: naval_rotc_at_cooperating_institution
+    description: >-
+      Whether Naval ROTC is offered at a cooperating institution, from F3.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F3 Naval ROTC "offered at a cooperating
+      institution" checkbox is visibly checked, and false only when this
+      box is visibly present and unambiguously unmarked in the complete F3
+      matrix. Do not conflate with the on-campus row above.
+
+  - id: naval_rotc_cooperating_institution_names
+    description: >-
+      Names of institutions cooperating on Naval ROTC, from F3.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Copy every cooperating-institution name visibly printed on the Naval
+      ROTC row into one exact string, preserving punctuation and order.
+      When the cell is visibly blank, return value null with status
+      not_reported. Never copy a name from the Army or Air Force ROTC rows
+      into this field.
+
+  - id: naval_rotc_marine_option
+    description: Whether the Naval ROTC program includes a Marine option, from F3.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F3 Naval ROTC "Marine option" checkbox is
+      visibly checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F3 matrix. Army and Air Force ROTC
+      have no equivalent
+      Marine-option cell in the F3 template; those rows are structurally
+      not applicable and must never receive a true/false value here or in
+      an invented equivalent field.
+
+  - id: air_force_rotc_on_campus
+    description: Whether Air Force ROTC is offered on campus, from F3.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F3 Air Force ROTC "offered on campus"
+      checkbox is visibly checked, and false only when this box is visibly
+      present and unambiguously unmarked in the complete F3 matrix. Do not
+      conflate with the "at a cooperating institution" row below; report
+      Air Force ROTC only.
+
+  - id: air_force_rotc_at_cooperating_institution
+    description: >-
+      Whether Air Force ROTC is offered at a cooperating institution, from
+      F3.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F3 Air Force ROTC "offered at a
+      cooperating institution" checkbox is visibly checked, and false only
+      when this box is visibly present and unambiguously unmarked in the
+      complete F3 matrix. Do not conflate with the on-campus row above.
+
+  - id: air_force_rotc_cooperating_institution_names
+    description: >-
+      Names of institutions cooperating on Air Force ROTC, from F3.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: academic_year
+    source_hints: [F3]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Copy every cooperating-institution name visibly printed on the Air
+      Force ROTC row into one exact string, preserving punctuation and
+      order. When the cell is visibly blank, return value null with status
+      not_reported. Never copy a name from the Army or Naval ROTC rows into
+      this field.
+
+  # F4 — college-owned/operated/affiliated housing types available to
+  # undergraduates, plus Other selection and description.
+  - id: coed_residence_halls
+    description: >-
+      Whether coed residence halls are available to undergraduates in
+      college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Return true only when the F4 "Coed" residence-hall checkbox is
+      visibly checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F4 checklist. Scope is
+      college-owned, -operated, or -affiliated housing; this does not
+      report capacity, guarantee, requirement, or universal eligibility.
+
+  - id: mens_residence_halls
+    description: >-
+      Whether men's residence halls are available to undergraduates in
+      college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Men's" residence-hall checkbox is
+      visibly checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F4 checklist. Do not conflate
+      with the coed or women's residence-hall rows.
+
+  - id: womens_residence_halls
+    description: >-
+      Whether women's residence halls are available to undergraduates in
+      college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Women's" residence-hall checkbox is
+      visibly checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F4 checklist. Do not conflate
+      with the coed or men's residence-hall rows.
+
+  - id: married_student_apartments
+    description: >-
+      Whether apartments for married students are available to undergraduates
+      in college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Apartments for married students"
+      checkbox is visibly checked, and false only when this box is visibly
+      present and unambiguously unmarked in the complete F4 checklist. Do
+      not conflate with apartments for single students below.
+
+  - id: single_student_apartments
+    description: >-
+      Whether apartments for single students are available to undergraduates
+      in college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Apartments for single students"
+      checkbox is visibly checked, and false only when this box is visibly
+      present and unambiguously unmarked in the complete F4 checklist. Do
+      not conflate with apartments for married students above.
+
+  - id: disabled_student_special_housing
+    description: >-
+      Whether special housing for disabled students is available to
+      undergraduates in college-owned, -operated, or -affiliated housing,
+      from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Special housing for disabled
+      students" checkbox is visibly checked, and false only when this box
+      is visibly present and unambiguously unmarked in the complete F4
+      checklist. Do not conflate with special housing for international
+      students below.
+
+  - id: international_student_special_housing
+    description: >-
+      Whether special housing for international students is available to
+      undergraduates in college-owned, -operated, or -affiliated housing,
+      from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Special housing for international
+      students" checkbox is visibly checked, and false only when this box
+      is visibly present and unambiguously unmarked in the complete F4
+      checklist. Do not conflate with special housing for disabled
+      students above.
+
+  - id: fraternity_sorority_housing
+    description: >-
+      Whether fraternity/sorority housing is available to undergraduates in
+      college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Fraternity/sorority housing" checkbox
+      is visibly checked, and false only when this box is visibly present
+      and unambiguously unmarked in the complete F4 checklist. This is
+      housing availability only; do not confuse with the F1
+      fraternity/sorority joiner percent metrics.
+
+  - id: cooperative_housing
+    description: >-
+      Whether cooperative housing is available to undergraduates in
+      college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Cooperative housing" checkbox is
+      visibly checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F4 checklist.
+
+  - id: theme_housing
+    description: >-
+      Whether theme housing is available to undergraduates in college-owned,
+      -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Theme housing" checkbox is visibly
+      checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F4 checklist. Do not conflate
+      with living-learning communities below.
+
+  - id: wellness_housing
+    description: >-
+      Whether wellness housing is available to undergraduates in
+      college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Wellness housing" checkbox is visibly
+      checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F4 checklist.
+
+  - id: living_learning_communities
+    description: >-
+      Whether living-learning communities are available to undergraduates in
+      college-owned, -operated, or -affiliated housing, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Living-learning communities" checkbox
+      is visibly checked, and false only when this box is visibly present
+      and unambiguously unmarked in the complete F4 checklist. Do not
+      conflate with theme housing above.
+
+  - id: housing_type_other
+    description: >-
+      Whether an "Other" housing type is selected for college-owned,
+      -operated, or -affiliated housing available to undergraduates, from F4.
+    type: boolean
+    unit: boolean
+    population: undergraduate
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Return true only when the F4 "Other" housing-type checkbox is
+      visibly checked, and false only when this box is visibly present and
+      unambiguously unmarked in the complete F4 checklist.
+
+  - id: housing_type_other_description
+    description: >-
+      Narrative description of the F4 "Other" college-owned, -operated, or
+      -affiliated housing type available to undergraduates, conditional on the
+      "Other" selection.
+    type: string
+    unit: text
+    population: undergraduate
+    denominator: none
+    definition_variant: reported
+    period_kind: academic_year
+    source_hints: [F4]
+    instructions: >-
+      Bind this metric to `identity.academic_year`, the CDS edition context.
+      Scope is college-owned, -operated, or -affiliated housing available
+      to undergraduates; this does not report capacity, guarantee,
+      requirement, or universal eligibility.
+      Copy the F4 "Other" housing-type description cell verbatim only when
+      that specific labeled cell is populated. When the cell is visibly blank,
+      return value null with status not_reported, even if
+      `housing_type_other` is true.

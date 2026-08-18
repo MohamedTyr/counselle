@@ -1,0 +1,893 @@
+id: transfer
+context_bindings:
+- id: d2_entering_class
+  label: transfer entering class
+  binders:
+  - transfer_volume_entry_term
+  - transfer_volume_entry_year
+  targets:
+    metric_ids:
+    - applicants_total
+    - applicants_men
+    - applicants_women
+    - applicants_another_gender
+    - applicants_unknown
+    - admitted_total
+    - admitted_men
+    - admitted_women
+    - admitted_another_gender
+    - admitted_unknown
+    - enrolled_total
+    - enrolled_men
+    - enrolled_women
+    - enrolled_another_gender
+    - enrolled_unknown
+title: Transfer admission and credit policy
+metrics:
+  # D1 — institution-level transfer policy
+  - id: enrolls_transfer_students
+    description: "Whether the institution enrolls transfer students from other colleges or universities, per D1."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D1]
+    instructions: "Extract the D1 first Yes/No control for whether the institution enrolls transfer students. Return true/false only from an unambiguous selected control; this is a policy selection, separate from the D2 volume counts and from the D1 advanced-standing control below."
+
+  - id: allows_advanced_standing_from_external_coursework
+    description: "Whether the institution grants advanced standing based on coursework completed at other colleges or universities, per D1."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D1]
+    instructions: "Extract the D1 second Yes/No control. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. This advanced standing is specifically from coursework taken at other colleges/universities; do not confuse it with AP/IB/CLEP or other non-collegiate credit, which are covered elsewhere."
+
+  # D2 — transfer volume by gender, with entry term/year context
+  - id: transfer_volume_entry_term
+    description: "Entry term printed in the D2 transfer-volume table heading."
+    type: string
+    unit: category
+    population: transfer
+    denominator: none
+    definition_variant: printed
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Copy the entry term named in the D2 heading (for example Fall). This is source context that binds every D2 applicants/admitted/enrolled count below; it is not an institution-entered response and not the CDS edition."
+
+  - id: transfer_volume_entry_year
+    description: "Entry year printed in the D2 transfer-volume table heading."
+    type: string
+    unit: academic_year
+    population: transfer
+    denominator: none
+    definition_variant: printed
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Copy the entry year named in the D2 heading. This is source context that binds every D2 applicants/admitted/enrolled count below; it is not the CDS edition academic year."
+
+  - id: applicants_total
+    description: "Total degree-seeking transfer applicants for the D2 entry term/year."
+    type: integer
+    unit: applicants
+    population: transfer
+    denominator: none
+    definition_variant: total
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 TOTAL row applicants count. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Population is degree-seeking transfer applicants only; do not sum the gender rows yourself."
+
+  - id: applicants_men
+    description: "Men transfer applicants for the D2 entry term/year."
+    type: integer
+    unit: applicants
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Men row applicants count (labeled Males in the Harvard template). Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Keep separate from the Another Gender and Unknown rows."
+
+  - id: applicants_women
+    description: "Women transfer applicants for the D2 entry term/year."
+    type: integer
+    unit: applicants
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Women row applicants count (labeled Females in the Harvard template). Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Keep separate from the Another Gender and Unknown rows."
+
+  - id: applicants_another_gender
+    description: "Transfer applicants reported under Another Gender for the D2 entry term/year."
+    type: integer
+    unit: applicants
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Another Gender row applicants count when this template version includes it. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Another Gender is not Unknown; a row absent from a given form version is not_in_template_version, never zero."
+
+  - id: applicants_unknown
+    description: "Transfer applicants whose gender is reported unknown for the D2 entry term/year."
+    type: integer
+    unit: applicants
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Unknown row applicants count. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Unknown is not Another Gender; do not merge the two rows."
+
+  - id: admitted_total
+    description: "Total transfer applicants admitted for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: total
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 TOTAL row admitted count. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. This is a raw source count; do not compute an admit rate during extraction."
+
+  - id: admitted_men
+    description: "Men transfer applicants admitted for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Men row admitted count (labeled Males in the Harvard template). Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Keep separate from the Another Gender and Unknown rows."
+
+  - id: admitted_women
+    description: "Women transfer applicants admitted for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Women row admitted count (labeled Females in the Harvard template). Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Keep separate from the Another Gender and Unknown rows."
+
+  - id: admitted_another_gender
+    description: "Transfer applicants admitted under Another Gender for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Another Gender row admitted count when this template version includes it. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Another Gender is not Unknown; keep the two rows separate. A row absent from a given form version is not_in_template_version, never zero."
+
+  - id: admitted_unknown
+    description: "Transfer applicants admitted with gender reported unknown for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Unknown row admitted count. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Unknown is not Another Gender."
+
+  - id: enrolled_total
+    description: "Total transfer students enrolled for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: total
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 TOTAL row enrolled count. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. This is a raw source count; do not compute a yield rate during extraction."
+
+  - id: enrolled_men
+    description: "Men transfer students enrolled for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Men row enrolled count (labeled Males in the Harvard template). Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Keep separate from the Another Gender and Unknown rows."
+
+  - id: enrolled_women
+    description: "Women transfer students enrolled for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Women row enrolled count (labeled Females in the Harvard template). Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Keep separate from the Another Gender and Unknown rows."
+
+  - id: enrolled_another_gender
+    description: "Transfer students enrolled under Another Gender for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Another Gender row enrolled count when this template version includes it. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Another Gender is not Unknown; keep the two rows separate. A row absent from a given form version is not_in_template_version, never zero."
+
+  - id: enrolled_unknown
+    description: "Transfer students enrolled with gender reported unknown for the D2 entry term/year."
+    type: integer
+    unit: students
+    population: transfer
+    denominator: none
+    definition_variant: reported
+    period_kind: fall_term
+    source_hints: [D2]
+    instructions: "Extract the D2 Unknown row enrolled count. Bind this count to transfer_volume_entry_term and transfer_volume_entry_year. Unknown is not Another Gender."
+
+  # D3 — entry-term availability checklist
+  - id: enrollment_term_fall
+    description: "Whether the institution accepts transfer students entering in the fall term, per D3."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: policy
+    source_hints: [D3]
+    instructions: "Extract the D3 Fall checklist control. Return true only from an unambiguous visible mark. Return false only when the complete D3 term checklist is visible and the named Fall option is unambiguously unmarked; a blank or missing row is never false, and a row absent from the template version is not_in_template_version. This is entry-term availability only, not an application or reply deadline; deadlines are separate D9 fields."
+
+  - id: enrollment_term_winter
+    description: "Whether the institution accepts transfer students entering in the winter term, per D3."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: policy
+    source_hints: [D3]
+    instructions: "Extract the D3 Winter checklist control. Return true only from an unambiguous visible mark. Return false only when the complete D3 term checklist is visible and the named Winter option is unambiguously unmarked; a blank or missing row is never false, and a row absent from the template version is not_in_template_version. This is entry-term availability only, not an application or reply deadline; deadlines are separate D9 fields."
+
+  - id: enrollment_term_spring
+    description: "Whether the institution accepts transfer students entering in the spring term, per D3."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: policy
+    source_hints: [D3]
+    instructions: "Extract the D3 Spring checklist control. Return true only from an unambiguous visible mark. Return false only when the complete D3 term checklist is visible and the named Spring option is unambiguously unmarked; a blank or missing row is never false, and a row absent from the template version is not_in_template_version. This is entry-term availability only, not an application or reply deadline; deadlines are separate D9 fields."
+
+  - id: enrollment_term_summer
+    description: "Whether the institution accepts transfer students entering in the summer term, per D3."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: policy
+    source_hints: [D3]
+    instructions: "Extract the D3 Summer checklist control. Return true only from an unambiguous visible mark. Return false only when the complete D3 term checklist is visible and the named Summer option is unambiguously unmarked; a blank or missing row is never false, and a row absent from the template version is not_in_template_version. This is entry-term availability only, not an application or reply deadline; deadlines are separate D9 fields."
+
+  # D4 — minimum prior-credit threshold for first-year vs transfer classification
+  - id: minimum_prior_credit_threshold_applies
+    description: "Whether a minimum prior-coursework credit threshold applies, below which an applicant must apply as an entering first-year rather than a transfer, per D4."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D4]
+    instructions: "Extract the D4 Yes/No control for whether the threshold applies. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. Do not infer a value or unit for the fields below when this control is No or blank."
+
+  - id: minimum_prior_credit_value
+    description: "Minimum prior-coursework value below which an applicant must apply as an entering first-year rather than as a transfer, per D4."
+    type: number
+    unit: source_unit_value
+    population: institution
+    denominator: none
+    definition_variant: minimum
+    period_kind: policy
+    source_hints: [D4]
+    instructions: "Extract the printed D4 numeric threshold value only when visibly reported (for example 4). Never infer a value when the cell is blank, even if minimum_prior_credit_threshold_applies is true."
+
+  - id: minimum_prior_credit_unit
+    description: "Unit text printed beside the D4 minimum prior-coursework threshold below which an applicant must apply as an entering first-year rather than as a transfer."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D4]
+    instructions: "Copy the printed D4 unit text exactly (for example semester hours). Do not infer a unit when it is blank, even when minimum_prior_credit_value is reported."
+
+  # D5 — requirement-status checklist
+  - id: transfer_requirement_high_school_transcript
+    description: "D5 requirement status for a high-school transcript from transfer applicants."
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: policy
+    enums: [required_all, recommended_all, recommended_some, required_some, not_required]
+    source_hints: [D5]
+    instructions: "Return the exact D5 selected requirement status for the High School Transcript row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable."
+
+  - id: transfer_requirement_college_transcripts
+    description: "D5 requirement status for college transcripts from transfer applicants."
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: policy
+    enums: [required_all, recommended_all, recommended_some, required_some, not_required]
+    source_hints: [D5]
+    instructions: "Return the exact D5 selected requirement status for the College Transcript(s) row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable."
+
+  - id: transfer_requirement_essay_personal_statement
+    description: "D5 requirement status for an essay or personal statement from transfer applicants."
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: policy
+    enums: [required_all, recommended_all, recommended_some, required_some, not_required]
+    source_hints: [D5]
+    instructions: "Return the exact D5 selected requirement status for the Essay or Personal Statement row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable."
+
+  - id: transfer_requirement_interview
+    description: "D5 requirement status for an interview from transfer applicants."
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: policy
+    enums: [required_all, recommended_all, recommended_some, required_some, not_required]
+    source_hints: [D5]
+    instructions: "Return the exact D5 selected requirement status for the Interview row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable."
+
+  - id: transfer_requirement_standardized_test_scores
+    description: "D5 requirement status for standardized test scores from transfer applicants."
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: policy
+    enums: [required_all, recommended_all, recommended_some, required_some, not_required]
+    source_hints: [D5]
+    instructions: "Return the exact D5 selected requirement status for the Standardized Test Scores row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable."
+
+  - id: transfer_requirement_prior_institution_good_standing
+    description: "D5 requirement status for a statement of good standing from the prior institution."
+    type: enum
+    unit: category
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: policy
+    enums: [required_all, recommended_all, recommended_some, required_some, not_required]
+    source_hints: [D5]
+    instructions: "Return the exact D5 selected requirement status for the Statement of Good Standing from Prior Institution(s) row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable."
+
+  # D6–D8 — GPA minimums and other requirements
+  - id: minimum_high_school_gpa
+    description: "Minimum high-school GPA required of transfer applicants, when a minimum is stated, per D6."
+    type: number
+    unit: gpa
+    population: institution
+    denominator: none
+    definition_variant: minimum
+    period_kind: policy
+    source_hints: [D6]
+    instructions: "Extract the D6 minimum high-school GPA value only. Any printed 'on a 4.0 scale' wording is template prompt context, not an institution response, and must never be copied into this value; a blank cell does not prove no minimum exists."
+
+  - id: minimum_college_gpa
+    description: "Minimum college GPA required of transfer applicants, when a minimum is stated, per D7."
+    type: number
+    unit: gpa
+    population: institution
+    denominator: none
+    definition_variant: minimum
+    period_kind: policy
+    source_hints: [D7]
+    instructions: "Extract the D7 minimum college GPA value only, keeping it separate from minimum_high_school_gpa. Any printed 'on a 4.0 scale' wording is template prompt context, not an institution response, and must never be copied into this value; a blank cell does not prove no minimum exists."
+
+  - id: other_application_requirements
+    description: "Other transfer application requirements narrative, per D8."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D8]
+    instructions: "Copy the D8 other-requirements narrative verbatim. Keep it separate from additional_admission_requirements (D11); do not merge it with the D5 checklist rows or the D17 credit-policy narrative."
+
+  # D9 — term × date-type deadline matrix
+  - id: transfer_priority_date_fall
+    description: "D9 fall-term transfer application priority date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Fall row Priority Date cell exactly as printed, preserving any partial date actually present in that column. Keep it distinct from Closing Date, Notification Date, and Reply Date: Yale's 3/1 is closing, Mid May is notification, and Late May is reply, not priority."
+
+  - id: transfer_closing_date_fall
+    description: "D9 fall-term transfer application closing date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Fall row closing-date cell exactly as printed. Keep this distinct from the priority date; do not assume a year that is not printed."
+
+  - id: transfer_notification_date_fall
+    description: "D9 fall-term transfer admission notification date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Fall row notification-date cell exactly as printed. Keep it in the Notification Date column; do not shift a value from the adjacent Closing Date or Reply Date column."
+
+  - id: transfer_reply_date_fall
+    description: "D9 fall-term transfer admission reply date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Fall row reply-date cell exactly as printed. Keep it in the Reply Date column; do not shift a value from the adjacent Notification Date column or interpret the Rolling Admission control as a reply date."
+
+  - id: transfer_rolling_admission_fall
+    description: "Whether fall-term transfer admission is on a rolling basis, per D9."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Extract only a direct explicit Yes/No or an authoritative visibly unchecked D9 Fall rolling-admission control. A blank/empty mark cell remains not_reported or unresolved; never derive this value from the separate D3 fall-term availability checklist."
+
+  - id: transfer_priority_date_winter
+    description: "D9 winter-term transfer application priority date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Winter row Priority Date cell exactly as printed, preserving any partial date actually present in that column. Keep it distinct from Closing Date, Notification Date, and Reply Date: Yale's 3/1 is closing, Mid May is notification, and Late May is reply, not priority."
+
+  - id: transfer_closing_date_winter
+    description: "D9 winter-term transfer application closing date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Winter row closing-date cell exactly as printed. Keep this distinct from the priority date; do not assume a year that is not printed."
+
+  - id: transfer_notification_date_winter
+    description: "D9 winter-term transfer admission notification date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Winter row notification-date cell exactly as printed. Keep it in the Notification Date column; do not shift a value from the adjacent Closing Date or Reply Date column."
+
+  - id: transfer_reply_date_winter
+    description: "D9 winter-term transfer admission reply date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Winter row reply-date cell exactly as printed. Keep it in the Reply Date column; do not shift a value from the adjacent Notification Date column or interpret the Rolling Admission control as a reply date."
+
+  - id: transfer_rolling_admission_winter
+    description: "Whether winter-term transfer admission is on a rolling basis, per D9."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Extract only a direct explicit Yes/No or an authoritative visibly unchecked D9 Winter rolling-admission control. A blank/empty mark cell remains not_reported or unresolved; never derive this value from the separate D3 winter-term availability checklist."
+
+  - id: transfer_priority_date_spring
+    description: "D9 spring-term transfer application priority date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Spring row Priority Date cell exactly as printed, preserving any partial date actually present in that column. Keep it distinct from Closing Date, Notification Date, and Reply Date: Yale's 3/1 is closing, Mid May is notification, and Late May is reply, not priority."
+
+  - id: transfer_closing_date_spring
+    description: "D9 spring-term transfer application closing date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Spring row closing-date cell exactly as printed. Keep this distinct from the priority date; do not assume a year that is not printed."
+
+  - id: transfer_notification_date_spring
+    description: "D9 spring-term transfer admission notification date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Spring row notification-date cell exactly as printed. Keep it in the Notification Date column; do not shift a value from the adjacent Closing Date or Reply Date column."
+
+  - id: transfer_reply_date_spring
+    description: "D9 spring-term transfer admission reply date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Spring row reply-date cell exactly as printed. Keep it in the Reply Date column; do not shift a value from the adjacent Notification Date column or interpret the Rolling Admission control as a reply date."
+
+  - id: transfer_rolling_admission_spring
+    description: "Whether spring-term transfer admission is on a rolling basis, per D9."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Extract only a direct explicit Yes/No or an authoritative visibly unchecked D9 Spring rolling-admission control. A blank/empty mark cell remains not_reported or unresolved; never derive this value from the separate D3 spring-term availability checklist."
+
+  - id: transfer_priority_date_summer
+    description: "D9 summer-term transfer application priority date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Summer row Priority Date cell exactly as printed, preserving any partial date actually present in that column. Keep it distinct from Closing Date, Notification Date, and Reply Date: Yale's 3/1 is closing, Mid May is notification, and Late May is reply, not priority."
+
+  - id: transfer_closing_date_summer
+    description: "D9 summer-term transfer application closing date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Summer row closing-date cell exactly as printed. Keep this distinct from the priority date; do not assume a year that is not printed."
+
+  - id: transfer_notification_date_summer
+    description: "D9 summer-term transfer admission notification date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Summer row notification-date cell exactly as printed. Keep it in the Notification Date column; do not shift a value from the adjacent Closing Date or Reply Date column."
+
+  - id: transfer_reply_date_summer
+    description: "D9 summer-term transfer admission reply date."
+    type: string
+    unit: date
+    population: institution
+    denominator: none
+    definition_variant: deadline
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Copy the D9 Summer row reply-date cell exactly as printed. Keep it in the Reply Date column; do not shift a value from the adjacent Notification Date column or interpret the Rolling Admission control as a reply date."
+
+  - id: transfer_rolling_admission_summer
+    description: "Whether summer-term transfer admission is on a rolling basis, per D9."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: selected
+    period_kind: admission_cycle
+    source_hints: [D9]
+    instructions: "Extract only a direct explicit Yes/No or an authoritative visibly unchecked D9 Summer rolling-admission control. A blank/empty mark cell remains not_reported or unresolved; never derive this value from the separate D3 summer-term availability checklist."
+
+  # D10–D11 — open admission applicability and additional requirements
+  - id: open_admission_policy_applies
+    description: "Whether an open admission policy applies to transfer applicants, per D10."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D10]
+    instructions: "Extract the D10 Yes/No control. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. This is open-admission applicability, not rolling admission and not any of the D9 rolling-admission controls above."
+
+  - id: additional_admission_requirements
+    description: "Additional transfer admission requirements narrative, per D11."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D11]
+    instructions: "Copy the D11 narrative verbatim. Keep separate from other_application_requirements (D8) and from other_transfer_credit_policies (D17)."
+
+  # D12 — lowest eligible course grade
+  - id: lowest_eligible_course_grade
+    description: "Lowest course grade that remains eligible for transfer credit, per D12."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: minimum
+    period_kind: policy
+    source_hints: [D12]
+    instructions: "Copy the printed D12 grade token exactly (for example a letter grade or a numeric grade such as 2.00). This is not the D7 applicant minimum college GPA and carries no assumed grading scale."
+
+  # D13/D14 — transfer credit maxima by source-institution type
+  - id: transfer_credit_maximum_two_year_value
+    description: "Maximum transfer credit value accepted from two-year institutions, per D13."
+    type: number
+    unit: source_unit_value
+    population: institution
+    denominator: none
+    definition_variant: maximum
+    period_kind: policy
+    source_hints: [D13]
+    instructions: "Extract the D13 two-year maximum numeric value only. Do not infer a blank value from the four-year D14 row."
+
+  - id: transfer_credit_maximum_two_year_unit_type_raw
+    description: "Complete Unit Type response printed beside the D13 two-year maximum, including any parenthetical equivalence."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D13]
+    instructions: "Copy the entire D13 Unit Type response verbatim as one string; do not split, parse, or infer a unit when it is blank, and never borrow the D14 four-year unit."
+
+  - id: transfer_credit_maximum_four_year_value
+    description: "Maximum transfer credit value accepted from four-year institutions, per D14."
+    type: number
+    unit: source_unit_value
+    population: institution
+    denominator: none
+    definition_variant: maximum
+    period_kind: policy
+    source_hints: [D14]
+    instructions: "Extract the D14 four-year maximum numeric value only. Do not infer a blank value from the two-year D13 row."
+
+  - id: transfer_credit_maximum_four_year_unit_type_raw
+    description: "Complete Unit Type response printed beside the D14 four-year maximum, including any parenthetical equivalence."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D14]
+    instructions: "Copy the entire D14 Unit Type response verbatim as one string; do not split, parse, or infer a unit when it is blank, and never borrow the D13 two-year unit."
+
+  # D15/D16 — institutional-completion minimums for associate/bachelor's degrees
+  - id: associate_completion_minimum_value
+    description: "Minimum coursework value that must be completed at the reporting institution for an associate degree, per D15."
+    type: number
+    unit: source_unit_value
+    population: institution
+    denominator: none
+    definition_variant: minimum
+    period_kind: policy
+    source_hints: [D15]
+    instructions: "Extract the D15 numeric minimum value only. This is institutional-completion residency work, not a transferable-credit maximum from D13/D14."
+
+  - id: associate_completion_minimum_unit_type_raw
+    description: "Complete Unit Type response printed beside the D15 associate-degree completion minimum."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D15]
+    instructions: "Copy the entire D15 Unit Type response verbatim; do not infer a unit when it is blank."
+
+  - id: bachelors_completion_minimum_value
+    description: "Minimum coursework value that must be completed at the reporting institution for a bachelor's degree, per D16."
+    type: number
+    unit: source_unit_value
+    population: institution
+    denominator: none
+    definition_variant: minimum
+    period_kind: policy
+    source_hints: [D16]
+    instructions: "Extract the D16 numeric minimum value only (for example 8). This is institutional-completion residency work, not a transferable-credit maximum from D13/D14."
+
+  - id: bachelors_completion_minimum_unit_type_raw
+    description: "Complete Unit Type response printed beside the D16 bachelor's-degree completion minimum."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D16]
+    instructions: "Copy the entire D16 Unit Type response verbatim; do not borrow a unit from D15 or any other row when it is blank."
+
+  # D17 — other transfer-credit policies
+  - id: other_transfer_credit_policies
+    description: "Other transfer-credit policies narrative, per D17."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D17]
+    instructions: "Copy the D17 narrative verbatim. There is no dedicated articulation-agreement field; do not invent one from this text."
+
+  # D18 — military/veteran ACE, CLEP, DSST acceptance
+  - id: military_credit_accepts_ace
+    description: "Whether the institution accepts American Council on Education (ACE) military credit recommendations, per D18."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D18]
+    instructions: "Extract the D18 ACE Yes/No control. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. Keep separate from military_credit_accepts_clep and military_credit_accepts_dsst; do not collapse the three into a single generic military-credit-availability value."
+
+  - id: military_credit_accepts_clep
+    description: "Whether the institution accepts College-Level Examination Program (CLEP) military credit, per D18."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D18]
+    instructions: "Extract the D18 CLEP Yes/No control. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. Keep separate from military_credit_accepts_ace and military_credit_accepts_dsst."
+
+  - id: military_credit_accepts_dsst
+    description: "Whether the institution accepts DANTES Subject Standardized Tests (DSST) military credit, per D18."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D18]
+    instructions: "Extract the D18 DSST Yes/No control. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. Keep separate from military_credit_accepts_ace and military_credit_accepts_clep."
+
+  # D19/D20 — military/veteran ACE and combined CLEP-DSST maxima
+  - id: military_credit_ace_maximum_value
+    description: "Maximum ACE-recommended military credit value accepted, per D19."
+    type: number
+    unit: source_unit_value
+    population: institution
+    denominator: none
+    definition_variant: maximum
+    period_kind: policy
+    source_hints: [D19]
+    instructions: "Extract the D19 numeric maximum value only."
+
+  - id: military_credit_ace_maximum_unit_type_raw
+    description: "Complete Unit Type response printed beside the D19 ACE maximum."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D19]
+    instructions: "Copy the entire D19 Unit Type response verbatim; never infer a conversion when it is blank."
+
+  - id: military_credit_clep_dsst_maximum_value
+    description: "Combined DoD-supported CLEP/DSST maximum military credit value accepted, per D20."
+    type: number
+    unit: source_unit_value
+    population: institution
+    denominator: none
+    definition_variant: maximum
+    period_kind: policy
+    source_hints: [D20]
+    instructions: "Extract the D20 numeric maximum value only. D20 is one combined CLEP-or-DSST maximum, not separate CLEP and DSST caps; do not split it or add it to military_credit_ace_maximum_value."
+
+  - id: military_credit_clep_dsst_maximum_unit_type_raw
+    description: "Complete Unit Type response printed beside the D20 combined CLEP/DSST maximum."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D20]
+    instructions: "Copy the entire D20 Unit Type response verbatim; never infer a conversion when it is blank."
+
+  # D21/D22 — military/veteran policy publication and narrative
+  - id: military_policy_published_online
+    description: "Whether the institution's military transfer-credit policy is published online, per D21."
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: policy
+    period_kind: policy
+    source_hints: [D21]
+    instructions: "Extract the D21 Yes/No control for publication only. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. Publication is separate from whether a URL is printed and separate from whether credit is actually accepted."
+
+  - id: military_policy_url
+    description: "Published military or veteran transfer-credit policy URL, per D21."
+    type: string
+    unit: url
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D21]
+    instructions: "Extract the printed D21 policy URL only when visibly present; do not infer a URL from the military_policy_published_online control alone."
+
+  - id: other_military_transfer_policies
+    description: "Other military transfer-credit policies narrative, per D22."
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: reported
+    period_kind: policy
+    source_hints: [D22]
+    instructions: "Copy the D22 narrative verbatim, including a stated absence of different policies (for example a 'no different policies' sentence). Such a sentence is a reported narrative, not a null/blank response."

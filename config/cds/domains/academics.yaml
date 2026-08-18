@@ -1,0 +1,725 @@
+id: academics
+title: Special academic options and graduation requirements
+metrics:
+  - id: special_study_accelerated_program
+    description: Accelerated program identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Accelerated program". Extract that row only.
+      Emit true only when the box is visibly checked; emit false only when
+      the complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not infer availability from
+      any other major, service, or policy described elsewhere in the CDS.
+
+  - id: special_study_comprehensive_transition_program
+    description: >-
+      Comprehensive transition and postsecondary program for students with
+      intellectual disabilities identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Comprehensive transition and postsecondary program for students with
+      intellectual disabilities". Extract that row only. Emit true only
+      when visibly checked; emit false only
+      when the complete E1 checklist is visible and this box is
+      unambiguously unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse this with a
+      general disability-services office or with special housing for
+      disabled students in F4.
+
+  - id: special_study_cross_registration
+    description: Cross-registration identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Cross-registration". Extract that row only. Emit true only when
+      visibly checked; emit false only when the
+      complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse with domestic
+      exchange or study abroad, which are separate rows.
+
+  - id: special_study_distance_learning
+    description: Distance learning identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Distance learning". Extract that row only. Emit true only when
+      visibly checked; emit false only when
+      the complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not infer this from any
+      COVID-era remote-instruction note elsewhere in the CDS.
+
+  - id: special_study_double_major
+    description: Double major identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Double major". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E1
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. Do not confuse with the separate student-designed-major row.
+
+  - id: special_study_dual_enrollment
+    description: Dual enrollment identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Dual enrollment". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E1
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. Do not confuse with cross-registration or with transfer-credit
+      policy in Section D.
+
+  - id: special_study_esl
+    description: English as a Second Language (ESL) identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "English as a Second Language (ESL)". Extract that row only. Emit true
+      only when visibly checked; emit false
+      only when the complete E1 checklist is visible and this box is
+      unambiguously unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse with the E3
+      required-coursework English/composition row, which is a graduation
+      requirement, not this offering.
+
+  - id: special_study_domestic_exchange_program
+    description: Domestic exchange student program identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Exchange student program (domestic)". Extract that row only. Emit true
+      only when visibly checked; emit false
+      only when the complete E1 checklist is visible and this box is
+      unambiguously unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse with study
+      abroad, which is a separate row.
+
+  - id: special_study_external_degree_program
+    description: External degree program identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "External degree program". Extract that row only. Emit true only when
+      visibly checked; emit false only when
+      the complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false.
+
+  - id: special_study_honors_program
+    description: Honors program identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Extract the E1 row labeled exactly "Honors Program" in Harvard
+      2025-26 or "Honors program" in Yale 2024-25. Emit true only when
+      visibly checked; emit false only when the complete E1
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. Do not infer this from a general reputation for rigor or from
+      an honors-college marketing page.
+
+  - id: special_study_independent_study
+    description: Independent study identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Independent study". Extract that row only. Emit true only when
+      visibly checked; emit false only when the
+      complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse with
+      undergraduate research, which is a separate row.
+
+  - id: special_study_internships
+    description: Internships identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Internships". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E1
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. Do not infer this from individual department or major pages.
+
+  - id: special_study_liberal_arts_career_combination
+    description: Liberal arts/career combination program identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Liberal arts/career combination". Extract that row only. Emit true
+      only when visibly checked; emit false only
+      when the complete E1 checklist is visible and this box is
+      unambiguously unmarked. A row absent from this form version is
+      not_in_template_version, never false.
+
+  - id: special_study_student_designed_major
+    description: Student-designed major identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Student-designed major". Extract that row only. Emit true only when
+      visibly checked; emit false only when
+      the complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse with the
+      separate double-major row.
+
+  - id: special_study_study_abroad
+    description: Study abroad identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Study abroad". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E1
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. Do not confuse with the domestic exchange row.
+
+  - id: special_study_teacher_certification
+    description: Teacher certification program identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Teacher certification program". Extract that row only. Emit true only
+      when visibly checked; emit false only when the
+      complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not infer this from an
+      education major/department listing elsewhere in the CDS.
+
+  - id: special_study_undergraduate_research
+    description: Undergraduate research identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Undergraduate Research". Extract that row only. Emit true only when
+      visibly checked; emit false only when
+      the complete E1 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse with the
+      separate independent-study row or with the faculty stand-alone
+      graduate-program row in I-1.
+
+  - id: special_study_weekend_college
+    description: Weekend college identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Weekend college". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E1
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false.
+
+  - id: special_study_other_selected
+    description: >-
+      An Other special-study option, beyond the named E1 checklist items,
+      identified as available in E1.
+    type: boolean
+    unit: boolean
+    population: institution
+    denominator: none
+    definition_variant: availability
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E1 row exactly
+      "Other (specify):" Extract only its checkbox. Emit true only when the
+      box is visibly checked; emit false only when the complete E1
+      checklist is visible and this box is unambiguously unmarked. Never
+      set this true solely because special_study_other_description
+      contains text; the checkbox state governs this field.
+
+  - id: special_study_other_description
+    description: >-
+      Verbatim description of an Other special-study option identified as
+      available in E1. The text is printed next to the Other selection.
+    type: string
+    unit: text
+    population: institution
+    denominator: none
+    definition_variant: printed
+    period_kind: academic_year
+    source_hints: [E1]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label the source E1 row exactly
+      "Other (specify):" Copy its narrative text exactly as printed,
+      including spelling and punctuation. Leave not_reported when the cell is a
+      visibly present empty response; do not infer text from
+      special_study_other_selected or from any other row.
+
+  - id: required_coursework_arts_fine_arts
+    description: >-
+      Arts/fine arts coursework identified as required of all or most
+      students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Arts/fine arts". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E3
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. This states only that some coursework is required in the
+      area; do not report credit counts, course counts, major requirements,
+      or admission prerequisites.
+
+  - id: required_coursework_computer_literacy
+    description: >-
+      Computer literacy coursework identified as required of all or most
+      students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Computer literacy". Extract that row only. Emit true only when
+      visibly checked; emit false only when the
+      complete E3 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. This states only that some
+      coursework is required in the area; do not report credit counts,
+      course counts, major requirements, or admission prerequisites.
+
+  - id: required_coursework_english_composition
+    description: >-
+      English, including composition, coursework identified as required of
+      all or most students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "English (including composition)". Extract that row only. Emit true
+      only when visibly checked; emit false only
+      when the complete E3 checklist is visible and this box is
+      unambiguously unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not confuse with the E1
+      English as a Second Language offering row. This states only that
+      some coursework is required in the area; do not report credit counts,
+      course counts, major requirements, or admission prerequisites.
+
+  - id: required_coursework_foreign_languages
+    description: >-
+      Foreign languages coursework identified as required of all or most
+      students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Foreign languages". Extract that row only. Emit true only when
+      visibly checked; emit false only when the
+      complete E3 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. This states only that some
+      coursework is required in the area; do not report credit counts,
+      course counts, major requirements, or admission prerequisites.
+
+  - id: required_coursework_history
+    description: >-
+      History coursework identified as required of all or most students
+      before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "History". Extract that row only. Emit true only when visibly checked;
+      emit false only when the complete E3
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. This states only that some coursework is required in the
+      area; do not report credit counts, course counts, major requirements,
+      or admission prerequisites.
+
+  - id: required_coursework_physical_education
+    description: >-
+      Physical education coursework identified as required of all or most
+      students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Physical Education". Extract that row only. Emit true only when
+      visibly checked; emit false only when the
+      complete E3 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. This states only that some
+      coursework is required in the area; do not report credit counts,
+      course counts, major requirements, or admission prerequisites.
+
+  - id: required_coursework_humanities
+    description: >-
+      Humanities coursework identified as required of all or most students
+      before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Humanities". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E3
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. Do not merge this with the separate philosophy row. This
+      states only that some coursework is required in the area; do not
+      report credit counts, course counts, major requirements, or admission
+      prerequisites.
+
+  - id: required_coursework_intensive_writing
+    description: >-
+      Intensive writing coursework identified as required of all or most
+      students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Intensive writing". Extract that row only. Emit true only when
+      visibly checked; emit false only when the
+      complete E3 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. Do not merge this with the
+      separate English/composition row. This states only that some
+      coursework is required in the area; do not report credit counts,
+      course counts, major requirements, or admission prerequisites.
+
+  - id: required_coursework_mathematics
+    description: >-
+      Mathematics coursework identified as required of all or most
+      students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Mathematics". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E3
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. This states only that some coursework is required in the
+      area; do not report credit counts, course counts, major requirements,
+      or admission prerequisites.
+
+  - id: required_coursework_philosophy
+    description: >-
+      Philosophy coursework identified as required of all or most students
+      before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Philosophy". Extract that row only. Emit true only when visibly
+      checked; emit false only when the complete E3
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. Do not merge this with the separate humanities row. This
+      states only that some coursework is required in the area; do not
+      report credit counts, course counts, major requirements, or admission
+      prerequisites.
+
+  - id: required_coursework_biological_physical_sciences
+    description: >-
+      Biological or physical sciences coursework identified as required of
+      all or most students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Harvard 2025-26 and Yale 2024-25 both label this E3 row exactly
+      "Sciences (biological or physical)". Extract that row only. Emit true
+      only when visibly checked; emit false only when
+      the complete E3 checklist is visible and this box is unambiguously
+      unmarked. A row absent from this form version is
+      not_in_template_version, never false. This states only that some
+      coursework is required in the area; do not report credit counts,
+      course counts, major requirements, or admission prerequisites.
+
+  - id: required_coursework_social_science
+    description: >-
+      Social science coursework identified as required of all or most
+      students before graduation, per E3.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Extract the E3 row labeled exactly "Social science" in Harvard
+      2025-26 or "Social Science" in Yale 2024-25. Emit true only when
+      visibly checked; emit false only when the complete E3
+      checklist is visible and this box is unambiguously unmarked. A row
+      absent from this form version is not_in_template_version, never
+      false. This states only that some coursework is required in the
+      area; do not report credit counts, course counts, major requirements,
+      or admission prerequisites.
+
+  - id: required_coursework_other_selected
+    description: >-
+      An Other required-coursework area, beyond the named E3 checklist
+      items, identified as required of all or most students before
+      graduation.
+    type: boolean
+    unit: boolean
+    population: all_or_most_students
+    denominator: none
+    definition_variant: required
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Extract the E3 checkbox from the row labeled exactly "Other
+      (describe):" in Harvard 2025-26 or "Other (specify):" in Yale 2024-25.
+      Emit true only when the box is visibly checked; emit false only when the complete E3
+      checklist is visible and this box is unambiguously unmarked. Never
+      set this true solely because required_coursework_other_description
+      contains text; the checkbox state governs this field.
+
+  - id: required_coursework_other_description
+    description: >-
+      Verbatim description of Other coursework required of all or most
+      students before graduation, printed in E3 next to the Other selection.
+    type: string
+    unit: text
+    population: all_or_most_students
+    denominator: none
+    definition_variant: printed
+    period_kind: academic_year
+    source_hints: [E3]
+    instructions: >-
+      Bind this metric to the CDS edition reported by
+      `identity.academic_year`; do not substitute an item-specific period.
+      Copy the E3 narrative from the row labeled exactly "Other (describe):"
+      in Harvard 2025-26 or "Other (specify):" in Yale 2024-25. Preserve
+      spelling and punctuation exactly. Leave not_reported when the cell is a
+      visibly present empty response; do not infer text from
+      required_coursework_other_selected or from any other row.

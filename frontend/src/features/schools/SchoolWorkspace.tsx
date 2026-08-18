@@ -100,6 +100,7 @@ import {
 import { UndoToast } from "@/components/undo-toast";
 import { PromptDraftRow } from "@/features/essays/PromptDraftRow";
 import { SchoolAvatar } from "@/features/schools/school-cells";
+import { useSyncedDraft } from "@/hooks/useSyncedDraft";
 import { useUndoableDelete } from "@/hooks/useUndoableDelete";
 
 const statuses: ApplicationStatus[] = [
@@ -193,17 +194,6 @@ function humanize(value: string) {
   return value
     .replaceAll("_", " ")
     .replace(/^./, (character) => character.toUpperCase());
-}
-
-function useSyncedDraft<TValue>(serverValue: TValue) {
-  const [draft, setDraft] = useState({ dirty: false, value: serverValue });
-  return {
-    dirty: draft.dirty,
-    value: draft.dirty ? draft.value : serverValue,
-    setValue: (next: TValue) => setDraft({ dirty: true, value: next }),
-    commit: () => setDraft((current) => ({ ...current, dirty: false })),
-    revert: () => setDraft({ dirty: false, value: serverValue }),
-  };
 }
 
 function cycleLabel(cycleYear: number | null | undefined) {

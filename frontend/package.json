@@ -10,7 +10,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {

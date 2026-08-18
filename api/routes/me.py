@@ -79,6 +79,7 @@ async def get_me(user: UserDB = Depends(current_active_user)) -> JSONResponse:
             "has_password": _has_password(user),
             "google_connected": _google_connected(user),
             "settings": user.settings,
+            "is_superuser": user.is_superuser,
         }
     )
 

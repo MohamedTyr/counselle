@@ -1,10 +1,17 @@
 # Counselle database contract
 
-Counselle is a read-only consumer of the independently deployed CDS Library. The
-database boundary is the contract: Counselle imports no pipeline code, assumes no
-pipeline runtime behavior, and reads only the five views granted to
-`cds_library_reader`. This guide describes that contract and the honesty rules for
-turning it into student-facing answers.
+Counselle's student-facing agent is a read-only consumer of the CDS Library: it reads
+only the five views granted to `cds_library_reader`, over `COUNSELLE_DB_RO_DSN`, and
+nothing in that path has changed. This guide describes that contract and the honesty
+rules for turning it into student-facing answers, and those rules are unweakened by
+anything below.
+
+Since ADR 0036, Counselle also *contains* the CDS extraction pipeline: a separate,
+superuser-gated admin write path that populates the base tables the five views read.
+§1 describes both paths and the hard boundary between them — a third role and a third
+DSN, touched by exactly two files, never by the agent. Everywhere else in this
+document, "Counselle" continues to mean the read-only agent path unless a sentence says
+otherwise.
 
 The CDS Library is a narrow, deep evidence store. It provides stable school identity
 profiles and versioned Common Data Set (CDS) domain packets whose values carry physical
@@ -12,6 +19,8 @@ PDF evidence. It does not provide the old IPEDS/Scorecard time-series, program,
 earnings, national-benchmark, or wide field-catalog surfaces.
 
 ## 1. Access and permissions
+
+### The read path — student-facing agent, unchanged
 
 Connect with the LOGIN role whose membership is limited to `cds_library_reader`, using
 `COUNSELLE_DB_RO_DSN`. Use schema-qualified, parameterized SQL. The reader can select
@@ -25,10 +34,14 @@ exactly these views:
 | `cds_library.cds_document_sources` | Immutable document metadata and exact PDF bytes, addressed by document id. |
 | `cds_library.cds_manifest_snapshots` | Immutable compiled manifests, hashes, publication time, extraction-contract version, and current pointer. |
 
-No base table is part of the API. In particular, the reader cannot select
-`schools`, `cds_documents`, `cds_domain_packets`, `cds_extractions`, or
-`cds_manifests`. Do not request broader grants or compensate for a missing view field
-with base-table access.
+No base table is part of this path's API. In particular, the agent's connections
+cannot select `schools`, `cds_school_years`, `cds_documents`, `cds_domain_packets`,
+`cds_extractions`, or `cds_manifests` — only the five views above. Do not request
+broader grants for the agent path or compensate for a missing view field with
+base-table access. `cds_library_reader` is the only role, and `COUNSELLE_DB_RO_DSN`
+the only DSN, the agent's own connections ever hold; the write path described at the
+end of this section runs on an entirely separate role, DSN, and connection pool that
+agent code never touches.
 
 The manifest snapshot columns preserve their original order and append
 `extractor_contract_version` then `is_current`. Exactly one row is current. Latest
@@ -55,11 +68,57 @@ exists. `staleness_reason` is null for a current edition. Source URL and filenam
 fields may be absent; PDF content and its SHA are never null.
 
 `COUNSELLE_DB_RO_DSN` authenticates a LOGIN member of the NOLOGIN
-`cds_library_reader` group and is the only credential allowed to read the five views.
-`COUNSELLE_DB_APP_DSN` instead owns Counselle application state in the `counselle`
-schema (users, sessions, chats, workspace, feedback, and checkpointer). It is not the
-pipeline writer role and must not grant access to CDS Library base tables. Never
-substitute one DSN for the other or import pipeline code to bridge them.
+`cds_library_reader` group and is the only credential the agent path may use to read
+the five views. `COUNSELLE_DB_APP_DSN` owns Counselle's own application state in the
+`counselle` schema (users, sessions, chats, workspace, feedback, and checkpointer); it
+has zero grants on `cds_library` and must never be used to bridge to it. Never
+substitute one DSN for another, or import pipeline code to bridge them.
+
+### The write path — admin pipeline only, walled off by role and DSN
+
+Since ADR 0036, Counselle also contains the CDS extraction pipeline that populates the
+base tables the five views above read. This is a **separate, isolated write path**, not
+an exception to anything above: the agent's own connections never gain write
+capability, and every read-path rule in this document — the view contract, the honesty
+rules in §5–§9 — applies to it exactly as written, unchanged.
+
+- **Role and DSN.** The write path authenticates as `cds_library_app` over a third
+  credential, `COUNSELLE_DB_PIPELINE_DSN` (`config/settings.py`'s `db_pipeline_dsn`,
+  optional — the app boots fine without it, and the CDS admin router returns a clean
+  503 until it is configured). `cds_library_app` holds `INSERT, SELECT, UPDATE` —
+  **never `DELETE`** — on all 8 `cds_library` base tables (`schools`,
+  `cds_school_years`, `cds_documents`, `cds_manifests`, `cds_extractions`,
+  `cds_domain_packets`, `ct_index_entries`, `ct_index_state`). The missing `DELETE`
+  grant was confirmed empirically against the live database, including a direct
+  `DELETE` attempt that Postgres rejected (`plans/cds-pipeline/recon-db-live.md` §4),
+  not just read from a grant table.
+- **Code boundary.** Only `adapters/cds_store.py` and `adapters/cds_admin_queries.py`
+  ever open a connection on this DSN, and only reachable behind the `current_superuser`
+  dependency gating `/v1/admin/cds/*`. No other adapter, service, tool, or route holds
+  this credential. The agent's own connection pool is constructed from
+  `COUNSELLE_DB_RO_DSN` only and is never given `cds_library_app`'s credentials — the
+  isolation is role-level and DSN-level, not just code-organizational, so a bug inside
+  `app/cds/` cannot let the agent's request path write.
+- **No deletes, ever, at any layer.** `cds_library_app` has no `DELETE` grant anywhere.
+  Evidence columns (`cds_documents.pdf_content`, `cds_domain_packets.packet`) also
+  carry a `BEFORE UPDATE` immutability trigger that rejects mutation even from
+  `cds_library_app` — confirmed firing live against both a same-transaction row and
+  pre-existing production data (`recon-db-live.md` §6).
+- **Corrections are new rows, never edits.** An admin correction writes a new
+  `cds_domain_packets` row carrying `human-review-v1` provenance
+  (`provider_contract.human_review`); it is never a mutation of the row it corrects —
+  the immutability trigger makes this the only possible shape, not just the chosen one.
+  Every packet the write path builds — model (`counselle-cds-v1`) or human-corrected
+  (`human-review-v1`) — is validated through the read path's own
+  `counselle_db.packets.parse_packet_row()` inside the transaction, before COMMIT; a
+  packet the read path could not parse is never written.
+
+Read this section and you should know exactly which DSN may do what:
+`COUNSELLE_DB_RO_DSN` reads five views and nothing else; `COUNSELLE_DB_APP_DSN` owns
+`counselle.*` and nothing in `cds_library`; `COUNSELLE_DB_PIPELINE_DSN` is the only
+credential that can write `cds_library`, and only through two files, only behind
+`current_superuser`, and never with `DELETE`. The agent's own connections are never the
+second or third of these.
 
 ## 2. School identity and profiles
 
@@ -170,10 +229,15 @@ Reject malformed identity rather than repairing it. At minimum, enforce:
   citations, or logs;
 - evidence page numbers are positive physical PDF page numbers;
 - unavailable and failed states cannot carry a student value;
-- legacy packets remain readable only under these explicitly supported identifiers:
-  `gemini-native-pdf-v2`, `gemini-native-pdf-v5`, and
-  `gemini-routed-extraction-v7`; current packets use `gemini-routed-extraction-v8`.
-  Legacy packets are never relabeled as v8 or upgraded by inference.
+- packets are readable only under these explicitly supported extractor identifiers
+  (`config/settings.py`'s `supported_packet_extractor_versions`): the legacy
+  `gemini-native-pdf-v2`, `gemini-native-pdf-v5`, and `gemini-routed-extraction-v7`;
+  the retired pipeline's final engine, `gemini-routed-extraction-v8`; and, since
+  ADR 0036, the in-app admin pipeline's two identities — `counselle-cds-v1` for model
+  extractions and `human-review-v1` for admin corrections. An identifier says which
+  engine wrote a packet, nothing more; a packet is never relabeled to a different
+  identifier or upgraded by inference, and every identity is validated the same way,
+  through the same `parse_packet_row()` call, regardless of which engine produced it.
 
 A packet contains document SHA, academic year, extraction id, manifest/domain pins,
 extractor/model identity, packet status and counts, and a metrics map. Packet counts are
@@ -347,9 +411,12 @@ The honest routing order is:
    official site/search and disclose the fallback;
 5. use guarded SQL only for rare candidate/aggregate work, with denominator honesty.
 
-Never:
+Never, from this path:
 
-- read or write pipeline base tables;
+- read or write pipeline base tables — the agent's own connections hold only
+  `cds_library_reader` and cannot write under any circumstance; the separate,
+  superuser-gated admin write path described in §1 is not reachable from here and is
+  not an exception to this rule;
 - treat the profile as current admissions, cost, aid, or outcomes data;
 - resurrect old field keys, IPEDS decoding, source-priority tiers, or CDS breadth
   assumptions;

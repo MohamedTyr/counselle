@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-ai>=1.107.0",
     "pydantic-settings>=2.14.1",
+    "pymupdf>=1.26.6",
     "pypdf>=6.14.2",
     "python-docx>=1.2.0",
     "pyyaml>=6.0.3",
@@ -87,6 +88,15 @@ exclude = ["^artifacts/"]
 module = "domain.*"
 strict = true
 
+# PyMuPDF ships without complete type stubs, so every call into it reads as
+# "untyped" under domain.*'s strict=true above. This is the one place domain/
+# touches a C-extension SDK (in-memory PDF page math only, see
+# tests/domain/test_purity.py's documented carve-out) — scope the relaxation
+# to just this file rather than weakening domain/ strictness generally.
+[[tool.mypy.overrides]]
+module = "domain.cds.pages"
+disable_error_code = ["no-untyped-call"]
+
 # Pydantic deliberately coerces wire-shaped dict/list fixtures at runtime, and
 # PydanticAI's Tool.function annotation still includes the takes_ctx=True call
 # form even for Tool(..., takes_ctx=False). Keep those library-boundary fixture
@@ -106,6 +116,12 @@ module = [
     "tests.domain.test_specs",
 ]
 disable_error_code = ["arg-type", "call-arg", "index", "misc", "no-untyped-def"]
+
+# Same PyMuPDF stub gap as domain.cds.pages (see that override above): this
+# test file builds real in-memory PDFs to exercise narrow_document.
+[[tool.mypy.overrides]]
+module = "tests.domain.cds.test_pages"
+disable_error_code = ["no-untyped-call", "no-any-return"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

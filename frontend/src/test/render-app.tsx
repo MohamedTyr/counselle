@@ -24,6 +24,7 @@ export const authUserFixture: MeData = {
   has_password: true,
   google_connected: false,
   settings: {},
+  is_superuser: false,
 };
 
 type FetchHandler = (

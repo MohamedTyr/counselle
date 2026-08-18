@@ -47,6 +47,7 @@ _SECRET_FIELDS = frozenset(
     {
         "db_ro_dsn",
         "db_app_dsn",
+        "db_pipeline_dsn",
         "tavily_api_key",
         "vertex_api_key",
         "jwt_secret",
@@ -72,6 +73,8 @@ class DbChildSettings(BaseSettings):
             "gemini-native-pdf-v5",
             "gemini-routed-extraction-v7",
             "gemini-routed-extraction-v8",
+            "counselle-cds-v1",
+            "human-review-v1",
         }
     )
     db_pool_min: int = DEFAULT_DB_POOL_MIN
@@ -176,6 +179,10 @@ class Settings(BaseSettings):
     # B4 auto-titles: the cheap model that names a chat from its first exchange
     # (one no-tools call, fire-and-forget; failure leaves the derived default).
     model_title: str = "google-vertex:gemini-2.5-flash"
+    # CDS admin pipeline (plan §B4/§E): the one-shot, no-tool, schema-constrained
+    # PDF extraction call, and the cheap per-file school+year detection call.
+    model_cds_extract: str = "google-vertex:gemini-3.1-flash-lite"
+    model_cds_detect: str = "google-vertex:gemini-3.1-flash-lite"
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000
     # Native provider thought output. Gemini exposes this through
@@ -206,6 +213,11 @@ class Settings(BaseSettings):
     # --- Database ---
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required
     db_app_dsn: str  # counselle.* schema (sessions, users, workspace) — required
+    # The third DSN (plan §C3): cds_library_app role, INSERT/SELECT/UPDATE on the
+    # cds_library.* base tables. Optional — the app boots without it and the CDS
+    # admin surface returns a clean 503 until it is configured (mirrors
+    # cds_data_enabled below).
+    db_pipeline_dsn: str | None = None
     cds_data_enabled: bool = True
     db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
     db_row_cap: int = Field(default=500, gt=0)
@@ -217,6 +229,8 @@ class Settings(BaseSettings):
             "gemini-native-pdf-v5",
             "gemini-routed-extraction-v7",
             "gemini-routed-extraction-v8",
+            "counselle-cds-v1",
+            "human-review-v1",
         }
     )
     viz_max_cells: int = Field(default=600, gt=0)
@@ -323,6 +337,23 @@ class Settings(BaseSettings):
     # decompress to gigabytes or pathologically stall the shared thread pool
     # (decompression-bomb DoS). Bounded the same way as the summary model call.
     document_extraction_timeout_s: float = 8.0
+
+    # --- CDS admin pipeline (plan §E) ---
+    # In-process asyncio poller kill switch — all queue state lives in
+    # cds_extractions (Postgres), so flipping this off just stops new claims.
+    cds_worker_enabled: bool = True
+    # How often the poller checks for a claimable extraction when idle.
+    cds_worker_poll_seconds: int = 3
+    # Concurrent extraction runs (bounded so the shared event loop/thread pool
+    # never starves student chat traffic — ADR 0023, one deployable).
+    cds_worker_concurrency: int = 3
+    # Lease duration on a claimed cds_extractions row; renewed at lease/3 while
+    # running, swept to failed/worker_lost by recover_expired() after expiry.
+    cds_extraction_lease_seconds: int = 900
+    # Per-model-call timeout for a single extraction/detection request.
+    cds_model_timeout_seconds: int = 180
+    # Hard cap on one uploaded CDS PDF, bytes.
+    cds_upload_max_bytes: int = 50_000_000
 
     # --- Auth (B3, ADR 0021) ---
     # REQUIRED: the JWT signing secret (≥32 bytes — pyjwt 2.13 warns below).

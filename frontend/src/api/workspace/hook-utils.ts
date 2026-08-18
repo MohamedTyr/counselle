@@ -133,6 +133,7 @@ export function tempEssay(input: EssayCreate): EssaySummary {
     school_name: null,
     school_city: null,
     school_state: null,
+    school_website_url: null,
     deadline: null,
     created_at: timestamp,
     updated_at: timestamp,

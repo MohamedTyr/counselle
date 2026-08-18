@@ -67,11 +67,17 @@ class Runtime:
     checkpointer: Any
     ro_pool: asyncpg.Pool
     app_pool: asyncpg.Pool
+    # The third DSN (plan §C3): cds_library_app writer pool for the CDS admin
+    # pipeline. None when COUNSELLE_DB_PIPELINE_DSN is unset — the app boots
+    # fine without it (mirrors cds_data_enabled's EmptyCatalog fallback).
+    pipeline_pool: asyncpg.Pool | None = None
 
     async def aclose(self) -> None:
         """Close pools and the checkpointer connection (idempotent enough for exit)."""
         await self.ro_pool.close()
         await self.app_pool.close()
+        if self.pipeline_pool is not None:
+            await self.pipeline_pool.close()
         if isinstance(self.checkpointer, AsyncPostgresSaver):
             await self.checkpointer.conn.close()
 
@@ -115,10 +121,20 @@ async def build_runtime(settings: Any = None) -> Runtime:
         await ro_pool.close()
         raise
     try:
+        pipeline_pool: asyncpg.Pool | None = None
+        if settings.db_pipeline_dsn:
+            pipeline_pool = await create_pool(dsn=settings.db_pipeline_dsn, settings=settings)
+    except BaseException:
+        await ro_pool.close()
+        await app_pool.close()
+        raise
+    try:
         checkpointer = await build_checkpointer(settings)
     except BaseException:
         await ro_pool.close()
         await app_pool.close()
+        if pipeline_pool is not None:
+            await pipeline_pool.close()
         raise
     deps = AppDeps(
         catalog=catalog,
@@ -132,5 +148,10 @@ async def build_runtime(settings: Any = None) -> Runtime:
     )
     graph = build_graph(checkpointer, deps)
     return Runtime(
-        deps=deps, graph=graph, checkpointer=checkpointer, ro_pool=ro_pool, app_pool=app_pool
+        deps=deps,
+        graph=graph,
+        checkpointer=checkpointer,
+        ro_pool=ro_pool,
+        app_pool=app_pool,
+        pipeline_pool=pipeline_pool,
     )

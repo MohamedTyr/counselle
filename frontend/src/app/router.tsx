@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router";
 
+import { AdminGate } from "@/app/auth/AdminGate";
 import { GuestOnly } from "@/app/auth/GuestOnly";
 import { OnboardingGate } from "@/app/auth/OnboardingGate";
 import { RequireAuth } from "@/app/auth/RequireAuth";
@@ -11,6 +12,9 @@ import { RegisterRoute } from "@/features/auth/RegisterRoute";
 import { AiPage } from "@/pages/ai-page";
 import { AiChatRoute } from "@/features/ai-chat/AiChatRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
+import { CdsCoveragePage } from "@/pages/cds-coverage-page";
+import { CdsReviewPage } from "@/pages/cds-review-page";
+import { CdsUploadPage } from "@/pages/cds-upload-page";
 import { EssayEditorPage } from "@/pages/essay-editor-page";
 import { EssaysPage } from "@/pages/essays-page";
 import { ProfilePage } from "@/pages/profile-page";
@@ -114,6 +118,30 @@ export function createAppRouter() {
                 {
                   path: "essays/:essayId",
                   element: <EssayEditorPage />,
+                },
+                {
+                  path: "admin/cds",
+                  element: (
+                    <AdminGate>
+                      <CdsCoveragePage />
+                    </AdminGate>
+                  ),
+                },
+                {
+                  path: "admin/cds/upload",
+                  element: (
+                    <AdminGate>
+                      <CdsUploadPage />
+                    </AdminGate>
+                  ),
+                },
+                {
+                  path: "admin/cds/documents/:documentId",
+                  element: (
+                    <AdminGate>
+                      <CdsReviewPage />
+                    </AdminGate>
+                  ),
                 },
                 {
                   path: "*",

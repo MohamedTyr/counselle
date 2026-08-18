@@ -46,6 +46,7 @@ from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter, auth_rate_li
 from api.routes import (
     activities,
     applications,
+    cds_admin,
     documents,
     essay_prompt_drafts,
     essays,
@@ -61,6 +62,7 @@ from api.routes import (
 from api.routes import config as config_routes
 from api.supervision import McpSupervisor, NoopMcpSupervisor
 from app.caveats import caveat_catalog
+from app.cds.jobs import start_cds_worker
 from app.deps import build_runtime
 from app.prompt import validate_prompt_assets
 from app.skills import load_all_skill_meta
@@ -107,9 +109,18 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         # B4: the process-local rate limiter (messages + auth windows). The named
         # constant governs both the write here and the read in get_limiter.
         setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
+        # P4: the CDS extraction poller — no-op when COUNSELLE_DB_PIPELINE_DSN is
+        # unset or cds_worker_enabled=false (app.cds.jobs.start_cds_worker). Boot
+        # sweeps whatever a prior process abandoned mid-run to failed/worker_lost.
+        cds_poller = await start_cds_worker(runtime, settings)
+        app.state.cds_poller = cds_poller
         try:
             yield
         finally:
+            # Stop claiming/renewing new CDS work before the pools it depends on
+            # (runtime.pipeline_pool) are closed below.
+            if cds_poller is not None:
+                await cds_poller.stop()
             # Drain the registry FIRST: in-flight turns' final state writes
             # must land before runtime.aclose() closes the pools.
             await registry.aclose()
@@ -258,5 +269,8 @@ def create_app() -> FastAPI:
     app.include_router(documents.router, prefix="/v1")
     app.include_router(memories.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
+    # P5: the CDS admin surface (plan §D) — before _install_spa_routes, which
+    # is the catch-all SPA fallback and must stay last.
+    app.include_router(cds_admin.router, prefix="/v1")
     _install_spa_routes(app, settings)
     return app

@@ -1,0 +1,11 @@
+version: "5.0.2"
+description: "Evidence-backed source states and compiled metric-context bindings."
+page_routing_enabled: true
+extraction_groups:
+  - [financial_aid, class_size]
+  - [admissions, faculty]
+  - [enrollment, academics]
+  - [degrees, cost]
+  - [class_profile, identity]
+  - [transfer, student_life]
+  - [outcomes]

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { LogOutIcon } from "lucide-react";
 
 import { useAuthUser, useLogout } from "@/app/auth";
-import { shellRoutes } from "@/app/shell/navigation";
+import { adminShellRoutes, shellRoutes } from "@/app/shell/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -42,6 +42,9 @@ export function AppSidebar() {
   const logoutMutation = useLogout();
   const navigate = useNavigate();
   const [logoutError, setLogoutError] = useState<string | undefined>();
+  const navRoutes = user?.is_superuser
+    ? [...shellRoutes, ...adminShellRoutes]
+    : shellRoutes;
 
   const displayName = user?.name ?? user?.email ?? "Account";
   const inset = isCollapsed
@@ -144,7 +147,7 @@ export function AppSidebar() {
           aria-label="Main navigation"
           className={cn("w-full shrink-0", inset)}
         >
-          <MainNav routes={shellRoutes} />
+          <MainNav routes={navRoutes} />
         </nav>
 
         {/* No rule between the nav and the history: 1a separates the two

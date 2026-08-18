@@ -19,6 +19,7 @@ import {
 import type {
   ApplicationDetail,
   Essay,
+  EssayPromptDraft,
   EssayPromptDraftCreate,
   EssayPromptDraftSummary,
   EssaySummary,
@@ -33,8 +34,8 @@ function patchDetailDrafts(
   },
   applicationId: string | undefined,
   update: (
-    drafts: EssayPromptDraftSummary[] | undefined,
-  ) => EssayPromptDraftSummary[] | undefined,
+    drafts: EssayPromptDraft[] | undefined,
+  ) => EssayPromptDraft[] | undefined,
 ) {
   if (!applicationId) return;
   client.setQueryData<ApplicationDetail>(
@@ -156,7 +157,7 @@ export function useArchiveEssayPromptDraft() {
       );
       return { previous, previousDetail, applicationId };
     },
-    onError: (error, id, snapshot, context) => {
+    onError: (error, _id, snapshot, context) => {
       context.client.setQueryData(
         workspaceKeys.essayPromptDrafts.list(),
         snapshot?.previous,
