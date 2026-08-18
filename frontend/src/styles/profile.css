@@ -1,0 +1,38 @@
+/*
+ * Profile — --profile-* (11 tokens), public contract preserved. Pure
+ * alias layer onto workspace.css, unchanged in shape from the original
+ * file — nothing here was ever a raw literal.
+ *
+ * --profile-control-selected-border fix (sweep finding): this is the
+ * SELECTED-state border of interactive toggle/checkbox-style controls
+ * (ProfileScalarField multi-select buttons, ProfileObjectListField, and,
+ * via --onboarding-selected-border's alias onto this token,
+ * OnboardingChoiceGroup radio/checkbox chips and OnboardingTagInput
+ * selected pills) — real `button`/`role=radio`/`role=checkbox` elements
+ * whose resting-state border already correctly resolves through
+ * --workspace-composer-control-border (--edge-control). The selected
+ * state was downgrading to --workspace-border (--edge, decorative,
+ * ~1.35:1 against canvas — the identical ratio flagged by the P0 audit
+ * on the activities "add" button) instead of staying at or above the
+ * resting state's functional bar. The selected fill
+ * (--workspace-surface-active) only reaches ~1.2:1 against canvas on its
+ * own, so the border stays the load-bearing boundary signal and needs
+ * the check. Repointed to --edge-control-strong (7.55:1 vs. canvas,
+ * 6.21:1 vs. the selected fill, both computed with the same OKLCH
+ * contrast method as semantic.css's other checked pairs — not
+ * eyeballed).
+ */
+
+:root {
+  --profile-section-surface: var(--workspace-surface-raised);
+  --profile-section-border: var(--workspace-border);
+  --profile-section-divider: var(--workspace-border-soft);
+  --profile-field-surface: var(--workspace-composer-control-surface);
+  --profile-field-border: var(--workspace-composer-control-border);
+  --profile-field-hover-border: var(--workspace-composer-control-hover-border);
+  --profile-field-focus-border: var(--workspace-composer-border-active);
+  --profile-field-label: var(--workspace-foreground-soft);
+  --profile-field-helper: var(--workspace-muted-foreground);
+  --profile-control-selected-surface: var(--workspace-surface-active);
+  --profile-control-selected-border: var(--edge-control-strong);
+}

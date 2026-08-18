@@ -94,7 +94,7 @@ export function ChatSessionList() {
           />
           <SidebarInput
             aria-label="Search chats"
-            className="h-11 rounded-md border-transparent !bg-transparent !shadow-none before:hidden hover:!bg-sidebar-accent has-focus-visible:border-transparent has-focus-visible:!bg-sidebar-accent has-focus-visible:!ring-0 md:h-8 pointer-coarse:!h-11 dark:!bg-transparent dark:hover:!bg-sidebar-accent dark:has-focus-visible:!bg-sidebar-accent [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-8 [&_input]:text-sidebar-accent-foreground [&_input]:placeholder:text-sidebar-foreground [&_input]:placeholder:opacity-100 md:[&_input]:!h-8 pointer-coarse:[&_input]:!h-11"
+            className="h-11 rounded-md border-transparent !bg-transparent !shadow-none before:hidden hover:!bg-sidebar-accent has-focus-visible:border-transparent has-focus-visible:!bg-sidebar-accent has-focus-visible:!ring-0 md:h-8 pointer-coarse:!h-11 [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-8 [&_input]:text-sidebar-accent-foreground [&_input]:placeholder:text-sidebar-foreground [&_input]:placeholder:opacity-100 md:[&_input]:!h-8 pointer-coarse:[&_input]:!h-11"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search"
             type="search"

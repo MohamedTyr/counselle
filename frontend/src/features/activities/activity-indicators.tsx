@@ -73,12 +73,15 @@ export function RankBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-7 min-w-7 items-center justify-center rounded-lg border px-1.5 text-sm font-semibold tabular-nums transition-colors",
+        "inline-flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-lg border px-1.5 text-sm font-semibold tabular-nums transition-colors",
         isReady
-          ? "border-border bg-muted/50 text-foreground"
-          : "border-[color:var(--activity-warning-fg)]/45 bg-[color:var(--activity-warning-bg)] text-[color:var(--activity-warning-fg)]",
+          ? "border-border bg-[var(--control-track)] text-foreground"
+          : "border-[var(--warning-border)] bg-[color:var(--activity-warning-bg)] text-[color:var(--activity-warning-fg)]",
       )}
     >
+      {isReady ? null : (
+        <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
+      )}
       {order}
     </span>
   );

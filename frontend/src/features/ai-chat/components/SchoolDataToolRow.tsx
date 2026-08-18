@@ -80,7 +80,7 @@ export function SchoolDataToolRow({
               ? "text-destructive"
               : running
                 ? "font-medium text-foreground"
-                : "text-foreground/85",
+                : "text-[var(--ink-secondary)]",
           )}
         >
           {presentation.label}

@@ -12,7 +12,7 @@ import { formatEssayDeadline } from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
 
 const statusDotClassName: Record<EssayStatus, string> = {
-  "Not started": "bg-muted-foreground/50",
+  "Not started": "bg-[var(--ink-faint)]",
   Drafting: "bg-info",
   "Needs review": "bg-warning",
   Ready: "bg-success",
@@ -98,7 +98,7 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
             ) : null}
             {index === 0 && essay.applicationId ? (
               <Link
-                className="truncate rounded-sm font-medium text-foreground/75 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="truncate rounded-sm font-medium text-[var(--ink-secondary)] outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
                 to={`/app/schools/${essay.applicationId}`}
               >
                 {item}
@@ -112,7 +112,7 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
               <span
                 className={cn(
                   "truncate",
-                  index === 0 && "font-medium text-foreground/75",
+                  index === 0 && "font-medium text-[var(--ink-secondary)]",
                 )}
               >
                 {item}
@@ -125,7 +125,7 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
         <div className="flex min-w-0 items-center gap-2">
           {essay.applicationId ? (
             <Link
-              className="truncate rounded-sm font-medium text-foreground/75 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="truncate rounded-sm font-medium text-[var(--ink-secondary)] outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
               to={`/app/schools/${essay.applicationId}`}
             >
               {essay.schoolName}
@@ -134,7 +134,7 @@ export function EssayContextTrail({ essay }: { essay: Essay }) {
                 : " · Cycle unconfirmed"}
             </Link>
           ) : (
-            <span className="truncate font-medium text-foreground/75">
+            <span className="truncate font-medium text-[var(--ink-secondary)]">
               {essay.schoolName}
             </span>
           )}

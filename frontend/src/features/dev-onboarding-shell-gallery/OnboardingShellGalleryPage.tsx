@@ -30,7 +30,7 @@ export function OnboardingShellGalleryPage() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-background px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--edge)] bg-background px-4 py-3">
         <span className="text-xs text-muted-foreground">Onboarding shell gallery</span>
         {STATES.map((state) => (
           <button

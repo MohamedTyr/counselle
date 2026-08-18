@@ -64,10 +64,10 @@ export function TaskCard({
       <article
         aria-label={`Open ${task.title} details`}
         className={cn(
-          "group/task w-full cursor-grab rounded-xl border border-[color:var(--lane-card-border)] bg-[color:var(--lane-card)] p-3 text-left shadow-[var(--workspace-task-card-shadow)] transition-[background-color,border-color,box-shadow] outline-none hover:bg-[color:var(--lane-card-hover)] focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing",
+          "group/task w-full cursor-grab rounded-xl border border-[color:var(--lane-card-border)] bg-[color:var(--lane-card)] p-3 text-left shadow-[var(--workspace-task-card-shadow)] transition-[background-color,border-color,box-shadow] outline-none hover:bg-[color:var(--lane-card-hover)] focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)] active:cursor-grabbing",
           isDone && "bg-[color:var(--lane-card)]",
           isSelected &&
-            "border-ring/55 bg-[color:var(--task-card-selected-background)] ring-2 ring-ring/30 hover:bg-[color:var(--task-card-selected-hover-background)]",
+            "border-[var(--focus-ring)] bg-[color:var(--task-card-selected-background)] ring-2 ring-[var(--focus-ring)] hover:bg-[color:var(--task-card-selected-hover-background)]",
           isDragging && "opacity-55",
         )}
         data-state={isSelected ? "selected" : undefined}
@@ -80,7 +80,7 @@ export function TaskCard({
         <div className="flex min-w-0 items-start gap-3">
           <button
             aria-label={`Open ${task.title} details`}
-            className="sr-only focus:not-sr-only focus:absolute focus:rounded-md focus:bg-background focus:px-2 focus:py-1 focus:text-sm focus:ring-[3px] focus:ring-ring/50"
+            className="sr-only focus:not-sr-only focus:absolute focus:rounded-md focus:bg-background focus:px-2 focus:py-1 focus:text-sm focus:ring-[3px] focus:ring-[var(--focus-ring)]"
             onClick={(event) => {
               event.stopPropagation();
               onOpen(task.id);
@@ -91,7 +91,7 @@ export function TaskCard({
           </button>
           <button
             aria-label={`${isSelected ? "Deselect" : "Select"} ${task.title}`}
-            className="sr-only focus:not-sr-only focus:absolute focus:rounded-md focus:bg-background focus:px-2 focus:py-1 focus:text-sm focus:ring-[3px] focus:ring-ring/50"
+            className="sr-only focus:not-sr-only focus:absolute focus:rounded-md focus:bg-background focus:px-2 focus:py-1 focus:text-sm focus:ring-[3px] focus:ring-[var(--focus-ring)]"
             onClick={(event) => {
               event.stopPropagation();
               onToggleSelected(task.id);

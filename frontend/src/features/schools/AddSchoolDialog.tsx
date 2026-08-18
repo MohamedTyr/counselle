@@ -283,7 +283,7 @@ export function AddSchoolDialog({
             ) : null}
           </label>
 
-          <div className="-mx-4 -mb-4 flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 sm:flex-row sm:justify-between">
+          <div className="-mx-4 -mb-4 flex flex-col-reverse gap-2 border-t bg-[var(--surface-sunken)] p-4 sm:flex-row sm:justify-between">
             <Button
               onClick={() => setSelectedSchool(null)}
               type="button"

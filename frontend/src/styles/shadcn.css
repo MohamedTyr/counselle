@@ -1,0 +1,64 @@
+/*
+ * shadcn bridge — the standard shadcn/ui token contract this codebase
+ * exposes to @theme inline (theme.css). Public names preserved exactly;
+ * every value resolves through semantic.css/workspace.css/shell.css.
+ *
+ * Bug fix vs. the original file: --accent-foreground used to alias
+ * --shell-sidebar-hover-foreground (a near-white value meant for the dark
+ * sidebar). --accent itself resolves through --workspace-surface-hover,
+ * which is now a light hover-tint surface — near-white text on a
+ * near-white surface would be unreadable. Repointed to --ink.
+ */
+
+:root {
+  --background: var(--shell-background);
+  --foreground: var(--workspace-foreground);
+  --card: var(--workspace-surface-raised);
+  --card-foreground: var(--workspace-foreground);
+  --popover: var(--workspace-surface-raised);
+  --popover-foreground: var(--workspace-foreground);
+  --primary: var(--workspace-primary);
+  --primary-foreground: var(--workspace-primary-foreground);
+  --secondary: var(--workspace-surface-raised);
+  --secondary-foreground: var(--workspace-foreground-soft);
+  --muted: var(--workspace-surface-hover);
+  --muted-foreground: var(--workspace-muted-foreground);
+  --accent: var(--workspace-surface-hover);
+  --accent-foreground: var(--ink);
+  --destructive: var(--workspace-danger);
+  --destructive-foreground: var(--workspace-danger-foreground);
+  --success: var(--success-solid);
+  --success-foreground: var(--workspace-success-pill-fg);
+  --warning: var(--warning-solid);
+  --warning-foreground: var(--workspace-warning-pill-fg);
+  --info: var(--info-solid);
+  --info-foreground: var(--workspace-info-pill-fg);
+  --border: var(--workspace-border-soft);
+  /* --input is a BORDER color (shadcn's `border-input` on <input>/
+   * <textarea>/<select>, confirmed in components/ui/{input,textarea,
+   * select}.tsx: `border border-input bg-background`) — it is not the
+   * same role as --workspace-input (a background-fill token consumed by
+   * --activity-control-surface). Deliberately NOT aliased to
+   * --workspace-input: that chain resolved to --surface-sunken (L 0.955),
+   * a functional control border only 1.11:1 against the page background
+   * — effectively invisible on the login/register screens. Routed
+   * directly onto --edge-control (the 3:1-checked functional-border role)
+   * instead. See the M1 handoff doc. */
+  --input: var(--edge-control);
+  --ring: var(--workspace-ring);
+  --radius: 0.625rem;
+
+  --sidebar: var(--shell-sidebar-background);
+  --sidebar-foreground: var(--shell-sidebar-foreground);
+  --sidebar-primary: var(--workspace-primary);
+  --sidebar-primary-foreground: var(--shell-sidebar-foreground);
+  --sidebar-accent: var(--shell-sidebar-hover-background);
+  --sidebar-accent-foreground: var(--shell-sidebar-hover-foreground);
+  /* New pair, not part of the original shadcn contract: the persistent
+   * "selected chat" state, distinct from --sidebar-accent (hover). See
+   * shell.css and the M1 handoff doc. */
+  --sidebar-active: var(--shell-sidebar-active-background);
+  --sidebar-active-foreground: var(--shell-sidebar-active-foreground);
+  --sidebar-border: var(--shell-sidebar-border);
+  --sidebar-ring: var(--workspace-ring);
+}

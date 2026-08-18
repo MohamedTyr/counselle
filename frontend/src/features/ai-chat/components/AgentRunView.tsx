@@ -74,7 +74,7 @@ export function PlanChecklist({
   ).length;
 
   return (
-    <div className="not-prose mb-3 rounded-lg bg-muted/40 px-3.5 py-3">
+    <div className="not-prose mb-3 rounded-lg bg-[var(--control-track)] px-3.5 py-3">
       <div className="mb-2.5 flex items-center justify-between gap-3">
         <div>
           <span className="text-sm font-medium text-foreground">Plan</span>
@@ -85,7 +85,7 @@ export function PlanChecklist({
           </p>
         </div>
         <span
-          className="rounded-full bg-background/70 px-2 py-1 text-xs tabular-nums text-muted-foreground"
+          className="rounded-full bg-[var(--surface-raised)] px-2 py-1 text-xs tabular-nums text-muted-foreground"
           aria-label={`${completed} of ${total} steps complete`}
         >
           {completed}/{total}

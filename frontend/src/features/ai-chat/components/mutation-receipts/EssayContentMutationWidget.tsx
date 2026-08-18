@@ -62,7 +62,7 @@ function WordMeter({
   return (
     <p
       className={
-        over ? "tabular-nums text-destructive/90" : "tabular-nums text-foreground/85"
+        over ? "tabular-nums text-[var(--danger-fg)]" : "tabular-nums text-[var(--ink-secondary)]"
       }
     >
       {formatWordBudget(used, limit)}
@@ -82,7 +82,7 @@ export function EssayContentMutationBody({
       <div className="grid gap-2.5">
         <ol className="grid gap-1">
           {body.operations.map((operation, index) => (
-            <li className="flex gap-2 text-foreground/90" key={index}>
+            <li className="flex gap-2 text-[var(--ink-secondary)]" key={index}>
               <span className="tabular-nums text-muted-foreground">{index + 1}</span>
               <span className="min-w-0">
                 {operationLocation(operation)}
@@ -92,7 +92,7 @@ export function EssayContentMutationBody({
             </li>
           ))}
         </ol>
-        <dl className="grid grid-cols-[96px_1fr] gap-2 border-t border-border/50 pt-2">
+        <dl className="grid grid-cols-[96px_1fr] gap-2 border-t border-[var(--edge)] pt-2">
           <dt className="font-medium text-muted-foreground">Final length</dt>
           <dd>
             <WordMeter limit={body.word_limit} used={body.final_word_count} />
@@ -107,14 +107,14 @@ export function EssayContentMutationBody({
       <dl className="grid gap-1.5">
         <div className="grid grid-cols-[96px_1fr] gap-2">
           <dt className="font-medium text-muted-foreground">Draft</dt>
-          <dd className="text-foreground/85">
+          <dd className="text-[var(--ink-secondary)]">
             {body.mode === "drafted" ? "Drafted" : "Replaced full draft"}
           </dd>
         </div>
         {typeof body.previous_word_count === "number" && (
           <div className="grid grid-cols-[96px_1fr] gap-2">
             <dt className="font-medium text-muted-foreground">Previous length</dt>
-            <dd className="tabular-nums text-foreground/85">
+            <dd className="tabular-nums text-[var(--ink-secondary)]">
               {body.previous_word_count.toLocaleString()} words
             </dd>
           </div>

@@ -61,7 +61,6 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
 // Token rendering component
 const TokenSpan = ({ token }: { token: ThemedToken }) => (
   <span
-    className="dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)]"
     style={
       {
         backgroundColor: token.bgColor,
@@ -158,7 +157,14 @@ const getHighlighter = (
 
   const highlighterPromise = createHighlighter({
     langs: [language],
-    themes: ["github-light", "github-dark"],
+    // github-light-default: GitHub's current Primer-based light theme —
+    // muted, restrained palette (no saturated rainbow-IDE colors), and
+    // every token color clears 4.5:1 against white (verified against
+    // TS/Python/bash/JSON/CSS/Markdown samples; worst case is the comment
+    // color at 4.55:1). The legacy `github-light` theme was replaced here
+    // because its plain-identifier color (#e36209) only clears 3.49:1.
+    // Single-theme (app is light-only) — no dark counterpart is loaded.
+    themes: ["github-light-default"],
   });
 
   highlighterCache.set(language, highlighterPromise);
@@ -213,10 +219,7 @@ export const highlightCode = (
 
       const result = highlighter.codeToTokens(code, {
         lang: langToUse,
-        themes: {
-          dark: "github-dark",
-          light: "github-light",
-        },
+        theme: "github-light-default",
       });
 
       const tokenized: TokenizedCode = {
@@ -271,10 +274,7 @@ const CodeBlockBody = memo(
 
     return (
       <pre
-        className={cn(
-          "dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 p-4 text-sm",
-          className,
-        )}
+        className={cn("m-0 p-4 text-sm", className)}
         style={preStyle}
       >
         <code

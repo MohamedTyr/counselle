@@ -1,0 +1,238 @@
+/*
+ * Semantic — role tokens. Zero literals; every value here is a var()
+ * pointing at primitives.css (or a color-mix() of two such vars).
+ *
+ * This is the vocabulary feature/component families (shell.css,
+ * workspace.css, task.css, etc.) and shadcn.css build on. Names describe a
+ * ROLE ("canvas", "ink-muted", "danger-surface"), never a specific
+ * component. Two independent naming zones live here on purpose:
+ *
+ *  - the workspace canvas (canvas / surface-raised / ink / edge / brand)
+ *  - the sidebar chrome (chrome / chrome-ink) — also light, whisper-
+ *    recessed (2.5-3 L points, plus a threshold-of-perception plum tint)
+ *    rather than sharply greyer. See plans/light-theme-m1-handoff.md.
+ *
+ * Names are chosen to never collide with the shadcn contract names this
+ * codebase already exposes (--accent, --border, --card, --muted, --primary,
+ * --secondary, --success, --warning, --info, --destructive, ...) — those
+ * live in shadcn.css and bridge TO this layer, not the reverse.
+ */
+
+:root {
+  /* ---- surface stack, darkest to lightest: sunken < chrome < canvas <
+   * raised. Canvas is --neutral-25, not --neutral-0 — that headroom above
+   * canvas is what lets --surface-raised read as genuinely "elevated"
+   * (white) rather than identical to the page it floats on. Raised/overlay
+   * surfaces are differentiated from canvas by elevation + a hairline, not
+   * by a big tonal gap — that's what makes cards read as floating instead
+   * of merely shaded. */
+  --canvas: var(--neutral-25);
+  --surface-raised: var(--neutral-0);
+  --surface-overlay: var(--neutral-0);
+  --surface-sunken: var(--neutral-100);
+  /* --field-surface: a crisp white fill for EDITABLE form fields sitting on
+   * a raised card (profile fields, composer control chips) — distinct from
+   * --surface-sunken so "well/track" (recessed, inert) and "editable field"
+   * (flush, actionable) stop sharing one token. A field on a white card
+   * that reuses the sunken well reads as disabled, not editable — the
+   * defect this token fixes. See --control-track below for the inert-fill
+   * role that keeps --surface-sunken's old job. */
+  --field-surface: var(--surface-raised);
+  /* --control-track: the light, INERT fill role — meter tracks, toggle/
+   * switch unchecked tracks, button-group separators, disabled fills. This
+   * is the counterpart split out of shadcn's overloaded `--input` token
+   * (see --edge-control below and shadcn.css): --input stayed a border
+   * color, this took the "solid background fill" job `bg-input`/`bg-input/
+   * NN` was doing in meter.tsx, menu.tsx (switch track), button-group.tsx
+   * (separator), command.tsx, input-group.tsx, and tabs.tsx. Same value as
+   * --surface-sunken (both are "the recessed well" token) but named for
+   * its own role so a future re-tune of one doesn't accidentally move the
+   * other. */
+  --control-track: var(--surface-sunken);
+  /* --field-surface-canvas: fill for an EDITABLE control that sits directly
+   * on --canvas rather than a raised card (a page-header search/filter
+   * field, not a composer or profile field, which already resolve through
+   * --field-surface above). A pure-white fill here would sit flush against
+   * a near-white canvas (L 0.99 vs. L 1.0) with almost no separation, so
+   * unlike --field-surface this keeps a faint recessed tone instead.
+   * Deliberately its OWN token, not a bare alias reference to
+   * --control-track, even though both resolve to --surface-sunken today:
+   * --control-track is the INERT-fill role (tracks/separators, never
+   * becomes an editable white surface); this is the EDITABLE-on-canvas
+   * role that happens to share today's value. A future retune of one must
+   * not silently move the other. No current consumer resolves through
+   * this yet (every editable control audited for M1 sits on a card or
+   * composer surface, not bare canvas) — forward vocabulary for Wave 2/M2,
+   * so a canvas-level search or filter field has a named token to reach
+   * for instead of reinventing one. */
+  --field-surface-canvas: var(--surface-sunken);
+
+  /* Interaction-state surfaces (M2 vocabulary — replaces hand-tuned
+   * `bg-muted/20`-style alpha modifiers with named, pre-tuned states).
+   * Mixed from --canvas, the workspace's base tone. */
+  --surface-hover: color-mix(in oklch, var(--neutral-900) 5%, var(--canvas));
+  --surface-active: color-mix(in oklch, var(--neutral-900) 8%, var(--canvas));
+  --surface-selected: color-mix(in oklch, var(--plum-500) 10%, var(--canvas));
+
+  /* ---- ink — text on the light canvas. Four genuinely distinct
+   * legibility tiers, not four names sharing one value — each still
+   * clears 4.5:1 against every surface it actually renders on (canvas,
+   * surface-raised/overlay, surface-sunken); see the M1 handoff doc for
+   * the full per-surface table. --ink-disabled is the one exempt tier
+   * (WCAG excludes disabled controls) and is deliberately weaker than
+   * --ink-faint so "disabled" still reads as disabled. */
+  --ink: var(--neutral-900);
+  --ink-secondary: var(--neutral-700);
+  --ink-muted: var(--neutral-600);
+  --ink-faint: var(--neutral-550);
+  --ink-placeholder: var(--neutral-550);
+  --ink-disabled: var(--neutral-400);
+
+  /* ---- chrome — the sidebar surface (product identity, see README).
+   * Light, whisper-recessed: --plum-25 sits ~2.5 L points below --canvas
+   * and carries a threshold-of-perception plum tint (chroma 0.004) so the
+   * rail reads as designed rather than default grey, without reading as
+   * "purple" or drifting into the banned cream band.
+   *
+   * Three real, distinct steps — not "hover ≈ active": chrome (96.5%) →
+   * chrome-hover (97.5%, a small nudge toward canvas) → chrome-active
+   * (100%, white, continuous with --surface-raised — the selected row
+   * reads as already part of the surface it opens). Ink escalates the same
+   * way: chrome-ink (resting) → chrome-ink-strong (hover, one step
+   * darker) → on-chrome-active (active, darkest). This three-way split
+   * matters because the real active-nav-row consumer
+   * (--shell-sidebar-active-background/-foreground, wired in shell.css and
+   * bridged to Tailwind's `bg-sidebar-active` via shadcn.css/theme.css)
+   * used to collapse onto the same value as hover — see the M1 handoff
+   * doc's "Active vs. hover" section for the defect and the fix. */
+  --chrome: var(--plum-25);
+  --chrome-hover: var(--neutral-50);
+  --chrome-active: var(--neutral-0);
+  --chrome-border: var(--neutral-200);
+  --chrome-ink: var(--neutral-800);
+  --chrome-ink-secondary: var(--neutral-700);
+  --chrome-ink-muted: var(--neutral-600);
+  --chrome-ink-strong: var(--neutral-900);
+  --on-chrome-active: var(--neutral-950);
+
+  /* ---- edges — borders and dividers. Two categories, not one:
+   *
+   *  - DECORATIVE (--hairline, --edge, --edge-strong): structural seams
+   *    between two surfaces (panel edges, card borders, dropdown
+   *    boundaries, the document's paper edge). No contrast bar applies —
+   *    WCAG 1.4.11 covers interactive/informational boundaries, not every
+   *    line between two surfaces. These are deliberately barely-there.
+   *  - FUNCTIONAL (--edge-control, --edge-control-strong): the sole
+   *    visible boundary of a form control (composer input, control chips,
+   *    profile fields) — WCAG 1.4.11 genuinely applies here, so both clear
+   *    3:1 against every surface a control sits on. --edge-control was
+   *    retuned in M1b from --neutral-500 (L 0.55, 4.26-4.85:1) — a real
+   *    pass, but heavy enough on a white card to read as the dominant
+   *    stroke on the page instead of a quiet field edge. --neutral-450
+   *    (L 0.62, computed with an OKLCH contrast script, not eyeballed)
+   *    clears 3.64:1 against --surface-raised and 3.19:1 against
+   *    --surface-sunken — both real 3:1 passes, just with less margin to
+   *    spend, on purpose. --edge-control-strong stays --neutral-600 (6.81-
+   *    7.77:1) so hover/focus still reads as a real, darker step. Do not
+   *    reuse --edge for a new form control; reuse --edge-control. */
+  --hairline: var(--neutral-150);
+  --edge: var(--neutral-200);
+  --edge-strong: var(--neutral-300);
+  --edge-control: var(--neutral-450);
+  --edge-control-strong: var(--neutral-600);
+
+  /* ---- brand — the one committed accent (deep plum). Used sparingly:
+   * primary actions, links, focus rings, selected/active identity marks.
+   * NOT the same token family as shadcn's --accent (a generic hover
+   * surface) — see shadcn.css. --brand-active is wired into the default
+   * button variant's hover/data-pressed states in components/ui/button.tsx,
+   * replacing the old `hover:bg-primary/90` / `data-pressed:bg-primary/90`
+   * alpha-modifier pattern with a named pressed-state token (plum-800,
+   * L 0.28 vs. --brand's L 0.44 — a 1.83:1 surface-to-surface contrast,
+   * clearly perceptible as a real state change; white text stays at
+   * 15.10:1 against it). */
+  --brand: var(--plum-600);
+  --brand-hover: var(--plum-700);
+  --brand-active: var(--plum-800);
+  --brand-subtle: var(--plum-50);
+  --brand-subtle-ink: var(--plum-700);
+  --brand-subtle-border: var(--plum-200);
+  /* A softer brand tone for decorative affordances (the sidebar resizer
+   * handle) that shouldn't read as CTA-strength — distinct from
+   * --brand-subtle, which is a pale background tint, not a line color. */
+  --brand-muted: var(--plum-400);
+  --on-brand: var(--neutral-0);
+
+  --focus-ring: var(--plum-500);
+
+  /* ---- status roles — pale surface + saturated, AA-checked text.
+   * --danger-border, --warning-border, and --info-border are real M1/M2
+   * targets, not speculative: --warning-border and --info-border are
+   * consumed now (task.css's --task-category-aid-border and
+   * --task-category-interview-border), and --danger-border replaces the
+   * existing `border-destructive/30` alpha-modifier pattern found in
+   * AiChatPage.tsx, ChatMessage.tsx, and button.tsx. --success-border was
+   * dropped — no existing or planned consumer could be named for it
+   * (checked: zero `border-success` usage anywhere in the app). Add it
+   * back if a bordered success banner is ever built; don't carry it as
+   * unused symmetry with the other three. */
+  --success-surface: var(--green-50);
+  --success-fg: var(--green-700);
+  --success-solid: var(--green-600);
+
+  --warning-surface: var(--amber-50);
+  --warning-border: var(--amber-200);
+  --warning-fg: var(--amber-800);
+  --warning-solid: var(--amber-600);
+
+  --danger-surface: var(--red-50);
+  --danger-border: var(--red-200);
+  --danger-fg: var(--red-700);
+  --danger-solid: var(--red-600);
+
+  --info-surface: var(--blue-50);
+  --info-border: var(--blue-200);
+  --info-fg: var(--blue-700);
+  --info-solid: var(--blue-600);
+
+  /* ---- neutral status — the "no particular state" tier (default task
+   * pills, the "other" category). Same {role}-surface/-fg shape as the
+   * four status roles above. ---- */
+  --neutral-surface: var(--neutral-100);
+  --neutral-fg: var(--neutral-700);
+
+  /* ---- task category wayfinding — decorative hue-coding for the 7 task
+   * categories, not a status signal. essay/aid/interview/other reuse the
+   * brand-subtle, warning, info, and neutral role groups directly (see
+   * task.css) rather than duplicating tokens that already exist; lor,
+   * research, and form get their own roles because no other semantic
+   * concept in the app uses mauve/teal/slate. ---- */
+  --category-lor-surface: var(--mauve-50);
+  --category-lor-ink: var(--mauve-700);
+  --category-lor-border: var(--mauve-200);
+  --category-research-surface: var(--teal-50);
+  --category-research-ink: var(--teal-700);
+  --category-research-border: var(--teal-200);
+  --category-form-surface: var(--slate-50);
+  --category-form-ink: var(--slate-700);
+  --category-form-border: var(--slate-200);
+
+  /* ---- overlay / scrim — modal & sheet backdrops. ---- */
+  --overlay-scrim: color-mix(in oklch, var(--neutral-950) 32%, transparent);
+  --overlay-scrim-subtle: color-mix(
+    in oklch,
+    var(--neutral-950) 10%,
+    transparent
+  );
+
+  /* ---- document / paper — the essay reading surface. Deliberately a
+   * distinct sheet from the canvas even though both are now light: pure
+   * white (one step brighter than --canvas), a real hairline border, and
+   * elevation-1 (applied by essay.css) keep it reading as paper laid on a
+   * desk rather than blending into the surrounding chrome. See the M1
+   * handoff doc for the full rationale. */
+  --document: var(--neutral-0);
+  --document-foreground: var(--neutral-900);
+  --document-muted: var(--neutral-600);
+  --document-border: var(--neutral-200);
+}

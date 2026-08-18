@@ -5,15 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Counselle</title>
     <style>
+      /*
+       * Standalone static page — outside the React app's token build, so
+       * these are literal values (mirrors of frontend/src/styles/
+       * primitives.css + semantic.css at time of writing: canvas
+       * neutral-25, surface-raised neutral-0, ink neutral-900, ink-muted
+       * neutral-600, edge neutral-200, brand plum-600). Keep this list the
+       * single place any of these values live in this file.
+       */
       :root {
-        color-scheme: dark;
-        --bg: #171615;
-        --panel: #211f1d;
-        --text: #e3e0db;
-        --muted: #a39e95;
-        --border: #34312e;
-        --primary: #d8d0c3;
-        --primary-fg: #171615;
+        color-scheme: light;
+        --canvas: #fcfcfc;
+        --surface-raised: #ffffff;
+        --surface-sunken: #f0f0f0;
+        --ink: #0e0e0e;
+        --ink-muted: #525252;
+        --edge: #dbdbdb;
+        --brand: #6f3a78;
+        --brand-hover: #55285c;
+        --on-brand: #ffffff;
       }
       * {
         box-sizing: border-box;
@@ -22,9 +32,9 @@
         margin: 0;
         min-height: 100vh;
         background:
-          radial-gradient(circle at 30% 10%, rgba(216, 208, 195, 0.12), transparent 30rem),
-          var(--bg);
-        color: var(--text);
+          radial-gradient(circle at 30% 10%, rgba(135, 80, 144, 0.05), transparent 30rem),
+          var(--canvas);
+        color: var(--ink);
         font-family:
           Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
           sans-serif;
@@ -41,11 +51,10 @@
         gap: 1.5rem;
       }
       .card {
-        border: 1px solid var(--border);
-        border-radius: 1.5rem;
-        background: color-mix(in srgb, var(--panel) 92%, transparent);
+        border: 1px solid var(--edge);
+        border-radius: 1.125rem;
+        background: var(--surface-raised);
         padding: clamp(1.5rem, 4vw, 3rem);
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
       }
       h1 {
         margin: 0;
@@ -56,7 +65,7 @@
       p {
         margin: 1rem 0 0;
         max-width: 42rem;
-        color: var(--muted);
+        color: var(--ink-muted);
         font-size: clamp(1rem, 2vw, 1.25rem);
         line-height: 1.6;
       }
@@ -66,24 +75,27 @@
         margin-top: 1.5rem;
         align-items: center;
         justify-content: center;
-        border-radius: 0.875rem;
-        background: var(--primary);
-        color: var(--primary-fg);
+        border-radius: 0.625rem;
+        background: var(--brand);
+        color: var(--on-brand);
         padding: 0 1.1rem;
         font-weight: 650;
         text-decoration: none;
       }
+      a:hover {
+        background: var(--brand-hover);
+      }
       .screenshot {
-        border: 1px solid var(--border);
-        border-radius: 1.25rem;
-        background: #1d1b19;
+        border: 1px solid var(--edge);
+        border-radius: 0.875rem;
+        background: var(--surface-sunken);
         padding: 1rem;
       }
       .screenshot img {
         display: block;
         width: 100%;
         height: auto;
-        border-radius: 0.875rem;
+        border-radius: 0.625rem;
       }
       @media (max-width: 720px) {
         main {

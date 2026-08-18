@@ -22,7 +22,7 @@ export function MemoryMutationBody({ receipt }: { receipt: WorkspaceMutationRece
   return (
     <ul className="grid gap-1">
       {body.active_notes.map((note, index) => (
-        <li className="text-foreground/90" key={index}>
+        <li className="text-[var(--ink-secondary)]" key={index}>
           {note.text}
         </li>
       ))}

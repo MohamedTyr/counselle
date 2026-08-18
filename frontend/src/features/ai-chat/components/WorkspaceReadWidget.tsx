@@ -110,7 +110,7 @@ function PreviewItem({
       className={cn(
         "flex min-w-0 items-start gap-2.5 rounded-md",
         compact
-          ? "min-h-11 max-w-[17rem] bg-muted/60 px-2.5 py-1.5"
+          ? "min-h-11 max-w-[17rem] bg-[var(--control-track)] px-2.5 py-1.5"
           : "min-h-11 px-2 py-2",
       )}
     >
@@ -120,7 +120,7 @@ function PreviewItem({
       <span className="min-w-0 flex-1">
         <span
           className={cn(
-            "block text-sm leading-5 text-foreground/90",
+            "block text-sm leading-5 text-[var(--ink-secondary)]",
             compact ? "line-clamp-2" : "break-words text-pretty",
           )}
           title={compact ? item.title : undefined}
@@ -231,7 +231,7 @@ export function WorkspaceReadWidget({ isLiveSegment = false, step }: Props) {
         )}
 
         {!running && !failed && items.length > 0 && single && (
-          <div className="mt-2 max-w-xl rounded-md bg-muted/35 p-1">
+          <div className="mt-2 max-w-xl rounded-md bg-[var(--control-track)] p-1">
             <PreviewItem item={items[0]} />
           </div>
         )}
@@ -277,8 +277,8 @@ export function WorkspaceReadWidget({ isLiveSegment = false, step }: Props) {
               )}
             </div>
 
-            <CollapsibleContent className="mt-3 overflow-hidden rounded-lg bg-muted/25 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 motion-reduce:animate-none">
-              <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border/60 px-2.5">
+            <CollapsibleContent className="mt-3 overflow-hidden rounded-lg bg-[var(--control-track)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 motion-reduce:animate-none">
+              <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--edge)] px-2.5">
                 <span className="text-xs font-medium text-foreground">
                   {items.length} available
                 </span>
@@ -295,7 +295,7 @@ export function WorkspaceReadWidget({ isLiveSegment = false, step }: Props) {
                         {group}
                       </h4>
                     )}
-                    <div className="divide-y divide-border/50">
+                    <div className="divide-y divide-[var(--hairline)]">
                       {groupItems.map((item, index) => (
                         <PreviewItem
                           item={item}

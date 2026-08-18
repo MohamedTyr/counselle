@@ -23,7 +23,7 @@ export function ActivityMutationBody({ receipt }: { receipt: WorkspaceMutationRe
               ? body.moved_from_rank
               : null;
           return (
-            <li className="flex gap-2 text-foreground/90" key={index}>
+            <li className="flex gap-2 text-[var(--ink-secondary)]" key={index}>
               <span className="tabular-nums text-muted-foreground">{index + 1}</span>
               <span className="min-w-0">
                 {subject.title.text}

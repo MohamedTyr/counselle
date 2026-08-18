@@ -12,7 +12,7 @@ function Toolbar({
   return (
     <ToolbarPrimitive.Root
       className={cn(
-        "relative flex gap-2 rounded-lg border bg-card p-1 text-card-foreground not-dark:bg-clip-padding",
+        "relative flex gap-2 rounded-lg border bg-card p-1 text-card-foreground bg-clip-padding",
         className,
       )}
       data-slot="toolbar"

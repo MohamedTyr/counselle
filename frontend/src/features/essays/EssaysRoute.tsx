@@ -828,7 +828,7 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
               <div className="relative w-full min-w-0 sm:w-72">
                 <Search
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/80"
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--ink-muted)]"
                 />
                 <Input
                   aria-label="Search essays"

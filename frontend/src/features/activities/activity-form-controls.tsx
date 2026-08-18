@@ -34,7 +34,7 @@ export function CheckChipGroup<T extends string>({
         return (
           <label
             className={cn(
-              "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors select-none focus-within:ring-2 focus-within:ring-ring/50",
+              "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors select-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)]",
               checked
                 ? "border-[color:var(--activity-chip-selected-border)] bg-[color:var(--activity-chip-selected-surface)] font-medium text-foreground"
                 : "border-[color:var(--activity-chip-border)] bg-[color:var(--activity-chip-surface)] text-muted-foreground hover:border-[color:var(--activity-chip-selected-border)] hover:bg-[color:var(--activity-chip-hover)] hover:text-foreground",

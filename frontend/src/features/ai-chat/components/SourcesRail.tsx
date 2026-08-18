@@ -48,7 +48,7 @@ function scrollBehavior(): ScrollBehavior {
 }
 
 const activeCardClasses =
-  "bg-primary/[0.03] shadow-[inset_1.5px_0_0_var(--color-primary)] dark:bg-primary/[0.045]";
+  "bg-[var(--surface-selected)] shadow-[inset_1.5px_0_0_var(--color-primary)]";
 
 function EvidenceRow({
   entry,
@@ -62,7 +62,7 @@ function EvidenceRow({
   return (
     <li
       className={cn(
-        "rounded-lg border border-transparent bg-background/60 p-2.5 transition-colors duration-200 ease-out focus:outline-none",
+        "rounded-lg border border-transparent bg-[var(--surface-sunken)] p-2.5 transition-colors duration-200 ease-out focus:outline-none",
         active && activeCardClasses,
       )}
       aria-current={active ? "true" : undefined}
@@ -96,7 +96,7 @@ function SourceAvatar({
 }) {
   const iconClasses = "size-3.5 shrink-0 text-muted-foreground";
   const frame =
-    "grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted/50";
+    "grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg border bg-[var(--surface-sunken)]";
 
   if (isLegacySourceEntry(entry)) {
     return (
@@ -171,8 +171,8 @@ function SourceRow({
     <li
       aria-current={activeRow ? "true" : undefined}
       className={cn(
-        "scroll-mt-3 cursor-pointer rounded-xl border border-transparent bg-card p-3 shadow-xs shadow-black/[0.02] transition-colors duration-200 ease-out focus:outline-none",
-        !activeRow && "hover:border-border hover:bg-accent/30",
+        "scroll-mt-3 cursor-pointer rounded-xl border border-transparent bg-card p-3 shadow-[var(--elevation-1)] transition-colors duration-200 ease-out focus:outline-none",
+        !activeRow && "hover:border-border hover:bg-[var(--surface-hover)]",
         activeRow && activeCardClasses,
       )}
       data-active={activeRow}

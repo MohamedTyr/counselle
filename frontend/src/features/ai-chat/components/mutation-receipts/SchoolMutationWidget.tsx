@@ -15,7 +15,7 @@ function SchoolRow({ item }: { item: MutationItem }) {
   const isProblem = item.disposition !== "changed";
   return (
     <li className="flex min-w-0 flex-col gap-0.5 py-1">
-      <span className="flex min-w-0 items-center gap-1.5 text-foreground/90">
+      <span className="flex min-w-0 items-center gap-1.5 text-[var(--ink-secondary)]">
         <span className="min-w-0 truncate">
           {title ?? `School ${item.input_index + 1}`}
         </span>
@@ -69,7 +69,7 @@ export function SchoolMutationBody({ receipt }: { receipt: WorkspaceMutationRece
       <div className="grid gap-1.5">
         <ul className="grid gap-0.5">
           {body.subjects.map((subject, index) => (
-            <li className="text-foreground/90" key={index}>
+            <li className="text-[var(--ink-secondary)]" key={index}>
               {subject.title.text}
             </li>
           ))}

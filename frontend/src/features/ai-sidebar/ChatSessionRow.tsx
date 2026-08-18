@@ -70,7 +70,7 @@ export function ChatSessionRow({
       <SidebarMenuButton
         asChild
         className={cn(
-          "sidebar-chat-button h-11 rounded-lg px-2.5 pr-1.5! text-sidebar-foreground transition-[color,background-color] duration-150 md:h-8 pointer-coarse:!h-11 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
+          "sidebar-chat-button h-11 rounded-lg px-2.5 pr-1.5! text-sidebar-foreground transition-[color,background-color] duration-150 md:h-8 pointer-coarse:!h-11 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-active data-active:text-sidebar-active-foreground",
           active && "font-medium",
         )}
         isActive={active}

@@ -29,11 +29,11 @@ export function EssayMutationBody({ receipt }: { receipt: WorkspaceMutationRecei
       <dl className="grid gap-1.5">
         <div className="grid grid-cols-[96px_1fr] gap-2">
           <dt className="font-medium text-muted-foreground">Original</dt>
-          <dd className="text-foreground/85">{body.source.title.text}</dd>
+          <dd className="text-[var(--ink-secondary)]">{body.source.title.text}</dd>
         </div>
         <div className="grid grid-cols-[96px_1fr] gap-2">
           <dt className="font-medium text-muted-foreground">Copy</dt>
-          <dd className="text-foreground/85">{body.copy.title.text}</dd>
+          <dd className="text-[var(--ink-secondary)]">{body.copy.title.text}</dd>
         </div>
       </dl>
     );

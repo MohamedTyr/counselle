@@ -98,7 +98,7 @@ export function TaskBoard({
         {selectionBox?.hasDragged ? (
           <motion.div
             animate={reduceMotion ? undefined : { opacity: 1 }}
-            className="pointer-events-none fixed z-40 rounded-md bg-ring/12"
+            className="pointer-events-none fixed z-[var(--z-modal-backdrop)] rounded-md bg-ring/12"
             exit={reduceMotion ? undefined : { opacity: 0 }}
             initial={reduceMotion ? false : { opacity: 0 }}
             style={getSelectionStyle(selectionBox)}

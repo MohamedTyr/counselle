@@ -170,7 +170,7 @@ export function OnboardingSetup({
         initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={frameTransition}
-        className="w-full max-w-[640px] overflow-hidden rounded-2xl border border-[var(--onboarding-border)] bg-[var(--onboarding-frame-surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+        className="w-full max-w-[640px] overflow-hidden rounded-2xl border border-[var(--onboarding-border)] bg-[var(--onboarding-frame-surface)] shadow-[var(--elevation-1)]"
       >
         {/*
          * Step-change announcement (spec §16): announces "Step N of M,

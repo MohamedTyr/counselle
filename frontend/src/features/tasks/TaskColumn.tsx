@@ -60,7 +60,7 @@ export function TaskColumn({
       className={cn(
         laneThemeClass[column.id],
         "min-h-[29rem] overflow-hidden [border-color:var(--lane-border)] [background-color:var(--lane-surface)] transition-[background-color,border-color,box-shadow]",
-        isDropTarget && "border-ring/50 bg-muted/50 shadow-sm",
+        isDropTarget && "border-[var(--focus-ring)] bg-[var(--surface-active)] shadow-sm",
       )}
       data-task-column={column.id}
       onDragLeave={(event) => {
@@ -73,7 +73,7 @@ export function TaskColumn({
     >
       <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
         <div className="min-w-0">
-          <div className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[color:var(--lane-border)] bg-[color:var(--lane-pill-bg)] px-2.5 text-sm font-medium text-[color:var(--lane-pill-fg)] shadow-xs/5">
+          <div className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[color:var(--lane-border)] bg-[color:var(--lane-pill-bg)] px-2.5 text-sm font-medium text-[color:var(--lane-pill-fg)] shadow-[var(--elevation-1)]">
             <span
               aria-hidden="true"
               className="size-2 rounded-full bg-[color:var(--lane-dot)]"
@@ -113,8 +113,8 @@ export function TaskColumn({
         {tasks.length === 0 && column.id === "done" ? (
           <div
             className={cn(
-              "flex min-h-32 flex-1 items-center justify-center rounded-xl border border-dashed bg-muted/30 p-4 text-center text-xs leading-5 text-muted-foreground transition-colors",
-              isDropTarget && "border-ring/50 bg-background/70",
+              "flex min-h-32 flex-1 items-center justify-center rounded-xl border border-dashed bg-[var(--control-track)] p-4 text-center text-xs leading-5 text-muted-foreground transition-colors",
+              isDropTarget && "border-[var(--focus-ring)] bg-[var(--surface-active)]",
             )}
           >
             Finish one task to start today.

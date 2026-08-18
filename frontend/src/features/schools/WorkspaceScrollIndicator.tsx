@@ -80,7 +80,7 @@ export function WorkspaceScrollIndicator({
       className="pointer-events-none absolute top-4 right-1 bottom-4 hidden w-2 md:block"
     >
       <div
-        className="absolute right-0.5 w-1.5 rounded-full bg-foreground/20"
+        className="absolute right-0.5 w-1.5 rounded-full bg-[var(--scrollbar-thumb)]"
         style={{
           height: thumb.height,
           transform: `translateY(${thumb.top}px)`,

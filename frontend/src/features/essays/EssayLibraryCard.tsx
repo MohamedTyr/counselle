@@ -179,7 +179,7 @@ export function EssayLibraryCard({
                 <span className="flex min-w-0 items-center gap-1">
                   {essay.applicationId ? (
                     <Link
-                      className="truncate rounded-sm font-medium text-foreground/75 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="truncate rounded-sm font-medium text-[var(--ink-secondary)] outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
                       onClick={(event) => event.stopPropagation()}
                       to={`/app/schools/${essay.applicationId}`}
                     >
@@ -207,7 +207,7 @@ export function EssayLibraryCard({
                   <MessageSquareText aria-hidden="true" />
                   {essay.comments}
                 </span>
-                <span className="flex items-center gap-1 text-foreground/75 tabular-nums">
+                <span className="flex items-center gap-1 text-[var(--ink-secondary)] tabular-nums">
                   {wordLabel}
                 </span>
               </span>

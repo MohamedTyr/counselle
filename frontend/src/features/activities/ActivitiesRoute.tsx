@@ -500,7 +500,7 @@ export function ActivitiesPage() {
                 onRetry={() => void activitiesQuery.refetch()}
               />
             ) : activities.length === 0 ? (
-              <Empty className="min-h-56 rounded-xl border border-dashed bg-muted/20 py-12">
+              <Empty className="min-h-56 rounded-xl border border-dashed bg-[var(--control-track)] py-12">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <ListChecks aria-hidden="true" />
@@ -549,7 +549,7 @@ export function ActivitiesPage() {
 
                 {!activitiesFull ? (
                   <button
-                    className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[color:var(--activity-row-border)] py-3 text-xs text-muted-foreground transition-colors hover:bg-[color:var(--activity-row-hover)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none"
+                    className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[color:var(--activity-add-row-border)] py-3 text-xs text-muted-foreground transition-colors hover:bg-[color:var(--activity-row-hover)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:outline-none"
                     onClick={() => void addActivity()}
                     type="button"
                   >
@@ -574,7 +574,7 @@ export function ActivitiesPage() {
                 onRetry={() => void honorsQuery.refetch()}
               />
             ) : honors.length === 0 ? (
-              <Empty className="min-h-48 rounded-xl border border-dashed bg-muted/20 py-10">
+              <Empty className="min-h-48 rounded-xl border border-dashed bg-[var(--control-track)] py-10">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <Award aria-hidden="true" />

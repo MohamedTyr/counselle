@@ -1,0 +1,93 @@
+/*
+ * Primitives — raw color ramps.
+ *
+ * THIS IS THE ONLY FILE IN THE CODEBASE PERMITTED TO CONTAIN A COLOR
+ * LITERAL (hex / rgb / hsl / oklch with numeric channels). Every other
+ * token file must reference these via var(), directly or through
+ * semantic.css. Ramps are named by scale position, never by usage — this
+ * file has no idea what a "sidebar" or "danger banner" is.
+ *
+ * All ramps are OKLCH. Neutral is true achromatic (C 0) — no warm tint.
+ */
+
+:root {
+  /* ---- neutral — true gray, chroma 0. Canvas, ink, chrome, edges. ---- */
+  --neutral-0: oklch(100% 0 0);
+  --neutral-25: oklch(99% 0 0);
+  --neutral-50: oklch(97.5% 0 0);
+  --neutral-100: oklch(95.5% 0 0);
+  --neutral-150: oklch(93% 0 0);
+  --neutral-200: oklch(89% 0 0);
+  --neutral-300: oklch(82% 0 0);
+  --neutral-400: oklch(68% 0 0);
+  /* neutral-450: the M1b functional-border resting value. Computed with an
+   * OKLCH -> linear-sRGB -> WCAG contrast script, not eyeballed: L 0.62
+   * clears 3.64:1 against --surface-raised (white) and 3.19:1 against
+   * --surface-sunken — both real 3:1 passes with margin, replacing
+   * --neutral-500 (L 0.55, 4.26-4.85:1), which read as too heavy a form-
+   * control edge on a white card. See --edge-control in semantic.css. */
+  --neutral-450: oklch(62% 0 0);
+  --neutral-500: oklch(55% 0 0);
+  --neutral-550: oklch(52% 0 0);
+  --neutral-600: oklch(44% 0 0);
+  --neutral-700: oklch(35% 0 0);
+  --neutral-800: oklch(26% 0 0);
+  --neutral-850: oklch(21% 0 0);
+  --neutral-900: oklch(16.5% 0 0);
+  --neutral-950: oklch(11% 0 0);
+
+  /* ---- plum — the one committed brand hue (deep aubergine, hue 322). ---
+   * Not SaaS blue, not green (reserved for success), not warm-neutral. Used
+   * sparingly: links, focus rings, primary actions, the essay category tag.
+   */
+  /* plum-25: a faint but real cast, not false precision — the sidebar
+   * chrome surface. Chroma 0.004 (an earlier draft) measured
+   * imperceptible across ~30 screenshots; 0.01 registers as a warm-plum
+   * cast without reading as "purple". Hue 322 keeps it out of the banned
+   * cream/sand band (hue 40-100) regardless of chroma. */
+  --plum-25: oklch(96.5% 0.01 322);
+  --plum-50: oklch(96.5% 0.012 322);
+  --plum-100: oklch(92% 0.03 322);
+  --plum-200: oklch(84% 0.05 322);
+  --plum-300: oklch(74% 0.075 322);
+  --plum-400: oklch(63% 0.1 322);
+  --plum-500: oklch(52% 0.115 322);
+  --plum-600: oklch(44% 0.115 322);
+  --plum-700: oklch(36% 0.1 322);
+  --plum-800: oklch(28% 0.085 322);
+  --plum-900: oklch(21% 0.065 322);
+
+  /* ---- status ramps ---- */
+  --green-50: oklch(95.5% 0.03 145);
+  --green-200: oklch(88% 0.07 145);
+  --green-600: oklch(50% 0.15 145);
+  --green-700: oklch(35% 0.11 145);
+
+  --amber-50: oklch(96% 0.035 80);
+  --amber-200: oklch(86% 0.09 80);
+  --amber-600: oklch(55% 0.14 80);
+  --amber-800: oklch(32% 0.09 80);
+
+  --red-50: oklch(96% 0.02 25);
+  --red-200: oklch(85% 0.07 25);
+  --red-600: oklch(50% 0.18 25);
+  --red-700: oklch(40% 0.16 25);
+
+  --blue-50: oklch(96% 0.02 250);
+  --blue-200: oklch(85% 0.06 250);
+  --blue-600: oklch(48% 0.14 250);
+  --blue-700: oklch(38% 0.11 250);
+
+  /* ---- task-category accent ramps (wayfinding only, not status) ---- */
+  --mauve-50: oklch(96% 0.02 305);
+  --mauve-200: oklch(86% 0.05 305);
+  --mauve-700: oklch(40% 0.1 305);
+
+  --teal-50: oklch(95.5% 0.025 190);
+  --teal-200: oklch(86% 0.06 190);
+  --teal-700: oklch(38% 0.08 190);
+
+  --slate-50: oklch(96% 0.008 235);
+  --slate-200: oklch(87% 0.02 235);
+  --slate-700: oklch(40% 0.03 235);
+}

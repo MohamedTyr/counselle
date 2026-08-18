@@ -1,0 +1,70 @@
+/*
+ * Shell — app chrome. --shell-* (15 tokens, public contract preserved).
+ *
+ * Sidebar decision: the whole app is light, sidebar included — PRODUCT.md's
+ * "let the sidebar establish the product identity and extend that language
+ * across the app" is honored through a whisper tonal step plus a
+ * threshold-of-perception plum tint (--chrome, ~2.5 L points below
+ * --canvas), not a sharp grey step and not a surviving dark panel. See
+ * plans/light-theme-m1-handoff.md for the full rationale.
+ *
+ * Every --shell-sidebar-* token below still resolves through the same
+ * --chrome-* semantic names regardless of how light/chrome itself is
+ * defined — this file needs no structural edit when that tuning changes,
+ * only semantic.css's chrome definitions do. The two color-mix opacities
+ * and the resizer's plum step below ARE tuned here on purpose: alpha-blend
+ * visibility and a specific accent shade are properties of the rendered
+ * pixels against a specific track color, not part of the semantic
+ * contract — they get re-checked whenever --chrome's lightness changes.
+ */
+
+:root {
+  --shell-background: var(--canvas);
+  --shell-sidebar-background: var(--chrome);
+  --shell-sidebar-foreground: var(--chrome-ink);
+  --shell-sidebar-history-foreground: var(--chrome-ink-secondary);
+  --shell-sidebar-hover-background: var(--chrome-hover);
+  --shell-sidebar-hover-foreground: var(--chrome-ink-strong);
+  /* The persistent "this is the selected chat" state — distinct from
+   * hover, not an alias of it. Full chain, each link verifiable by grep:
+   * this token -> shadcn.css (`--sidebar-active`/`-active-foreground`) ->
+   * theme.css's `@theme inline` (`--color-sidebar-active`/
+   * `-active-foreground`, which is what makes `bg-sidebar-active`/
+   * `text-sidebar-active-foreground` real Tailwind utilities) ->
+   * consumed by the `data-active:` variants in
+   * components/ui/sidebar.tsx (SidebarMenuButton, SidebarMenuSubButton)
+   * and features/ai-sidebar/ChatSessionRow.tsx (previously all three
+   * wired to `bg-sidebar-accent`, which is also the hover token — see the
+   * M1 handoff doc). */
+  --shell-sidebar-active-background: var(--chrome-active);
+  --shell-sidebar-active-foreground: var(--on-chrome-active);
+  --shell-sidebar-inset-inline: 1rem;
+  --shell-sidebar-collapsed-inset-inline: 0.5rem;
+  --shell-sidebar-inset-block: 1rem;
+  --shell-divider: var(--hairline);
+  --shell-sidebar-border: var(--chrome-border);
+  /* 45%/60%: retuned down from an earlier 55%/75% draft, which was tuned
+   * against a much greyer (89% L) chrome and reads as too heavy a thumb
+   * against the current whisper-light (96.5% L) rail — verified with the
+   * contrast script (45% -> ~1.7:1 resting, 60% -> ~2.3:1 hover; a
+   * scrollbar thumb is decorative, not held to 3:1, but should still
+   * visibly brighten on hover). See the M1 handoff doc. */
+  --shell-sidebar-scrollbar: color-mix(
+    in oklch,
+    var(--chrome-ink) 45%,
+    transparent
+  );
+  --shell-sidebar-scrollbar-hover: color-mix(
+    in oklch,
+    var(--chrome-ink) 60%,
+    transparent
+  );
+  --shell-sidebar-group-label: var(--chrome-ink-muted);
+  /* --brand-muted (plum-400), not full --brand (plum-600): against the
+   * whisper-light current --chrome, plum-400 alone already clears ~3.3:1 —
+   * a stronger step (tried plum-500, ~5.3:1) reads as too saturated/heavy
+   * for this surface. Decorative handle, not text — no formal AA
+   * requirement, but it should read as a real affordance without looking
+   * like an accent button. */
+  --shell-sidebar-resizer: var(--brand-muted);
+}

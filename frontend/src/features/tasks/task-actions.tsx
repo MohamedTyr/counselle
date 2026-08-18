@@ -104,7 +104,7 @@ export function TaskSchoolChip({
   return (
     <Link
       aria-label={`Open ${application.school_name} workspace`}
-      className="max-w-full rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="max-w-full rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
       onClick={stopPropagation}
       onKeyDown={stopPropagation}
       to={`/app/schools/${application.id}`}
