@@ -38,6 +38,10 @@ services:
         sync: false
       - key: COUNSELLE_DB_APP_DSN
         sync: false
+      # Admin DSN so the container can provision roles, the counselle schema and
+      # the cds_library reader seed on a freshly created database.
+      - key: COUNSELLE_DB_ADMIN_DSN
+        sync: false
       - key: COUNSELLE_VERTEX_API_KEY
         sync: false
       - key: COUNSELLE_TAVILY_API_KEY

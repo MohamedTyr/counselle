@@ -15,6 +15,10 @@ for name in $required_env; do
   fi
 done
 
+# A managed database starts empty, so provision roles, the counselle schema and
+# the cds_library reader contract before migrations run. No-op once seeded.
+.venv/bin/python scripts/seed_reader_db.py
+
 schema_dsn="${COUNSELLE_DB_APP_DSN}"
 case "$schema_dsn" in
   *\?*) schema_dsn="${schema_dsn}&schema=counselle" ;;

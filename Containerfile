@@ -31,6 +31,7 @@ COPY app/ app/
 COPY adapters/ adapters/
 COPY config/ config/
 COPY counselle_db/ counselle_db/
+COPY deploy/ deploy/
 COPY domain/ domain/
 COPY evals/ evals/
 COPY migrations/ migrations/
