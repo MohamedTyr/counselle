@@ -27,6 +27,11 @@ ROOT = Path(__file__).resolve().parents[1]
 SEED_DIR = ROOT / "deploy" / "seed"
 SCHEMA_FILE = SEED_DIR / "schema.sql"
 
+# Migrations declare these, but installing an extension needs CREATE on the
+# database, which the unprivileged app role deliberately lacks. Install them
+# here so the migration's IF NOT EXISTS becomes a no-op.
+REQUIRED_EXTENSIONS = ("pg_trgm", "vector")
+
 # Load order is free: the reader contract is denormalised and carries no
 # foreign keys between these five surfaces.
 READER_TABLES = (
@@ -144,8 +149,12 @@ def _prepare_app_schema(cur: psycopg.Cursor, database: str, app_role: str) -> No
             sql.Identifier(app_role), sql.Identifier(database)
         )
     )
-    # yoyo's pg_trgm migration cannot install an extension as a plain role.
-    cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+    for extension in REQUIRED_EXTENSIONS:
+        cur.execute(
+            sql.SQL("CREATE EXTENSION IF NOT EXISTS {}").format(
+                sql.Identifier(extension)
+            )
+        )
 
 
 def main() -> int:
