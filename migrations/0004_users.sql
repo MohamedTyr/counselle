@@ -42,10 +42,19 @@ ALTER TABLE counselle.sessions
 -- The FK above would reject the orphaned NULL-user MVP1 rows on any future
 -- write; their checkpoint rows have no FK, so sweep them by hand IN ORDER.
 DELETE FROM counselle.sessions WHERE user_id IS NULL;
-DELETE FROM counselle.checkpoints
-  WHERE thread_id NOT IN (SELECT session_id::text FROM counselle.sessions);
-DELETE FROM counselle.checkpoint_writes
-  WHERE thread_id NOT IN (SELECT session_id::text FROM counselle.sessions);
--- NOTE: checkpoint_migrations has no thread_id — never touch it.
-DELETE FROM counselle.checkpoint_blobs
-  WHERE thread_id NOT IN (SELECT session_id::text FROM counselle.sessions);
+-- The checkpointer creates its tables on first run, so a database migrated
+-- before it has ever served a request has no orphans to sweep.
+DO $purge_checkpoints$
+BEGIN
+  IF to_regclass('counselle.checkpoints') IS NULL THEN
+    RETURN;
+  END IF;
+  DELETE FROM counselle.checkpoints
+    WHERE thread_id NOT IN (SELECT session_id::text FROM counselle.sessions);
+  DELETE FROM counselle.checkpoint_writes
+    WHERE thread_id NOT IN (SELECT session_id::text FROM counselle.sessions);
+  -- NOTE: checkpoint_migrations has no thread_id — never touch it.
+  DELETE FROM counselle.checkpoint_blobs
+    WHERE thread_id NOT IN (SELECT session_id::text FROM counselle.sessions);
+END
+$purge_checkpoints$;
