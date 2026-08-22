@@ -1,21 +1,24 @@
 /*
- * Shell — app chrome. --shell-* (15 tokens, public contract preserved).
+ * Shell — app chrome. --shell-* (17 tokens, public contract preserved).
  *
- * Sidebar decision: the whole app is light, sidebar included — PRODUCT.md's
- * "let the sidebar establish the product identity and extend that language
- * across the app" is honored by making the rail the one surface that
- * carries the brand hue: a light sage tone (--chrome, ~2.5 L points below
- * --canvas), not a sharp grey step and not a surviving dark panel. See
- * plans/light-theme-m1-handoff.md for the full rationale.
+ * Sidebar decision: the whole app is light, sidebar included. The rail is
+ * a FLAT warm fill — --chrome resolves to --stone-50 (#f5f3f1, see
+ * semantic.css), with no grain or texture layer over it. It carried both a
+ * tinted sage tone and, later, an SVG noise texture; neither survives.
+ * PRODUCT.md's "let the sidebar establish the product identity" is honored
+ * instead by reserving the brand hue for exactly one signal, the selected
+ * row's icon/label colour (--on-chrome-active). See
+ * plans/light-theme-m1-handoff.md for the original sage-rail rationale and
+ * semantic.css's chrome block for why both were superseded.
  *
- * Every --shell-sidebar-* token below still resolves through the same
- * --chrome-* semantic names regardless of how light/chrome itself is
- * defined — this file needs no structural edit when that tuning changes,
- * only semantic.css's chrome definitions do. The two color-mix opacities
- * and the resizer's ivy step below ARE tuned here on purpose: alpha-blend
- * visibility and a specific accent shade are properties of the rendered
- * pixels against a specific track color, not part of the semantic
- * contract — they get re-checked whenever --chrome's lightness changes.
+ * Every --shell-sidebar-* token below resolves through the same --chrome-*
+ * semantic names regardless of how chrome itself is defined — this file
+ * needs no structural edit when that tuning changes, only semantic.css's
+ * chrome definitions do. The two color-mix opacities and the resizer step
+ * below ARE tuned here on purpose: alpha-blend visibility and a specific
+ * shade are properties of the rendered pixels against a specific track
+ * colour, not part of the semantic contract — they get re-checked whenever
+ * --chrome's lightness changes.
  */
 
 :root {
@@ -60,54 +63,11 @@
     transparent
   );
   --shell-sidebar-group-label: var(--chrome-ink-muted);
-  /* --brand-muted (ivy-400), not full --brand (ivy-600): against the
-   * light sage --chrome, ivy-400 alone already clears ~3.0:1 — a stronger
-   * step (ivy-500, ~4.9:1) reads as too saturated/heavy for this surface.
+  /* A warm neutral, not a brand hue: green marks exactly one thing on this
+   * rail — the selected row — so a green resizer handle would compete with
+   * that single signal. --sand-300 rather than an achromatic grey so the
+   * handle sits in the same temperature as the --stone rail it divides.
    * Decorative handle, not text — no formal AA requirement, but it should
    * read as a real affordance without looking like an accent button. */
-  --shell-sidebar-resizer: var(--brand-muted);
-
-  /* ---- rail texture — a fine grain over the sidebar surface, so the
-   * rail reads as a material the workspace is mounted on rather than a
-   * flat fill. Consumed by the [data-sidebar="sidebar"]::before rule in
-   * index.css.
-   *
-   * The SVG is an ALPHA MASK, not a picture: feTurbulence produces the
-   * noise, the feColorMatrix zeroes RGB and writes luma into the alpha
-   * channel, and CSS paints it in --shell-sidebar-texture-ink. Two
-   * reasons it's built this way instead of the usual gray-noise-plus-
-   * `mix-blend-mode: soft-light` recipe. First, soft-light and overlay
-   * both compress to nothing against a backdrop this light (--chrome is
-   * L 96.5%), so the conventional recipe renders a visually empty layer
-   * here — only a darkening grain reads on a near-white panel. Second,
-   * masking keeps the grain's colour a token: re-tune --chrome and the
-   * texture follows the brand instead of staying grey.
-   *
-   * baseFrequency 0.82 is fine-grain (film, not stucco); below ~0.4 the
-   * noise blotches into clouds. stitchTiles + a filter region pinned to
-   * the exact tile size is what makes the 160px tile repeat seamlessly —
-   * without both, the default filter region overspills and every tile
-   * edge shows a seam. Verified by sampling the rendered tile: wrapping
-   * edge columns/rows differ LESS than ordinary interior neighbours, so
-   * there is no seam to see. Being an SVG it rasterises at device
-   * resolution, so the grain stays physically fine on HiDPI.
-   *
-   * The feComponentTransfer is mean-preserving contrast (slope s with
-   * intercept (1-s)/2 leaves 0.5 at 0.5), and it is what turns this from
-   * a flat wash into grain. Raw fractalNoise measures mean 0.50 / SD 0.09
-   * — too narrow to read as texture at any sane opacity, and the naive
-   * fix of raising the layer opacity instead just darkens the whole rail
-   * and shifts --chrome off its tuned value. Doubling the spread to
-   * SD ~0.18 adds tooth while the average ink coverage stays put. */
-  --shell-sidebar-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g' filterUnits='userSpaceOnUse' x='0' y='0' width='160' height='160'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2126 0.7152 0.0722 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='2' intercept='-0.5'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
-  --shell-sidebar-texture-ink: var(--chrome-texture-ink);
-  --shell-sidebar-texture-size: 160px;
-  /* Tuned against --chrome specifically: the mask's alpha averages ~0.5,
-   * so this is ~3.5% average ink coverage and 7% under the darkest
-   * speckles — enough tooth to see at arm's length, cheap in contrast.
-   * Measured against --chrome-ink: 14.08:1 on bare rail, 13.13:1 at the
-   * grain's average, 12.22:1 at its worst pixel, so the AA floor is never
-   * in play. Re-tune whenever --chrome's lightness moves; grain that is
-   * invisible on a light panel turns to visible dirt on a dark one. */
-  --shell-sidebar-texture-opacity: 0.07;
+  --shell-sidebar-resizer: var(--sand-300);
 }

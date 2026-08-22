@@ -22,6 +22,10 @@ import type {
   SkillCatalogEntry,
   SourceConfig,
 } from "@/api/chat/types";
+import {
+  composerControlIconButtonClass,
+  composerSendButtonClass,
+} from "@/features/ai-composer/composer-control";
 import { CounselingModeMenu } from "@/features/ai-composer/CounselingModeMenu";
 import { ResponseModeMenu } from "@/features/ai-composer/ResponseModeMenu";
 import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
@@ -132,7 +136,7 @@ export function AiComposer({
     >
       <div
         ref={composerRef}
-        className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground shadow-[var(--elevation-1)] transition-[border-color,box-shadow] focus-within:border-[var(--workspace-composer-border-active)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30"
+        className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground transition-[border-color,box-shadow] focus-within:border-[var(--workspace-composer-border-active)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30 motion-reduce:transition-none"
       >
         <div className="relative">
           {hasSkillMention && (
@@ -194,7 +198,7 @@ export function AiComposer({
             ) : maxSelectedSkills > 0 ? (
               <Button
                 aria-label="Add a skill (@)"
-                className="size-8 !rounded-[var(--workspace-composer-control-radius)] !border-[var(--workspace-composer-control-border)] !bg-[var(--workspace-composer-control-surface)] !text-[var(--workspace-composer-sources-foreground)] !shadow-none before:!rounded-[calc(var(--workspace-composer-control-radius)-1px)] before:!shadow-none hover:!border-[var(--workspace-composer-control-hover-border)] hover:!bg-[var(--workspace-composer-control-hover-surface)] hover:!text-[var(--workspace-composer-sources-foreground)] data-pressed:!border-[var(--workspace-composer-control-hover-border)] data-pressed:!bg-[var(--workspace-composer-control-hover-surface)]"
+                className={composerControlIconButtonClass}
                 disabled={disabled || isSubmitting}
                 onClick={picker.insertTrigger}
                 size="icon"
@@ -220,7 +224,7 @@ export function AiComposer({
           {canCancel ? (
             <Button
               aria-label="Stop response"
-              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
+              className={cn("size-9", composerSendButtonClass)}
               onClick={onCancel}
               size="icon"
               type="button"
@@ -231,7 +235,7 @@ export function AiComposer({
           ) : (
             <Button
               aria-label="Send message"
-              className="size-9 shrink-0 rounded-[var(--workspace-composer-control-radius)]"
+              className={cn("size-9", composerSendButtonClass)}
               disabled={!canSubmit}
               size="icon"
               type="submit"

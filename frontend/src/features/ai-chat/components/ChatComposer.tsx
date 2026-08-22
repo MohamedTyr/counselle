@@ -20,6 +20,10 @@ import type {
   SkillCatalogEntry,
   SourceConfig,
 } from "@/api/chat/types";
+import {
+  composerControlIconButtonClass,
+  composerSendButtonClass,
+} from "@/features/ai-composer/composer-control";
 import { CounselingModeMenu } from "@/features/ai-composer/CounselingModeMenu";
 import { ResponseModeMenu } from "@/features/ai-composer/ResponseModeMenu";
 import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
@@ -149,7 +153,7 @@ export function ChatComposer({
       <div
         ref={composerRef}
         className={cn(
-          "group flex w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground shadow-[var(--elevation-1)] transition-[border-color,box-shadow] focus-within:border-[var(--workspace-composer-border-active)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30",
+          "group flex w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground transition-[border-color,box-shadow] focus-within:border-[var(--workspace-composer-border-active)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30 motion-reduce:transition-none",
           awaitingClarify ? "min-h-0" : "min-h-28",
         )}
       >
@@ -227,7 +231,7 @@ export function ChatComposer({
             ) : maxSelectedSkills > 0 && !awaitingClarify ? (
               <Button
                 aria-label="Add a skill (@)"
-                className="size-8 !rounded-[var(--workspace-composer-control-radius)] !border-[var(--workspace-composer-control-border)] !bg-[var(--workspace-composer-control-surface)] !text-[var(--workspace-composer-sources-foreground)] !shadow-none before:!rounded-[calc(var(--workspace-composer-control-radius)-1px)] before:!shadow-none hover:!border-[var(--workspace-composer-control-hover-border)] hover:!bg-[var(--workspace-composer-control-hover-surface)] hover:!text-[var(--workspace-composer-sources-foreground)] data-pressed:!border-[var(--workspace-composer-control-hover-border)] data-pressed:!bg-[var(--workspace-composer-control-hover-surface)]"
+                className={composerControlIconButtonClass}
                 disabled={disabled || isSubmitting}
                 onClick={picker.insertTrigger}
                 size="icon"
@@ -258,7 +262,7 @@ export function ChatComposer({
             <Button
               aria-label="Stop"
               className={cn(
-                "shrink-0 rounded-[var(--workspace-composer-control-radius)]",
+                composerSendButtonClass,
                 awaitingClarify ? "size-8" : "size-9",
               )}
               onClick={onStop}
@@ -272,7 +276,7 @@ export function ChatComposer({
             <Button
               aria-label="Send"
               className={cn(
-                "shrink-0 rounded-[var(--workspace-composer-control-radius)]",
+                composerSendButtonClass,
                 awaitingClarify ? "size-8" : "size-9",
               )}
               disabled={!canClickSend}

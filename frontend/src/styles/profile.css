@@ -3,6 +3,16 @@
  * alias layer onto workspace.css, unchanged in shape from the original
  * file — nothing here was ever a raw literal.
  *
+ * Field tokens resolve DIRECTLY to semantic.css (--field-surface,
+ * --edge-control, --focus-ring), not through --workspace-composer-*.
+ * They aliased through the composer historically, which quietly asserted
+ * "a profile field is the same kind of thing as a composer chip". It is
+ * not: a profile field is a bare rectangle whose border is the only thing
+ * saying "type here" (WCAG 1.4.11 applies, --edge-control stays), whereas
+ * the composer chips became borderless soft-fill controls inside an
+ * already-bounded panel. Cutting the alias is what let the composer
+ * change without dragging every profile input along with it.
+ *
  * --profile-control-selected-border fix (sweep finding): this is the
  * SELECTED-state border of interactive toggle/checkbox-style controls
  * (ProfileScalarField multi-select buttons, ProfileObjectListField, and,
@@ -10,7 +20,7 @@
  * OnboardingChoiceGroup radio/checkbox chips and OnboardingTagInput
  * selected pills) — real `button`/`role=radio`/`role=checkbox` elements
  * whose resting-state border already correctly resolves through
- * --workspace-composer-control-border (--edge-control). The selected
+ * --profile-field-border (--edge-control). The selected
  * state was downgrading to --workspace-border (--edge, decorative,
  * ~1.35:1 against canvas — the identical ratio flagged by the P0 audit
  * on the activities "add" button) instead of staying at or above the
@@ -27,10 +37,10 @@
   --profile-section-surface: var(--workspace-surface-raised);
   --profile-section-border: var(--workspace-border);
   --profile-section-divider: var(--workspace-border-soft);
-  --profile-field-surface: var(--workspace-composer-control-surface);
-  --profile-field-border: var(--workspace-composer-control-border);
-  --profile-field-hover-border: var(--workspace-composer-control-hover-border);
-  --profile-field-focus-border: var(--workspace-composer-border-active);
+  --profile-field-surface: var(--field-surface);
+  --profile-field-border: var(--edge-control);
+  --profile-field-hover-border: var(--edge-control-strong);
+  --profile-field-focus-border: var(--focus-ring);
   --profile-field-label: var(--workspace-foreground-soft);
   --profile-field-helper: var(--workspace-muted-foreground);
   --profile-control-selected-surface: var(--workspace-surface-active);

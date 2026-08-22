@@ -87,6 +87,12 @@ export function ChatSessionList() {
   return (
     <SidebarGroup className="p-0">
       <SidebarGroupContent className="flex flex-col gap-2">
+        {/* The eyebrow names what this filter acts on. Without it the input
+         * read as global search wedged between the nav and the history; it
+         * only ever filtered these rows. */}
+        <h2 className="px-2 text-[11px] font-semibold tracking-[0.06em] text-[var(--chrome-ink-muted)] uppercase">
+          Chats
+        </h2>
         <div className="sidebar-chat-search relative">
           <Search
             aria-hidden="true"
@@ -96,7 +102,7 @@ export function ChatSessionList() {
             aria-label="Search chats"
             className="h-11 rounded-md border-transparent !bg-transparent !shadow-none before:hidden hover:!bg-sidebar-accent has-focus-visible:border-transparent has-focus-visible:!bg-sidebar-accent has-focus-visible:!ring-0 md:h-8 pointer-coarse:!h-11 [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-8 [&_input]:text-sidebar-accent-foreground [&_input]:placeholder:text-sidebar-foreground [&_input]:placeholder:opacity-100 md:[&_input]:!h-8 pointer-coarse:[&_input]:!h-11"
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search"
+            placeholder="Filter conversations"
             type="search"
             value={searchQuery}
           />

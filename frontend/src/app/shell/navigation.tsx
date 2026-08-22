@@ -10,6 +10,13 @@ import {
 
 import type { ShellRoute } from "@/features/shell/MainNav";
 
+/*
+ * Order is grouped by mental model, not alphabetically: AI first (it owns
+ * the chat list rendered directly beneath this nav), then the application
+ * objects a student works ON (Schools, Essays, Activities), then the
+ * time-bound work (Tasks, Calendar), then Profile — account-scoped, so it
+ * sits last even though it stays a top-level destination.
+ */
 export const shellRoutes: ShellRoute[] = [
   {
     id: "ai",
@@ -24,22 +31,10 @@ export const shellRoutes: ShellRoute[] = [
     link: "/app/schools",
   },
   {
-    id: "tasks",
-    title: "Tasks",
-    icon: <ClipboardCheck />,
-    link: "/app/tasks",
-  },
-  {
-    id: "profile",
-    title: "Profile",
-    icon: <IdCard />,
-    link: "/app/profile",
-  },
-  {
-    id: "calendar",
-    title: "Calendar",
-    icon: <CalendarClock />,
-    link: "/app/calendar",
+    id: "essays",
+    title: "Essays",
+    icon: <LibraryBig />,
+    link: "/app/essays",
   },
   {
     id: "activities",
@@ -48,9 +43,21 @@ export const shellRoutes: ShellRoute[] = [
     link: "/app/activities",
   },
   {
-    id: "essays",
-    title: "Essays",
-    icon: <LibraryBig />,
-    link: "/app/essays",
+    id: "tasks",
+    title: "Tasks",
+    icon: <ClipboardCheck />,
+    link: "/app/tasks",
+  },
+  {
+    id: "calendar",
+    title: "Calendar",
+    icon: <CalendarClock />,
+    link: "/app/calendar",
+  },
+  {
+    id: "profile",
+    title: "Profile",
+    icon: <IdCard />,
+    link: "/app/profile",
   },
 ];

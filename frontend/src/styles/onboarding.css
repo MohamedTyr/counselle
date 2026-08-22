@@ -2,6 +2,15 @@
  * Onboarding — --onboarding-* (20 tokens), public contract preserved.
  * Pure alias layer onto workspace.css/profile.css, unchanged in shape from
  * the original file — nothing here was ever a raw literal.
+ *
+ * The four --onboarding-control-* tokens now mirror --profile-field-*
+ * rather than --workspace-composer-control-*. Same reasoning as the one
+ * written up in profile.css: onboarding's choice chips and tag inputs are
+ * bare controls on a card and keep the 3:1 --edge-control boundary, while
+ * the composer chips they used to alias became borderless soft fills
+ * inside an already-bounded panel. Left aliased, this file would have
+ * silently inherited a transparent border and a tinted fill for every
+ * onboarding control.
  */
 
 :root {
@@ -13,14 +22,10 @@
   --onboarding-border-soft: var(--workspace-border-soft);
   --onboarding-primary: var(--workspace-primary);
   --onboarding-primary-foreground: var(--workspace-primary-foreground);
-  --onboarding-control-surface: var(--workspace-composer-control-surface);
-  --onboarding-control-border: var(--workspace-composer-control-border);
-  --onboarding-control-hover-surface: var(
-    --workspace-composer-control-hover-surface
-  );
-  --onboarding-control-hover-border: var(
-    --workspace-composer-control-hover-border
-  );
+  --onboarding-control-surface: var(--profile-field-surface);
+  --onboarding-control-border: var(--profile-field-border);
+  --onboarding-control-hover-surface: var(--surface-hover);
+  --onboarding-control-hover-border: var(--profile-field-hover-border);
   --onboarding-selected-surface: var(--profile-control-selected-surface);
   --onboarding-selected-border: var(--profile-control-selected-border);
   --onboarding-foreground: var(--workspace-foreground);

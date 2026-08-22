@@ -7,7 +7,10 @@
  * semantic.css. Ramps are named by scale position, never by usage — this
  * file has no idea what a "sidebar" or "danger banner" is.
  *
- * All ramps are OKLCH. Neutral is true achromatic (C 0) — no warm tint.
+ * All ramps are OKLCH. --neutral is true achromatic (C 0); --sand is its
+ * warm counterpart (see below) for the page ground and the soft edges that
+ * sit on it; --stone is the warm ramp the sidebar chrome is built from,
+ * spanning surface all the way down to ink.
  */
 
 :root {
@@ -36,46 +39,182 @@
   --neutral-900: oklch(16.5% 0 0);
   --neutral-950: oklch(11% 0 0);
 
-  /* ---- ivy — the one committed brand hue (deep evergreen, hue 157). ----
+  /* ---- sand — the warm counterpart to --neutral. Same job (ground,
+   * soft fills, soft edges), a fraction of a chroma point off achromatic.
    *
-   * Green, per the product's visual identity: a college-admissions
-   * workspace should read collegiate and growing-toward-something, not
-   * fintech-navy or AI-purple. Hue 157 is chosen against two reflexes:
-   * hue ~145 is the "success green" band this file also defines below
-   * (see --leaf), and hue 162+ is Tailwind-emerald / mint — the saturated
-   * SaaS-green default. 157 with the chroma taper below reads botanical
-   * and deep (ivy, spruce) rather than fresh-and-minty.
+   * Three steps are exact, requested values rather than derived ones, and
+   * the ramp is built around them — each is annotated with the sRGB hex
+   * it renders, and those hexes are the contract:
    *
-   * Chroma tapers at BOTH ends, not held constant: green's sRGB gamut
-   * narrows sharply as lightness drops, and a flat-chroma ramp clips to
-   * an out-of-gamut wall below L 0.35 (verified — hue 158 at a flat 0.10
-   * chroma clips at 700/800). The taper also keeps the dark end reading
-   * as deep foliage instead of neon-on-black.
+   *   sand-25  #fdfbfa  the app ground
+   *   sand-75  #f7f7f6  quiet control fill (composer chips)
+   *   sand-200 #d7d2cb  the composer's edge
    *
-   * ivy-25: the sidebar chrome surface. Chroma 0.012 registers as a real
-   * sage cast at a glance without tipping into "mint". Hue 157 keeps it
-   * out of the banned cream/sand band (hue 40-100) at any chroma.
+   * sand-100/-150 are the hover/active steps under sand-75; sand-300 is
+   * the one step past sand-200.
    *
-   * ivy-300 and ivy-900 currently have no consumer. Kept on purpose: this
-   * is the brand ramp, and a brand ramp with holes in it invites the next
-   * person to invent an off-scale value when they need one. The non-brand
-   * ramps below stay trimmed to exactly what they use. */
-  --ivy-25: oklch(96.5% 0.012 157);
-  --ivy-50: oklch(96% 0.02 157);
-  --ivy-100: oklch(92% 0.038 157);
-  /* ivy-150 exists for the sidebar rail's own tinted edge: --neutral-200
-   * (the generic --edge) reads as a grey seam bolted onto a sage panel. */
-  --ivy-150: oklch(88.5% 0.03 157);
-  --ivy-200: oklch(84% 0.062 157);
-  --ivy-300: oklch(74% 0.085 157);
-  --ivy-400: oklch(63% 0.1 157);
-  --ivy-500: oklch(52% 0.105 157);
-  --ivy-600: oklch(43% 0.088 157);
-  --ivy-700: oklch(35% 0.072 157);
-  --ivy-800: oklch(27% 0.055 157);
-  --ivy-900: oklch(20% 0.04 157);
+   * Two deliberate irregularities, both load-bearing:
+   *
+   * Hue sits at 77 throughout EXCEPT sand-25, which is 49. At L 0.99 a
+   * chroma this small is barely a rumour, and only the red end of the
+   * warm band still registers as warm; by L 0.87 there is chroma enough
+   * to carry the tint and hue 77 keeps it a warm stone instead of
+   * drifting pink. One flat hue can serve one end or the other, not both.
+   *
+   * Chroma is therefore NOT monotonic across the top of the ramp
+   * (sand-25 is 0.0025, the darker sand-75 only 0.0015). That is what the
+   * requested pair actually is: the ground is a warm off-white, the chip
+   * fill is a near-neutral grey that only leans warm. Don't "fix" it by
+   * interpolating — it would move two colors that were picked by eye.
+   *
+   * This is the cream/sand band (hue 40-100) the --indigo note below rules
+   * out for the BRAND. It is not ruled out for the ground the brand sits
+   * on — indigo at hue 278 against a hue-49 ground is very near a true
+   * complement, which is why a warm off-white ground makes the brand read
+   * cooler and more deliberate, not muddier. Every functional (3:1-checked)
+   * border stays on --neutral; the sidebar's surfaces and ink run on
+   * --stone below. */
+  --sand-25: oklch(98.9% 0.0025 49);
+  --sand-75: oklch(97.55% 0.0015 77);
+  --sand-100: oklch(95.1% 0.0025 77);
+  --sand-150: oklch(92.1% 0.004 77);
+  --sand-200: oklch(86.6% 0.011 77);
+  --sand-300: oklch(78% 0.014 77);
 
-  /* ---- plum — no longer the brand (see --ivy above); retained as the
+  /* ---- stone — the warm ramp the sidebar chrome is built from. Unlike
+   * --sand (surfaces and soft edges only), this one runs the full span
+   * from panel surface down to ink, because the whole chrome family has
+   * to sit in one temperature: a warm rail carrying cold grey borders and
+   * cold grey secondary text just relocates the mismatch it was meant to
+   * fix.
+   *
+   * Three steps are exact, requested values and are the contract — each
+   * renders the annotated hex exactly (verified by an OKLCH -> sRGB
+   * roundtrip, not approximated):
+   *
+   *   stone-50  #f5f3f1  the sidebar surface, and the user message bubble
+   *   stone-100 #edebe8  the sidebar hover AND selected fill
+   *   stone-150 #e7e4e0  the sidebar border
+   *   stone-800 #27251e  the app's default ink, everywhere, not just the
+   *                      sidebar — see the ink block in semantic.css
+   *
+   * The other steps interpolate between and past them along the same path.
+   * stone-550 and stone-400 exist for the faint/placeholder and disabled
+   * ink tiers respectively.
+   *
+   * Hue drifts 68 -> 94 as the ramp darkens, the same technique --sand
+   * uses and for the same reason: at L 0.965 a chroma of 0.0034 only
+   * registers as warm if it sits red-ward, while by L 0.26 there is chroma
+   * enough that hue 94 reads as a warm olive-black rather than a muddy
+   * brown. A single flat hue can serve one end or the other, not both.
+   *
+   * Contrast against stone-50, computed not eyeballed: stone-800 13.85:1,
+   * stone-700 10.21:1, stone-600 7.01:1 — every ink step clears AA with
+   * room. stone-900 (17.27:1) is the strong/hover ink and the grain's
+   * colour. Re-run the numbers if stone-50 ever moves. */
+  --stone-50: oklch(96.5% 0.0034 68);
+  --stone-100: oklch(94.1% 0.0046 78);
+  --stone-150: oklch(92.008% 0.0063 75.4);
+  --stone-200: oklch(90.5% 0.006 78);
+  --stone-400: oklch(68% 0.007 88);
+  --stone-550: oklch(52% 0.009 92);
+  --stone-600: oklch(44% 0.008 90);
+  --stone-700: oklch(35% 0.01 92);
+  --stone-800: oklch(26.4% 0.0129 94);
+  --stone-900: oklch(17% 0.014 94);
+
+  /* ---- indigo — the one committed brand hue (indigo-violet, hue 282). ----
+   *
+   * Replaces the former --ivy (evergreen, 157). Three reasons for leaving
+   * green, and then two corrections that set the specific values.
+   *
+   * WHY NOT GREEN:
+   *
+   * 1. GAMUT. On a white ground the brand must clear AA as text AND read
+   *    as saturated when filled, which pins the fill near L 0.44. Green's
+   *    sRGB gamut is narrow: the old ivy ramp had to taper chroma at BOTH
+   *    ends to stay in gamut and topped out at 0.105. The blue-violet band
+   *    holds roughly 3x the chroma at the same lightness (in-gamut ceiling
+   *    at L 0.52: teal-195 0.088, blue-252 0.154, green-145 0.162, and
+   *    282 0.28). We do not spend that headroom — see correction B — but
+   *    having it means every step below is comfortably inside the wall
+   *    rather than pressed against it.
+   *
+   * 2. THE HUE WHEEL IS ALREADY SPENT. --leaf owns 143 (success), --amber
+   *    80 (warning), --red 25 (danger), --blue 250 (info). A green brand
+   *    had to be separated from the success green along three axes just to
+   *    keep "green = done" legible. In a tracker that pill is the single
+   *    most valuable feedback moment in the product; the brand should not
+   *    be competing with it. 282 collides with nothing that carries state.
+   *
+   * 3. REGISTER. Navy is the admissions reflex and it is wrong: it is the
+   *    uniform of the gatekeeping institution, which is the party this
+   *    product sits opposite. 282 is blue's trust rotated far enough
+   *    toward violet to pick up aspiration — historically the scholarship
+   *    pigment, and the hue of academic distinction.
+   *
+   * TWO CORRECTIONS, both made after seeing the first version rendered
+   * against the real light theme. Read these before touching any value:
+   *
+   * A. HUE — 282, NOT 278. The chrome ramp (--stone) runs hue 68-94, and
+   *    --stone-800 is the app's ink at 94. Its exact complement is 274.
+   *    The first attempt sat at 278, four degrees off dead-complementary
+   *    to every warm surface and every glyph on screen — and a
+   *    complementary pair at any real chroma vibrates. 282 is eight
+   *    degrees off the complement, enough to stop the buzz, and the
+   *    rotation is toward red, so the brand shares a little of the warm
+   *    ground's temperature instead of opposing all of it. Going further
+   *    warm is blocked: --mauve (lor category) is at 305 and --plum
+   *    (essay) at 322. 282 keeps 23 degrees from mauve and 32 from
+   *    --blue-250 (info) — the widest gap available between them.
+   *
+   * B. CHROMA — 0.135 AT THE FILL, NOT 0.19. This is the correction that
+   *    mattered most. Everything else in this theme is nearly achromatic:
+   *    --sand runs C 0.0015-0.014, --stone C 0.0034-0.014, the ink itself
+   *    is C 0.0129. A brand at 0.19 is more than 13x the chroma of every
+   *    neighbouring pixel, and it does not read as an accent — it reads as
+   *    a neon sticker pasted onto a warm paper UI. At 0.135 it is still
+   *    unmistakably the one chromatic event on the page while belonging to
+   *    the same material as everything around it. This is also the real
+   *    answer to the "AI-purple" objection the old ivy note raised: the
+   *    tell is chroma and gradients, not hue.
+   *
+   * A third guard, unchanged from the ivy note: the fill sits at L 0.44,
+   * the same weight ivy-600 held. That step was tuned against these warm
+   * neutrals and it is load-bearing — a lighter brand glows against a
+   * near-white ground no matter how the hue is chosen.
+   *
+   * Restraint carries the rest. Brand pixels stay under ~3% of any screen;
+   * authority in this UI comes from --stone-800 ink on a --sand-25 ground.
+   * The brand marks the agent's voice and the single next action, nothing
+   * else, and is never a gradient or a wash.
+   *
+   * Chroma tapers at the dark end (the blue-violet gamut narrows there
+   * too, just far later than green's). Every step was checked by an
+   * OKLCH -> sRGB roundtrip for clipping and by a WCAG contrast script
+   * against white and --stone-50; the hexes are the contract. Re-run the
+   * script if any step moves.
+   *
+   * indigo-25, -100 and -900 currently have no consumer. Kept on purpose:
+   * this is the brand ramp, and a brand ramp with holes in it invites the
+   * next person to invent an off-scale value when they need one. The
+   * non-brand ramps below stay trimmed to exactly what they use. */
+  --indigo-25: oklch(96.5% 0.01 282); /* #f2f3fa */
+  --indigo-50: oklch(96% 0.014 282); /* #f0f1fb  brand-subtle */
+  --indigo-100: oklch(92% 0.028 282); /* #e1e3f7 */
+  /* indigo-150 exists for the sidebar rail's own tinted edge: --neutral-200
+   * (the generic --edge) reads as a grey seam bolted onto a tinted panel. */
+  --indigo-150: oklch(88.5% 0.038 282); /* #d4d7f2 */
+  --indigo-200: oklch(84% 0.052 282); /* #c4c7ec  brand-subtle-border */
+  --indigo-300: oklch(74% 0.085 282); /* #a2a5e0 */
+  --indigo-400: oklch(63% 0.115 282); /* #7e80cd  3.60:1 on white */
+  --indigo-500: oklch(52% 0.14 282); /* #5e5bb6  5.76:1 — focus ring */
+  --indigo-600: oklch(44% 0.135 282); /* #49449a  8.13:1 — the brand */
+  --indigo-700: oklch(36% 0.115 282); /* #363177  11.27:1 */
+  --indigo-800: oklch(28% 0.085 282); /* #242151  14.91:1 */
+  --indigo-900: oklch(20% 0.06 282); /* #131130  18.28:1 */
+
+  /* ---- plum — no longer the brand (see --indigo above); retained as the
    * essay task-category's wayfinding hue, which is the only thing that
    * ever consumed it besides --brand-*. Three shades, because that's all
    * a category chip needs (surface / border / ink) — the other eight were
@@ -85,16 +224,16 @@
   --plum-700: oklch(36% 0.1 322);
 
   /* ---- status ramps ---- */
-  /* leaf — success. Deliberately NOT the brand's ivy: with a green brand,
-   * "green = done" only keeps meaning if the status green is visibly a
-   * different green. Three axes of separation, not one: hue 143 (warmer,
-   * grass-toward-yellow) vs. ivy's 157 (cooler, blue-toward-spruce);
-   * roughly double the chroma, so status green is vivid where brand green
-   * is muted; and leaf-700 sits at L 0.42 rather than ivy-700's 0.35, so
-   * the two dark greens never land on the same tone either. Renamed from
-   * --green-* so no future edit can absent-mindedly point a brand token
-   * at it. Chroma is capped just inside the sRGB wall here — 0.14 at
-   * L 0.42 / hue 143 is the last in-gamut step, so 0.13 leaves headroom. */
+  /* leaf — success. Under the old ivy brand this ramp had to be separated
+   * from the brand along three axes just to keep "green = done" readable
+   * next to a green identity. With the brand at hue 278 that constraint is
+   * gone: green now means exactly one thing in this system, which is the
+   * single most valuable feedback moment in a tracker. Values are kept as
+   * they were — they are tuned and shipped, and there is no longer any
+   * pressure to move them. Still named --leaf rather than --green-* so no
+   * future edit can absent-mindedly point a brand token at it. Chroma is
+   * capped just inside the sRGB wall here — 0.14 at L 0.42 / hue 143 is
+   * the last in-gamut step, so 0.13 leaves headroom. */
   --leaf-50: oklch(95.5% 0.036 143);
   --leaf-600: oklch(51% 0.155 143);
   --leaf-700: oklch(42% 0.13 143);
