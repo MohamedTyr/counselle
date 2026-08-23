@@ -1,532 +1,6 @@
 id: admissions
-context_bindings:
-- id: c1_entering_class
-  label: entering class
-  binders:
-  - first_year_admission_entry_term
-  - first_year_admission_entry_year
-  targets:
-    metric_ids:
-    - applicants_men
-    - applicants_women
-    - applicants_another_gender
-    - applicants_unknown
-    - admitted_men
-    - admitted_women
-    - admitted_another_gender
-    - admitted_unknown
-    - enrolled_men
-    - enrolled_women
-    - enrolled_another_gender
-    - enrolled_unknown
-    - enrolled_full_time_men
-    - enrolled_full_time_women
-    - enrolled_full_time_another_gender
-    - enrolled_full_time_unknown
-    - enrolled_part_time_men
-    - enrolled_part_time_women
-    - enrolled_part_time_another_gender
-    - enrolled_part_time_unknown
-    - applicants_residency_in_state
-    - applicants_residency_out_of_state
-    - applicants_residency_international
-    - applicants_residency_unknown
-    - admitted_residency_in_state
-    - admitted_residency_out_of_state
-    - admitted_residency_international
-    - admitted_residency_unknown
-    - enrolled_residency_in_state
-    - enrolled_residency_out_of_state
-    - enrolled_residency_international
-    - enrolled_residency_unknown
-    - applicants_total
-    - admitted_total
-    - enrolled_total
-- id: c8a_testing_cohort
-  label: testing-policy entering class
-  binders:
-  - testing_policy_entry_term
-  - testing_policy_entry_year
-  targets:
-    metric_ids:
-    - uses_entrance_exam_scores_in_admission
-    - sat_or_act_admission_policy
-    - act_only_admission_policy
-    - sat_only_admission_policy
-- id: c21_early_decision_cohort
-  label: early-decision entering class
-  binders:
-  - early_decision_entry_term
-  - early_decision_entry_year
-  targets:
-    metric_ids:
-    - early_decision_offered
-    - early_decision_first_closing_date
-    - early_decision_first_notification_date
-    - early_decision_other_closing_date
-    - early_decision_other_notification_date
-    - early_decision_application_count
-    - early_decision_admitted_count
-    - early_decision_details_raw
 title: First-year admission volumes, requirements, selection, and enrollment policy
 metrics:
-  # C1 — source context binding every C1 count
-  - id: first_year_admission_entry_term
-    description: "Entry term named in the C1 first-time first-year admission prompt (for example Fall)."
-    type: string
-    unit: text
-    population: first_time_first_year
-    denominator: none
-    definition_variant: printed
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Copy the term word printed in the C1 heading that identifies which
-      entering class the applicant/admitted/enrolled counts describe. This
-      is source context binding every C1 count; it is not an
-      institution-entered response and not the CDS edition.
-
-  - id: first_year_admission_entry_year
-    description: "Entry year named in the C1 first-time first-year admission prompt."
-    type: string
-    unit: academic_year
-    population: first_time_first_year
-    denominator: none
-    definition_variant: printed
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Copy the year printed in the C1 heading that identifies which
-      entering class the applicant/admitted/enrolled counts describe. This
-      is source context binding every C1 count; it is not the CDS edition
-      and not an item-specific reporting period from another section.
-
-  # C1 — outcome x gender (degree-seeking, full- and part-time, named fall)
-  - id: applicants_men
-    description: "Men among degree-seeking first-time first-year applicants, per C1."
-    type: integer
-    unit: applicants
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year men who applied" (Yale)
-      or "Total first-time, first-year males who applied" (Harvard) at the
-      "TOTAL" column, bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-      The C1 gender block prints no additional overall-total response;
-      never sum the four gender rows to derive one. Keep separate from
-      women, another-gender, and unknown-gender counts.
-
-  - id: applicants_women
-    description: "Women among degree-seeking first-time first-year applicants, per C1."
-    type: integer
-    unit: applicants
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year women who applied"
-      (Yale) or "Total first-time, first-year females who applied"
-      (Harvard) at the "TOTAL" column, bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-      The C1 gender block prints no additional overall-total response;
-      never sum the four gender rows to derive one. Keep separate from
-      men, another-gender, and unknown-gender counts.
-
-  - id: applicants_another_gender
-    description: >-
-      Students identifying as another gender among degree-seeking
-      first-time first-year applicants, per C1. Distinct from unknown
-      gender.
-    type: integer
-    unit: applicants
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year of another gender who
-      applied" at the "TOTAL" column. This row is present in Yale 2024-25
-      and absent from Harvard 2025-26; an absent row is
-      not_in_template_version, never zero. "Another Gender" is not
-      "Unknown"; never merge them. This metric is bound to
-      first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: applicants_unknown
-    description: >-
-      Applicants of unknown or unreported gender among degree-seeking
-      first-time first-year applicants, per C1.
-    type: integer
-    unit: applicants
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year of unknown gender who
-      applied" (Yale) or "Total first-time, first-year students of unknown
-      sex who applied" (Harvard) at the "TOTAL" column. "Unknown" is not
-      "Another Gender"; keep them separate. A visible empty response cell
-      is not_reported, never zero. This metric is bound to
-      first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: admitted_men
-    description: "Men among degree-seeking first-time first-year applicants admitted, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year men who were admitted"
-      (Yale) or "Total first-time, first-year males who were admitted"
-      (Harvard) at the "TOTAL" column. Keep separate from women,
-      another-gender, and unknown-gender counts. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: admitted_women
-    description: "Women among degree-seeking first-time first-year applicants admitted, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year women who were admitted"
-      (Yale) or "Total first-time, first-year females who were admitted"
-      (Harvard) at the "TOTAL" column. Keep separate from men,
-      another-gender, and unknown-gender counts. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: admitted_another_gender
-    description: >-
-      Students identifying as another gender among degree-seeking
-      first-time first-year applicants admitted, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year of another gender who
-      were admitted" at the "TOTAL" column. This row is present in Yale
-      2024-25 and absent from Harvard 2025-26; an absent row is
-      not_in_template_version, never zero. "Another Gender" is not
-      "Unknown"; never merge them. This metric is bound to
-      first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: admitted_unknown
-    description: >-
-      Applicants of unknown or unreported gender among degree-seeking
-      first-time first-year applicants admitted, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year of unknown gender who
-      were admitted" (Yale) or "Total first-time, first-year students of
-      unknown sex who were admitted" (Harvard) at the "TOTAL" column.
-      "Unknown" is not "Another Gender"; keep them separate. This metric is
-      bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_men
-    description: "Men among degree-seeking first-time first-year students enrolled full- or part-time, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year men who enrolled" (Yale)
-      or "Total first-time, first-year males who enrolled" (Harvard) at the
-      "TOTAL" column. Keep separate from women, another-gender, and
-      unknown-gender counts. This row combines full- and part-time
-      enrollment and is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_women
-    description: "Women among degree-seeking first-time first-year students enrolled full- or part-time, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year women who enrolled"
-      (Yale) or "Total first-time, first-year females who enrolled"
-      (Harvard) at the "TOTAL" column. Keep separate from men,
-      another-gender, and unknown-gender counts. This row combines full-
-      and part-time enrollment and is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: enrolled_another_gender
-    description: >-
-      Students identifying as another gender among degree-seeking
-      first-time first-year students enrolled full- or part-time, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year of another gender who
-      enrolled" at the "TOTAL" column. This row is present in Yale 2024-25
-      and absent from Harvard 2025-26; an absent row is
-      not_in_template_version, never zero. "Another Gender" is not
-      "Unknown"; never merge them. This row combines full- and part-time
-      enrollment and is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_unknown
-    description: >-
-      Students of unknown or unreported gender among degree-seeking
-      first-time first-year students enrolled full- or part-time, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total first-time, first-year of unknown gender who
-      enrolled" (Yale) or "Total first-time, first-year students of unknown
-      sex who enrolled" (Harvard) at the "TOTAL" column. "Unknown" is not
-      "Another Gender"; keep them separate. This row combines full- and
-      part-time enrollment and is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  # C1 — enrolled attendance status x gender
-  - id: enrolled_full_time_men
-    description: "Full-time men among degree-seeking first-time first-year students enrolled, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 "First-Time, First-Year Student Enrollees by Status" row
-      "Total full-time, first-time, first-year men who enrolled" (Yale) or
-      "Total full-time, first-time, first-year males who enrolled" (Harvard)
-      at the "TOTAL" column. Keep separate from enrolled_part_time_men. This
-      metric is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_full_time_women
-    description: "Full-time women among degree-seeking first-time first-year students enrolled, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 "First-Time, First-Year Student Enrollees by Status" row
-      "Total full-time, first-time, first-year women who enrolled" (Yale) or
-      "Total full-time, first-time, first-year females who enrolled"
-      (Harvard) at the "TOTAL" column. Keep separate from
-      enrolled_part_time_women. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: enrolled_full_time_another_gender
-    description: >-
-      Full-time students identifying as another gender among degree-seeking
-      first-time first-year students enrolled, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract the first occurrence of C1 row "Total full-time, first-time,
-      first-year of another gender who enrolled" at the "TOTAL" column.
-      Yale has a second occurrence of that exact row label; it has no safe
-      normalized meaning and is preserved separately as
-      enrolled_status_another_gender_full_time_label_occurrence_2_raw.
-      Never relabel occurrence 2 as part-time or use it for this metric.
-      Harvard lacks the Another Gender row, so it is
-      not_in_template_version, never zero. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: enrolled_full_time_unknown
-    description: >-
-      Full-time students of unknown or unreported gender among
-      degree-seeking first-time first-year students enrolled, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract the first occurrence of C1 row "Total full-time, first-time,
-      first-year of unknown gender who enrolled" (Yale), or row "Total
-      full-time, first-time, first-year students of unknown sex who enrolled"
-      (Harvard), at the "TOTAL" column. Yale has a second occurrence of its
-      exact row label; it has no safe normalized meaning and is preserved as
-      enrolled_status_unknown_full_time_label_occurrence_2_raw. Never
-      relabel occurrence 2 as part-time or use it for this metric. This
-      metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: enrolled_part_time_men
-    description: "Part-time men among degree-seeking first-time first-year students enrolled, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 "First-Time, First-Year Student Enrollees by Status" row
-      "Total part-time, first-time, first-year men who enrolled" (Yale) or
-      "Total part-time, first-time, first-year males who enrolled" (Harvard)
-      at the "TOTAL" column. Keep separate from enrolled_full_time_men. This
-      metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: enrolled_part_time_women
-    description: "Part-time women among degree-seeking first-time first-year students enrolled, per C1."
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 "First-Time, First-Year Student Enrollees by Status" row
-      "Total part-time, first-time, first-year women who enrolled" (Yale) or
-      "Total part-time, first-time, first-year females who enrolled"
-      (Harvard) at the "TOTAL" column. Keep separate from
-      enrolled_full_time_women. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: enrolled_part_time_another_gender
-    description: >-
-      Part-time students identifying as another gender among degree-seeking
-      first-time first-year students enrolled, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract only an authoritatively printed C1 row "Total part-time,
-      first-time, first-year of another gender who enrolled" at the "TOTAL"
-      column. Yale prints no such row: its second Another Gender observation
-      repeats the full-time row label and is preserved only as
-      enrolled_status_another_gender_full_time_label_occurrence_2_raw. A
-      genuinely absent row is not_in_template_version, never zero. This
-      metric is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_part_time_unknown
-    description: >-
-      Part-time students of unknown or unreported gender among
-      degree-seeking first-time first-year students enrolled, per C1.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 row "Total part-time, first-time, first-year students of
-      unknown sex who enrolled" (Harvard), or the exact unknown-gender
-      equivalent only when authoritatively printed, at the "TOTAL" column.
-      Yale instead repeats its full-time unknown-gender row label; preserve
-      occurrence 2 only as
-      enrolled_status_unknown_full_time_label_occurrence_2_raw and never use
-      it here. This metric is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  # C1 — Yale-version positional duplicate raw evidence
-  - id: enrolled_status_another_gender_full_time_label_occurrence_2_raw
-    description: >-
-      Value at the TOTAL column for occurrence 2 of Yale C1 row "Total
-      full-time, first-time, first-year of another gender who enrolled";
-      positional raw evidence only.
-    type: string
-    unit: text
-    population: first_time_first_year
-    denominator: none
-    definition_variant: reported
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Preserve the value at Yale's "TOTAL" column for occurrence 2 of exact
-      C1 row "Total full-time, first-time, first-year of another gender who
-      enrolled," including the exact row label, occurrence index, and
-      printed value. This positional
-      occurrence has no safe normalized attendance-status meaning; never
-      relabel it as part-time and never use it to overwrite
-      enrolled_full_time_another_gender or
-      enrolled_part_time_another_gender. Harvard's version, which does not
-      exhibit this duplicate labeling, is not_in_template_version for this
-      metric. This metric is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_status_unknown_full_time_label_occurrence_2_raw
-    description: >-
-      Value at the TOTAL column for occurrence 2 of Yale C1 row "Total
-      full-time, first-time, first-year of unknown gender who enrolled";
-      positional raw evidence only.
-    type: string
-    unit: text
-    population: first_time_first_year
-    denominator: none
-    definition_variant: reported
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Preserve the value at Yale's "TOTAL" column for occurrence 2 of exact
-      C1 row "Total full-time, first-time, first-year of unknown gender who
-      enrolled," including the exact row label, occurrence index, and
-      printed value. This positional
-      occurrence has no safe normalized attendance-status meaning; never
-      relabel it as part-time and never use it to overwrite
-      enrolled_full_time_unknown or enrolled_part_time_unknown. Harvard's
-      version, which does not exhibit this duplicate labeling, is
-      not_in_template_version for this metric. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
 
   # C1 — optional residency table (application-address based)
   - id: applicants_residency_in_state
@@ -545,9 +19,7 @@ metrics:
       (degree-seeking) who applied" at the "IN-STATE" column, based on
       physical address at application. This table is separate from the
       gender table; never merge them. A visible blank cell is not_reported;
-      an absent table is not_in_template_version, never zero. This metric is
-      bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
+      an absent table is not_in_template_version, never zero.
 
   - id: applicants_residency_out_of_state
     description: >-
@@ -564,9 +36,7 @@ metrics:
       Extract C1 residency row "Total first-time, first-year
       (degree-seeking) who applied" at the "OUT-OF-STATE" column, based on
       physical address at application. A visible blank cell is not_reported;
-      an absent table is not_in_template_version, never zero. This metric is
-      bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
+      an absent table is not_in_template_version, never zero.
 
   - id: applicants_residency_international
     description: >-
@@ -580,33 +50,11 @@ metrics:
     period_kind: fall_term
     source_hints: [C1]
     instructions: >-
-      Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who applied" at the exact "INTERNATIONAL" column,
-      based on physical address at application. Do not reinterpret this
-      residency column as nonresident status or redistribute it. A visible
-      blank is not_reported; an absent table is not_in_template_version,
-      never zero. This metric is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: applicants_residency_unknown
-    description: >-
-      Applicants of unknown residency among degree-seeking first-time
-      first-year applicants, from the optional C1 residency table.
-    type: integer
-    unit: applicants
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who applied" at the "UNKNOWN" column, based on
-      physical address at application. Yale 2024-25 has no "UNKNOWN"
-      column, so this metric is not_in_template_version for that version. A
-      visible empty "UNKNOWN" cell is not_reported, never zero. This metric
-      is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
+      Extract C1 residency row "Total first-time, first-year (degree-seeking)
+      who applied" at the exact "INTERNATIONAL" column, based on physical
+      address at application. Do not reinterpret this residency column as
+      nonresident status or redistribute it. A visible blank is not_reported;
+      an absent table is not_in_template_version, never zero.
 
   - id: admitted_residency_in_state
     description: >-
@@ -622,8 +70,7 @@ metrics:
     instructions: >-
       Extract C1 residency row "Total first-time, first-year
       (degree-seeking) who were admitted" at the "IN-STATE" column. Do not
-      derive blank geographic cells or totals. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
+      derive blank geographic cells or totals.
 
   - id: admitted_residency_out_of_state
     description: >-
@@ -639,9 +86,7 @@ metrics:
     instructions: >-
       Extract C1 residency row "Total first-time, first-year
       (degree-seeking) who were admitted" at the "OUT-OF-STATE" column. Do
-      not derive blank geographic cells or totals. This metric is bound to
-      first_year_admission_entry_term and
-      first_year_admission_entry_year.
+      not derive blank geographic cells or totals.
 
   - id: admitted_residency_international
     description: >-
@@ -655,68 +100,10 @@ metrics:
     period_kind: fall_term
     source_hints: [C1]
     instructions: >-
-      Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who were admitted" at the exact "INTERNATIONAL"
-      column. Do not reinterpret this residency column as nonresident status,
-      redistribute it, or derive blank cells or totals. This metric is bound
-      to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: admitted_residency_unknown
-    description: >-
-      Applicants of unknown residency admitted among degree-seeking
-      first-time first-year applicants, from the optional C1 residency
-      table.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who were admitted" at the "UNKNOWN" column. Yale
-      2024-25 has no "UNKNOWN" column, so this metric is
-      not_in_template_version for that version. A visible empty "UNKNOWN"
-      cell is not_reported, never zero. Do not derive blank cells or totals.
-      This metric is bound to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_residency_in_state
-    description: >-
-      In-state students enrolled among degree-seeking first-time
-      first-year students, from the optional C1 residency table.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who enrolled" at the "IN-STATE" column. Do not derive
-      blank geographic cells or totals. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
-
-  - id: enrolled_residency_out_of_state
-    description: >-
-      Out-of-state students enrolled among degree-seeking first-time
-      first-year students, from the optional C1 residency table.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who enrolled" at the "OUT-OF-STATE" column. Do not
-      derive blank geographic cells or totals. This metric is bound to
-      first_year_admission_entry_term and
-      first_year_admission_entry_year.
+      Extract C1 residency row "Total first-time, first-year (degree-seeking)
+      who were admitted" at the exact "INTERNATIONAL" column. Do not
+      reinterpret this residency column as nonresident status, redistribute
+      it, or derive blank cells or totals.
 
   - id: enrolled_residency_international
     description: >-
@@ -731,31 +118,9 @@ metrics:
     source_hints: [C1]
     instructions: >-
       Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who enrolled" at the exact "INTERNATIONAL" column.
-      Do not reinterpret this residency column as nonresident status,
-      redistribute it, or derive blank cells or totals. This metric is bound
-      to first_year_admission_entry_term and
-      first_year_admission_entry_year.
-
-  - id: enrolled_residency_unknown
-    description: >-
-      Students of unknown residency enrolled among degree-seeking
-      first-time first-year students, from the optional C1 residency
-      table.
-    type: integer
-    unit: students
-    population: first_time_first_year
-    denominator: none
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C1]
-    instructions: >-
-      Extract C1 residency row "Total first-time, first-year
-      (degree-seeking) who enrolled" at the "UNKNOWN" column. Yale 2024-25
-      has no "UNKNOWN" column, so this metric is not_in_template_version for
-      that version. A visible empty "UNKNOWN" cell is not_reported, never
-      zero. Do not derive blank cells or totals. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
+      (degree-seeking) who enrolled" at the exact "INTERNATIONAL" column. Do
+      not reinterpret this residency column as nonresident status,
+      redistribute it, or derive blank cells or totals.
 
   # C1 — TOTAL column (the single overall applicants/admitted/enrolled counts)
   - id: applicants_total
@@ -773,8 +138,7 @@ metrics:
       Extract C1 residency row "Total first-time, first-year
       (degree-seeking) who applied" at the "TOTAL" column. This is the only
       overall applicants total in C1; the gender table has no additional
-      overall response, so never sum its rows. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
+      overall response, so never sum its rows.
 
   - id: admitted_total
     description: >-
@@ -790,8 +154,7 @@ metrics:
     instructions: >-
       Extract C1 residency row "Total first-time, first-year
       (degree-seeking) who were admitted" at the "TOTAL" column. Do not
-      derive it from geographic or gender cells. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
+      derive it from geographic or gender cells.
 
   - id: enrolled_total
     description: >-
@@ -807,8 +170,7 @@ metrics:
     instructions: >-
       Extract C1 residency row "Total first-time, first-year
       (degree-seeking) who enrolled" at the "TOTAL" column. Do not derive it
-      from geographic or gender cells. This metric is bound to
-      first_year_admission_entry_term and first_year_admission_entry_year.
+      from geographic or gender cells.
 
   # C2 — wait list
   - id: has_waitlist_policy
@@ -868,53 +230,6 @@ metrics:
       Extract C2 row "Number of wait-listed students admitted" at the
       "TOTAL" column. This is the printed count ultimately admitted from the
       waiting list, not a rate or a derived value.
-
-  - id: waitlist_ranked
-    description: "Whether the institution ranks students on the first-time first-year waiting list, per C2."
-    type: boolean
-    unit: boolean
-    population: first_time_first_year_waitlist
-    denominator: none
-    definition_variant: policy
-    period_kind: admission_cycle
-    source_hints: [C2]
-    instructions: >-
-      Extract the C2 Yes/No control for whether the wait list is ranked.
-      Return true/false only from an unambiguous selected control.
-
-  - id: waitlist_rank_released_to_students
-    description: "Whether the institution releases wait-list rank-order information to students, per C2."
-    type: boolean
-    unit: boolean
-    population: first_time_first_year_waitlist
-    denominator: none
-    definition_variant: policy
-    period_kind: admission_cycle
-    source_hints: [C2]
-    instructions: >-
-      Extract the C2 Yes/No control for releasing wait-list rank-order
-      information to students. This audience is distinct from
-      waitlist_rank_released_to_counselors; keep the two conditional
-      responses separate. When waitlist_ranked is explicitly No, a
-      conditionally unmarked release control is not_reported, never false.
-      Emit false only from an explicit answered No when the follow-up applies.
-
-  - id: waitlist_rank_released_to_counselors
-    description: "Whether the institution releases wait-list rank-order information to school counselors, per C2."
-    type: boolean
-    unit: boolean
-    population: first_time_first_year_waitlist
-    denominator: none
-    definition_variant: policy
-    period_kind: admission_cycle
-    source_hints: [C2]
-    instructions: >-
-      Extract the C2 Yes/No control for releasing wait-list rank-order
-      information to school counselors. This audience is distinct from
-      waitlist_rank_released_to_students; keep the two conditional responses
-      separate. When waitlist_ranked is explicitly No, a conditionally
-      unmarked release control is not_reported, never false. Emit false only
-      from an explicit answered No when the follow-up applies.
 
   # C3 — high-school completion requirement
   - id: high_school_completion_requirement
@@ -1381,21 +696,7 @@ metrics:
       Extract the C6 "Other" checkbox only. Emit true only when visibly
       checked; emit false only when the complete C6 checklist is visible
       and this box is unambiguously unmarked. Never set this true solely
-      because open_admission_other_explanation contains text.
-
-  - id: open_admission_other_explanation
-    description: "Verbatim Other open-admission explanation text printed in C6."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: reported
-    period_kind: policy
-    source_hints: [C6]
-    instructions: >-
-      Copy the C6 Other explanatory text exactly as printed. Leave
-      not_reported when the cell is a visibly present empty response; do
-      not infer text from open_admission_other or any other checklist row.
+      because the C6 "Other" explanation field contains text.
 
   # C7 — selection factors
   - id: selection_factor_rigor_of_secondary_school_record
@@ -1761,8 +1062,7 @@ metrics:
       copies the overall control only and does not identify which named
       test is used; version-specific test names (SAT, ACT, or SAT Subject
       Tests in one version; SAT or ACT in another) belong in template
-      instructions, never in this response value. This metric is bound to
-      testing_policy_entry_term and testing_policy_entry_year.
+      instructions, never in this response value.
 
   - id: sat_or_act_admission_policy
     description: "Admission-decision policy for SAT or ACT scores, per C8A."
@@ -1780,11 +1080,9 @@ metrics:
       required_to_be_considered, "Required for some" to required_for_some,
       "Recommended" to recommended, "Not required but considered if
       submitted" to not_required_but_considered_if_submitted, and "Not
-      considered even if submitted" to
-      not_considered_even_if_submitted. Return the ID for that selected
-      column. Cohort context comes from
-      testing_policy_entry_term and testing_policy_entry_year, not from
-      this response.
+      considered even if submitted" to not_considered_even_if_submitted.
+      Return the ID for that selected column. Cohort context comes from the
+      entry term and year printed on the form, not from this response.
 
   - id: act_only_admission_policy
     description: "Admission-decision policy for ACT-only scores, per C8A."
@@ -1802,11 +1100,9 @@ metrics:
       required_to_be_considered, "Required for some" to required_for_some,
       "Recommended" to recommended, "Not required but considered if
       submitted" to not_required_but_considered_if_submitted, and "Not
-      considered even if submitted" to
-      not_considered_even_if_submitted. Return the ID for that selected
-      column. Keep separate from rows "SAT or ACT" and "SAT Only." This
-      metric is bound to testing_policy_entry_term and
-      testing_policy_entry_year.
+      considered even if submitted" to not_considered_even_if_submitted.
+      Return the ID for that selected column. Keep separate from rows "SAT
+      or ACT" and "SAT Only."
 
   - id: sat_only_admission_policy
     description: "Admission-decision policy for SAT-only scores, per C8A."
@@ -1824,88 +1120,9 @@ metrics:
       required_to_be_considered, "Required for some" to required_for_some,
       "Recommended" to recommended, "Not required but considered if
       submitted" to not_required_but_considered_if_submitted, and "Not
-      considered even if submitted" to
-      not_considered_even_if_submitted. Return the ID for that selected
-      column. Keep separate from rows "SAT or ACT" and "ACT Only." This
-      metric is bound to testing_policy_entry_term and
-      testing_policy_entry_year.
-
-  - id: testing_policy_entry_term
-    description: "Entry term named in the C8A entrance-exam policy prompt."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: printed
-    period_kind: admission_cycle
-    source_hints: [C8A]
-    instructions: >-
-      Copy the entry term printed in the C8A policy heading that the
-      entrance-exam policy rows apply to. This is source context, not an
-      institution-entered response and not the CDS edition.
-
-  - id: testing_policy_entry_year
-    description: "Entry year named in the C8A entrance-exam policy prompt."
-    type: string
-    unit: academic_year
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: printed
-    period_kind: admission_cycle
-    source_hints: [C8A]
-    instructions: >-
-      Copy the entry year printed in the C8A policy heading that the
-      entrance-exam policy rows apply to. This is source context, not the
-      CDS edition.
-
-  # C8D — test scores used for academic advising
-  - id: test_scores_used_for_academic_advising
-    description: "Whether the institution uses test scores for academic advising, per C8D."
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C8D]
-    instructions: >-
-      Extract the direct selected C8D Yes/No control only. Advising use is
-      distinct from the C8A admission-decision use and the C8G placement
-      use; do not infer this value from either of those sections.
-
-  # C8E — receipt-deadline raw evidence
-  - id: sat_act_receipt_deadline_details_raw
-    description: "Verbatim SAT/ACT score-receipt deadline details printed in C8E."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: reported
-    period_kind: admission_cycle
-    source_hints: [C8E]
-    instructions: >-
-      Copy the complete C8E SAT/ACT receipt-deadline response exactly as
-      printed, retaining every admission-plan, test, and date association
-      (for example separate Early Decision and Regular Decision dates). Do
-      not manufacture plan-specific fields from a generic response, and
-      preserve a literal "N/A" as status/raw evidence rather than a date.
-
-  - id: sat_subject_receipt_deadline_or_status_raw
-    description: "Verbatim SAT Subject Test receipt deadline or status printed in C8E."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: reported
-    period_kind: admission_cycle
-    source_hints: [C8E]
-    instructions: >-
-      Copy the complete C8E SAT Subject Test receipt-deadline or status
-      response exactly as printed. Preserve a literal "N/A" as status/raw
-      evidence rather than a date, and do not infer plan-specific dates
-      from the SAT/ACT response above. This legacy row is present in Yale
-      2024-25 and absent from Harvard 2025-26; for Harvard it is
-      not_in_template_version, not a blank or negative policy response.
+      considered even if submitted" to not_considered_even_if_submitted.
+      Return the ID for that selected column. Keep separate from rows "SAT
+      or ACT" and "ACT Only."
 
   # C8F — test policy clarification
   - id: test_policy_clarification
@@ -1923,126 +1140,6 @@ metrics:
       sentence. Do not update, complete, or correct the text; preserve it
       exactly as it appears on the source page.
 
-  # C8G — test-score use in placement
-  - id: placement_uses_sat
-    description: "Whether SAT scores are used for course placement, per C8G."
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C8G]
-    instructions: >-
-      Extract the C8G checklist box for SAT used in course placement. Emit
-      true only when visibly checked; emit false only when the complete
-      C8G checklist is visible and this box is unambiguously unmarked.
-      Placement use is distinct from the C8A admission use and the C8D
-      advising use.
-
-  - id: placement_uses_act
-    description: "Whether ACT scores are used for course placement, per C8G."
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C8G]
-    instructions: >-
-      Extract the C8G checklist box for ACT used in course placement. Emit
-      true only when visibly checked; emit false only when the complete
-      C8G checklist is visible and this box is unambiguously unmarked.
-
-  - id: placement_uses_ap
-    description: "Whether AP scores are used for course placement, per C8G."
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C8G]
-    instructions: >-
-      Extract the C8G checklist box for AP scores used in course
-      placement. Emit true only when visibly checked; emit false only
-      when the complete C8G checklist is visible and this box is
-      unambiguously unmarked.
-
-  - id: placement_uses_clep
-    description: "Whether CLEP scores are used for course placement, per C8G."
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C8G]
-    instructions: >-
-      Extract the C8G checklist box for CLEP scores used in course
-      placement. Emit true only when visibly checked; emit false only
-      when the complete C8G checklist is visible and this box is
-      unambiguously unmarked.
-
-  - id: placement_uses_institutional_exam
-    description: "Whether an institutional exam is used for course placement, per C8G."
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C8G]
-    instructions: >-
-      Extract the C8G checklist box for an institutional exam used in
-      course placement. Emit true only when visibly checked; emit false
-      only when the complete C8G checklist is visible and this box is
-      unambiguously unmarked.
-
-  - id: placement_uses_state_exam
-    description: "Whether a state exam is used for course placement, per C8G."
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C8G]
-    instructions: >-
-      Extract the C8G checklist box for a state exam used in course
-      placement. Emit true only when visibly checked; emit false only
-      when the complete C8G checklist is visible and this box is
-      unambiguously unmarked.
-
-  - id: placement_state_exam_name
-    description: "Name of the state exam used for course placement, per C8G."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: reported
-    period_kind: policy
-    source_hints: [C8G]
-    instructions: >-
-      Copy the printed name of the state exam beside the C8G state-exam
-      checkbox exactly as written. Leave not_reported when the name cell
-      is visibly blank; do not infer a name from placement_uses_state_exam.
-
-  # C13 — application fee (replaces the unsupported legacy refundability field)
-  - id: application_fee_cycle
-    description: "Admission cycle named in the C13 application-fee prompt."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: printed
-    period_kind: admission_cycle
-    source_hints: [C13]
-    instructions: >-
-      Copy the cycle/year identifier printed in the C13 item prompt that
-      the application-fee responses apply to. This is source context, not
-      an institution-entered response.
-
   - id: has_application_fee
     description: "Whether the institution charges an application fee, per C13."
     type: boolean
@@ -2055,7 +1152,7 @@ metrics:
     instructions: >-
       Extract the C13 Yes/No control for whether an application fee is
       charged. Return true/false only from an unambiguous selected
-      control. This metric is bound to application_fee_cycle.
+      control.
 
   - id: application_fee_amount
     description: "First-year application fee amount, per C13."
@@ -2069,8 +1166,7 @@ metrics:
     instructions: >-
       Extract the C13 printed application-fee amount, preserving currency
       precision. The CDS does not report fee refundability; do not infer
-      or attach a refund policy to this amount. This metric is bound to
-      application_fee_cycle.
+      or attach a refund policy to this amount.
 
   - id: need_based_application_fee_waiver_available
     description: "Whether a need-based application-fee waiver is available, per C13."
@@ -2085,41 +1181,7 @@ metrics:
       Extract the C13 Yes/No control for need-based fee-waiver
       availability. This question is specifically need-based; do not
       conflate it with general fee-reduction policy or with the separate
-      online-fee waiver question below. This metric is bound to
-      application_fee_cycle.
-
-  - id: online_application_fee_policy
-    description: "Fee policy for applying online, per C13."
-    type: enum
-    unit: category
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: selected
-    period_kind: admission_cycle
-    enums: [same_fee, free, reduced_fee]
-    source_hints: [C13]
-    instructions: >-
-      Map the exact visible labels "Same fee" to same_fee, "Free" to free,
-      and "Reduced" to reduced_fee. Return the ID mapped from the single
-      selected C13 online-application fee-policy row. This metric is bound
-      to application_fee_cycle.
-
-  - id: online_need_based_application_fee_waiver_available
-    description: >-
-      Whether a need-based fee waiver is available specifically for
-      online applicants, per C13.
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: availability
-    period_kind: admission_cycle
-    source_hints: [C13]
-    instructions: >-
-      Extract the C13 Yes/No control for online-specific need-based
-      fee-waiver availability. Keep separate from the general
-      need_based_application_fee_waiver_available response above. This
-      metric is bound to application_fee_cycle.
+      online-fee waiver question below.
 
   # C14 — closing and priority dates (replaces application_deadline_fall)
   - id: has_application_closing_date
@@ -2226,20 +1288,6 @@ metrics:
       decision_notification_mode is by_date. Leave not_reported when no
       such date is printed.
 
-  - id: decision_other
-    description: "Verbatim Other admission-decision notification detail, per C16."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: reported
-    period_kind: admission_cycle
-    source_hints: [C16]
-    instructions: >-
-      Copy the C16 Other notification text exactly as printed, only when
-      decision_notification_mode is other. Leave not_reported when no
-      such text is printed.
-
   # C17 — reply policy and housing deposit
   - id: reply_policy_mode
     description: "Admitted-student reply-by policy mode, per C17."
@@ -2288,19 +1336,6 @@ metrics:
       notified after May 1, only when reply_policy_mode is
       may_1_or_within_weeks_if_notified_later. Leave not_reported when
       blank.
-
-  - id: reply_other
-    description: "Verbatim Other reply-policy detail, per C17."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: reported
-    period_kind: admission_cycle
-    source_hints: [C17]
-    instructions: >-
-      Copy the C17 Other reply-policy text exactly as printed, only when
-      reply_policy_mode is other. Leave not_reported when blank.
 
   - id: housing_deposit_deadline
     description: "Housing-deposit deadline, per C17."
@@ -2374,23 +1409,6 @@ metrics:
       example a stated number of years or terms). Do not assume a unit
       such as semesters when none is printed; preserve the reported text
       verbatim.
-
-  # C19 — early admission before high school graduation
-  - id: early_admission_before_high_school_graduation_allowed
-    description: >-
-      Whether the institution allows full-time enrollment before high
-      school graduation, per C19.
-    type: boolean
-    unit: boolean
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [C19]
-    instructions: >-
-      Extract the C19 Yes/No control for full-time enrollment before high
-      school graduation. This is early admission, not Early Decision or
-      Early Action; never relabel it as either of those C21/C22 plans.
 
   # C21 — Early Decision
   - id: early_decision_offered
@@ -2466,36 +1484,6 @@ metrics:
       Copy the C21 second/other Early Decision plan's notification date
       exactly as printed, only when a second plan is visibly present.
 
-  - id: early_decision_entry_term
-    description: "Entry term named in the C21 binding Early Decision application/admit count prompt."
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: printed
-    period_kind: admission_cycle
-    source_hints: [C21]
-    instructions: >-
-      Copy the entry term printed in the C21 application/admitted-count
-      heading. This binds early_decision_application_count and
-      early_decision_admitted_count; do not infer it from the closing
-      dates or the CDS edition.
-
-  - id: early_decision_entry_year
-    description: "Entry year named in the C21 binding Early Decision application/admit count prompt."
-    type: string
-    unit: academic_year
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: printed
-    period_kind: admission_cycle
-    source_hints: [C21]
-    instructions: >-
-      Copy the entry year printed in the C21 application/admitted-count
-      heading. This binds early_decision_application_count and
-      early_decision_admitted_count; do not infer it from the closing
-      dates or the CDS edition.
-
   - id: early_decision_application_count
     description: >-
       Number of students who applied under the institution's binding Early
@@ -2508,9 +1496,8 @@ metrics:
     period_kind: admission_cycle
     source_hints: [C21]
     instructions: >-
-      Extract the C21 Early Decision applicant count, bound to
-      early_decision_entry_term and early_decision_entry_year. A
-      conditional blank after a "No" early_decision_offered response is
+      Extract the C21 Early Decision applicant count. A conditional
+      blank after a "No" early_decision_offered response is
       not_reported, never zero.
 
   - id: early_decision_admitted_count
@@ -2525,29 +1512,9 @@ metrics:
     period_kind: admission_cycle
     source_hints: [C21]
     instructions: >-
-      Extract the C21 Early Decision admitted count, bound to
-      early_decision_entry_term and early_decision_entry_year. A
-      conditional blank after a "No" early_decision_offered response is
+      Extract the C21 Early Decision admitted count. A conditional
+      blank after a "No" early_decision_offered response is
       not_reported, never zero.
-
-  - id: early_decision_details_raw
-    description: >-
-      Verbatim institution-entered details about the binding Early Decision
-      plan beyond the structured dates and counts, per C21.
-    type: string
-    unit: text
-    population: prospective_undergraduate
-    denominator: none
-    definition_variant: reported
-    period_kind: admission_cycle
-    source_hints: [C21]
-    instructions: >-
-      Copy only institution-entered response text from the C21 "Please
-      provide significant details about your early decision plan" response
-      area, exactly as printed. Never copy the prompt, generic template
-      prose, definitions, examples, or instructions as institution data.
-      Ignore an unfilled Word placeholder as an answer; leave not_reported
-      when no institution-entered response text is visibly present.
 
   # C22 — Early Action
   - id: early_action_offered

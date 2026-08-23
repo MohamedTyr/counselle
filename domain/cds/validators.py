@@ -206,20 +206,6 @@ _ORDER_RULES: tuple[tuple[str, str, str, str], ...] = (
     ("admissions.admitted_total", "admissions.applicants_total", "admits", "applicants"),
     ("admissions.enrolled_total", "admissions.admitted_total", "enrolled", "admits"),
 )
-_GENDER_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("admissions.applicants_total", (
-        "admissions.applicants_men", "admissions.applicants_women",
-        "admissions.applicants_another_gender", "admissions.applicants_unknown",
-    )),
-    ("admissions.admitted_total", (
-        "admissions.admitted_men", "admissions.admitted_women",
-        "admissions.admitted_another_gender", "admissions.admitted_unknown",
-    )),
-    ("admissions.enrolled_total", (
-        "admissions.enrolled_men", "admissions.enrolled_women",
-        "admissions.enrolled_another_gender", "admissions.enrolled_unknown",
-    )),
-)
 
 
 def _metric_definition(packet: dict[str, Any], ref: str) -> dict[str, Any] | None:
@@ -261,35 +247,6 @@ def _order_flags(metrics: dict[str, Any]) -> list[ReviewFlag]:
     return flags
 
 
-def _gender_sum_flags(metrics: dict[str, Any]) -> list[ReviewFlag]:
-    flags: list[ReviewFlag] = []
-    for total_ref, part_refs in _GENDER_GROUPS:
-        total = _reported_number(metrics.get(total_ref))
-        if total is None:
-            continue
-        parts = [_reported_number(metrics.get(ref)) for ref in part_refs]
-        if any(part is None for part in parts):
-            continue
-        part_sum = sum(parts)  # type: ignore[arg-type]
-        if part_sum != total:
-            flags.append(ReviewFlag(
-                code="denominator_sanity",
-                # "error" (blocking), not "warning": every part in this sum
-                # is itself a verified, reported value -- a mismatch is a
-                # direct arithmetic contradiction in the packet's own data,
-                # the same class of proof as the order-rule checks below,
-                # not an evidence-verifiability gap. `denominator_sanity` is
-                # blocking uniformly (flag-precision.md's explicit gate).
-                severity="error",
-                metric_ref=total_ref,
-                message=(
-                    f"{total_ref}: gender breakdown sums to {part_sum:,.0f} but the printed "
-                    f"total is {total:,.0f}."
-                ),
-            ))
-    return flags
-
-
 def _percent_range_flags(packet: dict[str, Any]) -> list[ReviewFlag]:
     flags: list[ReviewFlag] = []
     for ref, metric in packet.get("metrics", {}).items():
@@ -313,10 +270,10 @@ def _percent_range_flags(packet: dict[str, Any]) -> list[ReviewFlag]:
 
 def denominator_sanity(packet: dict[str, Any], doc_facts: DocFacts) -> list[ReviewFlag]:
     """Pure arithmetic over verified siblings in the same packet: admits <=
-    applicants, enrolled <= admits, gender parts summing to the printed total,
-    and any ``unit: percent`` value staying inside 0-100."""
+    applicants, enrolled <= admits, and any ``unit: percent`` value staying
+    inside 0-100."""
     metrics = packet.get("metrics", {})
-    return _order_flags(metrics) + _gender_sum_flags(metrics) + _percent_range_flags(packet)
+    return _order_flags(metrics) + _percent_range_flags(packet)
 
 
 VALIDATORS = (excerpt_on_cited_page, corrupt_text_layer, year_consistency, denominator_sanity)

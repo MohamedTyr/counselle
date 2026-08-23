@@ -1,172 +1,6 @@
 id: class_profile
-context_bindings:
-- id: c9_entering_class
-  label: entering class
-  binders:
-  - class_profile_entry_term
-  - class_profile_entry_year
-  targets:
-    metric_ids:
-    - sat_submitters_percent
-    - sat_submitters_count
-    - act_submitters_percent
-    - act_submitters_count
-    - sat_composite_p25
-    - sat_composite_p50
-    - sat_composite_p75
-    - sat_ebrw_p25
-    - sat_ebrw_p50
-    - sat_ebrw_p75
-    - sat_math_p25
-    - sat_math_p50
-    - sat_math_p75
-    - act_composite_p25
-    - act_composite_p50
-    - act_composite_p75
-    - act_math_p25
-    - act_math_p50
-    - act_math_p75
-    - act_english_p25
-    - act_english_p50
-    - act_english_p75
-    - act_writing_p25
-    - act_writing_p50
-    - act_writing_p75
-    - act_science_p25
-    - act_science_p50
-    - act_science_p75
-    - act_reading_p25
-    - act_reading_p50
-    - act_reading_p75
-    - sat_ebrw_band_700_800_percent
-    - sat_ebrw_band_600_699_percent
-    - sat_ebrw_band_500_599_percent
-    - sat_ebrw_band_400_499_percent
-    - sat_ebrw_band_300_399_percent
-    - sat_ebrw_band_200_299_percent
-    - sat_ebrw_distribution_reported_total_percent
-    - sat_math_band_700_800_percent
-    - sat_math_band_600_699_percent
-    - sat_math_band_500_599_percent
-    - sat_math_band_400_499_percent
-    - sat_math_band_300_399_percent
-    - sat_math_band_200_299_percent
-    - sat_math_distribution_reported_total_percent
-    - sat_composite_band_1400_1600_percent
-    - sat_composite_band_1200_1399_percent
-    - sat_composite_band_1000_1199_percent
-    - sat_composite_band_800_999_percent
-    - sat_composite_band_600_799_percent
-    - sat_composite_band_400_599_percent
-    - sat_composite_distribution_reported_total_percent
-    - act_composite_band_30_36_percent
-    - act_composite_band_24_29_percent
-    - act_composite_band_18_23_percent
-    - act_composite_band_12_17_percent
-    - act_composite_band_6_11_percent
-    - act_composite_band_below_6_percent
-    - act_composite_distribution_reported_total_percent
-    - act_english_band_30_36_percent
-    - act_english_band_24_29_percent
-    - act_english_band_18_23_percent
-    - act_english_band_12_17_percent
-    - act_english_band_6_11_percent
-    - act_english_band_below_6_percent
-    - act_english_distribution_reported_total_percent
-    - act_math_band_30_36_percent
-    - act_math_band_24_29_percent
-    - act_math_band_18_23_percent
-    - act_math_band_12_17_percent
-    - act_math_band_6_11_percent
-    - act_math_band_below_6_percent
-    - act_math_distribution_reported_total_percent
-    - act_reading_band_30_36_percent
-    - act_reading_band_24_29_percent
-    - act_reading_band_18_23_percent
-    - act_reading_band_12_17_percent
-    - act_reading_band_6_11_percent
-    - act_reading_band_below_6_percent
-    - act_reading_distribution_reported_total_percent
-    - act_science_band_30_36_percent
-    - act_science_band_24_29_percent
-    - act_science_band_18_23_percent
-    - act_science_band_12_17_percent
-    - act_science_band_6_11_percent
-    - act_science_band_below_6_percent
-    - act_science_distribution_reported_total_percent
-    - class_rank_submitted_percent
-    - class_rank_top_tenth_percent
-    - class_rank_top_quarter_percent
-    - class_rank_top_half_percent
-    - class_rank_bottom_half_percent
-    - class_rank_bottom_quarter_percent
-    - gpa_band_4_0_percent_test_score_submitters
-    - gpa_band_3_75_3_99_percent_test_score_submitters
-    - gpa_band_3_50_3_74_percent_test_score_submitters
-    - gpa_band_3_25_3_49_percent_test_score_submitters
-    - gpa_band_3_00_3_24_percent_test_score_submitters
-    - gpa_band_2_50_2_99_percent_test_score_submitters
-    - gpa_band_2_00_2_49_percent_test_score_submitters
-    - gpa_band_1_00_1_99_percent_test_score_submitters
-    - gpa_band_below_1_0_percent_test_score_submitters
-    - gpa_distribution_reported_total_percent_test_score_submitters
-    - gpa_band_4_0_percent_test_score_nonsubmitters
-    - gpa_band_3_75_3_99_percent_test_score_nonsubmitters
-    - gpa_band_3_50_3_74_percent_test_score_nonsubmitters
-    - gpa_band_3_25_3_49_percent_test_score_nonsubmitters
-    - gpa_band_3_00_3_24_percent_test_score_nonsubmitters
-    - gpa_band_2_50_2_99_percent_test_score_nonsubmitters
-    - gpa_band_2_00_2_49_percent_test_score_nonsubmitters
-    - gpa_band_1_00_1_99_percent_test_score_nonsubmitters
-    - gpa_band_below_1_0_percent_test_score_nonsubmitters
-    - gpa_distribution_reported_total_percent_test_score_nonsubmitters
-    - gpa_band_4_0_percent_all_enrolled
-    - gpa_band_3_75_3_99_percent_all_enrolled
-    - gpa_band_3_50_3_74_percent_all_enrolled
-    - gpa_band_3_25_3_49_percent_all_enrolled
-    - gpa_band_3_00_3_24_percent_all_enrolled
-    - gpa_band_2_50_2_99_percent_all_enrolled
-    - gpa_band_2_00_2_49_percent_all_enrolled
-    - gpa_band_1_00_1_99_percent_all_enrolled
-    - gpa_band_below_1_0_percent_all_enrolled
-    - gpa_distribution_reported_total_percent_all_enrolled
-    - average_high_school_gpa
-    - high_school_gpa_submitted_percent
 title: First-time first-year enrolled class profile
 metrics:
-  - id: class_profile_entry_term
-    description: >-
-      Entry term for the enrolled first-year class profiled in C9-C12, from the C9
-      profile prompt heading.
-    type: string
-    unit: text
-    population: institution
-    denominator: none
-    definition_variant: printed
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Copy the entry term (for example "Fall") from the C9 profile prompt heading
-      exactly as printed. This is source context that binds every other
-      `class_profile` metric; do not substitute the CDS edition label
-      (`identity.academic_year`) or the C8 testing-policy cohort term.
-
-  - id: class_profile_entry_year
-    description: >-
-      Entry year for the enrolled first-year class profiled in C9-C12, from the C9
-      profile prompt heading.
-    type: string
-    unit: text
-    population: institution
-    denominator: none
-    definition_variant: printed
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Copy the entry year from the C9 profile prompt heading exactly as printed.
-      This is source context that binds every other `class_profile` metric; do not
-      substitute the CDS edition label (`identity.academic_year`) or the C8
-      testing-policy cohort year.
 
   - id: sat_submitters_percent
     description: >-
@@ -183,11 +17,10 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 SAT row's "percent submitting" cell exactly as printed,
-      preserving any qualifier such as "<1%". Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`. SAT and ACT submitter populations overlap; never
-      derive one from the other or sum them. Population excludes students admitted
-      under policies that do not require a high-school diploma or equivalent and
-      students who began in winter/spring.
+      preserving any qualifier such as "<1%". SAT and ACT submitter populations
+      overlap; never derive one from the other or sum them. Population excludes
+      students admitted under policies that do not require a high-school diploma or
+      equivalent and students who began in winter/spring.
 
   - id: sat_submitters_count
     description: >-
@@ -203,8 +36,7 @@ metrics:
     period_kind: fall_term
     source_hints: [C9]
     instructions: >-
-      Extract the C9 SAT row's "number submitting" cell. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`. This count and
+      Extract the C9 SAT row's "number submitting" cell. This count and
       `sat_submitters_percent` describe the same submitters; never recompute one
       from the other. Population excludes students admitted under policies that do
       not require a high-school diploma or equivalent and students who began in
@@ -225,11 +57,10 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT row's "percent submitting" cell exactly as printed,
-      preserving any qualifier such as "<1%". Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`. SAT and ACT submitter populations overlap; never
-      derive one from the other or sum them. Population excludes students admitted
-      under policies that do not require a high-school diploma or equivalent and
-      students who began in winter/spring.
+      preserving any qualifier such as "<1%". SAT and ACT submitter populations
+      overlap; never derive one from the other or sum them. Population excludes
+      students admitted under policies that do not require a high-school diploma or
+      equivalent and students who began in winter/spring.
 
   - id: act_submitters_count
     description: >-
@@ -245,8 +76,7 @@ metrics:
     period_kind: fall_term
     source_hints: [C9]
     instructions: >-
-      Extract the C9 ACT row's "number submitting" cell. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`. This count and
+      Extract the C9 ACT row's "number submitting" cell. This count and
       `act_submitters_percent` describe the same submitters; never recompute one
       from the other. Population excludes students admitted under policies that do
       not require a high-school diploma or equivalent and students who began in
@@ -265,9 +95,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 SAT Composite 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Composite scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of SAT Composite scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: sat_composite_p50
     description: >-
@@ -282,9 +111,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 SAT Composite 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Composite scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of SAT Composite scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: sat_composite_p75
     description: >-
@@ -299,9 +127,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 SAT Composite 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Composite scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of SAT Composite scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: sat_ebrw_p25
     description: >-
@@ -315,11 +142,9 @@ metrics:
     period_kind: fall_term
     source_hints: [C9]
     instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 25th-percentile
-      score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Evidence-Based Reading and Writing (EBRW) scores, bound to `class_profile_entry_term`
-      and `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 25th-percentile score cell. Denominator is
+      enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores. A
+      blank cell means this score breakdown is unavailable, not a zero score.
 
   - id: sat_ebrw_p50
     description: >-
@@ -333,11 +158,9 @@ metrics:
     period_kind: fall_term
     source_hints: [C9]
     instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 50th-percentile
-      score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Evidence-Based Reading and Writing (EBRW) scores, bound to `class_profile_entry_term`
-      and `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 50th-percentile score cell. Denominator is
+      enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores. A
+      blank cell means this score breakdown is unavailable, not a zero score.
 
   - id: sat_ebrw_p75
     description: >-
@@ -351,11 +174,9 @@ metrics:
     period_kind: fall_term
     source_hints: [C9]
     instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 75th-percentile
-      score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Evidence-Based Reading and Writing (EBRW) scores, bound to `class_profile_entry_term`
-      and `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 75th-percentile score cell. Denominator is
+      enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores. A
+      blank cell means this score breakdown is unavailable, not a zero score.
 
   - id: sat_math_p25
     description: >-
@@ -370,9 +191,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 SAT Math 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Math scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of SAT Math scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: sat_math_p50
     description: >-
@@ -387,9 +207,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 SAT Math 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Math scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of SAT Math scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: sat_math_p75
     description: >-
@@ -404,9 +223,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 SAT Math 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of SAT Math scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of SAT Math scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_composite_p25
     description: >-
@@ -421,9 +239,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Composite 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Composite scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Composite scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_composite_p50
     description: >-
@@ -438,9 +255,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Composite 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Composite scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Composite scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_composite_p75
     description: >-
@@ -455,9 +271,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Composite 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Composite scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Composite scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_math_p25
     description: >-
@@ -472,9 +287,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Math 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Math scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Math scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_math_p50
     description: >-
@@ -489,9 +303,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Math 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Math scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Math scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_math_p75
     description: >-
@@ -506,9 +319,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Math 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Math scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Math scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_english_p25
     description: >-
@@ -523,9 +335,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT English 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT English scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT English scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_english_p50
     description: >-
@@ -540,9 +351,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT English 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT English scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT English scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_english_p75
     description: >-
@@ -557,60 +367,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT English 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT English scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
-
-  - id: act_writing_p25
-    description: >-
-      25th percentile ACT Writing score among enrolled first-time,
-      first-year submitters of ACT Writing scores, from C9.
-    type: integer
-    unit: score
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_writing_submitters
-    definition_variant: percentile_25
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Writing 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Writing scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
-
-  - id: act_writing_p50
-    description: >-
-      50th percentile ACT Writing score among enrolled first-time,
-      first-year submitters of ACT Writing scores, from C9.
-    type: integer
-    unit: score
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_writing_submitters
-    definition_variant: percentile_50
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Writing 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Writing scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
-
-  - id: act_writing_p75
-    description: >-
-      75th percentile ACT Writing score among enrolled first-time,
-      first-year submitters of ACT Writing scores, from C9.
-    type: integer
-    unit: score
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_writing_submitters
-    definition_variant: percentile_75
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Writing 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Writing scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT English scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_science_p25
     description: >-
@@ -625,9 +383,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Science 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Science scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Science scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_science_p50
     description: >-
@@ -642,9 +399,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Science 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Science scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Science scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_science_p75
     description: >-
@@ -659,9 +415,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Science 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Science scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Science scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_reading_p25
     description: >-
@@ -676,9 +431,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Reading 25th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Reading scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Reading scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_reading_p50
     description: >-
@@ -693,9 +447,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Reading 50th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Reading scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
+      submitters of ACT Reading scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: act_reading_p75
     description: >-
@@ -710,895 +463,8 @@ metrics:
     source_hints: [C9]
     instructions: >-
       Extract the C9 ACT Reading 75th-percentile score cell. Denominator is enrolled first-time, first-year
-      submitters of ACT Reading scores, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A blank cell means this score breakdown is
-      unavailable, not a zero score.
-
-  - id: sat_ebrw_band_700_800_percent
-    description: >-
-      Percent of SAT submitters scoring 700-800 on SAT Evidence-Based Reading and
-      Writing (EBRW), from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_ebrw_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW)
-      score-distribution row for the 700-800 band, preserving any qualifier such as
-      "<1%". This is a percent of SAT submitters to this section only, bound to
-      `class_profile_entry_term` and `class_profile_entry_year`. A visibly blank
-      band is not a zero share.
-
-  - id: sat_ebrw_band_600_699_percent
-    description: >-
-      Percent of SAT submitters scoring 600-699 on SAT Evidence-Based Reading and
-      Writing (EBRW), from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_ebrw_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW)
-      score-distribution row for the 600-699 band, preserving any qualifier such as
-      "<1%". This is a percent of SAT submitters to this section only, bound to
-      `class_profile_entry_term` and `class_profile_entry_year`. A visibly blank
-      band is not a zero share.
-
-  - id: sat_ebrw_band_500_599_percent
-    description: >-
-      Percent of SAT submitters scoring 500-599 on SAT Evidence-Based Reading and
-      Writing (EBRW), from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_ebrw_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW)
-      score-distribution row for the 500-599 band, preserving any qualifier such as
-      "<1%". This is a percent of SAT submitters to this section only, bound to
-      `class_profile_entry_term` and `class_profile_entry_year`. A visibly blank
-      band is not a zero share.
-
-  - id: sat_ebrw_band_400_499_percent
-    description: >-
-      Percent of SAT submitters scoring 400-499 on SAT Evidence-Based Reading and
-      Writing (EBRW), from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_ebrw_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW)
-      score-distribution row for the 400-499 band, preserving any qualifier such as
-      "<1%". This is a percent of SAT submitters to this section only, bound to
-      `class_profile_entry_term` and `class_profile_entry_year`. A visibly blank
-      band is not a zero share.
-
-  - id: sat_ebrw_band_300_399_percent
-    description: >-
-      Percent of SAT submitters scoring 300-399 on SAT Evidence-Based Reading and
-      Writing (EBRW), from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_ebrw_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW)
-      score-distribution row for the 300-399 band, preserving any qualifier such as
-      "<1%". This is a percent of SAT submitters to this section only, bound to
-      `class_profile_entry_term` and `class_profile_entry_year`. A visibly blank
-      band is not a zero share.
-
-  - id: sat_ebrw_band_200_299_percent
-    description: >-
-      Percent of SAT submitters scoring 200-299 on SAT Evidence-Based Reading and
-      Writing (EBRW), from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_ebrw_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW)
-      score-distribution row for the 200-299 band, preserving any qualifier such as
-      "<1%". This is a percent of SAT submitters to this section only, bound to
-      `class_profile_entry_term` and `class_profile_entry_year`. A visibly blank
-      band is not a zero share.
-
-  - id: sat_ebrw_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed SAT Evidence-Based Reading and
-      Writing (EBRW) score-band distribution among enrolled degree-seeking
-      first-time, first-year submitters of SAT EBRW scores in the C9 reporting
-      cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_ebrw_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Evidence-Based Reading and Writing (EBRW)
-      score-distribution row's printed total percent as a validation cell only,
-      preserved exactly even if it appears inconsistent with blank bands; never use
-      it to backfill a blank band. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: sat_math_band_700_800_percent
-    description: Percent of SAT submitters scoring 700-800 on SAT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Math score-distribution row for the 700-800 band,
-      preserving any qualifier such as "<1%". This is a percent of SAT submitters to
-      this section only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: sat_math_band_600_699_percent
-    description: Percent of SAT submitters scoring 600-699 on SAT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Math score-distribution row for the 600-699 band,
-      preserving any qualifier such as "<1%". This is a percent of SAT submitters to
-      this section only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: sat_math_band_500_599_percent
-    description: Percent of SAT submitters scoring 500-599 on SAT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Math score-distribution row for the 500-599 band,
-      preserving any qualifier such as "<1%". This is a percent of SAT submitters to
-      this section only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: sat_math_band_400_499_percent
-    description: Percent of SAT submitters scoring 400-499 on SAT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Math score-distribution row for the 400-499 band,
-      preserving any qualifier such as "<1%". This is a percent of SAT submitters to
-      this section only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: sat_math_band_300_399_percent
-    description: Percent of SAT submitters scoring 300-399 on SAT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Math score-distribution row for the 300-399 band,
-      preserving any qualifier such as "<1%". This is a percent of SAT submitters to
-      this section only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: sat_math_band_200_299_percent
-    description: Percent of SAT submitters scoring 200-299 on SAT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Math score-distribution row for the 200-299 band,
-      preserving any qualifier such as "<1%". This is a percent of SAT submitters to
-      this section only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: sat_math_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed SAT Math score-band distribution
-      among enrolled degree-seeking first-time, first-year submitters of SAT Math
-      scores in the C9 reporting cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_math_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT Math score-distribution row's printed total percent as a
-      validation cell only, preserved exactly even if it appears inconsistent with
-      blank bands; never use it to backfill a blank band. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: sat_composite_band_1400_1600_percent
-    description: Percent of SAT submitters scoring 1400-1600 composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT composite score-distribution row for the 1400-1600 band,
-      preserving any qualifier such as "<1%". A visibly blank band beside a
-      printed total (for example Harvard's 0.00% total beside blank bands) remains
-      blank/not reported and is never inferred as zero. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: sat_composite_band_1200_1399_percent
-    description: Percent of SAT submitters scoring 1200-1399 composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT composite score-distribution row for the 1200-1399 band,
-      preserving any qualifier such as "<1%". A visibly blank band beside a
-      printed total (for example Harvard's 0.00% total beside blank bands) remains
-      blank/not reported and is never inferred as zero. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: sat_composite_band_1000_1199_percent
-    description: Percent of SAT submitters scoring 1000-1199 composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT composite score-distribution row for the 1000-1199 band,
-      preserving any qualifier such as "<1%". A visibly blank band beside a
-      printed total (for example Harvard's 0.00% total beside blank bands) remains
-      blank/not reported and is never inferred as zero. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: sat_composite_band_800_999_percent
-    description: Percent of SAT submitters scoring 800-999 composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT composite score-distribution row for the 800-999 band,
-      preserving any qualifier such as "<1%". A visibly blank band beside a
-      printed total (for example Harvard's 0.00% total beside blank bands) remains
-      blank/not reported and is never inferred as zero. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: sat_composite_band_600_799_percent
-    description: Percent of SAT submitters scoring 600-799 composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT composite score-distribution row for the 600-799 band,
-      preserving any qualifier such as "<1%". A visibly blank band beside a
-      printed total (for example Harvard's 0.00% total beside blank bands) remains
-      blank/not reported and is never inferred as zero. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: sat_composite_band_400_599_percent
-    description: Percent of SAT submitters scoring 400-599 composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT composite score-distribution row for the 400-599 band,
-      preserving any qualifier such as "<1%". A visibly blank band beside a
-      printed total (for example Harvard's 0.00% total beside blank bands) remains
-      blank/not reported and is never inferred as zero. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: sat_composite_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed SAT composite score-band
-      distribution among enrolled degree-seeking first-time, first-year submitters
-      of SAT Composite scores in the C9 reporting cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_sat_submitters
-    denominator: sat_composite_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 SAT composite score-distribution row's printed total percent as
-      a validation cell only, preserved exactly even when it appears inconsistent
-      with blank bands (for example Harvard's 0.00% total beside blank bands); never
-      use it to backfill a blank band. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: act_composite_band_30_36_percent
-    description: Percent of ACT submitters scoring 30-36 on ACT Composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Composite score-distribution row for the 30-36 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_composite_band_24_29_percent
-    description: Percent of ACT submitters scoring 24-29 on ACT Composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Composite score-distribution row for the 24-29 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_composite_band_18_23_percent
-    description: Percent of ACT submitters scoring 18-23 on ACT Composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Composite score-distribution row for the 18-23 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_composite_band_12_17_percent
-    description: Percent of ACT submitters scoring 12-17 on ACT Composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Composite score-distribution row for the 12-17 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_composite_band_6_11_percent
-    description: Percent of ACT submitters scoring 6-11 on ACT Composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Composite score-distribution row for the 6-11 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_composite_band_below_6_percent
-    description: Percent of ACT submitters scoring below 6 on ACT Composite, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_composite_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Composite score-distribution row for the below 6 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_composite_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed ACT Composite score-band
-      distribution among enrolled degree-seeking first-time, first-year submitters
-      of ACT Composite scores in the C9 reporting cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_composite_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Composite score-distribution row's printed total percent as
-      a validation cell only; never use it to backfill a blank band. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: act_english_band_30_36_percent
-    description: Percent of ACT submitters scoring 30-36 on ACT English, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_english_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT English score-distribution row for the 30-36 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_english_band_24_29_percent
-    description: Percent of ACT submitters scoring 24-29 on ACT English, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_english_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT English score-distribution row for the 24-29 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_english_band_18_23_percent
-    description: Percent of ACT submitters scoring 18-23 on ACT English, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_english_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT English score-distribution row for the 18-23 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_english_band_12_17_percent
-    description: Percent of ACT submitters scoring 12-17 on ACT English, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_english_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT English score-distribution row for the 12-17 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_english_band_6_11_percent
-    description: Percent of ACT submitters scoring 6-11 on ACT English, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_english_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT English score-distribution row for the 6-11 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_english_band_below_6_percent
-    description: Percent of ACT submitters scoring below 6 on ACT English, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_english_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT English score-distribution row for the below 6 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_english_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed ACT English score-band distribution
-      among enrolled degree-seeking first-time, first-year submitters of ACT English
-      scores in the C9 reporting cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_english_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT English score-distribution row's printed total percent as a
-      validation cell only; never use it to backfill a blank band. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: act_math_band_30_36_percent
-    description: Percent of ACT submitters scoring 30-36 on ACT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Math score-distribution row for the 30-36 band, preserving
-      any qualifier such as "<1%". Denominator is submitters of this specific ACT
-      assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_math_band_24_29_percent
-    description: Percent of ACT submitters scoring 24-29 on ACT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Math score-distribution row for the 24-29 band, preserving
-      any qualifier such as "<1%". Denominator is submitters of this specific ACT
-      assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_math_band_18_23_percent
-    description: Percent of ACT submitters scoring 18-23 on ACT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Math score-distribution row for the 18-23 band, preserving
-      any qualifier such as "<1%". Denominator is submitters of this specific ACT
-      assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_math_band_12_17_percent
-    description: Percent of ACT submitters scoring 12-17 on ACT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Math score-distribution row for the 12-17 band, preserving
-      any qualifier such as "<1%". Denominator is submitters of this specific ACT
-      assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_math_band_6_11_percent
-    description: Percent of ACT submitters scoring 6-11 on ACT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Math score-distribution row for the 6-11 band, preserving
-      any qualifier such as "<1%". Denominator is submitters of this specific ACT
-      assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_math_band_below_6_percent
-    description: Percent of ACT submitters scoring below 6 on ACT Math, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_math_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Math score-distribution row for the below 6 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_math_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed ACT Math score-band distribution
-      among enrolled degree-seeking first-time, first-year submitters of ACT Math
-      scores in the C9 reporting cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_math_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Math score-distribution row's printed total percent as a
-      validation cell only; never use it to backfill a blank band. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: act_reading_band_30_36_percent
-    description: Percent of ACT submitters scoring 30-36 on ACT Reading, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_reading_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Reading score-distribution row for the 30-36 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_reading_band_24_29_percent
-    description: Percent of ACT submitters scoring 24-29 on ACT Reading, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_reading_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Reading score-distribution row for the 24-29 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_reading_band_18_23_percent
-    description: Percent of ACT submitters scoring 18-23 on ACT Reading, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_reading_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Reading score-distribution row for the 18-23 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_reading_band_12_17_percent
-    description: Percent of ACT submitters scoring 12-17 on ACT Reading, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_reading_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Reading score-distribution row for the 12-17 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_reading_band_6_11_percent
-    description: Percent of ACT submitters scoring 6-11 on ACT Reading, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_reading_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Reading score-distribution row for the 6-11 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_reading_band_below_6_percent
-    description: Percent of ACT submitters scoring below 6 on ACT Reading, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_reading_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Reading score-distribution row for the below 6 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_reading_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed ACT Reading score-band distribution
-      among enrolled degree-seeking first-time, first-year submitters of ACT Reading
-      scores in the C9 reporting cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_reading_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Reading score-distribution row's printed total percent as a
-      validation cell only; never use it to backfill a blank band. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
-
-  - id: act_science_band_30_36_percent
-    description: Percent of ACT submitters scoring 30-36 on ACT Science, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_science_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Science score-distribution row for the 30-36 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_science_band_24_29_percent
-    description: Percent of ACT submitters scoring 24-29 on ACT Science, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_science_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Science score-distribution row for the 24-29 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_science_band_18_23_percent
-    description: Percent of ACT submitters scoring 18-23 on ACT Science, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_science_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Science score-distribution row for the 18-23 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_science_band_12_17_percent
-    description: Percent of ACT submitters scoring 12-17 on ACT Science, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_science_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Science score-distribution row for the 12-17 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_science_band_6_11_percent
-    description: Percent of ACT submitters scoring 6-11 on ACT Science, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_science_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Science score-distribution row for the 6-11 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_science_band_below_6_percent
-    description: Percent of ACT submitters scoring below 6 on ACT Science, from C9.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_science_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Science score-distribution row for the below 6 band,
-      preserving any qualifier such as "<1%". Denominator is submitters of this
-      specific ACT assessment only, bound to `class_profile_entry_term` and
-      `class_profile_entry_year`. A visibly blank band is not a zero share.
-
-  - id: act_science_distribution_reported_total_percent
-    description: >-
-      Reported total percent across the printed ACT Science score-band distribution
-      among enrolled degree-seeking first-time, first-year submitters of ACT Science
-      scores in the C9 reporting cohort.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_act_submitters
-    denominator: act_science_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C9]
-    instructions: >-
-      Extract the C9 ACT Science score-distribution row's printed total percent as a
-      validation cell only; never use it to backfill a blank band. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
+      submitters of ACT Reading scores. A blank cell means this score breakdown is unavailable, not a zero
+      score.
 
   - id: class_rank_submitted_percent
     description: >-
@@ -1614,8 +480,7 @@ metrics:
     instructions: >-
       Extract the C10 "percent of first-time, first-year students who submitted
       class rank" cell, preserving any qualifier such as "<1%". Denominator is all
-      enrolled first-time first-years, not only those with rank reported. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
+      enrolled first-time first-years, not only those with rank reported.
 
   - id: class_rank_top_tenth_percent
     description: >-
@@ -1631,8 +496,7 @@ metrics:
     instructions: >-
       Extract the C10 "Top Tenth" row, preserving any qualifier such as "<1%". This
       band is contained within the top-quarter and top-half bands; never derive one
-      band from another or subtract to fill a blank. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
+      band from another or subtract to fill a blank.
 
   - id: class_rank_top_quarter_percent
     description: >-
@@ -1648,8 +512,7 @@ metrics:
     instructions: >-
       Extract the C10 "Top Quarter" row, preserving any qualifier such as "<1%".
       This band contains the top-tenth band and is contained within the top-half
-      band; never derive one band from another or subtract to fill a blank. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
+      band; never derive one band from another or subtract to fill a blank.
 
   - id: class_rank_top_half_percent
     description: >-
@@ -1665,8 +528,7 @@ metrics:
     instructions: >-
       Extract the C10 "Top Half" row, preserving any qualifier such as "<1%". This
       band contains the top-tenth and top-quarter bands; never derive one band from
-      another or subtract to fill a blank. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
+      another or subtract to fill a blank.
 
   - id: class_rank_bottom_half_percent
     description: >-
@@ -1682,8 +544,7 @@ metrics:
     instructions: >-
       Extract the C10 "Bottom Half" row, preserving any qualifier such as "<1%".
       This band contains the bottom-quarter band; never derive one band from another
-      or subtract to fill a blank. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
+      or subtract to fill a blank.
 
   - id: class_rank_bottom_quarter_percent
     description: >-
@@ -1699,595 +560,7 @@ metrics:
     instructions: >-
       Extract the C10 "Bottom Quarter" row, preserving any qualifier such as "<1%".
       This band is contained within the bottom-half band; never derive one band from
-      another or subtract to fill a blank. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_4_0_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 4.0 in the "Students Submitting Test Scores" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 4.0 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_75_3_99_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.75-3.99 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 3.75-3.99 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_50_3_74_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.50-3.74 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 3.50-3.74 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_25_3_49_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.25-3.49 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 3.25-3.49 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_00_3_24_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.00-3.24 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 3.00-3.24 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_2_50_2_99_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 2.50-2.99 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 2.50-2.99 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_2_00_2_49_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 2.00-2.49 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 2.00-2.49 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_1_00_1_99_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 1.00-1.99 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's 1.00-1.99 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_below_1_0_percent_test_score_submitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA below 1.0 in the "Students Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's below 1.0 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_distribution_reported_total_percent_test_score_submitters
-    description: >-
-      Reported total percent across the printed C11 "Students Submitting Test
-      Scores" GPA-band distribution among enrolled first-time, first-year students
-      who submitted test scores and for whom high-school GPA was reported.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_submitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Submitting Test Scores" column's printed total
-      percent as a validation cell only; never use it to backfill a blank band. Some
-      editions (for example Yale 2024-25) populate only the "All Enrolled Students"
-      column; an absent split-column cell in that version is
-      `not_in_template_version`, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_4_0_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 4.0 in the "Students Not Submitting Test Scores" column, from
-      C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 4.0 GPA-band
-      row, preserving any qualifier such as "<1%". Report only students for whom GPA
-      was collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_75_3_99_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.75-3.99 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 3.75-3.99
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_50_3_74_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.50-3.74 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 3.50-3.74
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_25_3_49_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.25-3.49 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 3.25-3.49
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_00_3_24_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.00-3.24 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 3.00-3.24
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_2_50_2_99_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 2.50-2.99 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 2.50-2.99
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_2_00_2_49_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 2.00-2.49 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 2.00-2.49
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_1_00_1_99_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 1.00-1.99 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's 1.00-1.99
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_below_1_0_percent_test_score_nonsubmitters
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA below 1.0 in the "Students Not Submitting Test Scores" column,
-      from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's below 1.0
-      GPA-band row, preserving any qualifier such as "<1%". Report only students for
-      whom GPA was collected. Some editions (for example Yale 2024-25) populate only
-      the "All Enrolled Students" column; an absent split-column cell in that
-      version is not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_distribution_reported_total_percent_test_score_nonsubmitters
-    description: >-
-      Reported total percent across the printed C11 "Students Not Submitting Test
-      Scores" GPA-band distribution among enrolled first-time, first-year students
-      who did not submit test scores and for whom high-school GPA was reported.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_test_score_nonsubmitters
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "Students Not Submitting Test Scores" column's printed total
-      percent as a validation cell only; never use it to backfill a blank band. Some
-      editions (for example Yale 2024-25) populate only the "All Enrolled Students"
-      column; an absent split-column cell in that version is
-      `not_in_template_version`, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_4_0_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 4.0 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 4.0 GPA-band row, preserving
-      any qualifier such as "<1%". Report only students for whom GPA was collected.
-      Some editions (for example Yale 2024-25) populate only the "All Enrolled
-      Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_75_3_99_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.75-3.99 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 3.75-3.99 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_50_3_74_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.50-3.74 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 3.50-3.74 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_25_3_49_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.25-3.49 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 3.25-3.49 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_3_00_3_24_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 3.00-3.24 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 3.00-3.24 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_2_50_2_99_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 2.50-2.99 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 2.50-2.99 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_2_00_2_49_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 2.00-2.49 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 2.00-2.49 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_1_00_1_99_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA 1.00-1.99 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's 1.00-1.99 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_band_below_1_0_percent_all_enrolled
-    description: >-
-      Percent of GPA-reporting enrolled first-time, first-year students with
-      high-school GPA below 1.0 in the "All Enrolled Students" column, from C11.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: share
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's below 1.0 GPA-band row,
-      preserving any qualifier such as "<1%". Report only students for whom GPA was
-      collected. Some editions (for example Yale 2024-25) populate only the "All
-      Enrolled Students" column; an absent split-column cell in that version is
-      not_in_template_version, not zero. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
-
-  - id: gpa_distribution_reported_total_percent_all_enrolled
-    description: >-
-      Reported total percent across the printed C11 "All Enrolled Students" GPA-band
-      distribution among enrolled first-time, first-year students for whom
-      high-school GPA was reported.
-    type: string
-    unit: percent
-    population: enrolled_first_time_first_year_gpa_reported
-    denominator: gpa_reported_students
-    definition_variant: total
-    period_kind: fall_term
-    source_hints: [C11]
-    instructions: >-
-      Extract the C11 "All Enrolled Students" column's printed total percent as a
-      validation cell only; never use it to backfill a blank band. Bind to
-      `class_profile_entry_term` and `class_profile_entry_year`.
+      another or subtract to fill a blank.
 
   - id: average_high_school_gpa
     description: >-
@@ -2303,8 +576,7 @@ metrics:
     instructions: >-
       Extract only the C12 printed average GPA value. Do not clamp an out-of-range
       value (for example Harvard's 4.22) and do not assume every edition uses an
-      unweighted 4.0 scale. Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
+      unweighted 4.0 scale.
 
   - id: high_school_gpa_submitted_percent
     description: >-
@@ -2319,5 +591,4 @@ metrics:
     source_hints: [C12]
     instructions: >-
       Extract the C12 "percent of students who submitted GPA" cell, preserving any
-      qualifier such as "<1%". Bind to `class_profile_entry_term` and
-      `class_profile_entry_year`.
+      qualifier such as "<1%".

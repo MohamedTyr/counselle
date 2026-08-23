@@ -7,108 +7,28 @@ context_bindings:
   - aid_reporting_status
   targets:
     metric_ids:
-    - h1_need_based_federal_grants
-    - h1_non_need_based_federal_grants
-    - h1_need_based_state_grants
-    - h1_non_need_based_state_grants
-    - h1_need_based_institutional_grants
-    - h1_non_need_based_institutional_grants
-    - h1_need_based_external_scholarships_grants
-    - h1_non_need_based_external_scholarships_grants
-    - h1_need_based_total_scholarships_grants
-    - h1_non_need_based_total_scholarships_grants
-    - h1_need_based_student_loans
-    - h1_non_need_based_student_loans
-    - h1_need_based_federal_work_study
-    - h1_non_need_based_federal_work_study
-    - h1_need_based_state_other_work_study
-    - h1_non_need_based_state_other_work_study
-    - h1_need_based_total_self_help
-    - h1_non_need_based_total_self_help
-    - h1_need_based_parent_loans
-    - h1_non_need_based_parent_loans
-    - h1_need_based_tuition_waivers
-    - h1_non_need_based_tuition_waivers
-    - h1_need_based_athletic_awards
-    - h1_non_need_based_athletic_awards
     - h2_a_degree_seeking_undergraduates_first_time_first_year
-    - h2_a_degree_seeking_undergraduates_all_full_time
-    - h2_a_degree_seeking_undergraduates_less_than_full_time
     - h2_b_applied_for_need_based_aid_first_time_first_year
-    - h2_b_applied_for_need_based_aid_all_full_time
-    - h2_b_applied_for_need_based_aid_less_than_full_time
     - h2_c_determined_have_need_first_time_first_year
-    - h2_c_determined_have_need_all_full_time
-    - h2_c_determined_have_need_less_than_full_time
     - h2_d_awarded_any_aid_first_time_first_year
-    - h2_d_awarded_any_aid_all_full_time
-    - h2_d_awarded_any_aid_less_than_full_time
     - h2_e_awarded_need_based_grant_aid_first_time_first_year
-    - h2_e_awarded_need_based_grant_aid_all_full_time
-    - h2_e_awarded_need_based_grant_aid_less_than_full_time
     - h2_f_awarded_need_based_self_help_aid_first_time_first_year
-    - h2_f_awarded_need_based_self_help_aid_all_full_time
-    - h2_f_awarded_need_based_self_help_aid_less_than_full_time
     - h2_g_awarded_non_need_based_grant_aid_first_time_first_year
-    - h2_g_awarded_non_need_based_grant_aid_all_full_time
-    - h2_g_awarded_non_need_based_grant_aid_less_than_full_time
     - h2_h_need_fully_met_count_first_time_first_year
-    - h2_h_need_fully_met_count_all_full_time
-    - h2_h_need_fully_met_count_less_than_full_time
     - h2_i_average_percent_need_met_first_time_first_year
     - h2_i_average_percent_need_met_all_full_time
-    - h2_i_average_percent_need_met_less_than_full_time
     - h2_j_average_aid_package_first_time_first_year
     - h2_j_average_aid_package_all_full_time
-    - h2_j_average_aid_package_less_than_full_time
     - h2_k_average_need_based_grant_award_first_time_first_year
-    - h2_k_average_need_based_grant_award_all_full_time
-    - h2_k_average_need_based_grant_award_less_than_full_time
     - h2_l_average_need_based_self_help_award_first_time_first_year
-    - h2_l_average_need_based_self_help_award_all_full_time
-    - h2_l_average_need_based_self_help_award_less_than_full_time
     - h2_m_average_need_based_loan_award_first_time_first_year
-    - h2_m_average_need_based_loan_award_all_full_time
-    - h2_m_average_need_based_loan_award_less_than_full_time
     - h2a_n_no_need_institutional_grant_recipients_first_time_first_year
-    - h2a_n_no_need_institutional_grant_recipients_all_full_time
-    - h2a_n_no_need_institutional_grant_recipients_less_than_full_time
     - h2a_o_average_no_need_institutional_grant_amount_first_time_first_year
-    - h2a_o_average_no_need_institutional_grant_amount_all_full_time
-    - h2a_o_average_no_need_institutional_grant_amount_less_than_full_time
     - h2a_p_institutional_athletic_grant_recipients_first_time_first_year
-    - h2a_p_institutional_athletic_grant_recipients_all_full_time
-    - h2a_p_institutional_athletic_grant_recipients_less_than_full_time
     - h2a_q_average_institutional_athletic_grant_amount_first_time_first_year
-    - h2a_q_average_institutional_athletic_grant_amount_all_full_time
-    - h2a_q_average_institutional_athletic_grant_amount_less_than_full_time
     - h6_recipient_count
     - h6_average_institutional_aid
     - h6_total_institutional_aid
-- id: h4_h5_graduating_class
-  label: graduating class and award window
-  binders:
-  - graduating_class_year
-  - degree_award_window_start
-  - degree_award_window_end
-  targets:
-    metric_ids:
-    - graduating_class_first_time_bachelors_count
-    - h5_borrowers_any_program_count
-    - h5_borrowers_any_program_percent_of_class
-    - h5_borrowers_any_program_average_principal
-    - h5_borrowers_federal_count
-    - h5_borrowers_federal_percent_of_class
-    - h5_borrowers_federal_average_principal
-    - h5_borrowers_institutional_count
-    - h5_borrowers_institutional_percent_of_class
-    - h5_borrowers_institutional_average_principal
-    - h5_borrowers_state_count
-    - h5_borrowers_state_percent_of_class
-    - h5_borrowers_state_average_principal
-    - h5_borrowers_private_count
-    - h5_borrowers_private_percent_of_class
-    - h5_borrowers_private_average_principal
 title: Financial aid
 metrics:
 
@@ -130,7 +50,7 @@ metrics:
       fall enrollment snapshot, the admission cycle, and the cost year; do not
       copy it from `identity.academic_year` or `cost.cost_academic_year`. Every
       H1, H2, H2A, and the H6 numeric outcome metrics are bound to this
-      aid-year context. H4/H5 use the separate `graduating_class_year` and
+      aid-year context. H4/H5 use the separate graduating-class and
       degree-award-window context, while H6 policy selections and H7-H15 use
       policy context; do not bind those policy/cohort fields to this aid year.
 
@@ -173,537 +93,6 @@ metrics:
       confuse it with the need_analysis_methodology used for cost-of-attendance
       calculations outside Section H.
 
-  # H1 — need-based and non-need-based aid dollars awarded, by source row
-  - id: h1_need_based_federal_grants
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Federal' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Federal', Need-Based column. This is awarded/offered
-      annual dollars to full- and less-than-full-time degree-seeking
-      undergraduates, including international/nonresident students; it is not
-      accepted or disbursed aid, and it is not nonresident-specific (the
-      nonresident-specific aggregate is in `h6_total_institutional_aid`).
-      Non-need aid used to meet a student's demonstrated need still belongs in
-      the Need-Based column, never the Non-Need-Based column. Preserve exact
-      currency precision including cents.
-
-  - id: h1_non_need_based_federal_grants
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Federal' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Federal', Non-Need-Based column. This is awarded/offered
-      annual dollars to full- and less-than-full-time degree-seeking
-      undergraduates, including international/nonresident students; it is not
-      accepted or disbursed aid, and it is not nonresident-specific (the
-      nonresident-specific aggregate is in `h6_total_institutional_aid`).
-      Non-need aid used to meet a student's demonstrated need still belongs in
-      the Need-Based column, never the Non-Need-Based column. Preserve exact
-      currency precision including cents.
-
-  - id: h1_need_based_state_grants
-    description: >-
-      Total need-based dollar amount awarded under the H1 'State all states, not only the state in which your institution is located' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'State all states, not only the state in which your institution is located', Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_non_need_based_state_grants
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'State all states, not only the state in which your institution is located' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'State all states, not only the state in which your institution is located', Non-Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_need_based_institutional_grants
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Institutional: Endowed scholarships, annual gifts and tuition funded grants, awarded by the college, excluding athletic aid and tuition waivers (which are reported below).' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Institutional: Endowed scholarships, annual gifts and tuition funded grants, awarded by the college, excluding athletic aid and tuition waivers (which are reported below).', Need-Based column. This is awarded/offered annual
-      dollars to full- and less-than-full-time degree-seeking undergraduates,
-      including international/nonresident students; it is not accepted or
-      disbursed aid, and it is not nonresident-specific (the
-      nonresident-specific aggregate is in `h6_total_institutional_aid`).
-      Non-need aid used to meet a student's demonstrated need still belongs in
-      the Need-Based column, never the Non-Need-Based column. Preserve exact
-      currency precision including cents.
-
-  - id: h1_non_need_based_institutional_grants
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Institutional: Endowed scholarships, annual gifts and tuition funded grants, awarded by the college, excluding athletic aid and tuition waivers (which are reported below).' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Institutional: Endowed scholarships, annual gifts and tuition funded grants, awarded by the college, excluding athletic aid and tuition waivers (which are reported below).', Non-Need-Based column. This is awarded/offered annual
-      dollars to full- and less-than-full-time degree-seeking undergraduates,
-      including international/nonresident students; it is not accepted or
-      disbursed aid, and it is not nonresident-specific (the
-      nonresident-specific aggregate is in `h6_total_institutional_aid`).
-      Non-need aid used to meet a student's demonstrated need still belongs in
-      the Need-Based column, never the Non-Need-Based column. Preserve exact
-      currency precision including cents.
-
-  - id: h1_need_based_external_scholarships_grants
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Scholarships/grants from external sources (e.g. Kiwanis, National Merit) not awarded by the college' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Scholarships/grants from external sources (e.g. Kiwanis, National Merit) not awarded by the college', Need-Based column. This is awarded/offered
-      annual dollars to full- and less-than-full-time degree-seeking
-      undergraduates, including international/nonresident students; it is not
-      accepted or disbursed aid, and it is not nonresident-specific (the
-      nonresident-specific aggregate is in `h6_total_institutional_aid`).
-      Non-need aid used to meet a student's demonstrated need still belongs in
-      the Need-Based column, never the Non-Need-Based column. Preserve exact
-      currency precision including cents.
-
-  - id: h1_non_need_based_external_scholarships_grants
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Scholarships/grants from external sources (e.g. Kiwanis, National Merit) not awarded by the college' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Scholarships/grants from external sources (e.g. Kiwanis, National Merit) not awarded by the college', Non-Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_need_based_total_scholarships_grants
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Total Scholarships/Grants' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Total Scholarships/Grants', Need-Based column.
-      This is awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-      This printed total is a source field in its own right; extract it
-      independently and never compute it by summing the rows above yourself.
-
-  - id: h1_non_need_based_total_scholarships_grants
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Total Scholarships/Grants' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Total Scholarships/Grants', Non-Need-Based column.
-      This is awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-      This printed total is a source field in its own right; extract it
-      independently and never compute it by summing the rows above yourself.
-
-  - id: h1_need_based_student_loans
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Student loans from all sources (excluding parent loans)' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Student loans from all sources (excluding parent loans)', Need-Based column. This is awarded/offered annual dollars to
-      full- and less-than-full-time degree-seeking undergraduates, including
-      international/nonresident students; it is not accepted or disbursed aid,
-      and it is not nonresident-specific (the nonresident-specific aggregate is
-      in `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_non_need_based_student_loans
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Student loans from all sources (excluding parent loans)' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Student loans from all sources (excluding parent loans)', Non-Need-Based column. This is awarded/offered annual dollars to
-      full- and less-than-full-time degree-seeking undergraduates, including
-      international/nonresident students; it is not accepted or disbursed aid,
-      and it is not nonresident-specific (the nonresident-specific aggregate is
-      in `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_need_based_federal_work_study
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Federal Work-Study' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Federal Work-Study', Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_non_need_based_federal_work_study
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Federal Work-Study' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Federal Work-Study', Non-Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_need_based_state_other_work_study
-    description: >-
-      Total need-based dollar amount awarded under the H1 'State and other (e.g., institutional) work-study/employment (Note: Excludes Federal Work-Study captured above.)' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'State and other (e.g., institutional) work-study/employment (Note: Excludes Federal Work-Study captured above.)', Need-Based column. This is awarded/offered annual
-      dollars to full- and less-than-full-time degree-seeking undergraduates,
-      including international/nonresident students; it is not accepted or
-      disbursed aid, and it is not nonresident-specific (the
-      nonresident-specific aggregate is in `h6_total_institutional_aid`).
-      Non-need aid used to meet a student's demonstrated need still belongs in
-      the Need-Based column, never the Non-Need-Based column. Preserve exact
-      currency precision including cents.
-
-  - id: h1_non_need_based_state_other_work_study
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'State and other (e.g., institutional) work-study/employment (Note: Excludes Federal Work-Study captured above.)' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'State and other (e.g., institutional) work-study/employment (Note: Excludes Federal Work-Study captured above.)', Non-Need-Based column. This is awarded/offered annual
-      dollars to full- and less-than-full-time degree-seeking undergraduates,
-      including international/nonresident students; it is not accepted or
-      disbursed aid, and it is not nonresident-specific (the
-      nonresident-specific aggregate is in `h6_total_institutional_aid`).
-      Non-need aid used to meet a student's demonstrated need still belongs in
-      the Need-Based column, never the Non-Need-Based column. Preserve exact
-      currency precision including cents.
-
-  - id: h1_need_based_total_self_help
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Total Self-Help' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Total Self-Help', Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-      This printed total is a source field in its own right; extract it
-      independently and never compute it by summing the rows above yourself.
-
-  - id: h1_non_need_based_total_self_help
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Total Self-Help' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Total Self-Help', Non-Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-      This printed total is a source field in its own right; extract it
-      independently and never compute it by summing the rows above yourself.
-
-  - id: h1_need_based_parent_loans
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Parent Loans' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Parent Loans', Need-Based column. This is awarded/offered annual dollars to full- and
-      less-than-full-time degree-seeking undergraduates, including
-      international/nonresident students; it is not accepted or disbursed aid,
-      and it is not nonresident-specific (the nonresident-specific aggregate is
-      in `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_non_need_based_parent_loans
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Parent Loans' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Parent Loans', Non-Need-Based column. This is awarded/offered annual dollars to full-
-      and less-than-full-time degree-seeking undergraduates, including
-      international/nonresident students; it is not accepted or disbursed aid,
-      and it is not nonresident-specific (the nonresident-specific aggregate is
-      in `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_need_based_tuition_waivers
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Tuition Waivers' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Tuition Waivers', Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_non_need_based_tuition_waivers
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Tuition Waivers' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Tuition Waivers', Non-Need-Based column. This is
-      awarded/offered annual dollars to full- and less-than-full-time
-      degree-seeking undergraduates, including international/nonresident
-      students; it is not accepted or disbursed aid, and it is not
-      nonresident-specific (the nonresident-specific aggregate is in
-      `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_need_based_athletic_awards
-    description: >-
-      Total need-based dollar amount awarded under the H1 'Athletic Awards' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Athletic Awards', Need-Based column. This is awarded/offered annual dollars to full- and
-      less-than-full-time degree-seeking undergraduates, including
-      international/nonresident students; it is not accepted or disbursed aid,
-      and it is not nonresident-specific (the nonresident-specific aggregate is
-      in `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
-  - id: h1_non_need_based_athletic_awards
-    description: >-
-      Total non-need-based dollar amount awarded under the H1 'Athletic Awards' row.
-    type: number
-    unit: usd
-    population: degree_seeking_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H1]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H1, row 'Athletic Awards', Non-Need-Based column. This is awarded/offered annual dollars to full-
-      and less-than-full-time degree-seeking undergraduates, including
-      international/nonresident students; it is not accepted or disbursed aid,
-      and it is not nonresident-specific (the nonresident-specific aggregate is
-      in `h6_total_institutional_aid`). Non-need aid used to meet a student's
-      demonstrated need still belongs in the Need-Based column, never the
-      Non-Need-Based column. Preserve exact currency precision including cents.
-
   # H2 — need-based/non-need-based aid reach and averages, lettered rows A-M
   - id: h2_a_degree_seeking_undergraduates_first_time_first_year
     description: >-
@@ -726,45 +115,6 @@ metrics:
       Preserve any apparent inconsistency in this column's reported figures
       (for example an internally inconsistent Harvard first-year row) exactly
       as printed; do not repair or reconcile it yourself.
-
-  - id: h2_a_degree_seeking_undergraduates_all_full_time
-    description: >-
-      Count of degree-seeking undergraduates, all full-time undergraduates,
-      including first-time first-years, from CDS H2 row A.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row A ('Number of degree-seeking undergraduate students'),
-      All Full-Time Undergraduates (Including First-Time First-Year) column.
-      This is the base population for the entire H2 conditional chain in this
-      column; rows B through M below are progressively narrower subsets of this
-      count.
-
-  - id: h2_a_degree_seeking_undergraduates_less_than_full_time
-    description: >-
-      Count of degree-seeking undergraduates, less-than-full-time
-      undergraduates, from CDS H2 row A.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row A ('Number of degree-seeking undergraduate students'),
-      Less-Than-Full-Time Undergraduates column. This is the base population
-      for the entire H2 conditional chain in this column; rows B through M
-      below are progressively narrower subsets of this count.
 
   - id: h2_b_applied_for_need_based_aid_first_time_first_year
     description: >-
@@ -789,47 +139,6 @@ metrics:
       internally inconsistent Harvard first-year row) exactly as printed; do
       not repair or reconcile it yourself.
 
-  - id: h2_b_applied_for_need_based_aid_all_full_time
-    description: >-
-      Count of students from row A who applied for need-based financial aid,
-      all full-time undergraduates, including first-time first-years, from CDS
-      H2 row B.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row B ('Number of students who applied for need-based
-      financial aid'), All Full-Time Undergraduates (Including First-Time
-      First-Year) column. This is a subset of row A
-      (`h2_a_degree_seeking_undergraduates_all_full_time`); it is not every
-      degree-seeking student in this column.
-
-  - id: h2_b_applied_for_need_based_aid_less_than_full_time
-    description: >-
-      Count of students from row A who applied for need-based financial aid,
-      less-than-full-time undergraduates, from CDS H2 row B.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row B ('Number of students who applied for need-based
-      financial aid'), Less-Than-Full-Time Undergraduates column. This is a
-      subset of row A
-      (`h2_a_degree_seeking_undergraduates_less_than_full_time`); it is not
-      every degree-seeking student in this column.
-
   - id: h2_c_determined_have_need_first_time_first_year
     description: >-
       Count of students from row B determined to have financial need, full-time
@@ -852,46 +161,6 @@ metrics:
       apparent inconsistency in this column's reported figures (for example an
       internally inconsistent Harvard first-year row) exactly as printed; do
       not repair or reconcile it yourself.
-
-  - id: h2_c_determined_have_need_all_full_time
-    description: >-
-      Count of students from row B determined to have financial need, all
-      full-time undergraduates, including first-time first-years, from CDS H2
-      row C.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row C ('Number of students who were determined to have
-      financial need'), All Full-Time Undergraduates (Including First-Time
-      First-Year) column. This is a subset of row B
-      (`h2_b_applied_for_need_based_aid_all_full_time`), determined using the
-      methodology named in `need_analysis_methodology`.
-
-  - id: h2_c_determined_have_need_less_than_full_time
-    description: >-
-      Count of students from row B determined to have financial need,
-      less-than-full-time undergraduates, from CDS H2 row C.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row C ('Number of students who were determined to have
-      financial need'), Less-Than-Full-Time Undergraduates column. This is a
-      subset of row B (`h2_b_applied_for_need_based_aid_less_than_full_time`),
-      determined using the methodology named in `need_analysis_methodology`.
 
   - id: h2_d_awarded_any_aid_first_time_first_year
     description: >-
@@ -916,47 +185,6 @@ metrics:
       first-year row) exactly as printed; do not repair or reconcile it
       yourself.
 
-  - id: h2_d_awarded_any_aid_all_full_time
-    description: >-
-      Count of students from row C who were awarded any financial aid, all
-      full-time undergraduates, including first-time first-years, from CDS H2
-      row D.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row D ('Number of students who were awarded any financial
-      aid'), All Full-Time Undergraduates (Including First-Time First-Year)
-      column. This is a subset of row C
-      (`h2_c_determined_have_need_all_full_time`); 'any financial aid' includes
-      both need-based and non-need-based awards, not need-based aid alone.
-
-  - id: h2_d_awarded_any_aid_less_than_full_time
-    description: >-
-      Count of students from row C who were awarded any financial aid,
-      less-than-full-time undergraduates, from CDS H2 row D.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row D ('Number of students who were awarded any financial
-      aid'), Less-Than-Full-Time Undergraduates column. This is a subset of row
-      C (`h2_c_determined_have_need_less_than_full_time`); 'any financial aid'
-      includes both need-based and non-need-based awards, not need-based aid
-      alone.
-
   - id: h2_e_awarded_need_based_grant_aid_first_time_first_year
     description: >-
       Count of students from row D awarded need-based scholarship or grant aid,
@@ -979,48 +207,6 @@ metrics:
       apparent inconsistency in this column's reported figures (for example an
       internally inconsistent Harvard first-year row) exactly as printed; do
       not repair or reconcile it yourself.
-
-  - id: h2_e_awarded_need_based_grant_aid_all_full_time
-    description: >-
-      Count of students from row D awarded need-based scholarship or grant aid,
-      all full-time undergraduates, including first-time first-years, from CDS
-      H2 row E.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row E ('Number of students who were awarded need-based
-      scholarship/grant aid'), All Full-Time Undergraduates (Including
-      First-Time First-Year) column. This is a subset of row D
-      (`h2_d_awarded_any_aid_all_full_time`) restricted to need-based
-      scholarship/grant recipients; do not include the need-based self-help
-      recipients counted separately in row F.
-
-  - id: h2_e_awarded_need_based_grant_aid_less_than_full_time
-    description: >-
-      Count of students from row D awarded need-based scholarship or grant aid,
-      less-than-full-time undergraduates, from CDS H2 row E.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row E ('Number of students who were awarded need-based
-      scholarship/grant aid'), Less-Than-Full-Time Undergraduates column. This
-      is a subset of row D (`h2_d_awarded_any_aid_less_than_full_time`)
-      restricted to need-based scholarship/grant recipients; do not include the
-      need-based self-help recipients counted separately in row F.
 
   - id: h2_f_awarded_need_based_self_help_aid_first_time_first_year
     description: >-
@@ -1046,49 +232,6 @@ metrics:
       first-year row) exactly as printed; do not repair or reconcile it
       yourself.
 
-  - id: h2_f_awarded_need_based_self_help_aid_all_full_time
-    description: >-
-      Count of students from row D awarded need-based self-help aid, all
-      full-time undergraduates, including first-time first-years, from CDS H2
-      row F.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row F ('Number of students who were awarded need-based
-      self-help aid'), All Full-Time Undergraduates (Including First-Time
-      First-Year) column. This is a subset of row D
-      (`h2_d_awarded_any_aid_all_full_time`) restricted to need-based self-help
-      (qualifying employment and/or loan) recipients; do not include the
-      need-based grant recipients counted separately in row E.
-
-  - id: h2_f_awarded_need_based_self_help_aid_less_than_full_time
-    description: >-
-      Count of students from row D awarded need-based self-help aid,
-      less-than-full-time undergraduates, from CDS H2 row F.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row F ('Number of students who were awarded need-based
-      self-help aid'), Less-Than-Full-Time Undergraduates column. This is a
-      subset of row D (`h2_d_awarded_any_aid_less_than_full_time`) restricted
-      to need-based self-help (qualifying employment and/or loan) recipients;
-      do not include the need-based grant recipients counted separately in row
-      E.
-
   - id: h2_g_awarded_non_need_based_grant_aid_first_time_first_year
     description: >-
       Count of students from row D awarded non-need-based scholarship or grant
@@ -1110,47 +253,6 @@ metrics:
       need. Preserve any apparent inconsistency in this column's reported
       figures (for example an internally inconsistent Harvard first-year row)
       exactly as printed; do not repair or reconcile it yourself.
-
-  - id: h2_g_awarded_non_need_based_grant_aid_all_full_time
-    description: >-
-      Count of students from row D awarded non-need-based scholarship or grant
-      aid, all full-time undergraduates, including first-time first-years, from
-      CDS H2 row G.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row G ('Number of students who were awarded non-need-based
-      scholarship/grant aid'), All Full-Time Undergraduates (Including
-      First-Time First-Year) column. This is a subset of row D
-      (`h2_d_awarded_any_aid_all_full_time`); non-need-based aid is awarded
-      without regard to demonstrated financial need.
-
-  - id: h2_g_awarded_non_need_based_grant_aid_less_than_full_time
-    description: >-
-      Count of students from row D awarded non-need-based scholarship or grant
-      aid, less-than-full-time undergraduates, from CDS H2 row G.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row G ('Number of students who were awarded non-need-based
-      scholarship/grant aid'), Less-Than-Full-Time Undergraduates column. This
-      is a subset of row D (`h2_d_awarded_any_aid_less_than_full_time`);
-      non-need-based aid is awarded without regard to demonstrated financial
-      need.
 
   - id: h2_h_need_fully_met_count_first_time_first_year
     description: >-
@@ -1175,49 +277,6 @@ metrics:
       two. Preserve any apparent inconsistency in this column's reported
       figures (for example an internally inconsistent Harvard first-year row)
       exactly as printed; do not repair or reconcile it yourself.
-
-  - id: h2_h_need_fully_met_count_all_full_time
-    description: >-
-      Count of students from row D whose full demonstrated need was met, all
-      full-time undergraduates, including first-time first-years, from CDS H2
-      row H.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row H ('Number of students whose need was fully met'), All
-      Full-Time Undergraduates (Including First-Time First-Year) column. This
-      determination excludes PLUS loans, unsubsidized loans, and private
-      alternative loans from the need-met calculation. It is a count subset of
-      row D (`h2_d_awarded_any_aid_all_full_time`) and is a distinct field from
-      the average-percent-of-need-met value in row I; do not confuse the two.
-
-  - id: h2_h_need_fully_met_count_less_than_full_time
-    description: >-
-      Count of students from row D whose full demonstrated need was met,
-      less-than-full-time undergraduates, from CDS H2 row H.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row H ('Number of students whose need was fully met'),
-      Less-Than-Full-Time Undergraduates column. This determination excludes
-      PLUS loans, unsubsidized loans, and private alternative loans from the
-      need-met calculation. It is a count subset of row D
-      (`h2_d_awarded_any_aid_less_than_full_time`) and is a distinct field from
-      the average-percent-of-need-met value in row I; do not confuse the two.
 
   - id: h2_i_average_percent_need_met_first_time_first_year
     description: >-
@@ -1257,23 +316,6 @@ metrics:
       Extract CDS H2 row I ('Average percent of need met'), All Full-Time
       Undergraduates (Including First-Time First-Year) column, as an ordinary percentage-point number; preserve the exact printed percentage token and precision in raw_value. Exclude aid awarded in excess of need and resources awarded to replace EFC (PLUS loans, unsubsidized loans, and private alternative loans), exactly as printed. This is not the headcount reported in row H.
 
-  - id: h2_i_average_percent_need_met_less_than_full_time
-    description: >-
-      Average percent of financial need met among recipients of any need-based
-      aid, less-than-full-time undergraduates, from CDS H2 row I.
-    type: number
-    unit: percent
-    population: less_than_full_time_undergraduates
-    denominator: need_based_aid_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row I ('Average percent of need met'), Less-Than-Full-Time
-      Undergraduates column, as an ordinary percentage-point number; preserve the exact printed percentage token and precision in raw_value. Exclude aid awarded in excess of need and resources awarded to replace EFC (PLUS loans, unsubsidized loans, and private alternative loans), exactly as printed. This is not the headcount reported in row H.
-
   - id: h2_j_average_aid_package_first_time_first_year
     description: >-
       Average financial-aid package among students awarded any financial aid,
@@ -1310,30 +352,13 @@ metrics:
     source_hints: [H2]
     instructions: >-
       Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row J ('Average financial aid package'), All Full-Time
-      Undergraduates (Including First-Time First-Year) column, among students
-      in row D (`h2_d_awarded_any_aid_all_full_time`). Preserve the printed
-      dollar amount including cents; this average spans all included aid types together and is not a need-based-only average. Exclude resources awarded to replace EFC: PLUS loans, unsubsidized loans, and private alternative loans.
-
-  - id: h2_j_average_aid_package_less_than_full_time
-    description: >-
-      Average financial-aid package among students awarded any financial aid,
-      less-than-full-time undergraduates, from CDS H2 row J.
-    type: number
-    unit: usd
-    population: less_than_full_time_undergraduates
-    denominator: any_aid_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row J ('Average financial aid package'),
-      Less-Than-Full-Time Undergraduates column, among students in row D
-      (`h2_d_awarded_any_aid_less_than_full_time`). Preserve the printed dollar
-      amount including cents; this average spans all included aid types together and is not a need-based-only average. Exclude resources awarded to replace EFC: PLUS loans, unsubsidized loans, and private alternative loans.
+      aid_reporting_status. Extract CDS H2 row J ('Average financial aid
+      package'), All Full-Time Undergraduates (Including First-Time
+      First-Year) column, among students in row D. Preserve the printed
+      dollar amount including cents; this average spans all included aid
+      types together and is not a need-based-only average. Exclude resources
+      awarded to replace EFC: PLUS loans, unsubsidized loans, and private
+      alternative loans.
 
   - id: h2_k_average_need_based_grant_award_first_time_first_year
     description: >-
@@ -1357,47 +382,6 @@ metrics:
       figures (for example an internally inconsistent Harvard first-year row)
       exactly as printed; do not repair or reconcile it yourself.
 
-  - id: h2_k_average_need_based_grant_award_all_full_time
-    description: >-
-      Average need-based scholarship or grant award among recipients, all
-      full-time undergraduates, including first-time first-years, from CDS H2
-      row K.
-    type: number
-    unit: usd
-    population: full_time_undergraduates
-    denominator: need_based_grant_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row K ('Average need-based scholarship or grant award'),
-      All Full-Time Undergraduates (Including First-Time First-Year) column,
-      among students in row E
-      (`h2_e_awarded_need_based_grant_aid_all_full_time`). Do not confuse this
-      with the self-help average in row L or the loan-only average in row M.
-
-  - id: h2_k_average_need_based_grant_award_less_than_full_time
-    description: >-
-      Average need-based scholarship or grant award among recipients,
-      less-than-full-time undergraduates, from CDS H2 row K.
-    type: number
-    unit: usd
-    population: less_than_full_time_undergraduates
-    denominator: need_based_grant_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row K ('Average need-based scholarship or grant award'),
-      Less-Than-Full-Time Undergraduates column, among students in row E
-      (`h2_e_awarded_need_based_grant_aid_less_than_full_time`). Do not confuse
-      this with the self-help average in row L or the loan-only average in row
-      M.
-
   - id: h2_l_average_need_based_self_help_award_first_time_first_year
     description: >-
       Average need-based self-help award among recipients, full-time first-time
@@ -1418,43 +402,6 @@ metrics:
       inconsistency in this column's reported figures (for example an
       internally inconsistent Harvard first-year row) exactly as printed; do
       not repair or reconcile it yourself.
-
-  - id: h2_l_average_need_based_self_help_award_all_full_time
-    description: >-
-      Average need-based self-help award among recipients, all full-time
-      undergraduates, including first-time first-years, from CDS H2 row L.
-    type: number
-    unit: usd
-    population: full_time_undergraduates
-    denominator: need_based_self_help_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row L ('Average need-based self-help award'), All
-      Full-Time Undergraduates (Including First-Time First-Year) column, among
-      students in row F
-      (`h2_f_awarded_need_based_self_help_aid_all_full_time`). This average includes qualifying employment and/or loans combined, excluding PLUS loans, unsubsidized loans, and private alternative loans; it is not the loan-only subset averaged separately in row M.
-
-  - id: h2_l_average_need_based_self_help_award_less_than_full_time
-    description: >-
-      Average need-based self-help award among recipients, less-than-full-time
-      undergraduates, from CDS H2 row L.
-    type: number
-    unit: usd
-    population: less_than_full_time_undergraduates
-    denominator: need_based_self_help_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row L ('Average need-based self-help award'),
-      Less-Than-Full-Time Undergraduates column, among students in row F
-      (`h2_f_awarded_need_based_self_help_aid_less_than_full_time`). This average includes qualifying employment and/or loans combined, excluding PLUS loans, unsubsidized loans, and private alternative loans; it is not the loan-only subset averaged separately in row M.
 
   - id: h2_m_average_need_based_loan_award_first_time_first_year
     description: >-
@@ -1479,45 +426,6 @@ metrics:
       internally inconsistent Harvard first-year row) exactly as printed; do
       not repair or reconcile it yourself.
 
-  - id: h2_m_average_need_based_loan_award_all_full_time
-    description: >-
-      Average need-based loan award among the self-help recipients who received
-      a need-based loan, all full-time undergraduates, including first-time
-      first-years, from CDS H2 row M.
-    type: number
-    unit: usd
-    population: full_time_undergraduates
-    denominator: need_based_loan_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row M ('Average need-based loan'), All Full-Time
-      Undergraduates (Including First-Time First-Year) column, among the subset
-      of row F (`h2_f_awarded_need_based_self_help_aid_all_full_time`) who
-      specifically received a need-based loan; this is narrower than the combined self-help average already captured in row L. Exclude PLUS loans, unsubsidized loans, and private alternative loans.
-
-  - id: h2_m_average_need_based_loan_award_less_than_full_time
-    description: >-
-      Average need-based loan award among the self-help recipients who received
-      a need-based loan, less-than-full-time undergraduates, from CDS H2 row M.
-    type: number
-    unit: usd
-    population: less_than_full_time_undergraduates
-    denominator: need_based_loan_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2 row M ('Average need-based loan'), Less-Than-Full-Time
-      Undergraduates column, among the subset of row F
-      (`h2_f_awarded_need_based_self_help_aid_less_than_full_time`) who
-      specifically received a need-based loan; this is narrower than the combined self-help average already captured in row L. Exclude PLUS loans, unsubsidized loans, and private alternative loans.
-
   # H2A — institutional non-need grants (N/O) and institutional athletic grants (P/Q)
   - id: h2a_n_no_need_institutional_grant_recipients_first_time_first_year
     description: >-
@@ -1540,49 +448,6 @@ metrics:
       Students column. Only rows N and O carry this explicit no-financial-need
       qualifier; rows P and Q below do not require it.
 
-  - id: h2a_n_no_need_institutional_grant_recipients_all_full_time
-    description: >-
-      Count of students with no financial need who received institutional
-      non-need-based grants, all full-time undergraduates, including first-time
-      first-years, from CDS H2A row N.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row N ('Number of students who had no financial need and
-      received institutional non-need-based scholarship/grant aid, excluding
-      athletic awards and tuition benefits'), All Full-Time Undergraduates
-      (Including First-Time First-Year) column. Only rows N and O carry this
-      explicit no-financial-need qualifier; rows P and Q below do not require
-      it.
-
-  - id: h2a_n_no_need_institutional_grant_recipients_less_than_full_time
-    description: >-
-      Count of students with no financial need who received institutional
-      non-need-based grants, less-than-full-time undergraduates, from CDS H2A
-      row N.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row N ('Number of students who had no financial need and
-      received institutional non-need-based scholarship/grant aid, excluding
-      athletic awards and tuition benefits'), Less-Than-Full-Time
-      Undergraduates column. Only rows N and O carry this explicit
-      no-financial-need qualifier; rows P and Q below do not require it.
-
   - id: h2a_o_average_no_need_institutional_grant_amount_first_time_first_year
     description: >-
       Average institutional non-need-based grant amount among the row N
@@ -1600,48 +465,6 @@ metrics:
       Extract CDS H2A row O ('Average award to the row N recipients'),
       Full-Time First-Time First-Year Students column, among students in row N
       (`h2a_n_no_need_institutional_grant_recipients_first_time_first_year`).
-      Preserve a literal 'NaN' or 'NA' marker exactly as printed status/raw
-      evidence; never convert either marker to zero.
-
-  - id: h2a_o_average_no_need_institutional_grant_amount_all_full_time
-    description: >-
-      Average institutional non-need-based grant amount among the row N
-      recipients, all full-time undergraduates, including first-time
-      first-years, from CDS H2A row O.
-    type: number
-    unit: usd
-    population: full_time_undergraduates
-    denominator: no_need_institutional_grant_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row O ('Average award to the row N recipients'), All
-      Full-Time Undergraduates (Including First-Time First-Year) column, among
-      students in row N
-      (`h2a_n_no_need_institutional_grant_recipients_all_full_time`). Preserve
-      a literal 'NaN' or 'NA' marker exactly as printed status/raw evidence;
-      never convert either marker to zero.
-
-  - id: h2a_o_average_no_need_institutional_grant_amount_less_than_full_time
-    description: >-
-      Average institutional non-need-based grant amount among the row N
-      recipients, less-than-full-time undergraduates, from CDS H2A row O.
-    type: number
-    unit: usd
-    population: less_than_full_time_undergraduates
-    denominator: no_need_institutional_grant_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row O ('Average award to the row N recipients'),
-      Less-Than-Full-Time Undergraduates column, among students in row N
-      (`h2a_n_no_need_institutional_grant_recipients_less_than_full_time`).
       Preserve a literal 'NaN' or 'NA' marker exactly as printed status/raw
       evidence; never convert either marker to zero.
 
@@ -1666,48 +489,6 @@ metrics:
       (`h2_a_degree_seeking_undergraduates_first_time_first_year`), not the
       no-financial-need subset used in rows N/O.
 
-  - id: h2a_p_institutional_athletic_grant_recipients_all_full_time
-    description: >-
-      Count of students from H2 row A who received institutional non-need-based
-      athletic grants, all full-time undergraduates, including first-time
-      first-years, from CDS H2A row P.
-    type: integer
-    unit: students
-    population: full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row P ('Number of students in H2 row A who received
-      institutional non-need-based athletic scholarship/grant aid'), All
-      Full-Time Undergraduates (Including First-Time First-Year) column. The
-      base population is H2 row A
-      (`h2_a_degree_seeking_undergraduates_all_full_time`), not the
-      no-financial-need subset used in rows N/O.
-
-  - id: h2a_p_institutional_athletic_grant_recipients_less_than_full_time
-    description: >-
-      Count of students from H2 row A who received institutional non-need-based
-      athletic grants, less-than-full-time undergraduates, from CDS H2A row P.
-    type: integer
-    unit: students
-    population: less_than_full_time_undergraduates
-    denominator: none
-    definition_variant: total
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row P ('Number of students in H2 row A who received
-      institutional non-need-based athletic scholarship/grant aid'),
-      Less-Than-Full-Time Undergraduates column. The base population is H2 row
-      A (`h2_a_degree_seeking_undergraduates_less_than_full_time`), not the
-      no-financial-need subset used in rows N/O.
-
   - id: h2a_q_average_institutional_athletic_grant_amount_first_time_first_year
     description: >-
       Average institutional athletic grant amount among the row P recipients,
@@ -1728,105 +509,6 @@ metrics:
       Preserve a literal 'NaN' or 'NA' marker exactly as printed status/raw
       evidence; never convert either marker to zero.
 
-  - id: h2a_q_average_institutional_athletic_grant_amount_all_full_time
-    description: >-
-      Average institutional athletic grant amount among the row P recipients,
-      all full-time undergraduates, including first-time first-years, from CDS
-      H2A row Q.
-    type: number
-    unit: usd
-    population: full_time_undergraduates
-    denominator: institutional_athletic_grant_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row Q ('Average award to the row P recipients'), All
-      Full-Time Undergraduates (Including First-Time First-Year) column, among
-      students in row P
-      (`h2a_p_institutional_athletic_grant_recipients_all_full_time`). Preserve
-      a literal 'NaN' or 'NA' marker exactly as printed status/raw evidence;
-      never convert either marker to zero.
-
-  - id: h2a_q_average_institutional_athletic_grant_amount_less_than_full_time
-    description: >-
-      Average institutional athletic grant amount among the row P recipients,
-      less-than-full-time undergraduates, from CDS H2A row Q.
-    type: number
-    unit: usd
-    population: less_than_full_time_undergraduates
-    denominator: institutional_athletic_grant_recipients
-    definition_variant: average
-    period_kind: aid_year
-    source_hints: [H2A]
-    instructions: >-
-      Bind this metric to aid_reporting_academic_year and
-      aid_reporting_status.
-      Extract CDS H2A row Q ('Average award to the row P recipients'),
-      Less-Than-Full-Time Undergraduates column, among students in row P
-      (`h2a_p_institutional_athletic_grant_recipients_less_than_full_time`).
-      Preserve a literal 'NaN' or 'NA' marker exactly as printed status/raw
-      evidence; never convert either marker to zero.
-
-  # H4 — graduating-class context binding every H5 debt metric
-  - id: graduating_class_year
-    description: >-
-      Graduating class year used as the base cohort for the H5 cumulative-debt
-      figures, from the H4 heading.
-    type: string
-    unit: years
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: printed
-    period_kind: cohort_year
-    source_hints: [H4]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Copy the H4 graduating-class year exactly as printed (for example the
-      'class of' year). This cohort year is a distinct concept from
-      `aid_reporting_academic_year`, the CDS edition, and the fall enrollment
-      snapshot; every `h5_*` metric in this domain is bound to this same
-      graduating-class context, not to the aid-reporting year.
-
-  - id: degree_award_window_start
-    description: >-
-      Start of the degree-conferral window used to define the H4 graduating
-      class, from the H4 heading.
-    type: string
-    unit: date
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: printed
-    period_kind: cohort_year
-    source_hints: [H4]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Copy the H4 degree-award window start date exactly as printed, preserving
-      a partial date without a year as a string. This binds
-      `graduating_class_first_time_bachelors_count` and every `h5_*` metric to the
-      exact conferral window used.
-
-  - id: degree_award_window_end
-    description: >-
-      End of the degree-conferral window used to define the H4 graduating
-      class, from the H4 heading.
-    type: string
-    unit: date
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: printed
-    period_kind: cohort_year
-    source_hints: [H4]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Copy the H4 degree-award window end date exactly as printed, preserving a
-      partial date without a year as a string.
-
   - id: graduating_class_first_time_bachelors_count
     description: >-
       Count of first-time entering students who earned bachelor's degrees
@@ -1839,40 +521,11 @@ metrics:
     period_kind: cohort_year
     source_hints: [H4]
     instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
       Extract the H4 count of first-time-entering students (excluding
       transfer-ins) who were awarded a bachelor's degree within the
-      `degree_award_window_start`/`degree_award_window_end` window. This
-      is the base cohort ('the graduating class') for every H5 borrower count,
-      percent, and average below; never compute it from H5 figures.
-
-  # H5 — cumulative principal borrowed by the H4 graduating class, five loan sources
-  - id: h5_borrowers_any_program_count
-    description: >-
-      Count of H4 graduating-class borrowers who borrowed through any loan
-      program (all sources combined).
-    type: integer
-    unit: students
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: total
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 borrower-count cell for any loan program (all sources
-      combined), among the graduating class defined by
-      `graduating_class_first_time_bachelors_count`. This figure includes student
-      loans co-signed by a parent and excludes parent loans and any borrowing
-      by the student at other institutions. Some template versions (for example
-      Yale) explicitly exclude CARES Act or other COVID-unique emergency aid
-      from this figure; treat that exclusion as printed template guidance, not
-      a separate metric. Rows overlap across the five sources, so never sum
-      borrower counts across sources to produce a total. This row combines all
-      loan sources below; rows overlap because a borrower can appear in more
-      than one source, so never sum the other four sources to reproduce it.
+      degree-award window printed on the form. This is the base cohort ('the
+      graduating class') for every H5 borrower count, percent, and average
+      below; never compute it from H5 figures.
 
   - id: h5_borrowers_any_program_percent_of_class
     description: >-
@@ -1886,18 +539,10 @@ metrics:
     period_kind: cohort_year
     source_hints: [H5]
     instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 percent-of-class cell for any loan program (all sources
-      combined), extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and precision in raw_value. The denominator is the graduating class in
-      `graduating_class_first_time_bachelors_count`, not the borrower count itself.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
+      Extract the H5 percent-of-class cell for any loan program (all sources combined), extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token
+      and precision in raw_value. The denominator is the graduating class in `graduating_class_first_time_bachelors_count`, not the borrower count itself. This figure includes student loans co-signed by a
+      parent and excludes parent loans and any borrowing by the student at other institutions. Some template versions (for example Yale) explicitly exclude CARES Act or other COVID-unique emergency aid
+      from this figure; treat that exclusion as printed template guidance, not a separate metric. Rows overlap across the five sources, so never sum borrower counts across sources to produce a total.
 
   - id: h5_borrowers_any_program_average_principal
     description: >-
@@ -1911,268 +556,16 @@ metrics:
     period_kind: cohort_year
     source_hints: [H5]
     instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
       Extract the H5 average-cumulative-principal-per-borrower cell for any
       loan program (all sources combined), preserving the exact printed
       rounding/precision. The average is taken only among borrowers of this
-      source (`h5_borrowers_any_program_count`), not among the full graduating
-      class. This figure includes student loans co-signed by a parent and
-      excludes parent loans and any borrowing by the student at other
-      institutions. Some template versions (for example Yale) explicitly
-      exclude CARES Act or other COVID-unique emergency aid from this figure;
-      treat that exclusion as printed template guidance, not a separate metric.
-      Rows overlap across the five sources, so never sum borrower counts across
-      sources to produce a total.
-
-  - id: h5_borrowers_federal_count
-    description: >-
-      Count of H4 graduating-class borrowers who borrowed through federal loan
-      programs.
-    type: integer
-    unit: students
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: total
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 borrower-count cell for federal loan programs, among the
-      graduating class defined by `graduating_class_first_time_bachelors_count`.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
-
-  - id: h5_borrowers_federal_percent_of_class
-    description: >-
-      Percent of the H4 graduating class who borrowed through federal loan
-      programs.
-    type: number
-    unit: percent
-    population: first_time_bachelors_graduates
-    denominator: graduating_class_first_time_bachelors_count
-    definition_variant: share
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 percent-of-class cell for federal loan programs,
-      extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and precision in raw_value. The denominator is the graduating class in
-      `graduating_class_first_time_bachelors_count`, not the borrower count itself.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
-
-  - id: h5_borrowers_federal_average_principal
-    description: >-
-      Average cumulative principal borrowed per borrower through federal loan
-      programs.
-    type: number
-    unit: usd
-    population: first_time_bachelors_graduates
-    denominator: loan_borrowers
-    definition_variant: average
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 average-cumulative-principal-per-borrower cell for federal
-      loan programs, preserving the exact printed rounding/precision. The
-      average is taken only among borrowers of this source
-      (`h5_borrowers_federal_count`), not among the full graduating class. This
-      figure includes student loans co-signed by a parent and excludes parent
-      loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
-
-  - id: h5_borrowers_institutional_count
-    description: >-
-      Count of H4 graduating-class borrowers who borrowed through institutional
-      loan programs.
-    type: integer
-    unit: students
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: total
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 borrower-count cell for institutional loan programs, among
-      the graduating class defined by
-      `graduating_class_first_time_bachelors_count`. This figure includes student
+      source, not among the full graduating class. This figure includes student
       loans co-signed by a parent and excludes parent loans and any borrowing
       by the student at other institutions. Some template versions (for example
       Yale) explicitly exclude CARES Act or other COVID-unique emergency aid
       from this figure; treat that exclusion as printed template guidance, not
       a separate metric. Rows overlap across the five sources, so never sum
       borrower counts across sources to produce a total.
-
-  - id: h5_borrowers_institutional_percent_of_class
-    description: >-
-      Percent of the H4 graduating class who borrowed through institutional
-      loan programs.
-    type: number
-    unit: percent
-    population: first_time_bachelors_graduates
-    denominator: graduating_class_first_time_bachelors_count
-    definition_variant: share
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 percent-of-class cell for institutional loan programs,
-      extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and precision in raw_value. The denominator is the graduating class in
-      `graduating_class_first_time_bachelors_count`, not the borrower count itself.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
-
-  - id: h5_borrowers_institutional_average_principal
-    description: >-
-      Average cumulative principal borrowed per borrower through institutional
-      loan programs.
-    type: number
-    unit: usd
-    population: first_time_bachelors_graduates
-    denominator: loan_borrowers
-    definition_variant: average
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 average-cumulative-principal-per-borrower cell for
-      institutional loan programs, preserving the exact printed
-      rounding/precision. The average is taken only among borrowers of this
-      source (`h5_borrowers_institutional_count`), not among the full
-      graduating class. This figure includes student loans co-signed by a
-      parent and excludes parent loans and any borrowing by the student at
-      other institutions. Some template versions (for example Yale) explicitly
-      exclude CARES Act or other COVID-unique emergency aid from this figure;
-      treat that exclusion as printed template guidance, not a separate metric.
-      Rows overlap across the five sources, so never sum borrower counts across
-      sources to produce a total.
-
-  - id: h5_borrowers_state_count
-    description: >-
-      Count of H4 graduating-class borrowers who borrowed through state loan
-      programs.
-    type: integer
-    unit: students
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: total
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 borrower-count cell for state loan programs, among the
-      graduating class defined by `graduating_class_first_time_bachelors_count`.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
-
-  - id: h5_borrowers_state_percent_of_class
-    description: >-
-      Percent of the H4 graduating class who borrowed through state loan
-      programs.
-    type: number
-    unit: percent
-    population: first_time_bachelors_graduates
-    denominator: graduating_class_first_time_bachelors_count
-    definition_variant: share
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 percent-of-class cell for state loan programs, extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and precision in raw_value.
-      The denominator is the graduating class in
-      `graduating_class_first_time_bachelors_count`, not the borrower count itself.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
-
-  - id: h5_borrowers_state_average_principal
-    description: >-
-      Average cumulative principal borrowed per borrower through state loan
-      programs.
-    type: number
-    unit: usd
-    population: first_time_bachelors_graduates
-    denominator: loan_borrowers
-    definition_variant: average
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 average-cumulative-principal-per-borrower cell for state
-      loan programs, preserving the exact printed rounding/precision. The
-      average is taken only among borrowers of this source
-      (`h5_borrowers_state_count`), not among the full graduating class. This
-      figure includes student loans co-signed by a parent and excludes parent
-      loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
-
-  - id: h5_borrowers_private_count
-    description: >-
-      Count of H4 graduating-class borrowers who borrowed through private loan
-      programs.
-    type: integer
-    unit: students
-    population: first_time_bachelors_graduates
-    denominator: none
-    definition_variant: total
-    period_kind: cohort_year
-    source_hints: [H5]
-    instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 borrower-count cell for private loan programs, among the
-      graduating class defined by `graduating_class_first_time_bachelors_count`.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
 
   - id: h5_borrowers_private_percent_of_class
     description: >-
@@ -2186,18 +579,11 @@ metrics:
     period_kind: cohort_year
     source_hints: [H5]
     instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
-      Extract the H5 percent-of-class cell for private loan programs,
-      extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and precision in raw_value. The denominator is the graduating class in
-      `graduating_class_first_time_bachelors_count`, not the borrower count itself.
-      This figure includes student loans co-signed by a parent and excludes
-      parent loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
+      Extract the H5 percent-of-class cell for private loan programs, extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and
+      precision in raw_value. The denominator is the graduating class in `graduating_class_first_time_bachelors_count`, not the borrower count itself. This figure includes student loans
+      co-signed by a parent and excludes parent loans and any borrowing by the student at other institutions. Some template versions (for example Yale) explicitly exclude CARES Act or other
+      COVID-unique emergency aid from this figure; treat that exclusion as printed template guidance, not a separate metric. Rows overlap across the five sources, so never sum borrower counts
+      across sources to produce a total.
 
   - id: h5_borrowers_private_average_principal
     description: >-
@@ -2211,19 +597,16 @@ metrics:
     period_kind: cohort_year
     source_hints: [H5]
     instructions: >-
-      Bind this metric to graduating_class_year,
-      degree_award_window_start, and degree_award_window_end.
       Extract the H5 average-cumulative-principal-per-borrower cell for private
       loan programs, preserving the exact printed rounding/precision. The
-      average is taken only among borrowers of this source
-      (`h5_borrowers_private_count`), not among the full graduating class. This
-      figure includes student loans co-signed by a parent and excludes parent
-      loans and any borrowing by the student at other institutions. Some
-      template versions (for example Yale) explicitly exclude CARES Act or
-      other COVID-unique emergency aid from this figure; treat that exclusion
-      as printed template guidance, not a separate metric. Rows overlap across
-      the five sources, so never sum borrower counts across sources to produce
-      a total.
+      average is taken only among borrowers of this source, not among the full
+      graduating class. This figure includes student loans co-signed by a
+      parent and excludes parent loans and any borrowing by the student at
+      other institutions. Some template versions (for example Yale) explicitly
+      exclude CARES Act or other COVID-unique emergency aid from this figure;
+      treat that exclusion as printed template guidance, not a separate metric.
+      Rows overlap across the five sources, so never sum borrower counts across
+      sources to produce a total.
 
   # H6 — institutional aid policy and outcomes for nonresident undergraduates
   - id: h6_need_based_grants_available
@@ -2370,56 +753,6 @@ metrics:
       and false only when the complete visible H7 checklist shows it
       unambiguously unmarked.
 
-  - id: h7_other_form_required
-    description: >-
-      Whether an other, institution-named form is required of nonresident
-      first-year aid applicants, from H7.
-    type: boolean
-    unit: boolean
-    population: nonresident_first_year_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H7]
-    instructions: >-
-      Return true only when the H7 'Other' control is visibly selected, and
-      false only when the complete visible H7 checklist shows it unambiguously
-      unmarked. Keep this selection separate from the free-text description in
-      `h7_other_form_description`.
-
-  - id: h7_other_form_description
-    description: >-
-      Free-text name of the other required form for nonresident first-year aid
-      applicants, from H7.
-    type: string
-    unit: text
-    population: nonresident_first_year_aid_applicants
-    denominator: none
-    definition_variant: reported
-    period_kind: policy
-    source_hints: [H7]
-    instructions: >-
-      Copy the H7 'Other' description text exactly as printed. Extract this
-      only when a description is visibly present; a blank cell beside an
-      unselected `h7_other_form_required` is not evidence of a description.
-
-  # H8 — forms required of domestic first-year financial-aid applicants
-  - id: h8_fafsa_required
-    description: >-
-      Whether FAFSA is required of domestic first-year aid applicants, from H8.
-    type: boolean
-    unit: boolean
-    population: domestic_first_year_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H8]
-    instructions: >-
-      Return true only when the H8 'FAFSA' control is visibly selected, and
-      false only when the complete visible H8 checklist shows it unambiguously
-      unmarked. This checklist is for domestic applicants; do not confuse it
-      with the nonresident checklist in H7.
-
   - id: h8_institution_form_required
     description: >-
       Whether Institution's own form is required of domestic first-year aid
@@ -2504,40 +837,6 @@ metrics:
       visibly selected, and false only when the complete visible H8 checklist
       shows it unambiguously unmarked. This checklist is for domestic
       applicants; do not confuse it with the nonresident checklist in H7.
-
-  - id: h8_other_form_required
-    description: >-
-      Whether Other is required of domestic first-year aid applicants, from H8.
-    type: boolean
-    unit: boolean
-    population: domestic_first_year_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H8]
-    instructions: >-
-      Return true only when the H8 'Other' control is visibly selected, and
-      false only when the complete visible H8 checklist shows it unambiguously
-      unmarked. This checklist is for domestic applicants; do not confuse it
-      with the nonresident checklist in H7.
-
-  - id: h8_other_form_description
-    description: >-
-      Free-text name of the other required form for domestic first-year aid
-      applicants, from H8.
-    type: string
-    unit: text
-    population: domestic_first_year_aid_applicants
-    denominator: none
-    definition_variant: reported
-    period_kind: policy
-    source_hints: [H8]
-    instructions: >-
-      Copy the complete H8 'Other' description text exactly as printed,
-      including any visibly truncated ending (for example a response that ends
-      '...business/trust/farm documents if'). Never complete or extend the text
-      from similar H7 wording or outside knowledge; preserve the truncation
-      exactly.
 
   # H9 — required financial-aid-form filing dates and rolling processing
   - id: aid_has_deadline
@@ -2741,94 +1040,6 @@ metrics:
       Extract this independently of `h11_reply_deadline_date`; preserve both
       alternatives even if both are populated.
 
-  # H12 — loan types available to undergraduates
-  - id: h12_federal_direct_subsidized_loan_available
-    description: >-
-      Whether Federal Direct Subsidized loans were available to undergraduates, from H12.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H12]
-    instructions: >-
-      Return true only when the matching H12 control is visibly selected, and
-      false only when the complete visible H12 checklist shows it unambiguously
-      unmarked. Match Harvard's exact label 'Federal Direct Subsidized Loans'
-      and Yale's version alias 'Direct Subsidized Stafford Loans' to this same
-      metric. Availability is not usage and not H1 loan-dollar volume.
-
-  - id: h12_federal_direct_unsubsidized_loan_available
-    description: >-
-      Whether Federal Direct Unsubsidized loans were available to
-      undergraduates, from H12.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H12]
-    instructions: >-
-      Return true only when the matching H12 control is visibly selected, and
-      false only when the complete visible H12 checklist shows it unambiguously
-      unmarked. Match Harvard's exact label 'Federal Direct Unsubsidized Loans'
-      and Yale's version alias 'Direct Unsubsidized Stafford Loans' to this
-      same metric. Availability is not usage and not H1 loan-dollar volume.
-
-  - id: h12_federal_direct_plus_loan_available
-    description: >-
-      Whether Federal Direct PLUS loans were available to undergraduates, from
-      H12.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H12]
-    instructions: >-
-      Return true only when the matching H12 control is visibly selected, and
-      false only when the complete visible H12 checklist shows it unambiguously
-      unmarked. Match Harvard's exact label 'Federal Direct PLUS Loans' and
-      Yale's version alias 'Direct PLUS Loans' to this same metric.
-      Availability is not usage and not H1 loan-dollar volume.
-
-  - id: h12_federal_perkins_loan_available
-    description: >-
-      Whether Federal Perkins loans were available to undergraduates, from H12.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H12]
-    instructions: >-
-      Return true only when the H12 'Federal Perkins Loans' control is visibly
-      selected, and false only when the complete visible H12 checklist shows it
-      unambiguously unmarked. Availability is not usage and not H1 loan-dollar
-      volume. This loan program is version-specific to editions such as Yale's:
-      a template edition that does not print this row treats it as
-      not_in_template_version, never false.
-
-  - id: h12_federal_nursing_loan_available
-    description: >-
-      Whether Federal Nursing loans were available to undergraduates, from H12.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H12]
-    instructions: >-
-      Return true only when the H12 'Federal Nursing Loans' control is visibly
-      selected, and false only when the complete visible H12 checklist shows it
-      unambiguously unmarked. Availability is not usage and not H1 loan-dollar
-      volume.
-
   - id: h12_state_loan_available
     description: >-
       Whether State loans were available to undergraduates,
@@ -2863,192 +1074,6 @@ metrics:
       unmarked. A missing row is `not_in_template_version`, not false. Availability is
       not usage and not H1 loan-dollar volume.
 
-  - id: h12_other_loan_available
-    description: >-
-      Whether Other loans were available to undergraduates,
-      from H12.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H12]
-    instructions: >-
-      Return true only when the H12 'Other (specify)' control is visibly selected, and
-      false only when the complete visible H12 checklist shows it unambiguously
-      unmarked. Availability is not usage and not H1 loan-dollar volume.
-
-  - id: h12_other_loan_description
-    description: >-
-      Free-text name of the other loan type available to undergraduates, from H12.
-    type: string
-    unit: text
-    population: undergraduates
-    denominator: none
-    definition_variant: reported
-    period_kind: policy
-    source_hints: [H12]
-    instructions: >-
-      Copy the H12 'Other' loan description text exactly as printed. Extract
-      this only when a description is visibly present alongside
-      `h12_other_loan_available`.
-
-  # H13 — need-based grant types available to undergraduates
-  - id: h13_federal_pell_available
-    description: >-
-      Whether Federal Pell need-based grants were available to undergraduates, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the H13 'Federal Pell' control is visibly selected,
-      and false only when the complete visible H13 checklist shows it
-      unambiguously unmarked, preserving any page-break continuation of the
-      checklist. Availability is not a recipient count or dollar amount.
-
-  - id: h13_federal_seog_available
-    description: >-
-      Whether Federal SEOG need-based grants were available to undergraduates, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the matching H13 control is visibly selected, and
-      false only when the complete visible H13 checklist shows it
-      unambiguously unmarked. Match Harvard's exact label 'Federal SEOG' and
-      Yale's exact version alias 'SEOG' to this metric, preserving any
-      page-break continuation. Availability is not a recipient count or dollar
-      amount.
-
-  - id: h13_state_grant_available
-    description: >-
-      Whether State need-based grants were available to undergraduates, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the H13 'State scholarships/grants' control is visibly selected, and
-      false only when the complete visible H13 checklist shows it unambiguously
-      unmarked, preserving any page-break continuation of the checklist.
-      Availability is not a recipient count or dollar amount.
-
-  - id: h13_private_scholarship_available
-    description: >-
-      Whether Private Scholarships need-based grants were available to
-      undergraduates, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the matching H13 control is visibly selected, and
-      false only when the complete visible H13 checklist shows it unambiguously
-      unmarked. Match Harvard's exact label 'Private scholarships' and Yale's
-      exact label 'Private Scholarships' to this metric, preserving any
-      page-break continuation. Availability is not a recipient count or dollar
-      amount.
-
-  - id: h13_institutional_gift_aid_available
-    description: >-
-      Whether college/university scholarship or grant aid from institutional
-      funds was available to undergraduates as need-based aid, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the H13 'College/university scholarship or grant
-      aid from institutional funds' control is visibly selected, and false only
-      when the complete visible H13 checklist shows it unambiguously unmarked,
-      preserving any page-break continuation of the checklist. This is the
-      exact Harvard and Yale label. Availability is not a recipient count or
-      dollar amount.
-
-  - id: h13_uncf_available
-    description: >-
-      Whether United Negro College Fund need-based grants were available to
-      undergraduates, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the H13 'United Negro College Fund' control is
-      visibly selected, and false only when the complete visible H13 checklist
-      shows it unambiguously unmarked, preserving any page-break continuation
-      of the checklist. Availability is not a recipient count or dollar amount.
-
-  - id: h13_federal_nursing_scholarship_available
-    description: >-
-      Whether Federal Nursing Scholarship need-based grants were available to
-      undergraduates, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the H13 'Federal Nursing Scholarship' control is
-      visibly selected, and false only when the complete visible H13 checklist
-      shows it unambiguously unmarked, preserving any page-break continuation
-      of the checklist. Availability is not a recipient count or dollar amount.
-
-  - id: h13_other_grant_available
-    description: >-
-      Whether Other need-based grants were available to undergraduates, from H13.
-    type: boolean
-    unit: boolean
-    population: undergraduates
-    denominator: none
-    definition_variant: availability
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Return true only when the H13 'Other (specify):' control is visibly selected, and
-      false only when the complete visible H13 checklist shows it unambiguously
-      unmarked, preserving any page-break continuation of the checklist.
-      Availability is not a recipient count or dollar amount.
-
-  - id: h13_other_grant_description
-    description: >-
-      Free-text name of the other need-based grant type available to
-      undergraduates, from H13.
-    type: string
-    unit: text
-    population: undergraduates
-    denominator: none
-    definition_variant: reported
-    period_kind: policy
-    source_hints: [H13]
-    instructions: >-
-      Copy the H13 'Other (specify):' grant description text exactly as printed. Keep this
-      Other-text field separate from the `h13_other_grant_available` selection;
-      extract text only when visibly present.
-
   # H14 — criteria used to award institutional aid, crossed with non-need-based/need-based columns
   - id: h14_academics_non_need_based
     description: >-
@@ -3068,24 +1093,6 @@ metrics:
       cell; a blank cell in this or any other visible H14 coordinate is
       not_reported, never false, and must not be inferred from another cell.
 
-  - id: h14_academics_need_based
-    description: >-
-      Whether Academics is used as a criterion for awarding institutional need-based aid,
-      from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Academics' row, Need-Based column control
-      is visibly selected. Every H14 cell is independent
-      of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
-      never false, and must not be inferred from this cell or vice versa.
-
   - id: h14_alumni_affiliation_non_need_based
     description: >-
       Whether Alumni Affiliation is used as a criterion for awarding institutional non-need-based aid, from H14.
@@ -3104,23 +1111,6 @@ metrics:
       not_reported, never false, and must not be inferred from this cell or
       vice versa.
 
-  - id: h14_alumni_affiliation_need_based
-    description: >-
-      Whether Alumni Affiliation is used as a criterion for awarding institutional need-based aid, from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Alumni Affiliation' row, Need-Based column
-      control is visibly selected. Every H14 cell is independent
-      of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
-      never false, and must not be inferred from this cell or vice versa.
-
   - id: h14_art_non_need_based
     description: >-
       Whether Art is used as a criterion for awarding institutional non-need-based aid, from
@@ -3135,23 +1125,6 @@ metrics:
     instructions: >-
       This H14 coordinate concerns criteria applied to institutional-aid applicants.
       Return true only when the H14 'Art' row, Non-Need-Based column control is
-      visibly selected. Every H14 cell is independent of every
-      other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never
-      false, and must not be inferred from this cell or vice versa.
-
-  - id: h14_art_need_based
-    description: >-
-      Whether Art is used as a criterion for awarding institutional need-based aid, from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Art' row, Need-Based column control is
       visibly selected. Every H14 cell is independent of every
       other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never
       false, and must not be inferred from this cell or vice versa.
@@ -3209,24 +1182,6 @@ metrics:
       of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
       never false, and must not be inferred from this cell or vice versa.
 
-  - id: h14_job_skills_need_based
-    description: >-
-      Whether Job Skills is used as a criterion for awarding institutional need-based aid,
-      from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Job Skills' row, Need-Based column control
-      is visibly selected. Every H14 cell is independent
-      of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
-      never false, and must not be inferred from this cell or vice versa.
-
   - id: h14_rotc_non_need_based
     description: >-
       Whether ROTC is used as a criterion for awarding institutional non-need-based aid, from
@@ -3245,27 +1200,6 @@ metrics:
       of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
       never false, and must not be inferred from this cell or vice versa.
 
-  - id: h14_rotc_need_based
-    description: >-
-      Whether ROTC is used as a criterion for awarding institutional need-based aid, from
-      H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'ROTC' row, Need-Based column control is
-      visibly selected. Every H14 cell is independent of every
-      other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never
-      false, and must not be inferred from this cell or vice versa. In both
-      supplied source PDFs this specific cell (ROTC x Need-Based) explicitly
-      prints 'Not Applicable'; return that as not_applicable status with exact
-      raw evidence, never false.
-
   - id: h14_leadership_non_need_based
     description: >-
       Whether Leadership is used as a criterion for awarding institutional non-need-based aid, from H14.
@@ -3280,24 +1214,6 @@ metrics:
       This H14 coordinate concerns criteria applied to institutional-aid applicants.
       Return true only when the H14 'Leadership' row, Non-Need-Based column
       control is visibly selected. Every H14 cell is independent
-      of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
-      never false, and must not be inferred from this cell or vice versa.
-
-  - id: h14_leadership_need_based
-    description: >-
-      Whether Leadership is used as a criterion for awarding institutional need-based aid,
-      from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Leadership' row, Need-Based column control
-      is visibly selected. Every H14 cell is independent
       of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
       never false, and must not be inferred from this cell or vice versa.
 
@@ -3322,26 +1238,6 @@ metrics:
       Status row) treats both of its cells as not_in_template_version, never
       false.
 
-  - id: h14_minority_status_need_based
-    description: >-
-      Whether Minority Status is used as a criterion for awarding institutional need-based aid, from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Minority Status' row, Need-Based column
-      control is visibly selected. Every H14 cell is independent
-      of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
-      never false, and must not be inferred from this cell or vice versa. This
-      criterion row is version-specific: a template edition whose H14 table
-      omits this row (for example Harvard's absent Minority Status row) treats
-      both of its cells as not_in_template_version, never false.
-
   - id: h14_music_drama_non_need_based
     description: >-
       Whether Music/Drama is used as a criterion for awarding institutional non-need-based aid, from H14.
@@ -3355,24 +1251,6 @@ metrics:
     instructions: >-
       This H14 coordinate concerns criteria applied to institutional-aid applicants.
       Return true only when the H14 'Music/Drama' row, Non-Need-Based column
-      control is visibly selected. Every H14 cell is independent
-      of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
-      never false, and must not be inferred from this cell or vice versa.
-
-  - id: h14_music_drama_need_based
-    description: >-
-      Whether Music/Drama is used as a criterion for awarding institutional need-based aid,
-      from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Music/Drama' row, Need-Based column
       control is visibly selected. Every H14 cell is independent
       of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported,
       never false, and must not be inferred from this cell or vice versa.
@@ -3395,24 +1273,6 @@ metrics:
       not_reported, never false, and must not be inferred from this cell or
       vice versa.
 
-  - id: h14_religious_affiliation_need_based
-    description: >-
-      Whether Religious Affiliation is used as a criterion for awarding institutional need-based aid, from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'Religious Affiliation' row, Need-Based
-      column control is visibly selected. Every H14 cell is
-      independent of every other cell; a blank cell in this or any other visible H14 coordinate is
-      not_reported, never false, and must not be inferred from this cell or
-      vice versa.
-
   - id: h14_state_district_residency_non_need_based
     description: >-
       Whether State/District Residency is used as a criterion for awarding institutional non-need-based aid, from H14.
@@ -3430,24 +1290,6 @@ metrics:
       H14 cell is independent of every other cell; a blank cell elsewhere in
       the table is not_reported, never false, and must not be inferred from
       this cell or vice versa.
-
-  - id: h14_state_district_residency_need_based
-    description: >-
-      Whether State/District Residency is used as a criterion for awarding institutional need-based aid, from H14.
-    type: boolean
-    unit: boolean
-    population: institutional_aid_applicants
-    denominator: none
-    definition_variant: selected
-    period_kind: policy
-    source_hints: [H14]
-    instructions: >-
-      This H14 coordinate concerns criteria applied to institutional-aid applicants.
-      Return true only when the H14 'State/District Residency' row, Need-Based
-      column control is visibly selected. Every H14 cell is
-      independent of every other cell; a blank cell in this or any other visible H14 coordinate is
-      not_reported, never false, and must not be inferred from this cell or
-      vice versa.
 
   # H15 — recent affordability initiatives narrative
   - id: recent_affordability_initiative_details
@@ -3473,24 +1315,3 @@ metrics:
       initiative-present field. Do not parse, structure, or summarize the
       thresholds described in the text; that is downstream work, not
       extraction.
-
-  - id: affordability_initiative_covid_related
-    description: >-
-      Whether a recently implemented initiative to make the institution more
-      affordable to incoming students is COVID-related, from H15
-      (version-specific and relative to this CDS edition).
-    type: boolean
-    unit: boolean
-    population: incoming_students
-    denominator: none
-    definition_variant: policy
-    period_kind: policy
-    source_hints: [H15]
-    instructions: >-
-      Interpret the initiative's recency relative to this CDS edition, not the
-      H1 aid-reporting year or a live website. Extract the version-specific H15
-      sub-question asking whether the described initiative is related to the
-      COVID-19 pandemic, present only in template editions that print a
-      distinct control for it. In an edition
-      that does not print this control, this metric is not_in_template_version,
-      never false.

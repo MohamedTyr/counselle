@@ -1,0 +1,8 @@
+# Reviewer scratch: probe scripts, mutant copies, rendered page images, throwaway fixtures.
+# Regenerable and large; the findings they produced live in experiments.md.
+scratch-review/
+
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+*.pyc

@@ -1,0 +1,250 @@
+- domain: academics
+  bindings: []
+  before: 34
+  after: 24
+- domain: admissions
+  bindings:
+  - id: c1_entering_class
+    binders:
+    - first_year_admission_entry_term
+    - first_year_admission_entry_year
+    targets_before: 35
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - first_year_admission_entry_term
+    - first_year_admission_entry_year
+  - id: c8a_testing_cohort
+    binders:
+    - testing_policy_entry_term
+    - testing_policy_entry_year
+    targets_before: 4
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - testing_policy_entry_term
+    - testing_policy_entry_year
+  - id: c21_early_decision_cohort
+    binders:
+    - early_decision_entry_term
+    - early_decision_entry_year
+    targets_before: 8
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - early_decision_entry_term
+    - early_decision_entry_year
+  before: 152
+  after: 98
+  context_bindings_key_removed: true
+- domain: class_profile
+  bindings:
+  - id: c9_entering_class
+    binders:
+    - class_profile_entry_term
+    - class_profile_entry_year
+    targets_before: 125
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - class_profile_entry_term
+    - class_profile_entry_year
+  before: 127
+  after: 36
+  context_bindings_key_removed: true
+- domain: class_size
+  bindings:
+  - id: i2_reporting_term
+    binders:
+    - student_faculty_ratio_reporting_term
+    targets_before: 4
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - student_faculty_ratio_reporting_term
+  - id: i3_reporting_term
+    binders:
+    - class_size_reporting_term
+    targets_before: 16
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - class_size_reporting_term
+  before: 22
+  after: 17
+  context_bindings_key_removed: true
+- domain: cost
+  bindings:
+  - id: reporting_academic_year
+    binders:
+    - cost_academic_year
+    targets_before: 46
+    rule: R3b
+    disposition: KEPT
+    targets_after: 42
+  before: 47
+  after: 43
+- domain: degrees
+  bindings:
+  - id: reporting_window
+    binders:
+    - degree_reporting_window_start
+    - degree_reporting_window_end
+    targets_before: 127
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - degree_reporting_window_start
+    - degree_reporting_window_end
+  before: 129
+  after: 41
+  context_bindings_key_removed: true
+- domain: enrollment
+  bindings:
+  - id: enrollment_snapshot
+    binders:
+    - enrollment_snapshot_term_or_date
+    targets_before: 133
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - enrollment_snapshot_term_or_date
+  before: 134
+  after: 4
+  context_bindings_key_removed: true
+- domain: faculty
+  bindings:
+  - id: i1_reporting_term
+    binders:
+    - faculty_reporting_term
+    targets_before: 30
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - faculty_reporting_term
+  before: 31
+  after: 4
+  context_bindings_key_removed: true
+- domain: financial_aid
+  bindings:
+  - id: aid_reporting_period
+    binders:
+    - aid_reporting_academic_year
+    - aid_reporting_status
+    targets_before: 78
+    rule: R3b
+    disposition: KEPT
+    targets_after: 22
+  - id: h4_h5_graduating_class
+    binders:
+    - graduating_class_year
+    - degree_award_window_start
+    - degree_award_window_end
+    targets_before: 16
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - graduating_class_year
+    - degree_award_window_start
+    - degree_award_window_end
+  before: 169
+  after: 67
+- domain: identity
+  bindings: []
+  before: 50
+  after: 14
+- domain: outcomes
+  bindings:
+  - id: b3_awards_window
+    binders:
+    - awards_window_start
+    - awards_window_end
+    targets_before: 9
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - awards_window_start
+    - awards_window_end
+  - id: primary_bachelors_cohort
+    binders:
+    - bachelors_primary_cohort_year
+    targets_before: 37
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - bachelors_primary_cohort_year
+  - id: comparison_bachelors_cohort
+    binders:
+    - bachelors_comparison_cohort_year
+    targets_before: 37
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - bachelors_comparison_cohort_year
+  - id: primary_two_year_cohort
+    binders:
+    - two_year_primary_cohort_year
+    targets_before: 10
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - two_year_primary_cohort_year
+  - id: comparison_two_year_cohort
+    binders:
+    - two_year_comparison_cohort_year
+    targets_before: 10
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - two_year_comparison_cohort_year
+  - id: b22_retention_window
+    binders:
+    - first_year_retention_entering_term
+    - first_year_retention_followup_term
+    targets_before: 3
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - first_year_retention_entering_term
+    - first_year_retention_followup_term
+  before: 114
+  after: 10
+  context_bindings_key_removed: true
+- domain: student_life
+  bindings:
+  - id: f1_reporting_period
+    binders:
+    - student_life_reporting_term
+    - student_life_reporting_year
+    targets_before: 16
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - student_life_reporting_term
+    - student_life_reporting_year
+  - id: cds_edition
+    binders:
+    - identity.academic_year
+    targets_before: 31
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - identity.academic_year
+  before: 63
+  after: 13
+  context_bindings_key_removed: true
+- domain: transfer
+  bindings:
+  - id: d2_entering_class
+    binders:
+    - transfer_volume_entry_term
+    - transfer_volume_entry_year
+    targets_before: 15
+    rule: R3a
+    disposition: DELETED
+    dead_binders:
+    - transfer_volume_entry_term
+    - transfer_volume_entry_year
+  before: 77
+  after: 23
+  context_bindings_key_removed: true

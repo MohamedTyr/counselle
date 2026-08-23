@@ -170,16 +170,16 @@ minted from the packet's domain plus a manifest metric; do not guess one from pr
 
 Some metrics are binders: printed terms, years, snapshot dates, cohorts, or reporting
 windows that date surrounding values. Manifest 5.0.2 compiles each authored
-`context_bindings` relationship onto selected target metrics as:
+`context_bindings` relationship onto selected target metrics as, for example on
+`student_life.army_rotc_on_campus`:
 
 ```json
 {
   "contexts": [{
-    "id": "admissions.c1_entering_class",
-    "label": "entering class",
+    "id": "student_life.cds_edition",
+    "label": "CDS edition",
     "refs": [
-      "admissions.first_year_admission_entry_term",
-      "admissions.first_year_admission_entry_year"
+      "identity.academic_year"
     ]
   }]
 }

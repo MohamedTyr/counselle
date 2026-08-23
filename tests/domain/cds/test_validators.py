@@ -159,27 +159,6 @@ class TestDenominatorSanity:
         flags = denominator_sanity(packet, DocFacts())
         assert any("enrolled" in f.message for f in flags)
 
-    def test_flags_gender_parts_not_summing_to_total(self) -> None:
-        packet = _packet({
-            "admissions.applicants_total": _verified_metric(value=100),
-            "admissions.applicants_men": _verified_metric(value=40),
-            "admissions.applicants_women": _verified_metric(value=40),
-            "admissions.applicants_another_gender": _verified_metric(value=0),
-            "admissions.applicants_unknown": _verified_metric(value=0),
-        })
-        flags = denominator_sanity(packet, DocFacts())
-        assert any(f.metric_ref == "admissions.applicants_total" for f in flags)
-
-    def test_no_flag_when_gender_parts_sum_to_total(self) -> None:
-        packet = _packet({
-            "admissions.applicants_total": _verified_metric(value=100),
-            "admissions.applicants_men": _verified_metric(value=45),
-            "admissions.applicants_women": _verified_metric(value=50),
-            "admissions.applicants_another_gender": _verified_metric(value=3),
-            "admissions.applicants_unknown": _verified_metric(value=2),
-        })
-        assert denominator_sanity(packet, DocFacts()) == []
-
     def test_flags_out_of_range_percent(self) -> None:
         percent_def = {
             "class_profile.sat_submitters_percent": {"type": "string", "unit": "percent"}

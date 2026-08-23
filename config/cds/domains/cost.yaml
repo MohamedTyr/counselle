@@ -24,13 +24,9 @@ context_bindings:
     - food_and_housing_on_campus_first_year
     - food_and_housing_on_campus_undergraduates
     - housing_only_on_campus_first_year
-    - housing_only_on_campus_undergraduates
     - food_only_on_campus_first_year
-    - food_only_on_campus_undergraduates
     - comprehensive_tuition_food_housing_amount
     - other_annual_charge_response
-    - full_time_tuition_credits_per_term_min
-    - full_time_tuition_credits_per_term_max
     - tuition_fees_vary_by_year_of_study
     - tuition_fees_vary_by_instructional_program
     - higher_program_price_payer_percent
@@ -356,20 +352,6 @@ metrics:
       Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus housing-only cell in the "First-Year" column exactly as printed. Do not derive it by subtracting
       the food-only row from the combined food-and-housing row.
 
-  - id: housing_only_on_campus_undergraduates
-    description: On-campus housing-only charge for full-time undergraduates, full academic year, from G1.
-    type: number
-    unit: usd
-    population: full_time_undergraduates
-    denominator: academic_year
-    definition_variant: published
-    period_kind: cost_year
-    source_hints: [G1]
-    instructions: >-
-      Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus housing-only cell in the "Undergraduates"
-      column exactly as printed. Do not derive it by subtracting the
-      food-only row from the combined food-and-housing row.
-
   - id: food_only_on_campus_first_year
     description: >-
       On-campus food-only charge for full-time first-year
@@ -384,20 +366,6 @@ metrics:
     instructions: >-
       Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus food-only cell in the "First-Year" column exactly as printed. Do not derive it by subtracting
       the housing-only row from the combined food-and-housing row.
-
-  - id: food_only_on_campus_undergraduates
-    description: On-campus food-only charge for full-time undergraduates, full academic year, from G1.
-    type: number
-    unit: usd
-    population: full_time_undergraduates
-    denominator: academic_year
-    definition_variant: published
-    period_kind: cost_year
-    source_hints: [G1]
-    instructions: >-
-      Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus food-only cell in the "Undergraduates" column
-      exactly as printed. Do not derive it by subtracting the housing-only
-      row from the combined food-and-housing row.
 
   - id: comprehensive_tuition_food_housing_amount
     description: >-
@@ -435,40 +403,6 @@ metrics:
       exactly as printed. Do not split it into separate amount and
       description fields, and do not invent a value when the row is visibly
       blank.
-
-  - id: full_time_tuition_credits_per_term_min
-    description: >-
-      Minimum credits per term covered by the stated full-time tuition rate,
-      from G2.
-    type: number
-    unit: credits
-    population: undergraduate
-    denominator: term
-    definition_variant: minimum
-    period_kind: cost_year
-    source_hints: [G2]
-    instructions: >-
-      Use `cost_academic_year` as the G0 cost-year context. Copy the G2 minimum-credits-per-term figure exactly as printed,
-      preserving fractional credits. This is the range covered by the stated
-      full-time tuition, not necessarily the institution's regulatory
-      full-time definition used elsewhere in the CDS.
-
-  - id: full_time_tuition_credits_per_term_max
-    description: >-
-      Maximum credits per term covered by the stated full-time tuition rate,
-      from G2.
-    type: number
-    unit: credits
-    population: undergraduate
-    denominator: term
-    definition_variant: maximum
-    period_kind: cost_year
-    source_hints: [G2]
-    instructions: >-
-      Use `cost_academic_year` as the G0 cost-year context. Copy the G2 maximum-credits-per-term figure exactly as printed,
-      preserving fractional credits. This is the range covered by the stated
-      full-time tuition, not necessarily the institution's regulatory
-      full-time definition used elsewhere in the CDS.
 
   - id: tuition_fees_vary_by_year_of_study
     description: Whether tuition and required fees vary by year of study, from G3.
