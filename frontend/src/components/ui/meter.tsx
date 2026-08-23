@@ -44,7 +44,10 @@ export function MeterTrack({
 }: MeterPrimitive.Track.Props): React.ReactElement {
   return (
     <MeterPrimitive.Track
-      className={cn("block h-2 w-full overflow-hidden bg-input", className)}
+      className={cn(
+        "block h-2 w-full overflow-hidden bg-[var(--control-track)]",
+        className,
+      )}
       data-slot="meter-track"
       {...props}
     />

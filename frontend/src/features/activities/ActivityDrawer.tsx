@@ -353,7 +353,7 @@ export function ActivityDrawer({
             </Button>
           </div>
 
-          <p className="text-xs text-muted-foreground/80 tabular-nums">
+          <p className="text-xs text-[var(--ink-muted)] tabular-nums">
             Created {formatReadableDate(current.created_at)} · Updated{" "}
             {formatReadableDate(current.updated_at)}
           </p>

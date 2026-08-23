@@ -88,7 +88,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
               >
                 <ArrowLeft />
               </Button>
-              <Avatar className="size-11 rounded-lg ring-1 ring-border/80">
+              <Avatar className="size-11 rounded-lg ring-1 ring-[var(--edge-strong)]">
                 <AvatarImage
                   alt=""
                   className="rounded-lg"
@@ -164,7 +164,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
         <div className="mx-auto flex w-full max-w-[1440px] px-4 pt-6 pb-28 lg:px-7 lg:pt-8 lg:pb-32">
           <main className="min-w-0 flex-1">
             <motion.div
-              className="essay-editor-shell mx-auto min-h-[860px] w-full max-w-[820px] rounded-lg border border-(--essay-document-border) bg-(--essay-document-surface) px-7 py-8 text-(--essay-document-foreground) shadow-sm sm:px-12 sm:py-11 lg:px-16 lg:py-14"
+              className="essay-editor-shell mx-auto min-h-[860px] w-full max-w-[820px] rounded-lg border border-(--essay-document-border) bg-(--essay-document-surface) px-7 py-8 text-(--essay-document-foreground) shadow-[var(--elevation-1)] sm:px-12 sm:py-11 lg:px-16 lg:py-14"
               layoutId={`essay-document-${essay.id}`}
               transition={{
                 layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },

@@ -98,7 +98,7 @@ export function EssayEditorToolbar({
   return (
     <Toolbar
       aria-label="Essay formatting toolbar"
-      className="inline-flex w-max flex-nowrap items-center justify-start border-(--essay-editor-toolbar-border) bg-(--essay-editor-toolbar-surface) shadow-(--essay-editor-toolbar-shadow)"
+      className="inline-flex w-max flex-nowrap items-center justify-start border-transparent bg-(--essay-editor-toolbar-surface) shadow-(--essay-editor-toolbar-shadow)"
     >
       <ToolbarGroup>
         <Select

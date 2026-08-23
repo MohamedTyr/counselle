@@ -46,7 +46,7 @@ function TitleBudgetRow({ change }: { change: MutationChange }) {
   return (
     <div className="grid grid-cols-[96px_1fr] gap-2">
       <dt className="font-medium text-muted-foreground">Title</dt>
-      <dd className="text-foreground/85">{graphemes} / 100 characters</dd>
+      <dd className="text-[var(--ink-secondary)]">{graphemes} / 100 characters</dd>
     </div>
   );
 }
@@ -65,7 +65,7 @@ export function HonorMutationBody({ receipt }: { receipt: WorkspaceMutationRecei
               ? body.moved_from_rank
               : null;
           return (
-            <li className="flex gap-2 text-foreground/90" key={index}>
+            <li className="flex gap-2 text-[var(--ink-secondary)]" key={index}>
               <span className="tabular-nums text-muted-foreground">{index + 1}</span>
               <span className="min-w-0">
                 {subject.title.text}

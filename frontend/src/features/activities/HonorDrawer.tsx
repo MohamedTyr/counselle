@@ -146,7 +146,7 @@ export function HonorDrawer({
             </DrawerField>
           </section>
 
-          <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--edge)] pt-4">
             <div className="flex items-center gap-1">
               <Button
                 aria-label="Move up"
@@ -182,7 +182,7 @@ export function HonorDrawer({
             </Button>
           </div>
 
-          <p className="text-xs text-muted-foreground/80 tabular-nums">
+          <p className="text-xs text-[var(--ink-muted)] tabular-nums">
             Created {formatReadableDate(current.created_at)} · Updated{" "}
             {formatReadableDate(current.updated_at)}
           </p>

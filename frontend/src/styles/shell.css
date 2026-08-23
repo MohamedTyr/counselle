@@ -1,0 +1,105 @@
+/*
+ * Shell — app chrome. --shell-* (public contract preserved).
+ *
+ * Sidebar decision: the whole app is light, sidebar included. The rail is
+ * a FLAT warm fill — --chrome resolves to --stone-50 (#faf9f6, see
+ * semantic.css), with no grain or texture layer over it. It has carried a
+ * tinted sage tone and, later, an SVG noise texture; neither survives.
+ *
+ * The rail's colour and interior are a transcription of variant 1a of the
+ * Sidebar Redesign design doc — see semantic.css's chrome block for the
+ * colour table and AppSidebar.tsx for the measurements.
+ *
+ * ONE DELIBERATE DEPARTURE, by request: 1a draws the rail as a floating
+ * 312x900 card with an 18px radius and a cast shadow, sitting on the doc's
+ * own canvas. Ours stays FLUSH and full-height, as it was — it takes 1a's
+ * width (312px) and its perimeter colour, and drops the radius, the fixed
+ * height and the shadow. The right-hand --shell-sidebar-border does the
+ * separating instead, which is the same job 1a's perimeter border does.
+ *
+ * Worth knowing when tuning that border: the rail (#faf9f6) and --canvas
+ * (#fdfbfa) are within 0.7 L points of each other, so unlike the previous
+ * rail — which sat 2.5 L points recessed and read as a panel on its own —
+ * the border is now carrying essentially all of the separation between
+ * chrome and workspace. If it ever looks like the two have merged, that
+ * border is the thing to move, not --chrome.
+ *
+ * Every --shell-sidebar-* token below resolves through the same --chrome-*
+ * semantic names regardless of how chrome itself is defined — this file
+ * needs no structural edit when that tuning changes, only semantic.css's
+ * chrome definitions do. The two color-mix opacities and the resizer step
+ * below ARE tuned here on purpose: alpha-blend visibility and a specific
+ * shade are properties of the rendered pixels against a specific track
+ * colour, not part of the semantic contract — they get re-checked whenever
+ * --chrome's lightness changes.
+ */
+
+:root {
+  --shell-background: var(--canvas);
+  --shell-sidebar-background: var(--chrome);
+  --shell-sidebar-foreground: var(--chrome-ink);
+  --shell-sidebar-history-foreground: var(--chrome-ink-secondary);
+  --shell-sidebar-hover-background: var(--chrome-hover);
+  --shell-sidebar-hover-foreground: var(--chrome-ink-strong);
+  /* The persistent "this is the selected chat" state — distinct from
+   * hover, not an alias of it. Full chain, each link verifiable by grep:
+   * this token -> shadcn.css (`--sidebar-active`/`-active-foreground`) ->
+   * theme.css's `@theme inline` (`--color-sidebar-active`/
+   * `-active-foreground`, which is what makes `bg-sidebar-active`/
+   * `text-sidebar-active-foreground` real Tailwind utilities) ->
+   * consumed by the `data-active:` variants in
+   * components/ui/sidebar.tsx (SidebarMenuButton, SidebarMenuSubButton)
+   * and features/ai-sidebar/ChatSessionRow.tsx (previously all three
+   * wired to `bg-sidebar-accent`, which is also the hover token — see the
+   * M1 handoff doc). */
+  --shell-sidebar-active-background: var(--chrome-active);
+  --shell-sidebar-active-foreground: var(--on-chrome-active);
+  /* 1a insets the rail's three zones by different amounts on purpose: the
+   * header sits at 16px so the wordmark hangs slightly outside the pill
+   * column, the nav and chat list at 12px so their pills define that
+   * column, and the account row at 10px so its own pill sits widest of
+   * all. One shared inset flattens that rhythm — these are three tokens
+   * because 1a draws three values. */
+  --shell-sidebar-inset-inline: 0.75rem; /* 12px — nav, list, new chat */
+  --shell-sidebar-header-inset-inline: 1rem; /* 16px — logo row */
+  --shell-sidebar-footer-inset-inline: 0.625rem; /* 10px — account row */
+  --shell-sidebar-collapsed-inset-inline: 0.5rem;
+  --shell-sidebar-inset-block: 0rem;
+  --shell-divider: var(--hairline);
+  --shell-sidebar-border: var(--chrome-border);
+  /* 45%/60%: retuned down from an earlier 55%/75% draft, which was tuned
+   * against a much greyer (89% L) chrome and reads as too heavy a thumb
+   * against the current whisper-light (96.5% L) rail — verified with the
+   * contrast script (45% -> ~1.7:1 resting, 60% -> ~2.3:1 hover; a
+   * scrollbar thumb is decorative, not held to 3:1, but should still
+   * visibly brighten on hover). See the M1 handoff doc. */
+  --shell-sidebar-scrollbar: color-mix(
+    in oklch,
+    var(--chrome-ink) 45%,
+    transparent
+  );
+  --shell-sidebar-scrollbar-hover: color-mix(
+    in oklch,
+    var(--chrome-ink) 60%,
+    transparent
+  );
+  --shell-sidebar-group-label: var(--chrome-eyebrow);
+  /* 1a's rail-local roles, each pointing at the chrome token that carries
+   * the doc's value. Named here so the rail's components never reach past
+   * the --shell-* contract into semantic.css directly. */
+  --shell-sidebar-field: var(--chrome-field);
+  --shell-sidebar-field-border: var(--chrome-field-border);
+  --shell-sidebar-field-placeholder: var(--chrome-ink-muted);
+  --shell-sidebar-row-foreground: var(--chrome-row-ink);
+  --shell-sidebar-row-foreground-dim: var(--chrome-row-ink-dim);
+  --shell-sidebar-quiet-foreground: var(--chrome-ink-quiet);
+  --shell-sidebar-control-foreground: var(--chrome-ink-muted);
+  --shell-sidebar-control-hover-foreground: var(--chrome-ink-hover);
+  /* A warm neutral, not a brand hue: green marks exactly one thing on this
+   * rail — the selected row — so a green resizer handle would compete with
+   * that single signal. --sand-300 rather than an achromatic grey so the
+   * handle sits in the same temperature as the --stone rail it divides.
+   * Decorative handle, not text — no formal AA requirement, but it should
+   * read as a real affordance without looking like an accent button. */
+  --shell-sidebar-resizer: var(--sand-300);
+}

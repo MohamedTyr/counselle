@@ -1,0 +1,275 @@
+/*
+ * Primitives — raw color ramps.
+ *
+ * THIS IS THE ONLY FILE IN THE CODEBASE PERMITTED TO CONTAIN A COLOR
+ * LITERAL (hex / rgb / hsl / oklch with numeric channels). Every other
+ * token file must reference these via var(), directly or through
+ * semantic.css. Ramps are named by scale position, never by usage — this
+ * file has no idea what a "sidebar" or "danger banner" is.
+ *
+ * All ramps are OKLCH. --neutral is true achromatic (C 0); --sand is its
+ * warm counterpart (see below) for the page ground and the soft edges that
+ * sit on it; --stone is the warm ramp the sidebar chrome is built from,
+ * spanning surface all the way down to ink.
+ */
+
+:root {
+  /* ---- neutral — true gray, chroma 0. Canvas, ink, chrome, edges. ---- */
+  --neutral-0: oklch(100% 0 0);
+  --neutral-25: oklch(99% 0 0);
+  --neutral-50: oklch(97.5% 0 0);
+  --neutral-100: oklch(95.5% 0 0);
+  --neutral-150: oklch(93% 0 0);
+  --neutral-200: oklch(89% 0 0);
+  --neutral-300: oklch(82% 0 0);
+  --neutral-400: oklch(68% 0 0);
+  /* neutral-450: the M1b functional-border resting value. Computed with an
+   * OKLCH -> linear-sRGB -> WCAG contrast script, not eyeballed: L 0.62
+   * clears 3.64:1 against --surface-raised (white) and 3.19:1 against
+   * --surface-sunken — both real 3:1 passes with margin, replacing
+   * --neutral-500 (L 0.55, 4.26-4.85:1), which read as too heavy a form-
+   * control edge on a white card. See --edge-control in semantic.css. */
+  --neutral-450: oklch(62% 0 0);
+  --neutral-500: oklch(55% 0 0);
+  --neutral-550: oklch(52% 0 0);
+  --neutral-600: oklch(44% 0 0);
+  --neutral-700: oklch(35% 0 0);
+  --neutral-800: oklch(26% 0 0);
+  --neutral-850: oklch(21% 0 0);
+  --neutral-900: oklch(16.5% 0 0);
+  --neutral-950: oklch(11% 0 0);
+
+  /* ---- sand — the warm counterpart to --neutral. Same job (ground,
+   * soft fills, soft edges), a fraction of a chroma point off achromatic.
+   *
+   * Three steps are exact, requested values rather than derived ones, and
+   * the ramp is built around them — each is annotated with the sRGB hex
+   * it renders, and those hexes are the contract:
+   *
+   *   sand-25  #fdfbfa  the app ground
+   *   sand-75  #f7f7f6  quiet control fill (composer chips)
+   *   sand-200 #d7d2cb  the composer's edge
+   *
+   * sand-100/-150 are the hover/active steps under sand-75; sand-300 is
+   * the one step past sand-200.
+   *
+   * Two deliberate irregularities, both load-bearing:
+   *
+   * Hue sits at 77 throughout EXCEPT sand-25, which is 49. At L 0.99 a
+   * chroma this small is barely a rumour, and only the red end of the
+   * warm band still registers as warm; by L 0.87 there is chroma enough
+   * to carry the tint and hue 77 keeps it a warm stone instead of
+   * drifting pink. One flat hue can serve one end or the other, not both.
+   *
+   * Chroma is therefore NOT monotonic across the top of the ramp
+   * (sand-25 is 0.0025, the darker sand-75 only 0.0015). That is what the
+   * requested pair actually is: the ground is a warm off-white, the chip
+   * fill is a near-neutral grey that only leans warm. Don't "fix" it by
+   * interpolating — it would move two colors that were picked by eye.
+   *
+   * This is the cream/sand band (hue 40-100), ruled out for the BRAND but
+   * not for the ground the brand sits on. Under the previous indigo brand
+   * (hue 278) that ground was very near a true complement, which made the
+   * accent read cooler and more deliberate. The brand is now --wine at hue
+   * 15 (see below), so the relationship is the opposite one: ground and
+   * accent are close neighbours on the warm side of the wheel, and the
+   * accent separates by chroma and depth instead — a near-achromatic
+   * off-white against a dark, saturated oxblood. Every functional
+   * (3:1-checked) border stays on --neutral; the sidebar's surfaces and ink
+   * run on --stone below. */
+  --sand-25: oklch(98.9% 0.0025 49);
+  --sand-75: oklch(97.55% 0.0015 77);
+  --sand-100: oklch(95.1% 0.0025 77);
+  --sand-150: oklch(92.1% 0.004 77);
+  --sand-200: oklch(86.6% 0.011 77);
+  --sand-300: oklch(78% 0.014 77);
+  /* sand-400 (#a49d94) is the one step past sand-300, added for the button
+   * family's hover/pressed edge (--edge-button-strong in semantic.css). It
+   * measures 2.67:1 on white and 2.59:1 on --sand-25 against sand-300's
+   * 2.00:1 / 1.94:1 — a real tone darker, so a secondary button's hover
+   * state is visible without its resting edge having to be heavy. Chroma
+   * keeps climbing with the ramp; hue stays 77 like every step below
+   * sand-25. Computed by an OKLCH -> linear-sRGB -> WCAG roundtrip, not
+   * eyeballed; re-run it if any surface it sits on moves. */
+  --sand-400: oklch(70% 0.016 77);
+
+  /* ---- stone — the warm neutral ramp: sidebar chrome surfaces at the top,
+   * the app's whole ink ladder at the bottom. One ramp for both, because
+   * the chrome family has to sit in one temperature — a warm rail carrying
+   * cold grey borders and cold grey secondary text just relocates the
+   * mismatch it was meant to fix.
+   *
+   * PROVENANCE. Every step below except stone-500 is an exact value taken
+   * from variant 1a ("Warm light · soft pills · quieter hierarchy") of the
+   * Sidebar Redesign design doc. That doc is the contract now; the previous
+   * ramp (hue drifting 68 -> 94, stone-50 at #f5f3f1) is superseded
+   * wholesale. Where 1a specifies a colour, this ramp carries it unrounded.
+   *
+   * Hue is FLAT at 85 across the whole ramp, and chroma is flat at 0.005
+   * across the surfaces and 0.01 across the inks. This is a real departure
+   * from how --sand is built (hue drift + non-monotonic chroma, tuned by
+   * eye) and it is not an oversight to "fix": 1a's neutrals are a single
+   * flat warm grey by design, and reintroducing a drift would pull the
+   * rail's inks off the doc's values.
+   *
+   * Contrast against stone-50 (#faf9f6, the rail), computed via an
+   * OKLCH -> linear-sRGB -> WCAG script, not eyeballed:
+   *
+   *   stone-900  #24211c  15.19    stone-450  #83807a   3.75
+   *   stone-800  #2b2923  13.86    stone-400  #89867f   3.46
+   *   stone-700  #302d28  12.95    stone-350  #928f88   3.07
+   *   stone-600  #504d47   8.03    stone-300  #a6a39b   2.35
+   *   stone-550  #58554f   7.06
+   *   stone-500  #78756f   5.31
+   *
+   * READ THIS BEFORE CONSUMING stone-350/-400/-450: they land at 3.07,
+   * 3.46 and 3.75:1, i.e. BELOW the 4.5:1 small-text floor every other ink
+   * tier in this codebase clears. They are 1a's own values for the group
+   * eyebrow, the account email line and the muted rail icons, and they are
+   * carried verbatim because the sidebar was specified exactly. They are
+   * sidebar-scoped on purpose — the app-wide --ink-* ladder in semantic.css
+   * does NOT resolve through them. Do not reach for them for workspace
+   * text.
+   *
+   * stone-500 (L 0.52) is the one step here with no 1a counterpart. It is
+   * the app's --ink-faint tier, kept from the previous ramp at its old
+   * lightness precisely so the workspace's faint text keeps clearing AA
+   * (5.31:1) while the rail follows the doc. */
+  --stone-50: oklch(98.2% 0.004 85); /* #faf9f6  rail surface */
+  --stone-75: oklch(95.5% 0.004 85); /* #f1f0ed  filter-field fill */
+  --stone-100: oklch(94.5% 0.005 85); /* #eeede9  nav row hover */
+  --stone-150: oklch(91.5% 0.005 85); /* #e4e3df  filter-field border */
+  --stone-200: oklch(90% 0.005 85); /* #dfdeda  rail border */
+  --stone-300: oklch(68% 0.01 85); /* #a6a39b  disabled ink (exempt) */
+  --stone-350: oklch(65% 0.01 85); /* #928f88  group eyebrow — see note */
+  --stone-400: oklch(62% 0.01 85); /* #89867f  email / placeholder */
+  --stone-450: oklch(60% 0.01 85); /* #83807a  muted rail icons */
+  --stone-500: oklch(52% 0.01 85); /* #78756f  app --ink-faint (AA-safe) */
+  --stone-550: oklch(45% 0.01 85); /* #58554f  nav row rest */
+  --stone-600: oklch(42% 0.01 85); /* #504d47  secondary / chat row */
+  --stone-650: oklch(35% 0.01 85); /* #454239  collapse control, hovered */
+  --stone-700: oklch(30% 0.01 85); /* #302d28  recent chat row */
+  --stone-800: oklch(28% 0.01 85); /* #2b2923  default ink */
+  --stone-900: oklch(25% 0.01 85); /* #24211c  strong ink / wordmark */
+
+  /* ---- wine — the one committed brand hue (deep burgundy, hue 15). ----
+   *
+   * Replaces --indigo (indigo-violet, 282), which itself replaced --ivy
+   * (evergreen, 157). This one is NOT a fresh judgement call: hue 15 is the
+   * accent variant 1a of the Sidebar Redesign design doc is drawn in, and
+   * the brief was to match that sidebar exactly. The three anchor steps
+   * below are the doc's literal values, not interpretations of them:
+   *
+   *   wine-600  oklch(0.38 0.12 15)   the solid accent — logo tile,
+   *                                   "New chat" fill, the "1a" badge
+   *   wine-700  oklch(0.32 0.12 15)   its hover/pressed step
+   *   wine-50   oklch(0.94 0.019 15)  the selected nav row's tint
+   *   wine-100  oklch(0.93 0.024 15)  the account avatar's chip
+   *
+   * The remaining steps are interpolated along the same hue to give the
+   * ramp a full span; only the four above are contractual.
+   *
+   * TWO SOFT-INK STEPS, and why they are not on the ramp. 1a draws ink on
+   * its own tints at REDUCED chroma rather than at the ramp's chroma:
+   * oklch(0.32 0.07 15) on the wine-50 nav pill, oklch(0.40 0.09 15) on the
+   * wine-100 avatar chip. Both sit at a lightness the ramp already has but
+   * at roughly half its chroma, so they cannot be expressed as ramp steps
+   * without either bending the ramp or losing the doc's values. They get
+   * their own names below. Measured on the tints they actually sit on:
+   * 10.91:1 and 7.78:1 respectively.
+   *
+   * KNOWN COLLISION — READ BEFORE ADDING A CONSUMER. --red (danger) sits at
+   * hue 25. This brand sits at hue 15. Ten degrees apart, where the old
+   * indigo brand had 257 degrees of separation and the note it replaced
+   * explicitly argued that "the hue wheel is already spent" and a brand
+   * must not compete with the status ramp. That argument still holds; the
+   * design doc simply overrides it. What keeps the two legible is lightness
+   * and chroma, not hue: the brand is L 0.38 / C 0.12 (#751e2d, a dark
+   * oxblood) against danger's L 0.50 / C 0.18 (#b32228, a brighter, much
+   * more saturated red) — 1.62:1 surface-to-surface. That is a real but
+   * modest gap. Consequences to respect: never put a solid brand fill
+   * immediately beside a solid danger fill, and keep every danger signal
+   * paired with an icon or a label (which is already the house rule in the
+   * status block of semantic.css) so colour is never the sole carrier.
+   *
+   * Every step was checked by an OKLCH -> sRGB roundtrip for clipping and
+   * by a WCAG contrast script against white; the annotated hexes are the
+   * contract. Re-run the script if any step moves. Chroma tapers at both
+   * ends, where the red-band gamut narrows. */
+  --wine-25: oklch(96.5% 0.01 15); /* #faf1f1 */
+  --wine-50: oklch(94% 0.019 15); /* #f8e6e7  brand-subtle (1a nav tint) */
+  --wine-100: oklch(93% 0.024 15); /* #f8e2e3  avatar chip (1a) */
+  --wine-150: oklch(90% 0.032 15); /* #f3d6d7 */
+  --wine-200: oklch(86% 0.045 15); /* #edc6c7  brand-subtle-border */
+  --wine-300: oklch(75% 0.075 15); /* #d99b9f */
+  --wine-400: oklch(60% 0.105 15); /* #b6646c  4.16:1 on white */
+  --wine-500: oklch(48% 0.13 15); /* #993845  7.01:1 — focus ring */
+  --wine-600: oklch(38% 0.12 15); /* #751e2d  10.65:1 — THE BRAND (1a) */
+  --wine-700: oklch(32% 0.12 15); /* #62081e  13.41:1 — hover (1a) */
+  --wine-800: oklch(26% 0.09 15); /* #460915  16.06:1 */
+  --wine-900: oklch(20% 0.06 15); /* #2c070d  18.38:1 */
+  /* The two reduced-chroma inks 1a draws on its own tints — see the note
+   * above for why these are named steps rather than ramp positions. */
+  --wine-ink-on-50: oklch(32% 0.07 15); /* #512227  10.91:1 on wine-50 */
+  --wine-ink-on-100: oklch(40% 0.09 15); /* #703138   7.78:1 on wine-100 */
+
+  /* ---- plum — no longer the brand (see --wine above); retained as the
+   * essay task-category's wayfinding hue, which is the only thing that
+   * ever consumed it besides --brand-*. Three shades, because that's all
+   * a category chip needs (surface / border / ink) — the other eight were
+   * deleted rather than carried as dead ramp. */
+  --plum-50: oklch(96.5% 0.012 322);
+  --plum-200: oklch(84% 0.05 322);
+  --plum-700: oklch(36% 0.1 322);
+
+  /* ---- status ramps ---- */
+  /* leaf — success. Under the old ivy brand this ramp had to be separated
+   * from the brand along three axes just to keep "green = done" readable
+   * next to a green identity. Neither the indigo brand that replaced ivy
+   * nor the current --wine brand (hue 15) comes near it, so that constraint
+   * stays gone: green means exactly one thing in this system, which is the
+   * single most valuable feedback moment in a tracker. Values are kept as
+   * they were — they are tuned and shipped, and there is no longer any
+   * pressure to move them. Still named --leaf rather than --green-* so no
+   * future edit can absent-mindedly point a brand token at it. Chroma is
+   * capped just inside the sRGB wall here — 0.14 at L 0.42 / hue 143 is
+   * the last in-gamut step, so 0.13 leaves headroom. */
+  --leaf-50: oklch(95.5% 0.036 143);
+  --leaf-600: oklch(51% 0.155 143);
+  --leaf-700: oklch(42% 0.13 143);
+
+  --amber-50: oklch(96% 0.035 80);
+  --amber-200: oklch(86% 0.09 80);
+  --amber-600: oklch(55% 0.14 80);
+  --amber-800: oklch(32% 0.09 80);
+
+  --red-50: oklch(96% 0.02 25);
+  --red-200: oklch(85% 0.07 25);
+  --red-600: oklch(50% 0.18 25);
+  --red-700: oklch(40% 0.16 25);
+  /* red-800 (#65000a, 13.44:1 white-on) is the destructive CTA's pressed
+   * rim — the one step past red-700, added so the solid destructive button
+   * gets the same fill/edge/press ladder the brand CTA has instead of
+   * bottoming out at red-700 for two states in a row. In gamut with room
+   * (chroma tapers 0.18 -> 0.16 -> 0.13 as the ramp darkens, same as every
+   * saturated ramp here). */
+  --red-800: oklch(32% 0.13 25);
+
+  --blue-50: oklch(96% 0.02 250);
+  --blue-200: oklch(85% 0.06 250);
+  --blue-600: oklch(48% 0.14 250);
+  --blue-700: oklch(38% 0.11 250);
+
+  /* ---- task-category accent ramps (wayfinding only, not status) ---- */
+  --mauve-50: oklch(96% 0.02 305);
+  --mauve-200: oklch(86% 0.05 305);
+  --mauve-700: oklch(40% 0.1 305);
+
+  --teal-50: oklch(95.5% 0.025 190);
+  --teal-200: oklch(86% 0.06 190);
+  --teal-700: oklch(38% 0.08 190);
+
+  --slate-50: oklch(96% 0.008 235);
+  --slate-200: oklch(87% 0.02 235);
+  --slate-700: oklch(40% 0.03 235);
+}

@@ -108,10 +108,10 @@ export function TaskPropertyRow({
   return (
     <div
       className={cn(
-        "group/property grid grid-cols-[7.25rem_minmax(0,1fr)] gap-3 border-b border-border/60 px-3 py-2.5 transition-colors last:border-b-0",
-        field && "hover:bg-muted/15",
+        "group/property grid grid-cols-[7.25rem_minmax(0,1fr)] gap-3 border-b border-[var(--edge)] px-3 py-2.5 transition-colors last:border-b-0",
+        field && "hover:bg-[var(--surface-hover)]",
         field && onEdit && "cursor-text",
-        editing && "bg-muted/20",
+        editing && "bg-[var(--surface-active)]",
       )}
       onClick={(event) => {
         if (!field) {
@@ -122,7 +122,7 @@ export function TaskPropertyRow({
         onEdit?.();
       }}
     >
-      <dt className="text-sm leading-5 text-muted-foreground/90">{label}</dt>
+      <dt className="text-sm leading-5 text-[var(--ink-muted)]">{label}</dt>
       <dd className="min-w-0 text-sm leading-5 text-foreground">{children}</dd>
     </div>
   );
@@ -142,8 +142,8 @@ export function TaskPropertyValue({
   return (
     <button
       className={cn(
-        "-mx-1 flex min-h-6 w-full items-start rounded px-1 text-left leading-5 transition-colors outline-none hover:text-foreground focus-visible:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring/35",
-        muted && "text-muted-foreground/80",
+        "-mx-1 flex min-h-6 w-full items-start rounded px-1 text-left leading-5 transition-colors outline-none hover:text-foreground focus-visible:bg-[var(--surface-active)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+        muted && "text-[var(--ink-muted)]",
         className,
       )}
       onClick={(event) => {
@@ -168,7 +168,7 @@ export function TaskReadOnlyValue({
     <span
       className={cn(
         "flex min-h-6 items-start leading-5",
-        muted && "text-muted-foreground/80",
+        muted && "text-[var(--ink-muted)]",
       )}
     >
       {children}
@@ -224,7 +224,7 @@ export function TaskPropertySelect<TValue extends string>({
     >
       <SelectTrigger
         aria-label={ariaLabel}
-        className="-mx-1 min-h-6 w-fit max-w-full min-w-0 justify-start gap-1.5 border-transparent !bg-transparent px-1 text-sm !shadow-none before:hidden hover:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring/35 data-[popup-open]:!bg-transparent sm:min-h-6 dark:!bg-transparent dark:hover:!bg-transparent [&_[data-slot=select-icon]]:opacity-0 group-hover/property:[&_[data-slot=select-icon]]:opacity-45 data-[popup-open]:[&_[data-slot=select-icon]]:opacity-65"
+        className="-mx-1 min-h-6 w-fit max-w-full min-w-0 justify-start gap-1.5 border-transparent !bg-transparent px-1 text-sm !shadow-none before:hidden hover:!bg-transparent focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] data-[popup-open]:!bg-transparent sm:min-h-6 [&_[data-slot=select-icon]]:opacity-0 group-hover/property:[&_[data-slot=select-icon]]:opacity-45 data-[popup-open]:[&_[data-slot=select-icon]]:opacity-65"
         onClick={(event) => event.stopPropagation()}
         size="sm"
       >
@@ -512,7 +512,7 @@ export function TaskDetailSheet({
         </SheetHeader>
 
         <SheetPanel>
-          <dl className="overflow-hidden rounded-xl border bg-card shadow-xs/5">
+          <dl className="overflow-hidden rounded-xl border bg-card shadow-[var(--elevation-1)]">
             <TaskPropertyRow
               editing={focusedField === "notes"}
               field="notes"

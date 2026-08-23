@@ -69,8 +69,11 @@ export function ChatSessionRow({
     >
       <SidebarMenuButton
         asChild
+        /* 1a: 34px tall, 12px inline padding, 9px radius, 13.5px label —
+         * a slightly tighter pill than a nav row, which is what separates
+         * "places in the app" from "things you made". */
         className={cn(
-          "sidebar-chat-button h-11 rounded-lg px-2.5 pr-1.5! text-sidebar-foreground transition-[color,background-color] duration-150 md:h-8 pointer-coarse:!h-11 hover:text-sidebar-accent-foreground focus-visible:ring-2 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground",
+          "sidebar-chat-button h-11 rounded-[9px] px-3 pr-1.5! text-[13.5px] text-[var(--sidebar-row-ink,var(--shell-sidebar-row-foreground-dim))] transition-[color,background-color] duration-150 md:h-[34px] pointer-coarse:!h-11 hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-ink-strong)] focus-visible:ring-2 data-active:bg-sidebar-active data-active:text-sidebar-active-foreground",
           active && "font-medium",
         )}
         isActive={active}

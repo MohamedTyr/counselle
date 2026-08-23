@@ -91,7 +91,7 @@ export function SchoolIdentity({
     <button
       aria-label={`Open ${school.schoolName} details`}
       className={cn(
-        "group/school flex min-w-0 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "group/school flex min-w-0 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
         isMobile && "flex-1",
       )}
       onClick={(event) => {
@@ -131,7 +131,7 @@ export function SchoolWebsiteLink({ school }: { school: School }) {
   return (
     <a
       aria-label={`Open ${school.schoolName} website`}
-      className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
       href={school.websiteUrl}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
@@ -174,7 +174,7 @@ export function ProgressValue({ progress }: { progress: Progress }) {
     <div className="flex min-w-[116px] items-center gap-2">
       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-foreground/75"
+          className="h-full rounded-full bg-[var(--ink-secondary)]"
           style={{ width: `${percentage}%` }}
         />
       </div>

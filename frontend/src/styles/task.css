@@ -1,0 +1,107 @@
+/*
+ * Task board — lane/card/pill/category system. --task-* (66 tokens),
+ * public contract preserved. Mostly an alias chain onto workspace.css and
+ * semantic.css's status/brand/category roles — never a primitive directly,
+ * per the tier rule in styles/README.md.
+ */
+
+:root {
+  /* ---- todo lane (the base the other three lanes alias) ---- */
+  --task-todo-surface: var(--workspace-task-lane-surface);
+  --task-todo-header: var(--workspace-surface-raised);
+  --task-todo-card: var(--workspace-task-card-surface);
+  --task-todo-card-hover: var(--workspace-task-card-hover);
+  --task-todo-border: var(--workspace-border);
+  --task-todo-card-border: var(--workspace-task-card-border);
+  --task-todo-muted: var(--workspace-muted-foreground);
+  --task-todo-pill-bg: var(--workspace-neutral-pill-bg);
+  --task-todo-pill-fg: var(--workspace-neutral-pill-fg);
+  --task-todo-dot: var(--workspace-muted-foreground);
+
+  /* ---- doing lane ---- */
+  --task-doing-surface: var(--workspace-task-lane-surface);
+  --task-doing-header: var(--workspace-surface-raised);
+  --task-doing-card: var(--task-todo-card);
+  --task-doing-card-hover: var(--task-todo-card-hover);
+  --task-doing-border: var(--workspace-border);
+  --task-doing-card-border: var(--task-todo-card-border);
+  --task-doing-muted: var(--task-todo-muted);
+  --task-doing-pill-bg: var(--workspace-info-pill-bg);
+  --task-doing-pill-fg: var(--workspace-info-pill-fg);
+  --task-doing-dot: var(--info-solid);
+
+  /* ---- waiting lane ---- */
+  --task-waiting-surface: var(--workspace-task-lane-surface);
+  --task-waiting-header: var(--workspace-surface-raised);
+  --task-waiting-card: var(--task-todo-card);
+  --task-waiting-card-hover: var(--task-todo-card-hover);
+  --task-waiting-border: var(--workspace-border);
+  --task-waiting-card-border: var(--task-todo-card-border);
+  --task-waiting-muted: var(--task-todo-muted);
+  --task-waiting-pill-bg: var(--workspace-warning-pill-bg);
+  --task-waiting-pill-fg: var(--workspace-warning-pill-fg);
+  --task-waiting-dot: var(--warning-solid);
+
+  /* ---- done lane ---- */
+  --task-done-surface: var(--workspace-task-lane-surface);
+  --task-done-header: var(--workspace-surface-raised);
+  --task-done-card: var(--task-todo-card);
+  --task-done-card-hover: var(--task-todo-card-hover);
+  --task-done-border: var(--workspace-border);
+  --task-done-card-border: var(--task-todo-card-border);
+  --task-done-muted: var(--task-todo-muted);
+  --task-done-pill-bg: var(--workspace-success-pill-bg);
+  --task-done-pill-fg: var(--workspace-success-pill-fg);
+  --task-done-dot: var(--success-solid);
+
+  /* ---- category chips — 7 categories, each a surface/fg/border triad.
+   * aid/interview/other reuse existing semantic roles directly (warning,
+   * info, neutral) instead of duplicating tokens that already exist;
+   * essay/lor/research/form use the category-specific roles semantic.css
+   * defines for exactly this (plum/mauve/teal/slate have no other use in
+   * the app — essay moved off --brand-subtle when the brand went green,
+   * see semantic.css). Zero primitive refs — every value below is a
+   * semantic role. ---- */
+  --task-category-essay-bg: var(--category-essay-surface);
+  --task-category-essay-fg: var(--category-essay-ink);
+  --task-category-essay-border: var(--category-essay-border);
+  --task-category-lor-bg: var(--category-lor-surface);
+  --task-category-lor-fg: var(--category-lor-ink);
+  --task-category-lor-border: var(--category-lor-border);
+  --task-category-aid-bg: var(--workspace-warning-pill-bg);
+  --task-category-aid-fg: var(--workspace-warning-pill-fg);
+  --task-category-aid-border: var(--warning-border);
+  --task-category-research-bg: var(--category-research-surface);
+  --task-category-research-fg: var(--category-research-ink);
+  --task-category-research-border: var(--category-research-border);
+  --task-category-form-bg: var(--category-form-surface);
+  --task-category-form-fg: var(--category-form-ink);
+  --task-category-form-border: var(--category-form-border);
+  --task-category-interview-bg: var(--info-surface);
+  --task-category-interview-fg: var(--info-fg);
+  --task-category-interview-border: var(--info-border);
+  --task-category-other-bg: var(--workspace-neutral-pill-bg);
+  --task-category-other-fg: var(--workspace-neutral-pill-fg);
+  --task-category-other-border: var(--workspace-border);
+
+  /* ---- drag / selection states — already pure var()-on-var() color-mix
+   * formulas in the original file, so they adapt automatically; only the
+   * shadow (previously a shell-background color-mix hack) changes. ---- */
+  --task-drag-preview-background: color-mix(
+    in oklch,
+    var(--card),
+    var(--ring) 14%
+  );
+  --task-drag-preview-border: transparent;
+  --task-drag-preview-shadow: var(--elevation-3);
+  --task-card-selected-background: color-mix(
+    in oklch,
+    var(--lane-card),
+    var(--foreground) 8%
+  );
+  --task-card-selected-hover-background: color-mix(
+    in oklch,
+    var(--lane-card),
+    var(--foreground) 11%
+  );
+}

@@ -155,7 +155,7 @@ export function InlineTaskText({
       aria-label={ariaLabel}
       aria-multiline={multiline || undefined}
       className={cn(
-        "-mx-1 rounded-md px-1 transition-[background-color,box-shadow] outline-none hover:bg-foreground/[0.035] focus:bg-foreground/[0.045] focus-visible:ring-2 focus-visible:ring-ring/24",
+        "-mx-1 rounded-md px-1 transition-[background-color,box-shadow] outline-none hover:bg-[var(--surface-hover)] focus:bg-[var(--surface-active)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
         className,
       )}
       contentEditable
@@ -205,7 +205,7 @@ export function InlineTaskSelect<TValue extends string>({
     >
       <SelectTrigger
         aria-label={ariaLabel}
-        className="h-auto min-h-0 w-fit min-w-0 rounded-md border-transparent !bg-transparent p-0 !shadow-none before:hidden hover:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring/24 data-[popup-open]:!bg-transparent dark:!bg-transparent dark:hover:!bg-transparent [&_[data-slot=select-icon]]:hidden"
+        className="h-auto min-h-0 w-fit min-w-0 rounded-md border-transparent !bg-transparent p-0 !shadow-none before:hidden hover:!bg-transparent focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] data-[popup-open]:!bg-transparent [&_[data-slot=select-icon]]:hidden"
         data-task-editing-field
         draggable={false}
         onClick={stopTaskInlineEvent}
@@ -435,7 +435,7 @@ export function InlineTaskDate({
             <button
               aria-label={ariaLabel}
               className={cn(
-                "-mx-1 inline-flex h-5 max-w-full shrink-0 items-center gap-1 rounded-md px-1 text-left whitespace-nowrap transition-[background-color,color,box-shadow] outline-none hover:bg-foreground/[0.035] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/24",
+                "-mx-1 inline-flex h-5 max-w-full shrink-0 items-center gap-1 rounded-md px-1 text-left whitespace-nowrap transition-[background-color,color,box-shadow] outline-none hover:bg-[var(--surface-hover)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
                 className,
               )}
               draggable={false}

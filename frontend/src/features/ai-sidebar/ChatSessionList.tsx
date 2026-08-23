@@ -1,5 +1,4 @@
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { type CSSProperties, useMemo, useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router";
 
 import {
@@ -14,6 +13,8 @@ import {
   SidebarMenu,
   SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
+
+import { FilterIcon } from "@/features/shell/sidebar-icons";
 
 import { ChatSessionRow } from "./ChatSessionRow";
 import { groupSessionsByRecency } from "./group-sessions";
@@ -86,17 +87,27 @@ export function ChatSessionList() {
 
   return (
     <SidebarGroup className="p-0">
-      <SidebarGroupContent className="flex flex-col gap-2">
+      <SidebarGroupContent className="flex flex-col gap-2.5">
+        {/* No "Chats" eyebrow above the field: 1a doesn't draw one, and the
+         * "Filter conversations" placeholder already says what the input
+         * acts on. The heading existed to stop the field reading as global
+         * search; a bordered, filled field sitting directly above the
+         * recency groups does that on its own.
+         *
+         * 1a's field: 34px tall, 10px radius, 11px inline padding, a real
+         * fill (#f1f0ed) and a real border (#e4e3df). The previous field
+         * was transparent and borderless until hovered, which is the one
+         * thing here that genuinely changes behaviour — it now reads as an
+         * input before you touch it. */}
+        {/* Text starts at 35px: 11px of field padding + a 15px glyph + the
+         * 9px gap 1a puts between them. */}
         <div className="sidebar-chat-search relative">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-sidebar-foreground transition-colors"
-          />
+          <FilterIcon className="pointer-events-none absolute top-1/2 left-[11px] z-10 -translate-y-1/2 text-[var(--shell-sidebar-field-placeholder)] transition-colors" />
           <SidebarInput
             aria-label="Search chats"
-            className="h-11 rounded-md border-transparent !bg-transparent !shadow-none before:hidden hover:!bg-sidebar-accent has-focus-visible:border-transparent has-focus-visible:!bg-sidebar-accent has-focus-visible:!ring-0 md:h-8 pointer-coarse:!h-11 dark:!bg-transparent dark:hover:!bg-sidebar-accent dark:has-focus-visible:!bg-sidebar-accent [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-8 [&_input]:text-sidebar-accent-foreground [&_input]:placeholder:text-sidebar-foreground [&_input]:placeholder:opacity-100 md:[&_input]:!h-8 pointer-coarse:[&_input]:!h-11"
+            className="h-11 rounded-[10px] border-[var(--shell-sidebar-field-border)] !bg-[var(--shell-sidebar-field)] !shadow-none before:hidden has-focus-visible:border-[var(--focus-ring)] has-focus-visible:!ring-0 md:h-[34px] pointer-coarse:!h-11 [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-[35px] [&_input]:text-[13px] [&_input]:text-[var(--chrome-ink)] [&_input]:placeholder:text-[var(--shell-sidebar-field-placeholder)] [&_input]:placeholder:opacity-100 md:[&_input]:!h-[34px] pointer-coarse:[&_input]:!h-11"
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search"
+            placeholder="Filter conversations"
             type="search"
             value={searchQuery}
           />
@@ -119,15 +130,28 @@ export function ChatSessionList() {
               : "No recent chats."}
           </p>
         ) : (
+          /* 1a: 14px between recency groups, 1px between rows inside one. */
           <div className="flex flex-col gap-3.5">
-            {groups.map((group) => (
+            {groups.map((group, groupIndex) => (
               <section
                 aria-label={group.label}
-                className="sidebar-chat-group flex flex-col gap-0.5"
+                className="sidebar-chat-group flex flex-col gap-px"
                 key={group.id}
+                /* 1a inks the most recent group one step darker than the
+                 * rest — the only hierarchy in the history list, and it is
+                 * doing real work: it says "these are the ones you were
+                 * just in" without adding a badge or a timestamp. */
+                style={
+                  groupIndex === 0
+                    ? ({
+                        "--sidebar-row-ink":
+                          "var(--shell-sidebar-row-foreground)",
+                      } as CSSProperties)
+                    : undefined
+                }
               >
                 <h3 className="sidebar-chat-group-label">{group.label}</h3>
-                <SidebarMenu className="gap-0.5">
+                <SidebarMenu className="gap-px">
                   {group.sessions.map((session, index) => (
                     <ChatSessionRow
                       active={session.sessionId === activeSessionId}

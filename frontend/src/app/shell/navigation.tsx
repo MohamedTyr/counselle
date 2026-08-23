@@ -1,56 +1,67 @@
 import {
-  Bot,
-  CalendarClock,
-  ClipboardCheck,
-  IdCard,
-  LibraryBig,
-  ListChecks,
-  School,
-} from "lucide-react";
+  ActivitiesIcon,
+  AiIcon,
+  CalendarIcon,
+  EssaysIcon,
+  ProfileIcon,
+  SchoolsIcon,
+  TasksIcon,
+} from "@/features/shell/sidebar-icons";
 
 import type { ShellRoute } from "@/features/shell/MainNav";
 
+/*
+ * Order is grouped by mental model, not alphabetically: AI first (it owns
+ * the chat list rendered directly beneath this nav), then the application
+ * objects a student works ON (Schools, Essays, Activities), then the
+ * time-bound work (Tasks, Calendar), then Profile — account-scoped, so it
+ * sits last even though it stays a top-level destination.
+ *
+ * This is also, exactly, variant 1a's order and label set. Icons come from
+ * sidebar-icons.tsx (1a's own glyphs) rather than lucide — see the note in
+ * that file.
+ */
 export const shellRoutes: ShellRoute[] = [
   {
     id: "ai",
     title: "AI",
-    icon: <Bot />,
+    icon: <AiIcon />,
     link: "/app/ai",
   },
   {
     id: "schools",
     title: "Schools",
-    icon: <School />,
+    icon: <SchoolsIcon />,
     link: "/app/schools",
-  },
-  {
-    id: "tasks",
-    title: "Tasks",
-    icon: <ClipboardCheck />,
-    link: "/app/tasks",
-  },
-  {
-    id: "profile",
-    title: "Profile",
-    icon: <IdCard />,
-    link: "/app/profile",
-  },
-  {
-    id: "calendar",
-    title: "Calendar",
-    icon: <CalendarClock />,
-    link: "/app/calendar",
-  },
-  {
-    id: "activities",
-    title: "Activities",
-    icon: <ListChecks />,
-    link: "/app/activities",
   },
   {
     id: "essays",
     title: "Essays",
-    icon: <LibraryBig />,
+    icon: <EssaysIcon />,
     link: "/app/essays",
+  },
+  {
+    id: "activities",
+    title: "Activities",
+    icon: <ActivitiesIcon />,
+    link: "/app/activities",
+  },
+  {
+    id: "tasks",
+    title: "Tasks",
+    icon: <TasksIcon />,
+    link: "/app/tasks",
+  },
+  {
+    id: "calendar",
+    title: "Calendar",
+    icon: <CalendarIcon />,
+    link: "/app/calendar",
+  },
+  {
+    id: "profile",
+    title: "Profile",
+    icon: <ProfileIcon />,
+    link: "/app/profile",
   },
 ];

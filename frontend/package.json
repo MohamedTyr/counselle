@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
-    "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource-variable/instrument-sans": "^5.3.0",
     "@radix-ui/react-use-controllable-state": "^1.2.3",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",

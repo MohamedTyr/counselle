@@ -424,7 +424,7 @@ export function AiChatPage({
         />
         <div className="mx-auto w-full max-w-3xl px-4 pb-4">
           {modelUnavailableRecovery !== null && (
-            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-surface)] px-3 py-2 text-sm text-destructive-foreground">
               <span>
                 {modelUnavailableRecovery.failedResponseMode === "think"
                   ? "Think is temporarily unavailable. Try again, or switch to Quick."
@@ -453,7 +453,7 @@ export function AiChatPage({
             </div>
           )}
           {turnError !== null && (
-            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+            <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-surface)] px-3 py-2 text-sm text-destructive-foreground">
               <span>{turnError.message}</span>
               {pendingText !== null && (
                 <button

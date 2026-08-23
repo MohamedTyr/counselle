@@ -28,9 +28,9 @@ function FixturePreview({
   fixture: (typeof TOOL_CALL_FIXTURES)[number];
 }) {
   return (
-    <div className="grid gap-3 border-b border-border/60 py-5 last:border-b-0 md:grid-cols-[148px_minmax(0,1fr)]">
+    <div className="grid gap-3 border-b border-[var(--edge)] py-5 last:border-b-0 md:grid-cols-[148px_minmax(0,1fr)]">
       <div className="min-w-0 pt-1">
-        <code className="block truncate text-[11px] text-foreground/80">
+        <code className="block truncate text-[11px] text-[var(--ink-secondary)]">
           {fixture.tool}
         </code>
         <span className="mt-1 block text-[11px] text-muted-foreground">
@@ -44,7 +44,7 @@ function FixturePreview({
           <ToolStepBeat isLiveSegment={fixture.live} step={fixture.step} />
         )}
         {fixture.tool === "read_tool_result" && (
-          <p className="py-1.5 text-xs text-muted-foreground/60">
+          <p className="py-1.5 text-xs text-[var(--ink-faint)]">
             No visible output — historical overflow receipts are suppressed.
           </p>
         )}
@@ -63,7 +63,7 @@ export function ToolCallGalleryPage() {
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-[var(--z-sticky)] border-b bg-[color-mix(in_oklch,var(--canvas)_95%,transparent)] backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl flex-col gap-4 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-8">
           <div>
             <p className="text-[11px] font-medium tracking-[0.16em] text-muted-foreground uppercase">

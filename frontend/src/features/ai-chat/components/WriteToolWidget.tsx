@@ -163,12 +163,12 @@ function taskPreview(step: StepData): React.ReactElement | null {
     (value): value is string => typeof value === "string" && value.length > 0,
   );
   return (
-    <div className="mt-2.5 flex min-h-11 items-start gap-2.5 rounded-md bg-muted/60 px-2.5 py-1.5">
+    <div className="mt-2.5 flex min-h-11 items-start gap-2.5 rounded-md bg-[var(--control-track)] px-2.5 py-1.5">
       <span className="flex h-5 shrink-0 items-center text-muted-foreground">
         <ClipboardCheckIcon aria-hidden="true" className="size-3.5" />
       </span>
       <div className="min-w-0">
-        <p className="line-clamp-2 text-sm leading-5 text-foreground/90">
+        <p className="line-clamp-2 text-sm leading-5 text-[var(--ink-secondary)]">
           {title}
         </p>
         {facts.length > 0 && (
@@ -237,7 +237,7 @@ export function WriteToolWidget({ isLiveSegment = false, step }: Props) {
           <p
             className={cn(
               "mt-0.5 max-w-[65ch] text-xs leading-5 text-muted-foreground",
-              step.status === "error" && "text-destructive/90",
+              step.status === "error" && "text-[var(--danger-fg)]",
             )}
             role={step.status === "error" ? "alert" : undefined}
           >

@@ -1,0 +1,61 @@
+/*
+ * Activity — list/row/chip system. --activity-* (19 tokens). Pure alias
+ * layer onto workspace.css, unchanged in shape from the original file,
+ * except: the row shadow (previously a shell-background color-mix hack)
+ * now uses the elevation scale, and --activity-danger-bg was dropped —
+ * activities-config.ts only ever consumed --activity-danger-fg, so the
+ * bg half had zero consumers.
+ *
+ * Three role-confusion fixes made in this pass (P0 audit + sweep):
+ *
+ *  - --activity-add-row-border: the dashed "N open slots" button
+ *    (ActivitiesRoute.tsx) is a persistent interactive control whose
+ *    border is its only boundary — it was borrowing --activity-row-border,
+ *    a DECORATIVE token (--edge, L 0.89, ~1.35:1) meant for the hover-only
+ *    outline on HonorRow/ActivityRow cards (those rows already have a
+ *    surface + shadow establishing their boundary; the border there is a
+ *    decorative accent, not the sole signal). Split so the two roles stop
+ *    sharing one token: --activity-row-border stays decorative for the
+ *    hover-outline consumers, this new token resolves through the
+ *    functional --edge-control family (3:1+ checked, see semantic.css).
+ *  - --activity-control-border: named "control" but was aliased through
+ *    --workspace-border -> --edge (decorative) even though its only
+ *    consumer, drawerControlClassName in activities-config.ts, paints the
+ *    border of real form controls (Select/Input/Textarea + a checkbox row)
+ *    in ActivityDrawer/HonorDrawer/activity-form-controls.tsx via
+ *    tailwind-merge, overriding those components' own (correct)
+ *    border-input. Repointed directly to --edge-control — no other
+ *    consumer exists, so this is a value fix, not a new token.
+ *  - --activity-field-surface (new): those same drawer form controls also
+ *    paint their background through --activity-control-surface, which
+ *    resolves to --surface-sunken — the INERT track fill semantic.css's
+ *    --field-surface doc warns against ("a field on a white card that
+ *    reuses the sunken well reads as disabled, not editable"). Left
+ *    --activity-control-surface itself alone — its other consumers
+ *    (HonorRow.tsx, ActivityRow.tsx: the row-menu icon button's
+ *    hover/focus/open background) are a genuinely different, legitimate
+ *    role. New token instead, wired to --field-surface, for the editable
+ *    fields only; drawerControlClassName's bg- utility repointed to it.
+ */
+
+:root {
+  --activity-list-surface: var(--workspace-task-lane-surface);
+  --activity-list-border: var(--workspace-border);
+  --activity-row-surface: var(--workspace-task-card-surface);
+  --activity-row-hover: var(--workspace-task-card-hover);
+  --activity-row-border: var(--workspace-task-card-border);
+  --activity-add-row-border: var(--edge-control);
+  --activity-row-shadow: var(--elevation-1);
+  --activity-control-surface: var(--workspace-input);
+  --activity-field-surface: var(--field-surface);
+  --activity-control-hover: var(--workspace-surface-hover);
+  --activity-control-border: var(--edge-control);
+  --activity-chip-surface: var(--workspace-surface-raised);
+  --activity-chip-hover: var(--workspace-surface-hover);
+  --activity-chip-border: var(--workspace-border-soft);
+  --activity-chip-selected-surface: var(--workspace-surface-active);
+  --activity-chip-selected-border: var(--workspace-border);
+  --activity-warning-bg: var(--workspace-warning-pill-bg);
+  --activity-warning-fg: var(--workspace-warning-pill-fg);
+  --activity-danger-fg: var(--workspace-danger-foreground);
+}

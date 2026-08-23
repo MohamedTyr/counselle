@@ -299,7 +299,7 @@ function AssistantBody({
         </p>
       )}
       {message.streamError !== undefined && (
-        <p className="not-prose rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+        <p className="not-prose rounded-lg border border-[var(--danger-border)] bg-[var(--danger-surface)] px-3 py-2 text-sm text-destructive-foreground">
           {message.streamError.message}
         </p>
       )}

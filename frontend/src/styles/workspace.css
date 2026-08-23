@@ -1,0 +1,129 @@
+/*
+ * Workspace — chat shell surfaces, composer, dropdowns, pills.
+ * --workspace-* (61 tokens) + --scrollbar-* (5 tokens), public contract
+ * preserved. Resolves only through semantic.css — no primitives, no
+ * literals.
+ *
+ * Composer border split (rewritten this pass — the previous scheme is
+ * described below because its failure is the reason for the current one).
+ *
+ * The composer container and its control chips both used to draw
+ * --edge-control, the 3:1-checked functional border meant for bare form
+ * fields. Rendered, that produced a 3.6:1 grey stroke around a ~700px
+ * panel with three more of the same stroke nested inside it — four
+ * hard-outlined boxes in a component whose whole job is to feel like a
+ * blank page you can type on. It read as a black box, not an input.
+ *
+ * Now:
+ *   container -> --edge-panel (#d7d2cb, warm, soft) and NO shadow — the
+ *     white fill against the warm canvas carries the separation on its
+ *     own, and a drop shadow under a panel that is already flush with
+ *     the page reads as a floating widget rather than part of it. See
+ *     --edge-panel in semantic.css for why the 3:1 bar that governs
+ *     --edge-control does not govern this.
+ *   chips     -> --control-quiet-* : soft warm fill, transparent border.
+ *   focus     -> --workspace-composer-border-active is now --focus-ring
+ *     (indigo-500) rather than another grey, layered with
+ *     `focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30` in
+ *     AiComposer.tsx / ChatComposer.tsx. Focus is where identification
+ *     now lives, and it matches the shadcn Input/Select focus language
+ *     (`border-ring`) instead of inventing a second one.
+ */
+
+:root {
+  --workspace-foreground: var(--ink);
+  --workspace-foreground-soft: var(--ink-secondary);
+  --workspace-muted-foreground: var(--ink-muted);
+  --workspace-surface: var(--canvas);
+  --workspace-surface-raised: var(--surface-raised);
+  --workspace-message-user-surface: var(--surface-quiet);
+  --workspace-composer-surface: var(--surface-raised);
+  --workspace-composer-border: var(--edge-panel);
+  --workspace-composer-border-active: var(--focus-ring);
+  --workspace-composer-placeholder: var(--ink-placeholder);
+  --workspace-composer-input-foreground: var(--ink);
+  /* The chips are QUIET controls (soft warm fill, no border) — see
+   * --control-quiet-* in semantic.css for why an outlined chip inside a
+   * bordered panel was the wrong shape. -control-border is kept in the
+   * contract and pointed at `transparent` rather than deleted: the chips
+   * are shadcn `variant="outline"` buttons, which always render a 1px
+   * border box, so the token still has to resolve to something, and a
+   * transparent border keeps the chip's box model identical to every
+   * other button in the app.
+   *
+   * These used to be the values profile fields and onboarding controls
+   * aliased through (--profile-field-surface -> here). That alias is now
+   * cut — those ARE bare fields, so they resolve straight to
+   * --field-surface / --edge-control and keep the 3:1 boundary the
+   * composer panel no longer needs. See profile.css. */
+  --workspace-composer-control-surface: var(--control-quiet-surface);
+  --workspace-composer-control-border: transparent;
+  --workspace-composer-control-hover-surface: var(--control-quiet-hover);
+  --workspace-composer-control-hover-border: transparent;
+  --workspace-composer-control-active-surface: var(--control-quiet-active);
+  /* Resting chip ink is --workspace-composer-sources-foreground (below).
+   * This is the open/pressed step: the fill deepening alone is a small
+   * signal on a chip this size, so the label darkens with it. */
+  --workspace-composer-control-active-foreground: var(--ink);
+  --workspace-composer-control-radius: 0.625rem;
+  --workspace-composer-inset: 1.125rem;
+  --workspace-composer-prompt-inset-block-start: 1.375rem;
+  --workspace-composer-toolbar-inset-block-end: 1.125rem;
+  --workspace-surface-hover: var(--surface-hover);
+  --workspace-dropdown-surface: var(--surface-overlay);
+  --workspace-dropdown-border: var(--edge);
+  --workspace-dropdown-hover: var(--surface-hover);
+  --workspace-dropdown-foreground: var(--ink-muted);
+  --workspace-source-menu-density: 0.94;
+  --workspace-source-menu-row-gap: 0.125rem;
+  --workspace-source-menu-chip-row-gap: 0.5625rem;
+  --workspace-composer-sources-foreground: var(--ink-secondary);
+  --workspace-composer-skill-surface: var(--workspace-composer-control-surface);
+  --workspace-composer-skill-radius: var(--workspace-composer-control-radius);
+  --workspace-composer-skill-highlight: var(--brand-subtle);
+  --workspace-composer-skill-highlight-radius: 0.375rem;
+  /* The 1px underline InlineSkillMentionLayer draws beneath a highlighted
+   * @mention. Its own token now: it used to borrow
+   * --workspace-composer-control-border, which is `transparent` since the
+   * chips went borderless — the underline would simply have vanished. */
+  --workspace-composer-skill-highlight-underline: var(--brand-subtle-border);
+  --workspace-skill-picker-popup-width: 22rem;
+  --workspace-surface-active: var(--surface-active);
+  --workspace-task-lane-surface: var(--canvas);
+  --workspace-task-card-surface: var(--surface-raised);
+  --workspace-task-card-hover: var(--surface-hover);
+  --workspace-task-card-border: var(--edge);
+  --workspace-task-card-shadow: var(--elevation-1);
+  --workspace-upcoming-task-card-surface: var(--surface-raised);
+  --workspace-upcoming-task-card-hover: var(--surface-hover);
+  --workspace-upcoming-task-card-border: var(--edge);
+  --workspace-upcoming-task-card-hover-border: var(--edge-strong);
+  --workspace-upcoming-task-card-highlight: var(--surface-selected);
+  --workspace-border: var(--edge);
+  --workspace-border-soft: var(--hairline);
+  --workspace-input: var(--surface-sunken);
+  --workspace-ring: var(--focus-ring);
+  --workspace-primary: var(--brand);
+  --workspace-primary-foreground: var(--on-brand);
+  --workspace-danger: var(--danger-solid);
+  --workspace-danger-foreground: var(--danger-fg);
+  --workspace-info-pill-bg: var(--info-surface);
+  --workspace-info-pill-fg: var(--info-fg);
+  --workspace-success-pill-bg: var(--success-surface);
+  --workspace-success-pill-fg: var(--success-fg);
+  --workspace-warning-pill-bg: var(--warning-surface);
+  --workspace-warning-pill-fg: var(--warning-fg);
+  --workspace-neutral-pill-bg: var(--neutral-surface);
+  --workspace-neutral-pill-fg: var(--neutral-fg);
+  --workspace-error-pill-bg: var(--danger-surface);
+  --workspace-error-pill-fg: var(--danger-fg);
+
+  /* App-wide (canvas-area) scrollbar — distinct from the sidebar's own
+   * --shell-sidebar-scrollbar*, which is tuned separately against the
+   * chrome track's own (lighter, sage-tinted) lightness. */
+  --scrollbar-size: 0.625rem;
+  --scrollbar-thumb: color-mix(in oklch, var(--ink) 28%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklch, var(--ink) 42%, transparent);
+  --scrollbar-thumb-active: color-mix(in oklch, var(--ink) 55%, transparent);
+  --scrollbar-track: transparent;
+}

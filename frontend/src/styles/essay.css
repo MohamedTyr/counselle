@@ -1,0 +1,39 @@
+/*
+ * Essay — --essay-* (15 tokens), public contract preserved. Two families
+ * in one file because the original grouped them under one prefix:
+ *
+ *  - editor CHROME (library card, editor header/toolbar) — aliases
+ *    workspace.css, flips light with the rest of the shell.
+ *  - the DOCUMENT/paper itself — aliases semantic.css's --document-*
+ *    family, which stays a deliberately distinct white sheet (see
+ *    semantic.css and the M1 handoff doc for the "why").
+ */
+
+:root {
+  /* ---- editor chrome ---- */
+  --essay-library-card-hover: var(--workspace-task-card-hover);
+  --essay-library-card-border: var(--workspace-task-card-border);
+  --essay-library-card-frame: var(--workspace-surface-raised);
+  --essay-editor-chrome-surface: var(--shell-background);
+  --essay-editor-header-surface: var(--workspace-surface-raised);
+  --essay-editor-header-border: var(--workspace-border-soft);
+  --essay-editor-header-shadow: var(--elevation-1);
+  --essay-editor-toolbar-surface: var(--workspace-surface-raised);
+  /* --essay-editor-toolbar-border: currently unconsumed. The toolbar paired
+   * this with --essay-editor-toolbar-shadow (elevation-2, 12px blur) —
+   * elevation.css's own rule reserves border+shadow pairing for
+   * elevation-1 and calls out "floating toolbars" by name as an
+   * elevation-2/3 borderless case. EssayEditorToolbar.tsx now overrides
+   * to border-transparent and relies on the shadow alone; kept the token
+   * defined (not a public-contract removal) in case a future bordered
+   * toolbar variant needs it. */
+  --essay-editor-toolbar-border: var(--workspace-border);
+  --essay-editor-toolbar-active: var(--workspace-surface-active);
+  --essay-editor-toolbar-shadow: var(--elevation-2);
+
+  /* ---- the paper ---- */
+  --essay-document-surface: var(--document);
+  --essay-document-foreground: var(--document-foreground);
+  --essay-document-muted: var(--document-muted);
+  --essay-document-border: var(--document-border);
+}

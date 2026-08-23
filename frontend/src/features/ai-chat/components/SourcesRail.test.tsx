@@ -125,7 +125,7 @@ describe("SourcesRail", () => {
     expect(fallback).toHaveFocus();
     expect(fallback).toHaveAttribute("data-active", "true");
     expect(fallback).toHaveAttribute("aria-current", "true");
-    expect(fallback).toHaveClass("bg-primary/[0.03]");
+    expect(fallback).toHaveClass("bg-[var(--surface-selected)]");
   });
 
   test("moves the highlight when a different citation is opened, clearing the old one", () => {
@@ -155,7 +155,7 @@ describe("SourcesRail", () => {
     expect(rowThree()).toHaveAttribute("data-active", "true");
     expect(rowThree()).toHaveFocus();
     expect(rowEight()).toHaveAttribute("data-active", "false");
-    expect(rowEight()).not.toHaveClass("bg-primary/[0.03]");
+    expect(rowEight()).not.toHaveClass("bg-[var(--surface-selected)]");
   });
 
   test("clicking a source card selects it directly, moving the highlight off any prior one", () => {

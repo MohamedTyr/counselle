@@ -133,7 +133,7 @@ function ExpandedResult({ source }: { source: StepSource }) {
   ) : (
     <li>
       <a
-        className="flex min-h-11 items-start gap-2.5 rounded-md px-2 py-2 transition-colors duration-200 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+        className="flex min-h-11 items-start gap-2.5 rounded-md px-2 py-2 transition-colors duration-200 hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
         href={href}
         rel="noreferrer"
         target="_blank"
@@ -260,8 +260,8 @@ export function SearchToolWidget({
                 )}
               </div>
 
-              <CollapsibleContent className="mt-3 overflow-hidden rounded-lg bg-muted/30 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 motion-reduce:animate-none">
-                <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border/60 px-2.5">
+              <CollapsibleContent className="mt-3 overflow-hidden rounded-lg bg-[var(--control-track)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 motion-reduce:animate-none">
+                <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--edge)] px-2.5">
                   <span className="text-xs font-medium text-foreground">
                     {sources.length} available {resultNoun}
                     {sources.length === 1 ? "" : "s"}

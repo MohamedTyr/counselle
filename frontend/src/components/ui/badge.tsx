@@ -25,12 +25,12 @@ export const badgeVariants = cva(
         default:
           "bg-[color:var(--task-todo-pill-bg)] text-[color:var(--task-todo-pill-fg)]",
         destructive:
-          "bg-destructive/10 text-destructive/85 dark:bg-destructive/14 dark:text-destructive/82",
+          "bg-[var(--danger-surface)] text-[var(--danger-fg)]",
         error:
-          "bg-destructive/10 text-destructive/85 dark:bg-destructive/14 dark:text-destructive/82",
+          "bg-[var(--danger-surface)] text-[var(--danger-fg)]",
         info: "bg-[color:var(--task-doing-pill-bg)] text-[color:var(--task-doing-pill-fg)]",
         outline:
-          "border-input bg-background text-foreground dark:bg-input/32 [button&,a&]:hover:bg-accent/50 dark:[button&,a&]:hover:bg-input/48",
+          "border-input bg-background text-foreground [button&,a&]:hover:bg-[var(--surface-selected)]",
         secondary:
           "bg-[color:var(--task-todo-pill-bg)] text-[color:var(--task-todo-pill-fg)]",
         success:

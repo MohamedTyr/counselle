@@ -34,7 +34,7 @@ export function UndoToast({
       {pending ? (
         <motion.div
           animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
+          className="pointer-events-none fixed inset-x-0 bottom-6 z-[var(--z-toast)] flex justify-center px-4"
           exit={reduceMotion ? undefined : { opacity: 0, y: 12 }}
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           transition={{ duration: 0.18, ease: "easeOut" }}

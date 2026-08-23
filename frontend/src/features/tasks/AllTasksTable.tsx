@@ -76,7 +76,7 @@ function AllTasksTableHead({
     >
       <button
         className={cn(
-          "group/all-sort flex min-w-0 items-center gap-1.5 rounded-sm text-left transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          "group/all-sort flex min-w-0 items-center gap-1.5 rounded-sm text-left transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
           isSorted && "text-foreground",
         )}
         onClick={() => onSort(column.id)}
@@ -182,7 +182,7 @@ function AllTasksMobileItem({
     <article
       aria-label={`Open ${task.title} details`}
       className={cn(
-        "w-full cursor-pointer rounded-xl bg-card p-3 text-left text-card-foreground transition-colors outline-none hover:bg-muted/35 focus-visible:ring-3 focus-visible:ring-ring/45",
+        "w-full cursor-pointer rounded-xl bg-card p-3 text-left text-card-foreground transition-colors outline-none hover:bg-[var(--surface-hover)] focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)]",
         task.status === "done" && "opacity-70",
       )}
       onClick={() => onOpenTask(task.id)}
@@ -221,19 +221,19 @@ function AllTasksMobileItem({
       </span>
 
       <span className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <span className="min-w-0 rounded-lg bg-muted/22 px-2 py-1.5">
+        <span className="min-w-0 rounded-lg bg-[var(--control-track)] px-2 py-1.5">
           <span className="block text-muted-foreground">Work</span>
           <span className="mt-1 block truncate">
             <StaticWorkDateValue task={task} />
           </span>
         </span>
-        <span className="min-w-0 rounded-lg bg-muted/22 px-2 py-1.5">
+        <span className="min-w-0 rounded-lg bg-[var(--control-track)] px-2 py-1.5">
           <span className="block text-muted-foreground">Due</span>
           <span className="mt-1 block truncate">
             <StaticDueDateValue task={task} />
           </span>
         </span>
-        <span className="min-w-0 rounded-lg bg-muted/22 px-2 py-1.5">
+        <span className="min-w-0 rounded-lg bg-[var(--control-track)] px-2 py-1.5">
           <span className="block text-muted-foreground">Reminder</span>
           <span className="mt-1 block truncate">
             <StaticReminderValue task={task} />
@@ -356,7 +356,7 @@ export function AllTasksTable({
 
       <div className="flex flex-col gap-2 lg:hidden">
         {sortedTasks.length === 0 ? (
-          <Empty className="min-h-56 rounded-xl bg-muted/20 py-10">
+          <Empty className="min-h-56 rounded-xl bg-[var(--control-track)] py-10">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Search aria-hidden="true" />

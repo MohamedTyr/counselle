@@ -103,7 +103,7 @@ export function UpcomingTaskItem({
       aria-label={`Open ${task.title} details`}
       className={cn(
         laneThemeClass[task.status],
-        "group/upcoming grid cursor-pointer grid-cols-1 gap-3 rounded-xl border border-[color:var(--workspace-upcoming-task-card-border)] bg-[color:var(--workspace-upcoming-task-card-surface)] p-3 shadow-[inset_0_1px_0_var(--workspace-upcoming-task-card-highlight)] transition-[background-color,border-color] outline-none hover:border-[color:var(--workspace-upcoming-task-card-hover-border)] hover:bg-[color:var(--workspace-upcoming-task-card-hover)] focus-visible:ring-3 focus-visible:ring-ring/45 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start",
+        "group/upcoming grid cursor-pointer grid-cols-1 gap-3 rounded-xl border border-[color:var(--workspace-upcoming-task-card-border)] bg-[color:var(--workspace-upcoming-task-card-surface)] p-3 shadow-[inset_0_1px_0_var(--workspace-upcoming-task-card-highlight)] transition-[background-color,border-color] outline-none hover:border-[color:var(--workspace-upcoming-task-card-hover-border)] hover:bg-[color:var(--workspace-upcoming-task-card-hover)] focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start",
       )}
       onClick={() => onOpenTask(task.id)}
       onKeyDown={handleKeyDown}
@@ -140,7 +140,7 @@ export function UpcomingTaskItem({
         />
         <Button
           aria-label={`Mark ${task.title} done`}
-          className="border-input/75 bg-transparent text-muted-foreground shadow-none transition-[background-color,border-color,color] hover:border-foreground/18 hover:bg-muted/45 hover:text-foreground focus-visible:ring-ring/45 data-pressed:bg-muted/55 dark:hover:bg-input/50 [&_svg]:opacity-85"
+          className="border-[var(--input)] bg-transparent text-muted-foreground shadow-none transition-[background-color,border-color,color] hover:border-[var(--edge-control-strong)] hover:bg-[var(--surface-hover)] hover:text-foreground focus-visible:ring-[var(--focus-ring)] data-pressed:bg-[var(--surface-active)] [&_svg]:opacity-85"
           onClick={(event) => handleStatusClick(event, "done")}
           size="xs"
           type="button"
@@ -230,7 +230,7 @@ export function UpcomingSection({
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border/55 px-4 py-3">
+      <CardHeader className="border-b border-[var(--edge)] px-4 py-3">
         <CardTitle className="flex min-w-0 items-center gap-2 text-sm leading-5">
           <span className="truncate">{group.title}</span>
           <Badge
@@ -273,7 +273,7 @@ export function UpcomingSection({
             ))}
           </AnimatePresence>
         ) : (
-          <Empty className="min-h-48 rounded-xl bg-muted/20 py-8 md:py-10">
+          <Empty className="min-h-48 rounded-xl bg-[var(--control-track)] py-8 md:py-10">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <CalendarPlus aria-hidden="true" />
@@ -307,7 +307,7 @@ export function UpcomingPlanStat({
   value: number;
 }) {
   return (
-    <div className="rounded-lg bg-muted/25 px-3 py-2">
+    <div className="rounded-lg bg-[var(--control-track)] px-3 py-2">
       <div className="text-lg leading-6 font-semibold tabular-nums">
         {value}
       </div>
@@ -395,7 +395,7 @@ export function UpcomingPlanningPanel({
         <CardPanel className="flex flex-col gap-2 px-4 pb-4">
           {nextTasks.map((task) => (
             <button
-              className="rounded-lg bg-muted/25 p-2.5 text-left transition-colors outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/45"
+              className="rounded-lg bg-[var(--control-track)] p-2.5 text-left transition-colors outline-none hover:bg-[var(--surface-active)] focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)]"
               key={task.id}
               onClick={() => onOpenTask(task.id)}
               type="button"
@@ -411,7 +411,7 @@ export function UpcomingPlanningPanel({
           ))}
 
           {nextTasks.length === 0 ? (
-            <Empty className="min-h-48 rounded-xl bg-muted/20 px-4 py-8 md:py-10">
+            <Empty className="min-h-48 rounded-xl bg-[var(--control-track)] px-4 py-8 md:py-10">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <Sparkles aria-hidden="true" />

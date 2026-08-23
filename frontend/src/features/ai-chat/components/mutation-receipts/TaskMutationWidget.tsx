@@ -15,7 +15,7 @@ function TaskRow({ item }: { item: MutationItem }) {
   const isProblem = item.disposition !== "changed";
   return (
     <li className="flex min-w-0 flex-col gap-0.5 py-1">
-      <span className="flex min-w-0 items-center gap-1.5 text-foreground/90">
+      <span className="flex min-w-0 items-center gap-1.5 text-[var(--ink-secondary)]">
         <span className="min-w-0 truncate">{title ?? `Task ${item.input_index + 1}`}</span>
         {isProblem && (
           <Badge size="sm" variant="secondary">
@@ -46,7 +46,7 @@ export function TaskMutationBody({ receipt }: { receipt: WorkspaceMutationReceip
           </ul>
         )}
         {rest.length > 0 && (
-          <ul className="grid gap-0.5 border-t border-border/50 pt-2">
+          <ul className="grid gap-0.5 border-t border-[var(--edge)] pt-2">
             {rest.map((item) => (
               <TaskRow item={item} key={item.input_index} />
             ))}
@@ -60,7 +60,7 @@ export function TaskMutationBody({ receipt }: { receipt: WorkspaceMutationReceip
     return (
       <ul className="grid gap-0.5">
         {body.subjects.map((subject, index) => (
-          <li className="text-foreground/90" key={index}>
+          <li className="text-[var(--ink-secondary)]" key={index}>
             {subject.title.text}
           </li>
         ))}

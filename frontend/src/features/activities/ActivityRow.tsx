@@ -69,7 +69,7 @@ function ActivityMetaLine({ activity }: { activity: Activity }) {
   if (activity.continue_in_college) {
     parts.push(
       <span
-        className="inline-flex items-center gap-1 text-foreground/70"
+        className="inline-flex items-center gap-1 text-[var(--ink-secondary)]"
         key="college"
       >
         <GraduationCap aria-hidden="true" className="size-3.5" />
@@ -79,11 +79,11 @@ function ActivityMetaLine({ activity }: { activity: Activity }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-muted-foreground/85 tabular-nums">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-[var(--ink-muted)] tabular-nums">
       {parts.map((part, index) => (
         <span className="inline-flex items-center gap-x-1.5" key={index}>
           {index > 0 ? (
-            <span aria-hidden="true" className="text-muted-foreground/40">
+            <span aria-hidden="true" className="text-[var(--ink-faint)]">
               ·
             </span>
           ) : null}
@@ -113,7 +113,7 @@ function ActivityRowMenu({
         aria-label={`Actions for ${activity.position || "activity"}`}
         className={cn(
           buttonVariants({ size: "icon-sm", variant: "ghost" }),
-          "size-7 text-muted-foreground opacity-0 shadow-sm/0 transition-[opacity,background-color,box-shadow] group-hover/activity:bg-[color:var(--activity-control-surface)] group-hover/activity:opacity-100 group-hover/activity:shadow-sm/5 focus-visible:bg-[color:var(--activity-control-surface)] focus-visible:opacity-100 data-[state=open]:bg-[color:var(--activity-control-surface)] data-[state=open]:opacity-100 pointer-coarse:opacity-100",
+          "size-7 text-muted-foreground opacity-0 shadow-[var(--elevation-0)] transition-[opacity,background-color,box-shadow] group-hover/activity:bg-[color:var(--activity-control-surface)] group-hover/activity:opacity-100 group-hover/activity:shadow-[var(--elevation-1)] focus-visible:bg-[color:var(--activity-control-surface)] focus-visible:opacity-100 data-[state=open]:bg-[color:var(--activity-control-surface)] data-[state=open]:opacity-100 pointer-coarse:opacity-100",
         )}
         onClick={(event) => event.stopPropagation()}
       >
@@ -191,14 +191,14 @@ export function ActivityRow({
 
   return (
     <motion.div
-      className="border-b border-border/50 p-1 last:border-b-0"
+      className="border-b border-[var(--hairline)] p-1 last:border-b-0"
       exit={layout ? { opacity: 0, scale: 0.98 } : undefined}
       layout={layout}
       transition={{ type: "spring", stiffness: 520, damping: 40, mass: 0.7 }}
     >
       <article
         className={cn(
-          "group/activity relative grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-4 rounded-xl border border-transparent bg-[color:var(--activity-row-surface)] px-4 py-3.5 shadow-[var(--activity-row-shadow)] transition-[background-color,border-color,box-shadow] outline-none hover:border-[color:var(--activity-row-border)] hover:bg-[color:var(--activity-row-hover)] focus-visible:ring-3 focus-visible:ring-ring/45",
+          "group/activity relative grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-4 rounded-xl border border-transparent bg-[color:var(--activity-row-surface)] px-4 py-3.5 shadow-[var(--activity-row-shadow)] transition-[background-color,border-color,box-shadow] outline-none hover:border-[color:var(--activity-row-border)] hover:bg-[color:var(--activity-row-hover)] focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)]",
           isDragging && "opacity-55",
         )}
         data-activity-id={activity.id}
@@ -211,7 +211,7 @@ export function ActivityRow({
       >
         <button
           aria-label={`Activity ${activity.order}: ${activity.position || "Untitled"}`}
-          className="absolute inset-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/45"
+          className="absolute inset-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)]"
           onClick={(event) => {
             event.stopPropagation();
             onOpen(activity.id);
@@ -222,7 +222,7 @@ export function ActivityRow({
           <RankBadge isReady={ready} order={activity.order} />
           <button
             aria-label={`Reorder ${activity.position || "activity"}`}
-            className="mt-0.5 flex size-6 cursor-grab items-center justify-center rounded-md text-muted-foreground/45 opacity-0 transition-[color,opacity,background-color] group-hover/activity:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none active:cursor-grabbing pointer-coarse:opacity-100"
+            className="mt-0.5 flex size-6 cursor-grab items-center justify-center rounded-md text-[var(--ink-faint)] opacity-0 transition-[color,opacity,background-color] group-hover/activity:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:outline-none active:cursor-grabbing pointer-coarse:opacity-100"
             onClick={(event) => event.stopPropagation()}
             onPointerDown={onArmDrag}
             type="button"
@@ -241,7 +241,7 @@ export function ActivityRow({
               )}
             </h3>
 
-            <p className="mt-1 text-xs leading-4 text-wrap text-muted-foreground/85">
+            <p className="mt-1 text-xs leading-4 text-wrap text-[var(--ink-muted)]">
               {activity.organization || "No organization"}
             </p>
           </div>
@@ -261,7 +261,7 @@ export function ActivityRow({
                   "max-w-[78ch] min-w-0 text-[13px] leading-5 text-wrap",
                   isActivityOverLimit(activity)
                     ? "text-foreground"
-                    : "text-foreground/84",
+                    : "text-[var(--ink-secondary)]",
                 )}
               >
                 {activity.description}
@@ -288,7 +288,7 @@ export function ActivityRow({
             />
           ) : null}
           <Badge
-            className="h-6 max-w-full min-w-0 overflow-hidden border-[color:var(--activity-chip-border)] bg-[color:var(--activity-chip-surface)] px-2 py-0 text-right font-normal text-ellipsis whitespace-nowrap text-muted-foreground/90 transition-opacity group-hover/activity:opacity-0 group-has-[button[data-state=open]]/activity:opacity-0"
+            className="h-6 max-w-full min-w-0 overflow-hidden border-[color:var(--activity-chip-border)] bg-[color:var(--activity-chip-surface)] px-2 py-0 text-right font-normal text-ellipsis whitespace-nowrap text-[var(--ink-muted)] transition-opacity group-hover/activity:opacity-0 group-has-[button[data-state=open]]/activity:opacity-0"
             variant="outline"
             title={activity.type}
           >

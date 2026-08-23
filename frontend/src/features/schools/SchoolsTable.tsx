@@ -71,7 +71,7 @@ function ResizableTableHead({
     >
       <button
         className={cn(
-          "group/sort flex min-w-0 items-center gap-1.5 rounded-sm text-left transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          "group/sort flex min-w-0 items-center gap-1.5 rounded-sm text-left transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
           isSorted && "text-foreground",
         )}
         onClick={() => onSort(column.id)}
@@ -90,7 +90,7 @@ function ResizableTableHead({
       </button>
       <button
         aria-label={`Resize ${column.label} column`}
-        className="absolute top-1 right-0 h-[calc(100%-0.5rem)] w-2 cursor-col-resize rounded-sm opacity-0 transition-opacity hover:bg-border hover:opacity-100 focus-visible:bg-border focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="absolute top-1 right-0 h-[calc(100%-0.5rem)] w-2 cursor-col-resize rounded-sm opacity-0 transition-opacity hover:bg-border hover:opacity-100 focus-visible:bg-border focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
         onKeyDown={(event) => onResizeKeyDown(event, column)}
         onPointerDown={(event) => onResizeStart(event, column)}
         type="button"

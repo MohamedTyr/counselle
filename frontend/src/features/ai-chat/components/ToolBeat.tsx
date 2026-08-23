@@ -78,7 +78,7 @@ export function ToolBeatLabel({
       className={cn(
         "text-sm leading-5",
         state === "running" && "font-medium text-foreground",
-        state === "settled" && "text-foreground/85",
+        state === "settled" && "text-[var(--ink-secondary)]",
         state === "error" && "text-destructive",
       )}
     >

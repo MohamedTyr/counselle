@@ -3,7 +3,10 @@ import { useCallback, useRef, useState } from "react";
 const STORAGE_KEY = "counselle:sidebar-width";
 const MIN_WIDTH = 232;
 const MAX_WIDTH = 408;
-const DEFAULT_WIDTH = 256;
+// Variant 1a draws the rail at 312px. This is the value that actually sizes
+// the desktop rail — WorkspaceShell feeds it to --sidebar-width inline, which
+// overrides the SIDEBAR_WIDTH fallback in components/ui/sidebar.tsx.
+const DEFAULT_WIDTH = 312;
 
 function clampWidth(width: number) {
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(width)));

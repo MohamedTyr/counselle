@@ -48,7 +48,7 @@ export function InlineSkillMentionLayer({
       result.push(value.slice(currentIndex, index));
       result.push(
         <mark
-          className="rounded-[var(--workspace-composer-skill-highlight-radius)] bg-[var(--workspace-composer-skill-highlight)] text-transparent shadow-[3px_0_0_var(--workspace-composer-skill-highlight),-3px_0_0_var(--workspace-composer-skill-highlight),inset_0_-1px_0_var(--workspace-composer-control-border)]"
+          className="rounded-[var(--workspace-composer-skill-highlight-radius)] bg-[var(--workspace-composer-skill-highlight)] text-transparent shadow-[3px_0_0_var(--workspace-composer-skill-highlight),-3px_0_0_var(--workspace-composer-skill-highlight),inset_0_-1px_0_var(--workspace-composer-skill-highlight-underline)]"
           data-slot="inline-skill-mention"
           key={`${index}-${mention}`}
         >

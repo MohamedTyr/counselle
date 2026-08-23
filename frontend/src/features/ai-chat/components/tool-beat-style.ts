@@ -22,7 +22,7 @@ export const toolBeatEnter =
  */
 export function toolChipClass(interactive = false): string {
   return cn(
-    "inline-flex h-11 min-w-0 items-center gap-1.5 rounded-md bg-muted/60 px-2.5 text-xs text-foreground/85",
+    "inline-flex h-11 min-w-0 items-center gap-1.5 rounded-md bg-[var(--control-track)] px-2.5 text-xs text-[var(--ink-secondary)]",
     interactive &&
       "cursor-pointer transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
   );

@@ -117,14 +117,14 @@ export function HonorRow({
 
   return (
     <motion.div
-      className="border-b border-border/50 p-1 last:border-b-0"
+      className="border-b border-[var(--hairline)] p-1 last:border-b-0"
       exit={layout ? { opacity: 0, scale: 0.98 } : undefined}
       layout={layout}
       transition={{ type: "spring", stiffness: 520, damping: 40, mass: 0.7 }}
     >
       <article
         className={cn(
-          "group/honor relative flex cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-[color:var(--activity-row-surface)] px-3 py-2.5 shadow-[var(--activity-row-shadow)] transition-[background-color,border-color,box-shadow] outline-none hover:border-[color:var(--activity-row-border)] hover:bg-[color:var(--activity-row-hover)] focus-visible:ring-3 focus-visible:ring-ring/45",
+          "group/honor relative flex cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-[color:var(--activity-row-surface)] px-3 py-2.5 shadow-[var(--activity-row-shadow)] transition-[background-color,border-color,box-shadow] outline-none hover:border-[color:var(--activity-row-border)] hover:bg-[color:var(--activity-row-hover)] focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)]",
           isDragging && "opacity-55",
         )}
         data-honor-id={honor.id}
@@ -137,7 +137,7 @@ export function HonorRow({
       >
         <button
           aria-label={`Honor ${honor.order}: ${honor.title || "Untitled"}`}
-          className="absolute inset-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/45"
+          className="absolute inset-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)]"
           onClick={(event) => {
             event.stopPropagation();
             onOpen(honor.id);
@@ -147,7 +147,7 @@ export function HonorRow({
         <RankBadge isReady={ready} order={honor.order} />
         <button
           aria-label={`Reorder ${honor.title || "honor"}`}
-          className="flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground/50 opacity-0 transition-[color,opacity,background-color] group-hover/honor:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none active:cursor-grabbing pointer-coarse:opacity-100"
+          className="flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md text-[var(--ink-faint)] opacity-0 transition-[color,opacity,background-color] group-hover/honor:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:outline-none active:cursor-grabbing pointer-coarse:opacity-100"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={onArmDrag}
           type="button"
@@ -165,7 +165,7 @@ export function HonorRow({
           </h3>
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground sm:shrink-0 sm:justify-end">
             <span className="text-wrap">{formatLevels(honor.levels)}</span>
-            <span aria-hidden="true" className="text-muted-foreground/40">
+            <span aria-hidden="true" className="text-[var(--ink-faint)]">
               ·
             </span>
             <span className="whitespace-nowrap tabular-nums">

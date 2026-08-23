@@ -3,7 +3,35 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/instrument-sans";
+
+/*
+ * Design-token layer. Four strict tiers, imported in dependency order
+ * (though custom-property resolution is lazy, so this order is for human
+ * readability, not correctness):
+ *
+ *   1. primitives.css — raw OKLCH ramps. The only file allowed a literal.
+ *   2. semantic.css / elevation.css — role tokens, built only from #1.
+ *   3. shell/workspace/task/onboarding/activity/essay/profile/shadcn.css —
+ *      component & feature token families, built only from #2 (and each
+ *      other's aliases) — never from #1 directly, never a literal.
+ *   4. theme.css — the Tailwind v4 @theme utility-class binding.
+ *
+ * See src/styles/README.md for the naming convention and the rule for
+ * where a new token goes.
+ */
+@import "./styles/primitives.css";
+@import "./styles/semantic.css";
+@import "./styles/elevation.css";
+@import "./styles/shell.css";
+@import "./styles/workspace.css";
+@import "./styles/task.css";
+@import "./styles/onboarding.css";
+@import "./styles/activity.css";
+@import "./styles/essay.css";
+@import "./styles/profile.css";
+@import "./styles/shadcn.css";
+@import "./styles/theme.css";
 
 @source "../node_modules/streamdown/dist/*.js";
 
@@ -70,7 +98,8 @@
 
   /* Rich blocks breathe on both sides — space before the block and after it. */
   .markdown-response
-    > * + :is(
+    > *
+    + :is(
       [data-streamdown="unordered-list"],
       [data-streamdown="ordered-list"],
       [data-streamdown="blockquote"],
@@ -115,7 +144,8 @@
   }
 
   .markdown-response
-    > * + :is([data-streamdown="heading-1"], [data-streamdown="heading-2"]) {
+    > *
+    + :is([data-streamdown="heading-1"], [data-streamdown="heading-2"]) {
     margin-block-start: var(--md-flow-section);
   }
 
@@ -124,7 +154,8 @@
   }
 
   .markdown-response
-    > * + :is(
+    > *
+    + :is(
       [data-streamdown="heading-4"],
       [data-streamdown="heading-5"],
       [data-streamdown="heading-6"]
@@ -269,399 +300,6 @@
   }
 }
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
-  --font-document: Georgia, ui-serif, serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-success: var(--success);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-document-border: var(--document-border);
-  --color-document-muted: var(--document-muted);
-  --color-document-foreground: var(--document-foreground);
-  --color-document: var(--document);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-warning: var(--warning);
-  --color-success-foreground: var(--success-foreground);
-  --color-info-foreground: var(--info-foreground);
-  --color-info: var(--info);
-}
-
-:root {
-  --shell-background: #171615;
-  --shell-sidebar-background: #1e1d1b;
-  --shell-sidebar-foreground: #969593;
-  --shell-sidebar-history-foreground: #aaa8a5;
-  --shell-sidebar-hover-background: #252422;
-  --shell-sidebar-hover-foreground: #d6d5d4;
-  --shell-sidebar-inset-inline: 1rem;
-  --shell-sidebar-collapsed-inset-inline: 0.5rem;
-  --shell-sidebar-inset-block: 1rem;
-  --shell-divider: #242323;
-  --shell-sidebar-border: #2b2a28;
-  --shell-sidebar-scrollbar: #3a3835;
-  --shell-sidebar-scrollbar-hover: #504e49;
-  --shell-sidebar-group-label: #7c7a76;
-  --shell-sidebar-resizer: #d8d0c3;
-  --workspace-foreground: #e3e0db;
-  --workspace-foreground-soft: #cbc6bd;
-  --workspace-muted-foreground: #969593;
-  --workspace-surface: #1b1a19;
-  --workspace-surface-raised: #211f1d;
-  --profile-section-surface: var(--workspace-surface-raised);
-  --profile-section-border: var(--workspace-border);
-  --profile-section-divider: var(--workspace-border-soft);
-  --profile-field-surface: var(--workspace-composer-control-surface);
-  --profile-field-border: var(--workspace-composer-control-border);
-  --profile-field-hover-border: var(--workspace-composer-control-hover-border);
-  --profile-field-focus-border: var(--workspace-composer-border-active);
-  --profile-field-label: var(--workspace-foreground-soft);
-  --profile-field-helper: var(--workspace-muted-foreground);
-  --profile-control-selected-surface: var(--workspace-surface-active);
-  --profile-control-selected-border: var(--workspace-border);
-  --workspace-composer-surface: #1e1d1c;
-  --workspace-composer-border: #383736;
-  --workspace-composer-border-active: #434240;
-  --workspace-composer-placeholder: #7a7978;
-  --workspace-composer-input-foreground: #d6d5d4;
-  --workspace-composer-control-surface: #252422;
-  --workspace-composer-control-border: #292827;
-  --workspace-composer-control-hover-surface: #2b2926;
-  --workspace-composer-control-hover-border: #403e3b;
-  --workspace-composer-control-radius: 0.75rem;
-  --workspace-composer-inset: 1.125rem;
-  --workspace-composer-prompt-inset-block-start: 1.375rem;
-  --workspace-composer-toolbar-inset-block-end: 1.125rem;
-  --workspace-surface-hover: #252422;
-  --workspace-dropdown-surface: #1e1d1c;
-  --workspace-dropdown-border: #2e2d2c;
-  --workspace-dropdown-hover: #252422;
-  --workspace-dropdown-foreground: #969593;
-  --workspace-source-menu-density: 0.94;
-  --workspace-source-menu-row-gap: 0.125rem;
-  --workspace-source-menu-chip-row-gap: 0.5625rem;
-  --workspace-composer-sources-foreground: #bdbab6;
-  --workspace-composer-skill-surface: var(--workspace-composer-control-surface);
-  --workspace-composer-skill-radius: var(--workspace-composer-control-radius);
-  --workspace-composer-skill-highlight: #30283b;
-  --workspace-composer-skill-highlight-radius: 0.375rem;
-  --workspace-skill-picker-popup-width: 22rem;
-  --workspace-surface-active: #2b2926;
-  --workspace-task-lane-surface: #1e1c1a;
-  --workspace-task-card-surface: #242220;
-  --workspace-task-card-hover: #292724;
-  --workspace-task-card-border: #302e2b;
-  --workspace-task-card-shadow:
-    0 1px 0 color-mix(in oklch, var(--foreground) 7%, transparent),
-    0 1px 2px color-mix(in oklch, var(--shell-background) 64%, transparent);
-  --workspace-upcoming-task-card-surface: #252320;
-  --workspace-upcoming-task-card-hover: #2a2723;
-  --workspace-upcoming-task-card-border: #36312b;
-  --workspace-upcoming-task-card-hover-border: #403a33;
-  --workspace-upcoming-task-card-highlight: color-mix(
-    in oklch,
-    var(--foreground) 8%,
-    transparent
-  );
-  --workspace-border: #2b2a28;
-  --workspace-border-soft: #242323;
-  --workspace-input: #302d29;
-  --workspace-ring: #8d8679;
-  --scrollbar-size: 0.625rem;
-  --scrollbar-thumb: color-mix(
-    in oklch,
-    var(--workspace-foreground) 42%,
-    transparent
-  );
-  --scrollbar-thumb-hover: color-mix(
-    in oklch,
-    var(--workspace-foreground) 52%,
-    transparent
-  );
-  --scrollbar-thumb-active: color-mix(
-    in oklch,
-    var(--workspace-foreground) 62%,
-    transparent
-  );
-  --scrollbar-track: transparent;
-  --workspace-primary: #d8d0c3;
-  --workspace-primary-foreground: #171615;
-  --workspace-danger: #e09a88;
-  --workspace-danger-foreground: #ffd8cf;
-  --workspace-info-pill-bg: #27313a;
-  --workspace-info-pill-fg: #c2d1df;
-  --workspace-success-pill-bg: #263229;
-  --workspace-success-pill-fg: #bdd4c0;
-  --workspace-warning-pill-bg: #3a3324;
-  --workspace-warning-pill-fg: #e0cb9b;
-  --workspace-neutral-pill-bg: #2d2b28;
-  --workspace-neutral-pill-fg: #c9c4bb;
-  --workspace-error-pill-bg: #3b2723;
-  --workspace-error-pill-fg: #e7b9ae;
-  --activity-list-surface: var(--workspace-task-lane-surface);
-  --activity-list-border: var(--workspace-border);
-  --activity-row-surface: var(--workspace-task-card-surface);
-  --activity-row-hover: var(--workspace-task-card-hover);
-  --activity-row-border: var(--workspace-task-card-border);
-  --activity-row-shadow:
-    0 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
-    0 1px 2px color-mix(in oklch, var(--shell-background) 62%, transparent);
-  --activity-control-surface: var(--workspace-input);
-  --activity-control-hover: var(--workspace-surface-hover);
-  --activity-control-border: var(--workspace-border);
-  --activity-chip-surface: var(--workspace-surface-raised);
-  --activity-chip-hover: var(--workspace-surface-hover);
-  --activity-chip-border: var(--workspace-border-soft);
-  --activity-chip-selected-surface: var(--workspace-surface-active);
-  --activity-chip-selected-border: var(--workspace-border);
-  --activity-warning-bg: var(--workspace-warning-pill-bg);
-  --activity-danger-bg: var(--workspace-error-pill-bg);
-  --essay-library-card-hover: var(--workspace-task-card-hover);
-  --essay-library-card-border: var(--workspace-task-card-border);
-  --essay-library-card-frame: var(--workspace-surface-raised);
-  --essay-editor-chrome-surface: var(--shell-background);
-  --essay-editor-header-surface: var(--workspace-surface-raised);
-  --essay-editor-header-border: var(--workspace-border-soft);
-  --essay-editor-header-shadow:
-    0 1px 0 color-mix(in oklch, var(--foreground) 6%, transparent),
-    0 1px 2px color-mix(in oklch, var(--shell-background) 62%, transparent);
-  --essay-editor-toolbar-surface: var(--workspace-surface-raised);
-  --essay-editor-toolbar-border: var(--workspace-border);
-  --essay-editor-toolbar-active: var(--workspace-surface-active);
-  --essay-editor-toolbar-shadow: 0 8px 18px
-    color-mix(in oklch, var(--shell-background) 70%, transparent);
-  --onboarding-page-background: var(--shell-background);
-  --onboarding-frame-surface: var(--workspace-surface);
-  --onboarding-form-surface: var(--workspace-surface-raised);
-  --onboarding-caption-surface: var(--workspace-surface);
-  --onboarding-border: var(--workspace-border);
-  --onboarding-border-soft: var(--workspace-border-soft);
-  --onboarding-primary: var(--workspace-primary);
-  --onboarding-primary-foreground: var(--workspace-primary-foreground);
-  --onboarding-control-surface: var(--workspace-composer-control-surface);
-  --onboarding-control-border: var(--workspace-composer-control-border);
-  --onboarding-control-hover-surface: var(--workspace-composer-control-hover-surface);
-  --onboarding-control-hover-border: var(--workspace-composer-control-hover-border);
-  --onboarding-selected-surface: var(--profile-control-selected-surface);
-  --onboarding-selected-border: var(--profile-control-selected-border);
-  --onboarding-foreground: var(--workspace-foreground);
-  --onboarding-foreground-soft: var(--workspace-foreground-soft);
-  --onboarding-muted-foreground: var(--workspace-muted-foreground);
-  --onboarding-ring: var(--workspace-ring);
-  --onboarding-error-foreground: var(--workspace-error-pill-fg);
-  --onboarding-error-surface: var(--workspace-error-pill-bg);
-  --background: var(--shell-background);
-  --foreground: var(--workspace-foreground);
-  --card: var(--workspace-surface-raised);
-  --card-foreground: var(--workspace-foreground);
-  --popover: var(--workspace-surface-raised);
-  --popover-foreground: var(--workspace-foreground);
-  --document: oklch(0.985 0.003 250);
-  --document-foreground: oklch(0.16 0.002 250);
-  --document-muted: oklch(0.34 0.003 250);
-  --document-border: oklch(0.895 0.003 250);
-  --essay-document-surface: var(--document);
-  --essay-document-foreground: var(--document-foreground);
-  --essay-document-muted: var(--document-muted);
-  --essay-document-border: var(--document-border);
-  --primary: var(--workspace-primary);
-  --primary-foreground: var(--workspace-primary-foreground);
-  --secondary: var(--workspace-surface-raised);
-  --secondary-foreground: var(--workspace-foreground-soft);
-  --muted: var(--workspace-surface-hover);
-  --muted-foreground: var(--workspace-muted-foreground);
-  --accent: var(--workspace-surface-hover);
-  --accent-foreground: var(--shell-sidebar-hover-foreground);
-  --destructive: var(--workspace-danger);
-  --success: #9cbf9f;
-  --border: var(--workspace-border-soft);
-  --input: var(--workspace-input);
-  --ring: var(--workspace-ring);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: var(--shell-sidebar-background);
-  --sidebar-foreground: var(--shell-sidebar-foreground);
-  --sidebar-primary: var(--workspace-primary);
-  --sidebar-primary-foreground: var(--shell-sidebar-foreground);
-  --sidebar-accent: var(--shell-sidebar-hover-background);
-  --sidebar-accent-foreground: var(--shell-sidebar-hover-foreground);
-  --sidebar-border: var(--shell-sidebar-border);
-  --sidebar-ring: var(--workspace-ring);
-  --task-todo-surface: var(--workspace-task-lane-surface);
-  --task-todo-header: var(--workspace-surface-raised);
-  --task-todo-card: var(--workspace-task-card-surface);
-  --task-todo-card-hover: var(--workspace-task-card-hover);
-  --task-todo-border: var(--workspace-border);
-  --task-todo-card-border: var(--workspace-task-card-border);
-  --task-todo-muted: var(--workspace-muted-foreground);
-  --task-todo-pill-bg: var(--workspace-neutral-pill-bg);
-  --task-todo-pill-fg: var(--workspace-neutral-pill-fg);
-  --task-todo-dot: var(--workspace-muted-foreground);
-  --task-doing-surface: var(--workspace-task-lane-surface);
-  --task-doing-header: var(--workspace-surface-raised);
-  --task-doing-card: var(--task-todo-card);
-  --task-doing-card-hover: var(--task-todo-card-hover);
-  --task-doing-border: var(--workspace-border);
-  --task-doing-card-border: var(--task-todo-card-border);
-  --task-doing-muted: var(--task-todo-muted);
-  --task-doing-pill-bg: var(--workspace-info-pill-bg);
-  --task-doing-pill-fg: var(--workspace-info-pill-fg);
-  --task-doing-dot: #8aa7bd;
-  --task-waiting-surface: var(--workspace-task-lane-surface);
-  --task-waiting-header: var(--workspace-surface-raised);
-  --task-waiting-card: var(--task-todo-card);
-  --task-waiting-card-hover: var(--task-todo-card-hover);
-  --task-waiting-border: var(--workspace-border);
-  --task-waiting-card-border: var(--task-todo-card-border);
-  --task-waiting-muted: var(--task-todo-muted);
-  --task-waiting-pill-bg: var(--workspace-warning-pill-bg);
-  --task-waiting-pill-fg: var(--workspace-warning-pill-fg);
-  --task-waiting-dot: #c7aa69;
-  --activity-warning-fg: var(--workspace-warning-pill-fg);
-  --activity-danger-fg: var(--workspace-danger-foreground);
-  --task-done-surface: var(--workspace-task-lane-surface);
-  --task-done-header: var(--workspace-surface-raised);
-  --task-done-card: var(--task-todo-card);
-  --task-done-card-hover: var(--task-todo-card-hover);
-  --task-done-border: var(--workspace-border);
-  --task-done-card-border: var(--task-todo-card-border);
-  --task-done-muted: var(--task-todo-muted);
-  --task-done-pill-bg: var(--workspace-success-pill-bg);
-  --task-done-pill-fg: var(--workspace-success-pill-fg);
-  --task-done-dot: #8caf92;
-  --task-category-essay-bg: #2c2d38;
-  --task-category-essay-fg: #c8c9df;
-  --task-category-essay-border: #464756;
-  --task-category-lor-bg: #332936;
-  --task-category-lor-fg: #d6c1d8;
-  --task-category-lor-border: #4c3e50;
-  --task-category-aid-bg: var(--workspace-warning-pill-bg);
-  --task-category-aid-fg: var(--workspace-warning-pill-fg);
-  --task-category-aid-border: #564b34;
-  --task-category-research-bg: #243232;
-  --task-category-research-fg: #bad5d0;
-  --task-category-research-border: #3a4e4e;
-  --task-category-form-bg: #2a2e35;
-  --task-category-form-fg: #c2ccd8;
-  --task-category-form-border: #414851;
-  --task-category-interview-bg: #26313f;
-  --task-category-interview-fg: #b8cfe6;
-  --task-category-interview-border: #3d4f63;
-  --task-category-other-bg: var(--workspace-neutral-pill-bg);
-  --task-category-other-fg: var(--workspace-neutral-pill-fg);
-  --task-category-other-border: var(--workspace-border);
-  --task-drag-preview-background: color-mix(
-    in oklch,
-    var(--card),
-    var(--ring) 14%
-  );
-  --task-drag-preview-border: transparent;
-  --task-drag-preview-shadow: 0 8px 18px
-    color-mix(in oklch, var(--shell-background) 70%, transparent);
-  --task-card-selected-background: color-mix(
-    in oklch,
-    var(--lane-card),
-    var(--foreground) 8%
-  );
-  --task-card-selected-hover-background: color-mix(
-    in oklch,
-    var(--lane-card),
-    var(--foreground) 11%
-  );
-  --destructive-foreground: var(--workspace-danger-foreground);
-  --info: #8aa7bd;
-  --info-foreground: var(--workspace-info-pill-fg);
-  --success-foreground: var(--workspace-success-pill-fg);
-  --warning: #c7aa69;
-  --warning-foreground: var(--workspace-warning-pill-fg);
-}
-
-.dark {
-  --background: var(--shell-background);
-  --foreground: var(--workspace-foreground);
-  --card: var(--workspace-surface-raised);
-  --card-foreground: var(--workspace-foreground);
-  --popover: var(--workspace-surface-raised);
-  --popover-foreground: var(--workspace-foreground);
-  --document: oklch(0.985 0.003 250);
-  --document-foreground: oklch(0.16 0.002 250);
-  --document-muted: oklch(0.34 0.003 250);
-  --document-border: oklch(0.84 0.003 250);
-  --essay-document-surface: var(--document);
-  --essay-document-foreground: var(--document-foreground);
-  --essay-document-muted: var(--document-muted);
-  --essay-document-border: var(--document-border);
-  --primary: var(--workspace-primary);
-  --primary-foreground: var(--workspace-primary-foreground);
-  --secondary: var(--workspace-surface-raised);
-  --secondary-foreground: var(--workspace-foreground-soft);
-  --muted: var(--workspace-surface-hover);
-  --muted-foreground: var(--workspace-muted-foreground);
-  --accent: var(--workspace-surface-hover);
-  --accent-foreground: var(--shell-sidebar-hover-foreground);
-  --destructive: var(--workspace-danger);
-  --success: #9cbf9f;
-  --border: var(--workspace-border-soft);
-  --input: var(--workspace-input);
-  --ring: var(--workspace-ring);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: var(--shell-sidebar-background);
-  --sidebar-foreground: var(--shell-sidebar-foreground);
-  --sidebar-primary: var(--workspace-primary);
-  --sidebar-primary-foreground: var(--shell-sidebar-foreground);
-  --sidebar-accent: var(--shell-sidebar-hover-background);
-  --sidebar-accent-foreground: var(--shell-sidebar-hover-foreground);
-  --sidebar-border: var(--shell-sidebar-border);
-  --sidebar-ring: var(--workspace-ring);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -720,6 +358,22 @@
 }
 
 @layer components {
+  /*
+   * The rail is a flat fill. It carried a grain texture until the surface
+   * moved to --stone-50 (#f5f3f1): at that lightness the noise stopped
+   * reading as material and started reading as sensor noise, so it was
+   * removed rather than tuned down again. Keep the rail flat — depth here
+   * comes from the surface step against --canvas, not from texture.
+   *
+   * `isolation: isolate` stays: .sidebar-chat-action::before relies on the
+   * rail being its own stacking context for the same negative-z layering
+   * trick, so this is load-bearing beyond the grain that introduced it.
+   */
+  [data-sidebar="sidebar"] {
+    isolation: isolate;
+    position: relative;
+  }
+
   .sidebar-chat-title {
     color: var(--shell-sidebar-history-foreground);
     font-size: 0.84375rem;
@@ -750,20 +404,31 @@
     background: linear-gradient(
       to right,
       transparent,
-      var(--sidebar-background) 55%,
-      var(--sidebar-background)
+      var(--sidebar) 55%,
+      var(--sidebar)
     );
     content: "";
     pointer-events: none;
   }
 
-  [data-sidebar="menu-item"]:hover .sidebar-chat-action::before,
-  [data-active="true"] ~ .sidebar-chat-action::before {
+  [data-sidebar="menu-item"]:hover .sidebar-chat-action::before {
     background: linear-gradient(
       to right,
       transparent,
       var(--sidebar-accent) 55%,
       var(--sidebar-accent)
+    );
+  }
+
+  /* Distinct from hover, not an alias of it — matches the active row's
+     real background (--sidebar-active) so the fade mask behind the row
+     actions doesn't seam against it. */
+  [data-active="true"] ~ .sidebar-chat-action::before {
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--sidebar-active) 55%,
+      var(--sidebar-active)
     );
   }
 
@@ -818,13 +483,18 @@
   }
 
   /* Recency section headers (Today / Yesterday / …). */
+  /* Variant 1a's recency eyebrow: 11px/500, 0.08em tracking, uppercase,
+   * 12px inline padding and 6px of space beneath. The tracking is the part
+   * that matters — at this size an uppercase label without it reads as a
+   * cramped word rather than a section marker. */
   .sidebar-chat-group-label {
-    padding: 0.25rem 0.625rem 0.1875rem;
+    padding: 0 0.75rem 0.375rem;
     color: var(--shell-sidebar-group-label);
     font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     line-height: 1;
+    text-transform: uppercase;
     user-select: none;
   }
 

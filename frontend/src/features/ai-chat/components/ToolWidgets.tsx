@@ -99,15 +99,22 @@ function SourceChips({ step }: { step: StepData }) {
     </div>
   );
 }
+// Three genuinely distinct shapes, not three colors of the same dot: an
+// unfilled ring while running, a filled circle when it settles cleanly, and
+// a filled diamond on error — so status still reads on hover/print/
+// colorblind-safe views where the muted-foreground/destructive tint alone
+// wouldn't. See PRODUCT.md's "status is never color-alone" rule.
 function StepDot({ status }: { status: StepData["status"] }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "size-2.5 rounded-full border",
-        status === "start" && "border-foreground",
-        status === "end" && "border-transparent bg-muted-foreground",
-        status === "error" && "border-transparent bg-destructive",
+        "size-2.5 border",
+        status === "start" && "rounded-full border-foreground",
+        status === "end" &&
+          "rounded-full border-transparent bg-muted-foreground",
+        status === "error" &&
+          "rounded-[2px] border-transparent bg-destructive rotate-45",
       )}
     />
   );
@@ -218,14 +225,14 @@ function PublicStepDetails({ step }: { step: StepData }) {
 
   return (
     <details className="mt-2 text-xs text-muted-foreground">
-      <summary className="cursor-pointer select-none text-foreground/80 hover:text-foreground">
+      <summary className="cursor-pointer select-none text-[var(--ink-secondary)] hover:text-foreground">
         Details
       </summary>
       <dl className="mt-2 grid gap-1.5">
         {rows.map((row) => (
           <div className="grid grid-cols-[96px_1fr] gap-2" key={row.label}>
             <dt className="font-medium text-muted-foreground">{row.label}</dt>
-            <dd className="min-w-0 text-foreground/85">{row.value}</dd>
+            <dd className="min-w-0 text-[var(--ink-secondary)]">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -292,7 +299,7 @@ function TaskAddedWidget({ step }: ToolWidgetProps) {
           step.status === "error" && "text-destructive",
         )}
       />
-      <div className="min-w-0 rounded-md border bg-muted/30 px-3 py-2">
+      <div className="min-w-0 rounded-md border bg-[var(--control-track)] px-3 py-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">

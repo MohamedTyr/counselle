@@ -1080,7 +1080,7 @@ function RequirementsSection({
                 ) : null}
                 {tasks.map((task) => (
                   <Link
-                    className="rounded-md border px-3 py-2 text-sm text-foreground outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="rounded-md border px-3 py-2 text-sm text-foreground outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
                     key={task.id}
                     to={`/app/tasks?task=${task.id}`}
                   >
@@ -1446,7 +1446,7 @@ export function SchoolWorkspace({
         </header>
         <nav
           aria-label="School workspace sections"
-          className="sticky top-0 z-10 -mx-2 flex gap-1 overflow-x-auto border-y bg-background/95 px-2 py-2 backdrop-blur"
+          className="sticky top-0 z-10 -mx-2 flex gap-1 overflow-x-auto border-y bg-[color-mix(in_oklch,var(--canvas)_95%,transparent)] px-2 py-2 backdrop-blur"
         >
           <Button render={<a href="#essays" />} size="sm" variant="ghost">
             <FilePenLine data-icon="inline-start" />

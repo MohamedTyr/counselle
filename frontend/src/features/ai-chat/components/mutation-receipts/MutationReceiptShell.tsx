@@ -185,7 +185,7 @@ export function MutationReceiptShell({
         </ToolBeatLabel>
 
         {!running && issue !== null && (
-          <p className="mt-0.5 text-xs text-destructive/90" role="alert">
+          <p className="mt-0.5 text-xs text-[var(--danger-fg)]" role="alert">
             {issue}
           </p>
         )}
@@ -204,7 +204,7 @@ export function MutationReceiptShell({
         )}
 
         {!running && expandable && (
-          <CollapsibleContent className="mt-2 overflow-hidden rounded-md bg-muted/25 p-2.5 text-xs data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none">
+          <CollapsibleContent className="mt-2 overflow-hidden rounded-md bg-[var(--control-track)] p-2.5 text-xs data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none">
             <MutationReceiptFamilyBody receipt={receipt} />
           </CollapsibleContent>
         )}
