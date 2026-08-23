@@ -36,27 +36,34 @@ type MainNavProps = {
 };
 
 /*
- * A nav row's three states. Kept as one string so every row — top level and
- * sub-route alike — resolves the same vocabulary, and so the selected case
- * can't drift from the token contract documented in semantic.css's chrome
- * block (rest -> hover -> selected, each a real step darker).
+ * A nav row's three states, transcribed from variant 1a of the Sidebar
+ * Redesign design doc. Kept as one string so every row — top level and
+ * sub-route alike — resolves the same vocabulary.
  *
- * The selected row's left edge bar is the ::before below: it reads as an
- * indicator anchored to the rail rather than decoration inside the pill,
- * and it gives selection a second, non-colour channel alongside the weight
- * bump — so the state survives both colourblindness and a grayscale print.
+ * 1a's measurements: 36px tall, 12px inline padding, 10px radius, 11px gap
+ * between icon and label, 14px label. Rest is transparent with no weight
+ * (400); hover adds the neutral #eeede9 fill; selected swaps to the brand
+ * tint #f8e6e7 with its half-chroma ink and steps the weight to 500.
+ *
+ * The previous scheme's 2px left edge bar is GONE, deliberately. It existed
+ * because hover and selected used to share one neutral fill, which left the
+ * background unable to distinguish them — selection had to be carried by
+ * label colour, a weight bump and the bar together. 1a gives selected its
+ * own tinted fill, so the bar is a third redundant marker on a row that
+ * already reads unambiguously, and it is not in the doc. Weight still
+ * carries the state through greyscale and colourblindness.
  */
 const navRowClassName = cn(
-  "relative h-8 gap-2 rounded-lg px-2 text-[13px] font-medium",
+  "relative h-9 gap-[11px] rounded-[10px] px-3 text-sm font-normal",
+  // SidebarMenuButton ships `[&_svg]:size-4`; 1a's nav glyphs are 17px.
+  "[&_svg]:!size-[17px]",
   "text-[var(--chrome-ink-secondary)] transition-colors duration-150",
   "hover:bg-[var(--chrome-hover)] hover:text-[var(--chrome-ink-strong)]",
   "focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-  "data-active:bg-[var(--chrome-active)] data-active:font-semibold",
+  "data-active:bg-[var(--chrome-active)] data-active:font-medium",
   "data-active:text-[var(--on-chrome-active)]",
-  "data-active:before:absolute data-active:before:top-1/2 data-active:before:left-0",
-  "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-x-3",
-  "data-active:before:-translate-y-1/2 data-active:before:rounded-full",
-  "data-active:before:bg-[var(--on-chrome-active)]",
+  "data-active:hover:bg-[var(--chrome-active)]",
+  "data-active:hover:text-[var(--on-chrome-active)]",
 );
 
 export function MainNav({ routes }: MainNavProps) {
@@ -66,7 +73,9 @@ export function MainNav({ routes }: MainNavProps) {
   const [openCollapsible, setOpenCollapsible] = useState<string | null>(null);
 
   return (
-    <SidebarMenu className="gap-0.5">
+    /* 1a stacks nav rows at a 1px gap — the rows are tall enough that any
+     * more reads as a list of separate buttons rather than one column. */
+    <SidebarMenu className="gap-px">
       {routes.map((route) => {
         const isOpen = !isCollapsed && openCollapsible === route.id;
         const hasSubRoutes = Boolean(route.subs?.length);

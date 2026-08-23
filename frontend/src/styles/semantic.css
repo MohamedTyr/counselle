@@ -85,7 +85,7 @@
    * Mixed from --canvas, the workspace's base tone. */
   --surface-hover: color-mix(in oklch, var(--neutral-900) 5%, var(--canvas));
   --surface-active: color-mix(in oklch, var(--neutral-900) 8%, var(--canvas));
-  --surface-selected: color-mix(in oklch, var(--indigo-500) 10%, var(--canvas));
+  --surface-selected: color-mix(in oklch, var(--wine-500) 10%, var(--canvas));
 
   /* ---- ink — text on the light canvas. Four genuinely distinct
    * legibility tiers, not four names sharing one value. --ink-disabled is
@@ -94,75 +94,107 @@
    * disabled.
    *
    * The whole family runs on --stone, the warm ramp, not achromatic
-   * --neutral: --ink is #27251e app-wide, a requested exact value, and the
-   * tiers beneath it follow so the text of the app never splits into a
-   * warm heading over cold grey secondary copy. This reaches every surface
-   * — --foreground -> --workspace-foreground -> --ink is the chain, so
-   * this is the app's text colour, not the sidebar's.
+   * --neutral, so the text of the app never splits into a warm heading over
+   * cold grey secondary copy. This reaches every surface — --foreground ->
+   * --workspace-foreground -> --ink is the chain, so this is the app's text
+   * colour, not the sidebar's.
+   *
+   * The top three tiers now carry variant 1a's own ink values (L 0.28 /
+   * 0.42 / 0.45 at hue 85) rather than the previous ladder, so workspace
+   * copy and rail copy are the same greys. The bottom two deliberately do
+   * NOT follow 1a: its faint tiers sit at L 0.60-0.65, which measures
+   * 3.4-3.8:1 and fails the small-text floor. Those values are real, they
+   * are what the doc draws, and they are kept — but scoped to the rail via
+   * the chrome block below, where the doc specified them. The app-wide
+   * faint/placeholder tiers stay at L 0.52 so ordinary body text keeps
+   * clearing AA. Do not "align" these two with the rail; that would push
+   * every muted caption in the workspace under the floor.
    *
    * Measured against every surface these actually render on, computed via
    * an OKLCH -> linear-sRGB -> WCAG script rather than eyeballed
-   * (canvas / raised / sunken / rail / hover-selected):
+   * (canvas / raised / sunken / rail / rail-hover):
    *
-   *   --ink            #27251e   14.86  15.34  13.46  13.86  12.90
-   *   --ink-secondary  #3c3a35   10.94  11.30   9.91  10.20   9.50
-   *   --ink-muted      #54524e    7.52   7.76   6.81   7.01   6.53
-   *   --ink-faint      #6b6963    5.33   5.51   4.83   4.97   4.63
-   *   --ink-disabled   #9a9893    2.79   2.88   2.53   2.60   2.42
+   *   --ink            #2b2923   14.13  14.59  12.80  13.86  12.42
+   *   --ink-secondary  #504d47    8.19   8.46   7.42   8.03   7.20
+   *   --ink-muted      #58554f    7.21   7.44   6.53   7.06   6.33
+   *   --ink-faint      #6b6963    5.33   5.51   4.83   5.23   4.69
+   *   --ink-disabled   #9b9891    2.79   2.88   2.53   2.74   2.45
    *
    * Every non-exempt tier clears the 4.5:1 body-text floor on every
    * surface, --ink-faint with the least margin by design. Re-run the
    * numbers if --stone-50 or --canvas moves. */
   --ink: var(--stone-800);
-  --ink-secondary: var(--stone-700);
-  --ink-muted: var(--stone-600);
-  --ink-faint: var(--stone-550);
-  --ink-placeholder: var(--stone-550);
-  --ink-disabled: var(--stone-400);
+  --ink-secondary: var(--stone-600);
+  --ink-muted: var(--stone-550);
+  --ink-faint: var(--stone-500);
+  --ink-placeholder: var(--stone-500);
+  --ink-disabled: var(--stone-300);
 
-  /* ---- chrome — the sidebar surface (product identity, see README).
-   * The rail runs on --stone, the warm ramp: surface #f5f3f1, hover
-   * #edebe8, ink #27251e. This supersedes both the original sage rail and
-   * the flat --neutral-50 rail that replaced it. The reason is the ground
-   * it sits on: --canvas is --sand-25 (#fdfbfa, warm), so an achromatic
-   * rail put a cold grey panel on a warm page — a temperature seam down
-   * the middle of the app. The whole chrome family moves together for the
-   * same reason; a warm surface carrying cold grey borders and cold grey
-   * secondary text just moves the seam inward instead of closing it.
+  /* ---- chrome — the sidebar rail (product identity, see README).
    *
-   * Hover and selected share one fill (#edebe8, --stone-100) by request.
-   * That means the BACKGROUND cannot be what distinguishes them, so the
-   * whole selected signal is carried by three non-background channels
-   * stacked together, applied in MainNav's navRowClassName:
+   * Every value in this block is variant 1a of the Sidebar Redesign design
+   * doc, carried literally. The brief was to match that sidebar exactly, so
+   * this block is a transcription, not a derivation — if a value here and a
+   * value in 1a ever disagree, 1a is right and this is a bug.
    *
-   *   rest      transparent      --ink-secondary   weight 500
-   *   hover     --chrome-hover   --ink-strong      weight 500
-   *   selected  --chrome-active  --on-chrome-active (indigo-700), weight 600,
-   *                              plus a 2px brand bar on the rail's edge
+   *   surface   #faf9f6  stone-50    rail fill
+   *   hover     #eeede9  stone-100   nav row hover
+   *   selected  #f8e6e7  wine-50     nav row selected  <- a BRAND TINT
+   *   border    #dfdeda  stone-200   rail perimeter
+   *   ink       #2b2923  stone-800   account name
+   *   strong    #24211c  stone-900   wordmark
+   *   secondary #58554f  stone-550   nav row at rest
+   *   muted     #83807a  stone-450   rail icons, email, ··· glyph
    *
-   * indigo-700 on the #edebe8 pill measures 9.48:1, and the weight bump and
-   * edge bar give selection two channels that survive greyscale and
-   * colourblindness — which matters more than usual here, precisely
-   * because the fill is no longer doing any of that work. The one accepted
-   * cost: hovering an already-selected row produces no visible change.
+   * WHAT CHANGED, AND WHY THE OLD SCHEME IS GONE. Previously hover and
+   * selected shared one neutral fill, which meant the background could not
+   * distinguish them, so selection was carried by a brand-coloured label, a
+   * weight bump to 600, AND a 2px brand bar on the rail's edge. 1a does it
+   * the straightforward way instead: selected gets its own brand-tinted
+   * fill, and the only other channel is weight 400 -> 500. The edge bar is
+   * deleted rather than kept "for safety" — with a tinted fill it is a
+   * third redundant marker on a row that already reads unambiguously, and
+   * it is not in the doc.
    *
-   * Green still marks exactly one thing — what's selected — which is the
-   * product register's own rule for accent use ("accent for current
-   * selection... not decoration"). */
+   * That leaves selection with two channels (tint + weight) rather than
+   * three. Weight is the one that survives greyscale and colourblindness,
+   * and it is still there, so the state does not depend on hue alone.
+   *
+   * The muted tier is stone-450 (#83807a), which measures 3.75:1 on the
+   * rail — below the 4.5:1 small-text floor. That is 1a's value for the
+   * rail's quietest text and it is intentional here; see the warning in
+   * primitives.css. It is confined to this block: --ink-muted, the
+   * app-wide tier, is a different and AA-clearing value. */
   --chrome: var(--stone-50);
   --chrome-hover: var(--stone-100);
-  --chrome-active: var(--stone-100);
-  --chrome-border: var(--stone-150);
+  --chrome-active: var(--wine-50);
+  --chrome-border: var(--stone-200);
   --chrome-ink: var(--stone-800);
-  --chrome-ink-secondary: var(--stone-700);
-  --chrome-ink-muted: var(--stone-600);
+  --chrome-ink-secondary: var(--stone-550);
+  --chrome-ink-muted: var(--stone-450);
   --chrome-ink-strong: var(--stone-900);
-  --on-chrome-active: var(--indigo-700); /* 10.18:1 on --stone-50 */
-  /* The neutral committed/pressed fill, split out from --chrome-active
-   * when that token became the green selection above. Warm grey, one step
-   * past hover — for anything that needs a "pressed" surface without
-   * claiming to be the current location. */
-  --chrome-pressed: var(--stone-200);
+  --on-chrome-active: var(--wine-ink-on-50); /* 10.91:1 on --chrome-active */
+  /* The neutral committed/pressed fill, split out from --chrome-active when
+   * that token became the brand tint above. Warm grey, one step past hover
+   * — for anything that needs a "pressed" surface without claiming to be
+   * the current location. */
+  --chrome-pressed: var(--stone-150);
+  /* The rail's own filter/search field (1a: fill #f1f0ed, border #e4e3df),
+   * and the two quiet ink tiers that sit inside the rail. --chrome-eyebrow
+   * is the recency group label ("PREVIOUS 7 DAYS"); --chrome-ink-quiet is
+   * the account email line. Both are 1a values below the small-text floor
+   * (3.07:1 and 3.46:1) — see the primitives.css warning. */
+  --chrome-field: var(--stone-75);
+  --chrome-field-border: var(--stone-150);
+  --chrome-eyebrow: var(--stone-350);
+  --chrome-ink-quiet: var(--stone-400);
+  /* 1a draws recent chat rows one step darker than older ones — #302d28 for
+   * the most recent group, #504d47 for the rest. */
+  /* 1a hovers the collapse control to its own ink step (0.35), between the
+   * muted resting tier and the body ink. */
+  --chrome-ink-hover: var(--stone-650);
+  --chrome-row-ink: var(--stone-700);
+  --chrome-row-ink-dim: var(--stone-600);
 
   /* ---- edges — borders and dividers. Two categories, not one:
    *
@@ -229,45 +261,122 @@
   --control-quiet-hover: var(--sand-100);
   --control-quiet-active: var(--sand-150);
 
-  /* ---- brand — the one committed accent (deep indigo-violet, hue 278).
+  /* ---- button chrome — the edge and state fills of the outline /
+   * secondary button family (components/ui/button.tsx). Its own role
+   * group, deliberately NOT --edge-control, and NOT a bare alias of
+   * --control-quiet-* even where today's values coincide.
+   *
+   * WHY NOT --edge-control. That token is the sole identifier of a bare
+   * form field: erase an input's border and nothing left on screen says
+   * "type here", so WCAG 1.4.11 genuinely applies and it sits at 3.64:1
+   * on white. A button is identified by its label — "Add school" plus a
+   * leading glyph — so its perimeter is a seam between two surfaces, not
+   * the affordance. Holding it to a bar meant for empty rectangles is
+   * what made every secondary button in the app read as a wireframe box
+   * instead of something pressable: a 3.64:1 stroke around a 32px control
+   * is the heaviest mark in its neighbourhood. Same argument, same
+   * conclusion as --edge-panel above.
+   *
+   * WEIGHT. --sand-300 measures 2.00:1 on --surface-raised and 1.94:1 on
+   * --canvas (computed via an OKLCH -> linear-sRGB -> WCAG script, not
+   * eyeballed). The button gets the rest of its presence from a white
+   * fill plus --elevation-1 sitting on the warm canvas — the same
+   * "elevation + a hairline, not a big tonal gap" rule --surface-raised
+   * is built on, applied one component down. --edge-button-strong
+   * (--sand-400, 2.67:1 on white) is the hover/pressed step.
+   *
+   * TEMPERATURE. --edge-control is chroma 0. Every surface it wrapped
+   * here is warm — --canvas at hue 49, --chrome at 68, the ink itself at
+   * 94 — so a cold grey ring around a warm button reopened, at component
+   * scale, exactly the temperature seam the --chrome family was moved
+   * onto --stone to close. --sand-* is the warm ramp built for this job.
+   *
+   * The two fills below share values with --control-quiet-hover/-active
+   * (both are "one/two warm steps down from the resting surface") but are
+   * their own tokens because they are reached from a different resting
+   * state: a quiet chip STARTS at --control-quiet-surface and deepens,
+   * a bordered button starts at --surface-raised and deepens. Retuning
+   * the chip ramp must not silently move the button's states. */
+  --edge-button: var(--sand-300);
+  --edge-button-strong: var(--sand-400);
+  --surface-button-hover: var(--sand-100);
+  --surface-button-active: var(--sand-150);
+
+  /* ---- brand — the one committed accent (deep burgundy, hue 15), taken
+   * from variant 1a of the Sidebar Redesign design doc. --brand and
+   * --brand-hover are 1a's literal accent and hover values.
    * Used sparingly: primary actions, links, focus rings, selected/active
    * identity marks. Budget it at under ~3% of the pixels on any screen;
    * the UI's authority comes from --ink on --canvas, and the brand is
-   * there to mark the agent's voice and the single next action.
+   * there to mark the agent's voice and the single next action. That
+   * budget matters more under this hue than the last one: burgundy sits
+   * ten degrees off the danger ramp (see the collision note in
+   * primitives.css), so the less of it there is on screen, the less chance
+   * it is read as an error state.
    * NOT the same token family as shadcn's --accent (a generic hover
-   * surface) — see shadcn.css. --brand-active is wired into the default
-   * button variant's hover/data-pressed states in components/ui/button.tsx,
-   * replacing the old `hover:bg-primary/90` / `data-pressed:bg-primary/90`
-   * alpha-modifier pattern with a named pressed-state token.
+   * surface) — see shadcn.css. --brand-hover and --brand-active are the
+   * default button variant's hover and data-pressed fills respectively in
+   * components/ui/button.tsx, replacing the old `hover:bg-primary/90` /
+   * `data-pressed:bg-primary/90` alpha-modifier pattern with named state
+   * tokens. They are two distinct steps on purpose: an interim version
+   * pointed both states at --brand-active, which collapsed hover and press
+   * into one appearance and left the button with nothing to say when you
+   * actually clicked it. Each pairs with the matching --brand-edge-* rim
+   * below so fill and edge never move independently.
    *
-   * Ramp positions are unchanged from the ivy mapping — brand is still the
-   * -600 step, at the same L 0.44 ivy-600 held. An interim version moved
-   * the brand one step lighter (to -500, L 0.52) on the grounds that the
-   * blue-violet gamut had the headroom for it. Rendered against the real
-   * theme that was plainly wrong: on a near-white warm ground the lighter
-   * fill glows rather than sits. The weight was load-bearing; only the hue
-   * and chroma changed. See the two corrections in primitives.css.
+   * Ramp positions are unchanged across all three brands this app has had
+   * (ivy -> indigo -> wine): brand is the -600 step. Its lightness is not.
+   * ivy and indigo both sat at L 0.44; 1a draws its accent at L 0.38, so
+   * the brand is now a genuinely darker mark than it was. That is the
+   * doc's call, and it is a comfortable one — the old note warned that a
+   * LIGHTER brand glows against a near-white warm ground, and this moves
+   * in the safe direction.
    *
-   * State separation matches the old pair: indigo-800 (L 0.28) against
-   * --brand is 1.83:1 surface-to-surface, against ivy's 1.90:1, so the
-   * pressed state still reads as a real change. White text is 14.91:1 on
-   * --brand-active and 8.13:1 on --brand itself (ivy was 7.76:1). */
-  --brand: var(--indigo-600);
-  --brand-hover: var(--indigo-700);
-  --brand-active: var(--indigo-800);
-  --brand-subtle: var(--indigo-50);
-  --brand-subtle-ink: var(--indigo-700); /* 10.02:1 on --brand-subtle */
-  --brand-subtle-border: var(--indigo-200);
+   * State separation: wine-800 against --brand is 1.51:1 surface-to-
+   * surface, against indigo's 1.83:1 — shallower, because the ramp is
+   * already deep in the dark end where lightness steps compress. White
+   * text is 10.65:1 on --brand, 13.41:1 on --brand-hover and 16.06:1 on
+   * --brand-active. */
+  --brand: var(--wine-600);
+  --brand-hover: var(--wine-700);
+  --brand-active: var(--wine-800);
+  /* The solid CTA's rim — one ramp step darker than the fill it wraps, at
+   * every state. This is the correction that makes the primary button read
+   * as an object rather than a rectangle of colour: `border-primary` set
+   * the border to the SAME value as the fill, so the button had no edge at
+   * all and dissolved into its own shadow at the bottom and into the page
+   * at the top. One step down measures 1.26:1 fill-to-edge at rest (1.20
+   * hover, 1.14 pressed) — a soft shadow-side rim rather than an outline
+   * drawn around the button. Those numbers are shallower than the indigo
+   * brand's (1.39 / 1.32 / 1.23) because the wine ramp is already deep in
+   * the dark end, where equal lightness steps compress into smaller
+   * contrast ratios. The rim is correspondingly quieter and the inset
+   * bevel carries more of the CTA's dimensionality; that is the right
+   * trade at this depth, since a hard rim on an already-near-black fill
+   * reads as a black outline rather than shading.
+   *
+   * The three steps track --brand / --brand-hover / --brand-active exactly,
+   * so fill and rim always move together: darkening the fill on hover
+   * while the rim stayed put was the visible defect here before — a
+   * lighter ring around a darker button, i.e. lit from the wrong side. */
+  --brand-edge: var(--wine-700);
+  --brand-edge-hover: var(--wine-800);
+  --brand-edge-active: var(--wine-900);
+  --brand-subtle: var(--wine-50);
+  /* 1a draws ink on its brand tint at roughly half the ramp chroma — see
+   * --wine-ink-on-50 in primitives.css. 10.91:1 on --brand-subtle. */
+  --brand-subtle-ink: var(--wine-ink-on-50);
+  --brand-subtle-border: var(--wine-200);
   /* A softer brand tone for decorative affordances (the sidebar resizer
    * handle) that shouldn't read as CTA-strength — distinct from
    * --brand-subtle, which is a pale background tint, not a line color. */
-  --brand-muted: var(--indigo-400);
+  --brand-muted: var(--wine-400);
   --on-brand: var(--neutral-0);
 
-  /* indigo-500, not the brand step: a focus ring reads as a halo around
-   * the thing it marks rather than a second copy of it. 5.76:1 on white
-   * and 5.57:1 on --sand-25 — well past the 3:1 non-text minimum. */
-  --focus-ring: var(--indigo-500);
+  /* wine-500, not the brand step: a focus ring reads as a halo around the
+   * thing it marks rather than a second copy of it. 6.79:1 on --canvas and
+   * 6.66:1 on the rail — well past the 3:1 non-text minimum. */
+  --focus-ring: var(--wine-500);
 
   /* ---- status roles — pale surface + saturated, AA-checked text.
    * --danger-border, --warning-border, and --info-border are real M1/M2
@@ -298,6 +407,18 @@
   --danger-border: var(--red-200);
   --danger-fg: var(--red-700);
   --danger-solid: var(--red-600);
+  /* The pressed/hover step under --danger-solid, mirroring --brand-hover
+   * under --brand. Replaces the `bg-destructive/90` alpha modifier in
+   * button.tsx with a named, pre-tuned state — the same migration
+   * --brand-active already made. --red-700 is a real darker tone rather
+   * than 90% of the fill over whatever happens to be behind it, so the
+   * state survives on a card, on canvas, and inside a dialog alike. */
+  --danger-solid-hover: var(--red-700);
+  --danger-solid-active: var(--red-800);
+  /* The destructive CTA's rim, same one-step-darker rule as --brand-edge
+   * above (1.52:1 fill-to-edge at rest, 1.34:1 pressed). */
+  --danger-edge: var(--red-700);
+  --danger-edge-hover: var(--red-800);
 
   --info-surface: var(--blue-50);
   --info-border: var(--blue-200);
@@ -318,15 +439,17 @@
    * concept in the app uses mauve/teal/slate.
    *
    * essay resolves through its own --plum-* role rather than
-   * --brand-subtle-*, and keeps doing so under the indigo brand. The
-   * original reason (an ivy brand would have made the essay chip and the
-   * "done" pill both pale green) no longer applies, but the replacement
-   * reason does: pointing a wayfinding category at the brand tokens means
-   * any future brand move silently repaints a category. Categories are
-   * decorative and independent; the brand hue is reserved for identity.
-   * NOTE: plum sits at hue 322 and --mauve (lor) at 305, which are 44 and
-   * 27 degrees off the brand. Pale chips against a saturated brand mark
-   * read as distinct today; revisit if categories ever gain solid fills.
+   * --brand-subtle-*, and has kept doing so through every brand change.
+   * The original reason (an ivy brand would have made the essay chip and
+   * the "done" pill both pale green) no longer applies, but the
+   * replacement reason does, and this brand move is the proof of it:
+   * pointing a wayfinding category at the brand tokens means any future
+   * brand move silently repaints a category. Categories are decorative and
+   * independent; the brand hue is reserved for identity.
+   * NOTE: under the --wine brand (hue 15) the category hues sit 53 degrees
+   * (mauve, 305) and 50 degrees (plum, 322) off it going one way round the
+   * wheel. Pale chips against a dark, saturated brand mark read as
+   * distinct; revisit if categories ever gain solid fills.
    * ---- */
   --category-essay-surface: var(--plum-50);
   --category-essay-ink: var(--plum-700);

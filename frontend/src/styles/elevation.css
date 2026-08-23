@@ -25,6 +25,35 @@
     0 16px 40px color-mix(in oklch, var(--neutral-900) 16%, transparent),
     0 6px 16px color-mix(in oklch, var(--neutral-900) 10%, transparent);
 
+  /* ---- CTA elevation — the solid primary button's cast shadow. Its own
+   * pair rather than --elevation-1/-2 for one reason: a saturated object
+   * casts a shadow that carries its own hue, and a neutral grey shadow
+   * under a deep burgundy button reads as dirt rather than depth.
+   *
+   * Tinted from --wine-900 (L 0.20), NOT from --brand itself. A low-
+   * alpha wash of the mid-brand under a mid-brand button is a glow, and a
+   * glow is the tell this whole theme is tuned against — the brand "is
+   * never a gradient or a wash" (see the --wine note in primitives.css).
+   * The near-black end of the same ramp is a shadow that happens to be
+   * red, which is what a red object actually casts.
+   *
+   * Two layers each: a tight contact shadow that grounds the button, plus
+   * a wider ambient one that gives it height. Blur stays at 5px / 10px —
+   * these pair with the 1px --brand-edge rim on the same element, and the
+   * house rule is that a border may only meet a small-blur shadow (see the
+   * elevation-1 note above); a 16px+ blur behind a bordered button is the
+   * banned glassy-card combination. Hover lifts (the ambient layer doubles
+   * in blur and gains alpha); pressed drops to --elevation-0 entirely and
+   * button.tsx flips the inset highlight to an inset shade, so the press
+   * reads as the button sinking into the page rather than changing colour
+   * only. */
+  --elevation-cta:
+    0 1px 2px color-mix(in oklch, var(--wine-900) 22%, transparent),
+    0 2px 5px color-mix(in oklch, var(--wine-900) 13%, transparent);
+  --elevation-cta-hover:
+    0 1px 2px color-mix(in oklch, var(--wine-900) 24%, transparent),
+    0 4px 10px color-mix(in oklch, var(--wine-900) 18%, transparent);
+
   /* Ad hoc `z-50`/`z-40` Tailwind utilities already order correctly
    * (dropdowns/modals/toasts above drag previews); this semantic scale is
    * additive for the token layer and future arbitrary-value usage. No

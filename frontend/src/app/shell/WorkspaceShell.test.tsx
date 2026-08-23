@@ -140,7 +140,14 @@ describe("workspace shell", () => {
     await waitForDesktopSidebar();
 
     expect(sidebarElement()).toHaveAttribute("data-state", "collapsed");
-    expect(screen.getByRole("link", { name: "Counselle" })).toBeInTheDocument();
+    /* The collapsed rail carries no brand link. It used to show the logo
+     * mark; with the mark removed there is nothing left to render, and an
+     * empty <a> would sit in the tab order as an unlabelled stop. Home stays
+     * reachable through the Tasks nav row, which the logo linked to anyway. */
+    expect(screen.queryByRole("link", { name: "Counselle" })).toBeNull();
+    expect(
+      within(sidebarElement()).getByRole("link", { name: "Tasks" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the shell mounted while route content changes", async () => {

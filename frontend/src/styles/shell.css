@@ -1,15 +1,28 @@
 /*
- * Shell — app chrome. --shell-* (17 tokens, public contract preserved).
+ * Shell — app chrome. --shell-* (public contract preserved).
  *
  * Sidebar decision: the whole app is light, sidebar included. The rail is
- * a FLAT warm fill — --chrome resolves to --stone-50 (#f5f3f1, see
- * semantic.css), with no grain or texture layer over it. It carried both a
+ * a FLAT warm fill — --chrome resolves to --stone-50 (#faf9f6, see
+ * semantic.css), with no grain or texture layer over it. It has carried a
  * tinted sage tone and, later, an SVG noise texture; neither survives.
- * PRODUCT.md's "let the sidebar establish the product identity" is honored
- * instead by reserving the brand hue for exactly one signal, the selected
- * row's icon/label colour (--on-chrome-active). See
- * plans/light-theme-m1-handoff.md for the original sage-rail rationale and
- * semantic.css's chrome block for why both were superseded.
+ *
+ * The rail's colour and interior are a transcription of variant 1a of the
+ * Sidebar Redesign design doc — see semantic.css's chrome block for the
+ * colour table and AppSidebar.tsx for the measurements.
+ *
+ * ONE DELIBERATE DEPARTURE, by request: 1a draws the rail as a floating
+ * 312x900 card with an 18px radius and a cast shadow, sitting on the doc's
+ * own canvas. Ours stays FLUSH and full-height, as it was — it takes 1a's
+ * width (312px) and its perimeter colour, and drops the radius, the fixed
+ * height and the shadow. The right-hand --shell-sidebar-border does the
+ * separating instead, which is the same job 1a's perimeter border does.
+ *
+ * Worth knowing when tuning that border: the rail (#faf9f6) and --canvas
+ * (#fdfbfa) are within 0.7 L points of each other, so unlike the previous
+ * rail — which sat 2.5 L points recessed and read as a panel on its own —
+ * the border is now carrying essentially all of the separation between
+ * chrome and workspace. If it ever looks like the two have merged, that
+ * border is the thing to move, not --chrome.
  *
  * Every --shell-sidebar-* token below resolves through the same --chrome-*
  * semantic names regardless of how chrome itself is defined — this file
@@ -41,9 +54,17 @@
    * M1 handoff doc). */
   --shell-sidebar-active-background: var(--chrome-active);
   --shell-sidebar-active-foreground: var(--on-chrome-active);
-  --shell-sidebar-inset-inline: 1rem;
+  /* 1a insets the rail's three zones by different amounts on purpose: the
+   * header sits at 16px so the wordmark hangs slightly outside the pill
+   * column, the nav and chat list at 12px so their pills define that
+   * column, and the account row at 10px so its own pill sits widest of
+   * all. One shared inset flattens that rhythm — these are three tokens
+   * because 1a draws three values. */
+  --shell-sidebar-inset-inline: 0.75rem; /* 12px — nav, list, new chat */
+  --shell-sidebar-header-inset-inline: 1rem; /* 16px — logo row */
+  --shell-sidebar-footer-inset-inline: 0.625rem; /* 10px — account row */
   --shell-sidebar-collapsed-inset-inline: 0.5rem;
-  --shell-sidebar-inset-block: 1rem;
+  --shell-sidebar-inset-block: 0rem;
   --shell-divider: var(--hairline);
   --shell-sidebar-border: var(--chrome-border);
   /* 45%/60%: retuned down from an earlier 55%/75% draft, which was tuned
@@ -62,7 +83,18 @@
     var(--chrome-ink) 60%,
     transparent
   );
-  --shell-sidebar-group-label: var(--chrome-ink-muted);
+  --shell-sidebar-group-label: var(--chrome-eyebrow);
+  /* 1a's rail-local roles, each pointing at the chrome token that carries
+   * the doc's value. Named here so the rail's components never reach past
+   * the --shell-* contract into semantic.css directly. */
+  --shell-sidebar-field: var(--chrome-field);
+  --shell-sidebar-field-border: var(--chrome-field-border);
+  --shell-sidebar-field-placeholder: var(--chrome-ink-muted);
+  --shell-sidebar-row-foreground: var(--chrome-row-ink);
+  --shell-sidebar-row-foreground-dim: var(--chrome-row-ink-dim);
+  --shell-sidebar-quiet-foreground: var(--chrome-ink-quiet);
+  --shell-sidebar-control-foreground: var(--chrome-ink-muted);
+  --shell-sidebar-control-hover-foreground: var(--chrome-ink-hover);
   /* A warm neutral, not a brand hue: green marks exactly one thing on this
    * rail — the selected row — so a green resizer handle would compete with
    * that single signal. --sand-300 rather than an achromatic grey so the

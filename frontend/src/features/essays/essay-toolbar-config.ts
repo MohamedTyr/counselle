@@ -2,7 +2,7 @@ export const fontOptions = [
   { label: "Essay", value: "default" },
   { label: "Georgia", value: "Georgia, serif" },
   { label: "Times", value: "'Times New Roman', Times, serif" },
-  { label: "Geist", value: "'Geist Variable', sans-serif" },
+  { label: "Sans", value: "'Instrument Sans Variable', sans-serif" },
   { label: "Mono", value: "'Courier New', monospace" },
 ];
 
