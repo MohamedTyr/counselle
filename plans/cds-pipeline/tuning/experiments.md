@@ -2201,3 +2201,54 @@ and they are no longer routing or transport problems — they are reading proble
   text layer. Ground truth is right and the engine silently corrected a source
   typo. It is a small error with a large implication: an extractor that repairs
   what the document says is no longer reporting what the document says.
+
+## Experiment 10 — per-hint clustering (corpus)
+
+Fixing the regression from batch-level clustering. Compared against exp08 (same
+config, batch-level clustering):
+
+| | exp08 | exp10 | delta |
+|---|---|---|---|
+| accuracy | 95.81% | **96.64%** | +0.83pp |
+| coverage | 96.33% | **96.55%** | +0.22pp |
+| latency/doc | 293.7s | **226.1s** | -23% |
+| cost/doc | $0.0891 | $0.0909 | +$0.0018 |
+| hallucinated | 24 | 24 | 0 |
+| failed calls | 0 | 0 | 0 |
+
+Per document: caltech 91.98 -> **94.54**, uga 94.90 -> **96.62**; cornell,
+dartmouth, ucf unchanged. Both movers are the documents whose `outcomes` batch was
+losing its B4-B21 hit — exactly the predicted blast radius, and nothing else moved,
+which is what a correctly-scoped fix looks like.
+
+Improves on accuracy, coverage AND latency for +$0.0018/doc. Lexicographically a
+clear win (accuracy is the first axis). **New champion.**
+
+## Experiment 11 — instruction-precedence prompt clause: NO EFFECT on its target
+
+The largest single hallucination cluster is Caltech's 11 H14 cells where the engine
+returns `false` and the metric instruction says, verbatim, *"a blank cell in this or
+any other visible H14 coordinate is not_reported, never false"*. Same family as
+Cornell's invented H9/H10 selections: the model applying its own prior over a stated
+instruction.
+
+This has to be fixed in the prompt — §10 forbids wiring an output validator into the
+runtime, and demoting `false` to not-reported after the fact is exactly that.
+
+Added to `config/cds/extraction-prompt.md` a clause stating that a metric's own
+`instructions` outrank every general convention, naming both failure modes
+(blank-is-never-false; do not infer a selection from an adjacent filled value).
+
+**Result on the target: nothing.** Caltech `financial_aid` still 11 hallucinated,
+51 correct, 0 wrong. Telling the model to obey the instruction it already had did not
+make it obey the instruction.
+
+This is now the second time a prompt-level instruction has failed to override a model
+prior — the first was "the text layer lies, use the image", which also did nothing
+until the misleading input was physically removed. Recording the pattern: **when the
+model has a strong prior (an empty checkbox means false; text beats pixels), adding
+words telling it otherwise does not move it.** What worked before was changing what
+the model could see, not what it was told.
+
+Corpus run pending to confirm the clause is at least neutral elsewhere before
+deciding whether to keep it.
