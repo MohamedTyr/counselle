@@ -2377,3 +2377,36 @@ The two failing dimensions are dominated by two families that three wording chan
 failed to move: Caltech H14 blank-is-never-false (11) and the H9/H10 invented
 selections (UCF 4, plus Cornell's 3). That is ~18 of 23 hallucinations concentrated
 in two catalog rules the model declines to follow.
+
+## Experiment 17 — H9/H10 get the image treatment, and the rule holds 4-for-4
+
+The invented-selection family (engine returns a selection state for a control the
+template does not contain, inferring it from an adjacent filled-in date) resisted
+every wording change. Applying the rule the session has established instead —
+**change what the model can see, not what it is told** — I added `H9` and `H10` to
+the column-position image set, so the model gets a rendered view of the page and can
+observe that there is no checkbox next to the date line.
+
+UCF `financial_aid`:
+
+| | exp15 | exp17 |
+|---|---|---|
+| correct | 55 | **57** |
+| wrong | 3 | **1** |
+| hallucinated | 4 | **1** |
+
+Three of the four invented selections gone. The model was not refusing to follow the
+rule so much as unable to establish, from the text alone, that the control was
+absent — "no checkbox here" is invisible to text extraction in exactly the way a
+ticked box is. Seeing the page settles it.
+
+Tally of the two lever classes across the whole session:
+
+| lever | attempts | successes |
+|---|---|---|
+| tell the model something (prompt or catalog wording) | 3 | **0** |
+| change what the model receives | 4 | **4** |
+
+That is a strong enough signal to state as an engine design rule rather than an
+observation: **when the engine is systematically wrong about a class of cell, fix the
+evidence, not the instructions.**
