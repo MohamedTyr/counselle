@@ -46,6 +46,25 @@ Each metric gets one `status`:
 | `unreadable` | The value exists but genuinely cannot be read (damaged render, illegible). `value` = `null`. Use sparingly and explain in `evidence`. |
 
 Refinements that have already cost us:
+**The governing question for every judgement call is:** *what would a correctly-behaving
+engine, holding THIS metric's `instructions`, write in this cell? Record that.* The
+engine is given the same instructions you are, so ground truth and engine are held to
+one contract. Where the instructions demand a transformation, apply it. Where they
+demand none, record what the page prints.
+
+Worked example that has already caused a conflict on two documents — **get this right**:
+the B11 six-year graduation rates (`outcomes.primary_all_students_six_year_graduation_rate_ratio`
+and `outcomes.primary_pell_grant_six_year_graduation_rate_ratio`) are `unit: ratio`,
+`type: number`, and their instructions say *"as the printed 0-1 ratio (for example 0.94),
+never as a percent"*. Documents print these as `96%` or `92.70%`. **Record `0.96` /
+`0.927`**, and keep the printed string in `raw_printed`. Do not record `96` or `92.70`.
+
+The counter-case: if a cell prints an odd-looking value but no instruction demands a
+transform, record it as printed. Do not "fix" a value because it looks like a
+spreadsheet artifact — e.g. a GPA box printing `0.00%` next to an empty distribution
+table is recorded as printed, because recognising it as an artifact is an inference the
+engine cannot make from the page, and encoding it would score a correct engine wrong.
+
 **A metric's own `instructions` field OVERRIDE every general rule on this page.** If the
 spec entry for a metric tells you how to treat an empty cell, follow it and say so in
 `evidence`. This has already produced a real disagreement: `transfer.transfer_rolling_admission_fall`
@@ -61,6 +80,23 @@ checkbox rule below would give. The metric-specific instruction wins.
 - `blank` is never used for a standalone checkbox.
 - A question printed with an explicit "Has been removed from the CDS" notice is `absent`.
 - Record the **rendered** value, not a hidden/raw one. The engine can only see the page.
+
+**A non-numeric token printed in a numerically-typed cell is `blank`, with the literal
+token preserved.** If a cell whose metric is `date`, `integer`, `number`, `percent`,
+`usd` etc. prints something like `na`, `n/a`, `--`, `N/App` or `TBD`, record:
+
+```json
+{"status": "blank", "value": null, "page": 12, "raw_printed": "n/a",
+ "evidence": "... cell prints the literal token 'n/a'; metric type is integer, so recorded blank with the token preserved."}
+```
+
+Why this overrides "copy exactly as printed": an unparseable value on a `present`
+metric is quarantined by the scorer as a **ground-truth authoring error** — it is
+charged to no one, can never be scored correct, and silently drops the metric out of
+the measured universe. Recording `blank` keeps the metric winnable (an engine that
+correctly abstains scores right) and keeps the printed token visible for audit.
+Already applied to a `date` cell printing `na` and to 12 ACT sub-score cells printing
+`n/a`. Say in `evidence` that you deviated and why.
 
 ## Output format
 

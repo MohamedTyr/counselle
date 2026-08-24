@@ -1006,6 +1006,186 @@ agrees with passB at 98.51%, so the content appears sound, but **passA's provena
 for that group is a merge of two agents rather than one clean pass.** Before relaunching
 a stalled agent, confirm it is actually dead, or write to a distinct filename.
 
+### M2 — CORNELL SEALED ✅ (3 of 6), and the seal guard that generalises the rulings
+
+394/394. `present` 241 / `blank` 133 / `absent` 20. Gate passed: `wrong=0
+hallucinated=0 gt_error=0`, 241 missed + 153 correct_abstention = 394, reconciling
+against 133 + 20 = 153. Zero seal drift on a late-finishing pass.
+
+Pass agreement by group: admissions **100%**, def **100%**, ij **100%**,
+financial_aid 98.51%, cost 97.67%, class_profile 94.44%, ab 92.86%. 6 adjudications.
+
+**The seal assembler now carries a general guard, and it should stay there.** Rather
+than hand-listing the 12 ACT `n/a` cells, the assembler runs every `present` value
+through `scorer.normalize()` and converts any that come back `unparseable` or `absent`
+into `blank` with the printed token preserved in `raw_printed`. It caught all 12
+automatically and reported them.
+
+This matters because it makes the invariant *structural* instead of a checklist item:
+**no sealed GT can contain a value the scorer would quarantine**, regardless of which
+document or which agent produced it. The Dartmouth `na` date and Cornell's `n/a` ACT
+cells were found by hand and by gate failure respectively; on UCF, Caltech and the
+holdout they will be caught before the gate ever runs. Note it fires on
+`normalize()`, the same function the scorer uses — so it cannot drift from what the
+gate enforces.
+
+**Two `blank` vs `absent` adjudications, both to pass B, both on consistency grounds:**
+- `cost.tuition_per_credit_public_out_of_state` → `absent`. G6 prints only an
+  undifferentiated "PUBLIC INSTITUTIONS:" row. Pass A mapped this one metric onto that
+  generic row while marking its three siblings `absent` for the identical reason;
+  `absent` is the internally consistent treatment.
+- `financial_aid.aid_reporting_status` → `absent`, **and this is deliberately
+  different from the Dartmouth ruling of `blank` for the same metric.** Not an
+  inconsistency: Dartmouth's table prints a "2023-2024 Final" column label, so the
+  control exists and merely went unanswered (`blank`); Cornell prints no
+  Estimated/Final control anywhere, so the question is not in its template (`absent`).
+  Same metric, different template editions, different correct answers — exactly the
+  distinction `blank`/`absent` exists to carry.
+
+### M2 — Cornell rulings, and the principle behind them
+
+Adjudicated so far: admissions **100%** (98), ij **100%** (62), class_profile 94.4%.
+Remaining groups in flight.
+
+**Ruling 1 — the 12 ACT `n/a` cells become `blank`.** Cornell prints the literal token
+`n/a` in 12 integer-typed ACT sub-score cells. Verified directly against the scorer:
+`normalize("n/a")` returns `absent=True` on a `present` metric, which is precisely the
+shape `gt_authoring_errors()` quarantines as `gt_error` — charged to no one, never
+scoreable. Left as-is, Cornell's seal gate fails with 12 authoring errors. Ruled
+`blank` with `raw_printed: "n/a"`, matching the Dartmouth `na` date ruling. Now written
+into GT-EXTRACTION-BRIEF.md so the remaining documents get it right the first time.
+
+**Ruling 2 — the C12 GPA cells stay `present`, against pass B.** Cornell prints
+`0.00%` in both C12 boxes (average GPA and percent-submitted), and the C11 distribution
+table above is entirely empty — the classic signature of an unfilled CDS spreadsheet
+whose formula cells default to zero. Pass B read that correctly as an artifact and
+recorded `blank`. Pass A recorded the printed value. **Pass A wins, and the reasoning
+matters more than the outcome.**
+
+Ruling `blank` here would recreate the exact defect I flagged earlier in this ledger:
+an engine that reads the page correctly and reports `0.00` would be scored **wrong for
+being accurate**. Diagnosing that a number is a spreadsheet artifact requires an
+inference the engine has no way to replicate from the page, so encoding that inference
+into ground truth measures something other than extraction quality. Confirmed
+winnable: `normalize("0.00%")` → canonical `'0'`, not unparseable, so `present` costs
+nothing.
+
+**The principle — first statement was incomplete, here is the correct one.**
+
+I initially wrote: *"Ground truth describes what the page shows, and deviates only when
+faithfulness would make the metric unwinnable."* Cornell immediately produced a case
+that breaks it. Its pass A recorded the B11 graduation rates as `92.70` / `95.28`
+because that is what the page prints — faithful, and perfectly parseable, so the
+"unwinnable" escape hatch does not apply. Yet those metrics are `unit: ratio` with
+instructions saying *"as the printed 0-1 ratio ... never as a percent"*, exactly as on
+Dartmouth. Under the incomplete principle, Cornell would be sealed at `92.70` and
+Dartmouth at `0.96` — **the same metric, encoded two different ways, on the same
+benchmark.** That alone proves the rule wrong.
+
+The correct principle:
+
+> Ground truth records **what a correctly-behaving engine, following the catalog
+> instructions it is given, should emit for that cell.** The engine receives each
+> metric's `instructions` in its prompt, so GT and engine are held to the same
+> contract. Where the instructions demand a transformation (percent → 0-1 ratio), GT
+> applies it. Where they demand none, GT records what the page prints. GT departs from
+> the printed token only for that reason, or when faithfulness would make the metric
+> unwinnable (unparseable/absent-token values the scorer quarantines).
+
+This resolves all four rulings coherently:
+- `n/a` in an integer cell → `blank`. Unwinnable otherwise.
+- `0.00%` in the GPA cell → **stays `present`**. No instruction demands a transform, it
+  parses cleanly, and "recognise this is a spreadsheet artifact" is an inference the
+  engine cannot make from the page — encoding it would score a correct engine wrong.
+- B11 rates → **`0.927` / `0.9528`** on Cornell, matching Dartmouth's `0.96` / `0.93`.
+  The instruction demands the transform, and the engine is given that instruction.
+- H9/H10 selection booleans with no visible control → `absent`. The instructions
+  require a visible control; none exists.
+
+The test to apply is therefore never "what does the page say" alone, but **"what would
+a good engine, holding this metric's instructions, write here?"** Cross-document
+consistency of a single metric is the check that catches violations.
+
+**Action at Cornell seal time:** convert the two B11 rates to 0-1 form, preserving the
+printed `92.70%` / `95.28%` in `raw_printed`.
+
+**Also found: a page-index error, caught by independent verification.** The Cornell
+index recorded C3's high-school-completion mark on "Diploma required, GED accepted".
+The admissions pass read the page image and found the X on the third option, "High
+school diploma or equivalent is not required", and flagged the discrepancy rather than
+deferring to the index. Page indexes are navigation aids, not evidence — values always
+come from the image. Third time in this run that re-deriving beat trusting a prior
+artifact.
+
+**Corpus note: Cornell's entire Section G is blank.** Both cost passes confirm no
+numeric values anywhere in G0-G6, from images and text layer alike — the page index had
+flagged this as a possible false negative and it is real. 37 `blank` / 4 `absent` /
+2 `present` out of 43. This is a valuable corpus case: a document where a whole domain
+is legitimately empty, so it directly tests correct abstention rather than extraction.
+
+### The unit/printed-form hazard is NARROW, not systemic — concern downgraded
+
+I flagged the ratio-vs-percent mismatch as possibly setting "a false accuracy ceiling
+on every experiment" and said it needed a sweep before any baseline is believed.
+**Swept. It does not.**
+
+Unit distribution across all 394 metrics: `boolean` 85, `percent` 62, `usd` 48,
+`students` 38, `category` 37, `carnegie_units` 24, `score` 24, `date` 21,
+`sections` 14, `text` 13, … and **`ratio` just 3**.
+
+Scanning both sealed GTs for `unit: ratio` metrics whose evidence cites a printed `%`
+or whose value exceeds 1, plus `unit: percent` metrics recorded in 0-1 form:
+
+- UGA: **0 suspects** of 310 present.
+- Dartmouth: 3, all benign — the two B11 graduation rates (already adjudicated to
+  0-1 form) and `class_size.students_per_faculty = 6.3`, which is a legitimate 6.3:1
+  student:faculty ratio, not a percent in disguise.
+
+The 62 `percent`-unit metrics produced **zero** suspects across both documents. So
+the conversion burden falls on 2 metrics, not on a broad class. Correcting my earlier
+framing: this is a footnote, not a ceiling.
+
+**The genuinely systemic version of this hazard is different and is confirmed: a
+non-numeric token printed in a numerically-typed cell.** Two instances so far:
+- Dartmouth `admissions.housing_deposit_deadline` (`unit: date`) prints `na`.
+- Cornell prints the literal token `n/a` in **12** ACT sub-score cells whose spec type
+  is `integer`.
+
+Every one of these is an unparseable `present` GT value → `gt_error` → quarantined,
+unwinnable, silently removed from the scored universe. The standing ruling (set on
+the Dartmouth case) is: **record `blank`, preserve the literal token in
+`raw_printed`, and state the deviation in `evidence`.** Cornell's 12 ACT cells must
+get the same treatment at seal time or its gate will fail with 12 `gt_error`s.
+
+### M2 — Dartmouth seal amended: a second override of BOTH passes
+
+After the seal, a late-finishing `financial_aid` passA raised two new `ambiguous`
+flags. Zero seal drift on the other 65 keys, and group agreement rose to 100% — but
+the flags were right to review.
+
+`aid_priority_date_selected` and `aid_deadline_selected`. **I read page 22 myself**
+rather than adjudicate from agent reports. H9 in this template is two fill-in date
+LINES (priority: empty; deadline: `1-Feb`) plus ONE standalone checkbox ("No deadline
+for filing required forms", unticked). **There is no per-line selection control at
+all.** Both metrics require "true only when the control is visibly selected" and
+"false only when the complete visible checklist shows it unambiguously unmarked" —
+neither is satisfiable when no control exists. Both passes had inferred from whether
+the *date line* was filled, which `aid_priority_date_selected`'s instructions
+explicitly forbid ("independently of the date value ... even if the two are
+inconsistent").
+
+Ruled **`absent`** for both, matching the ruling both passes had independently reached
+for the sibling metric `aid_has_deadline` on identical grounds.
+
+Seal re-gated: `wrong=0  gt_error=0  hallucinated=0`, 250 missed + 144 abstention =
+394. Final counts `present` 250 / `blank` 108 / `absent` 36, 8 adjudications.
+
+**This is the second time reviewing an `ambiguous` flag on which the two passes AGREED
+has overturned both of them.** Agreement between independent readers is worth much
+less than it looks when both are reasoning from the same convention. The
+adjudicator's decision to surface ambiguous flags regardless of agreement has now paid
+for itself twice; treat it as a hard requirement, not a nicety.
+
 ### `baseline-c3` — concurrency hypothesis REFUTED; the network is the problem
 
 Re-ran UGA identically except `--concurrency 3` (down from 6), to separate "large

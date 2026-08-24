@@ -1,0 +1,363 @@
+{
+  "transfer.enrolls_transfer_students": {
+    "status": "present",
+    "value": true,
+    "page": 13,
+    "evidence": "D1 first Yes/No control: 'Does your institution enroll transfer students?' has X in the Yes column, No column blank."
+  },
+  "transfer.allows_advanced_standing_from_external_coursework": {
+    "status": "present",
+    "value": true,
+    "page": 13,
+    "evidence": "D1 second Yes/No control (advanced standing credit from other colleges/universities coursework) has X in the Yes column, No column blank."
+  },
+  "transfer.applicants_total": {
+    "status": "present",
+    "value": 5761,
+    "page": 13,
+    "evidence": "D2 table, TOTAL row, Applicants column: 5,761."
+  },
+  "transfer.admitted_total": {
+    "status": "present",
+    "value": 798,
+    "page": 13,
+    "evidence": "D2 table, TOTAL row, Admitted column: 798."
+  },
+  "transfer.enrolled_total": {
+    "status": "present",
+    "value": 633,
+    "page": 13,
+    "evidence": "D2 table, TOTAL row, Enrolled column: 633."
+  },
+  "transfer.minimum_prior_credit_threshold_applies": {
+    "status": "present",
+    "value": false,
+    "page": 13,
+    "evidence": "D4 Yes/No control ('Must a transfer applicant have a minimum number of credits completed...') has X in the No column."
+  },
+  "transfer.minimum_prior_credit_value": {
+    "status": "blank",
+    "value": null,
+    "page": 13,
+    "evidence": "D4 follow-up field 'If yes, what is the minimum number of credits and the unit of measure?' is a blank underline; consistent with D4=No, no value printed."
+  },
+  "transfer.minimum_prior_credit_unit": {
+    "status": "blank",
+    "value": null,
+    "page": 13,
+    "evidence": "Same D4 follow-up field as minimum_prior_credit_value; the unit portion of the underline is also blank/unprinted."
+  },
+  "transfer.transfer_requirement_high_school_transcript": {
+    "status": "present",
+    "value": "required_all",
+    "page": 13,
+    "evidence": "D5 grid, row 'High school transcript': X sits under the 'Required of All' column."
+  },
+  "transfer.transfer_requirement_college_transcripts": {
+    "status": "present",
+    "value": "required_all",
+    "page": 13,
+    "evidence": "D5 grid, row 'College transcript(s)': X sits under the 'Required of All' column."
+  },
+  "transfer.transfer_requirement_essay_personal_statement": {
+    "status": "present",
+    "value": "required_all",
+    "page": 13,
+    "evidence": "D5 grid, row 'Essay or personal [statement]': X sits under the 'Required of All' column."
+  },
+  "transfer.transfer_requirement_interview": {
+    "status": "present",
+    "value": "required_some",
+    "page": 13,
+    "evidence": "D5 grid, row 'Interview': X sits under the 'Required of Some' column."
+  },
+  "transfer.transfer_requirement_standardized_test_scores": {
+    "status": "present",
+    "value": "not_required",
+    "page": 13,
+    "evidence": "D5 grid, row 'Standardized test scores': X sits under the 'Not Required' column (rightmost column)."
+  },
+  "transfer.transfer_requirement_prior_institution_good_standing": {
+    "status": "present",
+    "value": "required_all",
+    "page": 13,
+    "evidence": "D5 grid, row 'Statement of good standing from prior [institution(s)]': X sits under the 'Required of All' column."
+  },
+  "transfer.minimum_high_school_gpa": {
+    "status": "blank",
+    "value": null,
+    "page": 13,
+    "evidence": "D6 'If a minimum high school grade point average is required... specify (on a 4.0 scale):' underline is empty; no value printed. The '4.0 scale' phrase is template prompt text, not a response, and is excluded per instructions."
+  },
+  "transfer.minimum_college_gpa": {
+    "status": "blank",
+    "value": null,
+    "page": 13,
+    "evidence": "D7 'If a minimum college grade point average is required... specify (on a 4.0 scale):' underline is empty; no value printed."
+  },
+  "transfer.transfer_priority_date_fall": {
+    "status": "blank",
+    "value": null,
+    "page": 13,
+    "evidence": "D9 table, Fall row, Priority Date column: cell is empty/unprinted."
+  },
+  "transfer.transfer_closing_date_fall": {
+    "status": "present",
+    "value": "3/15",
+    "page": 13,
+    "evidence": "D9 table, Fall row, Closing Date column: '3/15'."
+  },
+  "transfer.transfer_notification_date_fall": {
+    "status": "present",
+    "value": "4/1 to 6/15",
+    "page": 13,
+    "evidence": "D9 table, Fall row, Notification Date column: '4/1 to 6/15'."
+  },
+  "transfer.transfer_reply_date_fall": {
+    "status": "present",
+    "value": "7/1",
+    "page": 13,
+    "evidence": "D9 table, Fall row, Reply Date column: '7/1'."
+  },
+  "transfer.transfer_rolling_admission_fall": {
+    "status": "blank",
+    "value": null,
+    "page": 13,
+    "evidence": "D9 table, Fall row, Rolling Admission column: cell is empty/unmarked (no checkmark). Per this metric's own instructions, a blank mark cell in D9 rolling-admission remains not_reported/unresolved rather than false, so recorded as blank rather than present/false.",
+    "ambiguous": false
+  },
+  "transfer.open_admission_policy_applies": {
+    "status": "present",
+    "value": false,
+    "page": 13,
+    "evidence": "D10 Yes/No control ('Does an open admission policy, if reported, apply to transfer students?') has X in the No column."
+  },
+  "transfer.lowest_eligible_course_grade": {
+    "status": "present",
+    "value": "C or better",
+    "page": 14,
+    "evidence": "D12 'Report the lowest grade earned for any course that may be transferred for credit:' underline reads 'C or better'."
+  },
+  "academics.special_study_accelerated_program": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Accelerated program': box is marked X."
+  },
+  "academics.special_study_cross_registration": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Cross-registration': box is marked X."
+  },
+  "academics.special_study_double_major": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Double major': box is marked X."
+  },
+  "academics.special_study_dual_enrollment": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Dual enrollment': box is present and unmarked (empty) in the complete E1 list."
+  },
+  "academics.special_study_honors_program": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Honors Program': box is marked X."
+  },
+  "academics.special_study_independent_study": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Independent study': box is marked X."
+  },
+  "academics.special_study_internships": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Internships': box is marked X."
+  },
+  "academics.special_study_liberal_arts_career_combination": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Liberal arts/career combination': box is marked X."
+  },
+  "academics.special_study_student_designed_major": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Student-designed major': box is marked X."
+  },
+  "academics.special_study_study_abroad": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Study abroad': box is marked X."
+  },
+  "academics.special_study_teacher_certification": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Teacher certification program': box is present and unmarked (empty) in the complete E1 list."
+  },
+  "academics.special_study_undergraduate_research": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E1 checklist, row 'Undergraduate Research': box is marked X."
+  },
+  "academics.required_coursework_arts_fine_arts": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Arts/fine arts': box is present and unmarked (empty) in the complete E3 list."
+  },
+  "academics.required_coursework_computer_literacy": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Computer literacy': box is present and unmarked (empty) in the complete E3 list."
+  },
+  "academics.required_coursework_english_composition": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E3 checklist, row 'English (including composition)': box is marked X."
+  },
+  "academics.required_coursework_foreign_languages": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Foreign languages': box is present and unmarked (empty) in the complete E3 list."
+  },
+  "academics.required_coursework_history": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E3 checklist, row 'History': box is present and unmarked (empty) in the complete E3 list."
+  },
+  "academics.required_coursework_physical_education": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Physical Education': box is marked X."
+  },
+  "academics.required_coursework_humanities": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Humanities': box is marked X."
+  },
+  "academics.required_coursework_intensive_writing": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Intensive writing': box is present and unmarked (empty) in the complete E3 list."
+  },
+  "academics.required_coursework_mathematics": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Mathematics': box is marked X."
+  },
+  "academics.required_coursework_philosophy": {
+    "status": "present",
+    "value": false,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Philosophy': box is present and unmarked (empty) in the complete E3 list."
+  },
+  "academics.required_coursework_biological_physical_sciences": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Sciences (biological or physical)': box is marked X."
+  },
+  "academics.required_coursework_social_science": {
+    "status": "present",
+    "value": true,
+    "page": 15,
+    "evidence": "E3 checklist, row 'Social science': box is marked X."
+  },
+  "student_life.out_of_state_percent_undergraduates": {
+    "status": "present",
+    "value": "63%",
+    "page": 16,
+    "evidence": "F1 table, row 'Percent who are from out of state...', 'Undergraduates' column (second data column): '63%'. F1 heading states Fall 2022."
+  },
+  "student_life.fraternity_joiners_percent_undergraduates": {
+    "status": "present",
+    "value": "19%",
+    "page": 16,
+    "evidence": "F1 table, row 'Percent of men who join fraternities', 'Undergraduates' column: '19%'."
+  },
+  "student_life.sorority_joiners_percent_undergraduates": {
+    "status": "present",
+    "value": "16.1%",
+    "page": 16,
+    "evidence": "F1 table, row 'Percent of women who join sororities', 'Undergraduates' column: '16.1%'."
+  },
+  "student_life.college_owned_housing_percent_undergraduates": {
+    "status": "present",
+    "value": "51.9%",
+    "page": 16,
+    "evidence": "F1 table, row 'Percent who live in college-owned, -operated, or -affiliated housing', 'Undergraduates' column: '51.9%'."
+  },
+  "student_life.off_campus_or_commute_percent_undergraduates": {
+    "status": "present",
+    "value": "48.1%",
+    "page": 16,
+    "evidence": "F1 table, row 'Percent who live off campus or commute', 'Undergraduates' column: '48.1%'."
+  },
+  "student_life.age_25_or_older_percent_undergraduates": {
+    "status": "present",
+    "value": "0.6%",
+    "page": 16,
+    "evidence": "F1 table, row 'Percent of students age 25 and older', 'Undergraduates' column: '0.6%'."
+  },
+  "student_life.average_age_full_time_undergraduates": {
+    "status": "present",
+    "value": 19,
+    "page": 16,
+    "evidence": "F1 table, row 'Average age of full-time students', 'Undergraduates' column: 19 (distinct from the 'Average age of all students (full- and part-time)' row below it, which also reads 19)."
+  },
+  "student_life.army_rotc_on_campus": {
+    "status": "present",
+    "value": true,
+    "page": 16,
+    "evidence": "F3 ROTC table, row 'Army ROTC is offered:', 'On Campus' column: marked X."
+  },
+  "student_life.army_rotc_at_cooperating_institution": {
+    "status": "present",
+    "value": false,
+    "page": 16,
+    "evidence": "F3 ROTC table, row 'Army ROTC is offered:', 'At Cooperating Institution' column: present and unmarked (empty); no cooperating institution name given either."
+  },
+  "student_life.naval_rotc_on_campus": {
+    "status": "present",
+    "value": true,
+    "page": 16,
+    "evidence": "F3 ROTC table, row 'Naval ROTC is offered:', 'On Campus' column: marked X."
+  },
+  "student_life.naval_rotc_at_cooperating_institution": {
+    "status": "present",
+    "value": false,
+    "page": 16,
+    "evidence": "F3 ROTC table, row 'Naval ROTC is offered:', 'At Cooperating Institution' column: present and unmarked (empty)."
+  },
+  "student_life.air_force_rotc_on_campus": {
+    "status": "present",
+    "value": true,
+    "page": 16,
+    "evidence": "F3 ROTC table, row 'Air Force ROTC is offered:', 'On Campus' column: marked X."
+  },
+  "student_life.air_force_rotc_at_cooperating_institution": {
+    "status": "present",
+    "value": false,
+    "page": 16,
+    "evidence": "F3 ROTC table, row 'Air Force ROTC is offered:', 'At Cooperating Institution' column: present and unmarked (empty)."
+  }
+}

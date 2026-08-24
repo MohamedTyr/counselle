@@ -1,0 +1,172 @@
+{
+  "identity.institution_name": {
+    "status": "present",
+    "value": "Cornell University",
+    "page": 1,
+    "evidence": "A1 'Address Information' block, row 'Name of College/University:' reads 'Cornell University'."
+  },
+  "identity.academic_year": {
+    "status": "present",
+    "value": "2022-2023",
+    "page": 1,
+    "evidence": "Running header top-left of page 1 reads 'Common Data Set 2022-2023'. This is the cover page; per the document's own trap notes, pages 3-27 carry a stale '2021-2022' header and pages 28-32 a stale '2019-2020' header, but page 1-2 (the A-section, edited most recently) carry the correct edition year, corroborated by the Oct 19 2022 enrollment date (B1, page 3), Fall 2022 cohort references, IPEDS GRS 2022-2023 citation (page 4), and 2023-24 cost-of-attendance framing in Section G (page 17)."
+  },
+  "identity.city": {
+    "status": "present",
+    "value": "Ithaca",
+    "page": 1,
+    "evidence": "A1 'Address Information' block, row 'City/State/Zip/Country:' reads 'Ithaca, NY 14850' as a single combined cell; city portion is 'Ithaca'."
+  },
+  "identity.state_or_region": {
+    "status": "present",
+    "value": "NY",
+    "page": 1,
+    "evidence": "A1 'Address Information' block, row 'City/State/Zip/Country:' reads 'Ithaca, NY 14850' as a single combined cell; state portion is 'NY'."
+  },
+  "identity.country": {
+    "status": "blank",
+    "value": null,
+    "page": 1,
+    "evidence": "A1 'Address Information' block, row labeled 'City/State/Zip/Country:' only contains 'Ithaca, NY 14850' -- no country token is printed anywhere in that cell (implicitly USA/domestic, but not explicitly stated). The row/cell exists but the country portion was left empty by the institution."
+  },
+  "identity.main_website": {
+    "status": "present",
+    "value": "www.cornell.edu",
+    "page": 1,
+    "evidence": "A1 block, row 'WWW Home Page Address:' reads 'www.cornell.edu' (rendered as a hyperlink)."
+  },
+  "identity.admissions_email": {
+    "status": "present",
+    "value": "admissions@cornell.edu",
+    "page": 1,
+    "evidence": "A1 block, row 'Admissions E-mail Address:' reads 'admissions@cornell.edu'."
+  },
+  "identity.application_url": {
+    "status": "present",
+    "value": "http://admissions.cornell.edu/apply",
+    "page": 1,
+    "evidence": "A1 block, below the main address table, under 'If there is a separate URL for your school's online application, please specify:' reads 'http://admissions.cornell.edu/apply'."
+  },
+  "identity.institutional_control": {
+    "status": "present",
+    "value": "private_nonprofit",
+    "page": 1,
+    "evidence": "A2 'Source of institutional control' checklist: 'X' mark in the box beside 'Private (nonprofit)'; 'Public' and 'Proprietary' boxes are unmarked."
+  },
+  "identity.undergraduate_gender_model": {
+    "status": "present",
+    "value": "coeducational",
+    "page": 1,
+    "evidence": "A3 'Classify your undergraduate institution' checklist: 'X' mark beside 'Coeducational college'; 'Men's college' and 'Women's college' unmarked."
+  },
+  "identity.academic_calendar": {
+    "status": "present",
+    "value": "semester",
+    "page": 1,
+    "evidence": "A4 'Academic year calendar' checklist: 'X' mark beside 'Semester'; all other options (Quarter, Trimester, 4-1-4, Continuous, Differs by program, Other) unmarked."
+  },
+  "identity.degree_offered_bachelors": {
+    "status": "present",
+    "value": true,
+    "page": 2,
+    "evidence": "A5 'Degrees offered by your institution' checklist (top of page 2, continuation from page 1): 'X' mark beside 'Bachelor's'."
+  },
+  "identity.degree_offered_masters": {
+    "status": "present",
+    "value": true,
+    "page": 2,
+    "evidence": "A5 checklist, page 2: 'X' mark beside 'Master's'."
+  },
+  "identity.degree_offered_doctoral_research_scholarship": {
+    "status": "present",
+    "value": true,
+    "page": 2,
+    "evidence": "A5 checklist, page 2: 'X' mark beside 'Doctoral degree research/scholarship' row (distinct from the also-marked 'Doctoral degree - professional practice' row immediately below it)."
+  },
+  "enrollment.undergraduate_total": {
+    "status": "present",
+    "value": 15735,
+    "page": 3,
+    "evidence": "B1 section, below the Men/Women full-time/part-time grid: scalar row 'Total all undergraduates' = 15,735."
+  },
+  "enrollment.graduate_total": {
+    "status": "present",
+    "value": 10163,
+    "page": 3,
+    "evidence": "B1 section, scalar row 'Total all graduate' = 10,163 (directly below 'Total all undergraduates')."
+  },
+  "enrollment.all_students_total": {
+    "status": "present",
+    "value": 25898,
+    "page": 3,
+    "evidence": "B1 section, scalar row 'GRAND TOTAL ALL STUDENTS' = 25,898 (bottom of the three summary scalar rows, below the Men/Women grid)."
+  },
+  "enrollment.nonresident_all_undergraduates": {
+    "status": "present",
+    "value": 1591,
+    "page": 3,
+    "evidence": "B2 'Enrollment by Racial/Ethnic Category' table, row 'Nonresidents', column 'Total Undergraduates (both degree & non-degree-seeking)' = 1,591. (Same row, first column 'Degree-Seeking First-Time First Year' = 336; second column 'Degree-Seeking Undergraduates (include first-time first-year)' = 1,153.)"
+  },
+  "outcomes.primary_pell_grant_six_year_graduation_rate_ratio": {
+    "status": "present",
+    "value": 92.70,
+    "page": 5,
+    "raw_value": "92.70%",
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid (grid starts page 4, this row is on page 5), row H 'Six-year graduation rate for 2016 cohort (G divided by C)', column 'Recipients of a Federal Pell Grant' = 92.70%. DEVIATION: the metric instructions expect the rate printed as a 0-1 decimal ratio (e.g. 0.94); Cornell instead prints an explicit percent token '92.70%' for every cell in row H, not a decimal. Recorded the number as printed (92.70) with the percent form noted here and in raw_value per the general rule 'record the number as printed... do not convert', rather than fabricate a /100 conversion the document itself does not show."
+  },
+  "outcomes.primary_all_students_adjusted_cohort_count": {
+    "status": "present",
+    "value": 3308,
+    "page": 4,
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid, row C 'Final 2016 cohort, after adjusting for allowable exclusions', column 'Total (sum of 3 columns to the left)' = 3,308. (Row A initial cohort Total = 3,315; row B exclusions Total = 7; 3,315-7=3,308 agrees arithmetically, used only for validation.)"
+  },
+  "outcomes.primary_all_students_completed_within_four_years_count": {
+    "status": "present",
+    "value": 2955,
+    "page": 4,
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid, row D 'Of the initial 2015 [sic, printed label] cohort, how many completed the program in four years or less (by Aug. 31, 2020)', column 'Total (sum of 3 columns to the left)' = 2,955. Row label on the image literally reads '2015' but is physically the fourth row of the Fall-2016-cohort table (row D, immediately below rows A-C which are explicitly labeled 2016); treated as a printed labeling inconsistency within the Fall 2016 grid, not a separate cohort."
+  },
+  "outcomes.primary_all_students_completed_after_four_within_five_years_count": {
+    "status": "present",
+    "value": 156,
+    "page": 5,
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid (row continues onto page 5), row E 'Of the initial 2016 cohort, how many completed the program in more than four years but in five years or less (after Aug. 31, 2020 and by Aug. 31, 2021)', column 'Total' = 156."
+  },
+  "outcomes.primary_all_students_completed_after_five_within_six_years_count": {
+    "status": "present",
+    "value": 41,
+    "page": 5,
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid, row F 'Of the initial 2016 cohort, how many completed the program in more than five years but in six years or less (after Aug. 31, 2021 and by Aug. 31, 2022)', column 'Total' = 41."
+  },
+  "outcomes.primary_all_students_completed_within_six_years_count": {
+    "status": "present",
+    "value": 3152,
+    "page": 5,
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid, row G 'Total graduating within six years (sum of lines D, E, and F)', column 'Total' = 3,152."
+  },
+  "outcomes.primary_all_students_six_year_graduation_rate_ratio": {
+    "status": "present",
+    "value": 95.28,
+    "page": 5,
+    "raw_value": "95.28%",
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid, row H 'Six-year graduation rate for 2016 cohort (G divided by C)', column 'Total (sum of 3 columns to the left)' = 95.28%. Same deviation as the Pell-column sibling metric: instructions expect a 0-1 decimal ratio but the document prints an explicit percent token; recorded the printed number (95.28) with the percent form noted rather than converting."
+  },
+  "outcomes.first_year_retention_entering_cohort_count": {
+    "status": "absent",
+    "value": null,
+    "page": 6,
+    "evidence": "B22 'Retention Rates' block, page 6: the only data cell present is a single percentage box (96.89%) beside the prose question. No separate entering-cohort-count cell or column is printed anywhere in B22 in this edition; per this metric's instructions, this count field is new to the 2025-26 CDS edition, so its absence here is template-version absence, not a zero or unreported value."
+  },
+  "outcomes.first_year_retention_still_enrolled_next_fall_count": {
+    "status": "absent",
+    "value": null,
+    "page": 6,
+    "evidence": "B22 'Retention Rates' block, page 6: same single-percentage-box layout as the entering-cohort-count sibling metric; no still-enrolled-count cell is printed in this edition. Per instructions, this count field is new to the 2025-26 CDS edition, so absence here is template-version absence, not zero."
+  },
+  "outcomes.first_year_retention_reported_percent": {
+    "status": "present",
+    "value": "96.89%",
+    "page": 6,
+    "evidence": "B22 block, page 6, the single answer box beside the question 'For the cohort of all full-time bachelor's (or equivalent) degree-seeking undergraduate students who entered your institution as first-year students in Fall 2021 (or the preceding summer term), what percentage was enrolled at your institution as of the date your institution calculates its official enrollment in Fall 2022' reads '96.89%'."
+  }
+}

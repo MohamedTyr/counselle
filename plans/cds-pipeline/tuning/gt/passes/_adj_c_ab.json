@@ -1,0 +1,45 @@
+{
+ "totals": {
+  "keys_union": 28,
+  "keys_both": 28,
+  "agreed": 26,
+  "conflicts": 2,
+  "ambiguous_flagged": 0,
+  "agreement_pct": 92.86
+ },
+ "value_conflict": [
+  {
+   "key": "outcomes.primary_all_students_six_year_graduation_rate_ratio",
+   "unit": "ratio",
+   "note": "",
+   "A": {
+    "value": 95.28,
+    "page": 5,
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid, row H 'Six-year graduation rate for 2016 cohort (G divided by C)', column 'Total (sum of 3 columns to the left)' = 95.28%. Same deviation as the Pell-column sibling metric: instructions expect a 0-1 decimal ratio but the document prints an explicit percent token; recorded the printed number (95.28) with the percent form noted rather than converting."
+   },
+   "B": {
+    "value": 0.9528,
+    "page": 5,
+    "evidence": "Fall 2016 Cohort grid, row H 'Six-year graduation rate for 2016 cohort (G divided by C)', 'Total' column, printed '95.28%'. Recorded as a 0-1 ratio (0.9528) per metric instructions that override the general percent-as-printed rule; exact printed decimal preserved in raw_printed."
+   }
+  },
+  {
+   "key": "outcomes.primary_pell_grant_six_year_graduation_rate_ratio",
+   "unit": "ratio",
+   "note": "",
+   "A": {
+    "value": 92.7,
+    "page": 5,
+    "evidence": "B4-B21 'Fall 2016 Cohort' grid (grid starts page 4, this row is on page 5), row H 'Six-year graduation rate for 2016 cohort (G divided by C)', column 'Recipients of a Federal Pell Grant' = 92.70%. DEVIATION: the metric instructions expect the rate printed as a 0-1 decimal ratio (e.g. 0.94); Cornell instead prints an explicit percent token '92.70%' for every cell in row H, not a decimal. Recorded the number as printed (92.70) with the percent form noted here and in raw_value per the general rule 'record the number as printed... do not convert', rather than fabricate a /100 conversion the document itself does not show."
+   },
+   "B": {
+    "value": 0.927,
+    "page": 5,
+    "evidence": "Fall 2016 Cohort grid, row H 'Six-year graduation rate for 2016 cohort (G divided by C)', 'Recipients of a Federal Pell Grant' column, printed '92.70%' on page 5 (top of page, continuation of the B4-B11 grid begun on page 4). Metric instructions require the value as a 0-1 ratio rather than the printed percent, so recorded 0.9270; exact printed decimal preserved in raw_printed."
+   }
+  }
+ ],
+ "status_conflict": [],
+ "coverage_gap": [],
+ "ambiguous_flag": []
+}

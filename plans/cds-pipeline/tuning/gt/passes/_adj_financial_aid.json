@@ -2,43 +2,55 @@
  "totals": {
   "keys_union": 67,
   "keys_both": 67,
-  "agreed": 66,
-  "conflicts": 1,
-  "ambiguous_flagged": 2,
-  "agreement_pct": 98.51
+  "agreed": 67,
+  "conflicts": 0,
+  "ambiguous_flagged": 4,
+  "agreement_pct": 100.0
  },
  "value_conflict": [],
- "status_conflict": [
-  {
-   "key": "financial_aid.aid_notification_rolling_selected",
-   "A": {
-    "status": "blank",
-    "value": null,
-    "page": 23,
-    "evidence": "H10 'b) Students notified on a rolling basis:' Yes/No checkbox pair at top of page 23 -- both 'Yes' and 'No' boxes are unmarked (neither ticked); this is an unselected Yes/No radio pair."
-   },
-   "B": {
-    "status": "present",
-    "value": false,
-    "page": 23,
-    "evidence": "H10 b) rolling-notification Yes/No control continues onto physical page 23 top ('Yes' / 'No' boxes directly under the H10 heading area, followed by 'If yes, starting date:'); both Yes and No boxes are unmarked (empty). Per the metric's own instructions ('false only when the complete visible checklist shows it unambiguously unmarked'), an unmarked Yes/No pair here resolves to false, consistent with option a) (fixed date 2-Apr) being the one actually used."
-   }
-  }
- ],
+ "status_conflict": [],
  "coverage_gap": [],
  "ambiguous_flag": [
+  {
+   "key": "financial_aid.aid_deadline_selected",
+   "flagged_by": [
+    "A"
+   ],
+   "A": {
+    "value": true,
+    "evidence": "H9 'Deadline for filing required financial aid forms:' line is filled with '1-Feb'. Same structural caveat as aid_priority_date_selected: this template has no discrete tick-box for this line, so 'selected' is inferred from the presence of filled text rather than a literal marked control."
+   },
+   "B": {
+    "value": true,
+    "evidence": "H9, physical page 22: the answer line after 'Deadline for filing required financial aid forms:' is filled with '1-Feb'."
+   }
+  },
   {
    "key": "financial_aid.aid_notification_rolling_selected",
    "flagged_by": [
     "B"
    ],
    "A": {
-    "value": null,
-    "evidence": "H10 'b) Students notified on a rolling basis:' Yes/No checkbox pair at top of page 23 -- both 'Yes' and 'No' boxes are unmarked (neither ticked); this is an unselected Yes/No radio pair."
+    "value": false,
+    "evidence": "H10 'b) Students notified on a rolling basis:' Yes/No checkbox pair at top of page 23 -- both 'Yes' and 'No' boxes are unmarked (neither ticked). The metric's own instructions ('false only when the complete visible H10 checklist shows it unambiguously unmarked') override the general unselected-radio-pair-is-blank rule here: the checklist is fully visible and unambiguously unmarked, so this resolves to false rather than blank, consistent with option (a) (fixed date '2-Apr') being the one actually answered."
    },
    "B": {
     "value": false,
     "evidence": "H10 b) rolling-notification Yes/No control continues onto physical page 23 top ('Yes' / 'No' boxes directly under the H10 heading area, followed by 'If yes, starting date:'); both Yes and No boxes are unmarked (empty). Per the metric's own instructions ('false only when the complete visible checklist shows it unambiguously unmarked'), an unmarked Yes/No pair here resolves to false, consistent with option a) (fixed date 2-Apr) being the one actually used."
+   }
+  },
+  {
+   "key": "financial_aid.aid_priority_date_selected",
+   "flagged_by": [
+    "A"
+   ],
+   "A": {
+    "value": false,
+    "evidence": "H9 'Priority date for filing required financial aid forms:' fill-in line is left blank (no text written on the underscored line), while the Deadline line below it is filled with '1-Feb'. This template has no discrete tick-box per line (unlike the explicit 'No deadline...rolling' checkbox below it), so 'selected' is inferred from whether the line carries text rather than from a literal marked control; flagged ambiguous because the metric instructions assume a visible control distinct from this fill-in-line format."
+   },
+   "B": {
+    "value": false,
+    "evidence": "H9, physical page 22: the answer line after 'Priority date for filing required financial aid forms:' is unambiguously blank (no text entered)."
    }
   },
   {

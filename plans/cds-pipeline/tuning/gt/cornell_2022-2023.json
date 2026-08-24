@@ -1,0 +1,2420 @@
+{
+ "seal": {
+  "document": "cornell_2022-2023",
+  "method": "two independent image-based passes per section group, adjudicated",
+  "metrics": 394,
+  "adjudicated": 6,
+  "seal_guard_conversions": 12,
+  "scorer_version_at_seal": "1.2.0"
+ },
+ "status_counts": {
+  "present": 241,
+  "blank": 133,
+  "absent": 20
+ },
+ "metrics": {
+  "identity.institution_name": {
+   "status": "present",
+   "value": "Cornell University",
+   "page": 1,
+   "evidence": "A1 'Address Information' block, row 'Name of College/University:' reads 'Cornell University'."
+  },
+  "identity.academic_year": {
+   "status": "present",
+   "value": "2022-2023",
+   "page": 1,
+   "evidence": "Running header top-left of page 1 reads 'Common Data Set 2022-2023'. This is the cover page; per the document's own trap notes, pages 3-27 carry a stale '2021-2022' header and pages 28-32 a stale '2019-2020' header, but page 1-2 (the A-section, edited most recently) carry the correct edition year, corroborated by the Oct 19 2022 enrollment date (B1, page 3), Fall 2022 cohort references, IPEDS GRS 2022-2023 citation (page 4), and 2023-24 cost-of-attendance framing in Section G (page 17)."
+  },
+  "identity.city": {
+   "status": "present",
+   "value": "Ithaca",
+   "page": 1,
+   "evidence": "A1 'Address Information' block, row 'City/State/Zip/Country:' reads 'Ithaca, NY 14850' as a single combined cell; city portion is 'Ithaca'."
+  },
+  "identity.state_or_region": {
+   "status": "present",
+   "value": "NY",
+   "page": 1,
+   "evidence": "A1 'Address Information' block, row 'City/State/Zip/Country:' reads 'Ithaca, NY 14850' as a single combined cell; state portion is 'NY'."
+  },
+  "identity.country": {
+   "status": "blank",
+   "value": null,
+   "page": 1,
+   "evidence": "A1 'Address Information' block, row labeled 'City/State/Zip/Country:' only contains 'Ithaca, NY 14850' -- no country token is printed anywhere in that cell (implicitly USA/domestic, but not explicitly stated). The row/cell exists but the country portion was left empty by the institution."
+  },
+  "identity.main_website": {
+   "status": "present",
+   "value": "www.cornell.edu",
+   "page": 1,
+   "evidence": "A1 block, row 'WWW Home Page Address:' reads 'www.cornell.edu' (rendered as a hyperlink)."
+  },
+  "identity.admissions_email": {
+   "status": "present",
+   "value": "admissions@cornell.edu",
+   "page": 1,
+   "evidence": "A1 block, row 'Admissions E-mail Address:' reads 'admissions@cornell.edu'."
+  },
+  "identity.application_url": {
+   "status": "present",
+   "value": "http://admissions.cornell.edu/apply",
+   "page": 1,
+   "evidence": "A1 block, below the main address table, under 'If there is a separate URL for your school's online application, please specify:' reads 'http://admissions.cornell.edu/apply'."
+  },
+  "identity.institutional_control": {
+   "status": "present",
+   "value": "private_nonprofit",
+   "page": 1,
+   "evidence": "A2 'Source of institutional control' checklist: 'X' mark in the box beside 'Private (nonprofit)'; 'Public' and 'Proprietary' boxes are unmarked."
+  },
+  "identity.undergraduate_gender_model": {
+   "status": "present",
+   "value": "coeducational",
+   "page": 1,
+   "evidence": "A3 'Classify your undergraduate institution' checklist: 'X' mark beside 'Coeducational college'; 'Men's college' and 'Women's college' unmarked."
+  },
+  "identity.academic_calendar": {
+   "status": "present",
+   "value": "semester",
+   "page": 1,
+   "evidence": "A4 'Academic year calendar' checklist: 'X' mark beside 'Semester'; all other options (Quarter, Trimester, 4-1-4, Continuous, Differs by program, Other) unmarked."
+  },
+  "identity.degree_offered_bachelors": {
+   "status": "present",
+   "value": true,
+   "page": 2,
+   "evidence": "A5 'Degrees offered by your institution' checklist (top of page 2, continuation from page 1): 'X' mark beside 'Bachelor's'."
+  },
+  "identity.degree_offered_masters": {
+   "status": "present",
+   "value": true,
+   "page": 2,
+   "evidence": "A5 checklist, page 2: 'X' mark beside 'Master's'."
+  },
+  "identity.degree_offered_doctoral_research_scholarship": {
+   "status": "present",
+   "value": true,
+   "page": 2,
+   "evidence": "A5 checklist, page 2: 'X' mark beside 'Doctoral degree research/scholarship' row (distinct from the also-marked 'Doctoral degree - professional practice' row immediately below it)."
+  },
+  "enrollment.undergraduate_total": {
+   "status": "present",
+   "value": 15735,
+   "page": 3,
+   "evidence": "B1 section, below the Men/Women full-time/part-time grid: scalar row 'Total all undergraduates' = 15,735."
+  },
+  "enrollment.graduate_total": {
+   "status": "present",
+   "value": 10163,
+   "page": 3,
+   "evidence": "B1 section, scalar row 'Total all graduate' = 10,163 (directly below 'Total all undergraduates')."
+  },
+  "enrollment.all_students_total": {
+   "status": "present",
+   "value": 25898,
+   "page": 3,
+   "evidence": "B1 section, scalar row 'GRAND TOTAL ALL STUDENTS' = 25,898 (bottom of the three summary scalar rows, below the Men/Women grid)."
+  },
+  "enrollment.nonresident_all_undergraduates": {
+   "status": "present",
+   "value": 1591,
+   "page": 3,
+   "evidence": "B2 'Enrollment by Racial/Ethnic Category' table, row 'Nonresidents', column 'Total Undergraduates (both degree & non-degree-seeking)' = 1,591. (Same row, first column 'Degree-Seeking First-Time First Year' = 336; second column 'Degree-Seeking Undergraduates (include first-time first-year)' = 1,153.)"
+  },
+  "outcomes.primary_pell_grant_six_year_graduation_rate_ratio": {
+   "status": "present",
+   "value": 0.927,
+   "page": 5,
+   "raw_printed": "92.70%",
+   "evidence": "Fall 2016 Cohort grid, row H 'Six-year graduation rate for 2016 cohort (G divided by C)', 'Recipients of a Federal Pell Grant' column, printed '92.70%' on page 5 (top of page, continuation of the B4-B11 grid begun on page 4). Metric instructions require the value as a 0-1 ratio rather than the printed percent, so recorded 0.9270; exact printed decimal preserved in raw_printed.",
+   "adjudication": "pass B won: unit=ratio; instructions demand the 0-1 form, page prints 92.70%. Matches the Dartmouth ruling."
+  },
+  "outcomes.primary_all_students_adjusted_cohort_count": {
+   "status": "present",
+   "value": 3308,
+   "page": 4,
+   "evidence": "B4-B21 'Fall 2016 Cohort' grid, row C 'Final 2016 cohort, after adjusting for allowable exclusions', column 'Total (sum of 3 columns to the left)' = 3,308. (Row A initial cohort Total = 3,315; row B exclusions Total = 7; 3,315-7=3,308 agrees arithmetically, used only for validation.)"
+  },
+  "outcomes.primary_all_students_completed_within_four_years_count": {
+   "status": "present",
+   "value": 2955,
+   "page": 4,
+   "evidence": "B4-B21 'Fall 2016 Cohort' grid, row D 'Of the initial 2015 [sic, printed label] cohort, how many completed the program in four years or less (by Aug. 31, 2020)', column 'Total (sum of 3 columns to the left)' = 2,955. Row label on the image literally reads '2015' but is physically the fourth row of the Fall-2016-cohort table (row D, immediately below rows A-C which are explicitly labeled 2016); treated as a printed labeling inconsistency within the Fall 2016 grid, not a separate cohort."
+  },
+  "outcomes.primary_all_students_completed_after_four_within_five_years_count": {
+   "status": "present",
+   "value": 156,
+   "page": 5,
+   "evidence": "B4-B21 'Fall 2016 Cohort' grid (row continues onto page 5), row E 'Of the initial 2016 cohort, how many completed the program in more than four years but in five years or less (after Aug. 31, 2020 and by Aug. 31, 2021)', column 'Total' = 156."
+  },
+  "outcomes.primary_all_students_completed_after_five_within_six_years_count": {
+   "status": "present",
+   "value": 41,
+   "page": 5,
+   "evidence": "B4-B21 'Fall 2016 Cohort' grid, row F 'Of the initial 2016 cohort, how many completed the program in more than five years but in six years or less (after Aug. 31, 2021 and by Aug. 31, 2022)', column 'Total' = 41."
+  },
+  "outcomes.primary_all_students_completed_within_six_years_count": {
+   "status": "present",
+   "value": 3152,
+   "page": 5,
+   "evidence": "B4-B21 'Fall 2016 Cohort' grid, row G 'Total graduating within six years (sum of lines D, E, and F)', column 'Total' = 3,152."
+  },
+  "outcomes.primary_all_students_six_year_graduation_rate_ratio": {
+   "status": "present",
+   "value": 0.9528,
+   "page": 5,
+   "raw_printed": "95.28%",
+   "evidence": "Fall 2016 Cohort grid, row H 'Six-year graduation rate for 2016 cohort (G divided by C)', 'Total' column, printed '95.28%'. Recorded as a 0-1 ratio (0.9528) per metric instructions that override the general percent-as-printed rule; exact printed decimal preserved in raw_printed.",
+   "adjudication": "pass B won: unit=ratio; instructions demand the 0-1 form, page prints 95.28%. Matches the Dartmouth ruling for the same metric."
+  },
+  "outcomes.first_year_retention_entering_cohort_count": {
+   "status": "absent",
+   "value": null,
+   "page": 6,
+   "evidence": "B22 'Retention Rates' block, page 6: the only data cell present is a single percentage box (96.89%) beside the prose question. No separate entering-cohort-count cell or column is printed anywhere in B22 in this edition; per this metric's instructions, this count field is new to the 2025-26 CDS edition, so its absence here is template-version absence, not a zero or unreported value."
+  },
+  "outcomes.first_year_retention_still_enrolled_next_fall_count": {
+   "status": "absent",
+   "value": null,
+   "page": 6,
+   "evidence": "B22 'Retention Rates' block, page 6: same single-percentage-box layout as the entering-cohort-count sibling metric; no still-enrolled-count cell is printed in this edition. Per instructions, this count field is new to the 2025-26 CDS edition, so absence here is template-version absence, not zero."
+  },
+  "outcomes.first_year_retention_reported_percent": {
+   "status": "present",
+   "value": "96.89%",
+   "page": 6,
+   "evidence": "B22 block, page 6, the single answer box beside the question 'For the cohort of all full-time bachelor's (or equivalent) degree-seeking undergraduate students who entered your institution as first-year students in Fall 2021 (or the preceding summer term), what percentage was enrolled at your institution as of the date your institution calculates its official enrollment in Fall 2022' reads '96.89%'."
+  },
+  "admissions.applicants_residency_in_state": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "C1 (page 7) contains only a gender-breakdown table (men/women/another gender applied/admitted/enrolled) plus a degree-seeking total row; no in-state/out-of-state/international residency breakdown table is printed anywhere on the page. This document's C1 template edition does not include the optional residency table."
+  },
+  "admissions.applicants_residency_out_of_state": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "Same as applicants_residency_in_state: no C1 residency table present on page 7 in this document."
+  },
+  "admissions.applicants_residency_international": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "Same as applicants_residency_in_state: no C1 residency table present on page 7 in this document."
+  },
+  "admissions.admitted_residency_in_state": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "No C1 residency table present on page 7 in this document."
+  },
+  "admissions.admitted_residency_out_of_state": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "No C1 residency table present on page 7 in this document."
+  },
+  "admissions.admitted_residency_international": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "No C1 residency table present on page 7 in this document."
+  },
+  "admissions.enrolled_residency_international": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "No C1 residency table present on page 7 in this document."
+  },
+  "admissions.applicants_total": {
+   "status": "present",
+   "value": 71164,
+   "page": 7,
+   "evidence": "C1 table, row 'Total first-time, first-year (degree-seeking) who applied', value 71,164."
+  },
+  "admissions.admitted_total": {
+   "status": "present",
+   "value": 5168,
+   "page": 7,
+   "evidence": "C1 table, row 'Total first-time, first-year (degree-seeking) who were admitted', value 5,168."
+  },
+  "admissions.enrolled_total": {
+   "status": "present",
+   "value": 3491,
+   "page": 7,
+   "evidence": "C1 table, row 'Total first-time, first-year (degree-seeking) enrolled', value 3,491."
+  },
+  "admissions.has_waitlist_policy": {
+   "status": "present",
+   "value": true,
+   "page": 7,
+   "evidence": "C2, 'Do you have a policy of placing students on a waiting list?' Yes/No table, X under Yes."
+  },
+  "admissions.waitlist_offered_place_count": {
+   "status": "present",
+   "value": 7729,
+   "page": 7,
+   "evidence": "C2 WAITING LIST table, row 'Number of qualified applicants offered a place on waiting list', TOTAL column value 7729."
+  },
+  "admissions.waitlist_accepted_place_count": {
+   "status": "present",
+   "value": 5531,
+   "page": 7,
+   "evidence": "C2 WAITING LIST table, row 'Number accepting a place on the waiting list', TOTAL column value 5531."
+  },
+  "admissions.waitlist_admitted_count": {
+   "status": "present",
+   "value": 260,
+   "page": 7,
+   "evidence": "C2 WAITING LIST table, row 'Number of wait-listed students admitted', TOTAL column value 260."
+  },
+  "admissions.high_school_completion_requirement": {
+   "status": "present",
+   "value": "diploma_or_equivalent_not_required",
+   "page": 7,
+   "evidence": "C3 checklist at the bottom of page 7: the X mark sits beside the third option 'High school diploma or equivalent is not required'; the first two boxes ('Diploma required, GED accepted' and 'Diploma required, GED not accepted') are unmarked. Verified from the page image; the page-index note claiming the mark was on the first option is incorrect."
+  },
+  "admissions.college_prep_program_requirement": {
+   "status": "present",
+   "value": "recommended",
+   "page": 8,
+   "evidence": "C4 checklist at top of page 8: X on 'Recommend', 'Require' and 'Neither require nor recommend' unmarked."
+  },
+  "admissions.total_academic_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Total academic units' row, both Required and Recommended cells are visibly empty; entire C5 grid is unfilled on the page image."
+  },
+  "admissions.total_academic_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Total academic units' row, Recommended cell empty."
+  },
+  "admissions.english_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'English' row, Required cell empty."
+  },
+  "admissions.english_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'English' row, Recommended cell empty."
+  },
+  "admissions.mathematics_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Mathematics' row, Required cell empty."
+  },
+  "admissions.mathematics_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Mathematics' row, Recommended cell empty."
+  },
+  "admissions.science_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Science' row, Required cell empty."
+  },
+  "admissions.science_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Science' row, Recommended cell empty."
+  },
+  "admissions.lab_science_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Of these, units that must be [lab]' row, Required cell empty."
+  },
+  "admissions.lab_science_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Of these, units that must be [lab]' row, Recommended cell empty."
+  },
+  "admissions.foreign_language_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Foreign language' row, Required cell empty."
+  },
+  "admissions.foreign_language_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Foreign language' row, Recommended cell empty."
+  },
+  "admissions.social_studies_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Social studies' row, Required cell empty."
+  },
+  "admissions.social_studies_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Social studies' row, Recommended cell empty."
+  },
+  "admissions.history_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'History' row, Required cell empty."
+  },
+  "admissions.history_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'History' row, Recommended cell empty."
+  },
+  "admissions.academic_electives_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Academic electives' row, Required cell empty."
+  },
+  "admissions.academic_electives_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Academic electives' row, Recommended cell empty."
+  },
+  "admissions.computer_science_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Computer Science' row, Required cell empty."
+  },
+  "admissions.computer_science_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Computer Science' row, Recommended cell empty."
+  },
+  "admissions.visual_performing_arts_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Visual/Performing Arts' row, Required cell empty."
+  },
+  "admissions.visual_performing_arts_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Visual/Performing Arts' row, Recommended cell empty."
+  },
+  "admissions.other_units_required": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Other (specify)' row, Required cell empty."
+  },
+  "admissions.other_units_recommended": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Other (specify)' row, Recommended cell empty."
+  },
+  "admissions.other_subject_label": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "C5 table 'Other (specify)' row label area is blank; no subject name written in beside the row."
+  },
+  "admissions.open_admission_all_students": {
+   "status": "present",
+   "value": false,
+   "page": 8,
+   "evidence": "C6 checklist, box 'Open admission policy as described above for all students' is visibly unmarked; full C6 checklist visible on page."
+  },
+  "admissions.open_admission_selective_out_of_state": {
+   "status": "present",
+   "value": false,
+   "page": 8,
+   "evidence": "C6 checklist, box for 'selective admission for out-of-state students' is visibly unmarked."
+  },
+  "admissions.open_admission_selective_programs": {
+   "status": "present",
+   "value": false,
+   "page": 8,
+   "evidence": "C6 checklist, box for 'selective admission to some programs' is visibly unmarked."
+  },
+  "admissions.open_admission_other": {
+   "status": "present",
+   "value": false,
+   "page": 8,
+   "evidence": "C6 checklist, 'other (explain)' box is visibly unmarked, explanation line blank."
+  },
+  "admissions.selection_factor_rigor_of_secondary_school_record": {
+   "status": "present",
+   "value": "very_important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Rigor of secondary school record', X sits under the 'Very Important' column (leftmost of the four data columns), read directly from the page image."
+  },
+  "admissions.selection_factor_class_rank": {
+   "status": "present",
+   "value": "important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Class rank', X sits under the 'Important' column, read from the page image."
+  },
+  "admissions.selection_factor_academic_gpa": {
+   "status": "present",
+   "value": "very_important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Academic GPA', X sits under the 'Very Important' column, read from the page image."
+  },
+  "admissions.selection_factor_standardized_tests": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Standardized test scores', X sits under the 'Considered' column, read from the page image."
+  },
+  "admissions.selection_factor_application_essay": {
+   "status": "present",
+   "value": "very_important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Application Essay', X sits under the 'Very Important' column, read from the page image."
+  },
+  "admissions.selection_factor_recommendations": {
+   "status": "present",
+   "value": "very_important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Recommendation(s)', X sits under the 'Very Important' column, read from the page image."
+  },
+  "admissions.selection_factor_interview": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Interview', X sits under the 'Considered' column, read from the page image."
+  },
+  "admissions.selection_factor_extracurricular_activities": {
+   "status": "present",
+   "value": "very_important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Extracurricular activities', X sits under the 'Very Important' column, read from the page image."
+  },
+  "admissions.selection_factor_talent_ability": {
+   "status": "present",
+   "value": "very_important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Talent/ability', X sits under the 'Very Important' column, read from the page image."
+  },
+  "admissions.selection_factor_character_personal_qualities": {
+   "status": "present",
+   "value": "very_important",
+   "page": 8,
+   "evidence": "C7 grid, row 'Character/personal qualities', X sits under the 'Very Important' column, read from the page image."
+  },
+  "admissions.selection_factor_first_generation": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'First generation', X sits under the 'Considered' column, read from the page image."
+  },
+  "admissions.selection_factor_alumni_relation": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Alumni/ae relation', X sits under the 'Considered' column, read from the page image."
+  },
+  "admissions.selection_factor_geographic_residence": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Geographical residence', X sits under the 'Considered' column, read from the page image. Not to be confused with the separate 'State residency' row below it."
+  },
+  "admissions.selection_factor_state_residency": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'State residency', X sits under the 'Considered' column, read from the page image."
+  },
+  "admissions.selection_factor_religious_affiliation_commitment": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Religious affiliation/commitment', X sits under the 'Not Considered' column (rightmost), read from the page image."
+  },
+  "admissions.selection_factor_volunteer_work": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Volunteer work', X sits under the 'Considered' column, read from the page image."
+  },
+  "admissions.selection_factor_work_experience": {
+   "status": "present",
+   "value": "considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Work experience', X sits under the 'Considered' column, read from the page image."
+  },
+  "admissions.selection_factor_level_of_applicant_interest": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 8,
+   "evidence": "C7 grid, row 'Level of applicant's interest', X sits under the 'Not Considered' column (rightmost), read from the page image."
+  },
+  "admissions.program_specific_factor_differences": {
+   "status": "blank",
+   "value": null,
+   "page": 8,
+   "evidence": "Bottom of page 8: 'Please provide additional information if the importance of any specific academic or nonacademic [factor differs by program]' prompt is followed by a blank underlined line with no text written on it."
+  },
+  "admissions.uses_entrance_exam_scores_in_admission": {
+   "status": "present",
+   "value": true,
+   "page": 9,
+   "evidence": "C8 top Yes/No control: 'Does your institution make use of SAT, ACT, or SAT Subject Test scores in admission decisions...' X under Yes."
+  },
+  "admissions.sat_or_act_admission_policy": {
+   "status": "present",
+   "value": "not_required_but_considered_if_submitted",
+   "page": 9,
+   "evidence": "C8A grid, row 'SAT or ACT', X sits under the 'Consider if Submitted' column (Require/Recommend/Require for Some columns unmarked; Not Considered unmarked)."
+  },
+  "admissions.act_only_admission_policy": {
+   "status": "blank",
+   "value": null,
+   "page": 9,
+   "evidence": "C8A grid, row 'ACT Only' has no X in any of the five policy columns (Require/Recommend/Require for Some/Consider if Submitted/Not Considered); the entire row is unmarked."
+  },
+  "admissions.sat_only_admission_policy": {
+   "status": "present",
+   "value": "not_required_but_considered_if_submitted",
+   "page": 9,
+   "evidence": "C8A grid, row 'SAT Only', X sits under the 'Consider if Submitted' column."
+  },
+  "admissions.test_policy_clarification": {
+   "status": "present",
+   "value": "SAT and ACT scores, even if submitted, are not considered for students applying to the College of Agriculture and Life Sciences, the College of Architecture, Art and Planning, the Nolan School of Hotel Administration, and the Dyson School of Applied Economics and Management.",
+   "page": 9,
+   "evidence": "C8F boxed clarification text, right-hand box next to the C8F prompt."
+  },
+  "admissions.has_application_fee": {
+   "status": "present",
+   "value": true,
+   "page": 11,
+   "evidence": "C13, 'Does your institution have an application fee?' Yes/No table, X under Yes."
+  },
+  "admissions.application_fee_amount": {
+   "status": "present",
+   "value": 80,
+   "page": 11,
+   "evidence": "C13, 'Amount of application fee:' line, value '$80'."
+  },
+  "admissions.need_based_application_fee_waiver_available": {
+   "status": "present",
+   "value": true,
+   "page": 11,
+   "evidence": "C13, 'Can it be waived for applicants with financial need?' Yes/No table, X under Yes."
+  },
+  "admissions.has_application_closing_date": {
+   "status": "present",
+   "value": true,
+   "page": 11,
+   "evidence": "C14, 'Does your institution have an application closing date?' Yes/No table, X under Yes."
+  },
+  "admissions.application_closing_date_fall": {
+   "status": "present",
+   "value": "1/2",
+   "page": 11,
+   "evidence": "C14 date table, row 'Application closing date (fall)', value '1/2'."
+  },
+  "admissions.application_priority_date": {
+   "status": "blank",
+   "value": null,
+   "page": 11,
+   "evidence": "C14 date table, row 'Priority Date', value cell is visibly empty."
+  },
+  "admissions.accepts_first_year_terms_other_than_fall": {
+   "status": "blank",
+   "value": null,
+   "page": 11,
+   "evidence": "C15, 'Are first-time, first-year students accepted for terms other than the [fall]?' Yes/No table has neither box marked."
+  },
+  "admissions.decision_notification_mode": {
+   "status": "present",
+   "value": "by_date",
+   "page": 11,
+   "evidence": "C16 checklist, X on 'By (date):' row (value 'Early April' written beside it); 'On a rolling basis beginning' row unmarked."
+  },
+  "admissions.decision_rolling_begin_date": {
+   "status": "blank",
+   "value": null,
+   "page": 11,
+   "evidence": "C16 'On a rolling basis beginning' row is unmarked and its date line is blank; decision_notification_mode is by_date, not rolling."
+  },
+  "admissions.decision_by_date": {
+   "status": "present",
+   "value": "Early April",
+   "page": 11,
+   "evidence": "C16, 'By (date):' row, value 'Early April'."
+  },
+  "admissions.reply_policy_mode": {
+   "status": "present",
+   "value": "may_1_or_within_weeks_if_notified_later",
+   "page": 12,
+   "evidence": "C17 checklist, X on 'Must reply by May 1st or within [2] weeks if notified thereafter'; 'Must reply by (date)', 'No set date', and 'Other' rows unmarked."
+  },
+  "admissions.reply_deadline": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C17 'Must reply by (date):' row is unmarked and its date line is blank; reply_policy_mode is may_1_or_within_weeks_if_notified_later, not must_reply_by_date."
+  },
+  "admissions.reply_weeks_after_late_notification": {
+   "status": "present",
+   "value": 2,
+   "page": 12,
+   "evidence": "C17, 'Must reply by May 1st or within [2] weeks if notified thereafter', the filled-in number is 2."
+  },
+  "admissions.housing_deposit_deadline": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C17, 'Deadline for housing deposit (MMDD):' line is visibly blank."
+  },
+  "admissions.housing_deposit_amount": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C17, 'Amount of housing deposit:' line is visibly blank."
+  },
+  "admissions.housing_deposit_refundability": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C17, 'Refundable if student does not enroll?' checklist ('Yes, in full' / 'Yes, in part' / 'No') has none of the three boxes marked."
+  },
+  "admissions.deferred_enrollment_allowed": {
+   "status": "present",
+   "value": true,
+   "page": 12,
+   "evidence": "C18, 'Does your institution allow students to postpone enrollment after admission?' Yes/No table, X under Yes."
+  },
+  "admissions.deferred_enrollment_max_period": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C18, 'If yes, maximum period of postponement:' line is visibly blank."
+  },
+  "admissions.early_decision_offered": {
+   "status": "present",
+   "value": true,
+   "page": 12,
+   "evidence": "C21, 'Does your institution offer an early decision plan...' Yes/No table, X under Yes."
+  },
+  "admissions.early_decision_first_closing_date": {
+   "status": "present",
+   "value": "11/1",
+   "page": 12,
+   "evidence": "C21, 'First or only early decision plan closing date', value '11/1'."
+  },
+  "admissions.early_decision_first_notification_date": {
+   "status": "present",
+   "value": "Mid-December",
+   "page": 12,
+   "evidence": "C21, 'First or only early decision plan notification date', value 'Mid-December'."
+  },
+  "admissions.early_decision_other_closing_date": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C21, 'Other early decision plan closing date' line is visibly blank; no second plan is printed."
+  },
+  "admissions.early_decision_other_notification_date": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C21, 'Other early decision plan notification date' line is visibly blank; no second plan is printed."
+  },
+  "admissions.early_decision_application_count": {
+   "status": "present",
+   "value": 9555,
+   "page": 12,
+   "evidence": "C21, 'For the Fall 2022 entering class: Number of early decision applications received by your institution', value 9555."
+  },
+  "admissions.early_decision_admitted_count": {
+   "status": "present",
+   "value": 1831,
+   "page": 12,
+   "evidence": "C21, 'Number of applicants admitted under early decision plan', value 1831."
+  },
+  "admissions.early_action_offered": {
+   "status": "present",
+   "value": false,
+   "page": 12,
+   "evidence": "C22, 'Do you have a nonbinding early action plan...' Yes/No table, X under No."
+  },
+  "admissions.early_action_closing_date": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C22, 'Early action closing date' line is visibly blank, consistent with early_action_offered being No."
+  },
+  "admissions.early_action_notification_date": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C22, 'Early action notification date' line is visibly blank, consistent with early_action_offered being No."
+  },
+  "admissions.early_action_restrictive": {
+   "status": "blank",
+   "value": null,
+   "page": 12,
+   "evidence": "C22, 'Is your early action plan a \"restrictive\" plan...' Yes/No table has neither box marked."
+  },
+  "class_profile.sat_submitters_percent": {
+   "status": "present",
+   "value": "43%",
+   "page": 10,
+   "evidence": "C9 table, row 'Submitting SAT Scores', 'Percent' column: 43%."
+  },
+  "class_profile.sat_submitters_count": {
+   "status": "present",
+   "value": 1489,
+   "page": 10,
+   "evidence": "C9 table, row 'Submitting SAT Scores', 'Number' column: 1489."
+  },
+  "class_profile.act_submitters_percent": {
+   "status": "present",
+   "value": "17%",
+   "page": 10,
+   "evidence": "C9 table, row 'Submitting ACT Scores', 'Percent' column: 17%."
+  },
+  "class_profile.act_submitters_count": {
+   "status": "present",
+   "value": 578,
+   "page": 10,
+   "evidence": "C9 table, row 'Submitting ACT Scores', 'Number' column: 578."
+  },
+  "class_profile.sat_composite_p25": {
+   "status": "present",
+   "value": 1470,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'SAT Composite', '25th Percentile' column: 1470."
+  },
+  "class_profile.sat_composite_p50": {
+   "status": "present",
+   "value": 1520,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'SAT Composite', '50th Percentile' column: 1520."
+  },
+  "class_profile.sat_composite_p75": {
+   "status": "present",
+   "value": 1550,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'SAT Composite', '75th Percentile' column: 1550."
+  },
+  "class_profile.sat_ebrw_p25": {
+   "status": "present",
+   "value": 710,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'SAT Evidence-Based Reading and [Writing]' (label wraps/truncates in the table but is unambiguously the EBRW row), '25th Percentile' column: 710."
+  },
+  "class_profile.sat_ebrw_p50": {
+   "status": "present",
+   "value": 740,
+   "page": 10,
+   "evidence": "C9 percentile table, SAT EBRW row, '50th Percentile' column: 740."
+  },
+  "class_profile.sat_ebrw_p75": {
+   "status": "present",
+   "value": 770,
+   "page": 10,
+   "evidence": "C9 percentile table, SAT EBRW row, '75th Percentile' column: 770."
+  },
+  "class_profile.sat_math_p25": {
+   "status": "present",
+   "value": 750,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'SAT Math', '25th Percentile' column: 750."
+  },
+  "class_profile.sat_math_p50": {
+   "status": "present",
+   "value": 780,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'SAT Math', '50th Percentile' column: 780."
+  },
+  "class_profile.sat_math_p75": {
+   "status": "present",
+   "value": 800,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'SAT Math', '75th Percentile' column: 800."
+  },
+  "class_profile.act_composite_p25": {
+   "status": "present",
+   "value": 33,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Composite', '25th Percentile' column: 33."
+  },
+  "class_profile.act_composite_p50": {
+   "status": "present",
+   "value": 34,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Composite', '50th Percentile' column: 34."
+  },
+  "class_profile.act_composite_p75": {
+   "status": "present",
+   "value": 35,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Composite', '75th Percentile' column: 35."
+  },
+  "class_profile.act_math_p25": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Math', '25th Percentile' column: cell literally prints 'n/a' (shaded gray cell, matching all other ACT sub-score cells on this page). This is a printed non-numeric token, not an empty cell -- per brief instructions, reporting exactly what is printed rather than silently coercing to null-as-blank or 0. Metric type is integer; 'n/a' cannot be represented as an integer, so value is left null while evidence records the literal printed text.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_math_p50": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Math', '50th Percentile' column: cell literally prints 'n/a'. Same treatment as act_math_p25 -- printed non-numeric token, not a blank cell.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_math_p75": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Math', '75th Percentile' column: cell literally prints 'n/a'. Same treatment as act_math_p25.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_english_p25": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT English', '25th Percentile' column: cell literally prints 'n/a'. Non-numeric printed token, not coerced; type is integer so value left null.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_english_p50": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT English', '50th Percentile' column: cell literally prints 'n/a'.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_english_p75": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT English', '75th Percentile' column: cell literally prints 'n/a'.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_science_p25": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Science', '25th Percentile' column: cell literally prints 'n/a'. Non-numeric printed token, not coerced.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_science_p50": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Science', '50th Percentile' column: cell literally prints 'n/a'.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_science_p75": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Science', '75th Percentile' column: cell literally prints 'n/a'.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_reading_p25": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Reading', '25th Percentile' column: cell literally prints 'n/a'. Non-numeric printed token, not coerced.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_reading_p50": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Reading', '50th Percentile' column: cell literally prints 'n/a'.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.act_reading_p75": {
+   "status": "blank",
+   "value": null,
+   "page": 10,
+   "evidence": "C9 percentile table, row 'ACT Reading', '75th Percentile' column: cell literally prints 'n/a'.",
+   "raw_printed": null,
+   "adjudication": "seal guard: printed token normalises to an absent/unparseable value on a `present` metric, which the scorer quarantines as gt_error (unwinnable, charged to no one). Recorded blank with the printed token preserved in raw_printed."
+  },
+  "class_profile.class_rank_submitted_percent": {
+   "status": "present",
+   "value": "19.40%",
+   "page": 11,
+   "evidence": "C10 block, row 'Percent of total first-time, first-year students who submitted high school class rank:' value 19.40%. Note this is a much lower figure than the top-tenth/quarter/half percentages on page 10, which are computed only among the minority of students who did report rank."
+  },
+  "class_profile.class_rank_top_tenth_percent": {
+   "status": "present",
+   "value": "82%",
+   "page": 10,
+   "evidence": "C10 table (bottom of page 10), row 'Percent in top tenth of high school graduating class', Percent column: 82%."
+  },
+  "class_profile.class_rank_top_quarter_percent": {
+   "status": "present",
+   "value": "96%",
+   "page": 10,
+   "evidence": "C10 table, row 'Percent in top quarter of high school graduating class', Percent column: 96%."
+  },
+  "class_profile.class_rank_top_half_percent": {
+   "status": "present",
+   "value": "100%",
+   "page": 10,
+   "evidence": "C10 table, row 'Percent in top half of high school graduating class', Percent column: 100%. An annotation 'Top half +' appears immediately to the right of this cell and continues as 'bottom half = 100%' next to the corresponding row on page 11 -- this is an instructional cross-check note printed by the template ('top half + bottom half should = 100%'), not part of either data value."
+  },
+  "class_profile.class_rank_bottom_half_percent": {
+   "status": "present",
+   "value": "0%",
+   "page": 11,
+   "evidence": "C10 table (top of page 11), row 'Percent in bottom half of high school graduating class', Percent column: 0%. Annotation 'bottom half = 100%' to the right is the template's top+bottom cross-check note (see class_rank_top_half_percent evidence), not a data value."
+  },
+  "class_profile.class_rank_bottom_quarter_percent": {
+   "status": "present",
+   "value": "0%",
+   "page": 11,
+   "evidence": "C10 table, row 'Percent in bottom quarter of high school graduating class', Percent column: 0%."
+  },
+  "class_profile.average_high_school_gpa": {
+   "status": "present",
+   "value": 0,
+   "page": 11,
+   "ambiguous": true,
+   "evidence": "C12 box 'Average high school GPA of all degree-seeking, first-time, first-year students who submitted GPA:' literally prints '0.00%' (with a percent sign, on a field that should be a raw GPA number). This is almost certainly a template/formula artifact rather than a genuine reported average: the C11 GPA-distribution table immediately above (score ranges 4.0 down to below 1.0) has every individual percent cell left completely empty, and its own 'Totals should = 100%' row also auto-computes to '0.00%' -- consistent with an average-of-empty-range formula defaulting to 0 and inheriting the percent-format of the cell above it, not with Cornell reporting an actual 0.00 average GPA (which would be nonsensical). Per brief instructions this metric's own guidance says to extract only the printed value and not infer/clamp, so recorded literally as present/0 rather than reclassified as blank -- but flagged ambiguous because the printed content strongly suggests no real data was submitted. Alternate candidate reading: status 'blank' (institution provided no GPA data at all, and '0.00%' is a non-data artifact).",
+   "adjudication": "pass A won: C12 prints 0.00%; no instruction demands a transform and it parses cleanly, so it is recorded as printed. Ruling blank would score a correct engine wrong for reading the page accurately."
+  },
+  "class_profile.high_school_gpa_submitted_percent": {
+   "status": "present",
+   "value": "0.00%",
+   "page": 11,
+   "ambiguous": true,
+   "evidence": "C12 box 'Percent of total first-time, first-year students who submitted high school GPA:' literally prints '0.00%'. Same artifact concern as average_high_school_gpa: the GPA-distribution table above (C11) is entirely empty, and this figure is 0.00% which is consistent with a formula computed over zero reported GPA-submitting students rather than a deliberately entered answer. Recorded literally as printed per this metric's instruction to extract the C12 percent-submitted cell exactly, but flagged ambiguous -- alternate candidate reading is status 'blank' (no data submitted for this item at all).",
+   "adjudication": "pass A won: Same C12 artifact; type=string, unit=percent, instructions say preserve qualifiers. Recorded as printed."
+  },
+  "cost.net_price_calculator_url": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G0 'Please provide the URL of your institution's net price calculator:' followed by a blank answer line; no URL text printed."
+  },
+  "cost.cost_academic_year": {
+   "status": "present",
+   "value": "2023-2024",
+   "page": 17,
+   "evidence": "G0 bold instruction line reads 'Provide 2023-2024 academic year costs of attendance for the following categories that are applicable to your institution.' and G1 prompt reads 'List the typical tuition, required fees, and room and board for a full-time undergraduate student for the FULL 2023-2024 academic year.' Per this metric's own instructions, this is the G0/G1 printed cost-year label, bound to the G1 column-heading context, and is deliberately NOT taken from the page's stale running header 'Common Data Set 2021-2022' (visible top-left of both pages 17 and 18) nor from identity.academic_year."
+  },
+  "cost.final_costs_not_available": {
+   "status": "present",
+   "value": false,
+   "page": 17,
+   "evidence": "G0 standalone checkbox before 'Check here if your institution's 2023-2024 academic year costs of attendance are not available at this time...' is a plain empty square with no mark inside; unambiguously unmarked."
+  },
+  "cost.final_costs_expected_date": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G0 answer line following 'provide an approximate date (i.e., month/day) when your institution's final 2023-2024 academic year costs of attendance will be available:' is a blank underscored line with no text. Consistent with final_costs_not_available being false."
+  },
+  "cost.tuition_private_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'PRIVATE INSTITUTIONS' / 'Tuition:' row, 'First-Year' column: cell is empty, no value printed."
+  },
+  "cost.tuition_private_undergraduates": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'PRIVATE INSTITUTIONS' / 'Tuition:' row, 'Undergraduates' column: cell is empty, no value printed."
+  },
+  "cost.tuition_public_in_district_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'PUBLIC INSTITUTIONS' / 'Tuition: In-district' row, 'First-Year' column: cell is empty. Row is printed (Cornell's statutory/contract-college public rows are present in this template), just left unfilled."
+  },
+  "cost.tuition_public_in_district_undergraduates": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'PUBLIC INSTITUTIONS' / 'Tuition: In-district' row, 'Undergraduates' column: cell is empty."
+  },
+  "cost.tuition_public_in_state_out_of_district_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Tuition: In-state (out-of-district):' row, 'First-Year' column: cell is empty."
+  },
+  "cost.tuition_public_in_state_out_of_district_undergraduates": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Tuition: In-state (out-of-district):' row, 'Undergraduates' column: cell is empty."
+  },
+  "cost.tuition_public_out_of_state_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Tuition: Out-of-state:' row, 'First-Year' column: cell is empty."
+  },
+  "cost.tuition_public_out_of_state_undergraduates": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Tuition: Out-of-state:' row, 'Undergraduates' column: cell is empty."
+  },
+  "cost.tuition_nonresident_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 18,
+   "evidence": "Page 18 is the continuation of the G1 table (footer 'CDS-G', page 17's table is cut off after 'Tuition: Non-resident' row heading). The 'NONRESIDENTS:' row, first (First-Year) column: cell is empty."
+  },
+  "cost.tuition_nonresident_undergraduates": {
+   "status": "blank",
+   "value": null,
+   "page": 18,
+   "evidence": "Page 18 'NONRESIDENTS:' row, second (Undergraduates) column: cell is empty."
+  },
+  "cost.required_fees_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'FOR ALL INSTITUTIONS' / 'Required Fees' row, 'First-Year' column: cell is empty."
+  },
+  "cost.required_fees_undergraduates": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Required Fees' row, 'Undergraduates' column: cell is empty."
+  },
+  "cost.food_and_housing_on_campus_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Room and Board (on-campus):' row, 'First-Year' column: cell is empty."
+  },
+  "cost.food_and_housing_on_campus_undergraduates": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Room and Board (on-campus):' row, 'Undergraduates' column: cell is empty."
+  },
+  "cost.housing_only_on_campus_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Room Only (on-campus):' row, 'First-Year' column: cell is empty."
+  },
+  "cost.food_only_on_campus_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G1 table, 'Board Only (on-campus meal plan):' row, 'First-Year' column: cell is empty."
+  },
+  "cost.comprehensive_tuition_food_housing_amount": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "Below G1 table, 'Comprehensive tuition and room and board fee (if your college cannot provide separate tuition and room and board fees):' answer line is blank, no value printed."
+  },
+  "cost.other_annual_charge_response": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "'Other:' answer line below the comprehensive-fee line is blank, no amount or description printed."
+  },
+  "cost.tuition_fees_vary_by_year_of_study": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G3 'Do tuition and fees vary by year of study...?' Yes/No two-column control: both the Yes box and the No box are empty/unmarked. Unselected radio/enum pair, so recorded blank per the general rule for unmarked Yes/No groups."
+  },
+  "cost.tuition_fees_vary_by_instructional_program": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G4 'Do tuition and fees vary by undergraduate instructional program?' Yes/No two-column control: both boxes empty/unmarked. Recorded blank as an unselected Yes/No group."
+  },
+  "cost.higher_program_price_payer_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G4 follow-up 'If yes, what percentage of full-time undergraduates pay more than the tuition and fees reported in G1?' answer line is blank. Per this metric's instructions, not inferred as zero from the blank/unresolved tuition_fees_vary_by_instructional_program response; left not reported."
+  },
+  "cost.books_supplies_on_campus": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Books and supplies:' row, 'Residents' column: cell is empty (unshaded, valid response area, no value)."
+  },
+  "cost.books_supplies_commuter_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Books and supplies:' row, first 'Commuters' column (living at home): cell is empty."
+  },
+  "cost.books_supplies_commuter_not_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Books and supplies:' row, second 'Commuters' column (not living at home, per the '*' footnote structure): cell is empty."
+  },
+  "cost.transportation_on_campus": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Transportation:' row, 'Residents' column: cell is empty."
+  },
+  "cost.transportation_commuter_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Transportation:' row, first 'Commuters' (at home) column: cell is empty."
+  },
+  "cost.transportation_commuter_not_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Transportation:' row, second 'Commuters' (not at home) column: cell is empty."
+  },
+  "cost.other_expenses_on_campus": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Other expenses:' row, 'Residents' column: cell is empty."
+  },
+  "cost.other_expenses_commuter_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Other expenses:' row, first 'Commuters' (at home) column: cell is empty."
+  },
+  "cost.other_expenses_commuter_not_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Other expenses:' row, second 'Commuters' (not at home) column: cell is empty."
+  },
+  "cost.food_only_commuter_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Board only:' row (this document's food-only row), first 'Commuters' (at home) column: cell is unshaded (a valid response area) and empty. The 'Residents' cell in this same row IS shaded/greyed out (structural N/A, since residents get a combined room-and-board figure instead), confirming the at-home commuter cell is the correct, applicable, but blank target."
+  },
+  "cost.food_only_commuter_not_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Board only:' row, second 'Commuters' (not at home) column: cell is unshaded and empty."
+  },
+  "cost.housing_only_commuter_not_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Room only:' row, second 'Commuters' (not at home) column: cell is unshaded (valid response area) and empty. Both the 'Residents' and first 'Commuters' (at home) cells in this row are shaded/greyed structural N/A, consistent with this metric's instructions that the housing-only cell exists only for the not-at-home commuter column."
+  },
+  "cost.food_and_housing_total_commuter_not_at_home": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G5 table, 'Room and board total*' row, second 'Commuters' (not at home) column: cell is unshaded and empty. The 'Residents' and first 'Commuters' (at home) cells in this row are shaded structural N/A."
+  },
+  "cost.tuition_per_credit_private": {
+   "status": "blank",
+   "value": null,
+   "page": 17,
+   "evidence": "G6 table, 'PRIVATE INSTITUTIONS:' row: cell is empty, no per-credit rate printed."
+  },
+  "cost.tuition_per_credit_public_in_district": {
+   "status": "absent",
+   "value": null,
+   "page": 17,
+   "evidence": "G6 table has only two rows: 'PRIVATE INSTITUTIONS:' and 'PUBLIC INSTITUTIONS:'. There is no separate in-district / in-state-out-of-district / out-of-state breakdown for per-credit public charges in this template edition (unlike the G1 tuition table, which does break public tuition into four sub-rows). Recorded absent rather than blank because the row itself does not exist at this granularity."
+  },
+  "cost.tuition_per_credit_public_in_state_out_of_district": {
+   "status": "absent",
+   "value": null,
+   "page": 17,
+   "evidence": "Same G6 table as above: only a single undifferentiated 'PUBLIC INSTITUTIONS:' per-credit row exists; no separate in-state/out-of-district per-credit row is printed in this template edition."
+  },
+  "cost.tuition_per_credit_public_out_of_state": {
+   "status": "absent",
+   "value": null,
+   "page": 17,
+   "evidence": "Same G6 table: only the single 'PUBLIC INSTITUTIONS:' row is printed; no distinct out-of-state per-credit row exists in this template edition. Absent, not blank.",
+   "adjudication": "pass B won: G6 prints only an undifferentiated \"PUBLIC INSTITUTIONS:\" row with no residency breakdown. Pass A mapped this one metric onto the generic row while marking its three siblings absent for the identical reason; absent is the consistent treatment."
+  },
+  "cost.tuition_per_credit_nonresident": {
+   "status": "absent",
+   "value": null,
+   "page": 17,
+   "evidence": "G6 table has no separate 'Non-resident' or 'NONRESIDENTS' per-credit row (unlike G1, which does have a dedicated Non-resident/Nonresidents row). Only 'PRIVATE INSTITUTIONS:' and 'PUBLIC INSTITUTIONS:' rows are printed in G6. Recorded absent."
+  },
+  "transfer.enrolls_transfer_students": {
+   "status": "present",
+   "value": true,
+   "page": 13,
+   "evidence": "D1 first Yes/No control: X under 'Yes' for 'Does your institution enroll transfer students?'."
+  },
+  "transfer.allows_advanced_standing_from_external_coursework": {
+   "status": "present",
+   "value": true,
+   "page": 13,
+   "evidence": "D1 second Yes/No control: X under 'Yes' for 'may transfer students earn advanced standing credit by transferring credits earned from course work completed at other colleges/universities?'."
+  },
+  "transfer.applicants_total": {
+   "status": "present",
+   "value": 5761,
+   "page": 13,
+   "evidence": "D2 table, Total row, Applicants column = 5,761 (Fall 2022 transfer applicants)."
+  },
+  "transfer.admitted_total": {
+   "status": "present",
+   "value": 798,
+   "page": 13,
+   "evidence": "D2 table, Total row, Admitted column = 798."
+  },
+  "transfer.enrolled_total": {
+   "status": "present",
+   "value": 633,
+   "page": 13,
+   "evidence": "D2 table, Total row, Enrolled column = 633."
+  },
+  "transfer.minimum_prior_credit_threshold_applies": {
+   "status": "present",
+   "value": false,
+   "page": 13,
+   "evidence": "D4 Yes/No control: X under 'No' for 'Must a transfer applicant have a minimum number of credits completed or else must apply as an entering first-year student?'."
+  },
+  "transfer.minimum_prior_credit_value": {
+   "status": "blank",
+   "value": null,
+   "page": 13,
+   "evidence": "D4 'If yes, what is the minimum number of credits...' answer line is empty; consistent with D4 being answered No."
+  },
+  "transfer.minimum_prior_credit_unit": {
+   "status": "blank",
+   "value": null,
+   "page": 13,
+   "evidence": "D4 'and the unit of measure' answer line is empty; consistent with D4 being answered No."
+  },
+  "transfer.transfer_requirement_high_school_transcript": {
+   "status": "present",
+   "value": "required_all",
+   "page": 13,
+   "evidence": "D5 grid, row 'High school transcript', X in the 'Required of All' column (verified from page image, column position)."
+  },
+  "transfer.transfer_requirement_college_transcripts": {
+   "status": "present",
+   "value": "required_all",
+   "page": 13,
+   "evidence": "D5 grid, row 'College transcript(s)', X in the 'Required of All' column (verified from page image, column position)."
+  },
+  "transfer.transfer_requirement_essay_personal_statement": {
+   "status": "present",
+   "value": "required_all",
+   "page": 13,
+   "evidence": "D5 grid, row 'Essay or personal [statement]', X in the 'Required of All' column (verified from page image, column position)."
+  },
+  "transfer.transfer_requirement_interview": {
+   "status": "present",
+   "value": "required_some",
+   "page": 13,
+   "evidence": "D5 grid, row 'Interview', X in the 'Required of Some' column (verified from page image, column position)."
+  },
+  "transfer.transfer_requirement_standardized_test_scores": {
+   "status": "present",
+   "value": "not_required",
+   "page": 13,
+   "evidence": "D5 grid, row 'Standardized test scores', X in the 'Not Required' column (verified from page image, column position)."
+  },
+  "transfer.transfer_requirement_prior_institution_good_standing": {
+   "status": "present",
+   "value": "required_all",
+   "page": 13,
+   "evidence": "D5 grid, row 'Statement of good standing from prior [institution(s)]', X in the 'Required of All' column (verified from page image, column position)."
+  },
+  "transfer.minimum_high_school_gpa": {
+   "status": "blank",
+   "value": null,
+   "page": 13,
+   "evidence": "D6 answer line ('If a minimum high school grade point average is required...specify (on a 4.0 scale)') is empty in the page image."
+  },
+  "transfer.minimum_college_gpa": {
+   "status": "blank",
+   "value": null,
+   "page": 13,
+   "evidence": "D7 answer line ('If a minimum college grade point average is required...specify (on a 4.0 scale)') is empty in the page image."
+  },
+  "transfer.transfer_priority_date_fall": {
+   "status": "blank",
+   "value": null,
+   "page": 13,
+   "evidence": "D9 table, Fall row, Priority Date cell is empty (Closing Date 3/15, Notification Date 4/1 to 6/15, and Reply Date 7/1 are filled for the same row, but Priority Date is blank)."
+  },
+  "transfer.transfer_closing_date_fall": {
+   "status": "present",
+   "value": "3/15",
+   "page": 13,
+   "evidence": "D9 table, Fall row, Closing Date column = '3/15'."
+  },
+  "transfer.transfer_notification_date_fall": {
+   "status": "present",
+   "value": "4/1 to 6/15",
+   "page": 13,
+   "evidence": "D9 table, Fall row, Notification Date column = '4/1 to 6/15'."
+  },
+  "transfer.transfer_reply_date_fall": {
+   "status": "present",
+   "value": "7/1",
+   "page": 13,
+   "evidence": "D9 table, Fall row, Reply Date column = '7/1'."
+  },
+  "transfer.transfer_rolling_admission_fall": {
+   "status": "blank",
+   "value": null,
+   "page": 13,
+   "evidence": "D9 table, Fall row, 'Rolling Admission' cell is empty/unmarked in the page image. Per this metric's own instructions, a blank mark cell remains not_reported/blank, not false; this is the exact case flagged in the brief."
+  },
+  "transfer.open_admission_policy_applies": {
+   "status": "present",
+   "value": false,
+   "page": 13,
+   "evidence": "D10 Yes/No control: X under 'No' for 'Does an open admission policy, if reported, apply to transfer students?'."
+  },
+  "transfer.lowest_eligible_course_grade": {
+   "status": "present",
+   "value": "C or better",
+   "page": 14,
+   "evidence": "D12 answer line: 'C or better' printed after 'Report the lowest grade earned for any course that may be transferred for credit'."
+  },
+  "academics.special_study_accelerated_program": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Accelerated program' has an X in the single mark column."
+  },
+  "academics.special_study_cross_registration": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Cross-registration' has an X."
+  },
+  "academics.special_study_double_major": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Double major' has an X."
+  },
+  "academics.special_study_dual_enrollment": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Dual enrollment' box is present but unmarked (no X); complete E1 checklist is visible on this single page."
+  },
+  "academics.special_study_honors_program": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Honors Program' has an X."
+  },
+  "academics.special_study_independent_study": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Independent study' has an X."
+  },
+  "academics.special_study_internships": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Internships' has an X."
+  },
+  "academics.special_study_liberal_arts_career_combination": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Liberal arts/career combination' has an X."
+  },
+  "academics.special_study_student_designed_major": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Student-designed major' has an X."
+  },
+  "academics.special_study_study_abroad": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Study abroad' has an X."
+  },
+  "academics.special_study_teacher_certification": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Teacher certification program' box is present but unmarked (no X)."
+  },
+  "academics.special_study_undergraduate_research": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E1 checklist, row 'Undergraduate Research' has an X."
+  },
+  "academics.required_coursework_arts_fine_arts": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Arts/fine arts' box is present but unmarked (no X)."
+  },
+  "academics.required_coursework_computer_literacy": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Computer literacy' box is present but unmarked (no X)."
+  },
+  "academics.required_coursework_english_composition": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E3 checklist, row 'English (including composition)' has an X."
+  },
+  "academics.required_coursework_foreign_languages": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Foreign languages' box is present but unmarked (no X)."
+  },
+  "academics.required_coursework_history": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E3 checklist, row 'History' box is present but unmarked (no X)."
+  },
+  "academics.required_coursework_physical_education": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Physical Education' has an X."
+  },
+  "academics.required_coursework_humanities": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Humanities' has an X."
+  },
+  "academics.required_coursework_intensive_writing": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Intensive writing' box is present but unmarked (no X)."
+  },
+  "academics.required_coursework_mathematics": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Mathematics' has an X."
+  },
+  "academics.required_coursework_philosophy": {
+   "status": "present",
+   "value": false,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Philosophy' box is present but unmarked (no X)."
+  },
+  "academics.required_coursework_biological_physical_sciences": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Sciences (biological or physical)' has an X."
+  },
+  "academics.required_coursework_social_science": {
+   "status": "present",
+   "value": true,
+   "page": 15,
+   "evidence": "E3 checklist, row 'Social science' has an X."
+  },
+  "student_life.out_of_state_percent_undergraduates": {
+   "status": "present",
+   "value": "63%",
+   "page": 16,
+   "evidence": "F1 table, row 'Percent who are from out of state...', 'Undergraduates' column = 63% (First-time, first-year column = 65%, not used)."
+  },
+  "student_life.fraternity_joiners_percent_undergraduates": {
+   "status": "present",
+   "value": "19%",
+   "page": 16,
+   "evidence": "F1 table, row 'Percent of men who join fraternities', 'Undergraduates' column = 19%."
+  },
+  "student_life.sorority_joiners_percent_undergraduates": {
+   "status": "present",
+   "value": "16.1%",
+   "page": 16,
+   "evidence": "F1 table, row 'Percent of women who join sororities', 'Undergraduates' column = 16.1%."
+  },
+  "student_life.college_owned_housing_percent_undergraduates": {
+   "status": "present",
+   "value": "51.9%",
+   "page": 16,
+   "evidence": "F1 table, row 'Percent who live in college-owned, -operated, or -affiliated housing', 'Undergraduates' column = 51.9%."
+  },
+  "student_life.off_campus_or_commute_percent_undergraduates": {
+   "status": "present",
+   "value": "48.1%",
+   "page": 16,
+   "evidence": "F1 table, row 'Percent who live off campus or commute', 'Undergraduates' column = 48.1%."
+  },
+  "student_life.age_25_or_older_percent_undergraduates": {
+   "status": "present",
+   "value": "0.6%",
+   "page": 16,
+   "evidence": "F1 table, row 'Percent of students age 25 and older', 'Undergraduates' column = 0.6%."
+  },
+  "student_life.average_age_full_time_undergraduates": {
+   "status": "present",
+   "value": 19,
+   "page": 16,
+   "evidence": "F1 table, row 'Average age of full-time students', 'Undergraduates' column = 19."
+  },
+  "student_life.army_rotc_on_campus": {
+   "status": "present",
+   "value": true,
+   "page": 16,
+   "evidence": "F3 ROTC table, row 'Army ROTC is offered:', X in the 'On Campus' column."
+  },
+  "student_life.army_rotc_at_cooperating_institution": {
+   "status": "present",
+   "value": false,
+   "page": 16,
+   "evidence": "F3 ROTC table, row 'Army ROTC is offered:', 'At Cooperating Institution' cell is present but unmarked (no X); no cooperating institution name given either."
+  },
+  "student_life.naval_rotc_on_campus": {
+   "status": "present",
+   "value": true,
+   "page": 16,
+   "evidence": "F3 ROTC table, row 'Naval ROTC is offered:', X in the 'On Campus' column."
+  },
+  "student_life.naval_rotc_at_cooperating_institution": {
+   "status": "present",
+   "value": false,
+   "page": 16,
+   "evidence": "F3 ROTC table, row 'Naval ROTC is offered:', 'At Cooperating Institution' cell is present but unmarked (no X)."
+  },
+  "student_life.air_force_rotc_on_campus": {
+   "status": "present",
+   "value": true,
+   "page": 16,
+   "evidence": "F3 ROTC table, row 'Air Force ROTC is offered:', X in the 'On Campus' column."
+  },
+  "student_life.air_force_rotc_at_cooperating_institution": {
+   "status": "present",
+   "value": false,
+   "page": 16,
+   "evidence": "F3 ROTC table, row 'Air Force ROTC is offered:', 'At Cooperating Institution' cell is present but unmarked (no X)."
+  },
+  "financial_aid.aid_reporting_academic_year": {
+   "status": "present",
+   "value": "2022-2023",
+   "page": 19,
+   "evidence": "Page 19 bottom: 'Indicate the academic year for which data are reported for items H1, H2, H2A, and H6 below:' table with columns '2022-2023' and '2021-2022'; X marked under 2022-2023."
+  },
+  "financial_aid.aid_reporting_status": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "Searched the H1 heading area (pages 19-20) for an Estimated/Final control beside the aid-reporting-year table. No such control is printed anywhere on this page; the only box present is the 2022-2023/2021-2022 year selector. This template edition does not appear to carry a separate Estimated/Final selector distinct from the year table, so recording absent rather than inferring.",
+   "adjudication": "pass B won: Both passes confirm NO Estimated/Final control is printed anywhere near the year selector. Distinct from Dartmouth, whose table prints a \"2023-2024 Final\" column label (control exists, answer unresolved -> blank). Here the control does not exist -> absent."
+  },
+  "financial_aid.need_analysis_methodology": {
+   "status": "present",
+   "value": "institutional",
+   "page": 20,
+   "evidence": "Page 20 top: three-row checkbox 'Federal methodology (FM)' / 'Institutional methodology (IM)' / 'Both FM and IM'; X marked on 'Institutional methodology (IM)' row."
+  },
+  "financial_aid.h2_a_degree_seeking_undergraduates_first_time_first_year": {
+   "status": "present",
+   "value": 3491,
+   "page": 20,
+   "evidence": "H2 table row A 'Number of degree-seeking undergraduate students', Full-time First-time First-year column: 3,491."
+  },
+  "financial_aid.h2_b_applied_for_need_based_aid_first_time_first_year": {
+   "status": "present",
+   "value": 2222,
+   "page": 20,
+   "evidence": "H2 table row B, Full-time First-time First-year column: 2,222."
+  },
+  "financial_aid.h2_c_determined_have_need_first_time_first_year": {
+   "status": "present",
+   "value": 1778,
+   "page": 20,
+   "evidence": "H2 table row C, Full-time First-time First-year column: 1,778."
+  },
+  "financial_aid.h2_d_awarded_any_aid_first_time_first_year": {
+   "status": "present",
+   "value": 1778,
+   "page": 20,
+   "evidence": "H2 table row D, Full-time First-time First-year column: 1,778."
+  },
+  "financial_aid.h2_e_awarded_need_based_grant_aid_first_time_first_year": {
+   "status": "present",
+   "value": 1717,
+   "page": 20,
+   "evidence": "H2 table row E, Full-time First-time First-year column: 1,717."
+  },
+  "financial_aid.h2_f_awarded_need_based_self_help_aid_first_time_first_year": {
+   "status": "present",
+   "value": 1150,
+   "page": 20,
+   "evidence": "H2 table row F, Full-time First-time First-year column: 1,150."
+  },
+  "financial_aid.h2_g_awarded_non_need_based_grant_aid_first_time_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 20,
+   "raw_printed": "-",
+   "evidence": "H2 table row G, Full-time First-time First-year column prints a bare dash '-' rather than a number; metric type is integer, so recorded blank per brief's non-numeric-token rule, token preserved."
+  },
+  "financial_aid.h2_h_need_fully_met_count_first_time_first_year": {
+   "status": "present",
+   "value": 1778,
+   "page": 20,
+   "evidence": "H2 table row H 'Number of students in line d whose need was fully met', Full-time First-time First-year column: 1,778."
+  },
+  "financial_aid.h2_i_average_percent_need_met_first_time_first_year": {
+   "status": "present",
+   "value": 100,
+   "page": 20,
+   "evidence": "H2 table row I 'On average, the percentage of need that was met...', Full-time First-time First-year column: 100%. Recorded as printed percent number 100.",
+   "raw_value": "100%"
+  },
+  "financial_aid.h2_i_average_percent_need_met_all_full_time": {
+   "status": "present",
+   "value": 100,
+   "page": 20,
+   "evidence": "H2 table row I, Full-time Undergrad (Incl. Fresh) column: 100%. Recorded as printed percent number 100.",
+   "raw_value": "100%"
+  },
+  "financial_aid.h2_j_average_aid_package_first_time_first_year": {
+   "status": "present",
+   "value": 59644,
+   "page": 20,
+   "evidence": "H2 table row J 'The average financial aid package of those in line d', Full-time First-time First-year column: $59,644."
+  },
+  "financial_aid.h2_j_average_aid_package_all_full_time": {
+   "status": "present",
+   "value": 56749,
+   "page": 20,
+   "evidence": "H2 table row J, Full-time Undergrad (Incl. Fresh) column: $56,749."
+  },
+  "financial_aid.h2_k_average_need_based_grant_award_first_time_first_year": {
+   "status": "present",
+   "value": 55325,
+   "page": 21,
+   "evidence": "H2 table row K 'Average need-based scholarship and grant award of those in line e', Full-time First-time First-year column: $55,325."
+  },
+  "financial_aid.h2_l_average_need_based_self_help_award_first_time_first_year": {
+   "status": "present",
+   "value": 4823,
+   "page": 21,
+   "evidence": "H2 table row L 'Average need-based self-help award... of those in line f', Full-time First-time First-year column: $4,823."
+  },
+  "financial_aid.h2_m_average_need_based_loan_award_first_time_first_year": {
+   "status": "present",
+   "value": 4574,
+   "page": 21,
+   "evidence": "H2 table row M 'Average need-based loan... of those in line f who were awarded a need-based loan', Full-time First-time First-year column: $4,574."
+  },
+  "financial_aid.h2a_n_no_need_institutional_grant_recipients_first_time_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 21,
+   "evidence": "H2A table row N, all three column cells (Full-time First-time First-year / Full-time Undergrad / Less Than Full-time Undergrad) are visibly empty boxes on the page image; institution left this row blank."
+  },
+  "financial_aid.h2a_o_average_no_need_institutional_grant_amount_first_time_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 21,
+   "evidence": "H2A table row O cell for Full-time First-time First-year is a visibly empty box, consistent with row N being blank (no recipients to average)."
+  },
+  "financial_aid.h2a_p_institutional_athletic_grant_recipients_first_time_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 21,
+   "evidence": "H2A table row P cell for Full-time First-time First-year is a visibly empty box."
+  },
+  "financial_aid.h2a_q_average_institutional_athletic_grant_amount_first_time_first_year": {
+   "status": "blank",
+   "value": null,
+   "page": 21,
+   "evidence": "H2A table row Q cell for Full-time First-time First-year is a visibly empty box."
+  },
+  "financial_aid.graduating_class_first_time_bachelors_count": {
+   "status": "present",
+   "value": 3173,
+   "page": 21,
+   "evidence": "H4 boxed answer: 'Provide the number of students in the 2022 undergraduate class who started at your institution as first-time students and received a bachelor's degree between July 1, 2021 and June 30, 2022...' box reads 3173."
+  },
+  "financial_aid.h5_borrowers_any_program_percent_of_class": {
+   "status": "present",
+   "value": 37,
+   "page": 22,
+   "raw_value": "37.00%",
+   "evidence": "H5 table row A 'Any loan program: Federal Perkins, Federal Stafford Subsidized and Unsubsidized, institutional, state, private loans...', 'Percent of the class...' column: 37.00%."
+  },
+  "financial_aid.h5_borrowers_any_program_average_principal": {
+   "status": "present",
+   "value": 28408,
+   "page": 22,
+   "evidence": "H5 table row A, 'Average per-undergraduate-borrower cumulative principal...' column: $28,408."
+  },
+  "financial_aid.h5_borrowers_private_percent_of_class": {
+   "status": "present",
+   "value": 7,
+   "page": 22,
+   "raw_value": "7.00%",
+   "evidence": "H5 table row E 'Private student loans made by a bank or lender', 'Percent of the class...' column: 7.00%."
+  },
+  "financial_aid.h5_borrowers_private_average_principal": {
+   "status": "present",
+   "value": 61531,
+   "page": 22,
+   "evidence": "H5 table row E, 'Average per-undergraduate-borrower cumulative principal...' column: $61,531."
+  },
+  "financial_aid.h6_need_based_grants_available": {
+   "status": "present",
+   "value": true,
+   "page": 22,
+   "evidence": "H6 checklist, page 22: X marked on 'Institutional need-based scholarship or grant aid is available'."
+  },
+  "financial_aid.h6_non_need_based_grants_available": {
+   "status": "present",
+   "value": false,
+   "page": 22,
+   "evidence": "H6 checklist, page 22: 'Institutional non-need-based scholarship or grant aid is available' box is visibly unmarked (complete 3-row checklist visible, only the need-based row is checked)."
+  },
+  "financial_aid.h6_grants_unavailable": {
+   "status": "present",
+   "value": false,
+   "page": 22,
+   "evidence": "H6 checklist, page 22: 'Institutional scholarship or grant aid is not available' box is visibly unmarked."
+  },
+  "financial_aid.h6_recipient_count": {
+   "status": "present",
+   "value": 288,
+   "page": 22,
+   "evidence": "H6, page 22: 'provide the number of undergraduate degree-seeking nonresidents who were awarded need-based or non-need-based aid:' 288."
+  },
+  "financial_aid.h6_average_institutional_aid": {
+   "status": "present",
+   "value": 76179,
+   "page": 22,
+   "evidence": "H6, page 22: 'Average dollar amount of institutional financial aid awarded to undergraduate degree-seeking nonresidents:' $76,179."
+  },
+  "financial_aid.h6_total_institutional_aid": {
+   "status": "present",
+   "value": 21939614,
+   "page": 22,
+   "evidence": "H6, page 22: 'Total dollar amount of institutional financial aid awarded to undergraduate degree-seeking nonresidents:' $21,939,614."
+  },
+  "financial_aid.h7_institution_form_required": {
+   "status": "present",
+   "value": false,
+   "page": 22,
+   "evidence": "H7 checklist, page 22: 'Institution's own financial aid form' box is visibly unmarked (complete checklist visible; only CSS/Financial Aid PROFILE is checked)."
+  },
+  "financial_aid.h7_css_profile_required": {
+   "status": "present",
+   "value": true,
+   "page": 22,
+   "evidence": "H7 checklist, page 22: X marked on 'CSS/Financial Aid PROFILE'."
+  },
+  "financial_aid.h8_institution_form_required": {
+   "status": "present",
+   "value": false,
+   "page": 22,
+   "evidence": "H8 checklist, page 22 (continues onto page 23): 'Institution's own financial aid form' box is visibly unmarked; FAFSA and CSS/Financial Aid PROFILE are checked instead."
+  },
+  "financial_aid.h8_css_profile_required": {
+   "status": "present",
+   "value": true,
+   "page": 22,
+   "evidence": "H8 checklist, page 22: X marked on 'CSS/Financial Aid PROFILE'."
+  },
+  "financial_aid.h8_state_aid_form_required": {
+   "status": "present",
+   "value": false,
+   "page": 22,
+   "evidence": "H8 checklist, page 22: 'State aid form' box is visibly unmarked."
+  },
+  "financial_aid.h8_noncustodial_profile_required": {
+   "status": "present",
+   "value": true,
+   "page": 23,
+   "evidence": "H8 checklist continuation, page 23 top: X marked on 'Noncustodial PROFILE'."
+  },
+  "financial_aid.h8_business_farm_supplement_required": {
+   "status": "present",
+   "value": false,
+   "page": 23,
+   "evidence": "H8 checklist continuation, page 23 top: 'Business/Farm Supplement' box is visibly unmarked."
+  },
+  "financial_aid.aid_has_deadline": {
+   "status": "absent",
+   "value": null,
+   "page": 23,
+   "evidence": "H9 on page 23 has no direct 'Does your institution have a deadline...Yes/No' control; it only offers fill-in-the-blank priority/deadline date lines plus a standalone 'No deadline...rolling basis' checkbox. This explicit Yes/No control is not present in this template edition, so recorded absent (not_in_template_version)."
+  },
+  "financial_aid.aid_priority_date_selected": {
+   "status": "absent",
+   "value": null,
+   "page": 23,
+   "evidence": "H9 page 23: 'Priority date for filing required financial aid forms:' is a bare blank fill-in line with no adjacent checkbox or selection control of any kind (unlike the standalone 'No deadline...rolling basis' checkbox below it). Per the ruling that a fill-in line without a per-line control cannot support a selection-state boolean, recorded absent rather than inferred from the (also empty) date line."
+  },
+  "financial_aid.aid_priority_date": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H9 page 23: 'Priority date for filing required financial aid forms:' underline is visibly blank/uncompleted."
+  },
+  "financial_aid.aid_deadline_selected": {
+   "status": "absent",
+   "value": null,
+   "page": 23,
+   "evidence": "H9 page 23: 'Deadline for filing required financial aid forms:' is a bare blank fill-in line with no adjacent checkbox or selection control. Recorded absent for the same reason as aid_priority_date_selected."
+  },
+  "financial_aid.aid_deadline_date_or_text": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H9 page 23: 'Deadline for filing required financial aid forms:' underline is visibly blank/uncompleted."
+  },
+  "financial_aid.aid_no_deadline_rolling_selected": {
+   "status": "present",
+   "value": false,
+   "page": 23,
+   "evidence": "H9 page 23: standalone checkbox 'No deadline for filing required forms (applications processed on a rolling basis)' is a real, visible checkbox and it is unmarked (empty box)."
+  },
+  "financial_aid.aid_notification_fixed_selected": {
+   "status": "absent",
+   "value": null,
+   "page": 23,
+   "evidence": "H10 page 23: 'a) Students notified on or about (date): 15-Apr' is a bare fill-in line with a filled date but no adjacent checkbox/selection control distinguishing it from option (b). Per the ruling, selection state cannot be inferred from the filled date line alone, so recorded absent."
+  },
+  "financial_aid.aid_notification_fixed_date": {
+   "status": "present",
+   "value": "15-Apr",
+   "page": 23,
+   "evidence": "H10 page 23: 'a) Students notified on or about (date):' underline reads '15-Apr'."
+  },
+  "financial_aid.aid_notification_rolling_selected": {
+   "status": "present",
+   "value": false,
+   "page": 23,
+   "evidence": "H10 page 23: 'b) Students notified on a rolling basis:' has real, visible Yes/No checkboxes; both are unmarked (complete visible checklist unambiguously unmarked), so recorded false per the metric's own instructions."
+  },
+  "financial_aid.aid_notification_rolling_start_date": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H10 page 23: 'If yes, starting date:' underline is visibly blank/uncompleted."
+  },
+  "financial_aid.h11_reply_deadline_date": {
+   "status": "present",
+   "value": "5/1",
+   "page": 23,
+   "evidence": "H11 table, page 23: 'Students must reply by (date):' cell reads '5/1'."
+  },
+  "financial_aid.h11_reply_weeks_after_notification": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H11 table, page 23: 'or within ___ weeks of notification.' blank underline cell is visibly empty."
+  },
+  "financial_aid.h12_state_loan_available": {
+   "status": "present",
+   "value": false,
+   "page": 23,
+   "evidence": "H12 Loans checklist, page 23: 'State Loans' box is visibly unmarked (complete checklist visible; Direct Subsidized/Unsubsidized Stafford, Direct PLUS, and College/university loans are checked instead)."
+  },
+  "financial_aid.h12_institution_loan_available": {
+   "status": "present",
+   "value": true,
+   "page": 23,
+   "evidence": "H12 Loans checklist, page 23: X marked on 'College/university loans from institutional funds'."
+  },
+  "financial_aid.h14_academics_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Academics' row, Non-Need Based column cell is a visibly empty (unmarked) box; per this metric's instructions a blank H14 cell is not_reported, not false."
+  },
+  "financial_aid.h14_alumni_affiliation_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Alumni affiliation' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_art_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Art' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_athletics_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Athletics' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_athletics_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Athletics' row, Need-Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_job_skills_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Job skills' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_rotc_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'ROTC' row, Non-Need Based column cell is visibly empty/unmarked (the Need-Based cell in this row is rendered as a solid gray block, i.e. not a data mark, but the Non-Need Based cell itself is a plain empty white cell)."
+  },
+  "financial_aid.h14_leadership_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Leadership' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_minority_status_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Minority status' row, Non-Need Based column cell is visibly empty/unmarked (row is present in this template edition, unlike some other editions where it is omitted)."
+  },
+  "financial_aid.h14_music_drama_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Music/drama' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_religious_affiliation_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'Religious affiliation' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.h14_state_district_residency_non_need_based": {
+   "status": "blank",
+   "value": null,
+   "page": 23,
+   "evidence": "H14 grid, page 23: 'State/district residency' row, Non-Need Based column cell is visibly empty/unmarked."
+  },
+  "financial_aid.recent_affordability_initiative_details": {
+   "status": "present",
+   "value": "Please visit https://finaid.cornell.edu/ for details and deadlines and to speak with a Cornell financial aid counselor",
+   "page": 24,
+   "evidence": "H15 free-text box, page 24: verbatim response as printed."
+  },
+  "faculty.total_instructional_faculty_full_time": {
+   "status": "present",
+   "value": 1901,
+   "page": 25,
+   "evidence": "I-1 table, row A 'Total number of instructional faculty', Full-Time column."
+  },
+  "faculty.total_instructional_faculty_part_time": {
+   "status": "present",
+   "value": 366,
+   "page": 25,
+   "evidence": "I-1 table, row A 'Total number of instructional faculty', Part-Time column."
+  },
+  "faculty.doctorate_or_terminal_degree_faculty_full_time": {
+   "status": "present",
+   "value": 1792,
+   "page": 25,
+   "evidence": "I-1 table, row F 'Total number with doctorate, or other terminal degree', Full-Time column."
+  },
+  "faculty.doctorate_or_terminal_degree_faculty_part_time": {
+   "status": "present",
+   "value": 237,
+   "page": 25,
+   "evidence": "I-1 table, row F 'Total number with doctorate, or other terminal degree', Part-Time column."
+  },
+  "class_size.students_per_faculty": {
+   "status": "present",
+   "value": 9,
+   "page": 25,
+   "evidence": "I-2 'Fall 2022 Student to Faculty ratio' box: printed as '9 to 1'; recorded the numeric students-per-one-faculty component (9)."
+  },
+  "class_size.ratio_basis_student_fte": {
+   "status": "present",
+   "value": 15528,
+   "page": 25,
+   "evidence": "I-2 box, '(based on 15528 students'."
+  },
+  "class_size.ratio_basis_faculty_fte": {
+   "status": "present",
+   "value": 1702,
+   "page": 25,
+   "evidence": "I-2 box, 'and 1702 faculty)'."
+  },
+  "class_size.class_sections_2_9": {
+   "status": "present",
+   "value": 375,
+   "page": 26,
+   "evidence": "I-3 'CLASS SECTIONS' row, '2-9' column."
+  },
+  "class_size.class_sections_10_19": {
+   "status": "present",
+   "value": 909,
+   "page": 26,
+   "evidence": "I-3 'CLASS SECTIONS' row, '10-19' column."
+  },
+  "class_size.class_sections_20_29": {
+   "status": "present",
+   "value": 287,
+   "page": 26,
+   "evidence": "I-3 'CLASS SECTIONS' row, '20-29' column."
+  },
+  "class_size.class_sections_30_39": {
+   "status": "present",
+   "value": 196,
+   "page": 26,
+   "evidence": "I-3 'CLASS SECTIONS' row, '30-39' column."
+  },
+  "class_size.class_sections_40_49": {
+   "status": "present",
+   "value": 122,
+   "page": 26,
+   "evidence": "I-3 'CLASS SECTIONS' row, '40-49' column."
+  },
+  "class_size.class_sections_50_99": {
+   "status": "present",
+   "value": 279,
+   "page": 26,
+   "evidence": "I-3 'CLASS SECTIONS' row, '50-99' column."
+  },
+  "class_size.class_sections_100_plus": {
+   "status": "present",
+   "value": 168,
+   "page": 26,
+   "evidence": "I-3 'CLASS SECTIONS' row, '100+' column. Row total printed as 2336 (375+909+287+196+122+279+168=2336, matches)."
+  },
+  "class_size.class_subsections_2_9": {
+   "status": "present",
+   "value": 138,
+   "page": 26,
+   "evidence": "I-3 'CLASS SUB-SECTIONS' row, '2-9' column."
+  },
+  "class_size.class_subsections_10_19": {
+   "status": "present",
+   "value": 520,
+   "page": 26,
+   "evidence": "I-3 'CLASS SUB-SECTIONS' row, '10-19' column."
+  },
+  "class_size.class_subsections_20_29": {
+   "status": "present",
+   "value": 505,
+   "page": 26,
+   "evidence": "I-3 'CLASS SUB-SECTIONS' row, '20-29' column."
+  },
+  "class_size.class_subsections_30_39": {
+   "status": "present",
+   "value": 141,
+   "page": 26,
+   "evidence": "I-3 'CLASS SUB-SECTIONS' row, '30-39' column."
+  },
+  "class_size.class_subsections_40_49": {
+   "status": "present",
+   "value": 83,
+   "page": 26,
+   "evidence": "I-3 'CLASS SUB-SECTIONS' row, '40-49' column."
+  },
+  "class_size.class_subsections_50_99": {
+   "status": "present",
+   "value": 35,
+   "page": 26,
+   "evidence": "I-3 'CLASS SUB-SECTIONS' row, '50-99' column."
+  },
+  "class_size.class_subsections_100_plus": {
+   "status": "present",
+   "value": 10,
+   "page": 26,
+   "evidence": "I-3 'CLASS SUB-SECTIONS' row, '100+' column. Row total printed as 1432 (138+520+505+141+83+35+10=1432, matches)."
+  },
+  "degrees.agriculture_bachelors_percent": {
+   "status": "present",
+   "value": "10.42%",
+   "page": 27,
+   "evidence": "J1 table, row 'Agriculture' (CIP 01), Bachelor's column."
+  },
+  "degrees.natural_resources_conservation_bachelors_percent": {
+   "status": "present",
+   "value": "2.50%",
+   "page": 27,
+   "evidence": "J1 table, row 'Natural resources and conservation' (CIP 03), Bachelor's column."
+  },
+  "degrees.architecture_bachelors_percent": {
+   "status": "present",
+   "value": "2.53%",
+   "page": 27,
+   "evidence": "J1 table, row 'Architecture' (CIP 04), Bachelor's column."
+  },
+  "degrees.area_ethnic_gender_studies_bachelors_percent": {
+   "status": "present",
+   "value": "0.97%",
+   "page": 27,
+   "evidence": "J1 table, row 'Area, ethnic, and gender studies' (CIP 05), Bachelor's column."
+  },
+  "degrees.communication_journalism_bachelors_percent": {
+   "status": "present",
+   "value": "2.26%",
+   "page": 27,
+   "evidence": "J1 table, row 'Communication/journalism' (CIP 09), Bachelor's column."
+  },
+  "degrees.communication_technologies_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Communication technologies' (CIP 10): Bachelor's cell is genuinely empty, no figure printed at all."
+  },
+  "degrees.computer_information_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "17.02%",
+   "page": 27,
+   "evidence": "J1 table, row 'Computer and information sciences' (CIP 11), Bachelor's column."
+  },
+  "degrees.personal_culinary_services_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Personal and culinary services' (CIP 12): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.education_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Education' (CIP 13): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.engineering_bachelors_percent": {
+   "status": "present",
+   "value": "13.10%",
+   "page": 27,
+   "evidence": "J1 table, row 'Engineering' (CIP 14), Bachelor's column."
+  },
+  "degrees.engineering_technologies_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Engineering technologies' (CIP 15): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.foreign_languages_literatures_linguistics_bachelors_percent": {
+   "status": "present",
+   "value": "0.90%",
+   "page": 27,
+   "evidence": "J1 table, row 'Foreign languages, literatures, and linguistics' (CIP 16), Bachelor's column."
+  },
+  "degrees.family_consumer_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "2.26%",
+   "page": 27,
+   "evidence": "J1 table, row 'Family and consumer sciences' (CIP 19), Bachelor's column."
+  },
+  "degrees.law_legal_studies_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Law/legal studies' (CIP 22): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.english_bachelors_percent": {
+   "status": "present",
+   "value": "1.00%",
+   "page": 27,
+   "evidence": "J1 table, row 'English' (CIP 23), Bachelor's column."
+  },
+  "degrees.liberal_arts_general_studies_bachelors_percent": {
+   "status": "present",
+   "value": "0.42%",
+   "page": 27,
+   "evidence": "J1 table, row 'Liberal arts/general studies' (CIP 24), Bachelor's column."
+  },
+  "degrees.library_science_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Library science' (CIP 25): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.biological_life_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "12.81%",
+   "page": 27,
+   "evidence": "J1 table, row 'Biological/life sciences' (CIP 26), Bachelor's column."
+  },
+  "degrees.mathematics_statistics_bachelors_percent": {
+   "status": "present",
+   "value": "1.61%",
+   "page": 27,
+   "evidence": "J1 table, row 'Mathematics and statistics' (CIP 27), Bachelor's column."
+  },
+  "degrees.interdisciplinary_studies_bachelors_percent": {
+   "status": "present",
+   "value": "1.18%",
+   "page": 27,
+   "evidence": "J1 table, row 'Interdisciplinary studies' (CIP 30), Bachelor's column."
+  },
+  "degrees.parks_recreation_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Parks and recreation' (CIP 31): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.philosophy_religious_studies_bachelors_percent": {
+   "status": "present",
+   "value": "0.47%",
+   "page": 27,
+   "evidence": "J1 table, row 'Philosophy and religious studies' (CIP 38), Bachelor's column."
+  },
+  "degrees.theology_religious_vocations_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Theology and religious vocations' (CIP 39): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.physical_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "2.71%",
+   "page": 27,
+   "evidence": "J1 table, row 'Physical sciences' (CIP 40), Bachelor's column."
+  },
+  "degrees.science_technologies_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Science technologies' (CIP 41): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.psychology_bachelors_percent": {
+   "status": "present",
+   "value": "1.55%",
+   "page": 27,
+   "evidence": "J1 table, row 'Psychology' (CIP 42), Bachelor's column."
+  },
+  "degrees.homeland_security_law_enforcement_protective_services_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Homeland Security, law enforcement, firefighting, [and protective services]' (CIP 43; row label wraps/truncates in the printed table): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.public_administration_social_services_bachelors_percent": {
+   "status": "present",
+   "value": "1.76%",
+   "page": 27,
+   "evidence": "J1 table, row 'Public administration and social services' (CIP 44), Bachelor's column."
+  },
+  "degrees.social_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "8.13%",
+   "page": 27,
+   "evidence": "J1 table, row 'Social sciences' (CIP 45), Bachelor's column."
+  },
+  "degrees.construction_trades_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Construction trades' (CIP 46): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.mechanic_repair_technologies_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Mechanic and repair technologies' (CIP 47): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.precision_production_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Precision production' (CIP 48): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.transportation_materials_moving_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Transportation and materials moving' (CIP 49): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.visual_performing_arts_bachelors_percent": {
+   "status": "present",
+   "value": "1.45%",
+   "page": 27,
+   "evidence": "J1 table, row 'Visual and performing arts' (CIP 50), Bachelor's column."
+  },
+  "degrees.health_professions_bachelors_percent": {
+   "status": "present",
+   "value": "0.68%",
+   "page": 27,
+   "evidence": "J1 table, row 'Health professions and related programs' (CIP 51), Bachelor's column."
+  },
+  "degrees.business_marketing_bachelors_percent": {
+   "status": "present",
+   "value": "13.42%",
+   "page": 27,
+   "evidence": "J1 table, row 'Business/marketing' (CIP 52), Bachelor's column."
+  },
+  "degrees.history_bachelors_percent": {
+   "status": "present",
+   "value": "0.84%",
+   "page": 27,
+   "evidence": "J1 table, row 'History' (CIP 54), Bachelor's column."
+  },
+  "degrees.military_science_combined_cip_28_29_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table, row 'Military science and military technologies', CIP-code cell reads '28 & 29' (one combined row for both CIP families, verified against the page image): Bachelor's cell is empty, no figure printed."
+  },
+  "degrees.military_science_cip_28_bachelors_percent": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "This document's J1 table prints ONE combined 'Military science and military technologies' row with CIP cell '28 & 29', not two separate CIP 28 / CIP 29 rows. This split-row metric's shape (Yale's form version) does not exist in this document; use degrees.military_science_combined_cip_28_29_bachelors_percent instead."
+  },
+  "degrees.military_science_cip_29_bachelors_percent": {
+   "status": "absent",
+   "value": null,
+   "page": null,
+   "evidence": "Same as degrees.military_science_cip_28_bachelors_percent: this document has only the combined '28 & 29' row, not a separate second CIP 29 row."
+  },
+  "degrees.other_bachelors_percent": {
+   "status": "blank",
+   "value": null,
+   "page": 27,
+   "evidence": "J1 table has a printed 'Other' row (above the TOTAL row) with all three value columns (Diploma/Certificates, Associate, Bachelor's) left empty; the row exists in this template edition but the institution did not fill in a value."
+  }
+ }
+}

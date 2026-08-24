@@ -12,15 +12,15 @@
    "ij"
   ],
   "metrics": 394,
-  "adjudicated": 6,
+  "adjudicated": 8,
   "pass_agreement": "390/394 = 98.98% before adjudication",
   "scorer_version_at_seal": "1.2.0",
   "manifest": "5.0.2"
  },
  "status_counts": {
-  "present": 252,
+  "present": 250,
   "blank": 108,
-  "absent": 34
+  "absent": 36
  },
  "metrics": {
   "identity.institution_name": {
@@ -1866,10 +1866,11 @@
    "evidence": "This document's H9 ('Indicate filing dates for first-year students') has no separate explicit 'Does your institution have a deadline for filing required financial aid forms?' Yes/No control -- it goes straight to fill-in-the-blank Priority date / Deadline lines plus a single 'No deadline...rolling' checkbox. That explicit boolean control is not printed in this template edition."
   },
   "financial_aid.aid_priority_date_selected": {
-   "status": "present",
-   "value": false,
+   "status": "absent",
+   "value": null,
    "page": 22,
-   "evidence": "H9 'Priority date for filing required financial aid forms:' fill-in line is left blank (no text written on the underscored line), while the Deadline line below it is filled with '1-Feb'. No separate tick-box exists per line in this template; blank line for Priority date read as not selected."
+   "evidence": "ORCHESTRATOR RULING, from direct reading of the p22 image. H9 in this template consists of two fill-in date LINES (priority date: empty; deadline: '1-Feb') plus ONE standalone checkbox ('No deadline for filing required forms', unticked). There is NO per-line selection control for either date. The metric instructions require 'true only when the control is visibly selected' and 'false only when the complete visible checklist shows it unambiguously unmarked' -- neither is satisfiable when the control does not exist. Recorded `absent` (not in this template edition), consistent with the same ruling both passes independently made for the sibling metric financial_aid.aid_has_deadline. Both passes inferred a value from whether the DATE LINE was filled, which is exactly the inference aid_priority_date_selected's instructions forbid ('independently of the date value ... even if the two are inconsistent').",
+   "adjudication": "orchestrator_ruling_no_selection_control_in_template"
   },
   "financial_aid.aid_priority_date": {
    "status": "blank",
@@ -1878,10 +1879,11 @@
    "evidence": "H9 'Priority date for filing required financial aid forms:' underscored line is present but left empty."
   },
   "financial_aid.aid_deadline_selected": {
-   "status": "present",
-   "value": true,
+   "status": "absent",
+   "value": null,
    "page": 22,
-   "evidence": "H9 'Deadline for filing required financial aid forms:' line is filled with '1-Feb'."
+   "evidence": "ORCHESTRATOR RULING, from direct reading of the p22 image. H9 in this template consists of two fill-in date LINES (priority date: empty; deadline: '1-Feb') plus ONE standalone checkbox ('No deadline for filing required forms', unticked). There is NO per-line selection control for either date. The metric instructions require 'true only when the control is visibly selected' and 'false only when the complete visible checklist shows it unambiguously unmarked' -- neither is satisfiable when the control does not exist. Recorded `absent` (not in this template edition), consistent with the same ruling both passes independently made for the sibling metric financial_aid.aid_has_deadline. Both passes inferred a value from whether the DATE LINE was filled, which is exactly the inference aid_priority_date_selected's instructions forbid ('independently of the date value ... even if the two are inconsistent').",
+   "adjudication": "orchestrator_ruling_no_selection_control_in_template"
   },
   "financial_aid.aid_deadline_date_or_text": {
    "status": "present",

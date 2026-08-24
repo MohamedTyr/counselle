@@ -1,0 +1,404 @@
+{
+  "financial_aid.aid_reporting_academic_year": {
+    "status": "present",
+    "value": "2022-2023",
+    "page": 19,
+    "evidence": "Page 19, table right below H1 instructions: 'Indicate the academic year for which data are reported for items H1, H2, H2A, and H6 below:' with two green column headers '2022-2023' and '2021-2022'; X mark sits in the 2022-2023 column, 2021-2022 column is blank."
+  },
+  "financial_aid.aid_reporting_status": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "Searched the H1 heading area (pages 19-20) for an Estimated/Final control beside the aid-reporting-year table. No such control is printed anywhere on this page; the only box present is the 2022-2023/2021-2022 year selector. This template edition does not appear to carry a separate Estimated/Final selector distinct from the year table, so recording absent rather than inferring."
+  },
+  "financial_aid.need_analysis_methodology": {
+    "status": "present",
+    "value": "institutional",
+    "page": 20,
+    "evidence": "Top of page 20, three-row checkbox list 'Federal methodology (FM)' / 'Institutional methodology (IM)' / 'Both FM and IM'; X mark is in the 'Institutional methodology (IM)' row, the other two rows are unmarked."
+  },
+  "financial_aid.h2_a_degree_seeking_undergraduates_first_time_first_year": {
+    "status": "present",
+    "value": 3491,
+    "page": 20,
+    "evidence": "H2 table row A ('Number of degree-seeking undergraduate students'), Full-time First-time First-year column: 3,491."
+  },
+  "financial_aid.h2_b_applied_for_need_based_aid_first_time_first_year": {
+    "status": "present",
+    "value": 2222,
+    "page": 20,
+    "evidence": "H2 table row B, Full-time First-time First-year column: 2,222."
+  },
+  "financial_aid.h2_c_determined_have_need_first_time_first_year": {
+    "status": "present",
+    "value": 1778,
+    "page": 20,
+    "evidence": "H2 table row C, Full-time First-time First-year column: 1,778."
+  },
+  "financial_aid.h2_d_awarded_any_aid_first_time_first_year": {
+    "status": "present",
+    "value": 1778,
+    "page": 20,
+    "evidence": "H2 table row D, Full-time First-time First-year column: 1,778."
+  },
+  "financial_aid.h2_e_awarded_need_based_grant_aid_first_time_first_year": {
+    "status": "present",
+    "value": 1717,
+    "page": 20,
+    "evidence": "H2 table row E, Full-time First-time First-year column: 1,717."
+  },
+  "financial_aid.h2_f_awarded_need_based_self_help_aid_first_time_first_year": {
+    "status": "present",
+    "value": 1150,
+    "page": 20,
+    "evidence": "H2 table row F, Full-time First-time First-year column: 1,150."
+  },
+  "financial_aid.h2_g_awarded_non_need_based_grant_aid_first_time_first_year": {
+    "status": "blank",
+    "value": null,
+    "page": 20,
+    "evidence": "H2 table row G, Full-time First-time First-year column: printed as a bare dash '-', not a number. Treated as institution left the cell without a numeric answer (not 0)."
+  },
+  "financial_aid.h2_h_need_fully_met_count_first_time_first_year": {
+    "status": "present",
+    "value": 1778,
+    "page": 20,
+    "evidence": "H2 table row H, Full-time First-time First-year column: 1,778."
+  },
+  "financial_aid.h2_i_average_percent_need_met_first_time_first_year": {
+    "status": "present",
+    "value": 100,
+    "page": 20,
+    "evidence": "H2 table row I, Full-time First-time First-year column: '100%'."
+  },
+  "financial_aid.h2_i_average_percent_need_met_all_full_time": {
+    "status": "present",
+    "value": 100,
+    "page": 20,
+    "evidence": "H2 table row I, Full-time Undergrad (Incl. Fresh) column: '100%'."
+  },
+  "financial_aid.h2_j_average_aid_package_first_time_first_year": {
+    "status": "present",
+    "value": 59644,
+    "page": 20,
+    "evidence": "H2 table row J, Full-time First-time First-year column: '$ 59,644'."
+  },
+  "financial_aid.h2_j_average_aid_package_all_full_time": {
+    "status": "present",
+    "value": 56749,
+    "page": 20,
+    "evidence": "H2 table row J, Full-time Undergrad (Incl. Fresh) column: '$ 56,749'."
+  },
+  "financial_aid.h2_k_average_need_based_grant_award_first_time_first_year": {
+    "status": "present",
+    "value": 55325,
+    "page": 21,
+    "evidence": "H2 table row K (top of page 21), Full-time First-time First-year column: '$ 55,325'."
+  },
+  "financial_aid.h2_l_average_need_based_self_help_award_first_time_first_year": {
+    "status": "present",
+    "value": 4823,
+    "page": 21,
+    "evidence": "H2 table row L, Full-time First-time First-year column: '$ 4,823'."
+  },
+  "financial_aid.h2_m_average_need_based_loan_award_first_time_first_year": {
+    "status": "present",
+    "value": 4574,
+    "page": 21,
+    "evidence": "H2 table row M, Full-time First-time First-year column: '$ 4,574'."
+  },
+  "financial_aid.h2a_n_no_need_institutional_grant_recipients_first_time_first_year": {
+    "status": "blank",
+    "value": null,
+    "page": 21,
+    "evidence": "H2A table row N, Full-time First-time First-year column: cell is empty/uncaptured; no value filled in by Cornell."
+  },
+  "financial_aid.h2a_o_average_no_need_institutional_grant_amount_first_time_first_year": {
+    "status": "blank",
+    "value": null,
+    "page": 21,
+    "evidence": "H2A table row O, Full-time First-time First-year column: cell is empty; no value filled in by Cornell."
+  },
+  "financial_aid.h2a_p_institutional_athletic_grant_recipients_first_time_first_year": {
+    "status": "blank",
+    "value": null,
+    "page": 21,
+    "evidence": "H2A table row P, Full-time First-time First-year column: cell is empty; no value filled in by Cornell."
+  },
+  "financial_aid.h2a_q_average_institutional_athletic_grant_amount_first_time_first_year": {
+    "status": "blank",
+    "value": null,
+    "page": 21,
+    "evidence": "H2A table row Q, Full-time First-time First-year column: cell is empty; no value filled in by Cornell."
+  },
+  "financial_aid.graduating_class_first_time_bachelors_count": {
+    "status": "present",
+    "value": 3173,
+    "page": 21,
+    "evidence": "H4 heading, boxed value to the right of the question text: '3173'."
+  },
+  "financial_aid.h5_borrowers_any_program_percent_of_class": {
+    "status": "present",
+    "value": 37,
+    "page": 22,
+    "evidence": "H5 table row A ('Any loan program...'), 'Percent of the class...' column: '37.00%'."
+  },
+  "financial_aid.h5_borrowers_any_program_average_principal": {
+    "status": "present",
+    "value": 28408,
+    "page": 22,
+    "evidence": "H5 table row A, 'Average per-undergraduate-borrower cumulative principal...' column: '$28,408'."
+  },
+  "financial_aid.h5_borrowers_private_percent_of_class": {
+    "status": "present",
+    "value": 7,
+    "page": 22,
+    "evidence": "H5 table row E ('Private student loans made by a bank or lender'), 'Percent of the class...' column: '7.00%'."
+  },
+  "financial_aid.h5_borrowers_private_average_principal": {
+    "status": "present",
+    "value": 61531,
+    "page": 22,
+    "evidence": "H5 table row E, 'Average per-undergraduate-borrower cumulative principal...' column: '$61,531'."
+  },
+  "financial_aid.h6_need_based_grants_available": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H6 checklist, first row 'Institutional need-based scholarship or grant aid is available' has X marked in its checkbox."
+  },
+  "financial_aid.h6_non_need_based_grants_available": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H6 checklist, second row 'Institutional non-need-based scholarship or grant aid is available' checkbox is unmarked (blank box), while the first row's box is marked, confirming the checklist was completed."
+  },
+  "financial_aid.h6_grants_unavailable": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H6 checklist, third row 'Institutional scholarship or grant aid is not available' checkbox is unmarked (blank box)."
+  },
+  "financial_aid.h6_recipient_count": {
+    "status": "present",
+    "value": 288,
+    "page": 22,
+    "evidence": "H6, line 'provide the number of undergraduate degree-seeking nonresidents who were awarded need-based or non-need-based aid:' value '288'."
+  },
+  "financial_aid.h6_average_institutional_aid": {
+    "status": "present",
+    "value": 76179,
+    "page": 22,
+    "evidence": "H6, line 'Average dollar amount of institutional financial aid awarded to undergraduate degree-seeking nonresidents:' value '$76,179'."
+  },
+  "financial_aid.h6_total_institutional_aid": {
+    "status": "present",
+    "value": 21939614,
+    "page": 22,
+    "evidence": "H6, line 'Total dollar amount of institutional financial aid awarded to undergraduate degree-seeking nonresidents:' value '$21,939,614'."
+  },
+  "financial_aid.h7_institution_form_required": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H7 checklist, 'Institution's own financial aid form' checkbox is unmarked; the CSS/Financial Aid PROFILE row below it is marked, confirming the checklist was completed."
+  },
+  "financial_aid.h7_css_profile_required": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H7 checklist, 'CSS/Financial Aid PROFILE' row has X marked in its checkbox."
+  },
+  "financial_aid.h8_institution_form_required": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H8 checklist, 'Institution's own financial aid form' checkbox is unmarked; FAFSA and CSS/Financial Aid PROFILE rows are marked, confirming the checklist was completed."
+  },
+  "financial_aid.h8_css_profile_required": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H8 checklist, 'CSS/Financial Aid PROFILE' row has X marked in its checkbox."
+  },
+  "financial_aid.h8_state_aid_form_required": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H8 checklist, 'State aid form' row (bottom of page 22) checkbox is unmarked."
+  },
+  "financial_aid.h8_noncustodial_profile_required": {
+    "status": "present",
+    "value": true,
+    "page": 23,
+    "evidence": "H8 checklist continues at top of page 23: 'Noncustodial PROFILE' row has X marked in its checkbox."
+  },
+  "financial_aid.h8_business_farm_supplement_required": {
+    "status": "present",
+    "value": false,
+    "page": 23,
+    "evidence": "H8 checklist, 'Business/Farm Supplement' row (page 23) checkbox is unmarked."
+  },
+  "financial_aid.aid_has_deadline": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "H9 on page 23 asks for a priority date, a deadline date, and a rolling-basis checkbox, but prints no separate direct Yes/No 'Does your institution have a deadline...' control distinct from those fields; this template edition does not carry that explicit control."
+  },
+  "financial_aid.aid_priority_date_selected": {
+    "status": "absent",
+    "value": null,
+    "page": 23,
+    "evidence": "H9 'Priority date for filing required financial aid forms:' is a bare fill-in-the-blank line with no adjacent checkbox or selection control of any kind; there is no per-line control to read a selection state from, so this is recorded as absent rather than inferred from whether the date line is filled."
+  },
+  "financial_aid.aid_priority_date": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H9 'Priority date for filing required financial aid forms:' the fill-in line is empty; no text is written on it."
+  },
+  "financial_aid.aid_deadline_selected": {
+    "status": "absent",
+    "value": null,
+    "page": 23,
+    "evidence": "H9 'Deadline for filing required financial aid forms:' is a bare fill-in-the-blank line with no adjacent checkbox or selection control; no per-line control exists to read a selection state from, so recorded as absent."
+  },
+  "financial_aid.aid_deadline_date_or_text": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H9 'Deadline for filing required financial aid forms:' the fill-in line is empty; no text (not even 'None') is written on it."
+  },
+  "financial_aid.aid_no_deadline_rolling_selected": {
+    "status": "present",
+    "value": false,
+    "page": 23,
+    "evidence": "H9, standalone checkbox 'No deadline for filing required forms (applications processed on a rolling basis)' is an open, unmarked square box directly below the two date lines."
+  },
+  "financial_aid.aid_notification_fixed_selected": {
+    "status": "absent",
+    "value": null,
+    "page": 23,
+    "evidence": "H10 option 'a) Students notified on or about (date): 15-Apr' has no adjacent checkbox of its own (only option b, the rolling-basis choice, has visible Yes/No checkboxes); there is no per-line control for option (a) to read a selection state from, so recorded as absent rather than inferred from the date being filled in."
+  },
+  "financial_aid.aid_notification_fixed_date": {
+    "status": "present",
+    "value": "15-Apr",
+    "page": 23,
+    "evidence": "H10 option a) 'Students notified on or about (date):' filled-in line reads '15-Apr'."
+  },
+  "financial_aid.aid_notification_rolling_selected": {
+    "status": "present",
+    "value": false,
+    "page": 23,
+    "evidence": "H10 option b) 'Students notified on a rolling basis:' has explicit Yes/No checkboxes; both the Yes box and the No box are open/unmarked squares, i.e. the complete visible checklist is unambiguously unmarked."
+  },
+  "financial_aid.aid_notification_rolling_start_date": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H10, 'If yes, starting date:' fill-in line beneath the rolling-basis Yes/No checkboxes is empty."
+  },
+  "financial_aid.h11_reply_deadline_date": {
+    "status": "present",
+    "value": "5/1",
+    "page": 23,
+    "evidence": "H11 table, row 'Students must reply by (date):' value cell reads '5/1'."
+  },
+  "financial_aid.h11_reply_weeks_after_notification": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H11 table, row 'or within ___ weeks of notification.' the value cell is empty and the blank in the row label itself is also unfilled."
+  },
+  "financial_aid.h12_state_loan_available": {
+    "status": "present",
+    "value": false,
+    "page": 23,
+    "evidence": "H12 Loans checklist, 'State Loans' row checkbox is unmarked; surrounding rows (Direct Subsidized/Unsubsidized/PLUS, College/university loans) are marked, confirming the checklist was completed."
+  },
+  "financial_aid.h12_institution_loan_available": {
+    "status": "present",
+    "value": true,
+    "page": 23,
+    "evidence": "H12 Loans checklist, 'College/university loans from institutional funds' row has X marked in its checkbox."
+  },
+  "financial_aid.h14_academics_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Academics' row, Non-Need Based column cell is empty/unmarked; per this metric's own instructions a blank H14 cell is not_reported rather than false."
+  },
+  "financial_aid.h14_alumni_affiliation_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Alumni affiliation' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.h14_art_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Art' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.h14_athletics_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Athletics' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.h14_athletics_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Athletics' row, Need-Based column cell is empty/unmarked (not shaded, unlike the ROTC row's Need-Based cell)."
+  },
+  "financial_aid.h14_job_skills_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Job skills' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.h14_rotc_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'ROTC' row, Non-Need Based column cell is empty/unmarked (its Need-Based column cell, not part of this spec, is shaded gray indicating not applicable)."
+  },
+  "financial_aid.h14_leadership_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Leadership' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.h14_minority_status_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Minority status' row, Non-Need Based column cell is empty/unmarked; the row is present in this template edition (not omitted)."
+  },
+  "financial_aid.h14_music_drama_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Music/drama' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.h14_religious_affiliation_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'Religious affiliation' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.h14_state_district_residency_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 grid, 'State/district residency' row, Non-Need Based column cell is empty/unmarked."
+  },
+  "financial_aid.recent_affordability_initiative_details": {
+    "status": "present",
+    "value": "Please visit https://finaid.cornell.edu/ for details and deadlines and to speak with a Cornell financial aid counselor",
+    "page": 24,
+    "evidence": "H15 free-text box: verbatim text 'Please visit https://finaid.cornell.edu/ for details and deadlines and to speak with a Cornell financial aid counselor'. This is a pointer/referral rather than a described initiative; the H15 'Are these policies related to COVID-19?' Yes/No checkboxes below are both unmarked (not part of this spec)."
+  }
+}
