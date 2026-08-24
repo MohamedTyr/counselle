@@ -1,0 +1,363 @@
+{
+  "transfer.enrolls_transfer_students": {
+    "status": "present",
+    "value": true,
+    "page": 19,
+    "evidence": "D1 first control 'Does your institution enroll transfer students?' box reads 'Yes'."
+  },
+  "transfer.allows_advanced_standing_from_external_coursework": {
+    "status": "present",
+    "value": true,
+    "page": 19,
+    "evidence": "D1 second control 'may transfer students earn advanced standing credit...' box reads 'Yes'."
+  },
+  "transfer.applicants_total": {
+    "status": "present",
+    "value": 13008,
+    "page": 19,
+    "evidence": "D2 table, TOTAL row, Applicants column: 13,008."
+  },
+  "transfer.admitted_total": {
+    "status": "present",
+    "value": 8653,
+    "page": 19,
+    "evidence": "D2 table, TOTAL row, Admitted Applicants column: 8,653."
+  },
+  "transfer.enrolled_total": {
+    "status": "present",
+    "value": 5515,
+    "page": 19,
+    "evidence": "D2 table, TOTAL row, Enrolled Applicants column: 5,515."
+  },
+  "transfer.minimum_prior_credit_threshold_applies": {
+    "status": "present",
+    "value": true,
+    "page": 19,
+    "evidence": "D4 'Must a transfer applicant have a minimum number of credits/courses completed' box reads 'Yes'."
+  },
+  "transfer.minimum_prior_credit_value": {
+    "status": "present",
+    "value": 12.0,
+    "page": 19,
+    "evidence": "D4 'Number:' box reads '12.0'."
+  },
+  "transfer.minimum_prior_credit_unit": {
+    "status": "present",
+    "value": "semester hours earned after high school graduation date",
+    "page": 19,
+    "evidence": "D4 'Unit Type:' box reads 'semester hours earned after high school graduation date'."
+  },
+  "transfer.transfer_requirement_high_school_transcript": {
+    "status": "present",
+    "value": "required_some",
+    "page": 19,
+    "evidence": "D5 row 'High school transcript' dropdown box reads 'Required of Some'."
+  },
+  "transfer.transfer_requirement_college_transcripts": {
+    "status": "present",
+    "value": "required_all",
+    "page": 19,
+    "evidence": "D5 row 'College transcript(s)' dropdown box reads 'Required of All'."
+  },
+  "transfer.transfer_requirement_essay_personal_statement": {
+    "status": "present",
+    "value": "not_required",
+    "page": 19,
+    "evidence": "D5 row 'Essay or personal statement' dropdown box reads 'Not Required'."
+  },
+  "transfer.transfer_requirement_interview": {
+    "status": "present",
+    "value": "not_required",
+    "page": 19,
+    "evidence": "D5 row 'Interview' dropdown box reads 'Not Required'."
+  },
+  "transfer.transfer_requirement_standardized_test_scores": {
+    "status": "present",
+    "value": "required_some",
+    "page": 19,
+    "evidence": "D5 row 'Standardized test scores' dropdown box reads 'Required of Some'."
+  },
+  "transfer.transfer_requirement_prior_institution_good_standing": {
+    "status": "present",
+    "value": "required_some",
+    "page": 19,
+    "evidence": "D5 row 'Statement of good standing from prior institution(s)' dropdown box reads 'Required of Some'."
+  },
+  "transfer.minimum_high_school_gpa": {
+    "status": "blank",
+    "value": null,
+    "page": 20,
+    "raw_printed": "N/A",
+    "evidence": "D6 'GPA Required:' box prints the literal token 'N/A'; metric type is number, so recorded blank with the token preserved per brief's non-numeric-token rule."
+  },
+  "transfer.minimum_college_gpa": {
+    "status": "present",
+    "value": 2.0,
+    "page": 20,
+    "evidence": "D7 'GPA Required:' box reads '2.0'."
+  },
+  "transfer.transfer_priority_date_fall": {
+    "status": "blank",
+    "value": null,
+    "page": 20,
+    "evidence": "D9 table, Fall row, Priority Date column is visibly empty (no text)."
+  },
+  "transfer.transfer_closing_date_fall": {
+    "status": "present",
+    "value": "7/1",
+    "page": 20,
+    "evidence": "D9 table, Fall row, Closing Date column reads '7/1'."
+  },
+  "transfer.transfer_notification_date_fall": {
+    "status": "blank",
+    "value": null,
+    "page": 20,
+    "evidence": "D9 table, Fall row, Notification Date column is visibly empty."
+  },
+  "transfer.transfer_reply_date_fall": {
+    "status": "blank",
+    "value": null,
+    "page": 20,
+    "evidence": "D9 table, Fall row, Reply Date column is visibly empty."
+  },
+  "transfer.transfer_rolling_admission_fall": {
+    "status": "present",
+    "value": true,
+    "page": 20,
+    "evidence": "D9 'Rolling Admission' list, checkbox next to 'Fall Rolling Admission' is visibly checked (filled checkmark)."
+  },
+  "transfer.open_admission_policy_applies": {
+    "status": "present",
+    "value": false,
+    "page": 20,
+    "evidence": "D10 'Does an open admission policy...apply to transfer students?' box reads 'No'."
+  },
+  "transfer.lowest_eligible_course_grade": {
+    "status": "present",
+    "value": "D",
+    "page": 20,
+    "evidence": "D12 'Lowest grade:' box reads 'D'."
+  },
+  "academics.special_study_accelerated_program": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, left column, 'Accelerated program' box is checked."
+  },
+  "academics.special_study_cross_registration": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E1 checklist, left column, 'Cross-registration' box is visibly unmarked (empty square)."
+  },
+  "academics.special_study_double_major": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, left column, 'Double major' box is checked."
+  },
+  "academics.special_study_dual_enrollment": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, left column, 'Dual enrollment' box is checked."
+  },
+  "academics.special_study_honors_program": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Honors program' box is checked."
+  },
+  "academics.special_study_independent_study": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Independent study' box is checked."
+  },
+  "academics.special_study_internships": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Internships' box is checked."
+  },
+  "academics.special_study_liberal_arts_career_combination": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Liberal arts/career combination' box is visibly unmarked (empty square)."
+  },
+  "academics.special_study_student_designed_major": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Student-designed major' box is visibly unmarked (empty square)."
+  },
+  "academics.special_study_study_abroad": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Study abroad' box is checked."
+  },
+  "academics.special_study_teacher_certification": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Teacher certification program' box is checked."
+  },
+  "academics.special_study_undergraduate_research": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E1 checklist, right column, 'Undergraduate Research' box is checked."
+  },
+  "academics.required_coursework_arts_fine_arts": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E3 checklist, left column, 'Arts / fine arts' box is visibly unmarked (empty square)."
+  },
+  "academics.required_coursework_computer_literacy": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E3 checklist, left column, 'Computer literacy' box is visibly unmarked (empty square)."
+  },
+  "academics.required_coursework_english_composition": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E3 checklist, left column, 'English (including composition)' box is checked."
+  },
+  "academics.required_coursework_foreign_languages": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E3 checklist, left column, 'Foreign languages' box is visibly unmarked (empty square)."
+  },
+  "academics.required_coursework_history": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E3 checklist, left column, 'History' box is checked."
+  },
+  "academics.required_coursework_physical_education": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E3 checklist, right column, 'Physical Education' box is visibly unmarked (empty square)."
+  },
+  "academics.required_coursework_humanities": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E3 checklist, left column, 'Humanities' box is checked."
+  },
+  "academics.required_coursework_intensive_writing": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E3 checklist, right column, 'Intensive Writing' box is checked."
+  },
+  "academics.required_coursework_mathematics": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E3 checklist, right column, 'Mathematics' box is checked."
+  },
+  "academics.required_coursework_philosophy": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "E3 checklist, right column, 'Philosophy' box is visibly unmarked (empty square)."
+  },
+  "academics.required_coursework_biological_physical_sciences": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E3 checklist, right column, 'Sciences (biological or physical)' box is checked."
+  },
+  "academics.required_coursework_social_science": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "E3 checklist, right column, 'Social Science' box is checked."
+  },
+  "student_life.out_of_state_percent_undergraduates": {
+    "status": "present",
+    "value": "6.9%",
+    "page": 23,
+    "evidence": "F1 table, row 'Percent who are from out of state...', 'Undergraduates' column: 6.9%."
+  },
+  "student_life.fraternity_joiners_percent_undergraduates": {
+    "status": "present",
+    "value": "3.3%",
+    "page": 23,
+    "evidence": "F1 table, row 'Percent of men who join fraternities', 'Undergraduates' column: 3.3%."
+  },
+  "student_life.sorority_joiners_percent_undergraduates": {
+    "status": "present",
+    "value": "5.5%",
+    "page": 23,
+    "evidence": "F1 table, row 'Percent of women who join sororities', 'Undergraduates' column: 5.5%."
+  },
+  "student_life.college_owned_housing_percent_undergraduates": {
+    "status": "present",
+    "value": "12.4%",
+    "page": 23,
+    "evidence": "F1 table, row 'Percent who live in college-owned, -operated, or -affiliated housing', 'Undergraduates' column: 12.4%."
+  },
+  "student_life.off_campus_or_commute_percent_undergraduates": {
+    "status": "present",
+    "value": "87.6%",
+    "page": 23,
+    "evidence": "F1 table, row 'Percent who live off campus or commute', 'Undergraduates' column: 87.6%."
+  },
+  "student_life.age_25_or_older_percent_undergraduates": {
+    "status": "present",
+    "value": "13.4%",
+    "page": 23,
+    "evidence": "F1 table, row 'Percent of students age 25 or older', 'Undergraduates' column: 13.4%."
+  },
+  "student_life.average_age_full_time_undergraduates": {
+    "status": "present",
+    "value": 21,
+    "page": 23,
+    "evidence": "F1 table, row 'Average age of full-time students', 'Undergraduates' column: 21."
+  },
+  "student_life.army_rotc_on_campus": {
+    "status": "present",
+    "value": true,
+    "page": 24,
+    "evidence": "F3 'Army ROTC is offered:' row, 'On Campus' checkbox is checked."
+  },
+  "student_life.army_rotc_at_cooperating_institution": {
+    "status": "present",
+    "value": false,
+    "page": 24,
+    "evidence": "F3 'Army ROTC is offered:' row, 'At cooperating institution' checkbox is visibly unmarked."
+  },
+  "student_life.naval_rotc_on_campus": {
+    "status": "present",
+    "value": false,
+    "page": 24,
+    "evidence": "F3 'Naval ROTC is offered:' row, 'On Campus' checkbox is visibly unmarked (only 'Marine Option', 'On Campus', 'At cooperating institution' shown, all unchecked)."
+  },
+  "student_life.naval_rotc_at_cooperating_institution": {
+    "status": "present",
+    "value": false,
+    "page": 24,
+    "evidence": "F3 'Naval ROTC is offered:' row, 'At cooperating institution' checkbox is visibly unmarked."
+  },
+  "student_life.air_force_rotc_on_campus": {
+    "status": "present",
+    "value": true,
+    "page": 24,
+    "evidence": "F3 'Air Force ROTC is offered:' row, 'On Campus' checkbox is checked."
+  },
+  "student_life.air_force_rotc_at_cooperating_institution": {
+    "status": "present",
+    "value": false,
+    "page": 24,
+    "evidence": "F3 'Air Force ROTC is offered:' row, 'At cooperating institution' checkbox is visibly unmarked."
+  }
+}

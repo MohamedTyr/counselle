@@ -1,0 +1,172 @@
+{
+  "identity.institution_name": {
+    "status": "present",
+    "value": "University of Central Florida",
+    "page": 2,
+    "evidence": "A1 'Name of College or University' row."
+  },
+  "identity.academic_year": {
+    "status": "present",
+    "value": "2023 - 2024",
+    "page": 2,
+    "evidence": "Document title/running header 'University of Central Florida - Common Data Set 2023 - 2024' printed at top of every page."
+  },
+  "identity.city": {
+    "status": "present",
+    "value": "Orlando",
+    "page": 2,
+    "evidence": "A1 main-address block, 'City:' row (below 'Street Address: 4365 Andromeda Loop N'), not the A0 respondent city or the Admissions Office city block further down the same page."
+  },
+  "identity.state_or_region": {
+    "status": "present",
+    "value": "Florida",
+    "page": 2,
+    "evidence": "A1 main-address block, 'State:' row, same block as city above."
+  },
+  "identity.country": {
+    "status": "present",
+    "value": "United States",
+    "page": 2,
+    "evidence": "A1 main-address block, 'Country:' row."
+  },
+  "identity.main_website": {
+    "status": "present",
+    "value": "http://www.ucf.edu",
+    "page": 2,
+    "evidence": "A1 main-address block, 'Main Institution Website:' row."
+  },
+  "identity.admissions_email": {
+    "status": "present",
+    "value": "admission@ucf.edu",
+    "page": 2,
+    "evidence": "A1 Admissions Office block (bottom of page), 'Admissions Email Address:' row, distinct from 'Main Institution Email' row (which is blank) higher up."
+  },
+  "identity.application_url": {
+    "status": "present",
+    "value": "https://apply.ucf.edu/application/login.aspx",
+    "page": 3,
+    "evidence": "'Is there a separate URL for your school's online application? If yes, please specify:' box at top of page 3."
+  },
+  "identity.institutional_control": {
+    "status": "present",
+    "value": "public",
+    "page": 3,
+    "evidence": "A2 'Source of Institutional Control' dropdown box: 'Public'."
+  },
+  "identity.undergraduate_gender_model": {
+    "status": "present",
+    "value": "coeducational",
+    "page": 3,
+    "evidence": "A3 'Classify your undergraduate institution' dropdown box: 'Coeducational'."
+  },
+  "identity.academic_calendar": {
+    "status": "present",
+    "value": "semester",
+    "page": 3,
+    "evidence": "A4 'Academic year calendar' dropdown box: 'Semester'."
+  },
+  "identity.degree_offered_bachelors": {
+    "status": "present",
+    "value": true,
+    "page": 3,
+    "evidence": "A5 checklist, left column, 'Bachelor's' checkbox is checked."
+  },
+  "identity.degree_offered_masters": {
+    "status": "present",
+    "value": true,
+    "page": 3,
+    "evidence": "A5 checklist, right column, 'Master's' checkbox is checked."
+  },
+  "identity.degree_offered_doctoral_research_scholarship": {
+    "status": "present",
+    "value": true,
+    "page": 3,
+    "evidence": "A5 checklist, right column, 'Doctoral degree - research/scholarship' checkbox is checked."
+  },
+  "enrollment.undergraduate_total": {
+    "status": "present",
+    "value": 59548,
+    "page": 4,
+    "evidence": "B1 table footer, 'Total of all undergraduate students enrolled' scalar row = 59,548."
+  },
+  "enrollment.graduate_total": {
+    "status": "present",
+    "value": 9294,
+    "page": 5,
+    "evidence": "B1 table footer (graduate section), 'Total of all graduate students enrolled' scalar row = 9,294. Distinct from 'Total all First Professional (Medical)' = 478 printed just above it."
+  },
+  "enrollment.all_students_total": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "This document's B1 layout prints separate footer scalars for undergraduate total (p4, 59,548), graduate total (p5, 9,294), and first-professional/Medical total (p5, 478), but never prints a single combined 'GRAND TOTAL ALL STUDENTS' row summing all three the way Harvard/Yale editions do. No such row exists anywhere on pages 4-5 (checked in full); recording absent rather than deriving 59,548+9,294+478 myself, per the no-computed-totals rule."
+  },
+  "enrollment.nonresident_all_undergraduates": {
+    "status": "present",
+    "value": 1945,
+    "page": 6,
+    "evidence": "B2 race/ethnicity table, row 'International (nonresidents)', column 'Total Undergraduates (both degree-seeking and non-degree-seeking)' = 1,945."
+  },
+  "outcomes.primary_all_students_adjusted_cohort_count": {
+    "status": "present",
+    "value": 6680,
+    "page": 7,
+    "evidence": "Combined 'B4 - B21. Graduation Rates' table, 2017 COHORT (AY-7) block (the primary/most-recent cohort per the form's own instruction to prefer Fall 2017 over Fall 2016), row C 'Final 2017 cohort, after adjusting for allowable exclusions', 'Total' column = 6,680. The Fall 2016 cohort table on page 8 is entirely blank (all cells print '0.0' spreadsheet-formula placeholders with no institution-entered data), so the 2017 table is the only real cohort instance."
+  },
+  "outcomes.primary_all_students_completed_within_four_years_count": {
+    "status": "present",
+    "value": 3340,
+    "page": 7,
+    "evidence": "Combined B4-B21 table, 2017 COHORT block, row D 'completed the program in four years or less (by Aug. 31, 2021)', 'Total' column = 3,340."
+  },
+  "outcomes.primary_all_students_completed_after_four_within_five_years_count": {
+    "status": "present",
+    "value": 1351,
+    "page": 7,
+    "evidence": "Combined B4-B21 table, 2017 COHORT block, row E 'completed the program in more than four years but in five years or less', 'Total' column = 1,351."
+  },
+  "outcomes.primary_all_students_completed_after_five_within_six_years_count": {
+    "status": "present",
+    "value": 328,
+    "page": 7,
+    "evidence": "Combined B4-B21 table, 2017 COHORT block, row F 'completed the program in more than five years but in six years or less', 'Total' column = 328."
+  },
+  "outcomes.primary_all_students_completed_within_six_years_count": {
+    "status": "present",
+    "value": 5019,
+    "page": 7,
+    "evidence": "Combined B4-B21 table, 2017 COHORT block, row G 'Total graduating within six years (Sum of D., E., and F.)', 'Total' column = 5,019."
+  },
+  "outcomes.primary_all_students_six_year_graduation_rate_ratio": {
+    "status": "present",
+    "value": 0.75,
+    "page": 7,
+    "raw_printed": "75%",
+    "evidence": "Combined B4-B21 table, 2017 COHORT block, row H 'Six-year graduation rate for 2017 cohort (G. divided by C.)', 'Total' column, printed '75%'. Instructions require the 0-1 ratio form, never a percent; recorded 0.75 and preserved '75%' in raw_printed."
+  },
+  "outcomes.primary_pell_grant_six_year_graduation_rate_ratio": {
+    "status": "present",
+    "value": 0.72,
+    "page": 7,
+    "raw_printed": "72%",
+    "evidence": "Combined B4-B21 table, 2017 COHORT block, row H 'Six-year graduation rate for 2017 cohort', 'Recipients of a Federal Pell Grant' column, printed '72%'. Recorded as the 0-1 ratio 0.72 per instructions, with '72%' preserved in raw_printed."
+  },
+  "outcomes.first_year_retention_entering_cohort_count": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "Section B22 'Retention Rates' (pages 9-10) in this 2023-2024 edition asks only for a single computed 'Enter retention rate:' box (92.2%, page 10) with no separate entering-cohort-count or still-enrolled-count input rows. Per this metric's own instructions, this count field is new in the 2025-26 CDS edition and its absence here is a template-version absence, not zero. Pages 9-10 read in full to confirm no such row exists."
+  },
+  "outcomes.first_year_retention_still_enrolled_next_fall_count": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "Same B22 section (pages 9-10): only the single computed retention-rate percent box is printed; no separate still-enrolled-count row exists in this edition. Per instructions, absence in a pre-2025-26 edition is template-version absence, not zero."
+  },
+  "outcomes.first_year_retention_reported_percent": {
+    "status": "present",
+    "value": "92.2%",
+    "page": 10,
+    "evidence": "B22 'Enter retention rate:' box at top of page 10, printed '92.2%'. Copied exactly as a string per instructions, not recomputed."
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "class_profile.sat_submitters_percent": {
+    "status": "present",
+    "value": "72.6%",
+    "page": 14,
+    "evidence": "C9 table, 'Submitting SAT Scores' row, 'Percent' column: 72.6%."
+  },
+  "class_profile.sat_submitters_count": {
+    "status": "present",
+    "value": 5948,
+    "page": 14,
+    "evidence": "C9 table, 'Submitting SAT Scores' row, 'Number' column: 5,948."
+  },
+  "class_profile.act_submitters_percent": {
+    "status": "present",
+    "value": "27.4%",
+    "page": 14,
+    "evidence": "C9 table, 'Submitting ACT Scores' row, 'Percent' column: 27.4%."
+  },
+  "class_profile.act_submitters_count": {
+    "status": "present",
+    "value": 2247,
+    "page": 14,
+    "evidence": "C9 table, 'Submitting ACT Scores' row, 'Number' column: 2,247."
+  },
+  "class_profile.sat_composite_p25": {
+    "status": "present",
+    "value": 1200,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Composite (400 - 1600)' row, '25th Percentile Score' column: 1200."
+  },
+  "class_profile.sat_composite_p50": {
+    "status": "present",
+    "value": 1260,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Composite (400 - 1600)' row, '50th Percentile Score' column: 1260."
+  },
+  "class_profile.sat_composite_p75": {
+    "status": "present",
+    "value": 1340,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Composite (400 - 1600)' row, '75th Percentile Score' column: 1340."
+  },
+  "class_profile.sat_ebrw_p25": {
+    "status": "present",
+    "value": 610,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Evidence-Based Reading and Writing (200 - 800)' row, '25th Percentile Score' column: 610."
+  },
+  "class_profile.sat_ebrw_p50": {
+    "status": "present",
+    "value": 640,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Evidence-Based Reading and Writing (200 - 800)' row, '50th Percentile Score' column: 640."
+  },
+  "class_profile.sat_ebrw_p75": {
+    "status": "present",
+    "value": 680,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Evidence-Based Reading and Writing (200 - 800)' row, '75th Percentile Score' column: 680."
+  },
+  "class_profile.sat_math_p25": {
+    "status": "present",
+    "value": 580,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Math (200 - 800)' row, '25th Percentile Score' column: 580."
+  },
+  "class_profile.sat_math_p50": {
+    "status": "present",
+    "value": 620,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Math (200 - 800)' row, '50th Percentile Score' column: 620."
+  },
+  "class_profile.sat_math_p75": {
+    "status": "present",
+    "value": 670,
+    "page": 14,
+    "evidence": "C9 percentile table, 'SAT Math (200 - 800)' row, '75th Percentile Score' column: 670."
+  },
+  "class_profile.act_composite_p25": {
+    "status": "present",
+    "value": 25,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Composite (0 - 36)' row, '25th Percentile Score' column: 25."
+  },
+  "class_profile.act_composite_p50": {
+    "status": "present",
+    "value": 26,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Composite (0 - 36)' row, '50th Percentile Score' column: 26."
+  },
+  "class_profile.act_composite_p75": {
+    "status": "present",
+    "value": 29,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Composite (0 - 36)' row, '75th Percentile Score' column: 29."
+  },
+  "class_profile.act_math_p25": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Math (0 - 36)' row, '25th Percentile Score' cell is empty (unlike the 50th/75th cells in the same row, which are filled). Institution left this specific breakdown unreported."
+  },
+  "class_profile.act_math_p50": {
+    "status": "present",
+    "value": 25,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Math (0 - 36)' row, '50th Percentile Score' column: 25."
+  },
+  "class_profile.act_math_p75": {
+    "status": "present",
+    "value": 27,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Math (0 - 36)' row, '75th Percentile Score' column: 27."
+  },
+  "class_profile.act_english_p25": {
+    "status": "present",
+    "value": 24,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT English (0 - 36)' row, '25th Percentile Score' column: 24."
+  },
+  "class_profile.act_english_p50": {
+    "status": "present",
+    "value": 26,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT English (0 - 36)' row, '50th Percentile Score' column: 26."
+  },
+  "class_profile.act_english_p75": {
+    "status": "present",
+    "value": 30,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT English (0 - 36)' row, '75th Percentile Score' column: 30."
+  },
+  "class_profile.act_science_p25": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Science (0 - 36)' row is entirely empty across all four score columns (25th, 50th, 75th, Average). Institution did not report this breakdown."
+  },
+  "class_profile.act_science_p50": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Science (0 - 36)' row is entirely empty across all four score columns. Institution did not report this breakdown."
+  },
+  "class_profile.act_science_p75": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Science (0 - 36)' row is entirely empty across all four score columns. Institution did not report this breakdown."
+  },
+  "class_profile.act_reading_p25": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Reading (0 - 36)' row is entirely empty across all four score columns (25th, 50th, 75th, Average). Institution did not report this breakdown. Confirmed by the C10-adjacent page-15 'ACT Reading' distribution table also totaling 0%."
+  },
+  "class_profile.act_reading_p50": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Reading (0 - 36)' row is entirely empty across all four score columns. Institution did not report this breakdown."
+  },
+  "class_profile.act_reading_p75": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C9 percentile table, 'ACT Reading (0 - 36)' row is entirely empty across all four score columns. Institution did not report this breakdown."
+  },
+  "class_profile.class_rank_submitted_percent": {
+    "status": "present",
+    "value": "80%",
+    "page": 15,
+    "evidence": "C10 table, row 'Percent of total first-time, first-year students who submitted high school class rank': 80%."
+  },
+  "class_profile.class_rank_top_tenth_percent": {
+    "status": "present",
+    "value": "36%",
+    "page": 15,
+    "evidence": "C10 table, row 'Percent in top tenth of high school graduating class': 36%."
+  },
+  "class_profile.class_rank_top_quarter_percent": {
+    "status": "present",
+    "value": "72%",
+    "page": 15,
+    "evidence": "C10 table, row 'Percent in top quarter of high school graduating class': 72%."
+  },
+  "class_profile.class_rank_top_half_percent": {
+    "status": "present",
+    "value": "95%",
+    "page": 15,
+    "evidence": "C10 table, row 'Percent in top half of high school graduating class': 95%."
+  },
+  "class_profile.class_rank_bottom_half_percent": {
+    "status": "present",
+    "value": "5%",
+    "page": 15,
+    "evidence": "C10 table, row 'Percent in bottom half of high school graduating class': 5%."
+  },
+  "class_profile.class_rank_bottom_quarter_percent": {
+    "status": "present",
+    "value": "1%",
+    "page": 15,
+    "evidence": "C10 table, row 'Percent in bottom quarter of high school graduating class': 1%."
+  },
+  "class_profile.average_high_school_gpa": {
+    "status": "present",
+    "value": 4.18,
+    "page": 16,
+    "evidence": "C12 heading 'Average High School GPA', boxed value next to 'Average high school GPA of all degree-seeking, first-time, first-year students who submitted GPA:': 4.18."
+  },
+  "class_profile.high_school_gpa_submitted_percent": {
+    "status": "present",
+    "value": "100%",
+    "page": 16,
+    "evidence": "C12 heading, boxed value next to 'Percent of total first-time, first-year students who submitted high school GPA:': 100%."
+  }
+}

@@ -1006,6 +1006,197 @@ agrees with passB at 98.51%, so the content appears sound, but **passA's provena
 for that group is a merge of two agents rather than one clean pass.** Before relaunching
 a stalled agent, confirm it is actually dead, or write to a distinct filename.
 
+### M4 candidate, measured offline: FIX 1 FAILS, FIX 2 CUTS 26.3% CORPUS-WIDE
+
+Both routing fixes prototyped and measured with **zero model calls** — page spans
+recomputed from the real batch plan over all five documents. This is the cheapest
+experiment available and it killed my preferred fix outright.
+
+**Fix 1 (require a heading shape) — REFUTED.** I proposed requiring the hint to be
+followed by a separator and a non-lowercase continuation, to distinguish a section
+heading from a lettered sub-item. Measured:
+
+```
+uga        -13%   (helped only via enrollment's B1, not via J at all)
+dartmouth   +0%
+cornell     +0%
+caltech     +0%
+ucf         +0%
+```
+
+It fails because the discriminator does not exist. UCF's colliding line is
+`J. The average financial aid package of those in line` — capital `T`, so it passes any
+"heading-shaped" test just as `J. DISCIPLINARY AREAS of DEGREES CONFERRED` does. There
+is no lexical feature separating a sub-item from a heading. **This was my
+first-choice fix and the one I recorded as "the one to try first"; it is worthless.**
+
+**Fix 2 (drop the convex hull, keep the densest cluster) — CONFIRMED, and large.**
+Group hit pages into clusters separated by more than a 3-page gap, keep the largest
+cluster (ties → the later one, since CDS sections run in order and stray matches are
+usually TOC or prose earlier in the document):
+
+| document | pages | hull | cluster | delta |
+|---|---|---|---|---|
+| uga_2023-2024 | 50 | 204 | 134 | **−34%** |
+| dartmouth_2024-2025 | 34 | 210 | 187 | −11% |
+| cornell_2022-2023 | 32 | 159 | 131 | −18% |
+| caltech_2024-2025 | 50 | 177 | 134 | −24% |
+| ucf_2023-2024 | 48 | 226 | 133 | **−41%** |
+| **corpus** | | **976** | **719** | **−26.3%** |
+
+It improves **every** document, and the worst case is still −11%.
+
+**The correctness cross-check matters more than the size cut.** Page-send reduction is
+worthless if it drops the page the data is on. Checking the kept cluster against the
+sealed page indexes, for the `degrees` batches:
+
+| document | hits | kept | true section J page |
+|---|---|---|---|
+| ucf | 1, 29, 35, 37 | 35, 37 | **37** ✓ |
+| cornell | 20, 25, 27 | 25, 27 | **27** ✓ |
+| uga | 33, 39, 41 | 39, 41 | **41** ✓ |
+| caltech | 33, 39, 41 | 39, 41 | **41** ✓ |
+| dartmouth | 20, 25, 26 | 25, 26 | **26** ✓ |
+
+**5 of 5 keep the true page and discard the stray.** UCF is the clearest case: the
+p1 table-of-contents hit and the p29 lettered sub-item are both dropped, taking
+`degrees` from 39 pages to 7.
+
+**The open risk, stated before running it.** Clustering can drop a page a batch
+genuinely needs. UGA's `financial_aid#0` goes 35 → 9 by keeping [31,33,34,35] and
+discarding p39. That batch's hints are early-H items (H, H2, H2A, H4) so p39 is
+plausibly irrelevant to it — but "plausibly" is not measured. **This is a
+coverage-risk change, not a free win, and it must be validated against sealed ground
+truth on the accuracy and coverage axes, not on page counts.** Page-count math is the
+hypothesis; the scored run is the evidence. Three documents are now sealed, which is
+enough to run it.
+
+**Gap parameter swept (free, offline). Corpus total page-sends:**
+
+| gap | total |
+|---|---|
+| 2 | 716 |
+| **3** | **719** |
+| 5 | 766 |
+| 8 | 802 |
+
+gap=2 buys 3 pages (0.4%) over gap=3 while cutting more aggressively — not worth the
+extra drop risk. **Keep gap=3.** The curve is flat below 3 and rises steeply above 5,
+so the parameter is not delicately tuned, which is what you want in a routing rule.
+
+**Coverage risk measured against the sealed page indexes — and my first reading of it
+was wrong.** For each batch I computed the pages its hint sections *actually occupy*
+(from `section_index`) and asked whether the routed window drops any.
+
+I first measured only `truth − cluster` and reported "Caltech `outcomes#0` loses pages
+8, 9" as a clustering regression. **That was an attribution error: I never compared
+against the hull.** Re-measured properly, `truth − hull` vs `truth − cluster`:
+
+| document | true pages missed by hull | by cluster | **added by clustering** |
+|---|---|---|---|
+| dartmouth_2024-2025 | 0 | 0 | **0** |
+| cornell_2022-2023 | 0 | 0 | **0** |
+| ucf_2023-2024 | 0 | 0 | **0** |
+| caltech_2024-2025 | 2 | 2 | **0** |
+| **corpus** | **2** | **2** | **0** |
+
+**Clustering introduces zero coverage loss.** The −26.3% page-send cut is free on this
+evidence. The lesson is the one this run keeps teaching: a delta is only a regression
+if you measure the baseline too, and I published a regression I had not baselined.
+
+**What the mistake uncovered is a separate, pre-existing bug.** Caltech's 2 missed
+pages are not a routing-rule artifact — the hint literal **`B4-B11` matches nothing at
+all in Caltech's text**. Only `B22` hits (p12), so the window is p10-14 while the true
+B4-B11 grid is on **pages 8, 9, 10**. Two of the three pages holding the graduation-rate
+grid are never sent, under the current routing *and* under the fix.
+
+Chased it. **The hint literal is simply wrong, on every document in the corpus.**
+
+Every CDS in the corpus prints the heading as **`B4-B21`**, never `B4-B11`:
+
+```
+caltech_2024-2025   p8  'B4-B21: Graduation Rates'
+uga_2023-2024       p8  'B4-B21: Graduation Rates'
+dartmouth_2024-2025 p4  'B4-B21: Graduation Rates'
+cornell_2022-2023   p4  'B4-B21: Graduation'
+ucf_2023-2024       p7  'B4 ‐ B21. Graduation Rates'     <- note U+2010 dash AND spaces
+```
+
+`_hit_pages_for_hints` with the shipped hint returns **no hit on all five documents**,
+so all 20 metrics carrying it (`config/cds/domains/outcomes.yaml`) fall back to
+whole-document routing on every document. Swapping the literal to `B4-B21` hits
+immediately on 4 of 5:
+
+| document | hint `B4-B11` | hint `B4-B21` |
+|---|---|---|
+| caltech | no hit → whole doc | **[8]** |
+| uga | no hit → whole doc | **[8]** |
+| dartmouth | no hit → whole doc | **[4]** |
+| cornell | no hit → whole doc | **[4]** |
+| ucf | no hit → whole doc | still none |
+
+**UCF still misses, and the reason is a second, separate defect.** UCF prints
+`B4 ‐ B21` — a U+2010 hyphen **surrounded by spaces**. `_hint_pattern` already tolerates
+dash variants (`_HINT_DASH_CHARS`) but compiles the dash as `[-…]?` with **no
+whitespace tolerance**, so `B4 ‐ B21` cannot match a `B4-B21` hint. One-character fix:
+allow optional whitespace either side of the dash.
+
+**This is the highest-confidence, lowest-risk fix found so far** and it is independent
+of the clustering change:
+- It is a *correctness* fix, not a heuristic — the literal does not exist in any real
+  document, so nothing can regress by correcting it.
+- It converts 20 metrics from whole-document fallback to a 1-page route on 5 of 5
+  documents (4 by the config edit, the 5th by the whitespace tolerance).
+- It should move **coverage and accuracy**, not just cost: those metrics are currently
+  asked for against the entire document, which is both the most expensive and the most
+  error-prone way to ask.
+
+Ordering for the loop: land this first (it is unambiguous), re-baseline, then test
+clustering on top. Testing them together would confound a certain win with a
+heuristic one.
+
+**Full hint audit — the good news, and it bounds the problem.** I ran every hint
+literal in the compiled manifest against all six PDFs. 67 distinct hints over 395
+metric-hint pairs:
+
+```
+DEAD (match nothing in any of the 6 documents -> always whole-document fallback):
+   B4-B11        7 metrics
+   cover page    1 metric
+
+PARTIAL (match in some documents but not all):
+   C9    28 metrics  5/6 docs   (Dartmouth genuinely has no C9 -- expected)
+   C8A    4 metrics  5/6 docs
+   C8F    1 metric   5/6 docs
+   A2     1 metric   5/6 docs
+```
+
+**61 of 67 hints match in all six documents.** The routing problem is *concentrated*,
+not pervasive — which is worth stating plainly because my earlier framing ("bare
+single-letter hints… the pattern generalises") implied a broad rot that the data does
+not support. Two dead literals and four partials, with the partials all explicable as
+genuine template variation rather than config error.
+
+`cover page` is not a CDS item code at all — it is prose sitting in a `source_hints`
+list, so that metric routes whole-document on every document, forever. One metric, so
+low impact, but it is the same class of defect and should go.
+
+**How it stayed hidden.** A wrong hint literal produces zero hits, which the router
+treats as "no routing information" and silently answers with the whole document — the
+same silent-widening failure mode as the convex hull. Nothing logs "this hint matched
+nothing anywhere." Both defects would have been caught years ago by a single startup
+assertion that every `source_hints` literal matches at least one page in at least one
+reference document. **Recommend adding that check to the config test suite** — it is
+cheap, and it is the class of bug that costs 49% of a document's page traffic while
+looking like normal operation.
+
+So the offline evidence is: **−26.3% page-sends, correct section page retained on 5 of
+5 for `degrees`, and exactly one identified coverage regression.** That is a strong
+enough case to spend a scored run on — but the scored run against sealed GT remains
+the evidence, because page-count math cannot see whether the model actually still finds
+the values. Cost and coverage are the axes to watch; accuracy should be unchanged or
+better (fewer irrelevant pages to mine wrong numbers from).
+
 ### M2 — CORNELL SEALED ✅ (3 of 6), and the seal guard that generalises the rulings
 
 394/394. `present` 241 / `blank` 133 / `absent` 20. Gate passed: `wrong=0
@@ -1382,3 +1573,156 @@ UGA's 2024-25 URL 404s and their 2022-23 / 2021-22 PDFs are flattened (0 fields)
 2023-24 is the specific edition that works. Field names are screaming-snake CDS codes
 (`MAIN_INST_CONTROL -> '/Public'`, `CDS_ZIPCODE -> '30602'`); checkbox/radio values carry a
 leading `/`. The fallback `michigan_2024-2025` is not needed.
+
+---
+
+## M2 — UCF sealed (2026-08-24)
+
+`gt/ucf_2023-2024.json` — 324 present / 59 blank / 11 absent = 394.
+
+**Adjudication was unusually clean: all seven groups at 100% agreement, zero
+value_conflict, zero status_conflict, zero coverage_gap.** Five `ambiguous` flags
+(3 admissions, 2 ij), all reviewed and resolved as keep-as-is:
+
+- `open_admission_all_students` — C6 dropdown empty → `blank` (per D11).
+- `other_units_recommended` / `other_units_required` — empty free-text box → `blank`.
+- `class_sections_50_99` / `class_subsections_50_99` — UCF prints the band label
+  "50 - 59" with no 60-99 band, but its seven bands sum exactly to the printed
+  totals 3171/308, so it is positionally the 50-99 slot with a label typo. Kept
+  `present` 416 / 30.
+
+**Seal-guard conversions: 0.** This is the first document where the guard fired on
+nothing. The brief now carries the non-numeric-token rule explicitly and both passes
+applied it at authoring time instead of leaving it to the seal. Evidence the brief
+edits paid off, not evidence the hazard went away.
+
+**Ruling — H3 status when the control is a free-text box (UCF).** UCF prints the
+aid-reporting year and status as ONE combined box reading `2022-2023 Final`, rather
+than a year field plus an Estimated/Final selection control. The metric instruction
+says *"matched to the single selected status control ... Do not infer a status when
+the control is blank or unresolved."* Both passes independently split it to
+year=`2022-2023`, status=`final`. Kept.
+
+Rationale, and how it differs from the Cornell case: the prohibition is against
+*inferring* a status that the page does not state. UCF's page states it — the word
+"Final" is printed. Cornell had neither a control nor the word. The distinction is
+"is the answer visible on the page", not "is the answer inside a checkbox".
+
+Gate: empty-run fixture scored `wrong=0 hallucinated=0 gt_error=0 uncovered=0`,
+324 missed + 70 correct_abstention = 394. PASS.
+
+## PennState holdout page index — four verdicts
+
+Indexed, 46 pages, D17-complete (every entry has non-empty `sections`).
+
+- **(a) header year** — `Common Data Set 2022-2023` identical on all 46 pages. No
+  drift. (Contrast Cornell, which carries three different years in its headers.)
+- **(b) the B4-B21 heading** — `B4-B21: Graduation Rates`, plain ASCII hyphen-minus
+  U+002D, no surrounding spaces. **This is the sixth document, and the sixth to
+  print B4-B21.** The shipped hint literal `B4-B11` now matches nothing in 6 of 6.
+- **(c) Section J** — page 38, section band `J. Disciplinary areas of DEGREES
+  CONFERRED`, item labelled `J1` with no period (contrast Section I's `I-1.` style
+  in the same document).
+- **(d) prose-only code mentions** — `B4-B11` p4 ×2 in the parenthetical
+  "(formerly CDS B4-B11)"; `H1`/`H2` p46 glossary cross-reference; `H3` p28
+  "(Formerly H3)". Glossary appendix = pages 39-46.
+
+**Verdict (d) is the interesting one and it strengthens an earlier refutation.**
+PennState is the ONLY document in the corpus where the string `B4-B11` appears at
+all — and it appears exactly where the refuted glossary-prose hypothesis predicted
+trouble. It still does not match, because `_hint_pattern` anchors at `^` and the
+mention is mid-line inside a parenthetical. So:
+
+- The line-start anchor is **load-bearing**, not incidental. Removing it (e.g. as
+  part of "make hints more tolerant") would immediately start routing PennState's
+  outcomes batch to page 4 on a prose mention. Do not relax the anchor.
+- The `B4-B11` → `B4-B21` correction remains safe on all six documents: the old
+  literal matches zero headings, and on the one document where the string exists at
+  all it is structurally unmatchable.
+
+Also worth noting for verdict (c): the bare hint `J` compiles to
+`^J(?![0-9A-Za-z])`, which does NOT match `J1` — the `1` is excluded by the
+lookahead. PennState's real Section J is reachable only via its section band line
+`J. Disciplinary areas...`. That is one line on one page carrying the entire
+41-metric `degrees` domain.
+
+### D18 — corpus capped at 5 documents (user directive, 2026-08-24)
+
+Ground truth stops at the five tuning documents: uga, dartmouth, cornell, ucf,
+caltech. **No PennState ground truth will be authored.**
+
+Consequence, stated plainly so the final report does not overclaim: §9's holdout
+gate was specified as running the champion once on the sealed sixth document. With
+no GT for PennState, that gate can no longer produce accuracy or coverage numbers.
+What remains runnable on PennState is an unscored smoke — does the champion config
+complete, at what cost and latency, with well-formed output — which tests
+generalization of the *mechanics* but not of the *accuracy*. The five-document
+aggregate is therefore the only scored evidence backing any champion claim, and the
+final report must say so rather than implying an independent holdout confirmed it.
+
+The PennState page index (already authored) is kept: it cost nothing further and
+its verdicts are what confirmed the B4-B21 finding on a sixth document.
+
+## M2 — Caltech adjudication rulings (partial: cost, class_profile, def)
+
+| group | keys | agreement | conflicts | ambiguous |
+|---|---|---|---|---|
+| cost | 43 | 97.67% | 1 value_conflict | 1 |
+| class_profile | 36 | 100% | 0 | 0 |
+| def | 60 | 100% | 0 | 1 |
+
+### Ruling — `cost.cost_academic_year` on Caltech = `2024-2025` (pass B)
+
+The page is genuinely self-contradictory and both passes flagged it, which is the
+protocol working. Page 29 prints, in this order:
+
+1. `G0.` net price calculator URL question,
+2. bolded lead-in: **"Provide 2024-2025 academic year costs of attendance..."**,
+3. an UNCHECKED box: "Check here if your institution's **2025-2026** ... costs are
+   not available at this time...",
+4. `G1.` instructional text: "for the **FULL 2025-2026** academic year",
+5. G1 column headers: `FIRST-YEAR` / `UNDERGRADUATES` — **no year at all**.
+
+Pass A took (4) → `2025-2026`. Pass B took (2) → `2024-2025`.
+
+The instruction reads *"Copy the G0 cost-year label exactly as printed (the year
+printed in the G1 tuition/fee/room/board column headings)."* The parenthetical is a
+**locator for the primary designation, not a competing source** — and it does not
+resolve on this document, because the G1 headers carry no year. Falling back to the
+primary designation ("the G0 cost-year label") gives the bolded lead-in directly
+under G0: `2024-2025`. The metric's `source_hints` is `['G0']` and its description
+says "from the G0 heading", so three independent signals point the same way.
+
+Recorded `2024-2025`. Pass A's reading is defensible about the *document* — Caltech
+really did print a contradiction — but wrong about the *contract*.
+
+`cost.final_costs_not_available` = `present`/`false` (both passes): the instruction
+allows `false` "only when the complete visible G0 checklist shows that control
+unambiguously unmarked", and the single box is plainly visible and empty. Correct.
+
+Both passes marked the three G5 `transportation_*` metrics `absent`. Caltech's G5
+prints six rows (Books and supplies / Housing only / Food only / Food and housing
+total / Living expenses / Other expenses) with **no Transportation row**. Pass A
+raised whether the populated "Living expenses**" row is this edition's successor.
+Kept `absent`: the label differs, the metric's hints and description target
+"Transportation" specifically, and treating a differently-named row as equivalent is
+an inference the engine cannot make from the page.
+
+### Ruling — `student_life.air_force_rotc_on_campus` = `false`, flag dismissed
+
+Both passes recorded `false` and both flagged the same anomaly: the F3 Air Force
+"On campus" box renders as a solid gray square unlike ordinary white empty boxes,
+raising the possibility that a checked state was obscured. Checked the page image
+directly, since agreed-but-flagged items have twice overturned both passes.
+
+**The gray is AcroForm widget-background styling, not a mark.** The discriminator on
+this page is the `✓` glyph, not the fill. Decisive evidence: all three Naval ROTC
+boxes are gray-filled and unchecked, and Naval ROTC is plainly not offered (its
+cooperating-institution name field is empty). Meanwhile Army and Air Force "At
+cooperating institution" are gray-filled AND carry a `✓`, with populated name
+fields (`USC`; `USC, CSUSB, LMU, UCLA`).
+
+So gray ≠ checked, and `false` stands. Worth stating as a general hazard: **on
+AcroForm-derived CDS pages, widget background fill is styling and carries no
+semantics — only the glyph does.** Distinct from the column-position hazard, where
+the glyph is identical and position carries meaning.
