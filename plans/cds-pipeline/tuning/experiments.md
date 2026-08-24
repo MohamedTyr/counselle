@@ -2119,3 +2119,85 @@ its numbers), form PDFs only (1 of 6 corpus documents), routed pages only, cappe
 from sending a C7 page image and kept the PDF alongside it. The corpus recon warned
 the text layer "can be silently, plausibly wrong". Both were circling this bug; C7
 was simply the first place it was noticed. It was never C7-specific.
+
+---
+
+# CHAMPION vs BASELINE — full corpus, 5 documents
+
+Config: compressed slices, bake-before-slice, densest-cluster routing, B4-B21 hint
++ whitespace tolerance, images-only for all-boolean form batches.
+
+| document | accuracy | coverage | cost | latency | failed calls |
+|---|---|---|---|---|---|
+| cornell | 98.34 | 98.76 | $0.0853 | 147.5s | 0 |
+| dartmouth | 98.33 | 94.40 | $0.0910 | 215.1s | 0 |
+| ucf | 95.69 | 98.77 | $0.0920 | 203.3s | 0 |
+| uga | 94.90 | 94.19 | $0.0929 | 330.3s | 0 |
+| caltech | 91.98 | 95.36 | $0.0842 | 572.2s | 0 |
+
+| aggregate | baseline-01 | champion | delta |
+|---|---|---|---|
+| correct | 738 | **1280** | +542 |
+| missed | 605 | **50** | -555 |
+| coverage | 55.58% | **96.33%** | +40.75pp |
+| accuracy | 95.97% | 95.81% | -0.16pp |
+| hallucinated | 12 | 24 | +12 |
+| cost/doc | $0.0607 | $0.0891 | +$0.0284 |
+| latency/doc | 1062.4s | **293.7s** | -3.6x |
+| **failed calls** | **35** | **0** | -35 |
+
+## Read this table honestly
+
+**The baseline is not a valid comparator and its "wins" are artifacts of being
+broken.** Its cost/doc is lower because 35 of its 115 calls never completed, and its
+accuracy is computed over 769 extractions against the champion's 1336. A cheap, fast,
+accurate-looking run that answered barely half the questions is not a better run.
+
+The only clean same-config comparison is the two documents whose baseline had zero
+failed calls:
+
+- **cornell** 97.91/97.93 -> **98.34/98.76**, $0.0901 -> $0.0853, 643.6s -> 147.5s.
+  Better on all four axes at once.
+- **dartmouth** 98.33/94.40 -> **98.33/94.40** (identical), $0.0935 -> $0.0910,
+  492.7s -> 215.1s. No accuracy or coverage movement, cheaper, 2.3x faster.
+
+So: no regression on either clean document, a strict improvement on one, and the
+three previously-unmeasurable documents now measure.
+
+**Hallucinations doubled, 12 -> 24, and that is a real cost, not only an artifact.**
+Some of it is surface area — the engine now answers 1336 questions instead of 769,
+so there is simply more to get wrong. But §1 tolerates zero, so the direction is
+wrong regardless of the denominator. Caltech alone contributes 11.
+
+## Against the §1 targets — NOT met
+
+| dimension | measured | target | floor | verdict |
+|---|---|---|---|---|
+| accuracy | 95.81% | 100% | 99.5% | **fails floor** |
+| coverage | 96.33% | >=98% | 95% | under target, above floor |
+| hallucination | 24 | 0 | 0 | **fails** |
+| cost/doc | $0.0891 | <=$0.10 | <=$0.15 | passes |
+| latency/doc | 293.7s | <=240s | <=360s | over target, within floor (caltech 572s is not) |
+
+Cost is won. Latency is nearly won. **Accuracy and hallucination are the blockers**,
+and they are no longer routing or transport problems — they are reading problems.
+
+## UGA error autopsy (13 wrong, 2 hallucinated) — the next levers
+
+- **outcomes, 6 wrong.** Engine cites page 10 every time; GT is on pages 8-9. UGA
+  prints more than one B4-B21 cohort grid and the engine read the wrong one. The
+  metric says "first/most recent visible" grid — the window now spans all of them
+  and nothing tells the model which. Highest-value single fix left.
+- **transfer, 2 wrong.** `required_some` vs `recommended_some` on the D5 grid —
+  column-position misreads, the known checkbox-grid class, on a non-boolean metric
+  so the images-only path does not cover it.
+- **financial_aid, 3 wrong.** Wrong aid year (`2022-2023` vs `2023-2024`) and status
+  (`final` vs `estimated`) on the same page — the same header/label contamination
+  seen on Cornell — plus `12 15` vs `12/15`, a separator dropped.
+- **identity, 2 wrong, and one is the engine being "helpful".**
+  `state_or_region`: engine expanded `GA` to `Georgia`. `application_url`: GT says
+  `ttps://apply.uga.edu/apply/` and the engine answered `https://...`. **The page
+  really does render `ttps://` — UGA typo'd its own URL.** Verified in the baked
+  text layer. Ground truth is right and the engine silently corrected a source
+  typo. It is a small error with a large implication: an extractor that repairs
+  what the document says is no longer reporting what the document says.
