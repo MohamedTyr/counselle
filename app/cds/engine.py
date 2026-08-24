@@ -100,7 +100,7 @@ _CHECKBOX_GRID_HINT = "C7"
 # a 50th percentile of 27 and a 75th of 25 -- the 75th BELOW the 50th, which is
 # arithmetically impossible and therefore a transposition, not a misread digit.
 # Same supplement as C7, same reason.
-_COLUMN_POSITION_HINTS = frozenset({"C9", "C15", "C16", "D5", "H9", "H10", "H12", "H13", "H14"})
+_COLUMN_POSITION_HINTS = frozenset({"C9", "C15", "C16", "D5", "H12", "H13", "H14"})
 _CHECKBOX_GRID_MAX_PAGES = 2
 _CHECKBOX_GRID_IMAGE_DPI = 150
 

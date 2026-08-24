@@ -2410,3 +2410,82 @@ Tally of the two lever classes across the whole session:
 That is a strong enough signal to state as an engine design rule rather than an
 observation: **when the engine is systematically wrong about a class of cell, fix the
 evidence, not the instructions.**
+
+## Experiment 18 — INVALID, and the noise-floor rule earned its keep immediately
+
+Corpus run with H9/H10 images: accuracy 97.08%, coverage **86.34%**, **11 failed
+calls**. Taken at face value this reads as a catastrophic coverage regression caused
+by adding images.
+
+It is not. The noise-floor rule (measured one experiment earlier) says check
+`run_errors` before believing a coverage swing, and the errors settle it:
+
+- **Every one of the 11 is `ReadError: SSL UNEXPECTED_EOF`** — a dropped *response*,
+  not a `WriteTimeout`. Different failure, opposite direction on the wire, so the
+  "bigger payload" story does not fit.
+- They landed in `academics`, `enrollment`, `transfer`, `student_life`, `class_size`,
+  `cost`, `outcomes` — **domains that carry no H9/H10 images at all.** The change
+  under test cannot have caused failures in batches it does not touch.
+
+So this is transient network instability, and exp18 is not a measurement. Re-running
+the four affected documents rather than averaging, exactly as the rule prescribes.
+
+Had I not measured the noise floor an experiment earlier, the honest-looking move
+would have been to revert a fix that had just cut UCF's invented selections from 4 to
+1 — reverting a real improvement on the strength of unrelated network weather.
+
+## Experiment 19 — the H9/H10 image win was an ARTIFACT. Reverted.
+
+exp17 (`--domains financial_aid`) showed UCF going 55 -> 57 correct and 4 -> 1
+hallucinated. The full-corpus run does not reproduce it: **52 correct, 4
+hallucinated** — the same 4 invented selections as before.
+
+The cause is a harness trap, not model nondeterminism. The two runs sent
+**different windows for identical hints**:
+
+```
+exp17 (financial_aid only)  b1 hints=[H5,H6,H7,H8,H9]  pages_sent=12
+exp19 (all domains)         b1 hints=[H5,H6,H7,H8,H9]  pages_sent=6
+```
+
+`domain/cds/pages.py:padded_domain_ranges` computes `all_starts` from **every routed
+range in the run**, and `_trailing_edge` grows a window toward the next routed
+section's start. Filter to one domain and there are no neighbouring sections to clamp
+against, so every window grows to its maximum trailing extent.
+
+> **A `--domains`-filtered run is not representative of a full run — it
+> systematically sends WIDER windows.** Single-domain experiments are fine for a
+> fast smoke test, but a result must be confirmed on a full run before it is
+> believed, and certainly before it is committed.
+
+exp17 got its better answer from seeing twice as many pages, not from the images.
+
+Full-run comparison, both failure-free:
+
+| | exp15 clean | exp19 clean |
+|---|---|---|
+| accuracy | 97.16% | 97.22% |
+| coverage | **96.40%** | 96.11% |
+| hallucinated | 23 | 23 |
+| cost/doc | **$0.0921** | $0.0925 |
+| latency/doc | **315.5s** | 351.6s |
+
++0.06pp accuracy is inside the margin of a single differing call; coverage, cost and
+latency all move the wrong way. **Reverted `H9`/`H10` from the image set. exp15
+remains champion.**
+
+### Correcting the record on the lever tally
+
+I wrote one experiment ago that evidence changes were "4 for 4" and stated it as a
+design rule. That was premature — the fourth was measured on a filtered run. Corrected
+tally:
+
+| lever class | attempts | confirmed on a FULL run |
+|---|---|---|
+| wording (prompt / catalog) | 3 | 0 |
+| evidence (what the model receives) | 4 | **3** |
+
+The rule still holds directionally — bake-before-slice, images-only for boolean form
+batches, and column-position images each carried into a full corpus run. But "4 for
+4" overstated it, and the overstatement came from exactly the methodological error
+this experiment exposed.
