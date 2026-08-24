@@ -505,3 +505,72 @@ causes, and the ranked list of what to try next.
   runtime honesty gate).
 - Respect the lazy-but-clean code philosophy: harness code is throwaway-quality-honest
   (lives under `plans/cds-pipeline/tuning/`), engine changes are production-quality.
+
+---
+
+# LEARNED IN THE LOOP (updated after experiments 1-18)
+
+## The single most useful rule discovered
+
+**Fix the evidence, not the instructions.** Score across this session:
+
+| lever class | attempts | successes |
+|---|---|---|
+| telling the model something (prompt or catalog wording) | 3 | **0** |
+| changing what the model receives | 4 | **4** |
+
+Failed wording changes: "the text layer renders every checkbox empty regardless of
+state, use the image"; "a metric's own `instructions` outrank every general
+convention"; "OMIT the metric rather than returning false". All three produced
+literally zero metric movement.
+
+Successful evidence changes: bake form fields before slicing; withhold the PDF and
+send images for all-boolean form batches; send page images for column-position grids;
+send page images for H9/H10. Each moved its target family immediately.
+
+When the engine is systematically wrong about a class of cell, reach for what it can
+see. An admonition against a strong prior does not work.
+
+## Measure before publishing — three of my own claims were wrong
+
+1. "Caltech has no C9" — built on placeholder page-index entries. Produced D17
+   (a page index is complete only when every entry has content, never assert
+   completeness on the key set).
+2. "`clean=True` is destroying content" — the shipped default already produced the
+   same 4 text diffs. **Always measure the baseline of a comparison, not just the
+   variants.**
+3. "Routing won't carry accuracy" — refuted within the hour; over-wide batches were
+   failing outright, and a failed call zeroes every metric in it.
+
+## The noise floor: the engine is DETERMINISTIC
+
+Dartmouth re-ran byte-identically (accuracy, coverage, every bucket). All run-to-run
+variance comes from **transport failures**, not the model.
+
+- Coverage is the axis that exposes a dead call. Accuracy is nearly blind to it,
+  because a dead call drops metrics from numerator and denominator alike.
+- **Never average runs to smooth variance. Check `run_errors` and re-run.**
+- A comparison involving a run with any failed call is not a comparison.
+
+## Cheap-and-fast is the signature of a broken run
+
+The original baseline looked BEST on cost ($0.0607/doc) and that was because 35 of
+its 115 calls never completed. The scorer's RUN ERRORS panel is the only thing that
+catches this. Related, still unfixed: a total-failure run emits a fitness tuple whose
+`-0.0` cost WINS the cost axis against a working config.
+
+## Where the remaining error mass actually is
+
+Not routing, not transport — both are solved (0 failed calls, all slices smaller
+than their source). The residue is instruction-following on two catalog rules:
+Caltech H14 blank-is-never-false, and the invented-selection family. The second
+yielded to an image; the first has not yielded to anything permitted by §10.
+
+## Operational notes
+
+- GT agent fan-out: **cap at 3 concurrent image-reading agents** (D19). Eight caused
+  six simultaneous stalls, twice.
+- A `failed`/stalled agent notification does NOT mean the work is absent (D16), and a
+  complete key set does NOT mean the work is whole (D17). Verify content on disk.
+- Test on ONE document first, widen only once it holds. Five-document sweeps for a
+  change a single document would falsify are ~5x waste.
