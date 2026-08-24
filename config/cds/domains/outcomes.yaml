@@ -12,7 +12,7 @@ metrics:
     denominator: adjusted_cohort
     definition_variant: rate
     period_kind: cohort_year
-    source_hints: [B4-B11]
+    source_hints: [B4-B21]
     instructions: >-
       Extract the "Recipients of a Federal Pell Grant" column printed six-year
       graduation rate from the first/most recent visible B4-B11 cohort grid as
@@ -34,7 +34,7 @@ metrics:
     denominator: cohort
     definition_variant: total
     period_kind: cohort_year
-    source_hints: [B4-B11]
+    source_hints: [B4-B21]
     instructions: >-
       Extract the "Total (sum of 3 columns to the left)" column
       adjusted-cohort row from the first/most recent visible B4-B11 cohort
@@ -53,7 +53,7 @@ metrics:
     denominator: adjusted_cohort
     definition_variant: total
     period_kind: cohort_year
-    source_hints: [B4-B11]
+    source_hints: [B4-B21]
     instructions: >-
       Extract the "Total (sum of 3 columns to the left)" column "completed
       within four years" row from the first/most recent visible B4-B11 cohort
@@ -72,7 +72,7 @@ metrics:
     denominator: adjusted_cohort
     definition_variant: total
     period_kind: cohort_year
-    source_hints: [B4-B11]
+    source_hints: [B4-B21]
     instructions: >-
       Extract the "Total (sum of 3 columns to the left)" column "completed
       after four, within five years" row from the first/most recent visible
@@ -92,7 +92,7 @@ metrics:
     denominator: adjusted_cohort
     definition_variant: total
     period_kind: cohort_year
-    source_hints: [B4-B11]
+    source_hints: [B4-B21]
     instructions: >-
       Extract the "Total (sum of 3 columns to the left)" column "completed
       after five, within six years" row from the first/most recent visible
@@ -111,7 +111,7 @@ metrics:
     denominator: adjusted_cohort
     definition_variant: total
     period_kind: cohort_year
-    source_hints: [B4-B11]
+    source_hints: [B4-B21]
     instructions: >-
       Extract the "Total (sum of 3 columns to the left)" column cumulative
       "total completed within six years" row from the first/most recent
@@ -131,7 +131,7 @@ metrics:
     denominator: adjusted_cohort
     definition_variant: rate
     period_kind: cohort_year
-    source_hints: [B4-B11]
+    source_hints: [B4-B21]
     instructions: >-
       Extract the "Total (sum of 3 columns to the left)" column printed
       six-year graduation rate from the first/most recent visible B4-B11

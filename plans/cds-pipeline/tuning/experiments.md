@@ -1874,3 +1874,160 @@ correct values.
 
 Pass A (merge source) holds `2025-2026`; the adjudicated value is `2024-2025`.
 This is the one `ADJ` override applied when assembling the Caltech seal.
+
+## EXPERIMENT 1 — BASELINE, full 5-document corpus: two of five runs are INVALID
+
+| document | acc | cov | cost | latency | w/h/m | failed calls |
+|---|---|---|---|---|---|---|
+| cornell | 97.91 | 97.93 | $0.0901 | 643.6s | 2/3/5 | **0** |
+| dartmouth | 98.33 | 94.40 | $0.0935 | 492.7s | 1/3/14 | **0** |
+| ucf | 93.96 | 79.94 | $0.0729 | 894.1s | 10/6/65 | **3 of 23** |
+| uga | 76.92 | 8.39 | $0.0469 | 1239.1s | 6/0/284 | **9 of 23** |
+
+**UGA and UCF are not measurements and must not be booked as baseline accuracy.**
+UGA's 8.39% coverage is 9 dead calls, not a model that failed to read. The scorer's
+RUN ERRORS panel is the only reason this was caught — the headline numbers look like
+a catastrophically bad engine, and cost/latency look *better* on UGA than anywhere
+else precisely because a third of its calls never completed. **A cheap fast run is
+the signature of a broken one.** (This is the same trap as the filed scorer
+hardening item: a total failure emits `-0.0` cost and wins the cost axis.)
+
+### The failures are the routing defect, and this CORRECTS what I wrote earlier
+
+I wrote, in the Cornell autopsy above: *"Routing ... is worth fixing on cost/latency
+grounds, but I should stop expecting it to carry accuracy."* **That is wrong, and
+the corpus-wide data refutes it.** Retracted.
+
+Errors are all `WriteTimeout: The write operation timed out` and one
+`ReadError: SSL UNEXPECTED_EOF` — failures *uploading the request*, i.e. payload
+size, not model behaviour.
+
+Join the failures against the batches that succeeded:
+
+```
+uga        successful calls: max pages_sent = 6,  mean 5.4
+           failed: admissions 0,1,3 | class_size 0 | cost 0
+                   degrees 0,1 | enrollment 0 | financial_aid 0
+ucf        successful calls: max pages_sent = 12, mean 6.1
+           failed: degrees 0,1 | financial_aid 0
+dartmouth  successful calls: max pages_sent = 34, mean 9.9   failed: none
+cornell    successful calls: max pages_sent = 30, mean 7.8    failed: none
+```
+
+Two things fall out:
+
+1. **The oversized batches are absent from the successful set entirely.** UGA's
+   recorded dry-run plan has `financial_aid` b0 sending 41 pages and `enrollment`
+   b0 sending 33 pages for 4 metrics; no UGA call above 6 pages survived. The
+   over-wide calls are exactly the ones that died.
+2. **`degrees` and `financial_aid` fail on BOTH affected documents.** Those are
+   precisely the two domains the routing audit named — `degrees` via the bare `J`
+   hint matching TOC lines and lettered sub-items, `financial_aid` via the widest
+   convex hull. This is not a coincidence of network weather.
+
+It is not a flat page threshold — Dartmouth and Cornell each succeeded at 30-34
+pages. It is that UGA's and UCF's worst batches are far wider still, and those are
+the ones that time out on upload.
+
+**So the convex-hull fix changes category.** It was justified as a 26.3% page-send
+reduction (cost and latency). It is now also the largest available *coverage* lever,
+because over-wide batches do not merely cost more — they fail outright, and a failed
+call zeroes every metric in it. That makes the ordering question sharper, not looser:
+land the certain correctness fix first, re-baseline, then clustering, so the two are
+never confounded.
+
+**Only cornell and dartmouth are usable baseline accuracy numbers.** On those two,
+clean: accuracy 97.91 / 98.33 (floor 99.5 — both below), hallucination 3 / 3
+(tolerance 0 — both fail), cost $0.090 / $0.094 (target $0.10 — both pass, thin
+headroom), latency 643.6s / 492.7s (target 240s — both fail).
+
+Dartmouth's 14 `missed` against Cornell's 5, with zero failed calls on both, is a
+real coverage difference worth an autopsy of its own rather than an assumption.
+
+---
+
+# THE REAL BLOCKER WAS NEVER THE ROUTING HULL
+
+Two bugs in `adapters/cds_pdf.py:_narrow_document_sync`, both found by running the
+engine instead of reasoning about it. Between them they explain every invalid
+baseline. Neither is a tuning knob; both are production defects.
+
+## Bug 1 — "narrowing" INFLATED the payload
+
+`sub.tobytes()` with default options writes an **uncompressed** document, and the
+per-page `insert_pdf` loop copies each page's whole resource tree. Result: a slice
+could be larger than the document it was cut from.
+
+```
+5-page slice          full doc     slice     ratio
+caltech_2024-2025    2,143,966  3,956,646   1.85x   <- slice BIGGER than the document
+ucf_2023-2024          721,635    851,103   1.18x
+uga_2023-2024        2,031,967  1,297,270   0.64x
+dartmouth_2024-2025    770,516    506,233   0.66x
+cornell_2022-2023      720,763    357,155   0.50x
+```
+
+That ordering is exactly the baseline failure ordering: caltech 23/23 calls failed,
+uga 9/23, ucf 3/23, dartmouth and cornell 0. Every error was `WriteTimeout` — the
+upload, not the model. Raising the timeout 180s -> 600s did NOT help (a single
+Caltech call still failed after 1816s ~= 3 x 600s), which is what ruled out "slow
+network" and pointed at payload size.
+
+`deflate=True, garbage=4` cuts the 5-doc slice total 7,196,574 -> 2,095,394 (**3.4x**).
+
+**`clean=True` looked even better (another 2x) and I nearly shipped it.** The
+control saved me: the SHIPPED default already produced 4 text diffs and 10 render
+diffs on those slices, and `deflate+garbage=4` produced *exactly the same* 4 and 10.
+So `clean` was not the thing corrupting content — the corruption pre-dated all of
+it, and I had briefly blamed the wrong flag. Measuring the baseline of a comparison,
+not just the variants, is what caught it.
+
+## Bug 2 — narrowing silently DESTROYED AcroForm field values
+
+The pre-existing 4 text diffs were the real prize. `insert_pdf` copies page content
+but leaves the **document-level AcroForm** behind, so interactive form fields lose
+their values. UGA (whose ground truth is AcroForm-exact) loses text on 4 of 5 sampled
+pages — p20 goes 937 -> 675 characters.
+
+Consequence, from the exp02 run: UGA completed **23 of 23 calls with zero errors**
+and still scored 6.45% coverage. Not a crash — 350 findings came back, and
+**326 of them said `not_reported`**, with excerpts like `☐ Accelerated pro...`
+showing an EMPTY checkbox glyph. The model was handed a blanked-out document and
+truthfully reported that nothing was filled in.
+
+This is the more dangerous of the two bugs by a wide margin: bug 1 raises an
+exception, bug 2 produces a confident, plausible, wrong answer. It is invisible to
+every signal except ground truth. Note also that it was **masked** by bug 1 — while
+UGA's calls were timing out, its low coverage looked like the timeouts.
+
+Fix: `doc.select(pages)` on a copy of the source instead of `insert_pdf` into a
+fresh document. Measured 5-doc fidelity: `insert_pdf` 4 text diffs / 10 render
+diffs; `select` **0 and 0**.
+
+Cost of the fix: `select` retains more of the source, so slices get bigger again
+(uga 5-page slice = 3.05MB, larger than the 2.03MB source). Correctness first —
+size is then a tuning problem, and the convex-hull/cluster work is what addresses
+it. Filed: a guard that sends the original document whenever the slice would exceed
+it, since a slice bigger than the source is never worth building.
+
+## Experiment 2 — payload fix + B4-B21 hint fix (5 docs)
+
+| doc | acc | cov | cost | latency | failed calls (was) |
+|---|---|---|---|---|---|
+| caltech | 99.44 | 74.68 | $0.0653 | 1263.7s | 4 (was 23) |
+| cornell | 97.66 | 69.71 | $0.0740 | 314.1s | 4 (was 0) |
+| dartmouth | 98.25 | 90.00 | $0.0906 | 362.9s | 1 (was 0) |
+| ucf | 95.71 | 99.07 | $0.1047 | 352.1s | 0 (was 3) |
+| uga | 100.0 | 6.45 | $0.0932 | 743.9s | 0 (was 9) |
+
+Caltech went from a total loss to a scoring run, UCF coverage 79.94 -> 99.07, and
+Cornell latency halved (643.6s -> 314.1s). But cornell/dartmouth picked up new
+failures they did not have before, so transport is still flaky and **run-to-run
+variance is real** — Experiment 2's noise floor remains a precondition before any
+of these deltas is treated as signal. Do not crown anything on this table.
+
+## Process correction (user directive)
+
+Test on ONE document first and widen only once it holds. I ran 5-document sweeps
+for changes that a single document would have falsified just as fast and ~5x
+cheaper.

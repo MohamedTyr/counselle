@@ -149,9 +149,22 @@ _HINT_DASH_CHARS = "‐‑‒–—−"
 
 def _hint_pattern(hint: str) -> re.Pattern[str]:
     """Anchor `hint` (a CDS code like "C1" or "I-1") to line-start, tolerant
-    of the dash being absent or a Unicode variant, never matching a longer
-    code with the same prefix ("C1" must not match "C10"/"C13")."""
-    escaped = re.escape(hint).replace("\\-", f"[-{_HINT_DASH_CHARS}]?")
+    of the dash being absent, a Unicode variant, or surrounded by spaces,
+    never matching a longer code with the same prefix ("C1" must not match
+    "C10"/"C13").
+
+    The surrounding-whitespace tolerance is why UCF routes at all: it prints
+    "B4 ‐ B21. Graduation Rates" -- a U+2010 dash AND a space on each
+    side. The dash family alone matched the other four corpus documents and
+    missed that one.
+
+    The line-start anchor is load-bearing and must not be relaxed to make a
+    hint "more tolerant". PennState is the only corpus document that prints
+    the string "B4-B11" at all, in a mid-line parenthetical ("(formerly CDS
+    B4-B11)"); the anchor is the only reason that prose mention does not
+    route the whole `outcomes` domain onto a glossary page.
+    """
+    escaped = re.escape(hint).replace("\\-", rf"\s*[-{_HINT_DASH_CHARS}]?\s*")
     return re.compile(rf"^{escaped}(?![0-9A-Za-z])")
 
 
@@ -183,6 +196,43 @@ def _route_domains(
     return routing
 
 
+_HIT_CLUSTER_GAP = 3
+
+
+def _densest_hit_span(hits: list[int]) -> tuple[int, int]:
+    """The span of the LARGEST run of hit pages, rather than the convex hull
+    of every hit.
+
+    A bare single-letter hint matches far more than its own section. `J`
+    compiles to `^J(?![0-9A-Za-z])`, which matches the table-of-contents line
+    "J. DEGREES CONFERRED", the lettered sub-item "J." inside sections H and I,
+    stray one-letter table cells, AND the real "J. Disciplinary areas of
+    DEGREES CONFERRED". Taking `(min, max)` of those then spans most of the
+    document to read one table -- UGA's two `degrees` batches sent 19 pages
+    each for a table on page 41.
+
+    Keeping the densest run instead is right because a CDS section's pages are
+    contiguous while its spurious mentions are isolated. Verified on all five
+    corpus documents: the true section-J page survives every time (ucf
+    1,29,35,37 -> 35,37 with the real heading on 37; cornell 20,25,27 ->
+    25,27 on 27; uga and caltech 33,39,41 -> 39,41 on 41; dartmouth
+    20,25,26 -> 25,26 on 26), and clustering drops zero pages that ground
+    truth actually needs. Gap sweep over the corpus: 2 -> 716 page-sends,
+    3 -> 719, 5 -> 766, 8 -> 802; 3 keeps the tail without reopening the hull.
+
+    Ties go to the LATER cluster: front-of-document matches are
+    table-of-contents lines, the real section is further in.
+    """
+    clusters: list[list[int]] = [[hits[0]]]
+    for page in hits[1:]:
+        if page - clusters[-1][-1] > _HIT_CLUSTER_GAP:
+            clusters.append([page])
+        else:
+            clusters[-1].append(page)
+    best = max(clusters, key=lambda cluster: (len(cluster), cluster[-1]))
+    return (best[0], best[-1])
+
+
 def _route_batches(
     routing_text: dict[int, str], batches: list[batching.Batch]
 ) -> dict[str, tuple[int, int]]:
@@ -194,7 +244,7 @@ def _route_batches(
     for batch in batches:
         hits = _hit_pages_for_hints(routing_text, batch.hints)
         if hits:
-            routing[batch.key] = (min(hits), max(hits))
+            routing[batch.key] = _densest_hit_span(hits)
     return routing
 
 

@@ -152,17 +152,30 @@ def _narrow_document_sync(pdf_bytes: bytes, page_numbers: Sequence[int]) -> tupl
     with _open(pdf_bytes) as doc:
         for page_number in page_numbers:
             _require_valid_page(page_number, doc.page_count)
-        sub = pymupdf.open()  # type: ignore[no-untyped-call]
-        try:
-            page_map: PageMap = {}
-            for sub_index, original_page_number in enumerate(page_numbers, start=1):
-                sub.insert_pdf(  # type: ignore[no-untyped-call]
-                    doc, from_page=original_page_number - 1, to_page=original_page_number - 1
-                )
-                page_map[sub_index] = original_page_number
-            return sub.tobytes(), page_map  # type: ignore[no-untyped-call]
-        finally:
-            sub.close()  # type: ignore[no-untyped-call]
+    # `select()` on a copy of the source, NOT `insert_pdf()` into a fresh
+    # document. `insert_pdf` copies page content but leaves the document-level
+    # AcroForm behind, so every interactive form field loses its value: UGA's
+    # narrowed pages come back with empty checkbox glyphs and blank answer
+    # boxes, and the model then truthfully reports `not_reported` for almost
+    # everything it is asked. That is silent data destruction -- it produces a
+    # plausible empty answer rather than an error. Measured on a 5-page slice:
+    # `insert_pdf` differs from the source on 4 text pages and 10 rendered
+    # pages, `select` on none.
+    #
+    # Write compressed: PyMuPDF's default `tobytes()` emits an UNCOMPRESSED
+    # document, which is how a "narrowed" slice of an image-heavy scan ended up
+    # LARGER than the document it was cut from and blew the call's write
+    # deadline. Do NOT add `clean=True` -- it rewrites content streams.
+    sub = _open(pdf_bytes).__enter__()
+    try:
+        sub.select([page_number - 1 for page_number in page_numbers])  # type: ignore[no-untyped-call]
+        page_map: PageMap = {
+            sub_index: original_page_number
+            for sub_index, original_page_number in enumerate(page_numbers, start=1)
+        }
+        return sub.tobytes(deflate=True, garbage=4), page_map  # type: ignore[no-untyped-call]
+    finally:
+        sub.close()  # type: ignore[no-untyped-call]
 
 
 async def narrow_document(pdf_bytes: bytes, page_numbers: Sequence[int]) -> tuple[bytes, PageMap]:
