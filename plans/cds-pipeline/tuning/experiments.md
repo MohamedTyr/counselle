@@ -2308,3 +2308,72 @@ UCF `wrong` 9 -> 2. Consistent with the rule above: this fix changed the evidenc
 Note it did NOT clear the 4 H9/H10 hallucinations, which are the invented-selection
 family — the model inferring a selection from an adjacent filled-in date. Seeing the
 page better does not help when the error is inventing a control that is not there.
+
+## Experiment 16 — THE NOISE FLOOR, at last (§6 Experiment 2)
+
+Re-ran the exp15 config on two documents. This was a precondition I deferred far too
+long, and it changes how every earlier delta should be read.
+
+| document | run | accuracy | coverage | w/h/m | failed calls |
+|---|---|---|---|---|---|
+| dartmouth | exp15 | 98.31 | 93.60 | 1/3/16 | 0 |
+| dartmouth | exp16 | **98.31** | **93.60** | **1/3/16** | 0 |
+| cornell | exp15 | 97.88 | 96.68 | 2/3/8 | **1** |
+| cornell | exp16 | 97.94 | **99.59** | 2/3/**1** | 0 |
+
+**Dartmouth reproduced exactly** — same accuracy, same coverage, same bucket counts,
+metric for metric. **The engine is deterministic.** That confirms spike decision 4
+(`temperature=0`, no self-consistency voting) on real documents, and it means:
+
+> **All run-to-run variance in this loop comes from transport failures, not from the
+> model.** A coverage swing is a dead call, every time.
+
+Cornell is the proof: its two runs differ only where one call died, costing 7 metrics
+(8 missed vs 1). Accuracy barely moved (97.88 vs 97.94) because a dead call removes
+metrics from both numerator and denominator; **coverage is the axis that exposes a
+failed call, and accuracy is nearly blind to it.**
+
+Consequences, applied retroactively:
+
+- The exp15-vs-exp10 "coverage regression" (96.55 -> 95.89) was mostly that one dead
+  Cornell call. Substituting the clean re-run gives **96.40%**, and the gap to exp10
+  shrinks to 0.15pp — within a single failed call's blast radius.
+- Earlier sub-1pp deltas I hedged on were right to hedge on, but for the wrong
+  reason: they are not model noise, they are failure noise, and the fix is to check
+  `run_errors` rather than to average more runs.
+- **Any future comparison must be made on failure-free runs, or not made at all.**
+  Re-run rather than average.
+
+## New champion — exp15 (clean)
+
+| | exp10 | exp15 clean | delta |
+|---|---|---|---|
+| accuracy | 96.64% | **97.16%** | +0.52pp |
+| coverage | 96.55% | 96.40% | -0.15pp |
+| hallucinated | 24 | 23 | -1 |
+| cost/doc | $0.0909 | $0.0921 | +$0.0012 |
+| latency/doc | 226.1s | 315.5s | +40% |
+| failed calls | 0 | 0 | -- |
+
+Fitness is lexicographic on accuracy first, so exp15 takes it: +0.52pp accuracy for
+-0.15pp coverage (inside failure noise), +$0.0012, and +90s. Stated plainly, **this
+trades latency for accuracy**, and the ordering says that is the right trade. Latency
+315.5s now exceeds the §1 *target* of 240s while staying inside the 360s floor; the
+extra time is the page images the fix exists to send.
+
+Buckets: 1298 correct / 15 wrong / 49 missed / 23 hallucinated.
+
+## §1 status at the champion
+
+| dimension | measured | target | floor | verdict |
+|---|---|---|---|---|
+| accuracy | 97.16% | 100% | 99.5% | **fails floor** |
+| coverage | 96.40% | >=98% | 95% | under target, above floor |
+| hallucination | 23 | 0 | 0 | **fails** |
+| cost/doc | $0.0921 | <=$0.10 | <=$0.15 | **passes** |
+| latency/doc | 315.5s | <=240s | <=360s | over target, inside floor |
+
+The two failing dimensions are dominated by two families that three wording changes
+failed to move: Caltech H14 blank-is-never-false (11) and the H9/H10 invented
+selections (UCF 4, plus Cornell's 3). That is ~18 of 23 hallucinations concentrated
+in two catalog rules the model declines to follow.
