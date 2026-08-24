@@ -59,6 +59,7 @@ async def _fake_generate_structured(
     pdf_bytes: bytes | None,
     image_pngs: tuple[bytes, ...],
     model_setting: str,
+    thinking_budget: int,
 ) -> cds_gemini.GenerateResult:
     """Stands in for the model: always cites POSITION 1 (the first page of
     WHATEVER window this call was actually sent) -- distinguishing which
@@ -104,7 +105,10 @@ async def test_concurrent_batches_each_resolve_citations_against_their_own_page_
     results = await batch_run.run_batches(
         batches,
         lease_lost=None,
-        settings=SimpleNamespace(model_cds_extract="google-vertex:fake-model"),
+        settings=SimpleNamespace(
+            model_cds_extract="google-vertex:fake-model",
+            model_cds_extract_thinking_budget=0,
+        ),
         manifest_content={"prompt": "extract"},
         pdf_content=_make_pdf(_DOC_PAGE_COUNT),
         original_page_count=_DOC_PAGE_COUNT,
@@ -156,7 +160,10 @@ async def test_many_batches_stress_concurrency_bound_without_cross_contamination
     results = await batch_run.run_batches(
         batches,
         lease_lost=None,
-        settings=SimpleNamespace(model_cds_extract="google-vertex:fake-model"),
+        settings=SimpleNamespace(
+            model_cds_extract="google-vertex:fake-model",
+            model_cds_extract_thinking_budget=0,
+        ),
         manifest_content={"prompt": "extract"},
         pdf_content=_make_pdf(doc_page_count),
         original_page_count=doc_page_count,

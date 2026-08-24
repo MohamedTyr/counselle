@@ -16,6 +16,10 @@ Model id always comes from ``Settings`` (ADR 0011), never a literal.
 
 Every call runs the blocking SDK call in a thread (PLAN Risk 7) so it never
 blocks the event loop that chat traffic shares.
+
+Thought tokens (when ``thinking_budget`` is enabled) bill at the *output*
+rate, not for free -- callers pricing a call must include
+``Usage.thoughts_tokens`` alongside ``output_tokens``.
 """
 
 from __future__ import annotations
@@ -132,10 +136,19 @@ def _generate_sync(
     image_pngs: Sequence[bytes],
     max_output_tokens: int,
     timeout_seconds: float,
+    thinking_budget: int = 0,
 ) -> GenerateResult:
     client = _build_client(settings)
     model_id = _strip_provider_prefix(model_setting)
     parts = _build_parts(prompt, pdf_bytes=pdf_bytes, image_pngs=image_pngs)
+    # thinking_budget=0 must produce the exact config this call built before
+    # thinking existed -- omit thinking_config entirely rather than pass it
+    # as disabled, so the byte-identical-by-default invariant actually holds.
+    extra_config_kwargs: dict[str, Any] = {}
+    if thinking_budget != 0:
+        extra_config_kwargs["thinking_config"] = types.ThinkingConfig(
+            thinking_budget=thinking_budget
+        )
     config = types.GenerateContentConfig(
         temperature=0,
         max_output_tokens=max_output_tokens,
@@ -146,6 +159,7 @@ def _generate_sync(
             timeout=int(timeout_seconds * 1000),
             retry_options=types.HttpRetryOptions(attempts=_SDK_RETRY_ATTEMPTS),
         ),
+        **extra_config_kwargs,
     )
 
     started = time.monotonic()
@@ -191,6 +205,7 @@ async def generate_structured(
     image_pngs: Sequence[bytes] = (),
     model_setting: str | None = None,
     max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+    thinking_budget: int = 0,
 ) -> GenerateResult:
     """One schema-constrained Gemini call: PDF bytes and/or page-image PNGs
     in, a validated ``response_schema`` instance out, plus usage/latency.
@@ -212,6 +227,12 @@ async def generate_structured(
     response, truncated candidate) — never returns a partial/guessed result.
     Transport retries only (``HttpRetryOptions(attempts=3)``); no
     hand-rolled retry loop on top (recon-vertex.md §5.7).
+
+    ``thinking_budget`` defaults to ``0`` (disabled) — the same behaviour as
+    before this parameter existed. ``-1`` is the provider's automatic
+    budget; a positive integer requests an explicit token budget. Thought
+    tokens bill at the output rate (see module docstring); price
+    ``Usage.thoughts_tokens`` whenever this is non-zero.
     """
     resolved_model_setting = model_setting or settings.model_cds_extract
     timeout_seconds = float(
@@ -227,4 +248,5 @@ async def generate_structured(
         image_pngs=image_pngs,
         max_output_tokens=max_output_tokens,
         timeout_seconds=timeout_seconds,
+        thinking_budget=thinking_budget,
     )

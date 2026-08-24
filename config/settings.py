@@ -182,6 +182,11 @@ class Settings(BaseSettings):
     # CDS admin pipeline (plan §B4/§E): the one-shot, no-tool, schema-constrained
     # PDF extraction call, and the cheap per-file school+year detection call.
     model_cds_extract: str = "google-vertex:gemini-3.1-flash-lite"
+    # Gemini thinking budget for the CDS extraction call. 0 disables thinking
+    # (the current and default behaviour, byte-identical to before this
+    # setting existed); -1 is the provider's automatic budget; a positive
+    # integer is an explicit token budget.
+    model_cds_extract_thinking_budget: int = 0
     model_cds_detect: str = "google-vertex:gemini-3.1-flash-lite"
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000

@@ -65,6 +65,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--model", default=None, help="override settings.model_cds_extract")
     parser.add_argument(
+        "--thinking-budget",
+        type=int,
+        default=None,
+        help="override settings.model_cds_extract_thinking_budget (0 disables, -1 auto)",
+    )
+    parser.add_argument(
         "--prompt-variant",
         type=Path,
         default=None,
@@ -241,8 +247,13 @@ async def _run(args: argparse.Namespace) -> None:
         )
 
     settings = get_settings()
+    settings_update: dict[str, Any] = {}
     if args.model:
-        settings = settings.model_copy(update={"model_cds_extract": args.model})
+        settings_update["model_cds_extract"] = args.model
+    if args.thinking_budget is not None:
+        settings_update["model_cds_extract_thinking_budget"] = args.thinking_budget
+    if settings_update:
+        settings = settings.model_copy(update=settings_update)
 
     batch_run._MAX_CONCURRENT_BATCH_CALLS = args.concurrency  # noqa: SLF001 -- harness override, see report
 
@@ -302,6 +313,7 @@ async def _run(args: argparse.Namespace) -> None:
             "concurrency": args.concurrency,
             "domains": domains,
             "model": settings.model_cds_extract,
+            "thinking_budget": settings.model_cds_extract_thinking_budget,
             "prompt_variant": str(args.prompt_variant) if args.prompt_variant else None,
             "starved_retry": args.starved_retry,
             "label": args.label,

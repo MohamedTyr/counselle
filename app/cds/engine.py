@@ -468,6 +468,7 @@ async def _run_call_once(
         pdf_bytes=call_bytes,
         image_pngs=image_pngs,
         model_setting=settings.model_cds_extract,
+        thinking_budget=settings.model_cds_extract_thinking_budget,
     )
     if not isinstance(result.parsed, WindowExtraction):
         raise cds_gemini.CdsGeminiEmptyResponseError(
@@ -648,7 +649,9 @@ def _usage_dict(usage: cds_gemini.Usage) -> dict[str, int]:
 def _estimate_cost_usd(usage: cds_gemini.Usage) -> float:
     return round(
         usage.prompt_tokens / 1_000_000 * _INPUT_PRICE_PER_1M
-        + usage.output_tokens / 1_000_000 * _OUTPUT_PRICE_PER_1M,
+        # Thinking tokens bill as output, not for free -- omitting them here
+        # would make any non-zero thinking budget look free in cost tracking.
+        + (usage.output_tokens + usage.thoughts_tokens) / 1_000_000 * _OUTPUT_PRICE_PER_1M,
         6,
     )
 
