@@ -1726,3 +1726,151 @@ So gray ≠ checked, and `false` stands. Worth stating as a general hazard: **on
 AcroForm-derived CDS pages, widget background fill is styling and carries no
 semantics — only the glyph does.** Distinct from the column-position hazard, where
 the glyph is identical and position carries meaning.
+
+### D19 — GT agent fan-out is capped at 3 concurrent image-reading agents
+
+Launched 8 Caltech GT agents at once; **6 stalled at the 600s watchdog within the
+same window**, including both halves of three different groups. The identical
+pattern hit an earlier 6-agent UCF wave. Two waves, same shape: this is a
+throughput ceiling on concurrent image reading, not eight independent failures.
+
+Standing rule: **at most 3 concurrent agents when the work is page-image reading.**
+Text-only agents are not known to be affected.
+
+D16 earned its keep again. Of the six "failed" agents:
+- `ij` passes A and B were **both complete on disk** (62/62, real values with
+  specific figures like `31.10`/`14.50`, not placeholders). They finished, wrote,
+  and then stalled on a redundant re-read.
+- `ab` passA was complete (28/28); `ab` passB had 14/28.
+- `admissions` had 63/98 and 69/98; `financial_aid` passA had 23/67 and passB had
+  no file at all.
+
+Had I trusted the notification status, I would have thrown away two finished passes
+and re-paid for them. Conversely the key-count check alone would have been unsafe —
+`ij` reaching 62/62 while its agent was mid-"reading pages 41-42" is exactly D17's
+shape, so the evidence strings were checked for real figures before accepting.
+
+Resumed agents are told to read their OWN existing partial file and keep it. That
+preserves two-pass independence: a resumed pass A never sees pass B.
+
+### Caltech `ij` — 100% agreement, Section J sum 100.2
+
+Both passes: 27 present / 33 blank / 2 absent, zero conflicts, zero ambiguous.
+
+Six populated Bachelor's disciplines summing to **100.2**, not 100.0. Recorded as
+printed on both passes; not corrected. Caltech grants degrees in few fields, so
+each printed percentage is large and its rounding error is correspondingly visible.
+Per the brief, GT never computes or reconciles a value the document does not print —
+"fixing" the sum would score a correct engine wrong.
+
+---
+
+# EXPERIMENT 1 — BASELINE (shipped config), first document
+
+`baseline-01`, cornell_2022-2023, shipped defaults (batch size and concurrency
+unchanged), model unchanged. **The API is healthy again** — a single-call probe
+returned in 68.4s versus 350.1s on the pre-compaction probe. Every latency number
+below is therefore NOT comparable to the earlier failed runs, and Experiment 2
+(noise floor) is a precondition for reading any latency delta as signal.
+
+```
+accuracy 97.91%   coverage 97.93%   cost $0.090096   latency 643.6s   calls 23
+correct=234 wrong=2 missed=5 hallucinated=3 correct_abstention=150
+uncovered=0 unreadable=0 gt_error=0 citation-mismatch=0
+```
+
+Against the §1 targets:
+
+| dimension | measured | target | floor | verdict |
+|---|---|---|---|---|
+| accuracy | 97.91% | 100% | 99.5% | **below floor** |
+| coverage | 97.93% | ≥98% | 95% | just under target, above floor |
+| hallucination | 3 | 0 | 0 | **fails, zero tolerance** |
+| cost/doc | $0.0901 | ≤$0.10 | ≤$0.15 | passes, little headroom |
+| latency/doc | 643.6s | ≤240s | ≤360s | **fails by 1.8×** |
+
+`gt_error=0` and `uncovered=0` — the sealed Cornell GT is fully exercised by this
+run and nothing is quarantined. The measurement is trustworthy.
+
+## Autopsy — every one of the 10 errors
+
+**The three hallucinations are one family, and they are real.** All are H9/H10
+selection booleans that GT marks `absent`. Because §1 tolerates zero hallucination,
+the whole score hangs on that one ruling, so I verified it against page 23 directly
+rather than trusting the sealed value:
+
+- H9 prints `Priority date for filing...: ______` and `Deadline for filing...: ______`
+  as **bare rules with no checkbox**. `aid_priority_date_selected` and
+  `aid_deadline_selected` are correctly `absent`. Engine emitted `False` for both —
+  asserting an unticked box that does not exist.
+- H10 prints `a) Students notified on or about (date):` with `15-Apr` on a bare
+  line, no control. GT `absent`. **Engine emitted `True`** — it inferred "this
+  option is selected" from the fact that the adjacent date is filled in.
+
+That third one is the systematic pattern worth naming: **the engine manufactures a
+selection state for a control that does not exist whenever neighbouring data is
+populated.** The metric's own `instructions` already forbid exactly this inference,
+and the engine is given those instructions, so this is not a catalog gap — it is the
+model disregarding a negative instruction. Independent confirmation that the ruling
+discriminates properly: the Caltech pass B agent, holding the same ruling, recorded
+Caltech's H9/H10 as ordinary `present` booleans *because Caltech prints real
+per-line checkboxes*. The rule fires on template shape, not blanket.
+
+**`financial_aid.aid_reporting_academic_year` — wrong: engine `2021-2022`, GT
+`2022-2023`, both citing page 19.** Cornell's running header on pages 3-27 prints a
+stale `2021-2022` while the document is the 2022-2023 cycle. The engine took the
+year from the running header. This is header-year contamination — the exact hazard
+the GT brief warns human readers about, now observed in the engine.
+
+**Two `missed` with `page=None`: `h2_i_average_percent_need_met_all_full_time` and
+`h2_j_average_aid_package_all_full_time`, both on GT page 20.** The engine never
+saw the page. Routing, not reading.
+
+Remaining: `admissions.open_admission_selective_programs` wrong (True vs False);
+`sat_only_admission_policy`, `cost.final_costs_not_available` and
+`transfer.minimum_prior_credit_threshold_applies` abstained with
+`availability_status='not_reported'` where GT has a real value.
+
+**Reading the whole picture:** cost is nearly won and latency is the worst failure,
+but accuracy and hallucination are what actually block the §1 floor, and they are
+NOT dominated by routing. Two of the three failure families here (invented selection
+states, header-year contamination) are instruction-adherence problems that no amount
+of page-narrowing will fix. Routing explains the two `page=None` misses and is worth
+fixing on cost/latency grounds, but I should stop expecting it to carry accuracy.
+
+### Ruling — Caltech H14: all 11 conflicts go to pass A (`blank`, not `present`/false)
+
+`financial_aid` adjudicated at 83.58% — the worst agreement of any group so far, but
+**every one of the 11 conflicts is the same disagreement repeated**: pass A wrote
+`blank`/None, pass B wrote `present`/false, for eleven H14 grid cells.
+
+Pass A is correct. The metric instruction states it in terms that leave no room:
+
+> *"Every H14 cell is independent of every other cell; a blank cell in this or any
+> other visible H14 coordinate is **not_reported, never false**, and must not be
+> inferred from another cell."*
+
+Pass B applied the brief's general rule (an unticked standalone checkbox is
+`present`/false). That general rule is explicitly subordinate to a metric's own
+`instructions`, and this is the second family to exercise the override — the first
+was `transfer.transfer_rolling_admission_fall`.
+
+Worth generalising, because it will recur: **a "blank is not_reported, never false"
+instruction turns an empty checkbox from an answer into a non-answer.** The
+distinction is substantive rather than clerical — it decides whether an abstaining
+engine scores `correct_abstention` or `missed`, and whether an engine emitting
+`false` scores `correct` or `hallucinated`. Getting it backwards on 11 cells would
+have silently moved 11 metrics between buckets on every future Caltech measurement.
+
+Note the asymmetry in blast radius: pass B's reading would ALSO have made an engine
+that emits `false` look correct on all 11, which is the more dangerous direction —
+it would have credited exactly the invented-selection-state behaviour that the
+Cornell baseline just caught the engine doing.
+
+No override needed at seal time: pass A is the merge source and already holds the
+correct values.
+
+### Ruling — Caltech `cost.cost_academic_year` override at seal
+
+Pass A (merge source) holds `2025-2026`; the adjudicated value is `2024-2025`.
+This is the one `ADJ` override applied when assembling the Caltech seal.

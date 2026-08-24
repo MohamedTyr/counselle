@@ -1,0 +1,376 @@
+{
+  "faculty.total_instructional_faculty_full_time": {
+    "status": "present",
+    "value": 326,
+    "page": 39,
+    "evidence": "I-1 table, row A 'Total number of instructional faculty', Full-time column."
+  },
+  "faculty.total_instructional_faculty_part_time": {
+    "status": "present",
+    "value": 33,
+    "page": 39,
+    "evidence": "I-1 table, row A 'Total number of instructional faculty', Part-time column."
+  },
+  "faculty.doctorate_or_terminal_degree_faculty_full_time": {
+    "status": "present",
+    "value": 322,
+    "page": 39,
+    "evidence": "I-1 table, row F 'Total number with doctorate, or other terminal degree', Full-time column."
+  },
+  "faculty.doctorate_or_terminal_degree_faculty_part_time": {
+    "status": "present",
+    "value": 31,
+    "page": 39,
+    "evidence": "I-1 table, row F 'Total number with doctorate, or other terminal degree', Part-time column."
+  },
+  "class_size.students_per_faculty": {
+    "status": "present",
+    "value": 3,
+    "raw_value": "3 to 1",
+    "page": 39,
+    "evidence": "I-2 'Fall 2024 Student to Faculty ratio:' box prints '3' with printed suffix 'to 1'. Text layer renders the year digit as 'Fall 202\\x17' (corrupted glyph) but the image clearly shows 'Fall 2024'; ratio value itself read from image box, not text layer."
+  },
+  "class_size.ratio_basis_student_fte": {
+    "status": "present",
+    "value": 987,
+    "page": 39,
+    "evidence": "I-2 parenthetical '(based on ___ students and ___ faculty)', first box = 987 students."
+  },
+  "class_size.ratio_basis_faculty_fte": {
+    "status": "present",
+    "value": 337,
+    "page": 39,
+    "evidence": "I-2 parenthetical '(based on ___ students and ___ faculty)', second box = 337 faculty."
+  },
+  "class_size.class_sections_2_9": {
+    "status": "present",
+    "value": 97,
+    "page": 40,
+    "evidence": "I-3 'CLASS SECTIONS' row, '2-9' column = 97. Row total 299 matches sum of all 7 band values (97+114+32+24+11+12+9=299), confirming band alignment with printed column headers."
+  },
+  "class_size.class_sections_10_19": {
+    "status": "present",
+    "value": 114,
+    "page": 40,
+    "evidence": "I-3 'CLASS SECTIONS' row, '10-19' column = 114."
+  },
+  "class_size.class_sections_20_29": {
+    "status": "present",
+    "value": 32,
+    "page": 40,
+    "evidence": "I-3 'CLASS SECTIONS' row, '20-29' column = 32."
+  },
+  "class_size.class_sections_30_39": {
+    "status": "present",
+    "value": 24,
+    "page": 40,
+    "evidence": "I-3 'CLASS SECTIONS' row, '30-39' column = 24."
+  },
+  "class_size.class_sections_40_49": {
+    "status": "present",
+    "value": 11,
+    "page": 40,
+    "evidence": "I-3 'CLASS SECTIONS' row, '40-49' column = 11."
+  },
+  "class_size.class_sections_50_99": {
+    "status": "present",
+    "value": 12,
+    "page": 40,
+    "evidence": "I-3 'CLASS SECTIONS' row, '50-99' column = 12."
+  },
+  "class_size.class_sections_100_plus": {
+    "status": "present",
+    "value": 9,
+    "page": 40,
+    "evidence": "I-3 'CLASS SECTIONS' row, '100+' column = 9. This digit is a genuine printed table cell value, not a Wingdings checkmark bullet (those appear only as standalone glyphs outside table cells); confirmed by reading the rendered image directly."
+  },
+  "class_size.class_subsections_2_9": {
+    "status": "present",
+    "value": 26,
+    "page": 40,
+    "evidence": "I-3 'CLASS SUB-SECTIONS' row, '2-9' column = 26. Row total 107 matches sum of all 7 band values (26+54+17+2+6+2+0=107), confirming band alignment."
+  },
+  "class_size.class_subsections_10_19": {
+    "status": "present",
+    "value": 54,
+    "page": 40,
+    "evidence": "I-3 'CLASS SUB-SECTIONS' row, '10-19' column = 54."
+  },
+  "class_size.class_subsections_20_29": {
+    "status": "present",
+    "value": 17,
+    "page": 40,
+    "evidence": "I-3 'CLASS SUB-SECTIONS' row, '20-29' column = 17."
+  },
+  "class_size.class_subsections_30_39": {
+    "status": "present",
+    "value": 2,
+    "page": 40,
+    "evidence": "I-3 'CLASS SUB-SECTIONS' row, '30-39' column = 2."
+  },
+  "class_size.class_subsections_40_49": {
+    "status": "present",
+    "value": 6,
+    "page": 40,
+    "evidence": "I-3 'CLASS SUB-SECTIONS' row, '40-49' column = 6."
+  },
+  "class_size.class_subsections_50_99": {
+    "status": "present",
+    "value": 2,
+    "page": 40,
+    "evidence": "I-3 'CLASS SUB-SECTIONS' row, '50-99' column = 2."
+  },
+  "class_size.class_subsections_100_plus": {
+    "status": "present",
+    "value": 0,
+    "page": 40,
+    "evidence": "I-3 'CLASS SUB-SECTIONS' row, '100+' column prints '0' explicitly (not blank)."
+  },
+  "degrees.agriculture_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Agriculture' (CIP 01), Bachelor's column cell is visibly empty."
+  },
+  "degrees.natural_resources_conservation_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Natural resources and conservation' (CIP 03), Bachelor's column cell is visibly empty."
+  },
+  "degrees.architecture_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Architecture' (CIP 04), Bachelor's column cell is visibly empty."
+  },
+  "degrees.area_ethnic_gender_studies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Area, ethnic, and gender studies' (CIP 05), Bachelor's column cell is visibly empty."
+  },
+  "degrees.communication_journalism_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Communication/journalism' (CIP 09), Bachelor's column cell is visibly empty."
+  },
+  "degrees.communication_technologies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Communication technologies' (CIP 10), Bachelor's column cell is visibly empty."
+  },
+  "degrees.computer_information_sciences_bachelors_percent": {
+    "status": "present",
+    "value": "40.90",
+    "page": 41,
+    "evidence": "Section J table, row 'Computer and information sciences' (CIP 11), Bachelor's column = 40.90 (printed with leading zero / two-decimal formatting)."
+  },
+  "degrees.personal_culinary_services_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Personal and culinary services' (CIP 12), Bachelor's column cell is visibly empty."
+  },
+  "degrees.education_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Education' (CIP 13), Bachelor's column cell is visibly empty."
+  },
+  "degrees.engineering_bachelors_percent": {
+    "status": "present",
+    "value": "31.10",
+    "page": 41,
+    "evidence": "Section J table, row 'Engineering' (CIP 14), Bachelor's column = 31.10."
+  },
+  "degrees.engineering_technologies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Engineering technologies' (CIP 15), Bachelor's column cell is visibly empty."
+  },
+  "degrees.foreign_languages_literatures_linguistics_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Foreign languages, literatures, and linguistics' (CIP 16), Bachelor's column cell is visibly empty."
+  },
+  "degrees.family_consumer_sciences_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Family and consumer sciences' (CIP 19), Bachelor's column cell is visibly empty."
+  },
+  "degrees.law_legal_studies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Law/legal studies' (CIP 22), Bachelor's column cell is visibly empty."
+  },
+  "degrees.english_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'English' (CIP 23), Bachelor's column cell is visibly empty."
+  },
+  "degrees.liberal_arts_general_studies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Liberal arts/general studies' (CIP 24), Bachelor's column cell is visibly empty."
+  },
+  "degrees.library_science_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Library science' (CIP 25), Bachelor's column cell is visibly empty."
+  },
+  "degrees.biological_life_sciences_bachelors_percent": {
+    "status": "present",
+    "value": "5.10",
+    "page": 41,
+    "evidence": "Section J table, row 'Biological/life sciences' (CIP 26), Bachelor's column = 5.10."
+  },
+  "degrees.mathematics_statistics_bachelors_percent": {
+    "status": "present",
+    "value": "7.70",
+    "page": 41,
+    "evidence": "Section J table, row 'Mathematics and statistics' (CIP 27), Bachelor's column = 7.70."
+  },
+  "degrees.interdisciplinary_studies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Interdisciplinary studies' (CIP 30), Bachelor's column cell is visibly empty."
+  },
+  "degrees.parks_recreation_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Parks and recreation' (CIP 31), Bachelor's column cell is visibly empty."
+  },
+  "degrees.philosophy_religious_studies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Philosophy and religious studies' (CIP 38), Bachelor's column cell is visibly empty."
+  },
+  "degrees.theology_religious_vocations_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Theology and religious vocations' (CIP 39), Bachelor's column cell is visibly empty."
+  },
+  "degrees.physical_sciences_bachelors_percent": {
+    "status": "present",
+    "value": "14.50",
+    "page": 41,
+    "evidence": "Section J table, row 'Physical sciences' (CIP 40), Bachelor's column = 14.50."
+  },
+  "degrees.science_technologies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Science technologies' (CIP 41), Bachelor's column cell is visibly empty."
+  },
+  "degrees.psychology_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table, row 'Psychology' (CIP 42), Bachelor's column cell is visibly empty (row label appears at bottom of page 41; row itself does not continue/split onto page 42)."
+  },
+  "degrees.homeland_security_law_enforcement_protective_services_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Homeland Security, law enforcement, firefighting, and protective services' (CIP 43), Bachelor's column cell is visibly empty."
+  },
+  "degrees.public_administration_social_services_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Public administration and social services' (CIP 44), Bachelor's column cell is visibly empty."
+  },
+  "degrees.social_sciences_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Social sciences' (CIP 45), Bachelor's column cell is visibly empty."
+  },
+  "degrees.construction_trades_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Construction trades' (CIP 46), Bachelor's column cell is visibly empty."
+  },
+  "degrees.mechanic_repair_technologies_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Mechanic and repair technologies' (CIP 47), Bachelor's column cell is visibly empty."
+  },
+  "degrees.precision_production_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Precision production' (CIP 48), Bachelor's column cell is visibly empty."
+  },
+  "degrees.transportation_materials_moving_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Transportation and materials moving' (CIP 49), Bachelor's column cell is visibly empty."
+  },
+  "degrees.visual_performing_arts_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Visual and performing arts' (CIP 50), Bachelor's column cell is visibly empty."
+  },
+  "degrees.health_professions_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'Health professions and related programs' (CIP 51), Bachelor's column cell is visibly empty."
+  },
+  "degrees.business_marketing_bachelors_percent": {
+    "status": "present",
+    "value": "0.90",
+    "page": 42,
+    "evidence": "Section J table, row 'Business/marketing' (CIP 52), Bachelor's column = 0.90."
+  },
+  "degrees.history_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table, row 'History' (CIP 54), Bachelor's column cell is visibly empty."
+  },
+  "degrees.military_science_combined_cip_28_29_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 41,
+    "evidence": "Section J table prints a SINGLE combined row labeled 'Military science and military technologies' with CIP-column value '28 and 29' (not two separate rows). This is the Caltech/combined-row form shape. The row's Bachelor's cell is visibly empty (no value printed). raw_printed CIP-column token: '28 and 29'.",
+    "raw_printed": "28 and 29"
+  },
+  "degrees.military_science_cip_28_bachelors_percent": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "This document's Section J prints only a single combined 'Military science and military technologies' row spanning CIP 28 and 29 (confirmed on page 41); it never prints two separate same-label rows for CIP 28 and CIP 29. Per this metric's own instructions, a form version that prints only the combined row is not_in_template_version for this metric, which maps to absent under this document's edition."
+  },
+  "degrees.military_science_cip_29_bachelors_percent": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "Same reasoning as military_science_cip_28_bachelors_percent: this document's Section J prints only the single combined CIP 28/29 row (page 41), never a separate second CIP 29 row, so this metric is not_in_template_version / absent for this document's edition."
+  },
+  "degrees.other_bachelors_percent": {
+    "status": "blank",
+    "value": null,
+    "page": 42,
+    "evidence": "Section J table does print a distinct 'Other' row (bold, above the TOTAL row) on page 42, so this form version has the row (not not_in_template_version); its Bachelor's column cell is visibly empty."
+  }
+}

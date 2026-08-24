@@ -1,0 +1,601 @@
+{
+  "admissions.applicants_residency_in_state": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who applied', IN-STATE column cell is visibly empty."
+  },
+  "admissions.applicants_residency_out_of_state": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who applied', OUT-OF-STATE column cell is visibly empty."
+  },
+  "admissions.applicants_residency_international": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who applied', INTERNATIONAL column cell is visibly empty."
+  },
+  "admissions.admitted_residency_in_state": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who were admitted', IN-STATE column cell is visibly empty."
+  },
+  "admissions.admitted_residency_out_of_state": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who were admitted', OUT-OF-STATE column cell is visibly empty."
+  },
+  "admissions.admitted_residency_international": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who were admitted', INTERNATIONAL column cell is visibly empty."
+  },
+  "admissions.enrolled_residency_international": {
+    "status": "blank",
+    "value": null,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) enrolled', INTERNATIONAL column cell is visibly empty."
+  },
+  "admissions.applicants_total": {
+    "status": "present",
+    "value": 0,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who applied', TOTAL column prints literal '0', even though the separate C1 gender-breakdown table on page 13 shows real applicant counts (9401+4446+9+0). Recorded as printed per the instruction that this residency TOTAL is the only overall response and the gender table must never be summed; this looks like an unfilled/default 0 in the optional residency table, but the rule against 'fixing' odd-looking printed values applies.",
+    "ambiguous": true
+  },
+  "admissions.admitted_total": {
+    "status": "present",
+    "value": 0,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) who were admitted', TOTAL column prints literal '0', same anomaly as applicants_total.",
+    "ambiguous": true
+  },
+  "admissions.enrolled_total": {
+    "status": "present",
+    "value": 0,
+    "page": 14,
+    "evidence": "C1 residency table, row 'Total first-time, first-year (degree-seeking) enrolled', TOTAL column prints literal '0', same anomaly as applicants_total.",
+    "ambiguous": true
+  },
+  "admissions.has_waitlist_policy": {
+    "status": "present",
+    "value": true,
+    "page": 14,
+    "evidence": "C2 'Do you have a policy of placing students on a waiting list?' - filled/checked box glyph next to 'Yes', 'No' box is empty outline."
+  },
+  "admissions.waitlist_offered_place_count": {
+    "status": "present",
+    "value": 206,
+    "page": 14,
+    "evidence": "C2 waiting list table, row 'Number of qualified applicants offered a place on waiting list:', TOTAL column = 206."
+  },
+  "admissions.waitlist_accepted_place_count": {
+    "status": "present",
+    "value": 171,
+    "page": 14,
+    "evidence": "C2 waiting list table, row 'Number accepting a place on the waiting list:', TOTAL column = 171."
+  },
+  "admissions.waitlist_admitted_count": {
+    "status": "present",
+    "value": 41,
+    "page": 14,
+    "evidence": "C2 waiting list table, row 'Number of wait-listed students admitted:', TOTAL column = 41."
+  },
+  "admissions.high_school_completion_requirement": {
+    "status": "present",
+    "value": "diploma_or_equivalent_not_required",
+    "page": 15,
+    "evidence": "C3 checkbox list, third option 'High school diploma or equivalent is not required' has the checkmark glyph; other two options are empty outline boxes."
+  },
+  "admissions.college_prep_program_requirement": {
+    "status": "present",
+    "value": "required",
+    "page": 15,
+    "evidence": "C4 checkbox list, first option 'Require' has the checkmark glyph; 'Recommend' and 'Neither require nor recommend' are empty outline boxes."
+  },
+  "admissions.total_academic_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Total academic units', 'Units Required' column cell is visibly empty."
+  },
+  "admissions.total_academic_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Total academic units', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.english_units_required": {
+    "status": "present",
+    "value": 4.0,
+    "page": 15,
+    "evidence": "C5 table, row 'English', 'Units Required' column = 4.00."
+  },
+  "admissions.english_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'English', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.mathematics_units_required": {
+    "status": "present",
+    "value": 4.0,
+    "page": 15,
+    "evidence": "C5 table, row 'Mathematics', 'Units Required' column = 4.00."
+  },
+  "admissions.mathematics_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Mathematics', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.science_units_required": {
+    "status": "present",
+    "value": 2.0,
+    "page": 15,
+    "evidence": "C5 table, row 'Science', 'Units Required' column = 2.00."
+  },
+  "admissions.science_units_recommended": {
+    "status": "present",
+    "value": 3.0,
+    "page": 15,
+    "evidence": "C5 table, row 'Science', 'Units Recommended' column = 3.00."
+  },
+  "admissions.lab_science_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Of these, units that must be lab', 'Units Required' column cell is visibly empty."
+  },
+  "admissions.lab_science_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Of these, units that must be lab', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.foreign_language_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Foreign language', 'Units Required' column cell is visibly empty."
+  },
+  "admissions.foreign_language_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Foreign language', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.social_studies_units_required": {
+    "status": "present",
+    "value": 2.0,
+    "page": 15,
+    "evidence": "C5 table row is printed as the combined label 'Social studies and/or History' (not 'Social studies' alone), 'Units Required' column = 2.00. A separate 'History' row directly below is entirely blank. Matched combined row to social_studies per the metric's row-label instruction since this document's template merges the two labels into one row.",
+    "ambiguous": true
+  },
+  "admissions.social_studies_units_recommended": {
+    "status": "present",
+    "value": 3.0,
+    "page": 15,
+    "evidence": "C5 table row 'Social studies and/or History' (combined label), 'Units Recommended' column = 3.00. Separate 'History' row below is blank. Same ambiguity as social_studies_units_required.",
+    "ambiguous": true
+  },
+  "admissions.history_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, separate row labeled 'History' (below the combined 'Social studies and/or History' row), 'Units Required' column cell is visibly empty."
+  },
+  "admissions.history_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, separate row labeled 'History', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.academic_electives_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Academic electives', 'Units Required' column cell is visibly empty."
+  },
+  "admissions.academic_electives_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Academic electives', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.computer_science_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Computer Science', 'Units Required' column cell is visibly empty."
+  },
+  "admissions.computer_science_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Computer Science', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.visual_performing_arts_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Visual/Performing Arts', 'Units Required' column cell is visibly empty."
+  },
+  "admissions.visual_performing_arts_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Visual/Performing Arts', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.other_units_required": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Other (specify)', 'Units Required' column cell is visibly empty."
+  },
+  "admissions.other_units_recommended": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Other (specify)', 'Units Recommended' column cell is visibly empty."
+  },
+  "admissions.other_subject_label": {
+    "status": "blank",
+    "value": null,
+    "page": 15,
+    "evidence": "C5 table, row 'Other (specify)' has no subject name written beside it; the row label area is visibly empty."
+  },
+  "admissions.open_admission_all_students": {
+    "status": "present",
+    "value": false,
+    "page": 16,
+    "evidence": "C6 checklist, option 'Open admission policy as described above for all students' is an empty outline box; the complete C6 checklist is visible and this box is unambiguously unmarked."
+  },
+  "admissions.open_admission_selective_out_of_state": {
+    "status": "present",
+    "value": false,
+    "page": 16,
+    "evidence": "C6 checklist, sub-option 'Selective admission for out-of-state students' is an empty outline box."
+  },
+  "admissions.open_admission_selective_programs": {
+    "status": "present",
+    "value": false,
+    "page": 16,
+    "evidence": "C6 checklist, sub-option 'Selective admission to some programs' is an empty outline box."
+  },
+  "admissions.open_admission_other": {
+    "status": "present",
+    "value": false,
+    "page": 16,
+    "evidence": "C6 checklist, sub-option 'Other (explain)' is an empty outline box, and the adjoining explain text field is also empty."
+  },
+  "admissions.selection_factor_rigor_of_secondary_school_record": {
+    "status": "present",
+    "value": "very_important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Rigor of secondary school record', checkmark under 'Very Important' column."
+  },
+  "admissions.selection_factor_class_rank": {
+    "status": "present",
+    "value": "important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Class rank', checkmark under 'Important' column."
+  },
+  "admissions.selection_factor_academic_gpa": {
+    "status": "present",
+    "value": "important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Academic GPA', checkmark under 'Important' column."
+  },
+  "admissions.selection_factor_standardized_tests": {
+    "status": "present",
+    "value": "very_important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Standardized test scores', checkmark under 'Very Important' column."
+  },
+  "admissions.selection_factor_application_essay": {
+    "status": "present",
+    "value": "very_important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Application Essay', checkmark under 'Very Important' column."
+  },
+  "admissions.selection_factor_recommendations": {
+    "status": "present",
+    "value": "very_important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Recommendation(s)', checkmark under 'Very Important' column."
+  },
+  "admissions.selection_factor_interview": {
+    "status": "present",
+    "value": "not_considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Interview', checkmark under 'Not Considered' column."
+  },
+  "admissions.selection_factor_extracurricular_activities": {
+    "status": "present",
+    "value": "important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Extracurricular activities', checkmark under 'Important' column."
+  },
+  "admissions.selection_factor_talent_ability": {
+    "status": "present",
+    "value": "considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Talent/ability', checkmark under 'Considered' column."
+  },
+  "admissions.selection_factor_character_personal_qualities": {
+    "status": "present",
+    "value": "very_important",
+    "page": 16,
+    "evidence": "C7 grid, row 'Character/personal qualities', checkmark under 'Very Important' column."
+  },
+  "admissions.selection_factor_first_generation": {
+    "status": "present",
+    "value": "considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'First generation', checkmark under 'Considered' column."
+  },
+  "admissions.selection_factor_alumni_relation": {
+    "status": "present",
+    "value": "not_considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Alumni/ae relation', checkmark under 'Not Considered' column."
+  },
+  "admissions.selection_factor_geographic_residence": {
+    "status": "present",
+    "value": "considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Geographical residence', checkmark under 'Considered' column."
+  },
+  "admissions.selection_factor_state_residency": {
+    "status": "present",
+    "value": "not_considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'State residency', checkmark under 'Not Considered' column."
+  },
+  "admissions.selection_factor_religious_affiliation_commitment": {
+    "status": "present",
+    "value": "not_considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Religious affiliation/commitment' (spelled correctly in this document, not the Yale misspelling), checkmark under 'Not Considered' column."
+  },
+  "admissions.selection_factor_volunteer_work": {
+    "status": "present",
+    "value": "considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Volunteer work', checkmark under 'Considered' column."
+  },
+  "admissions.selection_factor_work_experience": {
+    "status": "present",
+    "value": "considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Work experience', checkmark under 'Considered' column."
+  },
+  "admissions.selection_factor_level_of_applicant_interest": {
+    "status": "present",
+    "value": "not_considered",
+    "page": 16,
+    "evidence": "C7 grid, row 'Level of applicant's interest', checkmark under 'Not Considered' column."
+  },
+  "admissions.program_specific_factor_differences": {
+    "status": "blank",
+    "value": null,
+    "page": 17,
+    "evidence": "C7 free-text box 'Please provide additional information if the importance of any specific academic or nonacademic factors differ by academic program' is visibly empty."
+  },
+  "admissions.uses_entrance_exam_scores_in_admission": {
+    "status": "present",
+    "value": true,
+    "page": 17,
+    "evidence": "C8A 'Does your institution make use of SAT or ACT scores in admission decisions...' - checked box glyph next to 'Yes'; 'No' is an empty outline box."
+  },
+  "admissions.sat_or_act_admission_policy": {
+    "status": "present",
+    "value": "required_to_be_considered",
+    "page": 17,
+    "evidence": "C8A policy grid, row 'SAT or ACT', checkmark under 'Required to be considered for admission' column; all other columns in this row are empty."
+  },
+  "admissions.act_only_admission_policy": {
+    "status": "blank",
+    "value": null,
+    "page": 17,
+    "evidence": "C8A policy grid, row 'ACT Only' - all five policy-column cells are visibly empty outline boxes, no column selected."
+  },
+  "admissions.sat_only_admission_policy": {
+    "status": "blank",
+    "value": null,
+    "page": 17,
+    "evidence": "C8A policy grid, row 'SAT Only' - all five policy-column cells are visibly empty outline boxes, no column selected."
+  },
+  "admissions.test_policy_clarification": {
+    "status": "blank",
+    "value": null,
+    "page": 17,
+    "evidence": "C8F free-text clarification box ('If necessary, use this space to clarify your test policies...') is visibly empty."
+  },
+  "admissions.has_application_fee": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "C13 'Does your institution have an application fee?' - checked box glyph next to 'Yes'; 'No' is an empty outline box."
+  },
+  "admissions.application_fee_amount": {
+    "status": "present",
+    "value": 75.0,
+    "page": 22,
+    "evidence": "C13 'Amount of application fee:' text field prints '$75.00'.",
+    "raw_printed": "$75.00"
+  },
+  "admissions.need_based_application_fee_waiver_available": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "C13 'Can it be waived for applicants with financial need?' - checked box glyph next to 'Yes'; 'No' is an empty outline box."
+  },
+  "admissions.has_application_closing_date": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "C14 'Does your institution have an application closing date?' - checked box glyph next to 'Yes'; 'No' is an empty outline box."
+  },
+  "admissions.application_closing_date_fall": {
+    "status": "present",
+    "value": "1/3",
+    "page": 22,
+    "evidence": "C14 table, row 'Application closing date (fall)', Month=1, Day=3, printed as separate Month/Day cells; recorded combined as printed on the form.",
+    "raw_printed": "Month 1 / Day 3"
+  },
+  "admissions.application_priority_date": {
+    "status": "blank",
+    "value": null,
+    "page": 22,
+    "evidence": "C14 table, row 'Priority Date' - Month and Day cells are both visibly empty."
+  },
+  "admissions.accepts_first_year_terms_other_than_fall": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "C15 'Are first-time, first-year students accepted for terms other than the fall?' - same-line Yes/No box pair; 'No' box is checked (checkmark glyph), 'Yes' box is empty outline."
+  },
+  "admissions.decision_notification_mode": {
+    "status": "present",
+    "value": "by_date",
+    "page": 22,
+    "evidence": "C16 notification mode, three mutually exclusive line items - 'By (date):' checkbox has the checkmark glyph; 'On a rolling basis beginning (date):' and 'Other:' are unchecked."
+  },
+  "admissions.decision_rolling_begin_date": {
+    "status": "blank",
+    "value": null,
+    "page": 22,
+    "evidence": "C16 'On a rolling basis beginning (date):' line item is unchecked and its Month/Day fields are empty; decision_notification_mode is by_date, not rolling, so per instructions this stays not_reported/blank."
+  },
+  "admissions.decision_by_date": {
+    "status": "present",
+    "value": "3/15",
+    "page": 22,
+    "evidence": "C16 'By (date):' checked line item, Month=3, Day=15.",
+    "raw_printed": "Month 3 / Day 15"
+  },
+  "admissions.reply_policy_mode": {
+    "status": "present",
+    "value": "must_reply_by_date",
+    "page": 22,
+    "evidence": "C17 reply policy, four mutually exclusive line items - 'Must reply by (date):' checkbox has the checkmark glyph; 'No set date', 'Must reply by May 1st or within __ weeks if notified thereafter', and 'Other:' are unchecked."
+  },
+  "admissions.reply_deadline": {
+    "status": "present",
+    "value": "5/1",
+    "page": 22,
+    "evidence": "C17 'Must reply by (date):' checked line item, Month=5, Day=1.",
+    "raw_printed": "Month 5 / Day 1"
+  },
+  "admissions.reply_weeks_after_late_notification": {
+    "status": "blank",
+    "value": null,
+    "page": 22,
+    "evidence": "C17 'Must reply by May 1st or within __ weeks if notified thereafter' line item is unchecked and its weeks text field is empty; reply_policy_mode is must_reply_by_date, not this option, so per instructions this stays not_reported/blank."
+  },
+  "admissions.housing_deposit_deadline": {
+    "status": "blank",
+    "value": null,
+    "page": 22,
+    "evidence": "C17 'Deadline for housing deposit:' Month/Day fields are visibly empty."
+  },
+  "admissions.housing_deposit_amount": {
+    "status": "blank",
+    "value": null,
+    "page": 22,
+    "evidence": "C17 'Amount of housing deposit:' text field is visibly empty."
+  },
+  "admissions.housing_deposit_refundability": {
+    "status": "blank",
+    "value": null,
+    "page": 22,
+    "evidence": "C17 'Refundable if student does not enroll?' - all three options (Yes in full / Yes in part / No) are unchecked, gray-filled but empty outline boxes; per instructions a blank selection stays not_reported, never 'no'."
+  },
+  "admissions.deferred_enrollment_allowed": {
+    "status": "present",
+    "value": true,
+    "page": 23,
+    "evidence": "C18 'Does your institution allow students to postpone enrollment after admission?' - checked box glyph next to 'Yes'; 'No' is an empty outline box."
+  },
+  "admissions.deferred_enrollment_max_period": {
+    "status": "present",
+    "value": "2 years",
+    "page": 23,
+    "evidence": "C18 'If yes, maximum period of postponement:' text field prints '2 years'."
+  },
+  "admissions.early_decision_offered": {
+    "status": "present",
+    "value": false,
+    "page": 23,
+    "evidence": "C21 'Does your institution offer an early decision plan...?' - 'No' box is checked (checkmark glyph), 'Yes' box is empty outline."
+  },
+  "admissions.early_decision_first_closing_date": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "C21 'First or only early decision plan closing date:' Month/Day fields are visibly empty; no date is printed anywhere for this line, consistent with early_decision_offered=No."
+  },
+  "admissions.early_decision_first_notification_date": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "C21 'First or only early decision plan notification date:' Month/Day fields are visibly empty."
+  },
+  "admissions.early_decision_other_closing_date": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "C21 'Other early decision plan closing date:' Month/Day fields are visibly empty; no second plan is visibly present on this page."
+  },
+  "admissions.early_decision_other_notification_date": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "C21 'Other early decision plan notification date:' Month/Day fields are visibly empty; no second plan is visibly present on this page."
+  },
+  "admissions.early_decision_application_count": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "C21 'Number of early decision applications received by your institution:' answer box is visibly empty, consistent with early_decision_offered=No; per instructions this is not_reported, never zero."
+  },
+  "admissions.early_decision_admitted_count": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "C21 'Number of applicants admitted under early decision plan:' answer box is visibly empty, consistent with early_decision_offered=No; per instructions this is not_reported, never zero."
+  },
+  "admissions.early_action_offered": {
+    "status": "present",
+    "value": true,
+    "page": 23,
+    "evidence": "C22 'Do you have a nonbinding early action plan...?' - checked box glyph next to 'Yes'; 'No' is an empty outline box."
+  },
+  "admissions.early_action_closing_date": {
+    "status": "present",
+    "value": "11/1",
+    "page": 23,
+    "evidence": "C22 'Early action closing date:' Month=11, Day=1.",
+    "raw_printed": "Month 11 / Day 1"
+  },
+  "admissions.early_action_notification_date": {
+    "status": "present",
+    "value": "12/15",
+    "page": 23,
+    "evidence": "C22 'Early action notification date:' Month=12, Day=15.",
+    "raw_printed": "Month 12 / Day 15"
+  },
+  "admissions.early_action_restrictive": {
+    "status": "present",
+    "value": true,
+    "page": 23,
+    "evidence": "C22 'Is your early action plan a \"restrictive\" plan under which you limit students from applying to other early plans?' - checked box glyph next to 'Yes'; 'No' is an empty outline box."
+  }
+}

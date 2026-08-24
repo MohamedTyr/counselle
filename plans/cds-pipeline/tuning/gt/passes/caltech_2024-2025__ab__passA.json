@@ -1,0 +1,172 @@
+{
+  "identity.institution_name": {
+    "status": "present",
+    "value": "California Institute of Technology",
+    "page": 3,
+    "evidence": "A1 heading block, 'Name of College/University' field."
+  },
+  "identity.academic_year": {
+    "status": "present",
+    "value": "2024-2025",
+    "page": 1,
+    "evidence": "Cover page title 'Common Data Set 2024-2025' (also repeated as page header on page 3). Read from image; text layer digits are corrupted on this document."
+  },
+  "identity.city": {
+    "status": "present",
+    "value": "Pasadena",
+    "page": 3,
+    "evidence": "A1 main-address block, 'City' field."
+  },
+  "identity.state_or_region": {
+    "status": "present",
+    "value": "California",
+    "page": 3,
+    "evidence": "A1 main-address block, 'State' field."
+  },
+  "identity.country": {
+    "status": "present",
+    "value": "United States of America",
+    "page": 3,
+    "evidence": "A1 main-address block, 'Country' field."
+  },
+  "identity.main_website": {
+    "status": "present",
+    "value": "https://www.caltech.edu",
+    "page": 3,
+    "evidence": "A1 main-address block, 'Main Institution Website' field."
+  },
+  "identity.admissions_email": {
+    "status": "present",
+    "value": "ugadmissions@caltech.edu",
+    "page": 3,
+    "evidence": "A1 Admissions Office subsection, 'Admissions E-mail Address' field."
+  },
+  "identity.application_url": {
+    "status": "present",
+    "value": "https://www.admissions.caltech.edu/apply",
+    "page": 3,
+    "evidence": "A1 Admissions Office subsection, 'If there is a separate URL for your school's online application, please specify:' free-text box below the admissions email field."
+  },
+  "identity.institutional_control": {
+    "status": "present",
+    "value": "private_nonprofit",
+    "page": 4,
+    "evidence": "A2 radio group, 'Private (nonprofit)' filled radio selected."
+  },
+  "identity.undergraduate_gender_model": {
+    "status": "present",
+    "value": "coeducational",
+    "page": 4,
+    "evidence": "A3 radio group, 'Coeducational college' filled radio selected."
+  },
+  "identity.academic_calendar": {
+    "status": "present",
+    "value": "quarter",
+    "page": 4,
+    "evidence": "A4 two-column radio group, left column, 'Quarter' filled radio selected."
+  },
+  "identity.degree_offered_bachelors": {
+    "status": "present",
+    "value": true,
+    "page": 4,
+    "evidence": "A5 checklist, left column, 'Bachelor's' box checked with checkmark glyph."
+  },
+  "identity.degree_offered_masters": {
+    "status": "present",
+    "value": true,
+    "page": 4,
+    "evidence": "A5 checklist, right column, 'Master's' box checked with checkmark glyph."
+  },
+  "identity.degree_offered_doctoral_research_scholarship": {
+    "status": "present",
+    "value": true,
+    "page": 4,
+    "evidence": "A5 checklist, right column, 'Doctoral degree research/scholarship' box checked with checkmark glyph."
+  },
+  "enrollment.undergraduate_total": {
+    "status": "present",
+    "value": 987,
+    "page": 5,
+    "evidence": "B1 table, summary box below main grid labeled 'Total All Undergraduates'."
+  },
+  "enrollment.graduate_total": {
+    "status": "present",
+    "value": 1443,
+    "page": 5,
+    "evidence": "B1 table, summary box below main grid labeled 'Total All Graduate Students'."
+  },
+  "enrollment.all_students_total": {
+    "status": "present",
+    "value": 2430,
+    "page": 5,
+    "evidence": "B1 table, summary box below main grid labeled 'Grand Total All Students'."
+  },
+  "enrollment.nonresident_all_undergraduates": {
+    "status": "present",
+    "value": 139,
+    "page": 6,
+    "evidence": "B2 table, 'Nonresidents' row, 'Total Undergraduates (both degree- and non-degree-seeking)' column."
+  },
+  "outcomes.primary_pell_grant_six_year_graduation_rate_ratio": {
+    "status": "present",
+    "value": 0.963,
+    "raw_value": "96.30",
+    "page": 9,
+    "evidence": "Fall 2018 Cohort table (pages 8-9), row H 'Six-year graduation rate for 2018 cohort (G divided by C)', 'Recipients of a Federal Pell Grant' column, printed '96.30'. Instructions require the 0-1 ratio form, so recorded 0.963; raw printed value preserved in raw_value."
+  },
+  "outcomes.primary_all_students_adjusted_cohort_count": {
+    "status": "present",
+    "value": 231,
+    "page": 8,
+    "evidence": "Fall 2018 Cohort table, row C 'Final 2018 cohort, after adjusting for allowable exclusions', 'Total (sum of 3 columns to the left)' column."
+  },
+  "outcomes.primary_all_students_completed_within_four_years_count": {
+    "status": "present",
+    "value": 178,
+    "page": 8,
+    "evidence": "Fall 2018 Cohort table, row D 'Of the initial 2018 cohort, how many completed the program in four years or less (by Aug. 31, 2022)', 'Total' column."
+  },
+  "outcomes.primary_all_students_completed_after_four_within_five_years_count": {
+    "status": "present",
+    "value": 31,
+    "page": 9,
+    "evidence": "Fall 2018 Cohort table (continuation), row E 'completed the program in more than four years but in five years or less', 'Total' column."
+  },
+  "outcomes.primary_all_students_completed_after_five_within_six_years_count": {
+    "status": "present",
+    "value": 9,
+    "page": 9,
+    "evidence": "Fall 2018 Cohort table (continuation), row F 'completed the program in more than five years but in six years or less', 'Total' column."
+  },
+  "outcomes.primary_all_students_completed_within_six_years_count": {
+    "status": "present",
+    "value": 218,
+    "page": 9,
+    "evidence": "Fall 2018 Cohort table (continuation), row G 'Total graduating within six years (sum of lines D, E, and F)', 'Total' column."
+  },
+  "outcomes.primary_all_students_six_year_graduation_rate_ratio": {
+    "status": "present",
+    "value": 0.944,
+    "raw_value": "94.40",
+    "page": 9,
+    "evidence": "Fall 2018 Cohort table (continuation), row H 'Six-year graduation rate for 2018 cohort (G divided by C)', 'Total' column, printed '94.40'. Instructions require the 0-1 ratio form, so recorded 0.944; raw printed value preserved in raw_value."
+  },
+  "outcomes.first_year_retention_entering_cohort_count": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "B22 on page 12 in this 2024-2025 edition prints only a single retention-percent answer box; no separate entering-cohort count field or still-enrolled count field appears anywhere on the page. Per the metric's own instructions, this count is new to the 2025-26 CDS edition and its absence here is template-version absence, not zero."
+  },
+  "outcomes.first_year_retention_still_enrolled_next_fall_count": {
+    "status": "absent",
+    "value": null,
+    "page": null,
+    "evidence": "Same B22 page (12): only a single percent box is printed, no still-enrolled count field exists in this edition's B22 layout."
+  },
+  "outcomes.first_year_retention_reported_percent": {
+    "status": "present",
+    "value": "97.40",
+    "page": 12,
+    "evidence": "B22 Retention Rates, single checked answer box near bottom of page prints '97.40' (no explicit % sign rendered in the box, but the surrounding question text is 'what percentage was enrolled...'). Recorded exactly as printed."
+  }
+}
