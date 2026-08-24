@@ -366,6 +366,42 @@ after the review loop closes:
 
 ## 7. Lever inventory (seed hypotheses — ordered by expected value)
 
+> **RE-ORDERED BY MEASUREMENT (M2, 2026-08-24).** Lever 6 below ("source_hints
+> quality") was seeded as a mid-table guess. It has since been **measured on the real
+> batch plan and is now the highest-expected-value lever in this list** — bigger than
+> batch size. Details in `tuning/experiments.md` → "THE ROUTING DEFECT". Summary:
+>
+> `_hint_pattern` compiles a hint to `^{code}(?![0-9A-Za-z])`. Three manifest hints are
+> **bare single letters** — `J` (41 metrics, the whole `degrees` domain), `H` (3), and
+> the pattern generalises. CDS documents are full of lettered sub-item lists
+> (a., b., … **j.**) inside sections G/H/I, plus a table-of-contents line, plus stray
+> single-letter table cells. All of them match at line start. `_route_batches` then takes
+> `(min(hits), max(hits))` — the **convex hull** — so one stray `j.` bullet drags a whole
+> domain across the document.
+>
+> Measured on UGA's real `--dry-run` plan (50 pages, 23 calls, 228 page-sends):
+> `financial_aid` b0 sends **41** pages, `enrollment` b0 sends **33** pages to extract
+> **4 metrics**, and `degrees` spends **38** page-sends across two batches to read one
+> table on page 41. **Those four batches are 112 of 228 page-sends — 49% of the
+> document's entire page traffic.** Fixing it plausibly halves prompt tokens per doc.
+>
+> Note this is the *same defect* as the C9 whole-document fallback, not a separate one:
+> a routing rule whose response to a bad anchor is to **widen**. One widens to the convex
+> hull, the other to the whole document. A fix should address both.
+>
+> Test fix (a) *require a heading shape* — hint must be followed by a separator and the
+> line must not continue as sentence prose; general, no catalog edit. Then (b) *cluster
+> the hits and route to the densest/last cluster* instead of the convex hull.
+> **Do NOT "fix" it by making hints specific (`J1`)** — UGA and Caltech print
+> `J. Disciplinary areas of DEGREES CONFERRED` with no `J1` token anywhere, so that
+> converts a collision into a total miss on 2 of 5 documents. Measured; recorded because
+> it is the obvious move and it is wrong.
+>
+> A collision is **silent** in a way a miss is not: the router reports a successful
+> narrow route and `pages_sent` looks plausible. Nothing logs "your anchor matched four
+> different things and I sent the convex hull." Add that logging before trusting any
+> routing number.
+
 1. **Batch-size sweep**: `DEFAULT_METRIC_BATCH_SIZE` at 40 / 60 / 80. Cheapest,
    highest-information experiment available (~$0.30/config/doc-set-member).
 2. **Page-window dedup / routing consolidation**: kill the 15.4× page-send redundancy —

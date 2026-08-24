@@ -25,6 +25,11 @@ its reasoning, for review on their return.
 | D10 | 2026-08-23 | **Ruled the scorer must emit an explicit lexicographic fitness tuple** `(accuracy, coverage, -cost, -latency)`, with zero-extraction ranking **last** on accuracy rather than first. | The review proved accuracy is trivially gamed: abstain on everything → `accuracy_pct=None`; extract one correct value and abstain on the rest → **accuracy 100%, coverage 25%**. A loop ranking on accuracy alone would have selected maximal abstention — it would have optimised toward an engine that extracts nothing. The tuple order is fixed by §1 and not mine to change; what I added is the sentinel so `None` can never sort as "best". | Yes — scorer-local, versioned. |
 | D11 | 2026-08-23 | **Refined D9: an unselected RADIO/enum group is `blank`, not `false`.** D9's `present`/`false` rule applies only to standalone checkboxes, where the box itself is the binary. | Raised by the UGA GT agent, and it is right. A standalone checkbox that is unticked *is* the institution's answer ("we don't offer this"). But a radio group — C8A exam choice, a C14 Yes/No pair, D10 open-admission Yes/No — with nothing selected means the institution **did not answer the question**, which is exactly the definition of `blank` (a value cell that exists but is empty). Recording it as `false` would invent an answer the school never gave and would charge the engine with a miss for correctly abstaining. | Yes — documented in GT-SCHEMA.md. |
 | D12 | 2026-08-23 | **For the AcroForm document only, replaced §4's two independent model reading passes with one exact AcroForm extraction plus targeted independent verification of the risky MAPPINGS.** | §4's two-pass-plus-adjudication protocol exists to converge on a true value when reading is fallible. For UGA the *values* are machine-exact — `pypdf.get_fields()` is bit-for-bit truth, and §4 step 5 already names it the sealing condition for this document. The fallible step is not reading the value but attributing a field to a metric. So a second full model read would spend heavily re-deriving values that are already exact while leaving the actual error surface unverified. Verification is instead aimed at the mapping: the C7 off-by-one inference, the G1 nonresident/out-of-state trap, both duplicate-id pairs, 20 weighted spot-checks, and the blank-vs-absent classification — all read from 300 DPI rendered images, never the text layer. Faithful to §4's intent, cheaper, and aimed at where errors actually live. | Yes — a full second pass can still be run if verification finds real mapping errors. |
+| D13 | 2026-08-24 | **Ground truth records the RENDERED value, not a hidden raw AcroForm value, where the two disagree.** UGA's two `outcomes` ratios hold raw `0.8807`/`.83534` but their widget appearance streams render as `0.88`/`0.84`; GT takes the rendered form, keeping the raw value alongside as evidence. **Rejected the suggested alternative of a rounding tolerance in the scorer.** | The engine can only ever see the rendered page, so scoring it against a precision it has no way to access measures an impossible task and would book guaranteed false negatives as engine errors. §4 mandates GT from rendered page images for exactly this class of reason. The tolerance alternative was worse on two counts: §5 forbids fuzzy credit outright, and loosening the comparator to accommodate one document would weaken every comparison the loop makes for the rest of the run — a permanent cost for a local fix. Fixing the two GT values costs nothing and keeps the scorer strict. | Yes — both raw and rendered values retained in the file. |
+| D14 | 2026-08-24 | **Page-index method is chosen per document by measured text-layer health, not uniformly.** Caltech (corrupt) is indexed by reading every page as an image; UCF, Dartmouth and Cornell are indexed from their text layers and then verified against rendered images on an 8-page sample. | §4 mandates rendered images for ground truth, and the *reason* it gives is corrupt text layers. Corpus profiling measured that reason precisely: Caltech carries 1,775 control chars across 49 of 50 pages, while Dartmouth and Cornell have **zero** and UCF has 5. Reading 130 clean pages as images to guard against corruption that was measured absent spends heavily for no information. The image-verified sample keeps the check honest — and if any sampled page disagrees with the text scan, the method is unsafe for that document and I want to know immediately rather than discover it in a sealed GT file. Value extraction still comes from images everywhere, per §4; this decision covers the *index* step only. | Yes — a full image index can be run for any document if verification disagrees. |
+| D15 | 2026-08-24 | **Cap image-reading subagents at ~25 pages and require incremental writes.** | Two agents stalled after 600s of no progress, both while reading large image batches — 98 pages in one, 66 in another. The work wasn't wrong, the batching was. Splitting by page range and writing output after every ~6 pages means a stall costs one batch instead of a whole document. Recorded because it will recur across the remaining GT work. | N/A — process fix. |
+| D16 | 2026-08-24 | **Subagent completion status is never trusted; every agent's output is verified on disk by me before it is believed or acted on.** A `failed`/stalled notification does NOT mean the work is absent, and a `completed` notification does NOT mean the work is whole. | Five agents have now hit the 600s watchdog, and the stalls are *uncorrelated with the work landing*: the scorer agent stalled while reporting, but its fix was complete on disk (140/140 green, gate met); the Caltech agent stalled mid-batch, leaving seven placeholder page entries that a key-presence check happily accepted. Both failure modes are silent in opposite directions, so the status field carries no usable signal either way. This is the same lesson M1 taught three times — a scan is only as good as an independent re-derivation — now applied to agent bookkeeping rather than agent findings. | N/A — process fix, supersedes trusting D15's split alone. |
+| D17 | 2026-08-24 | **A page index is complete only when every page entry has a non-empty `sections` list or an explicit note that the page carries no heading. Never assert completeness on the key set.** | I asserted `sorted(pages.keys()) == range(1,51)` on the merged Caltech index, called it 50/50 complete, and published a false "Caltech has no C9" finding built on seven `"pending batch 4"` placeholders. Placeholder entries satisfy every structural check that looks at keys. The property that actually matters is content, and it costs one extra line to assert. | N/A — process fix; the Caltech finding it produced is retracted in the M2 section below. |
 | D2 | 2026-08-23 | **Stale `instructions` prose is reported in M1, fixed in a separate pass.** The M1 cut fixes only structural references; prose referencing deleted metric ids is inventoried, not rewritten. | ~800 backtick references live in free-text `instructions` and are never compiler-validated, so a bad bulk rewrite would ship silently-wrong extraction guidance with no gate to catch it. Splitting keeps M1 verifiable by a hard compile + set-equality check. The prose sweep then runs against a written inventory with its own review. | Yes — both passes are config-only commits. |
 
 ---
@@ -243,6 +248,33 @@ remaining count is **0**. Immaterial — noted so the discrepancy isn't rediscov
 Gate result: **0 CRITICAL, 1 HIGH, 0 MEDIUM, 0 LOW → GATE: FAIL** on that single blocker.
 All other checks PASS. Re-gate after the fix lands.
 
+### M1 — CLOSED AND COMMITTED ✅
+
+**Commit `91d07a2`** — `feat(cds): cut metric catalog to 394 per METRICS-KEEP (M1)`.
+3,616 insertions / 14,691 deletions, 26 files. Not pushed (§10).
+
+**Closing gate, re-run from scratch on the final tree: 13/13 checks PASS.**
+`VERDICT: 0 CRITICAL, 0 HIGH, 0 MEDIUM, 1 LOW → GATE: PASS`. The single LOW was a stale
+hash inside the cut report, corrected before the commit, so the milestone closed at **zero
+open findings** as §6b requires.
+
+Final state: 394 metrics, per-domain 24/98/36/17/43/41/4/4/67/14/10/13/23. Manifest
+`content_sha256 = 82e4a82d188cac0d164ba42696abda2914d7b7c7ef05a676650bc3465586c4b8`.
+Full-payload dead-reference sweep across all 4,367 string leaves of the compiled manifest:
+**0 hits.** Test suite 10 failed / 1673 passed — the 8 pre-existing failures plus exactly
+the 2 by-design hash pins, nothing new. ruff and mypy clean. Zero secrets in the diff.
+
+**Review effort: 3 rounds, 4 reviewers, 5 fixers, 5 accepted findings.** Round 1 caught the
+dot-qualified binder; round 2 the dead validator and the prompt-embedded prose; round 3 the
+`description` field and anchor-specificity losses.
+
+**The recurring lesson, three for three:** every M1 defect came from a scan heuristic that
+silently under-matched, and *none* was caught by re-running the tool that produced it. The
+dotted binder, the 2-segment `cip_version` id hiding 123 references, and the `instructions`-only
+scope that missed `description` — all three surfaced only because the next agent was told to
+re-derive independently. Cost of that discipline: ~4 extra subagent rounds. Value: the
+catalog the entire tuning loop is measured against is correct.
+
 ### Correction to D2 — prose sweep moves BEFORE the baseline
 
 D2 deferred the stale-prose fix to "a separate pass" without saying when. That ordering is
@@ -390,6 +422,745 @@ any propagated per-document blocking issue, mixed scorer version, mixed manifest
 configs folded together. Sentinel holds at aggregate level. `SCORER_VERSION` stays 1.1.0 —
 aggregation is purely additive and single-doc semantics are byte-identical, so **no re-score
 is required**.
+
+### M2 — UGA sealed (pending one anomaly)
+
+`gt/uga_2023-2024.json`. **394/394 metric keys**, matching the compiled manifest exactly in
+both directions. `status_counts`: present 310, blank 78, absent 6 → 394. Scorer reports
+zero blocking issues, zero GT-outside-manifest, zero authoring errors.
+
+Provenance: **392 values from AcroForm fields, 2 from rendered text** (`identity.academic_year`
+= 2023-2024 from the cover; `cost.cost_academic_year` = **2024-2025** from the Section G
+preamble — genuinely different years, which is exactly the distinction that metric exists to
+capture). Two `outcomes` ratios superseded by their rendered form per D13, with the raw
+AcroForm value retained alongside as evidence.
+
+**Independent visual verification: 24 spot-checks across all 13 domains, 0 disagreements.**
+The three highest-risk attributions all confirmed correct against rendered pages:
+- **C7 row 10** — field `Q112_10` genuinely does not exist; fields run `1..9, 11, 12, 13`
+  against 12 printed rows. Verified label-baseline vs widget-y for all 12: no row shift.
+  Had the mapper been off by one, "Volunteer work" would have inherited "Not Considered";
+  the image shows it Considered.
+- **G1 residency trap** — `TUIT_NRES_*` sits on the printed **Out-of-state** row (28830) and
+  `TUIT_INTL_*` on **Non-resident** (empty). The field names invite exactly the inverted
+  reading; the mapper didn't take the bait.
+- **`BACH_PSY` vs `BACH_PSYCH`** — physical sciences (.96) vs psychology (6.84), correct.
+
+All 6 `absent` classifications confirmed as genuine template-edition gaps (e.g. this edition
+prints ONE combined "28 and 29" military-science row, so the separate CIP-28/CIP-29 metrics
+genuinely do not exist here), and 10 sampled `blank`s confirmed as real empty cells.
+
+**Deliberately NOT corrected:** `identity.application_url = "ttps://apply.uga.edu/apply/"`.
+The missing `h` is genuinely printed in the document. GT is faithful to the page; an
+extractor that "helpfully" repairs it should score wrong.
+
+### The `wrong: 6` anomaly — a scorer parser bug, not "noise"
+
+Scoring UGA's GT against an *empty* run yielded `wrong: 6`, which should be impossible with
+zero findings. It was handed to me as "expected empty-run scorer noise." **That was wrong,
+and accepting it would have been expensive.**
+
+**Root cause:** `_num_canon()` (`scorer.py:~250`) parses numbers with `-?\d+(\.\d+)?`, which
+requires a digit *before* the decimal point. A bare leading-dot decimal like `.48` fails to
+match → `normalize_text(..., "percent")` returns `unparseable=True` → `compare_metric`
+(`~line 785`) short-circuits `gt_norm.unparseable` to `outcome = "wrong"` **before the
+engine's finding is consulted at all.**
+
+**Proof of unwinnability:** 6 `degrees` metrics hold `.48`, `.19`, `.87`, `.69`, `.96`,
+`.45`. Fed 10 candidate engine values each — including each GT's own literal string and its
+`0.`-prefixed form — **60/60 scored `wrong`.** No engine output could ever score correct.
+
+**Why this is a parser bug and not desirable strictness.** `.48` and `0.48` are the same
+number written two ways; accepting both is formatting normalization, which §5's table
+mandates. Critically it is **not fixable in the GT alone and cuts both ways**: real CDS
+documents print leading-dot decimals, so the engine will faithfully emit `.48` and be scored
+wrong for being right. Patching the 6 GT values would have left the engine-side failure live
+and permanently invisible — a silent accuracy tax on every experiment for the rest of the run.
+
+**Two fixes ordered:** (1) the parser accepts leading-dot decimals across *every* numeric
+rule, with `56` ≠ `56.3` and `.5` ≠ `5` pinned as invariants; (2) the systemic half —
+`gt_authoring_errors()` was only quarantining absent-token `present` values, so
+numeric-but-unparseable ones slipped past load-time checks and landed silently in `wrong`.
+Now they are a loud, blocking GT authoring error and are **never charged to the engine**.
+GT values stay faithful to the printed page (D13) — they are not rewritten to `0.48`.
+
+**Lesson for the ledger:** the scorer's own diagnostics were reported as noise by the agent
+that produced them. Anomalies in the fitness function get investigated, never explained away
+— this one was a permanent 6-metric accuracy tax hiding behind a plausible dismissal.
+**UGA is not sealed until `wrong == 0` on an empty run.**
+
+### M2 — UGA SEALED ✅ (gate met)
+
+Scorer v1.2.0, 140/140 tests green. UGA GT scored against a shape-valid empty run
+(zero findings, zero calls):
+
+```
+correct=0  wrong=0  missed=310  hallucinated=0  correct_abstention=84
+uncovered=0  unreadable=0  gt_error=0
+```
+
+The gate is met on three counts, not one:
+- `wrong == 0` — the 6 formerly-unwinnable leading-dot metrics are now winnable.
+- `gt_error == 0` — no residual GT authoring errors were quarantined; the two
+  unwinnable shapes `gt_authoring_errors()` guards against are both absent here.
+  A nonzero `gt_error` would have meant the quarantine was masking, not fixing.
+- The buckets **reconcile exactly** against the sealed status counts:
+  310 missed = 310 `present`; 84 correct_abstention = 78 `blank` + 6 `absent`;
+  310 + 84 = 394 = the full metric universe. No metric is unaccounted for, which
+  is the check that would have caught a silent key-matching failure between GT
+  keys and manifest ids. An empty run scoring 0/0/0 everywhere can also be
+  produced by matching *nothing*; only the reconciliation distinguishes the two.
+
+Fixture kept at `scratch-review/empty-run-fixture/` (gitignored), deliberately
+NOT under `runs/` — a zero-finding run file sitting in the runs tree would be
+silently swept into a future `--aggregate` and would drag an aggregate to 0%.
+
+### M2 — Caltech page index merged, then RETRACTED and re-opened
+
+`gt/caltech_2024-2025_pageindex.json` — merged from the two half-range files.
+
+**I published a false finding here and caught it one step later. Recording both.**
+
+I claimed "Caltech has no C9 anchor — the sequence runs C8 → D18", making it a
+third document with the whole-document routing fallback. **That is wrong.**
+Caltech page 19 carries the banner `C9-C12: First-time, first-year Profile`
+followed by a `C9.` heading and the SAT/ACT percentile table.
+
+Two compounding causes, both worth keeping:
+
+1. **The Caltech p01-25 index was never finished.** Pages 19-25 held placeholder
+   entries `{"sections": [], "notes": "pending batch 4"}` — the agent stalled at
+   exactly that batch. The merge then produced a `section_index` built from
+   placeholders, and C9 fell out of it because page 19 was empty, not because
+   the document lacks C9.
+2. **I verified the wrong property.** My completeness check asserted
+   `sorted(pages.keys()) == range(1,51)` — page *presence*, not page *content*.
+   Placeholders passed it. A structural check that a partially-written file
+   satisfies is not a completeness check.
+   **Rule going forward: a page index is complete only when every entry has a
+   non-empty `sections` list OR an explicit note saying the page genuinely has
+   no section heading (cover, blank, continuation).** Never assert on key sets.
+
+**The corrected C9 census** (direct token scan over all six PDFs, mine, not an
+agent's):
+
+| document | `C9` token pages | percentile-table page |
+|---|---|---|
+| dartmouth_2024-2025 | *(none)* | *(none)* |
+| caltech_2024-2025 | 19 | 19 |
+| ucf_2023-2024 | 14 | 14 |
+| uga_2023-2024 | 19 | 19 |
+| cornell_2022-2023 | 9, 10 | 10 |
+| pennstate_2022-2023 (holdout) | 13 | 13 |
+
+So **only Dartmouth lacks C9**, and it lacks it genuinely: its section run is
+C8/C8A-C8G → C10, C11 with no score-percentile table anywhere in the document.
+Verified independently by scanning every Dartmouth page for `SAT|Percentile`.
+
+**Consequence — the hypothesis is downgraded but not dropped.** "Three of five
+documents" would have made anchor-miss a systemic cost driver; one of six makes
+it a document-specific one. 28 of 36 `class_profile` metrics anchor on
+`source_hints: [C9]` (config/cds/domains/class_profile.yaml), so on Dartmouth
+alone all 28 route to whole-document — still the 68-of-228 page-send burn already
+measured, still worth fixing, no longer the headline.
+
+**The better hypothesis the retraction exposed.** The defect is not "C9 is
+missing", it is *what the router does when an anchor misses*: it falls back to
+the entire document. On Dartmouth, C8 sits on page 9 and C10/C11 on pages 9-10 —
+the missing C9's content would be right between two anchors that ARE present.
+A fallback that interpolates the span between the nearest present lower and
+higher item codes would route those 28 metrics to ~2 pages instead of 35. That
+fix generalizes to every future anchor miss, which a C9-specific hint patch
+would not. This is the Experiment candidate to carry forward, not the hint edit.
+
+Caltech also carries a J1 shape hazard worth recording before extraction: the
+"Military science and military technologies" row prints as a SINGLE combined row
+labelled `CIP 28 and 29`, not two rows. Expected-row-count checks on J1 must not
+assume one row per CIP code.
+
+### M2 page-indexing — two findings that generate hypotheses
+
+**1. Caltech's text-layer corruption reaches DIGITS, including partially within one number.**
+Page 39 body prose: `get_text()` returns `"Report the Fall 202\x17 rat[io...]"` where the page
+visibly reads `"Report the Fall 2024 ratio..."`. **Only the final digit is corrupted.** Page
+26's header returns `"&RPPRQ\x03'DWD\x036HW\x03\x15\x13\x15\x17\x10\x15\x13\x15\x18"` for
+"Common Data Set 2024-2025" — all 8 digits corrupted.
+
+This is worse than whole-page garbling, which at least fails loudly. A partially-corrupted
+number is a **plausible-but-wrong value with no error signal.** The engine routes off
+`extract_routing_text()` and its prompt embeds no page text, but any text-derived number on
+this document is untrustworthy. Consequences: (a) routing regex anchors on Caltech may match
+corrupted section codes, (b) `corrupt_text_layer` detection is doing real work and its
+threshold matters, (c) GT for Caltech must be image-only with **no text-layer fallback
+anywhere** — already enforced.
+
+Other Caltech layout hazards recorded: "Not Applicable" cells rendered white-on-black
+(a naive read could take them as data or as empty), checkbox lists in 2–3 independent
+columns that must be read column-wise not row-wise, four tables split across page breaks
+(H1 32→33, H2 33→34, I-3 39→40, J1 41→42), and page 36's header printing
+**"2023-2024"** while every other page says 2024-2025 — a genuine source anomaly, same
+family as Cornell's stale header.
+
+Section J on Caltech prints ONE combined "28 and 29" military-science row (same as UGA), and
+percentages **with** a leading zero (`0.90`) — unlike UGA's `.48`. Both forms occur in the
+wild, which is precisely why the leading-dot parser fix was necessary rather than cosmetic.
+
+**2. UCF: 2 of 9 image-verified pages disagreed with the text scan — and the disagreement is
+the engine's own routing failure mode.** Both were false positives from *prose*, not headings:
+page 27 matched "H1"/"H2" inside the financial-aid glossary ("questions H1 and H2..."), when
+the real H1/H2 tables are on page 28; page 29 matched "B1" inside a parenthetical citation
+("CDS Item B1 if reporting on Fall 2023 cohort") sitting in an H2-continuation row.
+
+This is a live hypothesis for the loop, not just a GT caveat. The engine's
+`_hit_pages_for_hints` regex-matches section codes against page text to choose which pages to
+send. If a glossary mention can pull a section anchor onto the wrong page, batches route to
+pages that merely *talk about* a section instead of containing it — wasting page-sends and
+risking misses. The engine's `_hint_pattern` anchors at line start, which may or may not
+save it; **worth testing directly.** Note the extraction prompt already tells the model to
+"Ignore Common Data Set Definitions pages and glossary prose" — evidence someone hit this
+before, but that instruction cannot fix *routing*.
+
+**CORRECTION to an earlier assumption.** I recorded UCF's NBSP headings as breaking the
+engine's regex anchors. Measured: 12,966 NBSP characters, document-wide rather than
+heading-only, and 35 of 88 headings use NBSP as the code-to-title separator — but **code-token
+matching is unaffected**, because no whitespace sits between the letter and the digits
+(`H1`, not `H 1`). Only title-text association after the code is at risk. UCF still earns its
+slot as the odd-formatting document, but not for the reason I first wrote.
+
+**UCF structural absences:** B5–B11 and J1. Not extraction failures — UCF replaces the
+per-gender B4–B11 grid with a single combined "B4 - B21. Graduation Rates" table in the newer
+IPEDS GRS format, and its Section J table carries no "J1." prefix at all. Both make their
+metrics `absent`, not `blank`. **The missing J1 anchor means `degrees` batches have nothing
+to route on for this document** — expect whole-document fallback, the same expensive pattern
+already seen with Dartmouth's C9.
+
+### M2 — Caltech's text layer emits fake digits from checkmark glyphs
+
+Beyond the digit corruption already recorded, Caltech page 19 extracts standalone
+`9` characters on their own lines:
+
+```
+C9. Percent and number of first-time, first-year students ... test scores.
+9
+Include information for ALL enrolled, degree-seeking, first-time, first-year ...
+9
+Do not include partial test scores ...
+```
+
+Those `9`s are not data. They are Wingdings/Symbol **checkmark bullets** whose
+glyph index decodes to the ASCII digit nine. Each one prefixes an instruction
+bullet, not a value.
+
+This is a strictly worse failure mode than the `\x17` corruption, because `\x17`
+is *visibly* broken and a control character can be detected mechanically, whereas
+a bare `9` is a well-formed number sitting adjacent to a numeric question about
+percentages and counts. Any text-layer read of this page can silently harvest
+`9` as the answer to "percent submitting SAT scores".
+
+Two consequences:
+- Caltech GT is image-only with **no text-layer fallback whatsoever** — already
+  decided, now over-determined.
+- `corrupt_text_layer` detection keying on control characters would NOT catch
+  this page's fake digits on its own. Worth checking whether the engine's
+  detector is control-char-based; if it is, glyph-decoded digits are a blind spot
+  it cannot see. Filed as a question for the engine review, not yet verified.
+
+### M2 — Cornell page index, pages 1-17 (verdicts)
+
+**Header year: the filename is right, the header lies.** Pages 1-2 read
+"Common Data Set 2022-2023"; **pages 3-17 all carry a stale "Common Data Set
+2021-2022"** running header. The data is unambiguously the 2022-2023 cycle —
+Oct 19 2022 enrollment date, Fall 2022 admissions cohort, an "IPEDS GRS 2022-2023
+Survey" citation, and forward-looking 2023-2024 costs in section G. Cornell reused
+prior-year template pages for sections B onward without updating the header.
+
+This matters beyond bookkeeping: `student_life.cds_edition` and
+`identity.academic_year` are exactly the metrics a model would fill from a running
+header, and 15 of 17 pages would feed it the wrong year. It is a live hallucination
+trap with a plausible-looking wrong answer, and Cornell's GT must record the
+*correct* year while the document's own header disagrees on most pages.
+
+**C7 marker semantics: the mark is meaningless, the column carries everything.**
+Verified from the page 8 image. Every mark is an identical typed `X`; meaning
+comes solely from which of the four columns it sits in (Very Important /
+Important / Considered / Not Considered). The text layer emits each row's `X`
+immediately after its label with **no coordinate or column data at all**, so
+reading-order extraction cannot recover the answer — it can only recover that
+*some* answer was given. C7 therefore requires word-bbox extraction or image
+reading. The same hazard plausibly applies to C8A-C8G, D5 and D18 (not
+individually verified).
+
+This is the second document to show column-position encoding (Caltech's index
+flagged it on E1/E3/F2/F4/H12/H13), which makes it a corpus-wide pattern rather
+than a Cornell quirk, and a strong candidate explanation for any `class_profile`
+or `admissions` accuracy floor the baseline turns up.
+
+**Also flagged:** `B4-B11` never appears as a literal label in Cornell — only as
+prose "(formerly CDS B4-B11)" and as generic row letters A-D under a combined
+`B4-B21` heading. Same structural shape as UCF's B4-B21 collapse.
+
+### M2 → M4 — THE ROUTING DEFECT: bare single-letter hints collide with lettered sub-items
+
+This is the strongest cost hypothesis found so far, it is **measured not theorised**,
+and it displaces the C9 story as the headline. It was found by chasing a *wrong*
+hypothesis and measuring instead of publishing.
+
+**How I got here.** Cornell's indexer reported `H1` mentioned in prose on pages 20,
+21, 22 and 32 while its heading is on page 19 — suggesting glossary prose stretches
+a batch's page span. I ran the engine's own `_hit_pages_for_hints` over the corpus
+to confirm. **The hypothesis was wrong**: `_hint_pattern` anchors at line start
+(`^{code}(?![0-9A-Za-z])`), so mid-sentence mentions like "see CDS Item B1" never
+match. The anchor is doing its job. But the same measurement exposed a different,
+worse defect.
+
+**The defect.** Three hints in the compiled manifest are *bare single letters* —
+`J` (41 metrics), `H` (3), and the pattern generalises. `_hint_pattern('J')`
+compiles to `^J(?![0-9A-Za-z])`, which matches any line starting with `J` followed
+by a non-alphanumeric. CDS documents are full of **lettered sub-item lists**
+(a., b., … i., j.) inside sections G, H and I, plus a table-of-contents entry, plus
+stray single-letter table cells. All of them match.
+
+Actual matching lines, verbatim:
+
+```
+UCF   p1  'J. DEGREES CONFERRED'                                     <- table of contents
+UCF   p29 'J. The average financial aid package of those in line'    <- sub-item (j) in section H
+UCF   p35 'J. Total number in stand-alone graduate/professional...'  <- sub-item (j) in section I
+UCF   p37 'J. DISCIPLINARY AREAS of DEGREES CONFERRED'               <- the REAL section J
+UGA   p33 'J'                                                        <- bare single-letter table cell
+UGA   p39 'J'                                                        <- bare single-letter table cell
+UGA   p41 'J. Disciplinary areas of DEGREES CONFERRED'               <- the REAL section J
+```
+
+`_route_batches` then takes `(min(hits), max(hits))` — a **contiguous span from
+first to last hit** — so one stray `J` drags the whole `degrees` domain across the
+document.
+
+**Measured blast radius, all five tuning documents:**
+
+| document | pages | `J` hits | span sent | real section J |
+|---|---|---|---|---|
+| ucf_2023-2024 | 48 | 1, 29, 35, 37 | **37** | p37 |
+| uga_2023-2024 | 50 | 33, 39, 41 | 9 | p41 |
+| caltech_2024-2025 | 50 | 33, 39, 41 | 9 | p41 |
+| cornell_2022-2023 | 32 | 20, 25, 27 | 8 | p27 |
+| dartmouth_2024-2025 | 34 | 20, 25, 26 | 7 | p26 |
+
+`H` (3 metrics) is inflated the same way on every document: spans of 20, 21, 31,
+31 and 35 pages.
+
+**Why this beats the C9 finding.** C9 affects 28 metrics on **one** document
+(Dartmouth). `J` affects **41 metrics — the entire `degrees` domain, 10.4% of the
+whole 394-metric universe — on all five documents plus the holdout.** UCF sends 37
+of 48 pages to read a table that lives on one page. That is a whole-document
+fallback in all but name, except it does not even register as a fallback because
+the router thinks it succeeded.
+
+**Why it is invisible.** A miss (`C9`) is loud — zero hits, explicit fallback. A
+*collision* is silent: the router reports a successful narrow route and the run
+logs a plausible `pages_sent`. Nothing in the pipeline says "your anchor matched
+four different things and I sent the convex hull."
+
+**Two consequences beyond cost.** Sending 37 pages when 1 is relevant is not only
+expensive, it is an accuracy risk: `degrees` metrics are CIP-coded rows, and pages
+29/35 carry *financial-aid* and *faculty* tables with numeric rows that a model
+could plausibly mine for the wrong answer. So this hypothesis is testable on both
+axes — it should move cost **and** `degrees` accuracy. That makes it a §1
+lexicographic win candidate, not just a cost trim.
+
+**Candidate fixes, to be tested as experiments — not yet applied:**
+1. Require a heading shape, not just a prefix — e.g. the hint must be followed by a
+   separator and the line must not continue as sentence prose. Cheap, general,
+   fixes `J` and `H` together.
+2. Cluster the hits and route to the densest/last cluster instead of the convex
+   hull `(min, max)`. Also fixes the C9 case if paired with neighbour interpolation.
+3. Make the hints specific (`J1`). **Rejected on evidence** — UGA and Caltech print
+   `J. Disciplinary areas of DEGREES CONFERRED` with no `J1` token anywhere, so a
+   `J1` hint converts a collision into a total miss on 2 of 5 documents. Recorded
+   because it is the obvious fix and it is wrong.
+
+Fix (1) is the one to try first: it is a pure routing change, touches no catalog
+YAML, and is measurable against the existing baseline on every document at once.
+
+**Confirmed end-to-end on the real batch plan (UGA, `--dry-run`, zero model calls).**
+The theory above is not inferred from `_hit_pages_for_hints` in isolation — the
+runner's own plan shows it. UGA: 50 pages, 23 calls, **228 planned page-sends**.
+
+| domain / batch | hints | routed pages | pages_sent | where the data actually is |
+|---|---|---|---|---|
+| financial_aid b0 | `H`, H2, H2A, H4 | 7-47 | **41** | ~p33-39 |
+| enrollment b0 | B1, B2 | 3-35 | **33** | p3-5 (4 metrics!) |
+| degrees b0 | `J` | 31-49 | **19** | p41 |
+| degrees b1 | `J` | 31-49 | **19** | p41 |
+| class_size b0 | I-2, I-3 | 37-48 | 12 | — |
+| admissions b3 | C13-C18, C8A, C8F | 15-25 | 11 | — |
+
+**Those four polluted batches are 112 of 228 page-sends — 49% of the document's
+entire page traffic.** `degrees` spends 38 page-sends across two batches to read a
+single table on page 41. `enrollment` sends 33 pages to extract **4 metrics**,
+because `B1` hits both its real heading (p5) and a stray line on p33, and the
+convex hull swallows everything between.
+
+This also revises the earlier Dartmouth figure in context: the C9 whole-document
+fallback (68 of 228 page-sends) and the anchor-collision waste are *the same
+underlying defect* — a routing rule that responds to a bad anchor by widening.
+One widens to the convex hull, the other widens to the whole document.
+
+A rough ceiling on the prize: if the four polluted UGA batches routed to their
+true spans (~5-6 pages each), UGA falls from 228 to roughly 120 page-sends. Since
+`prompt ≈ 592 × pages_sent + 280 × metrics`, that is close to a **halving of
+prompt tokens per document** — the largest single cost lever identified so far,
+and it is a pure engine change with no catalog edit.
+
+Not yet applied. It is an M4 experiment and must be measured against a sealed
+baseline, not assumed.
+
+### M2 — Dartmouth GT: my double-prefix bug, caught by the adjudicator
+
+Built `harness/gt_adjudicate.py` to diff the two independent GT passes. Design rule
+copied from the scorer: **it does not define its own equality** — it calls
+`scorer.normalize()` and `scorer.manifest_universe()` verbatim, so "the two passes
+agree" means exactly "these two passes would score identically against a run." A
+private comparator here would let GT drift from the yardstick that consumes it.
+
+That rule immediately caught a bug **I** introduced. My `_specs` generator wrote
+
+```python
+key = f"{dom['id']}.{m['id']}"          # WRONG
+```
+
+but `manifest_compile._canonicalize_domains` has *already* qualified every id, so
+`m['id']` is `student_life.out_of_state_percent_undergraduates`. Every spec key came
+out **double-prefixed** (`student_life.student_life.…`), and all 10 GT pass files
+written from those specs inherited it.
+
+**How it surfaced.** The adjudicator reported 6 `value_conflict`s in `student_life`
+where pass A wrote `'85%'` and pass B wrote `'85'` — and printed `unit=None`. Both
+passes had read the same number off the same page; they could not both be wrong in
+the same direction. The `unit=None` was the tell: the manifest lookup was *failing*,
+so the scorer fell back to a text rule under which `85%` ≠ `85`. The real metric has
+`unit='percent'`, which normalizes them together.
+
+Fixed the generator (`key = m['id']` when already qualified) and repaired all 10
+pass files in place: **394 valid keys, 545 keys renamed, 0 unknown** — the clean
+zero confirms the prefix was the *only* defect, not a symptom of a deeper mismatch.
+Re-adjudicated: `def` went from 88.33% to **98.33%** agreement, all 6 phantom
+conflicts gone.
+
+Two lessons:
+- **A "conflict" between two independent passes that both read the same page the same
+  way is not a conflict — it is a bug in the comparator or its inputs.** Disagreement
+  should look like disagreement. Six identical-shaped conflicts in one domain is a
+  systematic signature, not six independent misreadings.
+- Had I not built the adjudicator and instead concatenated the passes into a sealed
+  GT file, all 394 keys would have been unmatchable against the manifest and every
+  metric would have scored `uncovered` — a silently useless ground truth.
+
+Any GT pass produced by an agent that read the specs *before* this fix must be run
+through the repair step again; the repair is idempotent.
+
+### M2 — Dartmouth `def` adjudicated: metric instructions beat general rules
+
+One real conflict survived: `transfer.transfer_rolling_admission_fall`.
+Pass A said `blank`; pass B said `present`/`false`, applying the brief's general
+"an unticked standalone checkbox is `present`/`false`" rule.
+
+**Pass A is right.** That metric's own compiled `instructions` read: *"Extract only a
+direct explicit Yes/No or an authoritative visibly unchecked D9 Fall rolling-admission
+control. A blank/empty mark cell remains not_reported or unresolved."* The catalog
+author already anticipated this exact cell and ruled it out.
+
+Adjudicated to `blank`, and the brief now states the general principle it was missing:
+**a metric's own `instructions` override every general rule in the brief.** This is not
+a one-off — 394 metrics carry hand-written instructions and the brief has ~10 general
+rules, so the general rules will keep losing to specific ones. Worth noting the two
+passes disagreed *because* one read the spec's instructions and the other followed the
+brief; that is the double-pass protocol working exactly as intended.
+
+### M2 — Dartmouth adjudication status, and a caveat on the 100%s
+
+| group | metrics | agreement | conflicts |
+|---|---|---|---|
+| class_profile | 36 | **100%** | 0 |
+| ij (faculty+class_size+degrees) | 62 | **100%** | 0 |
+| def (transfer+academics+student_life) | 60 | 98.33% | 1 status, adjudicated |
+| ab, admissions, cost, financial_aid | — | in flight | — |
+
+**`harness/gt_repair_keys.py` must be run after every batch of passes lands.** Agents
+that read `_specs` before the double-prefix fix keep emitting stale keys until they
+finish, so pass files arrive with mixed key forms for as long as anything is in
+flight. The script is idempotent, reports anything it cannot resolve, and **never
+drops an unresolvable key** — a key that maps to nothing is an authoring error worth
+looking at, and deleting it would hide a missing metric. It also refuses to collapse
+two source keys onto one target. Confirmed in practice: on the second run, `ij` passA
+needed 62 renames while passB needed 0, purely from when each agent read the specs.
+
+**Caveat on the two 100% agreements — they are weaker evidence than they look.**
+I primed both `class_profile` passes with "Dartmouth appears to have no C9, verify it
+yourself", so their agreement on 28 `absent` values is not fully independent. Both did
+report reading the page images directly and each traced C8G → C10 itself, which is the
+verification I asked for, and the C9 absence is independently corroborated by my own
+token scan across all six PDFs. But the *protocol* was compromised: a shared prior
+from the orchestrator is exactly the kind of correlated error two independent passes
+are supposed to catch. Recorded so a later skeptic pass knows not to treat
+`class_profile` agreement as clean corroboration.
+
+Rule going forward: **state the hypothesis to at most ONE of the two passes**, or to
+neither. Where a document-level fact must be shared (corrupt text layer, which pages
+to read), share it; where a *value or status conclusion* is at stake, do not.
+
+### First real run (`baseline-smoke`, UGA) — INVALID, and the scorer caught it
+
+Not an experiment. A harness end-to-end validation on the one sealed document,
+deliberately run before spending on four more GT seals. It paid for itself.
+
+```
+findings=115  calls=23  cost=$0.027741  duration=1511.5s
+correct=2  wrong=6  missed=302  hallucinated=0  correct_abstention=84
+coverage=2.58%  accuracy=25.0%
+  !! RUN ERRORS (15) -- THIS RUN IS INCOMPLETE
+```
+
+**15 of 23 calls failed.** Two error classes: `SSL: UNEXPECTED_EOF_WHILE_READING`
+(6 calls, admissions + class_profile) and `WriteTimeout` (9 calls). This run must
+never be used as a baseline, and the scorer's `RUN ERRORS` panel is the only reason
+that is obvious — the headline numbers (accuracy 25%, coverage 2.6%) look like a
+catastrophically bad *engine*, when in fact the engine barely ran. **Without that
+panel I would have booked a fabricated baseline and every later experiment would
+have been measured against noise.** That panel is now load-bearing; do not remove it.
+
+**The size correlation, stated honestly.** Every one of the 8 successful calls sent
+**≤6 pages**. Every call that the plan says would have sent ≥7 pages failed.
+Tempting, but **I am not yet claiming payload size is the cause**, for three reasons:
+- Failed calls record `pages_sent: null`, so the sizes are inferred from the dry-run
+  plan, not observed.
+- `admissions` b2 was planned at 5 pages and still failed (SSL class).
+- The successful small calls were themselves *very* slow — 125s to 381s for 5-6
+  pages — which indicates a degraded network path independent of payload.
+
+So the live hypotheses are (i) large uploads time out, (ii) concurrency 6 saturates
+the connection, (iii) transient upstream instability. Re-running at `--concurrency 3`
+to separate them. Cost of being wrong here is trivial ($0.028/run); cost of guessing
+and moving on is a poisoned baseline.
+
+**What this does support.** If (i) or (ii) holds, the routing defect is not merely a
+cost problem — the oversized page windows would be *causing call failures*, and each
+failed call is a whole batch of metrics scored as `missed`. That would make the
+routing fix an **accuracy and coverage** lever, i.e. it would move the top two
+entries of the §1 lexicographic tuple, not just cost. Worth confirming precisely.
+
+**Latency is the real §1 exposure, not cost.** Even on the 8 calls that worked, cost
+extrapolates to well under the $0.10/doc target, but wall-clock was **1511s ≈ 25
+minutes** against a §1 target of ≤4 min and a hard floor of 6 min. Cost is
+comfortably won; **latency is the constraint that is currently failing by ~4×** and
+deserves proportionate attention in the loop. Adjust §7 lever priorities accordingly.
+
+### M2 — DARTMOUTH SEALED ✅ (2 of 6 documents)
+
+394/394 metrics, `present` 252 / `blank` 108 / `absent` 34. Seal gate passed:
+`wrong=0  hallucinated=0  gt_error=0`, and 252 missed + 142 correct_abstention = 394,
+reconciling exactly against the status counts (108 + 34 = 142).
+
+Pass agreement before adjudication: **390/394 = 98.98%**, 6 adjudications applied.
+
+| group | metrics | agreement |
+|---|---|---|
+| admissions | 98 | 100% |
+| class_profile | 36 | 100% |
+| cost | 43 | 100% |
+| ij | 62 | 100% |
+| financial_aid | 67 | 98.51% |
+| def | 60 | 98.33% |
+| ab | 28 | 92.86% |
+
+**The most important adjudication overturned BOTH passes.**
+`financial_aid.aid_reporting_status`: both passes independently wrote `estimated`,
+reasoning from CDS convention that a checked "2024-2025" column (vs "2023-2024 Final")
+implies estimated. Neither found the word "Estimated" printed anywhere. The metric's
+own instructions say: *"Do not infer a status when the control is blank or
+unresolved."* Ruled **`blank`**.
+
+This is the case the two-pass protocol cannot catch by itself: **two independent
+readers making the same reasonable inference agree, and agreement looks like
+confirmation.** It was caught only because one pass set `ambiguous: true` and the
+adjudicator surfaces ambiguous flags *even when the passes agree*. That design choice
+— review flagged items regardless of agreement — is now proven load-bearing and must
+not be optimised away.
+
+**Second ruling, a deliberate deviation.** `admissions.housing_deposit_deadline` is
+`unit: date` and the document literally prints `na`. The metric instruction says "copy
+exactly as printed", but an unparseable `present` GT value is quarantined by the
+scorer as `gt_error` — charged to no one, permanently unwinnable, effectively deleting
+the metric from the universe. Ruled **`blank`** with the raw token kept in
+`raw_printed`. This is the one place in the document where a printed token is not
+transcribed verbatim; it is recorded in the GT entry itself, not just here.
+
+**Note on how the gate found it.** The empty-run gate is not a formality — it
+*refused to certify* the first assembly, naming the offending key. Without it this
+would have shipped as a silently unscoreable metric.
+
+**Process defect to avoid repeating.** I launched a retry for `financial_aid` passA
+while the original agent was still alive; both wrote the same file, and one reported
+seeing it truncated to 22 entries mid-task. The final file validates at 67/67 and
+agrees with passB at 98.51%, so the content appears sound, but **passA's provenance
+for that group is a merge of two agents rather than one clean pass.** Before relaunching
+a stalled agent, confirm it is actually dead, or write to a distinct filename.
+
+### `baseline-c3` — concurrency hypothesis REFUTED; the network is the problem
+
+Re-ran UGA identically except `--concurrency 3` (down from 6), to separate "large
+uploads time out" from "concurrency 6 saturates the link".
+
+```
+calls=23  cost=$0.0  duration=4234.3s (70.6 min)
+!! RUN ERRORS (23) -- THIS RUN IS INCOMPLETE
+```
+
+**All 23 calls failed, every one a `WriteTimeout`. Zero findings, zero cost, 70
+minutes.** Lowering concurrency did not help — it got strictly worse (15/23 failures
+became 23/23, 25 min became 70 min).
+
+Conclusions, in order of confidence:
+1. **The concurrency hypothesis is dead.** Halving in-flight requests made it worse,
+   which is the opposite of contention.
+2. **The payload-size hypothesis is also not supported as the primary cause.** In the
+   c6 run every ≤6-page call succeeded; here the *same* small calls (academics at 5
+   pages, faculty at 5) failed too. Size cannot explain a failure that a smaller
+   payload also hits.
+3. **What is left is the environment**: a degraded upload path to the model endpoint,
+   worsening over the ~2h between the two runs. `WriteTimeout` is an upload-side
+   failure, consistent with that.
+
+**This is the most important operational fact in the run right now: latency and
+completion are currently dominated by network conditions, not by engine
+configuration.** Consequences that must shape the loop:
+
+- **Any latency comparison between two experiments run at different times is
+  confounded.** §1's ≤4 min/doc target cannot be honestly evaluated in this
+  environment until a noise floor exists. §6's Experiment 2 (noise floor) is
+  therefore not optional bookkeeping — it is a precondition for trusting *any*
+  latency number, and it must be re-measured near each experiment, not once.
+- **Cost figures remain trustworthy** (they are token-derived, not clock-derived),
+  and cost was already comfortably inside target.
+- A champion must never be crowned on a run with a non-empty `RUN ERRORS` list.
+  Consider making the scorer refuse to emit a fitness tuple at all when errors exist,
+  rather than emitting one that ranks last — right now `baseline-c3` produces a
+  well-formed tuple `(-1.0, 0.0, -0.0, -4234.3)` whose `-0.0` cost would *win* the
+  cost axis against a real run. A zero-cost total failure must not be able to beat a
+  working config on any axis. **Filed as a scorer hardening item.**
+
+Do not re-run the baseline until a call spot-check succeeds; burning 70 minutes per
+attempt on a dead link is the worst possible use of the wall clock.
+
+### `netprobe` — the endpoint is alive, and latency has a hard structural floor
+
+One call, one domain (`faculty`), `--concurrency 1`:
+
+```
+findings=4  calls=1  cost=$0.002578  duration=350.1s
+```
+
+**It succeeded.** So the endpoint is reachable and the earlier total failure was not a
+dead link. But 350 seconds for a single 5-page call returning 4 metrics is the real
+headline, and it reframes the §1 latency target structurally rather than as a tuning
+problem:
+
+```
+wall_clock  ≈  (calls / concurrency) × per_call_latency
+```
+
+Observed `per_call_latency` is **~140-350s** and does not scale down with payload —
+the 5-page, 4-metric `faculty` call took 141s in the earlier smoke and 350s now, while
+a 25-metric call took 173s. Per-call latency is dominated by a fixed overhead, not by
+tokens.
+
+With 23 calls and the §1 target of 240s, that equation demands
+`23 / concurrency × ~200s ≤ 240s`, i.e. **concurrency ≈ 20** — every call in
+essentially one wave. That is not reachable by tuning at the margin.
+
+**So the only real latency levers are the two that change the equation's numerator or
+denominator:**
+- **Fewer calls** — larger `DEFAULT_METRIC_BATCH_SIZE` (§7 lever 1). Going 25 → 60
+  takes UGA from 23 calls to ~9, a 2.5× wall-clock cut for free.
+- **Higher concurrency** (§7 lever 3), which the failed runs suggest the current
+  network cannot absorb — and which trades against reliability, not just 429s.
+
+Note these interact badly with the routing defect: bigger batches merge more
+`source_hints` per batch, and since routing takes the convex hull of a batch's hints,
+**a larger batch size will widen page spans further** unless the routing fix lands
+first. Ordering matters — fix routing, then sweep batch size, or the batch-size result
+will be contaminated by exploding page-sends.
+
+**Revised read on the failures.** c6 → 8/23 succeeded, c3 → 0/23, c1 → 1/1. That is
+not a clean monotonic story in either direction, and the c3 run sat in the worst
+window. I am no longer confident concurrency is exonerated; the honest statement is
+**concurrency and network health are confounded across these three runs**, and they
+cannot be separated without running them back-to-back. Deferred until a run is needed
+anyway — it is not worth 70 minutes of wall clock to settle on its own.
+
+### M2 — the ratio/percent GT conflict, and an engine hazard it exposes
+
+`ab` adjudication: 26/28 agreed; the 2 conflicts were both B11 graduation rates.
+
+| | value | reasoning |
+|---|---|---|
+| pass A | `96`, `93` | applied the brief's "record as printed, do not convert" rule |
+| pass B | `0.96`, `0.93` | applied the metric's own `instructions` |
+
+**Pass B is correct.** Both metrics are `unit: ratio`, `type: number`, and their
+compiled instructions read *"as the printed 0-1 ratio (for example 0.94), never as a
+percent"*. Metric instructions override the brief (the rule established by the D9
+adjudication). Adjudicated to `0.96` / `0.93`, with the printed `96%` / `93%` kept in
+`evidence`.
+
+**The engine hazard this exposes.** Dartmouth *prints* `96%`. The catalog *demands*
+`0.96`. So the engine must perform a unit conversion the page does not show, and if
+it faithfully transcribes what it sees it scores **wrong for being accurate**. This
+is the same shape as the leading-dot parser bug: a guaranteed, silent accuracy tax
+that looks like a model failure. Unknown how many of the 394 metrics have a
+`unit`/printed-form mismatch — **worth a systematic sweep before the baseline is
+believed**, since it would set a false accuracy ceiling on every experiment.
+
+### Process error: never repair pass files while their agents are still writing
+
+`gt_repair_keys.py` rewrote `ab__passA.json` while its agent was still working. The
+agent saw its file change under it, was told the change was intentional, judged that
+it contradicted the spec format it had been given, and **restored the double-prefixed
+keys** — correctly, on the information it had. I then had to repair the file a second
+time.
+
+The agent was not wrong; my sequencing was. **Run the repair only after every agent
+touching a document has finished**, and treat "renamed > 0 on a file whose agent has
+already reported done" as the normal case rather than a signal. Recorded because the
+same collision will occur on UCF, Cornell and Caltech if the repair is run eagerly.
+
+### Harness operating notes (read before running anything)
+
+**The runner MUST be invoked from the repo root**, not from `harness/`:
+
+```
+cd /home/saifuddin/Projects/counselle/.worktrees/cds-pipeline
+uv run python plans/cds-pipeline/tuning/harness/run_extraction_offline.py \
+    --pdf artifacts/cds-corpus/<doc>.pdf --label <label>
+```
+
+`config/settings.py` declares `SettingsConfigDict(env_file=".env")`, and pydantic
+resolves that **relative to the process CWD**. Launched from `harness/`, `.env` is
+not found and `get_settings()` dies on missing `COUNSELLE_DB_RO_DSN` /
+`COUNSELLE_DB_APP_DSN` / `COUNSELLE_JWT_SECRET`.
+
+Two traps this hides:
+- `--dry-run` **does not** call `get_settings()`, so a dry-run succeeds from any
+  directory. A green dry-run is therefore NOT evidence that the real run will
+  start. Do not use it to validate invocation.
+- The failure names three DB/JWT variables, which reads like the offline harness
+  wants a database. It does not — `get_settings()` validates the whole settings
+  object eagerly, including fields this code path never touches. Do not "fix" it
+  by giving the harness DB access; fix the CWD.
+
+Output lands at `plans/cds-pipeline/tuning/runs/<label>/<docname>.json` regardless
+of CWD (resolved from the runner file's own location), and the runner refuses to
+overwrite an existing run file.
 
 ### Harness seam chosen
 

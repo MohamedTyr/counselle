@@ -1,0 +1,314 @@
+[
+ {
+  "key": "transfer.enrolls_transfer_students",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "D1"
+  ],
+  "instructions": "Extract the D1 first Yes/No control for whether the institution enrolls transfer students. Return true/false only from an unambiguous selected control; this is a policy selection, separate from the D2 volume counts and from the D1 advanced-standing control below.",
+  "description": "Whether the institution enrolls transfer students from other colleges or universities, per D1."
+ },
+ {
+  "key": "transfer.allows_advanced_standing_from_external_coursework",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "D1"
+  ],
+  "instructions": "Extract the D1 second Yes/No control. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. This advanced standing is specifically from coursework taken at other colleges/universities; do not confuse it with AP/IB/CLEP or other non-collegiate credit, which are covered elsewhere.",
+  "description": "Whether the institution grants advanced standing based on coursework completed at other colleges or universities, per D1."
+ },
+ {
+  "key": "transfer.applicants_total",
+  "label": null,
+  "unit": "applicants",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "D2"
+  ],
+  "instructions": "Extract the D2 TOTAL row applicants count. Population is degree-seeking transfer applicants only; do not sum the gender rows yourself.",
+  "description": "Total degree-seeking transfer applicants for the D2 entry term/year."
+ },
+ {
+  "key": "transfer.admitted_total",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "D2"
+  ],
+  "instructions": "Extract the D2 TOTAL row admitted count. This is a raw source count; do not compute an admit rate during extraction.",
+  "description": "Total transfer applicants admitted for the D2 entry term/year."
+ },
+ {
+  "key": "transfer.enrolled_total",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "D2"
+  ],
+  "instructions": "Extract the D2 TOTAL row enrolled count. This is a raw source count; do not compute a yield rate during extraction.",
+  "description": "Total transfer students enrolled for the D2 entry term/year."
+ },
+ {
+  "key": "transfer.minimum_prior_credit_threshold_applies",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "D4"
+  ],
+  "instructions": "Extract the D4 Yes/No control for whether the threshold applies. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. Do not infer a value or unit for the fields below when this control is No or blank.",
+  "description": "Whether a minimum prior-coursework credit threshold applies, below which an applicant must apply as an entering first-year rather than a transfer, per D4."
+ },
+ {
+  "key": "transfer.minimum_prior_credit_value",
+  "label": null,
+  "unit": "source_unit_value",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "D4"
+  ],
+  "instructions": "Extract the printed D4 numeric threshold value only when visibly reported (for example 4). Never infer a value when the cell is blank, even if minimum_prior_credit_threshold_applies is true.",
+  "description": "Minimum prior-coursework value below which an applicant must apply as an entering first-year rather than as a transfer, per D4."
+ },
+ {
+  "key": "transfer.minimum_prior_credit_unit",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "D4"
+  ],
+  "instructions": "Copy the printed D4 unit text exactly (for example semester hours). Do not infer a unit when it is blank, even when minimum_prior_credit_value is reported.",
+  "description": "Unit text printed beside the D4 minimum prior-coursework threshold below which an applicant must apply as an entering first-year rather than as a transfer."
+ },
+ {
+  "key": "transfer.transfer_requirement_high_school_transcript",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_all",
+   "recommended_all",
+   "recommended_some",
+   "required_some",
+   "not_required"
+  ],
+  "source_hints": [
+   "D5"
+  ],
+  "instructions": "Return the exact D5 selected requirement status for the High School Transcript row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable.",
+  "description": "D5 requirement status for a high-school transcript from transfer applicants."
+ },
+ {
+  "key": "transfer.transfer_requirement_college_transcripts",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_all",
+   "recommended_all",
+   "recommended_some",
+   "required_some",
+   "not_required"
+  ],
+  "source_hints": [
+   "D5"
+  ],
+  "instructions": "Return the exact D5 selected requirement status for the College Transcript(s) row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable.",
+  "description": "D5 requirement status for college transcripts from transfer applicants."
+ },
+ {
+  "key": "transfer.transfer_requirement_essay_personal_statement",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_all",
+   "recommended_all",
+   "recommended_some",
+   "required_some",
+   "not_required"
+  ],
+  "source_hints": [
+   "D5"
+  ],
+  "instructions": "Return the exact D5 selected requirement status for the Essay or Personal Statement row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable.",
+  "description": "D5 requirement status for an essay or personal statement from transfer applicants."
+ },
+ {
+  "key": "transfer.transfer_requirement_interview",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_all",
+   "recommended_all",
+   "recommended_some",
+   "required_some",
+   "not_required"
+  ],
+  "source_hints": [
+   "D5"
+  ],
+  "instructions": "Return the exact D5 selected requirement status for the Interview row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable.",
+  "description": "D5 requirement status for an interview from transfer applicants."
+ },
+ {
+  "key": "transfer.transfer_requirement_standardized_test_scores",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_all",
+   "recommended_all",
+   "recommended_some",
+   "required_some",
+   "not_required"
+  ],
+  "source_hints": [
+   "D5"
+  ],
+  "instructions": "Return the exact D5 selected requirement status for the Standardized Test Scores row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable.",
+  "description": "D5 requirement status for standardized test scores from transfer applicants."
+ },
+ {
+  "key": "transfer.transfer_requirement_prior_institution_good_standing",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_all",
+   "recommended_all",
+   "recommended_some",
+   "required_some",
+   "not_required"
+  ],
+  "source_hints": [
+   "D5"
+  ],
+  "instructions": "Return the exact D5 selected requirement status for the Statement of Good Standing from Prior Institution(s) row. Map the visible label exactly: Required of All -> required_all; Recommended of All -> recommended_all; Recommended of Some -> recommended_some; Required of Some -> required_some; Not Required -> not_required. not_required does not mean unavailable.",
+  "description": "D5 requirement status for a statement of good standing from the prior institution."
+ },
+ {
+  "key": "transfer.minimum_high_school_gpa",
+  "label": null,
+  "unit": "gpa",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "D6"
+  ],
+  "instructions": "Extract the D6 minimum high-school GPA value only. Any printed 'on a 4.0 scale' wording is template prompt context, not an institution response, and must never be copied into this value; a blank cell does not prove no minimum exists.",
+  "description": "Minimum high-school GPA required of transfer applicants, when a minimum is stated, per D6."
+ },
+ {
+  "key": "transfer.minimum_college_gpa",
+  "label": null,
+  "unit": "gpa",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "D7"
+  ],
+  "instructions": "Extract the D7 minimum college GPA value only, keeping it separate from minimum_high_school_gpa. Any printed 'on a 4.0 scale' wording is template prompt context, not an institution response, and must never be copied into this value; a blank cell does not prove no minimum exists.",
+  "description": "Minimum college GPA required of transfer applicants, when a minimum is stated, per D7."
+ },
+ {
+  "key": "transfer.transfer_priority_date_fall",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "D9"
+  ],
+  "instructions": "Copy the D9 Fall row Priority Date cell exactly as printed, preserving any partial date actually present in that column. Keep it distinct from Closing Date, Notification Date, and Reply Date: Yale's 3/1 is closing, Mid May is notification, and Late May is reply, not priority.",
+  "description": "D9 fall-term transfer application priority date."
+ },
+ {
+  "key": "transfer.transfer_closing_date_fall",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "D9"
+  ],
+  "instructions": "Copy the D9 Fall row closing-date cell exactly as printed. Keep this distinct from the priority date; do not assume a year that is not printed.",
+  "description": "D9 fall-term transfer application closing date."
+ },
+ {
+  "key": "transfer.transfer_notification_date_fall",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "D9"
+  ],
+  "instructions": "Copy the D9 Fall row notification-date cell exactly as printed. Keep it in the Notification Date column; do not shift a value from the adjacent Closing Date or Reply Date column.",
+  "description": "D9 fall-term transfer admission notification date."
+ },
+ {
+  "key": "transfer.transfer_reply_date_fall",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "D9"
+  ],
+  "instructions": "Copy the D9 Fall row reply-date cell exactly as printed. Keep it in the Reply Date column; do not shift a value from the adjacent Notification Date column or interpret the Rolling Admission control as a reply date.",
+  "description": "D9 fall-term transfer admission reply date."
+ },
+ {
+  "key": "transfer.transfer_rolling_admission_fall",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "D9"
+  ],
+  "instructions": "Extract only a direct explicit Yes/No or an authoritative visibly unchecked D9 Fall rolling-admission control. A blank/empty mark cell remains not_reported or unresolved; never derive this value from the separate D3 fall-term availability checklist.",
+  "description": "Whether fall-term transfer admission is on a rolling basis, per D9."
+ },
+ {
+  "key": "transfer.open_admission_policy_applies",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "D10"
+  ],
+  "instructions": "Extract the D10 Yes/No control. Return true/false only from an unambiguous visibly selected control; a blank or unresolved control remains not_reported or unresolved, never false. This is open-admission applicability, not rolling admission and not any of the D9 rolling-admission controls above.",
+  "description": "Whether an open admission policy applies to transfer applicants, per D10."
+ },
+ {
+  "key": "transfer.lowest_eligible_course_grade",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "D12"
+  ],
+  "instructions": "Copy the printed D12 grade token exactly (for example a letter grade or a numeric grade such as 2.00). This is not the D7 applicant minimum college GPA and carries no assumed grading scale.",
+  "description": "Lowest course grade that remains eligible for transfer credit, per D12."
+ }
+]

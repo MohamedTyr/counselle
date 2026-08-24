@@ -1,0 +1,158 @@
+[
+ {
+  "key": "student_life.out_of_state_percent_undergraduates",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "F1"
+  ],
+  "instructions": "Bind this metric to the reporting term and year printed in the F1 heading. Extract the F1 \"percent of students who are from out of state\" row for the degree-seeking undergraduates column (the second F1 column, not the first-time, first-year column). Out-of-state excludes international/nonresident students from both numerator and denominator. Preserve the exact printed percent string; a visibly blank cell is not_reported, never zero.",
+  "description": "Percent of degree-seeking undergraduates who are from out of state, excluding international/nonresident students from both the numerator and denominator, from F1."
+ },
+ {
+  "key": "student_life.fraternity_joiners_percent_undergraduates",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "F1"
+  ],
+  "instructions": "Bind this metric to the reporting term and year printed in the F1 heading. Extract the F1 \"percent who join a fraternity\" row for the degree-seeking undergraduates column. The denominator is men within this population. Preserve the exact printed percent string; a visibly blank cell is not_reported, never zero.",
+  "description": "Percent of men among degree-seeking undergraduates who join a fraternity, from F1."
+ },
+ {
+  "key": "student_life.sorority_joiners_percent_undergraduates",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "F1"
+  ],
+  "instructions": "Bind this metric to the reporting term and year printed in the F1 heading. Extract the F1 \"percent who join a sorority\" row for the degree-seeking undergraduates column. The denominator is women within this population. Preserve the exact printed percent string; a visibly blank cell is not_reported, never zero.",
+  "description": "Percent of women among degree-seeking undergraduates who join a sorority, from F1."
+ },
+ {
+  "key": "student_life.college_owned_housing_percent_undergraduates",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "F1"
+  ],
+  "instructions": "Bind this metric to the reporting term and year printed in the F1 heading. Extract the F1 \"percent who live in college-owned, -operated, or -affiliated housing\" row for the degree-seeking undergraduates column. Preserve the exact printed percent string; a visibly blank cell is not_reported, never zero.",
+  "description": "Percent of degree-seeking undergraduates who live in college-owned, -operated, or -affiliated housing, from F1."
+ },
+ {
+  "key": "student_life.off_campus_or_commute_percent_undergraduates",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "F1"
+  ],
+  "instructions": "Bind this metric to the reporting term and year printed in the F1 heading. Extract the F1 \"percent who live off campus or commute\" row for the degree-seeking undergraduates column. Do not derive this value from the college-owned-housing row above. Preserve the exact printed percent string; a visibly blank cell is not_reported, never zero.",
+  "description": "Percent of degree-seeking undergraduates who live off campus or commute, from F1."
+ },
+ {
+  "key": "student_life.age_25_or_older_percent_undergraduates",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "F1"
+  ],
+  "instructions": "Bind this metric to the reporting term and year printed in the F1 heading. Extract the F1 \"percent age 25 or older\" row for the degree-seeking undergraduates column. Age 25 is inclusive. Preserve the exact printed percent string; a visibly blank cell is not_reported, never zero.",
+  "description": "Percent of degree-seeking undergraduates age 25 or older, from F1."
+ },
+ {
+  "key": "student_life.average_age_full_time_undergraduates",
+  "label": null,
+  "unit": "years",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "F1"
+  ],
+  "instructions": "Bind this metric to the reporting term and year printed in the F1 heading. Extract the F1 \"average age of full-time students\" row for the degree-seeking undergraduates column. This is distinct from the all-full-and-part-time-students row below.",
+  "description": "Average age of full-time degree-seeking undergraduates, from F1."
+ },
+ {
+  "key": "student_life.army_rotc_on_campus",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "F3"
+  ],
+  "instructions": "Bind this metric to `identity.academic_year`, the CDS edition context. Return true only when the F3 Army ROTC \"offered on campus\" checkbox is visibly checked, and false only when this box is visibly present and unambiguously unmarked in the complete F3 matrix. Do not conflate with the \"at a cooperating institution\" row below, and never invent an overall combined ROTC boolean; report Army ROTC only.",
+  "description": "Whether Army ROTC is offered on campus, from F3."
+ },
+ {
+  "key": "student_life.army_rotc_at_cooperating_institution",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "F3"
+  ],
+  "instructions": "Bind this metric to `identity.academic_year`, the CDS edition context. Return true only when the F3 Army ROTC \"offered at a cooperating institution\" checkbox is visibly checked, and false only when this box is visibly present and unambiguously unmarked in the complete F3 matrix. Do not conflate with the on-campus row above.",
+  "description": "Whether Army ROTC is offered at a cooperating institution, from F3."
+ },
+ {
+  "key": "student_life.naval_rotc_on_campus",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "F3"
+  ],
+  "instructions": "Bind this metric to `identity.academic_year`, the CDS edition context. Return true only when the F3 Naval ROTC \"offered on campus\" checkbox is visibly checked, and false only when this box is visibly present and unambiguously unmarked in the complete F3 matrix. Do not conflate with the \"at a cooperating institution\" row below or the Marine option below; report Naval ROTC only.",
+  "description": "Whether Naval ROTC is offered on campus, from F3."
+ },
+ {
+  "key": "student_life.naval_rotc_at_cooperating_institution",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "F3"
+  ],
+  "instructions": "Bind this metric to `identity.academic_year`, the CDS edition context. Return true only when the F3 Naval ROTC \"offered at a cooperating institution\" checkbox is visibly checked, and false only when this box is visibly present and unambiguously unmarked in the complete F3 matrix. Do not conflate with the on-campus row above.",
+  "description": "Whether Naval ROTC is offered at a cooperating institution, from F3."
+ },
+ {
+  "key": "student_life.air_force_rotc_on_campus",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "F3"
+  ],
+  "instructions": "Bind this metric to `identity.academic_year`, the CDS edition context. Return true only when the F3 Air Force ROTC \"offered on campus\" checkbox is visibly checked, and false only when this box is visibly present and unambiguously unmarked in the complete F3 matrix. Do not conflate with the \"at a cooperating institution\" row below; report Air Force ROTC only.",
+  "description": "Whether Air Force ROTC is offered on campus, from F3."
+ },
+ {
+  "key": "student_life.air_force_rotc_at_cooperating_institution",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "F3"
+  ],
+  "instructions": "Bind this metric to `identity.academic_year`, the CDS edition context. Return true only when the F3 Air Force ROTC \"offered at a cooperating institution\" checkbox is visibly checked, and false only when this box is visibly present and unambiguously unmarked in the complete F3 matrix. Do not conflate with the on-campus row above.",
+  "description": "Whether Air Force ROTC is offered at a cooperating institution, from F3."
+ }
+]

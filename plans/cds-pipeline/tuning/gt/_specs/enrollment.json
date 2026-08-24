@@ -1,0 +1,50 @@
+[
+ {
+  "key": "enrollment.undergraduate_total",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B1"
+  ],
+  "instructions": "Extract B1 scalar row 'Total all undergraduates' (Harvard 2025-26) / 'Total All Undergraduates' (Yale 2024-25). Distinct from the four undergraduate_all_total_<gender> rows above; do not compute it by summing them yourself. Do not use the CDS edition academic_year as its period context.",
+  "description": "Total undergraduate students enrolled, the single non-gender-split scalar row printed in the B1 All Students section."
+ },
+ {
+  "key": "enrollment.graduate_total",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B1"
+  ],
+  "instructions": "Extract B1 scalar row 'Total all graduate' (Harvard 2025-26) / 'Total All Graduate Students' (Yale 2024-25). Distinct from the four graduate_all_total_<gender> rows above; do not compute it by summing them yourself. Do not use the CDS edition academic_year as its period context.",
+  "description": "Total graduate students enrolled, the single non-gender-split scalar row printed in the B1 All Students section."
+ },
+ {
+  "key": "enrollment.all_students_total",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B1"
+  ],
+  "instructions": "Extract B1 scalar row 'GRAND TOTAL ALL STUDENTS' (Harvard 2025-26) / 'GRAND TOTAL All STUDENTS' (Yale 2024-25). Distinct from the four all_students_total_<gender> rows above; do not compute it by summing them yourself. Do not use the CDS edition academic_year as its period context.",
+  "description": "Total students enrolled, the single non-gender-split scalar grand-total row printed at the bottom of the B1 All Students section."
+ },
+ {
+  "key": "enrollment.nonresident_all_undergraduates",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B2"
+  ],
+  "instructions": "Extract CDS B2 table, row 'Nonresidents' (Harvard 2025-26) / 'Nonresident Alien' (Yale 2024-25), column 'Total Undergraduates (both degree & non-degree-seeking)'. International/nonresident students appear only in this row; do not redistribute them into any other race/ethnicity row below. The all-undergraduates column may be the only populated column when the other two population columns cannot be provided; that does not license backfilling the other columns from it. Do not use the CDS edition academic_year as its period context.",
+  "description": "Count of students in the CDS Nonresident/Nonresidents category: not U.S. citizens or nationals and in the United States on a student visa or temporary basis without the right to remain indefinitely, excluding DACA, undocumented, and other eligible noncitizens, the third population column (all undergraduates, including non-degree-seeking), from the B2 race/ethnicity table."
+ }
+]

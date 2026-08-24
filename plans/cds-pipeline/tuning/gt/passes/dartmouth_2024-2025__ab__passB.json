@@ -1,0 +1,170 @@
+{
+ "identity.institution_name": {
+  "status": "present",
+  "value": "Dartmouth College",
+  "page": 1,
+  "evidence": "A1 'Name of College/University' row."
+ },
+ "identity.academic_year": {
+  "status": "present",
+  "value": "2024-2025",
+  "page": 1,
+  "evidence": "Header line at top of page: 'Common Data Set 2024-2025'."
+ },
+ "identity.city": {
+  "status": "present",
+  "value": "Hanover",
+  "page": 1,
+  "evidence": "A1 'City/State/Zip/Country' row: 'Hanover, New Hampshire 03755 United States'; city portion."
+ },
+ "identity.state_or_region": {
+  "status": "present",
+  "value": "New Hampshire",
+  "page": 1,
+  "evidence": "A1 'City/State/Zip/Country' row: 'Hanover, New Hampshire 03755 United States'; state portion."
+ },
+ "identity.country": {
+  "status": "present",
+  "value": "United States",
+  "page": 1,
+  "evidence": "A1 'City/State/Zip/Country' row: 'Hanover, New Hampshire 03755 United States'; country portion."
+ },
+ "identity.main_website": {
+  "status": "present",
+  "value": "http://dartmouth.edu/",
+  "page": 1,
+  "evidence": "A1 'WWW Home Page Address' row."
+ },
+ "identity.admissions_email": {
+  "status": "present",
+  "value": "apply@dartmouth.edu",
+  "page": 1,
+  "evidence": "A1 'Admissions E-mail Address' row (distinct from A0's institutional.research@dartmouth.edu, which is the respondent-office email, not admissions)."
+ },
+ "identity.application_url": {
+  "status": "blank",
+  "value": null,
+  "page": 1,
+  "evidence": "A1 row 'If there is a separate URL for your school's online application, please specify:' is printed with an empty answer box beneath it -- no URL entered."
+ },
+ "identity.institutional_control": {
+  "status": "present",
+  "value": "private_nonprofit",
+  "page": 1,
+  "evidence": "A2 checklist, 'X' mark in the box beside 'Private (nonprofit)'."
+ },
+ "identity.undergraduate_gender_model": {
+  "status": "present",
+  "value": "coeducational",
+  "page": 1,
+  "evidence": "A3 checklist, 'X' mark in the box beside 'Coeducational college'."
+ },
+ "identity.academic_calendar": {
+  "status": "present",
+  "value": "quarter",
+  "page": 1,
+  "evidence": "A4 checklist, 'X' mark in the box beside 'Quarter'."
+ },
+ "identity.degree_offered_bachelors": {
+  "status": "present",
+  "value": true,
+  "page": 2,
+  "evidence": "A5 checklist, 'X' mark in the box beside 'Bachelor's'."
+ },
+ "identity.degree_offered_masters": {
+  "status": "present",
+  "value": true,
+  "page": 2,
+  "evidence": "A5 checklist, 'X' mark in the box beside 'Master's'."
+ },
+ "identity.degree_offered_doctoral_research_scholarship": {
+  "status": "present",
+  "value": true,
+  "page": 2,
+  "evidence": "A5 checklist, 'X' mark in the box beside 'Doctoral degree research/scholarship'."
+ },
+ "enrollment.undergraduate_total": {
+  "status": "present",
+  "value": 4570,
+  "page": 3,
+  "evidence": "B1 scalar summary row 'Total all undergraduates' below the All Students: Total table."
+ },
+ "enrollment.graduate_total": {
+  "status": "present",
+  "value": 2368,
+  "page": 3,
+  "evidence": "B1 scalar summary row 'Total all graduate' below the All Students: Total table."
+ },
+ "enrollment.all_students_total": {
+  "status": "present",
+  "value": 6938,
+  "page": 3,
+  "evidence": "B1 scalar summary row 'GRAND TOTAL ALL STUDENTS' below the All Students: Total table."
+ },
+ "enrollment.nonresident_all_undergraduates": {
+  "status": "present",
+  "value": 708,
+  "page": 4,
+  "evidence": "B2 table, row 'Nonresidents', column 'Total Undergraduates (both degree & non-degree-seeking)'."
+ },
+ "outcomes.primary_all_students_adjusted_cohort_count": {
+  "status": "present",
+  "value": 1164,
+  "page": 5,
+  "evidence": "Fall 2018 Cohort table (first/primary grid on page 5), row C 'Final 2018 cohort, after adjusting for allowable exclusions', 'Total (sum of 3 columns to the left)' column."
+ },
+ "outcomes.primary_all_students_completed_within_four_years_count": {
+  "status": "present",
+  "value": 872,
+  "page": 5,
+  "evidence": "Fall 2018 Cohort table, row D 'Of the initial 2018 cohort, how many completed the program in four years or less (by Aug. 31, 2022)', 'Total' column."
+ },
+ "outcomes.primary_all_students_completed_after_four_within_five_years_count": {
+  "status": "present",
+  "value": 222,
+  "page": 5,
+  "evidence": "Fall 2018 Cohort table, row E 'completed the program in more than four years but in five years or less (after Aug. 31, 2022 and by Aug. 31, 2023)', 'Total' column."
+ },
+ "outcomes.primary_all_students_completed_after_five_within_six_years_count": {
+  "status": "present",
+  "value": 19,
+  "page": 5,
+  "evidence": "Fall 2018 Cohort table, row F 'completed the program in more than five years but in six years or less (after Aug. 31, 2023 and by Aug. 31, 2024)', 'Total' column."
+ },
+ "outcomes.primary_all_students_completed_within_six_years_count": {
+  "status": "present",
+  "value": 1113,
+  "page": 5,
+  "evidence": "Fall 2018 Cohort table, row G 'Total graduating within six years (sum of lines D, E, and F)', 'Total' column. This is the cumulative six-year count, distinct from the incremental rows D-F."
+ },
+ "outcomes.primary_all_students_six_year_graduation_rate_ratio": {
+  "status": "present",
+  "value": 0.96,
+  "page": 5,
+  "evidence": "Fall 2018 Cohort table, row H 'Six-year graduation rate for 2018 cohort (G divided by C)', 'Total' column, printed as '96%'. Recorded as 0-1 ratio per metric instructions; printed form was a percent."
+ },
+ "outcomes.primary_pell_grant_six_year_graduation_rate_ratio": {
+  "status": "present",
+  "value": 0.93,
+  "page": 5,
+  "evidence": "Fall 2018 Cohort table, row H 'Six-year graduation rate for 2018 cohort (G divided by C)', 'Recipients of a Federal Pell Grant' column, printed as '93%'. Recorded as 0-1 ratio per metric instructions; printed form was a percent."
+ },
+ "outcomes.first_year_retention_entering_cohort_count": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "B22 on page 6 prints only the retention percentage (98.40%) in a single answer box; no separate entering-cohort count row is printed anywhere in this section. Per metric instructions this count field is new in the 2025-26 CDS edition, so its absence in this 2024-2025 edition is template-version absence, not a blank/unreported value."
+ },
+ "outcomes.first_year_retention_still_enrolled_next_fall_count": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "B22 on page 6 prints only the retention percentage (98.40%) in a single answer box; no separate still-enrolled-next-fall count row is printed anywhere in this section. Per metric instructions this count field is new in the 2025-26 CDS edition, so its absence in this 2024-2025 edition is template-version absence, not a blank/unreported value."
+ },
+ "outcomes.first_year_retention_reported_percent": {
+  "status": "present",
+  "value": "98.40%",
+  "page": 6,
+  "evidence": "B22 answer box: 'For the cohort of all full-time bachelor's (or equivalent) degree-seeking undergraduate students who entered your institution as first-year students in Fall 2023 ... what percentage was enrolled ... in Fall 2024.' Printed value: 98.40%."
+ }
+}

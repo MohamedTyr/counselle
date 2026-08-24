@@ -1,0 +1,434 @@
+[
+ {
+  "key": "class_profile.sat_submitters_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT row's \"percent submitting\" cell exactly as printed, preserving any qualifier such as \"<1%\". SAT and ACT submitter populations overlap; never derive one from the other or sum them. Population excludes students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter/spring.",
+  "description": "Percent of enrolled degree-seeking first-time, first-year students in the C9 reporting cohort who submitted SAT scores, excluding students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter or spring."
+ },
+ {
+  "key": "class_profile.sat_submitters_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT row's \"number submitting\" cell. This count and `sat_submitters_percent` describe the same submitters; never recompute one from the other. Population excludes students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter/spring.",
+  "description": "Number of enrolled degree-seeking first-time, first-year students in the C9 reporting cohort who submitted SAT scores, excluding students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter or spring."
+ },
+ {
+  "key": "class_profile.act_submitters_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT row's \"percent submitting\" cell exactly as printed, preserving any qualifier such as \"<1%\". SAT and ACT submitter populations overlap; never derive one from the other or sum them. Population excludes students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter/spring.",
+  "description": "Percent of enrolled degree-seeking first-time, first-year students in the C9 reporting cohort who submitted ACT scores, excluding students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter or spring."
+ },
+ {
+  "key": "class_profile.act_submitters_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT row's \"number submitting\" cell. This count and `act_submitters_percent` describe the same submitters; never recompute one from the other. Population excludes students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter/spring.",
+  "description": "Number of enrolled degree-seeking first-time, first-year students in the C9 reporting cohort who submitted ACT scores, excluding students admitted under policies that do not require a high-school diploma or equivalent and students who began in winter or spring."
+ },
+ {
+  "key": "class_profile.sat_composite_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Composite 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Composite scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile SAT Composite score among enrolled first-time, first-year submitters of SAT Composite scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_composite_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Composite 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Composite scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile SAT Composite score among enrolled first-time, first-year submitters of SAT Composite scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_composite_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Composite 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Composite scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile SAT Composite score among enrolled first-time, first-year submitters of SAT Composite scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_ebrw_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile SAT Evidence-Based Reading and Writing (EBRW) score among enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_ebrw_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile SAT Evidence-Based Reading and Writing (EBRW) score among enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_ebrw_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Evidence-Based Reading and Writing (EBRW) 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile SAT Evidence-Based Reading and Writing (EBRW) score among enrolled first-time, first-year submitters of SAT Evidence-Based Reading and Writing (EBRW) scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_math_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Math 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Math scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile SAT Math score among enrolled first-time, first-year submitters of SAT Math scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_math_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Math 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Math scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile SAT Math score among enrolled first-time, first-year submitters of SAT Math scores, from C9."
+ },
+ {
+  "key": "class_profile.sat_math_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 SAT Math 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of SAT Math scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile SAT Math score among enrolled first-time, first-year submitters of SAT Math scores, from C9."
+ },
+ {
+  "key": "class_profile.act_composite_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Composite 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Composite scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile ACT Composite score among enrolled first-time, first-year submitters of ACT Composite scores, from C9."
+ },
+ {
+  "key": "class_profile.act_composite_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Composite 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Composite scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile ACT Composite score among enrolled first-time, first-year submitters of ACT Composite scores, from C9."
+ },
+ {
+  "key": "class_profile.act_composite_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Composite 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Composite scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile ACT Composite score among enrolled first-time, first-year submitters of ACT Composite scores, from C9."
+ },
+ {
+  "key": "class_profile.act_math_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Math 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Math scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile ACT Math score among enrolled first-time, first-year submitters of ACT Math scores, from C9."
+ },
+ {
+  "key": "class_profile.act_math_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Math 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Math scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile ACT Math score among enrolled first-time, first-year submitters of ACT Math scores, from C9."
+ },
+ {
+  "key": "class_profile.act_math_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Math 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Math scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile ACT Math score among enrolled first-time, first-year submitters of ACT Math scores, from C9."
+ },
+ {
+  "key": "class_profile.act_english_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT English 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT English scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile ACT English score among enrolled first-time, first-year submitters of ACT English scores, from C9."
+ },
+ {
+  "key": "class_profile.act_english_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT English 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT English scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile ACT English score among enrolled first-time, first-year submitters of ACT English scores, from C9."
+ },
+ {
+  "key": "class_profile.act_english_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT English 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT English scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile ACT English score among enrolled first-time, first-year submitters of ACT English scores, from C9."
+ },
+ {
+  "key": "class_profile.act_science_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Science 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Science scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile ACT Science score among enrolled first-time, first-year submitters of ACT Science scores, from C9."
+ },
+ {
+  "key": "class_profile.act_science_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Science 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Science scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile ACT Science score among enrolled first-time, first-year submitters of ACT Science scores, from C9."
+ },
+ {
+  "key": "class_profile.act_science_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Science 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Science scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile ACT Science score among enrolled first-time, first-year submitters of ACT Science scores, from C9."
+ },
+ {
+  "key": "class_profile.act_reading_p25",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Reading 25th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Reading scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "25th percentile ACT Reading score among enrolled first-time, first-year submitters of ACT Reading scores, from C9."
+ },
+ {
+  "key": "class_profile.act_reading_p50",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Reading 50th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Reading scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "50th percentile ACT Reading score among enrolled first-time, first-year submitters of ACT Reading scores, from C9."
+ },
+ {
+  "key": "class_profile.act_reading_p75",
+  "label": null,
+  "unit": "score",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C9"
+  ],
+  "instructions": "Extract the C9 ACT Reading 75th-percentile score cell. Denominator is enrolled first-time, first-year submitters of ACT Reading scores. A blank cell means this score breakdown is unavailable, not a zero score.",
+  "description": "75th percentile ACT Reading score among enrolled first-time, first-year submitters of ACT Reading scores, from C9."
+ },
+ {
+  "key": "class_profile.class_rank_submitted_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C10"
+  ],
+  "instructions": "Extract the C10 \"percent of first-time, first-year students who submitted class rank\" cell, preserving any qualifier such as \"<1%\". Denominator is all enrolled first-time first-years, not only those with rank reported.",
+  "description": "Percent of enrolled first-time, first-year students for whom high-school class rank was reported, from C10."
+ },
+ {
+  "key": "class_profile.class_rank_top_tenth_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C10"
+  ],
+  "instructions": "Extract the C10 \"Top Tenth\" row, preserving any qualifier such as \"<1%\". This band is contained within the top-quarter and top-half bands; never derive one band from another or subtract to fill a blank.",
+  "description": "Percent of rank-reporting enrolled first-time, first-year students in the top tenth of their high-school class, from C10."
+ },
+ {
+  "key": "class_profile.class_rank_top_quarter_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C10"
+  ],
+  "instructions": "Extract the C10 \"Top Quarter\" row, preserving any qualifier such as \"<1%\". This band contains the top-tenth band and is contained within the top-half band; never derive one band from another or subtract to fill a blank.",
+  "description": "Percent of rank-reporting enrolled first-time, first-year students in the top quarter of their high-school class, from C10."
+ },
+ {
+  "key": "class_profile.class_rank_top_half_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C10"
+  ],
+  "instructions": "Extract the C10 \"Top Half\" row, preserving any qualifier such as \"<1%\". This band contains the top-tenth and top-quarter bands; never derive one band from another or subtract to fill a blank.",
+  "description": "Percent of rank-reporting enrolled first-time, first-year students in the top half of their high-school class, from C10."
+ },
+ {
+  "key": "class_profile.class_rank_bottom_half_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C10"
+  ],
+  "instructions": "Extract the C10 \"Bottom Half\" row, preserving any qualifier such as \"<1%\". This band contains the bottom-quarter band; never derive one band from another or subtract to fill a blank.",
+  "description": "Percent of rank-reporting enrolled first-time, first-year students in the bottom half of their high-school class, from C10."
+ },
+ {
+  "key": "class_profile.class_rank_bottom_quarter_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C10"
+  ],
+  "instructions": "Extract the C10 \"Bottom Quarter\" row, preserving any qualifier such as \"<1%\". This band is contained within the bottom-half band; never derive one band from another or subtract to fill a blank.",
+  "description": "Percent of rank-reporting enrolled first-time, first-year students in the bottom quarter of their high-school class, from C10."
+ },
+ {
+  "key": "class_profile.average_high_school_gpa",
+  "label": null,
+  "unit": "gpa",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C12"
+  ],
+  "instructions": "Extract only the C12 printed average GPA value. Do not clamp an out-of-range value (for example Harvard's 4.22) and do not assume every edition uses an unweighted 4.0 scale.",
+  "description": "Average high-school GPA among GPA-reporting enrolled first-time, first-year students, from C12."
+ },
+ {
+  "key": "class_profile.high_school_gpa_submitted_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C12"
+  ],
+  "instructions": "Extract the C12 \"percent of students who submitted GPA\" cell, preserving any qualifier such as \"<1%\".",
+  "description": "Percent of enrolled first-time, first-year students for whom high-school GPA was reported, from C12."
+ }
+]

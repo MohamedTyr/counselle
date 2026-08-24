@@ -1,0 +1,494 @@
+[
+ {
+  "key": "degrees.agriculture_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Agriculture\" (CIP 01) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Do not confuse with any single agricultural major; this is the full combined CIP 01 category.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Agriculture\" row (CIP 01), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.natural_resources_conservation_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Natural resources and conservation\" (CIP 03) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from agriculture (CIP 01) and from any biological/life sciences row (CIP 26).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Natural resources and conservation\" row (CIP 03), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.architecture_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Architecture\" (CIP 04) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from engineering (CIP 14) and engineering technologies (CIP 15).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Architecture\" row (CIP 04), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.area_ethnic_gender_studies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Area, ethnic, and gender studies\" (CIP 05) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. One combined broad CIP category; do not split it by sub-area.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Area, ethnic, and gender studies\" row (CIP 05), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.communication_journalism_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Communication/journalism\" (CIP 09) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from communication technologies (CIP 10).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Communication/journalism\" row (CIP 09), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.communication_technologies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Communication technologies\" (CIP 10) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from communication/journalism (CIP 09).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Communication technologies\" row (CIP 10), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.computer_information_sciences_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Computer and information sciences\" (CIP 11) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from engineering (CIP 14) and engineering technologies (CIP 15).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Computer and information sciences\" row (CIP 11), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.personal_culinary_services_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Personal and culinary services\" (CIP 12) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Not a health-professions or hospitality-management row.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Personal and culinary services\" row (CIP 12), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.education_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Education\" (CIP 13) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Education\" row (CIP 13), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.engineering_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Engineering\" (CIP 14) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from engineering technologies (CIP 15).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Engineering\" row (CIP 14), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.engineering_technologies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Engineering technologies\" (CIP 15) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from engineering (CIP 14).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Engineering technologies\" row (CIP 15), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.foreign_languages_literatures_linguistics_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Foreign languages, literatures, and linguistics\" (CIP 16) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Use the full combined row label; distinct from English (CIP 23).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Foreign languages, literatures, and linguistics\" row (CIP 16), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.family_consumer_sciences_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Family and consumer sciences\" (CIP 19) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Family and consumer sciences\" row (CIP 19), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.law_legal_studies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Law/legal studies\" (CIP 22) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. This is undergraduate credential distribution, not law-school enrollment.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Law/legal studies\" row (CIP 22), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.english_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"English\" (CIP 23) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from foreign languages, literatures, and linguistics (CIP 16).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"English\" row (CIP 23), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.liberal_arts_general_studies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Liberal arts/general studies\" (CIP 24) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. A printed zero (for example \"0%\" or \"0.00%\") remains zero, not null or not_reported.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Liberal arts/general studies\" row (CIP 24), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.library_science_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Library science\" (CIP 25) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Library science\" row (CIP 25), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.biological_life_sciences_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Biological/life sciences\" (CIP 26) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Broad combined CIP row, not a list of individual life-science majors.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Biological/life sciences\" row (CIP 26), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.mathematics_statistics_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Mathematics and statistics\" (CIP 27) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Combined row; do not split mathematics from statistics.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Mathematics and statistics\" row (CIP 27), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.interdisciplinary_studies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Interdisciplinary studies\" (CIP 30) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Interdisciplinary studies\" row (CIP 30), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.parks_recreation_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Parks and recreation\" (CIP 31) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Parks and recreation\" row (CIP 31), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.philosophy_religious_studies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Philosophy and religious studies\" (CIP 38) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from theology and religious vocations (CIP 39).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Philosophy and religious studies\" row (CIP 38), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.theology_religious_vocations_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Theology and religious vocations\" (CIP 39) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from philosophy and religious studies (CIP 38).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Theology and religious vocations\" row (CIP 39), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.physical_sciences_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Physical sciences\" (CIP 40) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from science technologies (CIP 41).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Physical sciences\" row (CIP 40), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.science_technologies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Science technologies\" (CIP 41) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from physical sciences (CIP 40).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Science technologies\" row (CIP 41), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.psychology_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Psychology\" (CIP 42) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Psychology\" row (CIP 42), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.homeland_security_law_enforcement_protective_services_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Homeland security, law enforcement, firefighting, and protective services\" (CIP 43) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Preserve the full wrapped row label; do not truncate it after \"firefighting.\"",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Homeland security, law enforcement, firefighting, and protective services\" row (CIP 43), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.public_administration_social_services_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Public administration and social services\" (CIP 44) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from social sciences (CIP 45).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Public administration and social services\" row (CIP 44), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.social_sciences_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Social sciences\" (CIP 45) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from history (CIP 54), which is reported separately, and from public administration/social services (CIP 44).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Social sciences\" row (CIP 45), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.construction_trades_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Construction trades\" (CIP 46) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Construction trades\" row (CIP 46), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.mechanic_repair_technologies_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Mechanic and repair technologies\" (CIP 47) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Mechanic and repair technologies\" row (CIP 47), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.precision_production_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Precision production\" (CIP 48) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Precision production\" row (CIP 48), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.transportation_materials_moving_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Transportation and materials moving\" (CIP 49) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Transportation and materials moving\" row (CIP 49), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.visual_performing_arts_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Visual and performing arts\" (CIP 50) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Broad combined CIP category, not a list of individual arts programs.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Visual and performing arts\" row (CIP 50), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.health_professions_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Health professions and related programs\" (CIP 51) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Do not infer the absence of pre-health study from a blank cell.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Health professions and related programs\" row (CIP 51), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.business_marketing_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Business/marketing\" (CIP 52) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Do not infer the absence of business coursework or graduate business programs from a blank cell.",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"Business/marketing\" row (CIP 52), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.history_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"History\" (CIP 54) in the Bachelor's column. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Distinct from social sciences (CIP 45).",
+  "description": "Percentage of conferred Bachelor's majors reported in CDS Section J's \"History\" row (CIP 54), as a share of all conferred Bachelor's majors in the same reporting window."
+ },
+ {
+  "key": "degrees.military_science_combined_cip_28_29_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Military science and military technologies\" in the Bachelor's column, only in a form version that prints one combined row spanning CIP 28 and 29 (Harvard's shape). This metric is mutually exclusive with military_science_cip_28_bachelors_percent and military_science_cip_29_bachelors_percent: never split this combined value between the two CIP families, and never populate this metric from a form version that instead prints two separate CIP 28 and CIP 29 rows; that version is not_in_template_version for this metric. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors in the combined \"Military science and military technologies\" row (CIP 28 & 29), as a share of all conferred Bachelor's majors, in a form version that prints one combined row spanning both CIP families."
+ },
+ {
+  "key": "degrees.military_science_cip_28_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's first of two rows labeled exactly \"Military science and military technologies\" in the Bachelor's column, only in a form version that prints two separate same-label rows for CIP 28 and CIP 29 (Yale's shape); bind strictly by CIP code 28 and row order (the first occurrence), never by label text alone. This metric is mutually exclusive with military_science_combined_cip_28_29_bachelors_percent and military_science_cip_29_bachelors_percent: never derive it from a combined row and never confuse it with the second (CIP 29) row. A form version that prints only the combined row is not_in_template_version for this metric. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors in the first of two \"Military science and military technologies\" rows, identified by CIP 28, as a share of all conferred Bachelor's majors, in a form version that prints separate CIP 28 and CIP 29 rows."
+ },
+ {
+  "key": "degrees.military_science_cip_29_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's second of two rows labeled exactly \"Military science and military technologies\" in the Bachelor's column, only in a form version that prints two separate same-label rows for CIP 28 and CIP 29 (Yale's shape); bind strictly by CIP code 29 and row order (the second occurrence), never by label text alone. This metric is mutually exclusive with military_science_combined_cip_28_29_bachelors_percent and military_science_cip_28_bachelors_percent: never derive it from a combined row and never confuse it with the first (CIP 28) row. A form version that prints only the combined row is not_in_template_version for this metric. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution.",
+  "description": "Percentage of conferred Bachelor's majors in the second of two \"Military science and military technologies\" rows, identified by CIP 29, as a share of all conferred Bachelor's majors, in a form version that prints separate CIP 28 and CIP 29 rows."
+ },
+ {
+  "key": "degrees.other_bachelors_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "J"
+  ],
+  "instructions": "Extract CDS Section J's row labeled exactly \"Other\" in the Bachelor's column. This row appears only in a form version that prints a distinct Other discipline row (present in Harvard's 2025-26 form); a form version without this row is not_in_template_version, never zero or not_reported. This is a percentage of conferred majors within the Bachelor's credential column only, never a count, a percent of students, program availability, or enrollment. The CDS does not expose a response selecting whether the institution counted first majors only or first plus second majors, so the actual major-counting basis is unknown. A visibly blank cell is not_reported and must not become zero; a printed zero (for example \"0%\" or \"0.00%\") remains zero. Preserve any qualified percent exactly, including \"<1%\" tokens, by keeping this metric's value a string for every institution. Do not synthesize an Other row for a form version that has none, and do not calculate it as a remainder derived from the other discipline rows and the reported total.",
+  "description": "Percentage of conferred Bachelor's majors in Harvard's Section J \"Other\" row, as a share of all conferred Bachelor's majors in the same reporting window."
+ }
+]

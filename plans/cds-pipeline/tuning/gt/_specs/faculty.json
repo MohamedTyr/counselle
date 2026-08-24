@@ -1,0 +1,50 @@
+[
+ {
+  "key": "faculty.total_instructional_faculty_full_time",
+  "label": null,
+  "unit": "faculty",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-1"
+  ],
+  "instructions": "Extract CDS I-1, row \"Total instructional faculty\", Full-Time column. This is a headcount, not an FTE or a percentage. Classify faculty into the full-time column exactly per the CDS I-1 printed inclusion/exclusion matrix (see CDS I-1 inclusion/exclusion matrix): it directs how to treat administrators who teach, medical faculty, replacement faculty covering a colleague's leave, faculty compensated through donated/contributed-service arrangements, and teaching assistants. Never apply an invented classification rule. This row is the printed grand total; it is not the sum of the demographic/degree rows defined elsewhere in this domain, and it does not add in the stand-alone graduate/professional-program row. Bind this value to the I-1 reporting term printed on the form; never bind it to `academic_year` or another domain context. Apply the complete CDS I-1 matrix exactly: preclinical/clinical medicine faculty, unpaid faculty (including donated-service or military faculty), research-only faculty, and postdoctoral or predoctoral fellows are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; administrative officers such as deans, librarians, registrars, and coaches, even when they have faculty status or devote time to instruction, are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; other administrators or staff without faculty status who teach one or more nonclinical credit courses are excluded from Full-Time and included in Part-Time; undergraduate or graduate teaching assistants and teaching fellows are excluded from both; faculty on sabbatical or leave with pay are included in Full-Time and excluded from Part-Time; faculty on leave without pay are excluded from both; replacement faculty for faculty on sabbatical or leave with pay are excluded from Full-Time and included in Part-Time.",
+  "description": "Full-time instructional faculty headcount, the printed I-1 total instructional faculty row, Full-Time column."
+ },
+ {
+  "key": "faculty.total_instructional_faculty_part_time",
+  "label": null,
+  "unit": "faculty",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-1"
+  ],
+  "instructions": "Extract CDS I-1, row \"Total instructional faculty\", Part-Time column. This is a headcount, not an FTE or a percentage. Classify faculty into the part-time column exactly per the CDS I-1 printed inclusion/exclusion matrix (see CDS I-1 inclusion/exclusion matrix): it directs how to treat administrators who teach, medical faculty, replacement faculty covering a colleague's leave, faculty compensated through donated/contributed-service arrangements, and teaching assistants. Never apply an invented classification rule. This row is the printed grand total; it is not the sum of the demographic/degree rows defined elsewhere in this domain, and it does not add in the stand-alone graduate/professional-program row. Bind this value to the I-1 reporting term printed on the form; never bind it to `academic_year` or another domain context. Apply the complete CDS I-1 matrix exactly: preclinical/clinical medicine faculty, unpaid faculty (including donated-service or military faculty), research-only faculty, and postdoctoral or predoctoral fellows are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; administrative officers such as deans, librarians, registrars, and coaches, even when they have faculty status or devote time to instruction, are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; other administrators or staff without faculty status who teach one or more nonclinical credit courses are excluded from Full-Time and included in Part-Time; undergraduate or graduate teaching assistants and teaching fellows are excluded from both; faculty on sabbatical or leave with pay are included in Full-Time and excluded from Part-Time; faculty on leave without pay are excluded from both; replacement faculty for faculty on sabbatical or leave with pay are excluded from Full-Time and included in Part-Time.",
+  "description": "Part-time instructional faculty headcount, the printed I-1 total instructional faculty row, Part-Time column."
+ },
+ {
+  "key": "faculty.doctorate_or_terminal_degree_faculty_full_time",
+  "label": null,
+  "unit": "faculty",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-1"
+  ],
+  "instructions": "Extract CDS I-1, row for faculty whose highest degree is a doctorate or other terminal degree, Full-Time column. Follow the form's own printed definition of \"terminal degree\": a master's degree that the source treats as terminal in its field belongs in this row, not in the nonterminal master's row below. Classify faculty into the full-time column per the CDS I-1 printed inclusion/exclusion matrix (see CDS I-1 inclusion/exclusion matrix) for administrators who teach, medical faculty, replacement faculty, donated-service faculty, and teaching assistants. This is a headcount, not a percentage. Bind this value to the I-1 reporting term printed on the form; never bind it to `academic_year` or another domain context. Apply the complete CDS I-1 matrix exactly: preclinical/clinical medicine faculty, unpaid faculty (including donated-service or military faculty), research-only faculty, and postdoctoral or predoctoral fellows are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; administrative officers such as deans, librarians, registrars, and coaches, even when they have faculty status or devote time to instruction, are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; other administrators or staff without faculty status who teach one or more nonclinical credit courses are excluded from Full-Time and included in Part-Time; undergraduate or graduate teaching assistants and teaching fellows are excluded from both; faculty on sabbatical or leave with pay are included in Full-Time and excluded from Part-Time; faculty on leave without pay are excluded from both; replacement faculty for faculty on sabbatical or leave with pay are excluded from Full-Time and included in Part-Time. The source definition includes doctorates such as PhD, EdD, JSD, and DrPH; terminal former first-professional degrees including DDS or DMD, MD, OD, DO, DPharm or BPharm, DPM, DVM, DC or DCM, and JD; and terminal master's degrees such as M.Arch or MFA. A terminal master's degree belongs in this row, not the nonterminal-masters row.",
+  "description": "Full-time instructional faculty whose highest degree is a doctorate or other degree considered terminal in its field, the printed I-1 doctorate/terminal-degree row, Full-Time column."
+ },
+ {
+  "key": "faculty.doctorate_or_terminal_degree_faculty_part_time",
+  "label": null,
+  "unit": "faculty",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-1"
+  ],
+  "instructions": "Extract CDS I-1, row for faculty whose highest degree is a doctorate or other terminal degree, Part-Time column. Follow the form's own printed definition of \"terminal degree\": a master's degree that the source treats as terminal in its field belongs in this row, not in the nonterminal master's row below. Classify faculty into the part-time column per the CDS I-1 printed inclusion/exclusion matrix (see CDS I-1 inclusion/exclusion matrix) for administrators who teach, medical faculty, replacement faculty, donated-service faculty, and teaching assistants. This is a headcount, not a percentage. Bind this value to the I-1 reporting term printed on the form; never bind it to `academic_year` or another domain context. Apply the complete CDS I-1 matrix exactly: preclinical/clinical medicine faculty, unpaid faculty (including donated-service or military faculty), research-only faculty, and postdoctoral or predoctoral fellows are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; administrative officers such as deans, librarians, registrars, and coaches, even when they have faculty status or devote time to instruction, are excluded from Full-Time and included in Part-Time only if they teach one or more nonclinical credit courses; other administrators or staff without faculty status who teach one or more nonclinical credit courses are excluded from Full-Time and included in Part-Time; undergraduate or graduate teaching assistants and teaching fellows are excluded from both; faculty on sabbatical or leave with pay are included in Full-Time and excluded from Part-Time; faculty on leave without pay are excluded from both; replacement faculty for faculty on sabbatical or leave with pay are excluded from Full-Time and included in Part-Time. The source definition includes doctorates such as PhD, EdD, JSD, and DrPH; terminal former first-professional degrees including DDS or DMD, MD, OD, DO, DPharm or BPharm, DPM, DVM, DC or DCM, and JD; and terminal master's degrees such as M.Arch or MFA. A terminal master's degree belongs in this row, not the nonterminal-masters row.",
+  "description": "Part-time instructional faculty whose highest degree is a doctorate or other degree considered terminal in its field, the printed I-1 doctorate/terminal-degree row, Part-Time column."
+ }
+]

@@ -1,0 +1,813 @@
+[
+ {
+  "key": "financial_aid.aid_reporting_academic_year",
+  "label": null,
+  "unit": "academic_year",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "H"
+  ],
+  "instructions": "Copy the aid-reporting academic year exactly as printed in the H section heading. This aid year is a distinct concept from the CDS edition, the fall enrollment snapshot, the admission cycle, and the cost year; do not copy it from `identity.academic_year` or `cost.cost_academic_year`. Every H1, H2, H2A, and the H6 numeric outcome metrics are bound to this aid-year context. H4/H5 use the separate graduating-class and degree-award-window context, while H6 policy selections and H7-H15 use policy context; do not bind those policy/cohort fields to this aid year.",
+  "description": "Academic year covered by the Section H financial-aid figures, from the H heading."
+ },
+ {
+  "key": "financial_aid.aid_reporting_status",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "estimated",
+   "final"
+  ],
+  "source_hints": [
+   "H"
+  ],
+  "instructions": "Return exactly one of estimated or final, matched to the single selected status control printed beside the aid-reporting year (\"Estimated\" or \"Final\"). This is formerly labeled H3 in some editions; there is no separate H3 metric. Do not infer a status when the control is blank or unresolved.",
+  "description": "Whether the Section H figures are reported as estimated or final, from the H heading."
+ },
+ {
+  "key": "financial_aid.need_analysis_methodology",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "federal",
+   "institutional",
+   "both"
+  ],
+  "source_hints": [
+   "H"
+  ],
+  "instructions": "Return exactly one of federal, institutional, or both, matched to the single selected methodology control (\"Federal Methodology,\" \"Institutional Methodology,\" or \"Both\"). This methodology selection governs how every H2/H2A need-based determination below was made; do not confuse it with the need_analysis_methodology used for cost-of-attendance calculations outside Section H.",
+  "description": "Which need-analysis methodology the institution uses to determine financial need, from the H heading."
+ },
+ {
+  "key": "financial_aid.h2_a_degree_seeking_undergraduates_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row A ('Number of degree-seeking undergraduate students'), Full-Time First-Time First-Year Students column. This is the base population for the entire H2 conditional chain in this column; rows B through M below are progressively narrower subsets of this count. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of degree-seeking undergraduates, full-time first-time first-year students, from CDS H2 row A."
+ },
+ {
+  "key": "financial_aid.h2_b_applied_for_need_based_aid_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row B ('Number of students who applied for need-based financial aid'), Full-Time First-Time First-Year Students column. This is a subset of row A (`h2_a_degree_seeking_undergraduates_first_time_first_year`); it is not every degree-seeking student in this column. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of students from row A who applied for need-based financial aid, full-time first-time first-year students, from CDS H2 row B."
+ },
+ {
+  "key": "financial_aid.h2_c_determined_have_need_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row C ('Number of students who were determined to have financial need'), Full-Time First-Time First-Year Students column. This is a subset of row B (`h2_b_applied_for_need_based_aid_first_time_first_year`), determined using the methodology named in `need_analysis_methodology`. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of students from row B determined to have financial need, full-time first-time first-year students, from CDS H2 row C."
+ },
+ {
+  "key": "financial_aid.h2_d_awarded_any_aid_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row D ('Number of students who were awarded any financial aid'), Full-Time First-Time First-Year Students column. This is a subset of row C (`h2_c_determined_have_need_first_time_first_year`); 'any financial aid' includes both need-based and non-need-based awards, not need-based aid alone. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of students from row C who were awarded any financial aid, full-time first-time first-year students, from CDS H2 row D."
+ },
+ {
+  "key": "financial_aid.h2_e_awarded_need_based_grant_aid_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row E ('Number of students who were awarded need-based scholarship/grant aid'), Full-Time First-Time First-Year Students column. This is a subset of row D (`h2_d_awarded_any_aid_first_time_first_year`) restricted to need-based scholarship/grant recipients; do not include the need-based self-help recipients counted separately in row F. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of students from row D awarded need-based scholarship or grant aid, full-time first-time first-year students, from CDS H2 row E."
+ },
+ {
+  "key": "financial_aid.h2_f_awarded_need_based_self_help_aid_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row F ('Number of students who were awarded need-based self-help aid'), Full-Time First-Time First-Year Students column. This is a subset of row D (`h2_d_awarded_any_aid_first_time_first_year`) restricted to need-based self-help (qualifying employment and/or loan) recipients; do not include the need-based grant recipients counted separately in row E. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of students from row D awarded need-based self-help aid, full-time first-time first-year students, from CDS H2 row F."
+ },
+ {
+  "key": "financial_aid.h2_g_awarded_non_need_based_grant_aid_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row G ('Number of students who were awarded non-need-based scholarship/grant aid'), Full-Time First-Time First-Year Students column. This is a subset of row D (`h2_d_awarded_any_aid_first_time_first_year`); non-need-based aid is awarded without regard to demonstrated financial need. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of students from row D awarded non-need-based scholarship or grant aid, full-time first-time first-year students, from CDS H2 row G."
+ },
+ {
+  "key": "financial_aid.h2_h_need_fully_met_count_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row H ('Number of students whose need was fully met'), Full-Time First-Time First-Year Students column. This determination excludes PLUS loans, unsubsidized loans, and private alternative loans from the need-met calculation. It is a count subset of row D (`h2_d_awarded_any_aid_first_time_first_year`) and is a distinct field from the average-percent-of-need-met value in row I; do not confuse the two. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Count of students from row D whose full demonstrated need was met, full-time first-time first-year students, from CDS H2 row H."
+ },
+ {
+  "key": "financial_aid.h2_i_average_percent_need_met_first_time_first_year",
+  "label": null,
+  "unit": "percent",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row I ('Average percent of need met'), Full-Time First-Time First-Year Students column, as an ordinary percentage-point number; preserve the exact printed percentage token and precision in raw_value. Exclude aid awarded in excess of need and resources awarded to replace EFC (PLUS loans, unsubsidized loans, and private alternative loans), exactly as printed. This is not the headcount reported in row H. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Average percent of financial need met among recipients of any need-based aid, full-time first-time first-year students, from CDS H2 row I."
+ },
+ {
+  "key": "financial_aid.h2_i_average_percent_need_met_all_full_time",
+  "label": null,
+  "unit": "percent",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row I ('Average percent of need met'), All Full-Time Undergraduates (Including First-Time First-Year) column, as an ordinary percentage-point number; preserve the exact printed percentage token and precision in raw_value. Exclude aid awarded in excess of need and resources awarded to replace EFC (PLUS loans, unsubsidized loans, and private alternative loans), exactly as printed. This is not the headcount reported in row H.",
+  "description": "Average percent of financial need met among recipients of any need-based aid, all full-time undergraduates, including first-time first-years, from CDS H2 row I."
+ },
+ {
+  "key": "financial_aid.h2_j_average_aid_package_first_time_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row J ('Average financial aid package'), Full-Time First-Time First-Year Students column, among students in row D (`h2_d_awarded_any_aid_first_time_first_year`). Preserve the printed dollar amount including cents; this average spans all included aid types together and is not a need-based-only average. Exclude resources awarded to replace EFC: PLUS loans, unsubsidized loans, and private alternative loans. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Average financial-aid package among students awarded any financial aid, full-time first-time first-year students, from CDS H2 row J."
+ },
+ {
+  "key": "financial_aid.h2_j_average_aid_package_all_full_time",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row J ('Average financial aid package'), All Full-Time Undergraduates (Including First-Time First-Year) column, among students in row D. Preserve the printed dollar amount including cents; this average spans all included aid types together and is not a need-based-only average. Exclude resources awarded to replace EFC: PLUS loans, unsubsidized loans, and private alternative loans.",
+  "description": "Average financial-aid package among students awarded any financial aid, all full-time undergraduates, including first-time first-years, from CDS H2 row J."
+ },
+ {
+  "key": "financial_aid.h2_k_average_need_based_grant_award_first_time_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row K ('Average need-based scholarship or grant award'), Full-Time First-Time First-Year Students column, among students in row E (`h2_e_awarded_need_based_grant_aid_first_time_first_year`). Do not confuse this with the self-help average in row L or the loan-only average in row M. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Average need-based scholarship or grant award among recipients, full-time first-time first-year students, from CDS H2 row K."
+ },
+ {
+  "key": "financial_aid.h2_l_average_need_based_self_help_award_first_time_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row L ('Average need-based self-help award'), Full-Time First-Time First-Year Students column, among students in row F (`h2_f_awarded_need_based_self_help_aid_first_time_first_year`). This average includes qualifying employment and/or loans combined, excluding PLUS loans, unsubsidized loans, and private alternative loans; it is not the loan-only subset averaged separately in row M. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Average need-based self-help award among recipients, full-time first-time first-year students, from CDS H2 row L."
+ },
+ {
+  "key": "financial_aid.h2_m_average_need_based_loan_award_first_time_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2 row M ('Average need-based loan'), Full-Time First-Time First-Year Students column, among the subset of row F (`h2_f_awarded_need_based_self_help_aid_first_time_first_year`) who specifically received a need-based loan; this is narrower than the combined self-help average already captured in row L. Exclude PLUS loans, unsubsidized loans, and private alternative loans. Preserve any apparent inconsistency in this column's reported figures (for example an internally inconsistent Harvard first-year row) exactly as printed; do not repair or reconcile it yourself.",
+  "description": "Average need-based loan award among the self-help recipients who received a need-based loan, full-time first-time first-year students, from CDS H2 row M."
+ },
+ {
+  "key": "financial_aid.h2a_n_no_need_institutional_grant_recipients_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2A"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2A row N ('Number of students who had no financial need and received institutional non-need-based scholarship/grant aid, excluding athletic awards and tuition benefits'), Full-Time First-Time First-Year Students column. Only rows N and O carry this explicit no-financial-need qualifier; rows P and Q below do not require it.",
+  "description": "Count of students with no financial need who received institutional non-need-based grants, full-time first-time first-year students, from CDS H2A row N."
+ },
+ {
+  "key": "financial_aid.h2a_o_average_no_need_institutional_grant_amount_first_time_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2A"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2A row O ('Average award to the row N recipients'), Full-Time First-Time First-Year Students column, among students in row N (`h2a_n_no_need_institutional_grant_recipients_first_time_first_year`). Preserve a literal 'NaN' or 'NA' marker exactly as printed status/raw evidence; never convert either marker to zero.",
+  "description": "Average institutional non-need-based grant amount among the row N recipients, full-time first-time first-year students, from CDS H2A row O."
+ },
+ {
+  "key": "financial_aid.h2a_p_institutional_athletic_grant_recipients_first_time_first_year",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H2A"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2A row P ('Number of students in H2 row A who received institutional non-need-based athletic scholarship/grant aid'), Full-Time First-Time First-Year Students column. The base population is H2 row A (`h2_a_degree_seeking_undergraduates_first_time_first_year`), not the no-financial-need subset used in rows N/O.",
+  "description": "Count of students from H2 row A who received institutional non-need-based athletic grants, full-time first-time first-year students, from CDS H2A row P."
+ },
+ {
+  "key": "financial_aid.h2a_q_average_institutional_athletic_grant_amount_first_time_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H2A"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract CDS H2A row Q ('Average award to the row P recipients'), Full-Time First-Time First-Year Students column, among students in row P (`h2a_p_institutional_athletic_grant_recipients_first_time_first_year`). Preserve a literal 'NaN' or 'NA' marker exactly as printed status/raw evidence; never convert either marker to zero.",
+  "description": "Average institutional athletic grant amount among the row P recipients, full-time first-time first-year students, from CDS H2A row Q."
+ },
+ {
+  "key": "financial_aid.graduating_class_first_time_bachelors_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H4"
+  ],
+  "instructions": "Extract the H4 count of first-time-entering students (excluding transfer-ins) who were awarded a bachelor's degree within the degree-award window printed on the form. This is the base cohort ('the graduating class') for every H5 borrower count, percent, and average below; never compute it from H5 figures.",
+  "description": "Count of first-time entering students who earned bachelor's degrees within the H4 window."
+ },
+ {
+  "key": "financial_aid.h5_borrowers_any_program_percent_of_class",
+  "label": null,
+  "unit": "percent",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H5"
+  ],
+  "instructions": "Extract the H5 percent-of-class cell for any loan program (all sources combined), extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and precision in raw_value. The denominator is the graduating class in `graduating_class_first_time_bachelors_count`, not the borrower count itself. This figure includes student loans co-signed by a parent and excludes parent loans and any borrowing by the student at other institutions. Some template versions (for example Yale) explicitly exclude CARES Act or other COVID-unique emergency aid from this figure; treat that exclusion as printed template guidance, not a separate metric. Rows overlap across the five sources, so never sum borrower counts across sources to produce a total.",
+  "description": "Percent of the H4 graduating class who borrowed through any loan program (all sources combined)."
+ },
+ {
+  "key": "financial_aid.h5_borrowers_any_program_average_principal",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H5"
+  ],
+  "instructions": "Extract the H5 average-cumulative-principal-per-borrower cell for any loan program (all sources combined), preserving the exact printed rounding/precision. The average is taken only among borrowers of this source, not among the full graduating class. This figure includes student loans co-signed by a parent and excludes parent loans and any borrowing by the student at other institutions. Some template versions (for example Yale) explicitly exclude CARES Act or other COVID-unique emergency aid from this figure; treat that exclusion as printed template guidance, not a separate metric. Rows overlap across the five sources, so never sum borrower counts across sources to produce a total.",
+  "description": "Average cumulative principal borrowed per borrower through any loan program (all sources combined)."
+ },
+ {
+  "key": "financial_aid.h5_borrowers_private_percent_of_class",
+  "label": null,
+  "unit": "percent",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H5"
+  ],
+  "instructions": "Extract the H5 percent-of-class cell for private loan programs, extract the reported percentage as a number rounded to the nearest 1%; preserve the exact displayed percentage token and precision in raw_value. The denominator is the graduating class in `graduating_class_first_time_bachelors_count`, not the borrower count itself. This figure includes student loans co-signed by a parent and excludes parent loans and any borrowing by the student at other institutions. Some template versions (for example Yale) explicitly exclude CARES Act or other COVID-unique emergency aid from this figure; treat that exclusion as printed template guidance, not a separate metric. Rows overlap across the five sources, so never sum borrower counts across sources to produce a total.",
+  "description": "Percent of the H4 graduating class who borrowed through private loan programs."
+ },
+ {
+  "key": "financial_aid.h5_borrowers_private_average_principal",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H5"
+  ],
+  "instructions": "Extract the H5 average-cumulative-principal-per-borrower cell for private loan programs, preserving the exact printed rounding/precision. The average is taken only among borrowers of this source, not among the full graduating class. This figure includes student loans co-signed by a parent and excludes parent loans and any borrowing by the student at other institutions. Some template versions (for example Yale) explicitly exclude CARES Act or other COVID-unique emergency aid from this figure; treat that exclusion as printed template guidance, not a separate metric. Rows overlap across the five sources, so never sum borrower counts across sources to produce a total.",
+  "description": "Average cumulative principal borrowed per borrower through private loan programs."
+ },
+ {
+  "key": "financial_aid.h6_need_based_grants_available",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H6"
+  ],
+  "instructions": "Return true only when the H6 'need-based institutional grants available' control is visibly selected, and false only when the complete visible H6 checklist shows it unambiguously unmarked. 'Nonresident' here is the CDS immigration/citizenship category, not out-of-state residency or tuition residency. The population is degree-seeking undergraduates only. Do not confuse this current-policy selection with the prior-year recipient-count and dollar outcomes below.",
+  "description": "Whether need-based institutional grants are available to degree-seeking nonresident undergraduates, from H6."
+ },
+ {
+  "key": "financial_aid.h6_non_need_based_grants_available",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H6"
+  ],
+  "instructions": "Return true only when the H6 'non-need-based institutional grants available' control is visibly selected, and false only when the complete visible H6 checklist shows it unambiguously unmarked. This is independent of `h6_need_based_grants_available`; both may be true.",
+  "description": "Whether non-need-based institutional grants are available to degree-seeking nonresident undergraduates, from H6."
+ },
+ {
+  "key": "financial_aid.h6_grants_unavailable",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H6"
+  ],
+  "instructions": "Return true only when the H6 'institutional grants unavailable' control is visibly selected, and false only when the complete visible H6 checklist shows it unambiguously unmarked. Keep this policy selection separate from the two availability booleans above; a blank/unresolved checklist does not default this to true.",
+  "description": "Whether the institution reports that institutional grants are unavailable to degree-seeking nonresident undergraduates, from H6."
+ },
+ {
+  "key": "financial_aid.h6_recipient_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "H6"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract the H6 printed count of degree-seeking nonresident undergraduate recipients of institutional aid. This is a prior-year outcome figure, distinct from the current-policy selections above.",
+  "description": "Count of degree-seeking nonresident undergraduates who received institutional aid, from H6."
+ },
+ {
+  "key": "financial_aid.h6_average_institutional_aid",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H6"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract the H6 average institutional aid amount among nonresident recipients (`h6_recipient_count`), preserving the exact printed amount including cents.",
+  "description": "Average institutional aid dollar amount awarded to degree-seeking nonresident undergraduate recipients, from H6."
+ },
+ {
+  "key": "financial_aid.h6_total_institutional_aid",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H6"
+  ],
+  "instructions": "Bind this metric to aid_reporting_academic_year and aid_reporting_status. Extract the H6 total institutional aid dollar amount awarded to nonresident undergraduates, preserving exact currency precision. This total is nonresident-specific; it is not the same as any H1 aggregate, which is not broken out by residency.",
+  "description": "Total institutional aid dollars awarded to degree-seeking nonresident undergraduates, from H6."
+ },
+ {
+  "key": "financial_aid.h7_institution_form_required",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H7"
+  ],
+  "instructions": "Return true only when the H7 'Institution's own form' control is visibly selected, and false only when the complete visible H7 checklist shows it unambiguously unmarked. FAFSA is not an H7 option; do not confuse this checklist with the domestic-applicant checklist in H8.",
+  "description": "Whether the institution's own financial-aid application form is required of nonresident first-year aid applicants, from H7."
+ },
+ {
+  "key": "financial_aid.h7_css_profile_required",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H7"
+  ],
+  "instructions": "Return true only when the H7 'CSS Profile' control is visibly selected, and false only when the complete visible H7 checklist shows it unambiguously unmarked.",
+  "description": "Whether the CSS Profile is required of nonresident first-year aid applicants, from H7."
+ },
+ {
+  "key": "financial_aid.h8_institution_form_required",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H8"
+  ],
+  "instructions": "Return true only when the H8 'Institution's own form' control is visibly selected, and false only when the complete visible H8 checklist shows it unambiguously unmarked. This checklist is for domestic applicants; do not confuse it with the nonresident checklist in H7.",
+  "description": "Whether Institution's own form is required of domestic first-year aid applicants, from H8."
+ },
+ {
+  "key": "financial_aid.h8_css_profile_required",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H8"
+  ],
+  "instructions": "Return true only when the H8 'CSS Profile' control is visibly selected, and false only when the complete visible H8 checklist shows it unambiguously unmarked. This checklist is for domestic applicants; do not confuse it with the nonresident checklist in H7.",
+  "description": "Whether CSS Profile is required of domestic first-year aid applicants, from H8."
+ },
+ {
+  "key": "financial_aid.h8_state_aid_form_required",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H8"
+  ],
+  "instructions": "Return true only when the H8 'State aid form' control is visibly selected, and false only when the complete visible H8 checklist shows it unambiguously unmarked. This checklist is for domestic applicants; do not confuse it with the nonresident checklist in H7.",
+  "description": "Whether State aid form is required of domestic first-year aid applicants, from H8."
+ },
+ {
+  "key": "financial_aid.h8_noncustodial_profile_required",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H8"
+  ],
+  "instructions": "Return true only when the H8 'Noncustodial Profile' control is visibly selected, and false only when the complete visible H8 checklist shows it unambiguously unmarked. This checklist is for domestic applicants; do not confuse it with the nonresident checklist in H7.",
+  "description": "Whether Noncustodial Profile is required of domestic first-year aid applicants, from H8."
+ },
+ {
+  "key": "financial_aid.h8_business_farm_supplement_required",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H8"
+  ],
+  "instructions": "Return true only when the H8 'Business/Farm Supplement' control is visibly selected, and false only when the complete visible H8 checklist shows it unambiguously unmarked. This checklist is for domestic applicants; do not confuse it with the nonresident checklist in H7.",
+  "description": "Whether Business/Farm Supplement is required of domestic first-year aid applicants, from H8."
+ },
+ {
+  "key": "financial_aid.aid_has_deadline",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H9"
+  ],
+  "instructions": "Extract the direct H9 'Does your institution have a deadline for filing required financial aid forms for first-year students?' Yes/No control. This explicit control exists only in some template versions (for example Yale); it is not_in_template_version, never false, in a version that does not print it (for example Harvard).",
+  "description": "Whether the institution reports a deadline for first-year students to file required financial-aid forms, from H9 (version-specific)."
+ },
+ {
+  "key": "financial_aid.aid_priority_date_selected",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H9"
+  ],
+  "instructions": "Return true only when the H9 priority-date control is visibly selected, and false only when the complete visible H9 checklist shows it unambiguously unmarked. Extract this selection state independently of the date value in `aid_priority_date`, even if the two are inconsistent.",
+  "description": "Whether the institution selected a priority date for first-year students filing required financial-aid forms, from H9."
+ },
+ {
+  "key": "financial_aid.aid_priority_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "H9"
+  ],
+  "instructions": "Copy the H9 priority-date text exactly as printed, preserving a partial date without a year as a string. Extract this independently of `aid_priority_date_selected`; preserve both even if the selection state and printed date appear inconsistent.",
+  "description": "Priority date for first-year students filing required financial-aid forms, from H9."
+ },
+ {
+  "key": "financial_aid.aid_deadline_selected",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H9"
+  ],
+  "instructions": "Return true only when the H9 fixed-deadline control is visibly selected, and false only when the complete visible H9 checklist shows it unambiguously unmarked.",
+  "description": "Whether the institution selected a fixed deadline for first-year students filing required financial-aid forms, from H9."
+ },
+ {
+  "key": "financial_aid.aid_deadline_date_or_text",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "H9"
+  ],
+  "instructions": "Copy the H9 deadline cell exactly as printed. A literal 'None' printed in this cell (for example in Harvard's response) is the reported string value of this field with identical raw evidence; it is not a date, not proof that `aid_deadline_selected` is true, and not proof that `aid_no_deadline_rolling_selected` is true.",
+  "description": "Deadline date or text for first-year students filing required financial-aid forms, from H9."
+ },
+ {
+  "key": "financial_aid.aid_no_deadline_rolling_selected",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H9"
+  ],
+  "instructions": "Return true only when the H9 no-deadline/rolling control is visibly selected, and false only when the complete visible H9 checklist shows it unambiguously unmarked. This is required-form filing processing, distinct from the H10 notification-timing rolling selection below.",
+  "description": "Whether the institution selected no deadline and rolling processing for first-year students filing required financial-aid forms, from H9."
+ },
+ {
+  "key": "financial_aid.aid_notification_fixed_selected",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H10"
+  ],
+  "instructions": "Return true only when the H10 fixed-notification-date control is visibly selected, and false only when the complete visible H10 checklist shows it unambiguously unmarked. Preserve this selection independently of the rolling selection below even if both appear populated.",
+  "description": "Whether the institution selected a fixed financial-aid notification date for first-year students, from H10."
+ },
+ {
+  "key": "financial_aid.aid_notification_fixed_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "H10"
+  ],
+  "instructions": "Copy the H10 fixed-notification-date text exactly as printed, preserving a partial date without a year as a string.",
+  "description": "Fixed financial-aid notification date for first-year students, from H10."
+ },
+ {
+  "key": "financial_aid.aid_notification_rolling_selected",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H10"
+  ],
+  "instructions": "Return true only when the H10 rolling-notification control is visibly selected, and false only when the complete visible H10 checklist shows it unambiguously unmarked. This notification-timing rolling selection is distinct from the H9 required-form-filing rolling selection.",
+  "description": "Whether the institution selected rolling financial-aid notification for first-year students, from H10."
+ },
+ {
+  "key": "financial_aid.aid_notification_rolling_start_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "H10"
+  ],
+  "instructions": "Copy the H10 rolling-notification start-date text exactly as printed, preserving a partial date without a year as a string.",
+  "description": "Start date of rolling financial-aid notification for first-year students, from H10."
+ },
+ {
+  "key": "financial_aid.h11_reply_deadline_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "H11"
+  ],
+  "instructions": "Copy the H11 reply-by-date text exactly as printed, preserving a partial date without a year as a string. Both this field and `h11_reply_weeks_after_notification` may be populated together; preserve both independently.",
+  "description": "Date by which first-year students must reply, from H11."
+ },
+ {
+  "key": "financial_aid.h11_reply_weeks_after_notification",
+  "label": null,
+  "unit": "weeks",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "H11"
+  ],
+  "instructions": "Extract the H11 numeric weeks-after-notification response as a number, preserving the exact printed token in raw evidence. The surrounding template wording is not part of the institution's response. Extract this independently of `h11_reply_deadline_date`; preserve both alternatives even if both are populated.",
+  "description": "Number of weeks after notification within which first-year students must reply, from H11."
+ },
+ {
+  "key": "financial_aid.h12_state_loan_available",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H12"
+  ],
+  "instructions": "Return true only when the H12 'State Loans' control is visibly selected, and false only when the complete visible H12 checklist shows it unambiguously unmarked. Availability is not usage and not H1 loan-dollar volume.",
+  "description": "Whether State loans were available to undergraduates, from H12."
+ },
+ {
+  "key": "financial_aid.h12_institution_loan_available",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H12"
+  ],
+  "instructions": "Return true only when the H12 'College/university loans from institutional funds' control is visibly selected, and false only when the complete visible H12 checklist is present and that named box is unambiguously unmarked. A missing row is `not_in_template_version`, not false. Availability is not usage and not H1 loan-dollar volume.",
+  "description": "Whether college/university loans from institutional funds were available to undergraduates, from H12."
+ },
+ {
+  "key": "financial_aid.h14_academics_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Academics' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from another cell.",
+  "description": "Whether Academics is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_alumni_affiliation_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Alumni Affiliation' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Alumni Affiliation is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_art_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Art' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Art is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_athletics_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Athletics' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Athletics is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_athletics_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Athletics' row, Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Athletics is used as a criterion for awarding institutional need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_job_skills_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Job Skills' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Job Skills is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_rotc_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'ROTC' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether ROTC is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_leadership_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Leadership' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Leadership is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_minority_status_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Minority Status' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa. This criterion row is version-specific: a template edition whose H14 table omits this row (for example Harvard's absent Minority Status row) treats both of its cells as not_in_template_version, never false.",
+  "description": "Whether Minority Status is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_music_drama_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Music/Drama' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Music/Drama is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_religious_affiliation_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'Religious Affiliation' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether Religious Affiliation is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.h14_state_district_residency_non_need_based",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "H14"
+  ],
+  "instructions": "This H14 coordinate concerns criteria applied to institutional-aid applicants. Return true only when the H14 'State/District Residency' row, Non-Need-Based column control is visibly selected. Every H14 cell is independent of every other cell; a blank cell elsewhere in the table is not_reported, never false, and must not be inferred from this cell or vice versa.",
+  "description": "Whether State/District Residency is used as a criterion for awarding institutional non-need-based aid, from H14."
+ },
+ {
+  "key": "financial_aid.recent_affordability_initiative_details",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "H15"
+  ],
+  "instructions": "Treat \"recently implemented\" as relative to this CDS edition; do not use a live website or the H1 aid-reporting year to redefine the period. Copy the H15 narrative response exactly as printed, verbatim, including every threshold, comparator, asset qualifier, covered-cost scope, institutional scope, effective period, and individualized-aid caveat. A literal 'NO' printed under this prompt (for example Yale's response) remains the reported narrative value; there is no separate boolean initiative-present field. Do not parse, structure, or summarize the thresholds described in the text; that is downstream work, not extraction.",
+  "description": "Verbatim narrative describing any major financial-aid policy, program, or initiative recently implemented to make the institution more affordable to incoming students, from H15."
+ }
+]

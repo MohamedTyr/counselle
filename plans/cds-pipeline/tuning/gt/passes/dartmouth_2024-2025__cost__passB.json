@@ -1,0 +1,261 @@
+{
+ "cost.net_price_calculator_url": {
+  "status": "present",
+  "value": "https://financialaid.dartmouth.edu/cost-attendance/net-price-calculator",
+  "page": 16,
+  "evidence": "G0 row, URL printed on the underlined line beneath 'Please provide the URL of your institution's net price calculator:'."
+ },
+ "cost.cost_academic_year": {
+  "status": "present",
+  "value": "AY 2025-26",
+  "page": 16,
+  "evidence": "G1 table, both column-group headers directly above 'PRIVATE INSTITUTIONS' and above 'PUBLIC INSTITUTIONS'/'FOR ALL INSTITUTIONS' read 'AY 2025-26' (printed twice, once per column). Note: the G0 boilerplate instruction text just above reads 'Provide 2024-2025 academic year costs of attendance...' and the G0 checkbox line references '2025-2026 academic year costs of attendance' -- these are the form's own generic/forward-looking wording; the actual data-bearing column headers in G1 are the authoritative cost-year label used here, per task instructions.",
+  "ambiguous": true
+ },
+ "cost.final_costs_not_available": {
+  "status": "present",
+  "value": false,
+  "page": 16,
+  "evidence": "G0, standalone checkbox to the left of 'Check here if your institution's 2025-2026 academic year costs of attendance are not available at this time...' -- box is visibly empty/unmarked."
+ },
+ "cost.final_costs_expected_date": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G0, the underlined blank line following the 'not available' checkbox text (where an approximate month/day date would be written) has no text on it."
+ },
+ "cost.tuition_private_first_year": {
+  "status": "present",
+  "value": 69207.0,
+  "page": 16,
+  "evidence": "G1 table, 'PRIVATE INSTITUTIONS' block, row 'Tuition:', 'First-Year' column: $69,207.00."
+ },
+ "cost.tuition_private_undergraduates": {
+  "status": "present",
+  "value": 69207.0,
+  "page": 16,
+  "evidence": "G1 table, 'PRIVATE INSTITUTIONS' block, row 'Tuition:', 'Undergraduates' column: $69,207.00."
+ },
+ "cost.tuition_public_in_district_first_year": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: In-district', 'First-Year' column: cell is empty (Dartmouth is a private institution; the public rows exist in the template but carry no entry)."
+ },
+ "cost.tuition_public_in_district_undergraduates": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: In-district', 'Undergraduates' column: cell is empty."
+ },
+ "cost.tuition_public_in_state_out_of_district_first_year": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: In-state (out-of-district):', 'First-Year' column: cell is empty."
+ },
+ "cost.tuition_public_in_state_out_of_district_undergraduates": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: In-state (out-of-district):', 'Undergraduates' column: cell is empty."
+ },
+ "cost.tuition_public_out_of_state_first_year": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: Out-of-state:', 'First-Year' column: cell is empty."
+ },
+ "cost.tuition_public_out_of_state_undergraduates": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: Out-of-state:', 'Undergraduates' column: cell is empty."
+ },
+ "cost.tuition_nonresident_first_year": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: Non-resident', 'First-Year' column: cell is empty."
+ },
+ "cost.tuition_nonresident_undergraduates": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1 table, 'PUBLIC INSTITUTIONS' block, row 'Tuition: Non-resident', 'Undergraduates' column: cell is empty."
+ },
+ "cost.required_fees_first_year": {
+  "status": "present",
+  "value": 2318.0,
+  "page": 16,
+  "evidence": "G1 table, 'FOR ALL INSTITUTIONS' block, row 'Required Fees:', 'First-Year' column: $2,318.00."
+ },
+ "cost.required_fees_undergraduates": {
+  "status": "present",
+  "value": 2058.0,
+  "page": 16,
+  "evidence": "G1 table, 'FOR ALL INSTITUTIONS' block, row 'Required Fees:', 'Undergraduates' column: $2,058.00."
+ },
+ "cost.food_and_housing_on_campus_first_year": {
+  "status": "present",
+  "value": 20920.0,
+  "page": 16,
+  "evidence": "G1 table, 'FOR ALL INSTITUTIONS' block, row 'Food and housing (on-campus):', 'First-Year' column: $20,920.00."
+ },
+ "cost.food_and_housing_on_campus_undergraduates": {
+  "status": "present",
+  "value": 20670.0,
+  "page": 16,
+  "evidence": "G1 table, 'FOR ALL INSTITUTIONS' block, row 'Food and housing (on-campus):', 'Undergraduates' column: $20,670.00."
+ },
+ "cost.housing_only_on_campus_first_year": {
+  "status": "present",
+  "value": 12579.0,
+  "page": 16,
+  "evidence": "G1 table, 'FOR ALL INSTITUTIONS' block, row 'Housing Only (on-campus):', 'First-Year' column: $12,579.00."
+ },
+ "cost.food_only_on_campus_first_year": {
+  "status": "present",
+  "value": 8341.0,
+  "page": 16,
+  "evidence": "G1 table, 'FOR ALL INSTITUTIONS' block, row 'Food Only (on-campus meal plan):', 'First-Year' column: $8,341.00."
+ },
+ "cost.comprehensive_tuition_food_housing_amount": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1, line below the table labeled 'Comprehensive tuition and food and housing fee (if your college cannot provide separate tuition and food and housing fees):' -- the underlined answer line is empty."
+ },
+ "cost.other_annual_charge_response": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G1, line labeled 'Other:' below the comprehensive-fee line -- the underlined answer line is empty."
+ },
+ "cost.tuition_fees_vary_by_year_of_study": {
+  "status": "present",
+  "value": false,
+  "page": 16,
+  "evidence": "G3 Yes/No table, row for 'Do tuition and fees vary by year of study (e.g., sophomore, junior, senior)?': an 'x' mark is in the 'No' column, 'Yes' column is empty."
+ },
+ "cost.tuition_fees_vary_by_instructional_program": {
+  "status": "present",
+  "value": false,
+  "page": 16,
+  "evidence": "G4 Yes/No table, row for 'Do tuition and fees vary by undergraduate instructional program?': an 'x' mark is in the 'No' column, 'Yes' column is empty."
+ },
+ "cost.higher_program_price_payer_percent": {
+  "status": "blank",
+  "value": null,
+  "page": 16,
+  "evidence": "G4 follow-up line 'If yes, what percentage of full-time undergraduates pay more than the tuition and fees reported in G1?' -- the underlined answer line is empty, consistent with the 'No' answer directly above."
+ },
+ "cost.books_supplies_on_campus": {
+  "status": "present",
+  "value": 1005.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Books and supplies:', 'Residents' column: $1,005.00."
+ },
+ "cost.books_supplies_commuter_at_home": {
+  "status": "present",
+  "value": 1005.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Books and supplies:', first 'Commuters' column (living at home): $1,005.00."
+ },
+ "cost.books_supplies_commuter_not_at_home": {
+  "status": "present",
+  "value": 1005.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Books and supplies:', second 'Commuters' column (not living at home): $1,005.00."
+ },
+ "cost.transportation_on_campus": {
+  "status": "present",
+  "value": 608.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Transportation:', 'Residents' column: $608.00."
+ },
+ "cost.transportation_commuter_at_home": {
+  "status": "present",
+  "value": 608.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Transportation:', first 'Commuters' column (living at home): $608.00."
+ },
+ "cost.transportation_commuter_not_at_home": {
+  "status": "present",
+  "value": 608.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Transportation:', second 'Commuters' column (not living at home): $608.00."
+ },
+ "cost.other_expenses_on_campus": {
+  "status": "present",
+  "value": 2040.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Other expenses:', 'Residents' column: $2,040.00."
+ },
+ "cost.other_expenses_commuter_at_home": {
+  "status": "present",
+  "value": 2040.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Other expenses:', first 'Commuters' column (living at home): $2,040.00."
+ },
+ "cost.other_expenses_commuter_not_at_home": {
+  "status": "present",
+  "value": 2580.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Other expenses:', second 'Commuters' column (not living at home): $2,580.00."
+ },
+ "cost.food_only_commuter_at_home": {
+  "status": "present",
+  "value": 3197.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Food only:', first 'Commuters' column (living at home): $3,197.00 ('Residents' column in this row is marked 'Not Applicable', shaded grey, consistent with food for residents being covered under the G1 on-campus food/housing charge instead)."
+ },
+ "cost.food_only_commuter_not_at_home": {
+  "status": "present",
+  "value": 3197.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Food only:', second 'Commuters' column (not living at home): $3,197.00."
+ },
+ "cost.housing_only_commuter_not_at_home": {
+  "status": "present",
+  "value": 9570.0,
+  "page": 17,
+  "evidence": "G5 table, row 'Housing only:', second 'Commuters' column (not living at home): $9,570.00 ('Residents' and first 'Commuters' columns in this row are both marked 'Not Applicable', shaded grey)."
+ },
+ "cost.food_and_housing_total_commuter_not_at_home": {
+  "status": "blank",
+  "value": null,
+  "page": 17,
+  "evidence": "G5 table, row 'Food and housing total*', second 'Commuters' column (not living at home): the cell is empty (unshaded, no 'Not Applicable' marker and no value entered), while the 'Residents' and first 'Commuters' columns in this same row are both marked 'Not Applicable'."
+ },
+ "cost.tuition_per_credit_private": {
+  "status": "blank",
+  "value": null,
+  "page": 17,
+  "evidence": "G6 table, row 'PRIVATE INSTITUTIONS:' -- answer cell is empty."
+ },
+ "cost.tuition_per_credit_public_in_district": {
+  "status": "blank",
+  "value": null,
+  "page": 17,
+  "evidence": "G6 table, row 'In-district:' (under 'PUBLIC INSTITUTIONS:') -- answer cell is empty."
+ },
+ "cost.tuition_per_credit_public_in_state_out_of_district": {
+  "status": "blank",
+  "value": null,
+  "page": 17,
+  "evidence": "G6 table, row 'In-state (out-of-district):' -- answer cell is empty."
+ },
+ "cost.tuition_per_credit_public_out_of_state": {
+  "status": "blank",
+  "value": null,
+  "page": 17,
+  "evidence": "G6 table, row 'Out-of-state:' -- answer cell is empty."
+ },
+ "cost.tuition_per_credit_nonresident": {
+  "status": "blank",
+  "value": null,
+  "page": 17,
+  "evidence": "G6 table, row 'NONRESIDENTS:' -- answer cell is empty."
+ }
+}

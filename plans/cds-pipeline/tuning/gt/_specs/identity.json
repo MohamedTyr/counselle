@@ -1,0 +1,187 @@
+[
+ {
+  "key": "identity.institution_name",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "A1"
+  ],
+  "instructions": "Copy A1 \"Name of College/University\" exactly as printed. Do not take Harvard's misaligned private A0 respondent fields, and never infer the name from a URL or any other cell.",
+  "description": "Institution name printed in A1 \"Name of College/University\"."
+ },
+ {
+  "key": "identity.academic_year",
+  "label": null,
+  "unit": "academic_year",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "cover page",
+   "A1"
+  ],
+  "instructions": "Return the printed academic-year label from the document title/edition only. Do not substitute any item-specific reporting period (for example a fall-snapshot term or a cohort year) for this document-level edition label.",
+  "description": "Academic year label covered by the CDS."
+ },
+ {
+  "key": "identity.city",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "A1"
+  ],
+  "instructions": "Copy the A1 main-address city cell exactly as printed. Do not confuse with the separately reported admissions office city.",
+  "description": "City of the institution's main mailing address, from A1."
+ },
+ {
+  "key": "identity.state_or_region",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "A1"
+  ],
+  "instructions": "Copy the A1 main-address state/region cell exactly as printed. Do not confuse with the separately reported admissions office state/region.",
+  "description": "State or region of the institution's main mailing address, from A1."
+ },
+ {
+  "key": "identity.country",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "A1"
+  ],
+  "instructions": "Copy the A1 main-address country cell exactly as printed when present. Do not confuse with the separately reported admissions country.",
+  "description": "Country of the institution's main mailing address, from A1."
+ },
+ {
+  "key": "identity.main_website",
+  "label": null,
+  "unit": "url",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "A1"
+  ],
+  "instructions": "Extract the A1 main institution website URL exactly as printed. Keep distinct from the online `application_url` and from the URL where the institution posts its CDS responses.",
+  "description": "Main institutional website, from A1."
+ },
+ {
+  "key": "identity.admissions_email",
+  "label": null,
+  "unit": "email",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "A1"
+  ],
+  "instructions": "Extract the A1 admissions office email address exactly as printed. Keep distinct from the general institutional email address printed at A1.",
+  "description": "Admissions office email address, from A1."
+ },
+ {
+  "key": "identity.application_url",
+  "label": null,
+  "unit": "url",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "A1"
+  ],
+  "instructions": "Extract the A1 online application URL only from its own separately labeled row. Do not reuse `main_website` when no distinct application URL is printed.",
+  "description": "Separate online application URL, from A1, when printed."
+ },
+ {
+  "key": "identity.institutional_control",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "public",
+   "private_nonprofit",
+   "proprietary"
+  ],
+  "source_hints": [
+   "A2"
+  ],
+  "instructions": "Return the exact selected A2 control category using return IDs `public`, `private_nonprofit`, or `proprietary` for the visible labels \"Public\", \"Private (nonprofit)\", or \"Proprietary\". Never guess from school reputation or context.",
+  "description": "Source of institutional control, from A2."
+ },
+ {
+  "key": "identity.undergraduate_gender_model",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "coeducational",
+   "mens_college",
+   "womens_college"
+  ],
+  "source_hints": [
+   "A3"
+  ],
+  "instructions": "Return the exact selected A3 classification using return IDs `coeducational`, `mens_college`, or `womens_college` for the visible labels \"Coeducational college\", \"Men's college\", or \"Women's college\". This is the institution's undergraduate classification, not enrollment gender composition (see the `enrollment` domain for composition counts).",
+  "description": "Undergraduate institution gender classification, from A3."
+ },
+ {
+  "key": "identity.academic_calendar",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "semester",
+   "quarter",
+   "trimester",
+   "four_one_four",
+   "continuous",
+   "differs_by_program",
+   "other"
+  ],
+  "source_hints": [
+   "A4"
+  ],
+  "instructions": "Return the selected A4 calendar category using return IDs `semester`, `quarter`, `trimester`, `four_one_four`, `continuous`, `differs_by_program`, or `other` for the visible labels \"Semester\", \"Quarter\", \"Trimester\", \"4-1-4\", \"Continuous\", \"Differs by program\", or \"Other\". Return the selected category, not any explanatory text beside it.",
+  "description": "Academic year calendar, from A4."
+ },
+ {
+  "key": "identity.degree_offered_bachelors",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "A5"
+  ],
+  "instructions": "Return true only when the A5 \"Bachelor's\" checkbox is visibly checked and false only when the complete visible A5 checklist shows this box unambiguously unmarked.",
+  "description": "Whether the institution offers the bachelor's degree, from the A5 checklist."
+ },
+ {
+  "key": "identity.degree_offered_masters",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "A5"
+  ],
+  "instructions": "Return true only when the A5 \"Master's\" checkbox is visibly checked and false only when the complete visible A5 checklist shows this box unambiguously unmarked.",
+  "description": "Whether the institution offers the master's degree, from the A5 checklist."
+ },
+ {
+  "key": "identity.degree_offered_doctoral_research_scholarship",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "A5"
+  ],
+  "instructions": "Return true only when the A5 \"Doctoral degree research/scholarship\" checkbox is visibly checked and false only when the complete visible A5 checklist shows this box unambiguously unmarked. Accept the same label with a hyphen or dash before \"research/scholarship\" as a version spelling alias. Do not conflate with the professional-practice or other doctoral rows.",
+  "description": "Whether the institution offers a doctoral degree classified as research/scholarship, from the A5 checklist."
+ }
+]

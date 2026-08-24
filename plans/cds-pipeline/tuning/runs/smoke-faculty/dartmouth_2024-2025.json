@@ -1,0 +1,107 @@
+{
+  "config": {
+    "pdf_path": "artifacts/cds-corpus/dartmouth_2024-2025.pdf",
+    "batch_size": 25,
+    "concurrency": 6,
+    "domains": [
+      "faculty"
+    ],
+    "model": "google-vertex:gemini-3.1-flash-lite",
+    "prompt_variant": null,
+    "starved_retry": false,
+    "label": "smoke-faculty"
+  },
+  "document": {
+    "path": "artifacts/cds-corpus/dartmouth_2024-2025.pdf",
+    "name": "dartmouth_2024-2025.pdf",
+    "page_count": 34,
+    "sha256": "ecefd664909bd11790e18428027dfd661615cc69ff7560faf09381a6eed2ff96",
+    "corrupt_text_layer": false
+  },
+  "findings": [
+    {
+      "domain": "faculty",
+      "metric_id": "faculty.total_instructional_faculty_full_time",
+      "availability_status": "reported",
+      "value": 719,
+      "raw_value": null,
+      "page_number": 24,
+      "section": null,
+      "row_label": null,
+      "column_label": null,
+      "excerpt": "A Total number of instructional faculty 719 232 951"
+    },
+    {
+      "domain": "faculty",
+      "metric_id": "faculty.total_instructional_faculty_part_time",
+      "availability_status": "reported",
+      "value": 232,
+      "raw_value": null,
+      "page_number": 24,
+      "section": null,
+      "row_label": null,
+      "column_label": null,
+      "excerpt": "A Total number of instructional faculty 719 232 951"
+    },
+    {
+      "domain": "faculty",
+      "metric_id": "faculty.doctorate_or_terminal_degree_faculty_full_time",
+      "availability_status": "reported",
+      "value": 685,
+      "raw_value": null,
+      "page_number": 24,
+      "section": null,
+      "row_label": null,
+      "column_label": null,
+      "excerpt": "F Total number with doctorate, or other terminal degree 685 178 863"
+    },
+    {
+      "domain": "faculty",
+      "metric_id": "faculty.doctorate_or_terminal_degree_faculty_part_time",
+      "availability_status": "reported",
+      "value": 178,
+      "raw_value": null,
+      "page_number": 24,
+      "section": null,
+      "row_label": null,
+      "column_label": null,
+      "excerpt": "F Total number with doctorate, or other terminal degree 685 178 863"
+    }
+  ],
+  "calls": [
+    {
+      "domain": "faculty",
+      "batch_index": 0,
+      "hints": [
+        "I-1"
+      ],
+      "metric_count": 4,
+      "narrowed": true,
+      "pages_sent": 11,
+      "retried": false,
+      "latency_seconds": 137.7,
+      "findings": 4,
+      "usage": {
+        "prompt_tokens": 8617,
+        "output_tokens": 360,
+        "thoughts_tokens": 0,
+        "cached_tokens": 0,
+        "total_tokens": 8977
+      },
+      "error": null
+    }
+  ],
+  "usage_total": {
+    "prompt_tokens": 8617,
+    "output_tokens": 360,
+    "thoughts_tokens": 0,
+    "cached_tokens": 0,
+    "total_tokens": 8977
+  },
+  "cost_usd_estimate": 0.002694,
+  "duration_seconds": 137.7,
+  "domains_requested": [
+    "faculty"
+  ],
+  "errors": []
+}

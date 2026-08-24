@@ -1,0 +1,108 @@
+{
+  "document": "cornell_2022-2023",
+  "page_range": [18, 33],
+  "stated_year": "2021-2022",
+  "notes_on_range": "The source PDF (artifacts/cds-corpus/cornell_2022-2023.pdf) has only 32 pages total, not 33. There is no page 33. This index therefore covers pages 18-32 (the full remainder of the document from the requested start point). Pages 18-27 (the live survey body) header themselves 'Common Data Set 2021-2022'. Pages 28-32 (the definitions/glossary appendix) header themselves 'Common Data Set 2019-2020' -- a stale template year baked into the glossary pages of this particular filing. See layout_warnings and section_anchor_notes.",
+  "pages": {
+    "18": {
+      "sections": ["G1"],
+      "notes": "Tail end of a residency/tuition-rate table (rows: 'In-district:', 'In-state (out-of-district):', 'Out-of-state:', 'NONRESIDENTS:'), all with blank/uncaptured value cells in the text layer. No section-code heading text is physically printed on this page itself; it is a continuation of a G-section table whose heading ('G1') is on page 17, outside this range. Footer confirms 'CDS-G'. Labeled G1 here as best inference from the footer and row content; treat with lower confidence than headed pages."
+    },
+    "19": {
+      "sections": ["H1"],
+      "notes": "H1 heading present. Page mixes the H1 checkbox ('Indicate the academic year for which data are reported for items H1, H2, H2A, and H6 below', with 2022-2023 / 2021-2022 options and an X marking 2021-2022), the needs-analysis-methodology question, and a block of financial-aid glossary definitions (Private student loans, External scholarships and grants, Work study and employment, Need-based scholarship/self-help aid, Non-need-based scholarship/self-help aid, plus the 'H. FINANCIAL AID' section-definitions preamble: Awarded aid, Financial aid applicant, Indebtedness, Institutional scholarships and grants, Financial need, Need-based aid). The definitions text is interleaved with the H1 question in extraction order, not clearly separated top-to-bottom the way it renders visually."
+    },
+    "20": {
+      "sections": ["H1", "H2"],
+      "notes": "Top of page is the H1 dollar-amount table (Scholarships/Grants and Self-Help, broken out by Federal/State/Institutional/External for Need-based vs Non-need-based columns; also Parent Loans, Tuition Waivers, Athletic Awards rows), continuing from page 19's checkbox -- no 'H1' heading glyph is repeated here. H2 heading starts mid-page with the 'Number of Enrolled Students Awarded Aid' table (rows A-J), which continues onto page 21. Verified against the page image: the dollar table's cell values are extracted as a flat run of numbers largely decoupled from their row labels (all the $ amounts print in one block, the row/category descriptions such as 'Federal', 'State ... your institution is located', 'Institutional: Endowed scholarships...' print in a separate later block) -- a naive top-to-bottom reader would misattribute dollar figures to the wrong category rows."
+    },
+    "21": {
+      "sections": ["H2", "H2A", "H4", "H5"],
+      "notes": "H2 table concludes here with rows K, L, M (average award amounts). H2A heading begins immediately after with rows N, O, P, Q (non-need-based institutional/athletic scholarship counts for students with no financial need); all four H2A data cells are blank/uncaptured for Cornell. H4 heading appears with a single value, 3173 (bachelor's degree recipients in the 2022 class). H5 heading begins with instructional prose only (Include/Exclude lists for what counts toward H4/H5); the actual H5 data table is on page 22."
+    },
+    "22": {
+      "sections": ["H5", "H6", "H7", "H8"],
+      "notes": "Top of page is the H5 loan-source table (rows A-E: Any loan program, Federal loan programs, Institutional loan programs, State loan programs, Private student loans), with columns Number/Percent/Average-dollar-borrowed -- continuation of the H5 heading from page 21, no repeated 'H5' glyph. Then 'Aid to Undergraduate Degree-seeking Nonresidents' subheading, H6 (nonresident institutional scholarship policy: checkbox + count 288 + avg $76,179 + total $21,939,614), H7 (checklist of forms nonresident first-year applicants must submit -- CSS/PROFILE checked), and a 'Process for First-Year Students' subheading introducing H8 (checklist of forms domestic first-year applicants must submit -- FAFSA and CSS/PROFILE checked)."
+    },
+    "23": {
+      "sections": ["H9", "H10", "H11", "H12", "H13", "H14"],
+      "notes": "Dense date-field and checkbox page, six section headings on one page. H9: priority/deadline dates for filing aid forms (also a 'no deadline, rolling basis' checkbox). H10: first-year notification dates (a: on/about 15-Apr; b: rolling basis Yes/No). H11: reply-by date (5/1). H12: 'Types of Aid Available' checkboxes (Loans, Noncustodial PROFILE, Business/Farm Supplement, Other). H13: criteria used in awarding institutional aid, a checkbox grid (Academics, Alumni affiliation, Art, Athletics, Job skills, ROTC, Leadership, Minority status, Music/drama, Religious affiliation, State/district residency, Other). H14: two side-by-side checklists -- 'Need Based Scholarships and Grants' (Federal Pell, SEOG, state scholarships, private scholarships, institutional aid, UNCF, Federal Nursing Scholarship) and a non-need/loan column (Direct Subsidized/Unsubsidized Stafford, Direct PLUS, Federal Perkins, Federal Nursing Loans, State Loans, institutional loans, Other). The two H14 columns are flattened into one linear text run with the 'Non-Need Based' / 'Need-Based' column headers detached from their item lists -- a naive reader could easily attribute the loan-type items to the wrong column/section."
+    },
+    "24": {
+      "sections": ["H15"],
+      "notes": "Sparse page. H15 heading: Yes/No question on whether recently-implemented financial aid policies relate to COVID-19, plus a free-text prompt asking for details of any major new affordability initiative (loans-to-grants, income-based cost waivers). Also a pointer to https://finaid.cornell.edu/. This is the last item of Section H; Section I begins on page 25."
+    },
+    "25": {
+      "sections": ["I1", "I2"],
+      "notes": "I-1 heading appears twice in sequence: first an inclusion/exclusion definitional grid (rows A-J, e.g. row A = 'Exclude' / 'Include only if they teach one or more non-clinical credit courses'), immediately followed by the actual headcount table reusing the SAME row letters A-J but now meaning categories of instructional faculty (Full-Time/Part-Time/Total counts, e.g. row A = 1901/366/2267). HAZARD: two structurally different tables share identical row-letter keys back-to-back with no strong visual break in the text layer -- a parser keyed only on row letter (A-J) risks merging the definitional-inclusion table with the headcount table. I-2 follows: Fall 2022 Student/Faculty ratio (9 to 1, based on 15,528 students and 1,702 faculty) plus its supporting breakdown (nonresident faculty count, terminal-degree counts, gender/minority counts, faculty on sabbatical/leave counts). The bottom of the page is glossary-style prose defining Full-time/Part-time instructional faculty, Minority faculty, Doctorate, and Terminal master's degree -- these are inline definitions for Section I, not the appendix glossary (which starts page 28)."
+    },
+    "26": {
+      "sections": ["I3"],
+      "notes": "I-3 Undergraduate Class Size table. Two numeric blocks share identical bucket-header labels (2-9, 10-19, 20-29, 30-39, 40-49, 50-99, 100+, Total) printed once, followed sequentially by the Class Sections counts (375, 909, 287, 196, 122, 279, 168, total 2336) and then the Class Subsections counts (138, 520, 505, 141, 83, 35, 10, total 1432). HAZARD: because the bucket header row is not repeated before the second numeric block, a naive reader could concatenate both blocks into one 14/16-cell row or misassign the subsections numbers to the sections table."
+    },
+    "27": {
+      "sections": ["J1"],
+      "notes": "J. Disciplinary areas of DEGREES CONFERRED. Single-page table (verified against page image) covering degrees conferred 7/1/2021-6/30/2022. Row order in the extracted text is [Category name] -> [Bachelor's %, if any] -> [CIP code], repeating; rows with zero degrees in a discipline have NO percentage figure at all (the cell is simply blank/absent, not '0.00%'), so category-to-CIP grouping varies between 2 lines and 3 lines per row depending on whether a percentage is present -- a fixed-stride parser will misalign after the first zero-percent row. Diploma/Certificates and Associate columns are entirely blank for every row (Cornell only confers Bachelor's degrees in this table); TOTAL row = 0.00% / 0.00% / 100.00%. See top-level 'verdicts.J1' for the CIP-format and military-science-row verdict."
+    },
+    "28": {
+      "sections": ["DEFINITIONS"],
+      "glossary": true,
+      "notes": "First page of the 'Common Data Set Definitions' glossary appendix. General definitions A: Academic advisement through Credit (Accelerated program, Admitted student, Applicant, Application fee, Asian, Associate degree, Bachelor's degree, Black or African American, Board, Books and supplies, Calendar system, Campus Ministry, Career and placement services, Carnegie units, Certificate, Class rank, College-preparatory program, Common Application, Community service program, Commuter, Comprehensive transition program, Clock hour, Continuous basis, Cooperative education program, Cooperative housing, Counseling service, Credit). Page header reads 'Common Data Set 2019-2020' -- mismatched vs. the 2021-2022 header on pages 18-27 (see layout_warnings)."
+    },
+    "29": {
+      "sections": ["DEFINITIONS"],
+      "glossary": true,
+      "notes": "Glossary continues, D-H terms (Credit course, Credit hour, Cross-registration, Deferred admission, Degree, Degree-seeking students, Differs by program, Diploma, Distance learning, Doctor's degree variants, Double major, Dual enrollment, Early action/admission/decision plans, English as a Second Language, Exchange student program, External degree program, Extracurricular activities, First-time student, First-time first-year student, First-year student, New student orientation, Full-time student, Geographical residence, Grade-point average, Graduate student, Health services). Header again reads 'Common Data Set 2019-2020'."
+    },
+    "30": {
+      "sections": ["DEFINITIONS"],
+      "glossary": true,
+      "notes": "Glossary continues, H-P terms (High school diploma, Hispanic or Latino, Honors program, Independent study, In-state tuition, International student, International student group, Internship, Learning center, Legal services, Liberal arts/career combination, Living learning community, Master's degree, Minority affiliation, Minority student center, Model United Nations, Native Hawaiian or Other Pacific Islander, Nonresident, On-campus day care, Open admission, Other expenses, Out-of-state tuition, Part-time student, Permanent Resident, Personal counseling, Post-baccalaureate certificate, Post-master's certificate, Postsecondary award/certificate/diploma). Header 'Common Data Set 2019-2020'."
+    },
+    "31": {
+      "sections": ["DEFINITIONS"],
+      "glossary": true,
+      "notes": "Glossary continues, P-W terms (Private institution, Private for-profit, Private nonprofit, Proprietary institution, Public institution, Quarter calendar system, Race/ethnicity, Race/ethnicity unknown, Recognized Postsecondary Credential, Religious affiliation, Religious counseling, Remedial services, Required fees, Room and board, Secondary school record, Semester calendar system, Student-designed major, Study abroad, Summer session, Talent/ability, Teacher certification program, Transfer applicant, Transfer student, Transportation costs, Trimester calendar system, Tuition, Tutoring, Unit, Undergraduate, Undergraduate Research, Veteran's counseling, Visually impaired, Volunteer work, Wait list, Weekend college, White). Header 'Common Data Set 2019-2020'."
+    },
+    "32": {
+      "sections": ["DEFINITIONS", "FINANCIAL_AID_DEFINITIONS"],
+      "glossary": true,
+      "notes": "Final glossary page. General glossary concludes with 'Women's center' and 'Work experience (as admission factor)'. Then a distinct sub-appendix heading 'Financial Aid Definitions' begins, re-stating several definitions already given inline on page 19 nearly verbatim (External scholarships and grants, Financial aid applicant, Indebtedness, Institutional scholarships and grants, Financial need, Need-based aid, Need-based scholarship or grant aid, Need-based self-help aid, Non-need-based scholarship or grant aid with its full order-of-precedence list 1-9, Non-need-based self-help aid, Work study and employment). This is a duplicate/redundant copy of the page-19 definitions block, now in the appendix. Header 'Common Data Set 2019-2020'."
+    }
+  },
+  "layout_warnings": [
+    "Pages 28-32 (the definitions/glossary appendix) print a header of 'Common Data Set 2019-2020', while pages 18-27 (the live survey) print 'Common Data Set 2021-2022'. Same physical document, same filing -- the glossary appendix simply carries a stale template-year header. Any heuristic that samples header text from a glossary page to determine the document's stated year will get the wrong year.",
+    "Page 20: the H1 dollar-amount table's cell values are extracted in a block disconnected from their row labels -- all dollar figures print together, category descriptions (Federal / State / Institutional / External) print in a separate later block. Naive top-to-bottom reading will misattribute amounts to the wrong row.",
+    "Page 25: the I-1 inclusion/exclusion definitional grid and the I-1 actual headcount table both use row letters A-J and sit back-to-back with no strong text-layer separator -- risk of merging the two distinct tables when keying by row letter alone.",
+    "Page 26: I-3 class-size table prints one shared bucket-header row (2-9...100+, Total) followed by two separate numeric blocks (Class Sections, then Class Subsections) with no repeated header between them -- risk of concatenating or cross-assigning the two blocks.",
+    "Page 27 (J1): row groups alternate between 2-line (Category, CIP code) and 3-line (Category, Bachelor's %, CIP code) depending on whether the discipline has a nonzero percentage -- there is no blank placeholder for a zero/absent percentage, so fixed-stride row parsing will drift after the first zero row.",
+    "Page 23 (H14): two side-by-side checklist columns ('Need Based Scholarships and Grants' vs. a non-need/loan list) are flattened into a single linear text run with the column headers detached from their item lists.",
+    "Section-heading codes that are page-anchors elsewhere (H1, H2, H4) also appear inside prose/instructions on other pages -- see section_anchor_notes below; a page-routing heuristic keyed on 'first occurrence of code X' will misroute to the prose page instead of the true heading page in several cases (e.g. 'H1' appears in prose on pages 20, 21, and 22, all before/after its true heading page 19)."
+  ],
+  "text_layer_corruption": {
+    "digits_affected": false,
+    "summary": "Text layer for pages 18-32 is clean and machine-readable; no OCR garbling, no digit substitution/mangling observed in any dollar amount, percentage, or count. The only 'corruption'-adjacent issue is semantic, not character-level: the glossary appendix (pages 28-32) carries a leftover 'Common Data Set 2019-2020' header from an older template, inconsistent with the '2021-2022' header used on the live survey pages (18-27) of this same filing."
+  },
+  "verdicts": {
+    "J1": {
+      "pages": [27],
+      "spans_multiple_pages": false,
+      "military_science_row": "ONE combined row. The row label is 'Military science and military technologies' and its CIP-code cell reads '28 & 29' (both codes combined into a single row, joined with an ampersand). There is no separate row for CIP 28 vs CIP 29. Verified directly against the page 27 image, not just the text layer.",
+      "cip_code_column_format": "Bare, unlabeled numeric codes as plain text (e.g. '01', '03', '04', '05', '09', '10', ... '52', '54'), NOT prefixed with 'CIP' (i.e. not 'CIP 01'). Codes are generally zero-padded two-digit strings, except the combined military-science row which reads '28 & 29' instead of a single number.",
+      "value_columns_present": "Percentage columns only (Diploma/Certificates %, Associate %, Bachelor's %) -- there is NO count/headcount column anywhere in the J1 table. For Cornell, the Diploma/Certificates and Associate percentage columns are entirely blank (0.00% total) and only the Bachelor's column is populated; the TOTAL row reads 0.00% / 0.00% / 100.00%."
+    }
+  },
+  "section_anchor_notes": [
+    { "code": "H2", "page": 19, "context": "prose, within the H1 instructions: 'Indicate the academic year for which data are reported for items H1, H2, H2A, and H6 below' -- H2's true heading page is 20." },
+    { "code": "H2A", "page": 19, "context": "same sentence as above -- H2A's true heading page is 21." },
+    { "code": "H6", "page": 19, "context": "same sentence as above -- H6's true heading page is 22." },
+    { "code": "B1", "page": 19, "context": "prose: 'undergraduates (using the same cohort reported in CDS Question B1, \"total degree-seeking\" undergraduates)' -- B1 is a Section B item, entirely outside this page range (page range starts at 18)." },
+    { "code": "B1", "page": 20, "context": "prose inside H2 row A's instructions: '(CDS Item B1 if reporting on Fall 2022 cohort)' -- repeat reference to the out-of-range Section B item." },
+    { "code": "H1", "page": 20, "context": "prose bullet under the H2 heading: 'Numbers should reflect the cohort awarded the dollars reported in H1.' -- H1's true heading page is 19." },
+    { "code": "H4", "page": 21, "context": "prose in the H5 heading/instructions: 'Number and percent of students in class (defined in H4 above) borrowing...' -- H4's own heading is earlier on the SAME page (21), so this is a same-page self-reference, not cross-page, but still a literal code mention outside the H4 heading line itself." },
+    { "code": "H1", "page": 21, "context": "prose bullet: 'Numbers should reflect the cohort awarded the dollars reported in H1.' (repeated, under the H2A instructions) -- true H1 heading page is 19." },
+    { "code": "H1", "page": 22, "context": "prose bullet under 'Aid to Undergraduate Degree-seeking Nonresidents': 'Report numbers and dollar amounts for the same academic year checked in item H1' -- true H1 heading page is 19." },
+    { "code": "H1", "page": 32, "context": "prose inside the glossary's 'Financial Aid Definitions' entry for 'Non-need-based scholarship or grant aid': 'When reporting questions H1 and H2, non-need-based aid that is used to meet need should be counted as need-based aid.' -- true heading pages for H1 and H2 are 19 and 20, far from this glossary appendix page." },
+    { "code": "H2", "page": 32, "context": "same sentence as above." }
+  ]
+}

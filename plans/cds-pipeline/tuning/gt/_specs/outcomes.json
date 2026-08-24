@@ -1,0 +1,122 @@
+[
+ {
+  "key": "outcomes.primary_pell_grant_six_year_graduation_rate_ratio",
+  "label": null,
+  "unit": "ratio",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "B4-B11"
+  ],
+  "instructions": "Extract the \"Recipients of a Federal Pell Grant\" column printed six-year graduation rate from the first/most recent visible B4-B11 cohort grid as the printed 0-1 ratio (for example 0.94), never as a percent and never recomputed from the count rows above. Preserve the exact printed decimal in `raw_value`. This is CDS item B11, bound to the sixth-year completion interval end date printed on the B4-B11 cohort grid. Students who also received a subsidized Stafford Loan remain in the \"Recipients of a Federal Pell Grant\" column.",
+  "description": "Printed six-year graduation rate, as a 0-1 ratio, for students who received a Federal Pell Grant in the primary adjusted cohort."
+ },
+ {
+  "key": "outcomes.primary_all_students_adjusted_cohort_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B4-B11"
+  ],
+  "instructions": "Extract the \"Total (sum of 3 columns to the left)\" column adjusted-cohort row from the first/most recent visible B4-B11 cohort grid independently as printed. Use arithmetic against the printed initial-cohort and allowable-exclusions rows only for validation; never overwrite a printed disagreement. This is CDS item B6.",
+  "description": "Adjusted primary cohort count of all first-time, full-time bachelor's-degree-seeking students, regardless of aid group, after allowable exclusions are removed from the initial cohort."
+ },
+ {
+  "key": "outcomes.primary_all_students_completed_within_four_years_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B4-B11"
+  ],
+  "instructions": "Extract the \"Total (sum of 3 columns to the left)\" column \"completed within four years\" row from the first/most recent visible B4-B11 cohort grid, bound to the four-year completion cutoff date printed on the B4-B11 cohort grid. This is CDS item B7.",
+  "description": "Count of all first-time, full-time bachelor's-degree-seeking students in the adjusted primary cohort who completed a bachelor's or equivalent program within four years, regardless of aid group."
+ },
+ {
+  "key": "outcomes.primary_all_students_completed_after_four_within_five_years_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B4-B11"
+  ],
+  "instructions": "Extract the \"Total (sum of 3 columns to the left)\" column \"completed after four, within five years\" row from the first/most recent visible B4-B11 cohort grid, bound to the fifth-year completion interval start and end dates printed on the B4-B11 cohort grid. This is incremental, not cumulative with the four-year count. This is CDS item B8.",
+  "description": "Incremental count of all first-time, full-time bachelor's-degree-seeking students in the adjusted primary cohort who completed a bachelor's or equivalent program after four years but within five years, regardless of aid group."
+ },
+ {
+  "key": "outcomes.primary_all_students_completed_after_five_within_six_years_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B4-B11"
+  ],
+  "instructions": "Extract the \"Total (sum of 3 columns to the left)\" column \"completed after five, within six years\" row from the first/most recent visible B4-B11 cohort grid, bound to the sixth-year completion interval start and end dates printed on the B4-B11 cohort grid. This is incremental, not cumulative with the four- or five-year counts. This is CDS item B9.",
+  "description": "Incremental count of all first-time, full-time bachelor's-degree-seeking students in the adjusted primary cohort who completed a bachelor's or equivalent program after five years but within six years, regardless of aid group."
+ },
+ {
+  "key": "outcomes.primary_all_students_completed_within_six_years_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B4-B11"
+  ],
+  "instructions": "Extract the \"Total (sum of 3 columns to the left)\" column cumulative \"total completed within six years\" row from the first/most recent visible B4-B11 cohort grid. This is the cumulative six-year count, distinct from the incremental fifth- and sixth-year rows above. This is CDS item B10, bound to the sixth-year completion interval end date printed on the B4-B11 cohort grid.",
+  "description": "Cumulative count of all first-time, full-time bachelor's-degree-seeking students in the adjusted primary cohort who completed a bachelor's or equivalent program within six years, regardless of aid group."
+ },
+ {
+  "key": "outcomes.primary_all_students_six_year_graduation_rate_ratio",
+  "label": null,
+  "unit": "ratio",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "B4-B11"
+  ],
+  "instructions": "Extract the \"Total (sum of 3 columns to the left)\" column printed six-year graduation rate from the first/most recent visible B4-B11 cohort grid as the printed 0-1 ratio (for example 0.94), never as a percent and never recomputed from the count rows above. Preserve the exact printed decimal in `raw_value`. This is CDS item B11, bound to the sixth-year completion interval end date printed on the B4-B11 cohort grid.",
+  "description": "Printed six-year graduation rate, as a 0-1 ratio, for all first-time, full-time bachelor's-degree-seeking students in the adjusted primary cohort, regardless of aid group."
+ },
+ {
+  "key": "outcomes.first_year_retention_entering_cohort_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B22"
+  ],
+  "instructions": "Extract the B22 entering-cohort count row independently as printed. This count is new in the 2025-26 CDS edition; treat its absence in earlier editions (for example Yale 2024-25, which reports only the percent) as template-version absence, not zero. The reported entering count is not necessarily the same as an adjusted-cohort denominator used elsewhere. The B22 population is all full-time, first-time, bachelor's (or equivalent) degree-seeking undergraduate students who entered in the B22 entering term printed on the form or the preceding summer term.",
+  "description": "Number of full-time, first-time, bachelor's (or equivalent) degree-seeking undergraduate students entering in the B22 entering term printed on the form, including entrants from the preceding summer term."
+ },
+ {
+  "key": "outcomes.first_year_retention_still_enrolled_next_fall_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "B22"
+  ],
+  "instructions": "Extract the B22 still-enrolled-next-fall count row independently as printed. This count is new in the 2025-26 CDS edition; treat its absence in earlier editions as template-version absence, not zero. The B22 population is all full-time, first-time, bachelor's (or equivalent) degree-seeking undergraduate students who entered in the B22 entering term printed on the form or the preceding summer term.",
+  "description": "Number of full-time, first-time, bachelor's (or equivalent) degree-seeking undergraduate students who entered in the B22 entering term printed on the form or the preceding summer term and were still enrolled in the B22 follow-up term printed on the form."
+ },
+ {
+  "key": "outcomes.first_year_retention_reported_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "B22"
+  ],
+  "instructions": "Copy the B22 printed retention percent exactly as a string (for example \"96%\"), preserving any qualifier such as \"<1%\". The official printed rate can include early completers and specific exclusions defined by the form; never recompute it from the entering and still-enrolled counts. The B22 population is all full-time, first-time, bachelor's (or equivalent) degree-seeking undergraduate students who entered in the B22 entering term printed on the form or the preceding summer term.",
+  "description": "Printed first-year retention rate for full-time, first-time, bachelor's (or equivalent) degree-seeking undergraduate students who entered in the B22 entering term printed on the form or the preceding summer term."
+ }
+]

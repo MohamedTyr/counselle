@@ -1,0 +1,29 @@
+{
+ "totals": {
+  "keys_union": 43,
+  "keys_both": 43,
+  "agreed": 43,
+  "conflicts": 0,
+  "ambiguous_flagged": 1,
+  "agreement_pct": 100.0
+ },
+ "value_conflict": [],
+ "status_conflict": [],
+ "coverage_gap": [],
+ "ambiguous_flag": [
+  {
+   "key": "cost.cost_academic_year",
+   "flagged_by": [
+    "B"
+   ],
+   "A": {
+    "value": "AY 2025-26",
+    "evidence": "G1 table column-group headers, printed twice as 'AY 2025-26' above both the 'First-Year' and 'Undergraduates' columns of the PRIVATE INSTITUTIONS tuition table. Note: the G0 instructional text above says 'Provide 2024-2025 academic year costs of attendance' and the checkbox text references '2025-2026'/'final 2025-2026 academic year costs', but the actual G1 data table header is the authoritative cost-year label per spec instructions, and it reads 'AY 2025-26' -- i.e. this document (2024-2025 CDS edition) reports forward-looking 2025-26 cost figures."
+   },
+   "B": {
+    "value": "AY 2025-26",
+    "evidence": "G1 table, both column-group headers directly above 'PRIVATE INSTITUTIONS' and above 'PUBLIC INSTITUTIONS'/'FOR ALL INSTITUTIONS' read 'AY 2025-26' (printed twice, once per column). Note: the G0 boilerplate instruction text just above reads 'Provide 2024-2025 academic year costs of attendance...' and the G0 checkbox line references '2025-2026 academic year costs of attendance' -- these are the form's own generic/forward-looking wording; the actual data-bearing column headers in G1 are the authoritative cost-year label used here, per task instructions."
+   }
+  }
+ ]
+}

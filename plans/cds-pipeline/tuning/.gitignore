@@ -2,6 +2,10 @@
 # Regenerable and large; the findings they produced live in experiments.md.
 scratch-review/
 
+# Rendered page images for ground-truth reading (60MB of PNGs). Regenerable from
+# artifacts/cds-corpus/*.pdf; the values they produced live in gt/ and are sealed.
+scratch-gt/
+
 __pycache__/
 .mypy_cache/
 .pytest_cache/

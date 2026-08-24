@@ -1,0 +1,206 @@
+[
+ {
+  "key": "class_size.students_per_faculty",
+  "label": null,
+  "unit": "ratio",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "I-2"
+  ],
+  "instructions": "Extract the numeric students-per-one-faculty component from the I-2 printed \"Student to Faculty ratio\" response (for example, 11 from \"11 to 1\"). Bind it to the I-2 reporting term printed on the form; do not substitute the CDS edition or the I-3 term. Copy the complete ratio response exactly as printed into raw_value; preserve wording and punctuation such as \"to 1\" or \":1\" rather than normalizing them. The source defines both student and instructional-faculty FTE as full-time plus one-third part-time and excludes both students and faculty in stand-alone graduate or professional programs where faculty teach virtually only graduate-level students. It also excludes undergraduate and graduate student teaching assistants from faculty. This is not an undergraduate-only ratio and must not be confused with an institution-added \"Ugrad Ratio\" label some forms print near I-2, which is a separate, unverified, institution-added figure. Do not compute this value from ratio_basis_student_fte and ratio_basis_faculty_fte; extract the printed ratio independently even if it appears inconsistent with the basis values.",
+  "description": "Student-to-faculty ratio printed in I-2 for the source-defined FTE student and instructional-faculty populations, after the stated stand-alone graduate/professional-program exclusions, expressed as the numeric students-per-one-faculty component."
+ },
+ {
+  "key": "class_size.ratio_basis_student_fte",
+  "label": null,
+  "unit": "students",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "I-2"
+  ],
+  "instructions": "Extract the I-2 printed FTE student count used as the ratio's basis, from the parenthetical \"based on ... students\" response, preserving fractional precision exactly as printed. Bind it to the I-2 reporting term printed on the form; do not substitute the CDS edition or the I-3 term. The source defines student FTE as full-time plus one-third part-time and excludes students in stand-alone graduate or professional programs where faculty teach virtually only graduate-level students. This is the I-2 basis figure only; it includes eligible undergraduate and graduate students, is not the undergraduate or total enrollment headcount reported in B1/B2, and must not be derived by multiplying students_per_faculty by ratio_basis_faculty_fte.",
+  "description": "Full-time-equivalent student count printed in I-2 as the ratio basis, using full-time plus one-third part-time students after the stated stand-alone graduate/professional-program exclusions."
+ },
+ {
+  "key": "class_size.ratio_basis_faculty_fte",
+  "label": null,
+  "unit": "faculty",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "I-2"
+  ],
+  "instructions": "Extract the I-2 printed FTE faculty count used as the ratio's basis, from the parenthetical \"and ... faculty\" response, preserving fractional precision exactly as printed. Bind it to the I-2 reporting term printed on the form; do not substitute the CDS edition or the I-3 term. The source defines instructional-faculty FTE as full-time plus one-third part-time, excludes faculty in stand-alone graduate or professional programs where faculty teach virtually only graduate-level students, and does not count undergraduate or graduate student teaching assistants as faculty. This is not the I-1 total instructional-faculty headcount and must not be derived by dividing ratio_basis_student_fte by students_per_faculty.",
+  "description": "Full-time-equivalent instructional-faculty count printed in I-2 as the ratio basis, using full-time plus one-third part-time faculty after the stated exclusions."
+ },
+ {
+  "key": "class_size.class_sections_2_9",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sections\" row, \"2-9\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. A class section is an organized credit-bearing course identified by discipline and number, meeting at stated times in a classroom or similar setting, and not a lab, discussion, or other subsection. It is undergraduate when at least one degree-seeking undergraduate is enrolled for credit. Exclude distance-learning and noncredit classes; dissertation or thesis research, music instruction, one-to-one readings, and other individual instruction; and students in independent study, cooperative programs, internships, foreign-language taped tutor sessions, practicums, and all one-on-one classes. Count cross-listed sections once. Yale's version explicitly includes classes moved online because of COVID-19 despite the distance-learning exclusion. This is an offering count, not a student count or percentage. A visibly blank band is not_reported, never zero; a printed zero remains zero.",
+  "description": "Number of undergraduate class sections with 2 to 9 students, per I-3."
+ },
+ {
+  "key": "class_size.class_sections_10_19",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sections\" row, \"10-19\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a section is an organized credit-bearing course identified by discipline and number, meeting at stated times in a classroom or similar setting, and not a lab, discussion, or other subsection. It is undergraduate when at least one degree-seeking undergraduate is enrolled for credit. Exclude distance-learning and noncredit classes; dissertation or thesis research, music instruction, one-to-one readings, and other individual instruction; and students in independent study, cooperative programs, internships, foreign-language taped tutor sessions, practicums, and all one-on-one classes. Count cross-listed sections once. Yale's version explicitly includes classes moved online because of COVID-19 despite the distance-learning exclusion. This is an offering count, not a student count or percentage. Blank is not_reported, never zero.",
+  "description": "Number of undergraduate class sections with 10 to 19 students, per I-3."
+ },
+ {
+  "key": "class_size.class_sections_20_29",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sections\" row, \"20-29\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a section is an organized credit-bearing course identified by discipline and number, meeting at stated times in a classroom or similar setting, and not a lab, discussion, or other subsection. It is undergraduate when at least one degree-seeking undergraduate is enrolled for credit. Exclude distance-learning and noncredit classes; dissertation or thesis research, music instruction, one-to-one readings, and other individual instruction; and students in independent study, cooperative programs, internships, foreign-language taped tutor sessions, practicums, and all one-on-one classes. Count cross-listed sections once. Yale's version explicitly includes classes moved online because of COVID-19 despite the distance-learning exclusion. This is an offering count, not a student count or percentage. Blank is not_reported, never zero.",
+  "description": "Number of undergraduate class sections with 20 to 29 students, per I-3."
+ },
+ {
+  "key": "class_size.class_sections_30_39",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sections\" row, \"30-39\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a section is an organized credit-bearing course identified by discipline and number, meeting at stated times in a classroom or similar setting, and not a lab, discussion, or other subsection. It is undergraduate when at least one degree-seeking undergraduate is enrolled for credit. Exclude distance-learning and noncredit classes; dissertation or thesis research, music instruction, one-to-one readings, and other individual instruction; and students in independent study, cooperative programs, internships, foreign-language taped tutor sessions, practicums, and all one-on-one classes. Count cross-listed sections once. Yale's version explicitly includes classes moved online because of COVID-19 despite the distance-learning exclusion. This is an offering count, not a student count or percentage. Blank is not_reported, never zero.",
+  "description": "Number of undergraduate class sections with 30 to 39 students, per I-3."
+ },
+ {
+  "key": "class_size.class_sections_40_49",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sections\" row, \"40-49\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a section is an organized credit-bearing course identified by discipline and number, meeting at stated times in a classroom or similar setting, and not a lab, discussion, or other subsection. It is undergraduate when at least one degree-seeking undergraduate is enrolled for credit. Exclude distance-learning and noncredit classes; dissertation or thesis research, music instruction, one-to-one readings, and other individual instruction; and students in independent study, cooperative programs, internships, foreign-language taped tutor sessions, practicums, and all one-on-one classes. Count cross-listed sections once. Yale's version explicitly includes classes moved online because of COVID-19 despite the distance-learning exclusion. This is an offering count, not a student count or percentage. Blank is not_reported, never zero.",
+  "description": "Number of undergraduate class sections with 40 to 49 students, per I-3."
+ },
+ {
+  "key": "class_size.class_sections_50_99",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sections\" row, \"50-99\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a section is an organized credit-bearing course identified by discipline and number, meeting at stated times in a classroom or similar setting, and not a lab, discussion, or other subsection. It is undergraduate when at least one degree-seeking undergraduate is enrolled for credit. Exclude distance-learning and noncredit classes; dissertation or thesis research, music instruction, one-to-one readings, and other individual instruction; and students in independent study, cooperative programs, internships, foreign-language taped tutor sessions, practicums, and all one-on-one classes. Count cross-listed sections once. Yale's version explicitly includes classes moved online because of COVID-19 despite the distance-learning exclusion. This is an offering count, not a student count or percentage. Blank is not_reported, never zero. Do not combine this printed band with 100+ into a derived \"50 or more\" value.",
+  "description": "Number of undergraduate class sections with 50 to 99 students, per I-3."
+ },
+ {
+  "key": "class_size.class_sections_100_plus",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sections\" row, \"100+\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a section is an organized credit-bearing course identified by discipline and number, meeting at stated times in a classroom or similar setting, and not a lab, discussion, or other subsection. It is undergraduate when at least one degree-seeking undergraduate is enrolled for credit. Exclude distance-learning and noncredit classes; dissertation or thesis research, music instruction, one-to-one readings, and other individual instruction; and students in independent study, cooperative programs, internships, foreign-language taped tutor sessions, practicums, and all one-on-one classes. Count cross-listed sections once. Yale's version explicitly includes classes moved online because of COVID-19 despite the distance-learning exclusion. This is an open-ended count of offerings with 100 or more students, not a student count or percentage. Blank is not_reported, never zero.",
+  "description": "Number of undergraduate class sections with 100 or more students, per I-3."
+ },
+ {
+  "key": "class_size.class_subsections_2_9",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sub-sections\" row, \"2-9\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. A subsection is a supplementary lab, recitation, discussion, or similar course subdivision scheduled separately from the lecture. It is undergraduate when degree-seeking undergraduates are enrolled for credit. Exclude noncredit subsections and individual instruction such as dissertation or thesis research, music instruction, and one-to-one readings. Count cross-listed subsections once and never merge them with the Class Sections row. Yale's version explicitly includes classes moved online because of COVID-19. This is an offering count, not a student count or percentage. A visibly blank band is not_reported, never zero, even when the printed subsection total is zero; preserve Yale's blank bands and explicit zero total independently.",
+  "description": "Number of undergraduate class subsections (labs, discussion sections, and similar) with 2 to 9 students, per I-3."
+ },
+ {
+  "key": "class_size.class_subsections_10_19",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sub-sections\" row, \"10-19\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a subsection is a supplementary lab, recitation, discussion, or similar course subdivision scheduled separately from the lecture. It is undergraduate when degree-seeking undergraduates are enrolled for credit. Exclude noncredit subsections and individual instruction such as dissertation or thesis research, music instruction, and one-to-one readings. Count cross-listed subsections once and never merge them with the Class Sections row. Yale's version explicitly includes classes moved online because of COVID-19. This is an offering count, not a student count or percentage. A blank band is not_reported, never zero, even when the printed subsection total is zero; preserve Yale's blank bands and explicit zero total independently.",
+  "description": "Number of undergraduate class subsections (labs, discussion sections, and similar) with 10 to 19 students, per I-3."
+ },
+ {
+  "key": "class_size.class_subsections_20_29",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sub-sections\" row, \"20-29\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a subsection is a supplementary lab, recitation, discussion, or similar course subdivision scheduled separately from the lecture. It is undergraduate when degree-seeking undergraduates are enrolled for credit. Exclude noncredit subsections and individual instruction such as dissertation or thesis research, music instruction, and one-to-one readings. Count cross-listed subsections once and never merge them with the Class Sections row. Yale's version explicitly includes classes moved online because of COVID-19. This is an offering count, not a student count or percentage. A blank band is not_reported, never zero, even when the printed subsection total is zero; preserve Yale's blank bands and explicit zero total independently.",
+  "description": "Number of undergraduate class subsections (labs, discussion sections, and similar) with 20 to 29 students, per I-3."
+ },
+ {
+  "key": "class_size.class_subsections_30_39",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sub-sections\" row, \"30-39\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a subsection is a supplementary lab, recitation, discussion, or similar course subdivision scheduled separately from the lecture. It is undergraduate when degree-seeking undergraduates are enrolled for credit. Exclude noncredit subsections and individual instruction such as dissertation or thesis research, music instruction, and one-to-one readings. Count cross-listed subsections once and never merge them with the Class Sections row. Yale's version explicitly includes classes moved online because of COVID-19. This is an offering count, not a student count or percentage. A blank band is not_reported, never zero, even when the printed subsection total is zero; preserve Yale's blank bands and explicit zero total independently.",
+  "description": "Number of undergraduate class subsections (labs, discussion sections, and similar) with 30 to 39 students, per I-3."
+ },
+ {
+  "key": "class_size.class_subsections_40_49",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sub-sections\" row, \"40-49\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a subsection is a supplementary lab, recitation, discussion, or similar course subdivision scheduled separately from the lecture. It is undergraduate when degree-seeking undergraduates are enrolled for credit. Exclude noncredit subsections and individual instruction such as dissertation or thesis research, music instruction, and one-to-one readings. Count cross-listed subsections once and never merge them with the Class Sections row. Yale's version explicitly includes classes moved online because of COVID-19. This is an offering count, not a student count or percentage. A blank band is not_reported, never zero, even when the printed subsection total is zero; preserve Yale's blank bands and explicit zero total independently.",
+  "description": "Number of undergraduate class subsections (labs, discussion sections, and similar) with 40 to 49 students, per I-3."
+ },
+ {
+  "key": "class_size.class_subsections_50_99",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sub-sections\" row, \"50-99\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a subsection is a supplementary lab, recitation, discussion, or similar course subdivision scheduled separately from the lecture. It is undergraduate when degree-seeking undergraduates are enrolled for credit. Exclude noncredit subsections and individual instruction such as dissertation or thesis research, music instruction, and one-to-one readings. Count cross-listed subsections once and never merge them with the Class Sections row. Yale's version explicitly includes classes moved online because of COVID-19. This is an offering count, not a student count or percentage. A blank band is not_reported, never zero, even when the printed subsection total is zero; preserve Yale's blank bands and explicit zero total independently. Do not combine this printed band with 100+ into a derived \"50 or more\" value.",
+  "description": "Number of undergraduate class subsections (labs, discussion sections, and similar) with 50 to 99 students, per I-3."
+ },
+ {
+  "key": "class_size.class_subsections_100_plus",
+  "label": null,
+  "unit": "sections",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "I-3"
+  ],
+  "instructions": "Extract the I-3 \"Class Sub-sections\" row, \"100+\" column and bind it to the I-3 reporting term printed on the form; do not use the I-2 term or CDS edition. Apply the printed definition: a subsection is a supplementary lab, recitation, discussion, or similar course subdivision scheduled separately from the lecture. It is undergraduate when degree-seeking undergraduates are enrolled for credit. Exclude noncredit subsections and individual instruction such as dissertation or thesis research, music instruction, and one-to-one readings. Count cross-listed subsections once and never merge them with the Class Sections row. Yale's version explicitly includes classes moved online because of COVID-19. This is an open-ended count of offerings with 100 or more students, not a student count or percentage. A blank band is not_reported, never zero, even when the printed subsection total is zero; preserve Yale's blank bands and explicit zero total independently.",
+  "description": "Number of undergraduate class subsections (labs, discussion sections, and similar) with 100 or more students, per I-3."
+ }
+]

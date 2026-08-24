@@ -1,0 +1,405 @@
+{
+  "financial_aid.aid_reporting_academic_year": {
+    "status": "present",
+    "value": "2024-2025",
+    "page": 19,
+    "evidence": "Page 2 of Section H (physical page 19), table 'Indicate the academic year for which data are reported for items H1, H2, H2A, and H6 below': two column headers '2024-2025' and '2023-2024 Final'; X mark sits in the '2024-2025' column."
+  },
+  "financial_aid.aid_reporting_status": {
+    "status": "present",
+    "value": "estimated",
+    "page": 19,
+    "evidence": "Same academic-year table as above (physical page 19). Only two columns exist: '2024-2025' and '2023-2024 Final'. The X is under '2024-2025', which carries no 'Final' qualifier (unlike the other column explicitly labeled 'Final'), so by the enum's own logic this is the estimated/current-year column."
+  },
+  "financial_aid.need_analysis_methodology": {
+    "status": "present",
+    "value": "both",
+    "page": 19,
+    "evidence": "Physical page 19, 'Which needs-analysis methodology does your institution use in awarding institutional aid? (Formerly H3)' checkbox list: 'Federal methodology (FM)' unmarked, 'Institutional methodology (IM)' unmarked, 'Both FM and IM' marked with X."
+  },
+  "financial_aid.h2_a_degree_seeking_undergraduates_first_time_first_year": {
+    "status": "present",
+    "value": 1182,
+    "page": 19,
+    "evidence": "H2 table row A 'Number of degree-seeking undergraduate students (CDS Item B1 if reporting on Fall 2024 cohort)', First-time Full-time First-year Students column = 1,182 (physical page 19, bottom row)."
+  },
+  "financial_aid.h2_b_applied_for_need_based_aid_first_time_first_year": {
+    "status": "present",
+    "value": 777,
+    "page": 20,
+    "evidence": "H2 table row B 'Number of students in line a who applied for need-based financial aid', First-time Full-time First-year Students column = 777 (physical page 20, table continuation)."
+  },
+  "financial_aid.h2_c_determined_have_need_first_time_first_year": {
+    "status": "present",
+    "value": 654,
+    "page": 20,
+    "evidence": "H2 table row C 'Number of students in line b who were determined to have financial need', First-time Full-time First-year Students column = 654 (physical page 20)."
+  },
+  "financial_aid.h2_d_awarded_any_aid_first_time_first_year": {
+    "status": "present",
+    "value": 654,
+    "page": 20,
+    "evidence": "H2 table row D 'Number of students in line c who were awarded any financial aid', First-time Full-time First-year Students column = 654 (physical page 20)."
+  },
+  "financial_aid.h2_e_awarded_need_based_grant_aid_first_time_first_year": {
+    "status": "present",
+    "value": 650,
+    "page": 20,
+    "evidence": "H2 table row E 'Number of students in line d who were awarded any need-based scholarship or grant aid', First-time Full-time First-year Students column = 650 (physical page 20)."
+  },
+  "financial_aid.h2_f_awarded_need_based_self_help_aid_first_time_first_year": {
+    "status": "present",
+    "value": 518,
+    "page": 20,
+    "evidence": "H2 table row F 'Number of students in line d who were awarded any need-based self-help aid', First-time Full-time First-year Students column = 518 (physical page 20)."
+  },
+  "financial_aid.h2_g_awarded_non_need_based_grant_aid_first_time_first_year": {
+    "status": "present",
+    "value": 0,
+    "page": 20,
+    "evidence": "H2 table row G 'Number of students in line d who were awarded any non-need-based scholarship or grant aid', First-time Full-time First-year Students column = 0 (physical page 20)."
+  },
+  "financial_aid.h2_h_need_fully_met_count_first_time_first_year": {
+    "status": "present",
+    "value": 654,
+    "page": 20,
+    "evidence": "H2 table row H 'Number of students in line d whose need was fully met', First-time Full-time First-year Students column = 654 (physical page 20)."
+  },
+  "financial_aid.h2_i_average_percent_need_met_first_time_first_year": {
+    "status": "present",
+    "value": 100.0,
+    "page": 20,
+    "evidence": "H2 table row I 'On average, the percentage of need that was met...', First-time Full-time First-year Students column = printed '100.0%' (physical page 20)."
+  },
+  "financial_aid.h2_i_average_percent_need_met_all_full_time": {
+    "status": "present",
+    "value": 100.0,
+    "page": 20,
+    "evidence": "H2 table row I, Full-time Undergrad (Incl. First-Year) column = printed '100.0%' (physical page 20)."
+  },
+  "financial_aid.h2_j_average_aid_package_first_time_first_year": {
+    "status": "present",
+    "value": 71318,
+    "page": 20,
+    "evidence": "H2 table row J 'The average financial aid package of those in line d...', First-time Full-time First-year Students column = printed '$71,318' (physical page 20)."
+  },
+  "financial_aid.h2_j_average_aid_package_all_full_time": {
+    "status": "present",
+    "value": 71313,
+    "page": 20,
+    "evidence": "H2 table row J, Full-time Undergrad (Incl. First-Year) column = printed '$71,313' (physical page 20)."
+  },
+  "financial_aid.h2_k_average_need_based_grant_award_first_time_first_year": {
+    "status": "present",
+    "value": 69466,
+    "page": 20,
+    "evidence": "H2 table row K 'Average need-based scholarship and grant award of those in line e', First-time Full-time First-year Students column = printed '$69,466' (physical page 20)."
+  },
+  "financial_aid.h2_l_average_need_based_self_help_award_first_time_first_year": {
+    "status": "present",
+    "value": 2875,
+    "page": 20,
+    "evidence": "H2 table row L 'Average need-based self-help award... of those in line f', First-time Full-time First-year Students column = printed '$2,875' (physical page 20)."
+  },
+  "financial_aid.h2_m_average_need_based_loan_award_first_time_first_year": {
+    "status": "present",
+    "value": 3434,
+    "page": 20,
+    "evidence": "H2 table row M 'Average need-based loan... of those in line f who were awarded a need-based loan', First-time Full-time First-year Students column = printed '$3,434' (physical page 20)."
+  },
+  "financial_aid.h2a_n_no_need_institutional_grant_recipients_first_time_first_year": {
+    "status": "present",
+    "value": 0,
+    "page": 20,
+    "evidence": "H2A table row N 'Number of students in line a who had no financial need and who were awarded institutional non-need-based scholarship or grant aid...', First-time Full-time First-year Students column = 0 (physical page 20)."
+  },
+  "financial_aid.h2a_o_average_no_need_institutional_grant_amount_first_time_first_year": {
+    "status": "present",
+    "value": 0,
+    "page": 20,
+    "evidence": "H2A table row O 'Average dollar amount of institutional non-need-based scholarship and grant aid awarded to students in line n', First-time Full-time First-year Students column = printed '$0' (physical page 20). Literally printed 0, not a NaN/NA marker."
+  },
+  "financial_aid.h2a_p_institutional_athletic_grant_recipients_first_time_first_year": {
+    "status": "present",
+    "value": 0,
+    "page": 20,
+    "evidence": "H2A table row P 'Number of students in line a who were awarded an institutional non-need-based athletic scholarship or grant', First-time Full-time First-year Students column = 0 (physical page 20)."
+  },
+  "financial_aid.h2a_q_average_institutional_athletic_grant_amount_first_time_first_year": {
+    "status": "present",
+    "value": 0,
+    "page": 20,
+    "evidence": "H2A table row Q 'Average dollar amount of institutional non-need-based athletic scholarships and grants awarded to students in line p', First-time Full-time First-year Students column = printed '$0' (physical page 20). Literally printed 0, not a NaN/NA marker."
+  },
+  "financial_aid.graduating_class_first_time_bachelors_count": {
+    "status": "present",
+    "value": 1126,
+    "page": 21,
+    "evidence": "H4 answer box, physical page 21: 'Provide the number of students in the 2024 undergraduate class who started at your institution as first-time students and received a bachelor's degree between July 1, 2023 and June 30, 2024...' = 1126."
+  },
+  "financial_aid.h5_borrowers_any_program_percent_of_class": {
+    "status": "present",
+    "value": 33,
+    "page": 21,
+    "evidence": "H5 table row A 'Any loan program...', 'Percent of the class...(nearest 1%)' column = printed '33.00%' (physical page 21)."
+  },
+  "financial_aid.h5_borrowers_any_program_average_principal": {
+    "status": "present",
+    "value": 24021,
+    "page": 21,
+    "evidence": "H5 table row A 'Any loan program...', 'Average per-undergraduate-borrower cumulative principal...' column = printed '$24,021' (physical page 21)."
+  },
+  "financial_aid.h5_borrowers_private_percent_of_class": {
+    "status": "present",
+    "value": 5,
+    "page": 22,
+    "evidence": "H5 table row E 'Private student loans made by a bank or lender.', 'Percent of the class...(nearest 1%)' column = printed '5.00%' (physical page 22, continuation of H5 table from page 21)."
+  },
+  "financial_aid.h5_borrowers_private_average_principal": {
+    "status": "present",
+    "value": 65778,
+    "page": 22,
+    "evidence": "H5 table row E 'Private student loans made by a bank or lender.', 'Average per-undergraduate-borrower cumulative principal...' column = printed '$65,778' (physical page 22)."
+  },
+  "financial_aid.h6_need_based_grants_available": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H6 checkbox list, physical page 22: 'Institutional need-based scholarship or grant aid is available' box marked with X."
+  },
+  "financial_aid.h6_non_need_based_grants_available": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H6 checkbox list, physical page 22: 'Institutional non-need-based scholarship or grant aid is available' box unmarked (empty)."
+  },
+  "financial_aid.h6_grants_unavailable": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H6 checkbox list, physical page 22: 'Institutional scholarship or grant aid is not available' box unmarked (empty)."
+  },
+  "financial_aid.h6_recipient_count": {
+    "status": "present",
+    "value": 501,
+    "page": 22,
+    "evidence": "H6, physical page 22: 'provide the number of undergraduate degree-seeking nonresidents who were awarded need-based or non-need-based aid:' = 501."
+  },
+  "financial_aid.h6_average_institutional_aid": {
+    "status": "present",
+    "value": 84167,
+    "page": 22,
+    "evidence": "H6, physical page 22: 'Average dollar amount of institutional financial aid awarded to undergraduate degree-seeking nonresidents:' = printed '$84,167'."
+  },
+  "financial_aid.h6_total_institutional_aid": {
+    "status": "present",
+    "value": 42167602,
+    "page": 22,
+    "evidence": "H6, physical page 22: 'Total dollar amount of institutional financial aid awarded to undergraduate degree-seeking nonresidents:' = printed '$42,167,602'."
+  },
+  "financial_aid.h7_institution_form_required": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H7 checkbox list, physical page 22: 'Institution's own financial aid form' box unmarked (empty)."
+  },
+  "financial_aid.h7_css_profile_required": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H7 checkbox list, physical page 22: 'CSS/Financial Aid PROFILE' box marked with X. ('Other (specify): Parent's tax return from country of residence or statement of employee' is also marked with X but is a separate, non-spec 'Other' option.)"
+  },
+  "financial_aid.h8_institution_form_required": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H8 checkbox list, physical page 22: 'Institution's own financial aid form' box unmarked (empty)."
+  },
+  "financial_aid.h8_css_profile_required": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H8 checkbox list, physical page 22: 'CSS PROFILE' box marked with X."
+  },
+  "financial_aid.h8_state_aid_form_required": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H8 checkbox list, physical page 22: 'State aid form' box unmarked (empty)."
+  },
+  "financial_aid.h8_noncustodial_profile_required": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H8 checkbox list, physical page 22: 'Noncustodial PROFILE' box unmarked (empty)."
+  },
+  "financial_aid.h8_business_farm_supplement_required": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H8 checkbox list, physical page 22: 'Business/Farm Supplement' box marked with X."
+  },
+  "financial_aid.aid_has_deadline": {
+    "status": "absent",
+    "value": null,
+    "page": 22,
+    "evidence": "H9, physical page 22, prints only 'Priority date for filing required financial aid forms:', 'Deadline for filing required financial aid forms:', and a 'No deadline...rolling basis' checkbox -- there is no separate explicit 'Does your institution have a deadline...Yes/No' control in this template edition (per instructions, this metric is version-specific and absent when the direct control is not printed)."
+  },
+  "financial_aid.aid_priority_date_selected": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H9, physical page 22: the answer line after 'Priority date for filing required financial aid forms:' is unambiguously blank (no text entered)."
+  },
+  "financial_aid.aid_priority_date": {
+    "status": "blank",
+    "value": null,
+    "page": 22,
+    "evidence": "H9, physical page 22: 'Priority date for filing required financial aid forms:' answer line is empty; the question exists but no date was entered."
+  },
+  "financial_aid.aid_deadline_selected": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H9, physical page 22: the answer line after 'Deadline for filing required financial aid forms:' is filled with '1-Feb'."
+  },
+  "financial_aid.aid_deadline_date_or_text": {
+    "status": "present",
+    "value": "1-Feb",
+    "page": 22,
+    "evidence": "H9, physical page 22: 'Deadline for filing required financial aid forms:' = '1-Feb'."
+  },
+  "financial_aid.aid_no_deadline_rolling_selected": {
+    "status": "present",
+    "value": false,
+    "page": 22,
+    "evidence": "H9, physical page 22: 'No deadline for filing required forms (applications processed on a rolling basis)' checkbox is unmarked (empty), consistent with a fixed 1-Feb deadline being given instead."
+  },
+  "financial_aid.aid_notification_fixed_selected": {
+    "status": "present",
+    "value": true,
+    "page": 22,
+    "evidence": "H10, physical page 22: 'a) Students notified on or about (date): 2-Apr' -- the date line is filled, indicating this option was used."
+  },
+  "financial_aid.aid_notification_fixed_date": {
+    "status": "present",
+    "value": "2-Apr",
+    "page": 22,
+    "evidence": "H10, physical page 22: 'a) Students notified on or about (date):' = '2-Apr'."
+  },
+  "financial_aid.aid_notification_rolling_selected": {
+    "status": "present",
+    "value": false,
+    "page": 23,
+    "evidence": "H10 b) rolling-notification Yes/No control continues onto physical page 23 top ('Yes' / 'No' boxes directly under the H10 heading area, followed by 'If yes, starting date:'); both Yes and No boxes are unmarked (empty). Per the metric's own instructions ('false only when the complete visible checklist shows it unambiguously unmarked'), an unmarked Yes/No pair here resolves to false, consistent with option a) (fixed date 2-Apr) being the one actually used.",
+    "ambiguous": true
+  },
+  "financial_aid.aid_notification_rolling_start_date": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H10 b), physical page 23: 'If yes, starting date:' answer line is empty; consistent with the rolling option not being selected."
+  },
+  "financial_aid.h11_reply_deadline_date": {
+    "status": "present",
+    "value": "5/1",
+    "page": 23,
+    "evidence": "H11 table, physical page 23: 'Students must reply by (date):' row = '5/1'."
+  },
+  "financial_aid.h11_reply_weeks_after_notification": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H11 table, physical page 23: 'or within ___ weeks of notification.' row has an empty blank -- no number filled in; the alternative reply-timing field ('Students must reply by (date): 5/1') was used instead."
+  },
+  "financial_aid.h12_state_loan_available": {
+    "status": "present",
+    "value": true,
+    "page": 23,
+    "evidence": "H12 Loans checkbox list, physical page 23: 'State Loans' box marked with X."
+  },
+  "financial_aid.h12_institution_loan_available": {
+    "status": "present",
+    "value": true,
+    "page": 23,
+    "evidence": "H12 Loans checkbox list, physical page 23: 'College/university loans from institutional funds' box marked with X."
+  },
+  "financial_aid.h14_academics_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Academics', 'Non-Need Based' column cell is empty (no mark). Per the metric's own instructions, a blank H14 cell is not_reported, not false."
+  },
+  "financial_aid.h14_alumni_affiliation_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Alumni affiliation', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.h14_art_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Art', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.h14_athletics_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Athletics', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.h14_athletics_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Athletics', 'Need-Based' column cell is empty (no mark; not the shaded/removed cell -- that is the ROTC row's Need-Based cell)."
+  },
+  "financial_aid.h14_job_skills_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Job skills', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.h14_rotc_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'ROTC', 'Non-Need Based' column cell is empty (no mark). Note: the 'Need-Based' cell in this same row is greyed/shaded out (structurally not-applicable per CDS template, ROTC has no need-based option), but the Non-Need-Based cell requested here is a normal unshaded, unmarked cell."
+  },
+  "financial_aid.h14_leadership_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Leadership', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.h14_minority_status_non_need_based": {
+    "status": "absent",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23: no 'Minority Status' row is printed in this template edition's table (rows present: Academics, Alumni affiliation, Art, Athletics, Job skills, ROTC, Leadership, Music/drama, Religious affiliation, State/district residency). Per the metric's own instructions, a template edition whose H14 table omits this row treats it as not_in_template_version."
+  },
+  "financial_aid.h14_music_drama_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Music/drama', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.h14_religious_affiliation_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'Religious affiliation', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.h14_state_district_residency_non_need_based": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H14 table, physical page 23, row 'State/district residency', 'Non-Need Based' column cell is empty (no mark)."
+  },
+  "financial_aid.recent_affordability_initiative_details": {
+    "status": "present",
+    "value": "Dartmouth has eliminated student loans from the financial aid requirements for all students qualifying for need-based aid and eliminated any parental contribution for families with annual incomes of $65,000 or less. Additionally, financial aid support has been extended to undergraduates studying off-campus, including study abroad.",
+    "page": 23,
+    "evidence": "H15 answer box, physical page 23, verbatim narrative under 'If your institution has recently implemented any major financial aid policy, program, or initiative...'."
+  }
+}

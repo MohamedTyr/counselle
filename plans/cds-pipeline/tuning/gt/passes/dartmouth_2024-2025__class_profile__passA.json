@@ -1,0 +1,218 @@
+{
+ "class_profile.sat_submitters_percent": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "No C9 item exists anywhere in this document. Page 9 runs C8, C8A, C8B ('Has been removed from the CDS'), C8C ('Has been removed from the CDS'), C8D, C8E, C8F, C8G, then jumps directly to C10. No SAT/ACT percentile or submitter table appears on any page. Verified by reading the rendered image of page 9."
+ },
+ "class_profile.sat_submitters_count": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "Same as sat_submitters_percent: C9 does not exist in this document's template edition; no SAT submitter-count cell exists anywhere."
+ },
+ "class_profile.act_submitters_percent": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "Same as sat_submitters_percent: C9 does not exist in this document's template edition; no ACT submitter-percent cell exists anywhere."
+ },
+ "class_profile.act_submitters_count": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "Same as sat_submitters_percent: C9 does not exist in this document's template edition; no ACT submitter-count cell exists anywhere."
+ },
+ "class_profile.sat_composite_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 (SAT/ACT percentile table) is absent from the document; no percentile table of any kind appears. Confirmed on page 9 image: section jumps C8G -> C10 with no intervening percentile table."
+ },
+ "class_profile.sat_composite_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.sat_composite_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.sat_ebrw_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.sat_ebrw_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.sat_ebrw_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.sat_math_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.sat_math_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.sat_math_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_composite_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_composite_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_composite_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_math_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_math_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_math_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_english_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_english_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_english_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_science_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_science_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_science_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_reading_p25": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_reading_p50": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.act_reading_p75": {
+  "status": "absent",
+  "value": null,
+  "page": null,
+  "evidence": "C9 is absent from the document (see sat_composite_p25)."
+ },
+ "class_profile.class_rank_submitted_percent": {
+  "status": "present",
+  "value": "44%",
+  "page": 9,
+  "evidence": "C10 table, last row: 'Percent of total first-time, first-year students who submitted high school class rank:' = 44%."
+ },
+ "class_profile.class_rank_top_tenth_percent": {
+  "status": "present",
+  "value": "93%",
+  "page": 9,
+  "evidence": "C10 table, row 'Percent in top tenth of high school graduating class', Percent column = 93%."
+ },
+ "class_profile.class_rank_top_quarter_percent": {
+  "status": "present",
+  "value": "99%",
+  "page": 9,
+  "evidence": "C10 table, row 'Percent in top quarter of high school graduating class', Percent column = 99%."
+ },
+ "class_profile.class_rank_top_half_percent": {
+  "status": "present",
+  "value": "100%",
+  "page": 9,
+  "evidence": "C10 table, row 'Percent in top half of high school graduating class', Percent column = 100% (with a handwritten-style annotation to the right reading 'Top half + bottom half = 100%')."
+ },
+ "class_profile.class_rank_bottom_half_percent": {
+  "status": "present",
+  "value": "0%",
+  "page": 9,
+  "evidence": "C10 table, row 'Percent in bottom half of high school graduating class', Percent column = 0%."
+ },
+ "class_profile.class_rank_bottom_quarter_percent": {
+  "status": "present",
+  "value": "0%",
+  "page": 9,
+  "evidence": "C10 table, row 'Percent in bottom quarter of high school graduating class', Percent column = 0%."
+ },
+ "class_profile.average_high_school_gpa": {
+  "status": "present",
+  "value": 0.0,
+  "page": 10,
+  "evidence": "C12 first box, labeled 'Average high school GPA of all degree-seeking, first-time, first-year students who submitted GPA:' = 0.00 (printed literally in the answer box; not a blank cell). The paired C11 GPA-range distribution table directly above has every individual score-range cell blank, with only the auto-summed 'Totals should = 100%' row printing 0.00%/0.00%/0.00% across all three columns -- consistent with GPA not actually being collected/reported this cycle, but the value as rendered in the C12 box is literally '0.00', not empty."
+ },
+ "class_profile.high_school_gpa_submitted_percent": {
+  "status": "present",
+  "value": "0.00%",
+  "page": 10,
+  "evidence": "C12 second box, labeled 'Percent of total first-time, first-year students who submitted high school GPA:' = 0.00% (printed literally in the answer box)."
+ }
+}

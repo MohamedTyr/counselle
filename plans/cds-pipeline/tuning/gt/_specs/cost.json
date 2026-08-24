@@ -1,0 +1,518 @@
+[
+ {
+  "key": "cost.net_price_calculator_url",
+  "label": null,
+  "unit": "url",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "G0"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G0 net-price-calculator URL exactly as printed. Do not derive, estimate, or look up a net-price amount from this URL; only the URL itself is an extraction target.",
+  "description": "Institution net-price calculator URL, from G0."
+ },
+ {
+  "key": "cost.cost_academic_year",
+  "label": null,
+  "unit": "academic_year",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "G0"
+  ],
+  "instructions": "Copy the G0 cost-year label exactly as printed (the year printed in the G1 tuition/fee/room/board column headings). This cost year is a distinct concept from the CDS edition and must not be copied from `identity.academic_year`. Every other `cost.*` metric in this domain is bound to this same G0 cost-year context.",
+  "description": "Academic year covered by the Section G cost figures, from the G0 heading."
+ },
+ {
+  "key": "cost.final_costs_not_available",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "G0"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Return true only when the G0 \"final costs were not available\" control is visibly selected, and false only when the complete visible G0 checklist shows that control unambiguously unmarked. Unmarked text without an unambiguous selected/unselected state stays unresolved rather than becoming false.",
+  "description": "Whether the institution indicates in G0 that final costs for the stated cost year were not available at the time of publication."
+ },
+ {
+  "key": "cost.final_costs_expected_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "G0"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G0 expected-availability date exactly as printed, preserving partial dates without a year as a string. Extract a safely associated, visibly reported date independently even when `final_costs_not_available` is unresolved; do not infer a date from a blank cell when that control is false or unresolved.",
+  "description": "Date the institution expects final costs to be available, from G0."
+ },
+ {
+  "key": "cost.tuition_private_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 private-institution tuition cell in the \"First-Year\" column exactly as printed. This row applies only to private institutions; a public-institution NA/blank marker printed in this row is a template-structure marker, not this institution's private tuition, and must never be copied into any `tuition_public_*` or `tuition_nonresident_*` row or vice versa.",
+  "description": "Private-institution tuition for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_private_undergraduates",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 private-institution tuition cell in the \"Undergraduates\" column exactly as printed. \"Undergraduates\" is the source column header, not automatically continuing students only. This row applies only to private institutions; keep it separate from every `tuition_public_*` and `tuition_nonresident_*` row.",
+  "description": "Private-institution tuition for full-time undergraduates, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_public_in_district_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 public in-district tuition cell in the \"First-Year\" column exactly as printed. This row applies only to public institutions; do not populate it from a private-institution tuition cell, and keep it distinct from the in-state/out-of-district, out-of-state, and nonresident public rows below.",
+  "description": "Public-institution in-district tuition for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_public_in_district_undergraduates",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 public in-district tuition cell in the \"Undergraduates\" column exactly as printed. Keep distinct from the in-state/out-of-district, out-of-state, and nonresident public rows below, and do not populate it from a private-institution tuition cell.",
+  "description": "Public-institution in-district tuition for full-time undergraduates, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_public_in_state_out_of_district_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 public in-state/out-of-district tuition cell in the \"First-Year\" column exactly as printed. This is the source's own combined in-state/out-of-district category; do not merge it with the separate in-district or out-of-state rows.",
+  "description": "Public-institution in-state/out-of-district tuition for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_public_in_state_out_of_district_undergraduates",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 public in-state/out-of-district tuition cell in the \"Undergraduates\" column exactly as printed. Do not merge it with the separate in-district or out-of-state rows.",
+  "description": "Public-institution in-state/out-of-district tuition for full-time undergraduates, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_public_out_of_state_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 public out-of-state tuition cell in the \"First-Year\" column exactly as printed. Keep distinct from the nonresident row below even when a form prints identical values in both; out-of-state and nonresident are different CDS categories.",
+  "description": "Public-institution out-of-state tuition for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_public_out_of_state_undergraduates",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 public out-of-state tuition cell in the \"Undergraduates\" column exactly as printed. Keep distinct from the nonresident row below even when a form prints identical values in both.",
+  "description": "Public-institution out-of-state tuition for full-time undergraduates, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_nonresident_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 nonresident tuition cell in the \"First-Year\" column exactly as printed. Nonresident is the CDS G1 nonresident category and is not automatically the same figure as the out-of-state row above; keep the two rows independent even when identical values are printed in both.",
+  "description": "Public-institution nonresident tuition for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.tuition_nonresident_undergraduates",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 nonresident tuition cell in the \"Undergraduates\" column exactly as printed. Keep distinct from the out-of-state row above even when identical values are printed in both.",
+  "description": "Public-institution nonresident tuition for full-time undergraduates, full academic year, from G1."
+ },
+ {
+  "key": "cost.required_fees_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 required-fees cell in the \"First-Year\" column exactly as printed. Required fees exclude tuition and on-campus food/housing charges; do not sum or net this value against those rows.",
+  "description": "Required fees for full-time first-year undergraduate students, full academic year, excluding tuition and on-campus food/housing, from G1."
+ },
+ {
+  "key": "cost.required_fees_undergraduates",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 required-fees cell in the \"Undergraduates\" column exactly as printed. Required fees exclude tuition and on-campus food/housing charges; do not sum or net this value against those rows.",
+  "description": "Required fees for full-time undergraduates, full academic year, excluding tuition and on-campus food/housing, from G1."
+ },
+ {
+  "key": "cost.food_and_housing_on_campus_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus food-and-housing combined cell in the \"First-Year\" column exactly as printed. This is the combined charge, not a sum of the separately printed housing-only and food-only rows below; keep all three rows independent and never derive one from the others.",
+  "description": "Combined on-campus food-and-housing charge for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.food_and_housing_on_campus_undergraduates",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus food-and-housing combined cell in the \"Undergraduates\" column exactly as printed. Keep independent from the separately printed housing-only and food-only rows below.",
+  "description": "Combined on-campus food-and-housing charge for full-time undergraduates, full academic year, from G1."
+ },
+ {
+  "key": "cost.housing_only_on_campus_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus housing-only cell in the \"First-Year\" column exactly as printed. Do not derive it by subtracting the food-only row from the combined food-and-housing row.",
+  "description": "On-campus housing-only charge for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.food_only_on_campus_first_year",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 on-campus food-only cell in the \"First-Year\" column exactly as printed. Do not derive it by subtracting the housing-only row from the combined food-and-housing row.",
+  "description": "On-campus food-only charge for full-time first-year undergraduate students, full academic year, from G1."
+ },
+ {
+  "key": "cost.comprehensive_tuition_food_housing_amount",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G1 comprehensive-fee amount exactly as printed. This is one single response area, not a first-year-by-undergraduate matrix; extract it only when the form presents this alternative combined response distinct from the itemized tuition/fee/food/housing rows above, and do not populate it by summing those itemized rows.",
+  "description": "Single comprehensive tuition-plus-food-plus-housing charge for a full-time undergraduate, from G1, reported only when the institution cannot provide separate tuition/fee/food/housing figures."
+ },
+ {
+  "key": "cost.other_annual_charge_response",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "G1"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the complete G1 \"Other\" annual-charge response verbatim as one raw scalar, preserving any amount and accompanying description together exactly as printed. Do not split it into separate amount and description fields, and do not invent a value when the row is visibly blank.",
+  "description": "Other annual charge for a full-time undergraduate reported in G1 as a single response area."
+ },
+ {
+  "key": "cost.tuition_fees_vary_by_year_of_study",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "G3"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Return true/false only from a direct, explicitly selected G3 Yes/No control. Do not infer this value by comparing G1 charges across cohorts or any other cost row.",
+  "description": "Whether tuition and required fees vary by year of study, from G3."
+ },
+ {
+  "key": "cost.tuition_fees_vary_by_instructional_program",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "G4"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Return true/false only from a direct, explicitly selected G4 Yes/No control, using the source's own \"instructional program\" wording. Do not infer this from the `academics` domain program lists or from any other section.",
+  "description": "Whether tuition and required fees vary by undergraduate instructional program, from G4."
+ },
+ {
+  "key": "cost.higher_program_price_payer_percent",
+  "label": null,
+  "unit": "percent",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "G4"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G4 follow-up percent exactly as printed, including any qualifier such as \"<1%\"; never round or convert it to \"0%\" or \"1%\". This percent is specifically among full-time undergraduates, not all undergraduates. Do not infer a zero value from a blank cell following a \"No\" or blank `tuition_fees_vary_by_instructional_program` response; leave it not reported instead.",
+  "description": "Percent of full-time undergraduates who pay the higher program-specific tuition/fee price, from G4, conditional on `tuition_fees_vary_by_instructional_program`."
+ },
+ {
+  "key": "cost.books_supplies_on_campus",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 books-and-supplies cell in the \"Residents\" column exactly as printed. This is an estimated annual expense figure, not a billed G1 charge.",
+  "description": "Estimated annual books-and-supplies expense for typical full-time undergraduate students living on campus, from G5."
+ },
+ {
+  "key": "cost.books_supplies_commuter_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 books-and-supplies cell in the \"living at home\" commuter column exactly as printed. This is an estimated annual expense figure, not a billed G1 charge; keep it distinct from the not-at-home commuter column below.",
+  "description": "Estimated annual books-and-supplies expense for typical full-time undergraduate commuter students living at home, from G5."
+ },
+ {
+  "key": "cost.books_supplies_commuter_not_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 books-and-supplies cell in the \"not living at home\" commuter column exactly as printed. This is an estimated annual expense figure, not a billed G1 charge; keep it distinct from the at-home commuter column above.",
+  "description": "Estimated annual books-and-supplies expense for typical full-time undergraduate commuter students not living at home, from G5."
+ },
+ {
+  "key": "cost.transportation_on_campus",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 transportation cell in the \"Residents\" column exactly as printed. This is an estimated annual expense figure, not a billed G1 charge.",
+  "description": "Estimated annual transportation expense for typical full-time undergraduate students living on campus, from G5."
+ },
+ {
+  "key": "cost.transportation_commuter_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 transportation cell in the \"living at home\" commuter column exactly as printed. Keep it distinct from the not-at-home commuter column below.",
+  "description": "Estimated annual transportation expense for typical full-time undergraduate commuter students living at home, from G5."
+ },
+ {
+  "key": "cost.transportation_commuter_not_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 transportation cell in the \"not living at home\" commuter column exactly as printed. Keep it distinct from the at-home commuter column above.",
+  "description": "Estimated annual transportation expense for typical full-time undergraduate commuter students not living at home, from G5."
+ },
+ {
+  "key": "cost.other_expenses_on_campus",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 \"other expenses\" cell in the \"Residents\" column exactly as printed. This is an estimated annual expense figure, not a billed G1 charge, and is distinct from `other_annual_charge_response` in G1.",
+  "description": "Estimated annual other-expenses figure for typical full-time undergraduate students living on campus, from G5."
+ },
+ {
+  "key": "cost.other_expenses_commuter_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 \"other expenses\" cell in the \"living at home\" commuter column exactly as printed. Keep it distinct from the not-at-home commuter column below and from `other_annual_charge_response` in G1.",
+  "description": "Estimated annual other-expenses figure for typical full-time undergraduate commuter students living at home, from G5."
+ },
+ {
+  "key": "cost.other_expenses_commuter_not_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 \"other expenses\" cell in the \"not living at home\" commuter column exactly as printed. Keep it distinct from the at-home commuter column above and from `other_annual_charge_response` in G1.",
+  "description": "Estimated annual other-expenses figure for typical full-time undergraduate commuter students not living at home, from G5."
+ },
+ {
+  "key": "cost.food_only_commuter_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 food-only cell in the \"living at home\" commuter column exactly as printed. This response cell exists only for the two commuter columns; G5 has no corresponding food-only cell for students living on campus (their food is billed through the G1 on-campus food/housing rows instead), so do not create or infer an on-campus value here.",
+  "description": "Estimated annual food-only expense for typical full-time undergraduate commuter students living at home, from G5."
+ },
+ {
+  "key": "cost.food_only_commuter_not_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 food-only cell in the \"not living at home\" commuter column exactly as printed. Keep it distinct from the at-home commuter column above and from the combined `food_and_housing_total_commuter_not_at_home` cell in the same column.",
+  "description": "Estimated annual food-only expense for typical full-time undergraduate commuter students not living at home, from G5."
+ },
+ {
+  "key": "cost.housing_only_commuter_not_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 housing-only cell in the \"not living at home\" commuter column exactly as printed. This response cell is defined only for this column; the on-campus and living-at-home commuter columns have no G5 housing-only response area and are structural template N/A there, not a zero or not-reported finding.",
+  "description": "Estimated annual housing-only expense for typical full-time undergraduate commuter students not living at home, from G5."
+ },
+ {
+  "key": "cost.food_and_housing_total_commuter_not_at_home",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G5"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G5 food-and-housing total cell in the \"not living at home\" commuter column exactly as printed. This total is a distinct printed estimate from the separately printed `food_only_commuter_not_at_home` and `housing_only_commuter_not_at_home` cells in the same column; do not sum, subtract, or reconcile them during extraction.",
+  "description": "Estimated annual combined food-and-housing total expense for a typical full-time undergraduate commuter not living at home, from G5."
+ },
+ {
+  "key": "cost.tuition_per_credit_private",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G6"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G6 private per-credit tuition cell exactly as printed. Never divide the G1 annual tuition to manufacture this figure; extract only a directly printed per-credit rate. This row applies only to private institutions; keep it independent from every `tuition_per_credit_public_*` and `tuition_per_credit_nonresident` row.",
+  "description": "Private-institution per-credit-hour tuition rate, from G6."
+ },
+ {
+  "key": "cost.tuition_per_credit_public_in_district",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G6"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G6 public in-district per-credit tuition cell exactly as printed. Never divide annual tuition to manufacture this figure. This row applies only to public institutions; a public-heading N/A marker must not populate the private per-credit row above, and this row must never be populated from a private-institution cell.",
+  "description": "Public-institution in-district per-credit-hour tuition rate, from G6."
+ },
+ {
+  "key": "cost.tuition_per_credit_public_in_state_out_of_district",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G6"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G6 public in-state/out-of-district per-credit tuition cell exactly as printed. Never divide annual tuition to manufacture this figure. Do not merge it with the separate in-district or out-of-state per-credit rows.",
+  "description": "Public-institution in-state/out-of-district per-credit-hour tuition rate, from G6."
+ },
+ {
+  "key": "cost.tuition_per_credit_public_out_of_state",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G6"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G6 public out-of-state per-credit tuition cell exactly as printed. Never divide annual tuition to manufacture this figure. Keep distinct from the nonresident per-credit row below even when a form prints identical values in both.",
+  "description": "Public-institution out-of-state per-credit-hour tuition rate, from G6."
+ },
+ {
+  "key": "cost.tuition_per_credit_nonresident",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "G6"
+  ],
+  "instructions": "Use `cost_academic_year` as the G0 cost-year context. Copy the G6 nonresident per-credit tuition cell exactly as printed. Never divide annual tuition to manufacture this figure. Nonresident is the CDS G6 nonresident category and is not automatically the same figure as the out-of-state row above; keep the two rows independent even when identical values are printed in both.",
+  "description": "Nonresident per-credit-hour tuition rate, from G6."
+ }
+]

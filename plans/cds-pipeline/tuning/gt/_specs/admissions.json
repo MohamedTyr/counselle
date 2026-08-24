@@ -1,0 +1,1307 @@
+[
+ {
+  "key": "admissions.applicants_residency_in_state",
+  "label": null,
+  "unit": "applicants",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who applied\" at the \"IN-STATE\" column, based on physical address at application. This table is separate from the gender table; never merge them. A visible blank cell is not_reported; an absent table is not_in_template_version, never zero.",
+  "description": "In-state applicants among degree-seeking first-time first-year applicants, from the optional C1 residency table."
+ },
+ {
+  "key": "admissions.applicants_residency_out_of_state",
+  "label": null,
+  "unit": "applicants",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who applied\" at the \"OUT-OF-STATE\" column, based on physical address at application. A visible blank cell is not_reported; an absent table is not_in_template_version, never zero.",
+  "description": "Out-of-state applicants among degree-seeking first-time first-year applicants, from the optional C1 residency table."
+ },
+ {
+  "key": "admissions.applicants_residency_international",
+  "label": null,
+  "unit": "applicants",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who applied\" at the exact \"INTERNATIONAL\" column, based on physical address at application. Do not reinterpret this residency column as nonresident status or redistribute it. A visible blank is not_reported; an absent table is not_in_template_version, never zero.",
+  "description": "International applicants among degree-seeking first-time first-year applicants, from the optional C1 residency table."
+ },
+ {
+  "key": "admissions.admitted_residency_in_state",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who were admitted\" at the \"IN-STATE\" column. Do not derive blank geographic cells or totals.",
+  "description": "In-state applicants admitted among degree-seeking first-time first-year applicants, from the optional C1 residency table."
+ },
+ {
+  "key": "admissions.admitted_residency_out_of_state",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who were admitted\" at the \"OUT-OF-STATE\" column. Do not derive blank geographic cells or totals.",
+  "description": "Out-of-state applicants admitted among degree-seeking first-time first-year applicants, from the optional C1 residency table."
+ },
+ {
+  "key": "admissions.admitted_residency_international",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who were admitted\" at the exact \"INTERNATIONAL\" column. Do not reinterpret this residency column as nonresident status, redistribute it, or derive blank cells or totals.",
+  "description": "International applicants admitted among degree-seeking first-time first-year applicants, from the optional C1 residency table."
+ },
+ {
+  "key": "admissions.enrolled_residency_international",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who enrolled\" at the exact \"INTERNATIONAL\" column. Do not reinterpret this residency column as nonresident status, redistribute it, or derive blank cells or totals.",
+  "description": "International students enrolled among degree-seeking first-time first-year students, from the optional C1 residency table."
+ },
+ {
+  "key": "admissions.applicants_total",
+  "label": null,
+  "unit": "applicants",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who applied\" at the \"TOTAL\" column. This is the only overall applicants total in C1; the gender table has no additional overall response, so never sum its rows.",
+  "description": "Total degree-seeking first-time first-year applicants, from the C1 residency table's TOTAL column."
+ },
+ {
+  "key": "admissions.admitted_total",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who were admitted\" at the \"TOTAL\" column. Do not derive it from geographic or gender cells.",
+  "description": "Total degree-seeking first-time first-year applicants admitted, from the C1 residency table's TOTAL column."
+ },
+ {
+  "key": "admissions.enrolled_total",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C1"
+  ],
+  "instructions": "Extract C1 residency row \"Total first-time, first-year (degree-seeking) who enrolled\" at the \"TOTAL\" column. Do not derive it from geographic or gender cells.",
+  "description": "Total degree-seeking first-time first-year students enrolled, from the C1 residency table's TOTAL column."
+ },
+ {
+  "key": "admissions.has_waitlist_policy",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C2"
+  ],
+  "instructions": "Extract the C2 Yes/No control for whether the institution has a waiting list. Return true/false only from an unambiguous selected control; a blank or unresolvable control stays not_reported or unresolved, never false.",
+  "description": "Whether the institution has a waiting list for first-time first-year applicants, per C2."
+ },
+ {
+  "key": "admissions.waitlist_offered_place_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C2"
+  ],
+  "instructions": "Extract C2 row \"Number of qualified applicants offered a place on waiting list\" at the \"TOTAL\" column. \"Offered a place\" means placed on the wait list, not admitted; do not confuse with waitlist_admitted_count.",
+  "description": "Students offered a place on the first-time first-year waiting list, per C2."
+ },
+ {
+  "key": "admissions.waitlist_accepted_place_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C2"
+  ],
+  "instructions": "Extract C2 row \"Number accepting a place on the waiting list\" at the \"TOTAL\" column. This is the printed count of students opting into the waiting list, not a rate or a derived value.",
+  "description": "Students accepting their offered place on the first-time first-year waiting list, per C2."
+ },
+ {
+  "key": "admissions.waitlist_admitted_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C2"
+  ],
+  "instructions": "Extract C2 row \"Number of wait-listed students admitted\" at the \"TOTAL\" column. This is the printed count ultimately admitted from the waiting list, not a rate or a derived value.",
+  "description": "Wait-listed students admitted from the first-time first-year waiting list, per C2."
+ },
+ {
+  "key": "admissions.high_school_completion_requirement",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "diploma_required_ged_accepted",
+   "diploma_required_ged_not_accepted",
+   "diploma_or_equivalent_not_required"
+  ],
+  "source_hints": [
+   "C3"
+  ],
+  "instructions": "Return exactly one of diploma_required_ged_accepted, diploma_required_ged_not_accepted, or diploma_or_equivalent_not_required, matched to the single selected C3 checkbox: \"Diploma required, GED accepted,\" \"Diploma required, GED not accepted,\" or \"Diploma or equivalent not required.\" Never guess the selection from school reputation or outside knowledge.",
+  "description": "High-school completion requirement selected for admission, per C3."
+ },
+ {
+  "key": "admissions.college_prep_program_requirement",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required",
+   "recommended",
+   "neither"
+  ],
+  "source_hints": [
+   "C4"
+  ],
+  "instructions": "Return exactly one of required, recommended, or neither, matched to the single selected C4 checkbox: \"Required,\" \"Recommended,\" or \"Neither required nor recommended.\"",
+  "description": "College-preparatory program requirement for admission, per C4."
+ },
+ {
+  "key": "admissions.total_academic_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Total academic units\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of total academic units required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.total_academic_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Total academic units\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero. Required and recommended units are never collapsed into one value.",
+  "description": "Carnegie units of total academic units recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.english_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"English\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of English required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.english_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"English\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of English recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.mathematics_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Mathematics\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of mathematics required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.mathematics_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Mathematics\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of mathematics recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.science_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Science\" at column \"Units Required\" for all or most applicants. This is the broader science row; lab_science_units_required is a printed subset, never add the two together. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of science required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.science_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Science\" at column \"Units Recommended\" for all or most applicants. This is the broader science row; do not add lab-science units to it. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of science recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.lab_science_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Of these, units that must be lab\" at column \"Units Required\" for all or most applicants. Lab science is a printed subset of the broader science row; never add it to or subtract it from science_units_required. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of laboratory science required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.lab_science_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Of these, units that must be lab\" at column \"Units Recommended\" for all or most applicants. Lab science is a printed subset of the broader science row; never add it to science_units_recommended. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of laboratory science recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.foreign_language_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Foreign language\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of foreign language required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.foreign_language_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Foreign language\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of foreign language recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.social_studies_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Social studies\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of social studies required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.social_studies_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Social studies\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of social studies recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.history_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"History\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero. Do not merge with the broader social-studies row.",
+  "description": "Carnegie units of history required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.history_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"History\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of history recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.academic_electives_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Academic electives\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of academic electives required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.academic_electives_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Academic electives\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of academic electives recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.computer_science_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Computer Science\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of computer science required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.computer_science_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Computer Science\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of computer science recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.visual_performing_arts_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Visual/Performing Arts\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of visual/performing arts required for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.visual_performing_arts_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Visual/Performing Arts\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero.",
+  "description": "Carnegie units of visual/performing arts recommended for admission for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.other_units_required",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Other (specify)\" at column \"Units Required\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero. Pair with other_subject_label for the subject name.",
+  "description": "Carnegie units required for the institution-defined \"Other\" subject named in other_subject_label for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.other_units_recommended",
+  "label": null,
+  "unit": "carnegie_units",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Extract C5 row \"Other (specify)\" at column \"Units Recommended\" for all or most applicants. Preserve fractional units exactly as printed; a blank cell is not_reported, never zero. Pair with other_subject_label for the subject name.",
+  "description": "Carnegie units recommended for the institution-defined \"Other\" subject named in other_subject_label for all or most applicants, per C5."
+ },
+ {
+  "key": "admissions.other_subject_label",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C5"
+  ],
+  "instructions": "Copy the institution-entered subject name beside C5 row \"Other (specify)\" exactly as written. Leave not_reported when the label cell is visibly blank; do not infer a label from other_units_required or other_units_recommended.",
+  "description": "Label of the institution-defined \"Other\" subject row in C5."
+ },
+ {
+  "key": "admissions.open_admission_all_students",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C6"
+  ],
+  "instructions": "Extract the exact C6 checklist option \"Open admission policy as described above for all students.\" Do not narrow \"all students\" to degree-seeking first-time first-year students. Emit true only when visibly checked; emit false only when the complete C6 checklist is visible and this box is unambiguously unmarked. There is no separate overall \"has open admission\" response; each C6 box is its own selection.",
+  "description": "Whether the institution selects the described open admission policy for all students, per C6."
+ },
+ {
+  "key": "admissions.open_admission_selective_out_of_state",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C6"
+  ],
+  "instructions": "Extract the C6 checklist box for open admission that is selective for certain out-of-state students. Emit true only when visibly checked; emit false only when the complete C6 checklist is visible and this box is unambiguously unmarked.",
+  "description": "Whether the institution's open admission policy is selective for certain out-of-state students, per C6."
+ },
+ {
+  "key": "admissions.open_admission_selective_programs",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C6"
+  ],
+  "instructions": "Extract the C6 checklist box for open admission that is selective for particular academic programs. Emit true only when visibly checked; emit false only when the complete C6 checklist is visible and this box is unambiguously unmarked.",
+  "description": "Whether the institution's open admission policy is selective for particular academic programs, per C6."
+ },
+ {
+  "key": "admissions.open_admission_other",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C6"
+  ],
+  "instructions": "Extract the C6 \"Other\" checkbox only. Emit true only when visibly checked; emit false only when the complete C6 checklist is visible and this box is unambiguously unmarked. Never set this true solely because the C6 \"Other\" explanation field contains text.",
+  "description": "Whether an Other open-admission condition applies, per C6."
+ },
+ {
+  "key": "admissions.selection_factor_rigor_of_secondary_school_record",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Rigor of secondary school record\" cell. \"Considered\" must never be reported as \"important,\" and a blank cell is not_reported, never not_considered.",
+  "description": "Importance of rigor of secondary-school record in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_class_rank",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Class Rank\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of class rank in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_academic_gpa",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Academic GPA\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of academic GPA in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_standardized_tests",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Standardized Test Scores\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of standardized test scores in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_application_essay",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Application Essay\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of the application essay in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_recommendations",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Recommendation(s)\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of recommendations in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_interview",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Interview\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of the interview in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_extracurricular_activities",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Extracurricular Activities\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of extracurricular activities in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_talent_ability",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Talent/Ability\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of talent/ability in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_character_personal_qualities",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Character/Personal Qualities\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of character/personal qualities in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_first_generation",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"First Generation\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of first-generation status in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_alumni_relation",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Alumni/ae Relation\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of alumni/ae relation in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_geographic_residence",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Geographical residence\" cell. Do not confuse with the separate state-residency row. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of geographical residence in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_state_residency",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"State Residency\" cell. Do not confuse with the separate geographic-residence row. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of state residency in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_religious_affiliation_commitment",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to C7 \"Religious affiliation/commitment\" (Harvard) or Yale's visibly printed misspelled row \"Religious affiliation/commiment.\" Preserve that misspelling only as source evidence; both labels map to this metric. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of religious affiliation/commitment in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_volunteer_work",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Volunteer Work\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of volunteer work in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_work_experience",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Work Experience\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of work experience in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.selection_factor_level_of_applicant_interest",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "very_important",
+   "important",
+   "considered",
+   "not_considered"
+  ],
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Map the exact visible labels \"Very Important\" to very_important, \"Important\" to important, \"Considered\" to considered, and \"Not Considered\" to not_considered. Return exactly one of very_important, important, considered, or not_considered, matched to the single selected C7 \"Level of Applicant's Interest\" cell. A blank cell is not_reported, never not_considered.",
+  "description": "Importance of level of applicant interest in admission decisions, per C7."
+ },
+ {
+  "key": "admissions.program_specific_factor_differences",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C7"
+  ],
+  "instructions": "Copy the C7 note on program-specific differences in factor importance exactly as printed, when present. Leave not_reported when no such note is visibly printed.",
+  "description": "Verbatim note on how selection-factor importance differs by academic program, per C7."
+ },
+ {
+  "key": "admissions.uses_entrance_exam_scores_in_admission",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C8A"
+  ],
+  "instructions": "Extract the direct overall C8A Yes/No control for using entrance-exam scores in admission decisions. This neutral boolean copies the overall control only and does not identify which named test is used; version-specific test names (SAT, ACT, or SAT Subject Tests in one version; SAT or ACT in another) belong in template instructions, never in this response value.",
+  "description": "Whether the institution uses entrance-exam scores in first-year admission decisions, per C8A."
+ },
+ {
+  "key": "admissions.sat_or_act_admission_policy",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_to_be_considered",
+   "required_for_some",
+   "recommended",
+   "not_required_but_considered_if_submitted",
+   "not_considered_even_if_submitted"
+  ],
+  "source_hints": [
+   "C8A"
+  ],
+  "instructions": "At exact C8A named-test row \"SAT or ACT\", identify the single selected policy column. Map policy-column label \"Required to be considered\" to required_to_be_considered, \"Required for some\" to required_for_some, \"Recommended\" to recommended, \"Not required but considered if submitted\" to not_required_but_considered_if_submitted, and \"Not considered even if submitted\" to not_considered_even_if_submitted. Return the ID for that selected column. Cohort context comes from the entry term and year printed on the form, not from this response.",
+  "description": "Admission-decision policy for SAT or ACT scores, per C8A."
+ },
+ {
+  "key": "admissions.act_only_admission_policy",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_to_be_considered",
+   "required_for_some",
+   "recommended",
+   "not_required_but_considered_if_submitted",
+   "not_considered_even_if_submitted"
+  ],
+  "source_hints": [
+   "C8A"
+  ],
+  "instructions": "At exact C8A named-test row \"ACT Only\", identify the single selected policy column. Map policy-column label \"Required to be considered\" to required_to_be_considered, \"Required for some\" to required_for_some, \"Recommended\" to recommended, \"Not required but considered if submitted\" to not_required_but_considered_if_submitted, and \"Not considered even if submitted\" to not_considered_even_if_submitted. Return the ID for that selected column. Keep separate from rows \"SAT or ACT\" and \"SAT Only.\"",
+  "description": "Admission-decision policy for ACT-only scores, per C8A."
+ },
+ {
+  "key": "admissions.sat_only_admission_policy",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "required_to_be_considered",
+   "required_for_some",
+   "recommended",
+   "not_required_but_considered_if_submitted",
+   "not_considered_even_if_submitted"
+  ],
+  "source_hints": [
+   "C8A"
+  ],
+  "instructions": "At exact C8A named-test row \"SAT Only\", identify the single selected policy column. Map policy-column label \"Required to be considered\" to required_to_be_considered, \"Required for some\" to required_for_some, \"Recommended\" to recommended, \"Not required but considered if submitted\" to not_required_but_considered_if_submitted, and \"Not considered even if submitted\" to not_considered_even_if_submitted. Return the ID for that selected column. Keep separate from rows \"SAT or ACT\" and \"ACT Only.\"",
+  "description": "Admission-decision policy for SAT-only scores, per C8A."
+ },
+ {
+  "key": "admissions.test_policy_clarification",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C8F"
+  ],
+  "instructions": "Copy the C8F narrative exactly as printed, including any stale dated reference (for example a Fall 2023 note) or visibly truncated sentence. Do not update, complete, or correct the text; preserve it exactly as it appears on the source page.",
+  "description": "Verbatim narrative clarifying the institution's testing policy, per C8F."
+ },
+ {
+  "key": "admissions.has_application_fee",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C13"
+  ],
+  "instructions": "Extract the C13 Yes/No control for whether an application fee is charged. Return true/false only from an unambiguous selected control.",
+  "description": "Whether the institution charges an application fee, per C13."
+ },
+ {
+  "key": "admissions.application_fee_amount",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C13"
+  ],
+  "instructions": "Extract the C13 printed application-fee amount, preserving currency precision. The CDS does not report fee refundability; do not infer or attach a refund policy to this amount.",
+  "description": "First-year application fee amount, per C13."
+ },
+ {
+  "key": "admissions.need_based_application_fee_waiver_available",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C13"
+  ],
+  "instructions": "Extract the C13 Yes/No control for need-based fee-waiver availability. This question is specifically need-based; do not conflate it with general fee-reduction policy or with the separate online-fee waiver question below.",
+  "description": "Whether a need-based application-fee waiver is available, per C13."
+ },
+ {
+  "key": "admissions.has_application_closing_date",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C14"
+  ],
+  "instructions": "Extract the C14 Yes/No control for whether an application closing date exists. Return true/false only from an unambiguous selected control.",
+  "description": "Whether the institution has an application closing date, per C14."
+ },
+ {
+  "key": "admissions.application_closing_date_fall",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C14"
+  ],
+  "instructions": "Copy the C14 printed fall application closing date exactly as printed, including a partial date without a year. Keep distinct from the separately reported application_priority_date; do not assign a year that is not printed.",
+  "description": "Fall application closing date, per C14."
+ },
+ {
+  "key": "admissions.application_priority_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C14"
+  ],
+  "instructions": "Copy the C14 printed priority date exactly as printed. Keep distinct from application_closing_date_fall; a priority date is not a hard closing date.",
+  "description": "Application priority date, per C14."
+ },
+ {
+  "key": "admissions.accepts_first_year_terms_other_than_fall",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C15"
+  ],
+  "instructions": "Extract the direct C15 Yes/No response. When the printed response includes an unexplained marker (for example \"No**\" with no defined footnote), preserve the exact raw value and excerpt without resolving or inventing the missing footnote text.",
+  "description": "Whether the institution accepts first-year students for entry terms other than fall, per C15."
+ },
+ {
+  "key": "admissions.decision_notification_mode",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "rolling",
+   "by_date",
+   "other"
+  ],
+  "source_hints": [
+   "C16"
+  ],
+  "instructions": "Map the exact visible labels \"Rolling basis\" to rolling, \"By date\" to by_date, and \"Other\" to other. Return the ID mapped from the single selected C16 notification-mode control. Pair the conditional date or text response below only with its selected mode.",
+  "description": "Admission-decision notification mode, per C16."
+ },
+ {
+  "key": "admissions.decision_rolling_begin_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C16"
+  ],
+  "instructions": "Copy the C16 rolling-notification begin date exactly as printed, only when decision_notification_mode is rolling. Leave not_reported when no such date is printed.",
+  "description": "Date rolling admission-decision notifications begin, per C16."
+ },
+ {
+  "key": "admissions.decision_by_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C16"
+  ],
+  "instructions": "Copy the C16 fixed notification date exactly as printed, only when decision_notification_mode is by_date. Leave not_reported when no such date is printed.",
+  "description": "Fixed date by which admission decisions are notified, per C16."
+ },
+ {
+  "key": "admissions.reply_policy_mode",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "must_reply_by_date",
+   "no_set_date",
+   "may_1_or_within_weeks_if_notified_later",
+   "other"
+  ],
+  "source_hints": [
+   "C17"
+  ],
+  "instructions": "Map the exact visible labels \"Must reply by date\" to must_reply_by_date, \"No set date\" to no_set_date, \"May 1 or within N weeks if notified thereafter\" to may_1_or_within_weeks_if_notified_later, and \"Other\" to other. Return the ID mapped from the single selected C17 reply-policy control.",
+  "description": "Admitted-student reply-by policy mode, per C17."
+ },
+ {
+  "key": "admissions.reply_deadline",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C17"
+  ],
+  "instructions": "Copy the C17 fixed reply date exactly as printed, only when reply_policy_mode is must_reply_by_date. Leave not_reported when blank.",
+  "description": "Fixed date by which admitted students must reply, per C17."
+ },
+ {
+  "key": "admissions.reply_weeks_after_late_notification",
+  "label": null,
+  "unit": "weeks",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C17"
+  ],
+  "instructions": "Extract the printed number of weeks students have to reply when notified after May 1, only when reply_policy_mode is may_1_or_within_weeks_if_notified_later. Leave not_reported when blank.",
+  "description": "Number of weeks after a late notification by which admitted students must reply, per C17."
+ },
+ {
+  "key": "admissions.housing_deposit_deadline",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C17"
+  ],
+  "instructions": "Copy the C17 housing-deposit deadline exactly as printed. This is the housing deposit, not the enrollment/reply deposit; do not merge the two.",
+  "description": "Housing-deposit deadline, per C17."
+ },
+ {
+  "key": "admissions.housing_deposit_amount",
+  "label": null,
+  "unit": "usd",
+  "type": "number",
+  "enums": null,
+  "source_hints": [
+   "C17"
+  ],
+  "instructions": "Extract the C17 printed housing-deposit amount, preserving currency precision. This is the housing deposit only, distinct from any enrollment deposit.",
+  "description": "Housing-deposit amount, per C17."
+ },
+ {
+  "key": "admissions.housing_deposit_refundability",
+  "label": null,
+  "unit": "category",
+  "type": "enum",
+  "enums": [
+   "yes_in_full",
+   "yes_in_part",
+   "no"
+  ],
+  "source_hints": [
+   "C17"
+  ],
+  "instructions": "Map the exact visible labels \"Yes, in full\" to yes_in_full, \"Yes, in part\" to yes_in_part, and \"No\" to no. Return the ID mapped from the single selected C17 housing-deposit refundability control. A blank selection stays not_reported, never no.",
+  "description": "Housing-deposit refundability, per C17."
+ },
+ {
+  "key": "admissions.deferred_enrollment_allowed",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C18"
+  ],
+  "instructions": "Extract the C18 Yes/No control for allowing deferred enrollment. Return true/false only from an unambiguous selected control.",
+  "description": "Whether the institution allows deferred enrollment, per C18."
+ },
+ {
+  "key": "admissions.deferred_enrollment_max_period",
+  "label": null,
+  "unit": "text",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C18"
+  ],
+  "instructions": "Copy the C18 printed maximum deferral period exactly as printed (for example a stated number of years or terms). Do not assume a unit such as semesters when none is printed; preserve the reported text verbatim.",
+  "description": "Maximum period a student may defer enrollment, per C18."
+ },
+ {
+  "key": "admissions.early_decision_offered",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C21"
+  ],
+  "instructions": "Extract the C21 Yes/No control for offering an Early Decision plan. Ignore any unfilled Word placeholder text as an answer.",
+  "description": "Whether the institution offers a binding Early Decision plan, per C21."
+ },
+ {
+  "key": "admissions.early_decision_first_closing_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C21"
+  ],
+  "instructions": "Copy a visible C21 first Early Decision plan closing date exactly as printed when it is safely associated with that plan, whether early_decision_offered is true, false, or unresolved. Do not suppress a visible date based on the offered control. Do not call a second plan \"ED II\" unless that label is printed; a conditional blank after an explicit \"No\" is not_reported, never a fabricated date.",
+  "description": "Closing date of the institution's first binding Early Decision plan, per C21."
+ },
+ {
+  "key": "admissions.early_decision_first_notification_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C21"
+  ],
+  "instructions": "Copy a visible C21 first Early Decision plan notification date exactly as printed when it is safely associated with that plan, whether early_decision_offered is true, false, or unresolved. Do not suppress a visible date based on the offered control; a conditional blank after an explicit \"No\" is not_reported.",
+  "description": "Notification date of the institution's first binding Early Decision plan, per C21."
+ },
+ {
+  "key": "admissions.early_decision_other_closing_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C21"
+  ],
+  "instructions": "Copy the C21 second/other Early Decision plan's closing date exactly as printed, only when a second plan is visibly present. Do not label this plan \"ED II\" unless that exact label is printed.",
+  "description": "Closing date of a second/other binding Early Decision plan, per C21."
+ },
+ {
+  "key": "admissions.early_decision_other_notification_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C21"
+  ],
+  "instructions": "Copy the C21 second/other Early Decision plan's notification date exactly as printed, only when a second plan is visibly present.",
+  "description": "Notification date of a second/other binding Early Decision plan, per C21."
+ },
+ {
+  "key": "admissions.early_decision_application_count",
+  "label": null,
+  "unit": "applicants",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C21"
+  ],
+  "instructions": "Extract the C21 Early Decision applicant count. A conditional blank after a \"No\" early_decision_offered response is not_reported, never zero.",
+  "description": "Number of students who applied under the institution's binding Early Decision plan(s), per C21."
+ },
+ {
+  "key": "admissions.early_decision_admitted_count",
+  "label": null,
+  "unit": "students",
+  "type": "integer",
+  "enums": null,
+  "source_hints": [
+   "C21"
+  ],
+  "instructions": "Extract the C21 Early Decision admitted count. A conditional blank after a \"No\" early_decision_offered response is not_reported, never zero.",
+  "description": "Number of students admitted under the institution's binding Early Decision plan(s), per C21."
+ },
+ {
+  "key": "admissions.early_action_offered",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C22"
+  ],
+  "instructions": "Extract the C22 Yes/No control for offering an Early Action plan. Early Action is nonbinding even when restrictive/single-choice; never relabel it Early Decision.",
+  "description": "Whether the institution offers an Early Action plan, per C22."
+ },
+ {
+  "key": "admissions.early_action_closing_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C22"
+  ],
+  "instructions": "Copy a visible C22 Early Action closing date exactly as printed when it is safely associated with that plan, whether early_action_offered is true, false, or unresolved. Do not suppress a visible date based on the offered control; a conditional blank after an explicit \"No\" is not_reported.",
+  "description": "Early Action application closing date, per C22."
+ },
+ {
+  "key": "admissions.early_action_notification_date",
+  "label": null,
+  "unit": "date",
+  "type": "string",
+  "enums": null,
+  "source_hints": [
+   "C22"
+  ],
+  "instructions": "Copy a visible C22 Early Action notification date exactly as printed when it is safely associated with that plan, whether early_action_offered is true, false, or unresolved. Do not suppress a visible date based on the offered control; a conditional blank after an explicit \"No\" is not_reported.",
+  "description": "Early Action decision notification date, per C22."
+ },
+ {
+  "key": "admissions.early_action_restrictive",
+  "label": null,
+  "unit": "boolean",
+  "type": "boolean",
+  "enums": null,
+  "source_hints": [
+   "C22"
+  ],
+  "instructions": "Extract the C22 Yes/No control for a restrictive/single-choice Early Action plan. This plan remains nonbinding even when restrictive; never relabel it Early Decision.",
+  "description": "Whether the institution's Early Action plan is restrictive or single-choice, per C22."
+ }
+]

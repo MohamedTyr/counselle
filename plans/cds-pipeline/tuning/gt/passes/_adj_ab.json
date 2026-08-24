@@ -1,0 +1,45 @@
+{
+ "totals": {
+  "keys_union": 28,
+  "keys_both": 28,
+  "agreed": 26,
+  "conflicts": 2,
+  "ambiguous_flagged": 0,
+  "agreement_pct": 92.86
+ },
+ "value_conflict": [
+  {
+   "key": "outcomes.primary_all_students_six_year_graduation_rate_ratio",
+   "unit": "ratio",
+   "note": "",
+   "A": {
+    "value": 96,
+    "page": 5,
+    "evidence": "Fall 2018 Cohort grid, row H 'Six-year graduation rate for 2018 cohort (G divided by C)', column 'Total (sum of 3 columns to the left)': printed '96%'. Printed as a whole-number percent, not the 0-1 decimal the spec instructions describe; recorded as printed per the brief's no-conversion rule."
+   },
+   "B": {
+    "value": 0.96,
+    "page": 5,
+    "evidence": "Fall 2018 Cohort table, row H 'Six-year graduation rate for 2018 cohort (G divided by C)', 'Total' column, printed as '96%'. Recorded as 0-1 ratio per metric instructions; printed form was a percent."
+   }
+  },
+  {
+   "key": "outcomes.primary_pell_grant_six_year_graduation_rate_ratio",
+   "unit": "ratio",
+   "note": "",
+   "A": {
+    "value": 93,
+    "page": 5,
+    "evidence": "Fall 2018 Cohort grid (the primary/most-recent cohort requested by the form: 'Please provide data for the Fall 2018 cohort if available'), row H 'Six-year graduation rate for 2018 cohort (G divided by C)', column 'Recipients of a Federal Pell Grant': printed '93%'. Printed as a whole-number percent, not the 0-1 decimal the spec instructions describe; recorded as printed per the brief's no-conversion rule."
+   },
+   "B": {
+    "value": 0.93,
+    "page": 5,
+    "evidence": "Fall 2018 Cohort table, row H 'Six-year graduation rate for 2018 cohort (G divided by C)', 'Recipients of a Federal Pell Grant' column, printed as '93%'. Recorded as 0-1 ratio per metric instructions; printed form was a percent."
+   }
+  }
+ ],
+ "status_conflict": [],
+ "coverage_gap": [],
+ "ambiguous_flag": []
+}

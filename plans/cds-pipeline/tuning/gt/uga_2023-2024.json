@@ -1,0 +1,2710 @@
+{
+ "schema_version": 1,
+ "school": "uga",
+ "year": "2023-2024",
+ "document": {
+  "name": "uga_2023-2024.pdf",
+  "sha256": "f125787e6b71682faf36c717c6fb5821557ea52b50ce503f83a5d31e193f2de3"
+ },
+ "manifest_version": "5.0.2",
+ "seal": {
+  "date": "2026-08-24",
+  "source": "acroform+rendered_text",
+  "extractor": "pypdf field-tree walk; widget->page via per-page /Annots idnum match; 2 metrics with no AcroForm field authored by hand from 200-250 DPI pymupdf page renders",
+  "acroform_field_count": 1086,
+  "acroform_filled_count": 777,
+  "manifest_metric_count": 394,
+  "mapped_count": 394,
+  "unmapped_count": 0,
+  "unmapped_metrics": [],
+  "status_counts": {
+   "present": 310,
+   "blank": 78,
+   "absent": 6
+  },
+  "unattributed_field_count": 675,
+  "identities_computed": 55,
+  "identities_passed": 52,
+  "identities_failed": [
+   "C1 enrolled FT+PT gender rows (6140) != C1 enrolled total row (6150) - UGA-internal inconsistency in rows that map to no manifest metric",
+   "H2 row A (6122) != C1 full-time enrolled first-year (6115) - different CDS cohorts, informational",
+   "H2 row A (6122) != B1 first-time full-time degree-seeking (6121) - off by 1, informational"
+  ],
+  "verified_by": "Independent visual verification pass against 200-250 DPI rendered page images: 24 spot-checks across all 13 domains, 0 mapping errors, 0 value disagreements. Specifically confirmed correct: C7 row-10 off-by-one, the G1 nonresident/out-of-state trap, and the BACH_PSY/BACH_PSYCH field-name collision. All 6 'absent' classifications and 10 sampled 'blank' classifications confirmed against the rendered form."
+ },
+ "notes": "392 of 394 values were read from an interactive AcroForm field in the source PDF; no value was inferred from a model. 2 values (identity.academic_year, cost.cost_academic_year) have no AcroForm field and were transcribed by hand from rendered page text (source='rendered_text') after visual confirmation. Checkbox convention: a checkbox widget that exists on the form is always status=present (value true/false). status=blank is used for fill-in cells that exist and are empty, and for Yes/No or multi-option radio groups left entirely unselected (an unanswered radio is not a 'no'). status=absent means the question does not exist in this form edition. Per an orchestrator ruling, 2 AcroForm values (outcomes.primary_all_students_six_year_graduation_rate_ratio, outcomes.primary_pell_grant_six_year_graduation_rate_ratio) were superseded by their rendered widget appearance ('0.88' / '0.84') because the raw field value (0.8807 / .83534) carries precision that is never visible on the page and so is not a fair extraction target; the superseded raw values are preserved per-entry under 'acroform_raw_value'. No rounding tolerance was added to the scorer for this.",
+ "metrics": {
+  "academics.required_coursework_arts_fine_arts": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "ARTS = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_biological_physical_sciences": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "SCI = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_computer_literacy": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "CMPTR = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_english_composition": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "ENG = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_foreign_languages": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "LANG = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_history": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "HIST = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_humanities": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "HUM = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_intensive_writing": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "INT_WRITING = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_mathematics": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "MATH = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_philosophy": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "PHILO = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_physical_education": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "PHYS_EDUC = '/Y'",
+   "source": "acroform"
+  },
+  "academics.required_coursework_social_science": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "SOCSCI = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_accelerated_program": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "ACCEL_DEG = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_cross_registration": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "CROSS_REG = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_double_major": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "DOUBLE_MAJOR = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_dual_enrollment": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "DUAL_ENROLL = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_honors_program": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "SR_PROJ_SOME_HON = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_independent_study": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "INDEP_STUDY = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_internships": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "INTERN = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_liberal_arts_career_combination": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "LIB_ARTS = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_student_designed_major": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "DESIGN_MAJOR = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_study_abroad": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "STUDY_ABRD = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_teacher_certification": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "TEACH_CERT = '/Y'",
+   "source": "acroform"
+  },
+  "academics.special_study_undergraduate_research": {
+   "status": "present",
+   "value": true,
+   "page": 27,
+   "evidence": "UG_RES = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.academic_electives_units_recommended": {
+   "status": "present",
+   "value": "1",
+   "page": 15,
+   "evidence": "ACAD_ELECTIVE_REC = '1'",
+   "source": "acroform"
+  },
+  "admissions.academic_electives_units_required": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "ACAD_ELECTIVE_REQ = None",
+   "source": "acroform"
+  },
+  "admissions.accepts_first_year_terms_other_than_fall": {
+   "status": "present",
+   "value": true,
+   "page": 22,
+   "evidence": "AP_ACCEPT_OTH = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.act_only_admission_policy": {
+   "status": "blank",
+   "page": 17,
+   "evidence": "EXAM_CODE_ACT = None (radio unselected)",
+   "source": "acroform"
+  },
+  "admissions.admitted_residency_in_state": {
+   "status": "present",
+   "value": "9149",
+   "page": 14,
+   "evidence": "AP_ADMT_STATE_1ST_N = '9149'",
+   "source": "acroform"
+  },
+  "admissions.admitted_residency_international": {
+   "status": "present",
+   "value": "289",
+   "page": 14,
+   "evidence": "AP_ADMT_INTL_1ST_N = '289'",
+   "source": "acroform"
+  },
+  "admissions.admitted_residency_out_of_state": {
+   "status": "present",
+   "value": "6709",
+   "page": 14,
+   "evidence": "AP_ADMT_NRES_1ST_N = '6709'",
+   "source": "acroform"
+  },
+  "admissions.admitted_total": {
+   "status": "present",
+   "value": "16148",
+   "page": 14,
+   "evidence": "AP_ADMT_1ST_N = '16148'",
+   "source": "acroform"
+  },
+  "admissions.applicants_residency_in_state": {
+   "status": "present",
+   "value": "18210",
+   "page": 14,
+   "evidence": "AP_RECD_STATE_1ST_N = '18210'",
+   "source": "acroform"
+  },
+  "admissions.applicants_residency_international": {
+   "status": "present",
+   "value": "1338",
+   "page": 14,
+   "evidence": "AP_RECD_INTL_1ST_N = '1338'",
+   "source": "acroform"
+  },
+  "admissions.applicants_residency_out_of_state": {
+   "status": "present",
+   "value": "23867",
+   "page": 14,
+   "evidence": "AP_RECD_NRES_1ST_N = '23867'",
+   "source": "acroform"
+  },
+  "admissions.applicants_total": {
+   "status": "present",
+   "value": "43416",
+   "page": 14,
+   "evidence": "AP_RECD_1ST_N = '43416'",
+   "source": "acroform"
+  },
+  "admissions.application_closing_date_fall": {
+   "status": "present",
+   "value": "1/1",
+   "page": 22,
+   "evidence": "AP_DL_FRSH_MON = '1', AP_DL_FRSH_DAY = '1'",
+   "source": "acroform"
+  },
+  "admissions.application_fee_amount": {
+   "status": "present",
+   "value": "70",
+   "page": 22,
+   "evidence": "AP_FEE_RES_D = '70'",
+   "source": "acroform"
+  },
+  "admissions.application_priority_date": {
+   "status": "present",
+   "value": "10/15",
+   "page": 22,
+   "evidence": "AP_DL_PRIO_MON = '10', AP_DL_PRIO_DAY = '15'",
+   "source": "acroform"
+  },
+  "admissions.college_prep_program_requirement": {
+   "status": "present",
+   "value": "required",
+   "page": 15,
+   "evidence": "AD_COL_PREP = '/REQ'",
+   "source": "acroform"
+  },
+  "admissions.computer_science_units_recommended": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "CMPTR_UNITS_REC = None",
+   "source": "acroform"
+  },
+  "admissions.computer_science_units_required": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "CMPTR_UNITS_REQ = None",
+   "source": "acroform"
+  },
+  "admissions.decision_by_date": {
+   "status": "blank",
+   "page": 22,
+   "evidence": "AP_NOTF_DL_FRSH_MON = ' ', AP_NOTF_DL_FRSH_DAY = ' '",
+   "source": "acroform"
+  },
+  "admissions.decision_notification_mode": {
+   "status": "present",
+   "value": "other",
+   "page": 22,
+   "evidence": "AP_NOTF_DL_FRSH_I = None; AP_NOTF_DL_FRSH = None; AP_NOTF_DL_OTH = '/X'",
+   "source": "acroform"
+  },
+  "admissions.decision_rolling_begin_date": {
+   "status": "blank",
+   "page": 22,
+   "evidence": "AP_NOTF_DL_FRSH_MON = ' ', AP_NOTF_DL_FRSH_DAY = ' '",
+   "source": "acroform"
+  },
+  "admissions.deferred_enrollment_allowed": {
+   "status": "present",
+   "value": true,
+   "page": 23,
+   "evidence": "AD_DEFER = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.deferred_enrollment_max_period": {
+   "status": "present",
+   "value": "1 academic year",
+   "page": 23,
+   "evidence": "AD_DEFER_MAX = '1 academic year'",
+   "source": "acroform"
+  },
+  "admissions.early_action_closing_date": {
+   "status": "present",
+   "value": "10/15",
+   "page": 23,
+   "evidence": "AP_DL_EACT_MON = '10', AP_DL_EACT_DAY = '15'",
+   "source": "acroform"
+  },
+  "admissions.early_action_notification_date": {
+   "status": "present",
+   "value": "12/1",
+   "page": 23,
+   "evidence": "AP_NOTF_DL_EACT_MON = '12', AP_NOTF_DL_EACT_DAY = '1'",
+   "source": "acroform"
+  },
+  "admissions.early_action_offered": {
+   "status": "present",
+   "value": true,
+   "page": 23,
+   "evidence": "AD_EACT = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.early_action_restrictive": {
+   "status": "present",
+   "value": false,
+   "page": 23,
+   "evidence": "AP_EACT_RESTRICT = '/N'",
+   "source": "acroform"
+  },
+  "admissions.early_decision_admitted_count": {
+   "status": "blank",
+   "page": 23,
+   "evidence": "AP_ADMT_EDEC_N = None",
+   "source": "acroform"
+  },
+  "admissions.early_decision_application_count": {
+   "status": "blank",
+   "page": 23,
+   "evidence": "AP_RECD_EDEC_N = None",
+   "source": "acroform"
+  },
+  "admissions.early_decision_first_closing_date": {
+   "status": "blank",
+   "page": 23,
+   "evidence": "AP_DL_EDEC_1_MON = ' ', AP_DL_EDEC_1_DAY = ' '",
+   "source": "acroform"
+  },
+  "admissions.early_decision_first_notification_date": {
+   "status": "blank",
+   "page": 23,
+   "evidence": "AP_NOTF_DL_EDEC_1_MON = ' ', AP_NOTF_DL_EDEC_1_DAY = ' '",
+   "source": "acroform"
+  },
+  "admissions.early_decision_offered": {
+   "status": "present",
+   "value": false,
+   "page": 23,
+   "evidence": "AD_EDEC = '/N'",
+   "source": "acroform"
+  },
+  "admissions.early_decision_other_closing_date": {
+   "status": "blank",
+   "page": 23,
+   "evidence": "AP_DL_EDEC_2_MON = ' ', AP_DL_EDEC_2_DAY = ' '",
+   "source": "acroform"
+  },
+  "admissions.early_decision_other_notification_date": {
+   "status": "blank",
+   "page": 23,
+   "evidence": "AP_NOTF_DL_EDEC_2_MON = ' ', AP_NOTF_DL_EDEC_2_DAY = ' '",
+   "source": "acroform"
+  },
+  "admissions.english_units_recommended": {
+   "status": "present",
+   "value": "4",
+   "page": 15,
+   "evidence": "ENG_UNITS_REC = '4'",
+   "source": "acroform"
+  },
+  "admissions.english_units_required": {
+   "status": "present",
+   "value": "4",
+   "page": 15,
+   "evidence": "ENG_UNITS_REQ = '4'",
+   "source": "acroform"
+  },
+  "admissions.enrolled_residency_international": {
+   "status": "present",
+   "value": "62",
+   "page": 14,
+   "evidence": "EN_TOT_INTL_1ST_N = '62'",
+   "source": "acroform"
+  },
+  "admissions.enrolled_total": {
+   "status": "present",
+   "value": "6150",
+   "page": 14,
+   "evidence": "EN_TOT_1ST_N = '6150'",
+   "source": "acroform"
+  },
+  "admissions.foreign_language_units_recommended": {
+   "status": "present",
+   "value": "3",
+   "page": 15,
+   "evidence": "LANG_UNITS_REC = '3'",
+   "source": "acroform"
+  },
+  "admissions.foreign_language_units_required": {
+   "status": "present",
+   "value": "2",
+   "page": 15,
+   "evidence": "LANG_UNITS_REQ = '2'",
+   "source": "acroform"
+  },
+  "admissions.has_application_closing_date": {
+   "status": "blank",
+   "page": 22,
+   "evidence": "AP_DL_FRSH = None (Y/N radio unanswered)",
+   "source": "acroform"
+  },
+  "admissions.has_application_fee": {
+   "status": "present",
+   "value": true,
+   "page": 22,
+   "evidence": "AP_FEE = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.has_waitlist_policy": {
+   "status": "present",
+   "value": true,
+   "page": 14,
+   "evidence": "AD_WAIT = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.high_school_completion_requirement": {
+   "status": "present",
+   "value": "diploma_required_ged_accepted",
+   "page": 15,
+   "evidence": "AD_HS_REQ_ALL = '/GED'",
+   "source": "acroform"
+  },
+  "admissions.history_units_recommended": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "HIST_UNITS_REC = None",
+   "source": "acroform"
+  },
+  "admissions.history_units_required": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "HIST_UNITS_REQ = None",
+   "source": "acroform"
+  },
+  "admissions.housing_deposit_amount": {
+   "status": "present",
+   "value": "35",
+   "page": 22,
+   "evidence": "HOUS_DEPOSIT_AMT = '35'",
+   "source": "acroform"
+  },
+  "admissions.housing_deposit_deadline": {
+   "status": "blank",
+   "page": 22,
+   "evidence": "HOUS_DEPOSIT_MON = ' ', HOUS_DEPOSIT_DAY = ' '",
+   "source": "acroform"
+  },
+  "admissions.housing_deposit_refundability": {
+   "status": "present",
+   "value": "no",
+   "page": 22,
+   "evidence": "HOUS_DEPOSIT_REFUND = '/N'",
+   "source": "acroform"
+  },
+  "admissions.lab_science_units_recommended": {
+   "status": "present",
+   "value": "2",
+   "page": 15,
+   "evidence": "SCI_LAB_UNITS_REC = '2'",
+   "source": "acroform"
+  },
+  "admissions.lab_science_units_required": {
+   "status": "present",
+   "value": "2",
+   "page": 15,
+   "evidence": "SCI_LAB_UNITS_REQ = '2'",
+   "source": "acroform"
+  },
+  "admissions.mathematics_units_recommended": {
+   "status": "present",
+   "value": "4",
+   "page": 15,
+   "evidence": "MATH_UNITS_REC = '4'",
+   "source": "acroform"
+  },
+  "admissions.mathematics_units_required": {
+   "status": "present",
+   "value": "4",
+   "page": 15,
+   "evidence": "MATH_UNITS_REQ = '4'",
+   "source": "acroform"
+  },
+  "admissions.need_based_application_fee_waiver_available": {
+   "status": "present",
+   "value": true,
+   "page": 22,
+   "evidence": "AP_FEE_WAIVE = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.open_admission_all_students": {
+   "status": "present",
+   "value": false,
+   "page": 16,
+   "evidence": "AD_OPEN = None",
+   "source": "acroform"
+  },
+  "admissions.open_admission_other": {
+   "status": "present",
+   "value": false,
+   "page": 16,
+   "evidence": "AD_OPEN_T_CHECK = None",
+   "source": "acroform"
+  },
+  "admissions.open_admission_selective_out_of_state": {
+   "status": "present",
+   "value": false,
+   "page": 16,
+   "evidence": "AD_OPEN_MOST = None (option /O)",
+   "source": "acroform"
+  },
+  "admissions.open_admission_selective_programs": {
+   "status": "present",
+   "value": false,
+   "page": 16,
+   "evidence": "AD_OPEN_MOST = None (option /S)",
+   "source": "acroform"
+  },
+  "admissions.other_subject_label": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "C5 prints an \"Other (specify)\" row but it carries no fillable label field; left empty",
+   "source": "acroform"
+  },
+  "admissions.other_units_recommended": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "OTH_UNITS_REC = None",
+   "source": "acroform"
+  },
+  "admissions.other_units_required": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "OTH_UNITS_REQ = None",
+   "source": "acroform"
+  },
+  "admissions.program_specific_factor_differences": {
+   "status": "blank",
+   "page": 17,
+   "evidence": "CDS_ACAD_NONACAD_FACTORS_TEXT = None",
+   "source": "acroform"
+  },
+  "admissions.reply_deadline": {
+   "status": "present",
+   "value": "5/1",
+   "page": 22,
+   "evidence": "AP_REPLY_DL_MON = '5', AP_REPLY_DL_DAY = '1'",
+   "source": "acroform"
+  },
+  "admissions.reply_policy_mode": {
+   "status": "present",
+   "value": "must_reply_by_date",
+   "page": 22,
+   "evidence": "AP_REPLY_DL = '/X'; AP_REPLY_DL_NO = None; AP_REPLY_DL_MUST = None; AP_REPLY_OTH = None",
+   "source": "acroform"
+  },
+  "admissions.reply_weeks_after_late_notification": {
+   "status": "blank",
+   "page": 22,
+   "evidence": "AP_REPLY_DL_MAY1 = None",
+   "source": "acroform"
+  },
+  "admissions.sat_only_admission_policy": {
+   "status": "blank",
+   "page": 17,
+   "evidence": "EXAM_CODE_SAT = None (radio unselected)",
+   "source": "acroform"
+  },
+  "admissions.sat_or_act_admission_policy": {
+   "status": "present",
+   "value": "required_to_be_considered",
+   "page": 17,
+   "evidence": "EXAM_CODE_S1A = '/ADMS_REQ'",
+   "source": "acroform"
+  },
+  "admissions.science_units_recommended": {
+   "status": "present",
+   "value": "4",
+   "page": 15,
+   "evidence": "SCI_UNITS_REC = '4'",
+   "source": "acroform"
+  },
+  "admissions.science_units_required": {
+   "status": "present",
+   "value": "4",
+   "page": 15,
+   "evidence": "SCI_UNITS_REQ = '4'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_academic_gpa": {
+   "status": "present",
+   "value": "very_important",
+   "page": 16,
+   "evidence": "Q111_3 = '/VI'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_alumni_relation": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 16,
+   "evidence": "Q112_6 = '/NC'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_application_essay": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q111_5 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_character_personal_qualities": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q112_4 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_class_rank": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 16,
+   "evidence": "Q111_2 = '/NC'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_extracurricular_activities": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q112_2 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_first_generation": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q112_5 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_geographic_residence": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 16,
+   "evidence": "Q112_7 = '/NC'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_interview": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 16,
+   "evidence": "Q112_1 = '/NC'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_level_of_applicant_interest": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 16,
+   "evidence": "Q112_13 = '/NC'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_recommendations": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q111_6 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_religious_affiliation_commitment": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 16,
+   "evidence": "Q112_9 = '/NC'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_rigor_of_secondary_school_record": {
+   "status": "present",
+   "value": "very_important",
+   "page": 16,
+   "evidence": "Q111_1 = '/VI'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_standardized_tests": {
+   "status": "present",
+   "value": "important",
+   "page": 16,
+   "evidence": "Q111_4 = '/I'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_state_residency": {
+   "status": "present",
+   "value": "not_considered",
+   "page": 16,
+   "evidence": "Q112_8 = '/NC'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_talent_ability": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q112_3 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_volunteer_work": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q112_11 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.selection_factor_work_experience": {
+   "status": "present",
+   "value": "considered",
+   "page": 16,
+   "evidence": "Q112_12 = '/C'",
+   "source": "acroform"
+  },
+  "admissions.social_studies_units_recommended": {
+   "status": "present",
+   "value": "3",
+   "page": 15,
+   "evidence": "SOC_UNITS_REC = '3'",
+   "source": "acroform"
+  },
+  "admissions.social_studies_units_required": {
+   "status": "present",
+   "value": "3",
+   "page": 15,
+   "evidence": "SOC_UNITS_REQ = '3'",
+   "source": "acroform"
+  },
+  "admissions.test_policy_clarification": {
+   "status": "blank",
+   "page": 17,
+   "evidence": "AD_TEST_POLICY_T = None",
+   "source": "acroform"
+  },
+  "admissions.total_academic_units_recommended": {
+   "status": "present",
+   "value": "19",
+   "page": 15,
+   "evidence": "TOT_ACAD_UNITS_REC = '19'",
+   "source": "acroform"
+  },
+  "admissions.total_academic_units_required": {
+   "status": "present",
+   "value": "17",
+   "page": 15,
+   "evidence": "TOT_ACAD_UNITS_REQ = '17'",
+   "source": "acroform"
+  },
+  "admissions.uses_entrance_exam_scores_in_admission": {
+   "status": "present",
+   "value": true,
+   "page": 17,
+   "evidence": "ADMS = '/Y'",
+   "source": "acroform"
+  },
+  "admissions.visual_performing_arts_units_recommended": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "VISUAL_UNITS_REC = None",
+   "source": "acroform"
+  },
+  "admissions.visual_performing_arts_units_required": {
+   "status": "blank",
+   "page": 15,
+   "evidence": "VISUAL_UNITS_REQ = None",
+   "source": "acroform"
+  },
+  "admissions.waitlist_accepted_place_count": {
+   "status": "present",
+   "value": "1904",
+   "page": 14,
+   "evidence": "AP_ACPT_WAIT_N = '1904'",
+   "source": "acroform"
+  },
+  "admissions.waitlist_admitted_count": {
+   "status": "present",
+   "value": "739",
+   "page": 14,
+   "evidence": "AP_ADMT_WAIT_N = '739'",
+   "source": "acroform"
+  },
+  "admissions.waitlist_offered_place_count": {
+   "status": "present",
+   "value": "3842",
+   "page": 14,
+   "evidence": "AP_RECD_WAIT_N = '3842'",
+   "source": "acroform"
+  },
+  "class_profile.act_composite_p25": {
+   "status": "present",
+   "value": "27",
+   "page": 19,
+   "evidence": "ACT_COMP_25TH_P = '27'",
+   "source": "acroform"
+  },
+  "class_profile.act_composite_p50": {
+   "status": "present",
+   "value": "30",
+   "page": 19,
+   "evidence": "ACT_COMP_50TH_P = '30'",
+   "source": "acroform"
+  },
+  "class_profile.act_composite_p75": {
+   "status": "present",
+   "value": "32",
+   "page": 19,
+   "evidence": "ACT_COMP_75TH_P = '32'",
+   "source": "acroform"
+  },
+  "class_profile.act_english_p25": {
+   "status": "present",
+   "value": "26",
+   "page": 19,
+   "evidence": "ACT_ENG_25TH_P = '26'",
+   "source": "acroform"
+  },
+  "class_profile.act_english_p50": {
+   "status": "present",
+   "value": "31",
+   "page": 19,
+   "evidence": "ACT_ENG_50TH_P = '31'",
+   "source": "acroform"
+  },
+  "class_profile.act_english_p75": {
+   "status": "present",
+   "value": "34",
+   "page": 19,
+   "evidence": "ACT_ENG_75TH_P = '34'",
+   "source": "acroform"
+  },
+  "class_profile.act_math_p25": {
+   "status": "present",
+   "value": "25",
+   "page": 19,
+   "evidence": "ACT_MATH_25TH_P = '25'",
+   "source": "acroform"
+  },
+  "class_profile.act_math_p50": {
+   "status": "present",
+   "value": "28",
+   "page": 19,
+   "evidence": "ACT_MATH_50TH_P = '28'",
+   "source": "acroform"
+  },
+  "class_profile.act_math_p75": {
+   "status": "present",
+   "value": "31",
+   "page": 19,
+   "evidence": "ACT_MATH_75TH_P = '31'",
+   "source": "acroform"
+  },
+  "class_profile.act_reading_p25": {
+   "status": "present",
+   "value": "28",
+   "page": 19,
+   "evidence": "ACT_READING_25TH_P = '28'",
+   "source": "acroform"
+  },
+  "class_profile.act_reading_p50": {
+   "status": "present",
+   "value": "32",
+   "page": 19,
+   "evidence": "ACT_READING_50TH_P = '32'",
+   "source": "acroform"
+  },
+  "class_profile.act_reading_p75": {
+   "status": "present",
+   "value": "34",
+   "page": 19,
+   "evidence": "ACT_READING_75TH_P = '34'",
+   "source": "acroform"
+  },
+  "class_profile.act_science_p25": {
+   "status": "present",
+   "value": "25",
+   "page": 19,
+   "evidence": "ACT_SCIENCE_25TH_P = '25'",
+   "source": "acroform"
+  },
+  "class_profile.act_science_p50": {
+   "status": "present",
+   "value": "29",
+   "page": 19,
+   "evidence": "ACT_SCIENCE_50TH_P = '29'",
+   "source": "acroform"
+  },
+  "class_profile.act_science_p75": {
+   "status": "present",
+   "value": "32",
+   "page": 19,
+   "evidence": "ACT_SCIENCE_75TH_P = '32'",
+   "source": "acroform"
+  },
+  "class_profile.act_submitters_count": {
+   "status": "present",
+   "value": "2872",
+   "page": 19,
+   "evidence": "SUBMIT_ACT_N = '2872'",
+   "source": "acroform"
+  },
+  "class_profile.act_submitters_percent": {
+   "status": "present",
+   "value": "46.69",
+   "page": 19,
+   "evidence": "SUBMIT_ACT_P = '46.69'",
+   "source": "acroform"
+  },
+  "class_profile.average_high_school_gpa": {
+   "status": "present",
+   "value": "4.14",
+   "page": 21,
+   "evidence": "FRSH_GPA = '4.14'",
+   "source": "acroform"
+  },
+  "class_profile.class_rank_bottom_half_percent": {
+   "status": "present",
+   "value": "0.92",
+   "page": 21,
+   "evidence": "FRSH_HS_RANK_LESS50_P = '0.92'",
+   "source": "acroform"
+  },
+  "class_profile.class_rank_bottom_quarter_percent": {
+   "status": "blank",
+   "page": 21,
+   "evidence": "FRSH_HS_RANK_LESS25_P = None",
+   "source": "acroform"
+  },
+  "class_profile.class_rank_submitted_percent": {
+   "status": "present",
+   "value": "44.40",
+   "page": 21,
+   "evidence": "FRSH_HS_RANK_SUBMIT_P = '44.40'",
+   "source": "acroform"
+  },
+  "class_profile.class_rank_top_half_percent": {
+   "status": "present",
+   "value": "99.08",
+   "page": 21,
+   "evidence": "FRSH_HS_RANK_50_P = '99.08'",
+   "source": "acroform"
+  },
+  "class_profile.class_rank_top_quarter_percent": {
+   "status": "present",
+   "value": "91.32",
+   "page": 21,
+   "evidence": "FRSH_HS_RANK_25_P = '91.32'",
+   "source": "acroform"
+  },
+  "class_profile.class_rank_top_tenth_percent": {
+   "status": "present",
+   "value": "61.81",
+   "page": 21,
+   "evidence": "FRSH_HS_RANK_10_P = '61.81'",
+   "source": "acroform"
+  },
+  "class_profile.high_school_gpa_submitted_percent": {
+   "status": "present",
+   "value": "100",
+   "page": 21,
+   "evidence": "FRSH_GPA_SUBMIT_P = '100'",
+   "source": "acroform"
+  },
+  "class_profile.sat_composite_p25": {
+   "status": "present",
+   "value": "1230",
+   "page": 19,
+   "evidence": "SAT1_COMP_25TH_P = '1230'",
+   "source": "acroform"
+  },
+  "class_profile.sat_composite_p50": {
+   "status": "present",
+   "value": "1320",
+   "page": 19,
+   "evidence": "SAT1_COMP_50TH_P = '1320'",
+   "source": "acroform"
+  },
+  "class_profile.sat_composite_p75": {
+   "status": "present",
+   "value": "1410",
+   "page": 19,
+   "evidence": "SAT1_COMP_75TH_P = '1410'",
+   "source": "acroform"
+  },
+  "class_profile.sat_ebrw_p25": {
+   "status": "present",
+   "value": "620",
+   "page": 19,
+   "evidence": "SAT1_VERB_25TH_P = '620'",
+   "source": "acroform"
+  },
+  "class_profile.sat_ebrw_p50": {
+   "status": "present",
+   "value": "670",
+   "page": 19,
+   "evidence": "SAT1_VERB_50TH_P = '670'",
+   "source": "acroform"
+  },
+  "class_profile.sat_ebrw_p75": {
+   "status": "present",
+   "value": "710",
+   "page": 19,
+   "evidence": "SAT1_VERB_75TH_P = '710'",
+   "source": "acroform"
+  },
+  "class_profile.sat_math_p25": {
+   "status": "present",
+   "value": "600",
+   "page": 19,
+   "evidence": "SAT1_MATH_25TH_P = '600'",
+   "source": "acroform"
+  },
+  "class_profile.sat_math_p50": {
+   "status": "present",
+   "value": "660",
+   "page": 19,
+   "evidence": "SAT1_MATH_50TH_P = '660'",
+   "source": "acroform"
+  },
+  "class_profile.sat_math_p75": {
+   "status": "present",
+   "value": "710",
+   "page": 19,
+   "evidence": "SAT1_MATH_75TH_P = '710'",
+   "source": "acroform"
+  },
+  "class_profile.sat_submitters_count": {
+   "status": "present",
+   "value": "4289",
+   "page": 19,
+   "evidence": "SUBMIT_SAT1_N = '4289'",
+   "source": "acroform"
+  },
+  "class_profile.sat_submitters_percent": {
+   "status": "present",
+   "value": "69.73",
+   "page": 19,
+   "evidence": "SUBMIT_SAT1_P = '69.73'",
+   "source": "acroform"
+  },
+  "class_size.class_sections_100_plus": {
+   "status": "present",
+   "value": "250",
+   "page": 40,
+   "evidence": "CLASS_SEC_7 = '250'",
+   "source": "acroform"
+  },
+  "class_size.class_sections_10_19": {
+   "status": "present",
+   "value": "1765",
+   "page": 40,
+   "evidence": "CLASS_SEC_2 = '1765'",
+   "source": "acroform"
+  },
+  "class_size.class_sections_20_29": {
+   "status": "present",
+   "value": "1088",
+   "page": 40,
+   "evidence": "CLASS_SEC_3 = '1088'",
+   "source": "acroform"
+  },
+  "class_size.class_sections_2_9": {
+   "status": "present",
+   "value": "586",
+   "page": 40,
+   "evidence": "CLASS_SEC_1 = '586'",
+   "source": "acroform"
+  },
+  "class_size.class_sections_30_39": {
+   "status": "present",
+   "value": "502",
+   "page": 40,
+   "evidence": "CLASS_SEC_4 = '502'",
+   "source": "acroform"
+  },
+  "class_size.class_sections_40_49": {
+   "status": "present",
+   "value": "321",
+   "page": 40,
+   "evidence": "CLASS_SEC_5 = '321'",
+   "source": "acroform"
+  },
+  "class_size.class_sections_50_99": {
+   "status": "present",
+   "value": "313",
+   "page": 40,
+   "evidence": "CLASS_SEC_6 = '313'",
+   "source": "acroform"
+  },
+  "class_size.class_subsections_100_plus": {
+   "status": "blank",
+   "page": 40,
+   "evidence": "CLASS_SUBSEC_7 = None",
+   "source": "acroform"
+  },
+  "class_size.class_subsections_10_19": {
+   "status": "blank",
+   "page": 40,
+   "evidence": "CLASS_SUBSEC_2 = None",
+   "source": "acroform"
+  },
+  "class_size.class_subsections_20_29": {
+   "status": "blank",
+   "page": 40,
+   "evidence": "CLASS_SUBSEC_3 = None",
+   "source": "acroform"
+  },
+  "class_size.class_subsections_2_9": {
+   "status": "blank",
+   "page": 40,
+   "evidence": "CLASS_SUBSEC_1 = None",
+   "source": "acroform"
+  },
+  "class_size.class_subsections_30_39": {
+   "status": "blank",
+   "page": 40,
+   "evidence": "CLASS_SUBSEC_4 = None",
+   "source": "acroform"
+  },
+  "class_size.class_subsections_40_49": {
+   "status": "blank",
+   "page": 40,
+   "evidence": "CLASS_SUBSEC_5 = None",
+   "source": "acroform"
+  },
+  "class_size.class_subsections_50_99": {
+   "status": "blank",
+   "page": 40,
+   "evidence": "CLASS_SUBSEC_6 = None",
+   "source": "acroform"
+  },
+  "class_size.ratio_basis_faculty_fte": {
+   "status": "present",
+   "value": "2196",
+   "page": 39,
+   "evidence": "UG_RATIO_FAC_N = '2196'",
+   "source": "acroform"
+  },
+  "class_size.ratio_basis_student_fte": {
+   "status": "present",
+   "value": "37090",
+   "page": 39,
+   "evidence": "UG_RATIO_STUD_N = '37090'",
+   "source": "acroform"
+  },
+  "class_size.students_per_faculty": {
+   "status": "present",
+   "value": "17",
+   "page": 39,
+   "evidence": "UG_RATIO = '17'",
+   "source": "acroform"
+  },
+  "cost.books_supplies_commuter_at_home": {
+   "status": "present",
+   "value": "1002",
+   "page": 30,
+   "evidence": "BOOKS_COMMUTE_HOME_D = '1002'",
+   "source": "acroform"
+  },
+  "cost.books_supplies_commuter_not_at_home": {
+   "status": "present",
+   "value": "1002",
+   "page": 30,
+   "evidence": "BOOKS_COMMUTE_NOT_HOME_D = '1002'",
+   "source": "acroform"
+  },
+  "cost.books_supplies_on_campus": {
+   "status": "present",
+   "value": "1002",
+   "page": 30,
+   "evidence": "BOOKS_RES_D = '1002'",
+   "source": "acroform"
+  },
+  "cost.comprehensive_tuition_food_housing_amount": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "COMP_FEE_D = None",
+   "source": "acroform"
+  },
+  "cost.cost_academic_year": {
+   "status": "present",
+   "value": "2024-2025",
+   "page": 29,
+   "evidence": "Section G intro: 'Provide 2024-2025 academic year costs of attendance for the following categories...'; G1: '...for the FULL 2024-2025 academic year.'",
+   "source": "rendered_text"
+  },
+  "cost.final_costs_expected_date": {
+   "status": "present",
+   "value": "5/1",
+   "page": 29,
+   "evidence": "ACAD_COA_TEXT = '5/1'",
+   "source": "acroform"
+  },
+  "cost.final_costs_not_available": {
+   "status": "present",
+   "value": true,
+   "page": 29,
+   "evidence": "ACAD_COA = '/On'",
+   "source": "acroform"
+  },
+  "cost.food_and_housing_on_campus_first_year": {
+   "status": "present",
+   "value": "11246",
+   "page": 29,
+   "evidence": "RM_BD_1ST_D = '11246'",
+   "source": "acroform"
+  },
+  "cost.food_and_housing_on_campus_undergraduates": {
+   "status": "present",
+   "value": "11246",
+   "page": 29,
+   "evidence": "RM_BD_D = '11246'",
+   "source": "acroform"
+  },
+  "cost.food_and_housing_total_commuter_not_at_home": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "TOT_COMMUTE_NOT_HOME_D = None",
+   "source": "acroform"
+  },
+  "cost.food_only_commuter_at_home": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "BD_COMMUTE_HOME_D = None",
+   "source": "acroform"
+  },
+  "cost.food_only_commuter_not_at_home": {
+   "status": "present",
+   "value": "4258",
+   "page": 30,
+   "evidence": "BD_COMMUTE_NOT_HOME_D = '4258'",
+   "source": "acroform"
+  },
+  "cost.food_only_on_campus_first_year": {
+   "status": "present",
+   "value": "4258",
+   "page": 29,
+   "evidence": "BD_ONLY_1ST_D = '4258'",
+   "source": "acroform"
+  },
+  "cost.higher_program_price_payer_percent": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "TUIT_VARY_PROG_P = None",
+   "source": "acroform"
+  },
+  "cost.housing_only_commuter_not_at_home": {
+   "status": "present",
+   "value": "5640",
+   "page": 30,
+   "evidence": "RM_COMMUTE_NOT_HOME_D = '5640'",
+   "source": "acroform"
+  },
+  "cost.housing_only_on_campus_first_year": {
+   "status": "present",
+   "value": "6988",
+   "page": 29,
+   "evidence": "RM_ONLY_1ST_D = '6988'",
+   "source": "acroform"
+  },
+  "cost.net_price_calculator_url": {
+   "status": "present",
+   "value": "https://osfa.uga.edu/sites/default/files/npcalc.htm",
+   "page": 29,
+   "evidence": "URL_ADDRESS_PRICE_CALC = 'https://osfa.uga.edu/sites/default/files/npcalc.htm'",
+   "source": "acroform"
+  },
+  "cost.other_annual_charge_response": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "TUIT_OTH_T = None",
+   "source": "acroform"
+  },
+  "cost.other_expenses_commuter_at_home": {
+   "status": "present",
+   "value": "4204",
+   "page": 30,
+   "evidence": "OTH_COMMUTE_HOME_D = '4204'",
+   "source": "acroform"
+  },
+  "cost.other_expenses_commuter_not_at_home": {
+   "status": "present",
+   "value": "4204",
+   "page": 30,
+   "evidence": "OTH_COMMUTE_NOT_HOME_D = '4204'",
+   "source": "acroform"
+  },
+  "cost.other_expenses_on_campus": {
+   "status": "present",
+   "value": "3284",
+   "page": 30,
+   "evidence": "OTH_RES_D = '3284'",
+   "source": "acroform"
+  },
+  "cost.required_fees_first_year": {
+   "status": "present",
+   "value": "1390",
+   "page": 29,
+   "evidence": "FEES_1ST_D = '1390'",
+   "source": "acroform"
+  },
+  "cost.required_fees_undergraduates": {
+   "status": "present",
+   "value": "1390",
+   "page": 29,
+   "evidence": "FEES_FT_D = '1390'",
+   "source": "acroform"
+  },
+  "cost.transportation_commuter_at_home": {
+   "status": "present",
+   "value": "1430",
+   "page": 30,
+   "evidence": "TRANSPORT_COMMUTE_HOME_D = '1430'",
+   "source": "acroform"
+  },
+  "cost.transportation_commuter_not_at_home": {
+   "status": "present",
+   "value": "1430",
+   "page": 30,
+   "evidence": "TRANSPORT_COMMUTE_NOT_HOME_D = '1430'",
+   "source": "acroform"
+  },
+  "cost.transportation_on_campus": {
+   "status": "present",
+   "value": "1430",
+   "page": 30,
+   "evidence": "TRANSPORT_RES_D = '1430'",
+   "source": "acroform"
+  },
+  "cost.tuition_fees_vary_by_instructional_program": {
+   "status": "present",
+   "value": true,
+   "page": 30,
+   "evidence": "TUIT_VARY_INST_PROG = '/Y'",
+   "source": "acroform"
+  },
+  "cost.tuition_fees_vary_by_year_of_study": {
+   "status": "present",
+   "value": false,
+   "page": 30,
+   "evidence": "TUIT_VARY_YEAR_STUD = '/N'",
+   "source": "acroform"
+  },
+  "cost.tuition_nonresident_first_year": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "TUIT_INTL_1ST_FT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_nonresident_undergraduates": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "TUIT_INTL_FT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_per_credit_nonresident": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "TUIT_ALIEN_PT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_per_credit_private": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "TUIT_OVERALL_PT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_per_credit_public_in_district": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "TUIT_AREA_PT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_per_credit_public_in_state_out_of_district": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "TUIT_STATE_PT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_per_credit_public_out_of_state": {
+   "status": "blank",
+   "page": 30,
+   "evidence": "TUIT_NRES_PT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_private_first_year": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "TUIT_OVERALL_1ST_FT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_private_undergraduates": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "TUIT_OVERALL_FT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_public_in_district_first_year": {
+   "status": "present",
+   "value": "9790",
+   "page": 29,
+   "evidence": "TUIT_AREA_1ST_FT_D = '9790'",
+   "source": "acroform"
+  },
+  "cost.tuition_public_in_district_undergraduates": {
+   "status": "present",
+   "value": "9790",
+   "page": 29,
+   "evidence": "TUIT_AREA_FT_D = '9790'",
+   "source": "acroform"
+  },
+  "cost.tuition_public_in_state_out_of_district_first_year": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "TUIT_STATE_1ST_FT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_public_in_state_out_of_district_undergraduates": {
+   "status": "blank",
+   "page": 29,
+   "evidence": "TUIT_STATE_FT_D = None",
+   "source": "acroform"
+  },
+  "cost.tuition_public_out_of_state_first_year": {
+   "status": "present",
+   "value": "28830",
+   "page": 29,
+   "evidence": "TUIT_NRES_1ST_FT_D = '28830'",
+   "source": "acroform"
+  },
+  "cost.tuition_public_out_of_state_undergraduates": {
+   "status": "present",
+   "value": "28830",
+   "page": 29,
+   "evidence": "TUIT_NRES_FT_D = '28830'",
+   "source": "acroform"
+  },
+  "degrees.agriculture_bachelors_percent": {
+   "status": "present",
+   "value": "2.79",
+   "page": 41,
+   "evidence": "BACH_AGR = '2.79'",
+   "source": "acroform"
+  },
+  "degrees.architecture_bachelors_percent": {
+   "status": "present",
+   "value": ".48",
+   "page": 41,
+   "evidence": "BACH_ARCH = '.48'",
+   "source": "acroform"
+  },
+  "degrees.area_ethnic_gender_studies_bachelors_percent": {
+   "status": "present",
+   "value": ".19",
+   "page": 41,
+   "evidence": "BACH_AEGS = '.19'",
+   "source": "acroform"
+  },
+  "degrees.biological_life_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "9.92",
+   "page": 41,
+   "evidence": "BACH_BIOSCI = '9.92'",
+   "source": "acroform"
+  },
+  "degrees.business_marketing_bachelors_percent": {
+   "status": "present",
+   "value": "29.20",
+   "page": 42,
+   "evidence": "BACH_MKTG = '29.20'",
+   "source": "acroform"
+  },
+  "degrees.communication_journalism_bachelors_percent": {
+   "status": "present",
+   "value": "7.74",
+   "page": 41,
+   "evidence": "BACH_COMM = '7.74'",
+   "source": "acroform"
+  },
+  "degrees.communication_technologies_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_COMTECH = None",
+   "source": "acroform"
+  },
+  "degrees.computer_information_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "2.86",
+   "page": 41,
+   "evidence": "BACH_CIS = '2.86'",
+   "source": "acroform"
+  },
+  "degrees.construction_trades_bachelors_percent": {
+   "status": "blank",
+   "page": 42,
+   "evidence": "BACH_CONST = None",
+   "source": "acroform"
+  },
+  "degrees.education_bachelors_percent": {
+   "status": "present",
+   "value": "2.48",
+   "page": 41,
+   "evidence": "BACH_EDUC = '2.48'",
+   "source": "acroform"
+  },
+  "degrees.engineering_bachelors_percent": {
+   "status": "present",
+   "value": "4.90",
+   "page": 41,
+   "evidence": "BACH_ENGR = '4.90'",
+   "source": "acroform"
+  },
+  "degrees.engineering_technologies_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_ENGTCH = None",
+   "source": "acroform"
+  },
+  "degrees.english_bachelors_percent": {
+   "status": "present",
+   "value": "1.1",
+   "page": 41,
+   "evidence": "BACH_ENG = '1.1'",
+   "source": "acroform"
+  },
+  "degrees.family_consumer_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "3.13",
+   "page": 41,
+   "evidence": "BACH_FAMCS = '3.13'",
+   "source": "acroform"
+  },
+  "degrees.foreign_languages_literatures_linguistics_bachelors_percent": {
+   "status": "present",
+   "value": "1.73",
+   "page": 41,
+   "evidence": "BACH_FLTL = '1.73'",
+   "source": "acroform"
+  },
+  "degrees.health_professions_bachelors_percent": {
+   "status": "present",
+   "value": "3.15",
+   "page": 42,
+   "evidence": "BACH_HEALTH = '3.15'",
+   "source": "acroform"
+  },
+  "degrees.history_bachelors_percent": {
+   "status": "present",
+   "value": "0.89",
+   "page": 42,
+   "evidence": "BACH_HIST = '0.89'",
+   "source": "acroform"
+  },
+  "degrees.homeland_security_law_enforcement_protective_services_bachelors_percent": {
+   "status": "present",
+   "value": "1.21",
+   "page": 42,
+   "evidence": "BACH_HOME = '1.21'",
+   "source": "acroform"
+  },
+  "degrees.interdisciplinary_studies_bachelors_percent": {
+   "status": "present",
+   "value": "3.22",
+   "page": 41,
+   "evidence": "BACH_INTDS = '3.22'",
+   "source": "acroform"
+  },
+  "degrees.law_legal_studies_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_LLS = ''",
+   "source": "acroform"
+  },
+  "degrees.liberal_arts_general_studies_bachelors_percent": {
+   "status": "present",
+   "value": "0.06",
+   "page": 41,
+   "evidence": "BACH_LAGS = '0.06'",
+   "source": "acroform"
+  },
+  "degrees.library_science_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_LIBSCI = None",
+   "source": "acroform"
+  },
+  "degrees.mathematics_statistics_bachelors_percent": {
+   "status": "present",
+   "value": "1.12",
+   "page": 41,
+   "evidence": "BACH_MSTAT = '1.12'",
+   "source": "acroform"
+  },
+  "degrees.mechanic_repair_technologies_bachelors_percent": {
+   "status": "blank",
+   "page": 42,
+   "evidence": "BACH_MECH = None",
+   "source": "acroform"
+  },
+  "degrees.military_science_cip_28_bachelors_percent": {
+   "status": "absent",
+   "evidence": "Section J in this edition prints ONE combined 'Military science and military technologies 28 and 29' row (field BACH_MSMT); no separate CIP 28 row exists",
+   "source": "acroform"
+  },
+  "degrees.military_science_cip_29_bachelors_percent": {
+   "status": "absent",
+   "evidence": "Section J in this edition prints ONE combined 'Military science and military technologies 28 and 29' row (field BACH_MSMT); no separate CIP 29 row exists",
+   "source": "acroform"
+  },
+  "degrees.military_science_combined_cip_28_29_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_MSMT = None",
+   "source": "acroform"
+  },
+  "degrees.natural_resources_conservation_bachelors_percent": {
+   "status": "present",
+   "value": ".87",
+   "page": 41,
+   "evidence": "BACH_NATRC = '.87'",
+   "source": "acroform"
+  },
+  "degrees.other_bachelors_percent": {
+   "status": "blank",
+   "page": 42,
+   "evidence": "BACH_OTH = None",
+   "source": "acroform"
+  },
+  "degrees.parks_recreation_bachelors_percent": {
+   "status": "present",
+   "value": "2.76",
+   "page": 41,
+   "evidence": "BACH_PARKS = '2.76'",
+   "source": "acroform"
+  },
+  "degrees.personal_culinary_services_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_PCS = None",
+   "source": "acroform"
+  },
+  "degrees.philosophy_religious_studies_bachelors_percent": {
+   "status": "present",
+   "value": ".69",
+   "page": 41,
+   "evidence": "BACH_PHILO = '.69'",
+   "source": "acroform"
+  },
+  "degrees.physical_sciences_bachelors_percent": {
+   "status": "present",
+   "value": ".96",
+   "page": 41,
+   "evidence": "BACH_PSY = '.96'",
+   "source": "acroform"
+  },
+  "degrees.precision_production_bachelors_percent": {
+   "status": "blank",
+   "page": 42,
+   "evidence": "BACH_PROD = None",
+   "source": "acroform"
+  },
+  "degrees.psychology_bachelors_percent": {
+   "status": "present",
+   "value": "6.84",
+   "page": 41,
+   "evidence": "BACH_PSYCH = '6.84'",
+   "source": "acroform"
+  },
+  "degrees.public_administration_social_services_bachelors_percent": {
+   "status": "present",
+   "value": ".45",
+   "page": 42,
+   "evidence": "BACH_ADMIN = '.45'",
+   "source": "acroform"
+  },
+  "degrees.science_technologies_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_SCTECH = None",
+   "source": "acroform"
+  },
+  "degrees.social_sciences_bachelors_percent": {
+   "status": "present",
+   "value": "8.66",
+   "page": 42,
+   "evidence": "BACH_SOCSI = '8.66'",
+   "source": "acroform"
+  },
+  "degrees.theology_religious_vocations_bachelors_percent": {
+   "status": "blank",
+   "page": 41,
+   "evidence": "BACH_THEO = None",
+   "source": "acroform"
+  },
+  "degrees.transportation_materials_moving_bachelors_percent": {
+   "status": "blank",
+   "page": 42,
+   "evidence": "BACH_TRAN = None",
+   "source": "acroform"
+  },
+  "degrees.visual_performing_arts_bachelors_percent": {
+   "status": "present",
+   "value": "2.6",
+   "page": 42,
+   "evidence": "BACH_VIS = '2.6'",
+   "source": "acroform"
+  },
+  "enrollment.all_students_total": {
+   "status": "present",
+   "value": "41615",
+   "page": 5,
+   "evidence": "EN_TOT _N = '41615'",
+   "source": "acroform"
+  },
+  "enrollment.graduate_total": {
+   "status": "present",
+   "value": "10101",
+   "page": 5,
+   "evidence": "EN_TOT_GRAD_N = '10101'",
+   "source": "acroform"
+  },
+  "enrollment.nonresident_all_undergraduates": {
+   "status": "present",
+   "value": "389",
+   "page": 6,
+   "evidence": "EN_TOT_NONRES_ALIEN_TOT_N = '389'",
+   "source": "acroform"
+  },
+  "enrollment.undergraduate_total": {
+   "status": "present",
+   "value": "31514",
+   "page": 5,
+   "evidence": "EN_TOT _UG_N = '31514'",
+   "source": "acroform"
+  },
+  "faculty.doctorate_or_terminal_degree_faculty_full_time": {
+   "status": "present",
+   "value": "2061",
+   "page": 39,
+   "evidence": "FT_DEG_TERM_N = '2061'",
+   "source": "acroform"
+  },
+  "faculty.doctorate_or_terminal_degree_faculty_part_time": {
+   "status": "present",
+   "value": "395",
+   "page": 39,
+   "evidence": "PT_DEG_TERM_N = '395'",
+   "source": "acroform"
+  },
+  "faculty.total_instructional_faculty_full_time": {
+   "status": "present",
+   "value": "2210",
+   "page": 39,
+   "evidence": "FT_N = '2210'",
+   "source": "acroform"
+  },
+  "faculty.total_instructional_faculty_part_time": {
+   "status": "present",
+   "value": "584",
+   "page": 39,
+   "evidence": "PT_N = '584'",
+   "source": "acroform"
+  },
+  "financial_aid.aid_deadline_date_or_text": {
+   "status": "blank",
+   "page": 36,
+   "evidence": "AP_DL_MON = ' ', AP_DL_DAY = ' '",
+   "source": "acroform"
+  },
+  "financial_aid.aid_deadline_selected": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "AP_DL = None",
+   "source": "acroform"
+  },
+  "financial_aid.aid_has_deadline": {
+   "status": "absent",
+   "evidence": "H9 in this edition offers three date/checkbox rows and no separate has-a-deadline yes/no question",
+   "source": "acroform"
+  },
+  "financial_aid.aid_no_deadline_rolling_selected": {
+   "status": "present",
+   "value": true,
+   "page": 36,
+   "evidence": "AP_DL_NO = '/X'",
+   "source": "acroform"
+  },
+  "financial_aid.aid_notification_fixed_date": {
+   "status": "blank",
+   "page": 36,
+   "evidence": "AP_NOTF_DL_MON = ' ', AP_NOTF_DL_DAY = ' '",
+   "source": "acroform"
+  },
+  "financial_aid.aid_notification_fixed_selected": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "AP_NOTIF_DL = None",
+   "source": "acroform"
+  },
+  "financial_aid.aid_notification_rolling_selected": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "AP_NOTF_ROLL = None",
+   "source": "acroform"
+  },
+  "financial_aid.aid_notification_rolling_start_date": {
+   "status": "blank",
+   "page": 36,
+   "evidence": "AP_NOTF_ROLL_MON = ' ', AP_NOTF_ROLL_DAY = ' '",
+   "source": "acroform"
+  },
+  "financial_aid.aid_priority_date": {
+   "status": "present",
+   "value": "12/15",
+   "page": 36,
+   "evidence": "AP_DL_PRIORITY_MON = '12', AP_DL_PRIORITY_DAY = '15'",
+   "source": "acroform"
+  },
+  "financial_aid.aid_priority_date_selected": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "AP_DL_PRIORITY = '/Off'",
+   "source": "acroform"
+  },
+  "financial_aid.aid_reporting_academic_year": {
+   "status": "present",
+   "value": "2023-2024",
+   "page": 32,
+   "evidence": "ACAD_YR = '/2024'",
+   "source": "acroform"
+  },
+  "financial_aid.aid_reporting_status": {
+   "status": "present",
+   "value": "estimated",
+   "page": 32,
+   "evidence": "ACAD_YR = '/2024'",
+   "source": "acroform"
+  },
+  "financial_aid.graduating_class_first_time_bachelors_count": {
+   "status": "present",
+   "value": "5198",
+   "page": 34,
+   "evidence": "UG_CLASS_N = '5198'",
+   "source": "acroform"
+  },
+  "financial_aid.h11_reply_deadline_date": {
+   "status": "blank",
+   "page": 36,
+   "evidence": "AP_REPLY_DL_MON_FA = ' ', AP_REPLY_DL_DAY_FA = ' '",
+   "source": "acroform"
+  },
+  "financial_aid.h11_reply_weeks_after_notification": {
+   "status": "present",
+   "value": "2",
+   "page": 36,
+   "evidence": "AP_REPLY_DL_WEEK = '2'",
+   "source": "acroform"
+  },
+  "financial_aid.h12_institution_loan_available": {
+   "status": "present",
+   "value": true,
+   "page": 37,
+   "evidence": "LOAN_INST = '/X'",
+   "source": "acroform"
+  },
+  "financial_aid.h12_state_loan_available": {
+   "status": "present",
+   "value": true,
+   "page": 37,
+   "evidence": "LOAN_STATE = '/X'",
+   "source": "acroform"
+  },
+  "financial_aid.h14_academics_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "ACADS_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_alumni_affiliation_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "ALUMAFF_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_art_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "ART_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_athletics_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "ATHL_NB = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_athletics_non_need_based": {
+   "status": "present",
+   "value": true,
+   "page": 37,
+   "evidence": "ATHL_NN = '/X'",
+   "source": "acroform"
+  },
+  "financial_aid.h14_job_skills_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "JOB_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_leadership_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "LEAD_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_minority_status_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "MINOR_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_music_drama_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "MUSIC_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_religious_affiliation_non_need_based": {
+   "status": "present",
+   "value": false,
+   "page": 37,
+   "evidence": "RELG_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h14_rotc_non_need_based": {
+   "status": "present",
+   "value": true,
+   "page": 37,
+   "evidence": "ROTC_NN = '/X'",
+   "source": "acroform"
+  },
+  "financial_aid.h14_state_district_residency_non_need_based": {
+   "status": "present",
+   "value": true,
+   "page": 37,
+   "evidence": "STATE_NN = '/X'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_a_degree_seeking_undergraduates_first_time_first_year": {
+   "status": "present",
+   "value": "6122",
+   "page": 33,
+   "evidence": "FRSH_FT_N = '6122'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_b_applied_for_need_based_aid_first_time_first_year": {
+   "status": "present",
+   "value": "5347",
+   "page": 33,
+   "evidence": "FRSH_FT_AP_N = '5347'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_c_determined_have_need_first_time_first_year": {
+   "status": "present",
+   "value": "2139",
+   "page": 33,
+   "evidence": "FRSH_FT_ND_N = '2139'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_d_awarded_any_aid_first_time_first_year": {
+   "status": "present",
+   "value": "2085",
+   "page": 33,
+   "evidence": "FRESH_FT_REC_AID_N = '2085'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_e_awarded_need_based_grant_aid_first_time_first_year": {
+   "status": "present",
+   "value": "2020",
+   "page": 33,
+   "evidence": "FRSH_FT_NB_GIFT_N = '2020'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_f_awarded_need_based_self_help_aid_first_time_first_year": {
+   "status": "present",
+   "value": "620",
+   "page": 33,
+   "evidence": "FRSH_FT_NB_SH_N = '620'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_g_awarded_non_need_based_grant_aid_first_time_first_year": {
+   "status": "present",
+   "value": "570",
+   "page": 33,
+   "evidence": "FRSH_FT_NN_GIFT_N = '570'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_h_need_fully_met_count_first_time_first_year": {
+   "status": "present",
+   "value": "702",
+   "page": 33,
+   "evidence": "FRSH_FT_ND_MET_N = '702'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_i_average_percent_need_met_all_full_time": {
+   "status": "present",
+   "value": "76.64",
+   "page": 33,
+   "evidence": "UG_FT_ND_MET_P = '76.64'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_i_average_percent_need_met_first_time_first_year": {
+   "status": "present",
+   "value": "80.8",
+   "page": 33,
+   "evidence": "FRSH_FT_ND_MET_P = '80.8'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_j_average_aid_package_all_full_time": {
+   "status": "present",
+   "value": "14107",
+   "page": 33,
+   "evidence": "UG_FT_AVG_PKG_D = '14107'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_j_average_aid_package_first_time_first_year": {
+   "status": "present",
+   "value": "14732",
+   "page": 33,
+   "evidence": "FRSH_FT_AVG_PKG_D = '14732'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_k_average_need_based_grant_award_first_time_first_year": {
+   "status": "present",
+   "value": "11850",
+   "page": 33,
+   "evidence": "FRSH_FT_AVG_NB_GIFT_D = '11850'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_l_average_need_based_self_help_award_first_time_first_year": {
+   "status": "present",
+   "value": "3584",
+   "page": 33,
+   "evidence": "FRESH_FT_AVG_NB_SH_D = '3584'",
+   "source": "acroform"
+  },
+  "financial_aid.h2_m_average_need_based_loan_award_first_time_first_year": {
+   "status": "present",
+   "value": "3335",
+   "page": 34,
+   "evidence": "FRESH_FT_AVG_NB_LOAN_D = '3335'",
+   "source": "acroform"
+  },
+  "financial_aid.h2a_n_no_need_institutional_grant_recipients_first_time_first_year": {
+   "status": "present",
+   "value": "240",
+   "page": 34,
+   "evidence": "FRESH_FT_NN_NONEED_N = '240'",
+   "source": "acroform"
+  },
+  "financial_aid.h2a_o_average_no_need_institutional_grant_amount_first_time_first_year": {
+   "status": "present",
+   "value": "3117",
+   "page": 34,
+   "evidence": "FRESH_FT_NN_NONEED_D = '3117'",
+   "source": "acroform"
+  },
+  "financial_aid.h2a_p_institutional_athletic_grant_recipients_first_time_first_year": {
+   "status": "present",
+   "value": "74",
+   "page": 34,
+   "evidence": "FRESH_FT_NN_ATHL_N = '74'",
+   "source": "acroform"
+  },
+  "financial_aid.h2a_q_average_institutional_athletic_grant_amount_first_time_first_year": {
+   "status": "present",
+   "value": "25124",
+   "page": 34,
+   "evidence": "FRESH_FT_NN_ATHL_D = '25124'",
+   "source": "acroform"
+  },
+  "financial_aid.h5_borrowers_any_program_average_principal": {
+   "status": "present",
+   "value": "20819",
+   "page": 35,
+   "evidence": "UG_CLASS_AVG_DEBT_D = '20819'",
+   "source": "acroform"
+  },
+  "financial_aid.h5_borrowers_any_program_percent_of_class": {
+   "status": "present",
+   "value": "33",
+   "page": 35,
+   "evidence": "UG_CLASS_LOAN_P = '33'",
+   "source": "acroform"
+  },
+  "financial_aid.h5_borrowers_private_average_principal": {
+   "status": "present",
+   "value": "25939",
+   "page": 35,
+   "evidence": "UG_CLASS_AVG_DEBT_PRIVATE_D = '25939'",
+   "source": "acroform"
+  },
+  "financial_aid.h5_borrowers_private_percent_of_class": {
+   "status": "present",
+   "value": "4",
+   "page": 35,
+   "evidence": "UG_CLASS_LOAN_PRIVATE_P = '4'",
+   "source": "acroform"
+  },
+  "financial_aid.h6_average_institutional_aid": {
+   "status": "blank",
+   "page": 35,
+   "evidence": "INTL_AVG_D = None",
+   "source": "acroform"
+  },
+  "financial_aid.h6_grants_unavailable": {
+   "status": "present",
+   "value": true,
+   "page": 35,
+   "evidence": "INTL_NO = '/X'",
+   "source": "acroform"
+  },
+  "financial_aid.h6_need_based_grants_available": {
+   "status": "present",
+   "value": false,
+   "page": 35,
+   "evidence": "INTL_NB = None",
+   "source": "acroform"
+  },
+  "financial_aid.h6_non_need_based_grants_available": {
+   "status": "present",
+   "value": false,
+   "page": 35,
+   "evidence": "INTL_NN = None",
+   "source": "acroform"
+  },
+  "financial_aid.h6_recipient_count": {
+   "status": "blank",
+   "page": 35,
+   "evidence": "INTL_RECD_N = None",
+   "source": "acroform"
+  },
+  "financial_aid.h6_total_institutional_aid": {
+   "status": "blank",
+   "page": 36,
+   "evidence": "INTL_TOT_D = None",
+   "source": "acroform"
+  },
+  "financial_aid.h7_css_profile_required": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "FORM_INTL_CSS = None",
+   "source": "acroform"
+  },
+  "financial_aid.h7_institution_form_required": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "FORM_INTL_INST = None",
+   "source": "acroform"
+  },
+  "financial_aid.h8_business_farm_supplement_required": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "FORM_DOM_BUS = None",
+   "source": "acroform"
+  },
+  "financial_aid.h8_css_profile_required": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "FORM_DOM_CSS = None",
+   "source": "acroform"
+  },
+  "financial_aid.h8_institution_form_required": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "FORM_DOM_INST = None",
+   "source": "acroform"
+  },
+  "financial_aid.h8_noncustodial_profile_required": {
+   "status": "absent",
+   "evidence": "H8 in this edition lists FAFSA / institution form / CSS Profile / state aid form / business-farm supplement / other; no Noncustodial Profile row exists",
+   "source": "acroform"
+  },
+  "financial_aid.h8_state_aid_form_required": {
+   "status": "present",
+   "value": false,
+   "page": 36,
+   "evidence": "FORM_DOM_STATE = None",
+   "source": "acroform"
+  },
+  "financial_aid.need_analysis_methodology": {
+   "status": "present",
+   "value": "federal",
+   "page": 32,
+   "evidence": "METH_FM = '/X'; METH_IM = None; METH_FM_IM = None",
+   "source": "acroform"
+  },
+  "financial_aid.recent_affordability_initiative_details": {
+   "status": "blank",
+   "page": 37,
+   "evidence": "FA_PROGS_T = None",
+   "source": "acroform"
+  },
+  "identity.academic_calendar": {
+   "status": "present",
+   "value": "semester",
+   "page": 4,
+   "evidence": "MAIN_CALENDAR = '/SEM'",
+   "source": "acroform"
+  },
+  "identity.academic_year": {
+   "status": "present",
+   "value": "2023-2024",
+   "page": 1,
+   "evidence": "Cover title 'Common Data Set 2023-2024'; body 'Welcome to the 2023-2024 Common Data Set collection!'",
+   "source": "rendered_text"
+  },
+  "identity.admissions_email": {
+   "status": "blank",
+   "page": 3,
+   "evidence": "AD_EMAIL = None",
+   "source": "acroform"
+  },
+  "identity.application_url": {
+   "status": "present",
+   "value": "ttps://apply.uga.edu/apply/",
+   "page": 3,
+   "evidence": "URL_APP_OTH = 'ttps://apply.uga.edu/apply/'",
+   "source": "acroform"
+  },
+  "identity.city": {
+   "status": "present",
+   "value": "Athens",
+   "page": 3,
+   "evidence": "CITY = 'Athens'",
+   "source": "acroform"
+  },
+  "identity.country": {
+   "status": "blank",
+   "page": 3,
+   "evidence": "COUNTRY_CODE = None",
+   "source": "acroform"
+  },
+  "identity.degree_offered_bachelors": {
+   "status": "present",
+   "value": true,
+   "page": 4,
+   "evidence": "DEG_BACH = '/X'",
+   "source": "acroform"
+  },
+  "identity.degree_offered_doctoral_research_scholarship": {
+   "status": "present",
+   "value": true,
+   "page": 4,
+   "evidence": "DEG_DOCTOR_RESEARCH = '/X'",
+   "source": "acroform"
+  },
+  "identity.degree_offered_masters": {
+   "status": "present",
+   "value": true,
+   "page": 4,
+   "evidence": "DEG_MASTER = '/X'",
+   "source": "acroform"
+  },
+  "identity.institution_name": {
+   "status": "present",
+   "value": "University of Georgia",
+   "page": 3,
+   "evidence": "NAME = 'University of Georgia'",
+   "source": "acroform"
+  },
+  "identity.institutional_control": {
+   "status": "present",
+   "value": "public",
+   "page": 4,
+   "evidence": "MAIN_INST_CONTROL = '/Public'",
+   "source": "acroform"
+  },
+  "identity.main_website": {
+   "status": "present",
+   "value": "www.uga.edu",
+   "page": 3,
+   "evidence": "AD_URL = 'www.uga.edu'",
+   "source": "acroform"
+  },
+  "identity.state_or_region": {
+   "status": "present",
+   "value": "GA",
+   "page": 3,
+   "evidence": "STATE_CODE = 'GA'",
+   "source": "acroform"
+  },
+  "identity.undergraduate_gender_model": {
+   "status": "present",
+   "value": "coeducational",
+   "page": 4,
+   "evidence": "MAIN_STUDENT_BODY = '/Coeducational college'",
+   "source": "acroform"
+  },
+  "outcomes.first_year_retention_entering_cohort_count": {
+   "status": "absent",
+   "evidence": "B22 in this edition reports only a single retention percentage; no cohort-count cell exists",
+   "source": "acroform"
+  },
+  "outcomes.first_year_retention_reported_percent": {
+   "status": "present",
+   "value": "94.6",
+   "page": 12,
+   "evidence": "RETENTION_FRSH_P = '94.6'",
+   "source": "acroform"
+  },
+  "outcomes.first_year_retention_still_enrolled_next_fall_count": {
+   "status": "absent",
+   "evidence": "B22 in this edition reports only a single retention percentage; no still-enrolled cell exists",
+   "source": "acroform"
+  },
+  "outcomes.primary_all_students_adjusted_cohort_count": {
+   "status": "present",
+   "value": "5809",
+   "page": 8,
+   "evidence": "GRS_BACH_ADJUST_N = '5809'",
+   "source": "acroform"
+  },
+  "outcomes.primary_all_students_completed_after_five_within_six_years_count": {
+   "status": "present",
+   "value": "106",
+   "page": 9,
+   "evidence": "GRS_6YR_N = '106'",
+   "source": "acroform"
+  },
+  "outcomes.primary_all_students_completed_after_four_within_five_years_count": {
+   "status": "present",
+   "value": "821",
+   "page": 9,
+   "evidence": "GRS_5YR_N = '821'",
+   "source": "acroform"
+  },
+  "outcomes.primary_all_students_completed_within_four_years_count": {
+   "status": "present",
+   "value": "4189",
+   "page": 8,
+   "evidence": "GRS_4YR_N = '4189'",
+   "source": "acroform"
+  },
+  "outcomes.primary_all_students_completed_within_six_years_count": {
+   "status": "present",
+   "value": "5116",
+   "page": 9,
+   "evidence": "GRS_BACH_TOT_N = '5116'",
+   "source": "acroform"
+  },
+  "outcomes.primary_all_students_six_year_graduation_rate_ratio": {
+   "status": "present",
+   "value": "0.88",
+   "page": 9,
+   "evidence": "H row, 'Total' column, six-year graduation rate for 2017 cohort — page renders '0.88'",
+   "source": "rendered_text",
+   "acroform_raw_value": "0.8807",
+   "note": "Raw AcroForm field GRS_BACH_TOT_P carries higher precision ('0.8807') than the widget's rendered appearance stream, which prints '0.88'. Ground truth records the rendered value per orchestrator ruling: the extraction engine can only ever see the rendered page, so scoring against a hidden, inaccessible precision is not a fair test. No rounding tolerance was added to the scorer; this discrepancy is recorded as evidence, not resolved by fuzzy matching."
+  },
+  "outcomes.primary_pell_grant_six_year_graduation_rate_ratio": {
+   "status": "present",
+   "value": "0.84",
+   "page": 9,
+   "evidence": "H row, 'Recipients of a Federal Pell Grant' column, six-year graduation rate for 2017 cohort — page renders '0.84'",
+   "source": "rendered_text",
+   "acroform_raw_value": ".83534",
+   "note": "Raw AcroForm field GRS_BACH_PELL_P carries higher precision ('.83534') than the widget's rendered appearance stream, which prints '0.84'. Ground truth records the rendered value per orchestrator ruling: the extraction engine can only ever see the rendered page, so scoring against a hidden, inaccessible precision is not a fair test. No rounding tolerance was added to the scorer; this discrepancy is recorded as evidence, not resolved by fuzzy matching."
+  },
+  "student_life.age_25_or_older_percent_undergraduates": {
+   "status": "present",
+   "value": "2",
+   "page": 28,
+   "evidence": "EN_OLD_P = '2'",
+   "source": "acroform"
+  },
+  "student_life.air_force_rotc_at_cooperating_institution": {
+   "status": "present",
+   "value": false,
+   "page": 28,
+   "evidence": "ROTC_AF = '/B' (option /C)",
+   "source": "acroform"
+  },
+  "student_life.air_force_rotc_on_campus": {
+   "status": "present",
+   "value": true,
+   "page": 28,
+   "evidence": "ROTC_AF = '/B' (option /B)",
+   "source": "acroform"
+  },
+  "student_life.army_rotc_at_cooperating_institution": {
+   "status": "present",
+   "value": false,
+   "page": 28,
+   "evidence": "ROTC_ARMY = '/B' (option /C)",
+   "source": "acroform"
+  },
+  "student_life.army_rotc_on_campus": {
+   "status": "present",
+   "value": true,
+   "page": 28,
+   "evidence": "ROTC_ARMY = '/B' (option /B)",
+   "source": "acroform"
+  },
+  "student_life.average_age_full_time_undergraduates": {
+   "status": "present",
+   "value": "20",
+   "page": 28,
+   "evidence": "EN_OLD_FT = '20'",
+   "source": "acroform"
+  },
+  "student_life.college_owned_housing_percent_undergraduates": {
+   "status": "present",
+   "value": "35",
+   "page": 28,
+   "evidence": "HOUS_UG_P = '35'",
+   "source": "acroform"
+  },
+  "student_life.fraternity_joiners_percent_undergraduates": {
+   "status": "present",
+   "value": "24",
+   "page": 28,
+   "evidence": "FRAT_P = '24'",
+   "source": "acroform"
+  },
+  "student_life.naval_rotc_at_cooperating_institution": {
+   "status": "present",
+   "value": false,
+   "page": 28,
+   "evidence": "ROTC_NAVY = None (option /C)",
+   "source": "acroform"
+  },
+  "student_life.naval_rotc_on_campus": {
+   "status": "present",
+   "value": false,
+   "page": 28,
+   "evidence": "ROTC_NAVY = None (option /B)",
+   "source": "acroform"
+  },
+  "student_life.off_campus_or_commute_percent_undergraduates": {
+   "status": "present",
+   "value": "65",
+   "page": 28,
+   "evidence": "HOUS_COMMUTE_P = '65'",
+   "source": "acroform"
+  },
+  "student_life.out_of_state_percent_undergraduates": {
+   "status": "present",
+   "value": "16",
+   "page": 28,
+   "evidence": "EN_NRES_P = '16'",
+   "source": "acroform"
+  },
+  "student_life.sorority_joiners_percent_undergraduates": {
+   "status": "present",
+   "value": "37",
+   "page": 28,
+   "evidence": "SORO_P = '37'",
+   "source": "acroform"
+  },
+  "transfer.admitted_total": {
+   "status": "present",
+   "value": "2302",
+   "page": 24,
+   "evidence": "AD_TFER_N = '2302'",
+   "source": "acroform"
+  },
+  "transfer.allows_advanced_standing_from_external_coursework": {
+   "status": "present",
+   "value": true,
+   "page": 24,
+   "evidence": "AD_TFER_CRDT = '/Y'",
+   "source": "acroform"
+  },
+  "transfer.applicants_total": {
+   "status": "present",
+   "value": "3114",
+   "page": 24,
+   "evidence": "AP_TFER_N = '3114'",
+   "source": "acroform"
+  },
+  "transfer.enrolled_total": {
+   "status": "present",
+   "value": "1693",
+   "page": 24,
+   "evidence": "EN_TFER_N = '1693'",
+   "source": "acroform"
+  },
+  "transfer.enrolls_transfer_students": {
+   "status": "present",
+   "value": true,
+   "page": 24,
+   "evidence": "AD_TFER = '/Y'",
+   "source": "acroform"
+  },
+  "transfer.lowest_eligible_course_grade": {
+   "status": "present",
+   "value": "65",
+   "page": 25,
+   "evidence": "AD_TFER_GRADE = '65'",
+   "source": "acroform"
+  },
+  "transfer.minimum_college_gpa": {
+   "status": "present",
+   "value": "2.8",
+   "page": 25,
+   "evidence": "AD_TFER_COLLEGE_GPA = '2.8'",
+   "source": "acroform"
+  },
+  "transfer.minimum_high_school_gpa": {
+   "status": "blank",
+   "page": 24,
+   "evidence": "AD_TFER_HS_GPA = ''",
+   "source": "acroform"
+  },
+  "transfer.minimum_prior_credit_threshold_applies": {
+   "status": "present",
+   "value": true,
+   "page": 24,
+   "evidence": "AD_TFER_CRDT_MIN = '/Y'",
+   "source": "acroform"
+  },
+  "transfer.minimum_prior_credit_unit": {
+   "status": "blank",
+   "page": 24,
+   "evidence": "AD_TFER_CRDT_MIN_UNIT = ' '",
+   "source": "acroform"
+  },
+  "transfer.minimum_prior_credit_value": {
+   "status": "present",
+   "value": "30",
+   "page": 24,
+   "evidence": "AD_TFER_CRDT_MIN_N = '30'",
+   "source": "acroform"
+  },
+  "transfer.open_admission_policy_applies": {
+   "status": "blank",
+   "page": 25,
+   "evidence": "AD_TFER_OPEN_AD = None (Y/N radio unanswered)",
+   "source": "acroform"
+  },
+  "transfer.transfer_closing_date_fall": {
+   "status": "present",
+   "value": "4/1",
+   "page": 25,
+   "evidence": "AP_DL_TFER_MON = '4', AP_DL_TFER_DAY = '1'",
+   "source": "acroform"
+  },
+  "transfer.transfer_notification_date_fall": {
+   "status": "blank",
+   "page": 25,
+   "evidence": "AP_NOTF_DL_TFER_MON = ' ', AP_NOTF_DL_TFER_DAY = ' '",
+   "source": "acroform"
+  },
+  "transfer.transfer_priority_date_fall": {
+   "status": "blank",
+   "page": 25,
+   "evidence": "AP_PRIO_DL_TFER_MON = ' ', AP_PRIO_DL_TFER_DAY = ' '",
+   "source": "acroform"
+  },
+  "transfer.transfer_reply_date_fall": {
+   "status": "blank",
+   "page": 25,
+   "evidence": "AP_REPLY_DL_TFER_MON = ' ', AP_REPLY_DL_TFER_DAY = ' '",
+   "source": "acroform"
+  },
+  "transfer.transfer_requirement_college_transcripts": {
+   "status": "present",
+   "value": "required_all",
+   "page": 24,
+   "evidence": "REQ_CODE_CG_TRANSCRIPT = '/TFER_REQ'",
+   "source": "acroform"
+  },
+  "transfer.transfer_requirement_essay_personal_statement": {
+   "status": "present",
+   "value": "not_required",
+   "page": 24,
+   "evidence": "REQ_CODE_ESSAY = '/TFER_NREQ'",
+   "source": "acroform"
+  },
+  "transfer.transfer_requirement_high_school_transcript": {
+   "status": "present",
+   "value": "not_required",
+   "page": 24,
+   "evidence": "REQ_CODE_HS_TRANSCRIPT = '/TFER_NREQ'",
+   "source": "acroform"
+  },
+  "transfer.transfer_requirement_interview": {
+   "status": "present",
+   "value": "not_required",
+   "page": 24,
+   "evidence": "REQ_CODE_INTERVIEW = '/TFER_NREQ'",
+   "source": "acroform"
+  },
+  "transfer.transfer_requirement_prior_institution_good_standing": {
+   "status": "present",
+   "value": "recommended_some",
+   "page": 24,
+   "evidence": "REQ_CODE_GDSTAND = '/TFER_ROS'",
+   "source": "acroform"
+  },
+  "transfer.transfer_requirement_standardized_test_scores": {
+   "status": "present",
+   "value": "recommended_some",
+   "page": 24,
+   "evidence": "REQ_CODE_TEST_SCORES = '/TFER_ROS'",
+   "source": "acroform"
+  },
+  "transfer.transfer_rolling_admission_fall": {
+   "status": "present",
+   "value": true,
+   "page": 25,
+   "evidence": "AP_DL_TFER_1 = '/C'",
+   "source": "acroform"
+  }
+ }
+}

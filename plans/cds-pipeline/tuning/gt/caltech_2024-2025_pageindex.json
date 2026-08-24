@@ -1,0 +1,729 @@
+{
+ "document": "caltech_2024-2025",
+ "page_count": 50,
+ "stated_year": "2024-2025",
+ "merged_from": [
+  "caltech_2024-2025_pageindex_p01-25.json",
+  "caltech_2024-2025_pageindex_p26-50.json"
+ ],
+ "completeness": "D17-checked: every page entry has a non-empty sections list or an explicit note; no placeholders",
+ "pages": {
+  "1": {
+   "sections": [
+    "cover/title"
+   ],
+   "notes": "Title page: 'Common Data Set 2024-2025', institution name top-left, 'May 2025' top-right, welcome/boilerplate text about CDS initiative. No CDS item codes visible."
+  },
+  "2": {
+   "sections": [
+    "A0"
+   ],
+   "notes": "A0. Respondent Information (Not for Publication) - contact fields (name, title, office, address, phone, email), 'posted on website?' Yes/No radio, and A0A free-text comments box (empty) at bottom of page."
+  },
+  "3": {
+   "sections": [
+    "A1"
+   ],
+   "notes": "A1. Address Information - institution name/address/phone/website, then 'Admissions Office information' subsection (address, phone, toll-free phone, email, application URL, alternate mailing address). All one continuous section on one page."
+  },
+  "4": {
+   "sections": [
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6"
+   ],
+   "notes": "Four distinct A-items stacked on one page. A2 = radio buttons (Public/Private/Proprietary). A3 = radio buttons (Coed/Men's/Women's). A4 = two-column radio layout (Semester/Quarter/Trimester/4-1-4 left column; Continuous/Differs by program/Other right column) - naive top-to-bottom read would misorder these two columns. A5 = two-column checkbox grid of degree types (Certificate...Bachelor's left; Post-bachelor's...Doctoral-other right) - checkboxes use a checkmark glyph (\u2713) when marked, empty square otherwise. A6 = single URL text field."
+  },
+  "5": {
+   "sections": [
+    "B1"
+   ],
+   "notes": "B. ENROLLMENT AND PERSISTENCE section header, then B1 Institutional Enrollment table: rows=student categories (degree-seeking first-time first-year, other first-year, all other degree-seeking, totals, graduate breakdowns), columns nested as FULL-TIME/PART-TIME each split into Men/Women/Another Gender/Unknown. Below the table: three summary boxes (Total All Undergraduates, Total All Graduate Students, Grand Total All Students)."
+  },
+  "6": {
+   "sections": [
+    "B2"
+   ],
+   "notes": "B2. Enrollment by Racial/Ethnic Category - long instructional text block followed by a table with rows per race/ethnicity category and 3 columns (Degree-seeking First-time First year / Degree-seeking Undergraduates / Total Undergraduates), ending in a Total row."
+  },
+  "7": {
+   "sections": [
+    "B3"
+   ],
+   "notes": "B3. Persistence - degrees-awarded table (AWARD TYPE / # AWARDED) covering Certificate through Doctoral-other. Page is mostly blank below the table."
+  },
+  "8": {
+   "sections": [
+    "B4-B11"
+   ],
+   "notes": "Section header 'B4-B21: Graduation Rates' with instructional text, then start of 'For Bachelor's or Equivalent Programs' Fall 2018 Cohort table (rows A-D shown; table continues onto page 9). Row-label letters (A, B, C, D) map to the historical B4-B11 sub-items."
+  },
+  "9": {
+   "sections": [
+    "B4-B11"
+   ],
+   "notes": "Continuation of Fall 2018 Cohort table: only rows E, F, G, H (rows A-D are on page 8). Table split across the page 8/9 boundary. Page 9 does NOT contain the Fall 2017 table (that is a full page later, page 10) \u2014 rest of page 9 below row H is blank."
+  },
+  "10": {
+   "sections": [
+    "B4-B11"
+   ],
+   "notes": "Full 'Fall 2017 Cohort' table (rows A-H), the second disaggregated cohort table required by B4-B11 instructions on page 8. Entirely separate page from the Fall 2018 table (pages 8-9); do not merge."
+  },
+  "11": {
+   "sections": [
+    "B12-B21"
+   ],
+   "notes": "'For Two-Year Institutions' section, 2021/2020 Cohort table, items B12-B21. All data cells are BLANK (Caltech is not a two-year institution) \u2014 table present but entirely unfilled, not an extraction failure."
+  },
+  "12": {
+   "sections": [
+    "B22"
+   ],
+   "notes": "B22. Retention Rates - instructional/definitional text followed by a single numeric answer box (97.40). Rest of page blank."
+  },
+  "13": {
+   "sections": [
+    "C1"
+   ],
+   "notes": "Section header 'C. FIRST-TIME, FIRST-YEAR ADMISSION' then 'C1-C2: Applications' subheader, then C1 instructional bullets and four stacked tables: Applicants (by gender), Admits (by gender), Enrollees (by gender), Enrollees by Status (full/part-time x gender). Table continues to bottom edge of page (last two rows may be tight against page bottom - verify continuation)."
+  },
+  "14": {
+   "sections": [
+    "C1",
+    "C2"
+   ],
+   "notes": "Top: residency-breakdown table for C1 (In-State/Out-of-State/International/Unknown x Applied/Admitted/Enrolled) - all cells blank except Total column (all 0, meaning Caltech did not report residency breakdown). Then C2 First-time first-year wait-listed students: Yes/No checkbox (Yes is a filled/checked box, rendered as a distinct filled square glyph '\u2611'-style, different from the outline-square unchecked boxes used elsewhere), waiting list numbers table, and three ranked/released Yes/No checkbox pairs (all left unchecked - genuinely blank, not extraction failure)."
+  },
+  "15": {
+   "sections": [
+    "C3",
+    "C4",
+    "C5"
+   ],
+   "notes": "'C3-C5: Admission Requirements' subheader. C3 = 3 checkbox options (checked: 'High school diploma or equivalent is not required' - marked with a checkmark-in-box glyph, distinct visual style from C2's filled-square Yes/No). C4 = 3 checkbox options (checked: Require). C5 = table (Units Required / Units Recommended columns) with rows for academic subjects; most cells blank, only English/Math/Science/Social-studies rows populated."
+  },
+  "16": {
+   "sections": [
+    "C6",
+    "C7"
+   ],
+   "notes": "'C6-C7: Basis for Selection' subheader. C6 = open-admission checkboxes, all UNCHECKED (Caltech is not open-admission) including nested sub-options - genuinely blank. C7 = large two-part checkbox grid (Academic factors / Nonacademic factors) x 4 importance columns (Very Important/Important/Considered/Not Considered). CONFIRMS the checkbox marker style for C7-type grids: a checkmark glyph (\u2713) inside an otherwise-empty-outline square; every row has exactly one checked column, no rows are fully blank."
+  },
+  "17": {
+   "sections": [
+    "C7",
+    "C8"
+   ],
+   "notes": "Top: free-text box for C7 program-specific-differences (empty). 'C8: SAT and ACT Policies' subheader. C8A = Yes/No checkbox (Yes checked) then a 3-row x 5-column checkbox grid (SAT-or-ACT / ACT-Only / SAT-Only rows) - only 'SAT or ACT' + 'Required to be considered for admission' cell is checked, all other grid cells empty. C8B and C8C explicitly labeled 'Has been removed from the CDS' (no data expected). C8D = Yes/No checkbox (No checked). C8E = Month/Day numeric fields (12 / 31). C8F = empty free-text box."
+  },
+  "18": {
+   "sections": [
+    "C8"
+   ],
+   "notes": "Only C8G on this page: 6 checkbox options (SAT/ACT/AP/CLEP/Institutional Exam/State Exam) - only 'Institutional Exam' checked, plus an empty adjoining text field for 'State Exam (specify)'. Rest of page blank (near-blank page - mostly whitespace below the C8G block)."
+  },
+  "19": {
+   "sections": [
+    "C9-C12",
+    "C9"
+   ],
+   "notes": "Banner 'C9-C12: First-time, first-year Profile' then instructional text, then 'C9.' heading (percent/number of students submitting SAT/ACT). Small 2-col table (Percent/Number x Submitting SAT Scores/Submitting ACT Scores) - all 4 data cells BLANK. Below it, the 25th/50th/75th percentile table (Assessment rows: SAT Composite, SAT EBRW, SAT Math, ACT Composite, ACT Math, ACT English, ACT Writing, ACT Science, ACT Reading) - ALL data cells BLANK across all three percentile columns for every assessment row. Consistent with Caltech being test-blind."
+  },
+  "20": {
+   "sections": [
+    "C9",
+    "C10"
+   ],
+   "notes": "Continuation of C9: 'Percent of first-time, first-year students with scores in each range' - three side-by-side score-range distribution tables (SAT EBRW/SAT Math by 700-800...200-299 rows; SAT Composite by 1400-1600...400-599 rows; ACT Composite/English/Math/Reading/Science by 30-36...Below-6 rows). ALL data cells BLANK in every table. Anomaly: SAT Composite table's 'Total should be 100%' row prints a static '0.00' in the Composite column, and the ACT table's bottom total row prints '100%' under all five ACT columns despite every row above being empty - these look like pre-filled/default totals rather than reported data, not an extraction failure. Page ends with 'C10.' heading (percent of students by HS class rank ranges) with instructional text; the C10 table itself starts on page 21."
+  },
+  "21": {
+   "sections": [
+    "C10",
+    "C11",
+    "C12"
+   ],
+   "notes": "Top: continuation/completion of C10 table (Assessment/Percent rows) - top tenth=86.40, top quarter=97.70, top half=100.00 FILLED; bottom half and bottom quarter rows BLANK (consistent with the top-half+bottom-half=100% bracket note printed at right); 'percent who submitted HS class rank'=20.20 FILLED. Then 'C11.' heading: GPA-range table (Score Range rows GPA-of-4.0 down to below-1.0) x 3 columns (submitted scores / did not submit / all enrolled) - ALL data cells BLANK, totals row shows static 0.00 in all three columns. Then 'C12.' heading: Average HS GPA box (blank) and 'Percent Submitting GPA' box (blank)."
+  },
+  "22": {
+   "sections": [
+    "C13-C20",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17"
+   ],
+   "notes": "Banner 'C13-C20: Admission Policies'. C13 Application fee: Yes checked (filled checkbox glyph vs empty square), Amount=$75.00, waivable-for-need=Yes, online policy=Same Fee checked, online fee waivable=Yes. C14 Application closing date: Yes checked; table Month/Day - Application closing date (fall)=1/3, Priority Date row blank. C15: No checked (not accepted for other terms) - this is a same-line Yes-box/No-box pair where the CHECKED box's left/right POSITION is the only signal, e.g. 'Yes \u25a1 No \u2611'. C16 Notification: 'By (date)' option checked (small checkmark glyph, distinct from the \u2611 boxes above) with Month=3, Day=15; 'On a rolling basis' and 'Other' unchecked. C17 Reply policy: 'Must reply by (date)' checked, Month=5, Day=1; 'No set date'/'May 1st or within __ weeks'/'Other' unchecked; housing deposit date/amount fields blank; 'Refundable if student does not enroll' Yes-in-full/Yes-in-part/No all unchecked/blank at bottom of page."
+  },
+  "23": {
+   "sections": [
+    "C18",
+    "C19",
+    "C20",
+    "C21-C22",
+    "C21",
+    "C22"
+   ],
+   "notes": "C18 Deferred admission: Yes checked, max postponement='2 years' text field. C19 Early admission of HS students: No checked. C20: 'Question removed from CDS' boilerplate, no data expected. Banner 'C21-C22: Early Decision and Early Action Plans'. C21 Early decision: No checked, so the four date sub-fields (closing/notification x first-or-only/other) and the Fall 2024 applicant/admit count boxes and free-text details box below are all genuinely BLANK (skip-logic, not extraction failure). C22 Early action: Yes checked; closing date=11/1, notification date=12/15; 'restrictive plan' Yes checked at bottom of page."
+  },
+  "24": {
+   "sections": [
+    "D",
+    "D1-D2",
+    "D1",
+    "D2",
+    "D3-D11",
+    "D3",
+    "D4",
+    "D5"
+   ],
+   "notes": "Section header 'D. TRANSFER ADMISSION'. Banner 'D1-D2: Fall Applicants'. D1: Yes checked (enrolls transfers), advanced-standing credit Yes checked. D2 Fall 2024 transfer table (Men/Women/Another Gender/Unknown x Applicants/Admitted Applicants/Enrolled Applicants): Men=138/7/6, Women=40/4/4, Another Gender and Unknown rows blank, Total=178/11/10. Banner 'D3-D11: Application for Admission'. D3: Fall checked only (Winter/Spring/Summer unchecked). D4: No checked (no minimum-credits requirement); the 'if yes' Number-of-credits/Unit-Type boxes are blank (skip logic). D5 is a genuine column-position-encoded grid: 6 requirement rows (HS transcript, College transcript(s), Essay/personal statement, Interview, Standardized test scores, Statement of good standing) x 5 columns (Required of All / Recommended of All / Recommended of Some / Required of Some / Not Required) - exactly one checkmark per row and the row's meaning is determined entirely by WHICH column holds the check (e.g. Interview and Standardized test scores are checked under 'Not Required'; the other four rows checked under 'Required of All'). D6 heading + blank answer box for min transfer HS GPA starts at bottom of page (box empty, continues conceptually into D7 on page 25)."
+  },
+  "25": {
+   "sections": [
+    "D6",
+    "D7",
+    "D8",
+    "D9",
+    "D10",
+    "D11",
+    "D12-D17",
+    "D12",
+    "D13",
+    "D14",
+    "D15",
+    "D16",
+    "D17"
+   ],
+   "notes": "D7 min college GPA for transfers: blank box. D8 other transfer application requirements: blank free-text box. D9 transfer application dates table (Priority/Closing/Notification/Reply Date each Month+Day, plus Rolling-admission checkbox column) x 4 terms (Fall/Winter/Spring/Summer): only Fall row filled - Closing=2/15, Notification=5/1, Reply=6/1; Priority Date and Rolling-admission checkbox blank for Fall; Winter/Spring/Summer rows entirely blank. D10: open-admission-applies-to-transfers - BOTH Yes and No boxes unchecked/empty (genuinely unanswered, not a reading error). D11 additional transfer requirements: blank free-text box. Banner 'D12-D17: Transfer Credit Policies'. D12 lowest transferable grade: blank box. D13/D14/D15 (two-year min credits / four-year min credits / min credits for associate degree) Number+Unit Type boxes all BLANK. D16 min credits for bachelor's degree: Number=216, Unit Type box blank. D17 other transfer credit policies: blank free-text box."
+  },
+  "26": {
+   "sections": [
+    "D18",
+    "D19",
+    "D20",
+    "D21",
+    "D22"
+   ],
+   "notes": "D18-D22 Military Service Transfer Credit Policies. D18 is a Yes/No checkbox grid (3 rows: ACE, CLEP, DSST) \u2014 all checked No. D19-D20 have Number/Unit Type input boxes, both blank. D21 Yes/No + URL box (blank). D22 free-text box (blank). Straightforward top-to-bottom read."
+  },
+  "27": {
+   "sections": [
+    "E1",
+    "E3"
+   ],
+   "notes": "Header 'E. ACADEMIC OFFERINGS AND POLICIES'. E1 Special study options: two-column checkbox list (left/right columns read top-to-bottom independently, not row-by-row). E2 explicitly says 'Has been removed from the CDS' (no content \u2014 do not treat as a missing/unanswered item). E3 Areas requiring coursework: two-column checkbox list, left column much longer than right (11 items vs 2), so naive row-pairing would misalign \u2014 read each column fully top-to-bottom on its own."
+  },
+  "28": {
+   "sections": [
+    "F1",
+    "F2",
+    "F3",
+    "F4"
+   ],
+   "notes": "Header 'F. STUDENT LIFE'. F1 is a 2-column x 8-row data table (First-time/first-year vs Undergraduates percentages/ages). F2 Activities offered: three-column checkbox grid (18+ items), read each column independently top-to-bottom. F3 ROTC: three subsections (Army/Naval/Air Force) each with On-campus / cooperating-institution-name fields; Army ROTC cooperating institution = 'USC', Air Force = 'USC, CSUSB, LMU, UCLA', Naval = none offered. F4 Housing: two-column checkbox grid."
+  },
+  "29": {
+   "sections": [
+    "G0",
+    "G1"
+   ],
+   "notes": "Header 'G. ANNUAL EXPENSES'. G0 URL box (filled: https://www.finaid.caltech.edu/npc). Instructional bullet list before G1's table. G1 tuition table has 2 data columns (First-year, Undergraduates) and row groups PRIVATE INSTITUTION / PUBLIC INSTITUTION (all blank, Caltech is private) / FOR ALL INSTITUTIONS (populated: Tuition $65622.00 for both columns, Required Fees $3086/$2586, Food and Housing $20991/$20991, Housing Only $12105/$12105, Food Only $8886/$8886). Trailing 'Comprehensive tuition...' and 'Other:' fields blank."
+  },
+  "30": {
+   "sections": [
+    "G2",
+    "G3",
+    "G4",
+    "G5",
+    "G6"
+   ],
+   "notes": "G2 Min/Max credit boxes, both blank. G3/G4 Yes/No checkboxes (No checked for both) plus G4 conditional percentage box (blank). G5 is a 3-column x 6-row expense table with several 'Not Applicable' cells rendered as dark/inverted (white-on-black) cells \u2014 a naive OCR/text pass could misread these as data rather than the literal string 'Not Applicable'. Populated cells: Books and supplies $1428/$1428/$1428, Housing only (commuter not living at home) $15219, Food only $7533, Living expenses (commuters living at home) $11835, Other expenses $3285/$4140/$5067. G6 per-credit-hour charge table, entirely blank (Caltech doesn't charge per credit)."
+  },
+  "31": {
+   "sections": [
+    "H1"
+   ],
+   "notes": "Header 'H. FINANCIAL AID' followed by a block of financial-aid term definitions (Awarded aid, Financial aid applicant, Indebtedness, Institutional scholarships and grants, Financial need, Need-based aid, Need-based scholarship/grant aid, Need-based self-help aid, Non-need-based scholarship/grant aid with a numbered 1-9 precedence list in two columns, Non-need-based self-help aid, Private student loans, External scholarships and grants, Work study and employment). No numbered CDS question yet on this page; H1's actual table begins on page 32. Straightforward single-column prose read except the 1-9 precedence list which is two columns (1-5 left, 6-9 right)."
+  },
+  "32": {
+   "sections": [
+    "H1"
+   ],
+   "notes": "'Aid Awarded to Enrolled Undergraduates' subheading, then H1 instructions/checkboxes (2024-2025 Estimated checked; methodology 'Both FM and IM' checked), then the H1 dollar-amount table begins: 2 data columns (Need-based / Non-need-based) x rows grouped under 'Scholarships/Grants' (Federal, State, Institutional, external) with a 'Total Scholarships/Grants' subtotal row, then 'Self-Help' group (Student loans, Federal Work-Study, State/other) with 'Total Self-Help' subtotal, then 'Parent Loans' row (continues to next page). One cell ('Federal Work-Study', Non-need-based column) is the dark/inverted 'Not Applicable' style seen elsewhere."
+  },
+  "33": {
+   "sections": [
+    "H1",
+    "H2"
+   ],
+   "notes": "Top of page continues/completes the H1 table (Tuition Waivers row \u2014 note text says reporting is optional; Athletic Awards row), closing out H1. Then H2 'Number of Enrolled Students Awarded Aid' begins: an A-M lettered row table with 3 data columns (Full-time First-time First-year / Full-time Undergrad incl. Fresh / Less Than Full-time Undergrad \u2014 this third column is blank throughout, Caltech has none). Rows A-L visible on this page; continues onto page 34."
+  },
+  "34": {
+   "sections": [
+    "H2",
+    "H2A",
+    "H4"
+   ],
+   "notes": "Top of page finishes H2 with row M. Then 'H2A. Number of Enrolled Students Awarded Non-need-based Scholarships and Grants' \u2014 a lettered N-Q row table, same 3-column structure as H2 (third column blank). Then a boxed 'Note' listing Include/Exclude criteria for the 2024 undergraduate class definition used in H4/H5 (bulleted, not a numbered CDS item itself). H4 numeric answer box follows: 230."
+  },
+  "35": {
+   "sections": [
+    "H5",
+    "H6"
+   ],
+   "notes": "H5 'Number and percent of students... borrowing' table: 5 lettered rows (A-E) x 3 data columns (Number, Percent nearest 1%, Average per-borrower cumulative principal). Then 'H6-H7: Aid to Undergraduate Degree-seeking Nonresidents' subheading and H6 begins: checkbox policy options (need-based available = checked) plus two numeric answer boxes (63 students; $82706 average) whose labels wrap across multiple lines \u2014 read the full wrapped label before the box, not just the nearest line."
+  },
+  "36": {
+   "sections": [
+    "H6"
+   ],
+   "notes": "ANOMALY: running header on this page reads 'Common Data Set 2023-2024' (all other pages 26-50 read '2024-2025') \u2014 this is a genuine printed discrepancy in the source PDF, confirmed visually, not an OCR/rendering artifact; flag downstream. Page content: completes H6 with 'Total dollar amount of institutional financial aid awarded to undergraduate degree-seeking nonresidents: $5210490'. Then H7 checkbox list (CSS Profile checked). Then subheading 'Process for First-Year Students': H8 checkbox list (FAFSA, Institution's own form, CSS Profile, State aid form, Noncustodial Profile, Business/Farm Supplement all checked). H9 filing dates (Month/Day boxes: Priority date 3/15). H10 notification dates (4/15). H11 reply dates (5/1, or within 2 weeks)."
+  },
+  "37": {
+   "sections": [
+    "H12",
+    "H13",
+    "H14",
+    "H15"
+   ],
+   "notes": "Subheading 'Types of Aid Available'. H12 Loans and H13 Need Based Scholarships and Grants are two side-by-side checkbox columns (read independently, not row-paired \u2014 different item counts per column). H14 is a 2-column (Non-Need Based / Need-Based) x 10-row checkbox matrix; one cell (ROTC / Need-Based) is the dark/inverted 'Not Applicable' style. H15 free-text box, blank."
+  },
+  "38": {
+   "sections": [
+    "I1"
+   ],
+   "notes": "Header 'I. INSTRUCTIONAL FACULTY AND CLASS SIZE'. I-1 instructions followed by an A-G lettered reference table (2 columns: Full-time, Part-time) defining Include/Exclude rules for faculty categories \u2014 this is *policy/definitional* text, not data to be extracted as counts. Then prose definitions (Full-time instructional faculty, Part-time instructional faculty, Minority faculty, Doctorate, Terminal master's degree) continue to bottom of page."
+  },
+  "39": {
+   "sections": [
+    "I1",
+    "I2"
+   ],
+   "notes": "Top of page: the actual I-1 data table (A-J lettered rows x Full-time/Part-time/Total columns) \u2014 Total instructional faculty 359 (326 FT + 33 PT), minority 89, women 97, men 262, nonresidents 15, doctorate 353, etc. Then 'I-2. Student to Faculty Ratio': Fall 2024 ratio '3 to 1' (based on 987 students and 337 faculty) \u2014 note the text layer renders this line's year digit corrupted ('Fall 202\\x17') even though the printed digit is clearly '4' in the image, direct evidence body-text digits are corrupted, not just headers."
+  },
+  "40": {
+   "sections": [
+    "I3"
+   ],
+   "notes": "'I-3. Undergraduate Class Size' \u2014 lengthy definitional prose (Class Sections, Class Subsections) followed by two small data tables sharing the same 7 size-bucket columns (2-9, 10-19, 20-29, 30-39, 40-49, 50-99, 100+, Total): 'CLASS SECTIONS' row (totals 299) and 'CLASS SUB-SECTIONS' row (totals 107). One instance of red-colored inline text ('should') within the Class Sections definition paragraph \u2014 a stray formatting artifact, not semantically meaningful, but could confuse a naive markdown/HTML conversion into treating it as a link or flagged term."
+  },
+  "41": {
+   "sections": [
+    "J1"
+   ],
+   "notes": "Header 'J. Disciplinary areas of DEGREES CONFERRED' \u2014 degrees conferred July 1 2023-June 30 2024. Instructional paragraph, then the CIP category table begins: 4 columns (Diploma/Certificates, Associate, Bachelor's, CIP 2020 Categories to Include) x ~25 rows on this page, continuing to page 42. Populated Bachelor's-column cells on this page: Computer and information sciences 40.90, Engineering 31.10, Biological/life sciences 5.10, Mathematics and statistics 7.70, Physical sciences 14.50. 'Military science and military technologies' row lists CIP code '28 and 29' as a SINGLE COMBINED ROW (not two separate rows) \u2014 confirmed visually, matches expected CDS convention."
+  },
+  "42": {
+   "sections": [
+    "J1"
+   ],
+   "notes": "Continuation/completion of the J1 CIP table from page 41 (rows Homeland Security through History, then 'Other', then 'TOTAL (should be = 100%)'). Populated Bachelor's cells: Business/marketing 0.90. Totals row: Diploma/Certificates 0.00, Associate 0.00, Bachelor's 100.20 (sums slightly over 100 due to rounding of individual category percentages \u2014 expected/normal for CDS). Percentage formatting observed throughout J1 (both pages): all values print WITH a leading zero when below 1 (e.g. '0.90'), never a bare '.90'; values above 1 show the expected integer.decimal form (e.g. '40.90', '5.10') \u2014 no examples of a percentage below 0.10 appeared, so sub-0.10 leading-zero behavior (e.g. '0.05' vs '.05') could not be directly confirmed from this document's data, only inferred from the '0.90' example."
+  },
+  "43": {
+   "sections": [],
+   "notes": "Start of the un-numbered 'Common Data Set Definitions' glossary appendix (alphabetical, A-C: Academic advisement through College-preparatory program). No CDS item codes on definitions pages 43-50; recorded as empty 'sections' by design. Straightforward single-column prose."
+  },
+  "44": {
+   "sections": [],
+   "notes": "Definitions glossary continued (C-G: Common Application through Geographical residence). Single-column prose, no CDS item codes."
+  },
+  "45": {
+   "sections": [],
+   "notes": "Definitions glossary continued (G-O: Grade-point average through Other expenses). Single-column prose, no CDS item codes."
+  },
+  "46": {
+   "sections": [],
+   "notes": "Definitions glossary continued (O-R: Out-of-state tuition through Recognized Postsecondary Credential). Single-column prose, no CDS item codes."
+  },
+  "47": {
+   "sections": [],
+   "notes": "Definitions glossary continued (R-U: Religious affiliation through Unduplicated Count of High School Students Enrolled for Credit) then transitions mid-page into a new 'Financial Aid Definitions' subsection (External scholarships and grants through the 1-9 non-need precedence list, two-column at bottom, cut off at 'Non-need state grants' \u2014 continues on page 48). No CDS item codes."
+  },
+  "48": {
+   "sections": [],
+   "notes": "Definitions glossary continued and concluded (Undergraduate Research through Work experience as admission factor), then 'Financial Aid Definitions' section heading repeats and restarts alphabetically (External scholarships and grants ... Non-need-based scholarship or grant aid with its own 1-9 precedence list) \u2014 this duplicates content also seen at the end of page 47/start of 48; the financial-aid definitions block appears to be printed twice across pages 47-50 (once inline after the general glossary, once as its own labeled section). No CDS item codes."
+  },
+  "49": {
+   "sections": [],
+   "notes": "Financial Aid Definitions continued: 'Non-need-based self-help aid' and 'Work study and employment' only \u2014 two entries \u2014 then the page goes blank for the remainder. No CDS item codes."
+  },
+  "50": {
+   "sections": [],
+   "notes": "NEAR-BLANK PAGE: only two definitions at the very top ('Non-need-based self-help aid', 'Work study and employment' \u2014 duplicates of page 49's entries), then the entire rest of the page (~90%) is empty whitespace. Likely the final page of the glossary appendix with trailing blank space. No CDS item codes. Confirms document truly ends at page 50 with no further numbered content."
+  }
+ },
+ "section_index": {
+  "A0": [
+   2
+  ],
+  "A1": [
+   3
+  ],
+  "A2": [
+   4
+  ],
+  "A3": [
+   4
+  ],
+  "A4": [
+   4
+  ],
+  "A5": [
+   4
+  ],
+  "A6": [
+   4
+  ],
+  "B1": [
+   5
+  ],
+  "B12-B21": [
+   11
+  ],
+  "B2": [
+   6
+  ],
+  "B22": [
+   12
+  ],
+  "B3": [
+   7
+  ],
+  "B4-B11": [
+   8,
+   9,
+   10
+  ],
+  "C1": [
+   13,
+   14
+  ],
+  "C10": [
+   20,
+   21
+  ],
+  "C11": [
+   21
+  ],
+  "C12": [
+   21
+  ],
+  "C13": [
+   22
+  ],
+  "C13-C20": [
+   22
+  ],
+  "C14": [
+   22
+  ],
+  "C15": [
+   22
+  ],
+  "C16": [
+   22
+  ],
+  "C17": [
+   22
+  ],
+  "C18": [
+   23
+  ],
+  "C19": [
+   23
+  ],
+  "C2": [
+   14
+  ],
+  "C20": [
+   23
+  ],
+  "C21": [
+   23
+  ],
+  "C21-C22": [
+   23
+  ],
+  "C22": [
+   23
+  ],
+  "C3": [
+   15
+  ],
+  "C4": [
+   15
+  ],
+  "C5": [
+   15
+  ],
+  "C6": [
+   16
+  ],
+  "C7": [
+   16,
+   17
+  ],
+  "C8": [
+   17,
+   18
+  ],
+  "C9": [
+   19,
+   20
+  ],
+  "C9-C12": [
+   19
+  ],
+  "D": [
+   24
+  ],
+  "D1": [
+   24
+  ],
+  "D1-D2": [
+   24
+  ],
+  "D10": [
+   25
+  ],
+  "D11": [
+   25
+  ],
+  "D12": [
+   25
+  ],
+  "D12-D17": [
+   25
+  ],
+  "D13": [
+   25
+  ],
+  "D14": [
+   25
+  ],
+  "D15": [
+   25
+  ],
+  "D16": [
+   25
+  ],
+  "D17": [
+   25
+  ],
+  "D18": [
+   26
+  ],
+  "D19": [
+   26
+  ],
+  "D2": [
+   24
+  ],
+  "D20": [
+   26
+  ],
+  "D21": [
+   26
+  ],
+  "D22": [
+   26
+  ],
+  "D3": [
+   24
+  ],
+  "D3-D11": [
+   24
+  ],
+  "D4": [
+   24
+  ],
+  "D5": [
+   24
+  ],
+  "D6": [
+   25
+  ],
+  "D7": [
+   25
+  ],
+  "D8": [
+   25
+  ],
+  "D9": [
+   25
+  ],
+  "E1": [
+   27
+  ],
+  "E3": [
+   27
+  ],
+  "F1": [
+   28
+  ],
+  "F2": [
+   28
+  ],
+  "F3": [
+   28
+  ],
+  "F4": [
+   28
+  ],
+  "G0": [
+   29
+  ],
+  "G1": [
+   29
+  ],
+  "G2": [
+   30
+  ],
+  "G3": [
+   30
+  ],
+  "G4": [
+   30
+  ],
+  "G5": [
+   30
+  ],
+  "G6": [
+   30
+  ],
+  "H1": [
+   31,
+   32,
+   33
+  ],
+  "H12": [
+   37
+  ],
+  "H13": [
+   37
+  ],
+  "H14": [
+   37
+  ],
+  "H15": [
+   37
+  ],
+  "H2": [
+   33,
+   34
+  ],
+  "H2A": [
+   34
+  ],
+  "H4": [
+   34
+  ],
+  "H5": [
+   35
+  ],
+  "H6": [
+   35,
+   36
+  ],
+  "I1": [
+   38,
+   39
+  ],
+  "I2": [
+   39
+  ],
+  "I3": [
+   40
+  ],
+  "J1": [
+   41,
+   42
+  ],
+  "cover/title": [
+   1
+  ]
+ },
+ "layout_warnings": [
+  "Page 4: A4 (Academic year calendar) uses a two-column radio layout \u2014 left column Semester/Quarter/Trimester/4-1-4, right column Continuous/Differs-by-program/Other. A naive top-to-bottom single-column read would interleave these incorrectly; must read left column fully then right column, or read as two side-by-side groups.",
+  "Page 4: A5 (Degrees offered) is a two-column checkbox grid (8 rows), same left-then-right reading order caveat applies.",
+  "Page 4: checkboxes render as a checkmark glyph inside a square when selected (Bachelor's, Master's, Post-master's certificate, Doctoral research/scholarship are checked); unchecked boxes are empty squares - no ambiguity observed here.",
+  "Pages 8-9: the Fall 2018 Cohort graduation-rate table (B4-B11) is split across a page break \u2014 rows A-D on page 8, rows E-H on page 9. Page 10 is a separate full table for the Fall 2017 Cohort (rows A-H, not split). Do not merge page 9 and page 10 into one table, and do not miss that page 10 is a second independent B4-B11 disaggregation.",
+  "Page 11: entire B12-B21 two-year-institution table is blank (no data) since Caltech is a 4-year institution - do not mistake this for an extraction failure.",
+  "Page 27 (E1, E3) and page 28 (F2, F4) and page 37 (H12, H13): checkbox lists render as 2-3 independent columns, not row-paired \u2014 read each column top-to-bottom separately, do not zip left/right items together.",
+  "Page 30 (G5) and page 32/37 (H1, H14): 'Not Applicable' cells are styled as white-on-black/inverted, which could confuse a naive text or vision pass into treating them as filled numeric data or as missing/empty cells rather than the literal string 'Not Applicable'.",
+  "Page 31: financial aid definitions precede any numbered H question; the numbered precedence list (1-9) is two columns (1-5 left, 6-9 right) \u2014 this same list/formatting reappears verbatim on page 48.",
+  "Page 33/34 and page 40/41: several CDS tables split across a page break mid-table (H1 spills page32->33, H2 spills page33->34, class-size definitions/table split page39->40, J1 CIP table spills page41->42) \u2014 row continuity must be tracked across page boundaries.",
+  "Page 36 running header prints 'Common Data Set 2023-2024' instead of '2024-2025' seen on every other page in this range \u2014 a genuine source-document anomaly (not a rendering artifact), sitting on the page that also completes H6 and starts H7-H11.",
+  "Pages 47-48: the 'Financial Aid Definitions' block appears twice in close succession (end of general glossary flows directly into it on page 47, then it restarts from the top again on page 48) \u2014 a page-index or extraction pipeline keyed only on section-title matching could double-count or get confused about where the financial-aid definitions section actually begins.",
+  "Pages 43-50 (definitions appendix) carry no CDS item codes at all \u2014 any pipeline that expects every page to map to a lettered/numbered CDS question will find these pages empty by design, not a decoding failure.",
+  "Page 50 is >90% blank whitespace after two short definition entries \u2014 a page-classifier keyed on text density could misflag it as a scan/render failure rather than a legitimately sparse final page.",
+  "Page 40: one stray red-colored word ('should') inside an otherwise black-text definitional paragraph \u2014 cosmetic artifact, not a hyperlink or cross-reference, but could trip up naive HTML/markdown conversion."
+ ],
+ "text_layer_corruption": {
+  "p01_25": {
+   "digits_corrupted": true,
+   "examples": [
+    {
+     "page": 1,
+     "get_text_snippet": "Common Data Set 202\\x17-202\\x18",
+     "visual_actual": "Common Data Set 2024-2025",
+     "note": "Both the heading digits and body-text digits are corrupted; \\x17 decodes visually to '4' and \\x18 to '5'."
+    },
+    {
+     "page": 4,
+     "get_text_snippet": "A3. Classify your undergraduate institution ... A4. Academic ...",
+     "visual_actual": "matches; but the preceding 'Common Data Set 202\\x17-202\\x18' header on this page shows the same digit corruption as page 1",
+     "note": "Letters extract mostly correctly here, confirming corruption is concentrated in/around specific glyphs (control chars) rather than uniform scrambling, but digits are hit."
+    },
+    {
+     "page": 10,
+     "get_text_snippet": "Fall 201\\x1a Cohort ... Initial 201\\x1a co",
+     "visual_actual": "Fall 2017 Cohort ... Initial 2017 cohort",
+     "note": "Confirms digit corruption is not isolated to the year in the document title: '7' in '2017' also renders as a control character (\\x1a) here. This means ANY digit in this document's text layer is potentially wrong, not just the cover-page year string \u2014 table numbers extracted via text layer cannot be trusted either. Note the substitution is a consistent Caesar-like offset (each visual digit's ASCII code minus 29 gives the control-char byte observed: '4'=0x34-29=0x17, '5'=0x35-29=0x18, '7'=0x37-29=0x1a), so it is a systematic CMap remapping, not random corruption \u2014 but still unusable without re-deriving the mapping, which get_text() does not do."
+    }
+   ],
+   "conclusion": "Corruption affects digits as well as letters, via a consistent -29 byte offset in the broken ToUnicode CMap (verified: 0x17->'4', 0x18->'5', 0x1a->'7'). Confirmed via page 10: '2017' (a data-bearing year, not just the document title) extracts as '201\\x1a'. This means routing logic AND any text-based numeric extraction (enrollment counts, percentages, cohort years) on this document are compromised if they rely on page.get_text(). Only image-based reading is reliable, unless the extraction engine is changed to apply the discovered -29 byte-offset correction to every character (untested beyond the 3 sampled digits, and letters appeared mostly correct in some regions \u2014 e.g. page 4 body text extracted cleanly \u2014 suggesting the corruption may be scoped to a specific font/character range rather than the whole document; do not assume the offset fix is safe to apply blindly across all text)."
+  },
+  "p26_50": {
+   "digits_affected": true,
+   "summary": "Digits ARE corrupted in the extracted text layer, not just letters \u2014 confirmed both in running headers and in body/prose text. This means the text layer is unsafe for ANY content decision on this document, including numeric routing heuristics, not merely for headings.",
+   "quoted_examples": [
+    {
+     "page": 26,
+     "get_text_snippet": "&RPPRQ\\x03'DWD\\x036HW\\x03\\x15\\x13\\x15\\x17\\x10\\x15\\x13\\x15\\x18",
+     "what_it_actually_says_in_image": "Common Data Set 2024-2025",
+     "note": "Consistent Caesar-shift-by-one corruption (each byte value decremented by 1: 'C'(0x43)->'&'(0x26 is not exactly -1, but the mapping is a broken/incomplete ToUnicode CMap, not a simple shift \u2014 verified purely from the visual mismatch). Digits 2,0,2,4,2,0,2,5 all render as control characters \\x15/\\x13/\\x17/\\x18, i.e. digits are corrupted identically to letters in the same string."
+    },
+    {
+     "page": 39,
+     "get_text_snippet": "I-2. Student to Faculty Ratio | Report the Fall 202\\x17 rat[io of full-time equivalent students...]",
+     "what_it_actually_says_in_image": "Report the Fall 2024 ratio of full-time equivalent students...",
+     "note": "This is BODY PROSE TEXT, not a running header \u2014 proves the corruption is not confined to the repeated header/footer template but occurs inline within ordinary sentence content wherever a digit appears. Only the final digit of '2024' was corrupted in this extraction (the '4'), showing the corruption is character-level and can affect a subset of digits within a single number, which is especially dangerous for silent-but-wrong extraction (a partially-corrupted number still looks numeric)."
+    },
+    {
+     "page": 50,
+     "get_text_snippet": "1RQ\\x10QHHG\\x10EDVHG\\x03 VHOI\\x10KHOS\\x03 DLG\\x1d\\x03 /RDQV\\x03 DQG\\x03 MREV\\x03 IUR[m institutional, state, or other sources...]",
+     "what_it_actually_says_in_image": "Non-need-based self-help aid: Loans and jobs from institutional, state, or other sources...",
+     "note": "An entire page's running text is corrupted this way (letters AND punctuation, e.g. ':' -> '\\x1d'), even though no digits happen to appear in this particular sentence \u2014 included to show the corruption is pervasive across the whole page body, not isolated to headers or occasional numbers."
+    }
+   ],
+   "conclusion": "Both routing logic (deciding which extraction path to use per page) and any text-based value extraction (e.g., regex-pulling a percentage or dollar figure straight from get_text()) are compromised on this document. Digits inside ordinary sentences and inside table-adjacent prose are corrupted exactly like surrounding letters. Image-based (vision) extraction at 150 DPI is mandatory for pages 26-50, with no text-layer fallback for any field, including ones that look like they should be 'just a number'."
+  }
+ },
+ "batch4_verdicts": {
+  "sat_act_percentile_table": "The 25th/50th/75th percentile table (Assessment: SAT Composite, SAT EBRW, SAT Math, ACT Composite, ACT Math, ACT English, ACT Writing, ACT Science, ACT Reading) is entirely on page 19, directly under the C9 heading. Every data cell in all three percentile columns for every assessment row is printed BLANK - no numbers, no 'n/a' text, no dashes. This is consistent with Caltech's test-blind policy for this cycle; it is a fully empty table, not a text-extraction failure.",
+  "c10_c11_c12_headings": "C10 heading appears at the bottom of page 20 (its data table starts on page 21). C11 heading appears mid-page 21 (GPA-range table, all data cells blank). C12 heading appears lower on page 21 (Average HS GPA box, blank). So: C10 on pages 20-21, C11 on page 21, C12 on page 21.",
+  "column_position_encoded_grids": "Two clear cases in this range: (1) page 22, C15/C16-style same-line 'Yes \u25a1 No \u25a1' pairs where only box position marks the answer (e.g. C15 'No' checked, C16 'By (date)' option checked among three mutually exclusive line-items). (2) page 24, D5 'Indicate all items required of transfer students' - a 6-row x 5-column grid (Required of All / Recommended of All / Recommended of Some / Required of Some / Not Required) where each row's single checkmark's COLUMN position is the entire signal (e.g. Interview and Standardized test scores are marked 'Not Required' while the other four items are marked 'Required of All'); reading this by presence-of-mark-only without tracking column position would be meaningless."
+ },
+ "section_j_notes": {
+  "location": "Pages 41-42 (Section J, item J1, the CIP disciplinary-areas-of-degrees-conferred table).",
+  "military_science_row": "Prints as a SINGLE COMBINED ROW labeled 'Military science and military technologies' with CIP code column value 'CIP 28 and 29' together \u2014 NOT two separate rows for 28 and 29. Confirmed by direct visual read of page 41.",
+  "percentage_leading_zero_format": "Percentages below 1.00 print WITH a leading zero (observed example: 'Business/marketing' Bachelor's = '0.90', not '.90'). No example in this document had a value below 0.10, so leading-zero behavior for very small percentages (e.g. 0.05) is inferred, not directly confirmed, from the 0.90 pattern plus the standard 'X.XX' two-decimal formatting used consistently across every populated cell in the table (40.90, 31.10, 5.10, 7.70, 14.50, 0.90).",
+  "totals_row": "Bachelor's column total = 100.20 (Diploma/Certificates and Associate columns both 0.00, as expected for Caltech which awards no diplomas/certificates/associate degrees). The >100 total is rounding drift across individually-rounded category percentages, not a data error to 'correct' downstream.",
+  "only_bachelors_populated": "Only the Bachelor's column has any nonzero entries anywhere in the J1 table for this institution; Diploma/Certificates and Associate columns are entirely blank/zero across both pages, consistent with Caltech being undergraduate-bachelor's-only plus graduate (graduate degrees are out of CDS J1 scope)."
+ }
+}

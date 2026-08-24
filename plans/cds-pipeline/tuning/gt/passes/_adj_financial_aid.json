@@ -1,0 +1,59 @@
+{
+ "totals": {
+  "keys_union": 67,
+  "keys_both": 67,
+  "agreed": 66,
+  "conflicts": 1,
+  "ambiguous_flagged": 2,
+  "agreement_pct": 98.51
+ },
+ "value_conflict": [],
+ "status_conflict": [
+  {
+   "key": "financial_aid.aid_notification_rolling_selected",
+   "A": {
+    "status": "blank",
+    "value": null,
+    "page": 23,
+    "evidence": "H10 'b) Students notified on a rolling basis:' Yes/No checkbox pair at top of page 23 -- both 'Yes' and 'No' boxes are unmarked (neither ticked); this is an unselected Yes/No radio pair."
+   },
+   "B": {
+    "status": "present",
+    "value": false,
+    "page": 23,
+    "evidence": "H10 b) rolling-notification Yes/No control continues onto physical page 23 top ('Yes' / 'No' boxes directly under the H10 heading area, followed by 'If yes, starting date:'); both Yes and No boxes are unmarked (empty). Per the metric's own instructions ('false only when the complete visible checklist shows it unambiguously unmarked'), an unmarked Yes/No pair here resolves to false, consistent with option a) (fixed date 2-Apr) being the one actually used."
+   }
+  }
+ ],
+ "coverage_gap": [],
+ "ambiguous_flag": [
+  {
+   "key": "financial_aid.aid_notification_rolling_selected",
+   "flagged_by": [
+    "B"
+   ],
+   "A": {
+    "value": null,
+    "evidence": "H10 'b) Students notified on a rolling basis:' Yes/No checkbox pair at top of page 23 -- both 'Yes' and 'No' boxes are unmarked (neither ticked); this is an unselected Yes/No radio pair."
+   },
+   "B": {
+    "value": false,
+    "evidence": "H10 b) rolling-notification Yes/No control continues onto physical page 23 top ('Yes' / 'No' boxes directly under the H10 heading area, followed by 'If yes, starting date:'); both Yes and No boxes are unmarked (empty). Per the metric's own instructions ('false only when the complete visible checklist shows it unambiguously unmarked'), an unmarked Yes/No pair here resolves to false, consistent with option a) (fixed date 2-Apr) being the one actually used."
+   }
+  },
+  {
+   "key": "financial_aid.aid_reporting_status",
+   "flagged_by": [
+    "A"
+   ],
+   "A": {
+    "value": "estimated",
+    "evidence": "The same year-selection table has no explicit 'Estimated' label printed beside the checked '2024-2025' column; the only explicit status word printed is 'Final' attached to the unchecked '2023-2024 Final' column. Inferred 'estimated' from standard CDS convention (current-year column implicitly means not-yet-final/estimated) since the checked column is the un-labeled current year, not the column explicitly marked Final. Candidate B: this document may simply not carry an explicit estimated/final marker for the current-year selection at all."
+   },
+   "B": {
+    "value": "estimated",
+    "evidence": "Same academic-year table as above (physical page 19). Only two columns exist: '2024-2025' and '2023-2024 Final'. The X is under '2024-2025', which carries no 'Final' qualifier (unlike the other column explicitly labeled 'Final'), so by the enum's own logic this is the estimated/current-year column."
+   }
+  }
+ ]
+}
