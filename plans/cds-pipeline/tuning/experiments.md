@@ -2031,3 +2031,91 @@ of these deltas is treated as signal. Do not crown anything on this table.
 Test on ONE document first and widen only once it holds. I ran 5-document sweeps
 for changes that a single document would have falsified just as fast and ~5x
 cheaper.
+
+## The fix that actually works: bake, then slice
+
+Iterating on bug 2 produced three candidates. Recording all three, because the
+first two each looked correct in isolation and were wrong on a different axis.
+
+| approach | fidelity | UGA 5pp slice | verdict |
+|---|---|---|---|
+| `insert_pdf` (shipped) | 4 text diffs | 525KB | small, silently corrupts form values |
+| `select` on a copy | 0 text diffs | 3.05MB (> 2.03MB source) | correct, reinflates payload |
+| **`bake()` then `insert_pdf`** | **0 text diffs** | **539KB** | correct AND small |
+
+`select` was measured in a real run before being discarded: UGA came back **23/23
+calls failed, $0.00, 2434s** — straight back to the WriteTimeouts that bug 1 caused,
+because a 3.05MB slice is worse than sending the 2.03MB document. Fixing fidelity by
+reinflating the payload just trades one bug for the other.
+
+`doc.bake()` converts interactive field appearances into ordinary page content
+*before* slicing. Slicing preserves page content, so the values survive the cheap
+`insert_pdf` path. Applied only when `doc.is_form_pdf` — of the six corpus
+documents only UGA is one (1228 widgets; the other five have zero), so nothing else
+pays for it.
+
+Final measured state, all five documents faithful and every slice now smaller than
+its own source:
+
+```
+uga        2,031,967 -> 538,936  0.27x   text_diffs=0
+cornell      720,763 ->  87,284  0.12x   text_diffs=0
+ucf          721,635 -> 258,575  0.36x   text_diffs=0
+caltech    2,143,966 -> 970,479  0.45x   text_diffs=0   (was 1.85x, i.e. 4.1x smaller)
+dartmouth    770,516 -> 253,599  0.33x   text_diffs=0
+```
+
+Plus a guard: if a slice ever comes out >= its source, send the source with an
+identity page map. A slice bigger than the document is strictly worse on every axis,
+and this keeps any future document from silently re-entering the bug-1 regime.
+
+**Method note.** Three candidate fixes, three different failure modes, and the only
+reason the wrong two were caught is that each was measured — one against a fidelity
+control, one against a real run — rather than reasoned about. The `select` attempt
+in particular passed every offline check I had and still failed in production.
+
+## UGA's checkboxes: the text layer does not omit the answer, it ASSERTS THE WRONG ONE
+
+Chain of four experiments on one document, `academics` (24 all-boolean E1/E3
+checkbox metrics). Recorded in full because the first three each looked like the
+obvious fix and each failed for a different reason.
+
+| # | change | academics result |
+|---|---|---|
+| baseline-01 / exp02 | (shipped) | 0 correct, **24 missed** |
+| exp04 | bake + cluster | 0 correct, **24 wrong** |
+| exp05 | + page image attached | 0 correct, 24 wrong |
+| exp06 | + explicit "the text layer lies" prompt note | 0 correct, 24 wrong |
+| **exp07** | **images only, PDF withheld** | **24 correct, 0 wrong** |
+
+**The diagnosis.** An AcroForm checkbox's tick is drawn in the widget's appearance
+stream. It renders correctly and never becomes text. UGA's E1 page yields
+**32 U+2610 (EMPTY ballot box) glyphs and zero checked glyphs** — identical before
+and after baking — while the rendered page plainly shows 15 ticked boxes.
+
+So the text layer is not merely silent about the answer. It states, in characters,
+that every box is empty. The model read it, believed it, and returned
+`false` with the excerpt `"☐ Accelerated program"` — a verbatim, honest quote of a
+lie. Every downstream honesty signal passes: the excerpt is real, on the cited page,
+and faithfully transcribed. Only ground truth catches it.
+
+**Why exp05 and exp06 failed.** Attaching a truthful image did nothing. Adding an
+explicit instruction — *"this document's text layer renders EVERY checkbox as ☐
+regardless of state; use the image only"* — also did nothing; the model kept quoting
+the ballot box. Given contradictory evidence plus a warning, it still preferred the
+text. **Misleading evidence has to be absent, not contradicted.**
+
+**The fix.** For a batch whose metrics are ALL boolean, on a document where
+`is_form_pdf`, send the routed page images and withhold the PDF. The model then has
+only the truthful witness. 0/24 -> 24/24, and it is *cheaper and faster* than the
+broken path ($0.0042 vs $0.0056, 17.5s vs 35.1s) because a couple of PNGs cost less
+than a multi-page PDF.
+
+Deliberately narrow: all-boolean batches only (a mixed batch still needs the text for
+its numbers), form PDFs only (1 of 6 corpus documents), routed pages only, capped at
+4. This does not touch the C7 path, which already had its own image supplement.
+
+**This retroactively explains the shipped design.** Spike part B found a real gain
+from sending a C7 page image and kept the PDF alongside it. The corpus recon warned
+the text layer "can be silently, plausibly wrong". Both were circling this bug; C7
+was simply the first place it was noticed. It was never C7-specific.

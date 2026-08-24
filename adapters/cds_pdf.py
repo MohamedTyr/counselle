@@ -152,30 +152,48 @@ def _narrow_document_sync(pdf_bytes: bytes, page_numbers: Sequence[int]) -> tupl
     with _open(pdf_bytes) as doc:
         for page_number in page_numbers:
             _require_valid_page(page_number, doc.page_count)
-    # `select()` on a copy of the source, NOT `insert_pdf()` into a fresh
-    # document. `insert_pdf` copies page content but leaves the document-level
-    # AcroForm behind, so every interactive form field loses its value: UGA's
-    # narrowed pages come back with empty checkbox glyphs and blank answer
-    # boxes, and the model then truthfully reports `not_reported` for almost
-    # everything it is asked. That is silent data destruction -- it produces a
-    # plausible empty answer rather than an error. Measured on a 5-page slice:
-    # `insert_pdf` differs from the source on 4 text pages and 10 rendered
-    # pages, `select` on none.
-    #
-    # Write compressed: PyMuPDF's default `tobytes()` emits an UNCOMPRESSED
-    # document, which is how a "narrowed" slice of an image-heavy scan ended up
-    # LARGER than the document it was cut from and blew the call's write
-    # deadline. Do NOT add `clean=True` -- it rewrites content streams.
-    sub = _open(pdf_bytes).__enter__()
-    try:
-        sub.select([page_number - 1 for page_number in page_numbers])  # type: ignore[no-untyped-call]
-        page_map: PageMap = {
-            sub_index: original_page_number
-            for sub_index, original_page_number in enumerate(page_numbers, start=1)
-        }
-        return sub.tobytes(deflate=True, garbage=4), page_map  # type: ignore[no-untyped-call]
-    finally:
-        sub.close()  # type: ignore[no-untyped-call]
+    with _open(pdf_bytes) as doc:
+        # Bake interactive form fields into page content BEFORE slicing.
+        # `insert_pdf` copies page content but leaves the document-level
+        # AcroForm behind, so on a form PDF every field silently loses its
+        # value: UGA's narrowed pages come back with empty checkbox glyphs and
+        # blank answer boxes, and the model then truthfully reports
+        # `not_reported` for nearly everything it is asked. That is silent data
+        # destruction -- a plausible empty answer rather than an error -- and it
+        # cost UGA 326 of its 350 findings. Baking turns the field appearances
+        # into ordinary page content, which slicing does preserve.
+        #
+        # `select()` also preserves them, but keeps the whole source resource
+        # tree: a 5-page UGA slice measured 3.05MB against a 2.03MB source,
+        # versus 539KB baked. Baking is the cheap way to be correct.
+        if doc.is_form_pdf:
+            doc.bake()
+
+        sub = pymupdf.open()  # type: ignore[no-untyped-call]
+        try:
+            page_map: PageMap = {}
+            for sub_index, original_page_number in enumerate(page_numbers, start=1):
+                sub.insert_pdf(  # type: ignore[no-untyped-call]
+                    doc, from_page=original_page_number - 1, to_page=original_page_number - 1
+                )
+                page_map[sub_index] = original_page_number
+            # Write compressed. PyMuPDF's default `tobytes()` emits an
+            # UNCOMPRESSED document, and the per-page copies duplicate shared
+            # image streams -- which is how a "narrowed" slice of an
+            # image-heavy scan came out LARGER than the document it was cut
+            # from (Caltech: 3.96MB from a 2.14MB source) and blew the model
+            # call's write deadline. `garbage=4` deduplicates those streams.
+            # Do NOT add `clean=True`: it rewrites content streams.
+            narrowed = sub.tobytes(deflate=True, garbage=4)  # type: ignore[no-untyped-call]
+        finally:
+            sub.close()  # type: ignore[no-untyped-call]
+
+    # A slice larger than its own source is strictly worse on every axis --
+    # more upload bytes, more timeout risk, and no less for the model to read.
+    if len(narrowed) >= len(pdf_bytes):
+        with _open(pdf_bytes) as doc:
+            return pdf_bytes, {page: page for page in range(1, doc.page_count + 1)}
+    return narrowed, page_map
 
 
 async def narrow_document(pdf_bytes: bytes, page_numbers: Sequence[int]) -> tuple[bytes, PageMap]:
@@ -252,3 +270,14 @@ async def detect_corrupt_text_layer(pdf_bytes: bytes) -> CorruptTextReport:
     fires. Calibrated numbers are in the P2 verification report.
     """
     return await asyncio.to_thread(_detect_corrupt_text_layer_sync, pdf_bytes)
+
+
+def _has_form_fields_sync(pdf_bytes: bytes) -> bool:
+    with _open(pdf_bytes) as doc:
+        return bool(doc.is_form_pdf)
+
+
+async def has_form_fields(pdf_bytes: bytes) -> bool:
+    """True when the source is an AcroForm PDF, i.e. its answers live in
+    interactive widgets whose ticks render but never reach the text layer."""
+    return await asyncio.to_thread(_has_form_fields_sync, pdf_bytes)

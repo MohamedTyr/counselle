@@ -248,11 +248,50 @@ def _route_batches(
     return routing
 
 
+_FORM_MARK_MAX_PAGES = 4
+
+
+async def _form_mark_pages(
+    *,
+    pdf_content: bytes,
+    metrics: tuple[dict[str, Any], ...],
+    routing_text: dict[int, str],
+) -> list[int]:
+    """Pages this batch must SEE rather than read, on a form-built PDF.
+
+    An AcroForm checkbox's tick is drawn in the widget's appearance stream. It
+    renders perfectly and appears nowhere in the text layer -- UGA's E1 page
+    shows 15 ticked boxes and yields zero checkbox glyphs to text extraction.
+    A model reading the text therefore has no evidence of a mark and answers
+    `false`, confidently and wrongly, for every option on the page. Measured on
+    UGA `academics`: 24 of 24 metrics wrong, none correct, in every run.
+
+    This is the same failure the C7 image fallback already exists to solve; it
+    is simply not unique to C7. So when the source is a form PDF and this batch
+    asks for booleans, send the routed pages as images too.
+
+    Scoped deliberately: form PDFs only (of the six corpus documents only UGA
+    is one), boolean-bearing batches only, and capped -- images are the most
+    expensive thing a call can carry.
+    """
+    if not all(metric.get("type") == "boolean" for metric in metrics):
+        return []
+    if not await cds_pdf.has_form_fields(pdf_content):
+        return []
+    hints = frozenset(hint for metric in metrics for hint in metric["source_hints"])
+    hits = _hit_pages_for_hints(routing_text, hints)
+    if not hits:
+        return []
+    first, last = _densest_hit_span(hits)
+    return list(range(first, last + 1))[:_FORM_MARK_MAX_PAGES]
+
+
 async def _c7_supplementary_images(
     *,
     pdf_content: bytes,
     metrics: tuple[dict[str, Any], ...],
     routing_text: dict[int, str],
+    form_mark_pages: list[int] | None = None,
 ) -> tuple[bytes, ...]:
     """Decision 3: a 150 DPI PNG of the routed C7 page(s), sent alongside the
     narrowed native PDF only when this call's own `metrics` (a batch, or a
@@ -260,10 +299,11 @@ async def _c7_supplementary_images(
     targeted case spike part B found a real accuracy gain (Harvard's
     `class_rank` column-position miscall)."""
     touches_c7 = any(_CHECKBOX_GRID_HINT in metric["source_hints"] for metric in metrics)
-    if not touches_c7:
-        return ()
-    hit_pages = _hit_pages_for_hints(routing_text, frozenset({_CHECKBOX_GRID_HINT}))
-    hit_pages = hit_pages[:_CHECKBOX_GRID_MAX_PAGES]
+    if touches_c7:
+        hit_pages = _hit_pages_for_hints(routing_text, frozenset({_CHECKBOX_GRID_HINT}))
+        hit_pages = hit_pages[:_CHECKBOX_GRID_MAX_PAGES]
+    else:
+        hit_pages = form_mark_pages or []
     if not hit_pages:
         return ()
     images = [
@@ -291,22 +331,42 @@ def _page_note(*, page_map: dict[int, int] | None, original_page_count: int) -> 
     )
 
 
+# On an AcroForm CDS the static page content draws an EMPTY ballot box for
+# every option and the tick is a separate widget mark. The tick renders, but
+# it never becomes text -- UGA's E1 page yields 32 U+2610 (empty) glyphs and
+# zero checked ones whether or not a box is ticked. A model reading the text
+# therefore sees positive evidence that every box is empty and answers
+# `false` for all of them: 24 of 24 wrong on UGA `academics`, in every run.
+# The attached page image is the only truthful witness, so say so explicitly
+# -- without this the model trusts the text layer over the image.
+_FORM_MARK_PROMPT_NOTE = (
+    "IMPORTANT -- this document's checkboxes are interactive form fields. Its text "
+    "layer renders EVERY checkbox as an empty ballot box (\u2610) regardless of whether "
+    "it is actually ticked, so the text is positively misleading here. Determine each "
+    "checkbox's state ONLY from the attached page image, never from the text. A ticked "
+    "box appears in the image as a mark inside the box."
+)
+
+
 def _build_prompt(
     *,
     manifest_content: dict[str, Any],
     metrics: tuple[dict[str, Any], ...],
     page_map: dict[int, int] | None,
     original_page_count: int,
+    form_marks_note: bool = False,
 ) -> str:
     """Decision 7: `metrics` is one call's own catalog slice -- a batch's
     metrics normally, or one domain's full metric list for
     `starved_retry`'s isolated retry."""
     catalog = json.dumps(list(metrics), sort_keys=True, ensure_ascii=False)
     page_note = _page_note(page_map=page_map, original_page_count=original_page_count)
+    form_note = f"\n\n{_FORM_MARK_PROMPT_NOTE}" if form_marks_note else ""
     return (
         f"{manifest_content['prompt']}\n\n"
         f"Extract ONLY these {len(metrics)} metrics. Use each metric's `id` verbatim as "
         f"`metric_id`; never invent a metric_id outside this list:\n{catalog}\n\n{page_note}"
+        f"{form_note}"
     )
 
 
@@ -349,17 +409,30 @@ async def _run_call_once(
     else:
         call_bytes, page_map, narrowed = pdf_content, None, False
 
+    form_mark_pages = await _form_mark_pages(
+        pdf_content=pdf_content, metrics=batch_metrics, routing_text=routing_text
+    )
     image_pngs = await _c7_supplementary_images(
         pdf_content=pdf_content,
         metrics=batch_metrics,
         routing_text=routing_text,
+        form_mark_pages=form_mark_pages,
     )
     prompt = _build_prompt(
         manifest_content=manifest_content,
         metrics=batch_metrics,
         page_map=page_map,
         original_page_count=original_page_count,
+        form_marks_note=bool(form_mark_pages),
     )
+    if form_mark_pages:
+        # Images ONLY, no PDF. Telling the model the text layer lies is not
+        # enough -- with both in hand it keeps quoting the empty ballot box
+        # (24/24 wrong on UGA `academics` with the warning AND the image
+        # attached). The misleading evidence has to be absent, not merely
+        # contradicted. Safe because this path is gated on every metric in the
+        # batch being a boolean, whose only truthful witness is the rendering.
+        call_bytes = None
     result = await cds_gemini.generate_structured(
         settings=settings,
         prompt=prompt,
