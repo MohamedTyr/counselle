@@ -2252,3 +2252,59 @@ the model could see, not what it was told.
 
 Corpus run pending to confirm the clause is at least neutral elsewhere before
 deciding whether to keep it.
+
+## Experiments 11-13 — three failed attempts to move one model prior
+
+The largest hallucination cluster is Caltech's 11 H14 cells where the engine returns
+`false` and the metric instruction says *"a blank cell ... is not_reported, never
+false"*. §10 forbids fixing this with an output validator, so the only levers are
+prompt and catalog wording. Both were tried, twice:
+
+| # | attempt | Caltech H14 hallucinations |
+|---|---|---|
+| 10 | (champion, no change) | 11 |
+| 11 | prompt clause: metric `instructions` outrank every general convention | 11 |
+| 13 | catalog reword: "not_reported: OMIT the metric entirely rather than returning false" | 11 |
+
+Zero movement from either. And **exp12 (the prompt clause across the whole corpus)
+was actively worse** — accuracy 96.64 -> 96.47, coverage 96.55 -> 96.04, one failed
+call, hallucinations unchanged at 24. Reverted; the catalog reword was reverted too.
+
+That difference is within an unmeasured noise floor and I am not claiming the clause
+*caused* a regression. What is established is that it produced **no benefit on its
+own target**, so a conservative revert is right either way.
+
+**The pattern, now three for three.** Telling the model to override a strong prior
+does not work:
+
+1. "The text layer renders every checkbox as empty regardless of state; use the
+   image" -> no change. Fixed only by REMOVING the PDF.
+2. "A metric's own instructions outrank every general convention" -> no change.
+3. "OMIT the metric rather than returning false" -> no change.
+
+Every fix that has worked this session changed **what the model could see**, not what
+it was told. This is worth carrying forward as a design rule for the engine: prefer
+altering the evidence over adding an admonition.
+
+## Experiment 14 — column-position grids get the C7 treatment
+
+UCF's C9 came back with a 50th percentile of 27 and a 75th of **25**. A 75th
+percentile below the 50th is arithmetically impossible, so this is a column
+transposition, not a misread digit — the same failure mode the C7 image supplement
+was built for, on a table C7 does not cover.
+
+Extended the supplement to the other grids the corpus recon flags as
+column-position encoded: `C9`, `C15`, `C16`, `D5`, `H12`, `H13`, `H14`.
+
+UCF, the two affected domains:
+
+| domain | exp10 | exp14 |
+|---|---|---|
+| class_profile | 27 correct / 2 wrong / 1 halluc | **29 / 0 / 0** |
+| financial_aid | 51 correct / 7 wrong / 4 halluc | **56 / 2 / 4** |
+
+UCF `wrong` 9 -> 2. Consistent with the rule above: this fix changed the evidence.
+
+Note it did NOT clear the 4 H9/H10 hallucinations, which are the invented-selection
+family — the model inferring a selection from an adjacent filled-in date. Seeing the
+page better does not help when the error is inventing a control that is not there.

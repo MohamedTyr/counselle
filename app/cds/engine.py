@@ -94,6 +94,13 @@ EXTRACTOR_VERSION = "counselle-cds-v1"
 # a fixed CDS-template identifier (like "C1"/"C21"), not a manifest domain
 # or metric id; ADR 0032 forbids hardcoding the *metric catalog*, not this.
 _CHECKBOX_GRID_HINT = "C7"
+# Other CDS grids whose meaning is carried by WHICH COLUMN a mark or number
+# sits in, not by the mark itself. Reading order cannot recover them, and the
+# corpus shows the engine silently transposing columns: on UCF's C9 it returned
+# a 50th percentile of 27 and a 75th of 25 -- the 75th BELOW the 50th, which is
+# arithmetically impossible and therefore a transposition, not a misread digit.
+# Same supplement as C7, same reason.
+_COLUMN_POSITION_HINTS = frozenset({"C9", "C15", "C16", "D5", "H12", "H13", "H14"})
 _CHECKBOX_GRID_MAX_PAGES = 2
 _CHECKBOX_GRID_IMAGE_DPI = 150
 
@@ -313,9 +320,14 @@ async def _c7_supplementary_images(
     starved-retry domain's full catalog) carry the C7 source hint -- the one
     targeted case spike part B found a real accuracy gain (Harvard's
     `class_rank` column-position miscall)."""
-    touches_c7 = any(_CHECKBOX_GRID_HINT in metric["source_hints"] for metric in metrics)
-    if touches_c7:
-        hit_pages = _hit_pages_for_hints(routing_text, frozenset({_CHECKBOX_GRID_HINT}))
+    grid_hints = frozenset(
+        hint
+        for metric in metrics
+        for hint in metric["source_hints"]
+        if hint == _CHECKBOX_GRID_HINT or hint in _COLUMN_POSITION_HINTS
+    )
+    if grid_hints:
+        hit_pages = _hit_pages_for_hints(routing_text, grid_hints)
         hit_pages = hit_pages[:_CHECKBOX_GRID_MAX_PAGES]
     else:
         hit_pages = form_mark_pages or []
