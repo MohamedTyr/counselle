@@ -242,9 +242,24 @@ def _route_batches(
     fallback semantics as `_route_domains`."""
     routing: dict[str, tuple[int, int]] = {}
     for batch in batches:
-        hits = _hit_pages_for_hints(routing_text, batch.hints)
-        if hits:
-            routing[batch.key] = _densest_hit_span(hits)
+        # Cluster each hint SEPARATELY, then span the survivors. Clustering the
+        # batch's hits as one pool silently drops a whole section when a batch
+        # carries two hints that legitimately sit far apart: UGA's `outcomes`
+        # batch hints B4-B21 (page 8) and B22 (page 12), which cluster as two
+        # singletons, and the tie-break kept only B22 -- so the graduation-rate
+        # grid was never sent and the model read a DIFFERENT, older cohort
+        # table that happened to fall inside the padded window. Six metrics
+        # wrong, every one citing that other table.
+        #
+        # Per-hint clustering still discards the spurious matches
+        # `_densest_hit_span` exists to kill, because those are extra hits of
+        # ONE hint; it just never discards a hint's evidence entirely.
+        per_hint = (
+            _hit_pages_for_hints(routing_text, frozenset({hint})) for hint in batch.hints
+        )
+        spans = [_densest_hit_span(hits) for hits in per_hint if hits]
+        if spans:
+            routing[batch.key] = (min(s for s, _ in spans), max(e for _, e in spans))
     return routing
 
 
@@ -402,6 +417,7 @@ async def _run_call_once(
     `_run_call`, which may call this twice. `page_text` is
     `DocFacts.page_text` (withheld on a corrupt text layer, decision 5) --
     only used for `citation_remap.remap_findings`'s excerpt tie-break."""
+    call_bytes: bytes | None
     if clusters:
         physical_pages = [page for start, end in clusters for page in range(start, end + 1)]
         narrowed_bytes, page_map = await cds_pdf.narrow_document(pdf_content, physical_pages)
