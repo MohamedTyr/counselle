@@ -30,7 +30,37 @@
    "H2 row A (6122) != C1 full-time enrolled first-year (6115) - different CDS cohorts, informational",
    "H2 row A (6122) != B1 first-time full-time degree-seeking (6121) - off by 1, informational"
   ],
-  "verified_by": "Independent visual verification pass against 200-250 DPI rendered page images: 24 spot-checks across all 13 domains, 0 mapping errors, 0 value disagreements. Specifically confirmed correct: C7 row-10 off-by-one, the G1 nonresident/out-of-state trap, and the BACH_PSY/BACH_PSYCH field-name collision. All 6 'absent' classifications and 10 sampled 'blank' classifications confirmed against the rendered form."
+  "verified_by": "Independent visual verification pass against 200-250 DPI rendered page images: 24 spot-checks across all 13 domains, 0 mapping errors, 0 value disagreements. Specifically confirmed correct: C7 row-10 off-by-one, the G1 nonresident/out-of-state trap, and the BACH_PSY/BACH_PSYCH field-name collision. All 6 'absent' classifications and 10 sampled 'blank' classifications confirmed against the rendered form.",
+  "reseal_history": [
+   {
+    "date": "2026-08-25",
+    "action": "h14_checkbox_status_correction",
+    "reason": "Catalog instruction (config/cds/domains/financial_aid.yaml, all twelve h14_* metrics): 'a blank cell in this or any other visible H14 coordinate is not_reported, never false, and must not be inferred from another cell.' Three independent adjudications (Caltech at original seal time, plus fresh UGA and UCF re-adjudications) all ruled: a visibly-present but unticked H14 checkbox is `blank` with no value -- never `present`/`false`.",
+    "metrics_changed_count": 9,
+    "metrics_changed": [
+     "financial_aid.h14_academics_non_need_based",
+     "financial_aid.h14_alumni_affiliation_non_need_based",
+     "financial_aid.h14_art_non_need_based",
+     "financial_aid.h14_athletics_need_based",
+     "financial_aid.h14_job_skills_non_need_based",
+     "financial_aid.h14_leadership_non_need_based",
+     "financial_aid.h14_minority_status_non_need_based",
+     "financial_aid.h14_music_drama_non_need_based",
+     "financial_aid.h14_religious_affiliation_non_need_based"
+    ],
+    "change_applied": "status: present -> blank, value: false -> null",
+    "prior_status_counts": {
+     "present": 310,
+     "blank": 78,
+     "absent": 6
+    },
+    "corrected_status_counts": {
+     "present": 301,
+     "blank": 87,
+     "absent": 6
+    }
+   }
+  ]
  },
  "notes": "392 of 394 values were read from an interactive AcroForm field in the source PDF; no value was inferred from a model. 2 values (identity.academic_year, cost.cost_academic_year) have no AcroForm field and were transcribed by hand from rendered page text (source='rendered_text') after visual confirmation. Checkbox convention: a checkbox widget that exists on the form is always status=present (value true/false). status=blank is used for fill-in cells that exist and are empty, and for Yes/No or multi-option radio groups left entirely unselected (an unanswered radio is not a 'no'). status=absent means the question does not exist in this form edition. Per an orchestrator ruling, 2 AcroForm values (outcomes.primary_all_students_six_year_graduation_rate_ratio, outcomes.primary_pell_grant_six_year_graduation_rate_ratio) were superseded by their rendered widget appearance ('0.88' / '0.84') because the raw field value (0.8807 / .83534) carries precision that is never visible on the page and so is not a fair extraction target; the superseded raw values are preserved per-entry under 'acroform_raw_value'. No rounding tolerance was added to the scorer for this.",
  "metrics": {
@@ -1951,32 +1981,32 @@
    "source": "acroform"
   },
   "financial_aid.h14_academics_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "ACADS_NN = None",
-   "source": "acroform"
+   "evidence": "ACADS_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_alumni_affiliation_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "ALUMAFF_NN = None",
-   "source": "acroform"
+   "evidence": "ALUMAFF_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_art_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "ART_NN = None",
-   "source": "acroform"
+   "evidence": "ART_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_athletics_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "ATHL_NB = None",
-   "source": "acroform"
+   "evidence": "ATHL_NB = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_athletics_non_need_based": {
    "status": "present",
@@ -1986,39 +2016,39 @@
    "source": "acroform"
   },
   "financial_aid.h14_job_skills_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "JOB_NN = None",
-   "source": "acroform"
+   "evidence": "JOB_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_leadership_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "LEAD_NN = None",
-   "source": "acroform"
+   "evidence": "LEAD_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_minority_status_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "MINOR_NN = None",
-   "source": "acroform"
+   "evidence": "MINOR_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_music_drama_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "MUSIC_NN = None",
-   "source": "acroform"
+   "evidence": "MUSIC_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_religious_affiliation_non_need_based": {
-   "status": "present",
-   "value": false,
+   "status": "blank",
+   "value": null,
    "page": 37,
-   "evidence": "RELG_NN = None",
-   "source": "acroform"
+   "evidence": "RELG_NN = None [RE-SEALED: control visibly present and unticked; catalog H14 instruction requires not_reported, never false]",
+   "source": "acroform+adjudication"
   },
   "financial_aid.h14_rotc_non_need_based": {
    "status": "present",

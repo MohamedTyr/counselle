@@ -3579,3 +3579,116 @@ So the honest expectation after re-seal is that **exp24's advantage grows**, bec
 whole point of the fix is the behaviour the corrected GT rewards. I am writing that
 prediction down now, before the re-seal, so it is falsifiable rather than a
 post-hoc rationalisation of whatever comes out.
+
+## UCF H14 adjudicated — three independent rulings now agree. RE-SEAL AUTHORISED.
+
+UCF's adjudicator (blind: not told about UGA, Caltech, the dispute, or the engine)
+independently found the **same H12 contrast case** and ruled **(B): unticked = `blank`**,
+high confidence. Its transcription was done twice at 600 and 900 DPI with identical
+reads, and it confirmed the two-table layout changes no metric's status —
+`h14_athletics_need_based` is *not* `absent`, the control exists and is simply unticked.
+
+Its independent formulation of the three-way scheme:
+
+> "ticked -> `true`; visible-and-unticked -> `not_reported`; row-absent ->
+> `not_in_template_version`. Reading (A) would collapse the first two of those into one,
+> erasing a distinction the text goes out of its way to draw."
+
+**Three adjudications, three documents, three independent readings, one answer.** That
+is §4's standard met and then some.
+
+### The re-seal (§4 step 6)
+
+| file | metrics changed | from | to |
+|---|---|---|---|
+| `gt/uga_2023-2024.json` | **9** | `present` / `false` | `blank` / `null` |
+| `gt/ucf_2023-2024.json` | **4** | `present` / `false` | `blank` / `null` |
+
+13 metrics total. Ticked cells are untouched (UGA 3, UCF 8 remain `present`/`true`).
+Cornell, Dartmouth and Caltech already record `blank` and need no change — which is
+itself a check on the correction: **it makes five files agree where two disagreed with
+three.**
+
+Both adjudicators flagged the same open flank, and it deserves recording rather than
+burying: the mapping from the catalog's `not_reported` to the protocol's `blank` is an
+inference from two vocabularies describing the same idea. If `not_reported` were ever
+defined as a *recorded value* rather than an absence, the status label would change —
+though the substantive ruling (no `false` is ever asserted) would not. All three
+adjudications made this mapping independently, and it matches how the other three
+documents were sealed, so it is the consistent reading; but it is an inference, not a
+quoted definition.
+
+### What this does to the scoreboard, predicted before re-scoring
+
+- **UGA**: 9 metrics leave `present_in_document`. Engine emits nothing for them ->
+  `missed` becomes `correct_abstention`. **Coverage up, accuracy unchanged**, for BOTH
+  configs equally.
+- **UCF, champion**: emits `false` on 4 cells now recorded `blank` -> 4 new
+  **hallucinations**, accuracy **down**.
+- **UCF, exp24**: abstains on those 4 -> 4 **correct_abstentions**, accuracy **up**.
+
+So the correction should **widen exp24's lead** — which is exactly what I predicted
+before commissioning it, and exactly the direction that makes me want a second look at
+my own reasoning. The guard against self-deception here is that the ruling was reached
+three times by agents who were never told what the engine did or which answer helped.
+
+## RE-SEAL APPLIED, everything re-scored. The prediction held.
+
+Verified independently before trusting the fixer: **394 metrics in each file before and
+after, exactly 9 changed in uga and 4 in ucf, zero non-H14 keys touched.**
+
+Corpus re-scored against corrected GT (both configs, failure-free):
+
+| | champion (exp15) | **exp24 (delib HIGH)** |
+|---|---|---|
+| **accuracy** | 96.86% | **97.96%** |
+| **coverage** | 97.03% | **97.11%** |
+| correct | 1294 | **1296** |
+| wrong | 15 | **14** |
+| missed | 40 | **39** |
+| **hallucinated** | 27 | **13** |
+| cost/doc | **$0.0921** | $0.1873 |
+| latency/doc | **315.5s** | 339.8s |
+| failed calls | 0 | 0 |
+
+**What the re-seal did, exactly as predicted before it ran:**
+
+- The **champion got worse**: 97.16% -> 96.86%, hallucinations 23 -> 27. It emits `false`
+  on UCF's four unticked cells; under the corrected key those are hallucinations.
+- **exp24's accuracy did not move** (97.96% both ways) because it already abstained on
+  those cells — the corrected key simply started rewarding what it was already doing.
+- **Both gained coverage** (~+0.7pp and +0.9pp) as UGA's nine cells left
+  `present_in_document`.
+
+So the gap widened from **+0.80pp to +1.10pp**, and exp24 now leads on **coverage as
+well**, which it did not before. That was the pre-registered prediction, written down
+before the adjudication was commissioned.
+
+**exp24 wins accuracy, coverage, hallucinations AND `wrong`. It loses only cost and
+latency.** Under §1's lexicographic ordering — accuracy first, never trade accuracy for
+cost — exp24 is the better config on the primary axis by a clear margin.
+
+### But I am NOT crowning it, and this is a §8b call
+
+`$0.1873/doc` **busts the §1 hard floor of $0.15** by 25%. §1's floors are immutable and
+§8b is explicit: if the only way forward violates a §1 constraint, do not do it on my own
+authority — treat it as blocked and report.
+
+Lexicographic priority orders *comparisons between admissible configs*; it does not
+authorise me to admit an inadmissible one. A config that fails a hard floor is not a
+champion that happens to be expensive — it is out of bounds, and quietly promoting it
+because it wins the axis I care most about is exactly how a tuning loop launders a
+constraint violation into a result.
+
+### The lever that would resolve this is untried
+
+To fit $0.15 with a $0.094 deliberation bill, the base cost must fall from $0.0921 to
+$0.056 — a **39% cut**. §7 **lever 2 (page-window dedup / routing consolidation)** has
+never been run, and §2 measures the target precisely: **494 page-sends against a 32-page
+document, 15.4x redundancy**, because routing is per-BATCH and overlapping windows
+re-upload the same pages. The token model says `prompt ≈ 592 x pages_sent + 280 x
+metrics` — the pages term is the waste, and it is the majority of base cost.
+
+That is the next experiment, and it is the right one: **stop trying to make correctness
+cheaper and make the surrounding waste smaller instead.** Spend so far ~$9 of $25; no §9
+criterion met.
