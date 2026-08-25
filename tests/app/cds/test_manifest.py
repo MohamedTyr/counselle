@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from app.cds.manifest import (
+    DELIBERATION_HINTS,
     calls_for_domains,
     domain_ids,
     extraction_groups,
@@ -86,6 +87,17 @@ def test_metric_batches_for_domain_chunks_a_section_larger_than_the_ceiling() ->
     batches = metric_batches_for_domain(manifest, "admissions", max_batch_size=10)
     assert all(len(batch) <= 10 for batch in batches)
     assert len(batches) > 1
+
+
+def test_metric_batches_for_domain_never_mixes_deliberation_metrics_with_others() -> None:
+    """One prompt carries a whole batch, and the deliberation families'
+    reading rule contradicts the one their neighbours need -- measured: the
+    two in one batch produced 4 new H14 hallucinations."""
+    manifest = load_compiled_manifest()
+    for domain_id in domain_ids(manifest):
+        for batch in metric_batches_for_domain(manifest, domain_id):
+            hinted = {bool(DELIBERATION_HINTS.intersection(m["source_hints"])) for m in batch}
+            assert len(hinted) == 1, f"{domain_id} batch mixes {[m['id'] for m in batch]}"
 
 
 def test_metric_batches_for_domain_rejects_an_unknown_domain() -> None:

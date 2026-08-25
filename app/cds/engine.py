@@ -51,8 +51,9 @@ signal jobs.py sets when its background renewal fails.
    measured 99.3% accuracy on a ~25-metric schema. Every domain's catalog is
    split into `app.cds.batching.Batch`es of at most
    `manifest.DEFAULT_METRIC_BATCH_SIZE` metrics -- one CDS section per
-   batch, chunked further only when a section alone exceeds that ceiling --
-   each with its OWN narrowed page window routed from just that batch's own
+   batch, chunked further only when a section alone exceeds that ceiling,
+   and `manifest.DELIBERATION_HINTS` sections isolated into batches of their
+   own -- each with its OWN narrowed page window routed from just that batch's
    `source_hints`. One call per batch, bounded-concurrency
    (`app/cds/batch_run.py`) so call count multiplying ~6-10x does not also
    multiply wall-clock the same amount. Findings from every batch belonging
@@ -103,11 +104,6 @@ _CHECKBOX_GRID_HINT = "C7"
 _COLUMN_POSITION_HINTS = frozenset({"C9", "C15", "C16", "D5", "H12", "H13", "H14"})
 _CHECKBOX_GRID_MAX_PAGES = 2
 _CHECKBOX_GRID_IMAGE_DPI = 150
-
-# Metric families whose correctness turns on distinguishing "this control is
-# unticked" from "there is no control here" -- a discrimination the model gets
-# wrong without deliberation, and which no prompt wording has been able to fix.
-_DELIBERATION_HINTS = frozenset({"H14"})
 
 # Vertex AI PayGo pricing for gemini-3.1-flash-lite, USD/1M tokens
 # (recon-vertex.md §4e) -- an informational cost estimate for
@@ -419,17 +415,18 @@ class _Attempt:
 
 def _is_deliberation_hinted(batch_metrics: tuple[dict[str, Any], ...]) -> bool:
     hints = {hint for metric in batch_metrics for hint in metric["source_hints"]}
-    return bool(hints & _DELIBERATION_HINTS)
+    return bool(hints & manifest_mod.DELIBERATION_HINTS)
 
 
 def _deliberation_config(
     batch_metrics: tuple[dict[str, Any], ...], settings: Any
 ) -> tuple[int, str | None]:
     """The `(thinking_budget, thinking_level)` pair for one call: the
-    deliberation config when this batch carries a `_DELIBERATION_HINTS` hint
-    (the only place the accuracy win was measured), the ordinary budget
-    otherwise. Level takes precedence over budget for a deliberation-hinted
-    batch when `model_cds_extract_deliberation_level` is set -- measured:
+    deliberation config when this batch carries a hint in
+    `manifest.DELIBERATION_HINTS` (the only place the accuracy win was
+    measured), the ordinary budget otherwise. Level takes precedence over
+    budget for a deliberation-hinted batch when
+    `model_cds_extract_deliberation_level` is set -- measured:
     `thinking_budget` is a discrete tier selector on gemini-3.1-flash-lite,
     not an allowance, and every non-trivial budget on that tier costs the
     same fixed ~$0.09/call regardless of size; `thinking_level` reaches

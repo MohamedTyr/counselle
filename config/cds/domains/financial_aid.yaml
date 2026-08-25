@@ -53,6 +53,9 @@ metrics:
       aid-year context. H4/H5 use the separate graduating-class and
       degree-award-window context, while H6 policy selections and H7-H15 use
       policy context; do not bind those policy/cohort fields to this aid year.
+      Copy only the academic-year token itself (for example `2022-2023`). If a
+      status word such as `Estimated` or `Final` is printed in the same cell or
+      box, it belongs to `aid_reporting_status` and must not appear here.
 
   - id: aid_reporting_status
     description: >-
@@ -72,6 +75,8 @@ metrics:
       "Final"). This is formerly labeled H3 in some editions; there is no
       separate H3 metric. Do not infer a status when the control is blank or
       unresolved.
+      If no `Estimated`/`Final` control or word is printed beside the
+      aid-reporting year, return not_reported; never default to `final`.
 
   - id: need_analysis_methodology
     description: >-
@@ -876,6 +881,9 @@ metrics:
       row that prints only a date, a value, or a blank writing rule with no
       selection control drawn beside it is not_reported, never false. Do not
       infer a selection state from the presence or absence of a date.
+      Judge each row on its own: if THIS row has no control drawn on it, return
+      not_reported even when another row in the same block does have one. A
+      control belonging to a different row is not this row's control.
 
   - id: aid_priority_date
     description: >-
@@ -893,6 +901,9 @@ metrics:
       date without a year as a string. Extract this independently of
       `aid_priority_date_selected`; preserve both even if the selection state
       and printed date appear inconsistent.
+      When the month and day are printed in separate boxes or table cells, join
+      them with a forward slash and no spaces (Month `4`, Day `15` becomes
+      `4/15`); a space is never the separator.
 
   - id: aid_deadline_selected
     description: >-
@@ -912,6 +923,9 @@ metrics:
       blank writing rule with no selection control drawn beside it is
       not_reported, never false. Do not infer a selection state from the
       presence or absence of a date.
+      Judge each row on its own: if THIS row has no control drawn on it, return
+      not_reported even when another row in the same block does have one. A
+      control belonging to a different row is not this row's control.
 
   - id: aid_deadline_date_or_text
     description: >-
@@ -968,6 +982,12 @@ metrics:
       selected, and false only when the complete visible H10 checklist shows it
       unambiguously unmarked. Preserve this selection independently of the
       rolling selection below even if both appear populated.
+      A row that prints only a date, a value, or a blank writing rule with no
+      selection control drawn beside it is not_reported, never false. Do not infer
+      a selection state from the presence or absence of a date.
+      Judge each row on its own: if THIS row has no control drawn on it, return
+      not_reported even when another row in the same block does have one. A
+      control belonging to a different row is not this row's control.
 
   - id: aid_notification_fixed_date
     description: Fixed financial-aid notification date for first-year students, from H10.
@@ -981,6 +1001,9 @@ metrics:
     instructions: >-
       Copy the H10 fixed-notification-date text exactly as printed, preserving
       a partial date without a year as a string.
+      When the month and day are printed in separate boxes or table cells, join
+      them with a forward slash and no spaces (Month `4`, Day `15` becomes
+      `4/15`); a space is never the separator.
 
   - id: aid_notification_rolling_selected
     description: >-
@@ -998,6 +1021,12 @@ metrics:
       selected, and false only when the complete visible H10 checklist shows it
       unambiguously unmarked. This notification-timing rolling selection is
       distinct from the H9 required-form-filing rolling selection.
+      A row that prints only a date, a value, or a blank writing rule with no
+      selection control drawn beside it is not_reported, never false. Do not infer
+      a selection state from the presence or absence of a date.
+      Judge each row on its own: if THIS row has no control drawn on it, return
+      not_reported even when another row in the same block does have one. A
+      control belonging to a different row is not this row's control.
 
   - id: aid_notification_rolling_start_date
     description: >-
@@ -1013,6 +1042,9 @@ metrics:
     instructions: >-
       Copy the H10 rolling-notification start-date text exactly as printed,
       preserving a partial date without a year as a string.
+      When the month and day are printed in separate boxes or table cells, join
+      them with a forward slash and no spaces (Month `4`, Day `15` becomes
+      `4/15`); a space is never the separator.
 
   # H11 — financial-aid reply-by date and weeks-after-notification alternative
   - id: h11_reply_deadline_date
@@ -1030,6 +1062,9 @@ metrics:
       date without a year as a string. Both this field and
       `h11_reply_weeks_after_notification` may be populated together; preserve
       both independently.
+      When the month and day are printed in separate boxes or table cells, join
+      them with a forward slash and no spaces (Month `4`, Day `15` becomes
+      `4/15`); a space is never the separator.
 
   - id: h11_reply_weeks_after_notification
     description: >-

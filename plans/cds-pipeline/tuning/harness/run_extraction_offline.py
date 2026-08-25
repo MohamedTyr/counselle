@@ -75,7 +75,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=None,
         help="override settings.model_cds_extract_deliberation_budget (0 = no batch gets the "
-        "extra budget; applies only to batches with a hint in engine._DELIBERATION_HINTS)",
+        "extra budget; applies only to batches with a hint in manifest.DELIBERATION_HINTS)",
     )
     parser.add_argument(
         "--deliberation-level",

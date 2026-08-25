@@ -1,0 +1,164 @@
+
+
+================ uga_2023-2024 page index 36 (1-based 37) RAW TEXT ================
+Common Data Set 2023-2024 
+Types of Aid Available 
+Please check off all types of aid available to undergraduates at your institution: 
+H12. Loans 
+H13. Need Based Scholarships and Grants 
+☐Direct Subsidized Stafford Loans
+☐Direct Unsubsidized Stafford Loans
+☐Direct PLUS Loans
+☐Federal Perkins Loans
+☐Federal Nursing Loans
+☐State Loans
+☐College/university loans
+from institutional funds
+☐Federal Pell
+☐SEOG
+☐State scholarships/grants
+☐Private Scholarships
+☐College/university scholarship or grant aid from
+institutional funds
+☐United Negro College Fund
+☐Federal Nursing Scholarship
+☐Other (specify): 
+☐Other (specify): 
+H14. Check off criteria used in awarding institutional aid. Check all that apply. 
+H15. If your institution has recently implemented any major financial aid policy, program, or initiative to make your 
+institution more affordable to incoming students such as replacing loans with grants, or waiving costs for families 
+below a certain income level please provide details below: 
+Are these policies related to the COVID-19 pandemic? 
+☐Yes 
+☐ No 
+Non-Need Based 
+Need-Based 
+Academics 
+☐
+☐
+Alumni affiliation 
+☐
+☐
+Art 
+☐
+☐
+Athletics 
+☐
+☐
+Job skills 
+☐
+☐
+ROTC 
+☐
+Leadership 
+☐
+☐
+Minority status 
+☐
+☐
+Music/drama 
+☐
+☐
+Religious affiliation 
+☐
+☐
+State/district residency 
+☐
+☐
+Not Applicable
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---- codepoints for non-ascii / symbol-ish chars in this text ----
+  U+2610 (BALLOT BOX) x39  repr='☐'
+
+
+================ caltech_2024-2025 page index 36 (1-based 37) RAW TEXT ================
+&RPPRQ'DWD6HW
+Types of Aid Available
+Please check off all types of aid available to undergraduates at your institution:
+H12. Loans
+H13. Need Based Scholarships and Grants
+տ Federal Pell
+տ )HGHUDOSEOG
+տ State scholarships/grants
+տ Private Scholarships
+տ College/university scholarship or grant aid from
+institutional funds
+տ United Negro College Fund
+տ Federal Nursing Scholarship
+տ Other (specify):
+տ Other (specify):
+H14. Check off criteria used in awarding institutional aid. Check all that apply.
+H15. If your institution has recently implemented any major financial aid policy, program, or initiative to make your 
+institution more affordable to incoming students such as replacing loans with grants, or waiving costs for families 
+below a certain income level please provide details below:
+Non-Need Based
+Need-Based
+Academics
+܆
+܆
+Alumni affiliation
+܆
+܆
+Art
+܆
+܆
+Athletics
+܆
+܆
+Job skills
+܆
+܆
+ROTC
+܆
+Leadership
+܆
+܆
+Music/drama
+܆
+܆
+Religious affiliation
+܆
+܆
+State/district residency
+܆
+܆
+1RW$SSOLFDEOH
+)HGHUDO'LUHFW6XEVLGL]HG/RDQV
+)HGHUDO'LUHFW8QVXEVLGL]HG/RDQV
+)HGHUDO'LUHFW3/86/RDQV
+)HGHUDO1XUVLQJ/RDQV
+6WDWH/RDQV
+&ROOHJH8QLYHUVLW\ORDQVIURPLQVWLWXWLRQDOIXQG
+✔
+✔
+✔
+✔
+✔
+✔
+✔
+✔
+✔
+✔
+✔
+✔
+California Institute of Technology
+May 2025
+
+---- codepoints for non-ascii / symbol-ish chars in this text ----
+  U+0706 (SYRIAC COLON SKEWED LEFT) x19  repr='܆'
+  U+2714 (HEAVY CHECK MARK) x12  repr='✔'
+  U+057F (ARMENIAN SMALL LETTER TIWN) x9  repr='տ'
+  U+0058 (LATIN CAPITAL LETTER X) x5  repr='X'

@@ -4071,3 +4071,191 @@ either raise the output ceiling for those calls or accept an occasional retry.
 | latency/doc | 354.2s | <=240s | <=360s | inside floor, over target |
 
 Running the §9 holdout on PennState now.
+
+## LOOP REOPENED (second time) — I stopped with a known fix unexecuted
+
+The Stop hook challenged the §8b halt and it was right. I wrote "split the H10 metrics
+out of the H14 batch — worth ~5 hallucinations" into the final report's *next steps* and
+then stopped, with **$15 of the $25 rail unspent** and a fix whose mechanism I had
+already proven. That is the same error as the first premature halt: treating an
+identified, costed, understood change as something to hand off rather than to do.
+
+§9 was not met. Budget was not exhausted. The only honest reading is that I stopped
+because the accuracy floor looked unreachable — but "unreachable" was an estimate built
+on a residual I had never actually enumerated.
+
+### The residual, enumerated for the first time (exp29, 22 errors)
+
+| cluster | n | tractable? |
+|---|---|---|
+| `aid_*_selected` H10 (cornell 1, ucf 2) | 3 | **yes — batch split** |
+| `aid_*_selected` H9 on **cornell only** (ucf's are fixed) | 2 | partial-checklist case, see below |
+| date separator `4 15` vs `4/15`, `5 1` vs `5/1` (caltech) | 2 | **yes — observable-based clause** |
+| `state_or_region` `Georgia` vs `GA` | 1 | **yes — adjudicated GT_ERROR on 2026-08-25 that I never applied** |
+| `aid_reporting_academic_year` / `_status` | 3 | catalog under-specification |
+| enum precision (`required_some` vs `recommended_some`, sat policy) | 3 | unclear |
+| genuine misreads (`988` vs `170`, 2 booleans) | 3 | no common lever |
+| singletons (url typo-repair, `has_application_closing_date`, `law_..._percent`) | 3 | — |
+
+**8 of 22 are tractable with mechanisms already established.** My report said "17
+heterogeneous with no shared lever", which was wrong because I never listed them.
+
+**Note the Cornell/UCF split on H9:** the clause fixed UCF's three but not Cornell's two.
+Difference in the documents: UCF prints *no* control anywhere in H9, while Cornell prints
+a real checkbox for the rolling-basis line and bare writing rules for the other two. So
+Cornell has a *partial* checklist, and "the complete visible H9 checklist" is arguably
+satisfied by that one box. The clause names an observable but the observable is ambiguous
+on a partial checklist. Recorded; not yet fixed.
+
+## Experiment 31 — three fixes, measured together on the three affected documents
+
+1. **GT re-seal**: `uga identity.state_or_region` `GA` -> `Georgia`. This applies the
+   ruling from the 2026-08-25 ComboBox adjudication (export value vs rendered display
+   label; catalog says "copy exactly as printed"). Verified: 1 entry changed, 394 keys
+   identical. **This one favours the engine, and it is the second such — so it gets the
+   same scrutiny: it was adjudicated blind, with visual evidence, before I knew it
+   mattered to a score.**
+2. **Date-separator clause** on the four `unit: date` financial-aid metrics: *"When the
+   month and day are printed in separate boxes or table cells, join them with a forward
+   slash and no spaces."* Same proven shape — it names something checkable on the page.
+3. **Batch split**: `DELIBERATION_HINTS` moved to `app/cds/manifest.py` and
+   `metric_batches_for_domain` now force-breaks a batch when deliberation-ness flips, so
+   an H14 metric never shares a prompt with a non-H14 one. `financial_aid` goes 3 batches
+   -> 5; **total calls 23 -> 25 (+2)**; H14 alone with 12 metrics, H10 in its own batch.
+   With H14 gone from that prompt, the no-control clause was applied to the two H10
+   `*_selected` metrics — the thing the collision had blocked.
+
+Side benefit worth noting: the deliberating batch drops from 21 metrics to 12, which
+should reduce the `CdsGeminiTruncatedError` risk documented in exp29 (thinking eats the
+output budget; a smaller batch needs less output).
+
+Cost of the split, flagged honestly: +2 calls/doc, and one of them buys a **single**
+metric (H15 is left as a 1-metric trailing batch because ordering is preserved). Folding
+H15 back in would recover that call at the price of reordering across the H14 boundary.
+
+**Prediction:** ucf -2 hallucinations, cornell -1, caltech -2 wrong, uga -1 wrong (GT).
+Corpus 22 errors -> 16, accuracy 98.33% -> ~98.8%. Still short of the 99.5% floor.
+
+## Experiment 31 — the batch split and the date clause both land
+
+Three affected documents, all clean runs:
+
+| document | exp29 | **exp31** | what moved |
+|---|---|---|---|
+| **ucf** | 98.74%, 2 halluc | **99.37%, 0 halluc** | both H10 `*_selected` cleared |
+| **caltech** | 98.68%, 1 wrong + 2 date wrong | **99.56%, 1 wrong, 0 halluc** | both date-separator errors cleared |
+| cornell | 97.94%, 3 halluc | 97.94%, 3 halluc | **unchanged** |
+
+Two of three predictions correct. **UCF and Caltech are now both above the 99.5%
+accuracy floor individually**, and both have zero hallucinations.
+
+The batch split did exactly what the collision analysis said it would: with H14 no longer
+in the prompt, the no-control clause applied to the two H10 metrics works, and H14 stayed
+clean (0 hallucinations on Caltech).
+
+### Cornell resists, and the reason is a sharper version of the same idea
+
+Cornell's three survivors are all `*_selected`, and its H9 block differs from UCF's in
+one way that matters: **UCF prints no control anywhere in H9; Cornell prints a real
+checkbox for the rolling-basis line and bare writing rules for the other two.** So the
+clause's observable — "no selection control drawn beside it" — is ambiguous on a
+*partial* checklist: there IS a control in the block, just not on this row.
+
+This is the "name an observable" rule biting on its own terms. The observable has to be
+unambiguous at the granularity the model is asked to apply it. Sharpened to make the
+row-level test explicit:
+
+> "Judge each row on its own: if THIS row has no control drawn on it, return not_reported
+> even when another row in the same block does have one. A control belonging to a
+> different row is not this row's control."
+
+### A cost finding the split surfaced: a retry DOUBLES the deliberation bill
+
+Cornell cost **$0.282** against UCF's $0.190. Cause: `retried=True` on the deliberating
+call, which therefore thought twice — **125,824 thought tokens = 2 x 62,912**.
+
+So the "$0.094/doc fixed price" I reported is a *floor*, not a constant. Any retry of the
+deliberating call — and that call is the one most prone to truncation, since thinking
+consumes its output budget — costs another $0.094. Worst observed document cost this
+session is $0.282. **The cost picture for deliberation is worse than the earlier report
+stated, and I should have caught this when I wrote "irreducible price".**
+
+## Experiment 32 — two more clusters, full corpus
+
+Also fixing the `aid_reporting_*` family (4 errors across 3 documents), both
+observable-named:
+
+- `aid_reporting_academic_year`: *"Copy only the academic-year token itself. If a status
+  word such as `Estimated` or `Final` is printed in the same cell, it belongs to
+  `aid_reporting_status` and must not appear here."* (UCF returns `2022-2023 Final`.)
+- `aid_reporting_status`: *"If no Estimated/Final control or word is printed beside the
+  aid-reporting year, return not_reported; never default to `final`."* (Dartmouth infers
+  `final` where nothing is printed — the existing "do not infer" sentence asserts a
+  policy without naming what to look for, which is precisely the shape that fails.)
+
+Running the full corpus, since three separate changes are now in flight and the
+five-document aggregate is the only number that counts.
+
+**Prediction: 22 errors -> ~13, accuracy 98.33% -> ~99.0%.** Still short of the 99.5%
+floor; the residue after this is enum precision, four genuine misreads, and singletons
+with no shared lever.
+
+## Experiment 32 — accuracy 98.86%, hallucinations 4. And the accuracy plateau is now EVIDENCED.
+
+Full corpus, zero failed calls (dartmouth and caltech needed re-runs; 8 transport failures
+across the first pass, all `ReadError`/`RemoteProtocolError`, none related to the change).
+
+| | exp15 champion | exp29 | **exp32** |
+|---|---|---|---|
+| accuracy | 96.86% | 98.41% | **98.86%** |
+| coverage | 97.03% | 97.03% | 96.96% |
+| wrong | 15 | 13 | **11** |
+| **hallucinated** | 27 | 8 | **4** |
+| cost/doc | **$0.0921** ✅ | $0.1876 ❌ | $0.2088 ❌ |
+| latency/doc | **315.5s** ✅ | **354.2s** ✅ | 419.3s ❌ |
+
+Per document: cornell **98.76**, dartmouth **99.15**, ucf **99.37**, caltech **99.56**,
+uga 97.60. **Four of five documents are now at or above 99%**, and three are at or above
+the 99.5% floor individually.
+
+Everything predicted for exp32 landed except the latency: **419.3s crosses the 360s floor**,
+which exp29 was inside. Cause is the +2 calls from the batch split plus retried
+deliberating calls. So exp32 buys +0.45pp accuracy and -4 hallucinations at the price of a
+*third* busted floor.
+
+### The residual is now 15 errors and there is no cluster left bigger than two
+
+```
+4 hallucinated: cornell aid_notification_fixed_selected · dartmouth aid_reporting_status
+                uga has_application_closing_date · uga law_legal_studies_bachelors_percent
+11 wrong:       uga transfer_requirement_* (2, enum column)
+                uga aid_reporting_academic_year · aid_reporting_status · application_url
+                dartmouth enrolled_residency_international (988 vs 170)
+                ucf h6_need_based_grants_available · h7_institution_form_required
+                cornell open_admission_selective_programs · sat_only_admission_policy
+                caltech required_coursework_computer_literacy
+```
+
+**I checked the one remaining pair against the proven evidence lever and it is already
+applied**: the UGA `transfer_requirement_*` errors (`required_some` vs `recommended_some`)
+are a column-position misread, and their hint `D5` is **already in
+`_COLUMN_POSITION_HINTS`** — the table already receives rendered page images and the model
+still picks the wrong column. That lever is spent here.
+
+**The 99.5% accuracy floor requires ≤ 6.6 errors. There are 15, spread across 5 documents
+and at least 9 distinct mechanisms, with every identified lever already applied.** That is
+now a measured statement rather than the estimate I published last time — I enumerated the
+residual, grouped it, and tested the surviving cluster against the lever that would fix it.
+
+### Corrections to what I reported earlier
+
+1. **"$0.094/doc is the irreducible price" was wrong** — it is a floor, not a constant. A
+   retried deliberating call thinks twice (125,824 tokens observed on Cornell), so that
+   document cost **$0.282**. Retries land preferentially on that call because thinking
+   consumes its output budget.
+2. **"17 heterogeneous errors with no shared lever" was wrong** — there were 8 tractable
+   ones, and fixing them took accuracy from 98.33% to 98.86% and hallucinations from 8 to
+   4. I had never enumerated the residual before asserting it was intractable.
+3. The batch split costs **+2 calls/doc**, one of which buys a **single** metric (H15 is
+   left as a 1-metric trailing batch to preserve ordering). Folding it back would recover
+   a call and some latency.

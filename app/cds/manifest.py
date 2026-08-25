@@ -31,6 +31,20 @@ CDS_CONFIG_DIR = Path(__file__).resolve().parents[2] / "config" / "cds"
 # engine-side call-shaping knob.
 DEFAULT_METRIC_BATCH_SIZE = 25
 
+# CDS section codes whose metrics turn on telling "this control is drawn but
+# unticked" apart from "there is no control here at all" -- a discrimination
+# the model only gets right when it is given room to deliberate, and whose
+# reading rule ("a drawn but unticked control is not_reported, NEVER false")
+# is the exact inverse of the rule a sibling family needs ("a row with no
+# control drawn is not_reported"). Because one prompt carries every metric in
+# a batch, the two rules collide when they share one: adding the H10 rule
+# while H14 sat in the same batch measurably produced 4 new H14
+# hallucinations, and no rewording removed them. `metric_batches_for_domain`
+# therefore isolates these metrics into batches of their own; `app/cds/
+# engine.py` separately bills those batches the deliberation thinking budget.
+# Fixed CDS-template section codes, not a metric catalog (ADR 0032).
+DELIBERATION_HINTS = frozenset({"H14"})
+
 
 class ManifestDriftError(RuntimeError):
     """`config/cds/` no longer compiles to the manifest version's published
@@ -111,6 +125,10 @@ def metric_batches_for_domain(
     into fixed-size chunking at once: either a section fits whole into a
     (possibly shared) batch, or it alone is split.
 
+    A `DELIBERATION_HINTS` section never packs with a section outside that
+    set (in either direction): those metrics' reading rule contradicts the
+    one its neighbours need, and one prompt carries a whole batch.
+
     Every metric appears in exactly one batch -- batches partition the
     domain's metrics, never duplicate or drop one -- so accumulating
     findings across every batch's call is safe from double-counting.
@@ -130,7 +148,10 @@ def metric_batches_for_domain(
                 for start in range(0, len(section), max_batch_size)
             )
             continue
-        if current and len(current) + len(section) > max_batch_size:
+        if current and (
+            len(current) + len(section) > max_batch_size
+            or _is_deliberation_metric(current[0]) != _is_deliberation_metric(section[0])
+        ):
             batches.append(current)
             current = []
         current.extend(section)
@@ -139,19 +160,29 @@ def metric_batches_for_domain(
     return tuple(tuple(batch) for batch in batches)
 
 
+def _is_deliberation_metric(metric: dict[str, Any]) -> bool:
+    return bool(DELIBERATION_HINTS.intersection(metric["source_hints"]))
+
+
 def _contiguous_sections(metrics: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     """Group `metrics` (already in manifest order) into contiguous runs
     sharing the same first `source_hints` entry -- the CDS-section boundary
     `metric_batches_for_domain` packs batches around. `source_hints` is
     validated non-empty at manifest-compile time (manifest_types.py), so
-    every metric has a real first hint to group by."""
+    every metric has a real first hint to group by.
+
+    Deliberation-hinted metrics also break a run, so that a section is never
+    partly deliberation-hinted -- a metric can reach `DELIBERATION_HINTS`
+    through a secondary hint while its first hint sections it elsewhere, and
+    the packing rule above decides per section.
+    """
     sections: list[list[dict[str, Any]]] = []
-    open_hint: str | None = None
+    open_key: tuple[str, bool] | None = None
     for metric in metrics:
-        hint = metric["source_hints"][0]
-        if not sections or hint != open_hint:
+        key = (metric["source_hints"][0], _is_deliberation_metric(metric))
+        if not sections or key != open_key:
             sections.append([])
-            open_hint = hint
+            open_key = key
         sections[-1].append(metric)
     return sections
 
@@ -203,6 +234,7 @@ async def verify_manifest_current(pool: asyncpg.Pool, manifest: CompiledManifest
 __all__ = [
     "CDS_CONFIG_DIR",
     "DEFAULT_METRIC_BATCH_SIZE",
+    "DELIBERATION_HINTS",
     "ManifestDriftError",
     "calls_for_domains",
     "domain_ids",

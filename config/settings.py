@@ -188,7 +188,7 @@ class Settings(BaseSettings):
     # integer is an explicit token budget.
     model_cds_extract_thinking_budget: int = 0
     # Extra thinking budget for the few batches whose hints put them in
-    # `app/cds/engine.py`'s `_DELIBERATION_HINTS` set (currently just H14,
+    # `app/cds/manifest.py`'s `DELIBERATION_HINTS` set (currently just H14,
     # the checkbox-grid selection-state metrics) -- 0 means "use
     # model_cds_extract_thinking_budget for every batch, same as before this
     # setting existed". The deliberation those batches need costs ~$0.09 on
