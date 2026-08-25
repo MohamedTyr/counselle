@@ -47,7 +47,17 @@ from app.cds.manifest import load_compiled_manifest  # noqa: E402
 
 # Bump on ANY change to normalization, match rules, or outcome classification.
 # See module docstring: a bump invalidates every previously persisted report.
-SCORER_VERSION = "1.2.0"
+SCORER_VERSION = "1.3.0"
+# 1.3.0: `fitness()` now prepends a `valid` flag (1.0/0.0) ahead of the four
+#        existing axes. A report whose `run_errors` is non-empty is no longer
+#        a real measurement -- it must lose to EVERY valid report on the first
+#        lexicographic comparison, never fall through to accuracy/cost/latency
+#        where a run that did almost no work can look cheap and win. `report`
+#        also gains explicit `valid` / `failed_call_count` keys so a reader
+#        never has to infer validity from `run_errors`, and `summarize()`
+#        leads with a loud banner naming the failed-call count whenever
+#        `run_errors` is non-empty. Per-comparison outcome classification
+#        (correct/wrong/missed/hallucinated/correct_abstention) is unchanged.
 # 1.2.0: `_num_canon` accepts bare-dot decimals (`.48`, `48.`) for EVERY numeric
 #        rule, and a `present` GT value that will not normalize is quarantined
 #        as `gt_error` instead of being charged to the engine as `wrong`.
@@ -917,9 +927,20 @@ def ratios_from_counts(
 # ---------------------------------------------------------------------------
 
 # THE fitness scalar for the tuning loop, compared LEXICOGRAPHICALLY, higher is
-# better, in this fixed order (from the mission spec -- do not reorder):
+# better, in this fixed order (from the mission spec, `valid` prepended -- do
+# not reorder the four axes after it):
 #
-#     (accuracy_pct, coverage_pct, -cost_per_doc, -latency_per_doc)
+#     (valid, accuracy_pct, coverage_pct, -cost_per_doc, -latency_per_doc)
+#
+# `valid` is 1.0 when the report's `run_errors` is empty, 0.0 otherwise. It
+# comes FIRST so it dominates every other axis: a run in which most model
+# calls failed is not a measurement of anything, and it must never win a
+# comparison by being coincidentally cheap or fast because it barely ran.
+# Without this, a catastrophically broken run (few calls succeeded, so cost
+# and latency are tiny) can beat a healthy run once the comparison reaches the
+# cost/latency axes -- exactly the failure this field exists to make
+# impossible, regardless of what a human or a future automated comparison
+# happens to look at first.
 #
 # Accuracy alone is gameable: abstain on everything and `accuracy_pct` is
 # `None`; extract one metric correctly and abstain on the other 393 and it is
@@ -927,6 +948,7 @@ def ratios_from_counts(
 # abstention lose, and cost/latency break ties between equally accurate,
 # equally complete configs.
 FITNESS_FIELDS: tuple[str, ...] = (
+    "valid",
     "accuracy_pct",
     "coverage_pct",
     "-cost_per_doc",
@@ -951,7 +973,12 @@ def _fitness_number(value: Any) -> float:
 
 
 def fitness_inputs(report: Mapping[str, Any]) -> dict[str, Any]:
-    """The four raw numbers `fitness()` consumes, named and reported.
+    """The four raw ACCURACY/COVERAGE/COST/LATENCY numbers `fitness()`
+    consumes, named and reported. Validity (the fifth, leading fitness axis)
+    is deliberately NOT one of these four: it is read straight off the
+    report's own `run_errors`, never off this derived dict, so a caller that
+    hand-builds `fitness_inputs` cannot accidentally launder an invalid run
+    into looking valid.
 
     For a single-document report, cost/latency per doc ARE the run's own cost
     and duration. For an aggregate report, `aggregate_reports` supplies the
@@ -970,16 +997,30 @@ def fitness_inputs(report: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def fitness(report: Mapping[str, Any]) -> tuple[float, float, float, float]:
+def is_valid_report(report: Mapping[str, Any]) -> bool:
+    """A report is a valid measurement only when its `run_errors` list is
+    empty. Every score/aggregate report carries `run_errors` (see
+    `score_run` and `aggregate_reports`), so this is total over both shapes.
+    """
+    return not (report.get("run_errors") or [])
+
+
+def fitness(report: Mapping[str, Any]) -> tuple[float, float, float, float, float]:
     """The lexicographic fitness tuple for a scored run OR an aggregate.
 
     Higher is better. Identical semantics at both levels; an aggregate simply
     feeds summed-bucket rates and mean per-document cost/latency.
+
+    The first element is `valid` (1.0 / 0.0, see `is_valid_report`). It sorts
+    ahead of every other axis on purpose: a report with any run error is not
+    a real measurement, so it must lose to every valid report before the
+    comparison ever reaches accuracy, let alone cost or latency.
     """
     inputs = fitness_inputs(report)
     accuracy = inputs.get("accuracy_pct")
     coverage = inputs.get("coverage_pct")
     return (
+        1.0 if is_valid_report(report) else 0.0,
         NO_DATA_SENTINEL if accuracy is None else float(accuracy),
         NO_DATA_SENTINEL if coverage is None else float(coverage),
         -_fitness_number(inputs.get("cost_per_doc")),
@@ -1071,6 +1112,10 @@ def score_run(
         **fitness_inputs(report),
         "basis": "single document; cost/latency are this document's own",
     }
+    # Explicit so a reader never has to infer validity by re-deriving it from
+    # `run_errors` themselves -- see `is_valid_report()` / `fitness()`.
+    report["valid"] = is_valid_report(report)
+    report["failed_call_count"] = len(report["run_errors"])
     report["fitness"] = list(fitness(report))
     report["blocking_issues"] = (
         [f"GT keys outside manifest: {gt_unknown}"] if gt_unknown else []
@@ -1192,6 +1237,8 @@ def aggregate_reports(
                 "accuracy_pct": totals.get("accuracy_pct"),
                 "cost_usd_estimate": cost_value,
                 "duration_seconds": seconds,
+                "valid": is_valid_report(report),
+                "failed_call_count": len(errors),
                 "fitness": list(fitness(report)),
             }
         )
@@ -1275,6 +1322,12 @@ def aggregate_reports(
         "latency_per_doc": mean_latency,
         "basis": "summed buckets; cost/latency are the mean per document",
     }
+    # Explicit so a reader never has to infer validity by re-deriving it from
+    # `run_errors` themselves -- see `is_valid_report()` / `fitness()`. An
+    # aggregate is invalid the moment ANY constituent document carried a run
+    # error: `run_errors` above is already the union across all documents.
+    aggregate["valid"] = is_valid_report(aggregate)
+    aggregate["failed_call_count"] = len(run_errors)
     aggregate["fitness_fields"] = list(FITNESS_FIELDS)
     aggregate["fitness"] = list(fitness(aggregate))
     return aggregate
@@ -1283,7 +1336,18 @@ def aggregate_reports(
 def summarize_aggregate(report: Mapping[str, Any]) -> str:
     totals = report["totals"]
     cost = report["cost"]
-    lines = [
+    run_errors = report.get("run_errors") or []
+    lines: list[str] = []
+    if run_errors:
+        # Same loud banner as `summarize()`, first line, before any figure --
+        # the tuning loop decides keep/revert on THIS report (never a single
+        # document), so a broken eval must be unmissable right here.
+        failed = report.get("failed_call_count", len(run_errors))
+        total_calls = cost.get("calls")
+        lines.append(
+            f"!!! INVALID RUN -- {failed}/{total_calls} CALLS FAILED -- DO NOT COMPARE !!!"
+        )
+    lines += [
         f"== AGGREGATE over {report['documents']} document(s)"
         + (f"  [{report['label']}]" if report.get("label") else ""),
         f"scorer {report['scorer_version']}  documents: {', '.join(report['document_names'])}",
@@ -1295,7 +1359,9 @@ def summarize_aggregate(report: Mapping[str, Any]) -> str:
         f"latency total={cost['total_duration_seconds']}s "
         f"mean/doc={cost['mean_latency_per_doc']}s  calls={cost['calls']}",
         f"fitness {tuple(FITNESS_FIELDS)} = {tuple(report['fitness'])}"
-        f"   [{NO_DATA_SENTINEL} = no data, ranks last; cost/latency are MEAN per doc]",
+        f"   [valid=0 always ranks last, ahead of every other axis; "
+        f"{NO_DATA_SENTINEL} = no data, ranks last within a validity tier; "
+        f"cost/latency are MEAN per doc]",
     ]
     for document in report["per_document"]:
         lines.append(
@@ -1317,7 +1383,22 @@ def summarize_aggregate(report: Mapping[str, Any]) -> str:
 def summarize(report: Mapping[str, Any]) -> str:
     totals = report["totals"]
     document = report.get("document") or {}
-    lines = [
+    run_errors = report.get("run_errors") or []
+    lines: list[str] = []
+    if run_errors:
+        # THE loud banner: it must be the very first thing printed, before any
+        # accuracy/coverage/cost figure, so a broken run is impossible to
+        # mistake for a clean one -- dead calls otherwise print
+        # `coverage=100.0% accuracy=100.0%` on the handful of metrics that did
+        # come back, and a cheap, do-nothing run can look like a bargain on
+        # the cost/latency axes. See `fitness()`: such a run is `valid=False`
+        # and can never win a comparison regardless of what this banner says.
+        failed = report.get("failed_call_count", len(run_errors))
+        total_calls = (report.get("cost") or {}).get("calls")
+        lines.append(
+            f"!!! INVALID RUN -- {failed}/{total_calls} CALLS FAILED -- DO NOT COMPARE !!!"
+        )
+    lines += [
         f"scorer {report['scorer_version']}  manifest {report['manifest_version']}  "
         f"universe {report['metric_universe_size']}",
         f"document: {document.get('name')}  cost=${report['cost']['cost_usd_estimate']}  "
@@ -1327,13 +1408,10 @@ def summarize(report: Mapping[str, Any]) -> str:
         f"(excl. hallucination {totals['accuracy_pct_excl_hallucination']}%)  "
         f"citation-mismatch={totals['citation_mismatch']}",
         f"fitness {tuple(FITNESS_FIELDS)} = {tuple(report.get('fitness') or fitness(report))}"
-        f"   [{NO_DATA_SENTINEL} = no data, ranks last]",
+        f"   [valid=0 always ranks last, ahead of every other axis; "
+        f"{NO_DATA_SENTINEL} = no data, ranks last within a validity tier]",
     ]
-    run_errors = report.get("run_errors") or []
     if run_errors:
-        # A partially-failed run must be impossible to mistake for a clean one:
-        # dead calls otherwise print `coverage=100.0% accuracy=100.0%` on the
-        # handful of metrics that did come back.
         lines.append(f"  !! RUN ERRORS ({len(run_errors)}) -- THIS RUN IS INCOMPLETE:")
         lines.extend(f"     - {error}" for error in run_errors[:20])
         if len(run_errors) > 20:

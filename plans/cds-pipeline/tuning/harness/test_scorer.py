@@ -845,15 +845,23 @@ def _report(
     coverage: float | None,
     cost: float | None = 1.0,
     latency: float | None = 10.0,
+    errors: Sequence[str] = (),
 ) -> dict[str, Any]:
     return {
         "totals": {"accuracy_pct": accuracy, "coverage_pct": coverage},
         "cost": {"cost_usd_estimate": cost, "duration_seconds": latency},
+        "run_errors": list(errors),
     }
 
 
 def test_fitness_field_order_is_pinned() -> None:
-    assert FITNESS_FIELDS == ("accuracy_pct", "coverage_pct", "-cost_per_doc", "-latency_per_doc")
+    assert FITNESS_FIELDS == (
+        "valid",
+        "accuracy_pct",
+        "coverage_pct",
+        "-cost_per_doc",
+        "-latency_per_doc",
+    )
 
 
 def test_fitness_is_lexicographic_in_the_pinned_order() -> None:
@@ -871,13 +879,41 @@ def test_fitness_is_lexicographic_in_the_pinned_order() -> None:
 
 
 def test_zero_extraction_ranks_last_never_first() -> None:
-    """`None` accuracy must sort BELOW every real accuracy, including 0.0."""
+    """`None` accuracy must sort BELOW every real accuracy, including 0.0
+    (but still above an INVALID report -- that is a separate, prior axis;
+    see `test_invalid_run_never_wins_any_axis`)."""
     nothing = _report(None, None, cost=0.0, latency=0.0)
-    assert fitness(nothing)[0] == NO_DATA_SENTINEL
+    assert fitness(nothing)[0] == 1.0  # valid: no run_errors on this synthetic report
+    assert fitness(nothing)[1] == NO_DATA_SENTINEL
     assert NO_DATA_SENTINEL < 0.0
     assert compare_fitness(nothing, _report(0.0, 0.0, cost=99.0, latency=999.0)) == -1
     ranked = sorted([_report(50.0, 50.0), nothing, _report(10.0, 5.0)], key=fitness, reverse=True)
     assert ranked[-1] is nothing
+
+
+def test_invalid_run_never_wins_any_axis() -> None:
+    """The bug this change fixes: a run in which most model calls FAILED is
+    cheap and fast only because it barely ran. Before `valid` was prepended,
+    such a report could win the cost/latency axes against a healthy run and
+    come out on top. A report with a non-empty `run_errors` must sort BELOW
+    every valid report -- even one with worse accuracy, worse coverage, AND
+    higher cost -- because `valid` is the first tuple element and dominates
+    every axis that follows it.
+    """
+    broken_but_looks_cheap = _report(
+        89.29, 11.81, cost=0.007841, latency=1311.7, errors=["21/23 calls failed"]
+    )
+    healthy_but_more_expensive = _report(94.98, 96.20, cost=0.089713, latency=464.4)
+    assert fitness(broken_but_looks_cheap)[0] == 0.0
+    assert fitness(healthy_but_more_expensive)[0] == 1.0
+    # Without the fix this would be reversed on the cost axis (0.007841 <
+    # 0.089713 in raw cost, so -0.007841 > -0.089713 in the fitness tuple).
+    assert compare_fitness(broken_but_looks_cheap, healthy_but_more_expensive) == -1
+    ranked = sorted(
+        [broken_but_looks_cheap, healthy_but_more_expensive], key=fitness, reverse=True
+    )
+    assert ranked[0] is healthy_but_more_expensive
+    assert ranked[-1] is broken_but_looks_cheap
 
 
 def test_abstain_on_everything_loses_to_a_config_that_extracts(tmp_path: Path) -> None:
@@ -920,8 +956,9 @@ def test_abstain_on_everything_loses_to_a_config_that_extracts(tmp_path: Path) -
     assert compare_fitness(abstain_all, extracts_all) == -1
     assert compare_fitness(abstain_all, one_only) == -1
     assert compare_fitness(one_only, extracts_all) == -1  # coverage breaks the accuracy tie
-    assert extracts_all["fitness"][0] == 100.0
+    assert extracts_all["fitness"][0] == 1.0  # valid: no run_errors
     assert extracts_all["fitness"][1] == 100.0
+    assert extracts_all["fitness"][2] == 100.0
 
 
 # --------------------------------------------------------------------------
@@ -1059,7 +1096,7 @@ def test_aggregate_sums_buckets_and_emits_one_fitness_tuple() -> None:
     # rates recomputed ONCE from the summed buckets
     emitted = agg["totals"]["correct"] + agg["totals"]["wrong"] + agg["totals"]["hallucinated"]
     assert agg["totals"]["accuracy_pct"] == round(100.0 * agg["totals"]["correct"] / emitted, 2)
-    assert len(agg["fitness"]) == 4
+    assert len(agg["fitness"]) == 5
     assert agg["fitness_fields"] == list(FITNESS_FIELDS)
     assert len(agg["per_document"]) == 5  # per-document reports kept alongside
     assert agg["blocking_issues"] == []
@@ -1121,8 +1158,9 @@ def test_aggregate_cost_reports_total_and_mean_and_fitness_uses_the_mean() -> No
     assert agg["cost"]["mean_latency_per_doc"] == 30.0
     assert agg["fitness_inputs"]["cost_per_doc"] == 2.0  # the MEAN, not the total
     assert agg["fitness_inputs"]["latency_per_doc"] == 30.0
-    assert agg["fitness"][2] == -2.0
-    assert agg["fitness"][3] == -30.0
+    assert agg["fitness"][0] == 1.0  # valid: no run_errors
+    assert agg["fitness"][3] == -2.0
+    assert agg["fitness"][4] == -30.0
     assert "mean per document" in agg["fitness_inputs"]["basis"]
 
 
@@ -1151,7 +1189,8 @@ def test_aggregate_zero_extraction_ranks_last() -> None:
         [_doc_report(f"d{i}.pdf", cost=0.0, seconds=0.0) for i in range(5)]
     )
     assert nothing["totals"]["accuracy_pct"] is None
-    assert nothing["fitness"][0] == NO_DATA_SENTINEL
+    assert nothing["fitness"][0] == 1.0  # valid: no run_errors
+    assert nothing["fitness"][1] == NO_DATA_SENTINEL
     real = scorer_module.aggregate_reports(
         [_doc_report(f"d{i}.pdf", correct=0, wrong=10, cost=99.0, seconds=999.0) for i in range(5)]
     )
