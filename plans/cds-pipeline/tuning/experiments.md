@@ -3692,3 +3692,329 @@ metrics` — the pages term is the waste, and it is the majority of base cost.
 That is the next experiment, and it is the right one: **stop trying to make correctness
 cheaper and make the surrounding waste smaller instead.** Spend so far ~$9 of $25; no §9
 criterion met.
+
+## The residual at exp24 — 11 of 13 hallucinations are ONE family, and it is H14's twin
+
+Full wrong+hallucinated list under corrected GT, 27 rows. The concentration is extreme:
+
+| family | count | shape |
+|---|---|---|
+| **`aid_*_selected` (H9)** | **11 hallucinated** | engine asserts `true`/`false`; GT `None` |
+| dates / academic-year / status formatting | 5 wrong | `12 15` vs `12/15`, `2022-2023 Final` vs `2022-2023` |
+| enum precision | 3 wrong | `required_some` vs `recommended_some`, `not_considered` vs `not_required_but_considered` |
+| genuine misreads | 4 wrong | `988` vs `170`, `False` vs `True` |
+| singletons | 4 | incl. the `application_url` typo-repair and `state_or_region` |
+
+**The `*_selected` family is the exact same defect H14 had** — the engine reports a
+selection state for a control that isn't there:
+
+```
+cornell   aid_deadline_selected            engine=False  gt=None
+dartmouth aid_deadline_selected            engine=True   gt=None
+ucf       aid_priority_date_selected       engine=True   gt=None
+ucf       aid_notification_rolling_selected engine=True  gt=None
+...  11 rows across 4 of 5 documents
+```
+
+And the reason deliberation did not fix them is now visible in the telemetry, not
+guessed at:
+
+```
+financial_aid b1  hints=[H5,H6,H7,H8,H9]   metrics=23  thoughts=0        <- the *_selected family
+financial_aid b2  hints=[H10,H11,H12,H14,H15] metrics=21 thoughts=62,914 <- H14, deliberating
+```
+
+The family lives in a **different batch**, which never deliberates. `_DELIBERATION_HINTS`
+contained only `H14`.
+
+### exp25 — add `H9`, and accept that this is now a trade-curve, not a champion hunt
+
+Adding `H9` means a **second** deliberating call: +$0.094, taking cost to ~$0.28/doc.
+The $0.15 floor is already lost at $0.187, so this does not lose anything that was still
+winnable — but it does mean I am no longer hunting a config that satisfies §1. I am
+measuring **what accuracy costs**, which is the more useful thing to hand back:
+
+| config | cost/doc | accuracy | note |
+|---|---|---|---|
+| champion (no deliberation) | **$0.0921** | 96.86% | only cost-compliant option |
+| + H14 deliberation | $0.1873 | 97.96% | busts cost floor 25% |
+| + H14 **and** H9 | ~$0.28 | **?** | measuring now |
+
+If H9 deliberation clears the family the way H14's did, 11 hallucinations become
+abstentions: **accuracy ~98.8%, hallucinations 13 -> 2.** Still short of the 99.5% floor,
+because the remaining 14 `wrong` are heterogeneous — formatting, enums, and four real
+misreads with no common lever.
+
+Testing on **UCF first** (5 of the 11 live there), per the one-document-first rule.
+
+Prediction, recorded now: **UCF hallucinations 5 -> 0 or 1; UCF accuracy 97.50% ->
+~99.0%; cost ~$0.28.** If the family does not move, then H14's fix was not about
+deliberation generalising to "absent control" reasoning at all, and my model of WHY it
+worked is wrong — which would matter more than the experiment.
+
+## Experiment 25 — PREDICTION REFUTED. Deliberation enforces a rule; it cannot invent one.
+
+I predicted UCF hallucinations 5 -> 0 or 1 and accuracy 97.50% -> ~99.0%. Measured:
+
+| | exp24 (H14 only) | exp25 (H9 + H14) |
+|---|---|---|
+| correct / wrong / missed / hallucinated | 312 / 3 / 5 / **5** | 312 / 3 / 5 / **5** |
+| accuracy | 97.50% | **97.50%** |
+| coverage | 98.44% | **98.44%** |
+| total thoughts | 62,914 | **125,828** |
+| cost/doc | $0.1879 | **$0.2823** |
+
+**Byte-identical buckets.** The H9 batch genuinely deliberated — 62,914 thoughts, its
+own full tier — and changed nothing. $0.094 for zero. `H9` reverted from
+`_DELIBERATION_HINTS`.
+
+### Why, and it corrects my model of the H14 win
+
+I had concluded deliberation gives the model "absent-control reasoning". It does not.
+Reading the H9 catalog text next to H14's:
+
+```
+H14: "Return true only when the ... control is visibly selected. ... a blank cell in
+      this or any other visible H14 coordinate is not_reported, NEVER FALSE."
+
+H9:  "Return true only when the H9 priority-date control is visibly selected,
+      AND FALSE ONLY WHEN the complete visible H9 checklist shows it
+      unambiguously unmarked."
+```
+
+H9 carries the **H12-style false-closure clause** — the very phrasing three adjudicators
+identified as the catalog *explicitly authorising* `false`. H14 forbids `false`; H9
+permits it.
+
+> **Deliberation makes the model comply with an explicit rule it was ignoring. It does
+> not make the model infer a rule that is not written.** On H14 there was a rule and the
+> model was violating it, so reasoning fixed it. On H9 the model is already doing what
+> the catalog says.
+
+That is a sharper and more useful statement of the lever than "reasoning improves
+accuracy", and I only have it because the prediction failed.
+
+### So the H9 family may not be an engine defect at all
+
+If the model is following the catalog, the disagreement is between **GT and the
+catalog**, not between the engine and the truth. Two possibilities, and they need a
+visual fact to separate:
+
+- **(a)** These documents print no H9 checklist with controls — just a date line. Then
+  "the complete visible H9 checklist" does not exist, false-closure never fires, the
+  engine is inferring a control from an adjacent date, and **GT is right**. This is what
+  the ledger has assumed since the Cornell baseline.
+- **(b)** The checklist IS printed and unmarked. Then the catalog authorises `false`,
+  the engine is correct, and **GT is wrong on 11 metrics across 4 documents**.
+
+I do not know which, and the assumption in (a) has never been visually verified — it was
+inferred from the engine's behaviour, which is precisely the wrong direction of evidence.
+
+Commissioning a blind read of the H9 region on Cornell, Dartmouth and UCF. Given I
+already contaminated one blind read this session by writing the disputed premise into
+the prompt, this one gets neither reading, neither the engine's output, nor any hint
+that a dispute exists — only: "describe what controls, if any, appear in this region."
+
+## H9 blind read — my alternative hypothesis is REFUTED. GT is right; the CATALOG is wrong.
+
+Blind read (given no reading, no engine output, no hint of a dispute — only "describe
+what controls appear in this region"):
+
+| document | H9 structure |
+|---|---|
+| cornell p23 | priority + deadline lines are **fill-in writing rules, 58.7 x 0.7pt, NO control**; only the rolling-basis line has a checkbox (10.8 x 10.0pt, verified empty: 0 dark px of 7,921 at 900 DPI) |
+| dartmouth p22 | identical structure; `1-Feb` typed on the deadline rule; priority rule blank; checkbox empty. Note the same page marks OTHER checkboxes with a printed `X` in H7/H8 — none in H9 |
+| ucf p32 | **zero controls anywhere in H9.** Three ruled table cells holding typed `Yes`, `2/15`, `6/30`. The page's real checkboxes are ~8.6pt images in H7/H8; none below y=400 |
+
+All three: `widgets=0`, `annots=0`.
+
+**So the catalog's precondition — "the complete visible H9 checklist" — does not exist on
+these documents.** There is no checklist of selectable options; there are fill-in date
+lines. The false-closure branch cannot fire, the engine's `true`/`false` is invented, and
+**GT is right on all 11.** Hypothesis (b) is dead.
+
+This is the first time that assumption has been *visually verified*. The ledger has
+asserted since the Cornell baseline that "the template has no selection control", but
+that was inferred from the engine's behaviour — the wrong direction of evidence. It
+happened to be correct. It was not established.
+
+### The defect is the catalog wording, and this yields a clean natural experiment
+
+All five `*_selected` metrics carry the same clause, which **authorises `false` in a
+situation where nothing is drawn**. Appending an H14-style prohibition:
+
+> "A row that prints only a date, a value, or a blank writing rule with **no selection
+> control drawn beside it** is not_reported, never false ... Do not infer a selection
+> state from the presence or absence of a date."
+
+Note this **aligns the catalog to GT, it does not move GT.** GT already records `None`
+here, verified visually. The catalog is the artifact that is wrong.
+
+And the batch layout makes one run test two conditions at once:
+
+| metrics | hint | batch | deliberates? |
+|---|---|---|---|
+| `aid_notification_fixed_selected`, `aid_notification_rolling_selected` | H10 | b2 | **YES** |
+| `aid_priority_date_selected`, `aid_deadline_selected`, `aid_no_deadline_rolling_selected` | H9 | b1 | **no** |
+
+**Prediction, recorded before the run:** the two H10 metrics get fixed (new wording +
+existing deliberation); the three H9 metrics do not move (new wording, no deliberation).
+UCF carries 2 H10 and 3 H9 hallucinations, so it can show both halves at once.
+
+If that split appears, it demonstrates the session's central mechanism directly:
+**wording changes were 0-for-3 not because wording is useless, but because the model
+lacked the deliberation to apply one.** If instead all five clear, wording alone
+suffices and the deliberation story is weaker than I think. If none clear, the catalog
+is not the lever and I am wrong again.
+
+## Experiment 26 — prediction refuted AGAIN, and this one taught me the most
+
+**Predicted:** the two H10 `*_selected` metrics (in the deliberating batch) get fixed;
+the three H9 ones (no deliberation) do not.
+
+**Measured, UCF:**
+
+| | exp24 | exp26 |
+|---|---|---|
+| accuracy | 97.50% | **98.12%** |
+| correct / wrong / missed / halluc | 312 / 3 / 5 / 5 | **313 / 2 / 5 / 4** |
+
+**All five `*_selected` hallucinations cleared — including the three in the batch that
+did zero thinking** (telemetry confirms: b1 `thoughts=0`, b2 `thoughts=62,911`, exactly
+as in exp24).
+
+So **wording alone worked**, and my "deliberation is what makes wording stick" story from
+exp25 is wrong. That story lasted one experiment. The honest revision:
+
+> The three wording changes that failed earlier failed **on their own merits** — they
+> were admonitions against a prior ("the text layer lies", "instructions outrank
+> conventions", "OMIT rather than false"). This one worked because it supplies a
+> **decision procedure keyed to something the model can actually check on the page**:
+> *is a control drawn beside this row?* Wording that names an observable succeeds where
+> wording that asserts a policy fails.
+
+That is a much more useful rule than "wording never works", and I would not have it
+if the prediction had come out right.
+
+### But it caused a REGRESSION, and the mechanism is my own carelessness
+
+Four **new** H14 hallucinations appeared (`h14_art`, `h14_athletics_need_based`,
+`h14_job_skills`, `h14_religious_affiliation` — all `engine=False`). H14 had been clean
+in exp24.
+
+The clause I appended said:
+
+> "...is not_reported, never false **— the false branch above requires an actual drawn
+> control that is visibly unmarked**, and a filled-in or empty date line is not a
+> control."
+
+The H10 metrics carrying that sentence sit in **the same batch as H14**. Read across,
+that sub-clause asserts *drawn + visibly unmarked ⇒ `false` is legitimate* — which is
+exactly what H14 forbids. **I wrote a contradiction into a single prompt**, and the model
+resolved it against H14.
+
+> **A metric's `instructions` are not private to that metric.** `_build_prompt`
+> serialises every metric in the batch into one payload, so a clause written for one
+> family is read by every other family sitting beside it. Adding guidance to a metric
+> is a change to its whole batch. This is now the second time this file's shared-prompt
+> surface has bitten the loop (the first: dead backtick references in `description`).
+
+### exp27 — the same clause, minus the contaminating half
+
+Removed the explanatory sub-clause from all five metrics, leaving:
+
+> "A row that prints only a date, a value, or a blank writing rule with no selection
+> control drawn beside it is not_reported, never false. Do not infer a selection state
+> from the presence or absence of a date."
+
+Manifest recompiles, 394 metrics, `RESULT: PASS`.
+
+**Prediction:** the five `*_selected` fixes hold AND the four H14 cells return to
+abstaining -> UCF **313+4 = 317 correct, 2 wrong, 0 hallucinated, accuracy ~99.4%**.
+If H14 stays broken, the contradiction was not the cause and I am wrong about the
+mechanism.
+
+## Experiment 27 — my explanation of the regression was wrong too
+
+Removing the "false branch above requires an actual drawn control" sub-clause did **not**
+restore H14:
+
+| UCF | exp24 (no clause) | exp26 (clause, full) | exp27 (sub-clause removed) |
+|---|---|---|---|
+| accuracy | 97.50% | **98.12%** | 97.81% |
+| H14 hallucinations | **0** | 4 | **4** |
+| `*_selected` hallucinations | 5 | **0** | 1 |
+
+H14 stayed broken and one `*_selected` came back, so exp27 is strictly worse than exp26.
+Third prediction refuted in a row.
+
+**The collision is not that sentence — it is the clause's core logic.** "A row with **no**
+control drawn is never false" carries the contrapositive-flavoured implication that a row
+**with** a drawn control *may* be false. H14 cells are drawn-but-unticked, so they inherit
+exactly the wrong conclusion. Any phrasing of this rule collides with H14 as long as both
+families are serialised into the same prompt.
+
+That reframes it from "I wrote a bad sentence" to a structural property:
+
+> **Two metric families with opposite closure rules cannot share a batch.** H9/H10 need
+> "no control -> never false"; H14 needs "control present but unticked -> never false".
+> Stated together they read as a single rule with a carve-out, and the model applies the
+> carve-out. The fix is scoping, not wording.
+
+## Experiment 28 — scope the clause to H9 only
+
+`aid_notification_fixed_selected` and `aid_notification_rolling_selected` are **H10**, and
+H10 sits in batch b2 **with H14**. The other three are **H9**, in b1, which contains no
+H14 metric. So the clause is now applied to the three H9 metrics only and removed from
+the two H10 ones. Manifest recompiles, `RESULT: PASS`.
+
+Expected: the three H9 `*_selected` clear (as they did in exp26 with zero deliberation),
+the two H10 ones stay broken (no clause), and **H14 returns to clean** because b2's prompt
+no longer contains a competing closure rule.
+
+**Prediction: UCF 315 correct / 2 wrong / 2 hallucinated -> accuracy ~98.4%**, beating
+exp26's 98.12% and exp24's 97.50%. The two surviving H10 hallucinations are then a known,
+bounded cost of the batch layout — fixable only by splitting the batch, which is a
+separate change I am not making blind.
+
+## Experiment 28 — the scoping fix works. UCF 96.59% -> 98.74%.
+
+| UCF, corrected GT | accuracy | hallucinated | what changed |
+|---|---|---|---|
+| champion (exp15) | 96.59% | 8 | — |
+| exp24 (H14 deliberation) | 97.50% | 5 | H14 cleared |
+| exp26 (clause, all five) | 98.12% | 4 | `*_selected` cleared, **H14 broke** |
+| exp27 (clause reworded) | 97.81% | 5 | worse; reword was not the issue |
+| **exp28 (clause on H9 only)** | **98.74%** | **2** | H14 clean AND H9 clean |
+
+Predicted 98.4%; measured **98.74%**, 0 failed calls. Residue is exactly what the scoping
+argument says it should be:
+
+```
+aid_notification_fixed_selected    hallucinated   (H10 - no clause, shares b2 with H14)
+aid_notification_rolling_selected  hallucinated   (H10 - same)
+aid_reporting_academic_year        wrong          (the "2022-2023 Final" split, unrelated)
+h7_institution_form_required       wrong          (genuine misread, unrelated)
+```
+
+**Zero H14 errors and zero H9 errors.** The two survivors are precisely the two metrics
+the batch layout prevents me from fixing, which is the strongest confirmation available
+that the mechanism is understood rather than merely fitted.
+
++2.15pp on one document. Widening to the corpus now — one document proves nothing until
+it is the five-document aggregate (§6 step 3).
+
+### The rule this sequence produced
+
+Four predictions in a row were wrong (exp25, 26, 27, and the mechanism behind 26), and
+the corrections stack into something more useful than any of the individual results:
+
+1. **Wording works when it names an observable.** "Is a control drawn beside this row?"
+   is checkable on the page. The three failed wording changes were policy assertions
+   ("the text layer lies", "instructions outrank conventions") with nothing to check.
+2. **Deliberation enforces a rule the model is violating; it cannot supply a rule that
+   is absent.** H14 had a rule and was violating it -> reasoning fixed it. H9 had no
+   applicable rule -> reasoning changed nothing, and wording fixed it.
+3. **`instructions` are batch-scoped, not metric-scoped.** Every metric in a batch is
+   serialised into one prompt, so a closure rule written for one family is read by all
+   of them. Two families with opposite closure rules cannot share a batch.

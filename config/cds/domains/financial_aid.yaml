@@ -872,7 +872,10 @@ metrics:
       Return true only when the H9 priority-date control is visibly selected,
       and false only when the complete visible H9 checklist shows it
       unambiguously unmarked. Extract this selection state independently of the
-      date value in `aid_priority_date`, even if the two are inconsistent.
+      date value in `aid_priority_date`, even if the two are inconsistent. A
+      row that prints only a date, a value, or a blank writing rule with no
+      selection control drawn beside it is not_reported, never false. Do not
+      infer a selection state from the presence or absence of a date.
 
   - id: aid_priority_date
     description: >-
@@ -905,7 +908,10 @@ metrics:
     instructions: >-
       Return true only when the H9 fixed-deadline control is visibly selected,
       and false only when the complete visible H9 checklist shows it
-      unambiguously unmarked.
+      unambiguously unmarked. A row that prints only a date, a value, or a
+      blank writing rule with no selection control drawn beside it is
+      not_reported, never false. Do not infer a selection state from the
+      presence or absence of a date.
 
   - id: aid_deadline_date_or_text
     description: >-
@@ -940,7 +946,10 @@ metrics:
       Return true only when the H9 no-deadline/rolling control is visibly
       selected, and false only when the complete visible H9 checklist shows it
       unambiguously unmarked. This is required-form filing processing, distinct from
-      the H10 notification-timing rolling selection below.
+      the H10 notification-timing rolling selection below. A row that prints
+      only a date, a value, or a blank writing rule with no selection control
+      drawn beside it is not_reported, never false. Do not infer a selection
+      state from the presence or absence of a date.
 
   # H10 — financial-aid notification timing, fixed or rolling
   - id: aid_notification_fixed_selected
