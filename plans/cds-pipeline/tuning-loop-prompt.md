@@ -550,28 +550,44 @@ causes, and the ranked list of what to try next.
 
 ---
 
-# LEARNED IN THE LOOP (updated after experiments 1-18)
+# LEARNED IN THE LOOP (updated after experiments 1-30)
 
-## The single most useful rule discovered
+## The three mechanisms, in order of usefulness
 
-**Fix the evidence, not the instructions.** Score across this session:
+**1. Wording works when it names an OBSERVABLE; it fails when it asserts a policy.**
 
-| lever class | attempts | successes |
-|---|---|---|
-| telling the model something (prompt or catalog wording) | 3 | **0** |
-| changing what the model receives | 4 | **4** |
+| wording change | result |
+|---|---|
+| "the text layer renders every checkbox empty regardless of state, use the image" | 0 |
+| "a metric's own `instructions` outrank every general convention" | 0 |
+| "OMIT the metric rather than returning false" | 0 |
+| **"a row with no selection control drawn beside it is not_reported, never false"** | **cleared the whole H9 family** |
 
-Failed wording changes: "the text layer renders every checkbox empty regardless of
-state, use the image"; "a metric's own `instructions` outrank every general
-convention"; "OMIT the metric rather than returning false". All three produced
-literally zero metric movement.
+The first three assert a policy with nothing for the model to check. The fourth gives
+it a test it can run against the page: *is a control drawn beside this row?* That is
+the whole difference. "Wording never works" was the wrong generalisation from a small
+sample of bad wording.
 
-Successful evidence changes: bake form fields before slicing; withhold the PDF and
-send images for all-boolean form batches; send page images for column-position grids;
-send page images for H9/H10. Each moved its target family immediately.
+**2. Deliberation ENFORCES a rule the model is violating; it cannot SUPPLY a rule that
+is absent.** H14 had an explicit "never false" rule and the model was ignoring it — a
+reasoning budget cleared all 11 errors at once. H9 had no applicable rule — a reasoning
+budget on that batch changed literally nothing (byte-identical buckets, $0.094 wasted),
+and wording fixed it. Diagnose which case you are in before reaching for either lever.
 
-When the engine is systematically wrong about a class of cell, reach for what it can
-see. An admonition against a strong prior does not work.
+**3. `instructions` are BATCH-scoped, not metric-scoped.** `_build_prompt` serialises
+every metric in a batch into one payload, so a closure rule written for one family is
+read by every family beside it. Applying the H9 "no control -> never false" clause to
+the two H10 metrics — which share a batch with H14 — **broke H14** (4 new
+hallucinations), because "no control -> never false" implies "control present ->
+false may be OK", which is exactly what H14 forbids. Rewording did not help; the
+collision is the rule's logic. **Two families with opposite closure rules cannot share
+a batch.** The fix is scoping.
+
+## Evidence changes still work, and are still the first thing to try
+
+bake-before-slice; withhold the PDF and send images for all-boolean form batches;
+page images for column-position grids. 3 for 4 on full runs (the fourth, H9/H10
+images, was a `--domains` windowing artifact — see below).
 
 ## NEVER hand a blind reader the disputed premise
 
@@ -671,3 +687,63 @@ engine is even sending it the same evidence everywhere.**
   complete key set does NOT mean the work is whole (D17). Verify content on disk.
 - Test on ONE document first, widen only once it holds. Five-document sweeps for a
   change a single document would falsify are ~5x waste.
+
+## Ground truth was wrong twice, and both traced to one shortcut
+
+Decision **D12** replaced UGA's two independent reading passes with mechanical
+`pypdf.get_fields()` harvesting. It is bit-for-bit truth about *field contents* and is
+NOT a substitute for reading the page against the catalog. It produced:
+
+1. `identity.state_or_region` = `GA` where the page renders `Georgia` — a **ComboBox
+   export value differs from its display label**. (Audited: 3 of 76 choice widgets
+   diverge, only 1 reaches a GT metric.)
+2. **H14 on UGA (9 metrics) and UCF (4)** recorded visibly-present-but-unticked
+   checkboxes as `present`/`false`, where the catalog says
+   *"a blank cell in this or any other visible H14 coordinate is not_reported, never
+   false."*
+
+**§4's sealing rule "values match `pypdf.get_fields()` bit-for-bit" is wrong as written
+for ComboBox fields and for any metric whose `instructions` override the general
+convention.** Read the metric's own instructions before trusting a harvested value.
+
+The tell that this correction was honest: **it made the engine look worse** (accuracy
+97.16 -> 96.86, hallucinations 23 -> 27). A GT change that only ever helps the engine
+should be distrusted on sight.
+
+## `thinking_budget` is a two-state switch, not an allowance
+
+| setting | thoughts | effect |
+|---|---|---|
+| 1,024 / 2,048 / 4,096; `thinking_level=MEDIUM` | **0** | none |
+| 8,192 / 32,768 / -1; `thinking_level=HIGH` | **62,914**, identical every time | fixes H14 |
+
+Six settings, two independent APIs, no middle tier. **$0.094/doc is the irreducible
+price.** Do not go looking for a cheaper setting; it does not exist. Also: `-1` is a
+cap-seeker that bills ~63k on *every* call ($1.86/doc) and can run away entirely
+(`class_profile` burned 125,827 thought tokens to emit 18 output tokens). Always cap
+by scoping to specific hints, never globally.
+
+**Thinking bills against the output budget.** 62,914 of `DEFAULT_MAX_OUTPUT_TOKENS =
+65,535` leaves ~2,600 tokens for the answer, which can produce
+`CdsGeminiTruncatedError` on a large batch. Seen once in five failures; real but
+uncommon.
+
+## Cost anatomy — measure it before believing a lever
+
+```
+base $0.0921/doc = input $0.0492 + output $0.0429
+page redundancy 4.11x (879 sends / 214 pages)   <- NOT the 15.4x in §2; routing work already cut it
+lever 2 ceiling (perfect dedup):  save $0.0197
+lever 5 at -50% output:           save $0.0215
+both at theoretical maximum:      base $0.0510  ->  +$0.0944 deliberation = $0.1454
+```
+
+Both ceilings are physically unreachable. **The $0.15 cost floor and the 99.5% accuracy
+floor cannot both be satisfied with the levers available.** That is a measured
+conclusion, not an estimate.
+
+## Predictions failed four times in a row and that was the most productive stretch
+
+exp25-28. Each refutation sharpened the mechanism; the three rules at the top of this
+section exist *because* the predictions were wrong. **Write the numeric prediction down
+before the run, and when it fails, chase the mechanism rather than patching the config.**

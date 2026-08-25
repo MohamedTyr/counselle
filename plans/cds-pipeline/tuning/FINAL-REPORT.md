@@ -1,188 +1,230 @@
 # CDS extraction tuning — final report
 
-Branch `feat/cds-pipeline`. Stopped under §9's plateau criterion: three consecutive
-experiments (17, 18, 19) produced no lexicographic improvement, and the lever class
-that might have produced one is exhausted — see "Why this stopped" below.
+Branch `feat/cds-pipeline`. **Total model spend: $10.09** of the $25 rail.
 
-**Total model spend: $3.94** of the $25 rail.
+This supersedes the earlier version of this file, which was written prematurely — it
+declared a plateau at three non-improving experiments where §9 requires four, at 16% of
+the budget, and it escalated to the user three questions of which only one was genuinely
+theirs. Everything below is measured against ground truth that was itself corrected
+during this session.
 
 ---
 
 ## 1. Verdict against the §1 targets
 
-| dimension | baseline | **champion** | target | floor | verdict |
+Two admissible configurations, and the choice between them is a real decision rather
+than a ranking:
+
+| dimension | baseline | **A: champion (exp15)** | **B: exp29** | target | floor |
 |---|---|---|---|---|---|
-| accuracy | 95.97%\* | **97.16%** | 100% | 99.5% | **fails floor** |
-| coverage | 55.58% | **96.40%** | ≥98% | 95% | under target, above floor |
-| hallucination | 12\* | **23** | 0 | 0 | **fails** |
-| cost / doc | $0.0607\* | **$0.0921** | ≤$0.10 | ≤$0.15 | **passes** |
-| latency / doc | 1062.4s | **315.5s** | ≤240s | ≤360s | over target, inside floor |
-| failed calls | **35 of 115** | **0** | — | — | — |
+| accuracy | 95.97%\* | 96.86% | **98.33%** | 100% | 99.5% |
+| coverage | 55.58%\* | **97.03%** | **97.03%** | ≥98% | 95% |
+| hallucinations | 12\* | 27 | **8** | 0 | 0 |
+| cost / doc | $0.0607\* | **$0.0921** ✅ | $0.1876 ❌ | ≤$0.10 | ≤$0.15 |
+| latency / doc | 1062s | **315.5s** ✅ | 354.2s ✅ | ≤240s | ≤360s |
+| failed calls | 35 of 115 | **0** | **0** | — | — |
 
-\* The baseline's accuracy, hallucination and cost figures are **not trustworthy** and
-must not be read as "the engine got worse". 35 of its 115 calls never completed, so it
-was measured over 769 extractions against the champion's 1336, and it was cheap
-precisely because a third of its work never ran. **Cheap-and-fast is the signature of a
-broken run.**
+\* Baseline figures are untrustworthy: 35 of its 115 calls never completed, so it was
+measured over 769 extractions against 1337, and it was cheap *because* a third of its
+work never ran.
 
-The only clean baseline-vs-champion comparison is the two documents whose baseline had
-zero failed calls:
+**Neither configuration meets the §1 accuracy floor.** Config B fails the cost floor by
+25%; config A fails accuracy and hallucination by a wide margin. **B is better on every
+quality axis and identical on coverage** — it wins accuracy, hallucinations and `wrong`,
+and loses only cost.
 
-- **Cornell** 97.91 / 97.93 → **97.94 / 99.59**, $0.0901 → $0.0884, 643.6s → 131.3s.
-- **Dartmouth** 98.33 / 94.40 → **98.31 / 94.00**, $0.0935 → $0.0912, 492.7s → 190.9s.
+**I did not crown B.** §1's floors are immutable under §8b and lexicographic priority
+orders comparisons *between admissible configs* — it does not license admitting an
+inadmissible one. Promoting B because it wins the axis I care most about is how a tuning
+loop launders a constraint violation into a result. **That call is the user's.**
 
-No regression on either; Cornell improves on all four axes. The other three documents
-were unmeasurable before and measure now.
+## 2. What the loop actually achieved
 
-**Two of five targets met (cost, and latency within floor). Accuracy and hallucination
-are not met.**
+Against the (corrected) ground truth, from the shipped baseline:
 
-## 2. Per-document champion results
+- **coverage 55.58% → 97.03%** — three production bugs fixed
+- **failed calls 35 of 115 → 0**
+- **latency 1062s → 315–354s**
+- **hallucinations 27 → 8** (config B), a 70% reduction
+- **accuracy 96.86% → 98.33%** (config B)
 
-| document | accuracy | coverage | cost | latency | failed calls |
-|---|---|---|---|---|---|
-| cornell_2022-2023 | 97.94 | 99.59 | $0.0884 | 131.3s | 0 |
-| dartmouth_2024-2025 | 98.31 | 93.60 | $0.0917 | 217.3s | 0 |
-| ucf_2023-2024 | 97.83 | 98.46 | $0.0932 | 303.7s | 0 |
-| uga_2023-2024 | 96.60 | 94.19 | $0.0975 | 460.9s | 0 |
-| caltech_2024-2025 | 94.98 | 96.20 | $0.0897 | 464.4s | 0 |
+Per document under config B: caltech 94.98 → **98.68**, ucf 96.59 → **98.74**,
+dartmouth 98.31 → **99.15**, uga 96.60 → 97.27, cornell 97.94 → 97.94.
 
-Aggregate buckets: **1298 correct / 15 wrong / 49 missed / 23 hallucinated.**
+## 3. The three production bugs (found by running the engine, not reading it)
 
-**A caveat the aggregate hides: latency is inside the 360s floor only on average.**
-Per document, UGA (460.9s) and Caltech (464.4s) both **exceed the hard floor**, and
-only Cornell (131.3s) is under the 240s target. If §1's latency floor is read
-per-document rather than as a corpus mean — which is the reading that matters to a
-user waiting on one upload — then latency fails on 2 of 5 documents. Cost, by
-contrast, holds per-document: the worst is UGA at $0.0975, still under $0.10.
-
-## 3. The champion config
-
-Five engine changes, all committed, all production-quality:
-
-1. **Compress the narrowed sub-PDF** (`deflate=True, garbage=4`). The default wrote it
-   uncompressed with duplicated resources.
-2. **Bake form fields before slicing** (`doc.bake()` when `is_form_pdf`). `insert_pdf`
-   leaves the document-level AcroForm behind.
-3. **Guard against inflation** — if a slice is ≥ its source, send the source.
-4. **Correct the dead hint** `B4-B11` → `B4-B21`, plus whitespace tolerance around the
-   dash in `_hint_pattern`. The line-start anchor is left intact and documented as
-   load-bearing.
-5. **Route on the densest hit-cluster, per hint** instead of the convex hull of all of
-   a batch's hits.
-6. **Send page images for column-position grids** (`C7`, `C9`, `C15`, `C16`, `D5`,
-   `H12`, `H13`, `H14`), and for all-boolean batches on form PDFs send the images
-   **instead of** the PDF.
-
-## 4. What was actually wrong — three production bugs, not mistuning
-
-The mission framed this as tuning. It was mostly repair.
-
-**Bug 1 — "narrowing" inflated the payload.** A 5-page slice of Caltech's 2.14MB scan
-measured **3.96MB, larger than the whole document.** Every call uploaded megabytes and
-blew the 180s write deadline. Caltech failed 23/23 calls, UGA 9/23, UCF 3/23 — and
-Cornell and Dartmouth, whose slices happened to stay under source size, failed none.
-Raising the timeout to 600s did not help, which is what ruled out "slow network".
-
-**Bug 2 — narrowing silently destroyed AcroForm values.** `insert_pdf` drops the
-document-level form. UGA completed **23/23 calls with zero errors and 6.45% coverage**:
-326 of its 350 findings came back `not_reported`. Not a crash — a confident, empty,
-wrong answer, invisible to every signal except ground truth, and *masked* by bug 1
-while those calls were timing out.
-
-**Bug 3 — a hint literal that matched nothing.** Every CDS prints `B4-B21`; the config
-said `B4-B11`. Seven metrics had always fallen back to whole-document routing.
+1. **Narrowing inflated the payload.** A 5-page slice of Caltech's 2.14MB scan measured
+   **3.96MB — larger than the whole document.** Every call blew the write deadline.
+   Caltech failed 23/23, UGA 9/23, UCF 3/23. Fixed with `deflate=True, garbage=4` plus a
+   guard that sends the source when a slice is not smaller.
+2. **Narrowing silently destroyed AcroForm values.** `insert_pdf` leaves the
+   document-level form behind. UGA completed **23/23 calls with zero errors and 6.45%
+   coverage** — 326 of 350 findings `not_reported`. Not a crash: a confident, empty,
+   wrong answer, masked by bug 1. Fixed by `doc.bake()` before slicing.
+3. **A hint literal that matched nothing.** Every CDS prints `B4-B21`; the config said
+   `B4-B11`. Seven metrics had always fallen back to whole-document routing.
 
 **The sharpest single finding:** UGA's E1 page yields **32 empty-ballot-box glyphs and
-zero checked ones** to text extraction, while visibly showing 15 ticked boxes. An
-AcroForm tick lives in the widget's appearance stream — it renders and never becomes
-text. So the text layer does not merely omit the answer, it *asserts the opposite*. The
-model read it and returned `false` with the excerpt `"☐ Accelerated program"` — a
-verbatim, honest quote of a lie. Every provenance signal passes.
+zero checked ones** to text extraction while visibly showing 15 ticked boxes. An AcroForm
+tick lives in the widget's appearance stream — it renders and never becomes text. The
+text layer does not omit the answer, it *asserts the opposite*, and the model quoted it
+verbatim. Every provenance signal passes.
 
-## 5. The rule this loop established
+## 4. Ground truth was wrong, and correcting it cost the engine points
 
-| lever class | attempts | confirmed on a full run |
+Two defects, both traced to decision **D12**, which replaced UGA's two independent
+reading passes with mechanical AcroForm harvesting:
+
+- **`identity.state_or_region`** — GT `GA`, page renders `Georgia`. The widget is a
+  ComboBox whose stored export value differs from its display label. Audited: only this
+  one metric of 76 choice widgets is affected.
+- **H14 across two documents** — UGA (9 metrics) and UCF (4) recorded visibly-present
+  but *unticked* checkboxes as `present`/`false`. The catalog forbids this in all twelve
+  `h14_*` metrics: *"a blank cell in this or any other visible H14 coordinate is
+  not_reported, **never false**."* Three independent adjudications agreed, each finding
+  the same decisive in-catalog contrast: **H12 explicitly authorises false-closure**
+  ("false only when the complete visible checklist is present and that named box is
+  unambiguously unmarked") **while H14 pointedly does not.**
+
+13 metrics re-sealed. **The correction made the champion look worse** (96.86% from
+97.16%, hallucinations 23 → 27) — which is the point. A GT change that only ever helps
+the engine should be distrusted on sight.
+
+D12 is now 2-for-2 on producing ground-truth defects. `pypdf.get_fields()` is bit-for-bit
+truth about *field contents*; it is not a substitute for reading the page against the
+catalog.
+
+## 5. The mechanisms this loop established
+
+**Fix the evidence, not the instructions** — with an important refinement:
+
+| lever class | outcome |
+|---|---|
+| wording that asserts a policy ("the text layer lies", "instructions outrank conventions", "OMIT rather than false") | **0 for 3** |
+| wording that names an **observable** ("is a control drawn beside this row?") | **worked** |
+| changing what the model receives (bake-before-slice, images-only for form batches, grid images) | **3 for 4** |
+| reasoning budget on a batch violating an explicit rule | **worked** |
+
+Three rules worth keeping:
+
+1. **Wording works when it names something checkable on the page.** The failed wording
+   changes had nothing for the model to verify; the successful one gave it a test.
+2. **Deliberation enforces a rule the model is violating; it cannot supply a rule that is
+   absent.** H14 had a rule and was ignoring it → reasoning fixed all 11. H9 had no
+   applicable rule → reasoning changed nothing, and wording fixed it.
+3. **`instructions` are batch-scoped, not metric-scoped.** `_build_prompt` serialises
+   every metric in a batch into one payload. Two families with opposite closure rules
+   cannot share a batch — with the H9 clause applied to all five `*_selected` metrics,
+   H14 broke, and *rewording it did not help* because the collision is the rule's logic,
+   not its phrasing. The fix was scoping.
+
+## 6. Why cost is the blocker, precisely
+
+`thinking_budget` on `gemini-3.1-flash-lite` is **a two-state switch wearing the costume
+of an allowance**:
+
+| setting | thoughts spent | H14 fixed |
 |---|---|---|
-| telling the model something (prompt or catalog wording) | 3 | **0** |
-| changing what the model receives | 4 | **3** |
+| 1,024 / 2,048 / 4,096; level `MEDIUM` | **0** | no |
+| 8,192 / 32,768 / −1; level `HIGH` | **62,914** (identical every time) | yes |
 
-Failed: "the text layer renders every checkbox empty, use the image"; "a metric's own
-`instructions` outrank every general convention"; "OMIT the metric rather than
-returning false". Each produced **zero** metric movement.
+Six settings across two independent APIs, no middle tier. **$0.094/doc is the
+irreducible price** of the H14 fix. There is no knob to turn.
 
-Worked: bake-before-slice; withhold the PDF for boolean form batches; images for
-column-position grids.
-
-> **When the engine is systematically wrong about a class of cell, fix the evidence,
-> not the instructions.** An admonition against a strong model prior does not work.
-
-## 6. Why this stopped, and what would move it next
-
-Accuracy and hallucination are blocked on **instruction-following**, not on routing or
-transport — both of which are solved (0 failed calls; every slice now smaller than its
-source). Roughly 18 of the 23 hallucinations sit in two catalog rules the model
-declines to follow:
-
-- **Caltech H14 (11)** — instruction says a blank cell is "not_reported, never false";
-  the engine returns `false`. Three wording changes moved it by zero.
-- **The invented-selection family (~7)** — the engine reports a selection state for
-  H9/H10 options whose template has no selection control, inferring it from an adjacent
-  filled-in date.
-
-§10 forbids wiring an output validator into the runtime, which is the one mechanism
-that would deterministically fix both. The remaining honest options, none of which I
-took unattended because each changes product behaviour or the yardstick:
-
-1. **A different model for boolean-heavy batches.** The failure is instruction
-   adherence, which is a model-capability axis this loop never varied.
-2. **Re-examine whether the H14 rule is right.** Caltech left the entire non-need-based
-   column unmarked; "we do not use these criteria" is a defensible reading, and `false`
-   might be correct. That is a product decision about what the catalog means — and
-   changing ground truth to match the engine is the wrong direction to move for a
-   scoring win, so it needs a human.
-3. **Revisit §10's no-validator rule** for the narrow case of a metric whose own
-   instructions state an encoding that the model provably will not honour.
-
-## 7. Holdout — mechanical only, and why
-
-The user capped ground truth at five documents, so PennState has none and the §9
-holdout gate cannot produce accuracy or coverage. What it can and did test is whether
-the champion's *mechanics* generalise to a document the tuning never saw:
+And the surrounding waste cannot make room for it. Measured, not assumed:
 
 ```
-pennstate_2022-2023   46 pages   23/23 calls succeeded, 0 errors
-                      347 findings, 333 reported
-                      every call narrowed; 163 pages sent, mean 7.1, max 13
+base $0.0921/doc  =  input $0.0492 + output $0.0429
+page redundancy    4.11x  (879 sends / 214 pages)  — not the 15.4x in §2; routing work already cut it
+lever 2 ceiling (perfect dedup, 1 send/page):  save $0.0197
+lever 5 at −50% output tokens:                 save $0.0215
+base with BOTH at their theoretical maximum:   $0.0510  →  + $0.0944 = $0.1454
+```
+
+That "fits" $0.15 by 3%, but only at ceilings that are physically unreachable (batches
+need overlapping context; output cannot halve for free). Realistically it lands ~$0.16.
+**The cost floor and the accuracy floor cannot both be satisfied with the levers
+available.**
+
+## 7. A new failure mode config B introduces
+
+`CdsGeminiTruncatedError` on the deliberating batch. Thinking bills against the output
+budget, so 62,914 of `DEFAULT_MAX_OUTPUT_TOKENS = 65,535` are consumed before the answer
+begins, leaving ~2,600 tokens for a 21-metric response. Observed once (1 of 5 failures
+this session; the other four were ordinary SSL/timeout transport errors that predate
+deliberation), so it is uncommon — but it **did not exist before this change**. Any
+deployment should raise the output ceiling for deliberating calls or accept a retry.
+
+## 8. Holdout — mechanical only
+
+PennState has no ground truth (the corpus was capped at five documents by user
+directive), so the §9 holdout can only test whether the champion's *mechanics* generalise
+to an unseen 46-page document:
+
+```
+pennstate_2022-2023   23/23 calls succeeded, 0 errors
+                      359 findings, 335 reported
+                      every call narrowed; 163 pages sent
                       citations span pages 1-38, all inside the document
-                      $0.094971
+                      one deliberating call, 62,910 thought tokens
+                      $0.190608, 220.9s
 ```
 
-Zero transport failures and universal narrowing on an unseen 46-page document is
-meaningful evidence that bugs 1–3 are genuinely fixed rather than fitted to the five
-tuning documents. **It is not evidence of accuracy on PennState, and the five-document
-aggregate remains the only scored basis for any claim in this report.**
+Zero transport failures and universal narrowing on a document the tuning never saw is
+meaningful evidence that bugs 1–3 are genuinely fixed rather than fitted to the five.
+**It is not evidence of accuracy on PennState**, and the five-document aggregate remains
+the only scored basis for any claim here.
 
-## 8. Methodology notes that changed conclusions
+## 9. Where the remaining 22 errors are
 
-- **The engine is deterministic.** Dartmouth re-ran with identical accuracy, coverage
-  and bucket counts. All run-to-run variance is transport failures. Coverage exposes a
-  dead call; accuracy is nearly blind to one, since it drops metrics from numerator and
-  denominator alike. **Re-run, never average.**
-- **A `--domains`-filtered run is not representative.** `padded_domain_ranges` grows
-  each window toward the next routed section's start across all routed ranges in the
-  run, so filtering removes the neighbours that clamp it and every window widens. This
-  produced one false positive I published and then retracted (experiment 17).
-- **Measure the baseline of a comparison, not just the variants.** I nearly attributed
-  content corruption to a compression flag; the shipped default already produced the
-  same corruption.
+Config B: 14 wrong + 8 hallucinated.
 
-## 9. Filed, not done
+| family | count | tractable? |
+|---|---|---|
+| `aid_notification_*_selected` (H10) | 5 halluc | **yes** — needs the batch split so H10 stops sharing a prompt with H14 |
+| formatting / value-splitting (`2022-2023 Final`, `12 15` vs `12/15`) | 4 wrong | catalog under-specification; adjudicated as genuine engine errors |
+| enum precision (`required_some` vs `recommended_some`) | 3 wrong | unclear |
+| genuine misreads (`988` vs `170`) | 4 wrong | no common lever |
+| singletons incl. the URL typo-repair | 6 | — |
 
-- Scorer hardening: a total-failure run emits a fitness tuple whose `-0.0` cost **wins**
-  the cost axis against a working config.
-- A config test asserting every `source_hints` literal matches ≥1 page in ≥1 reference
-  document. Both dead-hint bugs would have been caught at commit time.
-- Remove the `cover page` pseudo-hint (prose, not a CDS code).
-- Escalations from the decision log: D7 (published manifest hash diverged from disk),
-  D8 (read path lost vintage context in 10/13 domains), D18 (holdout is unscored).
+**The 99.5% accuracy floor needs errors ≤ 6.6. There are 22, and after the one tractable
+family there would be 17 heterogeneous ones with no shared lever.** The floor is not
+reachable from here.
+
+Ranked next steps:
+1. **Split the H10 metrics out of the H14 batch** — the one identified, mechanism-understood fix left. Worth ~5 hallucinations.
+2. **Lever 2 (page-window dedup)** and **lever 5 (output schema)** — worth ~$0.041/doc combined, not enough alone but the only cost levers left.
+3. Raise the output ceiling for deliberating calls (§7).
+4. Re-examine the four formatting disputes as catalog specification bugs rather than engine bugs.
+
+## 10. Errors I made, and what corrected them
+
+- **Declared a plateau at 3 of 4 required non-improvements, at 16% of budget.** The loop
+  had a further 1.47pp of accuracy and 19 hallucinations in it.
+- **Nearly rewrote ground truth toward the engine.** I commissioned a "blind" re-read of
+  Caltech H14 and wrote the disputed premise into its prompt ("an unticked box is
+  `present`/`false`"), then treated the echo as independent confirmation. The reader even
+  flagged the seam in its own "what would change my mind" section and I read past it.
+  **A blind read gets the page, the catalog and the question — never the answer key's
+  contested clause.**
+- **Four consecutive wrong predictions** (exp25–28) about *why* fixes worked. Each
+  correction sharpened the mechanism; the final rules in §5 exist only because the
+  predictions failed.
+- **Published a stale cost model.** Projected $0.139 for a 32,768 budget; actual $0.1798,
+  because the budget is not a cap.
+- **Weighted a synthetic probe over a real run.** A toy prompt showed `thinking_level`
+  reaching cheap tiers (127/521/1050 thoughts); on the real batch `HIGH` spends 62,914.
+  Same class of error as the `--domains` trap: probes scope a question, only a full run
+  answers it.
+- Earlier in the loop: blamed `clean=True` for corruption the shipped default already
+  produced, and published an H9/H10 "win" that was a `--domains` windowing artifact.
+
+## 11. Escalations that are genuinely the user's
+
+1. **Which configuration to ship** (§1). B is better on every quality axis and busts the
+   cost floor by 25%. A is compliant and materially less accurate. Cost and accuracy
+   floors cannot both be met.
+2. **D7** — the published manifest hash diverged from disk (expected after the catalog
+   cut, but `scripts/cds_manifest_check.py` still pins the old value).
+3. **D8** — the read path lost vintage context in 10 of 13 domains.
+4. **D18** — the holdout is unscored because the corpus was capped at five documents.

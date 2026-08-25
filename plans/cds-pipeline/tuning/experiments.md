@@ -4018,3 +4018,56 @@ the corrections stack into something more useful than any of the individual resu
 3. **`instructions` are batch-scoped, not metric-scoped.** Every metric in a batch is
    serialised into one prompt, so a closure rule written for one family is read by all
    of them. Two families with opposite closure rules cannot share a batch.
+
+## Experiment 29 — FINAL CORPUS. accuracy 96.86% -> 98.33%, hallucinations 27 -> 8.
+
+All five documents, zero failed calls (UGA and Caltech each needed a re-run; substitutions
+noted, per the exp16 precedent).
+
+| | champion (exp15) | **exp29** | delta |
+|---|---|---|---|
+| **accuracy** | 96.86% | **98.33%** | **+1.47pp** |
+| coverage | 97.03% | 97.03% | — |
+| correct | 1294 | 1295 | +1 |
+| wrong | 15 | 14 | -1 |
+| missed | 40 | 40 | — |
+| **hallucinated** | **27** | **8** | **-19 (-70%)** |
+| cost/doc | **$0.0921** | $0.1876 | +$0.096 |
+| latency/doc | **315.5s** | 354.2s | +38.7s |
+| failed calls | 0 | 0 | — |
+
+Per document: caltech 94.98 -> **98.68**, ucf 96.59 -> **98.74**, dartmouth 98.31 ->
+**99.15**, uga 96.60 -> 97.27, cornell 97.94 -> 97.94 (unchanged; its 3 hallucinations
+are H10, which by design carries no clause).
+
+**Coverage is identical and `missed` is identical** — this bought accuracy without
+trading anything away on the extraction side, which is what a correctly-scoped fix should
+look like.
+
+### A new failure mode the fix introduces, and I am not burying it
+
+Caltech needed three attempts. One failure was
+`CdsGeminiTruncatedError: model did not finish cleanly` on **`financial_aid` b2 — the
+deliberating batch**. Mechanism: thinking is billed against the output budget, so
+62,914 of `DEFAULT_MAX_OUTPUT_TOKENS = 65,535` are consumed before the answer starts,
+leaving ~2,600 tokens for a 21-metric response. When the response needs more, it
+truncates.
+
+Scale, honestly: across every run this session, **1 of 5 failures** was the deliberating
+batch; the other four were ordinary SSL/timeout transport errors that predate
+deliberation. So this is a real but uncommon risk, not a systematic one. It is
+nonetheless a failure mode that **did not exist before this change**, it is
+production-relevant, and its cause is understood. Any deployment of deliberation should
+either raise the output ceiling for those calls or accept an occasional retry.
+
+### §1 status — three of five still fail
+
+| dimension | measured | target | floor | verdict |
+|---|---|---|---|---|
+| accuracy | 98.33% | 100% | 99.5% | **fails floor** |
+| coverage | 97.03% | >=98% | 95% | above floor, under target |
+| hallucination | 8 | 0 | 0 | **fails** |
+| cost/doc | $0.1876 | <=$0.10 | <=$0.15 | **fails floor** |
+| latency/doc | 354.2s | <=240s | <=360s | inside floor, over target |
+
+Running the §9 holdout on PennState now.
