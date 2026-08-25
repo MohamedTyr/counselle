@@ -112,6 +112,29 @@ def _build_parts(prompt: str, *, pdf_bytes: bytes | None, image_pngs: Sequence[b
     return parts
 
 
+def _resolve_thinking_level(thinking_level: str) -> types.ThinkingLevel:
+    """Case-insensitive string -> SDK enum, e.g. ``"low"`` -> ``ThinkingLevel.LOW``.
+
+    ``types.ThinkingLevel`` is itself a case-insensitive enum, but its own
+    ``_missing_`` hook only *warns* on an unrecognised value and fabricates a
+    throwaway member instead of raising -- exactly the silent-typo failure
+    mode this adapter must not have. Look the resolved name up in
+    ``__members__`` explicitly so a typo'd level surfaces as a loud,
+    immediate ``CdsGeminiError`` instead of quietly requesting whatever the
+    SDK's fallback happens to mean.
+    """
+    name = thinking_level.strip().upper()
+    member = types.ThinkingLevel.__members__.get(name)
+    if member is None:
+        valid = ", ".join(
+            sorted(m for m in types.ThinkingLevel.__members__ if m != "THINKING_LEVEL_UNSPECIFIED")
+        )
+        raise CdsGeminiError(
+            f"unrecognised thinking_level {thinking_level!r} -- expected one of: {valid}"
+        )
+    return member
+
+
 def _usage_from_metadata(metadata: types.GenerateContentResponseUsageMetadata | None) -> Usage:
     if metadata is None:
         return Usage(
@@ -137,15 +160,25 @@ def _generate_sync(
     max_output_tokens: int,
     timeout_seconds: float,
     thinking_budget: int = 0,
+    thinking_level: str | None = None,
 ) -> GenerateResult:
     client = _build_client(settings)
     model_id = _strip_provider_prefix(model_setting)
     parts = _build_parts(prompt, pdf_bytes=pdf_bytes, image_pngs=image_pngs)
-    # thinking_budget=0 must produce the exact config this call built before
-    # thinking existed -- omit thinking_config entirely rather than pass it
-    # as disabled, so the byte-identical-by-default invariant actually holds.
+    # thinking_budget=0 (and thinking_level=None) must produce the exact
+    # config this call built before thinking existed -- omit thinking_config
+    # entirely rather than pass it as disabled, so the byte-identical-by-
+    # default invariant actually holds. thinking_level and thinking_budget
+    # are alternative controls (measured: thinking_budget is a discrete tier
+    # selector, not an allowance, on gemini-3.1-flash-lite); sending both
+    # would be ambiguous, so thinking_level wins and thinking_budget is
+    # dropped entirely when a level is given.
     extra_config_kwargs: dict[str, Any] = {}
-    if thinking_budget != 0:
+    if thinking_level:
+        extra_config_kwargs["thinking_config"] = types.ThinkingConfig(
+            thinking_level=_resolve_thinking_level(thinking_level)
+        )
+    elif thinking_budget != 0:
         extra_config_kwargs["thinking_config"] = types.ThinkingConfig(
             thinking_budget=thinking_budget
         )
@@ -206,6 +239,7 @@ async def generate_structured(
     model_setting: str | None = None,
     max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
     thinking_budget: int = 0,
+    thinking_level: str | None = None,
 ) -> GenerateResult:
     """One schema-constrained Gemini call: PDF bytes and/or page-image PNGs
     in, a validated ``response_schema`` instance out, plus usage/latency.
@@ -233,6 +267,14 @@ async def generate_structured(
     budget; a positive integer requests an explicit token budget. Thought
     tokens bill at the output rate (see module docstring); price
     ``Usage.thoughts_tokens`` whenever this is non-zero.
+
+    ``thinking_level`` defaults to ``None`` (unused, same as before this
+    parameter existed) and, when given, TAKES PRECEDENCE over
+    ``thinking_budget`` — the two are alternative controls on the same
+    underlying setting, never combined. Pass one of the SDK's
+    ``types.ThinkingLevel`` member names case-insensitively (e.g.
+    ``"low"``); an unrecognised value raises ``CdsGeminiError`` rather than
+    silently falling back to no thinking.
     """
     resolved_model_setting = model_setting or settings.model_cds_extract
     timeout_seconds = float(
@@ -249,4 +291,5 @@ async def generate_structured(
         max_output_tokens=max_output_tokens,
         timeout_seconds=timeout_seconds,
         thinking_budget=thinking_budget,
+        thinking_level=thinking_level,
     )

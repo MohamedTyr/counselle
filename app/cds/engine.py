@@ -417,18 +417,33 @@ class _Attempt:
     pages_sent: int
 
 
-def _deliberation_budget(batch_metrics: tuple[dict[str, Any], ...], settings: Any) -> int:
-    """The thinking budget for one call: the expensive deliberation budget
-    when this batch carries a `_DELIBERATION_HINTS` hint (the only place the
-    accuracy win was measured), the ordinary budget otherwise. `settings.
-    model_cds_extract_deliberation_budget == 0` (the default) reproduces
-    today's behaviour on every batch, deliberation-hinted or not."""
-    if not settings.model_cds_extract_deliberation_budget:
-        return int(settings.model_cds_extract_thinking_budget)
+def _is_deliberation_hinted(batch_metrics: tuple[dict[str, Any], ...]) -> bool:
     hints = {hint for metric in batch_metrics for hint in metric["source_hints"]}
-    if hints & _DELIBERATION_HINTS:
-        return int(settings.model_cds_extract_deliberation_budget)
-    return int(settings.model_cds_extract_thinking_budget)
+    return bool(hints & _DELIBERATION_HINTS)
+
+
+def _deliberation_config(
+    batch_metrics: tuple[dict[str, Any], ...], settings: Any
+) -> tuple[int, str | None]:
+    """The `(thinking_budget, thinking_level)` pair for one call: the
+    deliberation config when this batch carries a `_DELIBERATION_HINTS` hint
+    (the only place the accuracy win was measured), the ordinary budget
+    otherwise. Level takes precedence over budget for a deliberation-hinted
+    batch when `model_cds_extract_deliberation_level` is set -- measured:
+    `thinking_budget` is a discrete tier selector on gemini-3.1-flash-lite,
+    not an allowance, and every non-trivial budget on that tier costs the
+    same fixed ~$0.09/call regardless of size; `thinking_level` reaches
+    cheaper tiers the budget field cannot. `model_cds_extract_deliberation_
+    budget == 0` and `model_cds_extract_deliberation_level == ""` (both
+    defaults) reproduce today's behaviour on every batch, hinted or not."""
+    ordinary = (int(settings.model_cds_extract_thinking_budget), None)
+    if not _is_deliberation_hinted(batch_metrics):
+        return ordinary
+    if settings.model_cds_extract_deliberation_level:
+        return (0, settings.model_cds_extract_deliberation_level)
+    if settings.model_cds_extract_deliberation_budget:
+        return (int(settings.model_cds_extract_deliberation_budget), None)
+    return ordinary
 
 
 async def _run_call_once(
@@ -480,6 +495,7 @@ async def _run_call_once(
         # contradicted. Safe because this path is gated on every metric in the
         # batch being a boolean, whose only truthful witness is the rendering.
         call_bytes = None
+    thinking_budget, thinking_level = _deliberation_config(batch_metrics, settings)
     result = await cds_gemini.generate_structured(
         settings=settings,
         prompt=prompt,
@@ -487,7 +503,8 @@ async def _run_call_once(
         pdf_bytes=call_bytes,
         image_pngs=image_pngs,
         model_setting=settings.model_cds_extract,
-        thinking_budget=_deliberation_budget(batch_metrics, settings),
+        thinking_budget=thinking_budget,
+        thinking_level=thinking_level,
     )
     if not isinstance(result.parsed, WindowExtraction):
         raise cds_gemini.CdsGeminiEmptyResponseError(

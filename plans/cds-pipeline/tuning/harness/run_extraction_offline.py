@@ -78,6 +78,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "extra budget; applies only to batches with a hint in engine._DELIBERATION_HINTS)",
     )
     parser.add_argument(
+        "--deliberation-level",
+        default=None,
+        help="override settings.model_cds_extract_deliberation_level (a types.ThinkingLevel "
+        "name, e.g. 'low'; takes precedence over --deliberation-budget for deliberation-"
+        "hinted batches when set)",
+    )
+    parser.add_argument(
         "--prompt-variant",
         type=Path,
         default=None,
@@ -261,6 +268,8 @@ async def _run(args: argparse.Namespace) -> None:
         settings_update["model_cds_extract_thinking_budget"] = args.thinking_budget
     if args.deliberation_budget is not None:
         settings_update["model_cds_extract_deliberation_budget"] = args.deliberation_budget
+    if args.deliberation_level is not None:
+        settings_update["model_cds_extract_deliberation_level"] = args.deliberation_level
     if settings_update:
         settings = settings.model_copy(update=settings_update)
 
@@ -324,6 +333,7 @@ async def _run(args: argparse.Namespace) -> None:
             "model": settings.model_cds_extract,
             "thinking_budget": settings.model_cds_extract_thinking_budget,
             "deliberation_budget": settings.model_cds_extract_deliberation_budget,
+            "deliberation_level": settings.model_cds_extract_deliberation_level,
             "prompt_variant": str(args.prompt_variant) if args.prompt_variant else None,
             "starved_retry": args.starved_retry,
             "label": args.label,

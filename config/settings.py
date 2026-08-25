@@ -196,6 +196,14 @@ class Settings(BaseSettings):
     # (a global thinking budget) blew the per-document cost ceiling for zero
     # measured accuracy gain on those other batches.
     model_cds_extract_deliberation_budget: int = 0
+    # Empty means "use model_cds_extract_deliberation_budget instead". When
+    # set, this takes precedence for deliberation-hinted batches: measured on
+    # gemini-3.1-flash-lite, thinking_budget behaves as a discrete TIER
+    # SELECTOR on this model rather than an allowance -- 8192, 32768, and -1
+    # all produced the exact same 62,914 thought tokens on the same batch,
+    # busting the cost floor. thinking_level exposes cheaper tiers the
+    # budget field cannot reach.
+    model_cds_extract_deliberation_level: str = ""
     model_cds_detect: str = "google-vertex:gemini-3.1-flash-lite"
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000
