@@ -4259,3 +4259,151 @@ residual, grouped it, and tested the surviving cluster against the lever that wo
 3. The batch split costs **+2 calls/doc**, one of which buys a **single** metric (H15 is
    left as a 1-metric trailing batch to preserve ordering). Folding it back would recover
    a call and some latency.
+
+## LOOP REOPENED (third time) — "lever already applied" was only half-checked
+
+The hook pushed back on the plateau again and it found a real hole. I wrote that the
+`transfer_requirement_*` pair was untouchable because *"`D5` is already in
+`_COLUMN_POSITION_HINTS`"* — i.e. the **evidence** lever is applied. But the **wording**
+lever, which is 4-for-5 this session, was **never applied to D5 at all.** I checked one
+of two levers and reported the family as exhausted.
+
+Same shape as the previous two premature stops: I asserted intractability from a partial
+check. Enumerating properly, four of the fifteen have an untried observable-named clause
+available, and a fifth (the URL) is a one-line fix I never attempted.
+
+## Experiment 34 — five untried wording fixes, zero marginal cost
+
+| error | why it happens | the observable now named |
+|---|---|---|
+| uga `transfer_requirement_*` x2 | picks an adjacent column (`required_some` for `recommended_some`) | *"trace straight UP from the marked cell to the header directly above it; never infer from the nearest printed label or an adjacent column"* |
+| uga `application_url` | engine **repaired** the institution's typo `ttps://` -> `https://` | *"copy character for character including any apparent typo, missing scheme prefix or truncation — a URL that looks malformed on the page is still the value"* |
+| uga `has_application_closing_date` | returns `true` where GT is `None` | *"if no Yes/No control is drawn for C14, return not_reported. A closing date printed elsewhere in C is not a control."* |
+| uga `law_legal_studies_bachelors_percent` | returns `14.50` where GT is `None` | *"if the row is absent or its Bachelor's cell is empty, return not_reported. Never carry a value in from an adjacent row or credential column."* |
+
+Every one of these names something checkable on the page, which is the only wording shape
+with a track record here. Three of the four are the *same defect class* the loop has now
+fixed four times — asserting a value where no control/row exists — just in domains I had
+not swept.
+
+Note the `application_url` case is the most interesting failure in the corpus: **the
+engine silently corrected a mistake in the source document.** The output is "better" than
+the truth, and every provenance check passes, which makes it the hardest class of
+hallucination to detect. It is worth a standing catalog convention rather than a
+per-metric clause.
+
+Zero marginal cost: no new calls, no deliberation added.
+
+**Prediction: uga 7 errors -> 2 or 3, accuracy 97.60% -> ~98.9%.** Corpus 15 -> 10-11,
+accuracy 98.86% -> ~99.2%. Cornell re-run as a control for regressions, since the
+`admissions`/`identity` clauses touch every document.
+
+## Experiment 34 — result: 0-for-5 on wording, but the autopsy is the real finding
+
+**Predicted uga 7 errors -> 2-3, accuracy -> ~98.9%. Actual: all five targeted metrics
+returned byte-identical values to exp32.** Not one clause moved a single character.
+
+Byte-identical output from five independent wording changes is much more consistent with
+"the clauses never reached the model" than with "they had no effect", so I verified before
+concluding anything: all five clause strings are present in the compiled manifest
+(`load_compiled_manifest` -> `metric_batches_for_domain` -> `instructions`). They reached
+the model. The 0-for-5 is real.
+
+Then I rendered the four cited UGA pages at 170 DPI and **looked at them myself** rather
+than delegating — the blind-read contamination failure earlier in this session came from
+writing a disputed premise into a reader's prompt and treating the echo as confirmation.
+Direct observation cannot be contaminated that way.
+
+### What the pages actually showed
+
+| metric | what page shows | verdict |
+|---|---|---|
+| `transfer_requirement_standardized_test_scores` | ✔ in **Required of Some** column | **GT WRONG**, model right |
+| `transfer_requirement_prior_institution_good_standing` | ✔ in **Required of Some** column | **GT WRONG**, model right |
+| `law_legal_studies_bachelors_percent` | `14.50` sits in **Diploma/Certificates**; Bachelor's cell is **empty** | model wrong — geometry |
+| `application_url` | literally prints `ttps://apply.uga.edu/apply/` | model wrong — silent repair |
+| `has_application_closing_date` | C14 Yes **and** No both **unticked** | model wrong; **my clause was wrong too** |
+
+So the honest scoring of my own experiment is: 2 were never engine errors, 1 failed because
+I named the wrong observable, and **2 are genuine wording-lever failures.**
+
+### GT error #4 — AcroForm export abbreviations are ambiguous; the `/_States_` ORDER is not
+
+GT sealed `/TFER_ROS` as `recommended_some`. The states array is
+`['/TFER_REQ','/TFER_REC','/TFER_RFS','/TFER_ROS','/TFER_NREQ']` and maps 1:1 positionally
+onto the printed columns `[Required of All, Recommended of All, Recommended of Some,
+Required of Some, Not Required]`. So `RFS` = **R**ecommended **f**or **S**ome and `ROS` =
+**R**equired **O**f **S**ome. Three rows cross-validate the mapping (`/TFER_NREQ`->Not
+Required x3, `/TFER_REQ`->Required of All x1).
+
+**New GT rule: never decode an AcroForm export value by expanding its letters. Decode it by
+its index in `/_States_` against the printed column order.** This is the fourth GT error
+this session and the fourth traced to the D12 AcroForm shortcut. Audited all five GT files;
+the bug is **isolated to UGA** — every other doc was sealed from the page image or the
+dropdown's rendered text, which is why they were right.
+
+Corrected 2 UGA entries. **uga 97.60% -> 98.31%** on the exp34 run, wrong 5 -> 3.
+
+### Mechanism 5 (new) — wording cannot fix a misperception, only a misapplied rule
+
+`law_legal_studies_bachelors_percent` is the clean proof. The clause said, verbatim,
+*"Never carry a value in from an adjacent row or from a different credential column."* The
+model then carried `14.50` in from a different credential column. The instruction named the
+error exactly and was ignored, because the model is not applying a wrong rule — it is
+**seeing the grid wrong**. You cannot argue a model out of a perception error.
+
+This reframes the earlier "wording works when it names an observable" finding, which was
+too generous. The sharper rule:
+
+> **Wording fixes a rule the model applies wrongly. Evidence fixes a page the model sees
+> wrongly. Diagnose which one you have before choosing a lever.**
+
+Every earlier wording win (H9/H10 closure, date separators, aid-reporting split) was a
+*rule* failure. Both surviving failures here are *perception* failures. That is why the
+same lever went 4-for-5 and then 0-for-2.
+
+Acted on it: **Section J added to `_COLUMN_POSITION_HINTS`** — it is the widest sparse grid
+in the CDS (three credential columns, most cells empty) and was the one such grid with no
+image supplement. Costs ~2 image-supplemented calls/doc (degrees is 2 batches), ~$0.002.
+
+### Mechanism 6 (new) — the silent-repair hallucination
+
+`application_url`: the institution typed `ttps://apply.uga.edu/apply/` and the engine
+returned `https://apply.uga.edu/apply/`. **The output is "better" than the document.** Every
+provenance check passes, the page citation is correct, and the value looks right to any
+reviewer. This is the hardest hallucination class to detect and it is exactly what
+principle 3 forbids — the value a student sees is not the value the institution reported.
+
+Per-metric wording lost to the model's URL-normalisation prior. Promoted it to the **shared
+preamble** (`config/cds/extraction-prompt.md`) instead: one line, every call, ~35 tokens
+once rather than per-metric, and it guards every text metric rather than one URL.
+
+### Clause-precondition bug — mechanism 2, again
+
+My C14 clause opened *"If no Yes/No control is **drawn**..."*. A control **is** drawn; both
+boxes are simply unticked. The precondition never matched, so the rest never applied. This
+is mechanism 2 ("the observable must be unambiguous at the granularity applied") biting a
+third time. Reworded to *"If neither the Yes box nor the No box carries a mark"* — an empty
+pair of boxes is an unanswered question, not a No.
+
+### Housekeeping
+
+Reverted the three clauses that demonstrably changed nothing (transfer x2 — they targeted a
+GT bug, not an engine error; identity URL — superseded by the shared preamble line). A
+clause that fixes nothing is pure token cost on every call. Kept the diff to what earns it.
+
+Manifest `content_sha256` moved `c821b2e6...` -> `6aa290fe...`; updated the three **code**
+pins (`scripts/cds_manifest_check.py`, `tests/app/cds/test_manifest.py`,
+`tests/domain/cds/test_manifest_compile.py`). Left the historical hash references in
+`docs/adr/0036`, `PLAN.md`, `CUTOVER.md` alone — those record what was verified at cutover,
+and per the repo convention shipped records are not retro-edited. 108 tests green.
+
+## Experiment 35 — clean full-corpus run
+
+Config: corrected GT, C14 clause reworded, verbatim-transcription line in the shared
+preamble, Section J on the image lever, failed clauses reverted.
+
+**Prediction: the C14 and Section J fixes each retire one uga error; the preamble line is
+the uncertain one (it fights a strong model prior and applies corpus-wide, so it is also the
+main regression risk). Expect uga ~98.6-99.0%, corpus accuracy 99.0-99.3% against corrected
+GT.** Full 5-doc run because the preamble and Section J changes touch every document.

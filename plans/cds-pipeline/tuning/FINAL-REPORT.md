@@ -229,3 +229,84 @@ the only scored basis for any claim here.
    and its test fails).
 3. **D8** — the read path lost vintage context in 10 of 13 domains.
 4. **D18** — the holdout is unscored because the corpus was capped at five documents.
+
+---
+
+## 12. SHIPPED — option A (max accuracy), 2026-08-25
+
+Escalation 1 (§11) is **resolved by the owner: ship option A.** Deliberation is now the
+production default, not a harness flag.
+
+**One-line change**, `config/settings.py`:
+`model_cds_extract_deliberation_level: str = ""` -> `"HIGH"`.
+
+That is the whole implementation. Every other piece of option A — the catalog instruction
+clauses, the H14/H10 batch split, the thinking plumbing, the corrected cost model — was
+already committed during the loop. The default was the last thing still living in the
+harness.
+
+### Measured, shipped configuration
+
+| | value | §1 target | §1 floor | |
+|---|---|---|---|---|
+| accuracy | **99.01%** | 100% | 99.5% | ✗ short by 0.49pp |
+| coverage | **96.96%** | 98% | 95% | ✓ above floor |
+| hallucinations | **4** | 0 | 0 | ✗ |
+| cost/doc | **$0.2088** | $0.10 | $0.15 | ✗ 1.39× floor |
+| latency/doc | **419.3s** | 240s | 360s | ✗ 1.16× floor |
+
+1,299 correct + 617 correct abstentions against 9 wrong + 4 hallucinated, 0 failed calls,
+5 documents, 394 metrics each.
+
+**This deliberately misses three §1 floors.** §1 was declared immutable, so recording the
+miss plainly rather than restating the targets to fit: the owner chose accuracy over cost
+and latency, which is the same ordering AGENTS.md principle 3 gives ("the data is the
+product — never lie to a student"). The alternative on the table was ~96.9% accuracy at
+$0.092/doc and 316s.
+
+### Verification that the default reproduces the measurement
+
+Re-ran UGA through the engine with **no harness flag at all**, so the shipped default was
+the only thing selecting deliberation:
+
+| | accuracy | coverage | cost | latency |
+|---|---|---|---|---|
+| flag-driven (`--deliberation-level=HIGH`) | 98.29% | 96.35% | $0.19622 | 354.4s |
+| **shipped default, no flag** | **98.29%** | **96.35%** | **$0.19622** | 358.3s |
+
+Cost is byte-identical, which means the model call itself was identical; latency differs by
+run noise only. `_deliberation_config` was also asserted directly: H14-hinted batches
+resolve to `(0, 'HIGH')`, every other batch to `(0, None)` — unchanged from before.
+
+Full routine suite: 1,676 passed. The 8 failures and 93 ruff findings present are
+**pre-existing and unrelated** — verified by re-running with the change stashed (identical
+counts). All 93 lint findings are inside `plans/cds-pipeline/tuning/`, the throwaway
+harness §10 exempts; production code is clean.
+
+**D7 (escalation 2) is fixed in passing.** The pin was stale from *earlier committed*
+catalog work, not from the recent edits — reverting everything left the hash at
+`ae78912f…` rather than the pinned `c821b2e6…`. Repinned the three code sites
+(`scripts/cds_manifest_check.py`, `tests/app/cds/test_manifest.py`,
+`tests/domain/cds/test_manifest_compile.py`); the historical references in `docs/adr/0036`,
+`PLAN.md` and `CUTOVER.md` were left alone, since those record what was true at cutover.
+
+### What did NOT ship, and why
+
+exp35's fixes were reverted before this change — they were net negative on both documents
+measured (UGA 98.31→97.97, Cornell coverage 99.59→98.76) and 0-for-3 on their targets.
+The tree sits at the best measured state, not at the most recent state.
+
+### The one open item that is not a score
+
+`application_url` on UGA: the institution typed `ttps://apply.uga.edu/apply/` and the
+engine returns `https://apply.uga.edu/apply/`. **The output is "better" than the source
+document.** The page citation is correct and every provenance check passes, so nothing
+downstream can catch it. Wording lost to the model's URL-normalisation prior, twice
+(per-metric clause, then shared preamble).
+
+The untried remedy is structural and already proven for the same class on H14: send the
+rendered images **only**, with the PDF absent, for sparse grids — with both in hand the
+model follows the misleading text layer. The engine's own comment at `engine.py` records
+that finding ("the misleading evidence has to be absent, not merely contradicted"), but the
+images-only gate currently requires an all-boolean batch, which the affected batches are
+not. That is a real engine change and was left for a decision rather than done unattended.

@@ -2476,7 +2476,7 @@
       "status": "present",
       "value": "0.88",
       "page": 9,
-      "evidence": "H row, 'Total' column, six-year graduation rate for 2017 cohort — page renders '0.88'",
+      "evidence": "H row, 'Total' column, six-year graduation rate for 2017 cohort \u2014 page renders '0.88'",
       "source": "rendered_text",
       "acroform_raw_value": "0.8807",
       "note": "Raw AcroForm field GRS_BACH_TOT_P carries higher precision ('0.8807') than the widget's rendered appearance stream, which prints '0.88'. Ground truth records the rendered value per orchestrator ruling: the extraction engine can only ever see the rendered page, so scoring against a hidden, inaccessible precision is not a fair test. No rounding tolerance was added to the scorer; this discrepancy is recorded as evidence, not resolved by fuzzy matching."
@@ -2485,7 +2485,7 @@
       "status": "present",
       "value": "0.84",
       "page": 9,
-      "evidence": "H row, 'Recipients of a Federal Pell Grant' column, six-year graduation rate for 2017 cohort — page renders '0.84'",
+      "evidence": "H row, 'Recipients of a Federal Pell Grant' column, six-year graduation rate for 2017 cohort \u2014 page renders '0.84'",
       "source": "rendered_text",
       "acroform_raw_value": ".83534",
       "note": "Raw AcroForm field GRS_BACH_PELL_P carries higher precision ('.83534') than the widget's rendered appearance stream, which prints '0.84'. Ground truth records the rendered value per orchestrator ruling: the extraction engine can only ever see the rendered page, so scoring against a hidden, inaccessible precision is not a fair test. No rounding tolerance was added to the scorer; this discrepancy is recorded as evidence, not resolved by fuzzy matching."
@@ -2717,16 +2717,16 @@
     },
     "transfer.transfer_requirement_prior_institution_good_standing": {
       "status": "present",
-      "value": "recommended_some",
+      "value": "required_some",
       "page": 24,
-      "evidence": "REQ_CODE_GDSTAND = '/TFER_ROS'",
+      "evidence": "REQ_CODE_GDSTAND = '/TFER_ROS'  [CORRECTED 2026-08-25] /_States_ order ['/TFER_REQ','/TFER_REC','/TFER_RFS','/TFER_ROS','/TFER_NREQ'] maps 1:1 to printed columns [Required of All, Recommended of All, Recommended of Some, Required of Some, Not Required]; ROS = Required Of Some (4th column), RFS = Recommended for Some. Page 24 image confirms the check is in 'Required of Some'. Prior seal misread ROS as 'Recommended of Some'.",
       "source": "acroform"
     },
     "transfer.transfer_requirement_standardized_test_scores": {
       "status": "present",
-      "value": "recommended_some",
+      "value": "required_some",
       "page": 24,
-      "evidence": "REQ_CODE_TEST_SCORES = '/TFER_ROS'",
+      "evidence": "REQ_CODE_TEST_SCORES = '/TFER_ROS'  [CORRECTED 2026-08-25] /_States_ order ['/TFER_REQ','/TFER_REC','/TFER_RFS','/TFER_ROS','/TFER_NREQ'] maps 1:1 to printed columns [Required of All, Recommended of All, Recommended of Some, Required of Some, Not Required]; ROS = Required Of Some (4th column), RFS = Recommended for Some. Page 24 image confirms the check is in 'Required of Some'. Prior seal misread ROS as 'Recommended of Some'.",
       "source": "acroform"
     },
     "transfer.transfer_rolling_admission_fall": {

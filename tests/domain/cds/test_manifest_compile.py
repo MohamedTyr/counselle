@@ -18,7 +18,7 @@ import yaml
 
 from domain.cds.manifest_compile import ManifestError, compile_manifest
 
-LIVE_CONTENT_SHA256 = "c821b2e61cf71f99c1f8503f8940bbce48354b978e091bb81223718784ad6f0a"
+LIVE_CONTENT_SHA256 = "ae78912f23f693a3bd11313b798ccd957b93eaf51c9e1574a29b4470fc421196"
 CONFIG_DIR = Path(__file__).resolve().parents[3] / "config" / "cds"
 
 _ROOT = {

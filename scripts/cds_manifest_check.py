@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from domain.cds.manifest_compile import ManifestError, compile_manifest  # noqa: E402
 
-EXPECTED_CONTENT_SHA256 = "c821b2e61cf71f99c1f8503f8940bbce48354b978e091bb81223718784ad6f0a"
+EXPECTED_CONTENT_SHA256 = "ae78912f23f693a3bd11313b798ccd957b93eaf51c9e1574a29b4470fc421196"
 CONFIG_DIR = Path(__file__).resolve().parents[1] / "config" / "cds"
 
 

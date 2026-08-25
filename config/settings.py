@@ -203,7 +203,15 @@ class Settings(BaseSettings):
     # all produced the exact same 62,914 thought tokens on the same batch,
     # busting the cost floor. thinking_level exposes cheaper tiers the
     # budget field cannot reach.
-    model_cds_extract_deliberation_level: str = ""
+    #
+    # HIGH is the shipped default: it is the configuration the tuning corpus
+    # measured at 99.01% accuracy / 97.26% coverage across 5 documents, versus
+    # ~96.9% with deliberation off. It buys that accuracy at ~$0.21/doc and
+    # ~410s/doc, both above the tuning targets ($0.15, 360s) -- a deliberate
+    # trade, because a wrong value shown to a student costs more than a slow
+    # cheap one (AGENTS.md principle 3). Set to "" to fall back to
+    # model_cds_extract_deliberation_budget and trade accuracy for cost.
+    model_cds_extract_deliberation_level: str = "HIGH"
     model_cds_detect: str = "google-vertex:gemini-3.1-flash-lite"
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000
