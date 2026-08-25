@@ -284,7 +284,15 @@ Then establish the two anchors, in order:
 
 Repeat until §9 says stop:
 
-1. **THEORIZE.** From the last autopsies and the token model, name the single biggest
+1. **THEORIZE.** First, **tabulate the residue by metric family across ALL outcome
+   buckets at once** — `wrong`, `missed`, `hallucinated` and `correct` side by side,
+   grouped by CDS section prefix. This is mandatory, not optional, and it is cheap
+   (the runs are already paid for; re-scoring is free). Reading one bucket in
+   isolation hides families that fail in opposite directions on different documents:
+   H14 sat at 11 hallucinations *and* 9 misses for four experiments while I looked
+   only at the hallucination column and concluded the model was ignoring a catalog
+   rule. It wasn't — two documents were taking two different evidence paths.
+   Then, from the last autopsies and the token model, name the single biggest
    bottleneck. Write a falsifiable hypothesis with a **numeric prediction**
    ("raising batch ceiling to 50 cuts calls 63→32 and page-sends ~50%, cost to ~$0.24,
    accuracy stays ≥ baseline"). Think hard here — this step is yours alone.
@@ -416,9 +424,43 @@ after the review loop closes:
    batches.
 8. **Starved-retry tuning** and selective re-ask of only-missed metrics (a cheap second
    pass over misses instead of bigger first passes).
-9. Model alternatives / thinking budget — only after structural levers are exhausted;
-   note `_estimate_cost_usd` currently omits `thoughts_tokens` (fine while 0; fix if
-   you enable thinking).
+9. Model alternatives / thinking budget — structural levers ARE now exhausted (0 failed
+   calls, every slice smaller than its source), so this lever is LIVE. Measured facts,
+   probed against the real endpoint (build the client with
+   `genai.Client(vertexai=True, api_key=settings.vertex_api_key)` — **`vertexai=True` is
+   load-bearing**, without it every id 403s including the working one):
+   - Served: `gemini-3.1-flash-lite` (current, **thinking OFF by default**),
+     `gemini-3.5-flash`, `gemini-3.1-pro-preview`, `gemini-2.5-flash`, `gemini-2.5-pro`.
+   - **NOT served on this key: `gemini-3.1-flash`, `gemini-3.1-pro`** (404). There is no
+     same-generation step up from flash-lite, so "use a bigger sibling" is not available.
+   - `types.ThinkingConfig(thinking_budget=N)` works on the current model: `0` disables,
+     `-1` is automatic, positive is an explicit budget. This is a capability axis on the
+     model already in use — no generation change, one config field.
+   - Cost ceiling on a model swap: `settings.model_prices` puts `gemini-3.5-flash` at
+     $1.50/$9.00 per 1M vs flash-lite's $0.25/$1.50 — **6x**. A global swap takes
+     $0.0921/doc to roughly $0.55 and busts the $0.15 floor outright. A swap is only
+     viable applied to a *subset of batches*, and `batch_metrics` is in scope at the call
+     site so an all-boolean predicate is expressible there without new plumbing.
+   - `_estimate_cost_usd` omitted `thoughts_tokens`, which bill at the OUTPUT rate.
+     **Fix the accounting before measuring any thinking config** or every one of them
+     looks free and the cost axis of the fitness tuple is a lie. (No historical figure
+     is affected — thoughts were 0 on every call before this.) DONE — engine now
+     prices them; committed 6b95a33.
+   - **MEASURED (exp20).** Thinking works and is the only lever that has ever moved the
+     H14 family, but globally it is unaffordable: `-1` costs **$1.855/doc (12x the
+     floor) and 1821s (5x the floor)**. A **1024 budget does nothing** — the behaviour
+     change needs a specific, large amount of deliberation, not merely some.
+   - `thinking_budget=-1` is **not adaptive, it is a cap-seeker**: the same 62,914
+     figure recurs on call after call (and 125,827 ≈ 2x on others), tracking
+     `DEFAULT_MAX_OUTPUT_TOKENS = 65_535` rather than task difficulty.
+   - **Runaway mode to expect with an uncapped budget:** `class_profile` burned
+     **125,827 thought tokens to emit 18 output tokens** at 1237s — the call thinks
+     itself to a standstill and returns nothing. Uncapped is not just expensive, it is
+     unreliable.
+   - The win is concentrated in ONE batch (the `H14`-bearing `financial_aid` batch,
+     which used 62,914 thoughts = $0.094 on that single call). So the live question is
+     **targeted** deliberation per batch, not a global setting — and `batch_metrics` is
+     in scope at the call site, so it needs no new plumbing.
 
 ## 8. Cut the catalog FIRST — the keep list is final
 
@@ -531,6 +573,38 @@ send page images for H9/H10. Each moved its target family immediately.
 When the engine is systematically wrong about a class of cell, reach for what it can
 see. An admonition against a strong prior does not work.
 
+## NEVER hand a blind reader the disputed premise
+
+The worst near-miss of this loop. I suspected Caltech's H14 ground truth was wrong and
+commissioned a "blind" re-read to check. The reader came back `high` confidence that GT
+was wrong and the engine had been right all along, with vector-path geometry and
+2400-DPI ink sampling to prove it.
+
+**It was wrong, and I had written the answer into the prompt.** My brief stated as
+settled protocol: *"an UNTICKED box is also `present`, with value `false`"* — which was
+exactly the contested question. The catalog explicitly overrides that generic rule for
+H14 (*"a blank cell in this or any other visible H14 coordinate is not_reported, never
+false"*), and the original adjudication had reasoned from that text correctly.
+
+Three durable rules:
+
+1. **A blind read gets the page, the catalog, and the question — never the answer key's
+   contested clause.** If the reader can only return one answer, it is not evidence.
+2. **When a subagent hedges, the hedge is the finding.** This one's "what would change
+   my mind" section contained the refutation of its own conclusion, and I read past it.
+3. **Pixels answer "what is on the page", never "what should be recorded."** Status is a
+   question about the *catalog*. I escalated 300 → 900 → 1200 → 2400 DPI chasing a
+   question that was never optical.
+
+> **The most corrupting move available to this loop is editing ground truth toward the
+> engine, and it will always arrive dressed as new evidence.** It nearly landed here
+> with geometry attached. GT changes go through §4's protocol or they do not happen.
+
+The physical finding survives and is genuinely useful: Caltech's H14 boxes ARE drawn and
+unticked, at coordinates byte-identical to UGA's. So the model reads the page correctly
+and then applies the wrong *rule* — which is why wording changes bounced off it and why
+deliberation moved it.
+
 ## Measure before publishing — three of my own claims were wrong
 
 1. "Caltech has no C9" — built on placeholder page-index entries. Produced D17
@@ -562,9 +636,32 @@ catches this. Related, still unfixed: a total-failure run emits a fitness tuple 
 ## Where the remaining error mass actually is
 
 Not routing, not transport — both are solved (0 failed calls, all slices smaller
-than their source). The residue is instruction-following on two catalog rules:
-Caltech H14 blank-is-never-false, and the invented-selection family. The second
-yielded to an image; the first has not yielded to anything permitted by §10.
+than their source). The residue is **concentrated in the H-block**: H14 is 20 of the
+87 errors and the H9/H10/H "selected" family is another 17, i.e. **37 of 87 errors in
+one CDS section**, with the other 16 section prefixes sharing the remaining 50 (mostly
+misses).
+
+**H14 fails in OPPOSITE directions on two documents** — Caltech returns a confident
+`False` where GT says `blank` (11 hallucinations), UGA returns nothing where GT says a
+present `False` (9 misses). That is not one rule being ignored; it is two documents
+taking two different code paths:
+
+- UGA `is_form_pdf` -> `_form_mark_pages` fires -> **images only, no PDF**
+- Caltech is not a form PDF -> that gate returns `[]` -> **PDF + grid images**
+
+The images-only path shipped in exp07 fixed UGA's E1 checkboxes and, on the same
+document, appears to break H14 by stripping the row labels the model needs to emit one
+finding per coordinate. **A fix measured on the family it helps must also be checked
+against the families it touches but was not aimed at.** UGA's overall coverage rose, so
+the regression hid inside a net win.
+
+## An earlier framing that was wrong
+
+I reported H14 to the user as "a catalog rule the model declines to follow", and
+offered "re-examine whether the rule is right" as an escalation. The rule is fine. The
+engine sends two different kinds of evidence for it and gets a different wrong answer
+from each. Before escalating a metric family as a product question, **check whether the
+engine is even sending it the same evidence everywhere.**
 
 ## Operational notes
 

@@ -2489,3 +2489,1093 @@ The rule still holds directionally — bake-before-slice, images-only for boolea
 batches, and column-position images each carried into a full corpus run. But "4 for
 4" overstated it, and the overstatement came from exactly the methodological error
 this experiment exposed.
+
+## LOOP REOPENED — the plateau call was premature
+
+I stopped after exp19 and wrote the final report, citing §9's plateau criterion.
+Re-reading §9 against the ledger, that call was wrong, and it was wrong in my favour
+(it let me stop on a hard problem):
+
+> §9: "**4** consecutive experiments produce no lexicographic improvement"
+
+The record is:
+
+| exp | verdict | counts toward plateau? |
+|---|---|---|
+| 17 | win, later shown to be a `--domains` windowing artifact | yes — no real improvement |
+| 18 | **INVALID** — 11 SSL transport failures, not a measurement | **no** — an invalid run is not an experiment |
+| 19 | no lexicographic improvement, reverted | yes |
+
+That is **2**, not 4. Spend at the stop was **$3.94 of the $25 rail** — 16%. Neither
+stopping criterion was met and the §1 targets certainly were not. The final report
+stays on disk as the record of the champion, but it is no longer the terminal act;
+it will be rewritten when a criterion is genuinely met.
+
+### The real reason I stopped, stated honestly
+
+The report listed three remaining options and declined all three as "needing a human".
+Checking each against §8b (which says: make the conservative call alone, log it, continue):
+
+1. **A different model / thinking budget for boolean-heavy batches** — this is §7
+   lever 9, explicitly in the sanctioned inventory, gated only on "after structural
+   levers are exhausted". Structural levers ARE exhausted: 0 failed calls, every slice
+   smaller than its source, wording 0-for-3. It is reversible, it is config-shaped
+   (ADR 0011 keeps the model id out of code), and it costs money — which is what the
+   $25 rail is FOR. **This never needed a human. Declining it was the error.**
+2. **Re-examining whether the Caltech H14 rule is right** — this one I still decline,
+   and for the reason already recorded: editing ground truth to match the engine is
+   moving the yardstick for a scoring win. §4 forbids hand-editing GT; a re-seal
+   requires the full protocol. Stands as a genuine escalation.
+3. **Revisiting §10's no-validator rule** — immutable per §8b. Correctly declined.
+
+So one of three was mine to take and I did not take it. Resuming at §6 step 1 with
+lever 9.
+
+### Lever 9 recon — what is actually available on this Vertex key
+
+Probed the live endpoint rather than assuming (`genai.Client(vertexai=True,
+api_key=settings.vertex_api_key)` — note `vertexai=True` is load-bearing; without it
+every id 403s, including the one that demonstrably works).
+
+| model id | served? | thinking by default |
+|---|---|---|
+| `gemini-3.1-flash-lite` (current) | **yes** | **off** (`thoughts_token_count=None`) |
+| `gemini-3.1-flash` | **404 NOT_FOUND** | — |
+| `gemini-3.1-pro` | **404 NOT_FOUND** | — |
+| `gemini-3-pro-preview` | **404 NOT_FOUND** | — |
+| `gemini-2.5-flash` | yes | on (23 thought tokens on a trivial prompt) |
+| `gemini-2.5-pro` | yes | on (368) |
+
+**This kills the final report's option 1 as I framed it.** "Use a stronger model for
+boolean-heavy batches" assumed a bigger sibling in the same generation was a config
+flip away. It is not: the only larger models this key serves are a *previous*
+generation (2.5), so that swap trades generation for size and is not the clean
+one-variable test I described. Recording it because the report asserted the option
+was available, and it isn't.
+
+What the probe DID find is better. `types.ThinkingConfig` is present and
+**thinking is supported on the model already in use, and is currently switched off**:
+
+```
+budget=   0  thoughts=None   out=3
+budget= 512  thoughts=125    out=3
+budget=2048  thoughts=106    out=3
+budget=  -1  thoughts=281    out=3   (dynamic)
+```
+
+So there is an untried capability axis on the *current* model — no generation change,
+no model swap, one config field. §7 lever 9 gates this on "structural levers
+exhausted", which they are. This is the next experiment.
+
+**Precondition, and §7 lever 9 names it explicitly: `_estimate_cost_usd` does not
+price `thoughts_tokens`.** Thought tokens bill at the output rate. Turning thinking on
+without fixing the cost function would make every thinking config look free and would
+corrupt the cost axis of the fitness tuple — optimizing a lie, exactly the failure the
+scorer's RUN ERRORS panel exists to prevent on the coverage axis. Fix the accounting
+first, measure second.
+
+Note this does NOT invalidate any past cost number: `thoughts_tokens` has been 0 on
+every call in the loop so far, so pricing it changes no historical figure. No re-score
+of persisted runs is required.
+
+## The full residual taxonomy — and the H14 INVERSION nobody had noticed
+
+Scored the champion's five persisted runs and dumped every non-correct comparison.
+All five runs are failure-free (`run_errors` 0 across the board), so this is a clean
+picture: **1298 correct / 15 wrong / 49 missed / 23 hallucinated.**
+
+The error mass is far more concentrated than the final report claimed. By CDS section:
+
+| prefix | wrong | halluc | missed | total |
+|---|---|---|---|---|
+| **H14** | 0 | **11** | **9** | **20** |
+| H9/H10/H (the H-block "selected" family) | 5 | 10 | 2 | 17 |
+| everything else (16 prefixes) | 10 | 2 | 38 | 50 |
+
+**H14 alone is 20 of the 87 errors, and the engine's behaviour on it is exactly
+inverted between two documents:**
+
+| document | GT | engine | bucket |
+|---|---|---|---|
+| caltech | `blank` ×11 | `False` ×11 | **hallucinated** |
+| uga | `False` ×9 (a real, present value) | *nothing* ×9 | **missed** |
+
+Caltech gets a confident `False` where it should abstain. UGA abstains where a
+confident `False` is the right answer. Same section, same catalog rule, opposite
+failure on each document.
+
+### Why, and it is not a model whim
+
+The two documents take **different code paths through the change I shipped in exp07**:
+
+- UGA `is_form_pdf` -> the all-boolean H14 batch hits `_form_mark_pages` and is sent
+  **images only, no PDF**.
+- Caltech is not a form PDF -> that gate returns `[]`, so H14 goes as **PDF + grid
+  images** via the C7-style supplement.
+
+So the images-only path, which fixed UGA's E1 checkboxes, is simultaneously *causing*
+UGA's H14 misses — strip the PDF and the model loses the row labels it needs to emit
+one finding per coordinate, so it emits none. I shipped that path and measured it on
+the family it fixed, never on the family it broke. Coverage on UGA went up overall, so
+the regression hid inside a net win.
+
+**The distinction the catalog is actually drawing is real and subtle:** UGA's H14 cells
+carry AcroForm checkbox *widgets*, so an unticked box is a genuine present `False`
+("this criterion is not used"). Caltech's H14 non-need-based column has no control at
+all, so there is nothing to report and `blank` is correct. "Is there a control here?"
+is precisely the question a text layer cannot answer and a rendered image can — the
+same lesson as H9/H10, and the reason three wording changes bounced off it.
+
+### What this reprices
+
+The final report called H14 "a catalog rule the model declines to follow" and sent it
+to the user as an escalation about whether the rule is even right. That framing was
+wrong, and comfortably so. The rule is right; **the engine sends two different kinds
+of evidence for it and gets a different wrong answer from each.** That is an evidence
+problem, which is the lever class with a 3-for-3 record, not a wording problem, which
+is 0-for-3.
+
+I did not see this earlier because I never tabulated `missed` alongside `hallucinated`.
+I was hunting hallucinations, so I only ever looked at that bucket, and the other half
+of the same family sat in a bucket I wasn't reading. **A per-family rollup across ALL
+outcome buckets is now a standing requirement before theorizing** — folded into §6.
+
+### Also visible now: several "wrong" rows are not reading failures
+
+| document | metric | engine | GT | smells like |
+|---|---|---|---|---|
+| uga | `identity.application_url` | `https://apply.uga.edu/apply/` | `ttps://apply.uga.edu/apply/` | **gt-error** (leading `h` lost) |
+| uga | `identity.state_or_region` | `Georgia` | `GA` | catalog under-specified |
+| uga | `aid_priority_date` | `12 15` | `12/15` | AcroForm split-box normalization |
+| ucf | `aid_reporting_academic_year` | `2022-2023 Final` | `2022-2023` | engine appended the status |
+
+Four of fifteen `wrong` are formatting/definition disputes rather than misreads. They
+need autopsy classification (`gt-error` / `normalization-bug`) before any of them is
+counted as a model failure. Queued, not yet done.
+
+## THE UNIFYING HYPOTHESIS — the engine cannot tell "absent" from "present and negative"
+
+H14 is not a special case. Reading the whole residue at once, one failure mode
+explains most of it.
+
+**Count the `missed` bucket by what the true answer was.** Of 49 misses, roughly 40
+have a ground-truth value of `False`, `0`, or a negative enum (`not_required`):
+
+| document | misses | of which the truth is False / 0 / negative-enum |
+|---|---|---|
+| caltech | 9 | 8 (incl. three totals whose true value is literally `0`) |
+| cornell | 1 | 1 |
+| dartmouth | 16 | 14 (8 `academics.required_coursework_*`, 4 `*_rotc_*`) |
+| ucf | 5 | 1 |
+| uga | 18 | 16 (9 H14, 4 `open_admission_*`, 3 `transfer_requirement_* = not_required`) |
+
+So the engine **systematically declines to report a negative.** When a cell means
+"no", "none", "not required", or "zero", it very often emits nothing at all and the
+metric scores as `missed`.
+
+And the hallucination bucket is the *same defect pointing the other way*: 21 of 23
+hallucinations are the engine volunteering `False` (or a selection state) for a
+coordinate where the document has **no control at all**.
+
+Stated as one sentence:
+
+> **The engine confuses "this question is absent" with "this question is answered no",
+> and it gets the mapping backwards in both directions — silent where the answer is a
+> real `False`, confidently `False` where there is nothing to answer.**
+
+That single confusion accounts for ~40 of 49 misses and ~21 of 23 hallucinations —
+**61 of the 87 errors.** It is not eleven separate catalog disputes.
+
+### Why this reframes the target as reachable
+
+The final report treated the residue as a wall: two rules the model won't follow,
+three options all needing a human. If instead it is one discrimination the model is
+being asked to make on inadequate evidence, it is a normal engineering problem.
+
+Arithmetic on what a fix is worth (champion: 1298 correct / 15 wrong / 49 missed /
+23 hallucinated, accuracy 97.16%, coverage 96.40%):
+
+| if fixed | accuracy | coverage |
+|---|---|---|
+| champion today | 97.16% | 96.40% |
+| H14 only (both directions) | ~97.98% | ~97.05% |
+| the whole H-block (H14 + H9/H10/H) | ~99.10% | ~97.2% |
+| H-block + the 4 formatting/GT disputes resolved | ~99.4% | ~97.2% |
+| + the ~30 non-H negative misses | ~99.4% | **~99.4%** |
+
+**The 99.5% accuracy floor is within reach but genuinely tight**, and it does not fall
+out of any single change — it needs the H-block AND the formatting disputes
+adjudicated. Coverage's 98% target, by contrast, is comfortably reachable on the
+negative-miss fix alone. Worth stating plainly now so I don't later present a partial
+win as target-met.
+
+### The two testable levers, one variable each
+
+1. **Reasoning budget** (§7 lever 9, now live). "Is there a control in this cell, and
+   is it ticked?" is a two-step discrimination the model currently makes with zero
+   deliberation — thinking is OFF on this model today. Test: enable a budget, change
+   nothing else.
+2. **Evidence resolution.** The distinction is only visible in a rendered image, and
+   the engine renders grid pages at `_CHECKBOX_GRID_IMAGE_DPI = 150`. If an unticked
+   checkbox is not distinguishable from empty whitespace at 150 DPI, the model is
+   being asked to make a call the pixels do not support. Autopsy running now.
+
+Deliberately NOT pursuing: §7 lever 7 (deterministic AcroForm harvesting). It would
+make UGA's H14 exact and free, but the field-name -> metric mapping is UGA's own
+screaming-snake convention, not a CDS standard. It would fix 1 of 5 documents by
+hand-fitting to that document and transfer to nothing — the exact overfitting the §9
+holdout exists to catch. Logged as a DECISION-MADE-ALONE.
+
+## Experiment 20 — reasoning budget (§7 lever 9). PREDICTION, recorded before scoring.
+
+**Hypothesis.** The "absent vs present-and-negative" confusion is a two-step
+discrimination — *is there a control in this cell?* then *is it marked?* — and the
+model currently performs it with **zero deliberation**, because thinking is off on
+`gemini-3.1-flash-lite` by default. Giving it a reasoning budget should move the
+family that three wording changes could not.
+
+This is a clean single-variable test: no routing change, no evidence change, no prompt
+change. Only `model_cds_extract_thinking_budget`.
+
+**Test document: `caltech_2024-2025`, all 13 domains.** Caltech is chosen because it is
+the champion's worst document (94.98% accuracy) and carries 11 of the 23 corpus
+hallucinations, all H14, all of the form "returned `False` where there is no control".
+One document first, per the standing rule; and the FULL domain set, because exp19
+proved a `--domains`-filtered run silently sends wider windows and is not comparable.
+
+Caltech at the champion: **accuracy 94.98 / coverage 96.20 / 1 wrong / 11 hallucinated
+/ 9 missed / $0.0897 / 464.4s / 0 failed calls.**
+
+**Predictions (falsifiable, both arms):**
+
+1. H14 hallucinations drop from 11 to **<= 3**. This is the whole point; if they don't
+   move, the hypothesis is dead and reasoning is not the missing ingredient.
+2. Caltech accuracy rises to **>= 97.5%**.
+3. Cost/doc rises but stays **<= $0.15** (the floor). Arm B is budget-capped at 1024
+   tokens/call; across ~23 calls that is <= 23.5k thought tokens = **<= $0.035** added,
+   landing near $0.125. Arm A (automatic) is uncapped and is the one at real risk of
+   busting the floor — that risk is itself the measurement.
+4. **Latency is the axis most likely to fail.** Caltech is already 464.4s, over the
+   360s hard floor. Thinking can only add. I am running this expecting a latency
+   regression and treating it as the price of an accuracy win, per §1's lexicographic
+   ordering — but if accuracy does not move, latency alone kills it.
+
+**Two arms, run sequentially** (not in parallel — two concurrent runs would put 12
+calls on the wire at once, and exp18 was destroyed by exactly that kind of transport
+weather; a polluted measurement is worse than a slow one):
+
+- `exp20-think-auto` — `--thinking-budget=-1` (provider's automatic budget)
+- `exp20-think-1024` — `--thinking-budget=1024` (explicit cap)
+
+**What would falsify the whole unifying hypothesis:** H14 hallucinations unchanged at
+11 with a non-zero `thoughts_tokens` recorded. That would mean the model deliberated
+and still could not tell an absent control from an unticked one — which would locate
+the defect firmly in the *evidence* (resolution / what is on the page) rather than in
+reasoning, and would make the H14 autopsy's 150-DPI question decisive.
+
+## Adjudication of the four disputed values — I was wrong about three of them
+
+I wrote that four of the fifteen `wrong` rows "smell like" GT errors or normalization
+bugs rather than engine failures. Adjudicated against 300 DPI renders plus raw widget
+data. **Three of the four are genuine engine errors. Only one is a GT error.**
+
+| # | metric | ruling | what actually happened |
+|---|---|---|---|
+| 1 | uga `identity.application_url` | **GT_CORRECT** | The page and the AcroForm field BOTH read `ttps://apply.uga.edu/apply/`. UGA typed a broken URL. The engine silently **repaired** it to `https://` — a fabrication relative to the page, and one nothing in the catalog authorizes. |
+| 2 | ucf `aid_reporting_academic_year` | **GT_CORRECT** | The catalog splits that one box into two metrics; the engine put `2022-2023 Final` in the year field, double-counting a status that `aid_reporting_status` already owns. |
+| 3 | uga `aid_priority_date` | **GT_CORRECT** | Two separate Month/Day combo boxes, no separator printed. Caltech GT records `3/15` and UCF `2/15` off the identical template. `12 15` matches no printed form and no corpus precedent. |
+| 4 | uga `identity.state_or_region` | **GT_ERROR** | Engine is right. |
+
+So `wrong` is **14 genuine engine errors out of 15**, not 11. My "formatting dispute"
+framing was motivated reasoning — I was looking for cheap accuracy and pattern-matched
+four rows into a bucket that on inspection holds one. Worth naming: **the reflex to
+reclassify an error as a measurement artifact is exactly the reflex that corrupts a
+tuning loop**, and the only defence is adjudicating from the page image before
+believing myself. Recorded so the next instance distrusts that reflex.
+
+Finding 1 is independently interesting: the engine **corrected a typo in the source
+document.** That is a hallucination of the most dangerous kind, because the output is
+more "correct" than the truth and every provenance check passes.
+
+### The real find: AcroForm ComboBox export value != rendered label
+
+UGA `identity.state_or_region` GT says `GA`, sourced `"acroform"`. The widget is a
+**ComboBox** whose stored export value is `GA` and whose **rendered display label is
+`Georgia`**. The catalog says "copy exactly as printed", and what is printed — the only
+surface a human reader of the CDS sees — is `Georgia`.
+
+This is a flaw in the UGA GT *method*, not a one-off typo. D12 replaced §4's two
+independent reading passes for UGA with "one exact AcroForm extraction", on the
+reasoning that `pypdf.get_fields()` is bit-for-bit truth. It is bit-for-bit truth about
+**field contents**, which for text fields and checkboxes equals what is printed — but
+**for ComboBox widgets the export value and the display label can differ**, and the
+catalog asks for the display label. D12 traded away the pass that would have caught
+that. The corpus corroborates: every other document's GT records the printed full name
+(`California`, `New Hampshire`, `Florida`), and Cornell's `NY` is right only because
+that page literally prints "Ithaca, NY 14850".
+
+**Consequences, per §4 step 6 (GT is frozen; a suspected gt-error triggers a protocol
+re-run for that metric's section, never a hand-edit):**
+
+1. `identity.state_or_region` on UGA requires a re-seal. Not a hand-edit.
+2. **Every ComboBox-derived UGA GT entry must be audited** on the same grounds —
+   `STATE_CODE_AD`, and every `*_MON`/`*_DAY` date combo. This is a systematic class,
+   not one value.
+3. §4's sealing rule "(for the AcroForm doc) values match `pypdf.get_fields()`
+   bit-for-bit" is **wrong as written for ComboBox fields** and needs amending, or it
+   will re-manufacture this error on any future AcroForm document.
+
+Both are queued. Note the honest accounting: this makes the champion's accuracy
+marginally BETTER than measured (one `wrong` becomes `correct`) — but it also means
+some untold number of UGA ComboBox entries may be wrong in *either* direction, so I am
+not claiming the delta until the audit runs.
+
+## H14 autopsy — my "two code paths" explanation was WRONG, and the GT may be too
+
+I claimed UGA and Caltech take different evidence paths through H14 (UGA images-only
+via `_form_mark_pages`, Caltech PDF+images). **That is false and I should have checked
+it before writing it down.** The H14 batch carries 21 metrics including
+`h11_reply_weeks_after_notification` (integer) and two date fields, so
+`all(metric["type"] == "boolean")` is False and the images-only gate never fires.
+**Both documents take the identical path: narrowed PDF + `_c7_supplementary_images`,
+6 pages sent, 8692 prompt tokens — byte-for-byte the same batch shape on both.**
+
+The real asymmetry is in the *documents*, and it is sharper than my story:
+
+| | UGA | Caltech |
+|---|---|---|
+| H14 controls | 21 real AcroForm checkbox widgets, 3 with `V='/X'`, 18 with `AS='/Off'` | 0 AcroForm fields; boxes are static content-stream glyphs |
+| text layer at H14 | `☐` U+2610 × 39 — **one per cell, ticked and unticked alike**; the ticks live only in the widget `/AP` stream and never reach text | boxes are `U+0706` (garbage cmap) but the 3 ticks are real `U+2714` at correctly-mapped coordinates |
+| engine output | **3 findings, all `true`; 9 metrics omitted entirely** (no record, not even `not_reported`) | **20 findings; all 11 non-need-based `false`** |
+
+So on UGA the text layer says *every* box is empty and the image says three are ticked;
+the model emits the three it can see and **goes silent on the rest** rather than
+emitting `false`. On Caltech the text layer is garbage but the ticks are recoverable,
+and the model emits `false` for the unticked ones. Same evidence path, opposite
+behaviour, driven by whether the text layer contradicts the image.
+
+**150 DPI is not the bottleneck.** Row labels and box outlines are unambiguously
+legible at 150 DPI on both documents; 300 DPI adds nothing. That kills the
+resolution hypothesis outright — one lever eliminated for the price of a render.
+
+### The finding that matters most: Caltech's H14 ground truth is probably wrong
+
+Caltech's 11 `false` answers are scored as hallucinations because GT records those
+cells as `blank` — "no control present to select". The autopsy reports, with
+word-level coordinates, that **every one of those cells contains a visible bordered
+checkbox glyph** at x≈218.9 (Non-Need-Based column), structurally identical to the
+cells at x≈308.9 whose three ticks are scored as correct.
+
+If a box is physically there and unticked, then by the same rule applied to UGA
+(`AS='/Off'` -> `present`, value `false`) Caltech's 11 are **`present` with value
+`false`** — and the engine is right on all 11.
+
+That would mean **11 of the 23 hallucinations are not hallucinations**, and the largest
+single error family in the corpus is a ground-truth defect.
+
+I am NOT recording that yet. Three reasons for caution, and they are the whole reason
+§4 freezes GT:
+
+1. This came from one subagent. §0 says distrust an assertion without independent
+   evidence, and "the GT is wrong and the engine was right all along" is precisely the
+   conclusion I would most like to be true — which is exactly when to slow down.
+2. Ledger entry "Ruling — Caltech H14: all 11 conflicts go to pass A" shows two
+   independent GT passes already disagreed here and an adjudicator ruled `blank`. A
+   third opinion that overturns a completed adjudication needs to be better-evidenced
+   than the adjudication was, not merely more recent.
+3. Changing ground truth in the direction that flatters the engine is the single most
+   corrupting move available in a tuning loop. If it happens it must happen through
+   §4's protocol and be legible as such in the ledger.
+
+So: a **blind re-read** is running now — a fresh adjudicator given the page, the
+catalog, and the three status definitions, and deliberately NOT told what the engine
+produced, what GT says, or that a dispute exists. If it independently reports boxes in
+the Non-Need-Based column, that is a genuine `gt-error` finding and the section
+re-seals per §4 step 6. If it reports bare whitespace, GT stands and the engine's 11
+`false` answers remain hallucinations.
+
+Either way the *engine* defect on UGA is confirmed and unaffected: 18 present-and-off
+checkbox widgets, and the model emits nothing for 9 of the 12 it has metrics for.
+**The engine does not report negatives.** That is real, architecturally confirmed via
+`/V` and `/AS`, and independent of how the Caltech question resolves.
+
+## Experiment 20 arm A (`--thinking-budget=-1`, Caltech) — INVALID as a headline, decisive on one point
+
+**2 failed calls**, so by the rule established at exp16 this is not a comparison and
+cannot crown or kill anything. Reporting it because one signal inside it is clean.
+
+| | champion (exp15) | arm A (auto) |
+|---|---|---|
+| accuracy | 94.98% | 94.44% |
+| coverage | 96.20% | 91.14% |
+| **hallucinated** | **11** | **0** |
+| wrong | 1 | 12 |
+| missed | 9 | 21 |
+| correct_abstention | 146 | **157** |
+| cost/doc | $0.0897 | **$1.855** |
+| latency/doc | 464.4s | **1821.1s** |
+| failed calls | 0 | **2** |
+
+**Cost and latency are catastrophic and that part needs no further measurement.**
+$1.855/doc is **20.7x the $0.10 target and 12x the $0.15 floor**. 1821s is **5x the
+360s floor**. An automatic thinking budget is disqualified on two §1 floors
+simultaneously, whatever it does for accuracy. Note this is only visible because the
+cost function was fixed first — before that change this run would have reported
+~$0.09 and looked free.
+
+**The clean signal: all 11 H14 hallucinations went to zero, and `correct_abstention`
+rose by exactly 11.** Those calls did not fail. The model, given room to deliberate,
+stopped emitting `false` for the H14 cells and abstained instead. Three wording
+changes could not move that family at all; reasoning moved all of it in one shot.
+
+**But there is a confound I cannot resolve yet, and it inverts the reading.** Arm A's
+11 abstentions score as `correct_abstention` *only because GT records those cells as
+`blank`*. If the blind re-read now running finds the boxes are physically present —
+which the H14 autopsy's word-level coordinates suggest — then GT is wrong, the
+champion's 11 `false` answers were right all along, and **arm A did not fix 11
+hallucinations, it converted 11 correct answers into 11 misses.** The same run is
+either the best result of the session or a regression, depending on a fact I do not
+yet have. I am not scoring it until that lands.
+
+**The regression that is real either way: `wrong` went 1 -> 12.** Eleven new errors,
+and eight of them are dates — `application_closing_date_fall`, `decision_by_date`,
+`early_action_closing_date`, `early_action_notification_date`, `reply_deadline`,
+`transfer_closing_date_fall`, `transfer_notification_date_fall`,
+`transfer_reply_date_fall` — plus `cost_academic_year` and two `special_study_*`.
+Reasoning made the model *worse* at copying dates off a page. That is worth
+understanding rather than dismissing: it is the first evidence in this loop that
+deliberation actively harms a metric family, and a plausible mechanism is that a
+thinking model reconciles or normalizes a date it should simply transcribe. Queued
+for autopsy.
+
+Of the 12 extra misses, ~18 of the 21 total sit in `class_size` (15 consecutive
+`class_sections_*`/`class_subsections_*`) and `faculty` (3 `ratio_basis_*`/
+`students_per_faculty`) — the exact shape of two dead calls, matching `run_errors: 2`.
+Not a coverage finding.
+
+**Next:** arm B (`--thinking-budget=1024`) is running. The question it answers is
+whether a *capped* budget buys the H14 behaviour change without the 20x cost — arm A
+burned an unbounded budget, and 1024 tokens x 23 calls is ~$0.035 of thinking, which
+would land near $0.125/doc: inside the floor, outside the target.
+
+## RETRACTION — I contaminated the blind re-read, and the GT was right all along
+
+The blind re-read came back `high` confidence: all 11 Caltech H14 Non-Need cells are
+`present`/`false`, GT is wrong, the engine was right. It proved, with vector-path
+geometry, that Caltech's H14 boxes sit at **byte-identical coordinates to UGA's**
+(`218.2, 364.7, 9.5, 9.5, stroke, w=1.0` in both files) and that every Non-Need box
+interior is pure white (`dark_px=0/1681`) at 2400 DPI. That part is solid new fact:
+**the controls are physically present and unticked.** Uncontested.
+
+**But the conclusion I drew from it is wrong, because I wrote the prompt that produced
+it.** My brief handed the reader this as settled protocol:
+
+> "For a checkbox, a ticked box is `present` with value `true`, and **an UNTICKED box
+> is also `present`, with value `false`** — the box being there and left empty IS the
+> recorded answer"
+
+The crux question was *precisely whether that generic rule governs H14*. I asserted the
+answer in the setup and then treated the echo as independent confirmation. The reader
+even flagged the seam in its own §6 — "I'd want that clarified only if the corpus
+protocol is secretly widget-based" — and I would have read straight past it.
+
+**The catalog explicitly overrides the generic rule for H14**, and says so in every one
+of the twelve metric definitions:
+
+> "Return true only when the ... control is **visibly selected**. Every H14 cell is
+> independent of every other cell; **a blank cell in this or any other visible H14
+> coordinate is not_reported, never false**, and must not be inferred from another
+> cell."
+
+"A blank cell in a **visible** H14 coordinate" is exactly the case at hand: the
+coordinate is visible (the box is drawn), and it is blank (unticked). The catalog says
+report `not_reported`. The original adjudication (ledger: "all 11 conflicts go to pass
+A") reasoned from this text and **was correct**. Pass B applied the general rule; the
+general rule is subordinate to a metric's own `instructions`.
+
+So, restoring the record:
+
+- **Caltech GT stands.** No re-seal. Nothing to change.
+- **The champion's 11 H14 `false` answers ARE hallucinations.** Accuracy stays 97.16%.
+- **exp20 arm A's abstention on all 11 was CORRECT**, and is a genuine result rather
+  than a scoring artifact.
+
+### The methodological failure, named
+
+I set out to test "is the GT wrong?" and built an instrument that could only answer
+yes. The prior ledger entry even warned about this exact direction — *"pass B's reading
+would ALSO have made an engine that emits `false` look correct on all 11, which is the
+more dangerous direction"* — and I walked into it anyway, one session later, with more
+elaborate evidence.
+
+Three rules out of this, and the third is the one that generalises:
+
+1. **A blind read must not be handed the disputed premise.** Give the reader the page,
+   the catalog, and the question. Never the answer key's contested clause.
+2. **When a subagent hedges, read the hedge.** The §6 "what would change my mind"
+   section contained the refutation of its own §5.
+3. **Rendered pixels answer "what is on the page", never "what should be recorded".**
+   Status is a question about the *catalog*, and no amount of DPI resolves it. I
+   escalated 300 -> 900 -> 1200 -> 2400 DPI chasing a question that was never optical.
+
+Filed as a standing caution: **the single most corrupting move available to this loop
+is editing ground truth toward the engine, and it will always arrive dressed as new
+evidence.** It nearly landed here, with geometry and ink-density sampling attached.
+
+### What survives, and it is the most valuable finding of the session
+
+The physical fact is new and it sharpens exp20 enormously. The H14 boxes are drawn,
+unticked, and identical to UGA's. So the model is not misreading the page — it reads it
+correctly and then applies the *wrong rule*, emitting `false` where the catalog demands
+`not_reported`. Three wording changes could not move that.
+
+**Giving it a reasoning budget moved all eleven.** That is the first time in this loop
+that a model-capability lever beat a prompt lever, and it means the residual error is
+genuinely instruction-following, exactly where the final report guessed — but reachable
+after all, and not needing the human decision that report asked for.
+
+The open question is now purely economic: arm A bought this at **20.7x cost and 3.9x
+latency**. Arm B (1024-token cap) is measuring whether the same behaviour is available
+at ~$0.125/doc.
+
+## Experiment 20 arm B, first attempt — INVALID (21 of 23 calls failed)
+
+`findings=28 calls=23 cost_usd_estimate=0.007841 duration_s=1311.7`
+
+`run_errors: 21` — **15x `ReadError: SSL UNEXPECTED_EOF` + 6x `WriteTimeout`**, and
+`thoughts_tokens: 0` summed across the two calls that survived. The thinking budget was
+never exercised, so this measures nothing about the hypothesis. Transport weather, same
+signature as exp18. Re-running rather than averaging, per the standing rule.
+
+This is now the **second** run destroyed by `SSL UNEXPECTED_EOF` (exp18: 11 failures;
+this one: 15). Two occurrences is a pattern worth naming even if I do not chase it:
+long-running, large-payload calls against this endpoint drop responses under some
+condition I have not isolated. Filed. It does not change any conclusion so far, because
+the rule "check `run_errors` before believing any number" has caught it every time.
+
+### The scorer bug filed in the final report just demonstrated itself
+
+Look at the two fitness tuples side by side — lexicographic on
+(accuracy, coverage, -cost, -latency):
+
+```
+champion    [94.98, 96.20, -0.089713,  -464.4]
+arm B (21 dead calls)  [89.29, 11.81, -0.007841, -1311.7]
+```
+
+On the cost axis `-0.007841 > -0.089713`: **the run where nothing happened WINS.** It is
+cheap precisely because 21 calls never ran. Today only coverage saves the comparison,
+and only because a human reads coverage first.
+
+This was on the "filed, not done" list in the final report as a theoretical hazard. It
+is not theoretical; it is one axis away from silently crowning a corpse. Being fixed
+now — invalid runs get a leading validity flag so they sort below every valid run on
+the first element, plus an explicit `valid` field and a loud banner in `summarize()`.
+Per §5 the scorer version bumps and persisted runs re-score, which is free.
+
+## Experiment 20 — VERDICT: lever 9 works, and cannot be afforded globally
+
+Arm B re-ran clean-ish (1 failed call, so still formally invalid, but the signal is
+unambiguous and sits in domains that did not fail):
+
+| | champion | arm B (budget 1024) | arm A (auto) |
+|---|---|---|---|
+| accuracy | **94.98%** | 92.69% | 94.44% |
+| coverage | **96.20%** | 87.76% | 91.14% |
+| **H14 hallucinations** | 11 | **11 — unchanged** | **0** |
+| total thoughts | 0 | 7,190 | **1,178,600** |
+| cost/doc | **$0.0897** | $0.1027 | $1.855 |
+| latency/doc | **464.4s** | 541.3s | 1821.1s |
+| failed calls | 0 | 1 | 2 |
+
+**A 1024-token budget does nothing for H14.** The behaviour change is not switched on
+by "any deliberation"; it needs a specific and large amount of it. Per-call thought
+usage shows how large:
+
+```
+arm A  financial_aid b2 [H10,H11,H12,H14,H15]  thoughts= 62,914  out=1434  lat=254.7s
+arm B  financial_aid b2                        thoughts< 1,211   (below top-6)
+```
+
+**The H14 batch needed ~63k thought tokens — $0.094 on that single call**, which is the
+entire per-document cost budget spent on one of twenty-three calls. That is why arm A
+cost $1.855: ~63k per call across the board.
+
+### Two things worth recording beyond the verdict
+
+**1. The automatic budget is not adaptive, it is a cap-seeker.** Look at the recurring
+figure: 62,914 thoughts on four separate calls, and 125,827 (≈2x) on two more. These
+are not the model choosing how hard to think; they are it running to a structural
+ceiling tied to `DEFAULT_MAX_OUTPUT_TOKENS = 65_535`. `thinking_budget=-1` on this model
+means "spend the maximum", not "spend what is needed".
+
+**2. A runaway failure mode I have not seen before.** `class_profile` b0 and b1 each
+burned **125,827 thought tokens to emit 18 output tokens**, at 840s and 1237s. The
+model thought itself to a standstill and returned essentially nothing. Any future use
+of an uncapped budget needs to expect this — it is not merely expensive, it can consume
+the whole call.
+
+### Where this leaves lever 9
+
+Global thinking is **rejected**: 12x the cost floor, 5x the latency floor. But it is the
+only thing in twenty experiments that has moved the H14 family, and the per-call data
+says the win is concentrated in exactly one batch. So the surviving question is
+**targeted** deliberation, and the arithmetic is now known rather than guessed:
+
+| budget applied to the H14 batch only | added cost/doc | projected cost/doc |
+|---|---|---|
+| 1,024 | $0.0015 | $0.091 — measured, no effect |
+| 8,192 | $0.012 | **$0.102** — inside target |
+| 16,384 | $0.025 | **$0.114** — inside floor |
+| 32,768 | $0.049 | $0.139 — inside floor, barely |
+| 62,914 (what arm A actually used) | $0.094 | $0.184 — **busts the floor** |
+
+The engine can express this without new plumbing: `batch_metrics` is already in scope at
+the `generate_structured` call site, and the engine already routes behaviour off hint
+membership (`_COLUMN_POSITION_HINTS`). So "batches that decide selection-state semantics
+get a deliberation budget" is the same shape as a mechanism already shipped.
+
+**exp21 is a budget sweep on the H14-bearing batch alone.** The open question is whether
+the behaviour flips somewhere at or below 32,768 — if it needs the full 63k, lever 9 is
+dead on cost and the H14 family stays unsolved.
+
+## Experiment 21 — targeted deliberation. The H14 family is SOLVED. The budget knob is not a knob.
+
+Routed the reasoning budget by hint: only a batch carrying `H14` gets it. Dry-run
+confirmed exactly one batch qualifies (`financial_aid` b2, hints H10,H11,H12,H14,H15) —
+1 of 23 calls.
+
+### Arm `--deliberation-budget=32768`, Caltech
+
+| | champion | exp20 arm A (global -1) | **exp21 (targeted 32768)** |
+|---|---|---|---|
+| accuracy | 94.98% | 94.44% | **99.52%** |
+| coverage | 96.20% | 91.14% | 88.61% |
+| **hallucinated** | 11 | 0 | **0** |
+| wrong | 1 | 12 | **1** |
+| missed | 9 | 21 | 27 |
+| total thoughts | 0 | 1,178,600 | **62,914** |
+| cost/doc | $0.0897 | $1.855 | **$0.1798** |
+| latency/doc | 464.4s | 1821.1s | 968.1s |
+| failed calls | 0 | 2 | **1** |
+
+**Accuracy 99.52% clears the §1 hard floor of 99.5%** — the first time in this loop
+anything has. All 11 H14 hallucinations gone, and `wrong` stayed at 1, so unlike exp20
+arm A this did NOT trade them for a new error family. The eight date regressions arm A
+produced are absent, which is exactly what targeting predicts: the date batches never
+got a budget, so they never got worse.
+
+**Formally invalid — 1 failed call** (`admissions` b2, 0 latency / 0 output), so it
+cannot be crowned. Needs a clean re-run. But the failure is in a batch untouched by the
+change, and it accounts for a large share of the 27 misses.
+
+### The finding that breaks my cost model: `thinking_budget` is a HINT, not a ceiling
+
+I set 32,768. The batch spent **62,914** — the identical figure it spent under
+`-1` (unbounded). Twice the budget I asked for, to the token.
+
+So the projected cost table I wrote one experiment ago is **wrong**, and wrong in the
+direction that matters:
+
+| budget requested | projected cost/doc | ACTUAL |
+|---|---|---|
+| 32,768 | $0.139 | **$0.1798** |
+
+`thinking_budget` on `gemini-3.1-flash-lite` does not cap spend. The model spends what
+it wants and bills for it. That kills the plan of dialling the budget down until it fits
+— **there may be no setting between "no effect" (1024) and "62,914 tokens".** The 8192
+arm now running is the test of exactly that, and it is the whole experiment: if 8192
+also spends 62,914, the knob does not exist.
+
+### Where this leaves §1
+
+At $0.1798 this **busts the $0.15 cost floor** (and 968s busts the 360s latency floor,
+though Caltech already did at 464s). So on a strict reading this config fails two floors
+to satisfy one. It is not automatically a champion, and I am not going to pretend the
+accuracy number alone settles it — §1's floors are constraints, not suggestions.
+
+But it reframes the whole problem honestly: **the accuracy target is achievable, and the
+blocker is now purely economic rather than "the model won't follow instructions".** The
+final report escalated this family to the user as a product question about whether the
+catalog rule was right. It wasn't a product question. It was a $0.09 reasoning bill on
+one call out of twenty-three.
+
+### Arm `--deliberation-budget=8192`, Caltech — CLEAN, and the H14 family is gone
+
+**0 failed calls. `valid: True`.** The first fully valid run of exp21.
+
+| | champion (exp15) | **exp21 delib-8192** | delta |
+|---|---|---|---|
+| accuracy | 94.98% | **99.56%** | **+4.58pp** |
+| coverage | 96.20% | **96.20%** | unchanged |
+| correct | 227 | 227 | unchanged |
+| wrong | 1 | 1 | unchanged |
+| missed | 9 | 9 | unchanged |
+| **hallucinated** | **11** | **0** | **-11** |
+| correct_abstention | 146 | 157 | +11 |
+| cost/doc | $0.0897 | $0.1840 | +$0.094 |
+| latency/doc | 464.4s | 522.6s | +58.2s |
+| failed calls | 0 | **0** | — |
+
+**This is as surgical as a change gets.** Every other bucket is identical, metric for
+metric. The only movement is the eleven H14 cells crossing from `hallucinated` to
+`correct_abstention` — precisely the family the change targeted, and nothing else
+touched. No collateral, no date regressions (which is what exp20's global budget cost),
+no coverage loss.
+
+Caltech accuracy **99.56% clears the §1 hard floor (99.5%)**, on the document that was
+the corpus's worst at 94.98%.
+
+### The knob does not exist — confirmed across four settings
+
+| `thinking_budget` on the H14 batch | thoughts actually spent |
+|---|---|
+| 1,024 (global, exp20 arm B) | < 1,211 — **no behaviour change** |
+| 8,192 | **62,914** |
+| 32,768 | **62,914** |
+| -1 (unbounded) | **62,914** |
+
+Identical to the token at every setting from 8,192 upward. `thinking_budget` on
+`gemini-3.1-flash-lite` is a **hint the model overshoots by 8x without hesitation**, not
+a ceiling. I also probed whether thinking scales with `max_output_tokens` — it does not
+(427 thoughts at max_out 4096, 8192, 16384 and 65535 alike on a control prompt). So
+there is no second knob behind the first.
+
+What this means practically: **the H14 fix has a fixed price of 62,914 thought tokens =
+$0.094/doc**, and the only remaining question is whether a budget *between* 1,024 and
+8,192 trips the behaviour without tripping the full spend. exp22 (4,096 and 2,048) is
+running to find that boundary. If the transition is a cliff rather than a ramp, $0.094
+is simply what correctness costs here.
+
+### Against §1, stated honestly
+
+| dimension | value | target | floor | verdict |
+|---|---|---|---|---|
+| accuracy | 99.56% | 100% | 99.5% | **clears floor** |
+| coverage | 96.20% | >=98% | 95% | above floor, under target |
+| hallucination | **0** | 0 | 0 | **MEETS TARGET** |
+| cost/doc | $0.1840 | <=$0.10 | <=$0.15 | **busts floor** |
+| latency/doc | 522.6s | <=240s | <=360s | **busts floor** |
+
+Two floors traded for two targets. Under §1's lexicographic ordering accuracy outranks
+cost and latency, but a floor is a constraint rather than a weight, so I will not claim
+this as champion on one document while it violates two of them. What is now established
+beyond doubt: **the hallucination target of zero is achievable**, and it was never the
+product question the final report escalated.
+
+## Experiment 22 — the budget transition is a CLIFF, not a ramp
+
+Two more Caltech runs, both clean (0 failed calls):
+
+| deliberation budget | thoughts on the H14 batch | H14 halluc | accuracy | cost/doc |
+|---|---|---|---|---|
+| 2,048 | **0** | 11 | 94.12% | $0.0895 |
+| 4,096 | **0** | 11 | 94.12% | $0.0895 |
+| 8,192 | **62,914** | **0** | **99.56%** | $0.1840 |
+| 32,768 | 62,914 | 0 | 99.52% | $0.1798 |
+| -1 | 62,914 | 0 | — | — |
+
+2,048 and 4,096 are byte-identical to each other and produce **literally zero thought
+tokens** — the model declines to think at all. 8,192 produces 62,914. There is nothing
+in between: `thinking_budget` on `gemini-3.1-flash-lite` is a **two-state switch**
+(off / 62,914) wearing the costume of a continuous allowance.
+
+So the H14 fix has one price on this control path — **$0.094/doc** — and no amount of
+tuning the number changes it.
+
+## Experiment 23 — `thinking_level`, the control I had not tried
+
+`types.ThinkingConfig` has a third field I ignored for two experiments:
+`thinking_level` (`MINIMAL` / `LOW` / `MEDIUM` / `HIGH`), which is the documented
+Gemini-3 control; `thinking_budget` is the legacy one. On a hard multi-constraint
+control prompt it reaches tiers the budget path cannot:
+
+```
+LOW    thoughts=127
+MEDIUM thoughts=521
+HIGH   thoughts=1050
+```
+
+Three orders of magnitude below 62,914. **But that control prompt is not evidence about
+the real batch** — the same prompt yields 427 thoughts under `thinking_budget=8192`,
+i.e. it fails to reproduce the 62,914 behaviour at all. A toy prompt cannot stand in for
+the real call here, and treating it as if it could is the `--domains` mistake in a new
+costume. Running `HIGH` and `MEDIUM` on the real Caltech document to find out.
+
+Note a real hazard the implementation caught: `ThinkingLevel` is a
+`CaseInSensitiveEnum` whose `_missing_` hook **warns and fabricates a placeholder
+member** instead of raising. A typo'd level would have silently meant "no thinking" and
+I would have measured a null result and believed it. The adapter now raises
+`CdsGeminiError` on an unrecognised level.
+
+### exp23 result — `thinking_level` is the SAME two-state switch
+
+| control | thoughts on the H14 batch | H14 halluc | accuracy | cost/doc |
+|---|---|---|---|---|
+| level `MEDIUM` | **0** | 11 | 94.12% | $0.0895 |
+| level `HIGH` | **62,914** | **0** | **99.56%** | $0.183971 |
+
+`HIGH` is byte-identical to `thinking_budget=8192` — same 62,914 thoughts, same
+227/1/9/0 buckets, same 99.56%, same $0.183971 to six decimals. (Another confirmation
+the engine is deterministic.) `MEDIUM` is byte-identical to the no-thinking runs.
+
+**Both controls are binary on this call.** Five settings tested on each side of the
+cliff across two independent APIs:
+
+```
+OFF  : budget 1024, 2048, 4096   level MINIMAL-equivalent, MEDIUM   -> 0 thoughts, 11 hallucinations
+ON   : budget 8192, 32768, -1    level HIGH                          -> 62,914 thoughts, 0 hallucinations
+```
+
+**Conclusion: $0.094/doc is the irreducible price of the H14 fix on this model.** There
+is no cheaper tier to find, and I am no longer looking for one — that is now a
+well-measured fact rather than an assumption, which is the difference between this and
+the earlier cost projection I got wrong.
+
+The control-prompt probe (LOW=127 / MEDIUM=521 / HIGH=1050) was **misleading and I
+should not have weighted it**. It suggested levels reach cheap tiers; on the real batch
+`HIGH` spends 62,914. A synthetic prompt does not reproduce the behaviour of a real
+call — the same lesson as the `--domains` trap in exp19, in a different costume. Probes
+scope a question; only a full run answers it.
+
+## Experiment 24 — the corpus run
+
+Running `--deliberation-level=HIGH` across all five tuning documents, sequentially (not
+in parallel: two runs this session were destroyed by SSL transport weather, and a
+polluted measurement is worse than a slow one). This is the §6 step 3 requirement — a
+config's number is its five-document aggregate, and everything above is one document.
+
+Predictions, from the per-document champion figures plus the measured +$0.094 and the
+knowledge that exactly one batch per document carries H14:
+
+- **Hallucinations 23 -> ~12.** The 11 Caltech H14 cells clear. The remaining 12 are the
+  H9/H10 invented-selection family and three singletons; `_DELIBERATION_HINTS` contains
+  only `H14`, so those should NOT move. If they move anyway, my model of the mechanism
+  is wrong.
+- **Accuracy 97.16% -> ~97.98%.** Corpus-wide this is a smaller jump than Caltech's
+  +4.58pp, because four of five documents have no H14 errors to fix.
+- **Coverage ~unchanged at 96.4%**, and every non-H14 bucket unchanged.
+- **Cost $0.0921 -> ~$0.186/doc — busts the $0.15 floor.**
+- **Latency +~60s/doc.**
+
+If the accuracy number lands near 97.98% rather than near 99.5%, then this fix — real
+and surgical as it is — **does not by itself reach the §1 accuracy floor corpus-wide**,
+and the honest headline is "one error family eliminated, floor still unmet". Writing
+that prediction down now so the result cannot be reinterpreted after the fact.
+
+## A GT contradiction between two sealed documents — and it is not a re-reading this time
+
+Cornell's exp24 run came back **byte-identical to the champion in every bucket**
+(238 correct / 2 wrong / 1 missed / 3 hallucinated, 97.94%, 99.59%) while cost went
+$0.08842 -> $0.183968 and latency 131.3s -> 230.2s. **It paid the full $0.095
+deliberation bill for literally zero change.** Every document carries exactly one H14
+batch, so every document pays, but only Caltech had H14 errors to fix.
+
+Chasing why led somewhere more important. H14 status across the five sealed GT files:
+
+| document | H14 statuses |
+|---|---|
+| cornell | 12 `blank` |
+| dartmouth | 11 `blank`, 1 `absent` |
+| caltech | 11 `blank`, 1 `absent` |
+| **ucf** | **12 `present`** |
+| **uga** | **12 `present`** |
+
+UGA and Caltech are in the same physical situation — verified independently, twice —
+yet their GT disagrees:
+
+| | physical state | GT status | GT `source` | GT `evidence` |
+|---|---|---|---|---|
+| uga `h14_academics_non_need_based` | drawn box, unticked (`AS=/Off`) | `present` / **False** | `acroform` | `ACADS_NN = None` |
+| caltech, same cell | drawn box, unticked | **`blank`** | — | `H14 table, Academics row / Non-Need Based column ...` |
+
+**Two sealed files apply opposite rules to the same catalog instruction.** One of them
+is wrong.
+
+### Why I believe this one, having just been burned by the opposite mistake
+
+I have to be careful here: this finding, like the last one, would flatter the engine
+(UGA's 9 H14 `missed` would become `correct_abstention`, lifting coverage). Last time I
+convinced myself of exactly that and was wrong because I had written the answer into the
+prompt. So, the differences that matter:
+
+1. **It is not a re-reading of pixels.** The physical facts are undisputed and identical
+   on both documents. What differs is only how two GT passes *recorded* the same thing.
+2. **It is an internal contradiction, not an external claim.** Two frozen artifacts of
+   this project disagree with each other. That is true regardless of what I want.
+3. **There is a documented causal mechanism for which one is defective.** UGA's evidence
+   string is `ACADS_NN = None` — a raw field dump, not a reading. Decision **D12**
+   replaced §4's two independent reading passes for UGA with mechanical AcroForm
+   harvesting. That shortcut maps `AS=/Off` -> `false`/`present` and **never reads the
+   metric's `instructions` at all**, so the H14 override could not have been applied.
+   Caltech went through the full two-pass-plus-adjudication route where the instruction
+   *was* read and ruled on.
+4. **This is the second defect from the same shortcut.** The first was
+   `identity.state_or_region` (`GA` vs `Georgia`, ComboBox export-vs-display). D12 is
+   now 2-for-2 on producing GT errors, which is itself the finding.
+
+### Handling it by the book
+
+§4 freezes GT and requires the full protocol for a suspected `gt-error` — never a
+hand-edit, and never my own say-so. An independent adjudicator is running now on UGA's
+H14 with: the catalog text, the raw widget states, and the three status definitions.
+
+Deliberately withheld from it: Caltech's ruling, the existence of a dispute, what the
+engine produced, and which answer helps anything. It is asked to reason from the
+specification and choose between "unticked = `present`/false" and "unticked = `blank`"
+on the strength of the YAML alone. If it independently lands on `blank`, UGA's GT is
+defective and its H14 section re-seals. If it lands on `present`/false, then **Caltech's
+adjudication is the wrong one** and the correction runs the other way — which would make
+exp21's entire 99.56% result an artifact.
+
+I do not know which way this goes, and that is the point of asking it this way.
+
+## UGA H14 adjudicated independently — GT is defective, and the fix HURTS the score
+
+The adjudicator (told nothing about Caltech, the dispute, the engine, or which answer
+helps anything) ruled **(B): an unticked H14 cell is `blank`**, high confidence. Its
+decisive argument is one I had missed — an in-catalog contrast case:
+
+> H12: "Return true only when the ... control is visibly selected, **and false only when
+> the complete visible H12 checklist is present and that named box is unambiguously
+> unmarked.**"
+>
+> H14: "Return true only when the ... control is visibly selected. Every H14 cell is
+> independent of every other cell; a blank cell in this **or any other visible** H14
+> coordinate is **not_reported, never false**."
+
+**The catalog demonstrably knows how to authorize false-closure — it does so explicitly
+for H12 — and pointedly declines to for H14.** Plus the `minority_status` carve-out
+("a template edition whose H14 table omits this row ... treats both cells as
+not_in_template_version") completes a deliberate three-way scheme: omitted row ->
+`absent`, present-but-unmarked -> `blank`, marked -> `true`, with **`false` having no
+reachable path at all.** Independent of Caltech, and agreeing with it.
+
+So **UGA's H14 GT is defective on 9 of 12 metrics**, and D12's AcroForm shortcut is the
+cause: it maps `AS=/Off` -> `false`/`present` mechanically and never reads the metric's
+`instructions`.
+
+### The same defect is in UCF — and it runs the other way
+
+UCF's H14 GT records 4 cells as `present`/`false` (Art, Athletics-need-based, Job
+skills, Religious affiliation) with evidence strings that describe unmarked boxes. Same
+defect, different provenance (UCF is not an AcroForm document, so this came from a
+reading pass that applied the general checkbox rule instead of the H14 override).
+
+**The net effect of correcting both is to make the engine look WORSE:**
+
+| | current | after re-seal | effect |
+|---|---|---|---|
+| uga: 9 unticked H14 | `present`/false; engine emits nothing -> **missed** | `blank`; engine emits nothing -> **correct_abstention** | coverage **up**, accuracy unchanged |
+| ucf: 4 unticked H14 | `present`/false; engine emits `false` -> **correct** | `blank`; engine emits `false` -> **hallucinated** | accuracy **DOWN** |
+
+Corpus accuracy moves 1298/1336 = 97.16% -> 1294/1336 = **96.86%**, and hallucinations
+23 -> 27.
+
+I am recording that plainly because it is the strongest evidence available that this
+correction is being made on the catalog's terms rather than the scoreboard's. The last
+GT hypothesis I chased would have handed the engine 11 free points and was wrong; this
+one costs it points and is right. **A GT correction that only ever helps the engine
+should be distrusted on sight; one that hurts it is at least not motivated reasoning.**
+
+UCF's H14 is a different template (two separate tables rather than one two-column grid),
+so it gets its own independent adjudication rather than an inherited ruling — running
+now. Nothing is re-sealed until it reports.
+
+### Consequence for exp21/exp24 that I need to be honest about
+
+If UCF re-seals to `blank`, then the deliberation fix — which makes the model **abstain**
+on unticked H14 cells — becomes *more* valuable, not less: UCF's 4 new hallucinations
+would be exactly the errors it prevents. But that must be measured after the re-seal,
+not asserted now, and every persisted run must be re-scored against the corrected GT
+before any comparison is made. Per §5's rule for scorer changes, which applies with more
+force to a ground-truth change.
+
+## exp24 partial (4 of 5) — and the result is ENTANGLED with the GT defect
+
+| document | champion acc / cov | exp24 acc / cov | delta | cost |
+|---|---|---|---|---|
+| cornell | 97.94 / 99.59 | 97.94 / 99.59 | **none** | $0.088 -> $0.184 |
+| dartmouth | 98.31 / 93.60 | 98.32 / 94.00 | +0.01 / +0.40 | $0.092 -> $0.188 |
+| uga | 96.60 / 94.19 | **96.94** / 94.19 | **+0.34** / — | $0.098 -> $0.193 |
+| ucf | 97.83 / 98.46 | **97.50 / 97.22** | **-0.33 / -1.24** | $0.093 -> $0.188 |
+
+At face value the fix helps UGA, does nothing for Cornell, and **hurts UCF**. Taken
+naively that reads as "inconsistent, probably not worth $0.095/doc".
+
+**That reading is wrong, and the reason is the GT defect I found an hour ago.**
+
+The deliberation makes the model **abstain** on unticked H14 cells. So:
+
+- **UCF**, whose GT currently (and defectively) records 4 unticked cells as
+  `present`/`false`: the champion emitted `false` and scored **correct**; the deliberating
+  engine abstains and scores **missed**. Hence -0.33 accuracy, -1.24 coverage.
+- Under the **corrected** GT (`blank`), those same four flip the other way: the
+  champion's `false` becomes a **hallucination** and the deliberating engine's abstention
+  becomes a **correct_abstention**.
+
+So the sign of the UCF delta is determined entirely by whether the GT bug is fixed
+first. **I am currently measuring a correct engine against an incorrect answer key, and
+the answer key is inconsistent between two documents in the same corpus.**
+
+> **No config can be crowned until the GT is self-consistent.** Comparing exp24 to the
+> champion right now is comparing two configs against a yardstick that contradicts
+> itself between UCF and Caltech.
+
+This also retroactively explains something I noted and shrugged at: the champion scores
+**11 hallucinations on Caltech and 0 on UCF for the identical behaviour** (emitting
+`false` for an unticked H14 cell). Not a document difference — a GT inconsistency. It
+was visible in the taxonomy table hours ago and I read straight past it.
+
+Order of operations from here, and it is not negotiable:
+1. Finish UCF's independent H14 adjudication (running).
+2. Re-seal UGA + UCF H14 per §4 step 6 — protocol, not hand-edit, with a ledger entry.
+3. **Re-score every persisted run** — champion and all exp2x — against corrected GT.
+4. Only then compare, and only then consider crowning.
+
+## exp24 — the 5-document aggregate (against CURRENT, still-defective GT)
+
+Caltech's exp24 run carried 1 failed call, so it is replaced by `exp23-level-high` —
+the identical config, clean, and the engine is deterministic (exp16). Same substitution
+precedent as Cornell in exp15. Aggregate is failure-free.
+
+| | champion (exp15) | **exp24 (delib HIGH)** | delta |
+|---|---|---|---|
+| accuracy | 97.16% | **97.96%** | **+0.80pp** |
+| coverage | 96.40% | 96.18% | -0.22pp |
+| correct | 1298 | 1296 | -2 |
+| wrong | 15 | 14 | -1 |
+| missed | 49 | 52 | +3 |
+| **hallucinated** | **23** | **13** | **-10** |
+| cost/doc | **$0.0921** | $0.1873 | +$0.095 |
+| latency/doc | **315.5s** | 339.8s | +24.3s |
+| failed calls | 0 | 0 | — |
+
+**The prediction I recorded before the run was 97.98% accuracy and ~12 hallucinations.
+Measured: 97.96% and 13.** That is the first time this session a numeric prediction has
+landed — my model of the mechanism is right, which matters more than the number.
+
+Per-document, the fix is worth what the document's H14 defect is worth: Caltech
++4.58pp, UGA +0.34, Dartmouth +0.01, Cornell exactly nothing, **UCF -0.33**. Four of
+five documents pay $0.095 for approximately nothing, and one pays it for a large win.
+
+Note latency: **339.8s/doc, inside the 360s floor** — better than I feared, because the
+deliberating call runs concurrently with 22 others and is not always the critical path.
+Cost is the binding constraint, not latency.
+
+### Why this still cannot be crowned
+
+Two reasons, and the second is the serious one:
+
+1. **Cost $0.1873 busts the $0.15 floor** by 25%.
+2. **The yardstick is broken.** UCF's -0.33 is an artifact of UCF's defective H14 GT, and
+   Caltech's +4.58 is measured against a GT that applies the opposite rule. Until UGA and
+   UCF re-seal, this table compares two configs against an answer key that contradicts
+   itself. The re-seal will move BOTH columns, and it will move the champion's column
+   further (the champion emits `false` on UCF's four cells and would gain 4
+   hallucinations; exp24 abstains and would gain 4 correct_abstentions).
+
+So the honest expectation after re-seal is that **exp24's advantage grows**, because the
+whole point of the fix is the behaviour the corrected GT rewards. I am writing that
+prediction down now, before the re-seal, so it is falsifiable rather than a
+post-hoc rationalisation of whatever comes out.
