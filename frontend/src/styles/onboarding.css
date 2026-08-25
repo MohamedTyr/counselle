@@ -15,7 +15,11 @@
 
 :root {
   --onboarding-page-background: var(--shell-background);
-  --onboarding-frame-surface: var(--workspace-surface);
+  /* Raised, not --workspace-surface. The frame, the page behind it and the
+   * caption beside it were three named tokens all resolving to --canvas, so
+   * the onboarding "card" was the same colour as the page it floated on and
+   * only its border said otherwise. */
+  --onboarding-frame-surface: var(--surface-raised);
   --onboarding-form-surface: var(--workspace-surface-raised);
   --onboarding-caption-surface: var(--workspace-surface);
   --onboarding-border: var(--workspace-border);

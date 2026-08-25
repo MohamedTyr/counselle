@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/workspace/PageHeader";
+import { PageContainer } from "@/components/workspace/PageContainer";
 import { DocumentsSection } from "@/features/profile/DocumentsSection";
 import { MemoriesSection } from "@/features/profile/MemoriesSection";
 import { ProfileSectionCard } from "@/features/profile/ProfileSectionCard";
@@ -156,89 +156,78 @@ export function ProfileRoute() {
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6 md:px-10">
-      <PageHeader
-        actions={
-          <>
-            <GuidedSetupAction />
-            <SaveStatus
-              failedSaves={failedSaves}
-              hasSaved={hasSaved}
-              onRetryFailed={retryFailedSaves}
-              pendingCount={pendingCount}
-            />
-          </>
-        }
-        title="Profile"
-      />
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm text-[var(--profile-field-label)]">
-            Your application context, in your own words.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Add what you know now. Every field is optional and saves when you
-            move on.
-          </p>
-        </div>
+    <PageContainer
+      actions={
+        <>
+          <GuidedSetupAction />
+          <SaveStatus
+            failedSaves={failedSaves}
+            hasSaved={hasSaved}
+            onRetryFailed={retryFailedSaves}
+            pendingCount={pendingCount}
+          />
+        </>
+      }
+      subtitle="Your application context, in your own words. Every field is optional."
+      title="Profile"
+      width="wide"
+    >
+      <Tabs defaultValue="profile" className="w-full gap-5">
+        <TabsList className="w-full justify-start sm:w-fit">
+          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="profile">
+            Profile
+          </TabsTab>
+          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="documents">
+            Documents
+          </TabsTab>
+          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="memory">
+            Memory
+          </TabsTab>
+        </TabsList>
 
-        <Tabs defaultValue="profile" className="w-full gap-5">
-          <TabsList className="w-full justify-start sm:w-fit">
-            <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="profile">
-              Profile
-            </TabsTab>
-            <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="documents">
-              Documents
-            </TabsTab>
-            <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="memory">
-              Memory
-            </TabsTab>
-          </TabsList>
-
-          <TabsPanel value="profile">
-            {profileQuery.isLoading ? (
-              <ProfileSkeleton />
-            ) : profileQuery.isError ? (
-              <Empty className="border border-[var(--profile-section-border)] bg-[var(--profile-section-surface)]">
-                <EmptyHeader>
-                  <EmptyTitle>We couldn’t load your profile</EmptyTitle>
-                  <EmptyDescription>
-                    Your saved information is still safe. Try loading it again.
-                  </EmptyDescription>
-                </EmptyHeader>
-                <Button
-                  onClick={() => void profileQuery.refetch()}
-                  size="sm"
-                  variant="outline"
-                >
-                  Try again
-                </Button>
-              </Empty>
-            ) : (
-              <Accordion
-                className="w-full overflow-hidden rounded-xl border border-[var(--profile-section-border)] bg-[var(--profile-section-surface)]"
-                defaultValue={["basics"]}
-                multiple
+        <TabsPanel value="profile">
+          {profileQuery.isLoading ? (
+            <ProfileSkeleton />
+          ) : profileQuery.isError ? (
+            <Empty className="border border-[var(--profile-section-border)] bg-[var(--profile-section-surface)]">
+              <EmptyHeader>
+                <EmptyTitle>We couldn’t load your profile</EmptyTitle>
+                <EmptyDescription>
+                  Your saved information is still safe. Try loading it again.
+                </EmptyDescription>
+              </EmptyHeader>
+              <Button
+                onClick={() => void profileQuery.refetch()}
+                size="sm"
+                variant="outline"
               >
-                {PROFILE_SECTIONS.map((section) => (
-                  <ProfileSectionCard
-                    config={section}
-                    key={section.key}
-                    onFieldCommit={handleFieldCommit}
-                    value={getAtPath(profileQuery.data, [section.key])}
-                  />
-                ))}
-              </Accordion>
-            )}
-          </TabsPanel>
-          <TabsPanel value="documents">
-            <DocumentsSection />
-          </TabsPanel>
-          <TabsPanel value="memory">
-            <MemoriesSection />
-          </TabsPanel>
-        </Tabs>
-      </div>
-    </div>
+                Try again
+              </Button>
+            </Empty>
+          ) : (
+            <Accordion
+              className="w-full overflow-hidden rounded-xl border border-[var(--profile-section-border)] bg-[var(--profile-section-surface)]"
+              defaultValue={["basics"]}
+              multiple
+            >
+              {PROFILE_SECTIONS.map((section) => (
+                <ProfileSectionCard
+                  config={section}
+                  key={section.key}
+                  onFieldCommit={handleFieldCommit}
+                  value={getAtPath(profileQuery.data, [section.key])}
+                />
+              ))}
+            </Accordion>
+          )}
+        </TabsPanel>
+        <TabsPanel value="documents">
+          <DocumentsSection />
+        </TabsPanel>
+        <TabsPanel value="memory">
+          <MemoriesSection />
+        </TabsPanel>
+      </Tabs>
+    </PageContainer>
   );
 }

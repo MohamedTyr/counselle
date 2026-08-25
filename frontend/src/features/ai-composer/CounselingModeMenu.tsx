@@ -1,7 +1,7 @@
 import {
   AtSign,
   ChevronDown,
-  MessageSquareText,
+  Crosshair,
   MessagesSquare,
   Search,
 } from "lucide-react";
@@ -50,7 +50,7 @@ function ModeIcon({ className, mode, trigger = false }: ModeIconProps) {
       return <MessagesSquare {...iconProps} />;
     case "focused-answer":
     default:
-      return <MessageSquareText {...iconProps} />;
+      return <Crosshair {...iconProps} />;
   }
 }
 

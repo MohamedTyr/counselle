@@ -7,150 +7,121 @@
  * semantic.css. Ramps are named by scale position, never by usage — this
  * file has no idea what a "sidebar" or "danger banner" is.
  *
- * All ramps are OKLCH. --neutral is true achromatic (C 0); --sand is its
- * warm counterpart (see below) for the page ground and the soft edges that
- * sit on it; --stone is the warm ramp the sidebar chrome is built from,
- * spanning surface all the way down to ink.
+ * All ramps are OKLCH. FOUR ramps ship: one neutral (--gray) and three
+ * status hues, plus the brand. That is the entire palette.
  */
 
 :root {
-  /* ---- neutral — true gray, chroma 0. Canvas, ink, chrome, edges. ---- */
-  --neutral-0: oklch(100% 0 0);
-  --neutral-25: oklch(99% 0 0);
-  --neutral-50: oklch(97.5% 0 0);
-  --neutral-100: oklch(95.5% 0 0);
-  --neutral-150: oklch(93% 0 0);
-  --neutral-200: oklch(89% 0 0);
-  --neutral-300: oklch(82% 0 0);
-  --neutral-400: oklch(68% 0 0);
-  /* neutral-450: the M1b functional-border resting value. Computed with an
-   * OKLCH -> linear-sRGB -> WCAG contrast script, not eyeballed: L 0.62
-   * clears 3.64:1 against --surface-raised (white) and 3.19:1 against
-   * --surface-sunken — both real 3:1 passes with margin, replacing
-   * --neutral-500 (L 0.55, 4.26-4.85:1), which read as too heavy a form-
-   * control edge on a white card. See --edge-control in semantic.css. */
-  --neutral-450: oklch(62% 0 0);
-  --neutral-500: oklch(55% 0 0);
-  --neutral-550: oklch(52% 0 0);
-  --neutral-600: oklch(44% 0 0);
-  --neutral-700: oklch(35% 0 0);
-  --neutral-800: oklch(26% 0 0);
-  --neutral-850: oklch(21% 0 0);
-  --neutral-900: oklch(16.5% 0 0);
-  --neutral-950: oklch(11% 0 0);
-
-  /* ---- sand — the warm counterpart to --neutral. Same job (ground,
-   * soft fills, soft edges), a fraction of a chroma point off achromatic.
+  /* ---- gray — the ONE neutral ramp. Surfaces, borders and ink, all of it.
    *
-   * Three steps are exact, requested values rather than derived ones, and
-   * the ramp is built around them — each is annotated with the sRGB hex
-   * it renders, and those hexes are the contract:
+   * THREE RAMPS WERE MERGED INTO THIS ONE. --neutral (chroma 0, true grey),
+   * --sand (hue 49 at the top, 77 below it) and --stone (hue 85) each owned
+   * a slice of the app: neutral did borders and the sunken well, sand did
+   * the page ground and the chips on it, stone did the sidebar and every
+   * word of text. Forty distinct steps were in use between them.
    *
-   *   sand-25  #fdfbfa  the app ground
-   *   sand-75  #f7f7f6  quiet control fill (composer chips)
-   *   sand-200 #d7d2cb  the composer's edge
+   * They were tuned at three different times by eye, and the result is what
+   * this ramp exists to end: SEVEN near-white surfaces spanning five
+   * lightness points at SIX different hues, measured off the rendered page —
    *
-   * sand-100/-150 are the hover/active steps under sand-75; sand-300 is
-   * the one step past sand-200.
+   *   L 1.000  H 0      neutral-0    card / popover / document
+   *   L 0.989  H 49     sand-25      the page ground
+   *   L 0.982  H 85     stone-50     the sidebar rail
+   *   L 0.963  H 70     sand-90      the board's lane trough
+   *   L 0.955  H 0      neutral-100  the tab track, the "sunken" well
+   *   L 0.951  H 77     sand-100     the label chip
+   *   L 0.948  H 46.55  color-mix    a computed hover one-off
    *
-   * Two deliberate irregularities, both load-bearing:
+   * Adjacent pairs sit under a lightness point apart, so none of them reads
+   * as a STEP — but the hue swings up to 85 degrees between them, so they do
+   * read as a temperature change. That is the specific defect: the greys
+   * were not too many levels, they were too many colours. A cold grey tab
+   * track inside a warm card on a warm page looks like a smudge, not a
+   * level. Worse, the ramp jumped hue mid-stack (trough at 70, the well
+   * directly under it at 0), so depth and temperature disagreed.
    *
-   * Hue sits at 77 throughout EXCEPT sand-25, which is 49. At L 0.99 a
-   * chroma this small is barely a rumour, and only the red end of the
-   * warm band still registers as warm; by L 0.87 there is chroma enough
-   * to carry the tint and hue 77 keeps it a warm stone instead of
-   * drifting pink. One flat hue can serve one end or the other, not both.
+   * HUE IS FLAT AT 50 END TO END. Not a compromise between the three old
+   * hues — a choice. Hue barely registers at the top of the ramp (every
+   * candidate from 25 to 85 renders within a hair of #fdfbf9 at L 0.984),
+   * so the hue is decided by where it is actually visible, the middle and
+   * the bottom: at L 0.70 hue 25 gives #a99a99 (pink-grey), hue 85 gives
+   * #a49e92 (khaki), hue 50 gives #a89c94 — a warm taupe. Taupe is the one
+   * that belongs next to a wine brand at hue 15; khaki is 70 degrees off it
+   * and fights it. This is the house rule applied (tint the neutral toward
+   * the BRAND's hue, never "toward warm" by default), and it lands the
+   * ground within one degree of where --sand-25 already was, so the page
+   * the product already looks like does not move.
    *
-   * Chroma is therefore NOT monotonic across the top of the ramp
-   * (sand-25 is 0.0025, the darker sand-75 only 0.0015). That is what the
-   * requested pair actually is: the ground is a warm off-white, the chip
-   * fill is a near-neutral grey that only leans warm. Don't "fix" it by
-   * interpolating — it would move two colors that were picked by eye.
+   * CHROMA rises through the middle and tapers at both ends, which is what
+   * keeps the ramp reading as one material: 0.002 at the top where a tint
+   * would go pink, 0.016 at the border tier where the warmth has to survive
+   * next to saturated status chips, 0.009 at the ink end where more would
+   * make body text look brown.
    *
-   * This is the cream/sand band (hue 40-100), ruled out for the BRAND but
-   * not for the ground the brand sits on. Under the previous indigo brand
-   * (hue 278) that ground was very near a true complement, which made the
-   * accent read cooler and more deliberate. The brand is now --wine at hue
-   * 15 (see below), so the relationship is the opposite one: ground and
-   * accent are close neighbours on the warm side of the wheel, and the
-   * accent separates by chroma and depth instead — a near-achromatic
-   * off-white against a dark, saturated oxblood. Every functional
-   * (3:1-checked) border stays on --neutral; the sidebar's surfaces and ink
-   * run on --stone below. */
-  --sand-25: oklch(98.9% 0.0025 49);
-  --sand-75: oklch(97.55% 0.0015 77);
-  --sand-100: oklch(95.1% 0.0025 77);
-  --sand-150: oklch(92.1% 0.004 77);
-  --sand-200: oklch(86.6% 0.011 77);
-  --sand-300: oklch(78% 0.014 77);
-  /* sand-400 (#a49d94) is the one step past sand-300, added for the button
-   * family's hover/pressed edge (--edge-button-strong in semantic.css). It
-   * measures 2.67:1 on white and 2.59:1 on --sand-25 against sand-300's
-   * 2.00:1 / 1.94:1 — a real tone darker, so a secondary button's hover
-   * state is visible without its resting edge having to be heavy. Chroma
-   * keeps climbing with the ramp; hue stays 77 like every step below
-   * sand-25. Computed by an OKLCH -> linear-sRGB -> WCAG roundtrip, not
-   * eyeballed; re-run it if any surface it sits on moves. */
-  --sand-400: oklch(70% 0.016 77);
-
-  /* ---- stone — the warm neutral ramp: sidebar chrome surfaces at the top,
-   * the app's whole ink ladder at the bottom. One ramp for both, because
-   * the chrome family has to sit in one temperature — a warm rail carrying
-   * cold grey borders and cold grey secondary text just relocates the
-   * mismatch it was meant to fix.
+   * FOUR SURFACE STEPS, and only four. Their whole job is to make depth
+   * legible, so they are evenly spaced and they never swap order:
    *
-   * PROVENANCE. Every step below except stone-500 is an exact value taken
-   * from variant 1a ("Warm light · soft pills · quieter hierarchy") of the
-   * Sidebar Redesign design doc. That doc is the contract now; the previous
-   * ramp (hue drifting 68 -> 94, stone-50 at #f5f3f1) is superseded
-   * wholesale. Where 1a specifies a colour, this ramp carries it unrounded.
+   *   gray-25   raised   an object ON the page      (card, dialog, field)
+   *   gray-50   canvas   the page itself
+   *   gray-100  chrome   the sidebar rail
+   *   gray-150  inset    a well cut INTO a surface  (track, trough, chip)
    *
-   * Hue is FLAT at 85 across the whole ramp, and chroma is flat at 0.005
-   * across the surfaces and 0.01 across the inks. This is a real departure
-   * from how --sand is built (hue drift + non-monotonic chroma, tuned by
-   * eye) and it is not an oversight to "fix": 1a's neutrals are a single
-   * flat warm grey by design, and reintroducing a drift would pull the
-   * rail's inks off the doc's values.
+   * Every step below was computed with an OKLCH -> linear-sRGB -> WCAG
+   * script and checked for sRGB clipping, not eyeballed; the annotated
+   * hexes are the contract. Re-run the script if any step moves. ---- */
+  --gray-25: oklch(99.5% 0.002 50); /* #fffdfc  raised */
+  --gray-50: oklch(98.4% 0.004 50); /* #fcf9f7  canvas */
+  --gray-100: oklch(97.2% 0.005 50); /* #f9f5f3  chrome */
+  --gray-150: oklch(95.5% 0.006 50); /* #f4efed  inset */
+  /* The one step between `inset` and the first border tier: the pressed
+   * state of an inset control, and the only place a fourth near-white is
+   * allowed. It is not a surface level — nothing at rest is painted with
+   * it. */
+  --gray-200: oklch(93.5% 0.007 50); /* #eee8e5  inset, pressed */
+  /* Three border steps, and each answers a different question:
+   *   300  a divider WITHIN one surface (table rows, section rules)
+   *   400  the perimeter OF a surface (card, panel, table, menu)
+   *   500  that perimeter hovered/pressed, and the quiet button's edge
+   * A fourth, 600, is the only border held to a contrast bar: WCAG 1.4.11
+   * applies to the sole visible boundary of a bare form control, and 600
+   * clears it on every surface in the app (3.61 raised / 3.49 canvas /
+   * 3.37 chrome / 3.21 inset). Nothing else is allowed to borrow it —
+   * see the note on --edge-control in semantic.css for why a 3:1 stroke
+   * around anything that ISN'T an empty rectangle reads as a wireframe. */
+  --gray-300: oklch(90.5% 0.009 50); /* #e5deda  hairline */
+  --gray-400: oklch(86% 0.011 50); /* #d7cfcb  edge */
+  --gray-500: oklch(76% 0.014 50); /* #b9afa9  edge-strong */
+  --gray-600: oklch(62% 0.016 50); /* #8f847e  edge-control (3:1) */
+  /* Ink. Four tiers, measured against all four surfaces (raised / canvas /
+   * chrome / inset):
    *
-   * Contrast against stone-50 (#faf9f6, the rail), computed via an
-   * OKLCH -> linear-sRGB -> WCAG script, not eyeballed:
+   *   gray-900  ink            14.41  13.96  13.48  12.81
+   *   gray-800  ink-secondary   8.37   8.10   7.82   7.44
+   *   gray-700  ink-faint       5.45   5.28   5.10   4.85
+   *   gray-650  ink-disabled    2.64   2.56   2.47   2.35   (WCAG-exempt)
    *
-   *   stone-900  #24211c  15.19    stone-450  #83807a   3.75
-   *   stone-800  #2b2923  13.86    stone-400  #89867f   3.46
-   *   stone-700  #302d28  12.95    stone-350  #928f88   3.07
-   *   stone-600  #504d47   8.03    stone-300  #a6a39b   2.35
-   *   stone-550  #58554f   7.06
-   *   stone-500  #78756f   5.31
+   * Every non-exempt tier clears the 4.5:1 body floor on every surface,
+   * ink-faint with the least margin by design.
    *
-   * READ THIS BEFORE CONSUMING stone-350/-400/-450: they land at 3.07,
-   * 3.46 and 3.75:1, i.e. BELOW the 4.5:1 small-text floor every other ink
-   * tier in this codebase clears. They are 1a's own values for the group
-   * eyebrow, the account email line and the muted rail icons, and they are
-   * carried verbatim because the sidebar was specified exactly. They are
-   * sidebar-scoped on purpose — the app-wide --ink-* ladder in semantic.css
-   * does NOT resolve through them. Do not reach for them for workspace
-   * text.
-   *
-   * stone-500 (L 0.52) is the one step here with no 1a counterpart. It is
-   * the app's --ink-faint tier, kept from the previous ramp at its old
-   * lightness precisely so the workspace's faint text keeps clearing AA
-   * (5.31:1) while the rail follows the doc. */
-  --stone-50: oklch(98.2% 0.004 85); /* #faf9f6  rail surface */
-  --stone-75: oklch(95.5% 0.004 85); /* #f1f0ed  filter-field fill */
-  --stone-100: oklch(94.5% 0.005 85); /* #eeede9  nav row hover */
-  --stone-150: oklch(91.5% 0.005 85); /* #e4e3df  filter-field border */
-  --stone-200: oklch(90% 0.005 85); /* #dfdeda  rail border */
-  --stone-300: oklch(68% 0.01 85); /* #a6a39b  disabled ink (exempt) */
-  --stone-350: oklch(65% 0.01 85); /* #928f88  group eyebrow — see note */
-  --stone-400: oklch(62% 0.01 85); /* #89867f  email / placeholder */
-  --stone-450: oklch(60% 0.01 85); /* #83807a  muted rail icons */
-  --stone-500: oklch(52% 0.01 85); /* #78756f  app --ink-faint (AA-safe) */
-  --stone-550: oklch(45% 0.01 85); /* #58554f  nav row rest */
-  --stone-600: oklch(42% 0.01 85); /* #504d47  secondary / chat row */
-  --stone-650: oklch(35% 0.01 85); /* #454239  collapse control, hovered */
-  --stone-700: oklch(30% 0.01 85); /* #302d28  recent chat row */
-  --stone-800: oklch(28% 0.01 85); /* #2b2923  default ink */
-  --stone-900: oklch(25% 0.01 85); /* #24211c  strong ink / wordmark */
+   * THE OLD LADDER HAD FIVE TIERS AND ONE OF THEM WAS A DUPLICATE:
+   * --ink-secondary sat at L 0.42 and --ink-muted at L 0.45, three
+   * hundredths apart — a difference no reader has ever perceived, carried
+   * by two names that let components drift. There are four tiers now;
+   * --ink-muted is kept as an alias of secondary in semantic.css so the
+   * consumer contract survives, but there is only one value. */
+  --gray-650: oklch(70% 0.013 50); /* #a69c97  disabled (exempt) */
+  --gray-700: oklch(52% 0.014 50); /* #706762  faint */
+  --gray-800: oklch(42% 0.011 50); /* #524b48  secondary */
+  --gray-900: oklch(28% 0.01 50); /* #2d2825  ink */
+  --gray-950: oklch(25% 0.009 50); /* #25201e  strong / wordmark */
+  /* Pure white and pure black. Deliberately OUTSIDE the ramp and named for
+   * what they are, because neither is a surface: --gray-0 is the ink drawn
+   * ON a saturated fill (white on the brand button), --gray-1000 is the
+   * base a scrim is mixed from. Nothing in the app is painted white at
+   * rest — that is --gray-25's job, and the difference is the whole reason
+   * the app stopped having one cool object in every warm frame. */
+  --gray-0: oklch(100% 0 0);
+  --gray-1000: oklch(11% 0 0);
 
   /* ---- wine — the one committed brand hue (deep burgundy, hue 15). ----
    *
@@ -196,10 +167,8 @@
    * by a WCAG contrast script against white; the annotated hexes are the
    * contract. Re-run the script if any step moves. Chroma tapers at both
    * ends, where the red-band gamut narrows. */
-  --wine-25: oklch(96.5% 0.01 15); /* #faf1f1 */
   --wine-50: oklch(94% 0.019 15); /* #f8e6e7  brand-subtle (1a nav tint) */
   --wine-100: oklch(93% 0.024 15); /* #f8e2e3  avatar chip (1a) */
-  --wine-150: oklch(90% 0.032 15); /* #f3d6d7 */
   --wine-200: oklch(86% 0.045 15); /* #edc6c7  brand-subtle-border */
   --wine-300: oklch(75% 0.075 15); /* #d99b9f */
   --wine-400: oklch(60% 0.105 15); /* #b6646c  4.16:1 on white */
@@ -213,17 +182,37 @@
   --wine-ink-on-50: oklch(32% 0.07 15); /* #512227  10.91:1 on wine-50 */
   --wine-ink-on-100: oklch(40% 0.09 15); /* #703138   7.78:1 on wine-100 */
 
-  /* ---- plum — no longer the brand (see --wine above); retained as the
-   * essay task-category's wayfinding hue, which is the only thing that
-   * ever consumed it besides --brand-*. Three shades, because that's all
-   * a category chip needs (surface / border / ink) — the other eight were
-   * deleted rather than carried as dead ramp. */
-  --plum-50: oklch(96.5% 0.012 322);
-  --plum-200: oklch(84% 0.05 322);
-  --plum-700: oklch(36% 0.1 322);
-
-  /* ---- status ramps ---- */
-  /* leaf — success. Under the old ivy brand this ramp had to be separated
+  /* ---- status ramps ----
+   *
+   * THREE, and only three. This is the whole chromatic vocabulary of the app
+   * besides --wine above and the two neutral ramps: red means overdue or
+   * destructive, amber means waiting on someone, leaf means done. Each means
+   * exactly one thing on every screen.
+   *
+   * FIVE RAMPS WERE DELETED HERE, and the reasoning is worth keeping so they
+   * don't grow back:
+   *
+   *   --plum (322), --mauve (305), --teal (190), --slate (235) each existed
+   *   to tint exactly one of the seven task-category chips and appeared
+   *   nowhere else in the app. Twelve primitive steps for four pills on one
+   *   page. A category is a LABEL — the chip already says "Essay", and there
+   *   is no task in this product where you scan for the teal one — so the
+   *   categories now share one neutral chip and the hues have no consumer.
+   *
+   *   --blue (250), the --info role, went for a different reason: its four
+   *   consumers were the task status `doing`, the task category `interview`,
+   *   the school list type `Target` and the school status `Applying`. Three
+   *   of those are the ORDINARY state of a record. Colouring the default
+   *   state is what turned a task row into a rainbow — a task that is being
+   *   worked on already sits in the Doing lane, and a school you are
+   *   applying to is simply a school on your list. "In progress" is now
+   *   neutral, which leaves the three status hues to mean something.
+   *
+   * The consequence to respect: with blue gone, an ordered three-way scale
+   * (Reach/Target/Safety) can no longer borrow three categorical hues. That
+   * is the correct pressure — ordered data takes one hue at three
+   * intensities. See --school-balance-* in schools.css. */
+  /* leaf — done. Under the old ivy brand this ramp had to be separated
    * from the brand along three axes just to keep "green = done" readable
    * next to a green identity. Neither the indigo brand that replaced ivy
    * nor the current --wine brand (hue 15) comes near it, so that constraint
@@ -235,6 +224,16 @@
    * capped just inside the sRGB wall here — 0.14 at L 0.42 / hue 143 is
    * the last in-gamut step, so 0.13 leaves headroom. */
   --leaf-50: oklch(95.5% 0.036 143);
+  /* leaf-200 is the border step, added when the Schools verdict band gave
+   * --success-border its first real consumer (a Safety band needs the same
+   * tint+hairline treatment its Reach/Target siblings already get from
+   * --warning-border / --info-border). L 86% matches amber-200, red-200,
+   * and blue-200 exactly so the three verdict bands sit at one weight;
+   * chroma 0.075 lands it between amber's 0.09 and red's 0.07, which is
+   * where hue 143 needs to be to read as green rather than grey at this
+   * lightness. Comfortably in gamut — this ramp only hits the sRGB wall
+   * down at L 0.42. */
+  --leaf-200: oklch(86% 0.075 143);
   --leaf-600: oklch(51% 0.155 143);
   --leaf-700: oklch(42% 0.13 143);
 
@@ -254,22 +253,4 @@
    * (chroma tapers 0.18 -> 0.16 -> 0.13 as the ramp darkens, same as every
    * saturated ramp here). */
   --red-800: oklch(32% 0.13 25);
-
-  --blue-50: oklch(96% 0.02 250);
-  --blue-200: oklch(85% 0.06 250);
-  --blue-600: oklch(48% 0.14 250);
-  --blue-700: oklch(38% 0.11 250);
-
-  /* ---- task-category accent ramps (wayfinding only, not status) ---- */
-  --mauve-50: oklch(96% 0.02 305);
-  --mauve-200: oklch(86% 0.05 305);
-  --mauve-700: oklch(40% 0.1 305);
-
-  --teal-50: oklch(95.5% 0.025 190);
-  --teal-200: oklch(86% 0.06 190);
-  --teal-700: oklch(38% 0.08 190);
-
-  --slate-50: oklch(96% 0.008 235);
-  --slate-200: oklch(87% 0.02 235);
-  --slate-700: oklch(40% 0.03 235);
 }

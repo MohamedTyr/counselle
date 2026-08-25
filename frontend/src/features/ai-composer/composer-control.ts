@@ -19,7 +19,39 @@ const base =
 const states =
   "hover:!bg-[var(--workspace-composer-control-hover-surface)] hover:!text-[var(--workspace-composer-control-active-foreground)] data-pressed:!bg-[var(--workspace-composer-control-active-surface)] data-pressed:!text-[var(--workspace-composer-control-active-foreground)] data-popup-open:!bg-[var(--workspace-composer-control-active-surface)] data-popup-open:!text-[var(--workspace-composer-control-active-foreground)]";
 
-export const composerControlButtonClass = `h-8 px-2.5 text-[13px] font-medium tracking-[-0.01em] sm:h-8 ${base} ${states}`;
+/*
+ * Internal rhythm of a labelled chip, left to right:
+ *
+ *   10px | icon 16 | 6px | label | 4px | chevron 14 | 8px
+ *
+ * Three things this fixes over "px-2.5 + gap-1.5 and let the icons sit
+ * where they land":
+ *
+ *  - Button's global `[&_svg]:-mx-0.5` pulled 2px off BOTH icons, so the
+ *    6px gap rendered as 4px on either side of the label. A 16px glyph
+ *    4px from its own text reads as a collision, not a pairing; the
+ *    leading icon gets its margin zeroed so the 6px is real.
+ *  - The chevron was a second 16px icon at the same 80% ink as the mode
+ *    icon, so every chip carried two equal-weight glyphs and the one that
+ *    means something lost. It drops to 14px at 65% and tightens to 4px
+ *    from the label: it belongs to the value, it isn't a peer of it.
+ *    65% and not 60% because 60 composites to 2.94:1 against the chip
+ *    fill and a disclosure arrow is a UI component (1.4.11, 3:1); 65
+ *    measures 3.28:1.
+ *  - Padding is asymmetric (10 left / 8 right) because a chevron carries
+ *    its own optical whitespace — an equal 10px right inset measures the
+ *    same and looks larger.
+ *
+ * `sm:text-[13px]` is not redundant with `text-[13px]`: buttonVariants
+ * ships `sm:text-sm`, which is a different variant bucket, so it wins
+ * from 640px up and the chips silently rendered at 14px on every desktop.
+ * 13px is the point of the token — the composer input is 16px, and the
+ * chips have to read as secondary to it.
+ */
+const chipContents =
+  "gap-1.5 [&_[data-icon=inline-start]]:!mx-0 [&_[data-icon=inline-end]]:!-ml-0.5 [&_[data-icon=inline-end]]:!mr-0 [&_[data-icon=inline-end]]:!size-3.5 [&_[data-icon=inline-end]]:!opacity-65";
+
+export const composerControlButtonClass = `h-8 pr-2 pl-2.5 text-[13px] font-medium tracking-[-0.01em] sm:h-8 sm:text-[13px] ${chipContents} ${base} ${states}`;
 
 /* Icon-only variant of the same chip — square, no horizontal padding. */
 export const composerControlIconButtonClass = `size-8 ${base} ${states}`;

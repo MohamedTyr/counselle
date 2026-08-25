@@ -1,80 +1,35 @@
-import { ArrowDown, ArrowUp, ChevronDown, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { PageHeader } from "@/components/workspace/PageHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { useApplications } from "@/api/workspace/hooks";
 import { schoolFromApplication } from "@/domain/school";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { AddSchoolDialog } from "@/features/schools/AddSchoolDialog";
-import {
-  defaultSortState,
-  listTypeFilterOptions,
-  tableColumns,
-  viewFilterOptions,
-} from "@/features/schools/schools-config";
-import {
-  filterSchools,
-  matchesListTypeFilter,
-  matchesViewFilter,
-} from "@/features/schools/schools-filters";
-import { SchoolMobileList } from "@/features/schools/SchoolMobileList";
-import { SchoolsTable } from "@/features/schools/SchoolsTable";
-import { sortSchools } from "@/features/schools/schools-sort";
-import type {
-  ColumnId,
-  ListTypeFilter,
-  SortState,
-  ViewFilter,
-} from "@/features/schools/schools-types";
-import { useColumnLayout } from "@/features/schools/useColumnLayout";
+import { ExplorePanel } from "@/features/schools/explore/ExplorePanel";
+import { MyListPanel } from "@/features/schools/MyListPanel";
 import { WorkspaceScrollIndicator } from "@/features/schools/WorkspaceScrollIndicator";
 
-function FilterTabLabel({ label, count }: { label: string; count: number }) {
-  return (
-    <>
-      <span>{label}</span>
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {count}
-      </span>
-    </>
-  );
-}
+/*
+ * The Schools shell: two tabs over one data model.
+ *
+ * Explore browses every profiled school; My list is the application
+ * tracker. They answer different questions and so get different
+ * affordances (cards vs. a table) — see the note at the top of each panel.
+ * This file owns only the shell: the header, the tabs, the ⌘K dialog, and
+ * the legacy query-param redirect. Everything else moved into the panels.
+ */
 
-function DropdownOptionLabel({
-  label,
-  count,
-}: {
-  label: string;
-  count: number;
-}) {
-  return (
-    <span className="flex min-w-0 flex-1 items-center justify-between gap-4">
-      <span>{label}</span>
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {count}
-      </span>
-    </span>
-  );
-}
+type TabId = "explore" | "mylist";
+
+/** My list is the default: it is the returning student's workspace, and
+ *  Explore is somewhere you go on purpose. Explore is first in the tab
+ *  order because it is first in the journey. */
+const DEFAULT_TAB: TabId = "mylist";
 
 function SchoolsSkeleton() {
   return (
@@ -91,41 +46,16 @@ export function SchoolsPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const applications = useApplications();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [addSchoolOpen, setAddSchoolOpen] = useState(false);
-  const {
-    columnWidths,
-    handleColumnResizeKeyDown,
-    handleColumnResizeStart,
-    tableWidth,
-  } = useColumnLayout();
-  const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
-  const [listTypeFilter, setListTypeFilter] = useState<ListTypeFilter>("all");
-  const [sortState, setSortState] = useState<SortState>(defaultSortState);
   const activeSchoolId = searchParams.get("school");
+  const tab: TabId =
+    searchParams.get("tab") === "explore" ? "explore" : DEFAULT_TAB;
+
   const schools = useMemo(
     () => (applications.data ?? []).map(schoolFromApplication),
     [applications.data],
   );
-
-  const filteredSchools = useMemo(
-    () => filterSchools(schools, viewFilter, listTypeFilter),
-    [listTypeFilter, schools, viewFilter],
-  );
-  const sortedSchools = useMemo(
-    () => sortSchools(filteredSchools, sortState),
-    [filteredSchools, sortState],
-  );
-  const visibleSchoolsLabel =
-    filteredSchools.length === 1
-      ? "1 school shown"
-      : `${filteredSchools.length} schools shown`;
-  const activeViewFilter =
-    viewFilterOptions.find((option) => option.value === viewFilter) ??
-    viewFilterOptions[0];
-  const activeSortColumn =
-    tableColumns.find((column) => column.id === sortState.columnId) ??
-    tableColumns[0];
 
   useEffect(() => {
     if (activeSchoolId) {
@@ -149,54 +79,53 @@ export function SchoolsPage() {
     void navigate(`/app/schools/${schoolId}`);
   }
 
-  function handleColumnSort(columnId: ColumnId) {
-    setSortState((currentSortState) => {
-      if (currentSortState.columnId !== columnId) {
-        return { columnId, direction: "asc" };
-      }
-
-      return {
-        columnId,
-        direction: currentSortState.direction === "asc" ? "desc" : "asc",
-      };
+  /** The tab switch is the one navigation on this page that PUSHES — every
+   *  filter change replaces, so Back means "go back to the other tab"
+   *  rather than "undo one keystroke". */
+  function handleTabChange(value: unknown) {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("tab", String(value));
+      return next;
     });
-  }
-
-  function handleSortColumnSelect(columnId: ColumnId) {
-    setSortState((currentSortState) => {
-      if (currentSortState.columnId === columnId) {
-        return currentSortState;
-      }
-
-      return { columnId, direction: "asc" };
-    });
-  }
-
-  function handleSortDirectionToggle() {
-    setSortState((currentSortState) => ({
-      ...currentSortState,
-      direction: currentSortState.direction === "asc" ? "desc" : "asc",
-    }));
   }
 
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10"
+        className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10"
         ref={scrollAreaRef}
       >
+        {/* The brand-fill CTA, not `outline`. semantic.css budgets --brand for
+         * "the single next action" on a screen, and on the schools workspace
+         * that is unambiguously "add a school" — an empty or thin list is the
+         * only thing that makes the rest of the page inert. As an outline
+         * button it was the quietest mark in the header, which left the page
+         * with no marked next action at all. The `default` variant also carries
+         * --elevation-cta and the --brand-edge rim, so it reads as an object on
+         * the canvas rather than a flat wine rectangle — the deliberate
+         * difference from the sidebar's flat "New chat", which sits on a flat
+         * panel and has no elevation to earn. */}
         <PageHeader
           actions={
             <Button
               aria-keyshortcuts="Control+K Meta+K"
               onClick={() => setAddSchoolOpen(true)}
-              variant="outline"
             >
               <Plus data-icon="inline-start" />
               Add school
+              {/* aria-hidden: the shortcut is already announced by
+               * aria-keyshortcuts, and leaving it in the accessible name
+               * would rename the button to "Add school ⌘K". */}
+              <Kbd
+                aria-hidden="true"
+                className="ms-1 bg-[var(--on-brand-quiet)] text-current"
+              >
+                ⌘K
+              </Kbd>
             </Button>
           }
-          title="Application workspace"
+          title="Schools"
         />
 
         {applications.isLoading ? (
@@ -215,172 +144,41 @@ export function SchoolsPage() {
               </Button>
             </div>
           </div>
-        ) : schools.length === 0 ? (
-          <Empty className="rounded-xl border bg-card">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Plus />
-              </EmptyMedia>
-              <EmptyTitle>No schools yet</EmptyTitle>
-              <EmptyDescription>
-                Build your college list, then track deadlines, tasks, and essays
-                from one place.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button onClick={() => setAddSchoolOpen(true)}>
-                <Plus data-icon="inline-start" />
-                Add your first school
-              </Button>
-            </EmptyContent>
-          </Empty>
         ) : (
-          <>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                <Tabs
-                  aria-label="School list type filters"
-                  className="min-w-0"
-                  onValueChange={(value) =>
-                    setListTypeFilter(value as ListTypeFilter)
-                  }
-                  value={listTypeFilter}
-                >
-                  <TabsList className="w-full flex-wrap justify-start gap-y-1 sm:w-fit">
-                    {listTypeFilterOptions.map((option) => (
-                      <TabsTab
-                        className="sm:h-7 sm:px-2 sm:text-xs"
-                        key={option.value}
-                        value={option.value}
-                      >
-                        <FilterTabLabel
-                          count={
-                            schools.filter(
-                              (school) =>
-                                matchesViewFilter(school, viewFilter) &&
-                                matchesListTypeFilter(school, option.value),
-                            ).length
-                          }
-                          label={option.label}
-                        />
-                      </TabsTab>
-                    ))}
-                  </TabsList>
-                </Tabs>
+          <Tabs
+            aria-label="Schools views"
+            className="gap-5"
+            onValueChange={handleTabChange}
+            value={tab}
+          >
+            <TabsList className="w-full justify-start" variant="underline">
+              <TabsTab className="grow-0 text-base font-medium" value="explore">
+                Explore
+              </TabsTab>
+              <TabsTab className="grow-0 text-base font-medium" value="mylist">
+                My list
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {schools.length}
+                </span>
+              </TabsTab>
+            </TabsList>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between xl:justify-end">
-                  <span className="text-sm text-muted-foreground">
-                    {visibleSchoolsLabel}
-                  </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        aria-label="Choose application view filter"
-                        className="w-full justify-between sm:w-auto"
-                        variant="outline"
-                      >
-                        <span className="min-w-0 truncate">
-                          {activeViewFilter.label}
-                        </span>
-                        <ChevronDown data-icon="inline-end" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>View</DropdownMenuLabel>
-                      <DropdownMenuRadioGroup
-                        onValueChange={(value) =>
-                          setViewFilter(value as ViewFilter)
-                        }
-                        value={viewFilter}
-                      >
-                        {viewFilterOptions.map((option) => (
-                          <DropdownMenuRadioItem
-                            key={option.value}
-                            value={option.value}
-                          >
-                            <DropdownOptionLabel
-                              count={
-                                schools.filter((school) =>
-                                  matchesViewFilter(school, option.value),
-                                ).length
-                              }
-                              label={option.label}
-                            />
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 md:hidden">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-label="Choose school sort column"
-                          className="min-w-0 justify-between"
-                          variant="outline"
-                        >
-                          <span className="min-w-0 truncate">
-                            Sort: {activeSortColumn.label}
-                          </span>
-                          <ChevronDown data-icon="inline-end" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup
-                          onValueChange={(value) =>
-                            handleSortColumnSelect(value as ColumnId)
-                          }
-                          value={sortState.columnId}
-                        >
-                          {tableColumns.map((column) => (
-                            <DropdownMenuRadioItem
-                              key={column.id}
-                              value={column.id}
-                            >
-                              {column.label}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button
-                      aria-label={
-                        sortState.direction === "asc"
-                          ? "Sort ascending"
-                          : "Sort descending"
-                      }
-                      onClick={handleSortDirectionToggle}
-                      variant="outline"
-                    >
-                      {sortState.direction === "asc" ? (
-                        <ArrowUp data-icon="inline-start" />
-                      ) : (
-                        <ArrowDown data-icon="inline-start" />
-                      )}
-                      {sortState.direction === "asc" ? "Asc" : "Desc"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <SchoolsTable
-              columnWidths={columnWidths}
-              onColumnResizeKeyDown={handleColumnResizeKeyDown}
-              onColumnResizeStart={handleColumnResizeStart}
-              onOpenSchool={openSchool}
-              onSort={handleColumnSort}
-              schools={sortedSchools}
-              sortState={sortState}
-              tableWidth={tableWidth}
-            />
-
-            <SchoolMobileList
-              onOpenSchool={openSchool}
-              schools={sortedSchools}
-            />
-          </>
+            {/* Rendered conditionally rather than hidden: the Explore panel
+             * owns URL params, and a mounted-but-hidden panel would keep
+             * writing them while the student is reading My list. */}
+            <TabsPanel value="explore">
+              {tab === "explore" ? <ExplorePanel /> : null}
+            </TabsPanel>
+            <TabsPanel value="mylist">
+              {tab === "mylist" ? (
+                <MyListPanel
+                  onAddSchool={() => setAddSchoolOpen(true)}
+                  onOpenSchool={openSchool}
+                  schools={schools}
+                />
+              ) : null}
+            </TabsPanel>
+          </Tabs>
         )}
       </div>
       <WorkspaceScrollIndicator scrollAreaRef={scrollAreaRef} />

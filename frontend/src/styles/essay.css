@@ -14,6 +14,33 @@
   --essay-library-card-hover: var(--workspace-task-card-hover);
   --essay-library-card-border: var(--workspace-task-card-border);
   --essay-library-card-frame: var(--workspace-surface-raised);
+  /* --essay-library-card-plinth: the metadata strip under the paper.
+   *
+   * The card used to nest a second bordered Card inside the frame to fence
+   * the preview off from the metadata — and since --surface-raised and
+   * --document BOTH resolve to pure white, that inner border was the only
+   * thing separating them. Two boxes, one surface, no depth.
+   *
+   * This closes that with fill instead of a second stroke, but the fill has
+   * to stay a whisper. --surface-trough (L 0.951) was tried here first and
+   * is wrong at this scale: a lane well is a large recess you read as
+   * background, whereas a 98px strip at that lightness reads as a grey slab
+   * bolted to the bottom of every card, and it turns the whole card grey on
+   * an essay with nothing written in it yet. --surface-quiet (L 0.982) is
+   * one warm step off white — enough to seat the paper above it, not enough
+   * to become the thing you see first. The hairline under the paper does
+   * the rest of the separating. */
+  --essay-library-card-plinth: var(--surface-quiet);
+  /* Hover is a border step and nothing else — no shadow tier, no lift. The
+   * card keeps its resting --elevation-1 at every state. */
+  --essay-library-card-hover-border: var(--edge-strong);
+  /* Word-count track. --surface-sunken reads as a recessed groove against the
+   * plinth; the fill is the brand, because progress toward a word limit is
+   * the card's one genuinely quantitative signal and the accent is reserved
+   * for exactly that kind of state. Over-limit swaps to --danger-solid in
+   * EssayLibraryCard.tsx. */
+  --essay-library-progress-track: var(--surface-sunken);
+  --essay-library-progress-fill: var(--brand);
   --essay-editor-chrome-surface: var(--shell-background);
   --essay-editor-header-surface: var(--workspace-surface-raised);
   --essay-editor-header-border: var(--workspace-border-soft);

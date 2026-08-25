@@ -61,7 +61,7 @@ export function TaskBoard({
   return (
     <motion.div
       className={cn(
-        "grid min-h-[32rem] grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4",
+        "grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 2xl:grid-cols-4",
         selectionBox && "select-none",
       )}
       data-task-selection-surface
@@ -98,7 +98,7 @@ export function TaskBoard({
         {selectionBox?.hasDragged ? (
           <motion.div
             animate={reduceMotion ? undefined : { opacity: 1 }}
-            className="pointer-events-none fixed z-[var(--z-modal-backdrop)] rounded-md bg-ring/12"
+            className="pointer-events-none fixed z-[var(--z-modal-backdrop)] rounded-md bg-[var(--surface-selected)]"
             exit={reduceMotion ? undefined : { opacity: 0 }}
             initial={reduceMotion ? false : { opacity: 0 }}
             style={getSelectionStyle(selectionBox)}

@@ -105,14 +105,11 @@ function EssaysSkeleton() {
     <div
       className={cn(
         "grid gap-4",
-        "[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]",
+        "[grid-template-columns:repeat(auto-fill,minmax(248px,1fr))]",
       )}
     >
-      {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton
-          className="h-80 w-full max-w-xs justify-self-center"
-          key={index}
-        />
+      {Array.from({ length: 8 }, (_, index) => (
+        <Skeleton className="h-[15.5rem] w-full rounded-xl" key={index} />
       ))}
     </div>
   );
@@ -273,9 +270,7 @@ function NewEssayDialog({
 
   const submitDisabled =
     mode === "prompt"
-      ? isSavingPromptDraft ||
-        !selectedApplicationId ||
-        !draftPromptText.trim()
+      ? isSavingPromptDraft || !selectedApplicationId || !draftPromptText.trim()
       : isCreating ||
         isConvertingDraftPrompt ||
         (!!selectedApplicationId &&
@@ -844,8 +839,8 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
             {filteredEssays.length > 0 ? (
               <div
                 className={cn(
-                  "grid gap-4",
-                  "[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]",
+                  "grid items-stretch gap-4",
+                  "[grid-template-columns:repeat(auto-fill,minmax(248px,1fr))]",
                 )}
               >
                 {filteredEssays.map((essay) => (

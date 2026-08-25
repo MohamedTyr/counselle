@@ -1,6 +1,6 @@
 /*
  * Elevation — shadow scale + z-index scale. Zero literals (shadow colors
- * are color-mix() of semantic.css's --neutral-900 ink).
+ * are color-mix() of the --gray-900 ink step).
  *
  * The old shadow tokens were `color-mix(in oklch, var(--shell-background)
  * N%, transparent)` — that only read as a shadow while the shell was dark.
@@ -16,14 +16,14 @@
 :root {
   --elevation-0: none;
   --elevation-1:
-    0 1px 2px color-mix(in oklch, var(--neutral-900) 6%, transparent),
-    0 1px 1px color-mix(in oklch, var(--neutral-900) 4%, transparent);
+    0 1px 2px color-mix(in oklch, var(--gray-900) 6%, transparent),
+    0 1px 1px color-mix(in oklch, var(--gray-900) 4%, transparent);
   --elevation-2:
-    0 4px 12px color-mix(in oklch, var(--neutral-900) 10%, transparent),
-    0 2px 4px color-mix(in oklch, var(--neutral-900) 6%, transparent);
+    0 4px 12px color-mix(in oklch, var(--gray-900) 10%, transparent),
+    0 2px 4px color-mix(in oklch, var(--gray-900) 6%, transparent);
   --elevation-3:
-    0 16px 40px color-mix(in oklch, var(--neutral-900) 16%, transparent),
-    0 6px 16px color-mix(in oklch, var(--neutral-900) 10%, transparent);
+    0 16px 40px color-mix(in oklch, var(--gray-900) 16%, transparent),
+    0 6px 16px color-mix(in oklch, var(--gray-900) 10%, transparent);
 
   /* ---- CTA elevation — the solid primary button's cast shadow. Its own
    * pair rather than --elevation-1/-2 for one reason: a saturated object

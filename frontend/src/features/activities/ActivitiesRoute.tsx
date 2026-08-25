@@ -23,7 +23,7 @@ import type {
 } from "@/api/workspace/types";
 import { Button } from "@/components/ui/button";
 import { UndoToast } from "@/components/undo-toast";
-import { PageHeader } from "@/components/workspace/PageHeader";
+import { PageContainer } from "@/components/workspace/PageContainer";
 import {
   Empty,
   EmptyContent,
@@ -195,7 +195,7 @@ function ListError({
   onRetry: () => void;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-6">
+    <div className="rounded-xl border border-[color:var(--edge)] bg-[color:var(--surface-raised)] p-6">
       <div className="max-w-md space-y-3">
         <h2 className="font-heading text-lg font-medium">
           Could not load {label}
@@ -438,12 +438,21 @@ export function ActivitiesPage() {
   const handleActiveAdd = visibleTab === "activities" ? addActivity : addHonor;
 
   return (
-    <section className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10">
-        <PageHeader title="Activities" />
-
+    <PageContainer
+      overlay={
+        <UndoToast
+          onDismiss={dismissUndo}
+          onUndo={undoDelete}
+          pending={activityUndo.pending ?? honorUndo.pending}
+          reduceMotion={!!reduceMotion}
+        />
+      }
+      title="Activities"
+      width="wide"
+    >
+      <>
         <Tabs
-          className="mx-auto w-full max-w-4xl gap-5"
+          className="w-full gap-5"
           onValueChange={(value) =>
             setActiveTab(value as "activities" | "honors")
           }
@@ -500,7 +509,7 @@ export function ActivitiesPage() {
                 onRetry={() => void activitiesQuery.refetch()}
               />
             ) : activities.length === 0 ? (
-              <Empty className="min-h-56 rounded-xl border border-dashed bg-[var(--control-track)] py-12">
+              <Empty className="min-h-56 rounded-xl border border-dashed border-[color:var(--edge)] bg-[color:var(--activity-list-surface)] py-12">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <ListChecks aria-hidden="true" />
@@ -574,7 +583,7 @@ export function ActivitiesPage() {
                 onRetry={() => void honorsQuery.refetch()}
               />
             ) : honors.length === 0 ? (
-              <Empty className="min-h-48 rounded-xl border border-dashed bg-[var(--control-track)] py-10">
+              <Empty className="min-h-48 rounded-xl border border-dashed border-[color:var(--edge)] bg-[color:var(--activity-list-surface)] py-10">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <Award aria-hidden="true" />
@@ -624,44 +633,37 @@ export function ActivitiesPage() {
             )}
           </TabsPanel>
         </Tabs>
-      </div>
 
-      <ActivityDrawer
-        activity={activeActivity}
-        onDelete={deleteActivity}
-        onMove={moveActivity}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeActivity();
-          }
-        }}
-        onUpdate={updateActivity}
-        open={!!activeActivity}
-        position={activeActivityPosition}
-        total={activities.length}
-      />
+        <ActivityDrawer
+          activity={activeActivity}
+          onDelete={deleteActivity}
+          onMove={moveActivity}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeActivity();
+            }
+          }}
+          onUpdate={updateActivity}
+          open={!!activeActivity}
+          position={activeActivityPosition}
+          total={activities.length}
+        />
 
-      <HonorDrawer
-        honor={activeHonor}
-        onDelete={deleteHonor}
-        onMove={moveHonor}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeHonor();
-          }
-        }}
-        onUpdate={updateHonor}
-        open={!!activeHonor}
-        position={activeHonorPosition}
-        total={honors.length}
-      />
-
-      <UndoToast
-        onDismiss={dismissUndo}
-        onUndo={undoDelete}
-        pending={activityUndo.pending ?? honorUndo.pending}
-        reduceMotion={!!reduceMotion}
-      />
-    </section>
+        <HonorDrawer
+          honor={activeHonor}
+          onDelete={deleteHonor}
+          onMove={moveHonor}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeHonor();
+            }
+          }}
+          onUpdate={updateHonor}
+          open={!!activeHonor}
+          position={activeHonorPosition}
+          total={honors.length}
+        />
+      </>
+    </PageContainer>
   );
 }

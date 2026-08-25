@@ -62,7 +62,7 @@ function EvidenceRow({
   return (
     <li
       className={cn(
-        "rounded-lg border border-transparent bg-[var(--surface-sunken)] p-2.5 transition-colors duration-200 ease-out focus:outline-none",
+        "rounded-lg border border-transparent bg-[var(--surface-inset)] p-2.5 transition-colors duration-200 ease-out focus:outline-none",
         active && activeCardClasses,
       )}
       aria-current={active ? "true" : undefined}
@@ -96,7 +96,7 @@ function SourceAvatar({
 }) {
   const iconClasses = "size-3.5 shrink-0 text-muted-foreground";
   const frame =
-    "grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg border bg-[var(--surface-sunken)]";
+    "grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg border bg-[var(--surface-inset)]";
 
   if (isLegacySourceEntry(entry)) {
     return (
@@ -245,7 +245,7 @@ function SourcesRailHeader({
   onClose: () => void;
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-b-[color:var(--workspace-border)] bg-card/95 px-4 backdrop-blur-sm">
+    <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-b-[color:var(--workspace-border)] bg-[var(--surface-raised)] px-4">
       <h2
         className="text-sm font-semibold text-foreground focus:outline-none"
         ref={headingRef}
@@ -327,7 +327,11 @@ function SourcesRailPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <SourcesRailHeader count={count} headingRef={headingRef} onClose={onClose} />
+      <SourcesRailHeader
+        count={count}
+        headingRef={headingRef}
+        onClose={onClose}
+      />
       <ScrollArea
         className="sources-rail-scroll min-h-0 flex-1"
         scrollFade

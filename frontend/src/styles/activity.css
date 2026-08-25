@@ -40,7 +40,12 @@
 
 :root {
   --activity-list-surface: var(--workspace-task-lane-surface);
-  --activity-list-border: var(--workspace-border);
+  /* Transparent, like the task board's lane. This container is a TROUGH —
+   * its whole job is to hold the raised rows inside it — and a trough that
+   * also draws a rim is the nested-card shape: a rounded bordered box of
+   * bordered boxes, every one of them within four lightness points of the
+   * next. The recess carries the grouping on its own. */
+  --activity-list-border: transparent;
   --activity-row-surface: var(--workspace-task-card-surface);
   --activity-row-hover: var(--workspace-task-card-hover);
   --activity-row-border: var(--workspace-task-card-border);
@@ -50,7 +55,11 @@
   --activity-field-surface: var(--field-surface);
   --activity-control-hover: var(--workspace-surface-hover);
   --activity-control-border: var(--edge-control);
-  --activity-chip-surface: var(--workspace-surface-raised);
+  /* Inset, matching --school-filter-chip-surface. A chip is a quiet
+   * control cut into the surface behind it; drawing it RAISED on a raised
+   * row made it the one thing on the page shaped like a card that wasn't
+   * one. Two features had two answers for the same object. */
+  --activity-chip-surface: var(--control-quiet-surface);
   --activity-chip-hover: var(--workspace-surface-hover);
   --activity-chip-border: var(--workspace-border-soft);
   --activity-chip-selected-surface: var(--workspace-surface-active);

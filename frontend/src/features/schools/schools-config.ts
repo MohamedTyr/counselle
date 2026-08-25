@@ -52,22 +52,41 @@ export const listTypeFilterOptions: Option<ListTypeFilter>[] = [
   { value: "safety", label: "Safety" },
 ];
 
+/*
+ * Only the four statuses that are actually events get a colour. Submitted /
+ * Accepted / Enrolled are the done tier, Rejected is the one bad outcome,
+ * Deferred and Waitlisted are the "waiting on them" tier. Considering,
+ * Applying and Withdrawn are ordinary states of a row and take the neutral
+ * label chip — `Applying` was blue before the palette pass, which coloured
+ * the single most common state on the page.
+ */
 export const statusVariant: Record<ApplicationStatus, BadgeVariant> = {
-  Considering: "secondary",
-  Applying: "info",
-  Submitted: "success",
-  Deferred: "warning",
   Accepted: "success",
+  Applying: "secondary",
+  Considering: "secondary",
+  Deferred: "warning",
   Enrolled: "success",
   Rejected: "error",
+  Submitted: "success",
   Waitlisted: "warning",
   Withdrawn: "secondary",
 };
 
+/*
+ * The fit ladder is a label here, not a state. It was amber / blue / green,
+ * which made "Safety" the same green as an accepted application two columns
+ * over and "Reach" the same amber as a waitlist — and on an Explore card the
+ * amber Reach badge sat directly above an amber low-submission warning.
+ *
+ * The ladder is ordered data, so its colour lives where the order is
+ * legible: three intensity steps of the one brand hue on the list balance
+ * bar (--school-balance-* in schools.css). In a table cell or on a card
+ * corner the badge is alone in its column and the word does the work.
+ */
 export const listTypeVariant: Record<ListType, BadgeVariant> = {
-  Reach: "warning",
-  Target: "info",
-  Safety: "success",
+  Reach: "secondary",
+  Safety: "secondary",
+  Target: "secondary",
 };
 
 export const statusSortRank: Record<ApplicationStatus, number> = {

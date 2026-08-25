@@ -1,6 +1,6 @@
 /*
  * Workspace — chat shell surfaces, composer, dropdowns, pills.
- * --workspace-* (61 tokens) + --scrollbar-* (5 tokens), public contract
+ * --workspace-* (62 tokens) + --scrollbar-* (5 tokens), public contract
  * preserved. Resolves only through semantic.css — no primitives, no
  * literals.
  *
@@ -89,9 +89,36 @@
   --workspace-composer-skill-highlight-underline: var(--brand-subtle-border);
   --workspace-skill-picker-popup-width: 22rem;
   --workspace-surface-active: var(--surface-active);
-  --workspace-task-lane-surface: var(--canvas);
-  --workspace-task-card-surface: var(--surface-raised);
+  /* The board lane is a trough, not a card: it used to be --canvas inside a
+   * bordered, shadowed <Card>, which made an empty column read as a large
+   * empty card rather than as a place cards go. --surface-trough is a
+   * whisper-recessed warm step below the canvas, so the lane now separates
+   * by fill instead of by outline and its border goes away entirely (a
+   * recessed surface that also draws a rim reads as embossed). */
+  --workspace-task-lane-surface: var(--surface-trough);
+  --workspace-task-lane-border: transparent;
+  --workspace-task-card-surface: var(--surface-raised-soft);
+  /* Hover LIFTS, it does not darken. --surface-hover is the app's generic
+   * row-hover: 5% ink mixed into the canvas, i.e. L 0.948. That is the
+   * right answer for a menu row sitting on a white surface, and the wrong
+   * one here — the lane trough underneath is L 0.963, so darkening the
+   * card on hover pushed it 1.5 lightness points BELOW the tray it sits
+   * in and the card read as a hole. A card at the top of the ramp has
+   * only one direction left to move, so hover goes up: sand-25 -> white. */
   --workspace-task-card-hover: var(--surface-hover);
+  /* Warm rim, not --edge. --edge is neutral-200 at chroma 0, and a board
+   * card is the one place that grey line is surrounded on all sides by
+   * warm surfaces — sand trough behind it, sand fill inside it. It reads
+   * as a pencil outline. --edge-panel-soft sits in the same ramp as both
+   * surfaces it separates, one step quieter than the composer's rim
+   * because here it is the third separator rather than the only one. */
+  /* --edge, the one perimeter weight every container in the app uses. It
+   * was --edge-panel-soft (a hairline) on the argument that a card already
+   * a lightness step above its trough, and carrying a shadow, does not
+   * need a full rim. True in isolation, but it meant a task card and an
+   * Activities row and a Schools table drew three different perimeters for
+   * the same object. One weight; the trough and the shadow still do their
+   * share. */
   --workspace-task-card-border: var(--edge);
   --workspace-task-card-shadow: var(--elevation-1);
   --workspace-upcoming-task-card-surface: var(--surface-raised);
@@ -107,12 +134,13 @@
   --workspace-primary-foreground: var(--on-brand);
   --workspace-danger: var(--danger-solid);
   --workspace-danger-foreground: var(--danger-fg);
-  --workspace-info-pill-bg: var(--info-surface);
-  --workspace-info-pill-fg: var(--info-fg);
   --workspace-success-pill-bg: var(--success-surface);
   --workspace-success-pill-fg: var(--success-fg);
   --workspace-warning-pill-bg: var(--warning-surface);
   --workspace-warning-pill-fg: var(--warning-fg);
+  /* The "no particular state" pill, and where everything that used to be an
+   * info/blue pill now lands: a task that is `doing`, a school you are
+   * `Applying` to. See the --info deletion note in primitives.css. */
   --workspace-neutral-pill-bg: var(--neutral-surface);
   --workspace-neutral-pill-fg: var(--neutral-fg);
   --workspace-error-pill-bg: var(--danger-surface);

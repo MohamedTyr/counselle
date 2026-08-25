@@ -1,9 +1,8 @@
 import type { DragEvent, MouseEvent } from "react";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 
 import type { ApplicationView } from "@/api/workspace/types";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import type { Task, TaskStatus } from "@/domain/task";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { emptyTaskIdSet, laneThemeClass } from "@/features/tasks/task-config";
@@ -56,11 +55,13 @@ export function TaskColumn({
   const isDropTarget = dragOverColumn === column.id;
 
   return (
-    <Card
+    <section
+      aria-label={`${column.title}, ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`}
       className={cn(
         laneThemeClass[column.id],
-        "min-h-[29rem] overflow-hidden [border-color:var(--lane-border)] [background-color:var(--lane-surface)] transition-[background-color,border-color,box-shadow]",
-        isDropTarget && "border-[var(--focus-ring)] bg-[var(--surface-active)] shadow-sm",
+        "task-lane flex min-h-[17rem] flex-col rounded-2xl border border-[color:var(--lane-border)] bg-[color:var(--lane-surface)]",
+        isDropTarget &&
+          "border-[color:var(--lane-drop-border)] bg-[color:var(--lane-drop-surface)]",
       )}
       data-task-column={column.id}
       onDragLeave={(event) => {
@@ -71,25 +72,28 @@ export function TaskColumn({
       onDragOver={(event) => onDragOver(event, column.id)}
       onDrop={(event) => onDrop(event, column.id)}
     >
-      <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
-        <div className="min-w-0">
-          <div className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[color:var(--lane-border)] bg-[color:var(--lane-pill-bg)] px-2.5 text-sm font-medium text-[color:var(--lane-pill-fg)] shadow-[var(--elevation-1)]">
+      <div className="flex items-center justify-between gap-3 px-3.5 pt-3.5 pb-2.5">
+        <h2 className="flex min-w-0 items-center gap-2 text-[0.8125rem] leading-5 font-semibold tracking-[-0.006em] text-foreground">
+          <span
+            aria-hidden="true"
+            className="size-1.5 shrink-0 rounded-full bg-[color:var(--lane-dot)]"
+          />
+          <span className="truncate">{column.title}</span>
+          {tasks.length > 0 ? (
             <span
               aria-hidden="true"
-              className="size-2 rounded-full bg-[color:var(--lane-dot)]"
-            />
-            <span>{column.title}</span>
-            <span className="text-xs tabular-nums opacity-75">
+              className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md bg-[color:var(--lane-pill-bg)] px-1.5 text-[0.6875rem] font-semibold tabular-nums text-[color:var(--lane-pill-fg)]"
+            >
               {tasks.length}
             </span>
-          </div>
-        </div>
+          ) : null}
+        </h2>
         {column.id === "doing" && tasks.length > 2 ? (
           <Badge variant="error">Too full</Badge>
         ) : null}
       </div>
 
-      <div className="flex flex-1 flex-col gap-0 px-3 pt-2 pb-3 [&>[data-task-card-wrapper]+[data-task-card-wrapper]]:mt-3">
+      <div className="flex flex-1 flex-col gap-0 px-2.5 pb-2.5 [&>[data-task-card-wrapper]+[data-task-card-wrapper]]:mt-2.5">
         <AnimatePresence initial={false}>
           {tasks.map((task) => (
             <TaskCard
@@ -110,17 +114,20 @@ export function TaskColumn({
           ))}
         </AnimatePresence>
 
-        {tasks.length === 0 && column.id === "done" ? (
-          <div
+        {tasks.length === 0 ? (
+          <motion.p
+            animate={reduceMotion ? undefined : { opacity: 1 }}
             className={cn(
-              "flex min-h-32 flex-1 items-center justify-center rounded-xl border border-dashed bg-[var(--control-track)] p-4 text-center text-xs leading-5 text-muted-foreground transition-colors",
-              isDropTarget && "border-[var(--focus-ring)] bg-[var(--surface-active)]",
+              "task-lane-slot flex flex-1 items-center justify-center px-6 py-8 text-center text-xs leading-5 text-balance text-[color:var(--lane-muted)]",
+              isDropTarget && "text-[color:var(--lane-pill-fg)]",
             )}
+            initial={reduceMotion ? false : { opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           >
-            Finish one task to start today.
-          </div>
+            {column.description}
+          </motion.p>
         ) : null}
       </div>
-    </Card>
+    </section>
   );
 }

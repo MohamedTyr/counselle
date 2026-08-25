@@ -21,22 +21,38 @@ export const badgeVariants = cva(
         lg: "h-6.5 min-w-6.5 px-[calc(--spacing(1.5)-1px)] text-base sm:h-5.5 sm:min-w-5.5 sm:text-sm",
         sm: "h-5 min-w-5 rounded-[.25rem] px-[calc(--spacing(1)-1px)] text-xs sm:h-4 sm:min-w-4 sm:text-[.625rem]",
       },
+      /*
+       * Every variant resolves through semantic.css and nothing else.
+       *
+       * It used to resolve through `--task-*-pill-*` — the Tasks feature's
+       * private lane tokens — which meant the app-wide badge primitive was
+       * owned by one page, and every status pill on Schools, Essays,
+       * Activities and Profile took its colour from the task board. That
+       * inversion is the structural half of "every screen has its own set
+       * of colours"; the variants below are the fix.
+       *
+       * Three status hues and one label chip, which is the whole palette:
+       *   success  done · complete · submitted · ready
+       *   warning  waiting on someone · not ready · needs you
+       *   error    overdue · rejected · destructive
+       *   default / secondary  everything else — the neutral label chip
+       *
+       * There is no `info` variant. The blue it drew was applied to a task
+       * that is `doing` and a school you are `Applying` to, i.e. the
+       * ordinary state of a record, and colouring the ordinary state is
+       * what left the three real signals with nothing to say.
+       */
       variant: {
         default:
-          "bg-[color:var(--task-todo-pill-bg)] text-[color:var(--task-todo-pill-fg)]",
-        destructive:
-          "bg-[var(--danger-surface)] text-[var(--danger-fg)]",
-        error:
-          "bg-[var(--danger-surface)] text-[var(--danger-fg)]",
-        info: "bg-[color:var(--task-doing-pill-bg)] text-[color:var(--task-doing-pill-fg)]",
+          "border-[color:var(--label-border)] bg-[color:var(--label-surface)] text-[color:var(--label-ink)]",
+        destructive: "bg-[var(--danger-surface)] text-[var(--danger-fg)]",
+        error: "bg-[var(--danger-surface)] text-[var(--danger-fg)]",
         outline:
           "border-input bg-background text-foreground [button&,a&]:hover:bg-[var(--surface-selected)]",
         secondary:
-          "bg-[color:var(--task-todo-pill-bg)] text-[color:var(--task-todo-pill-fg)]",
-        success:
-          "bg-[color:var(--task-done-pill-bg)] text-[color:var(--task-done-pill-fg)]",
-        warning:
-          "bg-[color:var(--task-waiting-pill-bg)] text-[color:var(--task-waiting-pill-fg)]",
+          "border-[color:var(--label-border)] bg-[color:var(--label-surface)] text-[color:var(--label-ink)]",
+        success: "bg-[var(--success-surface)] text-[var(--success-fg)]",
+        warning: "bg-[var(--warning-surface)] text-[var(--warning-fg)]",
       },
     },
   },

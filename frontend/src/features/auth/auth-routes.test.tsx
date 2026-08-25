@@ -211,7 +211,11 @@ describe("auth routes", () => {
     const user = userEvent.setup();
     renderApp("/app/tasks");
 
-    await user.click(await screen.findByRole("button", { name: /Log out/ }));
+    // The account row identifies the user; the menu holds the action.
+    await user.click(
+      await screen.findByRole("button", { name: /Account menu/ }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Log out/ }));
 
     await waitFor(() => expect(window.location.pathname).toBe("/login"));
   });
@@ -230,7 +234,11 @@ describe("auth routes", () => {
     const user = userEvent.setup();
     renderApp("/app/tasks", { fetchHandler: fetchMock });
 
-    await user.click(await screen.findByRole("button", { name: /Log out/ }));
+    // The account row identifies the user; the menu holds the action.
+    await user.click(
+      await screen.findByRole("button", { name: /Account menu/ }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Log out/ }));
 
     await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
     expect(await screen.findByRole("alert")).toHaveTextContent(

@@ -19,288 +19,291 @@
  */
 
 :root {
-  /* ---- surface stack, darkest to lightest: sunken < chrome < canvas <
-   * raised. Canvas is --neutral-25, not --neutral-0 — that headroom above
-   * canvas is what lets --surface-raised read as genuinely "elevated"
-   * (white) rather than identical to the page it floats on. Raised/overlay
-   * surfaces are differentiated from canvas by elevation + a hairline, not
-   * by a big tonal gap — that's what makes cards read as floating instead
-   * of merely shaded. */
-  /* Canvas is --sand-25 (#fdfbfa), not the achromatic --neutral-25: the
-   * page ground is the one surface big enough for a quarter-point of
-   * chroma to actually register, and warming it is what stops a white-on-
-   * white app from reading as a blank spec page. Raised surfaces stay
-   * pure white on top of it — that tiny warm/cool step is now doing part
-   * of the work the border used to do alone. */
-  --canvas: var(--sand-25);
-  --surface-raised: var(--neutral-0);
-  --surface-overlay: var(--neutral-0);
-  --surface-sunken: var(--neutral-100);
-  /* --surface-quiet: a warm, barely-there fill for content blocks that
-   * need to read as "spoken by someone else" rather than as a card — the
-   * user's own message bubble is the only consumer today. It shares
-   * stone-50 with the sidebar surface deliberately: the two are the same
-   * warm step, so a bubble sitting on the sand canvas belongs to the same
-   * family as the rail rather than inventing a third neutral. */
-  --surface-quiet: var(--stone-50);
-  /* --field-surface: a crisp white fill for EDITABLE form fields sitting on
-   * a raised card (profile fields, composer control chips) — distinct from
-   * --surface-sunken so "well/track" (recessed, inert) and "editable field"
-   * (flush, actionable) stop sharing one token. A field on a white card
-   * that reuses the sunken well reads as disabled, not editable — the
-   * defect this token fixes. See --control-track below for the inert-fill
-   * role that keeps --surface-sunken's old job. */
-  --field-surface: var(--surface-raised);
-  /* --control-track: the light, INERT fill role — meter tracks, toggle/
-   * switch unchecked tracks, button-group separators, disabled fills. This
-   * is the counterpart split out of shadcn's overloaded `--input` token
-   * (see --edge-control below and shadcn.css): --input stayed a border
-   * color, this took the "solid background fill" job `bg-input`/`bg-input/
-   * NN` was doing in meter.tsx, menu.tsx (switch track), button-group.tsx
-   * (separator), command.tsx, input-group.tsx, and tabs.tsx. Same value as
-   * --surface-sunken (both are "the recessed well" token) but named for
-   * its own role so a future re-tune of one doesn't accidentally move the
-   * other. */
-  --control-track: var(--surface-sunken);
-  /* --field-surface-canvas: fill for an EDITABLE control that sits directly
-   * on --canvas rather than a raised card (a page-header search/filter
-   * field, not a composer or profile field, which already resolve through
-   * --field-surface above). A pure-white fill here would sit flush against
-   * a near-white canvas (L 0.99 vs. L 1.0) with almost no separation, so
-   * unlike --field-surface this keeps a faint recessed tone instead.
-   * Deliberately its OWN token, not a bare alias reference to
-   * --control-track, even though both resolve to --surface-sunken today:
-   * --control-track is the INERT-fill role (tracks/separators, never
-   * becomes an editable white surface); this is the EDITABLE-on-canvas
-   * role that happens to share today's value. A future retune of one must
-   * not silently move the other. No current consumer resolves through
-   * this yet (every editable control audited for M1 sits on a card or
-   * composer surface, not bare canvas) — forward vocabulary for Wave 2/M2,
-   * so a canvas-level search or filter field has a named token to reach
-   * for instead of reinventing one. */
-  --field-surface-canvas: var(--surface-sunken);
+  /* ---- THE SURFACE LADDER. Four levels, one ramp, one direction.
+   *
+   * This block replaces a stack that had grown to seven near-white values
+   * across six hues (see the note in primitives.css) plus nine role names
+   * pointing at them in no consistent order. The defect that produced was
+   * not subtle, and it is worth writing down because it is the thing this
+   * ladder exists to prevent. Measured off the rendered pages, at the SAME
+   * nesting depth — the main panel of each route:
+   *
+   *   Tasks       lane        L 0.963  a step DOWN from the page
+   *   Activities  list card   L 0.963  a step DOWN  (holding white cards)
+   *   Profile     form card   L 1.000  a step UP
+   *   Schools     table       L 1.000  a step UP
+   *   Essays      panel       (no fill at all — a border and nothing else)
+   *
+   * Five routes, four different answers to "what colour is the box on the
+   * page". That is what "every screen has its own world" actually was.
+   *
+   * THE LADDER. Every surface in the app is one of exactly four things, and
+   * which one it is follows from what the container DOES, never from which
+   * feature owns it:
+   *
+   *   --surface-raised   an object sitting ON the page. Carries content.
+   *                      Takes --edge + --elevation-1. Card, dialog,
+   *                      popover, menu, table, field, task card, document.
+   *   --canvas           the page itself.
+   *   --chrome           the sidebar rail. The one second neutral layer.
+   *   --surface-inset    a well cut INTO a surface. Carries no content of
+   *                      its own; holds or recesses something else. Track,
+   *                      trough, quiet chip, label chip, neutral pill.
+   *                      Takes NO border and NO shadow — a recessed surface
+   *                      that also draws a rim reads as embossed.
+   *
+   * THE LAW: a page has exactly ONE raised level. A card never contains a
+   * card. When content inside a raised surface needs grouping, it gets a
+   * --hairline rule or a heading, never a second border-plus-shadow-plus-
+   * fill. The two legal shapes are:
+   *
+   *   a LIST   one raised panel, rows divided by hairlines  (Schools,
+   *            Activities, Essays, Profile)
+   *   a BOARD  a borderless inset trough holding raised cards  (Tasks)
+   *
+   * Activities was drawing both at once — an inset-coloured, bordered outer
+   * box with bordered white cards inside it — which is three rounded frames
+   * nested inside one another, all within 4 lightness points. That is the
+   * "nested cards are always wrong" rule and it was visible from across the
+   * room.
+   *
+   * Steps are 1.1 / 1.2 / 1.7 lightness points. Small on purpose: at this
+   * end of the ramp that is a legible step, and the border plus elevation
+   * carry the rest. What broke before was never the size of the steps, it
+   * was that they changed hue as they went. ---- */
+  --surface-raised: var(--gray-25);
+  --canvas: var(--gray-50);
+  --chrome-surface: var(--gray-100);
+  --surface-inset: var(--gray-150);
 
-  /* Interaction-state surfaces (M2 vocabulary — replaces hand-tuned
-   * `bg-muted/20`-style alpha modifiers with named, pre-tuned states).
-   * Mixed from --canvas, the workspace's base tone. */
-  --surface-hover: color-mix(in oklch, var(--neutral-900) 5%, var(--canvas));
-  --surface-active: color-mix(in oklch, var(--neutral-900) 8%, var(--canvas));
+  /* Contract aliases. These names are consumed across the family files and
+   * shadcn.css; they are kept, but every one of them now resolves to one of
+   * the four levels above rather than to a value of its own. Anything that
+   * used to be its own near-white is listed here with what it was. */
+  --surface-overlay: var(--surface-raised); /* was neutral-0 */
+  --surface-sunken: var(--surface-inset); /* was neutral-100, COLD */
+  --control-track: var(--surface-inset); /* was neutral-100, COLD */
+  /* A field is a well cut into whatever holds it, never the same fill as
+   * its container. It shared --surface-raised with the card around it
+   * before, which is why the Profile form had nothing but forty heavy
+   * borders to tell you where the inputs were. Both names below now mean
+   * the same thing — a control on a card and a control on bare canvas are
+   * the same object — and they are kept apart only so a future retune of
+   * one cannot silently move the other. */
+  --field-surface: var(--surface-inset);
+  --field-surface-canvas: var(--surface-inset);
+  --surface-trough: var(--surface-inset); /* was sand-90 */
+  --surface-quiet: var(--surface-inset); /* was stone-50, the RAIL's fill */
+  /* --surface-raised-soft is gone as a distinct value. It existed because
+   * --surface-raised was pure white (chroma 0) and a white card on a warm
+   * board was "the single cool object in the frame", so the board needed a
+   * warm card of its own. --surface-raised is warm now, so the problem it
+   * solved does not exist and one raised value serves the whole app. */
+  --surface-raised-soft: var(--surface-raised);
+
+  /* ---- interaction states — ONE rule, four bases.
+   *
+   * Every hover in the app is 4% of --gray-900 mixed into the surface the
+   * element is sitting on, and every pressed state is 7%. That single pair
+   * of percentages lands within a tenth of a lightness point of the same
+   * perceived step on all four levels (2.9 / 2.8 / 2.8 / 2.7 points for
+   * hover, 5.0 / 4.9 / 4.8 / 4.7 for pressed), which is why one rule is
+   * enough and a hand-tuned fill per component never was. Replaces the
+   * scattered `bg-muted/20`-style alpha modifiers, which rendered
+   * differently depending on what happened to be behind them.
+   *
+   * `in oklab`, not oklch: both operands are near-achromatic, and polar
+   * OKLCH interpolates the HUE ANGLE, so mixing two barely-chromatic
+   * colours there can walk the long way round the wheel and land somewhere
+   * pink. Rectangular OKLab has no hue channel to rotate. Same trap already
+   * documented in task.css. ---- */
+  --surface-hover: color-mix(
+    in oklab,
+    var(--gray-900) 4%,
+    var(--surface-raised)
+  );
+  --surface-active: color-mix(
+    in oklab,
+    var(--gray-900) 7%,
+    var(--surface-raised)
+  );
+  --canvas-hover: color-mix(in oklab, var(--gray-900) 4%, var(--canvas));
+  --canvas-active: color-mix(in oklab, var(--gray-900) 7%, var(--canvas));
   --surface-selected: color-mix(in oklch, var(--wine-500) 10%, var(--canvas));
 
-  /* ---- ink — text on the light canvas. Four genuinely distinct
-   * legibility tiers, not four names sharing one value. --ink-disabled is
-   * the one exempt tier (WCAG excludes disabled controls) and is
-   * deliberately weaker than --ink-faint so "disabled" still reads as
-   * disabled.
+  /* ---- ink — text, on any of the four surfaces. FOUR tiers, not five.
    *
-   * The whole family runs on --stone, the warm ramp, not achromatic
-   * --neutral, so the text of the app never splits into a warm heading over
-   * cold grey secondary copy. This reaches every surface — --foreground ->
-   * --workspace-foreground -> --ink is the chain, so this is the app's text
-   * colour, not the sidebar's.
+   * --ink-secondary sat at L 0.42 and --ink-muted at L 0.45. Three
+   * hundredths of a lightness point apart: not a tier, a rounding error
+   * that two names had been arguing over. --ink-muted is kept below as an
+   * alias so no consumer breaks, but there is one value now.
    *
-   * The top three tiers now carry variant 1a's own ink values (L 0.28 /
-   * 0.42 / 0.45 at hue 85) rather than the previous ladder, so workspace
-   * copy and rail copy are the same greys. The bottom two deliberately do
-   * NOT follow 1a: its faint tiers sit at L 0.60-0.65, which measures
-   * 3.4-3.8:1 and fails the small-text floor. Those values are real, they
-   * are what the doc draws, and they are kept — but scoped to the rail via
-   * the chrome block below, where the doc specified them. The app-wide
-   * faint/placeholder tiers stay at L 0.52 so ordinary body text keeps
-   * clearing AA. Do not "align" these two with the rail; that would push
-   * every muted caption in the workspace under the floor.
+   * The whole family runs on the one --gray ramp, so the app's text can no
+   * longer split into a warm heading over cold grey secondary copy — which
+   * it did, because the ink ladder was --stone (hue 85) while every
+   * functional border it sat beside was --neutral (chroma 0).
    *
-   * Measured against every surface these actually render on, computed via
-   * an OKLCH -> linear-sRGB -> WCAG script rather than eyeballed
-   * (canvas / raised / sunken / rail / rail-hover):
+   * Measured against all four surfaces (raised / canvas / chrome / inset),
+   * computed via an OKLCH -> linear-sRGB -> WCAG script, not eyeballed:
    *
-   *   --ink            #2b2923   14.13  14.59  12.80  13.86  12.42
-   *   --ink-secondary  #504d47    8.19   8.46   7.42   8.03   7.20
-   *   --ink-muted      #58554f    7.21   7.44   6.53   7.06   6.33
-   *   --ink-faint      #6b6963    5.33   5.51   4.83   5.23   4.69
-   *   --ink-disabled   #9b9891    2.79   2.88   2.53   2.74   2.45
+   *   --ink            #2d2825   14.41  13.96  13.48  12.81
+   *   --ink-secondary  #524b48    8.37   8.10   7.82   7.44
+   *   --ink-faint      #706762    5.45   5.28   5.10   4.85
+   *   --ink-disabled   #a69c97    2.64   2.56   2.47   2.35
    *
-   * Every non-exempt tier clears the 4.5:1 body-text floor on every
-   * surface, --ink-faint with the least margin by design. Re-run the
-   * numbers if --stone-50 or --canvas moves. */
-  --ink: var(--stone-800);
-  --ink-secondary: var(--stone-600);
-  --ink-muted: var(--stone-550);
-  --ink-faint: var(--stone-500);
-  --ink-placeholder: var(--stone-500);
-  --ink-disabled: var(--stone-300);
+   * Every non-exempt tier clears the 4.5:1 body floor on every surface,
+   * --ink-faint with the least margin by design. --ink-disabled is the one
+   * exempt tier (WCAG excludes disabled controls) and is deliberately
+   * weaker than --ink-faint so "disabled" still reads as disabled. ---- */
+  --ink: var(--gray-900);
+  --ink-secondary: var(--gray-800);
+  --ink-muted: var(--gray-800); /* alias of secondary — see above */
+  --ink-faint: var(--gray-700);
+  --ink-placeholder: var(--gray-700);
+  --ink-disabled: var(--gray-650);
 
   /* ---- chrome — the sidebar rail (product identity, see README).
    *
-   * Every value in this block is variant 1a of the Sidebar Redesign design
-   * doc, carried literally. The brief was to match that sidebar exactly, so
-   * this block is a transcription, not a derivation — if a value here and a
-   * value in 1a ever disagree, 1a is right and this is a bug.
+   * The rail is the app's second neutral layer, and it is now a real one.
+   * It used to sit at L 0.982 against a canvas at L 0.989 — seven
+   * thousandths apart, so the separation was carried almost entirely by the
+   * 1px border and the rail did not read as its own plane at all. It sits
+   * at L 0.972 now, 1.2 points under the canvas, which is a step you can
+   * actually see.
    *
-   *   surface   #faf9f6  stone-50    rail fill
-   *   hover     #eeede9  stone-100   nav row hover
-   *   selected  #f8e6e7  wine-50     nav row selected  <- a BRAND TINT
-   *   border    #dfdeda  stone-200   rail perimeter
-   *   ink       #2b2923  stone-800   account name
-   *   strong    #24211c  stone-900   wordmark
-   *   secondary #58554f  stone-550   nav row at rest
-   *   muted     #83807a  stone-450   rail icons, email, ··· glyph
+   * The rail also used to be the only part of the app drawn from --stone
+   * (hue 85) while the canvas beside it was --sand (hue 49). Two warm
+   * neutrals 36 degrees apart, touching along a 1px seam. Both are the one
+   * ramp now.
    *
-   * WHAT CHANGED, AND WHY THE OLD SCHEME IS GONE. Previously hover and
-   * selected shared one neutral fill, which meant the background could not
-   * distinguish them, so selection was carried by a brand-coloured label, a
-   * weight bump to 600, AND a 2px brand bar on the rail's edge. 1a does it
-   * the straightforward way instead: selected gets its own brand-tinted
-   * fill, and the only other channel is weight 400 -> 500. The edge bar is
-   * deleted rather than kept "for safety" — with a tinted fill it is a
-   * third redundant marker on a row that already reads unambiguously, and
-   * it is not in the doc.
+   * THREE TIERS OF RAIL TEXT WERE BELOW THE CONTRAST FLOOR and are not any
+   * more. The eyebrow (3.07:1), the account email (3.46:1) and the muted
+   * rail icons (3.75:1) were carried verbatim from a design doc that
+   * specified them, with a warning attached in three files telling everyone
+   * not to reuse them. They now resolve to --gray-700, which measures
+   * 5.10:1 on the rail. There is no exempt tier left in the app, and the
+   * warning is deleted rather than re-sited.
    *
-   * That leaves selection with two channels (tint + weight) rather than
-   * three. Weight is the one that survives greyscale and colourblindness,
-   * and it is still there, so the state does not depend on hue alone.
-   *
-   * The muted tier is stone-450 (#83807a), which measures 3.75:1 on the
-   * rail — below the 4.5:1 small-text floor. That is 1a's value for the
-   * rail's quietest text and it is intentional here; see the warning in
-   * primitives.css. It is confined to this block: --ink-muted, the
-   * app-wide tier, is a different and AA-clearing value. */
-  --chrome: var(--stone-50);
-  --chrome-hover: var(--stone-100);
+   * --chrome-active stays a BRAND tint (wine-50) — the selected nav row is
+   * the one place in the rail that is deliberately not neutral, and that is
+   * unchanged. Selection keeps its two channels, tint and weight. ---- */
+  --chrome: var(--chrome-surface);
+  --chrome-hover: color-mix(
+    in oklab,
+    var(--gray-900) 4%,
+    var(--chrome-surface)
+  );
+  --chrome-pressed: color-mix(
+    in oklab,
+    var(--gray-900) 7%,
+    var(--chrome-surface)
+  );
   --chrome-active: var(--wine-50);
-  --chrome-border: var(--stone-200);
-  --chrome-ink: var(--stone-800);
-  --chrome-ink-secondary: var(--stone-550);
-  --chrome-ink-muted: var(--stone-450);
-  --chrome-ink-strong: var(--stone-900);
+  --chrome-border: var(--gray-400);
+  --chrome-ink: var(--gray-900);
+  --chrome-ink-strong: var(--gray-950);
+  --chrome-ink-secondary: var(--gray-800);
+  --chrome-ink-muted: var(--gray-700); /* was 3.75:1, now 5.10:1 */
+  --chrome-ink-hover: var(--gray-900);
+  --chrome-eyebrow: var(--gray-700); /* was 3.07:1, now 5.10:1 */
+  --chrome-ink-quiet: var(--gray-700); /* was 3.46:1, now 5.10:1 */
   --on-chrome-active: var(--wine-ink-on-50); /* 10.91:1 on --chrome-active */
-  /* The neutral committed/pressed fill, split out from --chrome-active when
-   * that token became the brand tint above. Warm grey, one step past hover
-   * — for anything that needs a "pressed" surface without claiming to be
-   * the current location. */
-  --chrome-pressed: var(--stone-150);
-  /* The rail's own filter/search field (1a: fill #f1f0ed, border #e4e3df),
-   * and the two quiet ink tiers that sit inside the rail. --chrome-eyebrow
-   * is the recency group label ("PREVIOUS 7 DAYS"); --chrome-ink-quiet is
-   * the account email line. Both are 1a values below the small-text floor
-   * (3.07:1 and 3.46:1) — see the primitives.css warning. */
-  --chrome-field: var(--stone-75);
-  --chrome-field-border: var(--stone-150);
-  --chrome-eyebrow: var(--stone-350);
-  --chrome-ink-quiet: var(--stone-400);
-  /* 1a draws recent chat rows one step darker than older ones — #302d28 for
-   * the most recent group, #504d47 for the rest. */
-  /* 1a hovers the collapse control to its own ink step (0.35), between the
-   * muted resting tier and the body ink. */
-  --chrome-ink-hover: var(--stone-650);
-  --chrome-row-ink: var(--stone-700);
-  --chrome-row-ink-dim: var(--stone-600);
+  /* The rail's own filter/search field, and the recency split on chat rows
+   * (the most recent group draws a tier darker than the rest). */
+  --chrome-field: var(--surface-inset);
+  --chrome-field-border: var(--gray-400);
+  --chrome-row-ink: var(--gray-900);
+  --chrome-row-ink-dim: var(--gray-800);
 
-  /* ---- edges — borders and dividers. Two categories, not one:
+  /* ---- edges — borders and dividers. FOUR values, down from six across
+   * three hues.
    *
-   *  - DECORATIVE (--hairline, --edge, --edge-strong): structural seams
-   *    between two surfaces (panel edges, card borders, dropdown
-   *    boundaries, the document's paper edge). No contrast bar applies —
-   *    WCAG 1.4.11 covers interactive/informational boundaries, not every
-   *    line between two surfaces. These are deliberately barely-there.
-   *  - FUNCTIONAL (--edge-control, --edge-control-strong): the sole
-   *    visible boundary of a form control (composer input, control chips,
-   *    profile fields) — WCAG 1.4.11 genuinely applies here, so both clear
-   *    3:1 against every surface a control sits on. --edge-control was
-   *    retuned in M1b from --neutral-500 (L 0.55, 4.26-4.85:1) — a real
-   *    pass, but heavy enough on a white card to read as the dominant
-   *    stroke on the page instead of a quiet field edge. --neutral-450
-   *    (L 0.62, computed with an OKLCH contrast script, not eyeballed)
-   *    clears 3.64:1 against --surface-raised and 3.19:1 against
-   *    --surface-sunken — both real 3:1 passes, just with less margin to
-   *    spend, on purpose. --edge-control-strong stays --neutral-600 (6.81-
-   *    7.77:1) so hover/focus still reads as a real, darker step. Do not
-   *    reuse --edge for a new form control; reuse --edge-control. */
-  --hairline: var(--neutral-150);
-  --edge: var(--neutral-200);
-  --edge-strong: var(--neutral-300);
-  --edge-control: var(--neutral-450);
-  --edge-control-strong: var(--neutral-600);
+   * What shipped before, read off the rendered pages: L 0.93 at chroma 0
+   * (hairline), L 0.90 at hue 85 (the rail's border), L 0.89 at chroma 0
+   * (card edge), L 0.866 at hue 77 (panel and chip edges), L 0.78 at hue 77
+   * (button edge), L 0.62 at chroma 0 (field edge). Three temperatures, and
+   * they met constantly: the Schools page alone drew chroma-0 hairlines
+   * between its table rows, hue-77 borders around the chips in those rows,
+   * hue-77 borders around the buttons above them and chroma-0 borders
+   * around the fields beside those. Four weights, three temperatures, one
+   * page.
+   *
+   * The four that remain each answer a different question, and the question
+   * is about SCOPE, not about weight:
+   *
+   *   --hairline       a divider WITHIN one surface — table rows, section
+   *                    rules, the line between two zones of a card. This is
+   *                    the tool the surface ladder wants you to reach for
+   *                    instead of a second card.
+   *   --edge           the perimeter OF a surface — card, panel, table,
+   *                    menu, dialog, the rail. One weight for every
+   *                    container in the app.
+   *   --edge-strong    that perimeter hovered or pressed, and the resting
+   *                    edge of a quiet button.
+   *   --edge-control   the sole visible boundary of a BARE form control.
+   *
+   * THE INVERTED HIERARCHY THIS FIXES. --edge-control is the only border
+   * held to a contrast bar, because WCAG 1.4.11 genuinely applies when a
+   * border is the only thing on screen saying "type here". It sat at
+   * --neutral-450 and the Profile page rendered FORTY of them — against a
+   * card edge at --neutral-200, four times lighter. The thing inside was
+   * the loudest mark on the page and the thing containing it was the
+   * quietest, so the page read as a wireframe rather than as a form on a
+   * card. Two changes fix that without dropping the bar: the field now
+   * sits on --surface-inset rather than sharing its container's fill, so
+   * the boundary is not doing the identification alone; and every edge in
+   * the app moved onto one ramp, so the field's border is a darker step of
+   * the card's border rather than a different colour entirely.
+   *
+   * Measured on every surface a control sits on: --edge-control clears
+   * 3.61:1 on raised, 3.49 on canvas, 3.37 on chrome, 3.21 on inset. Real
+   * passes with margin, all four.
+   *
+   * NOTHING ELSE MAY BORROW --edge-control. A 3:1 stroke exists to identify
+   * an empty rectangle; drawn around a button (identified by its label), a
+   * card (identified by its fill and shadow) or a 700px composer panel
+   * (identified by its placeholder, its chips and its send button), it does
+   * not read as "interactive", it reads as a black box. That mistake is
+   * what --edge-panel and --edge-button were separately invented to undo,
+   * and now that there is one ramp they are simply --edge and --edge-strong
+   * — the names are kept because the family files consume them. ---- */
+  --hairline: var(--gray-300);
+  --edge: var(--gray-400);
+  --edge-strong: var(--gray-500);
+  --edge-control: var(--gray-600);
+  --edge-control-strong: var(--gray-700);
 
-  /* --edge-panel (#d7d2cb) / --edge-panel-strong: the perimeter of a large
-   * INPUT SURFACE — today the composer, tomorrow anything else that is a
-   * whole editable panel rather than a field. Deliberately a third edge
-   * category, not a re-tune of --edge-control, because the two are doing
-   * different jobs and the 3:1 argument only holds for one of them:
-   *
-   *   --edge-control is the sole identifier of a small field. A bare
-   *   profile input is a rectangle; erase its border and nothing says
-   *   "type here". WCAG 1.4.11 genuinely applies, so it stays at
-   *   --neutral-450 and stays checked.
-   *
-   *   --edge-panel bounds a surface that announces itself several other
-   *   ways at once: a "Message Counselle" placeholder, three control
-   *   chips, a send button, and a white fill against a warm canvas. The
-   *   perimeter is a seam between two surfaces, not the affordance — so
-   *   it is tuned as one (1.3:1 against white) instead of being held to
-   *   a bar meant for bare fields. Drawing it at
-   *   --edge-control was the visible defect this replaces: a 3.6:1 stroke
-   *   wrapped around a 700px panel does not read as "input", it reads as
-   *   a black box, and it made every chip inside it a second nested box.
-   *
-   * Identification is not being dropped, it is being moved to the state
-   * that carries it: focus swaps this edge to --focus-ring plus a ring
-   * (see workspace.css), which is a far louder signal than the old grey
-   * perimeter ever was. */
-  --edge-panel: var(--sand-200);
-  --edge-panel-strong: var(--sand-300);
+  /* Contract aliases — every one of these used to be a value of its own. */
+  --edge-panel: var(--edge);
+  --edge-panel-strong: var(--edge-strong);
+  /* --edge-panel-soft is deleted. It existed as a fourth, quieter
+   * perimeter for cards that already sat a step above their trough — but
+   * its consumers (the task card, the essay library card) draw a card
+   * PERIMETER, and a perimeter is --edge. Keeping it meant the same "white
+   * card on the page" shape drew two different weights depending on which
+   * feature owned it. */
+  --edge-button: var(--edge);
+  --edge-button-strong: var(--edge-strong);
 
-  /* Soft warm fills for QUIET controls — a control that is real and
-   * pressable but must not compete with the primary action beside it
-   * (the composer's mode/sources chips). Fill-only, no border: on a white
-   * panel a tinted fill is enough to read as a control, and it avoids the
-   * nested-outline stack that an outlined chip inside a bordered panel
-   * produces. Hover/active deepen the same fill so the states are one
-   * gesture rather than a fill change plus a border change. */
-  --control-quiet-surface: var(--sand-75);
-  --control-quiet-hover: var(--sand-100);
-  --control-quiet-active: var(--sand-150);
-
-  /* ---- button chrome — the edge and state fills of the outline /
-   * secondary button family (components/ui/button.tsx). Its own role
-   * group, deliberately NOT --edge-control, and NOT a bare alias of
-   * --control-quiet-* even where today's values coincide.
-   *
-   * WHY NOT --edge-control. That token is the sole identifier of a bare
-   * form field: erase an input's border and nothing left on screen says
-   * "type here", so WCAG 1.4.11 genuinely applies and it sits at 3.64:1
-   * on white. A button is identified by its label — "Add school" plus a
-   * leading glyph — so its perimeter is a seam between two surfaces, not
-   * the affordance. Holding it to a bar meant for empty rectangles is
-   * what made every secondary button in the app read as a wireframe box
-   * instead of something pressable: a 3.64:1 stroke around a 32px control
-   * is the heaviest mark in its neighbourhood. Same argument, same
-   * conclusion as --edge-panel above.
-   *
-   * WEIGHT. --sand-300 measures 2.00:1 on --surface-raised and 1.94:1 on
-   * --canvas (computed via an OKLCH -> linear-sRGB -> WCAG script, not
-   * eyeballed). The button gets the rest of its presence from a white
-   * fill plus --elevation-1 sitting on the warm canvas — the same
-   * "elevation + a hairline, not a big tonal gap" rule --surface-raised
-   * is built on, applied one component down. --edge-button-strong
-   * (--sand-400, 2.67:1 on white) is the hover/pressed step.
-   *
-   * TEMPERATURE. --edge-control is chroma 0. Every surface it wrapped
-   * here is warm — --canvas at hue 49, --chrome at 68, the ink itself at
-   * 94 — so a cold grey ring around a warm button reopened, at component
-   * scale, exactly the temperature seam the --chrome family was moved
-   * onto --stone to close. --sand-* is the warm ramp built for this job.
-   *
-   * The two fills below share values with --control-quiet-hover/-active
-   * (both are "one/two warm steps down from the resting surface") but are
-   * their own tokens because they are reached from a different resting
-   * state: a quiet chip STARTS at --control-quiet-surface and deepens,
-   * a bordered button starts at --surface-raised and deepens. Retuning
-   * the chip ramp must not silently move the button's states. */
-  --edge-button: var(--sand-300);
-  --edge-button-strong: var(--sand-400);
-  --surface-button-hover: var(--sand-100);
-  --surface-button-active: var(--sand-150);
+  /* Quiet controls (the composer's mode/sources chips) and the secondary
+   * button family. Both are "a real, pressable thing that must not compete
+   * with the primary action beside it", and both used to have their own
+   * near-white fill — --sand-75 for one, --sand-100/-150 for the other's
+   * states. They are the inset level and the one state rule now: a quiet
+   * chip is a well cut into its panel, and pressing it deepens the well. */
+  --control-quiet-surface: var(--surface-inset);
+  --control-quiet-hover: color-mix(
+    in oklab,
+    var(--gray-900) 4%,
+    var(--surface-inset)
+  );
+  --control-quiet-active: color-mix(
+    in oklab,
+    var(--gray-900) 7%,
+    var(--surface-inset)
+  );
+  --surface-button-hover: var(--surface-hover);
+  --surface-button-active: var(--surface-active);
 
   /* ---- brand — the one committed accent (deep burgundy, hue 15), taken
    * from variant 1a of the Sidebar Redesign design doc. --brand and
@@ -363,6 +366,12 @@
   --brand-edge-hover: var(--wine-800);
   --brand-edge-active: var(--wine-900);
   --brand-subtle: var(--wine-50);
+  /* The account avatar's chip in the rail — one step up from --brand-subtle
+   * with its own reduced-chroma ink (7.78:1 on the fill). Its own role
+   * because AppSidebar.tsx was reaching straight at --wine-100 and
+   * --wine-ink-on-100, the only tier violation left in the codebase. */
+  --brand-chip: var(--wine-100);
+  --brand-chip-ink: var(--wine-ink-on-100);
   /* 1a draws ink on its brand tint at roughly half the ramp chroma — see
    * --wine-ink-on-50 in primitives.css. 10.91:1 on --brand-subtle. */
   --brand-subtle-ink: var(--wine-ink-on-50);
@@ -371,30 +380,82 @@
    * handle) that shouldn't read as CTA-strength — distinct from
    * --brand-subtle, which is a pale background tint, not a line color. */
   --brand-muted: var(--wine-400);
-  --on-brand: var(--neutral-0);
+  --on-brand: var(--gray-0);
+  /* A quiet fill for a chip sitting ON a saturated brand fill — the ⌘K
+   * badge inside the primary button. It has to be a translucency, not a
+   * ramp step: the ramp is built for light surfaces, and any step of it
+   * painted on an L 0.38 oxblood reads as a light rectangle stuck to the
+   * button. This replaces `bg-white/15`, the last hardcoded colour literal
+   * outside primitives.css, which also silently depended on the button
+   * staying the dark variant. */
+  --on-brand-quiet: color-mix(in oklab, var(--gray-0) 15%, transparent);
 
   /* wine-500, not the brand step: a focus ring reads as a halo around the
    * thing it marks rather than a second copy of it. 6.79:1 on --canvas and
    * 6.66:1 on the rail — well past the 3:1 non-text minimum. */
   --focus-ring: var(--wine-500);
 
+  /* ---- brand intensity scale — three ordered steps of the one brand hue,
+   * for data that is ORDERED rather than categorical.
+   *
+   * This exists because the app deleted --blue and the three wayfinding
+   * hues, and the thing that was leaning hardest on them was the schools
+   * fit ladder: Reach / Target / Safety drawn as amber / blue / green. That
+   * was wrong twice over. It spent three unrelated hues on a scale whose
+   * whole meaning is its ORDER, and it made "Safety" the same green as
+   * "done" and "Reach" the same amber as "waiting on someone" — so the two
+   * loudest colours on the schools page were both already spoken for
+   * elsewhere.
+   *
+   * Ordered data takes one hue at three intensities. That is the standard
+   * reading of a sequential scale and it is what makes a stacked bar read
+   * as one measurement rather than three competing categories. The hue is
+   * the brand's, which is the licence --essay-library-progress-fill already
+   * has: a quantity the page is actually about is the one non-CTA thing the
+   * accent is for.
+   *
+   * -3 is the heavy end. On the fit ladder that is Reach (the ambitious part
+   * of the list reads as the weightiest segment); on any future scale it is
+   * simply "most".
+   *
+   * Steps are 600 / 400 / 300, not the evenly-spaced 600 / 400 / 200 this
+   * started as. Computed with the usual OKLCH -> linear-sRGB -> WCAG script:
+   * wine-200 gives a wider gap between the two light segments (2.67:1 vs.
+   * 1.81:1) but lands at 1.37:1 against --control-track and 1.51:1 against
+   * --canvas, which is invisible — and the legend under the bar draws these
+   * same three values as 8px swatch dots sitting directly on the page. A
+   * scale whose lightest step disappears on the surface it is drawn on is
+   * not a scale. wine-300 keeps every step visible (2.02:1 on the track,
+   * 2.23:1 on canvas) and still separates from its neighbour by more than
+   * the bar needs at 8px tall.
+   *
+   * Do not use these for categorical data — that is what --label-* is
+   * for. */
+  --brand-scale-3: var(--wine-600);
+  --brand-scale-2: var(--wine-400);
+  --brand-scale-1: var(--wine-300);
+
   /* ---- status roles — pale surface + saturated, AA-checked text.
-   * --danger-border, --warning-border, and --info-border are real M1/M2
-   * targets, not speculative: --warning-border and --info-border are
-   * consumed now (task.css's --task-category-aid-border and
-   * --task-category-interview-border), and --danger-border replaces the
-   * existing `border-destructive/30` alpha-modifier pattern found in
-   * AiChatPage.tsx, ChatMessage.tsx, and button.tsx. --success-border was
-   * dropped — no existing or planned consumer could be named for it
-   * (checked: zero `border-success` usage anywhere in the app). Add it
-   * back if a bordered success banner is ever built; don't carry it as
-   * unused symmetry with the other three. */
-  /* Success resolves through --leaf-*. Under the old ivy brand this needed
-   * defending, because brand-green and status-green sat 14 degrees apart;
-   * with the brand at hue 278 green means exactly one thing in the system
-   * and "green = done" is unambiguous. Status still never rides on colour
-   * alone — every consumer pairs it with a label or icon. */
+   *
+   * THREE, down from four. Each now carries exactly ONE meaning across the
+   * whole app, which is the entire point of this group:
+   *
+   *   --danger-*   overdue · error · destructive
+   *   --warning-*  waiting on someone · not ready · needs you
+   *   --success-*  done · complete · submitted · ready
+   *
+   * Before this pass each of them meant three or four unrelated things
+   * depending on which page you were on — amber was simultaneously the
+   * `Med` priority, the `Waiting` status, the `Aid` category and the `Reach`
+   * school, and all four could appear in one table row. Anything that is a
+   * label rather than a state now takes --label-* below; anything ordered
+   * takes --brand-scale-* above.
+   *
+   * Status never rides on colour alone — every consumer pairs it with a
+   * label or an icon. That rule matters more now that there are three hues
+   * instead of seven, not less. */
   --success-surface: var(--leaf-50);
+  --success-border: var(--leaf-200);
   --success-fg: var(--leaf-700);
   --success-solid: var(--leaf-600);
 
@@ -420,55 +481,53 @@
   --danger-edge: var(--red-700);
   --danger-edge-hover: var(--red-800);
 
-  --info-surface: var(--blue-50);
-  --info-border: var(--blue-200);
-  --info-fg: var(--blue-700);
-  --info-solid: var(--blue-600);
+  /* ---- neutral status — the "no particular state" tier. Same
+   * {role}-surface/-fg shape as the three status roles above, and the
+   * landing place for everything that used to be --info: a task that is
+   * `doing`, a school you are `Applying` to. Those are the ORDINARY state
+   * of a record, and giving the ordinary state a hue is what left the three
+   * real signals with nothing to say. ---- */
+  --neutral-surface: var(--surface-inset);
+  --neutral-fg: var(--ink-secondary);
 
-  /* ---- neutral status — the "no particular state" tier (default task
-   * pills, the "other" category). Same {role}-surface/-fg shape as the
-   * four status roles above. ---- */
-  --neutral-surface: var(--neutral-100);
-  --neutral-fg: var(--neutral-700);
-
-  /* ---- task category wayfinding — decorative hue-coding for the 7 task
-   * categories, not a status signal. essay/aid/interview/other reuse the
-   * brand-subtle, warning, info, and neutral role groups directly (see
-   * task.css) rather than duplicating tokens that already exist; lor,
-   * research, and form get their own roles because no other semantic
-   * concept in the app uses mauve/teal/slate.
+  /* ---- label — the one chip every CATEGORICAL classifier wears.
    *
-   * essay resolves through its own --plum-* role rather than
-   * --brand-subtle-*, and has kept doing so through every brand change.
-   * The original reason (an ivy brand would have made the essay chip and
-   * the "done" pill both pale green) no longer applies, but the
-   * replacement reason does, and this brand move is the proof of it:
-   * pointing a wayfinding category at the brand tokens means any future
-   * brand move silently repaints a category. Categories are decorative and
-   * independent; the brand hue is reserved for identity.
-   * NOTE: under the --wine brand (hue 15) the category hues sit 53 degrees
-   * (mauve, 305) and 50 degrees (plum, 322) off it going one way round the
-   * wheel. Pale chips against a dark, saturated brand mark read as
-   * distinct; revisit if categories ever gain solid fills.
-   * ---- */
-  --category-essay-surface: var(--plum-50);
-  --category-essay-ink: var(--plum-700);
-  --category-essay-border: var(--plum-200);
-  --category-lor-surface: var(--mauve-50);
-  --category-lor-ink: var(--mauve-700);
-  --category-lor-border: var(--mauve-200);
-  --category-research-surface: var(--teal-50);
-  --category-research-ink: var(--teal-700);
-  --category-research-border: var(--teal-200);
-  --category-form-surface: var(--slate-50);
-  --category-form-ink: var(--slate-700);
-  --category-form-border: var(--slate-200);
+   * This replaces the seven-hue task-category palette (plum / mauve / teal /
+   * slate / amber / blue / grey) with a single chip used seven times, and it
+   * is the rule the rest of this block is an application of: a hue is a
+   * claim about STATE, and a label is not a state. The chip already reads
+   * "Essay"; there is no task in this product where you scan a board for the
+   * teal one, and the four hues that served those chips appeared nowhere
+   * else in the app. Twelve primitive steps bought four pills on one page,
+   * and cost every status colour its meaning — "Aid" amber sat one column
+   * away from "Waiting" amber in the same row.
+   *
+   * Warm, not --neutral-surface. Everything a label chip lands on is warm
+   * (the sand board card, the white table row on a sand canvas), and the
+   * grey chip is the same temperature seam the edge tokens and the
+   * --stone ink ladder were introduced to close, reopened at chip scale.
+   *
+   * Measured with the usual OKLCH -> linear-sRGB -> WCAG script: the ink
+   * clears 7.33:1 on this fill and 8.46:1 on white, so a chip stays legible
+   * whether or not its fill renders. The chip itself is deliberately quiet
+   * — 1.12:1 fill and 1.45:1 border against the canvas, 1.15:1 and 1.50:1
+   * against a white table row — because it is inert text, not a control.
+   * The same tuning as --edge-panel: a label that shouts is the defect this
+   * token exists to remove.
+   *
+   * Deliberately NOT an alias of --control-quiet-surface even though both
+   * sit in the sand ramp: that is the QUIET CONTROL role (pressable, has
+   * hover and active steps), this is inert text. Retuning the composer's
+   * chips must not repaint every category label in the app. ---- */
+  --label-surface: var(--surface-inset);
+  --label-ink: var(--ink-secondary);
+  --label-border: var(--edge);
 
   /* ---- overlay / scrim — modal & sheet backdrops. ---- */
-  --overlay-scrim: color-mix(in oklch, var(--neutral-950) 32%, transparent);
+  --overlay-scrim: color-mix(in oklch, var(--gray-1000) 32%, transparent);
   --overlay-scrim-subtle: color-mix(
     in oklch,
-    var(--neutral-950) 10%,
+    var(--gray-1000) 10%,
     transparent
   );
 
@@ -478,8 +537,8 @@
    * elevation-1 (applied by essay.css) keep it reading as paper laid on a
    * desk rather than blending into the surrounding chrome. See the M1
    * handoff doc for the full rationale. */
-  --document: var(--neutral-0);
-  --document-foreground: var(--stone-800);
-  --document-muted: var(--stone-600);
-  --document-border: var(--neutral-200);
+  --document: var(--surface-raised);
+  --document-foreground: var(--ink);
+  --document-muted: var(--ink-secondary);
+  --document-border: var(--edge);
 }

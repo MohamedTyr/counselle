@@ -62,7 +62,7 @@ describe("workspace shell", () => {
     await user.click(within(sidebar).getByRole("link", { name: "Schools" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Application workspace" }),
+      await screen.findByRole("heading", { name: "Schools" }),
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/app/schools");
 
@@ -166,7 +166,7 @@ describe("workspace shell", () => {
     await user.click(within(sidebar).getByRole("link", { name: "Schools" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Application workspace" }),
+      await screen.findByRole("heading", { name: "Schools" }),
     ).toBeInTheDocument();
     expect(window.location.pathname).toBe("/app/schools");
     expect(sidebarElement()).toBe(sidebar);
@@ -251,7 +251,7 @@ describe("workspace shell", () => {
     window.innerWidth = 390;
 
     renderApp("/app/schools");
-    await screen.findByRole("heading", { name: "Application workspace" });
+    await screen.findByRole("heading", { name: "Schools" });
 
     await user.click(screen.getByRole("button", { name: "Toggle Sidebar" }));
     const brandLinks = await screen.findAllByRole("link", {

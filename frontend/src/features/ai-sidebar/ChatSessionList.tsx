@@ -88,24 +88,22 @@ export function ChatSessionList() {
   return (
     <SidebarGroup className="p-0">
       <SidebarGroupContent className="flex flex-col gap-2.5">
-        {/* No "Chats" eyebrow above the field: 1a doesn't draw one, and the
-         * "Filter conversations" placeholder already says what the input
-         * acts on. The heading existed to stop the field reading as global
-         * search; a bordered, filled field sitting directly above the
-         * recency groups does that on its own.
+        {/* No "Chats" eyebrow above the field: the "Filter conversations"
+         * placeholder already says what the input acts on.
          *
-         * 1a's field: 34px tall, 10px radius, 11px inline padding, a real
-         * fill (#f1f0ed) and a real border (#e4e3df). The previous field
-         * was transparent and borderless until hovered, which is the one
-         * thing here that genuinely changes behaviour — it now reads as an
-         * input before you touch it. */}
+         * The field sits flush on the sidebar — no fill, and no border at
+         * rest or on hover, so it reads as part of the chrome rather than a
+         * card floating on it. The icon plus placeholder carry the
+         * affordance; the only edge that ever draws is the focus ring, which
+         * a11y requires. Both border overrides need `!` because Input's own
+         * hover/rest border rules carry higher specificity. */}
         {/* Text starts at 35px: 11px of field padding + a 15px glyph + the
-         * 9px gap 1a puts between them. */}
+         * 9px gap between them. */}
         <div className="sidebar-chat-search relative">
           <FilterIcon className="pointer-events-none absolute top-1/2 left-[11px] z-10 -translate-y-1/2 text-[var(--shell-sidebar-field-placeholder)] transition-colors" />
           <SidebarInput
             aria-label="Search chats"
-            className="h-11 rounded-[10px] border-[var(--shell-sidebar-field-border)] !bg-[var(--shell-sidebar-field)] !shadow-none before:hidden has-focus-visible:border-[var(--focus-ring)] has-focus-visible:!ring-0 md:h-[34px] pointer-coarse:!h-11 [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-[35px] [&_input]:text-[13px] [&_input]:text-[var(--chrome-ink)] [&_input]:placeholder:text-[var(--shell-sidebar-field-placeholder)] [&_input]:placeholder:opacity-100 md:[&_input]:!h-[34px] pointer-coarse:[&_input]:!h-11"
+            className="h-11 rounded-[10px] border-transparent !bg-transparent !shadow-none transition-colors duration-150 before:hidden hover:not-has-focus-visible:!border-transparent has-focus-visible:border-[var(--focus-ring)] has-focus-visible:!ring-0 md:h-[34px] pointer-coarse:!h-11 [&_input]:!h-11 [&_input]:!pr-3 [&_input]:!pl-[35px] [&_input]:text-[13px] [&_input]:text-[var(--chrome-ink)] [&_input]:placeholder:text-[var(--shell-sidebar-field-placeholder)] [&_input]:placeholder:opacity-100 md:[&_input]:!h-[34px] pointer-coarse:[&_input]:!h-11"
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Filter conversations"
             type="search"

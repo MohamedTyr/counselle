@@ -273,10 +273,7 @@ const CodeBlockBody = memo(
     );
 
     return (
-      <pre
-        className={cn("m-0 p-4 text-sm", className)}
-        style={preStyle}
-      >
+      <pre className={cn("m-0 p-4 text-sm", className)} style={preStyle}>
         <code
           className={cn(
             "font-mono text-sm",
@@ -331,7 +328,7 @@ export const CodeBlockHeader = ({
 }: HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex items-center justify-between border-b bg-muted/80 px-3 py-2 text-muted-foreground text-xs",
+      "flex items-center justify-between border-b bg-[var(--surface-inset)] px-3 py-2 text-muted-foreground text-xs",
       className,
     )}
     {...props}

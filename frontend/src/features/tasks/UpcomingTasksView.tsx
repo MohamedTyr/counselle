@@ -245,7 +245,7 @@ export function UpcomingSection({
         </CardDescription>
       </CardHeader>
 
-      <CardPanel className="flex flex-col gap-2 p-3">
+      <CardPanel className="flex flex-col gap-2 bg-[var(--surface-inset)] p-3">
         {group.tasks.length > 0 ? (
           <AnimatePresence initial={false}>
             {group.tasks.map((task) => (

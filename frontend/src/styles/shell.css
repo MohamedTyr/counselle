@@ -2,7 +2,7 @@
  * Shell — app chrome. --shell-* (public contract preserved).
  *
  * Sidebar decision: the whole app is light, sidebar included. The rail is
- * a FLAT warm fill — --chrome resolves to --stone-50 (#faf9f6, see
+ * a FLAT warm fill — --chrome resolves to --gray-100 (#f9f5f3, see
  * semantic.css), with no grain or texture layer over it. It has carried a
  * tinted sage tone and, later, an SVG noise texture; neither survives.
  *
@@ -95,11 +95,11 @@
   --shell-sidebar-quiet-foreground: var(--chrome-ink-quiet);
   --shell-sidebar-control-foreground: var(--chrome-ink-muted);
   --shell-sidebar-control-hover-foreground: var(--chrome-ink-hover);
-  /* A warm neutral, not a brand hue: green marks exactly one thing on this
-   * rail — the selected row — so a green resizer handle would compete with
-   * that single signal. --sand-300 rather than an achromatic grey so the
-   * handle sits in the same temperature as the --stone rail it divides.
-   * Decorative handle, not text — no formal AA requirement, but it should
-   * read as a real affordance without looking like an accent button. */
-  --shell-sidebar-resizer: var(--sand-300);
+  /* A neutral, not the brand: the brand tint marks exactly one thing on
+   * this rail — the selected row — so a wine resizer handle would compete
+   * with that single signal. --edge-strong is the app's hovered-perimeter
+   * weight, which is what this handle is. Decorative, not text: no formal
+   * AA requirement, but it should read as a real affordance rather than an
+   * accent. */
+  --shell-sidebar-resizer: var(--edge-strong);
 }

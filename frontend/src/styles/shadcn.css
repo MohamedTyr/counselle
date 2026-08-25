@@ -31,8 +31,10 @@
   --success-foreground: var(--workspace-success-pill-fg);
   --warning: var(--warning-solid);
   --warning-foreground: var(--workspace-warning-pill-fg);
-  --info: var(--info-solid);
-  --info-foreground: var(--workspace-info-pill-fg);
+  /* No --info pair. shadcn's contract has one, but the --info role was
+   * deleted with the --blue ramp (see primitives.css): its consumers were
+   * all the ORDINARY state of a record, and those are neutral now. Leaving
+   * a dangling --info here would be an invitation to reintroduce the hue. */
   --border: var(--workspace-border-soft);
   /* --input is a BORDER color (shadcn's `border-input` on <input>/
    * <textarea>/<select>, confirmed in components/ui/{input,textarea,

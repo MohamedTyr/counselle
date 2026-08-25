@@ -1,0 +1,90 @@
+/*
+ * Schools — the Explore browser and the My list tracker.
+ *
+ * Tier 3 (see styles/README.md): every value resolves through semantic.css.
+ * No primitives, no literals.
+ *
+ * THE FIT LADDER (rewritten in the palette pass). Reach / Target / Safety
+ * used to be drawn from the warning / info / success status roles — amber,
+ * blue, green. That was wrong twice over:
+ *
+ *   It spent three unrelated hues on a scale whose entire meaning is its
+ *   ORDER. Reach, Target and Safety are not three categories, they are one
+ *   axis, and categorical colour on ordered data is what makes a stacked bar
+ *   read as three competing things rather than one measurement.
+ *
+ *   And it collided. "Safety" was the same green as "done", "Reach" the same
+ *   amber as "waiting on someone". On an Explore card the amber Reach badge
+ *   sat directly above an amber low-submission warning triangle — two ambers
+ *   in one card meaning two different things, which is the defect in
+ *   miniature.
+ *
+ * Now: the LABEL is neutral (schools-config.ts's listTypeVariant returns
+ * `secondary` for all three — the badge says the word, and it is the only
+ * thing in its column), and the DISTRIBUTION takes three ordered steps of
+ * the one brand hue via --brand-scale-* in semantic.css. A school added from
+ * Explore still lands in My list wearing the same badge it had, which is the
+ * property the old mapping existed to guarantee.
+ *
+ * The twelve --school-verdict-* tokens that used to sit here are gone. They
+ * had zero consumers in any .tsx file — VerdictBand.tsx renders the ladder
+ * through Badge variants, not through these — so they were a dead alias
+ * layer describing a mapping that no longer exists.
+ */
+:root {
+  /* ---- result card ---- */
+  --school-card-surface: var(--surface-raised);
+  --school-card-border: var(--edge);
+  --school-card-border-hover: var(--edge-strong);
+  /* On-list cards carry a full brand perimeter, never a side-stripe. The
+   * badge in the header is the redundant, greyscale-surviving channel. */
+  --school-card-onlist-border: var(--brand-subtle-border);
+  --school-card-onlist-badge-surface: var(--brand-subtle);
+  --school-card-onlist-badge-ink: var(--brand-subtle-ink);
+
+  /* ---- missing values ----
+   * One tier weaker than muted, for the literal string "not published".
+   * A blank cell reads as zero and that would be a lie (AGENTS.md
+   * principle 3), so absence gets its own ink rather than no mark. */
+  --school-value-absent: var(--ink-faint);
+
+  /* ---- filter surfaces ----
+   * The bar's chips speak the composer's control-chip dialect
+   * (--control-quiet-*): fill-only at rest, so a row of six chips does not
+   * become a row of six nested outlines. Active swaps to the brand tint,
+   * which is the page's one licensed brand surface besides the CTA. */
+  --school-filter-chip-surface: var(--control-quiet-surface);
+  --school-filter-chip-hover: var(--control-quiet-hover);
+  --school-filter-chip-active-surface: var(--brand-subtle);
+  --school-filter-chip-active-border: var(--brand-subtle-border);
+  --school-filter-chip-active-ink: var(--brand-subtle-ink);
+  /* The Tier-2 panel is a large INPUT SURFACE, not a card — same
+   * distinction workspace.css makes for the composer, so it takes
+   * --edge-panel. A 3:1 --edge-control stroke around a full-width panel is
+   * the "black box" defect that token was created to fix. */
+  --school-filter-panel-surface: var(--surface-raised);
+  --school-filter-panel-border: var(--edge-panel);
+  /* The search field sits directly on --canvas, not on a card — which is
+   * exactly the case --field-surface-canvas was written for. */
+  --school-search-surface: var(--field-surface-canvas);
+  --school-search-border: var(--edge-control);
+  --school-search-border-focus: var(--focus-ring);
+
+  /* ---- list balance bar ----
+   * The one place the fit ladder is coloured, and the one place it should
+   * be: this is an aggregate, so the three segments genuinely have to be
+   * told apart inside a single 8px strip, and the quantity is the whole
+   * point of the component.
+   *
+   * Three ordered steps of the brand hue, heaviest first. Reach is the
+   * darkest because the ambitious part of a list should read as its
+   * weight; a bar that is mostly dark IS the top-heavy list the nudge
+   * underneath is about to warn you about, before you read a word of it.
+   * The legend below the bar draws the same three values as swatch dots,
+   * which is why the lightest step is wine-300 and not wine-200 — see the
+   * note on --brand-scale-* in semantic.css. */
+  --school-balance-track: var(--control-track);
+  --school-balance-reach: var(--brand-scale-3);
+  --school-balance-target: var(--brand-scale-2);
+  --school-balance-safety: var(--brand-scale-1);
+}

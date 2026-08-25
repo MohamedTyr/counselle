@@ -115,7 +115,7 @@ describe("chat session sidebar list", () => {
     const searchInput = screen.getByRole("searchbox", {
       name: "Search chats",
     });
-    expect(searchInput).toHaveAttribute("placeholder", "Search");
+    expect(searchInput).toHaveAttribute("placeholder", "Filter conversations");
 
     await user.type(searchInput, "brown");
 

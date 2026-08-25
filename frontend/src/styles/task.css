@@ -1,8 +1,33 @@
 /*
- * Task board — lane/card/pill/category system. --task-* (66 tokens),
+ * Task board — lane/card/pill/category system. --task-* (70 tokens),
  * public contract preserved. Mostly an alias chain onto workspace.css and
  * semantic.css's status/brand/category roles — never a primitive directly,
  * per the tier rule in styles/README.md.
+ *
+ * Lane chrome (rewritten this pass). The four lanes used to be <Card>s
+ * filled with --canvas: same fill as the page, separated only by a
+ * neutral-200 rim and a drop shadow. An empty column therefore rendered as
+ * a large empty CARD — the shape the board uses for a single task — which
+ * is what made the empty board read as broken rather than as ready.
+ * Now the lane is a trough (--workspace-task-lane-surface, borderless, no
+ * shadow) and the white task cards are the only raised objects on it.
+ *
+ * Consequences carried in the tokens below:
+ *   --task-*-border  -> transparent (via --workspace-task-lane-border).
+ *   --task-todo-pill-bg -> the card fill. The neutral pill was neutral-100,
+ *     which lands within a lightness point of the trough itself, i.e.
+ *     invisible. Borrowing the card fill is the honest neutral here — "no
+ *     status colour" — and it puts the count chip on the same step as the
+ *     cards below it.
+ *
+ * Colour budget (rewritten in the palette pass). Two of the four lanes are
+ * tinted and two are not, which is the point: Waiting is amber because
+ * something is blocked on a person, Done is leaf because that is the moment
+ * worth marking. Todo and Doing are the ordinary states of a task and take
+ * the neutral pill — Doing used to be blue, which made three of four lane
+ * headers shout and left the two that meant something indistinguishable
+ * from the one that didn't. The four lane DOTS still separate all four
+ * lanes (neutral / brand / amber / leaf); the pills no longer have to.
  */
 
 :root {
@@ -11,10 +36,10 @@
   --task-todo-header: var(--workspace-surface-raised);
   --task-todo-card: var(--workspace-task-card-surface);
   --task-todo-card-hover: var(--workspace-task-card-hover);
-  --task-todo-border: var(--workspace-border);
+  --task-todo-border: var(--workspace-task-lane-border);
   --task-todo-card-border: var(--workspace-task-card-border);
   --task-todo-muted: var(--workspace-muted-foreground);
-  --task-todo-pill-bg: var(--workspace-neutral-pill-bg);
+  --task-todo-pill-bg: var(--task-todo-card);
   --task-todo-pill-fg: var(--workspace-neutral-pill-fg);
   --task-todo-dot: var(--workspace-muted-foreground);
 
@@ -23,19 +48,25 @@
   --task-doing-header: var(--workspace-surface-raised);
   --task-doing-card: var(--task-todo-card);
   --task-doing-card-hover: var(--task-todo-card-hover);
-  --task-doing-border: var(--workspace-border);
+  --task-doing-border: var(--task-todo-border);
   --task-doing-card-border: var(--task-todo-card-border);
   --task-doing-muted: var(--task-todo-muted);
-  --task-doing-pill-bg: var(--workspace-info-pill-bg);
-  --task-doing-pill-fg: var(--workspace-info-pill-fg);
-  --task-doing-dot: var(--info-solid);
+  /* Neutral, not the old blue info pill. "Doing" is the ordinary state of a
+   * task you are working on, and a lane whose header pill is as loud as the
+   * Waiting and Done pills next to it says the ordinary case is a signal.
+   * The dot below is what marks this lane, and it takes the brand — this is
+   * where you are, which is the same job the brand does on the selected
+   * sidebar row. */
+  --task-doing-pill-bg: var(--workspace-neutral-pill-bg);
+  --task-doing-pill-fg: var(--workspace-neutral-pill-fg);
+  --task-doing-dot: var(--brand);
 
   /* ---- waiting lane ---- */
   --task-waiting-surface: var(--workspace-task-lane-surface);
   --task-waiting-header: var(--workspace-surface-raised);
   --task-waiting-card: var(--task-todo-card);
   --task-waiting-card-hover: var(--task-todo-card-hover);
-  --task-waiting-border: var(--workspace-border);
+  --task-waiting-border: var(--task-todo-border);
   --task-waiting-card-border: var(--task-todo-card-border);
   --task-waiting-muted: var(--task-todo-muted);
   --task-waiting-pill-bg: var(--workspace-warning-pill-bg);
@@ -47,42 +78,97 @@
   --task-done-header: var(--workspace-surface-raised);
   --task-done-card: var(--task-todo-card);
   --task-done-card-hover: var(--task-todo-card-hover);
-  --task-done-border: var(--workspace-border);
+  --task-done-border: var(--task-todo-border);
   --task-done-card-border: var(--task-todo-card-border);
   --task-done-muted: var(--task-todo-muted);
   --task-done-pill-bg: var(--workspace-success-pill-bg);
   --task-done-pill-fg: var(--workspace-success-pill-fg);
   --task-done-dot: var(--success-solid);
 
-  /* ---- category chips — 7 categories, each a surface/fg/border triad.
-   * aid/interview/other reuse existing semantic roles directly (warning,
-   * info, neutral) instead of duplicating tokens that already exist;
-   * essay/lor/research/form use the category-specific roles semantic.css
-   * defines for exactly this (plum/mauve/teal/slate have no other use in
-   * the app — essay moved off --brand-subtle when the brand went green,
-   * see semantic.css). Zero primitive refs — every value below is a
-   * semantic role. ---- */
-  --task-category-essay-bg: var(--category-essay-surface);
-  --task-category-essay-fg: var(--category-essay-ink);
-  --task-category-essay-border: var(--category-essay-border);
-  --task-category-lor-bg: var(--category-lor-surface);
-  --task-category-lor-fg: var(--category-lor-ink);
-  --task-category-lor-border: var(--category-lor-border);
-  --task-category-aid-bg: var(--workspace-warning-pill-bg);
-  --task-category-aid-fg: var(--workspace-warning-pill-fg);
-  --task-category-aid-border: var(--warning-border);
-  --task-category-research-bg: var(--category-research-surface);
-  --task-category-research-fg: var(--category-research-ink);
-  --task-category-research-border: var(--category-research-border);
-  --task-category-form-bg: var(--category-form-surface);
-  --task-category-form-fg: var(--category-form-ink);
-  --task-category-form-border: var(--category-form-border);
-  --task-category-interview-bg: var(--info-surface);
-  --task-category-interview-fg: var(--info-fg);
-  --task-category-interview-border: var(--info-border);
-  --task-category-other-bg: var(--workspace-neutral-pill-bg);
-  --task-category-other-fg: var(--workspace-neutral-pill-fg);
-  --task-category-other-border: var(--workspace-border);
+  /* ---- category chip — ONE chip, seven categories.
+   *
+   * This used to be seven hue-coded triads: plum for Essay, mauve for LOR,
+   * amber for Aid, teal for Research, slate for Form, blue for Interview,
+   * grey for Other. Four of those hues (plum/mauve/teal/slate) existed in
+   * primitives.css for these chips and for nothing else in the app, and the
+   * three that didn't were borrowed from the status ramps — so a row reading
+   * "Waiting · Aid" drew the same amber twice for two unrelated reasons, and
+   * "Doing · Interview" drew the same blue twice.
+   *
+   * A category is a LABEL, not a state. The chip already says the word, and
+   * there is no task in this product that starts with "find the teal one".
+   *
+   * All 21 tokens are deleted rather than re-pointed at --label-*: twenty-one
+   * aliases that all resolve to the same three values are not a contract,
+   * they are a promise that categories can diverge again. categoryChipClass
+   * in task-config.ts now names one chip and hands it to all seven keys,
+   * reading --label-* directly the way badge.tsx does. ---- */
+
+  /* ---- drop target — the lane a dragged task will land in. Each lane
+   * washes toward its OWN dot hue rather than toward --focus-ring: four
+   * columns flashing wine under the cursor said "this field is focused",
+   * not "this is where the task lands". The whole lane tinting is the
+   * entire signal — there is deliberately no dashed inner drop slot, since
+   * an outlined box inside an outlined column is the nested-card shape
+   * this pass exists to remove.
+   *
+   * Written out per lane rather than as one --lane-dot formula on purpose.
+   * A color-mix() declared at :root substitutes its var()s AT :root, so a
+   * formula referencing --lane-dot (which only exists further down the
+   * tree, set by laneThemeClass) computes to the guaranteed-invalid value
+   * and the background silently falls back to transparent. Both operands
+   * here resolve at :root, so both are real colours.
+   *
+   * `in oklab`, not the house `in oklch`. The base of every mix below is
+   * the lane trough at chroma 0.002 — near enough to achromatic that its
+   * hue is meaningless, while polar OKLCH still interpolates the HUE
+   * ANGLE between the two operands. Mixing 9% of the info blue (H 250)
+   * into a trough sitting at H 70 walks the short arc backwards through
+   * the magentas, and the "pale blue" drop tint rendered pink. Same trap
+   * on the border, whose other operand is `transparent` (L 0 C 0 H 0).
+   * Rectangular OKLab has no hue channel to rotate and gives the colour
+   * actually asked for. Where both operands are properly chromatic, keep
+   * using oklch. ---- */
+  --task-todo-drop-surface: color-mix(
+    in oklab,
+    var(--task-todo-surface),
+    var(--task-todo-dot) 9%
+  );
+  --task-todo-drop-border: color-mix(
+    in oklab,
+    var(--task-todo-dot),
+    transparent 62%
+  );
+  --task-doing-drop-surface: color-mix(
+    in oklab,
+    var(--task-doing-surface),
+    var(--task-doing-dot) 9%
+  );
+  --task-doing-drop-border: color-mix(
+    in oklab,
+    var(--task-doing-dot),
+    transparent 62%
+  );
+  --task-waiting-drop-surface: color-mix(
+    in oklab,
+    var(--task-waiting-surface),
+    var(--task-waiting-dot) 9%
+  );
+  --task-waiting-drop-border: color-mix(
+    in oklab,
+    var(--task-waiting-dot),
+    transparent 62%
+  );
+  --task-done-drop-surface: color-mix(
+    in oklab,
+    var(--task-done-surface),
+    var(--task-done-dot) 9%
+  );
+  --task-done-drop-border: color-mix(
+    in oklab,
+    var(--task-done-dot),
+    transparent 62%
+  );
 
   /* ---- drag / selection states — already pure var()-on-var() color-mix
    * formulas in the original file, so they adapt automatically; only the
@@ -94,14 +180,18 @@
   );
   --task-drag-preview-border: transparent;
   --task-drag-preview-shadow: var(--elevation-3);
-  --task-card-selected-background: color-mix(
-    in oklch,
-    var(--lane-card),
-    var(--foreground) 8%
-  );
+  /* Selection is one colour for the whole board. These used to be
+   * color-mix(..., var(--lane-card), ...) declared right here at :root —
+   * but --lane-card only exists further down the tree (see the drop-target
+   * note above for the same trap), so both computed to the guaranteed-
+   * invalid value and a selected card silently kept its resting fill,
+   * leaving multi-select visible only via its ring. All four lanes share
+   * one card fill anyway, so there is nothing per-lane left to mix from;
+   * the wine selection surface reads as "the app selected this". */
+  --task-card-selected-background: var(--surface-selected);
   --task-card-selected-hover-background: color-mix(
-    in oklch,
-    var(--lane-card),
-    var(--foreground) 11%
+    in oklab,
+    var(--surface-selected),
+    var(--ink) 5%
   );
 }

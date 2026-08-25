@@ -63,11 +63,11 @@ import { Plus, Search } from "lucide-react";
 
 function TasksSkeleton() {
   return (
-    <div className="grid min-h-[32rem] grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
-      <Skeleton className="h-96 w-full" />
-      <Skeleton className="h-96 w-full" />
-      <Skeleton className="h-96 w-full" />
-      <Skeleton className="h-96 w-full" />
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
+      <Skeleton className="h-[17rem] w-full rounded-2xl" />
+      <Skeleton className="h-[17rem] w-full rounded-2xl" />
+      <Skeleton className="h-[17rem] w-full rounded-2xl" />
+      <Skeleton className="h-[17rem] w-full rounded-2xl" />
     </div>
   );
 }

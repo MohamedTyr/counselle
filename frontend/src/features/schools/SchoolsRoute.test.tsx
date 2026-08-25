@@ -77,11 +77,13 @@ function tableSchoolNames() {
 }
 
 describe("SchoolsPage", () => {
-  it("filters schools by list type tabs", async () => {
+  it("filters schools from the balance bar legend", async () => {
     const user = userEvent.setup();
     await renderSchools();
 
-    await user.click(screen.getByRole("tab", { name: /Reach/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Show 2 Reach schools" }),
+    );
 
     expect(screen.getByText("2 schools shown")).toBeInTheDocument();
   });
@@ -161,15 +163,39 @@ describe("SchoolsPage", () => {
     await renderSchools([
       application({
         id: "10000000-0000-4000-8000-000000000010",
-        list_type: "Target",
+        list_type: "Reach",
+      }),
+      application({
+        id: "10000000-0000-4000-8000-000000000011",
+        list_type: "Safety",
       }),
     ]);
 
-    await user.click(screen.getByRole("tab", { name: /Reach/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Show 1 Reach school" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Choose application view filter" }),
+    );
+    await user.click(screen.getByRole("menuitemradio", { name: /Submitted/ }));
 
     expect(screen.getAllByText("No schools match these filters.")).not.toEqual(
       [],
     );
+  });
+
+  it("nudges a list with no safety schools toward Explore", async () => {
+    await renderSchools([
+      application({
+        id: "10000000-0000-4000-8000-000000000020",
+        list_type: "Reach",
+      }),
+    ]);
+
+    expect(screen.getByText(/No safety schools/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Find some in Explore/ }),
+    ).toBeInTheDocument();
   });
 
   it("redirects the legacy school query param to the canonical workspace page", async () => {

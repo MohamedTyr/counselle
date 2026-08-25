@@ -213,7 +213,9 @@ export function ChatComposer({
               : "flex-wrap gap-3 pb-[var(--workspace-composer-toolbar-inset-block-end)]",
           )}
         >
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {/* gap-2 matches AiComposer — see the note there on why 6px let the
+              chips read as one segmented control. */}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {awaitingClarify && (
               <p className="truncate text-[13px] leading-5 font-medium text-[var(--workspace-foreground-soft)]">
                 {CLARIFY_HELPER}

@@ -203,7 +203,7 @@ export function AppSidebar() {
                  * ink, so the two brand tints never look like the same
                  * component at two sizes. */}
                 <Avatar className="size-[30px] shrink-0 rounded-[10px]">
-                  <AvatarFallback className="rounded-[10px] bg-[var(--wine-100)] text-[11px] font-semibold text-[var(--wine-ink-on-100)]">
+                  <AvatarFallback className="rounded-[10px] bg-[var(--brand-chip)] text-[11px] font-semibold text-[var(--brand-chip-ink)]">
                     {initialsFrom(displayName)}
                   </AvatarFallback>
                 </Avatar>

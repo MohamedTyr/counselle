@@ -185,7 +185,10 @@ export function AiComposer({
         </div>
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
-          <div className="flex flex-wrap items-center gap-1.5">
+          {/* gap-2 (8px), not gap-1.5: at 6px the chips sat closer to each
+              other than their own 8-10px side padding, so the three read as
+              one segmented control instead of three separate menus. */}
+          <div className="flex flex-wrap items-center gap-2">
             {mode && modes.length > 0 ? (
               <CounselingModeMenu
                 canBrowseSkills={selectedSkills.length < maxTaskSkills}
