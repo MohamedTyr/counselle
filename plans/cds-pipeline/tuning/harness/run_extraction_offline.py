@@ -71,6 +71,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="override settings.model_cds_extract_thinking_budget (0 disables, -1 auto)",
     )
     parser.add_argument(
+        "--deliberation-budget",
+        type=int,
+        default=None,
+        help="override settings.model_cds_extract_deliberation_budget (0 = no batch gets the "
+        "extra budget; applies only to batches with a hint in engine._DELIBERATION_HINTS)",
+    )
+    parser.add_argument(
         "--prompt-variant",
         type=Path,
         default=None,
@@ -252,6 +259,8 @@ async def _run(args: argparse.Namespace) -> None:
         settings_update["model_cds_extract"] = args.model
     if args.thinking_budget is not None:
         settings_update["model_cds_extract_thinking_budget"] = args.thinking_budget
+    if args.deliberation_budget is not None:
+        settings_update["model_cds_extract_deliberation_budget"] = args.deliberation_budget
     if settings_update:
         settings = settings.model_copy(update=settings_update)
 
@@ -314,6 +323,7 @@ async def _run(args: argparse.Namespace) -> None:
             "domains": domains,
             "model": settings.model_cds_extract,
             "thinking_budget": settings.model_cds_extract_thinking_budget,
+            "deliberation_budget": settings.model_cds_extract_deliberation_budget,
             "prompt_variant": str(args.prompt_variant) if args.prompt_variant else None,
             "starved_retry": args.starved_retry,
             "label": args.label,

@@ -108,6 +108,7 @@ async def test_concurrent_batches_each_resolve_citations_against_their_own_page_
         settings=SimpleNamespace(
             model_cds_extract="google-vertex:fake-model",
             model_cds_extract_thinking_budget=0,
+            model_cds_extract_deliberation_budget=0,
         ),
         manifest_content={"prompt": "extract"},
         pdf_content=_make_pdf(_DOC_PAGE_COUNT),
@@ -163,6 +164,7 @@ async def test_many_batches_stress_concurrency_bound_without_cross_contamination
         settings=SimpleNamespace(
             model_cds_extract="google-vertex:fake-model",
             model_cds_extract_thinking_budget=0,
+            model_cds_extract_deliberation_budget=0,
         ),
         manifest_content={"prompt": "extract"},
         pdf_content=_make_pdf(doc_page_count),

@@ -104,6 +104,11 @@ _COLUMN_POSITION_HINTS = frozenset({"C9", "C15", "C16", "D5", "H12", "H13", "H14
 _CHECKBOX_GRID_MAX_PAGES = 2
 _CHECKBOX_GRID_IMAGE_DPI = 150
 
+# Metric families whose correctness turns on distinguishing "this control is
+# unticked" from "there is no control here" -- a discrimination the model gets
+# wrong without deliberation, and which no prompt wording has been able to fix.
+_DELIBERATION_HINTS = frozenset({"H14"})
+
 # Vertex AI PayGo pricing for gemini-3.1-flash-lite, USD/1M tokens
 # (recon-vertex.md §4e) -- an informational cost estimate for
 # validation_summary, not a billing-accurate figure. Mirrors the constant in
@@ -412,6 +417,20 @@ class _Attempt:
     pages_sent: int
 
 
+def _deliberation_budget(batch_metrics: tuple[dict[str, Any], ...], settings: Any) -> int:
+    """The thinking budget for one call: the expensive deliberation budget
+    when this batch carries a `_DELIBERATION_HINTS` hint (the only place the
+    accuracy win was measured), the ordinary budget otherwise. `settings.
+    model_cds_extract_deliberation_budget == 0` (the default) reproduces
+    today's behaviour on every batch, deliberation-hinted or not."""
+    if not settings.model_cds_extract_deliberation_budget:
+        return int(settings.model_cds_extract_thinking_budget)
+    hints = {hint for metric in batch_metrics for hint in metric["source_hints"]}
+    if hints & _DELIBERATION_HINTS:
+        return int(settings.model_cds_extract_deliberation_budget)
+    return int(settings.model_cds_extract_thinking_budget)
+
+
 async def _run_call_once(
     *,
     settings: Any,
@@ -468,7 +487,7 @@ async def _run_call_once(
         pdf_bytes=call_bytes,
         image_pngs=image_pngs,
         model_setting=settings.model_cds_extract,
-        thinking_budget=settings.model_cds_extract_thinking_budget,
+        thinking_budget=_deliberation_budget(batch_metrics, settings),
     )
     if not isinstance(result.parsed, WindowExtraction):
         raise cds_gemini.CdsGeminiEmptyResponseError(

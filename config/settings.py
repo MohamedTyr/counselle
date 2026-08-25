@@ -187,6 +187,15 @@ class Settings(BaseSettings):
     # setting existed); -1 is the provider's automatic budget; a positive
     # integer is an explicit token budget.
     model_cds_extract_thinking_budget: int = 0
+    # Extra thinking budget for the few batches whose hints put them in
+    # `app/cds/engine.py`'s `_DELIBERATION_HINTS` set (currently just H14,
+    # the checkbox-grid selection-state metrics) -- 0 means "use
+    # model_cds_extract_thinking_budget for every batch, same as before this
+    # setting existed". The deliberation those batches need costs ~$0.09 on
+    # a single call; paying it on the ~20 other batches per document as well
+    # (a global thinking budget) blew the per-document cost ceiling for zero
+    # measured accuracy gain on those other batches.
+    model_cds_extract_deliberation_budget: int = 0
     model_cds_detect: str = "google-vertex:gemini-3.1-flash-lite"
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000
