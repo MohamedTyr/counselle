@@ -6,17 +6,21 @@ top of P1's `compile_manifest`.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from app.cds.manifest import (
     DELIBERATION_HINTS,
     calls_for_domains,
+    diff_domain_hashes,
     domain_ids,
     extraction_groups,
     load_compiled_manifest,
     metric_batches_for_domain,
     source_hints_for_domains,
 )
+from domain.cds.manifest_compile import CompiledManifest
 
 
 def test_load_compiled_manifest_matches_the_live_content_hash() -> None:
@@ -104,3 +108,70 @@ def test_metric_batches_for_domain_rejects_an_unknown_domain() -> None:
     manifest = load_compiled_manifest()
     with pytest.raises(ValueError, match="unknown domain"):
         metric_batches_for_domain(manifest, "not_a_real_domain")
+
+
+def _with_domain_hashes(domain_hashes: dict[str, str]) -> CompiledManifest:
+    """A real `CompiledManifest` with only `.domain_hashes` swapped out --
+    `diff_domain_hashes` only ever reads that field, so this varies just the
+    input under test instead of re-compiling `config/cds/` per case
+    (SHIP-PLAN §6.8)."""
+    return replace(load_compiled_manifest(), domain_hashes=domain_hashes)
+
+
+def test_diff_domain_hashes_reports_no_changes_when_everything_matches() -> None:
+    compiled = _with_domain_hashes({"admissions": "h1", "faculty": "h2"})
+    diff = diff_domain_hashes({"admissions": "h1", "faculty": "h2"}, compiled)
+    assert diff.changed == ()
+    assert diff.added == ()
+    assert diff.removed == ()
+    assert diff.unchanged == ("admissions", "faculty")
+    assert diff.has_changes is False
+    assert diff.changed_domains == ()
+
+
+def test_diff_domain_hashes_detects_a_changed_hash() -> None:
+    compiled = _with_domain_hashes({"admissions": "h1-new", "faculty": "h2"})
+    diff = diff_domain_hashes({"admissions": "h1-old", "faculty": "h2"}, compiled)
+    assert diff.changed == ("admissions",)
+    assert diff.added == ()
+    assert diff.removed == ()
+    assert diff.unchanged == ("faculty",)
+    assert diff.has_changes is True
+    assert diff.changed_domains == ("admissions",)
+
+
+def test_diff_domain_hashes_detects_an_added_domain() -> None:
+    """A domain in the compiled candidate but absent from the published row
+    -- e.g. a brand-new domain file -- must show up as `added`, not silently
+    merged into `changed` (it has no prior hash to differ from)."""
+    compiled = _with_domain_hashes({"admissions": "h1", "new_domain": "h3"})
+    diff = diff_domain_hashes({"admissions": "h1"}, compiled)
+    assert diff.changed == ()
+    assert diff.added == ("new_domain",)
+    assert diff.removed == ()
+    assert diff.unchanged == ("admissions",)
+    assert diff.has_changes is True
+    assert diff.changed_domains == ("new_domain",)
+
+
+def test_diff_domain_hashes_detects_a_removed_domain() -> None:
+    """A domain published but no longer in the compiled candidate -- e.g. a
+    deleted domain file -- must show up as `removed`, distinct from
+    `changed`, since there is nothing left to rerun for it."""
+    compiled = _with_domain_hashes({"admissions": "h1"})
+    diff = diff_domain_hashes({"admissions": "h1", "old_domain": "h9"}, compiled)
+    assert diff.changed == ()
+    assert diff.added == ()
+    assert diff.removed == ("old_domain",)
+    assert diff.unchanged == ("admissions",)
+    assert diff.has_changes is True
+    assert diff.changed_domains == ()  # nothing left to spend a rerun on
+
+
+def test_diff_domain_hashes_treats_no_published_row_as_everything_added() -> None:
+    compiled = _with_domain_hashes({"admissions": "h1", "faculty": "h2"})
+    diff = diff_domain_hashes(None, compiled)
+    assert diff.added == ("admissions", "faculty")
+    assert diff.changed == ()
+    assert diff.removed == ()
+    assert diff.has_changes is True

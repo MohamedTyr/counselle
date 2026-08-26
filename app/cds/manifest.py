@@ -12,6 +12,7 @@ location and, informationally, the expected content hash asserted by
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -231,12 +232,98 @@ async def verify_manifest_current(pool: asyncpg.Pool, manifest: CompiledManifest
         )
 
 
+@dataclass(frozen=True)
+class DomainHashDiff:
+    """Which domain ids differ between a *published* manifest row's
+    `domain_hashes` and a *compiled* candidate's -- the cheap half of
+    hash-scoped incremental re-extraction (SHIP-PLAN §6.8). Feed
+    `.changed_domains` straight into `service_review.rerun_extraction`'s
+    `domains` argument so a targeted rerun costs one domain instead of all
+    thirteen.
+
+    A domain id present on only one side is `added` or `removed`, never
+    silently folded into `changed` -- an authoring bug that drops or renames
+    a domain id should read as exactly that, not as an indistinguishable
+    "hash changed". `unchanged` and `has_changes` exist so a caller never has
+    to infer "nothing changed" from an empty-looking result -- see
+    `has_changes`.
+    """
+
+    changed: tuple[str, ...]
+    added: tuple[str, ...]
+    removed: tuple[str, ...]
+    unchanged: tuple[str, ...]
+
+    @property
+    def changed_domains(self) -> tuple[str, ...]:
+        """Domain ids worth spending on a rerun for: changed or newly added.
+        A `removed` domain has nothing left in `config/cds/` to extract."""
+        return tuple(sorted({*self.changed, *self.added}))
+
+    @property
+    def has_changes(self) -> bool:
+        """False means the diff is unambiguously "nothing to rerun" -- every
+        domain matched -- rather than an empty result a caller might mistake
+        for "the comparison found nothing" (e.g. a bad version)."""
+        return bool(self.changed or self.added or self.removed)
+
+
+def diff_domain_hashes(
+    published_domain_hashes: dict[str, Any] | None, compiled: CompiledManifest
+) -> DomainHashDiff:
+    """Pure comparison of a published row's `domain_hashes` (`None` if no
+    matching row exists) against `compiled`'s. Does no I/O, so it's directly
+    unit-testable against constructed dicts -- `changed_domains_since_publish`
+    below is the only caller that touches the database."""
+    published = published_domain_hashes or {}
+    compiled_ids = set(compiled.domain_hashes)
+    published_ids = set(published)
+    common = compiled_ids & published_ids
+    changed = {
+        domain_id
+        for domain_id in common
+        if compiled.domain_hashes[domain_id] != published[domain_id]
+    }
+    return DomainHashDiff(
+        changed=tuple(sorted(changed)),
+        added=tuple(sorted(compiled_ids - published_ids)),
+        removed=tuple(sorted(published_ids - compiled_ids)),
+        unchanged=tuple(sorted(common - changed)),
+    )
+
+
+async def changed_domains_since_publish(
+    pool: asyncpg.Pool, compiled: CompiledManifest, *, version: str
+) -> DomainHashDiff:
+    """Fetch `version`'s published `domain_hashes` row (the same read
+    `verify_manifest_current` performs, against `domain_hashes` instead of
+    `content_sha256`, and against a caller-supplied version rather than
+    always `compiled.version` -- so an operator can diff against a
+    superseded row, e.g. the manifest version last actually extracted
+    against) and diff it against `compiled`. Raises `ManifestDriftError` if
+    `version` has no row at all -- there is nothing to diff against."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT domain_hashes FROM cds_library.cds_manifests WHERE version = $1",
+            version,
+        )
+    if row is None:
+        raise ManifestDriftError(
+            f"manifest version {version!r} has no row in cds_library.cds_manifests -- "
+            "nothing to diff against"
+        )
+    return diff_domain_hashes(row["domain_hashes"], compiled)
+
+
 __all__ = [
     "CDS_CONFIG_DIR",
     "DEFAULT_METRIC_BATCH_SIZE",
     "DELIBERATION_HINTS",
+    "DomainHashDiff",
     "ManifestDriftError",
     "calls_for_domains",
+    "changed_domains_since_publish",
+    "diff_domain_hashes",
     "domain_ids",
     "extraction_groups",
     "load_compiled_manifest",

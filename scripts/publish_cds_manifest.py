@@ -32,11 +32,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from typing import Any
 
 import asyncpg
 
-from app.cds.manifest import CDS_CONFIG_DIR
+from app.cds.manifest import CDS_CONFIG_DIR, diff_domain_hashes
 from config.settings import get_settings
 from counselle_db.db import create_pool
 from domain.cds.manifest_compile import CompiledManifest, ManifestError, compile_manifest
@@ -77,20 +76,6 @@ async def _refuse_if_extraction_in_flight(conn: asyncpg.Connection) -> None:
         )
 
 
-def _domain_hash_diff(
-    current_domain_hashes: dict[str, Any] | None, compiled: CompiledManifest
-) -> list[str]:
-    """Domain ids whose hash differs between the currently published manifest
-    (if any) and the compiled candidate -- includes domains missing entirely
-    from the current row."""
-    current = current_domain_hashes or {}
-    return sorted(
-        domain_id
-        for domain_id, new_hash in compiled.domain_hashes.items()
-        if current.get(domain_id) != new_hash
-    )
-
-
 async def _count_packets_that_will_flip(
     conn: asyncpg.Connection, compiled: CompiledManifest
 ) -> int:
@@ -126,7 +111,7 @@ async def publish(pool: asyncpg.Pool, compiled: CompiledManifest, *, do_publish:
                 f"{compiled.content_sha256}) -- 5.x manifests are immutable, this version "
                 "cannot be reused for different content"
             )
-        changed_domains = _domain_hash_diff(
+        domain_diff = diff_domain_hashes(
             current_row["domain_hashes"] if current_row is not None else None, compiled
         )
         flip_count = await _count_packets_that_will_flip(conn, compiled)
@@ -135,8 +120,8 @@ async def publish(pool: asyncpg.Pool, compiled: CompiledManifest, *, do_publish:
         print(f"content_sha256:       {compiled.content_sha256}")
         print(f"currently published:  {current_row['version'] if current_row else '(none)'}")
         print(
-            f"changed domain hashes ({len(changed_domains)}): "
-            f"{', '.join(changed_domains) or '(none)'}"
+            f"changed domain hashes ({len(domain_diff.changed_domains)}): "
+            f"{', '.join(domain_diff.changed_domains) or '(none)'}"
         )
         print(f"active packets that will flip current_definition_match=false: {flip_count}")
 
