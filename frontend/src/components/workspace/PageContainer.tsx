@@ -37,6 +37,8 @@ type PageContainerProps = {
   children: ReactNode;
   /** Extra classes for the scrolling body column. */
   className?: string;
+  /** Replaces the title block in the header bar — see PageHeader. */
+  heading?: ReactNode;
   /** Identifying mark left of the title — see PageHeader. */
   leading?: ReactNode;
   /**
@@ -54,6 +56,7 @@ export function PageContainer({
   actions,
   children,
   className,
+  heading,
   leading,
   overlay,
   scrollRef,
@@ -72,6 +75,7 @@ export function PageContainer({
         <PageHeader
           actions={actions}
           columnClassName={column}
+          heading={heading}
           leading={leading}
           subtitle={subtitle}
           title={title}

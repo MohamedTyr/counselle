@@ -37,6 +37,7 @@ import { PageContainer } from "@/components/workspace/PageContainer";
 import { SchoolFactsPanel } from "@/features/schools/facts/SchoolFactsPanel";
 import { schoolFactsFixture } from "@/features/schools/facts/school-facts-fixtures";
 import { identityMeta } from "@/features/schools/facts/school-facts-format";
+import type { SchoolIdentity } from "@/features/schools/facts/school-facts-types";
 import { SchoolAvatar } from "@/features/schools/school-cells";
 import { SchoolWorkspace } from "@/features/schools/SchoolWorkspace";
 
@@ -153,26 +154,17 @@ function SchoolDetail({
           websiteUrl={identity.websiteUrl}
         />
       }
-      leading={
-        <SchoolAvatar name={identity.name} websiteUrl={identity.websiteUrl} />
-      }
-      subtitle={identityMeta(identity)}
+      /*
+       * The bar carries the trail, the page carries the school. Both used to
+       * name the school — once as the h1 and again as the crumb, 40px apart —
+       * which spent the page's most prominent line saying what the line under
+       * it already said.
+       */
+      heading={<SchoolCrumbs name={identity.name} />}
       title={identity.name}
       width="full"
     >
-      <Breadcrumb className="hidden md:block">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink render={<Link to="/app/schools" />}>
-              Schools
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{identity.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <SchoolIdentityBlock identity={identity} />
 
       <Tabs
         onValueChange={(next) => {
@@ -218,6 +210,44 @@ function SchoolDetail({
         </TabsPanel>
       </Tabs>
     </PageContainer>
+  );
+}
+
+function SchoolCrumbs({ name }: { name: string }) {
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink render={<Link to="/app/schools" />}>
+            Schools
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          {/* Truncates rather than wraps: the bar is a fixed 64px, and a
+            * two-line crumb would push the actions out of its centre. */}
+          <BreadcrumbPage className="truncate">{name}</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
+/** The page's subject, and the page's only `<h1>`. */
+function SchoolIdentityBlock({ identity }: { identity: SchoolIdentity }) {
+  const meta = identityMeta(identity);
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <SchoolAvatar name={identity.name} websiteUrl={identity.websiteUrl} />
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="truncate text-xl leading-none font-semibold tracking-tight">
+          {identity.name}
+        </h1>
+        {meta ? (
+          <p className="truncate text-sm text-muted-foreground">{meta}</p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
