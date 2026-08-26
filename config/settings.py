@@ -213,6 +213,14 @@ class Settings(BaseSettings):
     # model_cds_extract_deliberation_budget and trade accuracy for cost.
     model_cds_extract_deliberation_level: str = "HIGH"
     model_cds_detect: str = "google-vertex:gemini-3.1-flash-lite"
+    # Transport-level retry for the student-facing counselor model call
+    # (adapters/cds_gemini.py's HttpRetryOptions precedent, mirrored here for
+    # the agent seam -- app/agent_node.py::default_model_factory). Retries
+    # only 408/429/5xx and connect/timeout errors (the google-genai SDK's own
+    # filter, see google.genai._api_client.retry_args) -- never a blanket
+    # retry, so a genuine 400/401/403 still surfaces immediately. Matches
+    # _SDK_RETRY_ATTEMPTS's naming intent on the pipeline side.
+    agent_model_retry_attempts: int = 3
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000
     # Native provider thought output. Gemini exposes this through

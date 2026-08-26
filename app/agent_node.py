@@ -258,7 +258,24 @@ def default_model_factory(settings: Any, model_setting: str) -> Model:
     ``settings.model_counselor`` or Think's ``settings.model_counselor_think`` —
     plans/quick-think-response-mode.md §3.2/§5.2); this factory never re-reads a
     global default itself.
+
+    This is the provider-construction seam (ADR 0011): retry/backoff is
+    inherently provider-shaped (an HTTP-transport option on the concrete
+    genai client), so it's configured here, at the one place a concrete
+    provider client gets built from ``Settings``, rather than in ``app/``
+    turn-lifecycle code. Swapping the provider via env (e.g. to Anthropic)
+    would take a different branch here with its own idiomatic retry config —
+    this branch never has to be touched for that.
+
+    Retries only transient failures — 408/429/5xx and connect/timeout errors
+    — via the google-genai SDK's own ``HttpRetryOptions``, the same
+    mechanism ``adapters/cds_gemini.py`` uses for the CDS extraction call
+    (recon-vertex.md §5.7: transport retries only, no hand-rolled loop on
+    top). The SDK's ``retry_args`` filters by exception/status so a genuine
+    400/401/403 still raises immediately.
     """
+    from google import genai
+    from google.genai import types
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
@@ -267,9 +284,16 @@ def default_model_factory(settings: Any, model_setting: str) -> Model:
             "COUNSELLE_VERTEX_API_KEY is not set — the counselor model cannot "
             "authenticate (Vertex Express Mode key required)."
         )
+    client = genai.Client(
+        vertexai=True,
+        api_key=settings.vertex_api_key,
+        http_options=types.HttpOptions(
+            retry_options=types.HttpRetryOptions(attempts=settings.agent_model_retry_attempts),
+        ),
+    )
     return GoogleModel(
         model_name_from_setting(model_setting),
-        provider=GoogleCloudProvider(api_key=settings.vertex_api_key),
+        provider=GoogleCloudProvider(client=client),
     )
 
 

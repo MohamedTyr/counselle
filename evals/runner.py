@@ -964,8 +964,12 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             call["args"].get("domain_id") == template_domain for call in domain_calls
         )
         has_row = any(
-            row.get("ref") == template_ref
-            and row.get("availability_status") == "not_in_template_version"
+            row.get("field") == template_ref
+            and row.get("available") is False
+            and any(
+                isinstance(caveat, dict) and caveat.get("kind") == "not_in_template_version"
+                for caveat in row.get("caveats") or ()
+            )
             for payload in payloads
             for row in payload.get("rows", [])
             if isinstance(row, dict)
@@ -1019,6 +1023,12 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
         }
         for word, digit in number_words.items():
             normalized_prose = re.sub(rf"\b{word}\b", digit, normalized_prose, flags=re.I)
+        # A natural qualifier phrase can sit between "of"/"out of" and the
+        # total (e.g. "out of a total of 2,746"). Tolerate a small, named set
+        # of such phrases, capped at one occurrence, so the gap stays a few
+        # words wide rather than an unbounded `.*` that could fuzzy-match a
+        # different number anywhere later in the answer.
+        denominator_qualifier = r"(?:the|a\s+total\s+of|approximately|roughly|about|around)"
         direct = (
             rf"\b{expected_pair[0]}\b"
             rf"(?:\s+(?:covered|verified|reported|eligible|profiled|schools?|institutions?"
@@ -1026,12 +1036,12 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             rf"|have|has|are|numeric|a|an|the|for|this|ranking|only|count|of|total|database"
             rf"|contains|reflects|our|current|reported)){{0,24}}\s+"
             rf"(?:of|out of)\s+"
-            rf"(?:the\s+)?{expected_pair[1]}\b"
+            rf"(?:{denominator_qualifier}\s+){{0,1}}{expected_pair[1]}\b"
             if expected_pair
             else r"(?!)"
         )
         reverse = (
-            rf"\b(?:of|out of)\s+(?:the\s+)?{expected_pair[1]}\b"
+            rf"\b(?:of|out of)\s+(?:{denominator_qualifier}\s+){{0,1}}{expected_pair[1]}\b"
             rf"(?:\s+(?:covered|verified|reported|eligible|profiled|schools?|institutions?"
             rf"|candidates?|values?|with|usable|exact|metric|data|that|can|be|evaluated"
             rf"|have|has|are|numeric|a|an|the|for|this|ranking|only|count|of|total|database"

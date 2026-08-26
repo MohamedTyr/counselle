@@ -1024,8 +1024,17 @@ def test_live_template_absence_requires_typed_row_evidence() -> None:
                     "content": {
                         "rows": [
                             {
-                                "ref": "admissions.optional_row",
-                                "availability_status": "not_in_template_version",
+                                "field": "admissions.optional_row",
+                                "available": False,
+                                "caveats": [
+                                    {
+                                        "kind": "not_in_template_version",
+                                        "text": (
+                                            "This item does not exist in this "
+                                            "school's CDS template edition."
+                                        ),
+                                    }
+                                ],
                             }
                         ]
                     },
