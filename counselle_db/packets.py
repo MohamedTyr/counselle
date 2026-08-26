@@ -425,6 +425,7 @@ def read_metric(
     if not available and metric.availability_status:
         caveats.append(metric.availability_status)
     vintage = f"CDS {academic_year}-{str(academic_year + 1)[-2:]}"
+    qualifiers_resolved = 0
     for context in definition.contexts:
         displays: list[str] = []
         for ref in context.refs:
@@ -438,6 +439,14 @@ def read_metric(
                 break
         else:
             vintage += f"; {context.label}: {', '.join(displays)}"
+            qualifiers_resolved += 1
+    # Invariant: the caveat fires whenever the rendered vintage does not carry every
+    # period qualifier the manifest promised for this metric — whether because no
+    # contexts are modeled at all, a binder failed to resolve, or only some of
+    # several declared contexts resolved. Derived from the actual append count so
+    # this can't drift from the loop above.
+    if not definition.contexts or qualifiers_resolved < len(definition.contexts):
+        caveats.append("vintage_period_unavailable")
     try:
         display = _display(metric, definition) if available else None
     except ValueError:

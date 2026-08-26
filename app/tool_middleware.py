@@ -33,6 +33,7 @@ def _caveats(
             "not_reported",
             "not_applicable",
             "suppressed",
+            "vintage_period_unavailable",
         }:
             rendered.append(render_caveat(kind))
     return tuple(rendered)

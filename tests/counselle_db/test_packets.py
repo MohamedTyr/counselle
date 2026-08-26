@@ -223,6 +223,276 @@ def test_domain_row_carries_internal_evidence_for_phase3_middleware() -> None:
     assert row.evidence["excerpt"] == "Rate 10%"
 
 
+def _manifest_with_context(version: str = "5.0.1") -> ManifestSnapshot:
+    return compile_manifest(
+        version,
+        {
+            "domains": [
+                {
+                    "id": "admissions",
+                    "title": "Admissions",
+                    "metrics": [
+                        {
+                            "id": "admissions.entering_term",
+                            "description": "Entering term",
+                            "type": "string",
+                        },
+                        {
+                            "id": "admissions.rate",
+                            "description": "Admission rate",
+                            "type": "number",
+                            "unit": "percent",
+                            "contexts": [
+                                {
+                                    "id": "admissions.ctx",
+                                    "label": "entering class",
+                                    "refs": ["admissions.entering_term"],
+                                }
+                            ],
+                        },
+                    ],
+                }
+            ]
+        },
+    )
+
+
+def _row_with_context(extractor: str = "gemini-routed-extraction-v8") -> dict[str, object]:
+    packet = {
+        "document_sha256": "aa",
+        "academic_year": 2025,
+        "extraction_id": "00000000-0000-0000-0000-000000000002",
+        "manifest_version": "5.0.1",
+        "domain_id": "admissions",
+        "domain_schema_hash": "bb",
+        "extractor_version": extractor,
+        "model_id": "model",
+        "status": "validated",
+        "counts": {"verified": 2, "not_extracted": 0, "conflict": 0, "invalid": 0},
+        "provider_contract": {},
+        "metrics": {
+            "admissions.entering_term": {
+                "extraction_status": "verified",
+                "availability_status": "reported",
+                "value": "Fall 2024",
+                "raw_value": None,
+                "evidence": {"page_number": 1, "excerpt": "Entering term: Fall 2024"},
+            },
+            "admissions.rate": {
+                "extraction_status": "verified",
+                "availability_status": "reported",
+                "value": 0.1,
+                "raw_value": "10%",
+                "evidence": {"page_number": 2, "excerpt": "Rate 10%"},
+            },
+        },
+    }
+    return {
+        "school_id": 1,
+        "academic_year": 2025,
+        "document_id": 2,
+        "pdf_sha256": b"\xaa",
+        "domain_id": "admissions",
+        "accepted_packet_status": "validated",
+        "packet": packet,
+        "extraction_id": packet["extraction_id"],
+        "manifest_version": "5.0.1",
+        "domain_schema_hash": memoryview(b"\xbb"),
+        "current_definition_match": True,
+        "currentness": "current",
+    }
+
+
+def test_vintage_carries_period_qualifier_and_no_disclosure_when_domain_has_contexts() -> None:
+    """§0.9 mitigation: a domain whose manifest defines contexts still resolves the
+    full period-qualified vintage, and does not receive the vintage-loss disclosure."""
+    parsed = parse_packet_row(
+        _row_with_context(),
+        {"5.0.1": _manifest_with_context()},
+        frozenset({"gemini-routed-extraction-v8"}),
+    )
+    definitions = {metric.ref: metric for d in parsed.manifest.domains for metric in d.metrics}
+    context_values = {
+        ref: (metric, definitions[ref]) for ref, metric in parsed.packet.metrics.items()
+    }
+    rate_definition = definitions["admissions.rate"]
+    row = read_metric(
+        parsed.packet.metrics[rate_definition.ref],
+        rate_definition,
+        academic_year=2025,
+        packet_status="validated",
+        definition_match=True,
+        currentness="current",
+        context_values=context_values,
+    )
+    assert row.vintage == "CDS 2025-26; entering class: Fall 2024"
+    assert "vintage_period_unavailable" not in row.caveat_kinds
+
+
+def test_vintage_is_year_only_and_carries_disclosure_when_context_binder_unresolved() -> None:
+    """Second silent-loss path found in review: the manifest declares a context, but
+    the binder metric it references wasn't verified/available at read time (e.g. no
+    context_values supplied). The for...else correctly omits the half-formed suffix,
+    and the caveat must still fire even though `definition.contexts` is non-empty."""
+    parsed = parse_packet_row(
+        _row_with_context(),
+        {"5.0.1": _manifest_with_context()},
+        frozenset({"gemini-routed-extraction-v8"}),
+    )
+    definitions = {metric.ref: metric for d in parsed.manifest.domains for metric in d.metrics}
+    rate_definition = definitions["admissions.rate"]
+    row = read_metric(
+        parsed.packet.metrics[rate_definition.ref],
+        rate_definition,
+        academic_year=2025,
+        packet_status="validated",
+        definition_match=True,
+        currentness="current",
+        # No context_values supplied: the binder never resolves.
+    )
+    assert row.vintage == "CDS 2025-26"
+    assert "vintage_period_unavailable" in row.caveat_kinds
+
+
+def _manifest_with_two_contexts(version: str = "5.0.1") -> ManifestSnapshot:
+    return compile_manifest(
+        version,
+        {
+            "domains": [
+                {
+                    "id": "admissions",
+                    "title": "Admissions",
+                    "metrics": [
+                        {
+                            "id": "admissions.entering_term",
+                            "description": "Entering term",
+                            "type": "string",
+                        },
+                        {
+                            "id": "admissions.as_of_date",
+                            "description": "As-of date",
+                            "type": "string",
+                        },
+                        {
+                            "id": "admissions.rate",
+                            "description": "Admission rate",
+                            "type": "number",
+                            "unit": "percent",
+                            "contexts": [
+                                {
+                                    "id": "admissions.ctx_term",
+                                    "label": "entering class",
+                                    "refs": ["admissions.entering_term"],
+                                },
+                                {
+                                    "id": "admissions.ctx_as_of",
+                                    "label": "as of",
+                                    "refs": ["admissions.as_of_date"],
+                                },
+                            ],
+                        },
+                    ],
+                }
+            ]
+        },
+    )
+
+
+def _row_with_two_contexts(extractor: str = "gemini-routed-extraction-v8") -> dict[str, object]:
+    packet = {
+        "document_sha256": "aa",
+        "academic_year": 2025,
+        "extraction_id": "00000000-0000-0000-0000-000000000003",
+        "manifest_version": "5.0.1",
+        "domain_id": "admissions",
+        "domain_schema_hash": "bb",
+        "extractor_version": extractor,
+        "model_id": "model",
+        "status": "validated",
+        "counts": {"verified": 2, "not_extracted": 0, "conflict": 0, "invalid": 0},
+        "provider_contract": {},
+        "metrics": {
+            "admissions.entering_term": {
+                "extraction_status": "verified",
+                "availability_status": "reported",
+                "value": "Fall 2024",
+                "raw_value": None,
+                "evidence": {"page_number": 1, "excerpt": "Entering term: Fall 2024"},
+            },
+            "admissions.rate": {
+                "extraction_status": "verified",
+                "availability_status": "reported",
+                "value": 0.1,
+                "raw_value": "10%",
+                "evidence": {"page_number": 2, "excerpt": "Rate 10%"},
+            },
+        },
+    }
+    return {
+        "school_id": 1,
+        "academic_year": 2025,
+        "document_id": 2,
+        "pdf_sha256": b"\xaa",
+        "domain_id": "admissions",
+        "accepted_packet_status": "validated",
+        "packet": packet,
+        "extraction_id": packet["extraction_id"],
+        "manifest_version": "5.0.1",
+        "domain_schema_hash": memoryview(b"\xbb"),
+        "current_definition_match": True,
+        "currentness": "current",
+    }
+
+
+def test_vintage_partially_qualified_still_carries_disclosure() -> None:
+    """Decision: a metric that declares several contexts but only resolves some of
+    them (here `admissions.as_of_date` was never extracted) renders the qualifiers
+    it does have rather than dropping them, but still receives the disclosure
+    caveat — a partially-qualified vintage is not what the definition promised, and
+    the reader must not mistake a partial answer for a complete one."""
+    parsed = parse_packet_row(
+        _row_with_two_contexts(),
+        {"5.0.1": _manifest_with_two_contexts()},
+        frozenset({"gemini-routed-extraction-v8"}),
+    )
+    definitions = {metric.ref: metric for d in parsed.manifest.domains for metric in d.metrics}
+    context_values = {
+        ref: (metric, definitions[ref]) for ref, metric in parsed.packet.metrics.items()
+    }
+    rate_definition = definitions["admissions.rate"]
+    row = read_metric(
+        parsed.packet.metrics[rate_definition.ref],
+        rate_definition,
+        academic_year=2025,
+        packet_status="validated",
+        definition_match=True,
+        currentness="current",
+        context_values=context_values,
+    )
+    assert row.vintage == "CDS 2025-26; entering class: Fall 2024"
+    assert "vintage_period_unavailable" in row.caveat_kinds
+
+
+def test_vintage_is_year_only_and_carries_disclosure_when_domain_has_no_contexts() -> None:
+    """§0.9 mitigation: a domain whose manifest has no context_bindings renders a
+    year-only vintage AND an explicit disclosure that the period qualifier is
+    unavailable, rather than silently losing the qualifier."""
+    parsed = parse_packet_row(
+        _row(), {"5.0.1": _manifest()}, frozenset({"gemini-routed-extraction-v8"})
+    )
+    definition = parsed.manifest.domains[0].metrics[0]
+    row = read_metric(
+        parsed.packet.metrics[definition.ref],
+        definition,
+        academic_year=2025,
+        packet_status="validated",
+        definition_match=True,
+        currentness="current",
+    )
+    assert row.vintage == "CDS 2025-26"
+    assert "vintage_period_unavailable" in row.caveat_kinds
+
+
 def test_manifest_rejects_duplicate_domains_refs_bad_binders_and_hash_coverage() -> None:
     content = {
         "domains": [

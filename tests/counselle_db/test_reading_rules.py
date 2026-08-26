@@ -32,7 +32,12 @@ def test_raw_percentage_is_never_scaled_and_caveats_accumulate() -> None:
     )
     assert row.display == "10%"
     assert row.vintage == "CDS 2025-26"
-    assert row.caveat_kinds == ("partial_packet", "definition_drift", "stale_edition")
+    assert row.caveat_kinds == (
+        "partial_packet",
+        "definition_drift",
+        "stale_edition",
+        "vintage_period_unavailable",
+    )
 
 
 @pytest.mark.parametrize(

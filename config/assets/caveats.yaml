@@ -28,3 +28,6 @@ not_applicable:
 suppressed:
   text: "The source suppresses this value."
   slots: []
+vintage_period_unavailable:
+  text: "The reporting period (for example, which entering class or term this figure covers) isn't fully available for this figure; treat the vintage shown as the CDS academic-year, possibly missing part of that context."
+  slots: []

@@ -492,10 +492,14 @@ async def test_get_domain_partial_stale_and_definition_drift_use_pinned_manifest
         "admissions",
     )
     assert result.rows[0].label == "Historical admission rate"
+    # The historical manifest declares a "Term" context bound to enrollment.term,
+    # but no enrollment packet is supplied here, so the binder never resolves and
+    # the vintage renders year-only — which must carry the disclosure caveat.
     assert set(result.rows[0].caveat_kinds) == {
         "partial_packet",
         "definition_drift",
         "stale_edition",
+        "vintage_period_unavailable",
     }
     assert result.definition_match is False
 

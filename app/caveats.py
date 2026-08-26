@@ -18,7 +18,7 @@ def caveat_catalog() -> dict[str, dict[str, Any]]:
     expected = {
         "profile_snapshot", "stale_edition", "partial_packet", "definition_drift",
         "not_in_template_version", "edition_mismatch_comparison", "coverage_denominator",
-        "not_reported", "not_applicable", "suppressed",
+        "not_reported", "not_applicable", "suppressed", "vintage_period_unavailable",
     }
     if set(raw) != expected:
         raise ValueError("caveats asset has an incomplete or unexpected kind set")

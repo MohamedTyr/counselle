@@ -20,6 +20,8 @@ def test_strict_caveat_slots_and_multiple_kinds() -> None:
         render_caveat("partial_packet", surprise="x")
     with pytest.raises(ValueError):
         render_caveat("invented")
+    vintage_loss = render_caveat("vintage_period_unavailable")
+    assert vintage_loss.kind == "vintage_period_unavailable"
 
 
 def test_phase3_prompt_assets_validate_at_boot() -> None:
