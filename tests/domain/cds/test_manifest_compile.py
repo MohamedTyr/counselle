@@ -18,7 +18,7 @@ import yaml
 
 from domain.cds.manifest_compile import ManifestError, compile_manifest
 
-LIVE_CONTENT_SHA256 = "ae78912f23f693a3bd11313b798ccd957b93eaf51c9e1574a29b4470fc421196"
+LIVE_CONTENT_SHA256 = "6367c0fee822f4d07725abc7274c8a589edefd64fb7301eac8372568941b04ae"
 CONFIG_DIR = Path(__file__).resolve().parents[3] / "config" / "cds"
 
 _ROOT = {
@@ -59,10 +59,10 @@ def _write_manifest(
 
 
 def test_ported_config_matches_the_live_manifest_hash() -> None:
-    """The P1 hard gate: byte-identical content_sha256 to the live manifest 5.0.2."""
+    """The P1 hard gate: byte-identical content_sha256 to the published manifest 5.1.0."""
     compiled = compile_manifest(CONFIG_DIR)
     assert compiled.content_sha256 == LIVE_CONTENT_SHA256
-    assert compiled.version == "5.0.2"
+    assert compiled.version == "5.1.0"
     assert set(compiled.content.keys()) == {
         "root", "domains", "prompt", "extraction_contract_version",
     }

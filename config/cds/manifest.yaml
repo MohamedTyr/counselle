@@ -1,4 +1,4 @@
-version: "5.0.2"
+version: "5.1.0"
 description: "Evidence-backed source states and compiled metric-context bindings."
 page_routing_enabled: true
 extraction_groups:

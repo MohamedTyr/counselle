@@ -599,3 +599,72 @@ async def promote_candidate_document(
         school_year_id,
         document_id,
     )
+
+
+async def retire_school_year(conn: asyncpg.Connection, *, school_year_id: int) -> None:
+    """Retire a ``cds_school_years`` slot (SHIP-PLAN §1.0(a)/(b)): sets
+    ``retired_at`` and ``last_action_kind = 'retired'``.
+
+    ``retired_at`` is an existing column and already the filter every admin
+    coverage query uses to hide a row (``adapters/cds_admin_queries.py``),
+    but nothing wrote it before this. A fabricated-year slot has no
+    legitimate future use -- retiring it is a terminal action, unlike
+    :func:`reject_candidate_document`, which only ever clears a candidate
+    pointer and leaves the slot open for a future legitimate upload."""
+    result = await conn.execute(
+        """
+        UPDATE cds_library.cds_school_years
+        SET retired_at = now(), last_action_kind = 'retired', last_action_at = now()
+        WHERE id = $1 AND retired_at IS NULL
+        """,
+        school_year_id,
+    )
+    if result == "UPDATE 0":
+        raise CdsStoreError(f"school_year {school_year_id} not found or already retired")
+
+
+async def discard_active_document(
+    conn: asyncpg.Connection, *, school_year_id: int, document_id: int
+) -> None:
+    """Discard an *active* document that never should have served students
+    (SHIP-PLAN §1.0(b), §0.11) -- distinct from :func:`reject_candidate_document`,
+    which only ever handles a document that is still a *candidate*.
+
+    In one transaction: invalidate the document, clear the slot's
+    ``active_document_id`` pointer, and retire the slot. All three are
+    required together -- both ``active_cds_documents`` and
+    ``active_cds_domain_packets`` join purely on
+    ``sy.active_document_id = d.id`` with no ``d.invalidated_at`` filter
+    anywhere in either view, so invalidating the document alone would not
+    stop it serving; the pointer itself has to move. This is a distinct case
+    from the Phase 2 ``active_update`` correction flow, which corrects an
+    active document that is still good -- this discards one that never was.
+    """
+    async with conn.transaction():
+        result = await conn.execute(
+            """
+            UPDATE cds_library.cds_documents
+            SET invalidated_at = now()
+            WHERE id = $1 AND invalidated_at IS NULL
+            """,
+            document_id,
+        )
+        if result == "UPDATE 0":
+            raise CdsStoreError(f"document {document_id} is already invalidated")
+        result = await conn.execute(
+            """
+            UPDATE cds_library.cds_school_years
+            SET active_document_id = NULL,
+                retired_at = now(),
+                last_action_kind = 'retired',
+                last_action_at = now()
+            WHERE id = $1 AND active_document_id = $2 AND retired_at IS NULL
+            """,
+            school_year_id,
+            document_id,
+        )
+        if result == "UPDATE 0":
+            raise CdsStoreError(
+                f"school_year {school_year_id} was not pointing at document "
+                f"{document_id} as active, or is already retired"
+            )

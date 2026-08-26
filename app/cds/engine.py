@@ -944,6 +944,11 @@ async def run_extraction(
         )
         return
     try:
+        await manifest_mod.verify_manifest_current(pool, manifest)
+    except manifest_mod.ManifestDriftError as exc:
+        await _finish_failed(pool, extraction.id, "manifest_drift", str(exc))
+        return
+    try:
         inputs = await _prepare_run(pool, manifest, extraction)
         state = await _process_calls(
             pool=pool,

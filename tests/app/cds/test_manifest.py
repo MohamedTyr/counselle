@@ -22,9 +22,9 @@ from app.cds.manifest import (
 def test_load_compiled_manifest_matches_the_live_content_hash() -> None:
     manifest = load_compiled_manifest()
     assert manifest.content_sha256 == (
-        "ae78912f23f693a3bd11313b798ccd957b93eaf51c9e1574a29b4470fc421196"
+        "6367c0fee822f4d07725abc7274c8a589edefd64fb7301eac8372568941b04ae"
     )
-    assert manifest.version == "5.0.2"
+    assert manifest.version == "5.1.0"
 
 
 def test_domain_ids_and_extraction_groups_partition_every_domain() -> None:
