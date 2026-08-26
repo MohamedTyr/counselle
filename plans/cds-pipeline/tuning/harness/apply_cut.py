@@ -8,6 +8,7 @@ enrollment.yaml for all 134 of its metrics.
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -56,7 +57,7 @@ def _split(lines: list[str], start: int, end: int, marker: str) -> list[tuple[in
     return [(top, tops[n + 1] if n + 1 < len(tops) else end) for n, top in enumerate(tops)]
 
 
-def cut_domain(path: Path, keep: set[tuple[str, str]]) -> dict:
+def cut_domain(path: Path, keep: set[tuple[str, str]], do_apply: bool) -> dict:
     raw = path.read_text(encoding="utf-8")
     lines = raw.split("\n")
     domain_id = yaml.safe_load(raw)["id"]
@@ -115,17 +116,33 @@ def cut_domain(path: Path, keep: set[tuple[str, str]]) -> dict:
     kept = "\n".join(line for i, line in enumerate(lines) if i not in drop)
     if raw.endswith("\n") and not kept.endswith("\n"):
         kept = kept.rstrip("\n") + "\n"
-    path.write_text(kept, encoding="utf-8")
+    if do_apply:
+        path.write_text(kept, encoding="utf-8")
     return report
 
 
-def main() -> None:
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="actually rewrite config/cds/domains/*.yaml (default is a dry run "
+        "that only prints the before/after counts and writes nothing)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
     keep, _ = parse_keep()
-    reports = [cut_domain(p, keep) for p in sorted(DOMAINS.glob("*.yaml"))]
-    (HERE / "cut-report.yaml").write_text(yaml.safe_dump(reports, sort_keys=False))
+    reports = [cut_domain(p, keep, args.apply) for p in sorted(DOMAINS.glob("*.yaml"))]
+    if args.apply:
+        (HERE / "cut-report.yaml").write_text(yaml.safe_dump(reports, sort_keys=False))
     for report in reports:
         print(f"{report['domain']:16} {report['before']:5} -> {report['after']:4}")
     print("total", sum(r["before"] for r in reports), "->", sum(r["after"] for r in reports))
+    if not args.apply:
+        print("\nDRY RUN: no files written. Pass --apply to rewrite config/cds/domains/*.yaml.")
 
 
 if __name__ == "__main__":

@@ -290,7 +290,7 @@ only its position relative to the baseline changes.
 
 ### M3 (partial) — offline runner built, first structural numbers
 
-`plans/cds-pipeline/tuning/harness/run_extraction_offline.py`. No DB access (grep-verified:
+`artifacts/cds-tuning/harness/run_extraction_offline.py`. No DB access (grep-verified:
 zero uses of `cds_store`/`asyncpg`/`pool`). Output contract
 `runs/<label>/<docname>.json`; refuses to overwrite an existing run file (runs cost money);
 dumps partial results even on hard failure.
@@ -1511,7 +1511,7 @@ same collision will occur on UCF, Cornell and Caltech if the repair is run eager
 
 ```
 cd /home/saifuddin/Projects/counselle/.worktrees/cds-pipeline
-uv run python plans/cds-pipeline/tuning/harness/run_extraction_offline.py \
+uv run python artifacts/cds-tuning/harness/run_extraction_offline.py \
     --pdf artifacts/cds-corpus/<doc>.pdf --label <label>
 ```
 
@@ -1529,7 +1529,7 @@ Two traps this hides:
   object eagerly, including fields this code path never touches. Do not "fix" it
   by giving the harness DB access; fix the CWD.
 
-Output lands at `plans/cds-pipeline/tuning/runs/<label>/<docname>.json` regardless
+Output lands at `artifacts/cds-tuning/runs/<label>/<docname>.json` regardless
 of CWD (resolved from the runner file's own location), and the runner refuses to
 overwrite an existing run file.
 
