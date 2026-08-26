@@ -9,6 +9,7 @@ import {
   contextSuffix,
   DERIVED_UNAVAILABLE_COPY,
   factStateCopy,
+  isReported,
   resolveCaveats,
 } from "@/features/schools/facts/school-facts-format";
 import type {
@@ -156,18 +157,19 @@ export function DerivedFactRow({
   edition: SchoolEdition | null;
 }) {
   const resolved = resolveCaveats(derived.caveatRefs, caveats);
-  const computed = derived.state.kind === "reported";
+  const state = derived.state;
+  const computed = isReported(state);
   /*
    * "not available" means we tried and an input stopped us. When the state
    * is a real absence — the school does not report a residency split at all,
    * say — that state's own words are the truthful ones, and borrowing
    * "not available" would claim an attempt we never made.
    */
-  const valueCopy = computed
-    ? derived.state.display
+  const valueCopy = isReported(state)
+    ? state.display
     : derived.blockedBy
       ? DERIVED_UNAVAILABLE_COPY
-      : factStateCopy(derived.state);
+      : factStateCopy(state);
 
   return (
     <RowShell

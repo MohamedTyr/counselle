@@ -46,7 +46,10 @@ export function factStateCopy(state: FactState): string {
   return state.kind === "reported" ? state.display : ABSENCE_COPY[state.kind];
 }
 
-export function isReported(state: FactState): boolean {
+export type ReportedState = Extract<FactState, { kind: "reported" }>;
+
+/** A type guard, so `state.display` is reachable without a cast. */
+export function isReported(state: FactState): state is ReportedState {
   return state.kind === "reported";
 }
 

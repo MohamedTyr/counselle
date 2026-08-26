@@ -58,11 +58,12 @@ function derivedTile(
 ): HeadlineTile {
   const derived: DerivedFact | undefined = data.derived[key];
   if (!derived) return missingTile(key, label, options.secondary);
-  const computed = isReported(derived.state);
+  const state = derived.state;
+  const computed = isReported(state);
   return {
     key,
     label,
-    value: computed ? derived.state.display : DERIVED_UNAVAILABLE_COPY,
+    value: isReported(state) ? state.display : DERIVED_UNAVAILABLE_COPY,
     absent: !computed,
     /* When it did not compute, the foot carries the reason rather than the
      * word "calculated" — a tile that says "calculated" above "not
