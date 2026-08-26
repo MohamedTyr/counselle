@@ -87,4 +87,35 @@
   --school-balance-reach: var(--brand-scale-3);
   --school-balance-target: var(--brand-scale-2);
   --school-balance-safety: var(--brand-scale-1);
+
+  /* ---- fact rows (the About tab) ----
+   * A fact is a label, a value, and the qualifier that makes the value true.
+   *
+   * Absence has its own ink because a blank cell reads as zero, and zero is
+   * a lie about a real school to a real student (AGENTS.md principle 3).
+   * The absent ink is deliberately WEAKER than the value ink and is paired
+   * with italics in the component, never with font-medium — weight would
+   * make "not reported" read as a value.
+   *
+   * There is no hue here for "we have this value". Presence is the ordinary
+   * case and the ordinary case gets no colour; spending green on it would
+   * leave the two real signals — a severe caveat and a stale edition — with
+   * nothing left to say. Amber appears for exactly one thing on this page:
+   * a caveat severe enough to change how the number should be read. */
+  --school-fact-label: var(--ink-secondary);
+  --school-fact-value: var(--ink);
+  --school-fact-absent: var(--school-value-absent);
+  --school-fact-caveat: var(--ink-muted);
+  --school-fact-caveat-severe-fg: var(--warning-fg);
+  --school-fact-caveat-severe-bg: var(--warning-surface);
+  --school-fact-divider: var(--hairline);
+  /* A derived value is marked by the WORD "calculated", never by colour —
+   * this is only the ink of that word, one tier below the caveat. */
+  --school-fact-derived-ink: var(--ink-faint);
+  --school-fact-evidence-ink: var(--ink-muted);
+  --school-fact-evidence-hover: var(--surface-hover);
+  /* Wells: the evidence excerpt, the expanded detail group, the group
+   * caveat. An inset surface never draws a border — a recessed fill that
+   * also has a rim reads as embossed (DESIGN §4). */
+  --school-fact-well: var(--surface-inset);
 }

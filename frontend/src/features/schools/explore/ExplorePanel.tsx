@@ -78,10 +78,10 @@ export function ExplorePanel() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [addingUnitid, setAddingUnitid] = useState<string | null>(null);
 
-  /** Real applications joined onto the catalog rows: a school the student
-   *  has already added shows the on-list treatment and gets a real link to
-   *  its workspace page. Explore never invents a link to a page that isn't
-   *  there. */
+  /** Real applications joined onto the catalog rows, so a school the student
+   *  has already added shows the on-list treatment. The card's link no longer
+   *  depends on this: every school has a page now, keyed by unitid, whether
+   *  or not it is on the list. */
   const applicationIdByUnitid = useMemo(() => {
     const map = new Map<number, string>();
 
@@ -220,10 +220,6 @@ export function ExplorePanel() {
         <>
           <ResultsGrid>
             {visible.map((school, index) => {
-              const applicationId = applicationIdByUnitid.get(
-                Number(school.unitid),
-              );
-
               return (
                 // `grid` so the stagger wrapper passes the row's stretch
                 // through to the card (otherwise the card collapses to
@@ -241,9 +237,10 @@ export function ExplorePanel() {
                   }}
                 >
                   <SchoolResultCard
-                    href={
-                      applicationId ? `/app/schools/${applicationId}` : null
-                    }
+                    /* Every result links to its school page now, on your
+                     * list or not — browsing a school you have not added is
+                     * the entire point of this surface. */
+                    href={`/app/schools/${school.unitid}`}
                     isAdding={addingUnitid === school.unitid}
                     onAdd={handleAdd}
                     profile={profile}

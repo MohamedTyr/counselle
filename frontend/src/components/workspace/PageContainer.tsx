@@ -37,6 +37,8 @@ type PageContainerProps = {
   children: ReactNode;
   /** Extra classes for the scrolling body column. */
   className?: string;
+  /** Identifying mark left of the title — see PageHeader. */
+  leading?: ReactNode;
   /**
    * Rendered inside the page section but outside the scroll area — undo toasts,
    * dialogs, scroll indicators. Anything that must not scroll with the body.
@@ -52,6 +54,7 @@ export function PageContainer({
   actions,
   children,
   className,
+  leading,
   overlay,
   scrollRef,
   subtitle,
@@ -69,6 +72,7 @@ export function PageContainer({
         <PageHeader
           actions={actions}
           columnClassName={column}
+          leading={leading}
           subtitle={subtitle}
           title={title}
         />

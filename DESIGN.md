@@ -656,7 +656,7 @@ legitimately — they have a different shape. See §20.
 | `/app/ai` | composer landing | ” |
 | `/app/ai/:sessionId` | chat | ” |
 | `/app/tasks` | task board / table | ” |
-| `/app/schools`, `/app/schools/:id` | list, detail workspace | ” |
+| `/app/schools`, `/app/schools/:unitid` | list; school page (About + Your application). Keyed by school, so a school you have not added still has a page; an application id in the slot redirects to the canonical URL | ” |
 | `/app/essays`, `/app/essays/:id` | library, editor | ” |
 | `/app/activities` | activities + honors | ” |
 | `/app/profile` | profile | ” |

@@ -16,7 +16,7 @@ function application(
   return {
     ...workspaceApplicationFixture,
     id,
-    school_unitid: Number(id.replace(/\D/g, "").slice(0, 6)) || 1,
+    school_unitid: Number(id.replace(/\D/g, "").slice(-6)) || 1,
     school_name: `School ${id}`,
     school_city: "Somewhere",
     school_state: "US",
@@ -209,9 +209,9 @@ describe("SchoolsPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Alpha College" }),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe(
-      "/app/schools/10000000-0000-4000-8000-000000000001",
-    );
+    /* The canonical page is keyed by unitid; an application-id URL
+     * redirects onto it. */
+    expect(window.location.pathname).toBe("/app/schools/1");
     expect(window.location.search).toBe("");
   });
 
@@ -227,9 +227,7 @@ describe("SchoolsPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Alpha College" }),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe(
-      "/app/schools/10000000-0000-4000-8000-000000000001",
-    );
+    expect(window.location.pathname).toBe("/app/schools/1");
   });
 
   it("archives a school from its workspace and restores it with undo", async () => {

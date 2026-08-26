@@ -1,0 +1,485 @@
+import type { SectionId } from "@/features/schools/facts/school-facts-types";
+
+/*
+ * The six questions.
+ *
+ * Domains are how we EXTRACT. They are the wrong spine for reading — nobody
+ * has ever asked what is in the H2 grid. These six are what a student is
+ * actually asking, and each one draws from several domains.
+ *
+ * ────────────────────────────────────────────────────────────────────────
+ * THIS FILE IS A PRESENTATION HINT, NOT A CATALOGUE.
+ *
+ * AGENTS.md forbids hardcoding domain ids, metric inventories, counts or
+ * profile groups, because the manifest is dynamic. So this maps qualified
+ * refs to GROUPING and ORDER only — it never asserts what exists. The
+ * renderer iterates whatever the packet returns and drops unrecognised refs
+ * into a final group called "Other published values".
+ *
+ * That fallback is the whole point. Without it a manifest bump would
+ * silently hide metrics, which is the same failure mode as a blank cell one
+ * layer up: the page would look complete while quietly having less in it.
+ * ────────────────────────────────────────────────────────────────────────
+ */
+
+export type FactEntry =
+  { kind: "fact"; ref: string } | { kind: "derived"; key: string };
+
+export type GroupRender = "facts" | "shares";
+
+export type GroupConfig = {
+  id: string;
+  title: string;
+  /** Qualifies every row in the group; rendered above the first one. */
+  caveat: string | null;
+  entries: FactEntry[];
+  render?: GroupRender;
+};
+
+export type SectionConfig = {
+  id: SectionId;
+  title: string;
+  /** Always open, first in the section. */
+  headline: FactEntry[];
+  headlineCaveat: string | null;
+  groups: GroupConfig[];
+};
+
+const fact = (ref: string): FactEntry => ({ kind: "fact", ref });
+const derived = (key: string): FactEntry => ({ kind: "derived", key });
+
+export const OTHER_GROUP_TITLE = "Other published values";
+
+export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
+  {
+    id: "getting-in",
+    title: "Getting in",
+    headlineCaveat: null,
+    headline: [
+      /* open_admission_all_students is hoisted to the top by the renderer
+       * when it is true: it resets the entire frame, and the rest of the
+       * section should be read knowing the school is not selective. */
+      fact("admissions.open_admission_all_students"),
+      derived("admit_rate"),
+      derived("admit_rate_in_state"),
+      derived("admit_rate_out_of_state"),
+      derived("admit_rate_international"),
+      derived("early_decision_admit_rate"),
+      fact("class_profile.sat_composite_middle_50"),
+      fact("class_profile.act_composite_middle_50"),
+      fact("class_profile.average_high_school_gpa"),
+      fact("class_profile.class_rank_top_tenth_percent"),
+    ],
+    groups: [
+      {
+        id: "selection-factors",
+        title: "How they weigh your file",
+        caveat:
+          "This is what the school says it weighs, not a measurement. Read the program-specific note first — it can override the general table for an oversubscribed major.",
+        entries: [
+          fact("admissions.program_specific_factor_differences"),
+          fact("admissions.selection_factor_rigor_of_secondary_school_record"),
+          fact("admissions.selection_factor_academic_gpa"),
+          fact("admissions.selection_factor_standardized_test_scores"),
+          fact("admissions.selection_factor_application_essay"),
+          fact("admissions.selection_factor_recommendations"),
+          fact("admissions.selection_factor_extracurricular_activities"),
+          fact("admissions.selection_factor_character_personal_qualities"),
+          fact("admissions.selection_factor_first_generation"),
+          fact("admissions.selection_factor_alumni_relation"),
+          fact("admissions.selection_factor_level_of_applicant_interest"),
+          fact("admissions.selection_factor_religious_affiliation_commitment"),
+        ],
+      },
+      {
+        id: "required-units",
+        title: "Required high-school units",
+        caveat:
+          "Schools often recommend more than they require. The recommendation is the real expectation.",
+        entries: [
+          fact("admissions.total_academic_units_required"),
+          fact("admissions.total_academic_units_recommended"),
+          fact("admissions.english_units_required"),
+          fact("admissions.mathematics_units_required"),
+          fact("admissions.science_units_required"),
+          fact("admissions.foreign_language_units_required"),
+          fact("admissions.social_studies_units_required"),
+        ],
+      },
+      {
+        id: "test-detail",
+        title: "Test scores in detail",
+        caveat:
+          "The submitter rate applies to every figure below, not just the composite. A percentile drawn from a self-selected half of the class describes that half.",
+        entries: [
+          fact("class_profile.sat_ebrw_p25"),
+          fact("class_profile.sat_ebrw_p50"),
+          fact("class_profile.sat_ebrw_p75"),
+          fact("class_profile.sat_math_p25"),
+          fact("class_profile.sat_math_p50"),
+          fact("class_profile.sat_math_p75"),
+          fact("class_profile.sat_submitters_percent"),
+          fact("class_profile.act_submitters_percent"),
+        ],
+      },
+      {
+        id: "class-rank",
+        title: "Class rank",
+        caveat:
+          "Bands overlap — the top tenth is inside the top quarter. They cannot be added or subtracted, and a blank band can never be derived from the ones around it. Most US high schools no longer rank.",
+        entries: [
+          fact("class_profile.class_rank_top_tenth_percent"),
+          fact("class_profile.class_rank_top_quarter_percent"),
+          fact("class_profile.class_rank_top_half_percent"),
+          fact("class_profile.class_rank_submitted_percent"),
+        ],
+      },
+      {
+        id: "waitlist",
+        title: "Waitlist",
+        caveat:
+          "Waitlist numbers swing widely year to year. Read them as context, not as odds.",
+        entries: [
+          fact("admissions.has_waitlist_policy"),
+          fact("admissions.waitlist_offered_count"),
+          fact("admissions.waitlist_accepted_count"),
+          fact("admissions.waitlist_admitted_count"),
+          derived("waitlist_conversion"),
+        ],
+      },
+      {
+        id: "applicant-pool",
+        title: "Applicant pool",
+        caveat:
+          "The international admit rate is the number that reclassifies a “safety” public into a reach for an aid-needing international applicant.",
+        entries: [
+          fact("admissions.applicants_total"),
+          fact("admissions.admitted_total"),
+          fact("admissions.enrolled_total"),
+          fact("admissions.applicants_in_state"),
+          fact("admissions.admitted_in_state"),
+          fact("admissions.applicants_out_of_state"),
+          fact("admissions.admitted_out_of_state"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "money",
+    title: "Money",
+    headlineCaveat: null,
+    headline: [
+      derived("sticker_cost"),
+      fact("cost.tuition_in_state"),
+      fact("cost.tuition_out_of_state"),
+      derived("need_fully_met_share"),
+      fact("financial_aid.h2_j_average_need_based_award"),
+      fact("financial_aid.h2_e_need_based_grant_recipients_percent"),
+      fact("financial_aid.h5_borrowers_any_program_average_principal"),
+      /* Honesty flags live in the HEADLINE, never behind a disclosure:
+       * printed tuition is stale in the wrong direction — below what an
+       * applicant will actually pay. */
+      fact("cost.final_costs_not_available"),
+      fact("cost.final_costs_expected_date"),
+      fact("financial_aid.recent_affordability_initiative_details"),
+    ],
+    groups: [
+      {
+        id: "cost-itemized",
+        title: "Cost of attendance, itemized",
+        caveat:
+          "The combined figure and the itemized rows are alternatives, not a total and its parts. A school that publishes one blanks the other.",
+        entries: [
+          fact("cost.comprehensive_tuition_food_housing_amount"),
+          fact("cost.required_fees"),
+          fact("cost.housing_amount"),
+          fact("cost.food_amount"),
+          fact("cost.books_and_supplies"),
+        ],
+      },
+      {
+        id: "cost-living",
+        title: "If you live at home or off campus",
+        caveat: null,
+        entries: [
+          fact("cost.living_at_home_amount"),
+          fact("cost.off_campus_housing_amount"),
+        ],
+      },
+      {
+        id: "cost-escalation",
+        title: "Does the price rise after year one?",
+        caveat: null,
+        entries: [
+          fact("cost.tuition_guarantee_offered"),
+          fact("cost.tuition_plan_notes"),
+          fact("cost.per_credit_hour_charge"),
+        ],
+      },
+      {
+        id: "need-based-aid",
+        title: "Need-based aid",
+        caveat:
+          "The printed “average percent of need met” below counts aid RECIPIENTS as its denominator, not all students, and excludes PLUS and private loans. The headline figure is the derived share of students with need whose need was fully met.",
+        entries: [
+          fact("financial_aid.h2_c_need_based_determined_count"),
+          fact("financial_aid.h2_h_need_fully_met_count"),
+          fact("financial_aid.h2_i_average_percent_need_met"),
+          fact("financial_aid.h2_k_average_need_based_grant"),
+          fact("financial_aid.h2_m_average_need_based_loan"),
+        ],
+      },
+      {
+        id: "merit-aid",
+        title: "Merit aid",
+        caveat: null,
+        entries: [
+          fact("financial_aid.h2a_n_non_need_award_recipients"),
+          fact("financial_aid.h2a_q_average_non_need_award"),
+          fact("financial_aid.h14_athletic_scholarship_total"),
+        ],
+      },
+      {
+        id: "international-aid",
+        title: "International and nonresident aid",
+        caveat:
+          "“Nonresident” is a citizenship status, not a state-residency one. These figures are unrelated to out-of-state tuition.",
+        entries: [
+          fact("financial_aid.h6_nonresident_aid_available"),
+          fact("financial_aid.h6_nonresident_aid_recipients"),
+          fact("financial_aid.h6_nonresident_average_award"),
+        ],
+      },
+      {
+        id: "forms-deadlines",
+        title: "Forms and deadlines",
+        caveat: null,
+        entries: [
+          fact("financial_aid.need_analysis_methodology"),
+          fact("financial_aid.aid_reporting_status"),
+          fact("financial_aid.h8_css_profile_required"),
+          fact("financial_aid.h8_fafsa_deadline"),
+          fact("financial_aid.net_price_calculator_url"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "academics",
+    title: "Academics",
+    headlineCaveat: null,
+    headline: [
+      fact("faculty.students_per_faculty"),
+      derived("classes_under_20"),
+      derived("classes_50_plus"),
+      derived("faculty_full_time_percent"),
+      derived("faculty_terminal_degree_percent"),
+      fact("academics.special_study_honors_program"),
+      fact("academics.special_study_undergraduate_research"),
+    ],
+    groups: [
+      {
+        id: "class-sizes",
+        title: "Class sizes",
+        caveat:
+          "Subsections — labs, discussion sections, recitations — are counted separately from lectures. They are where the small-group experience behind a large course actually shows up.",
+        entries: [
+          fact("class_size.section_2_9"),
+          fact("class_size.section_10_19"),
+          fact("class_size.section_20_29"),
+          fact("class_size.section_30_39"),
+          fact("class_size.section_40_49"),
+          fact("class_size.section_50_99"),
+          fact("class_size.section_100_plus"),
+          fact("class_size.subsection_2_9"),
+          fact("class_size.subsection_10_19"),
+          fact("class_size.subsection_20_29"),
+        ],
+      },
+      {
+        id: "degree-shares",
+        title: "What students graduate in",
+        caveat: null,
+        entries: [],
+        render: "shares",
+      },
+      {
+        id: "special-study",
+        title: "Special study options",
+        caveat: null,
+        entries: [
+          fact("academics.special_study_study_abroad"),
+          fact("academics.special_study_double_major"),
+          fact("academics.special_study_independent_study"),
+          fact("academics.special_study_internships"),
+          fact("academics.special_study_teacher_certification"),
+          fact("academics.special_study_combined_degree"),
+        ],
+      },
+      {
+        id: "core-curriculum",
+        title: "Core curriculum",
+        caveat: null,
+        entries: [
+          fact("academics.required_coursework_english"),
+          fact("academics.required_coursework_mathematics"),
+          fact("academics.required_coursework_sciences"),
+          fact("academics.required_coursework_foreign_languages"),
+          fact("academics.required_coursework_philosophy_religion"),
+        ],
+      },
+      {
+        id: "faculty-detail",
+        title: "Faculty",
+        caveat: null,
+        entries: [
+          fact("faculty.total_instructional_faculty"),
+          fact("faculty.full_time_faculty"),
+          fact("faculty.faculty_with_terminal_degree"),
+          fact("faculty.ratio_basis_note"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "campus-life",
+    title: "Campus life",
+    headlineCaveat: null,
+    headline: [
+      fact("enrollment.undergraduate_total"),
+      fact("enrollment.graduate_total"),
+      fact("student_life.college_owned_housing_percent_undergraduates"),
+      derived("international_percent"),
+      fact("enrollment.out_of_state_percent_undergraduates"),
+      fact("academics.academic_calendar"),
+    ],
+    groups: [
+      {
+        id: "greek-life",
+        title: "Greek life",
+        caveat: null,
+        entries: [
+          fact("student_life.fraternities_offered"),
+          fact("student_life.fraternity_percent_men"),
+          fact("student_life.sororities_offered"),
+          fact("student_life.sorority_percent_women"),
+        ],
+      },
+      {
+        id: "who-is-here",
+        title: "Who's on campus",
+        caveat: null,
+        entries: [
+          fact("enrollment.undergraduates_age_25_and_over_percent"),
+          fact("enrollment.average_undergraduate_age"),
+          fact("identity.gender_model"),
+          fact("identity.institutional_control"),
+        ],
+      },
+      {
+        id: "rotc",
+        title: "ROTC",
+        caveat:
+          "On-campus and cross-enrollment at a cooperating institution are different commitments, so both render.",
+        entries: [
+          fact("student_life.army_rotc_offered"),
+          fact("student_life.army_rotc_cooperating_institution"),
+          fact("student_life.navy_rotc_offered"),
+          fact("student_life.air_force_rotc_offered"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "outcomes",
+    title: "Outcomes",
+    headlineCaveat: null,
+    headline: [
+      fact("outcomes.first_year_retention_reported_percent"),
+      derived("four_year_completion_rate"),
+      fact("outcomes.primary_all_students_six_year_graduation_rate_ratio"),
+      fact("outcomes.primary_pell_grant_six_year_graduation_rate_ratio"),
+    ],
+    groups: [
+      {
+        id: "time-to-degree",
+        title: "Time to degree",
+        caveat:
+          "A high six-year rate with a low four-year rate means students routinely need a fifth year — which is a year of tuition.",
+        entries: [
+          fact("outcomes.primary_cohort_count"),
+          fact("outcomes.completers_within_four_years"),
+          fact("outcomes.completers_within_five_years"),
+          fact("outcomes.completers_within_six_years"),
+          derived("four_to_six_year_gap"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "applying",
+    title: "Applying",
+    headlineCaveat: null,
+    /* Rendered by ApplyingSection through RoundsTable and ProvenanceLanes;
+     * the headline entries live in the lane model, not here. */
+    headline: [],
+    groups: [
+      {
+        id: "decision-notification",
+        title: "Decision notification",
+        caveat: null,
+        entries: [
+          fact("admissions.notification_mode"),
+          fact("admissions.rolling_notification_begins"),
+          fact("admissions.regular_notification_date"),
+        ],
+      },
+      {
+        id: "other-terms",
+        title: "Other terms",
+        caveat:
+          "Deferred enrolment is a student postponing their start after being admitted. It is not an admission deferral, where a school moves an early application into the regular round — an easy and expensive conflation.",
+        entries: [
+          fact("admissions.spring_admission_offered"),
+          fact("admissions.deferred_enrollment_offered"),
+          fact("admissions.deferred_enrollment_maximum_period"),
+        ],
+      },
+      {
+        id: "deposits",
+        title: "Deposits",
+        caveat: null,
+        entries: [
+          fact("admissions.housing_deposit_amount"),
+          fact("admissions.housing_deposit_deadline"),
+          fact("admissions.housing_deposit_refundable"),
+        ],
+      },
+    ],
+  },
+];
+
+export const NAV_SECTIONS = SCHOOL_FACT_SECTIONS.map((section) => ({
+  id: section.id,
+  title: section.title,
+}));
+
+export function sectionById(id: SectionId): SectionConfig {
+  const found = SCHOOL_FACT_SECTIONS.find((section) => section.id === id);
+  /* Section ids come from NAV_SECTIONS, which is derived from this array —
+   * a miss means the URL carried something we do not render. */
+  return found ?? SCHOOL_FACT_SECTIONS[0];
+}
+
+/** Every qualified ref this config knows how to place, for the fallback. */
+export function configuredRefs(section: SectionConfig): Set<string> {
+  const refs = new Set<string>();
+  const collect = (entries: readonly FactEntry[]) => {
+    for (const entry of entries) {
+      if (entry.kind === "fact") refs.add(entry.ref);
+    }
+  };
+  collect(section.headline);
+  for (const group of section.groups) collect(group.entries);
+  return refs;
+}

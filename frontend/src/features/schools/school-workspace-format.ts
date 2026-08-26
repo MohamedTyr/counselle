@@ -66,7 +66,6 @@ export const commonRequirements: CommonRequirement[] = [
   { kind: "interview", label: "Interview", category: "interview" },
 ];
 
-
 export function humanize(value: string) {
   return value
     .replaceAll("_", " ")
