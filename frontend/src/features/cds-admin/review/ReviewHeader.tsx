@@ -29,6 +29,10 @@ export function ReviewHeader({
   onReject: () => void;
   rerunPending: boolean;
 }) {
+  // Reject is available for the same two reviewable cases as the rest of
+  // the screen (SHIP-PLAN §2.1/§2.4): an ordinary candidate, or an active
+  // document with a still-pending `active_update` correction.
+  const canReject = document.is_candidate || document.is_correction_pending;
   const status = documentStatus(document, extraction);
   const running = Boolean(extraction && isNonTerminalExtractionStatus(extraction.status));
 
@@ -58,7 +62,7 @@ export function ReviewHeader({
         Re-run
       </Button>
       <Button
-        disabled={!document.is_candidate}
+        disabled={!canReject}
         onClick={onReject}
         size="sm"
         variant="destructive-outline"

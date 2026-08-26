@@ -959,7 +959,7 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
         template_domain = expects.get("domain_id")
         template_ref = expects.get("metric_ref")
         domain_calls = _calls(capture, "get_domain")
-        payloads = _return_payloads(capture, "get_domain")
+        payloads = [payload for _call, payload in _successful_tool_results(capture, "get_domain")]
         has_call = any(
             call["args"].get("domain_id") == template_domain for call in domain_calls
         )

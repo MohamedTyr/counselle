@@ -4,10 +4,11 @@ import type { JobStatusRow, SchoolSummary, UploadPatchBody } from "@/api/cds-adm
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import {
-  SelectButton,
   SelectItem,
   SelectPopup,
   Select as YearSelect,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { formatAcademicYear, formatBytes } from "@/features/cds-admin/cds-format";
 import { SchoolPicker } from "@/features/cds-admin/upload/SchoolPicker";
@@ -64,14 +65,18 @@ export function StagingRow({
       <TableCell>
         <YearSelect
           disabled={!isEditable}
+          items={academicYearOptions.map((year) => ({
+            label: formatAcademicYear(year),
+            value: String(year),
+          }))}
           onValueChange={(value) =>
             row && onPatch(row.id, { academic_year: Number(value) })
           }
           value={row?.academic_year ? String(row.academic_year) : null}
         >
-          <SelectButton size="sm">
-            {row?.academic_year ? formatAcademicYear(row.academic_year) : "Pick a year"}
-          </SelectButton>
+          <SelectTrigger aria-label="Academic year" size="sm">
+            <SelectValue placeholder="Pick a year" />
+          </SelectTrigger>
           <SelectPopup>
             {academicYearOptions.map((year) => (
               <SelectItem key={year} value={String(year)}>

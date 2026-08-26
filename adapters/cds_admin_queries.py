@@ -182,12 +182,27 @@ ORDER BY domain_id, created_at DESC
 # Dedupe check for the upload staging table (plan §D endpoint #3): has this
 # exact PDF (by content hash) already been ingested anywhere in cds_library,
 # regardless of which school-year slot it landed in?
+#
+# `sy.retired_at IS NULL` is defense-in-depth, not a behaviour change under
+# the current data: every disposal path (`reject_candidate_document`,
+# `discard_active_document`) invalidates the document *before* the slot is
+# retired, so a retired slot's document is already excluded by
+# `invalidated_at IS NULL` alone. It exists because that invariant was
+# violated once already (SHIP-PLAN §0.11 document 2009 / school-year 4009:
+# retired with nothing left to reject, so the document itself was never
+# invalidated and stayed reachable by this exact query) — see
+# `adapters.cds_store.invalidate_orphaned_document`, which fixed the data.
+# This clause stops the *class* of bug from leaking a dead slot's document
+# into the duplicate-upload UI again, without touching documents that
+# genuinely aren't pointed to by a *live* slot's candidate (an unreviewed
+# candidate superseded by a newer upload to the same still-open slot stays
+# a real duplicate match — that slot's `retired_at` is still NULL).
 _DOCUMENT_BY_SHA256_SQL = """
 SELECT d.id, d.school_year_id, sy.school_id, s.name AS school_name, sy.academic_year
 FROM cds_library.cds_documents d
 JOIN cds_library.cds_school_years sy ON sy.id = d.school_year_id
 JOIN cds_library.schools s ON s.id = sy.school_id
-WHERE d.pdf_sha256 = $1 AND d.invalidated_at IS NULL
+WHERE d.pdf_sha256 = $1 AND d.invalidated_at IS NULL AND sy.retired_at IS NULL
 ORDER BY d.retrieved_at DESC
 LIMIT 1
 """

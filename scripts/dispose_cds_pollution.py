@@ -27,6 +27,22 @@ mechanism to all 16 rows uniformly, the years and states genuinely differ:
     ``identity_year_mismatch`` failures since 2026-07-14. Per owner
     decision: reject the stuck candidate via the same path as (a)/(c). Do
     NOT retire -- 2025 is real; Yale may still need to re-upload.
+(e) Document 2009 (school_year_id=4009, Alabama A&M, year 2092) -- a MEDIUM
+    defect found by a live duplicate-upload round-trip after this script's
+    first run. Row 4009 was retired by (a) as an orphaned slot with "no
+    candidate to reject," but two documents reference it: 2014 (already
+    invalidated) and 2009 (``harvard_2024-2025.pdf``, never invalidated,
+    never pointed to by anything). Because nothing ever called
+    ``reject_candidate_document`` on 2009, it stayed reachable by SHA-256
+    lookup (``adapters.cds_admin_queries.find_document_by_sha256``) and
+    surfaced in the admin duplicate-upload UI under the fabricated 2092
+    year. Disposed via the new ``cds_store.invalidate_orphaned_document`` --
+    the row is already retired; this only finishes invalidating the
+    document itself.
+
+This script is safe to re-run: every action checks live DB state first and
+skips (does not re-attempt or error) whatever a prior run already did --
+exactly the situation (e) above was written to close.
 
 Usage::
 
@@ -93,6 +109,12 @@ _REJECT_ONLY: dict[int, int] = {
 # real next CDS year -- do NOT retire.
 _YALE_SCHOOL_YEAR_ID = 3
 _YALE_DOCUMENT_ID = 3
+
+# Document 2009 -- case (e): row 4009 was already retired by (a) with
+# "nothing to reject" (no candidate), but this document was never
+# invalidated and stayed reachable by SHA-256 lookup. See the module
+# docstring's case (e).
+_ORPHANED_DOCUMENT_ID = 2009
 
 _REJECT_REASON = (
     "SHIP-PLAN §1.0 pollution disposal: 2026-08-18 dogfooding-session artifact, "
@@ -172,7 +194,36 @@ def _plan_actions() -> list[_PlannedAction]:
             ),
         )
     )
+    actions.append(
+        _PlannedAction(
+            school_year_id=4009,
+            label=(
+                f"document={_ORPHANED_DOCUMENT_ID} (case e, orphaned document, "
+                "school_year 4009 already retired by case a)"
+            ),
+            steps=(
+                f"invalidate_orphaned_document(document_id={_ORPHANED_DOCUMENT_ID}) "
+                "via adapters.cds_store.invalidate_orphaned_document",
+            ),
+        )
+    )
     return actions
+
+
+async def _document_invalidated(pipeline_pool: asyncpg.Pool, document_id: int) -> bool:
+    async with pipeline_pool.acquire() as conn:
+        invalidated_at = await conn.fetchval(
+            "SELECT invalidated_at FROM cds_library.cds_documents WHERE id = $1", document_id
+        )
+    return invalidated_at is not None
+
+
+async def _school_year_retired(pipeline_pool: asyncpg.Pool, school_year_id: int) -> bool:
+    async with pipeline_pool.acquire() as conn:
+        retired_at = await conn.fetchval(
+            "SELECT retired_at FROM cds_library.cds_school_years WHERE id = $1", school_year_id
+        )
+    return retired_at is not None
 
 
 async def _pick_actor_user_id(app_pool: asyncpg.Pool) -> UUID:
@@ -209,50 +260,86 @@ async def _execute(app_pool: asyncpg.Pool, pipeline_pool: asyncpg.Pool) -> None:
     actor_user_id = await _pick_actor_user_id(app_pool)
     print(f"Attributing audit rows to actor_user_id={actor_user_id}\n")
 
+    # Every step below checks live DB state first and skips (not errors)
+    # whatever a prior run already did -- this script has genuinely been
+    # partially applied once already (case (e) exists because of it), so
+    # re-running it must be safe.
     for school_year_id, document_id in sorted(_REJECT_AND_RETIRE.items()):
-        print(f"[case a] rejecting document {document_id} (school_year {school_year_id})")
-        await _reject(
-            app_pool, pipeline_pool, document_id=document_id, actor_user_id=actor_user_id,
-            reason=_REJECT_REASON,
-        )
-        print(f"[case a] retiring school_year {school_year_id}")
-        async with pipeline_pool.acquire() as conn:
-            await cds_store.retire_school_year(conn, school_year_id=school_year_id)
+        if await _document_invalidated(pipeline_pool, document_id):
+            print(f"[case a] document {document_id} already invalidated, skipping reject")
+        else:
+            print(f"[case a] rejecting document {document_id} (school_year {school_year_id})")
+            await _reject(
+                app_pool, pipeline_pool, document_id=document_id, actor_user_id=actor_user_id,
+                reason=_REJECT_REASON,
+            )
+        if await _school_year_retired(pipeline_pool, school_year_id):
+            print(f"[case a] school_year {school_year_id} already retired, skipping")
+        else:
+            print(f"[case a] retiring school_year {school_year_id}")
+            async with pipeline_pool.acquire() as conn:
+                await cds_store.retire_school_year(conn, school_year_id=school_year_id)
 
     for school_year_id in _RETIRE_ONLY:
-        print(f"[case a] retiring orphaned school_year {school_year_id} (no candidate)")
-        async with pipeline_pool.acquire() as conn:
-            await cds_store.retire_school_year(conn, school_year_id=school_year_id)
+        if await _school_year_retired(pipeline_pool, school_year_id):
+            print(f"[case a] school_year {school_year_id} already retired, skipping")
+        else:
+            print(f"[case a] retiring orphaned school_year {school_year_id} (no candidate)")
+            async with pipeline_pool.acquire() as conn:
+                await cds_store.retire_school_year(conn, school_year_id=school_year_id)
 
-    print(
-        f"[case b] discarding active document {_DISCARD_ACTIVE_DOCUMENT_ID} "
-        f"(school_year {_DISCARD_ACTIVE_SCHOOL_YEAR_ID}, Amherst College)"
-    )
-    async with pipeline_pool.acquire() as conn:
-        await cds_store.discard_active_document(
-            conn,
-            school_year_id=_DISCARD_ACTIVE_SCHOOL_YEAR_ID,
-            document_id=_DISCARD_ACTIVE_DOCUMENT_ID,
+    if await _document_invalidated(pipeline_pool, _DISCARD_ACTIVE_DOCUMENT_ID):
+        print(
+            f"[case b] document {_DISCARD_ACTIVE_DOCUMENT_ID} already invalidated, skipping"
         )
+    else:
+        print(
+            f"[case b] discarding active document {_DISCARD_ACTIVE_DOCUMENT_ID} "
+            f"(school_year {_DISCARD_ACTIVE_SCHOOL_YEAR_ID}, Amherst College)"
+        )
+        async with pipeline_pool.acquire() as conn:
+            await cds_store.discard_active_document(
+                conn,
+                school_year_id=_DISCARD_ACTIVE_SCHOOL_YEAR_ID,
+                document_id=_DISCARD_ACTIVE_DOCUMENT_ID,
+            )
 
     for school_year_id, document_id in sorted(_REJECT_ONLY.items()):
+        if await _document_invalidated(pipeline_pool, document_id):
+            print(f"[case c] document {document_id} already invalidated, skipping")
+        else:
+            print(
+                f"[case c] rejecting document {document_id} (school_year {school_year_id}), "
+                "slot NOT retired"
+            )
+            await _reject(
+                app_pool, pipeline_pool, document_id=document_id, actor_user_id=actor_user_id,
+                reason=_REJECT_REASON,
+            )
+
+    if await _document_invalidated(pipeline_pool, _YALE_DOCUMENT_ID):
+        print(f"[case d] Yale document {_YALE_DOCUMENT_ID} already invalidated, skipping")
+    else:
         print(
-            f"[case c] rejecting document {document_id} (school_year {school_year_id}), "
-            "slot NOT retired"
+            f"[case d] rejecting Yale candidate document {_YALE_DOCUMENT_ID} "
+            f"(school_year {_YALE_SCHOOL_YEAR_ID}), slot NOT retired"
         )
         await _reject(
-            app_pool, pipeline_pool, document_id=document_id, actor_user_id=actor_user_id,
-            reason=_REJECT_REASON,
+            app_pool, pipeline_pool, document_id=_YALE_DOCUMENT_ID, actor_user_id=actor_user_id,
+            reason=_YALE_REJECT_REASON,
         )
 
-    print(
-        f"[case d] rejecting Yale candidate document {_YALE_DOCUMENT_ID} "
-        f"(school_year {_YALE_SCHOOL_YEAR_ID}), slot NOT retired"
-    )
-    await _reject(
-        app_pool, pipeline_pool, document_id=_YALE_DOCUMENT_ID, actor_user_id=actor_user_id,
-        reason=_YALE_REJECT_REASON,
-    )
+    if await _document_invalidated(pipeline_pool, _ORPHANED_DOCUMENT_ID):
+        print(f"[case e] document {_ORPHANED_DOCUMENT_ID} already invalidated, skipping")
+    else:
+        print(
+            f"[case e] invalidating orphaned document {_ORPHANED_DOCUMENT_ID} "
+            "(school_year 4009 already retired)"
+        )
+        async with pipeline_pool.acquire() as conn:
+            await cds_store.invalidate_orphaned_document(
+                conn, document_id=_ORPHANED_DOCUMENT_ID
+            )
 
 
 def _print_dry_run(actions: list[_PlannedAction]) -> None:

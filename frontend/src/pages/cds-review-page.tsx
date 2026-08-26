@@ -125,11 +125,20 @@ function DocumentReviewLoaded({
   const [liveMessage, setLiveMessage] = useState("");
   const viewerRef = useRef<PdfPageViewerHandle>(null);
 
+  // Broadened per SHIP-PLAN §2.4/§2.1: the same screen reviews both an
+  // ordinary candidate document and an already-active document with a
+  // still-pending `active_update` correction — mirrors the backend's
+  // `_require_reviewable` gate (`app/cds/service_review.py`), which admits
+  // exactly these two cases and nothing else.
+  const isCorrection = review.document.is_correction_pending;
+  const readOnly = !review.document.is_candidate && !isCorrection;
+
   function handleApprove() {
     approveDocument.mutate(
       { documentId, body: {} },
       {
-        onSuccess: () => toast.success("Document approved."),
+        onSuccess: () =>
+          toast.success(isCorrection ? "Correction approved." : "Document approved."),
         onError: (error) => {
           // A 409 (unresolved flags changed server-side) refetches via the
           // hook's own `onSettled` — the fresh `flags_summary` re-renders
@@ -150,7 +159,7 @@ function DocumentReviewLoaded({
       {
         onSuccess: () => {
           setApproveAnywayOpen(false);
-          toast.success("Document approved.");
+          toast.success(isCorrection ? "Correction approved." : "Document approved.");
         },
       },
     );
@@ -162,7 +171,7 @@ function DocumentReviewLoaded({
       {
         onSuccess: () => {
           setRejectOpen(false);
-          toast.success("Document rejected.");
+          toast.success(isCorrection ? "Correction discarded." : "Document rejected.");
           void navigate("/app/admin/cds");
         },
       },
@@ -187,8 +196,6 @@ function DocumentReviewLoaded({
     sections: review.sections,
     viewerRef,
   });
-
-  const readOnly = !review.document.is_candidate;
 
   return (
     <ReviewControllerContext value={controller}>
@@ -241,6 +248,7 @@ function DocumentReviewLoaded({
       />
       <RejectDialog
         confirming={rejectDocument.isPending}
+        isCorrection={isCorrection}
         onConfirm={handleReject}
         onOpenChange={setRejectOpen}
         open={rejectOpen}

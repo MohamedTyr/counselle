@@ -741,3 +741,42 @@ async def discard_active_document(
                 f"school_year {school_year_id} was not pointing at document "
                 f"{document_id} as active, or is already retired"
             )
+
+
+async def invalidate_orphaned_document(conn: asyncpg.Connection, *, document_id: int) -> None:
+    """Invalidate a document that no ``cds_school_years`` row currently
+    points to as active or candidate (SHIP-PLAN §0.11 document 2009 / row
+    4009: a rejected-then-replaced upload whose slot had nothing left to
+    reject, so :func:`reject_candidate_document` was never called and the
+    document itself was never invalidated).
+
+    Refuses if the document is still reachable from any slot -- this must
+    never be able to discard a document a school-year is actually depending
+    on; that is ``discard_active_document``'s job, and it clears the pointer
+    first. This function only ever finishes disposing of a document that is
+    *already* unreachable."""
+    async with conn.transaction():
+        reachable = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM cds_library.cds_school_years
+                WHERE active_document_id = $1 OR candidate_document_id = $1
+            )
+            """,
+            document_id,
+        )
+        if reachable:
+            raise CdsStoreError(
+                f"document {document_id} is still reachable from a school-year slot; "
+                "use reject_candidate_document or discard_active_document instead"
+            )
+        result = await conn.execute(
+            """
+            UPDATE cds_library.cds_documents
+            SET invalidated_at = now()
+            WHERE id = $1 AND invalidated_at IS NULL
+            """,
+            document_id,
+        )
+        if result == "UPDATE 0":
+            raise CdsStoreError(f"document {document_id} is already invalidated")
