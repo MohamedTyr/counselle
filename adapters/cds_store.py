@@ -36,6 +36,33 @@ from counselle_db.packets import compile_manifest, parse_packet_row
 
 _PDF_MIME_TYPE = "application/pdf"
 
+# The synthesized `extractor_version` every ordinary edit-and-approve writes
+# via `create_human_review_extraction` (never a model run). Named once here
+# -- the honesty-critical predicate below and `app/cds/service_review.py`'s
+# packet-build both key off this exact literal; a drift between copies would
+# silently break `is_correction_pending` (see the predicate comment). Lives
+# in `adapters/` (not alongside `app/cds/engine.py`'s `EXTRACTOR_VERSION`)
+# because `adapters/` is the layer every `app/cds/*` module already imports
+# from (ADR 0017) -- `adapters/` never imports `app/`, so this is the only
+# direction that doesn't invert that rule.
+HUMAN_REVIEW_EXTRACTOR_VERSION = "human-review-v1"
+
+# Shared by `find_pending_active_update` below and `_COVERAGE_SQL`'s `EXISTS`
+# branch (`adapters/cds_admin_queries.py`) -- one rule for "is there a still-
+# unreviewed correction for this document" (SHIP-PLAN §2.1/§2.4), not two
+# copies that can drift. Excludes the synthesized `human-review-v1` row every
+# ordinary edit-and-approve already creates (it is born already applied, not
+# pending), and requires `reactivated_at IS NULL` so the predicate actually
+# closes once reviewed -- see `close_pending_active_updates`. Interpolated as
+# a static, code-owned SQL fragment (never user input), consistent with the
+# parameterized-SQL house rule.
+_PENDING_ACTIVE_UPDATE_PREDICATE_SQL = f"""
+    target_kind = 'active_update'
+    AND status IN ('succeeded', 'partial')
+    AND extractor_version <> '{HUMAN_REVIEW_EXTRACTOR_VERSION}'
+    AND reactivated_at IS NULL
+"""
+
 
 class CdsStoreError(Exception):
     """Base for CDS write-path failures — never swallowed silently."""
@@ -543,9 +570,55 @@ async def create_human_review_extraction(
         document_id,
         manifest_version,
         sorted(set(requested_domains)),
-        "human-review-v1",
+        HUMAN_REVIEW_EXTRACTOR_VERSION,
     )
     return _extraction_record(row)
+
+
+async def find_pending_active_update(
+    conn: asyncpg.Connection, *, document_id: int
+) -> uuid.UUID | None:
+    """The single most recent still-unreviewed `active_update` extraction for
+    this document, if any (SHIP-PLAN §2.1) -- the document-level gate that
+    admits `save_metric_edits`/`approve_document`/`reject_document` for an
+    already-active document, distinct from the per-domain activation
+    `by_domain`/`DomainPacketSummary.extraction_id` already handles. `None`
+    means the document has no pending correction (either it's a candidate, or
+    every prior `active_update` for it has already been resolved)."""
+    row = await conn.fetchrow(
+        f"""
+        SELECT id FROM cds_library.cds_extractions
+        WHERE document_id = $1 AND {_PENDING_ACTIVE_UPDATE_PREDICATE_SQL}
+        ORDER BY created_at DESC, id DESC LIMIT 1
+        """,
+        document_id,
+    )
+    return row["id"] if row is not None else None
+
+
+async def close_pending_active_updates(conn: asyncpg.Connection, *, document_id: int) -> None:
+    """Resolve **every** unresolved `active_update` extraction for this
+    document (SHIP-PLAN §2.2/§2.3), not just the one most recently reviewed
+    -- if a second rerun completed unreviewed behind the one being
+    approved/rejected, closing only that one would leave the earlier row's
+    `reactivated_at` NULL forever, and the next `find_pending_active_update`
+    call would resurface a false `correction_pending` badge over data that
+    was just correctly resolved (risk 10). Idempotent: matches zero rows for
+    an ordinary candidate approval, which never has an `active_update` row to
+    begin with.
+
+    `reactivated_at` is reused here purely as a **resolution marker** --
+    distinct from the old pipeline's narrower "reactivate a stale candidate"
+    use of the same column name. The name is a coincidence of schema reuse,
+    not the same feature."""
+    await conn.execute(
+        f"""
+        UPDATE cds_library.cds_extractions
+        SET reactivated_at = now()
+        WHERE document_id = $1 AND {_PENDING_ACTIVE_UPDATE_PREDICATE_SQL}
+        """,
+        document_id,
+    )
 
 
 async def reject_candidate_document(

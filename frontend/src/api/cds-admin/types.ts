@@ -5,7 +5,7 @@
  * Do not duplicate `CdsStatus`/`UploadRowStatus`/`FlagSeverity` — those are
  * the shared UI vocabulary and live in
  * `@/features/cds-admin/cds-status.tsx`. `CellStatus` here is the same set
- * of five strings as `CdsStatus`, kept as its own type because it's what
+ * of six strings as `CdsStatus`, kept as its own type because it's what
  * the wire actually sends on `CoverageCell.status`.
  */
 
@@ -18,6 +18,7 @@ export type CellStatus =
   | "processing"
   | "needs_review"
   | "approved"
+  | "correction_pending"
   | "failed";
 
 export interface CoverageCell {
@@ -98,6 +99,12 @@ export interface DocumentMeta {
   superseded_at: string | null;
   is_candidate: boolean;
   is_active: boolean;
+  /** True iff the document is active and has a still-unreviewed
+   * `active_update` correction (SHIP-PLAN.md §2.4) — the review screen's
+   * only way to detect a pending correction, since the wire has no
+   * `target_kind`/`reactivated_at`. Always `false` for a candidate
+   * document. */
+  is_correction_pending: boolean;
   /** The document's true page count, known server-side since upload
    * (`adapters/cds_pdf.get_page_count`). `null` for documents that didn't
    * come through the upload flow. */

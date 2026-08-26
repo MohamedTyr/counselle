@@ -32,7 +32,8 @@ import asyncpg
 import structlog
 
 from adapters import cds_admin_queries, cds_pdf, cds_store
-from adapters.cds_admin_types import DomainPacketSummary, EvidenceRow, MetricRow
+from adapters.cds_admin_types import DocumentMeta, DomainPacketSummary, EvidenceRow, MetricRow
+from adapters.cds_store import HUMAN_REVIEW_EXTRACTOR_VERSION
 from app.agent_node import model_name_from_setting
 from app.cds import audit
 from app.cds import manifest as manifest_mod
@@ -57,6 +58,33 @@ from domain.cds.claims import Finding
 logger = structlog.get_logger(__name__)
 
 _HINT_RE = re.compile(r"^([A-Za-z]+)-?(\d*)")
+
+
+async def _pending_active_update_id(
+    pipeline_pool: asyncpg.Pool, document_id: int
+) -> UUID | None:
+    async with pipeline_pool.acquire() as conn:
+        return await cds_store.find_pending_active_update(conn, document_id=document_id)
+
+
+async def _require_reviewable(
+    pipeline_pool: asyncpg.Pool, document: DocumentMeta, document_id: int, *, action: str
+) -> UUID | None:
+    """The broadened document-level gate (SHIP-PLAN §2.1): admissible either
+    as an ordinary candidate document (returns `None`, the pre-existing
+    behaviour), or as an already-active document with a still-pending
+    `active_update` correction (returns that extraction's id). Raises
+    otherwise -- e.g. an active document with nothing pending, or an
+    invalidated one."""
+    if document.is_candidate:
+        return None
+    if document.is_active:
+        pending_id = await _pending_active_update_id(pipeline_pool, document_id)
+        if pending_id is not None:
+            return pending_id
+    raise CdsAdminValidationError(
+        f"document is not a candidate and has no pending correction to {action}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +260,17 @@ async def get_review(
         raise CdsAdminNotFoundError(f"document {document_id} not found")
     pending = await _pending_edits(app_pool, document_id)
     page_count = await _document_page_count(app_pool, document_id)
+    # Resolved server-side, once, from the same predicate the write-path
+    # gates use (SHIP-PLAN §2.4) -- the review-screen header chip has no
+    # other way to detect a pending `active_update` correction, since
+    # approving/rejecting one with no edited domains never creates a new
+    # extraction row (only `reactivated_at` changes, invisible on the wire
+    # otherwise).
+    is_correction_pending = (
+        await _pending_active_update_id(pipeline_pool, document_id) is not None
+        if raw.document.is_active
+        else False
+    )
     ordered = sorted(raw.domains, key=_domain_sort_key)
     sections = [_build_section(domain, pending) for domain in ordered]
     extraction = (
@@ -248,7 +287,9 @@ async def get_review(
         else None
     )
     return DocumentReviewOut(
-        document=raw.document.model_copy(update={"page_count": page_count}),
+        document=raw.document.model_copy(
+            update={"page_count": page_count, "is_correction_pending": is_correction_pending}
+        ),
         extraction=extraction,
         sections=sections,
         flags_summary=_flags_summary(raw.domains, pending),
@@ -271,8 +312,7 @@ async def save_metric_edits(
     raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
     if raw is None:
         raise CdsAdminNotFoundError(f"document {document_id} not found")
-    if not raw.document.is_candidate:
-        raise CdsAdminValidationError("only a candidate document's metrics can be edited")
+    await _require_reviewable(pipeline_pool, raw.document, document_id, action="edit")
     valid_refs = {metric.ref for domain in raw.domains for metric in domain.metrics}
     async with app_pool.acquire() as conn, conn.transaction():
         for edit in edits:
@@ -384,7 +424,7 @@ def _human_reviewed_packet(
         extraction_id=extraction_id,
         manifest_version=manifest.version,
         model_id="human",
-        extractor_version="human-review-v1",
+        extractor_version=HUMAN_REVIEW_EXTRACTOR_VERSION,
         base_metrics=base_metrics,
     )
     packet["provider_contract"] = {
@@ -486,8 +526,7 @@ async def approve_document(
     raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
     if raw is None:
         raise CdsAdminNotFoundError(f"document {document_id} not found")
-    if not raw.document.is_candidate:
-        raise CdsAdminValidationError("document is not a candidate")
+    await _require_reviewable(pipeline_pool, raw.document, document_id, action="approve")
     if not raw.domains:
         raise CdsAdminValidationError("document has no extracted domains to approve")
 
@@ -515,9 +554,16 @@ async def approve_document(
             )
         else:
             await _activate_untouched(conn, document_id, by_domain, skip=set())
-        await cds_store.promote_candidate_document(
-            conn, school_year_id=raw.document.school_year_id, document_id=document_id
-        )
+        if raw.document.is_candidate:
+            await cds_store.promote_candidate_document(
+                conn, school_year_id=raw.document.school_year_id, document_id=document_id
+            )
+        # else: an `active_update` correction against an already-active
+        # document -- skip the document-level swap (it would be a harmless
+        # no-op, both fields are already correct) so the audit log stays
+        # honest: this approval corrected the document in place, it didn't
+        # promote anything (SHIP-PLAN §2.2).
+        await cds_store.close_pending_active_updates(conn, document_id=document_id)
 
     await _clear_pending_edits(app_pool, document_id)
     async with app_pool.acquire() as conn:
@@ -553,15 +599,23 @@ async def reject_document(
     raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
     if raw is None:
         raise CdsAdminNotFoundError(f"document {document_id} not found")
-    if not raw.document.is_candidate:
-        raise CdsAdminValidationError("document is not a candidate")
+    await _require_reviewable(pipeline_pool, raw.document, document_id, action="reject")
     async with pipeline_pool.acquire() as conn, conn.transaction():
-        try:
-            await cds_store.reject_candidate_document(
-                conn, school_year_id=raw.document.school_year_id, document_id=document_id
-            )
-        except cds_store.CdsStoreError as exc:
-            raise CdsAdminConflictError(str(exc)) from exc
+        if raw.document.is_candidate:
+            try:
+                await cds_store.reject_candidate_document(
+                    conn, school_year_id=raw.document.school_year_id, document_id=document_id
+                )
+            except cds_store.CdsStoreError as exc:
+                raise CdsAdminConflictError(str(exc)) from exc
+        else:
+            # Rejecting an `active_update` correction against an already-
+            # active document (SHIP-PLAN §2.3): the document keeps serving
+            # its prior packets untouched -- no `invalidated_at`, no
+            # `cds_school_years` write. "Discard" can only mean taking no
+            # action on `status` (no DELETE grant, no `rejected` status);
+            # closing the gate is the only write.
+            await cds_store.close_pending_active_updates(conn, document_id=document_id)
     await _clear_pending_edits(app_pool, document_id)
     async with app_pool.acquire() as conn:
         await audit.record_audit(
@@ -593,8 +647,12 @@ async def rerun_extraction(
     if unknown:
         raise CdsAdminValidationError(f"unknown domain id(s): {sorted(unknown)}")
     requested = domains if domains else list(all_domains)
-    reuse_active_slot = domains is None and raw.document.is_active
-    target_kind = "active_update" if reuse_active_slot else "full_reextract"
+    # Keyed on `is_active` alone (SHIP-PLAN §2.1) -- a domain-scoped rerun of
+    # an already-active document is still a correction against the active
+    # document, not a full re-extraction. `is_active` is false by
+    # construction for a candidate document (`cds_school_years_check`), so
+    # that path is unaffected.
+    target_kind = "active_update" if raw.document.is_active else "full_reextract"
     model_id = model_name_from_setting(settings.model_cds_extract)
     try:
         async with pipeline_pool.acquire() as conn, conn.transaction():

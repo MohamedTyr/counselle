@@ -24,7 +24,9 @@ class _Model(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-CellStatus = Literal["none", "processing", "needs_review", "approved", "failed"]
+CellStatus = Literal[
+    "none", "processing", "needs_review", "approved", "failed", "correction_pending"
+]
 
 
 class CoverageCell(_Model):
@@ -90,6 +92,12 @@ class DocumentMeta(_Model):
     superseded_at: datetime | None
     is_candidate: bool
     is_active: bool
+    # Not selected by `get_document_review` -- there is no column for this on
+    # `cds_documents` either. `app/cds/service_review.py::get_review` fills
+    # this in from `cds_store.find_pending_active_update` (SHIP-PLAN §2.4):
+    # true iff the document is active and has a still-unreviewed
+    # `active_update` correction. Always `False` for a candidate document.
+    is_correction_pending: bool = False
     # Not selected by `get_document_review` (no column on `cds_documents` --
     # `cds_library.*` is never touched by this repo's migrations, plan §C1).
     # `app/cds/service_review.py::get_review` fills this in from

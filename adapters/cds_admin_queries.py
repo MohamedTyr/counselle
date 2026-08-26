@@ -35,6 +35,7 @@ from adapters.cds_admin_types import (
     MetricRow,
     SchoolSummary,
 )
+from adapters.cds_store import _PENDING_ACTIVE_UPDATE_PREDICATE_SQL
 
 # One school-picker/coverage search predicate, reused everywhere a school name
 # or alias is matched. `$N` here is the lowercased, trimmed query text.
@@ -99,6 +100,10 @@ SELECT slots.school_id, slots.name, slots.state, slots.academic_year, slots.scho
        slots.active_document_id, slots.candidate_document_id,
        CASE
          WHEN lj.extraction_id IS NOT NULL THEN 'processing'
+         WHEN slots.active_document_id IS NOT NULL AND EXISTS (
+           SELECT 1 FROM cds_library.cds_extractions
+           WHERE document_id = slots.active_document_id AND {_PENDING_ACTIVE_UPDATE_PREDICATE_SQL}
+         ) THEN 'correction_pending'
          WHEN slots.active_document_id IS NOT NULL THEN 'approved'
          WHEN slots.candidate_document_id IS NOT NULL AND COALESCE(cand_pc.n_total, 0) > 0
            THEN 'needs_review'
@@ -242,9 +247,9 @@ def _cell_from_row(row: asyncpg.Record) -> CoverageCell:
             school_year_id=row["school_year_id"],
             extraction_id=str(row["live_extraction_id"]) if row["live_extraction_id"] else None,
         )
-    if status == "approved":
+    if status in ("approved", "correction_pending"):
         return CoverageCell(
-            status="approved",
+            status=status,  # type: ignore[arg-type]
             school_year_id=row["school_year_id"],
             document_id=row["active_document_id"],
             extraction_id=str(row["act_extraction_id"]) if row["act_extraction_id"] else None,

@@ -26,12 +26,21 @@ type BadgeVariant = NonNullable<BadgeProps["variant"]>;
  */
 
 /** A school-year's CDS document status. Identical in coverage cells, upload
- * rows once processing starts, and the review header. */
+ * rows once processing starts, and the review header.
+ *
+ * `correction_pending` is a genuine sixth status, not a `partial`-style
+ * modifier on `approved` (SHIP-PLAN.md §2.4, documented exception to
+ * DESIGN.md §2.2's "do not invent a sixth status" rule): it means an
+ * already-active document has a still-unreviewed `active_update`
+ * correction sitting on top of it — a different axis from completeness,
+ * since labelling that cell "Approved" would misstate that unreviewed data
+ * exists. */
 export type CdsStatus =
   | "none"
   | "processing"
   | "needs_review"
   | "approved"
+  | "correction_pending"
   | "failed";
 
 /** A staged file's readiness during batch upload — a different axis from
@@ -92,6 +101,12 @@ export const cdsStatusMeta: Record<CdsStatus, CdsStatusEntry> = {
     Icon: CircleCheck,
     label: "Approved",
     shortLabel: "Approved",
+  },
+  correction_pending: {
+    variant: "warning",
+    Icon: ArrowRightLeft,
+    label: "Correction pending",
+    shortLabel: "Correction",
   },
   failed: {
     variant: "destructive",
