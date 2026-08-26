@@ -1,19 +1,13 @@
 import { useState } from "react";
 
-import { CaveatLine } from "@/features/schools/facts/CaveatLine";
-import { DerivedFactRow, FactRow } from "@/features/schools/facts/FactRow";
+import { FactTable } from "@/features/schools/facts/FactTable";
 import { SchoolFactsPanel } from "@/features/schools/facts/SchoolFactsPanel";
 import {
   FIXTURE_UNITIDS,
   schoolFactsFixture,
 } from "@/features/schools/facts/school-facts-fixtures";
 import { identityMeta } from "@/features/schools/facts/school-facts-format";
-import type {
-  Caveat,
-  DerivedFact,
-  Fact,
-  FactState,
-} from "@/features/schools/facts/school-facts-types";
+import type { FactTableRow } from "@/features/schools/facts/school-facts-rows";
 import { cn } from "@/lib/utils";
 
 /*
@@ -27,111 +21,52 @@ import { cn } from "@/lib/utils";
  * page.
  */
 
-const galleryCaveats: Record<string, Caveat> = {
-  ordinary: {
-    id: "ordinary",
-    severity: "ordinary",
-    text: "of aid recipients, not all students — excludes PLUS and private loans",
-  },
-  severe: {
-    id: "severe",
-    severity: "severe",
-    text: "Only 38% of the class submitted an SAT score — this band describes the top third, not the class.",
-  },
-};
-
-function galleryFact(
-  label: string,
-  state: FactState,
-  caveatRefs: string[] = [],
-): Fact {
-  return {
-    ref: `gallery.${label}`,
-    label,
-    state,
-    evidence: {
-      pageNumber: 7,
-      excerpt: "i. Average percent of need met.  94%",
-      section: "H2",
-      row: "i",
-      column: null,
-    },
-    contexts: [],
-    caveatRefs,
-  };
-}
-
-const STATE_GALLERY: Fact[] = [
-  galleryFact("Reported value", { kind: "reported", display: "94%", raw: 94 }),
-  galleryFact("Not reported", { kind: "not_reported" }),
-  galleryFact("Not applicable", { kind: "not_applicable" }),
-  galleryFact("Suppressed", { kind: "suppressed" }, ["severe"]),
-  galleryFact("Not in this form edition", { kind: "not_in_template_version" }),
-  galleryFact("No verified value", { kind: "no_verified_value" }),
-  galleryFact("A legitimate zero", { kind: "reported", display: "0", raw: 0 }),
-  galleryFact("A string percent", {
-    kind: "reported",
-    display: "<1%",
-    raw: "<1%",
-  }),
-  galleryFact(
-    "With an ordinary caveat",
-    { kind: "reported", display: "94%", raw: 94 },
-    ["ordinary"],
-  ),
-  galleryFact(
-    "With a severe caveat",
-    { kind: "reported", display: "1500–1560", raw: "1500-1560" },
-    ["severe"],
-  ),
-  galleryFact(
-    "A label long enough to wrap onto a second line, because metric labels are long by nature and truncating one makes it unreadable",
-    { kind: "reported", display: "6 to 1", raw: 6 },
-  ),
-];
-
-const DERIVED_GALLERY: DerivedFact[] = [
+const STATE_GALLERY: FactTableRow[] = [
+  { key: "reported", label: "Reported value", value: "94%", reported: true },
   {
-    key: "computed",
-    label: "Admit rate",
-    state: { kind: "reported", display: "4.6%", raw: 4.6 },
-    formula: "2,275 admitted ÷ 49,000 applicants",
-    inputs: [
-      {
-        ref: "admissions.admitted_total",
-        label: "admitted",
-        evidence: {
-          pageNumber: 3,
-          excerpt: "C1. Total admitted: 2,275",
-          section: "C1",
-          row: null,
-          column: null,
-        },
-      },
-      {
-        ref: "admissions.applicants_total",
-        label: "applicants",
-        evidence: {
-          pageNumber: 3,
-          excerpt: "C1. Total applicants: 49,000",
-          section: "C1",
-          row: null,
-          column: null,
-        },
-      },
-    ],
-    blockedBy: null,
-    caveatRefs: [],
+    key: "not-reported",
+    label: "Not reported",
+    value: "not reported",
+    reported: false,
   },
+  {
+    key: "not-applicable",
+    label: "Not applicable",
+    value: "not applicable",
+    reported: false,
+  },
+  {
+    key: "suppressed",
+    label: "Suppressed",
+    value: "withheld by the school",
+    reported: false,
+  },
+  {
+    key: "not-in-template",
+    label: "Not in this form edition",
+    value: "not in this form edition",
+    reported: false,
+  },
+  {
+    key: "no-verified-value",
+    label: "No verified value",
+    value: "no verified value",
+    reported: false,
+  },
+  { key: "zero", label: "A legitimate zero", value: "0", reported: true },
+  { key: "string-percent", label: "A string percent", value: "<1%", reported: true },
   {
     key: "blocked",
-    label: "Admit rate, blocked",
-    state: { kind: "not_reported" },
-    formula: "admitted ÷ applicants",
-    inputs: [],
-    blockedBy:
-      "Applicants not reported, so the admit rate cannot be calculated.",
-    caveatRefs: [],
+    label: "A derived value that refuses to compute",
+    value: "not available",
+    reported: false,
+  },
+  {
+    key: "long-label",
+    label:
+      "A label long enough to wrap onto a second line, because metric labels are long by nature and truncating one makes it unreadable",
+    value: "6 to 1",
+    reported: true,
   },
 ];
 
@@ -149,10 +84,9 @@ export function SchoolFactsGalleryPage() {
           <p className="max-w-[70ch] text-sm text-[var(--ink-secondary)]">
             Every number on this page is fabricated. The set is deliberately
             worse than reality: a partial packet, a section with no packet, a
-            stale edition, a school with no readable CDS, page-proofed
-            not-in-template values, a suppressed value, an ACT band under 50%
-            submitted, a “&lt;1%” string, a legitimate zero, and an admit rate
-            that refuses to compute.
+            stale edition, a school with no readable CDS, a suppressed value, a
+            “&lt;1%” string, a legitimate zero, and an admit rate that refuses
+            to compute.
           </p>
           <div className="flex flex-wrap gap-2">
             {FIXTURE_UNITIDS.map((id) => {
@@ -190,36 +124,11 @@ export function SchoolFactsGalleryPage() {
           </section>
         ) : null}
 
-        <section className="@container flex flex-col gap-4">
+        <section className="flex flex-col gap-4 pb-16">
           <h2 className="border-b border-[var(--hairline)] pb-3 text-lg font-medium">
-            FactRow state gallery
+            Value state gallery
           </h2>
-          <dl className="divide-y divide-[var(--school-fact-divider)]">
-            {STATE_GALLERY.map((fact) => (
-              <FactRow
-                caveats={galleryCaveats}
-                edition={data?.edition ?? null}
-                fact={fact}
-                key={fact.ref}
-              />
-            ))}
-            {DERIVED_GALLERY.map((derived) => (
-              <DerivedFactRow
-                caveats={galleryCaveats}
-                derived={derived}
-                edition={data?.edition ?? null}
-                key={derived.key}
-              />
-            ))}
-          </dl>
-        </section>
-
-        <section className="flex flex-col gap-3 pb-16">
-          <h2 className="border-b border-[var(--hairline)] pb-3 text-lg font-medium">
-            Caveat severities
-          </h2>
-          <CaveatLine caveat={galleryCaveats.ordinary} />
-          <CaveatLine caveat={galleryCaveats.severe} />
+          <FactTable rows={STATE_GALLERY} />
         </section>
       </div>
     </main>

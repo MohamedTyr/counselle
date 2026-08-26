@@ -12,9 +12,6 @@ import { Button } from "@/components/ui/button";
 import { FileQuestion } from "lucide-react";
 import { Link } from "react-router";
 
-import { HeadlineStrip } from "@/features/schools/facts/HeadlineStrip";
-import { EditionBanner } from "@/features/schools/facts/SectionHeader";
-import { editionBannerVariants } from "@/features/schools/facts/school-facts-format";
 import {
   SchoolFactsNav,
   SchoolFactsNavSelect,
@@ -24,7 +21,6 @@ import {
   NAV_SECTIONS,
   sectionById,
 } from "@/features/schools/facts/school-facts-sections";
-import { buildHeadlineTiles } from "@/features/schools/facts/school-facts-headline";
 import type {
   SchoolFacts,
   SectionId,
@@ -45,45 +41,21 @@ const LAYOUT_CLASS =
 export function SchoolFactsPanel({ data }: { data: SchoolFacts }) {
   const [selected, setSelected] = useState<SectionId>("getting-in");
   const section = sectionById(selected);
-  const tiles = buildHeadlineTiles(data);
 
   return (
     <div className="mx-auto flex w-full max-w-[1160px] flex-col gap-6">
-      {/*
-       * The strip exists to make five figures comparable at a glance. With
-       * no document at all there is nothing to compare, and five tiles
-       * reading "no verified value" would say once per tile what the empty
-       * state below says once, properly, with what to do about it.
-       */}
-      {data.edition ? <HeadlineStrip tiles={tiles} /> : null}
-      {/* Stale and definition-changed qualify every number on the page, so
-       * they are stated once, here, rather than repeated in all six
-       * sections — six ambers for one fact is how a warning stops being one. */}
-      {data.edition ? (
-        editionBannerVariants(data.edition).map((variant) => (
-          <EditionBanner
-            edition={data.edition!}
-            key={variant}
-            schoolName={data.identity.name}
-            variant={variant}
-          />
-        ))
-      ) : (
-        <NoCommonDataSet data={data} />
-      )}
+      {/* Applying still has answers without a form — those come from the
+       * school's own pages — so the sections render either way. */}
+      {data.edition ? null : <NoCommonDataSet data={data} />}
       <div className={LAYOUT_CLASS}>
         <div className="md:sticky md:top-0 md:flex md:flex-col">
           <SchoolFactsNavSelect
-            coverage={data.coverage}
             onSelect={setSelected}
             sections={NAV_SECTIONS}
             selected={selected}
           />
           <div className="hidden md:block">
             <SchoolFactsNav
-              coverage={data.coverage}
-              edition={data.edition}
-              identity={data.identity}
               onSelect={setSelected}
               sections={NAV_SECTIONS}
               selected={selected}
@@ -106,7 +78,7 @@ export function SchoolFactsPanel({ data }: { data: SchoolFacts }) {
 /**
  * The school exists in the catalogue but has no readable Common Data Set.
  * This is NOT an error and must not wear error styling — we are not broken,
- * we simply do not have the document, and our own requirements data below is
+ * we simply do not have the document, and our own requirements data is
  * unaffected by that.
  */
 function NoCommonDataSet({ data }: { data: SchoolFacts }) {
@@ -119,8 +91,8 @@ function NoCommonDataSet({ data }: { data: SchoolFacts }) {
         <EmptyTitle>No Common Data Set on file</EmptyTitle>
         <EmptyDescription>
           We haven't been able to read a Common Data Set for{" "}
-          {data.identity.name}. The application requirements below are still
-          current.
+          {data.identity.name}. The application requirements on the other tab
+          are still current.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
