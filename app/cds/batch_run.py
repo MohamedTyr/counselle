@@ -4,9 +4,11 @@ stores one packet per domain -- split out of `app/cds/engine.py` purely to
 keep it under the file-size budget, mirroring why `citation_remap.py`/
 `starved_retry.py` already exist as their own modules.
 
-Imports `app.cds.engine` lazily inside function bodies (not at module
-level) since `engine.py` imports this module to call `run_batches` and
-`store_domain_packets`; a module-level import here would be circular.
+`_RunState` is imported from `app.cds.engine` under `TYPE_CHECKING` only (not
+at runtime) since `engine.py` imports this module to call `run_batches` and
+`store_domain_packets`; a module-level runtime import here would be
+circular. `app.cds.calling`/`app.cds.usage` carry no such cycle, so their
+functions are imported directly.
 """
 
 from __future__ import annotations
@@ -19,12 +21,14 @@ import asyncpg
 
 from adapters import cds_store
 from app.cds import batching
+from app.cds import usage as usage_mod
+from app.cds.calling import DomainOutcome, _build_and_store_domain_packet, _CallResult, _run_call
 from domain.cds import validators
 from domain.cds.claims import Finding
 from domain.cds.manifest_compile import CompiledManifest
 
 if TYPE_CHECKING:
-    from app.cds.engine import DomainOutcome, _CallResult, _RunState
+    from app.cds.engine import _RunState
 
 # Batching multiplies one run's call count roughly 6-10x (a ~25-metric
 # ceiling against domains with up to 169 metrics). Bounded concurrency keeps
@@ -69,15 +73,11 @@ async def _run_one_batch(
     observed live, a 17-batch group lost all 17 batches (cost=$0, calls=0)
     to one flaky call. `asyncio.CancelledError` is a `BaseException`, not an
     `Exception`, so real task cancellation still propagates correctly."""
-    from app.cds import (
-        engine,  # noqa: PLC0415 -- deferred to break the import cycle, see module docstring
-    )
-
     async with semaphore:
         if lease_lost is not None and lease_lost.is_set():
             return batch, None, "lease_lost"
         try:
-            result = await engine._run_call(  # noqa: SLF001 -- sibling module, see docstring
+            result = await _run_call(
                 settings=settings,
                 manifest_content=manifest_content,
                 pdf_content=pdf_content,
@@ -99,7 +99,7 @@ async def run_batches(
     """Every batch's call, bounded by `_MAX_CONCURRENT_BATCH_CALLS` -- how
     decision 7 keeps a ~6-10x call-count multiplier from also multiplying
     wall-clock by the same factor. `call_kwargs` forwards straight to
-    `engine._run_call` via `_run_one_batch` (settings/manifest_content/
+    `calling._run_call` via `_run_one_batch` (settings/manifest_content/
     pdf_content/original_page_count/routing_text/padded_ranges/page_text).
 
     `return_exceptions=True` is defense in depth on top of `_run_one_batch`'s
@@ -154,10 +154,6 @@ def collect_batch_results(
     packet is built once from its FULL claim set, never once per batch (a
     metric's `verified`/`conflict` resolution needs every claim that could
     touch it)."""
-    from app.cds import (
-        engine,  # noqa: PLC0415 -- deferred to break the import cycle, see module docstring
-    )
-
     domain_findings: dict[str, list[Finding]] = {domain_id: [] for domain_id in requested_domains}
     for batch, call_result, error in results:
         if error is not None or call_result is None:
@@ -165,7 +161,7 @@ def collect_batch_results(
                 {"domain": batch.domain_id, "batch_index": batch.batch_index, "error": error}
             )
             continue
-        state.usage_total = engine._add_usage(state.usage_total, call_result.usage)  # noqa: SLF001
+        state.usage_total = usage_mod._add_usage(state.usage_total, call_result.usage)
         state.call_records.append(batch_call_record(batch, call_result))
         domain_findings[batch.domain_id].extend(call_result.findings)
     return domain_findings
@@ -187,13 +183,9 @@ async def store_domain_packets(
 ) -> dict[str, DomainOutcome]:
     """One packet per requested domain, built from that domain's ENTIRE
     accumulated findings across every one of its batches."""
-    from app.cds import (
-        engine,  # noqa: PLC0415 -- deferred to break the import cycle, see module docstring
-    )
-
     outcomes: dict[str, DomainOutcome] = {}
     for domain_id in requested_domains:
-        outcomes[domain_id] = await engine._build_and_store_domain_packet(  # noqa: SLF001
+        outcomes[domain_id] = await _build_and_store_domain_packet(
             pool=pool,
             settings=settings,
             manifest=manifest,

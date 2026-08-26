@@ -8,13 +8,12 @@ routing/prompt/retry-window/status machinery around it.
 from __future__ import annotations
 
 from app.cds.batching import Batch
-from app.cds.engine import (
-    DomainOutcome,
+from app.cds.calling import DomainOutcome, _retry_clusters
+from app.cds.engine import _overall_status
+from app.cds.routing import (
     _build_prompt,
     _hit_pages_for_hints,
-    _overall_status,
     _page_note,
-    _retry_clusters,
     _route_batches,
     _route_domains,
 )

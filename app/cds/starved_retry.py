@@ -1,17 +1,19 @@
 """One more retry for a domain that shares a call with a domain-mate that DID
 succeed, yet still ends up with zero stored metrics of its own.
 
-`engine._run_call`'s own retry (`engine._retry_clusters`) only fires when the
-WHOLE call came back empty or dropped a citation -- it does not catch this
-narrower case, observed live: Harvard's `identity` domain, sharing a call
-with `class_profile`, produced zero identity findings even though its A0-A6
-pages were fully inside the window (routing-tuning.md §2/§5). Split into its
-own module purely to keep `app/cds/engine.py` under the file-size budget --
-this is still engine orchestration, not a `domain/cds/` rule.
+`calling._run_call`'s own retry (`calling._retry_clusters`) only fires when
+the WHOLE call came back empty or dropped a citation -- it does not catch
+this narrower case, observed live: Harvard's `identity` domain, sharing a
+call with `class_profile`, produced zero identity findings even though its
+A0-A6 pages were fully inside the window (routing-tuning.md §2/§5). Split
+into its own module purely to keep `app/cds/engine.py` under the file-size
+budget -- this is still engine orchestration, not a `domain/cds/` rule.
 
-Imports `app.cds.engine` lazily inside the function body (not at module
-level) since `engine.py` imports this module to call `retry_starved_domains`;
-a module-level import here would be circular.
+`_RunState` is imported from `app.cds.engine` under `TYPE_CHECKING` only (not
+at runtime) since `engine.py` imports this module to call
+`retry_starved_domains`; a module-level runtime import here would be
+circular. `app.cds.calling`/`app.cds.usage` carry no such cycle, so their
+functions are imported directly.
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters import cds_gemini, cds_pdf, cds_store
+from app.cds import calling
+from app.cds import usage as usage_mod
 from domain.cds import packet_build, validators
 from domain.cds import pages as pages_mod
 from domain.cds.manifest_compile import CompiledManifest
@@ -47,10 +51,6 @@ async def retry_starved_domains(
     attention confound is itself sometimes the fix. Mutates `state` in
     place; an outcome is only ever REPLACED, and only when the retry
     actually produced a storable packet."""
-    from app.cds import (
-        engine,  # noqa: PLC0415 -- deferred to break the import cycle, see module docstring
-    )
-
     candidates = [
         domain_id
         for domain_id, outcome in state.domain_outcomes.items()
@@ -69,7 +69,7 @@ async def retry_starved_domains(
             packet_build.domain_metric_definitions(manifest.content, domain_id).values()
         )
         try:
-            attempt = await engine._run_call_once(  # noqa: SLF001 -- sibling module, see docstring
+            attempt = await calling._run_call_once(
                 settings=settings,
                 manifest_content=manifest.content,
                 pdf_content=doc.pdf_content,
@@ -83,7 +83,7 @@ async def retry_starved_domains(
             error_record = {"domains": [domain_id], "starved_retry": True, "error": str(exc)}
             state.call_records.append(error_record)
             continue
-        state.usage_total = engine._add_usage(state.usage_total, attempt.usage)  # noqa: SLF001
+        state.usage_total = usage_mod._add_usage(state.usage_total, attempt.usage)
         state.call_records.append(
             {
                 "domains": [domain_id],
@@ -92,14 +92,14 @@ async def retry_starved_domains(
                 "retried": True,
                 "latency_seconds": round(attempt.latency_seconds, 1),
                 "findings": len(attempt.remapped_findings),
-                "usage": engine._usage_dict(attempt.usage),  # noqa: SLF001
+                "usage": usage_mod._usage_dict(attempt.usage),
                 "error": None,
                 "starved_retry": True,
             }
         )
         if not attempt.remapped_findings:
             continue
-        outcome = await engine._build_and_store_domain_packet(  # noqa: SLF001
+        outcome = await calling._build_and_store_domain_packet(
             pool=pool,
             settings=settings,
             manifest=manifest,
