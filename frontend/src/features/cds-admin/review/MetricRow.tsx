@@ -1,12 +1,16 @@
 import { FileText, Flag } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { usePatchMetrics } from "@/api/cds-admin/hooks";
-import type { ReviewMetric } from "@/api/cds-admin/types";
+import { isTransportError } from "@/api/http/errors";
+import type { MetricEditIn, ReviewMetric } from "@/api/cds-admin/types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSyncedDraft } from "@/hooks/useSyncedDraft";
 import { cn } from "@/lib/utils";
 import { FlagChip } from "@/features/cds-admin/cds-status";
+import { metricFlagSeverity } from "@/features/cds-admin/review/flag-queue";
 import {
   MetricEditor,
   type MetricEditPayload,
@@ -15,8 +19,25 @@ import { useReviewControllerContext } from "@/features/cds-admin/review/review-c
 import {
   coerceMetricValue,
   isUnavailableValue,
-  metricValueText,
+  metricDisplayValueText,
 } from "@/features/cds-admin/review/metric-display";
+
+/** The pre-edit state to restore on Undo — the pending edit's own value
+ * when one already existed, otherwise the original extraction. Captured
+ * before the optimistic `draft.setValue` so Undo always reverts to what
+ * was actually on screen a moment ago. */
+function priorEditState(metric: ReviewMetric): MetricEditIn["evidence"] & {
+  value: unknown;
+  raw_value: string | null;
+} {
+  const source = metric.pending_edit ?? metric;
+  return {
+    value: source.value,
+    raw_value: source.raw_value,
+    page_number: source.evidence?.page_number ?? 1,
+    excerpt: source.evidence?.excerpt ?? "",
+  };
+}
 
 /** One metric row (§5.6) — a 28px resting line that expands in place into
  * the click-to-edit form. `useSyncedDraft` carries the row's optimistic
@@ -38,20 +59,24 @@ export function MetricRow({
 }) {
   const controller = useReviewControllerContext();
   const patchMetrics = usePatchMetrics();
-  const draft = useSyncedDraft(metricValueText(metric));
+  const draft = useSyncedDraft(metricDisplayValueText(metric));
+  const [saveError, setSaveError] = useState<string | null>(null);
   const isEditing = controller.editingRef === metric.ref;
   const isEdited = draft.dirty || metric.pending_edit !== null;
-  const unresolvedSeverity = metric.pending_edit
-    ? null
-    : metric.flags.some((f) => f.severity === "error")
-      ? "error"
-      : metric.flags.some((f) => f.severity === "warning")
-        ? "warning"
-        : null;
+  const unresolvedSeverity = metricFlagSeverity(metric);
+  // A pending edit's own evidence is what Approve will actually commit —
+  // the "jump to page" link must point there too, not the stale original
+  // extraction's page, or an admin can be sent to the wrong page for a
+  // value they already corrected.
+  const displayEvidence = metric.pending_edit?.evidence ?? metric.evidence;
 
-  function handleSave(payload: MetricEditPayload, opts: { andNext: boolean }) {
-    draft.setValue(payload.rawValue || "—");
-    controller.setEditingRef(null);
+  function submitEdit(
+    edit: { value: unknown; raw_value: string | null; evidence: MetricEditIn["evidence"] },
+    optimisticText: string,
+    onSaved: () => void,
+  ) {
+    setSaveError(null);
+    draft.setValue(optimisticText);
     patchMetrics.mutate(
       {
         documentId,
@@ -60,13 +85,10 @@ export function MetricRow({
             {
               metric_ref: metric.ref,
               domain_id: domainId,
-              value: coerceMetricValue(metric, payload.rawValue),
-              raw_value: payload.rawValue,
+              value: edit.value,
+              raw_value: edit.raw_value,
               availability_status: "reported",
-              evidence: {
-                page_number: payload.page ?? 1,
-                excerpt: payload.excerpt,
-              },
+              evidence: edit.evidence,
             },
           ],
         },
@@ -74,9 +96,52 @@ export function MetricRow({
       {
         onSuccess: () => {
           draft.commit();
-          if (opts.andNext) controller.goToNextFlag();
+          onSaved();
         },
-        onError: () => draft.revert(),
+        onError: (error) => {
+          draft.revert();
+          setSaveError(
+            isTransportError(error) ? error.message : "That edit was rejected.",
+          );
+        },
+      },
+    );
+  }
+
+  function handleUndo() {
+    const prior = priorEditState(metric);
+    submitEdit(
+      {
+        value: prior.value,
+        raw_value: prior.raw_value,
+        evidence: { page_number: prior.page_number, excerpt: prior.excerpt },
+      },
+      prior.raw_value ?? (prior.value != null ? String(prior.value) : "—"),
+      () => {},
+    );
+  }
+
+  function handleSave(payload: MetricEditPayload, opts: { andNext: boolean }) {
+    // Undo re-submits the prior state through this same PATCH, and the
+    // backend requires a non-empty excerpt on every edit (`EvidenceIn`,
+    // `min_length=1`). When this is the metric's first-ever edit and it
+    // started with no evidence at all, there is nothing honest to put in
+    // that field — offering Undo here would submit a fabricated excerpt
+    // and fail. Only offer it when the prior state actually has one.
+    const canUndo = priorEditState(metric).excerpt.trim().length > 0;
+    controller.setEditingRef(null);
+    submitEdit(
+      {
+        value: coerceMetricValue(metric, payload.rawValue),
+        raw_value: payload.rawValue,
+        evidence: { page_number: payload.page ?? 1, excerpt: payload.excerpt },
+      },
+      payload.rawValue || "—",
+      () => {
+        if (opts.andNext) controller.goToNextFlag();
+        toast.success(`${metric.title} updated.`, {
+          action: canUndo ? { label: "Undo", onClick: handleUndo } : undefined,
+        });
       },
     );
   }
@@ -138,14 +203,14 @@ export function MetricRow({
           </button>
         )}
 
-        {metric.evidence?.page_number != null ? (
+        {displayEvidence?.page_number != null ? (
           <Button
-            aria-label={`Jump to page ${metric.evidence.page_number}`}
-            onClick={() => controller.jumpEvidence(metric.evidence?.page_number)}
+            aria-label={`Jump to page ${displayEvidence.page_number}`}
+            onClick={() => controller.jumpEvidence(displayEvidence?.page_number)}
             size="xs"
             variant="ghost"
           >
-            <FileText data-icon="inline-start" />p. {metric.evidence.page_number}
+            <FileText data-icon="inline-start" />p. {displayEvidence.page_number}
           </Button>
         ) : (
           <span />
@@ -164,6 +229,10 @@ export function MetricRow({
           <span className="text-muted-foreground">{flag.message}</span>
         </div>
       ))}
+
+      {saveError && (
+        <p className="pb-1.5 pl-6 text-xs text-destructive">{saveError}</p>
+      )}
 
       {isEditing && !readOnly && (
         <MetricEditor

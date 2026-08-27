@@ -74,6 +74,7 @@ export function useSearchSchools(q: string, limit = 20) {
     queryKey: cdsAdminKeys.schools.search(q),
     queryFn: () => searchSchools(q, limit),
     enabled: q.trim().length > 0,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -86,6 +87,7 @@ export function useUploadBatch(batchId: string | undefined) {
     queryKey: cdsAdminKeys.batch.detail(batchId ?? ""),
     queryFn: () => listBatch(batchId as string),
     enabled: Boolean(batchId),
+    refetchOnWindowFocus: false,
   });
 }
 

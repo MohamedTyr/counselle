@@ -10,12 +10,15 @@ import type { UploadRowStatus } from "@/features/cds-admin/cds-status";
  * server's `UploadRow.status` — `phase` tracks the one `POST` this file
  * made; `row` is the truth once that request resolves.
  *
- * `uploading`/`detecting` are the same request (DESIGN.md §7 gap 4: `fetch`
- * gives no upload-progress events, so there's no real signal to switch on).
- * The switch is a size-scaled heuristic timer (`detectingDelayMs`) purely
- * so the two documented phases both appear — never a fabricated percentage,
- * law 4 is about determinate bars, not an indeterminate label swap. */
-export type StagingPhase = "uploading" | "detecting" | "resolved" | "request-failed";
+ * There is deliberately no `detecting` phase here (SHIP-PLAN.md §6.10):
+ * `fetch` gives no upload-progress events, so a size-scaled timer flipping
+ * the label mid-upload had no real signal behind it — a fabricated progress
+ * step, which is exactly what law 4 bans. The row stays `uploading` (chip
+ * keeps spinning, honestly) until the response lands. `detecting` remains a
+ * legitimate `UploadRowStatus` wire value (DESIGN.md §2.3) for the day a
+ * real server-side signal exists to drive it; the client just never
+ * produces it today. */
+export type StagingPhase = "uploading" | "resolved" | "request-failed";
 
 export interface StagingEntry {
   clientId: string;
@@ -95,31 +98,11 @@ export function markEntryFailed(
   );
 }
 
-export function flipToDetecting(
-  entries: StagingEntry[],
-  clientId: string,
-): StagingEntry[] {
-  return entries.map((entry) =>
-    entry.clientId === clientId && entry.phase === "uploading"
-      ? { ...entry, phase: "detecting" as const }
-      : entry,
-  );
-}
-
 export function removeEntry(
   entries: StagingEntry[],
   clientId: string,
 ): StagingEntry[] {
   return entries.filter((entry) => entry.clientId !== clientId);
-}
-
-/** Heuristic only — see the note on `StagingPhase`. Scales with file size so
- * a 40 MB file doesn't flip to "Detecting" the instant it's dropped. */
-export function detectingDelayMs(fileSizeBytes: number): number {
-  const BASE_MS = 400;
-  const MAX_MS = 2500;
-  const BYTES_PER_MS = 200_000;
-  return Math.min(MAX_MS, BASE_MS + fileSizeBytes / BYTES_PER_MS);
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +147,7 @@ export function rejectedFilesMessage(count: number): string {
 export type StagingChipStatus = UploadRowStatus | "committed";
 
 export function stagingChipStatus(entry: StagingEntry): StagingChipStatus {
-  if (entry.phase === "uploading" || entry.phase === "detecting") {
+  if (entry.phase === "uploading") {
     return entry.phase;
   }
   if (entry.phase === "request-failed") {
@@ -210,9 +193,6 @@ export function stagingReason(entry: StagingEntry): {
   if (entry.phase === "uploading") {
     return { text: "", linkedDocumentId: null };
   }
-  if (entry.phase === "detecting") {
-    return { text: "Reading school and year…", linkedDocumentId: null };
-  }
 
   const row = entry.row;
   if (!row) {
@@ -250,7 +230,7 @@ export function buildReadinessSentence(entries: StagingEntry[]): string {
   let inFlight = 0;
 
   for (const entry of entries) {
-    if (entry.phase === "uploading" || entry.phase === "detecting") {
+    if (entry.phase === "uploading") {
       inFlight += 1;
       continue;
     }

@@ -65,8 +65,9 @@ export const PdfPageViewer = forwardRef<
 
   useEffect(() => () => clearTimeout(flashTimeout.current), []);
 
-  function requestPage(target: number, opts?: { flash?: boolean }) {
-    const clamped = Math.max(1, Math.round(target));
+  function requestPage(target: number, opts?: { flash?: boolean }): number {
+    const upperBound = pageCount ?? Infinity;
+    const clamped = Math.min(upperBound, Math.max(1, Math.round(target)));
     setPage(clamped);
     setFailed(false);
     onPageChange?.(clamped);
@@ -79,6 +80,15 @@ export const PdfPageViewer = forwardRef<
       );
       if (reduceMotion) setFlashing(false);
     }
+    return clamped;
+  }
+
+  // A commit (blur/Enter) whose target clamps to the already-current page
+  // never fires the `[page]` effect above, so the input can be left showing
+  // un-clamped text (e.g. typing "999999" on the last page). Force-sync it
+  // here regardless of whether `page` actually changed.
+  function commitPageInput() {
+    setPageInput(String(requestPage(Number(pageInput) || page)));
   }
 
   // No dependency array: `requestPage` closes over `page`/`onPageChange`/
@@ -105,10 +115,10 @@ export const PdfPageViewer = forwardRef<
         <Input
           aria-label="Page number"
           className="w-12 text-center text-sm tabular-nums"
-          onBlur={() => requestPage(Number(pageInput) || page)}
+          onBlur={commitPageInput}
           onChange={(event) => setPageInput(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") requestPage(Number(pageInput) || page);
+            if (event.key === "Enter") commitPageInput();
           }}
           size="sm"
           value={pageInput}
@@ -118,6 +128,7 @@ export const PdfPageViewer = forwardRef<
         </span>
         <Button
           aria-label="Next page"
+          disabled={pageCount != null && page >= pageCount}
           onClick={() => requestPage(page + 1)}
           size="icon-sm"
           variant="ghost"
@@ -198,7 +209,7 @@ export const PdfPageViewer = forwardRef<
             src={pageImageUrl(documentId, page - 1, IMAGE_WIDTH)}
           />
         )}
-        {!failed && (
+        {!failed && (pageCount == null || page < pageCount) && (
           <img
             alt=""
             className="hidden"

@@ -16,13 +16,17 @@ import type {
 export async function createUpload(input: {
   file: File;
   batchId: string;
+  /** Lets the caller cancel the in-flight upload — batch-upload's delete
+   * action (staging-model.ts / useBatchUpload.ts) aborts this the moment an
+   * admin deletes a row before its server row exists. */
+  signal?: AbortSignal;
 }): Promise<UploadRow> {
   const formData = new FormData();
   formData.append("file", input.file);
   formData.append("batch_id", input.batchId);
   const response = await safeFetch(
     "/admin/cds/uploads",
-    { method: "POST", body: formData },
+    { method: "POST", body: formData, signal: input.signal },
     CDS_ADMIN_SLOW_REQUEST_TIMEOUT_MS,
   );
   if (!response.ok) {

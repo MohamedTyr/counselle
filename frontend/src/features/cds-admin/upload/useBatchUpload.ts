@@ -20,8 +20,6 @@ import {
 } from "@/features/cds-admin/upload/document-status";
 import {
   buildReadinessSentence,
-  detectingDelayMs,
-  flipToDetecting,
   markEntryFailed,
   partitionFiles,
   readyToProcessCount,
@@ -71,8 +69,18 @@ export function useBatchUpload() {
 
   const queueRef = useRef(createConcurrencyQueue(MAX_CONCURRENT_UPLOADS));
   const pendingBatchIdRef = useRef<string | null>(null);
-  const timersRef = useRef(new Set<number>());
   const hasAnnouncedCompletionRef = useRef(false);
+  // §6.1 data-integrity fix: an entry deleted before its `POST` resolves has
+  // no server row yet, so there's nothing for a normal delete to target.
+  // `abortControllersRef` cancels the in-flight request; `deletedClientIdsRef`
+  // is the correctness backstop for the case the abort loses the race — it
+  // tombstones the client id for exactly as long as that one request is in
+  // flight (removed the moment it settles, in `addFiles`'s `.then`/`.catch`),
+  // so it never blocks a later, deliberate re-upload of the same file (which
+  // gets a fresh `crypto.randomUUID()` client id) and never accumulates
+  // beyond the requests actually in flight at delete time.
+  const abortControllersRef = useRef(new Map<string, AbortController>());
+  const deletedClientIdsRef = useRef(new Set<string>());
 
   const batchQuery = useUploadBatch(batchId);
   const createUpload = useCreateUpload();
@@ -80,13 +88,6 @@ export function useBatchUpload() {
   const deleteUploadRowMutation = useDeleteUploadRow();
   const processBatchMutation = useProcessBatch();
   const jobsQuery = useJobs({ batchId: batchId ?? "" });
-
-  useEffect(() => {
-    const timers = timersRef.current;
-    return () => {
-      for (const timer of timers) window.clearTimeout(timer);
-    };
-  }, []);
 
   // A 503 means the pipeline DSN isn't configured — page-scoped, overrides
   // everything else (DESIGN.md §1.9 #2). It can surface from either the
@@ -162,19 +163,50 @@ export function useBatchUpload() {
     accepted.forEach((file, index) => {
       const clientId = newEntries[index].clientId;
 
-      const timer = window.setTimeout(() => {
-        timersRef.current.delete(timer);
-        setLocalEntries((current) => flipToDetecting(current, clientId));
-      }, detectingDelayMs(file.size));
-      timersRef.current.add(timer);
+      const controller = new AbortController();
+      abortControllersRef.current.set(clientId, controller);
 
       void queueRef.current
-        .add(() => createUpload.mutateAsync({ batchId: effectiveBatchId, file }))
+        .add(() =>
+          createUpload.mutateAsync({
+            batchId: effectiveBatchId,
+            file,
+            signal: controller.signal,
+          }),
+        )
         .then((row) => {
+          abortControllersRef.current.delete(clientId);
+          const wasDeleted = deletedClientIdsRef.current.delete(clientId);
+          if (wasDeleted) {
+            // The admin deleted this row before the upload resolved and the
+            // abort lost the race — the server now has a row nobody asked
+            // for. Clean it up server-side, and only tombstone once that
+            // DELETE actually succeeds (mirrors the explicit-delete path
+            // below) — tombstoning first, unconditionally, would hide a row
+            // from the UI forever even if the DELETE failed, while it stays
+            // in a `_READY_STATUSES` state on the server and is silently
+            // swept up by the next "Process all". `useDeleteUploadRow`'s
+            // built-in `onError` still surfaces the failure toast.
+            deleteUploadRowMutation.mutate(
+              { batchId: effectiveBatchId, fileId: row.id },
+              {
+                onSuccess: () =>
+                  setDeletedRowIds((current) => new Set(current).add(row.id)),
+              },
+            );
+            return;
+          }
           setLocalEntries((current) => updateEntryRow(current, clientId, row));
           applyDeepLinkIfEligible(row, deepLinkEligible);
         })
         .catch((error: unknown) => {
+          abortControllersRef.current.delete(clientId);
+          const wasDeleted = deletedClientIdsRef.current.delete(clientId);
+          if (wasDeleted) {
+            // A deliberate delete-triggered abort surfaces here too —
+            // nothing to report, the row is already gone.
+            return;
+          }
           if (isTransportError(error) && error.status === 503) {
             setMutationServiceUnavailable(true);
           }
@@ -190,6 +222,17 @@ export function useBatchUpload() {
   }
 
   function deleteEntry(entry: StagingEntry) {
+    // Tombstone + abort only while the request can still be in flight
+    // (§6.1) — `entry.row` is set only after the `.then`/`.catch` in
+    // `addFiles` already settled and removed this client id from both
+    // refs, so adding it here for an already-resolved entry would never be
+    // cleaned up and would leak for the life of the hook.
+    if (!entry.row) {
+      deletedClientIdsRef.current.add(entry.clientId);
+      abortControllersRef.current.get(entry.clientId)?.abort();
+      abortControllersRef.current.delete(entry.clientId);
+    }
+
     if (!entry.row || !batchId) {
       setLocalEntries((current) => removeEntry(current, entry.clientId));
       return;

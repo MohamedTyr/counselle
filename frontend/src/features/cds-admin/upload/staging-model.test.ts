@@ -89,9 +89,6 @@ describe("stagingChipStatus", () => {
     expect(stagingChipStatus(makeEntry({ phase: "uploading", row: null }))).toBe(
       "uploading",
     );
-    expect(stagingChipStatus(makeEntry({ phase: "detecting", row: null }))).toBe(
-      "detecting",
-    );
   });
 
   it("maps the server's error status to the UI's failed status", () => {

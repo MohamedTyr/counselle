@@ -1,4 +1,12 @@
-import type { ReviewMetric } from "@/api/cds-admin/types";
+import type { PendingEditOut, ReviewMetric } from "@/api/cds-admin/types";
+
+/** A pending edit's own display text — it carries no server-computed
+ * `display` string (only `value`/`raw_value`, mirroring
+ * `counselle.cds_pending_edits`), so this mirrors the same `raw_value ??
+ * String(value)` fallback `MetricEditor` uses for the original metric. */
+export function pendingEditValueText(edit: PendingEditOut): string {
+  return edit.raw_value ?? (edit.value != null ? String(edit.value) : "—");
+}
 
 /**
  * The value slot's text when there's no formatted `display` string
@@ -35,11 +43,22 @@ export function metricValueText(metric: ReviewMetric): string {
   }
 }
 
+/** The row's displayed value (§5.6): a pending edit is what will actually
+ * be approved, so it takes priority over the original extracted value —
+ * the row must never show a value that isn't what Approve will commit. */
+export function metricDisplayValueText(metric: ReviewMetric): string {
+  if (metric.pending_edit) return pendingEditValueText(metric.pending_edit);
+  return metricValueText(metric);
+}
+
 /** Whether the value slot should render as a plain (non-editable-looking)
  * word rather than a button-that-looks-like-text — still click-to-edit
  * (any field may be corrected regardless of its extraction state), but the
- * `metric.display === null` case reads as prose, not data. */
+ * `metric.display === null` case reads as prose, not data. A pending edit
+ * always carries `availability_status: "reported"` (`MetricRow.handleSave`),
+ * so it's never "unavailable" even when the original extraction was. */
 export function isUnavailableValue(metric: ReviewMetric): boolean {
+  if (metric.pending_edit) return false;
   return metric.display === null;
 }
 

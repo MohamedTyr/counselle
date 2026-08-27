@@ -140,6 +140,21 @@ export const flagSeverityMeta: Record<FlagSeverity, FlagSeverityEntry> = {
 };
 
 /**
+ * Resolves the display label for a status, accounting for the `processing`
+ * / `running` split (§2.1): a queued job reads "Queued", a running one reads
+ * "Extracting". The single home for that word — `StatusChip` and any
+ * caller that needs an accessible name (e.g. the coverage grid's
+ * `aria-label`) both read from here instead of re-deriving it.
+ */
+export function getStatusLabel(status: CdsStatus, running = false): string {
+  const meta = cdsStatusMeta[status];
+  if (status === "processing" && running) {
+    return "Extracting";
+  }
+  return meta.label;
+}
+
+/**
  * Document status chip (§2.1). Returns `null` for `"none"` — see the note
  * on `cdsStatusMeta` above.
  */
@@ -161,12 +176,14 @@ export function StatusChip({
 
   const spinning = status === "processing" && running;
   const Icon = spinning ? Loader2 : meta.Icon;
-  const label =
-    status === "processing" ? (running ? "Extracting" : meta.label) : meta.label;
+  const label = getStatusLabel(status, running);
 
   return (
     <Badge size={size} variant={meta.variant}>
-      <Icon aria-hidden="true" className={spinning ? "animate-spin" : undefined} />
+      <Icon
+        aria-hidden="true"
+        className={spinning ? "animate-spin" : undefined}
+      />
       {short ? meta.shortLabel : label}
     </Badge>
   );
@@ -185,7 +202,10 @@ export function UploadStatusChip({
 
   return (
     <Badge variant={meta.variant}>
-      <Icon aria-hidden="true" className={spinning ? "animate-spin" : undefined} />
+      <Icon
+        aria-hidden="true"
+        className={spinning ? "animate-spin" : undefined}
+      />
       {meta.label}
     </Badge>
   );

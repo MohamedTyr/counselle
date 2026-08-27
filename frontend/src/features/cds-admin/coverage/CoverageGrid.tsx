@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import {
   Table,
@@ -19,7 +20,7 @@ import {
   formatAcademicYearShort,
   formatWhen,
 } from "@/features/cds-admin/cds-format";
-import { cdsStatusMeta, StatusChip } from "@/features/cds-admin/cds-status";
+import { getStatusLabel, StatusChip } from "@/features/cds-admin/cds-status";
 import type {
   CoverageCell as CoverageCellData,
   CoverageRow,
@@ -27,6 +28,27 @@ import type {
 
 const FOCUS_RING =
   "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
+
+// DESIGN.md §3.4/§6.10: the school column narrows to 240px below the `xl:`
+// breakpoint (1280px) so the year columns keep room on laptop widths.
+const WIDE_BREAKPOINT = 1280;
+const SCHOOL_COLUMN_WIDTH_WIDE = 280;
+const SCHOOL_COLUMN_WIDTH_NARROW = 240;
+
+function useSchoolColumnWidth(): number {
+  const [isWide, setIsWide] = useState(
+    () => window.innerWidth >= WIDE_BREAKPOINT,
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${WIDE_BREAKPOINT}px)`);
+    const onChange = () => setIsWide(window.innerWidth >= WIDE_BREAKPOINT);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  return isWide ? SCHOOL_COLUMN_WIDTH_WIDE : SCHOOL_COLUMN_WIDTH_NARROW;
+}
 
 function EmptyCell({
   onOpenUpload,
@@ -70,7 +92,8 @@ function PopulatedCell({
   schoolName: string;
   year: number;
 }) {
-  const meta = cdsStatusMeta[cell.status];
+  const isRunning = cell.job_status === "running";
+  const statusLabel = getStatusLabel(cell.status, isRunning);
   const activeDomains = cell.active_domains;
   const candidateDomains = cell.candidate_domains;
   const isPartial =
@@ -78,20 +101,23 @@ function PopulatedCell({
     activeDomains !== null &&
     candidateDomains !== null &&
     activeDomains < candidateDomains;
+  const partialSuffix = isPartial
+    ? `, ${activeDomains}/${candidateDomains} domains`
+    : "";
 
   return (
     <TableCell className="p-0 text-center">
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            aria-label={`${schoolName}, ${formatAcademicYear(year)} — ${meta.label}. Open document review.`}
+            aria-label={`${schoolName}, ${formatAcademicYear(year)} — ${statusLabel}${partialSuffix}. Open document review.`}
             className={`flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-sm transition-colors hover:bg-accent ${FOCUS_RING}`}
             onClick={() => {
               if (cell.document_id !== null) onOpenDocument(cell.document_id);
             }}
             type="button"
           >
-            <StatusChip short status={cell.status} />
+            <StatusChip running={isRunning} short status={cell.status} />
             {isPartial && (
               <span className="text-xs text-muted-foreground tabular-nums">
                 {activeDomains}/{candidateDomains}
@@ -198,6 +224,7 @@ export function CoverageGrid({
   rows: CoverageRow[];
   years: number[];
 }) {
+  const schoolColumnWidth = useSchoolColumnWidth();
   return (
     <Table
       className="w-full max-w-5xl table-fixed"
@@ -209,7 +236,7 @@ export function CoverageGrid({
         CDS document coverage by school and academic year
       </TableCaption>
       <colgroup>
-        <col style={{ width: 280 }} />
+        <col style={{ width: schoolColumnWidth }} />
         {years.map((year) => (
           <col key={year} style={{ minWidth: 112 }} />
         ))}

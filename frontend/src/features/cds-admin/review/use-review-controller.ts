@@ -179,6 +179,16 @@ export function useReviewController(params: {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+    // No dependency array, deliberately: `handleKeyDown` closes over
+    // `focusedRef`/`currentPage`/`onApprove`/`viewerRef` and, via
+    // `goToFlagBy`/`goToRowBy`, over `flagQueue`/`visibleMetrics` too.
+    // Neither helper is memoized (each is a plain function redefined on
+    // every render), so a dependency array listing them would still change
+    // on every render anyway — it only bought two `exhaustive-deps`
+    // warnings (`goToFlagBy`/`goToRowBy` "make the dependencies of this
+    // effect change on every render") for no behavioural difference.
+    // Re-subscribing every render is the correct, simplest way to keep the
+    // handler's closures fresh here.
   });
 
   return {

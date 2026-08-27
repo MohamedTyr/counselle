@@ -32,6 +32,11 @@ export interface CoverageCell {
   active_domains: number | null;
   partial_domains: number | null;
   candidate_domains: number | null;
+  /** `cds_extractions.status` for the live job behind a "processing" cell —
+   * `"queued"` or `"running"`, `null` for every other cell status. Lets the
+   * grid distinguish a queued job from one actually running instead of
+   * spinning a chip for work that hasn't started (SHIP-PLAN.md §6.9). */
+  job_status: "queued" | "running" | null;
 }
 
 export interface CoverageRow {

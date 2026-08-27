@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Loader2, OctagonX } from "lucide-react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 
 import type { DocumentReviewOut } from "@/api/cds-admin/types";
 import { Accordion } from "@/components/ui/accordion";
@@ -19,29 +20,40 @@ import { ReviewSection } from "@/features/cds-admin/review/ReviewSection";
 import { isNonTerminalExtractionStatus } from "@/api/cds-admin/types";
 import { cn } from "@/lib/utils";
 
+export type ReviewPanelHandle = {
+  /** Moves focus to the flag bar's next-unresolved-flag button (§5.10,
+   * §6.6) — the target of the 409-on-Approve path, which must move focus
+   * rather than just update the live region. A no-op when the button isn't
+   * mounted (extracting/failed states, or no unresolved flags). */
+  focusNextFlag: () => void;
+};
+
 /** The right pane (§5.5/§5.6/§5.11): the flag bar, then every domain
  * section as one controlled `Accordion`. Extraction-in-progress and
  * extraction-failed states replace the accordion entirely — there's
  * nothing to review yet either way. */
-export function ReviewPanel({
-  review,
-  documentId,
-  flaggedFirst,
-  onFlaggedFirstChange,
-  readOnly,
-  onRerun,
-  className,
-}: {
-  review: DocumentReviewOut;
-  documentId: number;
-  flaggedFirst: boolean;
-  onFlaggedFirstChange: (value: boolean) => void;
-  readOnly: boolean;
-  onRerun: () => void;
-  className?: string;
-}) {
+export const ReviewPanel = forwardRef<
+  ReviewPanelHandle,
+  {
+    review: DocumentReviewOut;
+    documentId: number;
+    flaggedFirst: boolean;
+    onFlaggedFirstChange: (value: boolean) => void;
+    readOnly: boolean;
+    onRerun: () => void;
+    className?: string;
+  }
+>(function ReviewPanel(
+  { review, documentId, flaggedFirst, onFlaggedFirstChange, readOnly, onRerun, className },
+  ref,
+) {
   const controller = useReviewControllerContext();
   const { extraction, sections, flags_summary: flagsSummary } = review;
+  const nextFlagButtonRef = useRef<HTMLButtonElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusNextFlag: () => nextFlagButtonRef.current?.focus(),
+  }));
 
   if (extraction && isNonTerminalExtractionStatus(extraction.status)) {
     return (
@@ -120,6 +132,7 @@ export function ReviewPanel({
           aria-label="Next unresolved flag"
           disabled={flagsSummary.unresolved === 0}
           onClick={controller.goToNextFlag}
+          ref={nextFlagButtonRef}
           size="icon-sm"
           variant="ghost"
         >
@@ -170,4 +183,4 @@ export function ReviewPanel({
       </ScrollArea>
     </div>
   );
-}
+});

@@ -42,6 +42,13 @@ class CoverageCell(_Model):
     active_domains: int | None = None
     partial_domains: int | None = None
     candidate_domains: int | None = None
+    # `cds_extractions.status` for the live job behind a "processing" cell —
+    # "queued" or "running", the same real signal `document-status.ts`
+    # already uses for job rows. `None` for every other cell status. This is
+    # what lets the frontend distinguish a queued job (not yet running) from
+    # a running one instead of spinning a chip for work that hasn't started
+    # (SHIP-PLAN.md §6.9).
+    job_status: Literal["queued", "running"] | None = None
 
 
 class CoverageRow(_Model):

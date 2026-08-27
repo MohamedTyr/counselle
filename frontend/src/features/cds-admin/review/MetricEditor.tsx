@@ -27,15 +27,19 @@ export function MetricEditor({
   onCancel: () => void;
   saving: boolean;
 }) {
+  // A pending edit is what will actually be approved — prefill from it, not
+  // the original extraction, so reopening the editor can't invite the admin
+  // to unknowingly overwrite their own correction with the stale original.
+  const source = metric.pending_edit ?? metric;
   const [value, setValue] = useState(
-    metric.raw_value ?? (metric.value != null ? String(metric.value) : ""),
+    source.raw_value ?? (source.value != null ? String(source.value) : ""),
   );
   const [page, setPage] = useState(
-    metric.evidence?.page_number != null
-      ? String(metric.evidence.page_number)
+    source.evidence?.page_number != null
+      ? String(source.evidence.page_number)
       : "",
   );
-  const [excerpt, setExcerpt] = useState(metric.evidence?.excerpt ?? "");
+  const [excerpt, setExcerpt] = useState(source.evidence?.excerpt ?? "");
   const excerptEmpty = excerpt.trim().length === 0;
 
   function submit(andNext: boolean) {

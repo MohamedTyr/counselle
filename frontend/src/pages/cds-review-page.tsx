@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -22,7 +22,10 @@ import {
 import { RejectDialog } from "@/features/cds-admin/review/RejectDialog";
 import { ReviewControllerContext } from "@/features/cds-admin/review/review-context";
 import { ReviewHeader } from "@/features/cds-admin/review/ReviewHeader";
-import { ReviewPanel } from "@/features/cds-admin/review/ReviewPanel";
+import {
+  ReviewPanel,
+  type ReviewPanelHandle,
+} from "@/features/cds-admin/review/ReviewPanel";
 import { ReviewSkeleton } from "@/features/cds-admin/review/ReviewSkeleton";
 import { useReviewController } from "@/features/cds-admin/review/use-review-controller";
 
@@ -124,6 +127,19 @@ function DocumentReviewLoaded({
   const [currentPage, setCurrentPage] = useState(1);
   const [liveMessage, setLiveMessage] = useState("");
   const viewerRef = useRef<PdfPageViewerHandle>(null);
+  const reviewPanelRef = useRef<ReviewPanelHandle>(null);
+  const pendingConflictFocusRef = useRef(false);
+
+  // Two-step focus (mirrors `use-review-controller.ts`'s `pendingFocusRef`):
+  // the 409 handler can't focus the next-flag button synchronously — it's
+  // disabled until the mutation's `onSettled` refetch lands a fresh
+  // `flags_summary` with `unresolved > 0`. Wait for that re-render instead.
+  useEffect(() => {
+    if (pendingConflictFocusRef.current && review.flags_summary.unresolved > 0) {
+      reviewPanelRef.current?.focusNextFlag();
+      pendingConflictFocusRef.current = false;
+    }
+  }, [review.flags_summary.unresolved]);
 
   // Broadened per SHIP-PLAN §2.4/§2.1: the same screen reviews both an
   // ordinary candidate document and an already-active document with a
@@ -147,6 +163,7 @@ function DocumentReviewLoaded({
           // moves attention to the blocking sentence via the live region.
           if (isTransportError(error) && error.kind === "conflict") {
             setLiveMessage("Flags changed on the server — review before approving.");
+            pendingConflictFocusRef.current = true;
           }
         },
       },
@@ -222,6 +239,7 @@ function DocumentReviewLoaded({
             onFlaggedFirstChange={setFlaggedFirst}
             onRerun={handleRerun}
             readOnly={readOnly}
+            ref={reviewPanelRef}
             review={review}
           />
         </div>

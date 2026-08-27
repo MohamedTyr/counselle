@@ -92,7 +92,7 @@ packet_counts AS (
   GROUP BY p.document_id
 ),
 live_jobs AS (
-  SELECT school_year_id, id AS extraction_id
+  SELECT school_year_id, id AS extraction_id, status
   FROM cds_library.cds_extractions
   WHERE status IN ('queued', 'running')
 )
@@ -111,7 +111,7 @@ SELECT slots.school_id, slots.name, slots.state, slots.academic_year, slots.scho
          WHEN slots.candidate_document_id IS NOT NULL THEN 'processing'
          ELSE 'none'
        END AS cell_status,
-       lj.extraction_id AS live_extraction_id,
+       lj.extraction_id AS live_extraction_id, lj.status AS live_job_status,
        cand_x.id AS cand_extraction_id, cand_x.error_code AS cand_error_code,
        cand_x.extractor_version AS cand_extractor_version, cand_x.finished_at AS cand_finished_at,
        act_x.id AS act_extraction_id, act_x.extractor_version AS act_extractor_version,
@@ -261,6 +261,7 @@ def _cell_from_row(row: asyncpg.Record) -> CoverageCell:
             status="processing",
             school_year_id=row["school_year_id"],
             extraction_id=str(row["live_extraction_id"]) if row["live_extraction_id"] else None,
+            job_status=row["live_job_status"],
         )
     if status in ("approved", "correction_pending"):
         return CoverageCell(
