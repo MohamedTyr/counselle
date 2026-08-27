@@ -1,4 +1,4 @@
--- CDS admin surface (plans/cds-pipeline/PLAN.md §C2): upload staging, pending
+-- CDS admin surface (specs/cds-pipeline/plan/PLAN.md §C2): upload staging, pending
 -- review edits, and the actor-attributed audit log. Additive, counselle.* only —
 -- cds_library.* is never touched by this repo's migrations (see plan §C1).
 -- depends: 0014_response_mode

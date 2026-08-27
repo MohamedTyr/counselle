@@ -1,7 +1,7 @@
 """Pydantic authoring-schema models for ``config/cds/*.yaml``.
 
 These replace the ~690 lines of hand-rolled key/vocabulary checking in the old
-pipeline's ``library/manifest.py`` (see ``plans/cds-pipeline/recon-old-pipeline.md``
+pipeline's ``library/manifest.py`` (see ``specs/cds-pipeline/plan/recon/recon-old-pipeline.md``
 §2) with declarative Pydantic models. The closed vocabularies (``UNITS``,
 ``POPULATIONS``, ``DENOMINATORS``, ``DEFINITION_VARIANTS``) and the required/
 allowed key sets are copied **verbatim** from that module — any drift here

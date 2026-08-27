@@ -90,7 +90,7 @@ rules in §5–§9 — applies to it exactly as written, unchanged.
   `cds_school_years`, `cds_documents`, `cds_manifests`, `cds_extractions`,
   `cds_domain_packets`, `ct_index_entries`, `ct_index_state`). The missing `DELETE`
   grant was confirmed empirically against the live database, including a direct
-  `DELETE` attempt that Postgres rejected (`plans/cds-pipeline/recon-db-live.md` §4),
+  `DELETE` attempt that Postgres rejected (`specs/cds-pipeline/plan/recon/recon-db-live.md` §4),
   not just read from a grant table.
 - **Code boundary.** Only `adapters/cds_store.py` and `adapters/cds_admin_queries.py`
   ever open a connection on this DSN, and only reachable behind the `current_superuser`

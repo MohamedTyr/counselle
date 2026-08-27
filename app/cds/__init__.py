@@ -1,1 +1,1 @@
-"""CDS admin surface (plans/cds-pipeline/PLAN.md) — the write side lives here."""
+"""CDS admin surface (specs/cds-pipeline/plan/PLAN.md) — the write side lives here."""

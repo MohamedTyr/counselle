@@ -234,7 +234,7 @@ def _flags_summary(
     narrower and is the one that gates Approve (plan §D endpoint #12): a
     flag on a metric with a pending edit is treated as addressed (the admin
     has already proposed a fix), and -- per the measured false-alarm rate in
-    `plans/cds-pipeline/flag-precision.md` -- an unaddressed flag only
+    `specs/cds-pipeline/plan/flag-precision.md` -- an unaddressed flag only
     counts against `unresolved` when its own validator marked it
     `severity="error"` (`domain.cds.validators.Severity`'s blocking tier).
     A `severity="warning"` flag (an evidence-verifiability gap the model's

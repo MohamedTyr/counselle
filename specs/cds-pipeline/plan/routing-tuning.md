@@ -457,7 +457,7 @@ re-running `compile_manifest` before and after this session's changes.
 ### 8.1 Method
 
 §7 point 1's diagnosis (`admissions`, 2/152 verified on Harvard) matched
-`plans/cds-pipeline/spike-part-a.md`'s own finding almost exactly: a ~25-metric schema
+`specs/cds-pipeline/plan/spike-part-a.md`'s own finding almost exactly: a ~25-metric schema
 scored 99.3% field accuracy, while the live engine's calls ask for up to 169 metrics
 (`financial_aid`) in one shot. The fix implemented and measured here: split every
 domain's metric catalog into `app/cds/manifest.py::metric_batches_for_domain` batches of
@@ -676,7 +676,7 @@ inflated) latency number, are the honest open items for whoever picks this up ne
 
 ## 9. Page-citation offset bug
 
-`plans/cds-pipeline/flag-precision.md` measured `document_id=2018` (dev-fixture row,
+`specs/cds-pipeline/plan/flag-precision.md` measured `document_id=2018` (dev-fixture row,
 school_id 100654, PDF content `cornell_2022-2023.pdf`) at 82 `excerpt_not_on_cited_page`
 warning flags, 73 of which it confirmed as TRUE POSITIVES by hand against the real PDF: the
 cited page genuinely did not contain the excerpt, but the excerpt was found verbatim on a

@@ -2,7 +2,7 @@
 
 Each test constructs a minimal packet dict (the ``cds_domain_packets.packet``
 shape) and checks the validator fires — or deliberately doesn't — for a real,
-named failure mode from the corpus recon (`plans/cds-pipeline/recon-old-pipeline.md`
+named failure mode from the corpus recon (`specs/cds-pipeline/plan/recon/recon-old-pipeline.md`
 §4 risk register).
 """
 

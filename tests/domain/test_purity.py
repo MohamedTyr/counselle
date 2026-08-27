@@ -5,7 +5,7 @@ while the package is empty; fails the moment any module pulls in a DB driver,
 an HTTP/LLM SDK, or a web framework.
 
 ``domain/cds/`` carries one narrow, documented carve-out (plan
-`plans/cds-pipeline/PLAN.md` §B1/H row P1: "NO I/O, no DB, no network, no file
+`specs/cds-pipeline/plan/PLAN.md` §B1/H row P1: "NO I/O, no DB, no network, no file
 reads outside a passed-in path"): ``manifest_compile.py`` parses the YAML text
 of a caller-supplied ``config_dir`` (never a hardcoded path, never a URL), and
 ``pages.py`` runs PyMuPDF (``fitz``) purely over in-memory PDF bytes for page

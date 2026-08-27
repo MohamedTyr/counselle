@@ -4,7 +4,7 @@ Status: **design, not implemented.** Frontend-only mockup exists; no backend con
 
 The Explore tab browses every profiled school. This document defines which metrics may
 back a filter, which may not, and why. Every entry is derived from
-`plans/cds-pipeline/METRICS-KEEP.md` (the 394-metric keep list) and verified against
+`specs/cds-pipeline/METRICS-KEEP.md` (the 394-metric keep list) and verified against
 `config/cds/domains/*.yaml` in the `feat/cds-pipeline` worktree.
 
 Companion surface: **My list** — the existing application tracker. Its filters (status,
@@ -266,7 +266,7 @@ differentiator: no competitor discloses it.
 
 ## References
 
-- `plans/cds-pipeline/METRICS-KEEP.md` — the 394-metric keep list, traps, and schema decisions (in the `feat/cds-pipeline` worktree)
+- `specs/cds-pipeline/METRICS-KEEP.md` — the 394-metric keep list, traps, and schema decisions
 - `config/cds/domains/*.yaml` — `definition_variant` is the G1 gate
 - `docs/DATABASE_GUIDE.md` — packet, availability, evidence, and caveat rules
 - `AGENTS.md` — principle 3, the honesty carve-out

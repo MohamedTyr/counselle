@@ -12,9 +12,9 @@ Run all Python with `uv run`. Bare `python3 -c` is BLOCKED by hooks.
 
 - PDFs: `artifacts/cds-corpus/<doc>.pdf`
 - Rendered page images: `plans/cds-pipeline/tuning/scratch-gt/<doc>/pNN.png` (zero-padded)
-- Page index (which CDS section is on which page): `plans/cds-pipeline/tuning/gt/<doc>_pageindex.json`
+- Page index (which CDS section is on which page): `specs/cds-pipeline/tuning/gt/<doc>_pageindex.json`
   — **read this first**, it tells you which pages you need and warns about layout hazards.
-- Your metric list: `plans/cds-pipeline/tuning/gt/_specs/<domain>.json` — one entry per
+- Your metric list: `specs/cds-pipeline/tuning/gt/_specs/<domain>.json` — one entry per
   metric with `key`, `label`, `unit`, `type`, `source_hints`, `instructions`, `description`.
   **Every key in your assigned spec files must appear in your output. No omissions.**
 

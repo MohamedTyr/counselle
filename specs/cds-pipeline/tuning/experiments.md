@@ -1,7 +1,7 @@
 # CDS Extraction Tuning — Experiment Ledger
 
 Append-only. One numbered entry per experiment or milestone. Never edit a past entry
-except to append a `CORRECTION:` line. Operating manual: `plans/cds-pipeline/tuning-loop-prompt.md`.
+except to append a `CORRECTION:` line. Operating manual: `specs/cds-pipeline/plan/tuning-loop-prompt.md`.
 
 **Budget rail:** $25 cumulative model spend (§9). Every entry records cumulative spend.
 

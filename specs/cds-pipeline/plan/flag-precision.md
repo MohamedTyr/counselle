@@ -137,7 +137,7 @@ Six of the sampled flags (`transfer.admitted_total`, `admitted_men`, `admitted_w
 but land in **different rows** of the extracted text — the source page (physical p.13)
 literally reads `Men\n3,126\n346\n279\nWomen\n2,635\n452\n354\n…\nTotal\n5,761\n798\n633`
 (all labels bunched together, then all numbers bunched together — the exact
-Excel-export decoupling `plans/cds-pipeline/spike-part-a.md`/`recon-cds-corpus.md` §5
+Excel-export decoupling `specs/cds-pipeline/plan/spike-part-a.md`/`recon/recon-cds-corpus.md` §5
 predicted for this file). `fuzzy_contains`'s word-hit-ratio path already tolerates this
 for excerpts of 3+ words, but `_MIN_WORDS_FOR_FUZZY = 3` forced these 2-word excerpts onto
 the strict exact-substring path, which a non-adjacent label/value pair can never satisfy.

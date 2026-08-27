@@ -6,7 +6,7 @@ public function here is ``async`` and offloads the real work via
 chat traffic shares.
 
 Text extracted here is **routing hints only** — see ``extract_routing_text``.
-The corpus recon (``plans/cds-pipeline/recon-cds-corpus.md``) proves
+The corpus recon (``specs/cds-pipeline/plan/recon/recon-cds-corpus.md``) proves
 PyMuPDF's text layer can be silently, plausibly wrong on real CDS PDFs
 (Caltech's broken ToUnicode CMaps shift digits/letters with no exception
 raised). Nothing downstream may treat this text as ground truth — an

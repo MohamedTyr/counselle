@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict
 #: *value* is wrong (arithmetic contradiction, a stale document year); a
 #: validator that can only say "the evidence for this value isn't
 #: independently provable" (a citation the text layer can't confirm) stays
-#: "warning" -- see `plans/cds-pipeline/flag-precision.md` for the measured
+#: "warning" -- see `specs/cds-pipeline/plan/flag-precision.md` for the measured
 #: justification.
 Severity = Literal["error", "warning"]
 
@@ -44,14 +44,14 @@ _FUZZY_WORD_HIT_RATIO = 0.8
 #: real evidence; it only stops penalizing a real value for the exporter's
 #: layout, not for actually being unverifiable. Below 2 words there's nothing
 #: left to fuzzy-match against, so a lone token still needs an exact
-#: substring hit. Raised from 3 after `plans/cds-pipeline/flag-precision.md`
+#: substring hit. Raised from 3 after `specs/cds-pipeline/plan/flag-precision.md`
 #: found 2-word decoupled excerpts as a real false-alarm source with the
 #: value confirmed correct on the same page.
 _MIN_WORDS_FOR_FUZZY = 2
 
 # Glyph variants that mean the same character but break a naive substring
 # match: curly quotes, en/em/minus dashes, and common typeset ligatures.
-# Calibrated against `plans/cds-pipeline/flag-precision.md`'s sample --
+# Calibrated against `specs/cds-pipeline/plan/flag-precision.md`'s sample --
 # Gemini's excerpt (reading the rendered page image) and PyMuPDF's
 # `get_text()` (reading the embedded font table) can disagree on which
 # literal codepoint represents the same visible glyph.

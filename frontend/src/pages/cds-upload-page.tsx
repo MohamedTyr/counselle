@@ -19,7 +19,7 @@ import { useBatchUpload } from "@/features/cds-admin/upload/useBatchUpload";
 /** Batch upload screen, `/app/admin/cds/upload` — DESIGN.md §4. One page,
  * start to finish: the staging table becomes the job table in place, no
  * navigation, no modal. See `useBatchUpload` for the state model and
- * `plans/cds-pipeline/DESIGN.md` §4 for the full wireframe/spec this
+ * `specs/cds-pipeline/DESIGN.md` §4 for the full wireframe/spec this
  * implements. */
 export function CdsUploadPage() {
   const batch = useBatchUpload();

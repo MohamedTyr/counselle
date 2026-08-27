@@ -59,5 +59,3 @@ plans/.local/
 htmlcov/
 coverage.xml
 
-# CDS pipeline run evidence (large JSON/image dumps; referenced by plans/cds-pipeline/*.md)
-plans/cds-pipeline/scratch/

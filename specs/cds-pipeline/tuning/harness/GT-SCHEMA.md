@@ -6,7 +6,7 @@ Scorer version this schema is pinned to: **`SCORER_VERSION = "1.1.0"`**, `GT_SCH
 hard load error, never a silent load.
 
 One GT file per (school, CDS edition), at
-`plans/cds-pipeline/tuning/gt/<school>_<year>.json`. The scorer resolves a run's
+`specs/cds-pipeline/tuning/gt/<school>_<year>.json`. The scorer resolves a run's
 GT by the run's `document.name` stem unless `--gt` is passed explicitly, so
 **name the GT file after the PDF** (`harvard_2025-26.pdf` → `harvard_2025-26.json`).
 
@@ -95,7 +95,7 @@ there is exactly one correct answer:
 | The row/question is on the form, box **unticked** | `present` | `false` | **An unticked box present on the form IS the institution's answer.** It means "no", and the engine is expected to say `false`. |
 | The row/question **does not appear** in this template edition | `absent` | — | Silence expected. |
 
-Rationale, and why `absent` ≠ `false`: per `plans/cds-pipeline/METRICS-KEEP.md`
+Rationale, and why `absent` ≠ `false`: per `specs/cds-pipeline/METRICS-KEEP.md`
 trap #1, *"An unchecked box is not a 'no' — the school may have used an older
 template edition."* If you record a row that isn't on the form as
 `present`/`false`, an engine that correctly stays silent is scored `missed` —

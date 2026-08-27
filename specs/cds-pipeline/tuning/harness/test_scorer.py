@@ -4,7 +4,7 @@ NOT part of the repo's routine suite: `pyproject.toml` sets
 `testpaths = ["tests"]`, so `uv run pytest` from the repo root never collects
 this file. Run it explicitly:
 
-    uv run pytest plans/cds-pipeline/tuning/harness/test_scorer.py -q
+    uv run pytest specs/cds-pipeline/tuning/harness/test_scorer.py -q
 
 The golden table below is the trust gate. A scorer that flatters the engine is
 the worst possible failure mode, so this file carries as many NEGATIVE controls

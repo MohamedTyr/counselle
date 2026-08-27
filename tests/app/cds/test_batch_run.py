@@ -2,7 +2,7 @@
 `app/cds/engine.py`'s `_run_call`/`_run_call_once` wiring.
 
 Regression coverage for the page-citation offset defect diagnosed in
-`plans/cds-pipeline/routing-tuning.md` §9: several batches (possibly
+`specs/cds-pipeline/plan/routing-tuning.md` §9: several batches (possibly
 different domains) running concurrently, EACH with its own narrowed page
 window, must each resolve their own citations against their OWN `PageMap` --
 never a different batch's. `citation_remap.py`/`domain/cds/pages.py` are

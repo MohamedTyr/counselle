@@ -1,7 +1,7 @@
 """Compile ``config/cds/`` into the canonical, hashed manifest snapshot.
 
 Reimplements ``counselle-data-pipeline/src/counselle_data_pipeline/library/manifest.py``
-(see ``plans/cds-pipeline/recon-old-pipeline.md`` §2) using the Pydantic models in
+(see ``specs/cds-pipeline/plan/recon/recon-old-pipeline.md`` §2) using the Pydantic models in
 ``manifest_types.py`` as the validation gate, while keeping the actual
 canonicalization/hashing algorithm a close, deliberate port of the original —
 this module's entire reason to exist is producing **byte-identical** output to

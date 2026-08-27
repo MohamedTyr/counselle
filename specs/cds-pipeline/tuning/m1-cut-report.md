@@ -1,7 +1,7 @@
 # M1 — CDS metric catalog cut: 1,149 → 394
 
 Mechanical shrink of `config/cds/domains/*.yaml` down to the exact keep set in
-`plans/cds-pipeline/METRICS-KEEP.md`. Deletions only — no domain was restructured, no id
+`specs/cds-pipeline/METRICS-KEEP.md`. Deletions only — no domain was restructured, no id
 was renamed or moved, no metric was re-added to save a binding.
 
 - **Final manifest content hash: `82e4a82d188cac0d164ba42696abda2914d7b7c7ef05a676650bc3465586c4b8`**
@@ -16,9 +16,9 @@ was renamed or moved, no metric was re-added to save a binding.
   repairs. The **set-equality, per-domain-count, and context_bindings findings below all
   still hold** — only the hash and the insertion count moved. Current diffstat is in the
   ledger; the authoritative end state is the M1 closing gate in
-  `plans/cds-pipeline/tuning/experiments.md`.
-- Reproduce with `uv run python plans/cds-pipeline/tuning/harness/apply_cut.py`;
-  verify with `uv run python plans/cds-pipeline/tuning/harness/verify_cut.py`.
+  `specs/cds-pipeline/tuning/experiments.md`.
+- Reproduce with `uv run python specs/cds-pipeline/tuning/harness/apply_cut.py`;
+  verify with `uv run python specs/cds-pipeline/tuning/harness/verify_cut.py`.
 
 ## Verification
 

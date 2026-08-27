@@ -10,7 +10,7 @@ lease/claim machinery itself beyond checking the cooperative `lease_lost`
 signal jobs.py sets when its background renewal fails.
 
 **Spike-settled decisions this module implements exactly** (see
-`plans/cds-pipeline/spike-part-a.md` / `spike-part-b.md`):
+`specs/cds-pipeline/plan/spike-part-a.md` / `spike-part-b.md`):
 
 1. Always page-narrow when routing finds the requested domains' CDS section
    codes; whole-document is the fallback when routing comes up empty, never

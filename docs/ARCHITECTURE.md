@@ -1335,7 +1335,7 @@ contract in `docs/DATABASE_GUIDE.md` — the five views, the packet/evidence
 truth boundary, every honesty rule — describes the same data this subsystem
 writes, unchanged by its existence. Full operational history (cutover,
 manifest republish, database-pollution disposal, the live ship-gate proof)
-lives in `plans/cds-pipeline/CUTOVER.md`, not here — this section describes
+lives in `specs/cds-pipeline/plan/CUTOVER.md`, not here — this section describes
 the architecture, not a point-in-time build record.
 
 ---

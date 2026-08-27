@@ -1,4 +1,4 @@
-"""Parse the 13 per-domain keep tables in plans/cds-pipeline/METRICS-KEEP.md.
+"""Parse the 13 per-domain keep tables in specs/cds-pipeline/METRICS-KEEP.md.
 
 Returns (domain, id) pairs -- ids are only unique *within* a domain
 (applicants_total/admitted_total/enrolled_total live in both admissions and
@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-KEEP_MD = ROOT / "plans" / "cds-pipeline" / "METRICS-KEEP.md"
+KEEP_MD = ROOT / "specs" / "cds-pipeline" / "METRICS-KEEP.md"
 
 _HEADER = re.compile(r"^## (?P<domain>[a-z_]+) — keep (?P<keep>\d+) of (?P<total>\d+)\s*$")
 _ROW = re.compile(r"^\|\s*`(?P<id>[A-Za-z0-9_]+)`\s*\|")

@@ -54,7 +54,7 @@ equal coverage, minimize cost; then latency.
 
 ## 2. Facts already established — do not re-derive these
 
-Prior investigation (see `plans/cds-pipeline/routing-tuning.md`, `spike-part-a.md`,
+Prior investigation (see `specs/cds-pipeline/plan/routing-tuning.md`, `spike-part-a.md`,
 `recon-cds-corpus.md`) produced hard data. Trust it, build on it:
 
 - Current engine: `app/cds/engine.py` + `app/cds/batching.py` + `app/cds/manifest.py`,
@@ -167,7 +167,7 @@ Fan out explorer subagents (parallel) to produce condensed maps of:
 1. The full engine call path: `service_ingest.py` → `engine.py` → `batching.py` →
    `manifest.py` → `batch_run.py` → `adapters/cds_gemini.py`, including every prompt
    template, every constant, the routing/page-window logic, and `starved_retry.py`.
-2. All plans in `plans/cds-pipeline/` (routing-tuning, spike-part-a, recon-cds-corpus,
+2. All plans in `specs/cds-pipeline/plan/` (routing-tuning, spike-part-a, recon/recon-cds-corpus,
    CUTOVER) — extract every measured number and every "not tried" admission.
 3. The domain YAML catalogs (`config/cds/domains/*.yaml`) — metric counts, source_hints
    quality, section structure.
@@ -224,7 +224,7 @@ reproducible.
 5. A document is **sealed** only when: both passes agree post-adjudication AND the full
    cross-check battery passes AND (for the AcroForm doc) values match
    `pypdf.get_fields()` raw field data bit-for-bit.
-6. Store as `plans/cds-pipeline/tuning/gt/<school>_<year>.json`, keyed by `metric_id`,
+6. Store as `specs/cds-pipeline/tuning/gt/<school>_<year>.json`, keyed by `metric_id`,
    with a `seal` header block: date, per-pass disagreement count, adjudications made,
    cross-checks computed/passed. **Sealed GT files are frozen.** If the loop ever
    suspects a GT error (autopsy class `gt-error`), the full protocol re-runs for that
@@ -268,7 +268,7 @@ Implementation subagents build:
    are mandatory. A golden table of tricky pairs (`1,234`/`1234` ✓, `56`/`56.3` ✗,
    `0` vs blank ✗-hallucination, `12 : 1`/`12:1` ✓, `–`/absent, negative controls …)
    must pass before the scorer is trusted. Wrong scorer = the whole loop optimizes a lie.
-4. **Ledger**: `plans/cds-pipeline/tuning/experiments.md` — append-only, numbered.
+4. **Ledger**: `specs/cds-pipeline/tuning/experiments.md` — append-only, numbered.
 
 Then establish the two anchors, in order:
 
@@ -464,7 +464,7 @@ after the review loop closes:
 
 ## 8. Cut the catalog FIRST — the keep list is final
 
-**`plans/cds-pipeline/METRICS-KEEP.md` is the authoritative, user-approved keep list:
+**`specs/cds-pipeline/METRICS-KEEP.md` is the authoritative, user-approved keep list:
 394 of 1,149 metrics survive, listed exhaustively per domain. Every metric NOT in that
 list gets nuked from `config/cds/domains/*.yaml`.** This is your first implementation
 task, before ground truth and before the baseline — tuning and GT-building against the
@@ -546,7 +546,7 @@ causes, and the ranked list of what to try next.
   validator into the runtime pipeline (deliberate product decision; citations are the
   runtime honesty gate).
 - Respect the lazy-but-clean code philosophy: harness code is throwaway-quality-honest
-  (lives under `plans/cds-pipeline/tuning/`), engine changes are production-quality.
+  (lives under `specs/cds-pipeline/tuning/`), engine changes are production-quality.
 
 ---
 

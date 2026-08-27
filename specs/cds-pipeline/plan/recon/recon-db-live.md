@@ -151,7 +151,7 @@ postgresql://cds_library_app:***@127.0.0.1:5433/counselle_data
 
 This connects successfully as `cds_library_app` right now. If Counselle's own
 `config/settings.py` grows a `COUNSELLE_DB_PIPELINE_DSN` field (per
-`plans/cds-pipeline/recon-backend.md`'s option 1), it would need exactly this shape —
+`specs/cds-pipeline/plan/recon/recon-backend.md`'s option 1), it would need exactly this shape —
 same host/port/dbname as the existing `COUNSELLE_DB_RO_DSN` / `COUNSELLE_DB_APP_DSN`
 entries, just a different role and (ideally, before shipping) a rotated password.
 

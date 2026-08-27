@@ -29,8 +29,8 @@ become a real operational liability:
   manifest byte-identically and rebuilding the writer in-repo captures that
   asset while retiring the second deployable.
 
-Full evidence and the build-out plan: `plans/cds-pipeline/PLAN.md` (architecture,
-DB, API, frontend, phased build) and `plans/cds-pipeline/routing-tuning.md`
+Full evidence and the build-out plan: `specs/cds-pipeline/plan/PLAN.md` (architecture,
+DB, API, frontend, phased build) and `specs/cds-pipeline/plan/routing-tuning.md`
 (the routing/citation fixes and the measured per-metric recall improvement).
 
 ## Decision
@@ -182,7 +182,7 @@ retired as an active writer.
   about "can the agent write to the database" must now ask "which path" —
   the agent's own connections still cannot, ever.
 - `counselle-data-pipeline` is decommissioned as an active writer (its `app`
-  and `worker` containers stopped; see `plans/cds-pipeline/CUTOVER.md`) and
+  and `worker` containers stopped; see `specs/cds-pipeline/plan/CUTOVER.md`) and
   archived, not deleted — `config/cds/`'s provenance and the pipeline's own
   ADRs remain the historical record for the manifest and engine design.
 - New provenance identities (`counselle-cds-v1`, `human-review-v1`) appear
@@ -202,7 +202,7 @@ retired as an active writer.
   `admissions` has an independently estimated answerable ceiling (80–98 of 152
   metrics, i.e. already close to saturated at 85 verified); `degrees` (20.9%)
   and `transfer` (41.6%) are flagged as the two domains most likely to still
-  have real headroom. See `plans/cds-pipeline/routing-tuning.md` §7–§8 for the
+  have real headroom. See `specs/cds-pipeline/plan/routing-tuning.md` §7–§8 for the
   full evidence and honest limitations, and do not read "65.6%" as a
   corpus-wide, ceiling-normalized number — it isn't one.
 - Hash-scoped incremental re-extraction (`derive_requested_domains`, ported
@@ -238,8 +238,8 @@ Yale, UPenn) was re-extracted and reapproved under `5.1.0`, clearing that caveat
 
 Full evidence, the disposal of database pollution encountered along the way, the two
 owner decisions this cut required (vintage-loss disclosure; the holdout-gap accuracy
-caveat), and the live ship-gate proof are recorded in `plans/cds-pipeline/CUTOVER.md`
-and `plans/cds-pipeline/SHIP-PLAN.md`. This amendment corrects only the factual claims
+caveat), and the live ship-gate proof are recorded in `specs/cds-pipeline/plan/CUTOVER.md`
+and `specs/cds-pipeline/plan/SHIP-PLAN.md`. This amendment corrects only the factual claims
 above; the decision itself (rebuild the pipeline in-app) is unchanged and not
 revisited here.
 
@@ -252,7 +252,7 @@ writing. The full operational runbook — freezing the old pipeline's writer,
 rotating the still-placeholder `cds_library_app`/`postgres` passwords, parity
 re-extraction of the 4 live documents before trusting the new engine,
 archiving the old repo, and the verification checklist — lives in
-`plans/cds-pipeline/CUTOVER.md`.
+`specs/cds-pipeline/plan/CUTOVER.md`.
 
 Rollback before any `Approve` action in the new admin UI is a no-op: nothing
 the new engine writes is activated, so old `gemini-routed-extraction-v8`
