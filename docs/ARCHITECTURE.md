@@ -271,7 +271,7 @@ the as-of and covered/total denominator, then re-fetch named final values throug
 typed read. The query guard enforces schema allowlisting, positional parameters,
 statement/row/serialized-byte limits, and rejects packet/PDF/provider payloads.
 
-At startup the catalog validates exactly one current manifest. Manifest `5.0.2`
+At startup the catalog validates exactly one current manifest. Manifest `5.1.0`
 (extraction contract 8) is the current immutable patch successor; domains,
 metric definitions, profile groups, labels, and counts are derived rather than copied
 into prompts or code.
@@ -1213,4 +1213,131 @@ against the other's already-applied change instead of clobbering it.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034), `docs/research/` (stack survey). Keep this current as decisions change.*
+## 38. The CDS extraction pipeline & admin surface
+
+(ADR 0036.) Counselle contains a second subsystem beside the agent: a
+superuser-gated write path that produces the `cds_library` rows the agent's
+read path (§8, §9) consumes. It follows the same four-layer discipline as the
+rest of the app (§4), isolated from the agent by both code and, more
+strongly, by Postgres role and DSN — a bug in this subsystem cannot let the
+agent's own connections write, because the agent's pool is never given the
+write role's credentials.
+
+**Three DSNs, three roles, one database.** The agent path (§8) connects as
+`cds_library_reader` over `COUNSELLE_DB_RO_DSN` — `SELECT` on exactly the five
+reader views, nothing else. Counselle's own application state connects as
+`counselle_app` over `COUNSELLE_DB_APP_DSN` — read-write, but only inside
+`counselle.*`, never `cds_library`. This subsystem adds a third: `cds_library_app`
+over `COUNSELLE_DB_PIPELINE_DSN` — `INSERT, SELECT, UPDATE` (never `DELETE`) on
+the eight `cds_library` base tables the five reader views are built from.
+Every route in this subsystem sits behind the pre-existing `current_superuser`
+dependency (ADR 0021); there is no path from an ordinary authenticated
+session into it.
+
+**Layout, mirroring the read side's layering:**
+
+```
+domain/cds/            manifest compile, packet build, page math, claims —
+                        the write-side honesty core, the counterpart to
+                        counselle_db/packets.py on the read side
+adapters/
+  cds_gemini.py         Vertex extraction calls (one-shot, schema-constrained,
+                        deliberately not routed through PydanticAI's Agent
+                        seam — see ADR 0036's alternatives)
+  cds_pdf.py             PyMuPDF page rendering/detection
+  cds_store.py            the only writer of cds_library base tables
+  cds_admin_queries.py    admin-surface reads (coverage grid, job/document detail)
+app/cds/
+  engine.py / calling.py / routing.py / usage.py
+                        the extraction engine, split by concern: run
+                        orchestration, the model-call loop, domain/page
+                        routing, and cost/token accounting
+  batching.py / batch_run.py / starved_retry.py
+                        batched multi-domain extraction with backoff
+  jobs.py                 the in-process asyncio poller (below)
+  service_ingest.py       upload, duplicate detection, job creation
+  service_review.py       review, edit, approve, reject, rerun
+  manifest.py              manifest publish + the pre-flight drift guard
+config/cds/              the ported, versioned manifest/prompt/domain YAMLs
+api/routes/cds_admin.py  /v1/admin/cds/*, current_superuser-gated
+frontend/src/features/cds-admin/
+                        the coverage grid, upload, and review screens,
+                        nested inside the existing workspace shell
+```
+
+**The extraction engine.** A candidate document (an uploaded CDS PDF) is
+routed to the domains/pages an extraction job requests, then extracted
+through one-shot, schema-constrained Vertex calls — inline PDF,
+`response_schema` strict JSON, temperature 0 — using a model id read from
+Settings, never a literal. Large documents are page-routed rather than sent
+whole; a lease with background renewal, not a hard per-call page cap, is the
+load-bearing mitigation for pathological page counts.
+
+**The job poller.** `app/cds/jobs.py`'s `Poller`, started from the FastAPI
+lifespan and stopped before the pools it depends on close, claims and runs
+extraction jobs using
+lease/claim columns on `cds_extractions` — no Celery, no Redis, no second
+container (ADR 0023, one deployable). It is a no-op, not a startup failure,
+when `COUNSELLE_DB_PIPELINE_DSN` is unset or the `cds_worker_enabled` kill
+switch (default on) is off. On boot it sweeps any extraction a prior process
+abandoned mid-run to a terminal `failed`/`worker_lost` state so it is
+re-runnable rather than stuck.
+
+**The write is never trusted by convention.** Every packet this engine
+builds — a model extraction or a human correction — is round-tripped through
+the reader's own `parse_packet_row()` (§9) inside the same transaction,
+before COMMIT. If the read path would reject it, the write aborts. This is
+the same anti-corruption boundary the agent's read path relies on, exercised
+against the writer at write time rather than trusted separately. Packets are
+tagged with one of two extractor identities added to the allow-list
+alongside the legacy `gemini-*` identities: `counselle-cds-v1` for model
+extractions, `human-review-v1` for admin corrections that are new rows, not
+mutations — `cds_domain_packets` has a BEFORE UPDATE immutability trigger
+that makes new-row-per-correction the only possible shape.
+
+**Manifest publish and drift.** The manifest snapshot table is immutable by
+trigger (row-level `INSERT`-then-flip, never `UPDATE` of a published row's
+content); publishing a new version is a dedicated script
+(`scripts/publish_cds_manifest.py`), not an admin-UI action — an advisory
+lock, a refusal if the target version already exists with different content,
+a refusal if any extraction is mid-flight, a dry-run diff by default, and an
+explicit flag to commit. A pre-flight drift guard
+(`app/cds/manifest.py`'s `verify_manifest_current()`) runs before any model
+spend on every extraction: if the compiled `config/cds/` no longer matches
+the published, current manifest, the job fails immediately with a distinct
+`manifest_drift` error and zero model calls are made.
+
+**Review and correction.** A newly uploaded document goes through
+upload → detect (duplicate/mismatch checks) → extract → review → approve or
+reject, gated by `is_candidate`. Correcting an already-*active* document
+(one that is currently serving students, not a fresh upload) is a distinct
+flow — `active_update` — that reviews, edits, approves, or rejects an
+extraction against the still-active document, per domain, without ever
+performing a document-level candidate/active swap: the document keeps
+serving its current packets until each corrected domain's packet is
+individually activated at approval, so there is no offline window. A
+resolution marker on the extraction row closes this loop once reviewed, so a
+correction that has already been approved or rejected does not keep
+re-surfacing as pending.
+
+**The admin surface.** Fourteen endpoints under `/v1/admin/cds/*`
+(`api/routes/cds_admin.py`), all `current_superuser`-gated: coverage (a grid
+of school × domain currentness), school listing, upload, job status, document
+detail and page images, metric edits, approve/reject, and rerun. Three
+screens in `frontend/src/features/cds-admin/` (coverage, upload, review) are
+nested inside the existing authenticated workspace shell (§31) and visible
+only to superusers — `AdminGate` redirects any other user away before the
+route renders.
+
+**What this subsystem is not.** It is not a second agent, not a second model
+seam, and not reachable from any student-facing request path. The read
+contract in `docs/DATABASE_GUIDE.md` — the five views, the packet/evidence
+truth boundary, every honesty rule — describes the same data this subsystem
+writes, unchanged by its existence. Full operational history (cutover,
+manifest republish, database-pollution disposal, the live ship-gate proof)
+lives in `plans/cds-pipeline/CUTOVER.md`, not here — this section describes
+the architecture, not a point-in-time build record.
+
+---
+
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036), `docs/research/` (stack survey). Keep this current as decisions change.*

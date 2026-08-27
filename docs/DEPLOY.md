@@ -13,21 +13,30 @@ The deploy image is a single same-origin container (API + built SPA). It must pr
 - **Runtime hygiene**: `uv sync --frozen --no-dev` at build; `exec` the venv binaries directly (no `uv run` at runtime); **keep `psycopg2-binary` in main deps** (yoyo's driver — if it sits in the dev group, `--no-dev` bricks the migration step); a tightened `.dockerignore` (`frontend/node_modules`, `tests/`, `docs/`, `plans/`, `specs/`, `evals/report-*`).
 - **No catalog warm-up:** domains and definitions come from the current immutable
   manifest view. There is no field index, embedding job, or startup reconciler.
+- **PyMuPDF, with no extra OS packages:** the CDS extraction pipeline uses PyMuPDF
+  (`pymupdf`) to open and page PDFs, so it's required wherever the extraction path
+  runs. It needs no `apt-get` install on the `python:3.12-slim` base — per `uv.lock`
+  it ships `manylinux_2_28` wheels with MuPDF statically bundled, so don't add system
+  libraries for it.
 
 ## Database first (everything depends on a reachable DSN)
 
 1. Provision Postgres 16 (managed or VPS), **co-located with the app**.
-2. Deploy the CDS Library independently, including current manifest `5.0.2`, its
-   extraction-contract-8 packets, the five reader views, and pipeline-managed
-   `cds_library_reader` grants. Do not import pipeline code into this image.
+2. Provision the `cds_library` schema: the current manifest, its extraction-contract-8
+   packets, the eight base tables, the five reader views, and the `cds_library_reader`
+   and `cds_library_app` role grants. The CDS extraction pipeline that writes this
+   schema is part of this same image (ADR 0036) — there is no separate pipeline
+   deployment to coordinate.
 3. Provision a LOGIN role that is a member only of `cds_library_reader`; verify it can
-   select all five views and cannot select base tables.
+   select all five views and cannot select base tables. Separately, provision the
+   `cds_library_app` login for the admin write path: `INSERT, SELECT, UPDATE` (never
+   `DELETE`) on the eight base tables only.
 4. Run `scripts/setup_db.sql` for Counselle's separate `counselle_app` role/schema and
    apply the Counselle migration chain.
-5. Set both DSNs (`COUNSELLE_DB_RO_DSN` for the reader login,
-   `COUNSELLE_DB_APP_DSN` for `counselle.*`); use `pool_min ≥ 2` on non-free
-   production databases. For a side-by-side local cutover, bind the database to
-   loopback only.
+5. Set all three DSNs (`COUNSELLE_DB_RO_DSN` for the reader login,
+   `COUNSELLE_DB_APP_DSN` for `counselle.*`, `COUNSELLE_DB_PIPELINE_DSN` for the CDS
+   admin write path); use `pool_min ≥ 2` on non-free production databases. For a
+   side-by-side local cutover, bind the database to loopback only.
 
 ### Render Free + Supabase Free staging path
 
@@ -93,6 +102,12 @@ A first deploy easily forgets the agent-core half. The complete set:
 
 **Database & sessions**
 - `COUNSELLE_DB_RO_DSN`, `COUNSELLE_DB_APP_DSN` (required)
+- `COUNSELLE_DB_PIPELINE_DSN` (optional; the CDS admin write path's DSN, connecting as
+  `cds_library_app` — ADR 0036. Leave unset to run without the CDS admin surface; the
+  in-process extraction worker no-ops (logs `cds_worker_not_started`, does not fail
+  boot) when this is unset). When set, the worker starts from the API's FastAPI
+  lifespan automatically unless `COUNSELLE_CDS_WORKER_ENABLED=false` (the kill switch
+  defaults to `true`)
 - `COUNSELLE_CHECKPOINTER=postgres`
 - `COUNSELLE_SESSION_TTL_DAYS` (optional; unset = keep everything)
 
@@ -144,8 +159,8 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
 
 ## Deploy checklist
 
-- [ ] CDS Library current pointer is `5.0.2`; all five views readable and base tables denied through the reader-login DSN
-- [ ] DB handoff artifact captured: `uv run python scripts/mcp_smoke.py --expected-manifest 5.0.2 --expected-contract 8 --environment-label <env> > artifacts/demo-readiness/db-handoff/mcp-smoke.json`
+- [ ] CDS Library current pointer is `5.1.0`; all five views readable and base tables denied through the reader-login DSN
+- [ ] DB handoff artifact captured: `uv run python scripts/mcp_smoke.py > artifacts/demo-readiness/db-handoff/mcp-smoke.json` (the script takes no flags — it exercises the four-tool MCP boundary live and prints the resolved school/domain as JSON; a non-zero exit or an assertion failure is the signal, not a manifest/contract argument)
 - [ ] Counselle application schema provisioned through its separate app DSN
 - [ ] Full env matrix set; `CORS_ORIGINS` emptied; `COOKIE_SECURE=true`
 - [ ] Five-user staging only: signup, Google OAuth, and password reset are closed; tester accounts are pre-created with `scripts/manage_tester.py`

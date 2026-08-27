@@ -1067,6 +1067,9 @@ stale §0 state block with a dated 2026-08-26 block. **This phase is the ship ga
 
 *(Runs after Phase 4 — see §1.)*
 
+**Done (`30712bf`, 2026-08-27) — see the Phase 3 execution log in `CUTOVER.md`.** Tuning run
+output moved to `artifacts/`, lint/mypy scope tightened, `plans/` excluded from ruff/mypy.
+
 **Goal:** `uv run ruff check . && uv run mypy .` passes repo-wide, and the repo isn't
 carrying 118 MB of experiment output.
 
@@ -1140,6 +1143,12 @@ the 8 documented pre-existing failures).
 ---
 
 ## Phase 5 — Rebase onto main and reconcile the design system
+
+**Done (through `44f93b0`, 2026-08-27) — see the Phase 5 execution log in `CUTOVER.md`.** The
+branch is rebased onto `main` (now a clean fast-forward from `e527653`); the two design docs
+were reconciled in `44f93b0`, subordinating `plans/cds-pipeline/DESIGN.md` to root
+`DESIGN.md`; 5.4's full round-trip was re-run post-rebase, evidenced by the 15 captures under
+`artifacts/cds-phase5-roundtrip/`.
 
 **Goal:** the branch merges, and the admin UI is judged against the real design spec.
 

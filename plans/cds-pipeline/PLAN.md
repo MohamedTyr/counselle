@@ -1,6 +1,7 @@
 # CDS Pipeline — master implementation plan
 
-**Branch:** `feat/cds-pipeline` · **Status:** plan only, nothing implemented
+**Branch:** `feat/cds-pipeline` · **Status:** built and ship-gated — see `SHIP-PLAN.md` for the
+execution record and `CUTOVER.md` for the ship-gate log
 **Goal:** retire the separate `counselle-data-pipeline` repo and rebuild the CDS
 extraction pipeline as an **admin surface inside the Counselle app** — reliable, cheap,
 extremely accurate, minimal UI, and **zero breakage** of the student-facing read path.

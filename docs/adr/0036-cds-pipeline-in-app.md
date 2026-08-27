@@ -216,6 +216,33 @@ retired as an active writer.
   pipeline data at all. `current_superuser` gating and the write role's lack
   of `DELETE` are the mitigations, not a claim that this raises no risk.
 
+## Amendment (2026-08-27) — the metric catalog was cut, and the manifest republished
+
+The "ported byte-identically" claim above and the `c821b2e6…` hash it cites describe
+the state at this ADR's original acceptance, not the shipped state. After acceptance,
+an owner-approved cut reduced the ported catalog from 1,149 to **394 metrics across
+13 domains** (same 13 domains, same extraction contract 8 — a subtractive change
+within the contract, not a contract break). Because the manifest snapshot table is
+immutable by trigger, the cut catalog could not be republished under the same `5.0.2`
+version string; it shipped as a new version, **`5.1.0`**
+(`content_sha256 = 6367c0fee822f4d07725abc7274c8a589edefd64fb7301eac8372568941b04ae`),
+which is now `is_current`. `5.0.2` is demoted, immutable, and remains in history at its
+original 1,149-metric content.
+
+Republishing under a new version changed the domain schema hashes for all 13 domains,
+which meant every packet accepted under `5.0.2` briefly read as
+`current_definition_match = false` — an honest caveat, not a bug, since 755 metrics'
+worth of definitions genuinely changed. The 4-document production corpus (Harvard ×2,
+Yale, UPenn) was re-extracted and reapproved under `5.1.0`, clearing that caveat with
+`current_definition_match = true` across all 13 domains for every document.
+
+Full evidence, the disposal of database pollution encountered along the way, the two
+owner decisions this cut required (vintage-loss disclosure; the holdout-gap accuracy
+caveat), and the live ship-gate proof are recorded in `plans/cds-pipeline/CUTOVER.md`
+and `plans/cds-pipeline/SHIP-PLAN.md`. This amendment corrects only the factual claims
+above; the decision itself (rebuild the pipeline in-app) is unchanged and not
+revisited here.
+
 ## Migration and rollback
 
 The cutover is additive-then-switch, not a data migration: the new engine

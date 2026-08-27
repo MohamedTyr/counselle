@@ -2,18 +2,18 @@
 
 Counselle is an AI agent for the US college-admissions process — a thinking and answering partner about US universities for student applicants. It resolves any profiled school and answers from stable identity plus whatever evidence-backed CDS domains its selected edition actually covers, with official-web fallback for missing or current facts. Honesty about values, sources, editions, and coverage is enforced in code.
 
-It is two pieces:
+It is two pieces, both in this repo:
 
-- **The agent** (this repo) — an API-first FastAPI service behind a versioned SSE event protocol, plus a React/Vite frontend that consumes it. Read-only consumer of the pipeline's Postgres database.
-- **The CDS Library pipeline** (separate repo, `counselle-data-pipeline`) — owns the database. Counselle shares credentials only; no shared code, config, or runtime dependency. Five reader views are the contract — see `docs/DATABASE_GUIDE.md`.
+- **The agent** — an API-first FastAPI service behind a versioned SSE event protocol, plus a React/Vite frontend that consumes it. It is a strictly read-only consumer of the CDS Library's Postgres database, connecting through a dedicated reader role over exactly five reader views — see `docs/DATABASE_GUIDE.md`.
+- **The CDS extraction pipeline & admin tool** (`domain/cds/`, `adapters/cds_*`, `app/cds/`, `api/routes/cds_admin.py`) — the writer that produces the data the agent reads: upload, extraction, review, and approval of CDS documents, gated end-to-end behind superuser auth. It writes through its own Postgres role and DSN, isolated from the agent's read path by both code and credentials — see `docs/adr/0036-cds-pipeline-in-app.md`.
 
 ## Project layout
 
 | Path | What lives here |
 |------|-----------------|
-| `domain/` | The pure honesty core — packet/value/evidence/caveat types, events, and render specs. No I/O. |
-| `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. |
-| `adapters/` | External integrations — Tavily search, email, model-provider seams. |
+| `domain/` | The pure honesty core — packet/value/evidence/caveat types, events, and render specs. No I/O. Also `domain/cds/`: the extraction pipeline's pure types. |
+| `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. Also `app/cds/`: the extraction/review/approval flow. |
+| `adapters/` | External integrations — Tavily search, email, model-provider seams. Also `adapters/cds_*`: PDF parsing, the extraction LLM call, and the `cds_library` write layer. |
 | `counselle_db/` | The `counselle-db` MCP server + in-process service layer: four read-only tools over the CDS Library's five reader views. |
 | `api/` | The FastAPI service — routers, auth (fastapi-users), the SSE protocol, rate limiting, lifespan. |
 | `config/` | The typed Settings surface (`settings.py`) + versioned data assets (prompts, subreddit menu, season table) in `config/assets/`. |
@@ -31,8 +31,8 @@ It is two pieces:
 
 - **Python 3.12+** and **[uv](https://github.com/astral-sh/uv)**
 - **Node 22.12+** and **npm** (for the frontend)
-- **Postgres 16** running on `localhost:5433` by default, containing the independently deployed CDS Library and Counselle's application schema
-- A LOGIN role that is a member only of pipeline-managed `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. Run `scripts/setup_db.sql` for Counselle-owned state, then apply migrations with `yoyo`:
+- **Postgres 16** running on `localhost:5433` by default, containing the CDS Library schema and Counselle's application schema
+- A LOGIN role that is a member only of `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. Run `scripts/setup_db.sql` for Counselle-owned state, then apply migrations with `yoyo`:
 
 ```bash
 # setup_db.sql reads both role passwords from the environment via \getenv (see

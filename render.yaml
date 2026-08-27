@@ -42,6 +42,10 @@ services:
       # the cds_library reader seed on a freshly created database.
       - key: COUNSELLE_DB_ADMIN_DSN
         sync: false
+      # The CDS admin write path's DSN (cds_library_app role, ADR 0036). Optional:
+      # leave unset to run without the CDS admin surface and in-process worker.
+      - key: COUNSELLE_DB_PIPELINE_DSN
+        sync: false
       - key: COUNSELLE_VERTEX_API_KEY
         sync: false
       - key: COUNSELLE_TAVILY_API_KEY

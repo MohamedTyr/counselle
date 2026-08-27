@@ -502,3 +502,70 @@ was caught and fixed by running the eval set live (missing retry/backoff on 429s
 just decided on paper. Remaining open items are unchanged from the 2026-08-18 log: GitHub
 archive of the old repo (§3), the undocumented `cds_deploy_export`/`cds_deploy_seed`
 schemas (§4), plus the two known agent-behaviour eval gaps recorded above.
+
+---
+
+## Phase 3 execution log (2026-08-27) — repo hygiene
+
+`30712bf` — the tuning run output that had accumulated under `plans/cds-pipeline/tuning/`
+(runs, ground-truth passes, scratch scripts) moved to `artifacts/` per `SHIP-PLAN.md` §3.1's
+keep/move split; the reproduction entry points and prose findings stayed in `plans/`. Lint
+and mypy scope tightened to match: `plans/` is now excluded from both ruff and mypy in
+`pyproject.toml`, so scratch tooling under `plans/` can never again regress the repo-wide
+lint gate. `SHIP-PLAN.md` §3.3's confirm step ran clean against this state.
+
+## Phase 5 execution log (2026-08-27) — rebase and design reconciliation
+
+Rebased onto `main`; the branch is now a clean fast-forward from `e527653`, closing the
+11-commits-behind gap `SHIP-PLAN.md` §0.7 recorded. `44f93b0` reconciled the two design
+docs per §5.3: `plans/cds-pipeline/DESIGN.md` is now subordinated to the root `DESIGN.md`
+that arrived with the rebase, rather than the two claiming independent authority.
+
+**5.4's full round-trip was re-run post-rebase, not skipped.** Evidence is the 15 captures
+under `artifacts/cds-phase5-roundtrip/`: `01-coverage-grid` through
+`11-coverage-updated-no-refresh` cover the upload → review → approve flow (Phase 4.3's ten
+steps, re-run against the rebased frontend), and `12`–`15` cover the `active_update`
+correction flow (Phase 4.4), including a fresh-load re-verify that the approved correction
+survives a real page reload, not just the same session.
+
+## Phase 6 execution log (2026-08-27) — correctness and structure
+
+`45b6aa7` (plus `707018a`) closed out Phase 6. The review loop this phase ran caught four
+honesty defects, none pre-existing — all introduced or missed during this branch's own
+earlier phases:
+
+- **An invisible pending metric edit.** The coverage row and the metric editor both
+  rendered the original value for a metric with an unapproved pending edit, so an admin
+  could approve a number they were never shown.
+- **A stale evidence-page link after a correction.** An `active_update` correction could
+  leave the evidence-chip page reference pointing at the pre-correction extraction.
+- **PDF page-count inflation when paging past the end of a document.** The viewer's page
+  counter over-reported the true page count once an admin paged past the last real page.
+- **A coverage `aria-label` that said "Queued" while the job was actually running** — the
+  queued-vs-running distinction reached sighted users (via the visible status text/color)
+  but not screen-reader users, since the `aria-label` never updated off "Queued".
+
+Plus a fifth, structural bug: the **upload-delete resurrection race**. Deleting an upload
+mid-flight, with the delete response landing late, could re-add the row and leave it
+committable by `process_batch` — which queries by `batch_id` alone and knows nothing about
+client-side deletion state.
+
+**The fabricated `detecting` upload sub-phase was deleted, not fixed.** It was a
+size-scaled client-side timer with no server signal behind it — a fake progress indicator,
+not a real one — and the review loop's call was to remove it rather than wire it to
+something real that doesn't exist yet.
+
+**A regression inside the 6.1 fix itself was caught by a second review round**, worth
+recording because it's the review loop earning its place, not just a rubber stamp: the
+compensating DELETE for the resurrection race was applied optimistically, so a transient
+failure of that DELETE could tombstone the row client-side while it stayed committable
+server-side — silently hiding a row from the admin permanently instead of just fixing the
+race.
+
+**Gates at commit (`45b6aa7`):**
+
+| Surface | Result |
+|---|---|
+| Frontend | 83 files / 940 tests passing; lint at 2 pre-existing errors + 0 warnings (same 2 as the Phase 4/2026-08-18 baseline); build green |
+| Backend | ruff clean; mypy at the 3 known `scripts/finish_render_staging.py` errors (unchanged, pre-existing); routine suite 8 failed / 1687 passed / 234 deselected |
+| DB invariants | 0 rows with `academic_year > 2030 AND retired_at IS NULL`; 0 rows with `NOT current_definition_match`; 52 packets across documents 1, 2, 4, 5 only |

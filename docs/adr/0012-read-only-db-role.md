@@ -9,6 +9,16 @@
 > `cds_library_reader`, granting `SELECT` on exactly the five `cds_library.*` reader
 > views and nothing else; there is no `field_index` schema or embedding writer role.
 > See `DATABASE_GUIDE.md` §1.
+>
+> **Amendment (ADR 0036):** this ADR's "read-only" decision describes the **agent's
+> own** database connection, which is still true without qualification — the agent
+> never writes, drops, or locks anything. Since ADR 0036, the Counselle codebase as a
+> whole also contains a separate, superuser-gated admin write path
+> (`app/cds/`, `adapters/cds_store.py`, `api/routes/cds_admin.py`) that writes
+> `cds_library` base tables through its own Postgres role and DSN
+> (`cds_library_app` / `COUNSELLE_DB_PIPELINE_DSN`), isolated from the agent's
+> connections by both role and code. This ADR is not reversed; it is narrowed to the
+> scope it always actually governed.
 
 ## Context
 The agent reads the pipeline's Postgres and has a SQL escape hatch (ADR 0005). It must never mutate pipeline data and must be safe against runaway queries.

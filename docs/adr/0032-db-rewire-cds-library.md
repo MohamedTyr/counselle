@@ -2,6 +2,16 @@
 
 **Status:** Accepted
 
+> **Amendment (ADR 0036):** this ADR describes the read path only — the
+> `cds_library_reader` role, the five reader views, and the four LLM-facing tools are
+> unchanged and remain exactly what this ADR specifies. Since ADR 0036, a separate,
+> superuser-gated admin write path (`app/cds/`, `adapters/cds_store.py`,
+> `api/routes/cds_admin.py`) writes the `cds_library` base tables these views read,
+> through its own Postgres role and DSN (`cds_library_app` /
+> `COUNSELLE_DB_PIPELINE_DSN`), never reachable from the agent's own connections. Read
+> this ADR as still governing everything it always governed; it does not describe who
+> writes the tables its views select from — that question is ADR 0036's.
+
 ## Context
 
 Counselle formerly consumed a wide IPEDS/Scorecard/CDS field store. The replacement

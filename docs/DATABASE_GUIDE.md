@@ -142,15 +142,15 @@ Use the stored receipt rather than inventing a source label. Every profile answe
 carry the profile snapshot/version caveat; a profile value must never be presented as a
 live or current-cycle metric.
 
-## 3. Manifest 5.0.2: the dynamic catalog
+## 3. Manifest 5.1.0: the dynamic catalog
 
-The row with `is_current = true` is the only current catalog. The coordinated
-publication is manifest `5.0.2`, extraction contract `8`, extractor identifier
-`gemini-routed-extraction-v8`. Counselle validates the current pointer and contract;
-it does not hardcode the domain menu, metric counts, labels, or ordering.
-The immutable `5.0.0` and `5.0.1` snapshots remain in history. `5.0.2` is the current
-patch successor; consumers must never reinterpret older packets as having `5.0.2`
-semantics.
+The row with `is_current = true` is the only current catalog. The current
+publication is manifest `5.1.0`, extraction contract `8`. Counselle validates the
+current pointer and contract; it does not hardcode the domain menu, metric counts,
+labels, or ordering. The immutable `5.0.0`, `5.0.1`, and `5.0.2` snapshots remain in
+history — `5.0.2` was a larger, since-demoted catalog under the same extraction
+contract. `5.1.0` is the current patch successor; consumers must never reinterpret
+older packets as having `5.1.0` semantics.
 
 Domain and metric definitions come from `content`; domain semantic hashes come from
 `domain_hashes`. The active-packet view reports `current_definition_match`, which says
@@ -169,7 +169,7 @@ minted from the packet's domain plus a manifest metric; do not guess one from pr
 ### Compiled contexts
 
 Some metrics are binders: printed terms, years, snapshot dates, cohorts, or reporting
-windows that date surrounding values. Manifest 5.0.2 compiles each authored
+windows that date surrounding values. The manifest compiles each authored
 `context_bindings` relationship onto selected target metrics as, for example on
 `student_life.army_rotc_on_campus`:
 
@@ -189,6 +189,16 @@ Context ids, target ids, and refs are qualified. Context order follows authoring
 refs follow global manifest order. Counselle consumes only compiled `contexts`: never
 parse `instructions`, infer nearby cells, reverse selectors, or maintain a second
 binder map. A binder remains a normal cited metric even when it supplies context.
+
+Not every metric in the current manifest carries a compiled context — most do not.
+Every metric's rendered vintage starts as the bare CDS academic year
+(`CDS 2024-25`); a metric with one or more compiled `contexts` appends a
+period qualifier for each one that resolves (e.g. `; entering class: Fall 2024`).
+Whenever the rendered vintage ends up short of every qualifier the manifest
+declared for that metric — no `contexts` at all, a declared binder that fails to
+resolve, or only some of several contexts resolving — the `vintage_period_unavailable`
+caveat fires (§7) so the student is told the period qualifier is unavailable rather
+than silently seeing a coarser, unqualified vintage presented as complete.
 
 ## 4. Active documents and selected editions
 
@@ -322,6 +332,9 @@ The code-owned caveat catalog supplies canonical text for these kinds:
 - cross-school edition mismatch;
 - unavailable/not reported/not applicable/suppressed;
 - not in this template version;
+- vintage period qualifier unavailable (`vintage_period_unavailable`) — the rendered
+  vintage is missing a period qualifier (term, cohort, or snapshot date) the manifest
+  declared for that metric;
 - covered-population denominator for cross-school queries.
 
 Prompts and skills may name caveat kinds and explain when to voice them, but must not
