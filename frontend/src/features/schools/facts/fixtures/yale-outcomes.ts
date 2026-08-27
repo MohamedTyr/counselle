@@ -28,13 +28,18 @@ export const outcomesFacts: Fact[] = [
       evidence: page(12, "B11. Pell six-year rate: 95%", "B11"),
     },
   ),
-  f("outcomes.primary_cohort_count", "Entering cohort", reported("1,554"), {
-    evidence: page(12, "B4. Adjusted cohort: 1,554", "B4"),
-  }),
+  f(
+    "outcomes.primary_cohort_count",
+    "Entering cohort",
+    reported("1,554", 1_554),
+    {
+      evidence: page(12, "B4. Adjusted cohort: 1,554", "B4"),
+    },
+  ),
   f(
     "outcomes.completers_within_four_years",
     "Completed within four years",
-    reported("1,367"),
+    reported("1,367", 1_367),
     {
       evidence: page(12, "B7. Completers within four years: 1,367", "B7"),
     },
@@ -42,7 +47,7 @@ export const outcomesFacts: Fact[] = [
   f(
     "outcomes.completers_within_five_years",
     "Completed within five years",
-    reported("1,478"),
+    reported("1,478", 1_478),
     {
       evidence: page(12, "B8. Completers within five years: 1,478", "B8"),
     },
@@ -50,7 +55,7 @@ export const outcomesFacts: Fact[] = [
   f(
     "outcomes.completers_within_six_years",
     "Completed within six years",
-    reported("1,507"),
+    reported("1,507", 1_507),
     {
       evidence: page(12, "B9. Completers within six years: 1,507", "B9"),
     },

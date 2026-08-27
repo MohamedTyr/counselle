@@ -97,7 +97,7 @@ export const gettingInFacts: Fact[] = [
   f(
     "class_profile.sat_ebrw_p25",
     "SAT reading and writing, 25th",
-    reported("740"),
+    reported("740", 740),
     {
       caveats: ["sat-submitters"],
       evidence: page(4, "SAT EBRW 25th percentile 740", "C9"),
@@ -106,7 +106,7 @@ export const gettingInFacts: Fact[] = [
   f(
     "class_profile.sat_ebrw_p50",
     "SAT reading and writing, 50th",
-    reported("770"),
+    reported("770", 770),
     {
       caveats: ["sat-submitters"],
       evidence: page(4, "SAT EBRW 50th percentile 770", "C9"),
@@ -115,21 +115,21 @@ export const gettingInFacts: Fact[] = [
   f(
     "class_profile.sat_ebrw_p75",
     "SAT reading and writing, 75th",
-    reported("780"),
+    reported("780", 780),
     {
       caveats: ["sat-submitters"],
       evidence: page(4, "SAT EBRW 75th percentile 780", "C9"),
     },
   ),
-  f("class_profile.sat_math_p25", "SAT math, 25th", reported("760"), {
+  f("class_profile.sat_math_p25", "SAT math, 25th", reported("760", 760), {
     caveats: ["sat-submitters"],
     evidence: page(4, "SAT Math 25th percentile 760", "C9"),
   }),
-  f("class_profile.sat_math_p50", "SAT math, 50th", reported("780"), {
+  f("class_profile.sat_math_p50", "SAT math, 50th", reported("780", 780), {
     caveats: ["sat-submitters"],
     evidence: page(4, "SAT Math 50th percentile 780", "C9"),
   }),
-  f("class_profile.sat_math_p75", "SAT math, 75th", reported("790"), {
+  f("class_profile.sat_math_p75", "SAT math, 75th", reported("790", 790), {
     caveats: ["sat-submitters"],
     evidence: page(4, "SAT Math 75th percentile 790", "C9"),
   }),
@@ -276,17 +276,22 @@ export const gettingInFacts: Fact[] = [
       evidence: page(3, "C2. Admitted from the waitlist: 0", "C2"),
     },
   ),
-  f("admissions.applicants_total", "Total applicants", reported("49,000"), {
-    evidence: page(
-      3,
-      "C1. Total first-time, first-year applicants: 49,000",
-      "C1",
-    ),
-  }),
-  f("admissions.admitted_total", "Total admitted", reported("2,275"), {
+  f(
+    "admissions.applicants_total",
+    "Total applicants",
+    reported("49,000", 49_000),
+    {
+      evidence: page(
+        3,
+        "C1. Total first-time, first-year applicants: 49,000",
+        "C1",
+      ),
+    },
+  ),
+  f("admissions.admitted_total", "Total admitted", reported("2,275", 2_275), {
     evidence: page(3, "C1. Total admitted: 2,275", "C1"),
   }),
-  f("admissions.enrolled_total", "Total enrolled", reported("1,647"), {
+  f("admissions.enrolled_total", "Total enrolled", reported("1,647", 1_647), {
     evidence: page(3, "C1. Total enrolled: 1,647", "C1"),
   }),
   f(

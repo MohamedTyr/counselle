@@ -144,7 +144,9 @@ export const academicsFacts: Fact[] = [
     ["subsection_10_19", "Subsections of 10–19", "318"],
     ["subsection_20_29", "Subsections of 20–29", "77"],
   ].map(([id, label, value]) =>
-    f(`class_size.${id}`, label, reported(value), {
+    /* The count is the raw. A chart may only draw a number the packet
+     * supplied as one — see the numeric gate in school-facts-blocks.ts. */
+    f(`class_size.${id}`, label, reported(value, Number(value)), {
       evidence: page(10, `I3. ${label}: ${value}`, "I3"),
     }),
   ),

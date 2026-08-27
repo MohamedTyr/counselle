@@ -4,10 +4,9 @@ import {
   isReported,
   ROUND_NOT_OFFERED_COPY,
 } from "@/features/schools/facts/school-facts-format";
-import {
-  configuredRefs,
-  type FactEntry,
-  type SectionConfig,
+import type {
+  FactEntry,
+  SectionConfig,
 } from "@/features/schools/facts/school-facts-sections";
 import type {
   LaneRow,
@@ -16,11 +15,12 @@ import type {
 } from "@/features/schools/facts/school-facts-types";
 
 /*
- * A section, flattened to name/value pairs.
+ * A fact, flattened to a name/value pair.
  *
- * Everything the About tab shows resolves to a row here, so the table stays a
- * dumb renderer and the one judgement that matters — what string stands in
- * for a value we do not have — is made once, in `factStateCopy`.
+ * Everything the About tab shows that is NOT plotted resolves to a row here,
+ * so the table stays a dumb renderer and the one judgement that matters —
+ * what string stands in for a value we do not have — is made once, in
+ * `factStateCopy`. `school-facts-blocks.ts` assembles these into a section.
  *
  * `reported` is the only flag a row carries. A reported 0 is a fact and reads
  * at full weight; every other state is a sentence saying which kind of
@@ -34,55 +34,10 @@ export type FactTableRow = {
   reported: boolean;
 };
 
-export function sectionRows(
+export function entryRow(
+  entry: FactEntry,
   data: SchoolFacts,
-  section: SectionConfig,
-): FactTableRow[] {
-  const rows: FactTableRow[] = [];
-  const seen = new Set<string>();
-  const push = (row: FactTableRow | null) => {
-    if (!row || seen.has(row.key)) return;
-    seen.add(row.key);
-    rows.push(row);
-  };
-
-  if (section.id === "applying") {
-    for (const round of data.rounds) roundRows(round).forEach(push);
-    for (const lane of data.applyingLanes) push(laneRow(lane));
-  }
-
-  for (const entry of orderHeadline(section.headline, data)) {
-    push(entryRow(entry, data));
-  }
-
-  for (const group of section.groups) {
-    if (group.render === "shares") {
-      for (const share of data.degreeShares) {
-        push({
-          key: `share:${share.ref}`,
-          label: share.label,
-          value: factStateCopy(share.state),
-          reported: isReported(share.state),
-        });
-      }
-      continue;
-    }
-    for (const entry of group.entries) push(entryRow(entry, data));
-  }
-
-  /*
-   * Every packet ref this section owns that the config did not place. Without
-   * it a manifest bump would silently drop metrics from the page, which looks
-   * exactly like having fewer facts to report.
-   */
-  for (const ref of strayRefs(data, configuredRefs(section), section)) {
-    push(entryRow({ kind: "fact", ref }, data));
-  }
-
-  return rows;
-}
-
-function entryRow(entry: FactEntry, data: SchoolFacts): FactTableRow | null {
+): FactTableRow | null {
   if (entry.kind === "derived") {
     const derived = data.derived[entry.key];
     if (!derived) return null;
@@ -119,7 +74,7 @@ function entryRow(entry: FactEntry, data: SchoolFacts): FactTableRow | null {
  * the form is a year old by the time a student reads it. Falling back to the
  * CDS keeps the row from going quiet when only the older source has an answer.
  */
-function laneRow(lane: LaneRow): FactTableRow {
+export function laneRow(lane: LaneRow): FactTableRow {
   const preferred =
     lane.official && isReported(lane.official.state)
       ? lane.official.state
@@ -139,7 +94,7 @@ function laneRow(lane: LaneRow): FactTableRow {
  * offered-flag we could not read says "not reported". A student who reads
  * "not offered" stops looking, so the two never collapse into one row.
  */
-function roundRows(round: RoundRow): FactTableRow[] {
+export function roundRows(round: RoundRow): FactTableRow[] {
   if (round.offered !== "yes") {
     return [
       {
@@ -170,7 +125,7 @@ function roundRows(round: RoundRow): FactTableRow[] {
   return rows;
 }
 
-function strayRefs(
+export function strayRefs(
   data: SchoolFacts,
   placed: Set<string>,
   section: SectionConfig,
@@ -205,7 +160,7 @@ const OWNS_DOMAIN: Partial<Record<string, string[]>> = {
  * not selective, and every selectivity figure below should be read that way.
  * When it is false it is a non-event and does not earn a row at the top.
  */
-function orderHeadline(
+export function orderHeadline(
   entries: readonly FactEntry[],
   data: SchoolFacts,
 ): FactEntry[] {

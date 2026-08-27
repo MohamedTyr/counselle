@@ -25,7 +25,43 @@ import type { SectionId } from "@/features/schools/facts/school-facts-types";
 export type FactEntry =
   { kind: "fact"; ref: string } | { kind: "derived"; key: string };
 
-export type GroupRender = "facts" | "shares";
+/**
+ * One test's three percentiles, plus the scale they sit on.
+ *
+ * `min`/`max` are properties of the TEST — the SAT section scale is 200–800
+ * whoever reports it — not of the manifest, so they are legitimately literal
+ * here. The percentile refs are presentation hints like every other ref in
+ * this file: a band whose refs are absent renders as rows, never as an empty
+ * track.
+ */
+export type BandSpec = {
+  label: string;
+  p25: string;
+  p50: string;
+  p75: string;
+  min: number;
+  max: number;
+};
+
+/*
+ * How a group draws itself.
+ *
+ * `refs` is deliberately separate from `entries`: a chart, unlike a table,
+ * has to KNOW which values it plots, and listing them explicitly is what
+ * keeps an unrelated metric from being swept into a bar because it happened
+ * to land in the same group. Everything in `entries` the chart did not
+ * consume still renders as an ordinary row beneath it.
+ */
+export type GroupRender =
+  | {
+      chart: "bars";
+      unit: "percent" | "count";
+      refs: FactEntry[];
+      maxRef?: FactEntry;
+    }
+  | { chart: "bars"; unit: "percent"; source: "degree-shares" }
+  | { chart: "ordinal"; levels: readonly string[]; refs: FactEntry[] }
+  | { chart: "bands"; bands: readonly BandSpec[] };
 
 export type GroupConfig = {
   id: string;
@@ -34,6 +70,12 @@ export type GroupConfig = {
   caveat: string | null;
   entries: FactEntry[];
   render?: GroupRender;
+  /**
+   * The one line of prose this tab still carries: a qualifier a CHART cannot
+   * be read correctly without. Rendered under that chart and nowhere else.
+   * Rows never take one — they are name and value.
+   */
+  foot?: string;
 };
 
 export type SectionConfig = {
@@ -76,6 +118,35 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
         title: "How they weigh your file",
         caveat:
           "This is what the school says it weighs, not a measurement. Read the program-specific note first — it can override the general table for an oversubscribed major.",
+        foot: "What the school says it weighs, not a measurement of what it did.",
+        render: {
+          chart: "ordinal",
+          /* Low to high. A level the school prints that is not one of these
+           * four is not guessed at a position — it renders as a row. */
+          levels: [
+            "Not considered",
+            "Considered",
+            "Important",
+            "Very important",
+          ],
+          refs: [
+            fact(
+              "admissions.selection_factor_rigor_of_secondary_school_record",
+            ),
+            fact("admissions.selection_factor_academic_gpa"),
+            fact("admissions.selection_factor_standardized_test_scores"),
+            fact("admissions.selection_factor_application_essay"),
+            fact("admissions.selection_factor_recommendations"),
+            fact("admissions.selection_factor_extracurricular_activities"),
+            fact("admissions.selection_factor_character_personal_qualities"),
+            fact("admissions.selection_factor_first_generation"),
+            fact("admissions.selection_factor_alumni_relation"),
+            fact("admissions.selection_factor_level_of_applicant_interest"),
+            fact(
+              "admissions.selection_factor_religious_affiliation_commitment",
+            ),
+          ],
+        },
         entries: [
           fact("admissions.program_specific_factor_differences"),
           fact("admissions.selection_factor_rigor_of_secondary_school_record"),
@@ -111,6 +182,28 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
         title: "Test scores in detail",
         caveat:
           "The submitter rate applies to every figure below, not just the composite. A percentile drawn from a self-selected half of the class describes that half.",
+        foot: "A middle-50 band describes the students who submitted a score, not the whole class — read it next to the submitter rate below.",
+        render: {
+          chart: "bands",
+          bands: [
+            {
+              label: "SAT reading and writing",
+              p25: "class_profile.sat_ebrw_p25",
+              p50: "class_profile.sat_ebrw_p50",
+              p75: "class_profile.sat_ebrw_p75",
+              min: 200,
+              max: 800,
+            },
+            {
+              label: "SAT math",
+              p25: "class_profile.sat_math_p25",
+              p50: "class_profile.sat_math_p50",
+              p75: "class_profile.sat_math_p75",
+              min: 200,
+              max: 800,
+            },
+          ],
+        },
         entries: [
           fact("class_profile.sat_ebrw_p25"),
           fact("class_profile.sat_ebrw_p50"),
@@ -152,6 +245,20 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
         title: "Applicant pool",
         caveat:
           "The international admit rate is the number that reclassifies a “safety” public into a reach for an aid-needing international applicant.",
+        render: {
+          chart: "bars",
+          unit: "count",
+          /* Genuinely nested subsets — enrolled ⊆ admitted ⊆ applicants — so
+           * one shared scale is the fact, not a flattering arrangement of it.
+           * Three bars on a baseline rather than a trapezoid: a funnel shape
+           * implies a conversion story these counts do not tell. */
+          refs: [
+            fact("admissions.applicants_total"),
+            fact("admissions.admitted_total"),
+            fact("admissions.enrolled_total"),
+          ],
+          maxRef: fact("admissions.applicants_total"),
+        },
         entries: [
           fact("admissions.applicants_total"),
           fact("admissions.admitted_total"),
@@ -172,9 +279,10 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
       derived("sticker_cost"),
       fact("cost.tuition_in_state"),
       fact("cost.tuition_out_of_state"),
-      derived("need_fully_met_share"),
+      /* need_fully_met_share and the grant-recipient share are NOT here —
+       * they are the aid-coverage chart immediately below, and a figure that
+       * appears twice on one screen reads as two different findings. */
       fact("financial_aid.h2_j_average_need_based_award"),
-      fact("financial_aid.h2_e_need_based_grant_recipients_percent"),
       fact("financial_aid.h5_borrowers_any_program_average_principal"),
       /* Honesty flags live in the HEADLINE, never behind a disclosure:
        * printed tuition is stale in the wrong direction — below what an
@@ -184,6 +292,24 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
       fact("financial_aid.recent_affordability_initiative_details"),
     ],
     groups: [
+      {
+        id: "aid-coverage",
+        title: "How far the aid goes",
+        caveat: null,
+        /* Three independent percentages on one axis. The point is the drop
+         * between them: many students get aid, far fewer get all of it. */
+        foot: "Each share has its own denominator — the third counts aid recipients, not all students.",
+        render: {
+          chart: "bars",
+          unit: "percent",
+          refs: [
+            fact("financial_aid.h2_e_need_based_grant_recipients_percent"),
+            derived("need_fully_met_share"),
+            fact("financial_aid.h2_i_average_percent_need_met"),
+          ],
+        },
+        entries: [],
+      },
       {
         id: "cost-itemized",
         title: "Cost of attendance, itemized",
@@ -279,29 +405,51 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
     ],
     groups: [
       {
-        id: "class-sizes",
-        title: "Class sizes",
-        caveat:
-          "Subsections — labs, discussion sections, recitations — are counted separately from lectures. They are where the small-group experience behind a large course actually shows up.",
-        entries: [
-          fact("class_size.section_2_9"),
-          fact("class_size.section_10_19"),
-          fact("class_size.section_20_29"),
-          fact("class_size.section_30_39"),
-          fact("class_size.section_40_49"),
-          fact("class_size.section_50_99"),
-          fact("class_size.section_100_plus"),
-          fact("class_size.subsection_2_9"),
-          fact("class_size.subsection_10_19"),
-          fact("class_size.subsection_20_29"),
-        ],
-      },
-      {
         id: "degree-shares",
         title: "What students graduate in",
         caveat: null,
         entries: [],
-        render: "shares",
+        render: { chart: "bars", unit: "percent", source: "degree-shares" },
+      },
+      {
+        id: "class-sizes",
+        title: "Class sizes",
+        caveat:
+          "Subsections — labs, discussion sections, recitations — are counted separately from lectures. They are where the small-group experience behind a large course actually shows up.",
+        /* Counts, scaled to the LARGEST BIN — never to a total. A bin the
+         * school did not report would otherwise silently shrink every other
+         * bar, which is the "blank reads as zero" failure in geometry. */
+        render: {
+          chart: "bars",
+          unit: "count",
+          refs: [
+            fact("class_size.section_2_9"),
+            fact("class_size.section_10_19"),
+            fact("class_size.section_20_29"),
+            fact("class_size.section_30_39"),
+            fact("class_size.section_40_49"),
+            fact("class_size.section_50_99"),
+            fact("class_size.section_100_plus"),
+          ],
+        },
+        entries: [],
+      },
+      {
+        id: "subsection-sizes",
+        title: "Subsections — labs, discussions, recitations",
+        caveat: null,
+        /* Their own chart, never merged into the one above: a subsection is
+         * not a smaller lecture, it is the small-group half of a large one. */
+        render: {
+          chart: "bars",
+          unit: "count",
+          refs: [
+            fact("class_size.subsection_2_9"),
+            fact("class_size.subsection_10_19"),
+            fact("class_size.subsection_20_29"),
+          ],
+        },
+        entries: [],
       },
       {
         id: "special-study",
@@ -348,12 +496,26 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
     headline: [
       fact("enrollment.undergraduate_total"),
       fact("enrollment.graduate_total"),
-      fact("student_life.college_owned_housing_percent_undergraduates"),
-      derived("international_percent"),
-      fact("enrollment.out_of_state_percent_undergraduates"),
       fact("academics.academic_calendar"),
     ],
     groups: [
+      {
+        id: "composition",
+        title: "Who's here",
+        caveat: null,
+        /* Three shares of the same undergraduate body, so one axis is
+         * honest and the comparison between them is the point. */
+        render: {
+          chart: "bars",
+          unit: "percent",
+          refs: [
+            fact("student_life.college_owned_housing_percent_undergraduates"),
+            derived("international_percent"),
+            fact("enrollment.out_of_state_percent_undergraduates"),
+          ],
+        },
+        entries: [],
+      },
       {
         id: "greek-life",
         title: "Greek life",
@@ -397,8 +559,6 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
     headline: [
       fact("outcomes.first_year_retention_reported_percent"),
       derived("four_year_completion_rate"),
-      fact("outcomes.primary_all_students_six_year_graduation_rate_ratio"),
-      fact("outcomes.primary_pell_grant_six_year_graduation_rate_ratio"),
     ],
     groups: [
       {
@@ -406,13 +566,47 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
         title: "Time to degree",
         caveat:
           "A high six-year rate with a low four-year rate means students routinely need a fifth year — which is a year of tuition.",
+        foot: "Cumulative against the entering cohort — each bar counts everyone who had finished by that year, so it can only grow.",
+        /*
+         * Bars, not a line. These are three cumulative counts of one cohort
+         * plotted against that cohort, and on a zero-anchored axis a school
+         * that finishes most students on time draws a line pinned flat to
+         * the top of an empty plot — all dead space, no finding. The same
+         * three numbers as bars sit in the page's one visual language and
+         * make the four-to-six-year gap a length you can see.
+         */
+        render: {
+          chart: "bars",
+          unit: "count",
+          refs: [
+            fact("outcomes.completers_within_four_years"),
+            fact("outcomes.completers_within_five_years"),
+            fact("outcomes.completers_within_six_years"),
+          ],
+          maxRef: fact("outcomes.primary_cohort_count"),
+        },
         entries: [
           fact("outcomes.primary_cohort_count"),
-          fact("outcomes.completers_within_four_years"),
-          fact("outcomes.completers_within_five_years"),
-          fact("outcomes.completers_within_six_years"),
           derived("four_to_six_year_gap"),
         ],
+      },
+      {
+        id: "completion-gap",
+        title: "Who finishes",
+        caveat: null,
+        /* Two numbers, but they sit rows apart in a table and the GAP is the
+         * finding. One axis makes it a single read. */
+        render: {
+          chart: "bars",
+          unit: "percent",
+          refs: [
+            fact(
+              "outcomes.primary_all_students_six_year_graduation_rate_ratio",
+            ),
+            fact("outcomes.primary_pell_grant_six_year_graduation_rate_ratio"),
+          ],
+        },
+        entries: [],
       },
     ],
   },

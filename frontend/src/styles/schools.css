@@ -118,4 +118,43 @@
    * caveat. An inset surface never draws a border — a recessed fill that
    * also has a rim reads as embossed (DESIGN §4). */
   --school-fact-well: var(--surface-inset);
+
+  /* ---- fact charts (the About tab) ----
+   * MONOCHROME, and deliberately so.
+   *
+   * Every chart here plots ONE series — shares of a class, counts of a
+   * cohort, the middle 50 of one test. There is nothing to tell apart, so
+   * there is nothing for a second hue to say. Spending a categorical palette
+   * on single-series data is what makes a chart read as marketing, and this
+   * page's whole job is to be believed.
+   *
+   * The mark is the value ink, not the brand: a bar IS the number, and the
+   * number is --ink everywhere else on the tab. Brand colour here would make
+   * a school's graduation rate look like a Counselle claim about it.
+   *
+   * The track is the same one the meter and the list balance bar draw, so a
+   * bar's ceiling reads identically wherever it appears in the product. */
+  --school-chart-mark: var(--ink);
+  /* One step darker than --control-track, and deliberately not it.
+   *
+   * A control track sits on --canvas; these sit on --surface-raised, which
+   * is four lightness points lighter, so the same fill that reads as a
+   * groove on the canvas nearly vanishes here. On a range band the track IS
+   * information — it is the 200-to-800 the band is a slice of — and a track
+   * you cannot see turns the band into a floating mark with no scale.
+   *
+   * --hairline is the right weight for the job: it is already the "a line
+   * WITHIN one surface" value, and a track is exactly that — the ground a
+   * mark is measured against, not a second surface. */
+  --school-chart-track: var(--hairline);
+  --school-chart-grid: var(--hairline);
+  /* The label gutter, mirrored from charts/chart-shell.ts so the strip and
+   * the band endpoints line up with the Recharts axis. One value, two
+   * languages — changing it means changing both. */
+  --school-chart-axis: 200px;
+  /* A chart draws to its container's edge; a table cell is inset by its own
+   * border and padding. Without this the labels and values in a chart sit
+   * ~10px outside the column the tables above and below it establish, and
+   * the section reads as two documents interleaved rather than one. */
+  --school-chart-inset: 10px;
 }

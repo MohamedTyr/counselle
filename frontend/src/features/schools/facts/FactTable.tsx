@@ -1,9 +1,4 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import type { FactTableRow } from "@/features/schools/facts/school-facts-rows";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +15,19 @@ import { cn } from "@/lib/utils";
  * signal that separates a claim from an admission, so it survives greyscale.
  */
 
-export function FactTable({ rows }: { rows: readonly FactTableRow[] }) {
+export function FactTable({
+  emphasis = false,
+  rows,
+}: {
+  /**
+   * The headline reads at one density step up — taller rows, 15px value,
+   * medium weight. Hierarchy comes from DENSITY, never from a big number:
+   * a single oversized figure is the hero-metric template, which is a look
+   * rather than a claim about what matters.
+   */
+  emphasis?: boolean;
+  rows: readonly FactTableRow[];
+}) {
   return (
     <Table variant="card">
       <TableBody>
@@ -31,20 +38,35 @@ export function FactTable({ rows }: { rows: readonly FactTableRow[] }) {
                * first-time first-year" is typical, and a clipped metric label
                * is an unreadable one. Baseline alignment keeps the first line
                * level with the value beside it. */
-              className="py-3.5 align-baseline text-sm leading-6 whitespace-normal text-[var(--school-fact-label)]"
+              className={cn(
+                "align-baseline whitespace-normal text-[var(--school-fact-label)]",
+                emphasis
+                  ? "py-4 text-[0.9375rem] leading-6"
+                  : "py-3.5 text-sm leading-6",
+              )}
             >
               {row.label}
             </TableCell>
             <TableCell
               className={cn(
-                "py-3.5 pl-4 text-right align-baseline text-sm leading-6 whitespace-normal sm:pl-6",
+                "pl-4 text-right align-baseline whitespace-normal sm:pl-6",
+                emphasis
+                  ? "py-4 text-[0.9375rem] leading-6"
+                  : "py-3.5 text-sm leading-6",
                 /* Capped from sm: up so the occasional prose value — "Yes,
                  * engineering weighs portfolio more heavily" — cannot swallow
                  * the row and leave the label column a stub. Below that the
                  * column has no width to give away, so it sizes to content. */
                 "sm:w-[38ch] sm:max-w-[38ch]",
                 row.reported
-                  ? "font-medium tabular-nums text-[var(--school-fact-value)]"
+                  ? cn(
+                      "tabular-nums text-[var(--school-fact-value)]",
+                      /* Weight is spent on the headline so it still MEANS
+                       * something there. Making every value on the page
+                       * medium leaves nothing left to mark the ones that
+                       * matter. */
+                      emphasis ? "font-medium" : "font-normal",
+                    )
                   : "italic text-[var(--school-fact-absent)]",
               )}
             >

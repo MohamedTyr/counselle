@@ -72,9 +72,27 @@ export type FieldConfig =
   | ObjectFieldConfig
   | ObjectListFieldConfig;
 
+/** A labelled run of fields inside one section ("Grades", "Class rank").
+ * The label is the only heading its fields get: a group holding exactly one
+ * object field renders that object's children directly under the group
+ * label, because a legend repeating what the label already said is chrome
+ * for nothing. */
+export type FieldGroupConfig = {
+  label: string;
+  fields: readonly FieldConfig[];
+};
+
+/** Which rail group a section sits in. `writing` is about TIMING, not rank —
+ * an empty section there reads as *not yet*, never as *behind*. */
+export type SectionGroupKey = "advice" | "read" | "writing";
+
 export type SectionConfig = {
   key: string;
   title: string;
   description: string;
-  fields: readonly FieldConfig[];
+  group: SectionGroupKey;
+  /** One line on what this section changes, shown in place of the fact
+   * line while the section is empty. */
+  matters: string;
+  groups: readonly FieldGroupConfig[];
 };

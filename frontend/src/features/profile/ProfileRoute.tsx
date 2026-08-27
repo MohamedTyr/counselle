@@ -3,7 +3,12 @@ import { useRef, useState } from "react";
 import { Link } from "react-router";
 
 import type { ProfilePatch } from "@/api/workspace/types";
-import { useProfile, useUpdateProfile } from "@/api/workspace/hooks";
+import {
+  useDocuments,
+  useMemories,
+  useProfile,
+  useUpdateProfile,
+} from "@/api/workspace/hooks";
 import { parseOnboardingProgressResult } from "@/api/http/onboarding";
 import { useAuthUser } from "@/app/auth";
 import { Button } from "@/components/ui/button";
@@ -19,16 +24,23 @@ import { PageContainer } from "@/components/workspace/PageContainer";
 import { DocumentsSection } from "@/features/profile/DocumentsSection";
 import { MemoriesSection } from "@/features/profile/MemoriesSection";
 import { ProfileSectionCard } from "@/features/profile/ProfileSectionCard";
-import { PROFILE_SECTIONS } from "@/features/profile/profile-sections-config";
+import { ProfileSectionNav } from "@/features/profile/ProfileSectionNav";
+import {
+  PROFILE_SECTION_GROUPS,
+  PROFILE_SECTIONS,
+} from "@/features/profile/profile-sections-config";
 import { buildPatchAtPath, getAtPath } from "@/features/profile/profile-patch";
-import { Accordion } from "@/components/ui/accordion";
+
+/** The rail and the panel beside it — the one layout this tab has, so the
+ * skeleton is shaped like it rather than like three grey bars. */
+const PROFILE_LAYOUT_CLASS =
+  "grid items-start gap-6 md:grid-cols-[200px_minmax(0,1fr)] lg:gap-8";
 
 function ProfileSkeleton() {
   return (
-    <div className="flex max-w-3xl flex-col gap-3">
-      <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-24 w-full" />
+    <div className={PROFILE_LAYOUT_CLASS}>
+      <Skeleton className="hidden h-80 w-full md:block" />
+      <Skeleton className="h-96 w-full" />
     </div>
   );
 }
@@ -37,6 +49,15 @@ type FailedSave = {
   key: string;
   patch: ProfilePatch;
 };
+
+/** How much is behind a tab, in the same grammar as "My list 7" elsewhere.
+ * Absent while the count is unknown and at zero — an empty tab says so on
+ * the inside, where there is room to say why. */
+function TabCount({ value }: { value?: number }) {
+  return value ? (
+    <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
+  ) : null;
+}
 
 function SaveStatus({
   failedSaves,
@@ -70,10 +91,12 @@ function SaveStatus({
     );
   }
 
+  // At rest the slot stays empty. "Autosaves as you go" was true 100% of the
+  // time, so it carried no information while holding the most valuable
+  // real estate on the page; the contract now sits beside the fields it
+  // describes, in the section panel's footer.
   if (!hasSaved) {
-    return (
-      <span className="text-sm text-muted-foreground">Autosaves as you go</span>
-    );
+    return null;
   }
 
   return (
@@ -114,6 +137,10 @@ function GuidedSetupAction() {
 export function ProfileRoute() {
   const profileQuery = useProfile();
   const updateProfile = useUpdateProfile();
+  const documentsQuery = useDocuments();
+  const memoriesQuery = useMemories();
+  const [sectionKey, setSectionKey] = useState(PROFILE_SECTIONS[0].key);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [failedSaves, setFailedSaves] = useState<FailedSave[]>([]);
   const [hasSaved, setHasSaved] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -155,6 +182,23 @@ export function ProfileRoute() {
     failedSaves.forEach((save) => savePatch(save.key, save.patch));
   }
 
+  /** The rail is sticky but the panel is not: switching sections while
+   * scrolled halfway down the previous one would otherwise land you in the
+   * middle of the new one. */
+  function selectSection(key: string) {
+    setSectionKey(key);
+    scrollRef.current?.scrollTo({ top: 0 });
+  }
+
+  const sectionIndex = Math.max(
+    PROFILE_SECTIONS.findIndex((entry) => entry.key === sectionKey),
+    0,
+  );
+  const section = PROFILE_SECTIONS[sectionIndex];
+  const groupLabel =
+    PROFILE_SECTION_GROUPS.find((group) => group.key === section.group)
+      ?.label ?? "";
+
   return (
     <PageContainer
       actions={
@@ -168,20 +212,29 @@ export function ProfileRoute() {
           />
         </>
       }
+      scrollRef={scrollRef}
       subtitle="Your application context, in your own words. Every field is optional."
       title="Profile"
-      width="wide"
+      width="full"
     >
-      <Tabs defaultValue="profile" className="w-full gap-5">
+      {/* Tabs, rail and panel centre as one block: the page runs full-width
+       * so the two columns have room, and the cap keeps the form from
+       * stretching across an ultrawide display. */}
+      <Tabs
+        defaultValue="profile"
+        className="mx-auto w-full max-w-[1160px] gap-5"
+      >
         <TabsList className="w-full justify-start sm:w-fit">
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="profile">
             Profile
           </TabsTab>
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="documents">
             Documents
+            <TabCount value={documentsQuery.data?.length} />
           </TabsTab>
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="memory">
             Memory
+            <TabCount value={memoriesQuery.data?.length} />
           </TabsTab>
         </TabsList>
 
@@ -205,20 +258,28 @@ export function ProfileRoute() {
               </Button>
             </Empty>
           ) : (
-            <Accordion
-              className="w-full overflow-hidden rounded-xl border border-[var(--profile-section-border)] bg-[var(--profile-section-surface)]"
-              defaultValue={["basics"]}
-              multiple
-            >
-              {PROFILE_SECTIONS.map((section) => (
-                <ProfileSectionCard
-                  config={section}
-                  key={section.key}
-                  onFieldCommit={handleFieldCommit}
-                  value={getAtPath(profileQuery.data, [section.key])}
+            <div className={PROFILE_LAYOUT_CLASS}>
+              <div className="md:sticky md:top-0">
+                <ProfileSectionNav
+                  onSelect={selectSection}
+                  profile={profileQuery.data}
+                  selectedKey={section.key}
                 />
-              ))}
-            </Accordion>
+              </div>
+              {/* Keyed on the section so per-section local state — the note
+               * disclosure, every field's in-progress draft — resets with
+               * the panel instead of leaking into the next section. */}
+              <ProfileSectionCard
+                groupLabel={groupLabel}
+                key={section.key}
+                nextSection={PROFILE_SECTIONS[sectionIndex + 1]}
+                onFieldCommit={handleFieldCommit}
+                onSelect={selectSection}
+                previousSection={PROFILE_SECTIONS[sectionIndex - 1]}
+                section={section}
+                value={getAtPath(profileQuery.data, [section.key])}
+              />
+            </div>
           )}
         </TabsPanel>
         <TabsPanel value="documents">
