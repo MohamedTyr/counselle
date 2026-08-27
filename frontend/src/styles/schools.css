@@ -116,8 +116,10 @@
   --school-fact-value: var(--ink);
   --school-fact-absent: var(--school-value-absent);
   --school-fact-caveat: var(--ink-muted);
-  --school-fact-caveat-severe-fg: var(--warning-fg);
-  --school-fact-caveat-severe-bg: var(--warning-surface);
+  /* A severe caveat draws its amber through Badge variant="warning", which
+   * already resolves --warning-surface / --warning-fg. The two aliases that
+   * used to sit here were a second name for the same pair and had no
+   * consumers; one source of truth is the badge variant. */
   --school-fact-divider: var(--hairline);
   /* A derived value is marked by the WORD "calculated", never by colour —
    * this is only the ink of that word, one tier below the caveat. */

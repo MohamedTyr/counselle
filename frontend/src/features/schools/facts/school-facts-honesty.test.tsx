@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 
 import { FactTable } from "@/features/schools/facts/FactTable";
+import { SchoolFactsSection } from "@/features/schools/facts/SchoolFactsSection";
 import { schoolFactsFixture } from "@/features/schools/facts/school-facts-fixtures";
 import {
   sectionBlocks,
@@ -12,7 +13,10 @@ import {
   type FactTableRow,
 } from "@/features/schools/facts/school-facts-rows";
 import { sectionById } from "@/features/schools/facts/school-facts-sections";
-import type { SectionId } from "@/features/schools/facts/school-facts-types";
+import type {
+  SchoolFacts,
+  SectionId,
+} from "@/features/schools/facts/school-facts-types";
 
 const SECTIONS: SectionId[] = [
   "getting-in",
@@ -34,6 +38,16 @@ const FIXTURES = [130794, 167358, 190567];
  */
 
 const YALE = 130794;
+
+/** A plain row: no provenance, no caveats. Phase 4's surface has its own. */
+function plainRow(
+  key: string,
+  label: string,
+  value: string,
+  reported: boolean,
+): FactTableRow {
+  return { key, label, value, reported, provenance: [], caveats: [] };
+}
 
 function blocksFor(unitid: number, section: SectionId): SectionBlock[] {
   return sectionBlocks(schoolFactsFixture(unitid)!, sectionById(section));
@@ -62,7 +76,7 @@ describe("every absence renders as words", () => {
   test.each(cases)("%s survives the table", (value, copy) => {
     const { container } = render(
       <FactTable
-        rows={[{ key: "k", label: "Example metric", value, reported: false }]}
+        rows={[plainRow("k", "Example metric", value, false)]}
       />,
     );
     expect(screen.getByText(copy)).toBeInTheDocument();
@@ -78,7 +92,7 @@ describe("every absence renders as words", () => {
     const { container } = render(
       <FactTable
         rows={[
-          { key: "k", label: "Off the waitlist", value: "0", reported: true },
+          plainRow("k", "Off the waitlist", "0", true),
         ]}
       />,
     );
@@ -96,7 +110,7 @@ describe("every absence renders as words", () => {
   test("a string percent keeps its qualifier verbatim", () => {
     render(
       <FactTable
-        rows={[{ key: "k", label: "Share", value: "<1%", reported: true }]}
+        rows={[plainRow("k", "Share", "<1%", true)]}
       />,
     );
     expect(screen.getByText("<1%")).toBeInTheDocument();
@@ -359,12 +373,8 @@ describe("a chart never plots a value we do not have", () => {
 });
 
 describe("compressing a run of absences never hides one", () => {
-  const absent = (key: string, label: string, value: string): FactTableRow => ({
-    key,
-    label,
-    value,
-    reported: false,
-  });
+  const absent = (key: string, label: string, value: string): FactTableRow =>
+    plainRow(key, label, value, false);
 
   test("three absences for the same reason become one row that keeps every label", () => {
     const out = compressAbsences([
@@ -408,12 +418,7 @@ describe("compressing a run of absences never hides one", () => {
 
   test("reported values never merge, however identical", () => {
     const rows: FactTableRow[] = ["English", "Mathematics", "Science"].map(
-      (label, index) => ({
-        key: `k${index}`,
-        label,
-        value: "4",
-        reported: true,
-      }),
+      (label, index) => plainRow(`k${index}`, label, "4", true),
     );
     expect(compressAbsences(rows)).toEqual(rows);
   });
@@ -486,3 +491,169 @@ describe("an unreadable chart ceiling demotes values, never drops them", () => {
     }
   });
 });
+
+describe("provenance and caveats reach the screen", () => {
+  const evidence = (pageNumber: number, excerpt: string, section: string) => ({
+    pageNumber,
+    excerpt,
+    section,
+    row: null,
+    column: null,
+  });
+
+  test("a value with evidence is a real button, not a hover target", () => {
+    /* A hover card does not exist on a phone. The disclosure has to be
+     * something a finger and a keyboard can both reach. */
+    render(
+      <FactTable
+        rows={[
+          {
+            ...plainRow("k", "SAT composite", "1500–1560", true),
+            provenance: [
+              {
+                label: "SAT composite",
+                evidence: evidence(4, "SAT Composite 25th 1500", "C9"),
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    const trigger = screen.getByRole("button");
+    expect(trigger.textContent).toBe("1500–1560");
+    /* The accessible name carries the value AND the metric, so the button
+     * is not announced as a bare number with no subject. */
+    expect(trigger.getAttribute("aria-label")).toContain("SAT composite");
+  });
+
+  test("a value with no evidence renders no button", () => {
+    /* An affordance that opens an empty card is worse than none: it
+     * promises a source we do not have. */
+    render(<FactTable rows={[plainRow("k", "Admit rate", "4.6%", true)]} />);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  test("every proof in a compressed run survives, each still named", () => {
+    /* Four merged absences carry four pages. Keeping one of the four would
+     * attribute one metric's proof to the other three. */
+    const rows = compressAbsences(
+      ["In-state applicants", "In-state admitted", "Out-of-state applicants"].map(
+        (label, index) => ({
+          ...plainRow(`k${index}`, label, "not applicable", false),
+          provenance: [
+            {
+              label,
+              evidence: {
+                ...evidence(3, `C1. ${label} — private institution.`, "C1"),
+                isAbsenceProof: true,
+              },
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].provenance).toHaveLength(3);
+    expect(rows[0].provenance.map((proof) => proof.label)).toEqual([
+      "In-state applicants",
+      "In-state admitted",
+      "Out-of-state applicants",
+    ]);
+  });
+
+  test("a severe caveat renders on the row, in words, not by colour", () => {
+    const caveat = {
+      id: "act-submitters-low",
+      severity: "severe" as const,
+      text: "Only 41% of the class submitted an ACT score.",
+    };
+    render(
+      <FactTable
+        rows={[
+          {
+            ...plainRow("k", "ACT composite", "34–35", true),
+            caveats: [caveat],
+          },
+        ]}
+      />,
+    );
+    /* The sentence itself, never replaced by the badge — and a word beside
+     * it, so the warning survives greyscale and a screen reader. */
+    expect(screen.getByText(caveat.text)).toBeInTheDocument();
+    expect(screen.getByText("Read with")).toBeInTheDocument();
+  });
+
+  test("an ordinary caveat gets no badge — if everything is severe, nothing is", () => {
+    render(
+      <FactTable
+        rows={[
+          {
+            ...plainRow("k", "SAT composite", "1500–1560", true),
+            caveats: [
+              {
+                id: "sat-submitters",
+                severity: "ordinary" as const,
+                text: "62% of the enrolled class submitted an SAT score.",
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    expect(screen.queryByText("Read with")).toBeNull();
+  });
+
+  test("a severe caveat is never behind the overflow fold", () => {
+    /* The overflow bucket is the one group that collapses. A row whose
+     * number cannot be read correctly without its caveat is hoisted above
+     * the toggle rather than folded — DESIGN §15.2's "never hide an error
+     * behind a click", applied to the one warning this page has.
+     *
+     * Built as a packet of unplaced refs, which is exactly what lands in
+     * "Other published values", so this exercises the real render path. */
+    const yale = schoolFactsFixture(YALE)!;
+    const facts: SchoolFacts["facts"] = {};
+    for (let index = 0; index < 12; index += 1) {
+      /* Zero-padded: strays render in sorted ref order, so unpadded names
+       * would put "…_11" fourth and the fold would land elsewhere. */
+      const ref = `admissions.stray_metric_${String(index).padStart(2, "0")}`;
+      facts[ref] = {
+        ref,
+        label: `Filler metric ${String(index).padStart(2, "0")}`,
+        /* Reported, so the run does not compress — this test is about the
+         * FOLD, and twelve identical absences would collapse to one row
+         * before they ever reached it. */
+        state: { kind: "reported", display: "Yes", raw: true },
+        evidence: null,
+        contexts: [],
+        caveatRefs: [],
+      };
+    }
+    facts["admissions.stray_withheld"] = {
+      ref: "admissions.stray_withheld",
+      label: "Withheld metric",
+      state: { kind: "suppressed" },
+      evidence: null,
+      contexts: [],
+      caveatRefs: ["suppressed"],
+    };
+
+    render(
+      <SchoolFactsSection
+        data={{ ...yale, facts, derived: {}, degreeShares: [] }}
+        section={sectionById("getting-in")}
+      />,
+    );
+
+    /* Collapsed by default: something past the eighth row is not on screen. */
+    expect(screen.getByText(/Show \d+ more/)).toBeInTheDocument();
+    expect(screen.queryByText("Filler metric 11")).toBeNull();
+    /* But the severe one, and its sentence, are. */
+    expect(screen.getByText("Withheld metric")).toBeInTheDocument();
+    expect(
+      screen.getByText(yale.caveats["suppressed"].text),
+    ).toBeInTheDocument();
+  });
+});
+

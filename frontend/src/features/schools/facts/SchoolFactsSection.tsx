@@ -8,7 +8,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { FactTable } from "@/features/schools/facts/FactTable";
-import type { FactTableRow } from "@/features/schools/facts/school-facts-rows";
+import {
+  hasSevereCaveat,
+  type FactTableRow,
+} from "@/features/schools/facts/school-facts-rows";
 import { coverageSentence } from "@/features/schools/facts/school-facts-format";
 import { FactBarChart } from "@/features/schools/facts/charts/FactBarChart";
 import { FactOrdinal } from "@/features/schools/facts/charts/FactOrdinal";
@@ -177,6 +180,16 @@ function Block({ block }: { block: SectionBlock }): React.ReactElement {
 /** Rows shown before the fold in the overflow bucket. */
 const OVERFLOW_VISIBLE = 8;
 
+function partition<T>(
+  items: readonly T[],
+  matches: (item: T) => boolean,
+): [T[], T[]] {
+  const yes: T[] = [];
+  const no: T[] = [];
+  for (const item of items) (matches(item) ? yes : no).push(item);
+  return [yes, no];
+}
+
 /**
  * The overflow bucket, folded.
  *
@@ -196,14 +209,26 @@ function OverflowRows({
   rows: readonly FactTableRow[];
 }): React.ReactElement {
   const [open, setOpen] = useState(false);
-  if (rows.length <= OVERFLOW_VISIBLE) return <FactTable rows={rows} />;
+  /*
+   * Nothing severe goes behind the fold. A severe caveat is by definition
+   * the sentence without which its number cannot be read correctly, so a
+   * row carrying one is hoisted above the toggle rather than folded — the
+   * same rule DESIGN §15.2 states for errors, applied to the one warning
+   * this page has.
+   */
+  const [urgent, ordinary] = partition(rows, hasSevereCaveat);
+  if (ordinary.length <= OVERFLOW_VISIBLE) {
+    return <FactTable rows={[...urgent, ...ordinary]} />;
+  }
 
-  const hidden = rows.length - OVERFLOW_VISIBLE;
+  const hidden = ordinary.length - OVERFLOW_VISIBLE;
   return (
     <Collapsible onOpenChange={setOpen} open={open}>
-      <FactTable rows={rows.slice(0, OVERFLOW_VISIBLE)} />
+      <FactTable
+        rows={[...urgent, ...ordinary.slice(0, OVERFLOW_VISIBLE)]}
+      />
       <CollapsibleContent>
-        <FactTable rows={rows.slice(OVERFLOW_VISIBLE)} />
+        <FactTable rows={ordinary.slice(OVERFLOW_VISIBLE)} />
       </CollapsibleContent>
       <CollapsibleTrigger
         className="mt-3 inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1.5 text-sm text-[var(--ink-secondary)] transition-colors duration-150 hover:bg-[var(--surface-hover)] hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:outline-none"

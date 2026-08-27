@@ -152,8 +152,8 @@ export function sectionBlocks(
       seen.add(row.key);
       rows.push(row);
     };
-    for (const round of data.rounds) roundRows(round).forEach(push);
-    for (const lane of data.applyingLanes) push(laneRow(lane));
+    for (const round of data.rounds) roundRows(round, data).forEach(push);
+    for (const lane of data.applyingLanes) push(laneRow(lane, data));
     pushRows({ id: "rounds", title: null, rows, emphasis: true });
   }
 
@@ -355,6 +355,8 @@ function degreeShareBlock(
       label: share.label,
       value: factStateCopy(share.state),
       reported: isReported(share.state),
+      provenance: [],
+      caveats: [],
     });
   }
   if (points.length === 0 && rows.length === 0) return null;

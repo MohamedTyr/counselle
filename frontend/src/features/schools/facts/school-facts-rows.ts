@@ -9,6 +9,8 @@ import type {
   SectionConfig,
 } from "@/features/schools/facts/school-facts-sections";
 import type {
+  Caveat,
+  Evidence,
   LaneRow,
   RoundRow,
   SchoolFacts,
@@ -27,12 +29,58 @@ import type {
  * nothing it is. Never a blank cell, a dash, or a hidden row.
  */
 
+/**
+ * Where one value came from: the page of the school's own form, and the
+ * words on it.
+ *
+ * A LIST rather than a single field, because a compressed run of absences
+ * names several metrics on one line and each of them has its own proof. The
+ * label rides along so a two-proof popover can say which is which.
+ */
+export type RowProvenance = {
+  label: string;
+  evidence: Evidence;
+};
+
 export type FactTableRow = {
   key: string;
   label: string;
   value: string;
   reported: boolean;
+  /** Empty when the packet gave us no page to point at. */
+  provenance: readonly RowProvenance[];
+  /**
+   * The qualifiers that make this value true. Severe ones render on the row
+   * itself and never behind the disclosure — a caveat you have to click for
+   * is a caveat the reader who needed it did not get.
+   */
+  caveats: readonly Caveat[];
 };
+
+function resolveCaveats(
+  refs: readonly string[],
+  data: SchoolFacts,
+): readonly Caveat[] {
+  return refs
+    .map((ref) => data.caveats[ref])
+    .filter((caveat): caveat is Caveat => Boolean(caveat));
+}
+
+export function hasSevereCaveat(row: FactTableRow): boolean {
+  return row.caveats.some((caveat) => caveat.severity === "severe");
+}
+
+/** One caveat, once — several metrics routinely share the same qualifier. */
+function dedupeCaveats(caveats: readonly Caveat[]): readonly Caveat[] {
+  return [...new Map(caveats.map((caveat) => [caveat.id, caveat])).values()];
+}
+
+function provenanceOf(
+  label: string,
+  evidence: Evidence | null,
+): readonly RowProvenance[] {
+  return evidence ? [{ label, evidence }] : [];
+}
 
 /** Below this a run is shorter than the line that would replace it. */
 const COMPRESSIBLE_RUN = 3;
@@ -79,6 +127,17 @@ export function compressAbsences(
         label: run.map((row) => row.label).join("; "),
         value: head.value,
         reported: false,
+        /*
+         * Every proof travels with the merged row, each still named.
+         *
+         * These are the absence proofs — "C1. Residency split — not
+         * applicable for a private institution" — which is the most useful
+         * evidence on the page, because it is the sentence that says WHY
+         * there is no number. Merging four rows and keeping one of the four
+         * pages would attribute one metric's proof to the other three.
+         */
+        provenance: run.flatMap((row) => row.provenance),
+        caveats: dedupeCaveats(run.flatMap((row) => row.caveats)),
       });
     }
     i = end;
@@ -109,6 +168,15 @@ export function entryRow(
           ? DERIVED_UNAVAILABLE_COPY
           : factStateCopy(derived.state),
       reported,
+      /*
+       * A derived value has no page of its own — its provenance is the
+       * arithmetic and the inputs' pages, which is a different card from
+       * "here is the line of the form this was read off". Until that card
+       * exists, claiming a single page for a computed number would be
+       * pointing at evidence for something we did not read.
+       */
+      provenance: [],
+      caveats: resolveCaveats(derived.caveatRefs, data),
     };
   }
   const fact = data.facts[entry.ref];
@@ -118,6 +186,8 @@ export function entryRow(
     label: fact.label,
     value: factStateCopy(fact.state),
     reported: isReported(fact.state),
+    provenance: provenanceOf(fact.label, fact.evidence),
+    caveats: resolveCaveats(fact.caveatRefs, data),
   };
 }
 
@@ -126,18 +196,25 @@ export function entryRow(
  * the form is a year old by the time a student reads it. Falling back to the
  * CDS keeps the row from going quiet when only the older source has an answer.
  */
-export function laneRow(lane: LaneRow): FactTableRow {
-  const preferred =
-    lane.official && isReported(lane.official.state)
-      ? lane.official.state
-      : lane.cds && isReported(lane.cds.state)
-        ? lane.cds.state
-        : (lane.official?.state ?? lane.cds?.state ?? { kind: "not_reported" });
+export function laneRow(lane: LaneRow, data?: SchoolFacts): FactTableRow {
+  const officialWins = Boolean(lane.official && isReported(lane.official.state));
+  const preferred = officialWins
+    ? lane.official!.state
+    : lane.cds && isReported(lane.cds.state)
+      ? lane.cds.state
+      : (lane.official?.state ?? lane.cds?.state ?? { kind: "not_reported" });
   return {
     key: `lane:${lane.id}`,
     label: lane.label,
     value: factStateCopy(preferred),
     reported: isReported(preferred),
+    /* Only when the CDS lane is the one being SHOWN. Pointing at a page of
+     * the form beside a value we took from the school's current site would
+     * attribute one source's number to the other. */
+    provenance: officialWins
+      ? []
+      : provenanceOf(lane.label, lane.cds?.evidence ?? null),
+    caveats: data ? resolveCaveats(lane.caveatRefs, data) : [],
   };
 }
 
@@ -146,7 +223,7 @@ export function laneRow(lane: LaneRow): FactTableRow {
  * offered-flag we could not read says "not reported". A student who reads
  * "not offered" stops looking, so the two never collapse into one row.
  */
-export function roundRows(round: RoundRow): FactTableRow[] {
+export function roundRows(round: RoundRow, data?: SchoolFacts): FactTableRow[] {
   if (round.offered !== "yes") {
     return [
       {
@@ -154,24 +231,31 @@ export function roundRows(round: RoundRow): FactTableRow[] {
         label: round.code,
         value: round.offered === "no" ? ROUND_NOT_OFFERED_COPY : "not reported",
         reported: false,
+        provenance: [],
+        caveats: [],
       },
     ];
   }
   const rows: FactTableRow[] = [
-    { ...laneRow(round.deadline), key: `round:${round.code}:deadline` },
+    { ...laneRow(round.deadline, data), key: `round:${round.code}:deadline` },
     {
       key: `round:${round.code}:notification`,
       label: `${round.code} decision`,
       value: factStateCopy(round.notification),
       reported: isReported(round.notification),
+      provenance: [],
+      caveats: [],
     },
   ];
   if (round.restrictive) {
     rows.push({
+      /* Our own reading of the school's policy, not a line of the form. */
       key: `round:${round.code}:restriction`,
       label: `${round.code} restriction`,
       value: "Blocks other early applications",
       reported: true,
+      provenance: [],
+      caveats: [],
     });
   }
   return rows;

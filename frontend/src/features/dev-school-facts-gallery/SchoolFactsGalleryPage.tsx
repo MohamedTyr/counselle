@@ -21,53 +21,41 @@ import { cn } from "@/lib/utils";
  * page.
  */
 
+/** The gallery cares about state and copy only; provenance is Phase 4's
+ * surface and has its own rows further down. */
+const row = (
+  key: string,
+  label: string,
+  value: string,
+  reported: boolean,
+): FactTableRow => ({ key, label, value, reported, provenance: [], caveats: [] });
+
 const STATE_GALLERY: FactTableRow[] = [
-  { key: "reported", label: "Reported value", value: "94%", reported: true },
-  {
-    key: "not-reported",
-    label: "Not reported",
-    value: "not reported",
-    reported: false,
-  },
-  {
-    key: "not-applicable",
-    label: "Not applicable",
-    value: "not applicable",
-    reported: false,
-  },
-  {
-    key: "suppressed",
-    label: "Suppressed",
-    value: "withheld by the school",
-    reported: false,
-  },
-  {
-    key: "not-in-template",
-    label: "Not in this form edition",
-    value: "not in this form edition",
-    reported: false,
-  },
-  {
-    key: "no-verified-value",
-    label: "No verified value",
-    value: "no verified value",
-    reported: false,
-  },
-  { key: "zero", label: "A legitimate zero", value: "0", reported: true },
-  { key: "string-percent", label: "A string percent", value: "<1%", reported: true },
-  {
-    key: "blocked",
-    label: "A derived value that refuses to compute",
-    value: "not available",
-    reported: false,
-  },
-  {
-    key: "long-label",
-    label:
-      "A label long enough to wrap onto a second line, because metric labels are long by nature and truncating one makes it unreadable",
-    value: "6 to 1",
-    reported: true,
-  },
+  row("reported", "Reported value", "94%", true),
+  row("not-reported", "Not reported", "not reported", false),
+  row("not-applicable", "Not applicable", "not applicable", false),
+  row("suppressed", "Suppressed", "withheld by the school", false),
+  row(
+    "not-in-template",
+    "Not in this form edition",
+    "not in this form edition",
+    false,
+  ),
+  row("no-verified-value", "No verified value", "no verified value", false),
+  row("zero", "A legitimate zero", "0", true),
+  row("string-percent", "A string percent", "<1%", true),
+  row(
+    "blocked",
+    "A derived value that refuses to compute",
+    "not available",
+    false,
+  ),
+  row(
+    "long-label",
+    "A label long enough to wrap onto a second line, because metric labels are long by nature and truncating one makes it unreadable",
+    "6 to 1",
+    true,
+  ),
 ];
 
 export function SchoolFactsGalleryPage() {
