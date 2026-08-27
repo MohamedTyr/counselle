@@ -18,6 +18,7 @@ import gzip
 import os
 import sys
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote, urlparse
 
 import psycopg
@@ -78,12 +79,28 @@ def _ensure_role(cur: psycopg.Cursor, role: str, password: str | None) -> None:
         )
 
 
+def _fetchone(cur: psycopg.Cursor, query: str) -> tuple[Any, ...]:
+    """Fetch the single row a scalar ``SELECT`` always returns.
+
+    A bare ``SELECT <expr>`` with no ``FROM``/``WHERE`` clause returns
+    exactly one row on any live connection; ``None`` here would mean the
+    cursor never ran the query it's paired with, which signals a bug, not a
+    legitimate empty result.
+    """
+    row = cur.fetchone()
+    if row is None:
+        raise RuntimeError(f"expected exactly one row, got none, from query: {query!r}")
+    return row
+
+
 def _reader_contract_is_loaded(cur: psycopg.Cursor) -> bool:
-    cur.execute("SELECT to_regclass('cds_library.school_profiles') IS NOT NULL")
-    if not cur.fetchone()[0]:
+    query = "SELECT to_regclass('cds_library.school_profiles') IS NOT NULL"
+    cur.execute(query)
+    if not _fetchone(cur, query)[0]:
         return False
-    cur.execute("SELECT EXISTS (SELECT 1 FROM cds_library.school_profiles)")
-    return bool(cur.fetchone()[0])
+    query = "SELECT EXISTS (SELECT 1 FROM cds_library.school_profiles)"
+    cur.execute(query)
+    return bool(_fetchone(cur, query)[0])
 
 
 def _load_reader_contract(cur: psycopg.Cursor) -> None:
@@ -167,8 +184,9 @@ def main() -> int:
     ro_role, ro_password = _credentials("COUNSELLE_DB_RO_DSN", "counselle_ro")
 
     with psycopg.connect(admin_dsn, autocommit=True) as conn, conn.cursor() as cur:
-        cur.execute("SELECT current_database()")
-        database = cur.fetchone()[0]
+        query = "SELECT current_database()"
+        cur.execute(query)
+        database = _fetchone(cur, query)[0]
 
         _ensure_role(cur, app_role, app_password)
         _ensure_role(cur, ro_role, ro_password)
