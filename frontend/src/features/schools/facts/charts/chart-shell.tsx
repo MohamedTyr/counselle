@@ -1,4 +1,10 @@
 import type React from "react";
+import { Text } from "recharts";
+
+import {
+  AXIS_TICK,
+  TICK_GAP,
+} from "@/features/schools/facts/charts/chart-tokens";
 
 /*
  * The frame every visual on this tab shares.
@@ -30,6 +36,45 @@ export function ChartFoot({
     <p className="max-w-[68ch] text-xs leading-5 text-[var(--school-fact-caveat)]">
       {children}
     </p>
+  );
+}
+
+/**
+ * The category tick every bar chart on this tab draws.
+ *
+ * Recharts anchors a left y-axis tick at `end`, so the labels ragged-right
+ * against the bars. That is a fine default for a chart standing alone and the
+ * wrong one here: the ordinal strip, the range bands and every table row on
+ * the tab are left-aligned, so a bar chart was the one block whose labels
+ * started somewhere else, and the section read as a chart pasted into a
+ * document rather than a page of one.
+ *
+ * `Text` rather than a bare `<text>`: it keeps the wrapping the default tick
+ * does, which is load-bearing at 375px where the gutter is 116px and metric
+ * labels are long by nature.
+ */
+export function AxisCategoryTick(props: {
+  x?: number;
+  y?: number;
+  width?: number;
+  payload?: { value?: string | number };
+}): React.ReactElement {
+  const gutter = props.width ?? 0;
+  return (
+    <Text
+      {...AXIS_TICK}
+      /* The axis box already starts at the container's left edge, which is
+       * the panel's text column — so the label starts exactly where a table
+       * label above it does. */
+      lineHeight="1.3em"
+      textAnchor="start"
+      verticalAnchor="middle"
+      width={Math.max(gutter - TICK_GAP, 0)}
+      x={0}
+      y={props.y}
+    >
+      {props.payload?.value}
+    </Text>
   );
 }
 

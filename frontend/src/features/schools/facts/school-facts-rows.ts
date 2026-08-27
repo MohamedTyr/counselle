@@ -34,6 +34,58 @@ export type FactTableRow = {
   reported: boolean;
 };
 
+/** Below this a run is shorter than the line that would replace it. */
+const COMPRESSIBLE_RUN = 3;
+
+/**
+ * A run of consecutive rows that are absent for the SAME reason collapses to
+ * one row: every label still printed, the shared sentence said once.
+ *
+ * Yale's applicant pool is the case this exists for — four rows of the
+ * in-state / out-of-state split, all "not applicable" because it is a private
+ * institution, stacked into four identical sentences that out-weigh the three
+ * counts above them purely by repetition.
+ *
+ * This is a COMPRESSION, not a hide, and the distinction is the whole design:
+ * no label is dropped, no row is filtered, and the reason is on screen at full
+ * size. A version of this that folded the labels behind "3 more" would be
+ * hiding, because a student could no longer see WHICH metrics we have nothing
+ * for. Compare `strayRefs`, which exists to stop the same silent loss one
+ * layer up.
+ */
+export function compressAbsences(
+  rows: readonly FactTableRow[],
+): FactTableRow[] {
+  const out: FactTableRow[] = [];
+  for (let i = 0; i < rows.length; ) {
+    const head = rows[i];
+    let end = i + 1;
+    if (!head.reported) {
+      while (
+        end < rows.length &&
+        !rows[end].reported &&
+        rows[end].value === head.value
+      )
+        end += 1;
+    }
+    const run = rows.slice(i, end);
+    if (run.length < COMPRESSIBLE_RUN) {
+      out.push(...run);
+    } else {
+      out.push({
+        key: run.map((row) => row.key).join("+"),
+        /* The labels are a LIST, joined with a semicolon because several of
+         * them contain commas of their own. */
+        label: run.map((row) => row.label).join("; "),
+        value: head.value,
+        reported: false,
+      });
+    }
+    i = end;
+  }
+  return out;
+}
+
 export function entryRow(
   entry: FactEntry,
   data: SchoolFacts,

@@ -2,10 +2,12 @@ import type React from "react";
 import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts";
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { ChartFigure } from "@/features/schools/facts/charts/chart-shell";
 import {
-  AXIS_TICK,
-  CHART_ROW_HEIGHT,
+  AxisCategoryTick,
+  ChartFigure,
+} from "@/features/schools/facts/charts/chart-shell";
+import {
+  chartRowHeight,
   VALUE_LABEL,
   useAxisWidth,
   useChartEntrance,
@@ -65,7 +67,13 @@ export function FactBarChart({
         className="w-full"
         config={CONFIG}
         style={{
-          height: block.points.length * CHART_ROW_HEIGHT + 8,
+          height:
+            block.points.length *
+              chartRowHeight(
+                block.points.map((point) => point.label),
+                axisWidth,
+              ) +
+            8,
           /* Recharts sizes to its parent; without an explicit aspect
            * override the shadcn default squashes a 3-bar chart. */
           aspectRatio: "auto",
@@ -86,9 +94,8 @@ export function FactBarChart({
           <YAxis
             axisLine={false}
             dataKey="label"
-            tick={AXIS_TICK}
+            tick={<AxisCategoryTick />}
             tickLine={false}
-            tickMargin={8}
             type="category"
             width={axisWidth}
           />

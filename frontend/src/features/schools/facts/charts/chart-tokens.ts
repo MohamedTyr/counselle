@@ -9,8 +9,47 @@ import { useIsMobile } from "@/hooks/use-mobile";
  * components — mixing the two in one file breaks fast refresh.
  */
 
-/** Row pitch, in px. Drives every chart's computed height. */
+/** Row pitch, in px, for a category whose label fits on ONE line. */
 export const CHART_ROW_HEIGHT = 40;
+
+/** Breathing room between the end of a label and the mark it names. */
+export const TICK_GAP = 12;
+
+/** Line box of a wrapped axis label, and the padding around the pair. */
+const TICK_LINE_HEIGHT = 17;
+const ROW_PADDING = 14;
+
+/**
+ * Average glyph advance for the axis label face at 13px.
+ *
+ * An estimate, and deliberately a slightly generous one: over-estimating
+ * costs a few px of chart height, while under-estimating puts a third line
+ * of a label on top of the row below it.
+ */
+const CHAR_ADVANCE = 6.4;
+
+/**
+ * The row pitch a chart actually needs, given how far its labels wrap.
+ *
+ * CHART_ROW_HEIGHT was a fixed 40px that assumed a one-line label. Metric
+ * labels are long by nature — "Students with need whose need was fully met"
+ * is a normal one — so at 200px of gutter they wrap to three lines and
+ * collide with the row beneath, and at 375px, where the gutter is 116px,
+ * nearly all of them do. The pitch derives from the labels instead of hoping
+ * they are short.
+ */
+export function chartRowHeight(
+  labels: readonly string[],
+  gutter: number,
+): number {
+  const usable = Math.max(gutter - TICK_GAP, 1);
+  const lines = labels.reduce(
+    (most, label) =>
+      Math.max(most, Math.ceil((label.length * CHAR_ADVANCE) / usable)),
+    1,
+  );
+  return Math.max(CHART_ROW_HEIGHT, lines * TICK_LINE_HEIGHT + ROW_PADDING);
+}
 
 /**
  * The label gutter. Every chart on the tab uses the same one so the marks
@@ -21,10 +60,10 @@ export const CHART_ROW_HEIGHT = 40;
  * property "for the few places CSS needs it"; there were none, so the mirror
  * was deleted rather than kept in sync with nothing.
  */
-export const AXIS_WIDTH = 200;
+export const AXIS_WIDTH = 240;
 
 /**
- * It narrows on a phone because it has to: at 375px a 200px gutter plus room
+ * It narrows on a phone because it has to: at 375px a desktop gutter plus room
  * for the printed value leaves about 60px of track, and a bar that short
  * stops being a comparison. The labels wrap to more lines instead, which
  * costs height — the one thing a phone has to spare.

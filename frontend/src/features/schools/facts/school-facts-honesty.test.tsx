@@ -7,7 +7,10 @@ import {
   sectionBlocks,
   type SectionBlock,
 } from "@/features/schools/facts/school-facts-blocks";
-import type { FactTableRow } from "@/features/schools/facts/school-facts-rows";
+import {
+  compressAbsences,
+  type FactTableRow,
+} from "@/features/schools/facts/school-facts-rows";
 import { sectionById } from "@/features/schools/facts/school-facts-sections";
 import type { SectionId } from "@/features/schools/facts/school-facts-types";
 
@@ -350,6 +353,91 @@ describe("a chart never plots a value we do not have", () => {
               ? block.items.length
               : block.bands.length;
         expect(plotted, `${section} ${block.id} drew an empty chart`).toBe(0);
+      }
+    }
+  });
+});
+
+describe("compressing a run of absences never hides one", () => {
+  const absent = (key: string, label: string, value: string): FactTableRow => ({
+    key,
+    label,
+    value,
+    reported: false,
+  });
+
+  test("three absences for the same reason become one row that keeps every label", () => {
+    const out = compressAbsences([
+      absent("a", "In-state applicants", "not applicable"),
+      absent("b", "In-state admitted", "not applicable"),
+      absent("c", "Out-of-state applicants", "not applicable"),
+    ]);
+
+    expect(out).toHaveLength(1);
+    /* The reason is on screen at full size — this is a compression, not a
+     * fold. A student can still see WHICH metrics we have nothing for. */
+    expect(out[0].value).toBe("not applicable");
+    expect(out[0].reported).toBe(false);
+    for (const label of [
+      "In-state applicants",
+      "In-state admitted",
+      "Out-of-state applicants",
+    ]) {
+      expect(out[0].label).toContain(label);
+    }
+  });
+
+  test("two absences are left alone — a pair is not a wall", () => {
+    const rows = [
+      absent("a", "In-state applicants", "not applicable"),
+      absent("b", "In-state admitted", "not applicable"),
+    ];
+    expect(compressAbsences(rows)).toEqual(rows);
+  });
+
+  test("absences for DIFFERENT reasons never merge", () => {
+    /* "not reported" and "not applicable" are different claims about a
+     * school. Merging them would invent a reason for two of the three. */
+    const rows = [
+      absent("a", "One", "not reported"),
+      absent("b", "Two", "not applicable"),
+      absent("c", "Three", "not reported"),
+    ];
+    expect(compressAbsences(rows)).toEqual(rows);
+  });
+
+  test("reported values never merge, however identical", () => {
+    const rows: FactTableRow[] = ["English", "Mathematics", "Science"].map(
+      (label, index) => ({
+        key: `k${index}`,
+        label,
+        value: "4",
+        reported: true,
+      }),
+    );
+    expect(compressAbsences(rows)).toEqual(rows);
+  });
+
+  test("no label is lost from any section of any fixture", () => {
+    /* The structural guarantee, checked against the real data rather than a
+     * constructed run: compression may change how many ROWS render, never
+     * which metrics are named. */
+    for (const unitid of FIXTURES) {
+      for (const section of SECTIONS) {
+        for (const block of blocksFor(unitid, section)) {
+          const named = block.rows.flatMap((row) => row.label.split("; "));
+          expect(new Set(named).size, `${unitid} ${section} ${block.id}`).toBe(
+            named.length,
+          );
+          for (const row of block.rows) {
+            /* One label per merged key. A row whose key says it swallowed
+             * four metrics but only names three has lost one. */
+            expect(
+              row.label.split("; ").length,
+              `${block.id} row ${row.key} lost a label`,
+            ).toBe(row.key.split("+").length);
+          }
+        }
       }
     }
   });

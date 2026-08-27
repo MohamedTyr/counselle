@@ -54,15 +54,22 @@ export function FactTable({
             </TableCell>
             <TableCell
               className={cn(
-                "pe-0 pl-4 text-right align-baseline whitespace-normal sm:pl-6",
+                /* pe-1, not pe-0: the absence sentences are italic, and an
+                 * italic glyph overhangs its box by a couple of pixels. At a
+                 * flush right edge the table container's overflow clipped the
+                 * last letter — "not reported" rendered as "not reportea",
+                 * which is a value that says something we did not. */
+                "pe-1 pl-4 text-right align-baseline whitespace-normal sm:pl-6",
                 emphasis
                   ? "py-4 text-[0.9375rem] leading-6"
                   : "py-3.5 text-sm leading-6",
-                /* Capped from sm: up so the occasional prose value — "Yes,
-                 * engineering weighs portfolio more heavily" — cannot swallow
-                 * the row and leave the label column a stub. Below that the
-                 * column has no width to give away, so it sizes to content. */
-                "sm:w-[38ch] sm:max-w-[38ch]",
+                /* A CEILING, not a width. The occasional prose value — "Yes,
+                 * engineering weighs portfolio more heavily" — must not
+                 * swallow the row and leave the label column a stub; but this
+                 * used to be `w-[38ch]` too, which reserved 38ch even for a
+                 * value of "20" and starved the label of the space it was
+                 * protecting. The column sizes to its content and stops. */
+                "sm:max-w-[38ch]",
                 row.reported
                   ? cn(
                       "tabular-nums text-[var(--school-fact-value)]",

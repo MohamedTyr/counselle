@@ -163,21 +163,9 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
         ],
       },
       {
-        id: "required-units",
-        title: "Required high-school units",
-        caveat:
-          "Schools often recommend more than they require. The recommendation is the real expectation.",
-        entries: [
-          fact("admissions.total_academic_units_required"),
-          fact("admissions.total_academic_units_recommended"),
-          fact("admissions.english_units_required"),
-          fact("admissions.mathematics_units_required"),
-          fact("admissions.science_units_required"),
-          fact("admissions.foreign_language_units_required"),
-          fact("admissions.social_studies_units_required"),
-        ],
-      },
-      {
+        /* Directly under the composites in the headline it details, not
+         * below the units table. A band chart separated from the two numbers
+         * it expands is a shape the reader has to go looking for. */
         id: "test-detail",
         title: "Test scores in detail",
         caveat:
@@ -213,6 +201,21 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
           fact("class_profile.sat_math_p75"),
           fact("class_profile.sat_submitters_percent"),
           fact("class_profile.act_submitters_percent"),
+        ],
+      },
+      {
+        id: "required-units",
+        title: "Required high-school units",
+        caveat:
+          "Schools often recommend more than they require. The recommendation is the real expectation.",
+        entries: [
+          fact("admissions.total_academic_units_required"),
+          fact("admissions.total_academic_units_recommended"),
+          fact("admissions.english_units_required"),
+          fact("admissions.mathematics_units_required"),
+          fact("admissions.science_units_required"),
+          fact("admissions.foreign_language_units_required"),
+          fact("admissions.social_studies_units_required"),
         ],
       },
       {

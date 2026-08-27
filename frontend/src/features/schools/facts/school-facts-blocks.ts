@@ -1,4 +1,5 @@
 import {
+  compressAbsences,
   entryRow,
   laneRow,
   orderHeadline,
@@ -12,6 +13,7 @@ import {
 } from "@/features/schools/facts/school-facts-format";
 import {
   configuredRefs,
+  OTHER_GROUP_TITLE,
   type BandSpec,
   type FactEntry,
   type GroupConfig,
@@ -67,6 +69,14 @@ export type RowsBlock = BlockBase & {
   kind: "rows";
   /** The headline reads at one density step up. Never a hero number. */
   emphasis: boolean;
+  /**
+   * True for the overflow bucket ONLY. Curated groups are always open —
+   * collapsing them would hide the thing the page exists to show — but
+   * "Other published values" is by definition what the config had no place
+   * for, and a long tail of it between a student and the next section is
+   * the reason this tab reads as a wall.
+   */
+  collapsible: boolean;
 };
 
 export type BarsBlock = BlockBase & {
@@ -117,9 +127,17 @@ export function sectionBlocks(
     return rows;
   };
 
-  const pushRows = (block: Omit<RowsBlock, "kind" | "foot">) => {
+  const pushRows = (
+    block: Omit<RowsBlock, "kind" | "foot" | "collapsible"> &
+      Partial<Pick<RowsBlock, "collapsible">>,
+  ) => {
     if (block.rows.length === 0) return;
-    blocks.push({ ...block, kind: "rows", foot: null });
+    blocks.push({
+      collapsible: false,
+      ...block,
+      kind: "rows",
+      foot: null,
+    });
   };
 
   /*
@@ -161,12 +179,20 @@ export function sectionBlocks(
   );
   pushRows({
     id: "other",
-    title: blocks.length > 0 ? "Other published values" : null,
+    title: blocks.length > 0 ? OTHER_GROUP_TITLE : null,
     rows: takeRows(strays),
     emphasis: false,
+    collapsible: true,
   });
 
-  return blocks;
+  /*
+   * Compression is the last thing that happens, so it sees a block's rows
+   * exactly as they will render — including the entries a chart could not
+   * plot, which is where same-reason runs actually pile up.
+   */
+  return blocks.map(
+    (block): SectionBlock => ({ ...block, rows: compressAbsences(block.rows) }),
+  );
 }
 
 function groupBlock(
@@ -185,7 +211,14 @@ function groupBlock(
   if (!render) {
     const rows = takeRows(group.entries);
     if (rows.length === 0) return null;
-    return { ...base, kind: "rows", rows, emphasis: false, foot: null };
+    return {
+      ...base,
+      kind: "rows",
+      rows,
+      emphasis: false,
+      collapsible: false,
+      foot: null,
+    };
   }
 
   if (render.chart === "bars" && "source" in render) {
@@ -215,6 +248,7 @@ function groupBlock(
         kind: "rows",
         rows: fallback,
         emphasis: false,
+        collapsible: false,
         foot: null,
       };
     }
