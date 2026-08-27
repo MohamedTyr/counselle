@@ -3,9 +3,24 @@
 **Scope:** the three admin screens in `frontend/src/features/cds-admin/` — Coverage (P6a),
 Batch upload (P6b), Document review (P6c).
 **Audience:** the three implementers, working in parallel, who will not talk to each other.
-**Authority:** this document is the design contract. Where it contradicts `PLAN.md` §F, the
-deviation is called out inline with a reason (search for **DEVIATION**). Workflow and API
-shapes are locked by `PLAN.md` §D/§F — this spec does not change them.
+
+**Authority — screen-level, subordinate to root `DESIGN.md` (SHIP-PLAN.md §5.3).** Root
+`/DESIGN.md` is the one canonical spec for tokens, the palette, elevation/shape/type/spacing
+scales, the shell and page scaffold, and component/registry rules — this document does not
+restate or override any of that, and where the two ever read as disagreeing, root `DESIGN.md`
+wins. What this document owns instead is the stuff that is genuinely specific to these three
+screens and has no reason to live at app scope: the coverage-grid/staging-table/flag-queue
+wireframes, this tool's own density rhythm (§1.6), its status vocabulary's *content* (§2 — which
+five-or-six values exist and what each one means, not the colour system they render through),
+its keyboard map (§5.9), and its lifecycle/state machines (§4.8, §5.11). Two design docs
+independently claiming authority over one app was a false-DRY hazard reconciled in SHIP-PLAN.md
+§5.3 — this is the resolution: fold what changes for app-wide reasons up into root `DESIGN.md`
+(nothing here qualified), keep what changes for this-tool-specific reasons here, deferring
+everywhere else.
+
+Where it contradicts `PLAN.md` §F, the deviation is called out inline with a reason (search for
+**DEVIATION**). Workflow and API shapes are locked by `PLAN.md` §D/§F — this spec does not
+change them.
 
 **The bar, from the owner:** *"follow the frontend rules of the counselle app… look so good…
 never overcomplicate things… the perfect ui/ux while being so fucking minimal."*
@@ -17,10 +32,16 @@ Minimal in **surface**; excellent in **craft**. Fewer controls, each one exactly
 
 Every disagreement between the three screens gets settled by one of these.
 
-1. **The colour law.** Green = done and correct. Amber = *a human must act.* Blue = *the
-   machine is working, or here's a fact.* Red = broken. Neutral/grey = inert, absent, or
-   nothing-to-do. This law governs every chip, every icon, every border accent, on all
-   three screens. Nothing else earns colour.
+1. **The colour law — corrected, per root `DESIGN.md` §2.2/§3.1 (SHIP-PLAN.md §5.2/§5.3):
+   there is no blue.** Green = done and correct. Amber = *a human must act.* Red = broken.
+   Neutral/grey = inert, absent, in-progress, **or here's a fact** — root `DESIGN.md` deleted
+   the `--info` role app-wide (§3.1: "Deleted, deliberately: `--blue`") and its law is that
+   the ordinary state of a record, including every in-progress state, gets no hue at all
+   (§14.1). This section originally read "Blue = the machine is working, or here's a fact,"
+   true when this screen was designed pre-rebase; `processing`, `uploading`, `detecting`, and
+   `replaces_existing` all render `secondary` today, not a fourth colour family — see §2.1/§2.3
+   for the corrected tables. This law governs every chip, every icon, every border accent, on
+   all three screens. Nothing else earns colour.
 2. **Colour is never the only signal.** Every status carries an icon **and** a text label.
    Absence of a document is a visible glyph, not an absence of colour.
 3. **Row-scoped errors are inline. Page- and action-scoped errors are toasts.** A 40-file
@@ -110,25 +131,23 @@ the scale for these three screens. Do not introduce a size outside it.
 
 ### 1.4 Token whitelist
 
-Use only these. Anything else is a violation of the AGENTS.md house rule.
+**Superseded by root `DESIGN.md` §2–§3 (SHIP-PLAN.md §5.3) — read the law there, not the list
+below.** This section originally re-stated an app-wide rule at screen scope, which is exactly
+the drift root `DESIGN.md` §2.4 warns against ("a new token? it almost certainly doesn't
+belong"), and it had already gone stale: it whitelisted `text-info`/`border-info`, but root
+`DESIGN.md` law 6 (§19) is **no `info`/blue** — there is no `--info` role, full stop (§3.1), and
+`Badge` never had an `info` variant in this app (`badge.tsx`'s own comment says so). The
+five/six statuses this tool needs (§2) render through the same five `Badge` variants every other
+screen uses (`success` / `warning` / `error` / `secondary` / `outline` — root `DESIGN.md` §14.1)
+and the same semantic surface/text roles (`bg-card`, `text-muted-foreground`, `border-border`,
+`ring-ring`, …) as any other feature. Kept here only because it is screen-specific, not a token
+rule: **radii** — `rounded-sm` `rounded-md` `rounded-lg` `rounded-xl` (§1.3's exact typography
+classes are the other screen-specific pin; both exist so three parallel implementers can't
+individually drift, not because either overrides the app-wide scale).
 
-**Surfaces / text:** `bg-background` `text-foreground` `bg-card` `text-card-foreground`
-`bg-popover` `text-popover-foreground` `bg-muted` `text-muted-foreground` `bg-accent`
-`text-accent-foreground` `bg-secondary`
-**Lines / focus:** `border-border` (implicit via the global `* { border-border }`, so bare
-`border` / `border-b` / `border-t` is correct and preferred) · `border-input` · `ring-ring`
-**Status colour:** `text-success` `text-warning` `text-info` `text-destructive` and their
-`border-*` counterparts. **Backgrounds for status come from `Badge` variants only** — never
-`bg-warning` etc. directly.
-**Radii:** `rounded-sm` `rounded-md` `rounded-lg` `rounded-xl` (map to `--radius-*`)
-
-**Forbidden:** `--workspace-*`, `--task-*`, `--activity-*`, `--profile-*`, `--essay-*`,
-`--onboarding-*`, `--shell-*`, `--chart-*` — all feature-private. Also forbidden: any hex,
-any `oklch()`/`color-mix()` written by hand, any `text-[…]`/`bg-[…]` arbitrary value.
-
-**No `--cds-*` tokens are minted.** The existing `Badge` variants cover all five statuses,
-all seven upload row states and all three flag severities (§2). If you think you need a new
-token, you're about to build something this spec didn't ask for — stop.
+**No `--cds-*` tokens are minted.** The existing `Badge` variants cover every status this tool
+needs (§2). If you think you need a new token, you're about to build something this spec didn't
+ask for — stop, and re-read root `DESIGN.md` §2.4 before reaching for `primitives.css`.
 
 ### 1.5 Focus, hover, and what is clickable
 
@@ -181,12 +200,18 @@ Never a full-page spinner. Never a spinner overlay on already-rendered data.
 This tool is mostly *watching async work*. The in-progress vocabulary is therefore
 first-class, not an afterthought.
 
+**Chips below are `secondary` (neutral), not `info` — see §2.1.** Root `DESIGN.md`'s law that
+"the ordinary state of a record gets no colour" (§14.1) covers in-progress work too: none of
+these phases claims *done*, *waiting on someone*, or *broken*, so none earns a hue. The icon
+and label carry the signal instead — exactly what §0 law 2 ("colour is never the only signal")
+already required.
+
 | Phase | Where | Visual | Poll |
 |---|---|---|---|
-| `uploading` | Upload row | `info` chip, `Loader2 animate-spin`, label **Uploading** | — (in-flight request) |
-| `detecting` | Upload row | `info` chip, `Loader2 animate-spin`, label **Detecting** | — (same request; §7 gap 4) |
-| `queued` | Upload row, Coverage cell, Review header | `info` chip, `Clock` (**not** spinning — it isn't running), label **Queued** | 2s / 4s |
-| `running` | Upload row, Coverage cell, Review header | `info` chip, `Loader2 animate-spin`, label **Extracting**, plus determinate `Meter` where `progress:{done,total}` exists | 2s / 4s |
+| `uploading` | Upload row | `secondary` chip, `Loader2 animate-spin`, label **Uploading** | — (in-flight request) |
+| `detecting` | Upload row | `secondary` chip, `Loader2 animate-spin`, label **Detecting** | — (same request; §7 gap 4) |
+| `queued` | Upload row, Coverage cell, Review header | `secondary` chip, `Clock` (**not** spinning — it isn't running), label **Queued** | 2s / 4s |
+| `running` | Upload row, Coverage cell, Review header | `secondary` chip, `Loader2 animate-spin`, label **Extracting**, plus determinate `Meter` where `progress:{done,total}` exists | 2s / 4s |
 | `saving` (an edit) | Review metric row | the value dims to `opacity-64`; no spinner | — |
 
 Polling intervals (TanStack `refetchInterval`, returned from a function so it stops):
@@ -276,9 +301,16 @@ It is real work for a user who does not exist. Single-column stacking below `lg`
 
 ### 1.12 Theme
 
-The app is **dark-only on this branch** (`:root` and `.dark` currently define identical dark
-values). Do not design a light variant, do not add `dark:` prefixes to feature code. Because
-every colour comes from a semantic token, a future light theme costs nothing here.
+**Superseded — the app is light-only, per root `DESIGN.md` §3.4 (SHIP-PLAN.md §5.2/§5.3).**
+This section originally said the app was dark-only on this branch, true at the time these three
+screens were designed and built. Root `DESIGN.md` arrived with the Phase 5 rebase and settled
+the app on a single light theme — no `.dark` class, no `prefers-color-scheme` branch, no
+`dark:` variants anywhere. Because every colour in these three screens already came from a
+semantic token rather than a hardcoded value, the flip needed no code change: `rg -c "dark:"
+frontend/src/features/cds-admin/` returns 0 everywhere, and the light-only re-audit (SHIP-PLAN
+§5.2) confirmed by live screenshot that Coverage, Batch upload, and Document review all still
+read correctly — depth, hover, and status treatments intact — under the real light palette.
+Do not add `dark:` prefixes to feature code; there is no dark theme to branch for.
 
 ---
 
@@ -286,17 +318,27 @@ every colour comes from a semantic token, a future light theme costs nothing her
 
 **One definition. All three screens. `features/cds-admin/cds-status.tsx`, owned by P6a.**
 
-### 2.1 Document status — the five
+### 2.1 Document status — six, not five (§2.2's exception)
 
 These describe *a school-year's CDS document*. They appear in coverage cells, in upload rows
-after processing starts, and in the review header. Identical everywhere.
+after processing starts, and in the review header. Identical everywhere. `correction_pending`
+was added by SHIP-PLAN.md §2.4, after this section was first written as "the five" — see §2.2
+for why it is a real sixth status rather than a modifier.
+
+**`processing` renders `secondary`, not `info` — there is no `info` variant** (root
+`DESIGN.md` §3.1/§19 rule 6, §1.4 above). The table below originally specified `info` before
+root `DESIGN.md`'s "the ordinary state of a record gets no colour" law (§14.1) applied to this
+tool: a queued or running extraction is in-progress, not a claim about *done/waiting/broken*,
+so it gets no hue at all, same as a task that is merely `doing`. `cds-status.tsx` implements
+this correctly today (`cdsStatusMeta.processing.variant === "secondary"`); the table matches it.
 
 | Status | `Badge variant` | Icon (lucide) | Short label (grid) | Full label | Means |
 |---|---|---|---|---|---|
 | `none` | **no badge** | `Plus`, revealed on hover/focus | — | Not uploaded | No document for this school-year |
-| `processing` | `info` | `Clock` when queued · `Loader2 animate-spin` when running | **Processing** | Queued / Extracting | An extraction is queued or running |
+| `processing` | `secondary` | `Clock` when queued · `Loader2 animate-spin` when running | **Processing** | Queued / Extracting | An extraction is queued or running |
 | `needs_review` | `warning` | `Flag` | **Review** | Needs review | Candidate document, extracted, awaiting a human |
 | `approved` | `success` | `CircleCheck` | **Approved** | Approved | Active — this data reaches students |
+| `correction_pending` | `warning` | `ArrowRightLeft` | **Correction** | Correction pending | An already-active document has a still-unreviewed correction on top of it (§2.2) |
 | `failed` | `destructive` | `OctagonX` | **Failed** | Failed | Extraction failed; re-runnable |
 
 Icon choices deliberately echo the app's own toast icon set (`components/ui/sonner.tsx` uses
@@ -313,22 +355,41 @@ Do not invent a sixth status. Render the `approved` chip, and beneath it a
 `text-xs text-muted-foreground tabular-nums` marker `9/13`. The `Tooltip` and the `aria-label`
 spell it out: *"Approved — 9 of 13 domains extracted."*
 
+**Exception, recorded per SHIP-PLAN.md §2.4: `correction_pending` is a genuine sixth status,
+not a second modifier under this rule.** This rule is scoped to `partial` specifically —
+a document that is approved and incomplete is still the same underlying state, with
+completeness rendered as a sub-label under the one `approved` chip. `correction_pending` is a
+different axis: an already-active, already-approved document has a newer `active_update`
+extraction sitting on top of it that nobody has reviewed yet — "unreviewed new data exists,"
+which is not true of `approved` at all. A modifier under `approved` can only ever say
+*"approved, and here's a completeness caveat"*; it has no way to say *"don't trust what you're
+looking at, it may already be stale"* — and rendering that cell as plain `approved` would
+itself be the false-badge violation this rule exists to prevent (root `DESIGN.md` §1.1: "a
+badge must be true, never a guess"). So `correction_pending` gets its own entry in
+`cdsStatusMeta` (§2.5) rather than a modifier — see `cds-status.tsx`'s own doc comment on the
+`CdsStatus` union, which records the same reasoning at the type definition.
+
 ### 2.3 Upload row status — the seven (Batch upload only)
 
 A different axis (a *file's* readiness), but obeying the same colour law.
 
 | Row status | `Badge variant` | Icon | Label | Reason sub-line (`text-xs text-muted-foreground`) |
 |---|---|---|---|---|
-| `uploading` | `info` | `Loader2 animate-spin` | Uploading | — |
-| `detecting` | `info` | `Loader2 animate-spin` | Detecting | "Reading school and year…" |
+| `uploading` | `secondary` | `Loader2 animate-spin` | Uploading | — |
+| `detecting` | `secondary` | `Loader2 animate-spin` | Detecting | "Reading school and year…" |
 | `matched` | `success` | `CircleCheck` | Ready | — |
 | `needs_input` | `warning` | `CircleHelp` | Needs input | "Pick a school" / "Pick a year" / "Pick a school and year" |
-| `replaces_existing` | `info` | `ArrowRightLeft` | Replaces | "Supersedes the 2024–25 document" *(links it)* |
+| `replaces_existing` | `secondary` | `ArrowRightLeft` | Replaces | "Supersedes the 2024–25 document" *(links it)* |
 | `duplicate` | `secondary` | `Copy` | Duplicate | "Already uploaded {formatWhen}" *(links the existing document)* |
 | `failed` | `destructive` | `OctagonX` | Failed | the server's `error_message`, verbatim |
 
-`duplicate` is `secondary` — neutral, inert, nothing to do — per the colour law. It is the one
-row state that is *not* a problem and *not* progress.
+`uploading`/`detecting`/`replaces_existing` are `secondary` for the same reason `processing`
+is (§2.1) — in-progress and "here's a fact" both get no hue under root `DESIGN.md`'s law that
+the ordinary state gets no colour (there is no `info` variant to put them in). `duplicate` is
+also `secondary`, for a different reason stated at the site: neutral, inert, nothing to do —
+per the colour law, it is the one row state that is *not* a problem and *not* progress. Three
+different `secondary` chips on this screen for two different reasons is exactly why §2.5's
+invariant is icon+variant, never variant alone (§0 law 2).
 
 ### 2.4 Flag severity — the three (Document review only)
 
@@ -336,7 +397,7 @@ row state that is *not* a problem and *not* progress.
 |---|---|---|---|
 | `error` | `destructive` | `OctagonX` | Error |
 | `warning` | `warning` | `TriangleAlert` | Warning |
-| `info` | `info` | `Info` | Note |
+| `info` | `secondary` | `Info` | Note |
 
 A flag chip is `size="sm"` and shows only the icon plus the flag `code` (e.g. `C1`); the
 human-readable `message` is the row's expanded text, not tooltip-only — see §6.6.
@@ -366,9 +427,18 @@ export function UploadStatusChip(props: { status: UploadRowStatus }): React.Reac
 export function FlagChip(props: { severity: FlagSeverity; code: string }): React.ReactElement;
 ```
 
-`*.test.ts` for the three maps is one of the few tests that earns its place (PLAN §F7):
-assert every status key has a label and an icon, and that no two statuses share a variant
-within the same axis.
+`*.test.ts` for the three maps is one of the few tests that earns its place (PLAN §F7): assert
+every status key has a label and an icon.
+
+**Corrected per SHIP-PLAN.md §5.3: "no two statuses share a variant within the same axis" was
+never the real invariant — it just held by coincidence until `correction_pending` existed.**
+§2.3's own upload-row-status table already gives `uploading`, `detecting`, and
+`replaces_existing` the same `info`-family (now `secondary`) variant, and `needs_review` and
+`correction_pending` deliberately share the `warning` family — both mean "a human must act."
+The actual law is root `DESIGN.md`'s (§0 here, §14.3 there): **colour is never the only
+signal** — every status stays distinguishable by variant *and* icon *and* label together, not
+by variant alone. `cds-status.test.ts` asserts the real invariant: every non-`none` document
+status has a visually distinct `(variant, Icon)` pair, not a distinct variant.
 
 ---
 
