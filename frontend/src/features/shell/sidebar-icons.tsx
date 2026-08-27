@@ -24,7 +24,16 @@ import type { SVGProps } from "react";
  * fallback for any consumer that doesn't set a class.
  */
 
-type IconProps = SVGProps<SVGSVGElement>;
+/*
+ * `strokeWidth` (and `size`, RailIcon's own prop) are excluded here: each
+ * icon below fixes its own optically-tuned stroke width and viewport size
+ * per the doc, and a caller's spread must never be able to widen those
+ * literals to `string | number` at the type level — that is what made the
+ * `tsc -b` project build (frontend/package.json's `typecheck` script)
+ * reject every icon below once main's non-CDS files entered this branch by
+ * the Phase 5 rebase.
+ */
+type IconProps = Omit<SVGProps<SVGSVGElement>, "strokeWidth">;
 
 function RailIcon({
   size,
