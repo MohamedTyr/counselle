@@ -237,9 +237,22 @@ function groupBlock(
      * claim, and we do not make claims we cannot source.
      */
     if (max === null) {
+      /*
+       * Every ref, rebuilt as a row — including the ones that PASSED the
+       * numeric gate a moment ago.
+       *
+       * `takeRows` cannot do this: `splitNumeric` has already marked those
+       * refs seen, so takeRows skips them and the plotted values fall out of
+       * the page entirely. That is the exact failure the block invariant at
+       * the top of this file forbids — a value in neither `points` nor
+       * `rows` — and it stayed invisible only because no group had ever hit
+       * this path with points in hand. `entryRow` is called directly, in
+       * config order, so nothing depends on the seen set here.
+       */
       const fallback = [
-        ...takeRows(render.refs),
-        ...rows,
+        ...render.refs
+          .map((entry) => entryRow(entry, data))
+          .filter((row): row is FactTableRow => row !== null),
         ...takeRows(group.entries),
       ];
       if (fallback.length === 0) return null;

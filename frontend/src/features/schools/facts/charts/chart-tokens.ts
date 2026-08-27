@@ -106,12 +106,24 @@ export const VALUE_LABEL = {
 export function useChartEntrance(): {
   isAnimationActive: boolean;
   animationDuration: number;
-  animationEasing: "ease-out";
+  animationEasing: typeof ENTRANCE_EASING;
 } {
   const reduceMotion = useReducedMotion();
   return {
     isAnimationActive: !reduceMotion,
     animationDuration: 340,
-    animationEasing: "ease-out",
+    animationEasing: ENTRANCE_EASING,
   };
 }
+
+/**
+ * The app's expo-out list-entrance curve (DESIGN §14), not the built-in
+ * `ease-out` this used to pass.
+ *
+ * The CSS built-ins are weak: at 340ms `ease-out` reads as a bar drifting
+ * into place, where the same duration on this curve reads as one that
+ * arrives. Recharts parses a `cubic-bezier(...)` string directly, so there is
+ * no reason to settle for the default — and 340ms is already the duration
+ * DESIGN pairs with this exact curve.
+ */
+const ENTRANCE_EASING = "cubic-bezier(0.16,1,0.3,1)" as const;

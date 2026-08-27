@@ -442,3 +442,47 @@ describe("compressing a run of absences never hides one", () => {
     }
   });
 });
+
+describe("an unreadable chart ceiling demotes values, never drops them", () => {
+  test("a plotted value survives the fallback to rows", () => {
+    /*
+     * `barDomain` returns null when the configured denominator cannot be
+     * read as a number, and the whole group collapses to rows rather than
+     * self-scaling against a ceiling nobody supplied.
+     *
+     * The collapse used to rebuild its rows through `takeRows`, which skips
+     * refs the numeric split had already marked seen — so any value that had
+     * PASSED the gate fell out of the page entirely. A group with three
+     * counts rendered two. This is the block invariant ("nothing is ever in
+     * neither") and it is checked with a hand-built packet because no
+     * fixture currently reaches that branch.
+     */
+    const yale = schoolFactsFixture(YALE)!;
+    const facts = { ...yale.facts };
+    /* The denominator becomes prose; the counts stay numbers. */
+    facts["admissions.waitlist_offered_count"] = {
+      ...facts["admissions.waitlist_offered_count"],
+      state: { kind: "reported", display: "about a thousand", raw: "~1000" },
+    };
+
+    const blocks = sectionBlocks(
+      { ...yale, facts },
+      sectionById("getting-in"),
+    );
+    const waitlist = blocks.find((block) => block.id === "waitlist");
+    expect(waitlist?.kind, "the group should have collapsed to rows").toBe(
+      "rows",
+    );
+
+    const named = (waitlist?.rows ?? []).flatMap((row) =>
+      row.label.split("; "),
+    );
+    for (const label of [
+      "Students offered a waitlist place",
+      "Students who accepted a place",
+      "Students admitted from the waitlist",
+    ]) {
+      expect(named, `${label} fell out of the page`).toContain(label);
+    }
+  });
+});

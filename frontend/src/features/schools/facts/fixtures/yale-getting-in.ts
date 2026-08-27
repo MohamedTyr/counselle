@@ -192,7 +192,7 @@ export const gettingInFacts: Fact[] = [
   f(
     "admissions.total_academic_units_required",
     "Total academic units required",
-    reported("20"),
+    reported("20", 20),
     {
       evidence: page(3, "C5. Total academic units required: 20", "C5"),
     },
@@ -200,7 +200,7 @@ export const gettingInFacts: Fact[] = [
   f(
     "admissions.total_academic_units_recommended",
     "Total academic units recommended",
-    reported("24"),
+    reported("24", 24),
     { evidence: page(3, "C5. Total academic units recommended: 24", "C5") },
   ),
   f(
@@ -250,7 +250,7 @@ export const gettingInFacts: Fact[] = [
   f(
     "admissions.waitlist_offered_count",
     "Students offered a waitlist place",
-    reported("1,020"),
+    reported("1,020", 1_020),
     {
       caveats: ["waitlist-volatile"],
       evidence: page(3, "C2. Offered a place on the waitlist: 1,020", "C2"),
@@ -259,7 +259,7 @@ export const gettingInFacts: Fact[] = [
   f(
     "admissions.waitlist_accepted_count",
     "Students who accepted a place",
-    reported("704"),
+    reported("704", 704),
     {
       caveats: ["waitlist-volatile"],
       evidence: page(3, "C2. Accepting a place on the waitlist: 704", "C2"),

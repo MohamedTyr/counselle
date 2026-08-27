@@ -208,6 +208,17 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
         title: "Required high-school units",
         caveat:
           "Schools often recommend more than they require. The recommendation is the real expectation.",
+        /*
+         * NO CHART, deliberately — this group is rows only.
+         *
+         * The two honest options were both weak. A bar per subject puts parts
+         * and totals on one axis, which is the defect `cost-itemized` warns
+         * about one section over. Two bars for the totals alone is honest but
+         * says almost nothing: 20 against 24 is a 17% difference that the two
+         * adjacent rows already make instantly readable, and drawing it costs
+         * this group its half of a paired band — real vertical space traded
+         * for a mark nobody needed. The caveat above carries the finding.
+         */
         entries: [
           fact("admissions.total_academic_units_required"),
           fact("admissions.total_academic_units_recommended"),
@@ -235,6 +246,28 @@ export const SCHOOL_FACT_SECTIONS: SectionConfig[] = [
         title: "Waitlist",
         caveat:
           "Waitlist numbers swing widely year to year. Read them as context, not as odds.",
+        foot: "Three nested counts on one scale — everyone admitted from the waitlist first accepted a place on it.",
+        /*
+         * The same shape as `applicant-pool`, which it had been missing:
+         * three nested counts — admitted ⊆ accepted ⊆ offered — so one
+         * shared scale is the fact rather than a flattering arrangement of
+         * it. Three bars on a baseline, never a funnel, for the reason
+         * written under `applicant-pool` below.
+         *
+         * This is also where the zero rule earns its keep: a school that
+         * admitted nobody from its waitlist reports a real 0, and the bar
+         * keeps its 2px tick and its printed "0" rather than vanishing.
+         */
+        render: {
+          chart: "bars",
+          unit: "count",
+          refs: [
+            fact("admissions.waitlist_offered_count"),
+            fact("admissions.waitlist_accepted_count"),
+            fact("admissions.waitlist_admitted_count"),
+          ],
+          maxRef: fact("admissions.waitlist_offered_count"),
+        },
         entries: [
           fact("admissions.has_waitlist_policy"),
           fact("admissions.waitlist_offered_count"),
@@ -661,10 +694,14 @@ export const NAV_SECTIONS = SCHOOL_FACT_SECTIONS.map((section) => ({
   title: section.title,
 }));
 
-export function sectionById(id: SectionId): SectionConfig {
+/**
+ * Takes a bare string because one caller is the URL, which can carry
+ * anything — a stale link, a typo, or nothing at all. A miss is not an error
+ * worth showing; it lands on the first section, which is the same place a
+ * reader with no link starts.
+ */
+export function sectionById(id: string | null | undefined): SectionConfig {
   const found = SCHOOL_FACT_SECTIONS.find((section) => section.id === id);
-  /* Section ids come from NAV_SECTIONS, which is derived from this array —
-   * a miss means the URL carried something we do not render. */
   return found ?? SCHOOL_FACT_SECTIONS[0];
 }
 

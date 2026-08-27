@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router";
 
 import {
   Empty,
@@ -38,9 +38,37 @@ import type {
 const LAYOUT_CLASS =
   "grid items-start gap-6 md:grid-cols-[200px_minmax(0,1fr)] lg:gap-8";
 
+/*
+ * There is no SchoolFactsSkeleton here on purpose. The facts arrive
+ * synchronously and the route's own SchoolDetailSkeleton already covers the
+ * only wait there is; a rail-and-panel skeleton would be a shape with no
+ * moment to appear in. It belongs with the change that makes this read
+ * async, not ahead of it.
+ */
+
+const SECTION_PARAM = "section";
+
 export function SchoolFactsPanel({ data }: { data: SchoolFacts }) {
-  const [selected, setSelected] = useState<SectionId>("getting-in");
-  const section = sectionById(selected);
+  /*
+   * The section lives in the URL, in the same grammar as the About/Applying
+   * tab one level up (SchoolDetailRoute) — so a link to a school's aid
+   * numbers lands on the aid numbers, and reload keeps the reader where they
+   * were. `replace` because reading down a page of facts is one visit, not
+   * six, and six back-presses to leave a tab is a broken back button.
+   */
+  const [params, setParams] = useSearchParams();
+  const section = sectionById(params.get(SECTION_PARAM));
+  const selected = section.id;
+  const setSelected = (next: SectionId) => {
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+        updated.set(SECTION_PARAM, next);
+        return updated;
+      },
+      { replace: true },
+    );
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-[1160px] flex-col gap-6">
@@ -62,14 +90,19 @@ export function SchoolFactsPanel({ data }: { data: SchoolFacts }) {
             />
           </div>
         </div>
-        <div
-          /* Panel content re-enters on section change. Keyed so the
-           * animation actually re-runs; opacity and a 4px slide only. */
-          className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-200"
-          key={selected}
-        >
-          <SchoolFactsSection data={data} section={section} />
-        </div>
+        {/*
+         * The swap is INSTANT, deliberately.
+         *
+         * It used to fade and slide in on a keyframe, keyed to re-run per
+         * section. Keyframes restart from zero rather than retargeting, so
+         * clicking quickly down the rail — the most repeated interaction on
+         * this tab — stuttered instead of crossfading. And the fix is not a
+         * better curve: this is navigation a reader performs dozens of times
+         * in a session, which is the tier where the answer is to remove the
+         * animation, not tune it. Profile's identical rail-and-panel swap has
+         * never animated either.
+         */}
+        <SchoolFactsSection data={data} section={section} />
       </div>
     </div>
   );
