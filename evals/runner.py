@@ -1024,17 +1024,30 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
         for word, digit in number_words.items():
             normalized_prose = re.sub(rf"\b{word}\b", digit, normalized_prose, flags=re.I)
         # A natural qualifier phrase can sit between "of"/"out of" and the
-        # total (e.g. "out of a total of 2,746"). Tolerate a small, named set
-        # of such phrases, capped at one occurrence, so the gap stays a few
-        # words wide rather than an unbounded `.*` that could fuzzy-match a
-        # different number anywhere later in the answer.
-        denominator_qualifier = r"(?:the|a\s+total\s+of|approximately|roughly|about|around)"
+        # total (e.g. "out of a total of 2,746", "out of all 2,746").
+        # Tolerate a small, named set of such phrases, capped at one
+        # occurrence, so the gap stays a few words wide rather than an
+        # unbounded `.*` that could fuzzy-match a different number anywhere
+        # later in the answer.
+        denominator_qualifier = (
+            r"(?:the|a\s+total\s+of|approximately|roughly|about|around|all)"
+        )
+        # The direct-order filler list is a named, bounded set of words a
+        # real answer uses between the numerator and "of"/"out of" — not an
+        # open wildcard, so it can't skip past mismatched numbers. It also
+        # tolerates one parenthetical aside (e.g. a backtick-quoted metric
+        # id like "(financial_aid.h2_i_...)") as a single filler unit, since
+        # that's a citation, not prose that should gate the match. The count
+        # is raised from 24 to 40 to cover verbose real phrasing (e.g. a
+        # metric description plus its qualifiers) while staying an explicit,
+        # named bound rather than unlimited.
         direct = (
             rf"\b{expected_pair[0]}\b"
             rf"(?:\s+(?:covered|verified|reported|eligible|profiled|schools?|institutions?"
             rf"|candidates?|values?|with|usable|exact|metric|data|that|can|be|evaluated"
             rf"|have|has|are|numeric|a|an|the|for|this|ranking|only|count|of|total|database"
-            rf"|contains|reflects|our|current|reported)){{0,24}}\s+"
+            rf"|contains|reflects|our|current|reported|all|average|percentage|financial"
+            rf"|need|met|undergraduates|full-time|\([^()]*\))){{0,40}}\s+"
             rf"(?:of|out of)\s+"
             rf"(?:{denominator_qualifier}\s+){{0,1}}{expected_pair[1]}\b"
             if expected_pair

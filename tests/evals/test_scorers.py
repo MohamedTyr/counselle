@@ -829,6 +829,26 @@ def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
     assert score_deterministic(zero_expects, mismatched_total)["denominator"]["passed"] is False
 
 
+def test_denominator_tolerates_metric_ref_aside_and_all_qualifier() -> None:
+    # Regression: a real run (denominator-best-aid, 2026-08-26) produced this
+    # phrasing verbatim and was wrongly scored as a failure — the backtick-quoted
+    # metric id in parens broke the filler-word chain, and "out of all 2,746"
+    # wasn't recognized as a covered/total statement.
+    expects = {"denominator": True, "denominator_total": 2746}
+    payload = {"columns": ["covered", "total"], "rows": [[3, 2746]]}
+    verbose_with_metric_ref = make_query_capture(
+        "there are 3 schools with a verified reported value for the average "
+        "percentage of financial need met for all full-time undergraduates "
+        "(`financial_aid.h2_i_average_percent_need_met_all_full_time`) "
+        "out of all 2,746 profiled schools.",
+        payload,
+    )
+    assert (
+        score_deterministic(expects, verbose_with_metric_ref)["denominator"]["passed"]
+        is True
+    )
+
+
 def test_marker_requirement_accepts_verified_visualization_cell_marker() -> None:
     capture = make_capture(
         vizzes=[
