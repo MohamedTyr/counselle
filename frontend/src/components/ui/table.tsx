@@ -93,7 +93,12 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        "relative border-b not-in-data-[variant=card]:hover:bg-[color-mix(in_srgb,var(--background),var(--color-black)_2%)] not-in-data-[variant=card]:data-[state=selected]:bg-[color-mix(in_srgb,var(--background),var(--color-black)_4%)]",
+        /* Default-variant rows take the semantic hover/active tokens, the
+         * same two the card variant already uses. They used to carry raw
+         * `color-mix(… --background …)` literals, which is the one thing
+         * semantic.css exists to stop: a hover that renders differently
+         * depending on what happens to be behind it. */
+        "relative border-b not-in-data-[variant=card]:hover:bg-[var(--surface-hover)] not-in-data-[variant=card]:data-[state=selected]:bg-[var(--surface-active)]",
         className,
       )}
       data-slot="table-row"

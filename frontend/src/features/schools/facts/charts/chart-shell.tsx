@@ -8,6 +8,11 @@ import type React from "react";
  * same kind of content, drawn differently. Boxing it would make the page read
  * as a dashboard of widgets rather than one document about one school.
  *
+ * That was aspirational until the section panel landed: the tables around a
+ * chart were cards, so the chart had to be nudged right by a now-deleted
+ * --school-chart-inset to fake a shared edge. Now the panel's padding IS the
+ * edge, and nothing here needs to compensate for anything.
+ *
  * Measurements and motion live in `chart-tokens.ts`.
  */
 
@@ -22,7 +27,7 @@ export function ChartFoot({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <p className="max-w-[68ch] px-[var(--school-chart-inset)] text-xs leading-5 text-[var(--school-fact-caveat)]">
+    <p className="max-w-[68ch] text-xs leading-5 text-[var(--school-fact-caveat)]">
       {children}
     </p>
   );

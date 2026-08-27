@@ -1,4 +1,5 @@
 import type {
+  DomainCoverage,
   FactState,
   SchoolIdentity,
 } from "@/features/schools/facts/school-facts-types";
@@ -46,6 +47,30 @@ export type ReportedState = Extract<FactState, { kind: "reported" }>;
 /** A type guard, so `state.display` is reachable without a cast. */
 export function isReported(state: FactState): state is ReportedState {
   return state.kind === "reported";
+}
+
+/**
+ * What this section's numbers rest on, in one line under the heading.
+ *
+ * Two counts, never one ratio: "verified of configured" is how much of the
+ * form we could read, and `notInTemplate` is a separate sentence because it
+ * is a different claim — the school's edition of the CDS never asked, so
+ * those values are not missing, they do not exist. Folding K into the
+ * shortfall would turn "the form didn't ask" into "the school didn't say".
+ *
+ * Deliberately plain text and NOT a Meter: a meter is a progress-toward-a-
+ * goal primitive, and CDS coverage is not a goal a student is progressing
+ * toward. A near-full bar would also read as a quality score for the school
+ * rather than a statement about our reading of a document.
+ */
+export function coverageSentence(coverage: DomainCoverage): string {
+  const read =
+    coverage.configured === 0
+      ? "No values from this section of the Common Data Set are on file"
+      : `${coverage.verified.toLocaleString()} of ${coverage.configured.toLocaleString()} published values on file`;
+  if (coverage.notInTemplate === 0) return `${read}.`;
+  const k = coverage.notInTemplate;
+  return `${read}. ${k.toLocaleString()} more ${k === 1 ? "isn't" : "aren't"} in this edition of the form.`;
 }
 
 export function identityMeta(identity: SchoolIdentity): string {

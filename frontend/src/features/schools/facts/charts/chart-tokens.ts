@@ -17,7 +17,9 @@ export const CHART_ROW_HEIGHT = 40;
  * line up down the page — four charts starting at four different x positions
  * is what makes a page of visuals read as unrelated widgets.
  *
- * Mirrored as `--school-chart-axis` for the few places CSS needs it.
+ * TypeScript only. It used to be mirrored as a `--school-chart-axis` custom
+ * property "for the few places CSS needs it"; there were none, so the mirror
+ * was deleted rather than kept in sync with nothing.
  */
 export const AXIS_WIDTH = 200;
 

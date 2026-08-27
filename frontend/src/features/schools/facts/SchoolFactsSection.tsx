@@ -1,6 +1,7 @@
 import type React from "react";
 
 import { FactTable } from "@/features/schools/facts/FactTable";
+import { coverageSentence } from "@/features/schools/facts/school-facts-format";
 import { FactBarChart } from "@/features/schools/facts/charts/FactBarChart";
 import { FactOrdinal } from "@/features/schools/facts/charts/FactOrdinal";
 import { FactRangeChart } from "@/features/schools/facts/charts/FactRangeChart";
@@ -11,13 +12,16 @@ import {
 } from "@/features/schools/facts/school-facts-blocks";
 import type { SectionConfig } from "@/features/schools/facts/school-facts-sections";
 import type { SchoolFacts } from "@/features/schools/facts/school-facts-types";
+import { cn } from "@/lib/utils";
 
 /**
  * One section of the About tab.
  *
- * A list of blocks, each either a chart or a name/value table. The headline
- * leads at one density step up — never as a hero number, which is a template
- * rather than a hierarchy.
+ * ONE raised panel holding a list of blocks, each either a chart or a
+ * name/value table. Not six cards: the section is the container, the groups
+ * are bands inside it, and the panel's padding is the single left edge every
+ * row, title and chart shares. The headline leads at one density step up —
+ * never as a hero number, which is a template rather than a hierarchy.
  */
 export function SchoolFactsSection({
   data,
@@ -27,22 +31,32 @@ export function SchoolFactsSection({
   section: SectionConfig;
 }): React.ReactElement {
   const blocks = sectionBlocks(data, section);
+  const coverage = data.coverage[section.id];
 
   return (
     <section
       aria-labelledby={`section-${section.id}`}
-      className="flex flex-col gap-4"
+      className="overflow-hidden rounded-xl border border-[var(--school-facts-panel-border)] bg-[var(--school-facts-panel-surface)]"
     >
-      <h2
-        className="text-lg font-medium text-[var(--ink)]"
-        id={`section-${section.id}`}
-      >
-        {section.title}
-      </h2>
+      <header className="flex flex-col gap-1 border-b border-[var(--school-fact-divider)] px-4 py-5 sm:px-6">
+        <h2
+          className="text-lg font-medium text-[var(--ink)]"
+          id={`section-${section.id}`}
+        >
+          {section.title}
+        </h2>
+        {/* What the section rests on, in words. Plain text rather than a
+         * meter — see coverageSentence. */}
+        {coverage ? (
+          <p className="text-xs leading-5 text-[var(--ink-secondary)]">
+            {coverageSentence(coverage)}
+          </p>
+        ) : null}
+      </header>
       {blocks.length > 0 ? (
-        <div className="flex flex-col gap-7">
-          {blocks.map((block) => (
-            <Block block={block} key={block.id} />
+        <div className="flex flex-col px-4 sm:px-6">
+          {blocks.map((block, index) => (
+            <Block block={block} key={block.id} showDivider={index > 0} />
           ))}
         </div>
       ) : (
@@ -51,7 +65,7 @@ export function SchoolFactsSection({
          * frame would read as "we looked and there is nothing here", which is
          * a stronger claim than the one we can make.
          */
-        <p className="text-sm leading-6 text-[var(--ink-secondary)]">
+        <p className="px-4 py-6 text-sm leading-6 sm:px-6 text-[var(--ink-secondary)]">
           {data.identity.name}'s Common Data Set doesn't cover this section, or
           we haven't been able to read it. We don't fill the gap from an older
           edition.
@@ -61,12 +75,24 @@ export function SchoolFactsSection({
   );
 }
 
-function Block({ block }: { block: SectionBlock }): React.ReactElement {
+function Block({
+  block,
+  showDivider,
+}: {
+  block: SectionBlock;
+  showDivider: boolean;
+}): React.ReactElement {
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      className={cn(
+        "flex flex-col gap-3 py-6",
+        /* The band separator. A rule between groups, never a border around
+         * one — the panel already owns the only perimeter in the section. */
+        showDivider && "border-t border-[var(--school-fact-divider)]",
+      )}
+    >
       {block.title ? <GroupTitle>{block.title}</GroupTitle> : null}
-      {/* Inset to the table's own text column — see --school-chart-inset. */}
-      <div className="px-[var(--school-chart-inset)] empty:hidden">
+      <div className="empty:hidden">
         <Mark block={block} />
       </div>
       {/* Directly under the mark it qualifies. A qualifier separated from
@@ -112,7 +138,7 @@ function GroupTitle({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <h3 className="px-[var(--school-chart-inset)] text-sm font-medium text-[var(--ink-secondary)]">
+    <h3 className="text-sm font-medium text-[var(--ink-secondary)]">
       {children}
     </h3>
   );

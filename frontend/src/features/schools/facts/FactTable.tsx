@@ -5,9 +5,12 @@ import { cn } from "@/lib/utils";
 /*
  * Two columns: what it is, and what it says. Nothing else.
  *
- * Built on the house `table.tsx` at variant="card", so the frame, the hairline
- * between rows, the corner radii and the row hover all come from the design
- * system rather than from a second table invented here.
+ * Built on the house `table.tsx` at variant="default" — the hairline between
+ * rows and the row hover come from the design system, and the FRAME comes
+ * from the section panel one level up. It used to be variant="card", which
+ * gave every group in a section its own border and shadow: six boxes on a
+ * section that was itself no surface at all. A group is a band in a list,
+ * not a card, and a card inside the panel would be a card inside a card.
  *
  * The honesty rule the table has to hold: an absent value renders as the
  * SENTENCE naming which kind of nothing it is, in the absent ink and italic —
@@ -29,7 +32,7 @@ export function FactTable({
   rows: readonly FactTableRow[];
 }) {
   return (
-    <Table variant="card">
+    <Table>
       <TableBody>
         {rows.map((row) => (
           <TableRow key={row.key}>
@@ -39,7 +42,9 @@ export function FactTable({
                * is an unreadable one. Baseline alignment keeps the first line
                * level with the value beside it. */
               className={cn(
-                "align-baseline whitespace-normal text-[var(--school-fact-label)]",
+                /* Flush left: the panel's own padding is the text column, so
+                 * a row starts exactly where the group title above it does. */
+                "ps-0 align-baseline whitespace-normal text-[var(--school-fact-label)]",
                 emphasis
                   ? "py-4 text-[0.9375rem] leading-6"
                   : "py-3.5 text-sm leading-6",
@@ -49,7 +54,7 @@ export function FactTable({
             </TableCell>
             <TableCell
               className={cn(
-                "pl-4 text-right align-baseline whitespace-normal sm:pl-6",
+                "pe-0 pl-4 text-right align-baseline whitespace-normal sm:pl-6",
                 emphasis
                   ? "py-4 text-[0.9375rem] leading-6"
                   : "py-3.5 text-sm leading-6",

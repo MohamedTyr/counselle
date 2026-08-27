@@ -88,6 +88,16 @@
   --school-balance-target: var(--brand-scale-2);
   --school-balance-safety: var(--brand-scale-1);
 
+  /* ---- the About tab's section panel ----
+   * ONE raised surface per section, the same shell Profile draws around a
+   * section card. Before this the groups inside were each a card and the
+   * section around them was nothing at all — six perimeters and six shadows
+   * on bare canvas, which is neither of the two container shapes DESIGN
+   * §17.2 permits. The panel is the list; the groups are bands within it,
+   * separated by a hairline and never by a second border. */
+  --school-facts-panel-surface: var(--surface-raised);
+  --school-facts-panel-border: var(--edge);
+
   /* ---- fact rows (the About tab) ----
    * A fact is a label, a value, and the qualifier that makes the value true.
    *
@@ -148,13 +158,15 @@
    * mark is measured against, not a second surface. */
   --school-chart-track: var(--hairline);
   --school-chart-grid: var(--hairline);
-  /* The label gutter, mirrored from charts/chart-shell.ts so the strip and
-   * the band endpoints line up with the Recharts axis. One value, two
-   * languages — changing it means changing both. */
-  --school-chart-axis: 200px;
-  /* A chart draws to its container's edge; a table cell is inset by its own
-   * border and padding. Without this the labels and values in a chart sit
-   * ~10px outside the column the tables above and below it establish, and
-   * the section reads as two documents interleaved rather than one. */
-  --school-chart-inset: 10px;
+  /*
+   * There is no --school-chart-inset any more, and that is the point.
+   *
+   * It existed to nudge charts ~10px right so they lined up with tables that
+   * were inset by their own CARD border. With the card gone, the section
+   * panel's padding is the left edge for rows and charts alike — which is
+   * what charts/chart-shell.tsx always claimed and could never achieve.
+   *
+   * --school-chart-axis went with it: it mirrored AXIS_WIDTH "for the few
+   * places CSS needs it", and there were none.
+   */
 }
