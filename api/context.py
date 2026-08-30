@@ -72,6 +72,88 @@ class RequestContextMiddleware:
         await self.app(scope, receive, send)
 
 
+class MaxBodySizeMiddleware:
+    """Pure-ASGI cap on request-body bytes, enforced before anything parses them.
+
+    The upload routes (`cds_admin`, `documents`) already check their own size
+    limits, but those checks run too late to protect the server: FastAPI's
+    request handler calls ``await request.form()`` — which streams a multipart
+    file part straight to a spooled temp file, with Starlette's
+    ``max_part_size`` applying only to non-file fields — *before*
+    ``solve_dependencies()`` evaluates the route's ``Depends(current_superuser)``
+    gate. So an unauthenticated caller could make the process buffer an
+    arbitrarily large body to disk/memory just by POSTing to the upload path. A
+    ``Depends`` cannot fix that; only something upstream of the parser can.
+
+    Pure ASGI (not ``BaseHTTPMiddleware``) for the same reason as
+    :class:`RequestContextMiddleware`: SSE responses must not be buffered.
+    """
+
+    def __init__(self, app: ASGIApp, *, max_bytes: int) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        declared = _content_length(scope)
+        if declared is not None and declared > self.max_bytes:
+            await _too_large(scope, send, self.max_bytes)
+            return
+
+        # A client can simply omit Content-Length (chunked), so the header check
+        # is only the cheap early exit — the real bound is counting what arrives.
+        seen = 0
+
+        async def counting_receive() -> Any:
+            nonlocal seen
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > self.max_bytes:
+                    # Cut the body off rather than raising: the parser sees a
+                    # truncated request and the client gets a 400 (verified),
+                    # instead of this middleware trying to emit its own response
+                    # mid-parse while the app is already writing one. Less
+                    # precise than the 413 the Content-Length path returns, but
+                    # the bytes stop arriving, which is the point.
+                    return {"type": "http.disconnect"}
+            return message
+
+        await self.app(scope, counting_receive, send)
+
+
+def _content_length(scope: Scope) -> int | None:
+    for key, value in scope.get("headers", []):
+        if key == b"content-length":
+            try:
+                return int(value)
+            except ValueError:
+                return None
+    return None
+
+
+async def _too_large(scope: Scope, send: Send, max_bytes: int) -> None:
+    trace_id = scope.get("state", {}).get("trace_id")
+    max_mb = max_bytes // (1024 * 1024)
+    body = JSONResponse(
+        status_code=413,
+        content={
+            "error": {
+                "message": f"Request body must be no larger than {max_mb} MiB.",
+                "trace_id": trace_id,
+            }
+        },
+    )
+    await body(scope, _empty_receive, send)
+
+
+async def _empty_receive() -> Any:
+    return {"type": "http.request", "body": b"", "more_body": False}
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Any unhandled exception → the user-safe 500 envelope; full traceback logged."""
     trace_id = getattr(request.state, "trace_id", None)
@@ -125,6 +207,13 @@ def install_middleware(app: FastAPI, settings: Any) -> None:
     from api.deps import EnvelopeError, envelope_error_handler
 
     app.add_middleware(RequestContextMiddleware)
+    # Headroom over the largest legitimate upload (`cds_upload_max_bytes`) for
+    # multipart framing — boundaries and part headers ride along with the file,
+    # so a body exactly at the file cap is still a little over it on the wire.
+    app.add_middleware(
+        MaxBodySizeMiddleware,
+        max_bytes=getattr(settings, "cds_upload_max_bytes", 50_000_000) + 1_048_576,
+    )
     # 06-L1: a non-empty CORS allowance under prod (cookie_secure=True ≈ behind a
     # TLS proxy) contradicts the same-origin serving model (ADR 0023) — surface it.
     if settings.cors_origins and getattr(settings, "cookie_secure", False):

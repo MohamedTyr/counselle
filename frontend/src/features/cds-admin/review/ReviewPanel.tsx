@@ -74,11 +74,15 @@ export const ReviewPanel = forwardRef<
               <Loader2 className="animate-spin" />
             </EmptyMedia>
             <EmptyTitle>Extracting…</EmptyTitle>
-            <EmptyDescription>
-              {sections.length > 0
-                ? `${sections.length} domain(s) extracted so far.`
-                : "This can take a few minutes."}
-            </EmptyDescription>
+            {/* No count here: `sections` is whatever is *currently active* on
+                the document, not this run's progress. On a re-run of an
+                approved document that is the previous extraction's 13 domains,
+                so "13 domains extracted so far" appeared seconds in, describing
+                the old data as if it were the new run's. This endpoint carries
+                no real per-domain progress (`counts` is aggregated from the
+                same active packets), and law 4 is that we don't show a number
+                we don't have. */}
+            <EmptyDescription>This can take a few minutes.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       </div>
