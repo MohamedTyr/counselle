@@ -192,11 +192,19 @@ async def _form_mark_pages(
     if not await cds_pdf.has_form_fields(pdf_content):
         return []
     hints = frozenset(hint for metric in metrics for hint in metric["source_hints"])
-    hits = _hit_pages_for_hints(routing_text, hints)
-    if not hits:
+    # Cluster each hint SEPARATELY, then union the survivors' spans -- pooling every
+    # hint's hits before clustering (the previous approach here) is exactly what
+    # `_route_batches` above was changed away from: a batch that legitimately carries
+    # two hints sitting far apart (gap > `_HIT_CLUSTER_GAP`) gets ONE tie-broken span,
+    # silently dropping the other hint's section entirely. It is worse here than in
+    # `_route_batches`, because this result is what makes `_call_evidence` withhold the
+    # PDF (module docstring) -- a page dropped here has no fallback text evidence left.
+    per_hint = (_hit_pages_for_hints(routing_text, frozenset({hint})) for hint in hints)
+    spans = [_densest_hit_span(hits) for hits in per_hint if hits]
+    if not spans:
         return []
-    first, last = _densest_hit_span(hits)
-    return list(range(first, last + 1))[:_FORM_MARK_MAX_PAGES]
+    pages = sorted({page for first, last in spans for page in range(first, last + 1)})
+    return pages[:_FORM_MARK_MAX_PAGES]
 
 
 async def _c7_supplementary_images(
@@ -210,18 +218,32 @@ async def _c7_supplementary_images(
     narrowed native PDF only when this call's own `metrics` (a batch, or a
     starved-retry domain's full catalog) carry the C7 source hint -- the one
     targeted case spike part B found a real accuracy gain (Harvard's
-    `class_rank` column-position miscall)."""
+    `class_rank` column-position miscall).
+
+    UNIONS with `form_mark_pages` rather than choosing one or the other. When
+    `_call_evidence` withholds the PDF because `_form_mark_pages` found
+    pages, those pages are this batch's ONLY truthful evidence (see that
+    docstring) and must be sent regardless of whether the batch also carries
+    a C7/column-position hint. Treating the two as mutually exclusive (the
+    previous shape here) meant a boolean batch that was both form-mark-hinted
+    and grid-hinted got only the raw, unclustered grid hits capped at 2 --
+    `_form_mark_pages`'s own clustered, up-to-4-page result was silently
+    discarded, and the PDF was gone too. Grid hits are clustered with
+    `_densest_hit_span` before capping, same as every other routing path,
+    instead of taken as raw hits."""
     grid_hints = frozenset(
         hint
         for metric in metrics
         for hint in metric["source_hints"]
         if hint == _CHECKBOX_GRID_HINT or hint in _COLUMN_POSITION_HINTS
     )
+    grid_pages: list[int] = []
     if grid_hints:
-        hit_pages = _hit_pages_for_hints(routing_text, grid_hints)
-        hit_pages = hit_pages[:_CHECKBOX_GRID_MAX_PAGES]
-    else:
-        hit_pages = form_mark_pages or []
+        hits = _hit_pages_for_hints(routing_text, grid_hints)
+        if hits:
+            first, last = _densest_hit_span(hits)
+            grid_pages = list(range(first, last + 1))[:_CHECKBOX_GRID_MAX_PAGES]
+    hit_pages = sorted(set(grid_pages) | set(form_mark_pages or []))
     if not hit_pages:
         return ()
     images = [

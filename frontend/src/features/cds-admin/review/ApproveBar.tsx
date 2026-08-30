@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 export function ApproveBar({
   flagsSummary,
   pendingEditsCount,
+  toReview,
   onApprove,
   onApproveAnywayClick,
   approving,
@@ -15,6 +16,9 @@ export function ApproveBar({
 }: {
   flagsSummary: FlagsSummary;
   pendingEditsCount: number;
+  /** Flagged metrics with no pending edit — what the right pane counts. Not
+   * `flagsSummary.unresolved`, which is only the Approve-blocking subset. */
+  toReview: number;
   onApprove: () => void;
   onApproveAnywayClick: () => void;
   approving: boolean;
@@ -39,16 +43,31 @@ export function ApproveBar({
             blocking flag{flagsSummary.unresolved === 1 ? "" : "s"} — resolve
             them, or approve anyway
           </>
-        ) : pendingEditsCount > 0 ? (
-          <>
-            Ready to approve ·{" "}
-            <span className="font-medium tabular-nums">
-              {pendingEditsCount}
-            </span>{" "}
-            pending edit{pendingEditsCount === 1 ? "" : "s"}
-          </>
         ) : (
-          "Ready to approve"
+          <>
+            Ready to approve
+            {pendingEditsCount > 0 && (
+              <>
+                {" · "}
+                <span className="font-medium tabular-nums">
+                  {pendingEditsCount}
+                </span>{" "}
+                pending edit{pendingEditsCount === 1 ? "" : "s"}
+              </>
+            )}
+            {/* Say what's still unlooked-at even though it doesn't block.
+                "Ready to approve" on its own, beside a panel listing 18
+                "possible hallucinated page citation" warnings, is true but
+                reads as an all-clear — and this bar is the last thing an
+                admin sees before the data reaches a student. */}
+            {toReview > 0 && (
+              <>
+                {" · "}
+                <span className="font-medium tabular-nums">{toReview}</span> to
+                review
+              </>
+            )}
+          </>
         )}
       </span>
       <div className="flex items-center gap-2">

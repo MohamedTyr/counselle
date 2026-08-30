@@ -251,6 +251,7 @@ function DocumentReviewLoaded({
             onApprove={handleApprove}
             onApproveAnywayClick={() => setApproveAnywayOpen(true)}
             pendingEditsCount={countPendingEdits(review.sections)}
+            toReview={controller.flagQueueLength}
           />
         )}
         <div aria-live="polite" className="sr-only">

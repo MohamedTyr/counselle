@@ -34,6 +34,8 @@ from app.cds import manifest as manifest_mod
 from app.cds.engine import EXTRACTOR_VERSION
 from app.cds.errors import CdsAdminNotFoundError, CdsAdminValidationError
 from app.cds.models import (
+    MAX_ACADEMIC_YEAR,
+    MIN_ACADEMIC_YEAR,
     DetectionCandidate,
     DetectionInfo,
     ProcessQueuedItem,
@@ -163,7 +165,21 @@ async def create_upload(
         )
         if result.confident and result.best_match is not None:
             school_id = result.best_match.school_id
-            academic_year = result.detected_academic_year
+            detected_year = result.detected_academic_year
+            # `_DetectedIdentity.academic_year_start` (detect.py) accepts any
+            # year in [1980, 2100] -- generous on purpose, since an OCR misread
+            # is exactly the kind of thing this field exists to catch. The
+            # `cds_upload_files.academic_year` column is stricter (CHECK
+            # BETWEEN 2000 AND 2200, same bound `UploadPatchBody` enforces): a
+            # detected year outside that range is treated like a low-confidence
+            # match and left unset, so the row falls through to `needs_input`
+            # instead of the INSERT below raising `CheckViolationError`.
+            year_in_range = (
+                detected_year is not None
+                and MIN_ACADEMIC_YEAR <= detected_year <= MAX_ACADEMIC_YEAR
+            )
+            if year_in_range:
+                academic_year = detected_year
 
     status = await _resolve_status(
         pipeline_pool, duplicate_of=duplicate_of, school_id=school_id, academic_year=academic_year
@@ -238,6 +254,15 @@ async def patch_upload_row(
             raise CdsAdminNotFoundError(f"upload row {file_id} not found")
         if existing["status"] == "committed":
             raise CdsAdminValidationError("cannot edit an already-committed upload row")
+        if existing["status"] == "error":
+            # `create_upload`'s except-branch stages this row with `content =
+            # NULL` -- there is no PDF behind it to process. Setting
+            # school_id/academic_year here would let `_resolve_status` return a
+            # ready status (`matched`/`replaces_existing`) for a row that can
+            # only ever fail at process time. Delete and re-upload instead.
+            raise CdsAdminValidationError(
+                "cannot edit an upload row that failed to read -- delete it and re-upload the file"
+            )
         new_school_id = school_id if school_id is not None else existing["school_id"]
         new_year = academic_year if academic_year is not None else existing["academic_year"]
         duplicate_of = (existing["detection"] or {}).get("duplicate_of")
@@ -314,16 +339,29 @@ async def _commit_row(
             original_filename=row["filename"],
         )
         await cds_store.set_candidate_document(conn, school_year_id=slot.id, document_id=doc.id)
-        extraction = await cds_store.create_extraction(
-            conn,
-            school_year_id=slot.id,
-            document_id=doc.id,
-            manifest_version=compiled.version,
-            target_kind="candidate",
-            requested_domains=domains,
-            extractor_version=EXTRACTOR_VERSION,
-            model_id=model_id,
-        )
+        if doc.is_duplicate:
+            # This exact PDF already has a document in this slot -- the same
+            # file staged twice in one batch, or a retried commit (upload-time
+            # dedup only checks already-committed documents, not sibling
+            # staging rows). Point this row at the existing extraction instead
+            # of queuing a second, billable one over identical content.
+            extraction_id = await cds_store.find_latest_extraction_id(conn, document_id=doc.id)
+            if extraction_id is None:
+                raise CdsAdminValidationError(
+                    f"document {doc.id} is a duplicate but has no existing extraction"
+                )
+        else:
+            extraction = await cds_store.create_extraction(
+                conn,
+                school_year_id=slot.id,
+                document_id=doc.id,
+                manifest_version=compiled.version,
+                target_kind="candidate",
+                requested_domains=domains,
+                extractor_version=EXTRACTOR_VERSION,
+                model_id=model_id,
+            )
+            extraction_id = extraction.id
     async with app_pool.acquire() as conn, conn.transaction():
         await conn.execute(
             """
@@ -334,7 +372,7 @@ async def _commit_row(
             """,
             row["id"],
             doc.id,
-            extraction.id,
+            extraction_id,
         )
         await audit.record_audit(
             conn,
@@ -345,20 +383,23 @@ async def _commit_row(
             document_id=doc.id,
             detail={"filename": row["filename"], "duplicate_within_slot": doc.is_duplicate},
         )
-        await audit.record_audit(
-            conn,
-            actor_user_id=actor_user_id,
-            action="extract",
-            school_id=row["school_id"],
-            academic_year=row["academic_year"],
-            document_id=doc.id,
-            extraction_id=extraction.id,
-        )
+        if not doc.is_duplicate:
+            # Nothing new was queued for a duplicate -- the "extract" audit
+            # action belongs to whichever row's commit actually created it.
+            await audit.record_audit(
+                conn,
+                actor_user_id=actor_user_id,
+                action="extract",
+                school_id=row["school_id"],
+                academic_year=row["academic_year"],
+                document_id=doc.id,
+                extraction_id=extraction_id,
+            )
     return ProcessQueuedItem(
         file_id=str(row["id"]),
         school_year_id=slot.id,
         document_id=doc.id,
-        extraction_id=str(extraction.id),
+        extraction_id=str(extraction_id),
     )
 
 

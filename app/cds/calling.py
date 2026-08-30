@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import asyncpg
+import structlog
 
 from adapters import cds_gemini, cds_pdf, cds_store
 from app.cds import citation_remap
@@ -29,6 +30,8 @@ from domain.cds import pages as pages_mod
 from domain.cds.claims import Finding, WindowExtraction
 from domain.cds.manifest_compile import CompiledManifest
 from domain.cds.pages import page_clusters_for_group
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -236,7 +239,13 @@ async def _run_call(
     model was actually shown, retried or not. Used only by the batched path
     (`app/cds/batch_run.py`), `window_key` always a `Batch.key`;
     `starved_retry.py` calls `_run_call_once` directly instead, with its own
-    hand-grown clusters and no retry wrapper."""
+    hand-grown clusters and no retry wrapper.
+
+    The retry call is a pure upside attempt: if it raises, this function
+    still returns the first attempt's `_CallResult` unchanged rather than
+    letting the exception propagate -- see the inline comment at the retry
+    site for why (an uncaught retry failure here would cost the caller the
+    first attempt's real findings and usage too, not just the retry's)."""
     call_kwargs = dict(
         settings=settings,
         manifest_content=manifest_content,
@@ -254,12 +263,28 @@ async def _run_call(
     if needs_retry:
         retry_clusters = _retry_clusters(clusters, attempt.dropped_pages, original_page_count)
         if retry_clusters != clusters:
-            retry_attempt = await _run_call_once(clusters=retry_clusters, **call_kwargs)
-            usage = _add_usage(usage, retry_attempt.usage)
-            latency += retry_attempt.latency_seconds
-            retried = True
-            if len(retry_attempt.remapped_findings) >= len(attempt.remapped_findings):
-                attempt = retry_attempt
+            try:
+                retry_attempt = await _run_call_once(clusters=retry_clusters, **call_kwargs)
+            except Exception as exc:  # noqa: BLE001 -- see docstring: keep attempt 1's win
+                # The retry is a one-shot best-effort widen, never a reason to lose an
+                # already-successful first attempt. `_run_one_batch` (batch_run.py) wraps
+                # this whole call in its own broad `except Exception` and, on any escape,
+                # discards the batch as `(batch, None, error)` -- so a raw transport error
+                # here (observed live: httpx.WriteTimeout, same class `_run_one_batch`
+                # documents escaping the SDK unwrapped) would silently drop `attempt`'s
+                # real findings and usage, not just the retry's. Swallow it and keep
+                # `attempt` unchanged; `retried` stays False since no usage was added.
+                logger.warning(
+                    "cds_engine_retry_call_failed_keeping_first_attempt",
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+            else:
+                usage = _add_usage(usage, retry_attempt.usage)
+                latency += retry_attempt.latency_seconds
+                retried = True
+                if len(retry_attempt.remapped_findings) >= len(attempt.remapped_findings):
+                    attempt = retry_attempt
 
     return _CallResult(
         findings=attempt.remapped_findings,
@@ -326,7 +351,16 @@ async def _store_packet(
     """Persist an already-built, already-validated packet, mapping the
     reader's own round-trip self-validation failure (a genuine shape/identity
     defect in `insert_packet`) to a reported `DomainOutcome` instead of
-    raising out of the run."""
+    raising out of the run.
+
+    Deliberately does NOT catch `cds_store.LeaseLostError` the same way:
+    unlike a shape defect, which is specific to this one domain's packet, a
+    lost lease means the whole run no longer holds its claim, so every
+    remaining domain in `batch_run.store_domain_packets`'s loop is equally
+    doomed -- letting it propagate stops that loop immediately instead of
+    silently skipping just this domain and writing the rest. `engine.
+    run_extraction` catches it once, at the top, and reports the run's
+    outcome as lease-lost rather than a generic per-domain failure."""
     try:
         async with pool.acquire() as conn, conn.transaction():
             record = await cds_store.insert_packet(
