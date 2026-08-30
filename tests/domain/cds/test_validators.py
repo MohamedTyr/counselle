@@ -159,6 +159,29 @@ class TestDenominatorSanity:
         flags = denominator_sanity(packet, DocFacts())
         assert any("enrolled" in f.message for f in flags)
 
+    def test_flags_impossible_transfer_funnel(self) -> None:
+        # CDS D2's TOTAL row is the same funnel as C1's, so it gets the same
+        # proof. A transposed admitted/enrolled column pair used to pass review
+        # unflagged and reach students as verified data.
+        packet = _packet({
+            "transfer.applicants_total": _verified_metric(value=2055),
+            "transfer.admitted_total": _verified_metric(value=412),
+            "transfer.enrolled_total": _verified_metric(value=1203),
+        })
+        flags = denominator_sanity(packet, DocFacts())
+        assert any(
+            f.code == "denominator_sanity" and "enrolled" in f.message and f.severity == "error"
+            for f in flags
+        )
+
+    def test_no_flags_on_consistent_transfer_funnel(self) -> None:
+        packet = _packet({
+            "transfer.applicants_total": _verified_metric(value=2055),
+            "transfer.admitted_total": _verified_metric(value=412),
+            "transfer.enrolled_total": _verified_metric(value=203),
+        })
+        assert denominator_sanity(packet, DocFacts()) == []
+
     def test_flags_out_of_range_percent(self) -> None:
         percent_def = {
             "class_profile.sat_submitters_percent": {"type": "string", "unit": "percent"}

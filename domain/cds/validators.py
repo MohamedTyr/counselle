@@ -202,9 +202,17 @@ def year_consistency(packet: dict[str, Any], doc_facts: DocFacts) -> list[Review
     )]
 
 
+# The transfer rules mirror the admissions ones because CDS D2's TOTAL row is
+# the same funnel as C1's: applicants >= admitted >= enrolled, by definition.
+# Leaving them out meant a transposed D2 admitted/enrolled column pair — the
+# exact column-position failure `_COLUMN_POSITION_HINTS` exists for — produced
+# more enrolled transfers than were admitted, with nothing flagged and nothing
+# blocking Approve, and reached students as verified CDS data.
 _ORDER_RULES: tuple[tuple[str, str, str, str], ...] = (
     ("admissions.admitted_total", "admissions.applicants_total", "admits", "applicants"),
     ("admissions.enrolled_total", "admissions.admitted_total", "enrolled", "admits"),
+    ("transfer.admitted_total", "transfer.applicants_total", "admits", "applicants"),
+    ("transfer.enrolled_total", "transfer.admitted_total", "enrolled", "admits"),
 )
 
 
