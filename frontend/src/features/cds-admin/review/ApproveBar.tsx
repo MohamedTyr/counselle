@@ -20,6 +20,12 @@ export function ApproveBar({
   approving: boolean;
   disabled: boolean;
 }) {
+  // "blocking", not "unresolved": `flags_summary.unresolved` counts only
+  // `error`-severity flags, deliberately, so a warning never blocks Approve
+  // (`service_review._flags_summary`, flag-precision.md). The right pane
+  // separately reports everything still *to review*, warnings included — two
+  // different questions, so they get two different words rather than one word
+  // with two meanings on the same screen.
   const blocked = flagsSummary.unresolved > 0;
 
   return (
@@ -30,8 +36,8 @@ export function ApproveBar({
             <span className="font-medium tabular-nums">
               {flagsSummary.unresolved}
             </span>{" "}
-            unresolved flag{flagsSummary.unresolved === 1 ? "" : "s"} —
-            resolve them, or approve anyway
+            blocking flag{flagsSummary.unresolved === 1 ? "" : "s"} — resolve
+            them, or approve anyway
           </>
         ) : pendingEditsCount > 0 ? (
           <>

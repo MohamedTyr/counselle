@@ -199,6 +199,12 @@ export function stagingReason(entry: StagingEntry): {
     return { text: "", linkedDocumentId: null };
   }
 
+  // DEVIATION from DESIGN.md §2.3, deliberate: the spec's reason text for
+  // `duplicate` ("Already uploaded {formatWhen}") and the link on
+  // `replaces_existing` both need data the wire does not carry — no upload
+  // timestamp on the matched document, and no id for the document being
+  // superseded. Extending the API for one sub-line is not worth it; what's
+  // here is true, and `duplicate` still links to the document it matched.
   switch (row.status) {
     case "needs_input":
       return { text: needsInputReason(row), linkedDocumentId: null };

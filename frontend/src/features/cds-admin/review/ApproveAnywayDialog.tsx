@@ -16,7 +16,7 @@ import { FlagChip } from "@/features/cds-admin/cds-status";
 import { buildFlagQueue, hiddenUnresolvedCount } from "@/features/cds-admin/review/flag-queue";
 import { useReviewControllerContext } from "@/features/cds-admin/review/review-context";
 
-/** "Approve with N unresolved flags?" (§5.10) — the flag list doubles as an
+/** "Approve with N blocking flags?" (§5.10) — the flag list doubles as an
  * escape hatch back to doing it properly: each row closes the dialog and
  * jumps straight to that metric. */
 export function ApproveAnywayDialog({
@@ -49,7 +49,7 @@ export function ApproveAnywayDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Approve with {count} unresolved flags?</DialogTitle>
+          <DialogTitle>Approve with {count} blocking flags?</DialogTitle>
           <DialogDescription>
             These flags will stay on record as overridden, not resolved.
           </DialogDescription>
@@ -100,7 +100,7 @@ export function ApproveAnywayDialog({
             onClick={() => onConfirm(note)}
             variant="destructive"
           >
-            Approve with {count} unresolved flags
+            Approve with {count} blocking flags
           </Button>
         </DialogFooter>
       </DialogContent>

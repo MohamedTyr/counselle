@@ -26,15 +26,19 @@ import {
  * when one already existed, otherwise the original extraction. Captured
  * before the optimistic `draft.setValue` so Undo always reverts to what
  * was actually on screen a moment ago. */
-function priorEditState(metric: ReviewMetric): MetricEditIn["evidence"] & {
+function priorEditState(metric: ReviewMetric): {
   value: unknown;
   raw_value: string | null;
+  page_number: number | null;
+  excerpt: string;
 } {
   const source = metric.pending_edit ?? metric;
   return {
     value: source.value,
     raw_value: source.raw_value,
-    page_number: source.evidence?.page_number ?? 1,
+    // `null`, never a default page: a citation this row never had must not be
+    // invented on the way back out through Undo (§5.8's honesty rule).
+    page_number: source.evidence?.page_number ?? null,
     excerpt: source.evidence?.excerpt ?? "",
   };
 }
@@ -110,6 +114,7 @@ export function MetricRow({
 
   function handleUndo() {
     const prior = priorEditState(metric);
+    if (prior.page_number === null) return; // guarded by `canUndo`
     submitEdit(
       {
         value: prior.value,
@@ -127,14 +132,18 @@ export function MetricRow({
     // `min_length=1`). When this is the metric's first-ever edit and it
     // started with no evidence at all, there is nothing honest to put in
     // that field — offering Undo here would submit a fabricated excerpt
-    // and fail. Only offer it when the prior state actually has one.
-    const canUndo = priorEditState(metric).excerpt.trim().length > 0;
+    // and fail. Only offer it when the prior state is a complete citation.
+    const prior = priorEditState(metric);
+    const canUndo = prior.excerpt.trim().length > 0 && prior.page_number !== null;
     controller.setEditingRef(null);
     submitEdit(
       {
         value: coerceMetricValue(metric, payload.rawValue),
         raw_value: payload.rawValue,
-        evidence: { page_number: payload.page ?? 1, excerpt: payload.excerpt },
+        // `payload.page` is a real number: `MetricEditor` blocks Save until
+        // the admin supplies one. It used to fall back to page 1, recording a
+        // citation pointing at a page the value never came from.
+        evidence: { page_number: payload.page, excerpt: payload.excerpt },
       },
       payload.rawValue || "—",
       () => {
@@ -176,12 +185,21 @@ export function MetricRow({
         </Tooltip>
 
         {readOnly ? (
+          // Registered and focusable here too, even though there's nothing to
+          // edit: `focusMetric` scrolls and focuses through `registerMetricRef`,
+          // so without it n/p and j/k silently do nothing on an approved
+          // document — the read-only screen is exactly where an admin walks the
+          // flags to decide whether a correction is needed. `tabIndex={-1}`
+          // keeps it out of the Tab order while still being focusable.
           <span
             className={cn(
-              "px-1 text-right",
+              "px-1 text-right outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               isUnavailableValue(metric) && "text-muted-foreground",
               !isUnavailableValue(metric) && "font-medium tabular-nums",
             )}
+            onFocus={() => controller.reportFocus(metric.ref)}
+            ref={(el) => controller.registerMetricRef(metric.ref, el)}
+            tabIndex={-1}
           >
             {draft.value}
           </span>

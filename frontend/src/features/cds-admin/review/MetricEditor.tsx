@@ -7,7 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 export interface MetricEditPayload {
   rawValue: string;
-  page: number | null;
+  /** Always a real page: Save stays disabled until the admin supplies one, so
+   * no caller has to invent a fallback (§5.8's honesty rule). */
+  page: number;
   excerpt: string;
 }
 
@@ -41,13 +43,17 @@ export function MetricEditor({
   );
   const [excerpt, setExcerpt] = useState(source.evidence?.excerpt ?? "");
   const excerptEmpty = excerpt.trim().length === 0;
+  // The page is required on exactly the same terms as the excerpt (§5.8's
+  // honesty rule): an excerpt is a claim about a *specific page*, so half of
+  // that citation cannot be optional. Blank used to submit `null`, which
+  // `MetricRow` turned into page 1 — a citation pointing somewhere the value
+  // never came from.
+  const pageEmpty = !Number.isFinite(Number(page.trim())) || page.trim() === "";
+  const invalid = excerptEmpty || pageEmpty;
 
   function submit(andNext: boolean) {
-    if (excerptEmpty || saving) return;
-    onSave(
-      { rawValue: value, page: page.trim() ? Number(page) : null, excerpt },
-      { andNext },
-    );
+    if (invalid || saving) return;
+    onSave({ rawValue: value, page: Number(page.trim()), excerpt }, { andNext });
   }
 
   function handleKeyDown(
@@ -79,14 +85,19 @@ export function MetricEditor({
         onKeyDown={(event) => handleKeyDown(event, false)}
         value={value}
       />
-      <Input
-        aria-label="Evidence page number"
-        className="w-20 tabular-nums"
-        onChange={(event) => setPage(event.target.value)}
-        onKeyDown={(event) => handleKeyDown(event, false)}
-        placeholder="Page"
-        value={page}
-      />
+      <div className="space-y-1">
+        <Input
+          aria-label="Evidence page number"
+          className="w-20 tabular-nums"
+          onChange={(event) => setPage(event.target.value)}
+          onKeyDown={(event) => handleKeyDown(event, false)}
+          placeholder="Page"
+          value={page}
+        />
+        {pageEmpty && (
+          <p className="text-xs text-destructive">A page number is required.</p>
+        )}
+      </div>
       <div className="space-y-1">
         <Textarea
           aria-label="Evidence excerpt"
@@ -105,7 +116,7 @@ export function MetricEditor({
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-2">
           <Button
-            disabled={excerptEmpty || saving}
+            disabled={invalid || saving}
             loading={saving}
             onClick={() => submit(false)}
             size="sm"
