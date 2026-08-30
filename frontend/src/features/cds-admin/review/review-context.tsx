@@ -16,6 +16,12 @@ export interface ReviewController {
   jumpEvidence: (page: number | null | undefined) => void;
   goToNextFlag: () => void;
   goToPrevFlag: () => void;
+  /** How many metrics `n`/`p` can actually walk — every flagged metric with
+   * no pending edit, warnings included. Deliberately *not*
+   * `flags_summary.unresolved`, which counts only `error`-severity flags
+   * because it gates Approve (`service_review._flags_summary`). The flag bar
+   * reports what there is to review; the approve bar reports what blocks. */
+  flagQueueLength: number;
   flaggedFirst: boolean;
   shortcutsOpen: boolean;
   setShortcutsOpen: (open: boolean) => void;

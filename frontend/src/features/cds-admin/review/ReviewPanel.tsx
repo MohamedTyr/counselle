@@ -50,6 +50,16 @@ export const ReviewPanel = forwardRef<
   const controller = useReviewControllerContext();
   const { extraction, sections, flags_summary: flagsSummary } = review;
   const nextFlagButtonRef = useRef<HTMLButtonElement>(null);
+  // What's left for a human to look at, matching the section counts and the
+  // row flag icons (`hasUnresolvedFlag`) rather than `flags_summary.unresolved`,
+  // which counts only Approve-blocking `error` flags. A document whose flags
+  // are all `warning` must not claim "No flags" while listing them below, and
+  // `n`/`p` must still walk them (§5.1 — the flag queue *is* the review).
+  //
+  // DEVIATION from §5.5's "3 unresolved of 7": that wording assumed unresolved
+  // meant blocking. It doesn't, so "to review" is the word — otherwise this bar
+  // and the approve bar's "Ready to approve" read as contradicting each other.
+  const toReview = controller.flagQueueLength;
 
   useImperativeHandle(ref, () => ({
     focusNextFlag: () => nextFlagButtonRef.current?.focus(),
@@ -106,13 +116,18 @@ export const ReviewPanel = forwardRef<
           region (§1.11/§6 checklist), owned by the page and fed by the
           controller's `announce` callback. */}
       <div className="flex h-10 shrink-0 items-center gap-3 border-b px-4 text-sm">
-        {flagsSummary.unresolved > 0 ? (
+        {toReview > 0 ? (
           <span>
             <span className="font-medium text-warning tabular-nums">
-              {flagsSummary.unresolved}
+              {toReview}
             </span>{" "}
-            unresolved of{" "}
+            to review of{" "}
             <span className="tabular-nums">{flagsSummary.total}</span>
+          </span>
+        ) : flagsSummary.total > 0 ? (
+          <span className="text-muted-foreground">
+            <span className="tabular-nums">{flagsSummary.total}</span> flag
+            {flagsSummary.total === 1 ? "" : "s"}, all edited
           </span>
         ) : (
           <span className="text-muted-foreground">No flags</span>
@@ -120,7 +135,7 @@ export const ReviewPanel = forwardRef<
         <Button
           aria-keyshortcuts="p"
           aria-label="Previous unresolved flag"
-          disabled={flagsSummary.unresolved === 0}
+          disabled={toReview === 0}
           onClick={controller.goToPrevFlag}
           size="icon-sm"
           variant="ghost"
@@ -130,7 +145,7 @@ export const ReviewPanel = forwardRef<
         <Button
           aria-keyshortcuts="n"
           aria-label="Next unresolved flag"
-          disabled={flagsSummary.unresolved === 0}
+          disabled={toReview === 0}
           onClick={controller.goToNextFlag}
           ref={nextFlagButtonRef}
           size="icon-sm"
@@ -155,7 +170,7 @@ export const ReviewPanel = forwardRef<
           </p>
         ) : (
           <>
-            {flagsSummary.unresolved === 0 && (
+            {toReview === 0 && flagsSummary.total === 0 && (
               <p className="px-3 py-2 text-xs text-muted-foreground">
                 Everything extracted cleanly. Spot-check a section, then
                 approve.

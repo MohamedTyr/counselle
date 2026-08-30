@@ -117,6 +117,27 @@ async def _document_page_count(app_pool: asyncpg.Pool, document_id: int) -> int 
     return int(value) if value is not None else None
 
 
+_REF_ACRONYMS = {
+    "act", "ap", "cip", "clep", "fafsa", "ged", "gpa", "ib",
+    "ipeds", "rotc", "sat", "toefl",
+}
+
+
+def _humanize_ref(ref: str) -> str:
+    """A readable row label for a metric whose manifest definition carries no
+    `title` — which today is every one of them (`config/cds/domains/*.yaml`
+    give each *domain* a title, never a metric). Without this the review
+    screen labels every row with a raw identifier (`air_force_rotc_on_campus`),
+    which is the one screen where an admin has to read 394 labels quickly.
+    The full sentence stays in `description`, which the row's tooltip shows."""
+    words = [
+        word.upper() if word in _REF_ACRONYMS else word
+        for word in ref.rsplit(".", 1)[-1].split("_")
+    ]
+    first, *rest = words
+    return " ".join([first[:1].upper() + first[1:], *rest])
+
+
 def _domain_contract(domain_summary: DomainPacketSummary) -> dict[str, Any] | None:
     contract = domain_summary.provider_contract or {}
     for domain in contract.get("metric_definitions", []):
@@ -194,7 +215,7 @@ def _build_section(
         metrics.append(
             ReviewMetric(
                 ref=metric_row.ref,
-                title=definition.get("title") or metric_row.ref.rsplit(".", 1)[-1],
+                title=definition.get("title") or _humanize_ref(metric_row.ref),
                 description=definition.get("description"),
                 type=definition.get("type", "string"),
                 unit=definition.get("unit"),

@@ -67,7 +67,10 @@ export function FileDropZone({
           className,
         )}
       >
-        <Empty className="p-0">
+        {/* `md:p-0` as well as `p-0`: `Empty`'s own `md:py-20` is a different
+            breakpoint, so `twMerge` keeps both and the zone renders ~460px tall
+            — the wrapper's `p-12` is the only padding this needs. */}
+        <Empty className="p-0 md:p-0">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Upload />

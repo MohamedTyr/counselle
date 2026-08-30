@@ -46,12 +46,18 @@ export function StagingTable({
       <TableCaption className="sr-only">
         Files staged for this Common Data Set upload batch
       </TableCaption>
+      {/* Widths are what the content actually measures, not DESIGN.md §4.6's
+          estimates: the year `Select` renders 154px (not 132) and so covered
+          the Pages column, and the longest status reason — "Matches an
+          existing document · View existing" — measures 259px (not 180) and
+          was clipped mid-word against the actions column. File is `auto` and
+          truncates, so it absorbs the difference. */}
       <colgroup>
         <col style={{ width: "auto" }} />
         <col style={{ width: 260 }} />
-        <col style={{ width: 132 }} />
+        <col style={{ width: 156 }} />
         <col style={{ width: 72 }} />
-        <col style={{ width: 180 }} />
+        <col style={{ width: 264 }} />
         <col style={{ width: 48 }} />
       </colgroup>
       <TableHeader className="sticky top-0 z-10 bg-background">

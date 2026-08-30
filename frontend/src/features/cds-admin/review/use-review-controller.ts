@@ -205,6 +205,7 @@ export function useReviewController(params: {
     jumpEvidence,
     goToNextFlag: () => goToFlagBy(1),
     goToPrevFlag: () => goToFlagBy(-1),
+    flagQueueLength: flagQueue.length,
     flaggedFirst,
     shortcutsOpen,
     setShortcutsOpen,
