@@ -592,6 +592,7 @@ async def sweep_expired_leases(
 async def create_human_review_extraction(
     conn: asyncpg.Connection,
     *,
+    extraction_id: uuid.UUID,
     school_year_id: int,
     document_id: int,
     manifest_version: str,
@@ -602,7 +603,13 @@ async def create_human_review_extraction(
     always queues work for the poller. A correction never runs through the
     model, so it is recorded as immediately complete: ``target_kind =
     'active_update'``, ``extractor_version = 'human-review-v1'``,
-    ``model_id = 'human'``."""
+    ``model_id = 'human'``.
+
+    ``extraction_id`` is minted by the caller rather than here, because a
+    correction's packets have to be *built and validated before this row is
+    written* (`app/cds/service_review.py::_prepare_edited_packets`) and every
+    packet embeds the id of the extraction it belongs to. Handing the id in is
+    what lets a refused correction leave the database completely untouched."""
     row = await conn.fetchrow(
         """
         INSERT INTO cds_library.cds_extractions
@@ -612,7 +619,7 @@ async def create_human_review_extraction(
         RETURNING id, school_year_id, document_id, manifest_version, target_kind,
                   requested_domains, status, extractor_version, model_id, lease_expires_at
         """,
-        uuid.uuid4(),
+        extraction_id,
         school_year_id,
         document_id,
         manifest_version,

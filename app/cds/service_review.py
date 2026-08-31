@@ -16,9 +16,13 @@ untouched refs keep their model-extracted values, under a fresh
 carrying forward the model's own `metric_definitions` (this is what line 6
 above depends on staying true for a human-reviewed packet too) plus a merged
 `human_review` block with the reviewer/audit trail.
-`adapters/cds_store.py::insert_packet` self-validates every packet through
-the reader's own `parse_packet_row()` before it lands -- this module never
-needs to (and cannot) fight the immutability trigger.
+`adapters/cds_store.py::insert_packet` self-validates every packet's *shape*
+through the reader's own `parse_packet_row()` before it lands -- this module
+never needs to (and cannot) fight the immutability trigger. It does not judge
+the packet's *values*: that is `_prepare_edited_packets`' job, which runs the
+validators over each synthesized packet and refuses the approve outright,
+before any of this writes anything, when the admin's own edit produced a
+blocking flag.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -539,10 +544,34 @@ def _human_reviewed_packet(
     return packet
 
 
-async def _apply_edits_and_activate(
+@dataclass(frozen=True)
+class _EditedPackets:
+    """One human-review packet per touched domain, built and validated but not
+    yet written anywhere."""
+
+    extraction_id: uuid.UUID
+    pdf_sha256: bytes
+    packets: tuple[tuple[str, dict[str, Any], tuple[validators.ReviewFlag, ...]], ...]
+
+    @property
+    def domain_ids(self) -> list[str]:
+        return [domain_id for domain_id, _packet, _flags in self.packets]
+
+    @property
+    def blocking_flags(self) -> tuple[validators.ReviewFlag, ...]:
+        """The `error`-severity subset — the same blocking tier
+        `_flags_summary.unresolved` counts, never the warnings alongside it."""
+        return tuple(
+            flag
+            for _domain_id, _packet, flags in self.packets
+            for flag in flags
+            if flag.severity == "error"
+        )
+
+
+async def _prepare_edited_packets(
     conn: asyncpg.Connection,
     *,
-    settings: Any,
     manifest: Any,
     document_id: int,
     document: Any,
@@ -550,21 +579,23 @@ async def _apply_edits_and_activate(
     edits_by_domain: dict[str, list[dict[str, Any]]],
     actor_user_id: UUID,
     note: str | None,
-) -> str:
-    """Synthesize + activate one human-review packet per touched domain, and
-    reactivate the model's own latest packet for every untouched domain.
-    Returns the new extraction id.
+    override_flags: bool,
+) -> _EditedPackets:
+    """Synthesize one human-review packet per touched domain, run the same
+    `domain.cds.validators.run_validators` gate the model extraction path runs
+    (`app/cds/calling.py::_store_packet`) over each one, and **refuse the whole
+    approve** if the result carries a blocking flag.
 
-    Runs the same `domain.cds.validators.run_validators` gate the model
-    extraction path runs (`app/cds/calling.py::_store_packet`) over each
-    synthesized packet, and stores the result as `insert_packet`'s
-    `validation` -- an admin's own typo (a transposed digit that breaks
-    `denominator_sanity`'s admits<=applicants check, a corrected value that
-    doesn't match its own cited page, a stale-year header) is exactly the
-    kind of error this gate exists to catch, and skipping it here left every
-    human-reviewed packet's `validation` at insert_packet's `{}` default --
-    permanently zero flags, indistinguishable on the review screen from a
-    domain that was actually re-checked and found clean."""
+    Reads only. Nothing here writes, which is the point: the approve gate in
+    `approve_document` is computed from the packets the document *already has*,
+    so it cannot see a defect the admin's own edit introduces -- an edit setting
+    a `unit: percent` metric to `150`, or breaking `denominator_sanity`'s
+    admits<=applicants order, used to sail through it and land live, its own
+    error flag recorded as inert JSON on a packet nobody would reopen. Building
+    and checking here, before `_write_edited_packets` opens its transaction,
+    means a refused correction leaves no extraction row, no packet, and no
+    half-activated domain behind -- and `override_flags` remains the single
+    escape hatch, for this gate exactly as for the pre-edit one."""
     doc = await cds_store.fetch_document_for_extraction(conn, document_id=document_id)
     original_page_count = await cds_pdf.get_page_count(doc.pdf_content)
     corrupt_report = await cds_pdf.detect_corrupt_text_layer(doc.pdf_content)
@@ -574,13 +605,8 @@ async def _apply_edits_and_activate(
         corrupt_text_layer=corrupt_report.is_corrupt,
         expected_academic_year=document.academic_year,
     )
-    extraction = await cds_store.create_human_review_extraction(
-        conn,
-        school_year_id=document.school_year_id,
-        document_id=document_id,
-        manifest_version=manifest.version,
-        requested_domains=list(edits_by_domain),
-    )
+    extraction_id = uuid.uuid4()
+    built: list[tuple[str, dict[str, Any], tuple[validators.ReviewFlag, ...]]] = []
     for domain_id, edit_rows in edits_by_domain.items():
         domain_summary = by_domain.get(domain_id)
         if domain_summary is None:
@@ -590,7 +616,7 @@ async def _apply_edits_and_activate(
                 manifest=manifest, domain_id=domain_id, edit_rows=edit_rows,
                 base_metrics=_base_metrics_dict(domain_summary.metrics),
                 source_provider_contract=domain_summary.provider_contract, document=document,
-                original_page_count=original_page_count, extraction_id=str(extraction.id),
+                original_page_count=original_page_count, extraction_id=str(extraction_id),
                 actor_user_id=actor_user_id, base_extraction_id=domain_summary.extraction_id,
                 note=note,
             )
@@ -599,23 +625,56 @@ async def _apply_edits_and_activate(
                 f"review edits leave domain {domain_id!r} with zero verified metrics "
                 f"(counts={exc.counts!r}); a domain packet must verify at least one metric"
             ) from exc
-        flags = validators.run_validators(packet, doc_facts)
+        built.append((domain_id, packet, tuple(validators.run_validators(packet, doc_facts))))
+    edited = _EditedPackets(extraction_id, doc.pdf_sha256, tuple(built))
+    if edited.blocking_flags and not override_flags:
+        raise CdsAdminConflictError(
+            f"these edits fail {len(edited.blocking_flags)} validation check(s) — "
+            + "; ".join(flag.message for flag in edited.blocking_flags)
+            + " — correct them or approve with override_flags=true"
+        )
+    return edited
+
+
+async def _write_edited_packets(
+    conn: asyncpg.Connection,
+    *,
+    settings: Any,
+    manifest: Any,
+    document_id: int,
+    document: Any,
+    edited: _EditedPackets,
+) -> str:
+    """Store + activate the already-validated packets under one new
+    human-review extraction. Each packet's flags land as `insert_packet`'s
+    `validation`, so a warning the admin was never blocked on (and an
+    overridden error) stays visible on the review screen instead of
+    disappearing into insert_packet's `{}` default."""
+    await cds_store.create_human_review_extraction(
+        conn,
+        extraction_id=edited.extraction_id,
+        school_year_id=document.school_year_id,
+        document_id=document_id,
+        manifest_version=manifest.version,
+        requested_domains=edited.domain_ids,
+    )
+    for domain_id, packet, flags in edited.packets:
         try:
             await cds_store.insert_packet(
-                conn, settings=settings, document_id=document_id, extraction_id=extraction.id,
+                conn, settings=settings, document_id=document_id,
+                extraction_id=edited.extraction_id,
                 manifest_version=manifest.version, domain_id=domain_id,
                 domain_schema_hash=bytes.fromhex(manifest.domain_hashes[domain_id]),
-                academic_year=document.academic_year, pdf_sha256=doc.pdf_sha256,
+                academic_year=document.academic_year, pdf_sha256=edited.pdf_sha256,
                 status=packet["status"], packet=packet,
                 validation={"flags": [flag.model_dump() for flag in flags]},
             )
         except cds_store.PacketValidationError as exc:
             raise CdsAdminValidationError(str(exc)) from exc
         await cds_store.activate_packet(
-            conn, document_id=document_id, extraction_id=extraction.id, domain_id=domain_id
+            conn, document_id=document_id, extraction_id=edited.extraction_id, domain_id=domain_id
         )
-    await _activate_untouched(conn, document_id, by_domain, skip=set(edits_by_domain))
-    return str(extraction.id)
+    return str(edited.extraction_id)
 
 
 async def _activate_untouched(
@@ -670,32 +729,51 @@ async def approve_document(
         edits_by_domain[row["domain_id"]].append(row)
 
     new_extraction_id: str | None = None
-    async with pipeline_pool.acquire() as conn, conn.transaction():
+    edited: _EditedPackets | None = None
+    async with pipeline_pool.acquire() as conn:
+        # Outside the transaction on purpose: this both builds the new packets
+        # and refuses the approve on a blocking flag they introduce, so a
+        # refusal never has a write to unwind.
         if edits_by_domain:
-            new_extraction_id = await _apply_edits_and_activate(
-                conn, settings=settings, manifest=manifest, document_id=document_id,
-                document=raw.document, by_domain=by_domain, edits_by_domain=edits_by_domain,
-                actor_user_id=actor_user_id, note=note,
+            edited = await _prepare_edited_packets(
+                conn, manifest=manifest, document_id=document_id, document=raw.document,
+                by_domain=by_domain, edits_by_domain=edits_by_domain,
+                actor_user_id=actor_user_id, note=note, override_flags=override_flags,
             )
-        else:
-            await _activate_untouched(conn, document_id, by_domain, skip=set())
-        if raw.document.is_candidate:
-            await cds_store.promote_candidate_document(
-                conn, school_year_id=raw.document.school_year_id, document_id=document_id
+        async with conn.transaction():
+            if edited is not None:
+                new_extraction_id = await _write_edited_packets(
+                    conn, settings=settings, manifest=manifest, document_id=document_id,
+                    document=raw.document, edited=edited,
+                )
+            await _activate_untouched(
+                conn, document_id, by_domain, skip=set(edited.domain_ids) if edited else set()
             )
-        # else: an `active_update` correction against an already-active
-        # document -- skip the document-level swap (it would be a harmless
-        # no-op, both fields are already correct) so the audit log stays
-        # honest: this approval corrected the document in place, it didn't
-        # promote anything (SHIP-PLAN §2.2).
-        await cds_store.close_pending_active_updates(conn, document_id=document_id)
+            if raw.document.is_candidate:
+                await cds_store.promote_candidate_document(
+                    conn, school_year_id=raw.document.school_year_id, document_id=document_id
+                )
+            # else: an `active_update` correction against an already-active
+            # document -- skip the document-level swap (it would be a harmless
+            # no-op, both fields are already correct) so the audit log stays
+            # honest: this approval corrected the document in place, it didn't
+            # promote anything (SHIP-PLAN §2.2).
+            await cds_store.close_pending_active_updates(conn, document_id=document_id)
 
     await _clear_pending_edits(app_pool, document_id, metric_refs=list(pending))
+    # Non-zero only when the approve was overridden -- `_prepare_edited_packets`
+    # raises otherwise -- so an override of an edit's own flags is recorded as
+    # such even when the document had no pre-edit flag to override.
+    overridden_edit_flags = len(edited.blocking_flags) if edited else 0
     async with app_pool.acquire() as conn:
         await audit.record_audit(
             conn,
             actor_user_id=actor_user_id,
-            action="approve_override" if flags_summary.unresolved > 0 else "approve",
+            action=(
+                "approve_override"
+                if flags_summary.unresolved > 0 or overridden_edit_flags > 0
+                else "approve"
+            ),
             school_id=raw.document.school_id,
             academic_year=raw.document.academic_year,
             document_id=document_id,
@@ -704,6 +782,7 @@ async def approve_document(
                 "note": note,
                 "activated_domains": sorted(by_domain),
                 "unresolved_flags": flags_summary.unresolved,
+                "overridden_edit_flags": overridden_edit_flags,
             },
         )
     return ApproveResult(

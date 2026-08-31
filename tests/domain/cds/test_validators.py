@@ -209,6 +209,49 @@ class TestDenominatorSanity:
         assert denominator_sanity(packet, DocFacts()) == []
 
 
+class TestNegativeCounts:
+    """A count below zero has no reading that is right — a stray minus, a
+    sign-flipped OCR digit, or an admin's typo. Before this rule the four
+    sibling-order pairs and the 0-100 percent range were the only numeric
+    checks, so a `-50` enrolled headcount produced nothing at all."""
+
+    def test_flags_a_negative_headcount_as_blocking(self) -> None:
+        packet = _packet(
+            {"enrollment.undergraduate_total": _verified_metric(value=-50)},
+            definitions={"enrollment.undergraduate_total": {"type": "integer",
+                                                            "unit": "students"}},
+        )
+        [flag] = denominator_sanity(packet, DocFacts())
+        assert flag.code == "denominator_sanity"
+        assert flag.severity == "error"
+        assert flag.metric_ref == "enrollment.undergraduate_total"
+        assert "cannot be below zero" in flag.message
+
+    def test_zero_is_a_real_count_and_is_never_flagged(self) -> None:
+        """Plenty of CDS rows legitimately report zero."""
+        packet = _packet(
+            {"enrollment.undergraduate_total": _verified_metric(value=0)},
+            definitions={"enrollment.undergraduate_total": {"type": "integer",
+                                                            "unit": "students"}},
+        )
+        assert denominator_sanity(packet, DocFacts()) == []
+
+    def test_a_negative_non_count_unit_is_left_alone(self) -> None:
+        """Scoped to the manifest's own count units. Nothing here claims a
+        negative score or ratio is impossible — this rule only knows about
+        things that are counted."""
+        packet = _packet(
+            {"class_profile.sat_math_delta": _verified_metric(value=-20)},
+            definitions={"class_profile.sat_math_delta": {"type": "integer", "unit": "score"}},
+        )
+        assert denominator_sanity(packet, DocFacts()) == []
+
+    def test_an_undefined_metric_is_left_alone(self) -> None:
+        """No `unit` in the packet's own contract means no basis to judge."""
+        packet = _packet({"enrollment.undergraduate_total": _verified_metric(value=-50)})
+        assert denominator_sanity(packet, DocFacts()) == []
+
+
 def test_run_validators_concatenates_all_flags_in_order() -> None:
     packet = _packet({
         "admissions.applicants_total": _verified_metric(

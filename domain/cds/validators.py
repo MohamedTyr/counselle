@@ -255,6 +255,38 @@ def _order_flags(metrics: dict[str, Any]) -> list[ReviewFlag]:
     return flags
 
 
+#: The manifest's own `unit` values (`config/cds/domains/*.yaml`) that name a
+#: physical count of things. A count below zero is not a plausible reading of
+#: a CDS table -- it is a stray minus sign, a sign-flipped OCR digit, or an
+#: admin's typo -- so, like the sibling-order and percent-range rules, it is
+#: something this gate can *prove* wrong from the value alone. There is no
+#: matching upper bound here on purpose: "implausibly large" has no threshold
+#: the corpus can defend (a 400,000-applicant system campus is real), and a
+#: made-up ceiling would flag honest values.
+_COUNT_UNITS = frozenset({"applicants", "faculty", "sections", "students"})
+
+
+def _negative_count_flags(packet: dict[str, Any]) -> list[ReviewFlag]:
+    flags: list[ReviewFlag] = []
+    for ref, metric in packet.get("metrics", {}).items():
+        number = _reported_number(metric)
+        if number is None or number >= 0:
+            continue
+        definition = _metric_definition(packet, ref)
+        if definition is None or definition.get("unit") not in _COUNT_UNITS:
+            continue
+        flags.append(ReviewFlag(
+            code="denominator_sanity",
+            severity="error",
+            metric_ref=ref,
+            message=(
+                f"{ref}: {definition['unit']} count {metric['value']!r} is negative — "
+                "a count cannot be below zero."
+            ),
+        ))
+    return flags
+
+
 def _percent_range_flags(packet: dict[str, Any]) -> list[ReviewFlag]:
     flags: list[ReviewFlag] = []
     for ref, metric in packet.get("metrics", {}).items():
@@ -278,10 +310,10 @@ def _percent_range_flags(packet: dict[str, Any]) -> list[ReviewFlag]:
 
 def denominator_sanity(packet: dict[str, Any], doc_facts: DocFacts) -> list[ReviewFlag]:
     """Pure arithmetic over verified siblings in the same packet: admits <=
-    applicants, enrolled <= admits, and any ``unit: percent`` value staying
-    inside 0-100."""
+    applicants, enrolled <= admits, any ``unit: percent`` value staying inside
+    0-100, and no ``unit``-declared count below zero."""
     metrics = packet.get("metrics", {})
-    return _order_flags(metrics) + _percent_range_flags(packet)
+    return _order_flags(metrics) + _percent_range_flags(packet) + _negative_count_flags(packet)
 
 
 VALIDATORS = (excerpt_on_cited_page, corrupt_text_layer, year_consistency, denominator_sanity)

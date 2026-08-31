@@ -223,17 +223,24 @@ class TestReviewScreenHidesSupersededEdits:
 # ---------------------------------------------------------------------------
 
 
+_NEW_EXTRACTION = uuid.UUID("44444444-4444-4444-4444-444444444444")
+
+
 def _record_applied(monkeypatch: Any) -> list[dict[str, list[dict[str, Any]]]]:
-    """Stand in for `_apply_edits_and_activate` (which would need the real PDF
+    """Stand in for the human-review write path (which would need the real PDF
     bytes and manifest) and capture exactly which edits an approve decided to
-    write into a new human-review packet."""
+    build into a new human-review packet."""
     applied: list[dict[str, list[dict[str, Any]]]] = []
 
-    async def _fake(conn: Any, **kwargs: Any) -> str:
+    async def _prepare(conn: Any, **kwargs: Any) -> service_review._EditedPackets:
         applied.append(dict(kwargs["edits_by_domain"]))
-        return "44444444-4444-4444-4444-444444444444"
+        return service_review._EditedPackets(_NEW_EXTRACTION, b"", ((_DOMAIN, {}, ()),))
 
-    monkeypatch.setattr(service_review, "_apply_edits_and_activate", _fake)
+    async def _write(conn: Any, **kwargs: Any) -> str:
+        return str(kwargs["edited"].extraction_id)
+
+    monkeypatch.setattr(service_review, "_prepare_edited_packets", _prepare)
+    monkeypatch.setattr(service_review, "_write_edited_packets", _write)
     return applied
 
 
