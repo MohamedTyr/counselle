@@ -12,11 +12,13 @@ this never depends on today's live manifest matching a past extraction), and
 builds one `domain.cds.packet_build.build_packet` call per touched domain,
 seeded with the document's own most recent packet as `base_metrics` so
 untouched refs keep their model-extracted values, under a fresh
-`extractor_version='human-review-v1'` extraction row, with
-`provider_contract` replaced by `{"human_review": {...}}` carrying the
-reviewer/audit trail. `adapters/cds_store.py::insert_packet` self-validates
-every packet through the reader's own `parse_packet_row()` before it lands --
-this module never needs to (and cannot) fight the immutability trigger.
+`extractor_version='human-review-v1'` extraction row, with `provider_contract`
+carrying forward the model's own `metric_definitions` (this is what line 6
+above depends on staying true for a human-reviewed packet too) plus a merged
+`human_review` block with the reviewer/audit trail.
+`adapters/cds_store.py::insert_packet` self-validates every packet through
+the reader's own `parse_packet_row()` before it lands -- this module never
+needs to (and cannot) fight the immutability trigger.
 """
 
 from __future__ import annotations
@@ -52,7 +54,7 @@ from app.cds.models import (
     ReviewSection,
 )
 from counselle_db.formatting import format_decimal
-from domain.cds import packet_build
+from domain.cds import packet_build, validators
 from domain.cds.claims import Finding
 
 logger = structlog.get_logger(__name__)
@@ -408,11 +410,34 @@ def _finding_from_pending(row: dict[str, Any]) -> Finding:
     )
 
 
-async def _clear_pending_edits(app_pool: asyncpg.Pool, document_id: int) -> None:
+async def _clear_pending_edits(
+    app_pool: asyncpg.Pool, document_id: int, *, metric_refs: list[str] | None = None
+) -> None:
+    """Delete pending-edit rows for the document -- scoped to exactly
+    ``metric_refs`` when given, every row for the document when omitted
+    (`reject_document`'s case: the whole document is being discarded, so
+    there is nothing later that could apply a leftover edit).
+
+    `approve_document` must pass the metric_refs it actually snapshotted
+    from `cds_pending_edits` before opening its write transaction, not omit
+    this: an admin's `PATCH .../metrics` (`save_metric_edits`) can insert a
+    *new* edit in the gap between that snapshot and this delete. An
+    unconditional `DELETE ... WHERE document_id = $1` would silently discard
+    that concurrent edit -- never applied to any packet, and gone with no
+    error or trace. Scoping to the snapshotted refs lets a concurrent edit
+    survive to be picked up (and actually applied) by the next approve."""
     async with app_pool.acquire() as conn:
-        await conn.execute(
-            "DELETE FROM counselle.cds_pending_edits WHERE document_id = $1", document_id
-        )
+        if metric_refs is None:
+            await conn.execute(
+                "DELETE FROM counselle.cds_pending_edits WHERE document_id = $1", document_id
+            )
+        else:
+            await conn.execute(
+                "DELETE FROM counselle.cds_pending_edits "
+                "WHERE document_id = $1 AND metric_ref = ANY($2::text[])",
+                document_id,
+                metric_refs,
+            )
 
 
 def _human_reviewed_packet(
@@ -421,6 +446,7 @@ def _human_reviewed_packet(
     domain_id: str,
     edit_rows: list[dict[str, Any]],
     base_metrics: dict[str, dict[str, Any]],
+    source_provider_contract: dict[str, Any] | None,
     document: Any,
     original_page_count: int,
     extraction_id: str,
@@ -430,8 +456,15 @@ def _human_reviewed_packet(
 ) -> dict[str, Any]:
     """Build one domain's human-review packet (plan §B5): the currently
     stored packet's metric map as `base_metrics`, edited refs replacing it,
-    and `provider_contract` replaced by the `human_review` provenance block
-    (never the model's `metric_definitions`/`response_schema` contract)."""
+    and `provider_contract` carrying the model's own `metric_definitions`
+    (`source_provider_contract`, the domain's most recent packet contract)
+    with the `human_review` provenance block merged in alongside it -- never
+    replacing it wholesale. `_domain_contract` (this module) and
+    `domain.cds.validators._metric_definition` both key off
+    `provider_contract["metric_definitions"]` for every metric's title,
+    description, unit, source_hints, and sort position; discarding it would
+    silently and permanently lose all of that for this domain the moment an
+    admin corrects even one metric in it."""
     findings = [_finding_from_pending(row) for row in edit_rows]
     packet = packet_build.build_packet(
         manifest_content=manifest.content,
@@ -449,13 +482,14 @@ def _human_reviewed_packet(
         base_metrics=base_metrics,
     )
     packet["provider_contract"] = {
+        **(source_provider_contract or {}),
         "human_review": {
             "reviewer_user_id": str(actor_user_id),
             "reviewed_at": datetime.now(UTC).isoformat(),
             "base_extraction_id": base_extraction_id,
             "changed_refs": sorted(row["metric_ref"] for row in edit_rows),
             "note": note,
-        }
+        },
     }
     return packet
 
@@ -474,9 +508,27 @@ async def _apply_edits_and_activate(
 ) -> str:
     """Synthesize + activate one human-review packet per touched domain, and
     reactivate the model's own latest packet for every untouched domain.
-    Returns the new extraction id."""
+    Returns the new extraction id.
+
+    Runs the same `domain.cds.validators.run_validators` gate the model
+    extraction path runs (`app/cds/calling.py::_store_packet`) over each
+    synthesized packet, and stores the result as `insert_packet`'s
+    `validation` -- an admin's own typo (a transposed digit that breaks
+    `denominator_sanity`'s admits<=applicants check, a corrected value that
+    doesn't match its own cited page, a stale-year header) is exactly the
+    kind of error this gate exists to catch, and skipping it here left every
+    human-reviewed packet's `validation` at insert_packet's `{}` default --
+    permanently zero flags, indistinguishable on the review screen from a
+    domain that was actually re-checked and found clean."""
     doc = await cds_store.fetch_document_for_extraction(conn, document_id=document_id)
     original_page_count = await cds_pdf.get_page_count(doc.pdf_content)
+    corrupt_report = await cds_pdf.detect_corrupt_text_layer(doc.pdf_content)
+    routing_text = await cds_pdf.extract_routing_text(doc.pdf_content)
+    doc_facts = validators.DocFacts(
+        page_text={} if corrupt_report.is_corrupt else routing_text,
+        corrupt_text_layer=corrupt_report.is_corrupt,
+        expected_academic_year=document.academic_year,
+    )
     extraction = await cds_store.create_human_review_extraction(
         conn,
         school_year_id=document.school_year_id,
@@ -491,7 +543,8 @@ async def _apply_edits_and_activate(
         try:
             packet = _human_reviewed_packet(
                 manifest=manifest, domain_id=domain_id, edit_rows=edit_rows,
-                base_metrics=_base_metrics_dict(domain_summary.metrics), document=document,
+                base_metrics=_base_metrics_dict(domain_summary.metrics),
+                source_provider_contract=domain_summary.provider_contract, document=document,
                 original_page_count=original_page_count, extraction_id=str(extraction.id),
                 actor_user_id=actor_user_id, base_extraction_id=domain_summary.extraction_id,
                 note=note,
@@ -501,6 +554,7 @@ async def _apply_edits_and_activate(
                 f"review edits leave domain {domain_id!r} with zero verified metrics "
                 f"(counts={exc.counts!r}); a domain packet must verify at least one metric"
             ) from exc
+        flags = validators.run_validators(packet, doc_facts)
         try:
             await cds_store.insert_packet(
                 conn, settings=settings, document_id=document_id, extraction_id=extraction.id,
@@ -508,6 +562,7 @@ async def _apply_edits_and_activate(
                 domain_schema_hash=bytes.fromhex(manifest.domain_hashes[domain_id]),
                 academic_year=document.academic_year, pdf_sha256=doc.pdf_sha256,
                 status=packet["status"], packet=packet,
+                validation={"flags": [flag.model_dump() for flag in flags]},
             )
         except cds_store.PacketValidationError as exc:
             raise CdsAdminValidationError(str(exc)) from exc
@@ -586,7 +641,7 @@ async def approve_document(
         # promote anything (SHIP-PLAN §2.2).
         await cds_store.close_pending_active_updates(conn, document_id=document_id)
 
-    await _clear_pending_edits(app_pool, document_id)
+    await _clear_pending_edits(app_pool, document_id, metric_refs=list(pending))
     async with app_pool.acquire() as conn:
         await audit.record_audit(
             conn,
