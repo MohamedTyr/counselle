@@ -136,7 +136,20 @@ def _content_length(scope: Scope) -> int | None:
 
 
 async def _too_large(scope: Scope, send: Send, max_bytes: int) -> None:
-    trace_id = scope.get("state", {}).get("trace_id")
+    # `MaxBodySizeMiddleware` is deliberately OUTSIDE `RequestContextMiddleware`
+    # (the cap has to run before anything can parse the body), so no trace id has
+    # been bound yet. Mint one rather than sending `trace_id: null`: without it
+    # an oversized-body rejection was invisible in the logs *and* unlinkable
+    # from the envelope the client is holding.
+    trace_id = scope.get("state", {}).get("trace_id") or uuid.uuid4().hex
+    bind_trace_id(trace_id)
+    logger.warning(
+        "request_body_too_large",
+        trace_id=trace_id,
+        path=scope.get("path"),
+        max_bytes=max_bytes,
+        content_length=_content_length(scope),
+    )
     max_mb = max_bytes // (1024 * 1024)
     body = JSONResponse(
         status_code=413,
