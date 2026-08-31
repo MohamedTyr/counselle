@@ -36,8 +36,9 @@ import {
  * The central problem this screen solves: ~2,746 schools exist and a
  * handful have documents, so the default scope loads only schools with
  * documents (a handful of rows, no scrolling), and "All schools" is a find
- * mode — with an empty query it costs one cheap request for the school
- * count, not 2,746 rows (see `coverage-params.ts`).
+ * mode — with an empty query the API returns zero rows and the real school
+ * count (enforced server-side in `coverage_grid`'s idle branch), not a row
+ * dump (see `coverage-params.ts`).
  */
 export function CdsCoveragePage() {
   const [searchParams, setSearchParams] = useSearchParams();

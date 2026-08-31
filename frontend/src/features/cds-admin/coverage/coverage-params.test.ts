@@ -65,13 +65,13 @@ describe("coverage-params", () => {
     ).toBe(true);
   });
 
-  it("requests limit:0 in idle find mode, so only `total` is fetched", () => {
+  it("leaves limit unset in idle find mode — the API returns zero rows regardless", () => {
     const filters = coverageFiltersFromUrlState({
       ...DEFAULT_STATE,
       scope: "all",
     });
     expect(filters.all_schools).toBe(true);
-    expect(filters.limit).toBe(0);
+    expect(filters.limit).toBeUndefined();
     expect(filters.q).toBeUndefined();
   });
 

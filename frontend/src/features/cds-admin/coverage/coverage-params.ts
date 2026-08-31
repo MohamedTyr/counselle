@@ -63,11 +63,11 @@ export function coverageUrlStateToParams(
   return params;
 }
 
-/** In "All schools" find mode with an empty query, the screen must not ask
- * the API for ~2,746 rows (DESIGN.md §3.1 move 2) — it only needs `total`
- * for the search prompt's copy, so `limit: 0` gets that count for the
- * price of an empty result set. Once a query exists, results are bounded
- * so a broad match still can't flood the grid. */
+/** In "All schools" find mode with a query, results are bounded so a broad
+ * match still can't flood the grid. With an empty query the API itself
+ * never returns rows for find mode (DESIGN.md §3.1 move 2 — enforced
+ * server-side in `coverage_grid`'s idle branch), so no client-side limit
+ * trick is needed to suppress them here. */
 const FIND_MODE_RESULT_LIMIT = 50;
 
 export function coverageFiltersFromUrlState(
@@ -81,11 +81,7 @@ export function coverageFiltersFromUrlState(
 
   return {
     all_schools: isFindMode,
-    limit: isFindMode
-      ? trimmedQuery
-        ? FIND_MODE_RESULT_LIMIT
-        : 0
-      : undefined,
+    limit: isFindMode && trimmedQuery ? FIND_MODE_RESULT_LIMIT : undefined,
     missing_year: state.missingYear ?? undefined,
     q: trimmedQuery || undefined,
     status: status.length > 0 ? status : undefined,
