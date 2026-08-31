@@ -39,9 +39,9 @@ export const PdfPageViewer = forwardRef<
   {
     documentId: number;
     /** The document's true page count, or `null` when unknown (a document
-     * that didn't come through the upload flow). Falls back to the
-     * currently-shown page so the "/ N" toolbar never claims a wrong total —
-     * it just grows with navigation instead. */
+     * that didn't come through the upload flow). When `null`, the toolbar
+     * renders "/ ?" instead of a number — a total we don't have is never
+     * shown as one we do (DESIGN.md §0 law 4). */
     pageCount: number | null;
     onPageChange?: (page: number) => void;
     className?: string;

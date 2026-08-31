@@ -56,7 +56,7 @@ function useIsWide(): boolean {
 /** DESIGN.md §4.6/§4.4 — same bounded-height `render`-prop trick as
  * Coverage §3.3: `Table`'s container is hardcoded
  * `relative w-full overflow-x-auto`, which silently defeats `sticky top-0`.
- * Swapping the container for one with `h-full overflow-auto` gives the
+ * Swapping the container for one with `max-h-full overflow-auto` gives the
  * sticky header something real to stick to, with no change to `table.tsx`. */
 export function StagingTable({
   academicYearOptions,

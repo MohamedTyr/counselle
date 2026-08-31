@@ -48,12 +48,19 @@ export function MetricEditor({
   // that citation cannot be optional. Blank used to submit `null`, which
   // `MetricRow` turned into page 1 — a citation pointing somewhere the value
   // never came from.
-  const pageEmpty = !Number.isFinite(Number(page.trim())) || page.trim() === "";
-  const invalid = excerptEmpty || pageEmpty;
+  const pageTrimmed = page.trim();
+  const pageEmpty = pageTrimmed === "";
+  const pageNumber = Number(pageTrimmed);
+  // A page is a 1-indexed position in the document, so `0`, negatives, and
+  // fractions are exactly as dishonest as blank — they're not a real page
+  // either, they just look like one. The field has no `type="number"`, so
+  // nothing upstream stops an admin from typing them.
+  const pageInvalid = !pageEmpty && (!Number.isInteger(pageNumber) || pageNumber < 1);
+  const invalid = excerptEmpty || pageEmpty || pageInvalid;
 
   function submit(andNext: boolean) {
     if (invalid || saving) return;
-    onSave({ rawValue: value, page: Number(page.trim()), excerpt }, { andNext });
+    onSave({ rawValue: value, page: pageNumber, excerpt }, { andNext });
   }
 
   function handleKeyDown(
@@ -87,8 +94,10 @@ export function MetricEditor({
       />
       <div className="space-y-1">
         <Input
-          aria-describedby={pageEmpty ? "metric-editor-page-error" : undefined}
-          aria-invalid={pageEmpty}
+          aria-describedby={
+            pageEmpty || pageInvalid ? "metric-editor-page-error" : undefined
+          }
+          aria-invalid={pageEmpty || pageInvalid}
           aria-label="Evidence page number"
           className="w-20 tabular-nums"
           onChange={(event) => setPage(event.target.value)}
@@ -103,6 +112,15 @@ export function MetricEditor({
             role="alert"
           >
             A page number is required.
+          </p>
+        )}
+        {pageInvalid && (
+          <p
+            className="text-xs text-destructive"
+            id="metric-editor-page-error"
+            role="alert"
+          >
+            Page must be a whole number, 1 or greater.
           </p>
         )}
       </div>

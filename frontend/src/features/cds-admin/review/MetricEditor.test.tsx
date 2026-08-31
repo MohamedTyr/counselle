@@ -96,4 +96,35 @@ describe("MetricEditor — a page number is required alongside the excerpt", () 
 
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  test.each(["0", "-3", "3.7"])(
+    "Save stays disabled and shows a hint when the page is %s",
+    (badPage) => {
+      const onSave = vi.fn();
+      render(
+        <MetricEditor
+          metric={metric()}
+          onCancel={vi.fn()}
+          onSave={onSave}
+          saving={false}
+        />,
+      );
+
+      fireEvent.change(screen.getByLabelText("Evidence page number"), {
+        target: { value: badPage },
+      });
+      fireEvent.change(screen.getByLabelText("Evidence excerpt"), {
+        target: { value: "Table 8 shows 42% of need met." },
+      });
+
+      expect(
+        screen.getByText("Page must be a whole number, 1 or greater."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+      const excerpt = screen.getByLabelText("Evidence excerpt");
+      fireEvent.keyDown(excerpt, { key: "Enter" });
+      expect(onSave).not.toHaveBeenCalled();
+    },
+  );
 });

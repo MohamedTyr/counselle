@@ -1,6 +1,15 @@
 import type { CoverageCounters as CoverageCountersData } from "@/api/cds-admin/types";
 import { cn } from "@/lib/utils";
 
+/** `schools`/`editions` are real counted nouns and need to agree with the
+ * number ("1 school", not "1 schools") — a search narrowed to one result is
+ * an everyday state on this screen, not an edge case. The other three
+ * segments (`needs review`, `failed`, `missing`) are status labels, not
+ * nouns, so they never pluralize. */
+function pluralize(count: number, noun: string): string {
+  return count === 1 ? noun : `${noun}s`;
+}
+
 /** A plain, inert count — `schools` and `editions` are never interactive
  * (DESIGN.md §3.7), and a zero attention count renders the same way: a
  * clickable "0 failed" would be a small lie about there being something
@@ -85,9 +94,15 @@ export function CoverageCounters({
         className,
       )}
     >
-      <CounterSegment label="schools" value={counters.schools} />
+      <CounterSegment
+        label={pluralize(counters.schools, "school")}
+        value={counters.schools}
+      />
       <Dot />
-      <CounterSegment label="editions" value={counters.editions} />
+      <CounterSegment
+        label={pluralize(counters.editions, "edition")}
+        value={counters.editions}
+      />
       <Dot />
       <CounterFilterSegment
         active={needsReviewActive}
