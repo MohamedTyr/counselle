@@ -87,6 +87,8 @@ export function MetricEditor({
       />
       <div className="space-y-1">
         <Input
+          aria-describedby={pageEmpty ? "metric-editor-page-error" : undefined}
+          aria-invalid={pageEmpty}
           aria-label="Evidence page number"
           className="w-20 tabular-nums"
           onChange={(event) => setPage(event.target.value)}
@@ -95,11 +97,21 @@ export function MetricEditor({
           value={page}
         />
         {pageEmpty && (
-          <p className="text-xs text-destructive">A page number is required.</p>
+          <p
+            className="text-xs text-destructive"
+            id="metric-editor-page-error"
+            role="alert"
+          >
+            A page number is required.
+          </p>
         )}
       </div>
       <div className="space-y-1">
         <Textarea
+          aria-describedby={
+            excerptEmpty ? "metric-editor-excerpt-error" : undefined
+          }
+          aria-invalid={excerptEmpty}
           aria-label="Evidence excerpt"
           onChange={(event) => setExcerpt(event.target.value)}
           onKeyDown={(event) => handleKeyDown(event, true)}
@@ -110,7 +122,13 @@ export function MetricEditor({
           What the document actually says on page {page || "—"}.
         </p>
         {excerptEmpty && (
-          <p className="text-xs text-destructive">An excerpt is required.</p>
+          <p
+            className="text-xs text-destructive"
+            id="metric-editor-excerpt-error"
+            role="alert"
+          >
+            An excerpt is required.
+          </p>
         )}
       </div>
       <div className="flex items-center justify-between gap-2">

@@ -274,7 +274,9 @@ export function MetricRow({
       )}
 
       {saveError && (
-        <p className="pb-1.5 pl-6 text-xs text-destructive">{saveError}</p>
+        <p className="pb-1.5 pl-6 text-xs text-destructive" role="alert">
+          {saveError}
+        </p>
       )}
 
       {isEditing && !readOnly && (

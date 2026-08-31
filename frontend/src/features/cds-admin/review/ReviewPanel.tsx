@@ -71,7 +71,7 @@ export const ReviewPanel = forwardRef<
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Loader2 className="animate-spin" />
+              <Loader2 className="motion-safe:animate-spin" />
             </EmptyMedia>
             <EmptyTitle>Extracting…</EmptyTitle>
             {/* No count here: `sections` is whatever is *currently active* on

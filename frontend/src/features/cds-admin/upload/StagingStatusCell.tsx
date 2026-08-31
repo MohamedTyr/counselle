@@ -30,6 +30,7 @@ function CommittedStatus({ job, row }: { job: JobStatusRow | undefined; row: Upl
       {progress ? (
         <div className="flex items-center gap-2">
           <Meter
+            aria-label={`${progress.done} of ${progress.total} domains extracted`}
             className="w-16"
             max={progress.total}
             value={progress.done}
