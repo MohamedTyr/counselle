@@ -126,6 +126,14 @@ function DocumentReviewLoaded({
   }
 
   const [approveAnywayOpen, setApproveAnywayOpen] = useState(false);
+  // Set only for the 409 `handleApprove` can't see coming: the admin's own
+  // pending edit introduces a blocking flag on a packet the server refuses
+  // to write (see `useApproveDocument`'s doc comment for both 409 cases).
+  // `flags_summary.unresolved` never moves for this one, so it's the only
+  // record that a refusal happened and why.
+  const [ownEditConflictMessage, setOwnEditConflictMessage] = useState<
+    string | null
+  >(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [liveMessage, setLiveMessage] = useState("");
@@ -187,21 +195,48 @@ function DocumentReviewLoaded({
   const readOnly = !review.document.is_candidate && !isCorrection;
 
   function handleApprove() {
+    // Clear any stale refusal from a previous attempt before re-checking --
+    // this click might fix it, and a leftover message from the last failure
+    // must never survive a successful approve (or an unrelated new one).
+    setOwnEditConflictMessage(null);
     approveDocument.mutate(
       { documentId, body: {} },
       {
         onSuccess: () =>
           toast.success(isCorrection ? "Correction approved." : "Document approved."),
         onError: (error) => {
-          // A 409 (unresolved flags changed server-side) refetches via the
-          // hook's own `onSettled` — the fresh `flags_summary` re-renders
-          // the blocking sentence. `useApproveDocument` already skips its
-          // own toast for `kind: "conflict"` (DESIGN.md §5.10); this just
-          // moves attention to the blocking sentence via the live region.
-          if (isTransportError(error) && error.kind === "conflict") {
+          if (!isTransportError(error) || error.kind !== "conflict") return;
+          // `useApproveDocument` already skips its own toast for
+          // `kind: "conflict"` (DESIGN.md §5.10) -- both branches below are
+          // what replace it. Which one applies is decided by
+          // `review.flags_summary.unresolved` as it stood *before* this
+          // click (this closure's own render), which is exactly the signal
+          // the server used to pick which of its two 409s to raise -- not a
+          // string match on the message.
+          if (review.flags_summary.unresolved > 0) {
+            // Case 1: unresolved flags already on the document. A refetch
+            // (the hook's own `onSettled`) will re-raise `flags_summary.
+            // unresolved` above 0, and the effect below re-renders the
+            // blocking sentence and moves focus once it does.
             setLiveMessage("Flags changed on the server — review before approving.");
             pendingConflictFocusRef.current = true;
+            return;
           }
+          // Case 2: `unresolved` was already 0, so the write never
+          // happened and the refetch above can never raise it -- the
+          // blocking-sentence path can't see this one. Never arm
+          // `pendingConflictFocusRef` here: there is no new flag in the
+          // queue for it to focus, and leaving it armed would misfire the
+          // next time `unresolved` happens to change for an unrelated
+          // reason. The server's own message is the only description of
+          // what failed, so show it verbatim rather than inventing one.
+          setOwnEditConflictMessage(error.message);
+          toast.error(error.message, {
+            action: {
+              label: "Approve anyway",
+              onClick: () => setApproveAnywayOpen(true),
+            },
+          });
         },
       },
     );
@@ -213,6 +248,7 @@ function DocumentReviewLoaded({
       {
         onSuccess: () => {
           setApproveAnywayOpen(false);
+          setOwnEditConflictMessage(null);
           toast.success(isCorrection ? "Correction approved." : "Document approved.");
         },
       },
@@ -309,6 +345,7 @@ function DocumentReviewLoaded({
         onConfirm={handleApproveAnywayConfirm}
         onOpenChange={setApproveAnywayOpen}
         open={approveAnywayOpen}
+        ownEditConflictMessage={ownEditConflictMessage ?? undefined}
         review={review}
       />
       <RejectDialog

@@ -119,9 +119,20 @@ export const ReviewPanel = forwardRef<
       {/* Not `aria-live` here — the screen has exactly one polite live
           region (§1.11/§6 checklist), owned by the page and fed by the
           controller's `announce` callback. */}
+      {/* `whitespace-nowrap` + `shrink-0` on the summary text and the
+          checkbox label: at 1024-1152px (DESIGN.md §1.10's "1024-1279,
+          supported, degraded" bucket) this row is otherwise narrow enough
+          that the flex layout shrinks those two text nodes below their
+          content width, wrapping each onto a second line inside this fixed
+          `h-10` bar and overlapping the border and the accordion below it.
+          "Flagged first" additionally drops its label text below `xl`
+          (1280px, the same threshold and pattern `StagingTable.tsx` already
+          uses to hide the Size/Pages columns) and keeps only the checkbox —
+          the flag-walk controls are the ones that matter at this width, so
+          they're what stays labeled. */}
       <div className="flex h-10 shrink-0 items-center gap-3 border-b px-4 text-sm">
         {toReview > 0 ? (
-          <span>
+          <span className="shrink-0 whitespace-nowrap">
             <span className="font-medium text-warning tabular-nums">
               {toReview}
             </span>{" "}
@@ -129,16 +140,19 @@ export const ReviewPanel = forwardRef<
             <span className="tabular-nums">{flagsSummary.total}</span>
           </span>
         ) : flagsSummary.total > 0 ? (
-          <span className="text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground">
             <span className="tabular-nums">{flagsSummary.total}</span> flag
             {flagsSummary.total === 1 ? "" : "s"}, all edited
           </span>
         ) : (
-          <span className="text-muted-foreground">No flags</span>
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground">
+            No flags
+          </span>
         )}
         <Button
           aria-keyshortcuts="p"
           aria-label="Previous unresolved flag"
+          className="shrink-0"
           disabled={toReview === 0}
           onClick={controller.goToPrevFlag}
           size="icon-sm"
@@ -149,6 +163,7 @@ export const ReviewPanel = forwardRef<
         <Button
           aria-keyshortcuts="n"
           aria-label="Next unresolved flag"
+          className="shrink-0"
           disabled={toReview === 0}
           onClick={controller.goToNextFlag}
           ref={nextFlagButtonRef}
@@ -158,12 +173,15 @@ export const ReviewPanel = forwardRef<
           <ChevronRight />
         </Button>
         <div className="flex-1" />
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <label
+          aria-label="Flagged first"
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"
+        >
           <Checkbox
             checked={flaggedFirst}
             onCheckedChange={(checked) => onFlaggedFirstChange(checked === true)}
           />
-          Flagged first
+          <span className="hidden xl:inline">Flagged first</span>
         </label>
         <ShortcutsPopover />
       </div>
