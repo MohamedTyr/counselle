@@ -607,7 +607,7 @@ async def create_human_review_extraction(
 
     ``extraction_id`` is minted by the caller rather than here, because a
     correction's packets have to be *built and validated before this row is
-    written* (`app/cds/service_review.py::_prepare_edited_packets`) and every
+    written* (`app/cds/service_review_approve.py::_prepare_edited_packets`) and every
     packet embeds the id of the extraction it belongs to. Handing the id in is
     what lets a refused correction leave the database completely untouched."""
     row = await conn.fetchrow(
