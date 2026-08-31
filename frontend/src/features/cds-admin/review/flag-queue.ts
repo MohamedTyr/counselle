@@ -71,6 +71,26 @@ export function sectionsWithUnresolvedFlags(
     .map((section) => section.domain_id);
 }
 
+/** Metrics carrying at least one flag, resolved or not — the metric-count
+ * denominator the flag bar's "N to review of M" line needs. `toReview`
+ * (`buildFlagQueue().length`, what this counts the unresolved subset of) is
+ * a count of *metrics*; `flags_summary.total` (`service_review._flags_summary`)
+ * is a count of *flags*, and the two diverge whenever a metric carries more
+ * than one — `excerpt_on_cited_page` and `corrupt_text_layer` independently
+ * flag the same ref (`domain/cds/validators.py`), so a 20-metric,
+ * 25-flag document previously rendered "20 to review of 25", reading as
+ * five already handled when zero were. Pairing `toReview` with this instead
+ * keeps both sides of the sentence the same unit. */
+export function countFlaggedMetrics(sections: readonly ReviewSection[]): number {
+  let count = 0;
+  for (const section of sections) {
+    for (const metric of section.metrics) {
+      if (metric.flags.length > 0) count += 1;
+    }
+  }
+  return count;
+}
+
 /** Pending-edit count across the whole document, for the approve bar's
  * "Ready to approve · N pending edits" sentence (§5.10). */
 export function countPendingEdits(sections: readonly ReviewSection[]): number {

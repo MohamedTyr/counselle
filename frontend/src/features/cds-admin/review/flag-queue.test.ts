@@ -1,6 +1,7 @@
 import type { ReviewFlagOut, ReviewMetric, ReviewSection } from "@/api/cds-admin/types";
 import {
   buildFlagQueue,
+  countFlaggedMetrics,
   countPendingEdits,
   countSectionUnresolved,
   hasUnresolvedFlag,
@@ -156,6 +157,47 @@ describe("sectionRailSeverity", () => {
 
   it("is null when nothing is unresolved", () => {
     expect(sectionRailSeverity(section())).toBeNull();
+  });
+});
+
+describe("countFlaggedMetrics", () => {
+  it("counts a metric once even when it carries more than one flag", () => {
+    const sections = [
+      section({
+        metrics: [
+          metric({ ref: "1", flags: [flag(), flag({ code: "C2" })] }),
+          metric({ ref: "2", flags: [flag()] }),
+          metric({ ref: "3" }),
+        ],
+      }),
+    ];
+    // Two metrics carry flags (one of them carries two) — the review
+    // screen's denominator is metrics, not the three raw flags this
+    // document has (`ReviewPanel.tsx`'s "N to review of M").
+    expect(countFlaggedMetrics(sections)).toBe(2);
+  });
+
+  it("still counts a flagged metric once its flag is addressed by a pending edit", () => {
+    const sections = [
+      section({
+        metrics: [
+          metric({
+            ref: "1",
+            flags: [flag()],
+            pending_edit: {
+              availability_status: "reported",
+              edited_at: "2026-08-01T00:00:00Z",
+              edited_by: "admin",
+              evidence: { column_label: null, excerpt: "e", page_number: 1, row_label: null, section: null },
+              note: null,
+              raw_value: "v",
+              value: "v",
+            },
+          }),
+        ],
+      }),
+    ];
+    expect(countFlaggedMetrics(sections)).toBe(1);
   });
 });
 

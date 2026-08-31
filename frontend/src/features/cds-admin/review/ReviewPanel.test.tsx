@@ -136,9 +136,11 @@ function renderPanel(
   );
   // The flag bar strip (§5.5) — scoping assertions to it, not the whole
   // document, avoids colliding with the accordion header's own "N/M
-  // verified" counts, which share plain digits with the flag bar.
-  const bar = result.container.querySelector<HTMLElement>("div.h-10");
-  if (!bar) throw new Error("flag bar not found");
+  // verified" counts, which share plain digits with the flag bar. Located
+  // by `data-testid`, not the `h-10` Tailwind utility class: a spacing
+  // change to that class previously broke this lookup with an unrelated
+  // "flag bar not found" error instead of a real assertion failure.
+  const bar = result.getByTestId("flag-bar");
   return { ...result, bar };
 }
 
@@ -238,6 +240,62 @@ describe("ReviewPanel — the flag bar never lies about warning-only flags", () 
     expect(
       screen.queryByText(/Everything extracted cleanly/),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("ReviewPanel — flag bar denominator counts metrics, not raw flags", () => {
+  /** `flag-queue.ts`'s `buildFlagQueue` pushes one entry per *metric*
+   * (`if (hasUnresolvedFlag(metric)) queue.push(metric)`), so `toReview`
+   * (`controller.flagQueueLength`) is a metric count. `flags_summary.total`
+   * (`service_review._flags_summary`) counts *flags*, and a metric can carry
+   * more than one: `excerpt_on_cited_page` and `corrupt_text_layer`
+   * independently flag the same ref (`domain/cds/validators.py`). Every
+   * other fixture in this file gives each metric exactly one flag, which
+   * satisfies both the correct and the buggy implementation equally — this
+   * is the fixture that tells them apart. */
+  function twoFlagMetric(ref: string): ReviewMetric {
+    return {
+      ...warningMetric(ref),
+      flags: [
+        {
+          code: "excerpt_on_cited_page",
+          severity: "warning",
+          message: "excerpt not found on cited page",
+          metric_ref: ref,
+        },
+        {
+          code: "corrupt_text_layer",
+          severity: "warning",
+          message: "corrupt text layer on this page",
+          metric_ref: ref,
+        },
+      ],
+    };
+  }
+
+  test("one flagged metric carrying two flags: denominator is 1 (metrics), not 2 (flags)", () => {
+    const { bar } = renderPanel(
+      review({
+        sections: [
+          {
+            domain_id: "financial_aid",
+            title: "Financial Aid",
+            status: null,
+            counts: {},
+            metrics: [twoFlagMetric("a")],
+          },
+        ],
+        flags_summary: { unresolved: 0, total: 2 },
+      }),
+      controller({ flagQueueLength: 1 }),
+    );
+
+    const text = bar.textContent?.replace(/\s+/g, " ");
+    // Before the fix this read "1 to review of 2" — `flags_summary.total`
+    // (a flag count) standing in for a metric-count denominator, implying
+    // one of two things was already handled when nothing was.
+    expect(text).toContain("1 to review of 1");
+    expect(text).not.toContain("of 2");
   });
 });
 

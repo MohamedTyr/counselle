@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Loader2, OctagonX } from "lucide-react";
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
 import type { DocumentReviewOut } from "@/api/cds-admin/types";
 import { Accordion } from "@/components/ui/accordion";
@@ -14,6 +14,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { countFlaggedMetrics } from "@/features/cds-admin/review/flag-queue";
 import { ShortcutsPopover } from "@/features/cds-admin/review/ShortcutsPopover";
 import { useReviewControllerContext } from "@/features/cds-admin/review/review-context";
 import { ReviewSection } from "@/features/cds-admin/review/ReviewSection";
@@ -60,6 +61,18 @@ export const ReviewPanel = forwardRef<
   // meant blocking. It doesn't, so "to review" is the word — otherwise this bar
   // and the approve bar's "Ready to approve" read as contradicting each other.
   const toReview = controller.flagQueueLength;
+  // The "of M" denominator has to be the same unit as `toReview`: a count of
+  // *metrics*, not `flags_summary.total`'s count of *flags*. One metric can
+  // carry more than one flag (`excerpt_on_cited_page` and
+  // `corrupt_text_layer` each independently flag the same ref), so a
+  // 20-metric, 25-flag document previously read "20 to review of 25" — five
+  // metrics looked already handled when none were. `countFlaggedMetrics`
+  // walks the same `sections` this panel already has, no new wire field
+  // needed (`flag-queue.ts`).
+  const flaggedMetricsTotal = useMemo(
+    () => countFlaggedMetrics(sections),
+    [sections],
+  );
 
   useImperativeHandle(ref, () => ({
     focusNextFlag: () => nextFlagButtonRef.current?.focus(),
@@ -130,14 +143,18 @@ export const ReviewPanel = forwardRef<
           uses to hide the Size/Pages columns) and keeps only the checkbox —
           the flag-walk controls are the ones that matter at this width, so
           they're what stays labeled. */}
-      <div className="flex h-10 shrink-0 items-center gap-3 border-b px-4 text-sm">
+      <div
+        className="flex h-10 shrink-0 items-center gap-3 border-b px-4 text-sm"
+        data-testid="flag-bar"
+      >
         {toReview > 0 ? (
           <span className="shrink-0 whitespace-nowrap">
             <span className="font-medium text-warning tabular-nums">
               {toReview}
             </span>{" "}
             to review of{" "}
-            <span className="tabular-nums">{flagsSummary.total}</span>
+            <span className="tabular-nums">{flaggedMetricsTotal}</span>{" "}
+            flagged {flaggedMetricsTotal === 1 ? "metric" : "metrics"}
           </span>
         ) : flagsSummary.total > 0 ? (
           <span className="shrink-0 whitespace-nowrap text-muted-foreground">

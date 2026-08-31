@@ -59,12 +59,17 @@ export function ApproveBar({
                 "Ready to approve" on its own, beside a panel listing 18
                 "possible hallucinated page citation" warnings, is true but
                 reads as an all-clear — and this bar is the last thing an
-                admin sees before the data reaches a student. */}
+                admin sees before the data reaches a student.
+                "metrics", not a bare number: `toReview` counts flagged
+                metrics (`ReviewPanel.tsx`'s `flagQueueLength`), and the
+                sentence right above this one counts *flags* ("N blocking
+                flags") — an unlabeled "N to review" beside that reads as
+                the same unit when it isn't. */}
             {toReview > 0 && (
               <>
                 {" · "}
-                <span className="font-medium tabular-nums">{toReview}</span> to
-                review
+                <span className="font-medium tabular-nums">{toReview}</span>{" "}
+                metric{toReview === 1 ? "" : "s"} to review
               </>
             )}
           </>
