@@ -38,7 +38,7 @@ _YEAR = 2025
 
 class _FakeConn:
     def __init__(self, *, no_content: bool, status: str) -> None:
-        self.existing = {
+        self.existing: dict[str, Any] = {
             "status": status,
             "detection": {},
             "school_id": None,
