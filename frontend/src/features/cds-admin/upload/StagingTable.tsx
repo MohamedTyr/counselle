@@ -79,11 +79,21 @@ export function StagingTable({
     : SCHOOL_COLUMN_WIDTH_NARROW;
   return (
     <Table
-      className="w-full table-fixed"
+      className="w-full max-w-6xl table-fixed"
       render={
+        // max-h-full (not h-full): the frame hugs a short batch (the common
+        // case — a handful of files) instead of stretching a bordered box
+        // full of dead space, same reasoning as CoverageGrid.tsx. max-w-6xl
+        // caps the table below its container's full bleed width: File/
+        // School/Year/Pages/Status/Actions are each a measured pixel floor
+        // (comment below) summing to 1040px, and table-fixed distributes
+        // any *extra* table width proportionally across every column —
+        // uncapped, that stretched Status and even the icon-only Actions
+        // column into wide bands of blank space. 6xl (1152px) leaves room
+        // to breathe without reproducing that gap.
         <div
           className={cn(
-            "h-full max-h-full overflow-auto overscroll-contain rounded-xl border",
+            "max-h-full w-full max-w-6xl overflow-auto overscroll-contain rounded-xl border",
             className,
           )}
         />

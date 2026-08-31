@@ -158,13 +158,18 @@ function CoverageGridRow({
   return (
     <TableRow className="group/row h-11 hover:bg-muted">
       <th
-        className={`sticky left-0 z-10 bg-background p-2.5 text-left align-middle transition-colors group-hover/row:bg-muted`}
+        className={`sticky left-0 z-10 bg-background p-2 text-left align-middle transition-colors group-hover/row:bg-muted`}
         scope="row"
       >
+        {/* DESIGN.md §1.6: 44px (h-11) row height. leading-none on both
+            lines is what makes the two-line school cell actually fit —
+            default line-heights alone run the row to ~58px. */}
         <div className="flex min-w-0 flex-col justify-center gap-0.5">
-          <span className="truncate text-sm font-medium">{row.name}</span>
+          <span className="truncate text-sm leading-none font-medium">
+            {row.name}
+          </span>
           {row.state && (
-            <span className="truncate text-xs text-muted-foreground">
+            <span className="truncate text-xs leading-none text-muted-foreground">
               {row.state}
             </span>
           )}
@@ -229,7 +234,13 @@ export function CoverageGrid({
     <Table
       className="w-full max-w-5xl table-fixed"
       render={
-        <div className="h-full max-h-full overflow-auto overscroll-contain rounded-xl border" />
+        // max-h-full (not h-full): the frame hugs its rows when the result
+        // set is small — the common case, since "with documents" is ~8 rows
+        // and find-mode-idle is one message row — and only grows to fill
+        // (then scrolls) once rows actually exceed the available height.
+        // max-w-5xl mirrors the table's own cap so the border never runs
+        // wider than the content it holds.
+        <div className="max-h-full w-full max-w-5xl overflow-auto overscroll-contain rounded-xl border" />
       }
     >
       <TableCaption className="sr-only">
