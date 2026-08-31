@@ -63,7 +63,7 @@ export function SchoolPicker({
       {schoolName ? (
         <PopoverTrigger
           aria-label={`Change school, currently ${schoolName}`}
-          className="-mx-1 block max-w-full truncate rounded-sm px-1 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="-mx-1 block max-w-full truncate rounded-sm px-1 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 disabled:hover:bg-transparent"
           disabled={disabled}
         >
           {schoolName}
