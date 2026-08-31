@@ -279,7 +279,9 @@ async def patch_upload_row(
 ) -> UploadRow:
     async with app_pool.acquire() as conn, conn.transaction():
         existing = await conn.fetchrow(
-            "SELECT status, detection, school_id, academic_year "
+            # `content IS NULL` rather than the bytes themselves: this only needs
+            # the predicate, and the bytes are a whole PDF.
+            "SELECT status, detection, school_id, academic_year, content IS NULL AS no_content "
             "FROM counselle.cds_upload_files WHERE id = $1 FOR UPDATE",
             file_id,
         )
@@ -287,12 +289,19 @@ async def patch_upload_row(
             raise CdsAdminNotFoundError(f"upload row {file_id} not found")
         if existing["status"] == "committed":
             raise CdsAdminValidationError("cannot edit an already-committed upload row")
-        if existing["status"] == "error":
-            # `create_upload`'s except-branch stages this row with `content =
-            # NULL` -- there is no PDF behind it to process. Setting
-            # school_id/academic_year here would let `_resolve_status` return a
-            # ready status (`matched`/`replaces_existing`) for a row that can
-            # only ever fail at process time. Delete and re-upload instead.
+        if existing["no_content"]:
+            # Gated on the missing PDF, not on `status = 'error'`, because those
+            # are not the same set. `create_upload`'s except-branch stages an
+            # unreadable file with `content = NULL` -- nothing to process, so
+            # letting `_resolve_status` return `matched`/`replaces_existing` here
+            # would only produce a row that fails again at process time.
+            # `process_batch`'s per-file handler also writes `status = 'error'`,
+            # but only `status`/`error_message`: the content is intact (it is
+            # nulled on the success path alone). Refusing those too stranded a
+            # file that hit a transient commit failure -- `process_batch` skips
+            # `error` rows, so the admin's only recovery was to delete and
+            # re-upload from disk, when a no-op PATCH used to re-resolve the
+            # status and let the next "Process all" retry it.
             raise CdsAdminValidationError(
                 "cannot edit an upload row that failed to read -- delete it and re-upload the file"
             )
