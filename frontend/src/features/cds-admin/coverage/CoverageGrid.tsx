@@ -95,14 +95,24 @@ function PopulatedCell({
   const isRunning = cell.job_status === "running";
   const statusLabel = getStatusLabel(cell.status, isRunning);
   const activeDomains = cell.active_domains;
+  const partialDomains = cell.partial_domains;
   const candidateDomains = cell.candidate_domains;
+  // `active_domains`/`partial_domains` are only populated for "approved" and
+  // "correction_pending" cells (adapters/cds_admin_queries.py `_cell_from_row`).
+  // `candidate_domains` is a different count — the not-yet-active candidate
+  // document's own domain total — and is only populated for "needs_review"/
+  // "failed". `partial_domains` counts how many of the *active* domains have
+  // packet status "partial" — a domain where not every metric resolved to a
+  // verified value (docs/DATABASE_GUIDE.md §4/§5's "covered but not fully").
+  // It is not "N of M domains extracted" — the payload carries no manifest
+  // total to compare `active_domains` against, so we never claim one.
   const isPartial =
-    cell.status === "approved" &&
+    (cell.status === "approved" || cell.status === "correction_pending") &&
     activeDomains !== null &&
-    candidateDomains !== null &&
-    activeDomains < candidateDomains;
+    partialDomains !== null &&
+    partialDomains > 0;
   const partialSuffix = isPartial
-    ? `, ${activeDomains}/${candidateDomains} domains`
+    ? `, ${partialDomains} of ${activeDomains} active domains partial`
     : "";
 
   return (
@@ -120,7 +130,7 @@ function PopulatedCell({
             <StatusChip running={isRunning} short status={cell.status} />
             {isPartial && (
               <span className="text-xs text-muted-foreground tabular-nums">
-                {activeDomains}/{candidateDomains}
+                {partialDomains}/{activeDomains} partial
               </span>
             )}
           </button>
@@ -129,10 +139,13 @@ function PopulatedCell({
           <div className="space-y-0.5 text-left">
             {cell.extractor_version && <div>{cell.extractor_version}</div>}
             {cell.updated_at && <div>{formatWhen(cell.updated_at)}</div>}
-            {candidateDomains !== null && (
+            {isPartial && (
               <div>
-                {activeDomains ?? 0}/{candidateDomains} domains
+                {partialDomains} of {activeDomains} active domains partial
               </div>
+            )}
+            {!isPartial && candidateDomains !== null && (
+              <div>{candidateDomains} domains extracted</div>
             )}
             {cell.status === "failed" && cell.error_code && (
               <div>{cell.error_code}</div>
