@@ -268,6 +268,17 @@ function DocumentReviewLoaded({
     );
   }
 
+  // Dismissal (Esc, overlay click, Cancel) goes straight to the boolean --
+  // clear the edit-conflict message here too, not just on the two success
+  // paths below. `ApproveAnywayDialog`'s own discriminator no longer trusts
+  // a stale message once `flags_summary.unresolved` moves off 0, but this
+  // keeps the *state* itself from outliving the click that produced it,
+  // rather than relying solely on that render-time check.
+  function handleApproveAnywayOpenChange(next: boolean) {
+    setApproveAnywayOpen(next);
+    if (!next) setOwnEditConflictMessage(null);
+  }
+
   function handleRerun() {
     const pending = new Set<string>();
     for (const section of review.sections) {
@@ -343,7 +354,7 @@ function DocumentReviewLoaded({
       <ApproveAnywayDialog
         confirming={approveDocument.isPending}
         onConfirm={handleApproveAnywayConfirm}
-        onOpenChange={setApproveAnywayOpen}
+        onOpenChange={handleApproveAnywayOpenChange}
         open={approveAnywayOpen}
         ownEditConflictMessage={ownEditConflictMessage ?? undefined}
         review={review}

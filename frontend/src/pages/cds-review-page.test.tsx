@@ -127,3 +127,133 @@ describe("CdsReviewPage — an edit-caused 409 on Approve is visible, not a sile
     ).not.toBeInTheDocument();
   });
 });
+
+/** Regression for the stale-message bug: `ownEditConflictMessage` is set by
+ * the edit-caused-409 toast path above, but nothing clears it when a later,
+ * unrelated flag-count rise makes `ApproveBar` open the *same* dialog for a
+ * real blocking flag. Before the fix, the dialog kept describing the old
+ * edit conflict — wrong title, the stale message as body, and the flag list
+ * (the thing an admin is about to override with `override_flags: true`) not
+ * rendered at all. */
+const YEAR_FLAG_MESSAGE = "extracted year does not match the document's own cover page";
+
+function reviewFixtureWithRealFlag(): DocumentReviewOut {
+  const base = reviewFixture();
+  return {
+    ...base,
+    flags_summary: { unresolved: 1, total: 1 },
+    sections: [
+      {
+        domain_id: "b1",
+        title: "General Information",
+        status: "flagged",
+        counts: {},
+        metrics: [
+          {
+            ref: "B1.year_consistency",
+            title: "Academic year",
+            description: null,
+            type: "text",
+            unit: null,
+            source_hints: [],
+            value: null,
+            raw_value: null,
+            display: null,
+            availability_status: null,
+            extraction_status: null,
+            evidence: null,
+            flags: [
+              {
+                code: "year_consistency",
+                severity: "error",
+                message: YEAR_FLAG_MESSAGE,
+                metric_ref: "B1.year_consistency",
+              },
+            ],
+            pending_edit: null,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("CdsReviewPage — the approve-anyway dialog never misdescribes what it's about to override", () => {
+  test("a real blocking flag from ApproveBar replaces a stale edit-conflict message, never hides behind it", async () => {
+    let getCount = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url.endsWith("/v1/admin/cds/documents/42") && method === "GET") {
+        getCount += 1;
+        // First load: unresolved 0 (what makes Approve clickable at all).
+        // Every refetch after that (triggered by the 409's onSettled)
+        // reflects a real blocking flag that appeared server-side — the
+        // Re-run/concurrent-write case from the bug report, collapsed to
+        // its shortest form: nothing about `ownEditConflictMessage` changes
+        // this GET response, only `flags_summary` and `sections` do.
+        return Promise.resolve(
+          jsonResponse(getCount === 1 ? reviewFixture() : reviewFixtureWithRealFlag()),
+        );
+      }
+      if (url.endsWith("/v1/admin/cds/documents/42/approve") && method === "POST") {
+        return Promise.resolve(
+          jsonResponse(
+            { error: { message: SERVER_MESSAGE, trace_id: "trace-1" } },
+            { status: 409 },
+          ),
+        );
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AppProviders queryClient={createTestQueryClient()}>
+        <MemoryRouter initialEntries={["/admin/cds/documents/42"]}>
+          <Routes>
+            <Route element={<CdsReviewPage />} path="/admin/cds/documents/:documentId" />
+          </Routes>
+        </MemoryRouter>
+      </AppProviders>,
+    );
+
+    // Step 1: trigger the edit-caused 409 exactly like the test above, which
+    // sets `ownEditConflictMessage` to the server's edit-validation message.
+    const approveButton = await screen.findByRole("button", { name: "Approve" });
+    approveButton.click();
+    await screen.findByText(SERVER_MESSAGE);
+
+    // Step 2: the queued refetch lands `flags_summary.unresolved: 1` with a
+    // real, stored `year_consistency` flag -- `ApproveBar` now renders its
+    // own "Approve anyway" for the genuine blocking-flags path. (Two buttons
+    // share that name once the toast is also on screen: the toast's action
+    // and ApproveBar's. Only the latter is the real blocking-flags path.)
+    const blockingSentence = await screen.findByText(/blocking flag/);
+    const approveAnywayButtons = screen.getAllByRole("button", { name: "Approve anyway" });
+    const approveBarButton = approveAnywayButtons.find(
+      (button) => !button.closest("[data-sonner-toast]"),
+    );
+    expect(approveBarButton).toBeDefined();
+    expect(blockingSentence).toBeInTheDocument();
+
+    approveBarButton?.click();
+
+    // The dialog must describe *this* override, not the stale one: the
+    // blocking-flags title, the real flag's message and severity chip, and
+    // a confirm button naming the real count -- never the old edit-conflict
+    // title/body/button, and never a bare flag-less "Approve anyway".
+    expect(
+      await screen.findByRole("heading", { name: "Approve with 1 blocking flags?" }),
+    ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(YEAR_FLAG_MESSAGE)).toBeInTheDocument();
+    expect(within(dialog).queryByText(SERVER_MESSAGE)).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("Approve despite this edit's validation failure?"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Approve with 1 blocking flags" }),
+    ).toBeInTheDocument();
+  });
+});

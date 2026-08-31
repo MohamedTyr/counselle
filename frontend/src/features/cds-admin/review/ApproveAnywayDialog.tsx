@@ -29,7 +29,18 @@ import { useReviewControllerContext } from "@/features/cds-admin/review/review-c
  * what it's asking the admin to override. When set, this renders the
  * server's own message in place of the flag list — nothing invented — and
  * keeps the same acknowledge-and-note friction (never a one-click override)
- * so this case isn't easier to wave through than a stored flag is. */
+ * so this case isn't easier to wave through than a stored flag is.
+ *
+ * `isOwnEditConflict` also requires `review.flags_summary.unresolved === 0`,
+ * not just a non-null message: this dialog can be reopened by two unrelated
+ * callers that share `approveAnywayOpen` but not this message (`ApproveBar`'s
+ * real blocking-flags "Approve anyway", which never sets or clears it), and
+ * the message from a past edit-conflict click can outlive the click that set
+ * it (a re-run, or another admin's concurrent write, can raise `unresolved`
+ * above 0 while the message is still sitting in state). Once `unresolved` is
+ * above 0, only the stored-flags story is true — this must show that list,
+ * never the leftover message, or the admin overrides real flags without ever
+ * seeing them. */
 export function ApproveAnywayDialog({
   open,
   onOpenChange,
@@ -51,7 +62,11 @@ export function ApproveAnywayDialog({
   const flagged = buildFlagQueue(review.sections, false);
   const hidden = hiddenUnresolvedCount(review.sections, review.flags_summary);
   const count = review.flags_summary.unresolved;
-  const isOwnEditConflict = ownEditConflictMessage !== undefined;
+  // See the doc comment above: the message alone is not enough to prove this
+  // is still an edit conflict, since it can survive past the click that set
+  // it (dismissal, or `ApproveBar`'s own "Approve anyway" reopening the same
+  // dialog for a real, unrelated flag count).
+  const isOwnEditConflict = ownEditConflictMessage !== undefined && count === 0;
 
   function jumpTo(ref: string, page: number | null | undefined) {
     onOpenChange(false);
