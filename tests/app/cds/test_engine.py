@@ -7,11 +7,15 @@ routing/prompt/retry-window/status machinery around it.
 
 from __future__ import annotations
 
+import pytest
+
+from adapters import cds_pdf
 from app.cds.batching import Batch
 from app.cds.calling import DomainOutcome, _retry_clusters
 from app.cds.engine import _overall_status
 from app.cds.routing import (
     _build_prompt,
+    _form_mark_pages,
     _hit_pages_for_hints,
     _page_note,
     _route_batches,
@@ -87,6 +91,68 @@ def test_route_batches_spans_first_to_last_hit_per_batch_not_per_domain() -> Non
 
     assert routing == {"admissions#0": (3, 3), "admissions#1": (8, 8)}
     assert "faculty#0" not in routing  # zero hits -> absent, caller falls back to whole document
+
+
+def _all_form_pdfs(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _has_form_fields(pdf_bytes: bytes) -> bool:
+        return True
+
+    monkeypatch.setattr(cds_pdf, "has_form_fields", _has_form_fields)
+
+
+async def test_form_mark_pages_spends_its_cap_on_the_densest_span_not_the_lowest_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The page budget must go to the section, not to the table of contents.
+
+    Capping the sorted union of every hint's span ranked pages by POSITION --
+    the exact ranking `_densest_hit_span` exists to override. `H1`'s single
+    table-of-contents hit on page 3 took a slot and truncated `H2`'s real
+    40-44 section to 42, so the model was asked to read booleans off a
+    contents page. Worse than ordinary routing noise: `_call_evidence` sets
+    `call_bytes = None` whenever this returns anything, so a page dropped
+    here has no fallback text evidence at all.
+    """
+    _all_form_pdfs(monkeypatch)
+    routing_text = {
+        3: "H1. DEGREES CONFERRED .......... 40",  # contents line, one isolated hit
+        40: "H2 heading",
+        41: "H2 continued",
+        42: "H2 continued",
+        43: "H2 continued",
+        44: "H2 continued",
+    }
+    metrics = (
+        {"type": "boolean", "source_hints": ["H1"]},
+        {"type": "boolean", "source_hints": ["H2"]},
+    )
+
+    pages = await _form_mark_pages(
+        pdf_content=b"%PDF-1.4", metrics=metrics, routing_text=routing_text
+    )
+
+    assert pages == [40, 41, 42, 43]
+
+
+async def test_form_mark_pages_still_carries_both_of_two_far_apart_hints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ranking by span must not undo the per-hint clustering it ranks: UGA's
+    `outcomes` batch hints B4-B21 (page 8) and B22 (page 12), two singletons
+    further apart than `_HIT_CLUSTER_GAP`. Pooling them dropped one section
+    entirely; both still have to survive under the cap."""
+    _all_form_pdfs(monkeypatch)
+    routing_text = {8: "B4-B21. Graduation Rates", 12: "B22. Retention", 20: "unrelated"}
+    metrics = (
+        {"type": "boolean", "source_hints": ["B4-B21"]},
+        {"type": "boolean", "source_hints": ["B22"]},
+    )
+
+    pages = await _form_mark_pages(
+        pdf_content=b"%PDF-1.4", metrics=metrics, routing_text=routing_text
+    )
+
+    assert pages == [8, 12]
 
 
 def test_page_note_identity_case_cites_physical_pages() -> None:
