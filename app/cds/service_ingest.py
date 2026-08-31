@@ -189,12 +189,24 @@ async def create_upload(
             )
             for candidate in result.candidates
         ]
+        # Both notes when both apply. A detection call that failed and a document
+        # whose first page never says "Common Data Set" are independent facts;
+        # showing only the transport error dropped the more actionable of the
+        # two. Either one alone still lands the row on `needs_input`.
+        detection_notes = [
+            note
+            for note in (
+                result.error,
+                None if looks_like_cds else _NOT_A_CDS_DETECTION_NOTE,
+            )
+            if note
+        ]
         detection_info = DetectionInfo(
             name=result.detected_name,
             year=result.detected_academic_year,
             confident=result.confident,
             candidates=candidates,
-            error=result.error or (None if looks_like_cds else _NOT_A_CDS_DETECTION_NOTE),
+            error="; ".join(detection_notes) or None,
         )
         if looks_like_cds and result.confident and result.best_match is not None:
             school_id = result.best_match.school_id
