@@ -1,5 +1,5 @@
 """Unit tests for two honesty-critical, pure-ish pieces of
-`app/cds/service_review.py`'s human-review write path (plan §B5, ADR 0036):
+`app/cds/service_review_approve.py`'s human-review write path (plan §B5, ADR 0036):
 
 - `_human_reviewed_packet` must merge the domain's own model-derived
   `provider_contract` (metric definitions the review screen and validators
@@ -25,7 +25,7 @@ from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
-from app.cds.service_review import _clear_pending_edits, _human_reviewed_packet
+from app.cds.service_review_approve import _clear_pending_edits, _human_reviewed_packet
 
 _DOCUMENT_SHA_HEX = "ab" * 32
 

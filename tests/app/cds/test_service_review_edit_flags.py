@@ -1,5 +1,5 @@
 """Regression tests for the approve gate over an admin's *own* corrections
-(`app/cds/service_review.py::_prepare_edited_packets`).
+(`app/cds/service_review_approve.py::_prepare_edited_packets`).
 
 `approve_document` computes its blocking gate from `_flags_summary` over the
 packets the document already has -- values the model extracted. A human-review
@@ -43,7 +43,7 @@ from adapters.cds_admin_types import (
     MetricRow,
 )
 from app.cds import manifest as manifest_mod
-from app.cds import service_review
+from app.cds import service_review_approve
 from app.cds.errors import CdsAdminConflictError
 from app.cds.models import ApproveResult
 
@@ -242,7 +242,7 @@ def _patch_writes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 async def _approve(
     app_pool: _FakePool, *, override_flags: bool = False
 ) -> ApproveResult:
-    return await service_review.approve_document(
+    return await service_review_approve.approve_document(
         app_pool, _FakePool(), SimpleNamespace(), document_id=_DOCUMENT_ID,
         actor_user_id=_ACTOR, override_flags=override_flags, note=None,
     )

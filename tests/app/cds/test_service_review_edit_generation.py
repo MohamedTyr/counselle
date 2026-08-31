@@ -42,7 +42,7 @@ from adapters.cds_admin_types import (
     MetricRow,
 )
 from app.cds import manifest as manifest_mod
-from app.cds import service_review
+from app.cds import service_review, service_review_approve
 from app.cds.models import EvidenceIn, MetricEditIn
 
 _DOCUMENT_ID = 42
@@ -232,15 +232,15 @@ def _record_applied(monkeypatch: Any) -> list[dict[str, list[dict[str, Any]]]]:
     build into a new human-review packet."""
     applied: list[dict[str, list[dict[str, Any]]]] = []
 
-    async def _prepare(conn: Any, **kwargs: Any) -> service_review._EditedPackets:
+    async def _prepare(conn: Any, **kwargs: Any) -> service_review_approve._EditedPackets:
         applied.append(dict(kwargs["edits_by_domain"]))
-        return service_review._EditedPackets(_NEW_EXTRACTION, b"", ((_DOMAIN, {}, ()),))
+        return service_review_approve._EditedPackets(_NEW_EXTRACTION, b"", ((_DOMAIN, {}, ()),))
 
     async def _write(conn: Any, **kwargs: Any) -> str:
         return str(kwargs["edited"].extraction_id)
 
-    monkeypatch.setattr(service_review, "_prepare_edited_packets", _prepare)
-    monkeypatch.setattr(service_review, "_write_edited_packets", _write)
+    monkeypatch.setattr(service_review_approve, "_prepare_edited_packets", _prepare)
+    monkeypatch.setattr(service_review_approve, "_write_edited_packets", _write)
     return applied
 
 
@@ -256,7 +256,7 @@ class TestApproveIgnoresSupersededEdits:
         applied = _record_applied(monkeypatch)
         app_pool = _FakePool([_pending_row(base_extraction_id=_SUPERSEDED_EXTRACTION)])
 
-        result = await service_review.approve_document(
+        result = await service_review_approve.approve_document(
             app_pool, _FakePool(), SimpleNamespace(), document_id=_DOCUMENT_ID,
             actor_user_id=_ACTOR, override_flags=False, note=None,
         )
@@ -270,7 +270,7 @@ class TestApproveIgnoresSupersededEdits:
         applied = _record_applied(monkeypatch)
         app_pool = _FakePool([_pending_row(base_extraction_id=_LIVE_EXTRACTION)])
 
-        result = await service_review.approve_document(
+        result = await service_review_approve.approve_document(
             app_pool, _FakePool(), SimpleNamespace(), document_id=_DOCUMENT_ID,
             actor_user_id=_ACTOR, override_flags=False, note=None,
         )
@@ -290,7 +290,7 @@ class TestApproveIgnoresSupersededEdits:
         _record_applied(monkeypatch)
         app_pool = _FakePool([_pending_row(base_extraction_id=_SUPERSEDED_EXTRACTION)])
 
-        await service_review.approve_document(
+        await service_review_approve.approve_document(
             app_pool, _FakePool(), SimpleNamespace(), document_id=_DOCUMENT_ID,
             actor_user_id=_ACTOR, override_flags=False, note=None,
         )
