@@ -176,8 +176,9 @@ export const ReviewPanel = forwardRef<
           <>
             {toReview === 0 && flagsSummary.total === 0 && (
               <p className="px-3 py-2 text-xs text-muted-foreground">
-                Everything extracted cleanly. Spot-check a section, then
-                approve.
+                {readOnly
+                  ? "Everything extracted cleanly."
+                  : "Everything extracted cleanly. Spot-check a section, then approve."}
               </p>
             )}
             <Accordion

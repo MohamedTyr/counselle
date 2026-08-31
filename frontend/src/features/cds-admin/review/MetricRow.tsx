@@ -1,4 +1,4 @@
-import { FileText, Flag } from "lucide-react";
+import { FileText, Flag, History } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -73,6 +73,12 @@ export function MetricRow({
   // extraction's page, or an admin can be sent to the wrong page for a
   // value they already corrected.
   const displayEvidence = metric.pending_edit?.evidence ?? metric.evidence;
+  // Only true right after *this session's* Re-run swept this exact metric's
+  // edit (`review-context.tsx`'s `supersededRefs` doc comment) — cleared the
+  // moment a fresh edit exists again, so it can never contradict what's on
+  // screen.
+  const isSuperseded =
+    metric.pending_edit === null && controller.supersededRefs.has(metric.ref);
 
   function submitEdit(
     edit: { value: unknown; raw_value: string | null; evidence: MetricEditIn["evidence"] },
@@ -156,8 +162,17 @@ export function MetricRow({
   }
 
   return (
-    <div className="border-b last:border-b-0">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-1.5 text-sm">
+    <div className="rounded-md border-b transition-colors last:border-b-0 focus-within:bg-[var(--surface-active)]">
+      {/* The evidence column is a fixed track (not `auto`): with three
+          independent per-row grids sharing no template, an `auto` evidence
+          column collapses to ~0 on rows with no citation, which pulls the
+          value column's right edge in after it — a document mixing cited
+          and uncited rows reads as a ragged column of numbers instead of
+          one you can scan down. Pinning the width means the value's right
+          edge lands at the same x on every row regardless of whether this
+          one has a page chip (§5.6, "compared numbers want tabular
+          numerics"). */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_5rem] items-center gap-3 py-1.5 text-sm">
         <Tooltip>
           <TooltipTrigger className="flex min-w-0 items-center gap-1.5 text-left">
             {unresolvedSeverity && (
@@ -247,6 +262,16 @@ export function MetricRow({
           <span className="text-muted-foreground">{flag.message}</span>
         </div>
       ))}
+
+      {isSuperseded && (
+        <div className="flex items-start gap-2 pb-1.5 pl-6 text-xs text-muted-foreground">
+          <History aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            Superseded by re-extraction — the value shown is from the new
+            run, not your edit.
+          </span>
+        </div>
+      )}
 
       {saveError && (
         <p className="pb-1.5 pl-6 text-xs text-destructive">{saveError}</p>

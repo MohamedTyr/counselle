@@ -8,7 +8,10 @@ import {
   useRejectDocument,
   useRerunExtraction,
 } from "@/api/cds-admin/hooks";
-import type { DocumentReviewOut } from "@/api/cds-admin/types";
+import {
+  isNonTerminalExtractionStatus,
+  type DocumentReviewOut,
+} from "@/api/cds-admin/types";
 import { isTransportError } from "@/api/http/errors";
 import { CdsErrorCard } from "@/features/cds-admin/CdsErrorCard";
 import { CdsUnavailable } from "@/features/cds-admin/CdsUnavailable";
@@ -130,6 +133,40 @@ function DocumentReviewLoaded({
   const reviewPanelRef = useRef<ReviewPanelHandle>(null);
   const pendingConflictFocusRef = useRef(false);
 
+  // Refs whose pending edit disappeared specifically because *this* Re-run
+  // (never approve/reject, which never puts `extraction.status` through a
+  // non-terminal phase) just superseded it -- see `review-context.tsx`'s
+  // `supersededRefs` doc comment for why the wire can't say this on its own.
+  const [supersededRefs, setSupersededRefs] = useState<Set<string>>(new Set());
+  const preRerunPendingRefsRef = useRef<Set<string> | null>(null);
+  const prevExtractionStatusRef = useRef(review.extraction?.status);
+
+  useEffect(() => {
+    const prevStatus = prevExtractionStatusRef.current;
+    const nextStatus = review.extraction?.status;
+    prevExtractionStatusRef.current = nextStatus;
+    const watching = preRerunPendingRefsRef.current;
+    if (!watching) return;
+    const justFinishedRerun =
+      prevStatus != null &&
+      isNonTerminalExtractionStatus(prevStatus) &&
+      nextStatus != null &&
+      !isNonTerminalExtractionStatus(nextStatus);
+    if (!justFinishedRerun) return;
+    const stillPending = new Set<string>();
+    for (const section of review.sections) {
+      for (const metric of section.metrics) {
+        if (metric.pending_edit) stillPending.add(metric.ref);
+      }
+    }
+    const superseded = new Set<string>();
+    for (const ref of watching) {
+      if (!stillPending.has(ref)) superseded.add(ref);
+    }
+    setSupersededRefs(superseded);
+    preRerunPendingRefsRef.current = null;
+  }, [review.extraction?.status, review.sections]);
+
   // Two-step focus (mirrors `use-review-controller.ts`'s `pendingFocusRef`):
   // the 409 handler can't focus the next-flag button synchronously — it's
   // disabled until the mutation's `onSettled` refetch lands a fresh
@@ -196,6 +233,14 @@ function DocumentReviewLoaded({
   }
 
   function handleRerun() {
+    const pending = new Set<string>();
+    for (const section of review.sections) {
+      for (const metric of section.metrics) {
+        if (metric.pending_edit) pending.add(metric.ref);
+      }
+    }
+    preRerunPendingRefsRef.current = pending;
+    setSupersededRefs(new Set());
     rerunExtraction.mutate(
       { documentId, body: {} },
       { onSuccess: () => toast.success("Re-extraction queued.") },
@@ -211,6 +256,7 @@ function DocumentReviewLoaded({
       handleApprove();
     },
     sections: review.sections,
+    supersededRefs,
     viewerRef,
   });
 

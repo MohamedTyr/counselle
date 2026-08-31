@@ -43,9 +43,17 @@ export function useReviewController(params: {
   currentPage: number;
   onApprove: () => void;
   announce: (message: string) => void;
+  supersededRefs: ReadonlySet<string>;
 }): ReviewController {
-  const { sections, flaggedFirst, viewerRef, currentPage, onApprove, announce } =
-    params;
+  const {
+    sections,
+    flaggedFirst,
+    viewerRef,
+    currentPage,
+    onApprove,
+    announce,
+    supersededRefs,
+  } = params;
 
   const [openDomains, setOpenDomainsState] = useState<Set<string>>(
     () => new Set(sectionsWithUnresolvedFlags(sections)),
@@ -209,5 +217,6 @@ export function useReviewController(params: {
     flaggedFirst,
     shortcutsOpen,
     setShortcutsOpen,
+    supersededRefs,
   };
 }

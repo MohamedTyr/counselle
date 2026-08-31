@@ -25,6 +25,15 @@ export interface ReviewController {
   flaggedFirst: boolean;
   shortcutsOpen: boolean;
   setShortcutsOpen: (open: boolean) => void;
+  /** Metric refs whose pending edit was just swept by `_current_edits`
+   * (`app/cds/service_review.py`, migration 0016) because a re-extraction
+   * moved past the values that edit was written against. Populated by
+   * `cds-review-page.tsx` from what it itself observed disappear right
+   * after *this session's own* Re-run — the wire carries no per-metric
+   * "superseded" flag (a metric with no pending edit looks identical
+   * whether it never had one or just lost one), so this can only ever be a
+   * session-local inference, never a fact re-derivable from a fresh load. */
+  supersededRefs: ReadonlySet<string>;
 }
 
 export const ReviewControllerContext = createContext<ReviewController | null>(
