@@ -23,18 +23,20 @@ import { cn } from "@/lib/utils";
 const WIDE_BREAKPOINT = 1280;
 const SCHOOL_COLUMN_WIDTH_WIDE = 260;
 const SCHOOL_COLUMN_WIDTH_NARROW = 200;
-// Below `xl`, File can't stay `auto`: `table-fixed` gives an `auto` column
-// whatever is left over, and browsers don't honour `min-width` to grow it
-// back — measured on this exact table, an `auto` File column still rendered
-// 0px below `xl` even with `minWidth` set, because School+Year+Status+
-// Actions (200+156+264+48=668) already exceeds this page's real content
-// width with the app sidebar at its default 312px. A fixed pixel width
-// (not "auto") is the one thing `table-fixed` always honours, so File gets
-// a real floor; if the floors still don't all fit, the table's own
+// File is `1fr, min 240` per DESIGN.md §4.4 — a genuine, breakpoint-
+// independent floor, not something that flexes down when the other columns
+// need room. `table-fixed` gives an `auto` column whatever is left over
+// and browsers don't honour `min-width` to grow it back — measured on this
+// exact table, an `auto` File column rendered as little as 86px at exactly
+// 1280px (the moment the Pages column reappears alongside School widening
+// to 260), which is unreadable for a filename. A fixed pixel width (not
+// "auto") is the one thing `table-fixed` always honours, so File keeps its
+// floor at every breakpoint; School, Year, Pages, Status, and Actions never
+// yield to it. When the fixed floors don't all fit, the table's own
 // `overflow-auto` container scrolls — the same fallback DESIGN.md §1.10
-// already prescribes below 1024px, arriving a little early here because of
-// sidebar chrome outside this screen's control.
-const FILE_COLUMN_WIDTH_NARROW = 140;
+// already prescribes below 1024px; this just applies it consistently
+// instead of only below `xl`.
+const FILE_COLUMN_WIDTH = 240;
 
 function useIsWide(): boolean {
   const [isWide, setIsWide] = useState(
@@ -75,7 +77,6 @@ export function StagingTable({
   const schoolColumnWidth = isWide
     ? SCHOOL_COLUMN_WIDTH_WIDE
     : SCHOOL_COLUMN_WIDTH_NARROW;
-  const fileColumnWidth = isWide ? "auto" : FILE_COLUMN_WIDTH_NARROW;
   return (
     <Table
       className="w-full table-fixed"
@@ -106,11 +107,12 @@ export function StagingTable({
           "Pick a school" button needs ~126px, and the longest status
           reason — "Matches an existing document · View existing" — measures
           259px (not 180); none of those three can shrink further without
-          clipping. School and File are the two that flex below `xl` — see
-          the constants above for why. */}
+          clipping. School is the one column here that flexes below `xl`
+          — see the constants above for why. File stays fixed at every
+          breakpoint instead of flexing: see `FILE_COLUMN_WIDTH` above. */}
       <TableHeader className="sticky top-0 z-10 bg-background">
         <TableRow>
-          <TableHead scope="col" style={{ width: fileColumnWidth }}>
+          <TableHead scope="col" style={{ width: FILE_COLUMN_WIDTH }}>
             File
           </TableHead>
           <TableHead scope="col" style={{ width: schoolColumnWidth }}>
