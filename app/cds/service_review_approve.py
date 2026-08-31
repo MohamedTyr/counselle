@@ -19,14 +19,16 @@ through the reader's own `parse_packet_row()` before it lands -- this module
 never needs to (and cannot) fight the immutability trigger. It does not judge
 the packet's *values*: that is `_prepare_edited_packets`' job, which runs the
 validators over each synthesized packet and refuses the approve outright,
-before any of this writes anything, when the admin's own edit produced a
-blocking flag.
+before any of this writes anything, on any blocking flag -- attributing each
+one to the edit or to the domain's pre-existing values by diffing against the
+same packet rebuilt without the edits (`_unedited_flags`).
 """
 
 from __future__ import annotations
 
 import uuid
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -174,26 +176,87 @@ def _human_reviewed_packet(
 @dataclass(frozen=True)
 class _EditedPackets:
     """One human-review packet per touched domain, built and validated but not
-    yet written anywhere."""
+    yet written anywhere, with the blocking flags split by who caused them."""
 
     extraction_id: uuid.UUID
     pdf_sha256: bytes
     packets: tuple[tuple[str, dict[str, Any], tuple[validators.ReviewFlag, ...]], ...]
+    #: `error`-severity flags the admin's own edit introduced.
+    edit_flags: tuple[validators.ReviewFlag, ...] = ()
+    #: `error`-severity flags the domain already carried, untouched by this edit.
+    preexisting_flags: tuple[validators.ReviewFlag, ...] = ()
 
     @property
     def domain_ids(self) -> list[str]:
         return [domain_id for domain_id, _packet, _flags in self.packets]
 
-    @property
-    def blocking_flags(self) -> tuple[validators.ReviewFlag, ...]:
-        """The `error`-severity subset — the same blocking tier
-        `_flags_summary.unresolved` counts, never the warnings alongside it."""
-        return tuple(
-            flag
-            for _domain_id, _packet, flags in self.packets
-            for flag in flags
-            if flag.severity == "error"
+
+def _blocking(flags: Iterable[validators.ReviewFlag]) -> tuple[validators.ReviewFlag, ...]:
+    """The `error`-severity subset — the same blocking tier
+    `_flags_summary.unresolved` counts, never the warnings alongside it."""
+    return tuple(flag for flag in flags if flag.severity == "error")
+
+
+def _unedited_flags(
+    doc_facts: validators.DocFacts, packet_kwargs: dict[str, Any]
+) -> frozenset[validators.ReviewFlag]:
+    """The flags this domain ALREADY carries, recomputed from its own unedited
+    values under today's validator set — the baseline the edited packet's flags
+    are diffed against.
+
+    Recomputed rather than read off `domain_summary.flags`, because those were
+    produced by whatever validators existed when the *model* extracted the
+    document. A rule added since (the transfer-funnel order rules, the
+    negative-count rule) is missing from them entirely — and that is exactly the
+    case that told an admin who corrected one unrelated metric "these edits fail
+    1 validation check(s) — transfer.enrolled_total: enrolled (1,203) > admits
+    (412)" about a value their edit never touched, then recorded them in the
+    audit log as having overridden it.
+
+    Rebuilding the same packet with the edits left out is the only comparison
+    that isolates the edit's own contribution: `denominator_sanity` is
+    cross-metric (it flags `enrolled_total` when the admin edited
+    `admitted_total`), so no `metric_ref`-based shortcut can tell the two apart
+    — it would misfile a real edit flag as pre-existing, which is a worse bug
+    than the one this fixes.
+
+    Identity is full `ReviewFlag` equality — code, severity, message, and
+    metric_ref together. `code` alone is far too coarse (`denominator_sanity` is
+    shared by three unrelated rules) and `metric_ref` is `None` on
+    document-level flags, while `message` is a pure function of the packet's own
+    values and carries them verbatim ("enrolled (1,203) > admits (412)"). So a
+    still-failing metric the admin *did* touch reads as a new flag, since its
+    numbers moved. That asymmetry is deliberate: over-attributing blocks and
+    names them, under-attributing silently downgrades a real edit flag.
+
+    A domain with no verified metric left once the edits are removed cannot be
+    rebuilt; treat every flag as edit-caused there, the same safe direction."""
+    try:
+        baseline = _human_reviewed_packet(edit_rows=[], **packet_kwargs)
+    except packet_build.ZeroVerifiedMetricsError:
+        return frozenset()
+    return frozenset(validators.run_validators(baseline, doc_facts))
+
+
+def _refusal_message(edited: _EditedPackets) -> str:
+    """Name the edit's own failures and the document's pre-existing ones
+    separately. Both still block (the data really is wrong either way, and
+    approving it silently would be the worse failure) — but telling an admin
+    their edit caused a violation it did not is a false statement, and
+    `_record_approve_audit` writes the same split into a permanent record."""
+    parts: list[str] = []
+    if edited.edit_flags:
+        parts.append(
+            f"these edits fail {len(edited.edit_flags)} validation check(s) — "
+            + "; ".join(flag.message for flag in edited.edit_flags)
         )
+    if edited.preexisting_flags:
+        parts.append(
+            f"this document already failed {len(edited.preexisting_flags)} validation "
+            "check(s) your edits did not cause — "
+            + "; ".join(flag.message for flag in edited.preexisting_flags)
+        )
+    return ". ".join(parts) + ". Correct them or approve with override_flags=true"
 
 
 async def _prepare_edited_packets(
@@ -222,7 +285,19 @@ async def _prepare_edited_packets(
     and checking here, before `_write_edited_packets` opens its transaction,
     means a refused correction leaves no extraction row, no packet, and no
     half-activated domain behind -- and `override_flags` remains the single
-    escape hatch, for this gate exactly as for the pre-edit one."""
+    escape hatch, for this gate exactly as for the pre-edit one.
+
+    Not every blocking flag it finds is the admin's doing. `run_validators`
+    runs over the WHOLE packet, and `base_metrics` seeds it with every
+    untouched metric's model-extracted value, so a violation the corpus was
+    extracted with -- under a validator set that has since gained rules -- turns
+    up here too. Each flag is therefore diffed against `_unedited_flags`, the
+    same packet rebuilt with the edits removed, and reported and audited under
+    the side it actually came from. Both sides still block: silently approving
+    a value this gate can prove wrong would be the worse failure either way. An
+    overridden pre-existing flag is not lost -- `_write_edited_packets` stores
+    every recomputed flag as the new packet's `validation`, so the next
+    `get_review` counts it in `_flags_summary` and the review screen shows it."""
     doc = await cds_store.fetch_document_for_extraction(conn, document_id=document_id)
     original_page_count = await cds_pdf.get_page_count(doc.pdf_content)
     corrupt_report = await cds_pdf.detect_corrupt_text_layer(doc.pdf_content)
@@ -234,32 +309,40 @@ async def _prepare_edited_packets(
     )
     extraction_id = uuid.uuid4()
     built: list[tuple[str, dict[str, Any], tuple[validators.ReviewFlag, ...]]] = []
+    edit_flags: list[validators.ReviewFlag] = []
+    preexisting_flags: list[validators.ReviewFlag] = []
     for domain_id, edit_rows in edits_by_domain.items():
-        domain_summary = by_domain.get(domain_id)
-        if domain_summary is None:
-            raise CdsAdminValidationError(f"unknown domain {domain_id!r} in pending edits")
+        # Indexed, not `.get()`-and-guard: `_current_edits` (`service_review.py`)
+        # keeps a pending row only when its stamp matches that domain's current
+        # packet, so since migration 0016 every surviving row's domain is one of
+        # `by_domain`'s keys. A KeyError here would mean that invariant broke.
+        domain_summary = by_domain[domain_id]
+        packet_kwargs: dict[str, Any] = dict(
+            manifest=manifest, domain_id=domain_id,
+            base_metrics=_base_metrics_dict(domain_summary.metrics),
+            source_provider_contract=domain_summary.provider_contract, document=document,
+            original_page_count=original_page_count, extraction_id=str(extraction_id),
+            actor_user_id=actor_user_id, base_extraction_id=domain_summary.extraction_id,
+            note=note,
+        )
         try:
-            packet = _human_reviewed_packet(
-                manifest=manifest, domain_id=domain_id, edit_rows=edit_rows,
-                base_metrics=_base_metrics_dict(domain_summary.metrics),
-                source_provider_contract=domain_summary.provider_contract, document=document,
-                original_page_count=original_page_count, extraction_id=str(extraction_id),
-                actor_user_id=actor_user_id, base_extraction_id=domain_summary.extraction_id,
-                note=note,
-            )
+            packet = _human_reviewed_packet(edit_rows=edit_rows, **packet_kwargs)
         except packet_build.ZeroVerifiedMetricsError as exc:
             raise CdsAdminValidationError(
                 f"review edits leave domain {domain_id!r} with zero verified metrics "
                 f"(counts={exc.counts!r}); a domain packet must verify at least one metric"
             ) from exc
-        built.append((domain_id, packet, tuple(validators.run_validators(packet, doc_facts))))
-    edited = _EditedPackets(extraction_id, doc.pdf_sha256, tuple(built))
-    if edited.blocking_flags and not override_flags:
-        raise CdsAdminConflictError(
-            f"these edits fail {len(edited.blocking_flags)} validation check(s) — "
-            + "; ".join(flag.message for flag in edited.blocking_flags)
-            + " — correct them or approve with override_flags=true"
-        )
+        flags = tuple(validators.run_validators(packet, doc_facts))
+        already = _unedited_flags(doc_facts, packet_kwargs)
+        built.append((domain_id, packet, flags))
+        edit_flags.extend(_blocking(flag for flag in flags if flag not in already))
+        preexisting_flags.extend(_blocking(flag for flag in flags if flag in already))
+    edited = _EditedPackets(
+        extraction_id, doc.pdf_sha256, tuple(built),
+        tuple(edit_flags), tuple(preexisting_flags),
+    )
+    if (edited.edit_flags or edited.preexisting_flags) and not override_flags:
+        raise CdsAdminConflictError(_refusal_message(edited))
     return edited
 
 
@@ -386,18 +469,26 @@ async def _record_approve_audit(
     flags_summary: FlagsSummary,
     edited: _EditedPackets | None,
 ) -> None:
-    """`approve_document`'s closing audit row. Non-zero `overridden_edit_flags`
-    only when the approve was overridden -- `_prepare_edited_packets` raises
-    otherwise -- so an override of an edit's own flags is recorded as such
-    even when the document had no pre-edit flag to override."""
-    overridden_edit_flags = len(edited.blocking_flags) if edited else 0
+    """`approve_document`'s closing audit row. Either count is non-zero only
+    when the approve was overridden -- `_prepare_edited_packets` raises
+    otherwise -- so an override of an edit's own flags is recorded as such even
+    when the document had no pre-edit flag to override.
+
+    The two are counted apart because this row is permanent. Folding a
+    violation the admin's edit did not cause into `overridden_edit_flags`
+    attributes to them an override they never made; it belongs beside it, not
+    inside it."""
+    overridden_edit_flags = len(edited.edit_flags) if edited else 0
+    overridden_preexisting_flags = len(edited.preexisting_flags) if edited else 0
     async with app_pool.acquire() as conn:
         await audit.record_audit(
             conn,
             actor_user_id=actor_user_id,
             action=(
                 "approve_override"
-                if flags_summary.unresolved > 0 or overridden_edit_flags > 0
+                if flags_summary.unresolved > 0
+                or overridden_edit_flags > 0
+                or overridden_preexisting_flags > 0
                 else "approve"
             ),
             school_id=document.school_id,
@@ -409,6 +500,7 @@ async def _record_approve_audit(
                 "activated_domains": activated_domains,
                 "unresolved_flags": flags_summary.unresolved,
                 "overridden_edit_flags": overridden_edit_flags,
+                "overridden_preexisting_flags": overridden_preexisting_flags,
             },
         )
 

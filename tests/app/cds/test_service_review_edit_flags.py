@@ -51,6 +51,13 @@ _DOCUMENT_ID = 42
 _DOMAIN = "class_profile"
 _PERCENT_REF = "class_profile.sat_submitters_percent"
 _COUNT_REF = "class_profile.enrolled_total"
+# Two refs `domain.cds.validators._ORDER_RULES` knows by name, so a test can
+# reach the CROSS-METRIC case: the rule flags the ref on the greater side, which
+# need not be the ref the admin edited. Their ids only have to match the rule --
+# `packet_build` reads metric ids straight off the domain definition below and
+# never requires them to share the domain's own prefix.
+_APPLICANTS_REF = "admissions.applicants_total"
+_ADMITTED_REF = "admissions.admitted_total"
 _LIVE_EXTRACTION = "11111111-1111-1111-1111-111111111111"
 _ACTOR = uuid.UUID("33333333-3333-3333-3333-333333333333")
 
@@ -63,9 +70,27 @@ _METRIC_DEFINITIONS = [
         "metrics": [
             {"id": _PERCENT_REF, "type": "string", "unit": "percent", "source_hints": ["C9"]},
             {"id": _COUNT_REF, "type": "integer", "unit": "students", "source_hints": ["C1"]},
+            {"id": _APPLICANTS_REF, "type": "integer", "unit": "applicants",
+             "source_hints": ["C1"]},
+            {"id": _ADMITTED_REF, "type": "integer", "unit": "applicants",
+             "source_hints": ["C1"]},
         ],
     }
 ]
+
+
+def _metric(ref: str, value: Any, raw_value: str) -> MetricRow:
+    return MetricRow(
+        ref=ref, extraction_status="verified", availability_status="reported",
+        value=value, raw_value=raw_value,
+        evidence=EvidenceRow(page_number=3, excerpt=raw_value),
+    )
+
+
+#: The clean base every test starts from unless it passes its own: both metrics
+#: extracted, nothing wrong with either. The two `_ORDER_RULES` refs are left
+#: `not_extracted` here so the funnel rules stay silent by default.
+_CLEAN_METRICS = [_metric(_PERCENT_REF, "72%", "72%"), _metric(_COUNT_REF, 1650, "1,650")]
 
 
 # ---------------------------------------------------------------------------
@@ -73,9 +98,12 @@ _METRIC_DEFINITIONS = [
 # ---------------------------------------------------------------------------
 
 
-def _review() -> DocumentReview:
-    """A clean candidate document: both metrics extracted, no flags at all, so
-    the pre-edit `_flags_summary` gate has nothing to say about this approve."""
+def _review(metrics: list[MetricRow] | None = None) -> DocumentReview:
+    """A candidate document carrying `metrics` (the clean pair by default) and
+    NO stored flags -- which is the interesting shape, not a convenience: the
+    corpus was extracted under an older validator set, so a document really can
+    hold a violation today's rules would catch with an empty `flags` list and a
+    silent pre-edit `_flags_summary` gate."""
     return DocumentReview(
         document=DocumentMeta(
             id=_DOCUMENT_ID, school_year_id=7, school_id=3, school_name="Test College",
@@ -90,18 +118,7 @@ def _review() -> DocumentReview:
                 domain_id=_DOMAIN, extraction_id=_LIVE_EXTRACTION, status="complete",
                 is_active=False, created_at=datetime(2026, 1, 1, tzinfo=UTC),
                 counts={"verified": 2},
-                metrics=[
-                    MetricRow(
-                        ref=_PERCENT_REF, extraction_status="verified",
-                        availability_status="reported", value="72%", raw_value="72%",
-                        evidence=EvidenceRow(page_number=3, excerpt="72%"),
-                    ),
-                    MetricRow(
-                        ref=_COUNT_REF, extraction_status="verified",
-                        availability_status="reported", value=1650, raw_value="1,650",
-                        evidence=EvidenceRow(page_number=3, excerpt="1,650"),
-                    ),
-                ],
+                metrics=_CLEAN_METRICS if metrics is None else metrics,
                 provider_contract={"metric_definitions": _METRIC_DEFINITIONS},
             )
         ],
@@ -171,12 +188,14 @@ class _FakePool:
         return _Ctx(self.conn)
 
 
-def _patch_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+def _patch_reads(
+    monkeypatch: pytest.MonkeyPatch, metrics: list[MetricRow] | None = None
+) -> None:
     """Everything `approve_document` reads on its way to building the new
     packets -- the review row, the compiled manifest, and the PDF facts the
     validators check against."""
     async def _get_document_review(pool: Any, document_id: int) -> DocumentReview:
-        return _review()
+        return _review(metrics)
 
     monkeypatch.setattr(cds_admin_queries, "get_document_review", _get_document_review)
     monkeypatch.setattr(
@@ -399,3 +418,108 @@ class TestOverrideAndNonBlockingCases:
 
         assert result.extraction_id is not None
         assert "insert_packet" in writes
+
+
+# ---------------------------------------------------------------------------
+# Whose failure is it: the edit's, or the document's already?
+# ---------------------------------------------------------------------------
+
+
+class TestPreexistingFlagsAreNotBlamedOnTheEdit:
+    """`run_validators` runs over the WHOLE rebuilt packet, and `base_metrics`
+    seeds it with every untouched metric's model-extracted value -- so a
+    violation the document was extracted with (under a validator set that has
+    since gained the transfer-funnel and negative-count rules, which is why its
+    stored `flags` are empty) surfaces on an admin's unrelated correction.
+
+    Blocking on it is right: the data really is wrong. Telling the admin their
+    edit caused it, and writing that into the permanent audit row, is not."""
+
+    async def test_a_preexisting_violation_is_not_reported_as_the_edits_fault(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _patch_reads(
+            monkeypatch,
+            [_metric(_PERCENT_REF, "72%", "72%"), _metric(_COUNT_REF, -50, "-50")],
+        )
+        _patch_writes(monkeypatch)
+        app_pool = _FakePool([_pending_row(metric_ref=_PERCENT_REF, value="74%",
+                                           raw_value="74%")])
+
+        with pytest.raises(CdsAdminConflictError) as excinfo:
+            await _approve(app_pool)
+
+        message = str(excinfo.value)
+        assert "already failed 1 validation check(s) your edits did not cause" in message
+        assert "a count cannot be below zero" in message  # named, so it can be acted on
+        assert "these edits fail" not in message
+        assert "override_flags=true" in message
+
+    async def test_the_audit_row_does_not_credit_the_admin_with_that_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The audit row is permanent. `overridden_edit_flags: 1` here would
+        record this admin as having waved through a blocking error their edit
+        never produced."""
+        _patch_reads(
+            monkeypatch,
+            [_metric(_PERCENT_REF, "72%", "72%"), _metric(_COUNT_REF, -50, "-50")],
+        )
+        _patch_writes(monkeypatch)
+        app_pool = _FakePool([_pending_row(metric_ref=_PERCENT_REF, value="74%",
+                                           raw_value="74%")])
+
+        await _approve(app_pool, override_flags=True)
+
+        [(_query, params)] = app_pool.conn.statements("INSERT INTO counselle.cds_admin_audit")
+        assert params[1] == "approve_override"  # an error was still waved through
+        assert params[6]["overridden_edit_flags"] == 0
+        assert params[6]["overridden_preexisting_flags"] == 1
+
+    async def test_an_edits_own_flag_is_still_blamed_on_the_edit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The guard on the split: misfiling a real edit flag as pre-existing
+        would be a worse bug than the one the split fixes. Identity is full
+        flag equality -- `denominator_sanity`'s message carries the values
+        verbatim, so a baseline flag and an edited one match only when the
+        numbers do."""
+        _patch_reads(monkeypatch)
+        _patch_writes(monkeypatch)
+        app_pool = _FakePool([_pending_row(metric_ref=_COUNT_REF, value=-50, raw_value="-50")])
+
+        with pytest.raises(CdsAdminConflictError) as excinfo:
+            await _approve(app_pool)
+
+        message = str(excinfo.value)
+        assert "these edits fail 1 validation check(s)" in message
+        assert "already failed" not in message
+
+    async def test_a_cross_metric_flag_the_edit_caused_is_still_the_edits(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`denominator_sanity` flags the ref on the GREATER side of the funnel:
+        editing `applicants_total` down under `admitted_total` raises a flag
+        whose `metric_ref` is `admitted_total` -- a metric the admin never
+        touched. A `metric_ref`-based shortcut for "did the edit cause this?"
+        would file it as pre-existing and let it through unattributed, which is
+        why the baseline is a rebuilt packet rather than a ref comparison."""
+        _patch_reads(
+            monkeypatch,
+            [
+                _metric(_PERCENT_REF, "72%", "72%"),
+                _metric(_APPLICANTS_REF, 1000, "1,000"),
+                _metric(_ADMITTED_REF, 400, "400"),
+            ],
+        )
+        _patch_writes(monkeypatch)
+        app_pool = _FakePool([_pending_row(metric_ref=_APPLICANTS_REF, value=300,
+                                           raw_value="300")])
+
+        with pytest.raises(CdsAdminConflictError) as excinfo:
+            await _approve(app_pool)
+
+        message = str(excinfo.value)
+        assert "these edits fail 1 validation check(s)" in message
+        assert "admits (400) > applicants (300)" in message
+        assert "already failed" not in message
