@@ -248,7 +248,7 @@ export function CoverageGrid({
       className="w-full max-w-5xl table-fixed"
       render={
         // max-h-full (not h-full): the frame hugs its rows when the result
-        // set is small — the common case, since "with documents" is ~8 rows
+        // set is small — the common case, since "Tracked" is ~8 rows
         // and find-mode-idle is one message row — and only grows to fill
         // (then scrolls) once rows actually exceed the available height.
         // max-w-5xl mirrors the table's own cap so the border never runs

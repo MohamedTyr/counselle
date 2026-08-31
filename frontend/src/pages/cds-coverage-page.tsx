@@ -34,11 +34,13 @@ import {
  * Schools × academic years, answering "what do we have?" in one glance.
  *
  * The central problem this screen solves: ~2,746 schools exist and a
- * handful have documents, so the default scope loads only schools with
- * documents (a handful of rows, no scrolling), and "All schools" is a find
- * mode — with an empty query the API returns zero rows and the real school
- * count (enforced server-side in `coverage_grid`'s idle branch), not a row
- * dump (see `coverage-params.ts`).
+ * handful have any CDS activity, so the default ("Tracked") scope loads
+ * only schools with >=1 `cds_school_years` row (a handful of rows, no
+ * scrolling — not the same thing as "has a document"; a tracked school can
+ * still show "none" in a given year), and "All schools" is a find mode —
+ * with an empty query the API returns zero rows and the real school count
+ * (enforced server-side in `coverage_grid`'s idle branch), not a row dump
+ * (see `coverage-params.ts`).
  */
 export function CdsCoveragePage() {
   const [searchParams, setSearchParams] = useSearchParams();

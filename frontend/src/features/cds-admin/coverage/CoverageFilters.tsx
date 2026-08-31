@@ -123,11 +123,20 @@ export function CoverageFilters({
         value={state.scope}
       >
         <TabsList>
+          {/* Label only — the "with_documents" URL param and the backend
+              query it maps to are unchanged. The default scope is every
+              school with >=1 cds_school_years row, i.e. any CDS *activity*
+              (adapters/cds_admin_queries.py `coverage_grid` docstring) — a
+              school can sit in this scope with status "none" in every year
+              (a slot exists, no document landed or survived on it), so
+              "With documents" was a false claim for those rows. "Tracked"
+              matches the query's real scope and the backend's own word for
+              it. */}
           <TabsTab
             className="sm:h-7 sm:px-2 sm:text-xs"
             value="with_documents"
           >
-            With documents
+            Tracked
           </TabsTab>
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="all">
             All schools
