@@ -1256,7 +1256,10 @@ app/cds/
                         batched multi-domain extraction with backoff
   jobs.py                 the in-process asyncio poller (below)
   service_ingest.py       upload, duplicate detection, job creation
-  service_review.py       review, edit, approve, reject, rerun
+  service_review.py       review (get_review), metric edits (save_metric_edits)
+  service_review_approve.py
+                           approve, reject, rerun, and the human-review
+                           packet builders they depend on
   manifest.py              manifest publish + the pre-flight drift guard
 config/cds/              the ported, versioned manifest/prompt/domain YAMLs
 api/routes/cds_admin.py  /v1/admin/cds/*, current_superuser-gated
@@ -1309,16 +1312,29 @@ the published, current manifest, the job fails immediately with a distinct
 
 **Review and correction.** A newly uploaded document goes through
 upload → detect (duplicate/mismatch checks) → extract → review → approve or
-reject, gated by `is_candidate`. Correcting an already-*active* document
-(one that is currently serving students, not a fresh upload) is a distinct
-flow — `active_update` — that reviews, edits, approves, or rejects an
-extraction against the still-active document, per domain, without ever
-performing a document-level candidate/active swap: the document keeps
-serving its current packets until each corrected domain's packet is
-individually activated at approval, so there is no offline window. A
-resolution marker on the extraction row closes this loop once reviewed, so a
-correction that has already been approved or rejected does not keep
-re-surfacing as pending.
+reject, gated by `is_candidate`. Detection never fills a gap with a guess:
+the document's stated school name and year are nullable, and a document
+whose identity isn't actually grounded in its own text — a blank/illegible
+A0 section, or one that fails the independent "does page 1 even claim to be
+a Common Data Set" check — routes to `needs_input` instead of auto-confirming
+a match, so a human always confirms identity before a document can reach
+`matched`/Ready. Correcting an already-*active* document (one that is
+currently serving students, not a fresh upload) is a distinct flow —
+`active_update` — that reviews, edits, approves, or rejects an extraction
+against the still-active document, per domain, without ever performing a
+document-level candidate/active swap: the document keeps serving its current
+packets until each corrected domain's packet is individually activated at
+approval, so there is no offline window. A resolution marker on the
+extraction row closes this loop once reviewed, so a correction that has
+already been approved or rejected does not keep re-surfacing as pending. A
+pending edit is stamped, server-side, with the extraction whose packet the
+admin was actually reading; one a later re-extraction has moved past is
+neither shown as pending nor applied, so a rerun can never be silently
+overwritten by a stale correction. Approving a document validates the
+human-reviewed packets it would write with the same content-level validator
+gate the model path runs (`docs/DATABASE_GUIDE.md` §1) before anything is
+committed, so an admin's own edit cannot introduce a blocking error and
+still reach students unnoticed.
 
 **The admin surface.** Fourteen endpoints under `/v1/admin/cds/*`
 (`api/routes/cds_admin.py`), all `current_superuser`-gated: coverage (a grid

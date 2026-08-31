@@ -112,6 +112,17 @@ rules in §5–§9 — applies to it exactly as written, unchanged.
   (`human-review-v1`) — is validated through the read path's own
   `counselle_db.packets.parse_packet_row()` inside the transaction, before COMMIT; a
   packet the read path could not parse is never written.
+- **Corrections are also content-validated, the same gate the model path runs.**
+  Beyond `parse_packet_row()`'s shape check, every packet — model or human-corrected —
+  is run through `domain.cds.validators.run_validators` (sibling-order checks, a
+  `unit: percent` value staying inside 0–100, and a below-zero check on count-unit
+  metrics, deliberately with no matching upper bound) and the result is stored as the
+  packet's `validation` column. A human-reviewed packet's `validation` used to be
+  permanently `{}` — indistinguishable from "re-checked and clean" — this is now
+  closed: an admin's edit is validated *before* anything is written, and an
+  error-severity flag it introduces blocks the approve, exactly like a pre-existing
+  flag would, unless the admin passes `override_flags` (recorded distinctly from an
+  override of a flag the document already had).
 
 Read this section and you should know exactly which DSN may do what:
 `COUNSELLE_DB_RO_DSN` reads five views and nothing else; `COUNSELLE_DB_APP_DSN` owns
