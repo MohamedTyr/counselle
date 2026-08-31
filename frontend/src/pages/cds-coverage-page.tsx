@@ -1,5 +1,5 @@
 import { FileStack, Upload } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { isTransportError } from "@/api/http/errors";
@@ -63,6 +63,21 @@ export function CdsCoveragePage() {
     isTransportError(coverage.error) && coverage.error.status === 503;
   const activeFilters = hasActiveCoverageFilters(state);
   const findModeIdle = isCoverageFindModeIdle(state);
+
+  // A with_documents→all scope change swaps `CoverageFilters` out for
+  // `CoverageSkeleton` and back whenever the new scope is a fresh query-key
+  // (cache miss) — this page component itself never unmounts across that
+  // swap, so a token counted here (not inside CoverageFilters, which does
+  // unmount/remount across it) survives to tell the remounted filter bar a
+  // real transition happened and it should focus the search box. Computed
+  // during render, not an effect, so it's ready before the first paint of
+  // whichever branch renders below.
+  const prevScopeRef = useRef(state.scope);
+  const focusSearchTokenRef = useRef(0);
+  if (prevScopeRef.current !== "all" && state.scope === "all") {
+    focusSearchTokenRef.current += 1;
+  }
+  prevScopeRef.current = state.scope;
   const showNoDocumentsYet =
     coverage.data !== undefined &&
     coverage.data.rows.length === 0 &&
@@ -140,6 +155,7 @@ export function CdsCoveragePage() {
           )}
           <CoverageFilters
             className="mt-3"
+            focusSearchToken={focusSearchTokenRef.current}
             onChange={updateState}
             state={state}
             years={coverage.data.years}
