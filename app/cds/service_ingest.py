@@ -49,6 +49,28 @@ logger = structlog.get_logger(__name__)
 
 _READY_STATUSES = frozenset({"matched", "replaces_existing"})
 
+# A detection call is schema-forced to answer with *some* school name and
+# year even when the document carries none -- there is no "unknown" option
+# in `_DetectedIdentity` (detect.py), so a content-free PDF still gets a
+# syntactically valid guess back. Observed live: a blank PDF made the model
+# answer "University of California, Berkeley", which then fuzzy-matched the
+# real catalog row at score 0.955 -- comfortably past `detect._MATCH_CONFIDENT_THRESHOLD`
+# (0.82) -- so a wholly-fabricated identity would have auto-filled and gone
+# straight to `matched` ("Ready", DESIGN.md §2.3) with nothing to distinguish
+# it from a real read. `cds_pdf.sanity_check_cds_pdf` (page 1 mentions "Common
+# Data Set") is the independent, evidence-based signal this module never
+# checked before auto-filling: it does not ask the model to grade its own
+# guess, it asks whether the document itself even claims to be a CDS. A
+# document that fails it still gets staged with whatever the model detected
+# (visible to the admin), but never auto-fills school/year -- it falls
+# through to `needs_input` via `_resolve_status` below, same as a low-score
+# match, so a human confirms before this can ever say "Ready".
+_NOT_A_CDS_DETECTION_NOTE = (
+    'this document does not look like a Common Data Set filing (no "Common Data Set" '
+    "text found on its first page) -- the detected school/year was not auto-filled; "
+    "confirm manually before processing"
+)
+
 _SELECT_COLUMNS = (
     "id, batch_id, filename, size_bytes, sha256, page_count, status, school_id, "
     "academic_year, detection, error_message, committed_document_id, "
@@ -146,6 +168,7 @@ async def create_upload(
         result = await detect.detect_school_year(
             settings=settings, pool=pipeline_pool, pdf_content=content
         )
+        looks_like_cds = await cds_pdf.sanity_check_cds_pdf(content)
         candidates = [
             DetectionCandidate(
                 school_id=candidate.school_id,
@@ -161,9 +184,9 @@ async def create_upload(
             year=result.detected_academic_year,
             confident=result.confident,
             candidates=candidates,
-            error=result.error,
+            error=result.error or (None if looks_like_cds else _NOT_A_CDS_DETECTION_NOTE),
         )
-        if result.confident and result.best_match is not None:
+        if looks_like_cds and result.confident and result.best_match is not None:
             school_id = result.best_match.school_id
             detected_year = result.detected_academic_year
             # `_DetectedIdentity.academic_year_start` (detect.py) accepts any
