@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Any
 
 import pymupdf
 
@@ -64,14 +66,50 @@ class CorruptTextReport:
     affected_pages: tuple[int, ...]  # 1-indexed physical page numbers
 
 
-def _open(pdf_bytes: bytes) -> pymupdf.Document:
+@contextmanager
+def _open(pdf_bytes: bytes) -> Iterator[Any]:
+    """Open a document and hold it for the caller's whole read.
+
+    Wrapping ``pymupdf.open()`` alone was not enough. PyMuPDF opens a
+    password-protected PDF happily and even reports a correct ``page_count``;
+    it raises a bare ``ValueError("document closed or encrypted")`` on the
+    first call that touches *content* — ``get_text``, ``insert_pdf``,
+    ``bake``, ``get_pixmap``. That escaped every caller's ``except
+    CdsPdfError``, so an encrypted upload reached the global handler as a 500
+    with no upload row written at all, instead of the per-file `error` status
+    `service_ingest.create_upload` is designed around. Any raw PyMuPDF failure
+    raised while the document is held is therefore re-raised as this module's
+    own ``CdsPdfError`` — never swallowed, always carrying the original
+    message so whatever surface the caller writes it to still says why.
+
+    A document that ``needs_pass`` is refused up front, at open, so the
+    failure lands on the *first* call a caller makes (``get_page_count``)
+    rather than several calls later, and every path treats it identically. An
+    owner-password-only PDF whose user password is empty decrypts on open
+    (``needs_pass`` is false) and is read normally — this rejects exactly the
+    documents nothing downstream could have read.
+    """
     # pymupdf ships a `py.typed` marker but its compiled-extension bindings
     # are not fully annotated, so mypy sees these as untyped calls returning
-    # Any (no-untyped-call / no-any-return) — expected, not a real issue.
+    # Any (no-untyped-call / no-any-return) — expected, not a real issue. That
+    # is also why the yield type is `Any` rather than `pymupdf.Document`: every
+    # call made on the yielded document is one of those unannotated methods.
     try:
-        return pymupdf.open(stream=pdf_bytes, filetype="pdf")  # type: ignore[no-untyped-call]
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")  # type: ignore[no-untyped-call]
     except Exception as exc:  # pymupdf raises assorted RuntimeError/ValueError variants
         raise CdsPdfError(f"could not open PDF: {exc}") from exc
+    try:
+        with doc:
+            if doc.needs_pass:
+                raise CdsPdfError(
+                    "password-protected or unreadable PDF: a user password is required to "
+                    "read this document's contents"
+                )
+            yield doc
+    except CdsPdfError:
+        raise
+    except Exception as exc:
+        raise CdsPdfError(f"could not read PDF: {exc}") from exc
 
 
 def _require_valid_page(page_number: int, page_count: int) -> None:
