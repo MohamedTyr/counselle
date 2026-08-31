@@ -97,6 +97,7 @@ function controller(overrides: Partial<ReviewController> = {}): ReviewController
     goToNextFlag: () => {},
     goToPrevFlag: () => {},
     flagQueueLength: 0,
+    flagQueueIndex: -1,
     flaggedFirst: false,
     shortcutsOpen: false,
     setShortcutsOpen: () => {},
@@ -237,5 +238,55 @@ describe("ReviewPanel — the flag bar never lies about warning-only flags", () 
     expect(
       screen.queryByText(/Everything extracted cleanly/),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("ReviewPanel — flag-queue position indicator", () => {
+  test("nothing focused yet (flagQueueIndex -1): no position shown, just the remaining count", () => {
+    const { bar } = renderPanel(
+      review({
+        sections: [
+          {
+            domain_id: "financial_aid",
+            title: "Financial Aid",
+            status: null,
+            counts: {},
+            metrics: [warningMetric("a"), warningMetric("b")],
+          },
+        ],
+        flags_summary: { unresolved: 0, total: 2 },
+      }),
+      controller({ flagQueueLength: 2, flagQueueIndex: -1 }),
+    );
+
+    expect(bar.textContent?.replace(/\s+/g, " ")).toContain("2 to review of 2");
+    expect(screen.queryByText(/^\d+ of \d+$/)).not.toBeInTheDocument();
+  });
+
+  /** 12 presses of `n` on an 8-entry queue wrap silently — the remaining
+   * count above never moves on a read-only document, so nothing in the bar
+   * previously told an operator they'd lapped the queue. This pins that the
+   * position is both an index (1-based for display) over the *queue*
+   * length, not `flags_summary.total` — same unit `goToFlagBy` itself
+   * walks, so the number can never claim a position the queue doesn't
+   * have. */
+  test("a flag is focused: shows its 1-based position over the flag-queue length", () => {
+    const { bar } = renderPanel(
+      review({
+        sections: [
+          {
+            domain_id: "financial_aid",
+            title: "Financial Aid",
+            status: null,
+            counts: {},
+            metrics: [warningMetric("a"), warningMetric("b")],
+          },
+        ],
+        flags_summary: { unresolved: 0, total: 2 },
+      }),
+      controller({ flagQueueLength: 8, flagQueueIndex: 2 }),
+    );
+
+    expect(bar.textContent?.replace(/\s+/g, " ")).toContain("3 of 8");
   });
 });

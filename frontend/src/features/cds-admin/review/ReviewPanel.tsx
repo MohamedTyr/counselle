@@ -172,6 +172,21 @@ export const ReviewPanel = forwardRef<
         >
           <ChevronRight />
         </Button>
+        {/* Position within the flag queue, not a remaining-count — "N to
+            review" above doesn't say *where* n/p have gotten to, so a
+            12-press walk on a read-only document (the remaining count never
+            moves) can silently lap the queue one and a half times with no
+            way to tell. `flagQueueIndex` wraps via the same modulo
+            `goToFlagBy` itself uses, so a completed lap shows up as this
+            number resetting to 1 — no separate wrap signal needed, and
+            none invented. Hidden until a flag is actually focused
+            (`flagQueueIndex === -1`): before the first n/p press there is no
+            position to report. */}
+        {controller.flagQueueIndex !== -1 && (
+          <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+            {controller.flagQueueIndex + 1} of {controller.flagQueueLength}
+          </span>
+        )}
         <div className="flex-1" />
         <label
           aria-label="Flagged first"

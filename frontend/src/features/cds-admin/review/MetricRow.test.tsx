@@ -53,6 +53,7 @@ function controller(overrides: Partial<ReviewController> = {}): ReviewController
     goToNextFlag: () => {},
     goToPrevFlag: () => {},
     flagQueueLength: 0,
+    flagQueueIndex: -1,
     flaggedFirst: false,
     shortcutsOpen: false,
     setShortcutsOpen: () => {},

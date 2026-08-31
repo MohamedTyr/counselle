@@ -69,6 +69,10 @@ export function useReviewController(params: {
     () => buildFlagQueue(sections, flaggedFirst),
     [sections, flaggedFirst],
   );
+  const flagQueueIndex = useMemo(
+    () => flagQueue.findIndex((m) => m.ref === focusedRef),
+    [flagQueue, focusedRef],
+  );
   const visibleMetrics = useMemo(() => {
     const ordered: { metric: ReviewMetric; domainId: string }[] = [];
     for (const section of sections) {
@@ -214,6 +218,7 @@ export function useReviewController(params: {
     goToNextFlag: () => goToFlagBy(1),
     goToPrevFlag: () => goToFlagBy(-1),
     flagQueueLength: flagQueue.length,
+    flagQueueIndex,
     flaggedFirst,
     shortcutsOpen,
     setShortcutsOpen,

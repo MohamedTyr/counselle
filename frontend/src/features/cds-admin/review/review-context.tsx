@@ -22,6 +22,14 @@ export interface ReviewController {
    * because it gates Approve (`service_review._flags_summary`). The flag bar
    * reports what there is to review; the approve bar reports what blocks. */
   flagQueueLength: number;
+  /** Position of the currently-focused metric within `flagQueue`, 0-indexed,
+   * or `-1` when the focused metric (if any) isn't a flag-queue member —
+   * e.g. nothing has been focused yet, or the operator walked to it with
+   * `j`/`k` instead of `n`/`p`. Same array, same indexing `goToFlagBy`
+   * itself uses to wrap — this is that "where am I" number surfaced, not a
+   * new one: `n`/`p` can wrap silently past the end with no position shown
+   * otherwise (§5.5's "N to review" is a remaining-count, not a position). */
+  flagQueueIndex: number;
   flaggedFirst: boolean;
   shortcutsOpen: boolean;
   setShortcutsOpen: (open: boolean) => void;
