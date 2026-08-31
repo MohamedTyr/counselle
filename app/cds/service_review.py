@@ -97,11 +97,45 @@ async def _require_reviewable(
 async def _pending_edits(app_pool: asyncpg.Pool, document_id: int) -> dict[str, dict[str, Any]]:
     async with app_pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT metric_ref, domain_id, payload, edited_by, edited_at "
+            "SELECT metric_ref, domain_id, base_extraction_id, payload, edited_by, edited_at "
             "FROM counselle.cds_pending_edits WHERE document_id = $1",
             document_id,
         )
     return {row["metric_ref"]: dict(row) for row in rows}
+
+
+def _current_edits(
+    pending: dict[str, dict[str, Any]], domains: list[DomainPacketSummary]
+) -> dict[str, dict[str, Any]]:
+    """The subset of ``pending`` still authored against the extraction whose
+    packet the domain currently shows -- the only edits that may be displayed
+    as pending or applied to a packet (migration 0016).
+
+    Every edit is stamped at save time with the `extraction_id` of the packet
+    the admin was reading (`save_metric_edits`). A row whose stamp no longer
+    matches that domain's most recent packet is an orphan of a *superseded*
+    generation of values, and there are two ways to make one:
+
+    - `approve_document` applies the edits, commits the new packet on the
+      pipeline pool, and only then clears `cds_pending_edits` on the app pool.
+      Two roles, two connections, no shared transaction (`counselle_app` has
+      zero grants on `cds_library` and vice versa), so a crash in that gap
+      leaves rows describing a correction that is already live and serving.
+    - `rerun_extraction` re-extracts a domain without touching pending edits,
+      so an edit written against the model's previous numbers outlives them.
+
+    Either way the orphan is a lie on the review screen ("pending" over a value
+    that is already live, or over a value it was never written against), and
+    applying it silently discards whatever the newer extraction actually found.
+    Filtering on the stamp makes both harmless: superseded edits stop being
+    shown and can never be applied. They are still deleted by the next
+    approve/reject, which sweeps every row it read, not just the applied ones."""
+    current = {domain.domain_id: domain.extraction_id for domain in domains}
+    return {
+        ref: row
+        for ref, row in pending.items()
+        if str(row["base_extraction_id"]) == current.get(row["domain_id"])
+    }
 
 
 async def _document_page_count(app_pool: asyncpg.Pool, document_id: int) -> int | None:
@@ -281,7 +315,7 @@ async def get_review(
     raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
     if raw is None:
         raise CdsAdminNotFoundError(f"document {document_id} not found")
-    pending = await _pending_edits(app_pool, document_id)
+    pending = _current_edits(await _pending_edits(app_pool, document_id), raw.domains)
     page_count = await _document_page_count(app_pool, document_id)
     # Resolved server-side, once, from the same predicate the write-path
     # gates use (SHIP-PLAN §2.4) -- the review-screen header chip has no
@@ -336,10 +370,18 @@ async def save_metric_edits(
     if raw is None:
         raise CdsAdminNotFoundError(f"document {document_id} not found")
     await _require_reviewable(pipeline_pool, raw.document, document_id, action="edit")
-    valid_refs = {metric.ref for domain in raw.domains for metric in domain.metrics}
+    # The domain each ref actually belongs to, and with it the extraction whose
+    # packet the admin is editing against -- both resolved server-side from the
+    # document's own packets, never from the client-supplied `domain_id`, so a
+    # stored edit can only ever name the domain and generation it was really
+    # written against (`_current_edits`).
+    domain_by_ref = {
+        metric.ref: domain for domain in raw.domains for metric in domain.metrics
+    }
     async with app_pool.acquire() as conn, conn.transaction():
         for edit in edits:
-            if edit.metric_ref not in valid_refs:
+            domain = domain_by_ref.get(edit.metric_ref)
+            if domain is None:
                 raise CdsAdminValidationError(f"unknown metric_ref {edit.metric_ref!r}")
             payload = {
                 "value": edit.value,
@@ -351,15 +393,18 @@ async def save_metric_edits(
             await conn.execute(
                 """
                 INSERT INTO counselle.cds_pending_edits
-                    (document_id, metric_ref, domain_id, payload, edited_by)
-                VALUES ($1, $2, $3, $4, $5)
+                    (document_id, metric_ref, domain_id, base_extraction_id, payload, edited_by)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 ON CONFLICT (document_id, metric_ref)
-                DO UPDATE SET domain_id = EXCLUDED.domain_id, payload = EXCLUDED.payload,
+                DO UPDATE SET domain_id = EXCLUDED.domain_id,
+                              base_extraction_id = EXCLUDED.base_extraction_id,
+                              payload = EXCLUDED.payload,
                               edited_by = EXCLUDED.edited_by, edited_at = now()
                 """,
                 document_id,
                 edit.metric_ref,
-                edit.domain_id,
+                domain.domain_id,
+                uuid.UUID(domain.extraction_id),
                 payload,
                 actor_user_id,
             )
@@ -606,8 +651,12 @@ async def approve_document(
     if not raw.domains:
         raise CdsAdminValidationError("document has no extracted domains to approve")
 
+    # `pending` is every row on the document (what the closing `_clear_pending_
+    # edits` sweeps, so a superseded orphan is cleaned up rather than left to
+    # accumulate); `current` is the subset this approve may actually act on.
     pending = await _pending_edits(app_pool, document_id)
-    flags_summary = _flags_summary(raw.domains, pending)
+    current = _current_edits(pending, raw.domains)
+    flags_summary = _flags_summary(raw.domains, current)
     if flags_summary.unresolved > 0 and not override_flags:
         raise CdsAdminConflictError(
             f"{flags_summary.unresolved} unresolved review flag(s) — resolve them or "
@@ -617,7 +666,7 @@ async def approve_document(
     manifest = manifest_mod.load_compiled_manifest()
     by_domain = {domain.domain_id: domain for domain in raw.domains}
     edits_by_domain: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in pending.values():
+    for row in current.values():
         edits_by_domain[row["domain_id"]].append(row)
 
     new_extraction_id: str | None = None
