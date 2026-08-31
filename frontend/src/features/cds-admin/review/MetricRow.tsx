@@ -43,8 +43,14 @@ function priorEditState(metric: ReviewMetric): {
   };
 }
 
-/** One metric row (§5.6) — a 28px resting line that expands in place into
- * the click-to-edit form. `useSyncedDraft` carries the row's optimistic
+/** One metric row (§5.6) — a resting line that expands in place into the
+ * click-to-edit form. `py-1.5` measured 32px (36px on rows with an evidence
+ * chip, since the chip's `size="xs"` `Button` is 24px tall at desktop and
+ * `items-center` sizes the row to its tallest child) — 8px over the §1.6
+ * target on the common case, on the screen where hundreds of rows scroll by.
+ * `py-0.5` lands rows without a citation at 24px and rows with one at
+ * exactly 28px; the citation chip's own height, not this padding, is now
+ * the floor. `useSyncedDraft` carries the row's optimistic
  * display value: `setValue` fires at Save (before the network completes,
  * so the row updates immediately and dims via `opacity-64` while the
  * request is in flight — §1.8's "saving" row), `commit` on success once
@@ -172,7 +178,7 @@ export function MetricRow({
           edge lands at the same x on every row regardless of whether this
           one has a page chip (§5.6, "compared numbers want tabular
           numerics"). */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_5rem] items-center gap-3 py-1.5 text-sm">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_5rem] items-center gap-3 py-0.5 text-sm">
         <Tooltip>
           <TooltipTrigger className="flex min-w-0 items-center gap-1.5 text-left">
             {unresolvedSeverity && (
