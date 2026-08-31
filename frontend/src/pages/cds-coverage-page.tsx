@@ -117,16 +117,27 @@ export function CdsCoveragePage() {
         </Empty>
       ) : (
         <>
-          <CoverageCounters
-            className="mt-4"
-            counters={coverage.data.counters}
-            failedActive={state.failed}
-            needsReviewActive={state.needsReview}
-            onToggleFailed={() => updateState({ failed: !state.failed })}
-            onToggleNeedsReview={() =>
-              updateState({ needsReview: !state.needsReview })
-            }
-          />
+          {/* find-mode-idle always renders zero rows (coverage_grid's idle
+              branch), but `counters` still describes the Tracked activity
+              set the backend groups from before the idle short-circuit —
+              a school/edition count for a scope that isn't on screen. There
+              is no honest per-scope number to show instead (the idle branch
+              never counts the full catalog), so the line is omitted rather
+              than showing a count that describes something else (root
+              DESIGN.md §1.1: never a plausible-looking value that isn't
+              real). */}
+          {!findModeIdle && (
+            <CoverageCounters
+              className="mt-4"
+              counters={coverage.data.counters}
+              failedActive={state.failed}
+              needsReviewActive={state.needsReview}
+              onToggleFailed={() => updateState({ failed: !state.failed })}
+              onToggleNeedsReview={() =>
+                updateState({ needsReview: !state.needsReview })
+              }
+            />
+          )}
           <CoverageFilters
             className="mt-3"
             onChange={updateState}
