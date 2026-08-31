@@ -49,22 +49,32 @@ logger = structlog.get_logger(__name__)
 
 _READY_STATUSES = frozenset({"matched", "replaces_existing"})
 
-# A detection call is schema-forced to answer with *some* school name and
-# year even when the document carries none -- there is no "unknown" option
-# in `_DetectedIdentity` (detect.py), so a content-free PDF still gets a
-# syntactically valid guess back. Observed live: a blank PDF made the model
-# answer "University of California, Berkeley", which then fuzzy-matched the
-# real catalog row at score 0.955 -- comfortably past `detect._MATCH_CONFIDENT_THRESHOLD`
-# (0.82) -- so a wholly-fabricated identity would have auto-filled and gone
-# straight to `matched` ("Ready", DESIGN.md §2.3) with nothing to distinguish
-# it from a real read. `cds_pdf.sanity_check_cds_pdf` (page 1 mentions "Common
-# Data Set") is the independent, evidence-based signal this module never
-# checked before auto-filling: it does not ask the model to grade its own
-# guess, it asks whether the document itself even claims to be a CDS. A
-# document that fails it still gets staged with whatever the model detected
-# (visible to the admin), but never auto-fills school/year -- it falls
-# through to `needs_input` via `_resolve_status` below, same as a low-score
-# match, so a human confirms before this can ever say "Ready".
+# Two independent, layered defenses against auto-filling an ungrounded
+# identity guess -- neither alone is sufficient (see `detect.py`'s
+# `_DetectedIdentity` docstring for why the model can answer null now):
+#
+# 1. `_DetectedIdentity.school_name`/`academic_year_start` are nullable, so
+#    the model can say "I can't tell" instead of being schema-forced into
+#    SOME answer. Observed live before this: a genuinely blank PDF made the
+#    model answer "University of California, Berkeley" -- a wholly
+#    fabricated but plausible-sounding guess -- which then fuzzy-matched the
+#    real catalog row at score 0.955, comfortably past
+#    `detect._MATCH_CONFIDENT_THRESHOLD` (0.82).
+# 2. `cds_pdf.sanity_check_cds_pdf` (page 1 mentions "Common Data Set") is a
+#    second, evidence-based signal: even when the model DOES commit to a
+#    specific answer, this checks whether the document itself even claims to
+#    be a CDS, rather than asking the model to grade its own guess. Also
+#    observed live: a document with a real "Common Data Set" title but a
+#    blank/generic identity section made the model answer a literal,
+#    catalog-matching generic name ("State University System" -> "Arkansas
+#    State University System" at score 0.836) -- a nullable schema alone
+#    does not stop the model from committing to a real-but-ungrounded name
+#    when one happens to be textually present.
+#
+# A document that fails either check still gets staged with whatever the
+# model detected (visible to the admin), but never auto-fills school/year --
+# it falls through to `needs_input` via `_resolve_status` below, same as a
+# low-score match, so a human confirms before this can ever say "Ready".
 _NOT_A_CDS_DETECTION_NOTE = (
     'this document does not look like a Common Data Set filing (no "Common Data Set" '
     "text found on its first page) -- the detected school/year was not auto-filled; "
