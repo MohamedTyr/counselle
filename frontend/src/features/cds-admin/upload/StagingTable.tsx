@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import type { JobStatusRow, UploadPatchBody } from "@/api/cds-admin/types";
 import {
   Table,
@@ -10,6 +12,44 @@ import {
 import { StagingRow } from "@/features/cds-admin/upload/StagingRow";
 import type { StagingEntry } from "@/features/cds-admin/upload/staging-model";
 import { cn } from "@/lib/utils";
+
+// The same breakpoint the Pages column hides at (DESIGN.md §1.10). School's
+// content — a matched name (`truncate`) or the "Pick a school" button — is
+// the one column here that can give some width back without clipping
+// anything, so it narrows here rather than staying fixed at its ≥xl size.
+// Mirrors `CoverageGrid.tsx`'s `useSchoolColumnWidth` (not shared — Coverage
+// is a different screen with its own owner, and the two hooks would only
+// look alike, not share a reason to change together).
+const WIDE_BREAKPOINT = 1280;
+const SCHOOL_COLUMN_WIDTH_WIDE = 260;
+const SCHOOL_COLUMN_WIDTH_NARROW = 200;
+// Below `xl`, File can't stay `auto`: `table-fixed` gives an `auto` column
+// whatever is left over, and browsers don't honour `min-width` to grow it
+// back — measured on this exact table, an `auto` File column still rendered
+// 0px below `xl` even with `minWidth` set, because School+Year+Status+
+// Actions (200+156+264+48=668) already exceeds this page's real content
+// width with the app sidebar at its default 312px. A fixed pixel width
+// (not "auto") is the one thing `table-fixed` always honours, so File gets
+// a real floor; if the floors still don't all fit, the table's own
+// `overflow-auto` container scrolls — the same fallback DESIGN.md §1.10
+// already prescribes below 1024px, arriving a little early here because of
+// sidebar chrome outside this screen's control.
+const FILE_COLUMN_WIDTH_NARROW = 140;
+
+function useIsWide(): boolean {
+  const [isWide, setIsWide] = useState(
+    () => window.innerWidth >= WIDE_BREAKPOINT,
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${WIDE_BREAKPOINT}px)`);
+    const onChange = () => setIsWide(window.innerWidth >= WIDE_BREAKPOINT);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  return isWide;
+}
 
 /** DESIGN.md §4.6/§4.4 — same bounded-height `render`-prop trick as
  * Coverage §3.3: `Table`'s container is hardcoded
@@ -31,6 +71,11 @@ export function StagingTable({
   onDelete: (entry: StagingEntry) => void;
   onPatch: (fileId: string, body: UploadPatchBody) => void;
 }) {
+  const isWide = useIsWide();
+  const schoolColumnWidth = isWide
+    ? SCHOOL_COLUMN_WIDTH_WIDE
+    : SCHOOL_COLUMN_WIDTH_NARROW;
+  const fileColumnWidth = isWide ? "auto" : FILE_COLUMN_WIDTH_NARROW;
   return (
     <Table
       className="w-full table-fixed"
@@ -46,30 +91,45 @@ export function StagingTable({
       <TableCaption className="sr-only">
         Files staged for this Common Data Set upload batch
       </TableCaption>
-      {/* Widths are what the content actually measures, not DESIGN.md §4.6's
-          estimates: the year `Select` renders 154px (not 132) and so covered
-          the Pages column, and the longest status reason — "Matches an
-          existing document · View existing" — measures 259px (not 180) and
-          was clipped mid-word against the actions column. File is `auto` and
-          truncates, so it absorbs the difference. */}
-      <colgroup>
-        <col style={{ width: "auto" }} />
-        <col style={{ width: 260 }} />
-        <col style={{ width: 156 }} />
-        <col style={{ width: 72 }} />
-        <col style={{ width: 264 }} />
-        <col style={{ width: 48 }} />
-      </colgroup>
+      {/* No `<colgroup>`. `table-fixed` takes column widths from the first
+          row's own cells when there's no colgroup (CSS 2.1 §17.5.2), so the
+          width lives on the same `TableHead` element that carries the
+          responsive `hidden xl:table-cell` class. A `<colgroup>`'s `<col>`
+          count has to be hand-kept in sync with how many cells are actually
+          visible — DESIGN.md §4.6 shipped with 6 `<col>`s but only 5 visible
+          headers below `xl`, so every column after the hidden one silently
+          took its neighbour's width. Putting width and visibility on one
+          element makes that class of drift impossible: hide a header, its
+          width goes with it, nothing to desync.
+          Widths below are what the content actually measures, not §4.6's
+          estimates: the year `Select` renders 154px (not 132), the
+          "Pick a school" button needs ~126px, and the longest status
+          reason — "Matches an existing document · View existing" — measures
+          259px (not 180); none of those three can shrink further without
+          clipping. School and File are the two that flex below `xl` — see
+          the constants above for why. */}
       <TableHeader className="sticky top-0 z-10 bg-background">
         <TableRow>
-          <TableHead scope="col">File</TableHead>
-          <TableHead scope="col">School</TableHead>
-          <TableHead scope="col">Year</TableHead>
-          <TableHead className="hidden xl:table-cell" scope="col">
+          <TableHead scope="col" style={{ width: fileColumnWidth }}>
+            File
+          </TableHead>
+          <TableHead scope="col" style={{ width: schoolColumnWidth }}>
+            School
+          </TableHead>
+          <TableHead scope="col" style={{ width: 156 }}>
+            Year
+          </TableHead>
+          <TableHead
+            className="hidden xl:table-cell"
+            scope="col"
+            style={{ width: 72 }}
+          >
             Pages
           </TableHead>
-          <TableHead scope="col">Status</TableHead>
-          <TableHead scope="col">
+          <TableHead scope="col" style={{ width: 264 }}>
+            Status
+          </TableHead>
+          <TableHead scope="col" style={{ width: 48 }}>
             <span className="sr-only">Actions</span>
           </TableHead>
         </TableRow>
