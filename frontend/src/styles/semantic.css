@@ -83,15 +83,36 @@
   --surface-overlay: var(--surface-raised); /* was neutral-0 */
   --surface-sunken: var(--surface-inset); /* was neutral-100, COLD */
   --control-track: var(--surface-inset); /* was neutral-100, COLD */
-  /* A field is a well cut into whatever holds it, never the same fill as
-   * its container. It shared --surface-raised with the card around it
-   * before, which is why the Profile form had nothing but forty heavy
-   * borders to tell you where the inputs were. Both names below now mean
-   * the same thing — a control on a card and a control on bare canvas are
-   * the same object — and they are kept apart only so a future retune of
-   * one cannot silently move the other. */
-  --field-surface: var(--surface-inset);
-  --field-surface-canvas: var(--surface-inset);
+  /* A field is a RAISED control identified by its border — not a well.
+   *
+   * It was --surface-inset, on the theory that "a field is a well cut into
+   * whatever holds it". Measured, that theory does not survive: the inset
+   * fill is 1.09:1 against the raised card it sits on and 1.06:1 against
+   * canvas. It is far too faint to identify the control (WCAG 1.4.11 wants
+   * 3:1, and reaching that from a near-white container needs roughly L 0.62
+   * — a charcoal input), so --edge-control still had to do the whole job.
+   * What the fill DID land was its chroma: 0.002 -> 0.006 at hue 50 reads
+   * as a pink-beige tint rather than as a level. Fill plus a 3:1 rim is
+   * also the embossed shape §2.3 Law 3 bans outright ("an inset surface
+   * never draws a rim"), and it collided with --control-track above — the
+   * DISABLED fill — so an editable field and a dead one were the same
+   * colour. Every profile input read as greyed out, because in token terms
+   * it was.
+   *
+   * The earlier objection to a raised field ("forty heavy borders and
+   * nothing else") was really about inverted hierarchy: the field's border
+   * was four times darker than its own card's. That was fixed separately by
+   * putting every edge on one ramp (--edge for a container perimeter,
+   * --edge-control two steps darker for a control), and the components pair
+   * the border with shadow-xs plus a 1px inner top highlight. Border +
+   * hairline elevation on the container's own fill is one signal instead of
+   * two, it is what Stripe / Figma / GitHub draw, and it keeps 1.4.11.
+   *
+   * Both names mean the same thing — a control on a card and a control on
+   * bare canvas are the same object — and are kept apart only so a future
+   * retune of one cannot silently move the other. */
+  --field-surface: var(--surface-raised);
+  --field-surface-canvas: var(--surface-raised);
   --surface-trough: var(--surface-inset); /* was sand-90 */
   --surface-quiet: var(--surface-inset); /* was stone-50, the RAIL's fill */
   /* --surface-raised-soft is gone as a distinct value. It existed because
@@ -240,28 +261,40 @@
    *                    container in the app.
    *   --edge-strong    that perimeter hovered or pressed, and the resting
    *                    edge of a quiet button.
-   *   --edge-control   the sole visible boundary of a BARE form control.
+   *   --edge-control   the resting boundary of a BARE form control.
+   *   --edge-control-strong  that boundary hovered.
    *
-   * THE INVERTED HIERARCHY THIS FIXES. --edge-control is the only border
-   * held to a contrast bar, because WCAG 1.4.11 genuinely applies when a
-   * border is the only thing on screen saying "type here". It sat at
-   * --neutral-450 and the Profile page rendered FORTY of them — against a
-   * card edge at --neutral-200, four times lighter. The thing inside was
-   * the loudest mark on the page and the thing containing it was the
-   * quietest, so the page read as a wireframe rather than as a form on a
-   * card. Two changes fix that without dropping the bar: the field now
-   * sits on --surface-inset rather than sharing its container's fill, so
-   * the boundary is not doing the identification alone; and every edge in
-   * the app moved onto one ramp, so the field's border is a darker step of
-   * the card's border rather than a different colour entirely.
+   * THE INVERTED HIERARCHY THIS FIXES. The field's border used to be four
+   * times darker than the card edge containing it, so the page read as a
+   * wireframe: the loudest mark on screen was the thing INSIDE, and the
+   * thing around it was the quietest. Every edge now sits on one ramp, so a
+   * field's border is a step of the card's border rather than a different
+   * colour, and the pair below is two steps apart, not eight.
    *
-   * Measured on every surface a control sits on: --edge-control clears
-   * 3.61:1 on raised, 3.49 on canvas, 3.37 on chrome, 3.21 on inset. Real
-   * passes with margin, all four.
+   * WHY --edge-control IS gray-500 AND NOT gray-600. It was gray-600, at a
+   * measured 3.61:1 on raised / 3.49 canvas / 3.37 chrome / 3.21 inset —
+   * chosen so the boundary alone satisfies WCAG 1.4.11, on the reasoning
+   * that a border is the only thing on screen saying "type here". Rendered,
+   * that is a hard mid-grey stroke, and a form with eight of them on a
+   * near-white card reads as brutal — the visual defect the ramp change
+   * above was supposed to end, reappearing one tier down. gray-500 is
+   * 1.85:1 on raised: clearly visible, plainly a boundary, and no longer
+   * the loudest thing in the frame.
    *
-   * NOTHING ELSE MAY BORROW --edge-control. A 3:1 stroke exists to identify
-   * an empty rectangle; drawn around a button (identified by its label), a
-   * card (identified by its fill and shadow) or a 700px composer panel
+   * THAT IS A DELIBERATE TRADE AND IT COSTS SOMETHING REAL. The resting
+   * border no longer clears 1.4.11 on its own; hover (gray-600, 3.61:1) and
+   * focus (--focus-ring, 7.01:1) do. What carries identification at rest is
+   * the full set of cues the components already draw — a persistent visible
+   * label, the placeholder at --ink-placeholder (6.4:1), shadow-xs plus the
+   * 1px inner top highlight, and the boundary. This is the same bar Stripe,
+   * Vercel, Linear and GitHub ship. It is not a bar this palette can beat
+   * while staying soft: thirteen neutral steps inside a narrow light band
+   * means "3:1 from a near-white container" lands around L 0.62, which is a
+   * charcoal outline. Pick one. To go back, this line is the whole revert.
+   *
+   * NOTHING ELSE MAY BORROW --edge-control. It exists to bound an empty
+   * rectangle; drawn around a button (identified by its label), a card
+   * (identified by its fill and shadow) or a 700px composer panel
    * (identified by its placeholder, its chips and its send button), it does
    * not read as "interactive", it reads as a black box. That mistake is
    * what --edge-panel and --edge-button were separately invented to undo,
@@ -270,8 +303,8 @@
   --hairline: var(--gray-300);
   --edge: var(--gray-400);
   --edge-strong: var(--gray-500);
-  --edge-control: var(--gray-600);
-  --edge-control-strong: var(--gray-700);
+  --edge-control: var(--gray-500);
+  --edge-control-strong: var(--gray-600);
 
   /* Contract aliases — every one of these used to be a value of its own. */
   --edge-panel: var(--edge);

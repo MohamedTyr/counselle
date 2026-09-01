@@ -162,7 +162,7 @@ function SchoolDetail({
        */
       heading={<SchoolCrumbs name={identity.name} />}
       title={identity.name}
-      width="full"
+      width="panel"
     >
       <SchoolIdentityBlock identity={identity} />
 
@@ -181,12 +181,14 @@ function SchoolDetail({
         }}
         value={tab}
       >
-        <TabsList variant="underline">
-          <TabsTab value="about">About</TabsTab>
-          <TabsTab value="application">
-            Your application
+        <TabsList>
+          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="about">
+            About
+          </TabsTab>
+          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="application">
+            <span>Your application</span>
             {openItems > 0 ? (
-              <span className="ml-1.5 text-xs tabular-nums text-[var(--ink-muted)]">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {openItems}
               </span>
             ) : null}

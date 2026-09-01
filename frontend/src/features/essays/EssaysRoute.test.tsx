@@ -655,7 +655,7 @@ describe("EssayEditorPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        (_, element) => element?.textContent === "216/250 words",
+        (_, element) => element?.textContent === "216 / 250 words",
       ),
     ).toBeInTheDocument();
 

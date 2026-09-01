@@ -39,6 +39,16 @@
   --profile-section-divider: var(--workspace-border-soft);
   --profile-field-surface: var(--field-surface);
   --profile-field-border: var(--edge-control);
+  /* Grouping boxes on the card — an object-list item, a document row, the
+   * upload form. These are NOT controls, and they were painting
+   * --profile-field-surface + --profile-field-border, i.e. borrowing the
+   * 3:1 --edge-control stroke that semantic.css reserves for a bare form
+   * control ("NOTHING ELSE MAY BORROW --edge-control"), around a box that
+   * already sits on a raised card — the nested-card shape Law 3 bans. They
+   * are the trough half of the legal "board": a borderless recess holding
+   * the raised fields inside it, which is also what makes those fields
+   * legible now that a field carries its container's fill. */
+  --profile-group-surface: var(--surface-inset);
   --profile-field-hover-border: var(--edge-control-strong);
   --profile-field-focus-border: var(--focus-ring);
   --profile-field-label: var(--workspace-foreground-soft);

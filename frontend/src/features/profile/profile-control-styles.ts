@@ -1,20 +1,38 @@
-export const profileInputControlClass =
-  "border-[var(--profile-field-border)] bg-[var(--profile-field-surface)] text-foreground transition-[border-color,background-color,box-shadow] hover:border-[var(--profile-field-hover-border)] focus-within:border-[var(--profile-field-focus-border)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30 [&_[data-slot=input]]:!h-10 [&_[data-slot=input]]:px-3";
+/*
+ * Profile form controls.
+ *
+ * These used to restate the primitives' own colours —
+ * `border-[var(--profile-field-border)] bg-[var(--profile-field-surface)]`
+ * is exactly what Input / Textarea / SelectTrigger already paint via
+ * `border-input` (--edge-control) and `bg-[var(--field-surface)]`. The
+ * restatement was not free: the naive `hover:border-…` fired while the
+ * field was focused and while it was disabled (the primitives guard both
+ * with `hover:not-has-focus-visible:not-has-disabled:`), and the extra
+ * `focus-within:ring-2` stacked a second ring under the primitives'
+ * `has-focus-visible:ring-[3px]`. Deleting them restores the real state
+ * machine and leaves only what is genuinely profile-specific: size.
+ *
+ * Size is `lg` on every control, set at the call site through each
+ * component's own size prop rather than by overriding heights here. That
+ * matters because the two shapes only line up through the API: Input `lg`
+ * is a 38px box inside a 1px frame and SelectTrigger `lg` is `min-h-10`,
+ * both 40px outer, both 36px at `sm`. The previous hand-set heights
+ * (`[&_[data-slot=input]]:!h-10` against the trigger's `min-h-10`) missed
+ * the variants' own `sm:` steps, so from 640px up a text input rendered
+ * 42px next to a 32px select in the same row.
+ */
 
-export const profileSelectControlClass =
-  "min-h-10 border-[var(--profile-field-border)] bg-[var(--profile-field-surface)] px-3 text-foreground transition-[border-color,background-color,box-shadow] hover:border-[var(--profile-field-hover-border)] focus-visible:border-[var(--profile-field-focus-border)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]/30";
+/** Grouping boxes on the Profile card — object-list items, document rows. */
+export const profileGroupBoxClass =
+  "rounded-xl bg-[var(--profile-group-surface)] p-4";
 
 export const profileTextareaControlClass =
-  "border-[var(--profile-field-border)] bg-[var(--profile-field-surface)] text-foreground transition-[border-color,background-color,box-shadow] hover:border-[var(--profile-field-hover-border)] focus-within:border-[var(--profile-field-focus-border)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30 [&_[data-slot=textarea]]:min-h-28 [&_[data-slot=textarea]]:px-3 [&_[data-slot=textarea]]:py-2.5";
+  "[&_[data-slot=textarea]]:min-h-28";
 
 export const profileInlineLabelClass =
   "text-xs font-medium text-[var(--profile-field-label)]";
 
-export const profileListRowClass =
-  "rounded-xl border border-[var(--profile-field-border)] bg-[var(--profile-field-surface)] p-4";
-
-export const profileSegmentedControlClass =
-  "inline-flex w-fit max-w-full gap-1";
+export const profileSegmentedControlClass = "inline-flex w-fit max-w-full gap-1";
 
 export function profileSegmentedOptionClass(selected: boolean): string {
   return selected

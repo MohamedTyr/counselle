@@ -171,12 +171,18 @@ export function SchoolsPage() {
             onValueChange={handleTabChange}
             value={tab}
           >
-            <TabsList className="w-full justify-start" variant="underline">
-              <TabsTab className="grow-0 text-base font-medium" value="explore">
+            <TabsList className="justify-start">
+              <TabsTab
+                className="grow-0 sm:h-7 sm:px-2 sm:text-xs"
+                value="explore"
+              >
                 Explore
               </TabsTab>
-              <TabsTab className="grow-0 text-base font-medium" value="mylist">
-                My list
+              <TabsTab
+                className="grow-0 sm:h-7 sm:px-2 sm:text-xs"
+                value="mylist"
+              >
+                <span>My list</span>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {schools.length}
                 </span>

@@ -23,6 +23,15 @@ type PageHeaderProps = {
    * rather than floating in the gutter.
    */
   leading?: ReactNode;
+  /**
+   * The bottom rule that separates page chrome from the page.
+   *
+   * `inset` (the default) stops 20px short on the right to clear the scrollbar
+   * of the column `PageContainer` renders this inside. `full` is for a header
+   * that sits *above* a scroll area rather than in one — the essay editor —
+   * where there is no scrollbar to clear and the inset reads as a notch.
+   */
+  rule?: "full" | "inset";
   subtitle?: ReactNode;
   title: string;
 };
@@ -39,6 +48,7 @@ export function PageHeader({
   columnClassName,
   heading,
   leading,
+  rule = "inset",
   subtitle,
   title,
 }: PageHeaderProps) {
@@ -79,7 +89,10 @@ export function PageHeader({
       </div>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute right-5 bottom-0 left-0 border-b"
+        className={cn(
+          "pointer-events-none absolute bottom-0 left-0 border-b",
+          rule === "full" ? "right-0" : "right-5",
+        )}
       />
     </div>
   );

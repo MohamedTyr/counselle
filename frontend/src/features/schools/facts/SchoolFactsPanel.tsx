@@ -76,7 +76,9 @@ export function SchoolFactsPanel({ data }: { data: SchoolFacts }) {
        * school's own pages — so the sections render either way. */}
       {data.edition ? null : <NoCommonDataSet data={data} />}
       <div className={LAYOUT_CLASS}>
-        <div className="md:sticky md:top-0 md:flex md:flex-col">
+        {/* `top-6`, not `top-0`: the rail parks one page-gap below the
+         * scrollport edge, so it reads as pinned rather than jammed. */}
+        <div className="md:sticky md:top-6 md:flex md:flex-col">
           <SchoolFactsNavSelect
             onSelect={setSelected}
             sections={NAV_SECTIONS}

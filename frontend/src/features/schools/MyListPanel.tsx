@@ -20,7 +20,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import type { School } from "@/domain/school";
-import { ListBalanceBar } from "@/features/schools/ListBalanceBar";
+import { ListTypeFilterRow } from "@/features/schools/ListTypeFilterRow";
 import {
   defaultSortState,
   tableColumns,
@@ -149,18 +149,12 @@ export function MyListPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <ListBalanceBar
-        listTypeFilter={listTypeFilter}
-        onListTypeFilterChange={setListTypeFilter}
-        schools={schools}
-      />
-
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-sm text-muted-foreground">
-          {filteredSchools.length === 1
-            ? "1 school shown"
-            : `${filteredSchools.length} schools shown`}
-        </span>
+        <ListTypeFilterRow
+          listTypeFilter={listTypeFilter}
+          onListTypeFilterChange={setListTypeFilter}
+          schools={schools}
+        />
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <DropdownMenu>

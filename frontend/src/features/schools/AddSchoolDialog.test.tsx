@@ -399,7 +399,12 @@ describe("AddSchoolDialog", () => {
       }),
     );
 
-    expect(await screen.findByText("1 school shown")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", {
+        hidden: true,
+        name: "Show all 1 schools",
+      }),
+    ).toBeInTheDocument();
 
     rejectPost(jsonResponse({ error: { message: "Failed" } }, { status: 500 }));
 

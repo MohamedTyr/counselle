@@ -215,15 +215,12 @@ export function ProfileRoute() {
       scrollRef={scrollRef}
       subtitle="Your application context, in your own words. Every field is optional."
       title="Profile"
-      width="full"
+      width="panel"
     >
-      {/* Tabs, rail and panel centre as one block: the page runs full-width
-       * so the two columns have room, and the cap keeps the form from
-       * stretching across an ultrawide display. */}
-      <Tabs
-        defaultValue="profile"
-        className="mx-auto w-full max-w-[1160px] gap-5"
-      >
+      {/* Header, tabs, rail and panel centre as one block: the `panel` width
+       * gives the two columns room without letting the form stretch across an
+       * ultrawide display. */}
+      <Tabs className="gap-5" defaultValue="profile">
         <TabsList className="w-full justify-start sm:w-fit">
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="profile">
             Profile
@@ -259,7 +256,8 @@ export function ProfileRoute() {
             </Empty>
           ) : (
             <div className={PROFILE_LAYOUT_CLASS}>
-              <div className="md:sticky md:top-0">
+              {/* Same one-page-gap offset as the school About rail. */}
+              <div className="md:sticky md:top-6">
                 <ProfileSectionNav
                   onSelect={selectSection}
                   profile={profileQuery.data}
