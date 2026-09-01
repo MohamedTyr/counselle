@@ -2889,12 +2889,6 @@ async def test_viz_without_marker_falls_back_after_final_answer(
     assert prose_of(record["parts"]) == "Final answer after the cards."
 
 
-async def test_event_order_final_answer_streams_staged_cards_after_answer_delta(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    await test_viz_without_marker_falls_back_after_final_answer(monkeypatch)
-
-
 async def test_duplicate_render_viz_final_flush_persists_one_viz_part(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
