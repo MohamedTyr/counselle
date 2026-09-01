@@ -72,6 +72,22 @@ def test_ported_config_matches_the_live_manifest_hash() -> None:
     }
 
 
+def test_year_consistency_validator_ref_exists_in_the_live_manifest() -> None:
+    """Tripwire for plan finding E-03: `domain.cds.validators.year_consistency`
+    is the ONLY defense against a document reporting the wrong academic year
+    (the "Cornell-class" failure) and it looks up the literal metric id
+    `"identity.academic_year"` (`validators.py:187`/`:196`). If a future
+    manifest edit ever renames or removes that metric, the lookup silently
+    returns `None` and the validator stops firing with no error and no test
+    failure -- unless this ref is pinned against the REAL compiled manifest,
+    not a hand-built synthetic packet (every other test in this module uses
+    one). This is the honesty carve-out (AGENTS.md principle 3): it earns
+    its test."""
+    compiled = compile_manifest(CONFIG_DIR)
+    metric_ids = {m["id"] for d in compiled.content["domains"] for m in d["metrics"]}
+    assert "identity.academic_year" in metric_ids
+
+
 def test_compile_is_deterministic(tmp_path: Path) -> None:
     _write_manifest(tmp_path)
     first = compile_manifest(tmp_path)

@@ -117,20 +117,31 @@ def _pending_row(*, base_extraction_id: str, value: int = 1300) -> dict[str, Any
 
 class _FakeConn:
     """Records every statement it is asked to run. `fetch` replays the pending
-    rows the test set up; `execute`/`fetchval` return the shapes the real
-    callers check (`activate_packet` compares against `"UPDATE 0"`,
-    `record_audit` casts the returned id to `int`)."""
+    rows the test set up, plus any row `save_metric_edits`' own INSERT wrote
+    during the call (R-02's post-write `get_review` reads them back through
+    this same fake, exactly as a real connection would read back what was
+    just committed); `execute`/`fetchval` return the shapes the real callers
+    check (`activate_packet` compares against `"UPDATE 0"`, `record_audit`
+    casts the returned id to `int`)."""
 
     def __init__(self, pending: list[dict[str, Any]] | None = None) -> None:
         self.pending = pending or []
+        self.inserted: dict[str, dict[str, Any]] = {}
         self.calls: list[tuple[str, tuple[Any, ...]]] = []
 
     async def fetch(self, query: str, *params: Any) -> list[dict[str, Any]]:
         self.calls.append((query, params))
-        return self.pending
+        return [*self.pending, *self.inserted.values()]
 
     async def execute(self, query: str, *params: Any) -> str:
         self.calls.append((query, params))
+        if "INSERT INTO counselle.cds_pending_edits" in query:
+            _document_id, metric_ref, domain_id, base_extraction_id, payload, edited_by = params
+            self.inserted[metric_ref] = {
+                "metric_ref": metric_ref, "domain_id": domain_id,
+                "base_extraction_id": base_extraction_id, "payload": payload,
+                "edited_by": edited_by, "edited_at": datetime(2026, 1, 2, tzinfo=UTC),
+            }
         return "UPDATE 1"
 
     async def fetchval(self, query: str, *params: Any) -> int:

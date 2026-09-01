@@ -51,6 +51,7 @@ function reviewFixture(): DocumentReviewOut {
       finished_at: "2026-08-01T00:01:00Z",
       error_code: null,
       counts: {},
+      is_mixed_generation: false,
     },
     sections: [],
     // Pre-click `unresolved: 0` is what makes the Approve button clickable
@@ -342,5 +343,56 @@ describe("CdsReviewPage — the Approve shortcut respects an open dialog (U-01)"
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(approveCalls).toHaveLength(0);
+  });
+});
+
+/** R-01: the header must never let one named extraction claim credit for
+ * domains that didn't come from it. `is_mixed_generation` is what the
+ * backend sets when the document's current domains came from more than one
+ * extraction run — this pins that the header actually surfaces it (a flag
+ * nothing displays would be worse than useless), and that the common,
+ * single-extraction case renders exactly as before with no such notice. */
+function renderReviewPage(review: DocumentReviewOut) {
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (url.endsWith("/v1/admin/cds/documents/42") && method === "GET") {
+      return Promise.resolve(jsonResponse(review));
+    }
+    throw new Error(`unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(
+    <AppProviders queryClient={createTestQueryClient()}>
+      <MemoryRouter initialEntries={["/admin/cds/documents/42"]}>
+        <Routes>
+          <Route element={<CdsReviewPage />} path="/admin/cds/documents/:documentId" />
+        </Routes>
+      </MemoryRouter>
+    </AppProviders>,
+  );
+}
+
+describe("CdsReviewPage — the header surfaces mixed-generation data (R-01)", () => {
+  test("shows a 'Mixed runs' notice when the domains on screen came from more than one extraction", async () => {
+    const review = reviewFixture();
+    renderReviewPage({
+      ...review,
+      extraction: {
+        ...review.extraction!,
+        model_id: null,
+        is_mixed_generation: true,
+      },
+    });
+
+    expect(await screen.findByText("Mixed runs")).toBeInTheDocument();
+  });
+
+  test("shows no notice for the common, single-extraction case", async () => {
+    renderReviewPage(reviewFixture());
+
+    await screen.findByRole("button", { name: "Approve" });
+    expect(screen.queryByText("Mixed runs")).not.toBeInTheDocument();
   });
 });

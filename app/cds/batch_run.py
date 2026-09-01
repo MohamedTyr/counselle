@@ -182,22 +182,40 @@ async def store_domain_packets(
     model_id: str,
 ) -> dict[str, DomainOutcome]:
     """One packet per requested domain, built from that domain's ENTIRE
-    accumulated findings across every one of its batches."""
+    accumulated findings across every one of its batches.
+
+    Isolated per domain (plan finding Z-01), mirroring `_store_packet`'s own
+    `PacketValidationError` handling: `LeaseLostError` propagates (the run has
+    lost its claim, so every remaining domain is equally doomed -- see
+    `_store_packet`'s docstring), but anything else -- a DB error out of
+    `insert_packet`'s unwrapped `INSERT ... RETURNING`, an unknown-manifest-
+    version `CdsStoreError`, or any other surprise -- is reported as this
+    ONE domain's `DomainOutcome` instead of aborting the whole loop. Without
+    this, one domain's transient failure turned an otherwise-successful
+    13-domain run (11 committed packets already durable in their own
+    transactions) into a row stamped `failed` with no `validation_summary` at
+    all, while the review screen kept rendering those 11 packets underneath a
+    header claiming total failure."""
     outcomes: dict[str, DomainOutcome] = {}
     for domain_id in requested_domains:
-        outcomes[domain_id] = await _build_and_store_domain_packet(
-            pool=pool,
-            settings=settings,
-            manifest=manifest,
-            domain_id=domain_id,
-            findings=domain_findings[domain_id],
-            run_contract=run_contract,
-            doc=doc,
-            extraction=extraction,
-            model_id=model_id,
-            original_page_count=original_page_count,
-            doc_facts=doc_facts,
-        )
+        try:
+            outcomes[domain_id] = await _build_and_store_domain_packet(
+                pool=pool,
+                settings=settings,
+                manifest=manifest,
+                domain_id=domain_id,
+                findings=domain_findings[domain_id],
+                run_contract=run_contract,
+                doc=doc,
+                extraction=extraction,
+                model_id=model_id,
+                original_page_count=original_page_count,
+                doc_facts=doc_facts,
+            )
+        except cds_store.LeaseLostError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- isolates one domain, see docstring above
+            outcomes[domain_id] = DomainOutcome(domain_id, None, None, 0, str(exc))
     return outcomes
 
 

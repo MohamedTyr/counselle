@@ -276,13 +276,26 @@ export interface ReviewSection {
 }
 
 export interface ReviewExtraction {
+  // `id` and `status` still name one "primary" contributing extraction even
+  // when mixed -- `status` drives the header's processing/failed chip
+  // (`document-status.ts` / `ReviewHeader.tsx`), and `id` is just a
+  // reference to that same run, never a claim about the data itself.
   id: string;
   status: string;
-  extractor_version: string;
-  model_id: string;
+  /** `extractor_version`, `model_id`, `finished_at`, and `error_code` are
+   * all `null` when `is_mixed_generation` -- the domains behind `counts`
+   * were not all produced by this one extraction, so naming a single run's
+   * version/model/finish-time/error here would misattribute the rest
+   * (R-01). */
+  extractor_version: string | null;
+  model_id: string | null;
   finished_at: string | null;
   error_code: string | null;
   counts: Record<string, number>;
+  /** True when the document's current domains came from more than one
+   * extraction run (e.g. a domain-scoped rerun finished for some domains
+   * but not others). */
+  is_mixed_generation: boolean;
 }
 
 export interface FlagsSummary {

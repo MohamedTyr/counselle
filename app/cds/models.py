@@ -211,13 +211,33 @@ class ReviewSection(_Model):
 
 
 class ReviewExtraction(_Model):
+    # `id` and `status` still name one "primary" contributing extraction
+    # (the non-terminal one if any is in flight, else the most recently
+    # queued) even when mixed -- `status` must, since `document-status.ts` /
+    # `ReviewHeader.tsx` derive the header's processing/failed chip from it,
+    # and `id` is just a reference to that same run, never asserted as a
+    # claim about the data itself.
     id: str
     status: str
-    extractor_version: str
-    model_id: str
+    # `extractor_version`, `model_id`, `finished_at`, and `error_code` are
+    # all `None` when `is_mixed_generation` -- the domains behind `counts`
+    # were not all produced by the same extraction, so naming one run's
+    # version/model/finish-time/error here would misattribute the rest
+    # (R-01). `finished_at` in particular is nulled rather than kept: the
+    # primary is chosen by queue recency, not finish recency, so its
+    # `finished_at` would not even genuinely mean "most recently finished"
+    # once more than one run contributed.
+    extractor_version: str | None
+    model_id: str | None
     finished_at: datetime | None
     error_code: str | None
     counts: dict[str, int]
+    # True when the document's current domains came from more than one
+    # extraction run (e.g. a domain-scoped rerun completed for some domains
+    # but not others). `counts` is always summed across every domain
+    # regardless -- this flag is what stops that sum, and the rest of this
+    # object's fields, from being presented as one named run's output.
+    is_mixed_generation: bool = False
 
 
 class FlagsSummary(_Model):
