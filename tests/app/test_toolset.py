@@ -65,7 +65,7 @@ class Rig:
         self.client = StubTavilyClient()
         self.registry = SourceRegistry()
         self.deps = ToolDeps(
-            catalog=None,
+            catalog=SimpleNamespace(school_count=1),
             search_max_results=5,
             subreddit_menu=list(MENU),
             tavily_client_factory=self._factory,

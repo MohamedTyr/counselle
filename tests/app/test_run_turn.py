@@ -239,7 +239,7 @@ class Rig:
             app_pool=self.pool,  # duck-typed fake (asyncpg.Pool is Any to mypy)
             settings=self.settings,
             tool_deps=ToolDeps(
-                catalog=None,
+                catalog=SimpleNamespace(school_count=1),
                 search_max_results=5,
                 subreddit_menu=["ApplyingToCollege", "{school}"],
                 tavily_client_factory=lambda: self.tavily,

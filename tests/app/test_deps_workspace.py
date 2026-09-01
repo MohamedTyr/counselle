@@ -39,7 +39,12 @@ async def test_build_runtime_creates_workspace_bus_without_seed_asset(
     monkeypatch.setattr(deps_mod, "make_tool_deps", lambda settings, catalog: "tool-deps")
     monkeypatch.setattr(deps_mod, "build_mcp_toolset", lambda settings: "toolset")
 
-    settings = SimpleNamespace(db_app_dsn="postgresql://app", workspace_event_queue_size=7)
+    settings = SimpleNamespace(
+        db_app_dsn="postgresql://app",
+        workspace_event_queue_size=7,
+        cds_data_enabled=True,
+        db_pipeline_dsn=None,
+    )
     runtime = await deps_mod.build_runtime(settings)
 
     assert created_pools == [(None, settings), ("postgresql://app", settings)]
