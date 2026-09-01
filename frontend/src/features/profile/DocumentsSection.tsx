@@ -45,10 +45,8 @@ import {
 } from "@/components/ui/select";
 import { documentFileUrl } from "@/api/workspace/documents";
 import {
+  profileGroupBoxClass,
   profileInlineLabelClass,
-  profileInputControlClass,
-  profileListRowClass,
-  profileSelectControlClass,
 } from "@/features/profile/profile-control-styles";
 import {
   DOCUMENT_STATUS_BADGE_VARIANT,
@@ -74,7 +72,7 @@ function DocumentRow({ document }: { document: Document }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
-    <li className={`flex flex-wrap items-center gap-4 ${profileListRowClass}`}>
+    <li className={`flex flex-wrap items-center gap-4 ${profileGroupBoxClass}`}>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate text-sm font-medium">{document.title}</span>
@@ -189,7 +187,7 @@ function UploadDocumentForm() {
   }
 
   return (
-    <div className="grid gap-4 rounded-xl border border-[var(--profile-field-border)] bg-[var(--profile-field-surface)] p-4 sm:grid-cols-2">
+    <div className={`grid gap-4 sm:grid-cols-2 ${profileGroupBoxClass}`}>
       <div className="flex min-w-0 flex-col gap-2">
         <label
           className={profileInlineLabelClass}
@@ -198,10 +196,10 @@ function UploadDocumentForm() {
           Title
         </label>
         <Input
-          className={profileInputControlClass}
           id={`${fileInputId}-title`}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="Fall transcript"
+          size="lg"
           value={title}
         />
       </div>
@@ -217,10 +215,7 @@ function UploadDocumentForm() {
           onValueChange={(value) => setDocType(value as DocumentType)}
           value={docType}
         >
-          <SelectTrigger
-            className={profileSelectControlClass}
-            id={`${fileInputId}-type`}
-          >
+          <SelectTrigger id={`${fileInputId}-type`} size="lg">
             <SelectValue />
           </SelectTrigger>
           <SelectPopup align="start">
@@ -239,10 +234,10 @@ function UploadDocumentForm() {
           File
         </label>
         <Input
-          className={profileInputControlClass}
           disabled={uploadDocument.isPending}
           id={fileInputId}
           onChange={handleFileChange}
+          size="lg"
           type="file"
         />
       </div>

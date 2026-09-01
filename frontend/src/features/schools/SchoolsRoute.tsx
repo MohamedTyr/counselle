@@ -57,11 +57,23 @@ export function SchoolsPage() {
     [applications.data],
   );
 
+  /*
+   * The legacy `?school=<application id>` param resolves to the canonical
+   * unitid URL here, in one hop. The detail route can also translate an
+   * application id, but going through it would put an intermediate address
+   * in the history and make the landing depend on a second query resolving.
+   * We already hold the applications list; use it.
+   */
+  const legacyRedirectUnitid = activeSchoolId
+    ? (applications.data?.find((item) => item.id === activeSchoolId)
+        ?.school_unitid ?? null)
+    : null;
+
   useEffect(() => {
-    if (activeSchoolId) {
-      void navigate(`/app/schools/${activeSchoolId}`, { replace: true });
+    if (legacyRedirectUnitid !== null) {
+      void navigate(`/app/schools/${legacyRedirectUnitid}`, { replace: true });
     }
-  }, [activeSchoolId, navigate]);
+  }, [legacyRedirectUnitid, navigate]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -75,8 +87,16 @@ export function SchoolsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  function openSchool(schoolId: string) {
-    void navigate(`/app/schools/${schoolId}`);
+  /**
+   * Takes an application id — that is what the table rows and the add dialog
+   * hand back — and navigates by school, which is what the page is keyed on.
+   * Falls back to the application id, which the detail route translates.
+   */
+  function openSchool(applicationId: string) {
+    const unitid = applications.data?.find(
+      (item) => item.id === applicationId,
+    )?.school_unitid;
+    void navigate(`/app/schools/${unitid ?? applicationId}`);
   }
 
   /** The tab switch is the one navigation on this page that PUSHES — every
@@ -151,12 +171,18 @@ export function SchoolsPage() {
             onValueChange={handleTabChange}
             value={tab}
           >
-            <TabsList className="w-full justify-start" variant="underline">
-              <TabsTab className="grow-0 text-base font-medium" value="explore">
+            <TabsList className="justify-start">
+              <TabsTab
+                className="grow-0 sm:h-7 sm:px-2 sm:text-xs"
+                value="explore"
+              >
                 Explore
               </TabsTab>
-              <TabsTab className="grow-0 text-base font-medium" value="mylist">
-                My list
+              <TabsTab
+                className="grow-0 sm:h-7 sm:px-2 sm:text-xs"
+                value="mylist"
+              >
+                <span>My list</span>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {schools.length}
                 </span>

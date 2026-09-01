@@ -10,6 +10,28 @@ type PageHeaderProps = {
    * shares a left edge with the body column on narrow pages.
    */
   columnClassName?: string;
+  /**
+   * Replaces the mark/title/subtitle block — a breadcrumb, say, on a page
+   * that introduces its subject in the body instead of in the chrome. The
+   * caller owns the page's single `<h1>` when this is set; `title` still
+   * names the bar for assistive tech.
+   */
+  heading?: ReactNode;
+  /**
+   * A mark that identifies the page's subject — a school's avatar, say. Sits
+   * left of the title inside the same column, so it aligns with the body
+   * rather than floating in the gutter.
+   */
+  leading?: ReactNode;
+  /**
+   * The bottom rule that separates page chrome from the page.
+   *
+   * `inset` (the default) stops 20px short on the right to clear the scrollbar
+   * of the column `PageContainer` renders this inside. `full` is for a header
+   * that sits *above* a scroll area rather than in one — the essay editor —
+   * where there is no scrollbar to clear and the inset reads as a notch.
+   */
+  rule?: "full" | "inset";
   subtitle?: ReactNode;
   title: string;
 };
@@ -24,11 +46,15 @@ export function PageHeader({
   actions,
   className,
   columnClassName,
+  heading,
+  leading,
+  rule = "inset",
   subtitle,
   title,
 }: PageHeaderProps) {
   return (
     <div
+      aria-label={heading ? title : undefined}
       className={cn(
         "relative -mx-6 flex min-h-16 shrink-0 items-center px-6 md:-mx-10 md:px-10",
         className,
@@ -40,14 +66,21 @@ export function PageHeader({
           columnClassName,
         )}
       >
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-xl leading-none font-semibold tracking-tight">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
-          ) : null}
-        </div>
+        {heading ?? (
+          <div className="flex min-w-0 items-center gap-3">
+            {leading ? <div className="shrink-0">{leading}</div> : null}
+            <div className="flex min-w-0 flex-col gap-1">
+              <h1 className="truncate text-xl leading-none font-semibold tracking-tight">
+                {title}
+              </h1>
+              {subtitle ? (
+                <p className="truncate text-sm text-muted-foreground">
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        )}
         {actions ? (
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
             {actions}
@@ -56,7 +89,10 @@ export function PageHeader({
       </div>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute right-5 bottom-0 left-0 border-b"
+        className={cn(
+          "pointer-events-none absolute bottom-0 left-0 border-b",
+          rule === "full" ? "right-0" : "right-5",
+        )}
       />
     </div>
   );

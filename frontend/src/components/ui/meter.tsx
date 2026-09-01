@@ -60,7 +60,13 @@ export function MeterIndicator({
 }: MeterPrimitive.Indicator.Props): React.ReactElement {
   return (
     <MeterPrimitive.Indicator
-      className={cn("bg-primary transition-all duration-500", className)}
+      className={cn(
+        "bg-primary transition-all duration-500",
+        /* Motion is not a fact. A width sweep on a value someone asked to
+         * see less movement of is decoration they opted out of. */
+        "motion-reduce:transition-none",
+        className,
+      )}
       data-slot="meter-indicator"
       {...props}
     />

@@ -18,11 +18,10 @@ import type {
   SelectFieldConfig,
 } from "@/features/profile/profile-field-types";
 import {
+  profileGroupBoxClass,
   profileInlineLabelClass,
-  profileInputControlClass,
   profileSegmentedControlClass,
   profileSegmentedOptionClass,
-  profileSelectControlClass,
 } from "@/features/profile/profile-control-styles";
 import { useFieldDraft } from "@/features/profile/use-field-draft";
 
@@ -190,7 +189,7 @@ function ObjectListRow({
   const summary = config.itemSummary(item);
 
   return (
-    <div className="grid gap-4 rounded-xl border border-[var(--profile-field-border)] bg-[var(--profile-field-surface)] p-4 sm:grid-cols-2">
+    <div className={`grid gap-4 sm:grid-cols-2 ${profileGroupBoxClass}`}>
       <div className="col-span-full flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-[var(--profile-field-label)]">
           {summary === "New entry" ? `${config.label} ${index + 1}` : summary}
@@ -261,8 +260,8 @@ function ObjectListItemField({
           <SelectTrigger
             aria-describedby={error ? helperId : undefined}
             aria-invalid={error ? true : undefined}
-            className={profileSelectControlClass}
             id={id}
+            size="lg"
           >
             <SelectValue />
           </SelectTrigger>
@@ -348,7 +347,6 @@ function ObjectListItemField({
       <Input
         aria-describedby={error ? helperId : undefined}
         aria-invalid={error ? true : undefined}
-        className={profileInputControlClass}
         id={id}
         max={config.kind === "int" ? config.max : undefined}
         min={config.kind === "int" ? config.min : undefined}

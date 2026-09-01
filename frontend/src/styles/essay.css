@@ -42,18 +42,23 @@
   --essay-library-progress-track: var(--surface-sunken);
   --essay-library-progress-fill: var(--brand);
   --essay-editor-chrome-surface: var(--shell-background);
+  /* The editor's header and toolbar used to be two raised objects — a bordered,
+   * shadowed header card and a floating toolbar pill — stacked over a third,
+   * the paper. Three floating things, one of which is the actual document. Both
+   * are now flush rows of a single header block drawn on the chrome plane, with
+   * one hairline separating that block from the canvas.
+   *
+   * Which leaves -header-surface/-shadow and -toolbar-surface/-border/-shadow
+   * unconsumed. They stay defined rather than deleted: the --essay-* names are
+   * a public contract (see the file header), and a raised variant of either row
+   * is a plausible future without being a token re-derivation.
+   *
+   * Still live: -header-border (the hairline dividers in the header's meta run,
+   * via HeaderDivider) and -toolbar-active (a pressed formatting button). */
   --essay-editor-header-surface: var(--workspace-surface-raised);
   --essay-editor-header-border: var(--workspace-border-soft);
   --essay-editor-header-shadow: var(--elevation-1);
   --essay-editor-toolbar-surface: var(--workspace-surface-raised);
-  /* --essay-editor-toolbar-border: currently unconsumed. The toolbar paired
-   * this with --essay-editor-toolbar-shadow (elevation-2, 12px blur) —
-   * elevation.css's own rule reserves border+shadow pairing for
-   * elevation-1 and calls out "floating toolbars" by name as an
-   * elevation-2/3 borderless case. EssayEditorToolbar.tsx now overrides
-   * to border-transparent and relies on the shadow alone; kept the token
-   * defined (not a public-contract removal) in case a future bordered
-   * toolbar variant needs it. */
   --essay-editor-toolbar-border: var(--workspace-border);
   --essay-editor-toolbar-active: var(--workspace-surface-active);
   --essay-editor-toolbar-shadow: var(--elevation-2);

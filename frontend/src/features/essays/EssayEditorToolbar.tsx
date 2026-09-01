@@ -98,7 +98,12 @@ export function EssayEditorToolbar({
   return (
     <Toolbar
       aria-label="Essay formatting toolbar"
-      className="inline-flex w-max flex-nowrap items-center justify-start border-transparent bg-(--essay-editor-toolbar-surface) shadow-(--essay-editor-toolbar-shadow)"
+      /*
+       * Flush chrome: the toolbar is a row of the editor's header block, not a
+       * raised object floating over the page, so it drops the card's surface,
+       * border, radius and shadow and inherits the chrome plane it sits on.
+       */
+      className="inline-flex w-max flex-nowrap items-center justify-start rounded-none border-0 bg-transparent p-0 shadow-none"
     >
       <ToolbarGroup>
         <Select
@@ -114,7 +119,7 @@ export function EssayEditorToolbar({
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectPopup align="start" side="top" sideOffset={8}>
+          <SelectPopup align="start" side="bottom" sideOffset={8}>
             {fontOptions.map((font) => (
               <SelectItem key={font.value} value={font.value}>
                 <span

@@ -16,7 +16,7 @@ function application(
   return {
     ...workspaceApplicationFixture,
     id,
-    school_unitid: Number(id.replace(/\D/g, "").slice(0, 6)) || 1,
+    school_unitid: Number(id.replace(/\D/g, "").slice(-6)) || 1,
     school_name: `School ${id}`,
     school_city: "Somewhere",
     school_state: "US",
@@ -77,7 +77,7 @@ function tableSchoolNames() {
 }
 
 describe("SchoolsPage", () => {
-  it("filters schools from the balance bar legend", async () => {
+  it("filters schools from the list-type row", async () => {
     const user = userEvent.setup();
     await renderSchools();
 
@@ -85,7 +85,10 @@ describe("SchoolsPage", () => {
       screen.getByRole("button", { name: "Show 2 Reach schools" }),
     );
 
-    expect(screen.getByText("2 schools shown")).toBeInTheDocument();
+    expect(tableSchoolNames()).toEqual([
+      "Open Alpha College details",
+      "Open Delta Academy details",
+    ]);
   });
 
   it("filters schools from the view dropdown", async () => {
@@ -99,7 +102,10 @@ describe("SchoolsPage", () => {
     );
     await user.click(screen.getByRole("menuitemradio", { name: /Submitted/ }));
 
-    expect(screen.getByText("2 schools shown")).toBeInTheDocument();
+    expect(tableSchoolNames()).toEqual([
+      "Open Beta University details",
+      "Open Delta Academy details",
+    ]);
   });
 
   it("sorts the desktop table by header controls", async () => {
@@ -184,7 +190,7 @@ describe("SchoolsPage", () => {
     );
   });
 
-  it("nudges a list with no safety schools toward Explore", async () => {
+  it("disables a list-type filter with no schools behind it", async () => {
     await renderSchools([
       application({
         id: "10000000-0000-4000-8000-000000000020",
@@ -192,10 +198,9 @@ describe("SchoolsPage", () => {
       }),
     ]);
 
-    expect(screen.getByText(/No safety schools/)).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /Find some in Explore/ }),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Show 0 Safety schools" }),
+    ).toBeDisabled();
   });
 
   it("redirects the legacy school query param to the canonical workspace page", async () => {
@@ -209,9 +214,9 @@ describe("SchoolsPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Alpha College" }),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe(
-      "/app/schools/10000000-0000-4000-8000-000000000001",
-    );
+    /* The canonical page is keyed by unitid; an application-id URL
+     * redirects onto it. */
+    expect(window.location.pathname).toBe("/app/schools/1");
     expect(window.location.search).toBe("");
   });
 
@@ -227,9 +232,7 @@ describe("SchoolsPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Alpha College" }),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe(
-      "/app/schools/10000000-0000-4000-8000-000000000001",
-    );
+    expect(window.location.pathname).toBe("/app/schools/1");
   });
 
   it("archives a school from its workspace and restores it with undo", async () => {

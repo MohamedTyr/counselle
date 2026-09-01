@@ -58,36 +58,44 @@ function requirement(
 }
 
 function renderWorkspace(detail: ApplicationDetail) {
-  return renderApp(`/app/schools/${detail.application.id}`, {
-    fetchHandler: (input, init) => {
-      if (String(input).includes(`/v1/applications/${detail.application.id}`)) {
-        return jsonResponse(detail);
-      }
-      return defaultAuthenticatedFetch(input, init);
+  return renderApp(
+    `/app/schools/${detail.application.school_unitid}?tab=application`,
+    {
+      fetchHandler: (input, init) => {
+        if (
+          String(input).includes(`/v1/applications/${detail.application.id}`)
+        ) {
+          return jsonResponse(detail);
+        }
+        return defaultAuthenticatedFetch(input, init);
+      },
     },
-  });
+  );
 }
 
 describe("SchoolWorkspace honesty states", () => {
   it("renders a loaded empty catalog as unavailable data without inventing facts", async () => {
-    renderApp(`/app/schools/${workspaceApplicationFixture.id}`, {
-      fetchHandler: (input, init) => {
-        if (
-          String(input).includes(
-            `/v1/applications/${workspaceApplicationFixture.id}`,
-          )
-        ) {
-          return jsonResponse({
-            application: workspaceApplicationFixture,
-            tasks: [],
-            essays: [],
-            prompt_drafts: [],
-            reference: workspaceReferenceFixture,
-          });
-        }
-        return defaultAuthenticatedFetch(input, init);
+    renderApp(
+      `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
+      {
+        fetchHandler: (input, init) => {
+          if (
+            String(input).includes(
+              `/v1/applications/${workspaceApplicationFixture.id}`,
+            )
+          ) {
+            return jsonResponse({
+              application: workspaceApplicationFixture,
+              tasks: [],
+              essays: [],
+              prompt_drafts: [],
+              reference: workspaceReferenceFixture,
+            });
+          }
+          return defaultAuthenticatedFetch(input, init);
+        },
       },
-    });
+    );
 
     expect(
       await screen.findByText(
@@ -104,25 +112,28 @@ describe("SchoolWorkspace honesty states", () => {
   });
 
   it("renders a query failure as an error instead of an empty catalog", async () => {
-    renderApp(`/app/schools/${workspaceApplicationFixture.id}`, {
-      fetchHandler: (input, init) => {
-        if (
-          String(input).includes(
-            `/v1/applications/${workspaceApplicationFixture.id}`,
-          )
-        ) {
-          return jsonResponse(
-            { detail: "catalog unavailable" },
-            { status: 500 },
-          );
-        }
-        return defaultAuthenticatedFetch(input, init);
+    renderApp(
+      `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
+      {
+        fetchHandler: (input, init) => {
+          if (
+            String(input).includes(
+              `/v1/applications/${workspaceApplicationFixture.id}`,
+            )
+          ) {
+            return jsonResponse(
+              { detail: "catalog unavailable" },
+              { status: 500 },
+            );
+          }
+          return defaultAuthenticatedFetch(input, init);
+        },
       },
-    });
+    );
 
     expect(
       await screen.findByRole("heading", {
-        name: "Could not load school workspace",
+        name: "Could not load this application",
       }),
     ).toBeInTheDocument();
     expect(
@@ -212,9 +223,12 @@ describe("SchoolWorkspace honesty states", () => {
   it("archives from the workspace and offers an undo restore", async () => {
     const user = userEvent.setup();
     const fetchHandler = createWorkspaceFetchPreset();
-    renderApp(`/app/schools/${workspaceApplicationFixture.id}`, {
-      fetchHandler,
-    });
+    renderApp(
+      `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
+      {
+        fetchHandler,
+      },
+    );
 
     await user.click(await screen.findByRole("button", { name: "Archive" }));
     await waitFor(() => expect(window.location.pathname).toBe("/app/schools"));
@@ -230,9 +244,12 @@ describe("SchoolWorkspace honesty states", () => {
 
   it("reloads the cycle-scoped reference after changing cycle year", async () => {
     const fetchHandler = createWorkspaceFetchPreset();
-    renderApp(`/app/schools/${workspaceApplicationFixture.id}`, {
-      fetchHandler,
-    });
+    renderApp(
+      `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
+      {
+        fetchHandler,
+      },
+    );
 
     expect(
       await screen.findByText(

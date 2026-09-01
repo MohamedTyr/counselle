@@ -87,4 +87,88 @@
   --school-balance-reach: var(--brand-scale-3);
   --school-balance-target: var(--brand-scale-2);
   --school-balance-safety: var(--brand-scale-1);
+
+  /* ---- the About tab's section panel ----
+   * ONE raised surface per section, the same shell Profile draws around a
+   * section card. Before this the groups inside were each a card and the
+   * section around them was nothing at all — six perimeters and six shadows
+   * on bare canvas, which is neither of the two container shapes DESIGN
+   * §17.2 permits. The panel is the list; the groups are bands within it,
+   * separated by a hairline and never by a second border. */
+  --school-facts-panel-surface: var(--surface-raised);
+  --school-facts-panel-border: var(--edge);
+
+  /* ---- fact rows (the About tab) ----
+   * A fact is a label, a value, and the qualifier that makes the value true.
+   *
+   * Absence has its own ink because a blank cell reads as zero, and zero is
+   * a lie about a real school to a real student (AGENTS.md principle 3).
+   * The absent ink is deliberately WEAKER than the value ink and is paired
+   * with italics in the component, never with font-medium — weight would
+   * make "not reported" read as a value.
+   *
+   * There is no hue here for "we have this value". Presence is the ordinary
+   * case and the ordinary case gets no colour; spending green on it would
+   * leave the two real signals — a severe caveat and a stale edition — with
+   * nothing left to say. Amber appears for exactly one thing on this page:
+   * a caveat severe enough to change how the number should be read. */
+  --school-fact-label: var(--ink-secondary);
+  --school-fact-value: var(--ink);
+  --school-fact-absent: var(--school-value-absent);
+  --school-fact-caveat: var(--ink-muted);
+  /* A severe caveat draws its amber through Badge variant="warning", which
+   * already resolves --warning-surface / --warning-fg. The two aliases that
+   * used to sit here were a second name for the same pair and had no
+   * consumers; one source of truth is the badge variant. */
+  --school-fact-divider: var(--hairline);
+  /* A derived value is marked by the WORD "calculated", never by colour —
+   * this is only the ink of that word, one tier below the caveat. */
+  --school-fact-derived-ink: var(--ink-faint);
+  --school-fact-evidence-ink: var(--ink-muted);
+  --school-fact-evidence-hover: var(--surface-hover);
+  /* Wells: the evidence excerpt, the expanded detail group, the group
+   * caveat. An inset surface never draws a border — a recessed fill that
+   * also has a rim reads as embossed (DESIGN §4). */
+  --school-fact-well: var(--surface-inset);
+
+  /* ---- fact charts (the About tab) ----
+   * MONOCHROME, and deliberately so.
+   *
+   * Every chart here plots ONE series — shares of a class, counts of a
+   * cohort, the middle 50 of one test. There is nothing to tell apart, so
+   * there is nothing for a second hue to say. Spending a categorical palette
+   * on single-series data is what makes a chart read as marketing, and this
+   * page's whole job is to be believed.
+   *
+   * The mark is the value ink, not the brand: a bar IS the number, and the
+   * number is --ink everywhere else on the tab. Brand colour here would make
+   * a school's graduation rate look like a Counselle claim about it.
+   *
+   * The track is the same one the meter and the list balance bar draw, so a
+   * bar's ceiling reads identically wherever it appears in the product. */
+  --school-chart-mark: var(--ink);
+  /* One step darker than --control-track, and deliberately not it.
+   *
+   * A control track sits on --canvas; these sit on --surface-raised, which
+   * is four lightness points lighter, so the same fill that reads as a
+   * groove on the canvas nearly vanishes here. On a range band the track IS
+   * information — it is the 200-to-800 the band is a slice of — and a track
+   * you cannot see turns the band into a floating mark with no scale.
+   *
+   * --hairline is the right weight for the job: it is already the "a line
+   * WITHIN one surface" value, and a track is exactly that — the ground a
+   * mark is measured against, not a second surface. */
+  --school-chart-track: var(--hairline);
+  --school-chart-grid: var(--hairline);
+  /*
+   * There is no --school-chart-inset any more, and that is the point.
+   *
+   * It existed to nudge charts ~10px right so they lined up with tables that
+   * were inset by their own CARD border. With the card gone, the section
+   * panel's padding is the left edge for rows and charts alike — which is
+   * what charts/chart-shell.tsx always claimed and could never achieve.
+   *
+   * --school-chart-axis went with it: it mirrored AXIS_WIDTH "for the few
+   * places CSS needs it", and there were none.
+   */
 }

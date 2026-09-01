@@ -206,8 +206,8 @@ need one of the four surface roles.
 | `--gray-200` | `93.5% 0.007 50` | `#eee8e5` | pressed inset — *not a resting level* |
 | `--gray-300` | `90.5% 0.009 50` | `#e5deda` | hairline — a divider *within* one surface |
 | `--gray-400` | `86% 0.011 50` | `#d7cfcb` | edge — the *perimeter* of a surface |
-| `--gray-500` | `76% 0.014 50` | `#b9afa9` | edge-strong — hovered/pressed perimeter |
-| `--gray-600` | `62% 0.016 50` | `#8f847e` | edge-control — **the one WCAG-1.4.11-checked border** |
+| `--gray-500` | `76% 0.014 50` | `#b9afa9` | edge-strong — hovered/pressed perimeter; **and edge-control, the resting boundary of a bare form control** |
+| `--gray-600` | `62% 0.016 50` | `#8f847e` | edge-control-strong — a form control's boundary *hovered* (3.61:1) |
 | `--gray-650` | `70% 0.013 50` | `#a69c97` | disabled ink (WCAG-exempt) |
 | `--gray-700` | `52% 0.014 50` | `#706762` | faint ink |
 | `--gray-800` | `42% 0.011 50` | `#524b48` | secondary ink |
@@ -238,10 +238,21 @@ two brand tints; they are not ramp steps.
 - Text meets **WCAG AA (4.5:1)**, and the ratio is measured, not guessed. This repo's
   convention is to **write the measured ratio in a comment next to the token**. Keep
   doing that — it is how the palette survived three brand-hue changes.
-- `--edge-control` is the **only** border held to a contrast bar (3:1, WCAG 1.4.11),
-  because a border is genuinely the only thing on screen saying "type here." Decorative
-  borders and scrollbar thumbs are explicitly exempt — and where they're exempt, the
-  exemption is written down.
+- **A form control's resting border is `--edge-control` at 2.12:1, and that is a
+  deliberate exception to 1.4.11 — the only one in the system.** It used to be gray-600
+  (3.61:1 on raised), chosen so the boundary alone cleared WCAG 1.4.11 on the reasoning
+  that a border is the only thing saying "type here." Rendered, eight of those strokes
+  on one near-white card read as a wireframe, and the field also carried an inset fill
+  to compensate — a fill plus a rim, which is the embossed shape §2.2 Law 3 bans. Both
+  halves are now gone: the field takes its container's fill and a gray-500 boundary.
+  What identifies it at rest is the whole set — a persistent visible label, the
+  placeholder at 6.4:1, `shadow-xs` with the 1px inner top highlight, and the border —
+  with **hover at 3.61:1 and focus at 7.01:1** both clearing the bar outright. This
+  palette cannot have both soft and 3:1: thirteen neutral steps inside a narrow light
+  band put "3:1 from a near-white container" at roughly L 0.62, a charcoal outline.
+  Reverting is one line — `--edge-control` in `semantic.css`.
+- Decorative borders and scrollbar thumbs are explicitly exempt — and where they're
+  exempt, the exemption is written down.
 - A UI-component colour that composites (an icon at reduced opacity on a tinted chip)
   must be checked **after compositing**. See `composer-control.ts`: chevrons sit at 65%
   and not 60%, because 60% measured 2.94:1 and 65% measures 3.28:1.
@@ -619,7 +630,7 @@ it will not work.
   title="Schools"                 // required
   subtitle={<>…</>}               // optional
   actions={<Button>Add school</Button>}
-  width="full" | "wide"           // default "full"
+  width="full" | "panel" | "wide" // default "full"
   scrollRef={ref}                 // if you need scroll position
   overlay={<UndoToast … />}       // rendered OUTSIDE the scroll area
   className="…"                   // extra classes on the body column
@@ -631,6 +642,10 @@ it will not work.
 It renders a `<section>` (bounds, `overflow-hidden`) wrapping a scrolling column
 (`overflow-y-auto px-6 pb-6 md:px-10`, `gap-6`), with `PageHeader` at the top.
 
+**Widths.** `full` for dense data surfaces, `wide` (896px) for linear read-and-enter
+surfaces, `panel` (1160px) for rail-and-panel pages — Profile and a school's detail. The
+header tracks the same column as the body, so a page reads as one aligned column.
+
 `PageHeader` guarantees:
 - a **fixed `min-h-16` (64px)** — before it existed, header height varied 64/60/52px per
   page depending on which action buttons happened to be present, so the rule under the
@@ -641,11 +656,30 @@ It renders a `<section>` (bounds, `overflow-hidden`) wrapping a scrolling column
   aligned with the body;
 - actions stacking vertically below `sm:`, and the whole header stacking below `md:`.
 
+`rule` is the one knob: `inset` (the default) stops the rule 20px short on the right to
+clear the scrollbar of the column `PageContainer` puts the header inside; `full` runs it
+to the true edge, for a header that sits *above* a scroll area rather than in one — the
+essay editor — where the inset would read as a notch.
+
+**The actions column is `shrink-0`.** Whatever you put in it is width the title can never
+reclaim, so a header with a lot of chrome needs a stated priority order rather than a
+uniform `truncate`. The essay editor is the worked example: between `md:` (where the
+header returns to one row) and `xl:` the sidebar is still at full width, leaving the bar
+~410px, so the school mark, the "Modified …" stamp, the status chip and the Prompt
+button's label each drop out at a named breakpoint before the title is allowed to
+collapse. Drop by importance; never let the page's own name be the thing that goes.
+
 **This is not currently universal.** `EssaysRoute`, `SchoolsRoute` and `TasksRoute` still
 hand-roll `PageContainer`'s markup and have already drifted from it (asymmetric
 `pr-8 pl-6 md:pr-10` instead of `px-6 md:px-10`). `RouteSurface` (`/app/calendar`) is a
 third header shape entirely (`h-14`, `text-base`, `px-5`). The chat routes opt out
 legitimately — they have a different shape. See §20.
+
+The essay editor **does** render through `PageHeader` (it can't use `PageContainer` — its
+body is a centred sheet, not the standard scroll column). Its chrome is three flush bands
+separated by hairlines: title, formatting toolbar, then the canvas. It used to be a raised
+header card plus a toolbar pill floating over the page, which put three competing objects
+on screen when the document is meant to be the only one that floats.
 
 ### 9.4 Routes
 
@@ -656,7 +690,7 @@ legitimately — they have a different shape. See §20.
 | `/app/ai` | composer landing | ” |
 | `/app/ai/:sessionId` | chat | ” |
 | `/app/tasks` | task board / table | ” |
-| `/app/schools`, `/app/schools/:id` | list, detail workspace | ” |
+| `/app/schools`, `/app/schools/:unitid` | list; school page (About + Your application). Keyed by school, so a school you have not added still has a page; an application id in the slot redirects to the canonical URL | ” |
 | `/app/essays`, `/app/essays/:id` | library, editor | ” |
 | `/app/activities` | activities + honors | ” |
 | `/app/profile` | profile | ” |
@@ -772,8 +806,9 @@ The tokens already exist for each level; use them, never re-derive:
 ### 11.2 Hover, by element type
 
 - **Controls** (buttons, nav rows, menu items) — **background shift.** 73 uses. Canonical.
-- **Form controls** — **border shift** to `--edge-control-strong`. A background shift
-  would fight the field fill.
+- **Form controls** — **border shift** to `--edge-control-strong` (gray-600, 3.61:1),
+  which is also where the control recovers the 1.4.11 bar its resting border trades
+  away (§3.3). A background shift would fight the raised field fill.
 - **Cards** — **border shift** to `--edge-strong`. Never shadow escalation, never
   transform. Both were tried and rejected as "motion that clarifies nothing."
 - **The primary CTA** — the one place shadow changes on hover
@@ -1087,14 +1122,29 @@ timeline — **not** a collapsed reasoning drawer plus a separate final answer.
 
 ### 15.4 Sources rail
 
-- Desktop: fixed `w-[26rem]` `<aside>`, docked right. Mobile: full-width `Sheet`.
-- Source card: `rounded-xl border bg-card p-3 shadow-[--elevation-1]`; active state is
-  `--surface-selected` plus a **1.5px inset left bar**, not a full border.
-- CDS/profile sources nest **evidence rows** on an inset fill: label, `tabular-nums`
-  value, `Page N · Section · Row · Column`, and an italic excerpt. Omitted evidence is
-  disclosed: "…and {n} more values from this document."
-- Clicking a citation anywhere focuses that exact source (or that exact evidence row) and
-  scrolls it into view, respecting reduced motion.
+- Desktop: fixed `w-[26rem]` `<aside>`, docked right, on the **shell sidebar's own
+  surface** — `bg-sidebar`, `border-s-sidebar-border`. It is chrome, not canvas, and it
+  reads as one plane with the left rail. Mobile: full-width `Sheet` on the same surface.
+- **The rail is flat.** A source is a row, not a card: no fill, no border, no shadow, and
+  **no divider** at rest. Rhythm comes from spacing (`px-3 py-3`, `gap-0.5`, list inset
+  `p-2`), not from boxes. The favicon sits directly on the surface — no framed tile.
+- **A fill only appears when the row reacts**, and then it is card-shaped
+  (`rounded-lg`, inset from the panel edges by the list's own padding): `--sidebar-accent`
+  on hover/keyboard focus, `--sidebar-active` — the sidebar's selected-row colour — for a
+  citation highlight. `transition-colors duration-200 ease-out`; one duration, because
+  hover and highlight ride the same property.
+- **The row is the link.** The title anchor stretches over the row
+  (`after:absolute after:inset-0`), so a click anywhere opens the source in a new tab.
+  The rail has **no selection state** — clicking a row never restyles it.
+- **A citation highlight is transient.** Clicking a chip opens the rail, focuses that
+  exact source (or that exact evidence row), scrolls it into view respecting reduced
+  motion, and lights it for `HIGHLIGHT_MS` (1.8s) before fading back. The panel never
+  sits there wearing a stale mark.
+- CDS/profile sources nest **evidence rows** indented under the title: label,
+  `tabular-nums` value, `Page N · Section · Row · Column`, and an italic excerpt. Omitted
+  evidence is disclosed: "…and {n} more values from this document." When a row nests
+  evidence, the anchor's stretch is scoped to the header block so excerpts stay
+  selectable.
 
 ### 15.5 Visualisations
 

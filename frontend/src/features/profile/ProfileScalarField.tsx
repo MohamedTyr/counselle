@@ -13,10 +13,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ProfileFieldLabel } from "@/features/profile/ProfileFieldLabel";
 import {
-  profileInputControlClass,
   profileSegmentedControlClass,
   profileSegmentedOptionClass,
-  profileSelectControlClass,
   profileTextareaControlClass,
 } from "@/features/profile/profile-control-styles";
 import type {
@@ -90,7 +88,7 @@ export function ProfileScalarField({
                 className={
                   isSelected
                     ? "border-[var(--profile-control-selected-border)] bg-[var(--profile-control-selected-surface)] text-foreground"
-                    : "border-[var(--profile-field-border)] bg-[var(--profile-field-surface)] text-[var(--profile-field-label)] hover:border-[var(--profile-field-hover-border)] hover:bg-[var(--profile-control-selected-surface)]"
+                    : "text-[var(--profile-field-label)]"
                 }
                 key={option.value}
                 onClick={() => {
@@ -130,8 +128,8 @@ export function ProfileScalarField({
         >
           <SelectTrigger
             aria-describedby={help ? helperId : undefined}
-            className={profileSelectControlClass}
             id={inputId}
+            size="lg"
           >
             <SelectValue />
           </SelectTrigger>
@@ -388,6 +386,7 @@ function TextDraftField({
           onFocus={() => setIsEditing(true)}
           placeholder={config.placeholder}
           rows={4}
+          size="lg"
           value={draft}
         />
         <FieldHelper
@@ -405,7 +404,6 @@ function TextDraftField({
       <Input
         aria-invalid={error ? true : undefined}
         aria-describedby={supportingText ? helperId : undefined}
-        className={profileInputControlClass}
         id={inputId}
         onBlur={handleBlur}
         onChange={(event) => {
@@ -414,6 +412,7 @@ function TextDraftField({
         }}
         onFocus={() => setIsEditing(true)}
         placeholder={config.placeholder}
+        size="lg"
         type={type ?? "text"}
         value={draft}
       />

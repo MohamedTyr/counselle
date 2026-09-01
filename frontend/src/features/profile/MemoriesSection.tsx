@@ -28,7 +28,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { profileListRowClass } from "@/features/profile/profile-control-styles";
+import { profileGroupBoxClass } from "@/features/profile/profile-control-styles";
 
 function formatMemoryDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -44,7 +44,7 @@ function MemoryRow({ memory }: { memory: Memory }) {
 
   return (
     <li
-      className={`flex items-start justify-between gap-4 ${profileListRowClass}`}
+      className={`flex items-start justify-between gap-4 ${profileGroupBoxClass}`}
     >
       <div className="flex min-w-0 max-w-2xl flex-col gap-1.5">
         <p className="text-sm leading-6">{memory.content}</p>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { MessageSourcesPayload, SourceEntry } from "@/api/chat/types";
 import { SourcesRail } from "./SourcesRail";
@@ -125,7 +125,7 @@ describe("SourcesRail", () => {
     expect(fallback).toHaveFocus();
     expect(fallback).toHaveAttribute("data-active", "true");
     expect(fallback).toHaveAttribute("aria-current", "true");
-    expect(fallback).toHaveClass("bg-[var(--surface-selected)]");
+    expect(fallback).toHaveClass("data-[active=true]:bg-sidebar-active");
   });
 
   test("moves the highlight when a different citation is opened, clearing the old one", () => {
@@ -155,10 +155,10 @@ describe("SourcesRail", () => {
     expect(rowThree()).toHaveAttribute("data-active", "true");
     expect(rowThree()).toHaveFocus();
     expect(rowEight()).toHaveAttribute("data-active", "false");
-    expect(rowEight()).not.toHaveClass("bg-[var(--surface-selected)]");
+    expect(rowEight()).not.toHaveAttribute("aria-current");
   });
 
-  test("clicking a source card selects it directly, moving the highlight off any prior one", () => {
+  test("a row is a link, and clicking it never marks the row as selected", () => {
     const payload: MessageSourcesPayload = {
       sources: [cds(), web()],
       active: { index: 3 },
@@ -171,10 +171,38 @@ describe("SourcesRail", () => {
     const rowEight = document.getElementById("source-row-8")!;
     expect(rowThree).toHaveAttribute("data-active", "true");
 
+    const link = screen.getByRole("link", { name: web().label });
+    expect(link).toHaveAttribute("href", "https://example.com/aid");
+    expect(link).toHaveAttribute("target", "_blank");
     fireEvent.click(rowEight);
 
-    expect(rowEight).toHaveAttribute("data-active", "true");
-    expect(rowThree).toHaveAttribute("data-active", "false");
+    expect(rowEight).toHaveAttribute("data-active", "false");
+  });
+
+  test("the citation highlight fades out on its own instead of sticking", () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <SourcesRail
+          isMobile={false}
+          onClose={vi.fn()}
+          payload={{
+            sources: [cds(), web()],
+            active: { index: 8 },
+            schoolDomains: new Map(),
+          }}
+        />,
+      );
+      const rowEight = document.getElementById("source-row-8")!;
+      expect(rowEight).toHaveAttribute("data-active", "true");
+
+      act(() => void vi.advanceTimersByTime(2500));
+
+      expect(rowEight).toHaveAttribute("data-active", "false");
+      expect(rowEight).not.toHaveAttribute("aria-current");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("legacy evidence-less CDS entries do not crash and unsafe URLs stay inert", () => {

@@ -34,11 +34,18 @@ export function createAppRouter() {
           },
         },
         {
+          path: "/dev/school-facts",
+          lazy: async () => {
+            const module =
+              await import("@/features/dev-school-facts-gallery/SchoolFactsGalleryPage");
+            return { Component: module.SchoolFactsGalleryPage };
+          },
+        },
+        {
           path: "/dev/onboarding-shell",
           lazy: async () => {
-            const module = await import(
-              "@/features/dev-onboarding-shell-gallery/OnboardingShellGalleryPage"
-            );
+            const module =
+              await import("@/features/dev-onboarding-shell-gallery/OnboardingShellGalleryPage");
             return { Component: module.OnboardingShellGalleryPage };
           },
         },
@@ -104,7 +111,12 @@ export function createAppRouter() {
                   element: <SchoolsPage />,
                 },
                 {
-                  path: "schools/:applicationId",
+                  /*
+                   * Keyed by unitid. An application id still resolves here
+                   * and redirects to the canonical school URL, so every
+                   * existing link in essays and tasks keeps working.
+                   */
+                  path: "schools/:schoolKey",
                   element: <SchoolDetailPage />,
                 },
                 {

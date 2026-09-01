@@ -20,15 +20,23 @@ import { cn } from "@/lib/utils";
  * it separates the page chrome from the page, so it belongs to the page edge.
  */
 /**
- * Two tiers, one rule: dense data surfaces (board, table, card grid) run
+ * One rule per tier: dense data surfaces (board, table, card grid) run
  * `full`; linear read-and-enter surfaces (a list you scan top to bottom, a
  * form you fill in order) run `wide`. Before this there were three widths
  * across five pages — 1064 / 896 / 768 — with no rule behind the split.
  */
-export type PageWidth = "full" | "wide";
+/**
+ * `panel` is the rail-and-panel pages (Profile, a school's detail): they need
+ * more room than `wide` for two columns, but not the whole ultrawide display.
+ * It was a `max-w-[1160px]` literal on each of those pages, which left their
+ * headers full-bleed above a centred body — the exact drift this scaffold
+ * exists to prevent.
+ */
+export type PageWidth = "full" | "panel" | "wide";
 
 const COLUMN_CLASS: Record<PageWidth, string> = {
   full: "w-full",
+  panel: "mx-auto w-full max-w-[1160px]",
   wide: "mx-auto w-full max-w-4xl",
 };
 
@@ -37,6 +45,10 @@ type PageContainerProps = {
   children: ReactNode;
   /** Extra classes for the scrolling body column. */
   className?: string;
+  /** Replaces the title block in the header bar — see PageHeader. */
+  heading?: ReactNode;
+  /** Identifying mark left of the title — see PageHeader. */
+  leading?: ReactNode;
   /**
    * Rendered inside the page section but outside the scroll area — undo toasts,
    * dialogs, scroll indicators. Anything that must not scroll with the body.
@@ -52,6 +64,8 @@ export function PageContainer({
   actions,
   children,
   className,
+  heading,
+  leading,
   overlay,
   scrollRef,
   subtitle,
@@ -69,10 +83,20 @@ export function PageContainer({
         <PageHeader
           actions={actions}
           columnClassName={column}
+          heading={heading}
+          leading={leading}
           subtitle={subtitle}
           title={title}
         />
-        <div className={cn("flex min-h-0 flex-col gap-6", column, className)}>
+        {/*
+         * `shrink-0`, not `min-h-0`: as a flex item of the scroll container
+         * this column was allowed to shrink below its content, so a long page
+         * spilled *out* of its own box. Overflow from a descendant does not
+         * pick up the scrollport's `pb-6`, which is why the last card on a
+         * tall page (a school's About tab) sat flush against the window edge
+         * however much bottom padding the scroller had.
+         */}
+        <div className={cn("flex shrink-0 flex-col gap-6", column, className)}>
           {children}
         </div>
       </div>

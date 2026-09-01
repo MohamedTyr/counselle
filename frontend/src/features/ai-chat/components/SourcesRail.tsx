@@ -47,8 +47,17 @@ function scrollBehavior(): ScrollBehavior {
     : "smooth";
 }
 
-const activeCardClasses =
-  "bg-[var(--surface-selected)] shadow-[inset_1.5px_0_0_var(--color-primary)]";
+/** How long a citation-driven highlight stays lit before fading back to the
+ * resting row. Long enough to find the row after the panel opens, short
+ * enough that the panel never keeps a stale "selected" source afterwards. */
+const HIGHLIGHT_MS = 1800;
+
+/** The transient highlight: the sidebar's own selected-row fill, card-shaped
+ * — the row is flat at rest and only takes a shape when it reacts. One
+ * duration for the whole row, because hover rides the same `background-color`
+ * transition and a hover that took half a second would feel broken. */
+const highlightClasses =
+  "rounded-lg transition-colors duration-200 ease-out data-[active=true]:bg-sidebar-active";
 
 function EvidenceRow({
   entry,
@@ -61,10 +70,7 @@ function EvidenceRow({
 }) {
   return (
     <li
-      className={cn(
-        "rounded-lg border border-transparent bg-[var(--surface-inset)] p-2.5 transition-colors duration-200 ease-out focus:outline-none",
-        active && activeCardClasses,
-      )}
+      className={cn("-mx-2 px-2 py-1 focus:outline-none", highlightClasses)}
       aria-current={active ? "true" : undefined}
       data-active={active}
       id={evidenceId(entry.index, item.eid)}
@@ -94,9 +100,10 @@ function SourceAvatar({
   entry: ReplaySourceEntry;
   schoolDomains: Map<number, string>;
 }) {
-  const iconClasses = "size-3.5 shrink-0 text-muted-foreground";
-  const frame =
-    "grid size-7 shrink-0 place-items-center overflow-hidden rounded-lg border bg-[var(--surface-inset)]";
+  const iconClasses = "size-4 shrink-0 text-muted-foreground";
+  // Flat list: the favicon sits directly on the panel, no framed tile. A tile
+  // per row would be six little cards stacked down the rail.
+  const frame = "grid size-4 shrink-0 place-items-center overflow-hidden";
 
   if (isLegacySourceEntry(entry)) {
     return (
@@ -140,15 +147,27 @@ function SourceAvatar({
   );
 }
 
+/**
+ * One source, rendered flat: no card, no fill, no shadow, no divider at rest
+ * — just the panel's own surface. A fill in the shape of a rounded card
+ * appears only when the row reacts (hover, or a citation highlight).
+ *
+ * The row *is* the link: the title anchor stretches over it
+ * (`after:absolute after:inset-0`), so a click anywhere opens the source.
+ * Clicking never changes the row's styling — the only thing that highlights
+ * a row is a citation chip.
+ *
+ * When a CDS entry nests evidence rows, the stretch is scoped to the header
+ * block instead — an overlay across the whole row would sit on top of the
+ * excerpts and make them unselectable.
+ */
 function SourceRow({
   entry,
   active,
-  onSelect,
   schoolDomains,
 }: {
   entry: ReplaySourceEntry;
   active: SourceFocus | undefined;
-  onSelect: (index: number) => void;
   schoolDomains: Map<number, string>;
 }) {
   const href = safeExternalUrl(entry.citation.url);
@@ -161,6 +180,7 @@ function SourceRow({
     !legacy &&
     entry.evidence.some((item) => item.eid === active.evidenceId);
   const activeRow = activeEntry && !exactEvidence;
+  const hasEvidence = isCds && !legacy && entry.evidence.length > 0;
   const caption = sourceDisplayName(entry);
   const title = (
     <span className="font-semibold text-foreground [overflow-wrap:anywhere]">
@@ -171,17 +191,24 @@ function SourceRow({
     <li
       aria-current={activeRow ? "true" : undefined}
       className={cn(
-        "scroll-mt-3 cursor-pointer rounded-xl border border-transparent bg-card p-3 shadow-[var(--elevation-1)] transition-colors duration-200 ease-out focus:outline-none",
-        !activeRow && "hover:border-border hover:bg-[var(--surface-hover)]",
-        activeRow && activeCardClasses,
+        "relative scroll-mt-3 px-3 py-3 focus:outline-none",
+        // Hover only when the row isn't already lit — otherwise the two
+        // fills race on equal specificity and the highlight can lose.
+        href !== undefined &&
+          !activeRow &&
+          "hover:bg-sidebar-accent has-[a:focus-visible]:bg-sidebar-accent",
+        highlightClasses,
       )}
       data-active={activeRow}
       id={`source-row-${entry.index}`}
-      onClick={() => onSelect(entry.index)}
       tabIndex={-1}
     >
-      <div className="flex items-start gap-2">
-        <SourceAvatar entry={entry} schoolDomains={schoolDomains} />
+      <div
+        className={cn("flex items-start gap-2.5", hasEvidence && "relative")}
+      >
+        <span className="mt-0.5">
+          <SourceAvatar entry={entry} schoolDomains={schoolDomains} />
+        </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <span className="truncate">{caption}</span>
@@ -197,7 +224,7 @@ function SourceRow({
           </div>
           {href !== undefined ? (
             <a
-              className="mt-1 block text-sm leading-snug hover:underline"
+              className="mt-1 block text-sm leading-snug after:absolute after:inset-0 focus-visible:outline-none hover:underline"
               href={href}
               rel="noreferrer"
               target="_blank"
@@ -214,8 +241,8 @@ function SourceRow({
           )}
         </div>
       </div>
-      {isCds && !legacy && entry.evidence.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-2 border-t pt-3">
+      {hasEvidence && (
+        <ul className="mt-3 flex flex-col gap-2.5 ps-[26px]">
           {sortedEvidence(entry as SourceEntry).map((item) => (
             <EvidenceRow
               active={activeEntry && active?.evidenceId === item.eid}
@@ -227,7 +254,7 @@ function SourceRow({
         </ul>
       )}
       {isCds && !legacy && entry.evidence_omitted_count > 0 && (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 ps-[26px] text-xs text-muted-foreground">
           …and {entry.evidence_omitted_count} more values from this document
         </p>
       )}
@@ -245,7 +272,7 @@ function SourcesRailHeader({
   onClose: () => void;
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-b-[color:var(--workspace-border)] bg-[var(--surface-raised)] px-4">
+    <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-b-sidebar-border px-4">
       <h2
         className="text-sm font-semibold text-foreground focus:outline-none"
         ref={headingRef}
@@ -268,11 +295,11 @@ function SourcesRailHeader({
 
 /** The one panel body shared by the desktop rail and the mobile sheet — a
  * single header (no duplicate close bars) plus the scrollable source list.
- * `selected` is the card the sidebar visibly marks as current: it starts at
- * whatever citation opened the panel and moves the instant a different
- * citation or card is clicked — it never lingers on a stale source once a
- * new one is chosen, and it is the *only* thing driving the active-card
- * style, so exactly one card can ever carry it. */
+ * `highlighted` is a *transient* mark, not a selection: clicking a citation
+ * chip opens the panel and lights that one source so it can be found, then
+ * the mark fades out on its own. Nothing else sets it — clicking a row in
+ * the panel follows the link, it does not select anything — so the rail
+ * never sits there wearing a stale highlight. */
 function SourcesRailPanel({
   payload,
   onClose,
@@ -282,20 +309,28 @@ function SourcesRailPanel({
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  // Resets `selected` to whatever citation just opened the panel whenever a
-  // *new* payload arrives (a different citation/message was clicked) — done
-  // during render, React's documented pattern for state that must track a
-  // prop, rather than via a setState-in-effect that would cause an extra
-  // render pass. `payload` is a fresh object per open, so identity alone is
-  // the right change signal.
+  // Relights the highlight whenever a *new* payload arrives (a different
+  // citation/message was clicked) — done during render, React's documented
+  // pattern for state that must track a prop, rather than via a
+  // setState-in-effect that would cause an extra render pass. `payload` is a
+  // fresh object per open, so identity alone is the right change signal.
   const [priorPayload, setPriorPayload] = useState(payload);
-  const [selected, setSelected] = useState<SourceFocus | undefined>(
+  const [highlighted, setHighlighted] = useState<SourceFocus | undefined>(
     payload.active,
   );
   if (priorPayload !== payload) {
     setPriorPayload(payload);
-    setSelected(payload.active);
+    setHighlighted(payload.active);
   }
+
+  useEffect(() => {
+    if (payload.active === undefined) return;
+    const timer = window.setTimeout(
+      () => setHighlighted(undefined),
+      HIGHLIGHT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [payload]);
 
   useEffect(() => {
     const focusedEntry =
@@ -332,20 +367,20 @@ function SourcesRailPanel({
         headingRef={headingRef}
         onClose={onClose}
       />
-      <ScrollArea
-        className="sources-rail-scroll min-h-0 flex-1"
-        scrollFade
-        scrollbarGutter
-      >
-        <ul className="flex flex-col gap-2 p-1">
+      {/* No scrollbar gutter: the rows run edge to edge so their hairlines
+          read as one continuous list, and the overlay scrollbar rides over
+          the row's own right padding. */}
+      <ScrollArea className="sources-rail-scroll min-h-0 flex-1" scrollFade>
+        {/* The list pads itself so a hovered/highlighted row's fill reads as
+            a card inset from the panel edges, never a full-bleed band. */}
+        <ul className="flex flex-col gap-0.5 p-2">
           {[...payload.sources]
             .sort((left, right) => left.index - right.index)
             .map((entry) => (
               <SourceRow
-                active={selected}
+                active={highlighted}
                 entry={entry}
                 key={entry.index}
-                onSelect={(index) => setSelected({ index })}
                 schoolDomains={payload.schoolDomains}
               />
             ))}
@@ -370,7 +405,7 @@ export function SourcesRail({ payload, onClose, isMobile }: SourcesRailProps) {
       <Sheet onOpenChange={(open) => !open && onClose()} open>
         <SheetContent
           aria-label="Sources for this answer"
-          className="w-full max-w-full rounded-none border-s-0"
+          className="w-full max-w-full rounded-none border-s-0 bg-sidebar text-sidebar-foreground"
           showCloseButton={false}
           side="right"
         >
@@ -383,7 +418,7 @@ export function SourcesRail({ payload, onClose, isMobile }: SourcesRailProps) {
   return (
     <aside
       aria-label="Sources panel"
-      className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-2 hidden h-full w-[26rem] shrink-0 bg-sidebar text-sidebar-foreground duration-200 ease-out md:flex md:flex-col"
+      className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-2 hidden h-full w-[26rem] shrink-0 border-s border-s-sidebar-border bg-sidebar text-sidebar-foreground duration-200 ease-out md:flex md:flex-col"
     >
       <SourcesRailPanel onClose={onClose} payload={payload} />
     </aside>

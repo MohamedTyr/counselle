@@ -68,7 +68,8 @@ describe("ProfileRoute", () => {
     expect(
       await screen.findByRole("heading", { name: "Basics" }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Documents" }));
+    // The tab carries its count ("Documents 1"), so match on the label only.
+    fireEvent.click(screen.getByRole("tab", { name: /^Documents/ }));
     expect(
       screen.getByRole("heading", { name: "Documents" }),
     ).toBeInTheDocument();
@@ -76,7 +77,7 @@ describe("ProfileRoute", () => {
     expect(await screen.findByText("Fall transcript")).toBeInTheDocument();
     expect(screen.getByText("Couldn't read")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Memory" }));
+    fireEvent.click(screen.getByRole("tab", { name: /^Memory/ }));
     expect(
       screen.getByRole("heading", { name: "What Counselle remembers" }),
     ).toBeInTheDocument();

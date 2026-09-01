@@ -11,9 +11,18 @@ import type { EssayStatus, Essay } from "@/domain/essay";
 import { formatEssayDeadline } from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
 
+/**
+ * `Drafting` used to be `bg-info`, which has painted nothing since the `--info`
+ * role was deleted from the palette — `bg-info` resolves to transparent, so the
+ * dot was simply absent and the label carried the status alone. Drafting is the
+ * ordinary state of an essay, and the palette's rule is that a hue is a claim
+ * about state: the ordinary one lands on the neutral role (see the --info
+ * deletion note in `primitives.css`), one step darker than `Not started` so the
+ * two still read apart.
+ */
 const statusDotClassName: Record<EssayStatus, string> = {
   "Not started": "bg-[var(--ink-faint)]",
-  Drafting: "bg-info",
+  Drafting: "bg-[var(--neutral-fg)]",
   "Needs review": "bg-warning",
   Ready: "bg-success",
   Submitted: "bg-success",
@@ -25,11 +34,18 @@ export function PromptMenu({ prompt }: { prompt: string }) {
       <DropdownMenuTrigger asChild>
         <Button
           className="h-8 text-muted-foreground hover:text-foreground"
+          title="Prompt"
           type="button"
           variant="ghost"
         >
           <GraduationCap aria-hidden="true" data-icon="inline-start" />
-          Prompt
+          {/*
+           * Drops to icon-only below `xl`, where the editor header has to fit
+           * nine things into ~410px beside a full-width sidebar. `sr-only`
+           * rather than `hidden` so the button keeps its accessible name at
+           * every width — the label stops being painted, not announced.
+           */}
+          <span className="sr-only xl:not-sr-only">Prompt</span>
           <ChevronDown aria-hidden="true" data-icon="inline-end" />
         </Button>
       </DropdownMenuTrigger>
@@ -64,9 +80,20 @@ export function HeaderDivider() {
   );
 }
 
-export function EssayStatusIndicator({ status }: { status: EssayStatus }) {
+export function EssayStatusIndicator({
+  className,
+  status,
+}: {
+  className?: string;
+  status: EssayStatus;
+}) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground">
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground",
+        className,
+      )}
+    >
       <span
         aria-hidden="true"
         className={cn("size-1.5 rounded-full", statusDotClassName[status])}

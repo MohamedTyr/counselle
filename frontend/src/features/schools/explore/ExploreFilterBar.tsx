@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverPopup } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
+  controlOptions,
   rangeDescriptorByKey,
   sizeBucketOptions,
   testFitOptions,
@@ -216,30 +216,40 @@ export function ExploreFilterBar({
                   : "Private"
             }
           />
-          <PopoverPopup align="start" className="w-max">
+          <PopoverPopup align="start" className="w-52">
             {/* Facet counts on enums only — never on ranges, where the
              * query cost isn't worth it and the number moves under the
              * user's cursor. */}
-            <SegmentedControl
-              label="Public or private"
-              onValueChange={(value: ControlFilter) =>
-                onChange((current) => ({ ...current, control: value }))
+            <RadioGroup
+              aria-label="Public or private"
+              onValueChange={(value) =>
+                onChange((current) => ({
+                  ...current,
+                  control: value as ControlFilter,
+                }))
               }
-              options={[
-                { label: "Any", value: "any" },
-                {
-                  count: controlCounts.public,
-                  label: "Public",
-                  value: "public",
-                },
-                {
-                  count: controlCounts.private,
-                  label: "Private",
-                  value: "private",
-                },
-              ]}
               value={filters.control}
-            />
+            >
+              {controlOptions.map((option) => (
+                <CheckboxRow
+                  htmlFor={`control-${option.value}`}
+                  key={option.value}
+                >
+                  <RadioGroupItem
+                    id={`control-${option.value}`}
+                    value={option.value}
+                  />
+                  {option.label}
+                  {option.value === "any" ? null : (
+                    <span className="ml-auto text-xs text-[var(--ink-muted)] tabular-nums">
+                      {option.value === "public"
+                        ? controlCounts.public
+                        : controlCounts.private}
+                    </span>
+                  )}
+                </CheckboxRow>
+              ))}
+            </RadioGroup>
           </PopoverPopup>
         </Popover>
 
