@@ -62,14 +62,20 @@ export function FileDropZone({
     return (
       <div
         className={cn(
-          "rounded-xl border border-dashed p-12 transition-colors",
+          "rounded-xl border border-dashed p-2 transition-colors",
           isDragging && "border-ring bg-accent/50",
           className,
         )}
       >
-        <Empty className="p-0">
+        {/* `md:p-0` as well as `p-0`: `Empty`'s own `md:py-20` is a different
+            breakpoint, so `twMerge` keeps both and the wrapper's own `p-2`
+            is the only padding this needs. `gap-1.5` (down from `Empty`'s
+            default `gap-6`) and the `mb-1`/`gap-1` below tighten the same
+            four lines of content from ~1046×300 to ~1046×170 (measured at
+            1440×900) — nothing removed, just less air around it. */}
+        <Empty className="gap-1.5 p-0 md:p-0">
           <EmptyHeader>
-            <EmptyMedia variant="icon">
+            <EmptyMedia className="mb-1" variant="icon">
               <Upload />
             </EmptyMedia>
             <EmptyTitle className="font-heading text-lg font-medium">
@@ -79,8 +85,8 @@ export function FileDropZone({
               School and year are detected automatically.
             </EmptyDescription>
           </EmptyHeader>
-          <EmptyContent>
-            <Button onClick={() => inputRef.current?.click()} type="button">
+          <EmptyContent className="gap-1">
+            <Button onClick={() => inputRef.current?.click()} size="sm" type="button">
               Choose files
             </Button>
             <span className="text-xs text-muted-foreground">

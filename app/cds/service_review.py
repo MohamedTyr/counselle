@@ -1,5 +1,5 @@
-"""The review screen's read model, metric-level edits, and approve/reject/rerun
-(plan §B1 `app/cds/service_review.py`).
+"""The review screen's read model and metric-level edits (plan §B1
+`app/cds/service_review.py`).
 
 The `sections`/`metrics` shape is assembled from three sources: P3's
 per-domain packet summaries (`adapters/cds_admin_queries.get_document_review`),
@@ -8,15 +8,10 @@ manifest contract that run's claims were made against -- self-describing, so
 this never depends on today's live manifest matching a past extraction), and
 `counselle.cds_pending_edits` (uncommitted admin corrections).
 
-**An edit is a NEW packet, never a mutation** (plan §B5): `approve_document`
-builds one `domain.cds.packet_build.build_packet` call per touched domain,
-seeded with the document's own most recent packet as `base_metrics` so
-untouched refs keep their model-extracted values, under a fresh
-`extractor_version='human-review-v1'` extraction row, with
-`provider_contract` replaced by `{"human_review": {...}}` carrying the
-reviewer/audit trail. `adapters/cds_store.py::insert_packet` self-validates
-every packet through the reader's own `parse_packet_row()` before it lands --
-this module never needs to (and cannot) fight the immutability trigger.
+The approve/reject/rerun endpoints (#12-#14) -- the human-review packet build,
+its validation gate, and the transactional write -- live alongside each other
+in `app/cds/service_review_approve.py`, which imports the pending-edit and
+flags-summary helpers below.
 """
 
 from __future__ import annotations
@@ -24,36 +19,27 @@ from __future__ import annotations
 import re
 import uuid
 from collections import defaultdict
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 import asyncpg
 import structlog
 
-from adapters import cds_admin_queries, cds_pdf, cds_store
+from adapters import cds_admin_queries, cds_store
 from adapters.cds_admin_types import DocumentMeta, DomainPacketSummary, EvidenceRow, MetricRow
-from adapters.cds_store import HUMAN_REVIEW_EXTRACTOR_VERSION
-from app.agent_node import model_name_from_setting
 from app.cds import audit
-from app.cds import manifest as manifest_mod
-from app.cds.engine import EXTRACTOR_VERSION as MODEL_EXTRACTOR_VERSION
-from app.cds.errors import CdsAdminConflictError, CdsAdminNotFoundError, CdsAdminValidationError
+from app.cds.errors import CdsAdminNotFoundError, CdsAdminValidationError
 from app.cds.models import (
-    ApproveResult,
     DocumentReviewOut,
     FlagsSummary,
     MetricEditIn,
     PendingEditOut,
-    RerunResult,
     ReviewExtraction,
     ReviewFlagOut,
     ReviewMetric,
     ReviewSection,
 )
 from counselle_db.formatting import format_decimal
-from domain.cds import packet_build
-from domain.cds.claims import Finding
 
 logger = structlog.get_logger(__name__)
 
@@ -95,11 +81,45 @@ async def _require_reviewable(
 async def _pending_edits(app_pool: asyncpg.Pool, document_id: int) -> dict[str, dict[str, Any]]:
     async with app_pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT metric_ref, domain_id, payload, edited_by, edited_at "
+            "SELECT metric_ref, domain_id, base_extraction_id, payload, edited_by, edited_at "
             "FROM counselle.cds_pending_edits WHERE document_id = $1",
             document_id,
         )
     return {row["metric_ref"]: dict(row) for row in rows}
+
+
+def _current_edits(
+    pending: dict[str, dict[str, Any]], domains: list[DomainPacketSummary]
+) -> dict[str, dict[str, Any]]:
+    """The subset of ``pending`` still authored against the extraction whose
+    packet the domain currently shows -- the only edits that may be displayed
+    as pending or applied to a packet (migration 0016).
+
+    Every edit is stamped at save time with the `extraction_id` of the packet
+    the admin was reading (`save_metric_edits`). A row whose stamp no longer
+    matches that domain's most recent packet is an orphan of a *superseded*
+    generation of values, and there are two ways to make one:
+
+    - `approve_document` applies the edits, commits the new packet on the
+      pipeline pool, and only then clears `cds_pending_edits` on the app pool.
+      Two roles, two connections, no shared transaction (`counselle_app` has
+      zero grants on `cds_library` and vice versa), so a crash in that gap
+      leaves rows describing a correction that is already live and serving.
+    - `rerun_extraction` re-extracts a domain without touching pending edits,
+      so an edit written against the model's previous numbers outlives them.
+
+    Either way the orphan is a lie on the review screen ("pending" over a value
+    that is already live, or over a value it was never written against), and
+    applying it silently discards whatever the newer extraction actually found.
+    Filtering on the stamp makes both harmless: superseded edits stop being
+    shown and can never be applied. They are still deleted by the next
+    approve/reject, which sweeps every row it read, not just the applied ones."""
+    current = {domain.domain_id: domain.extraction_id for domain in domains}
+    return {
+        ref: row
+        for ref, row in pending.items()
+        if str(row["base_extraction_id"]) == current.get(row["domain_id"])
+    }
 
 
 async def _document_page_count(app_pool: asyncpg.Pool, document_id: int) -> int | None:
@@ -115,6 +135,27 @@ async def _document_page_count(app_pool: asyncpg.Pool, document_id: int) -> int 
             document_id,
         )
     return int(value) if value is not None else None
+
+
+_REF_ACRONYMS = {
+    "act", "ap", "cip", "clep", "fafsa", "ged", "gpa", "ib",
+    "ipeds", "rotc", "sat", "toefl",
+}
+
+
+def _humanize_ref(ref: str) -> str:
+    """A readable row label for a metric whose manifest definition carries no
+    `title` — which today is every one of them (`config/cds/domains/*.yaml`
+    give each *domain* a title, never a metric). Without this the review
+    screen labels every row with a raw identifier (`air_force_rotc_on_campus`),
+    which is the one screen where an admin has to read 394 labels quickly.
+    The full sentence stays in `description`, which the row's tooltip shows."""
+    words = [
+        word.upper() if word in _REF_ACRONYMS else word
+        for word in ref.rsplit(".", 1)[-1].split("_")
+    ]
+    first, *rest = words
+    return " ".join([first[:1].upper() + first[1:], *rest])
 
 
 def _domain_contract(domain_summary: DomainPacketSummary) -> dict[str, Any] | None:
@@ -194,7 +235,7 @@ def _build_section(
         metrics.append(
             ReviewMetric(
                 ref=metric_row.ref,
-                title=definition.get("title") or metric_row.ref.rsplit(".", 1)[-1],
+                title=definition.get("title") or _humanize_ref(metric_row.ref),
                 description=definition.get("description"),
                 type=definition.get("type", "string"),
                 unit=definition.get("unit"),
@@ -258,7 +299,7 @@ async def get_review(
     raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
     if raw is None:
         raise CdsAdminNotFoundError(f"document {document_id} not found")
-    pending = await _pending_edits(app_pool, document_id)
+    pending = _current_edits(await _pending_edits(app_pool, document_id), raw.domains)
     page_count = await _document_page_count(app_pool, document_id)
     # Resolved server-side, once, from the same predicate the write-path
     # gates use (SHIP-PLAN §2.4) -- the review-screen header chip has no
@@ -313,10 +354,18 @@ async def save_metric_edits(
     if raw is None:
         raise CdsAdminNotFoundError(f"document {document_id} not found")
     await _require_reviewable(pipeline_pool, raw.document, document_id, action="edit")
-    valid_refs = {metric.ref for domain in raw.domains for metric in domain.metrics}
+    # The domain each ref actually belongs to, and with it the extraction whose
+    # packet the admin is editing against -- both resolved server-side from the
+    # document's own packets, never from the client-supplied `domain_id`, so a
+    # stored edit can only ever name the domain and generation it was really
+    # written against (`_current_edits`).
+    domain_by_ref = {
+        metric.ref: domain for domain in raw.domains for metric in domain.metrics
+    }
     async with app_pool.acquire() as conn, conn.transaction():
         for edit in edits:
-            if edit.metric_ref not in valid_refs:
+            domain = domain_by_ref.get(edit.metric_ref)
+            if domain is None:
                 raise CdsAdminValidationError(f"unknown metric_ref {edit.metric_ref!r}")
             payload = {
                 "value": edit.value,
@@ -328,15 +377,18 @@ async def save_metric_edits(
             await conn.execute(
                 """
                 INSERT INTO counselle.cds_pending_edits
-                    (document_id, metric_ref, domain_id, payload, edited_by)
-                VALUES ($1, $2, $3, $4, $5)
+                    (document_id, metric_ref, domain_id, base_extraction_id, payload, edited_by)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 ON CONFLICT (document_id, metric_ref)
-                DO UPDATE SET domain_id = EXCLUDED.domain_id, payload = EXCLUDED.payload,
+                DO UPDATE SET domain_id = EXCLUDED.domain_id,
+                              base_extraction_id = EXCLUDED.base_extraction_id,
+                              payload = EXCLUDED.payload,
                               edited_by = EXCLUDED.edited_by, edited_at = now()
                 """,
                 document_id,
                 edit.metric_ref,
-                edit.domain_id,
+                domain.domain_id,
+                uuid.UUID(domain.extraction_id),
                 payload,
                 actor_user_id,
             )
@@ -352,342 +404,7 @@ async def save_metric_edits(
     return await get_review(pipeline_pool, app_pool, document_id=document_id)
 
 
-# ---------------------------------------------------------------------------
-# Approve / reject / rerun (endpoints #12, #13, #14)
-# ---------------------------------------------------------------------------
-
-
-def _base_metrics_dict(metric_rows: list[MetricRow]) -> dict[str, dict[str, Any]]:
-    base: dict[str, dict[str, Any]] = {}
-    for row in metric_rows:
-        base[row.ref] = {
-            "availability_status": row.availability_status,
-            "extraction_status": row.extraction_status,
-            "value": row.value,
-            "raw_value": row.raw_value,
-            "evidence": row.evidence.model_dump(mode="json") if row.evidence else None,
-            "diagnostic_code": row.diagnostic_code,
-        }
-    return base
-
-
-def _finding_from_pending(row: dict[str, Any]) -> Finding:
-    payload = row["payload"]
-    evidence = payload["evidence"]
-    return Finding(
-        metric_id=row["metric_ref"],
-        availability_status=payload["availability_status"],
-        value=payload.get("value"),
-        raw_value=payload.get("raw_value"),
-        page_number=evidence["page_number"],
-        section=evidence.get("section"),
-        row_label=evidence.get("row_label"),
-        column_label=evidence.get("column_label"),
-        excerpt=evidence["excerpt"],
-    )
-
-
-async def _clear_pending_edits(app_pool: asyncpg.Pool, document_id: int) -> None:
-    async with app_pool.acquire() as conn:
-        await conn.execute(
-            "DELETE FROM counselle.cds_pending_edits WHERE document_id = $1", document_id
-        )
-
-
-def _human_reviewed_packet(
-    *,
-    manifest: Any,
-    domain_id: str,
-    edit_rows: list[dict[str, Any]],
-    base_metrics: dict[str, dict[str, Any]],
-    document: Any,
-    original_page_count: int,
-    extraction_id: str,
-    actor_user_id: UUID,
-    base_extraction_id: str,
-    note: str | None,
-) -> dict[str, Any]:
-    """Build one domain's human-review packet (plan §B5): the currently
-    stored packet's metric map as `base_metrics`, edited refs replacing it,
-    and `provider_contract` replaced by the `human_review` provenance block
-    (never the model's `metric_definitions`/`response_schema` contract)."""
-    findings = [_finding_from_pending(row) for row in edit_rows]
-    packet = packet_build.build_packet(
-        manifest_content=manifest.content,
-        domain_hashes=manifest.domain_hashes,
-        domain_id=domain_id,
-        findings=findings,
-        provider_contract={},
-        document_page_count=original_page_count,
-        document_sha256=bytes.fromhex(document.pdf_sha256),
-        academic_year=document.academic_year,
-        extraction_id=extraction_id,
-        manifest_version=manifest.version,
-        model_id="human",
-        extractor_version=HUMAN_REVIEW_EXTRACTOR_VERSION,
-        base_metrics=base_metrics,
-    )
-    packet["provider_contract"] = {
-        "human_review": {
-            "reviewer_user_id": str(actor_user_id),
-            "reviewed_at": datetime.now(UTC).isoformat(),
-            "base_extraction_id": base_extraction_id,
-            "changed_refs": sorted(row["metric_ref"] for row in edit_rows),
-            "note": note,
-        }
-    }
-    return packet
-
-
-async def _apply_edits_and_activate(
-    conn: asyncpg.Connection,
-    *,
-    settings: Any,
-    manifest: Any,
-    document_id: int,
-    document: Any,
-    by_domain: dict[str, DomainPacketSummary],
-    edits_by_domain: dict[str, list[dict[str, Any]]],
-    actor_user_id: UUID,
-    note: str | None,
-) -> str:
-    """Synthesize + activate one human-review packet per touched domain, and
-    reactivate the model's own latest packet for every untouched domain.
-    Returns the new extraction id."""
-    doc = await cds_store.fetch_document_for_extraction(conn, document_id=document_id)
-    original_page_count = await cds_pdf.get_page_count(doc.pdf_content)
-    extraction = await cds_store.create_human_review_extraction(
-        conn,
-        school_year_id=document.school_year_id,
-        document_id=document_id,
-        manifest_version=manifest.version,
-        requested_domains=list(edits_by_domain),
-    )
-    for domain_id, edit_rows in edits_by_domain.items():
-        domain_summary = by_domain.get(domain_id)
-        if domain_summary is None:
-            raise CdsAdminValidationError(f"unknown domain {domain_id!r} in pending edits")
-        try:
-            packet = _human_reviewed_packet(
-                manifest=manifest, domain_id=domain_id, edit_rows=edit_rows,
-                base_metrics=_base_metrics_dict(domain_summary.metrics), document=document,
-                original_page_count=original_page_count, extraction_id=str(extraction.id),
-                actor_user_id=actor_user_id, base_extraction_id=domain_summary.extraction_id,
-                note=note,
-            )
-        except packet_build.ZeroVerifiedMetricsError as exc:
-            raise CdsAdminValidationError(
-                f"review edits leave domain {domain_id!r} with zero verified metrics "
-                f"(counts={exc.counts!r}); a domain packet must verify at least one metric"
-            ) from exc
-        try:
-            await cds_store.insert_packet(
-                conn, settings=settings, document_id=document_id, extraction_id=extraction.id,
-                manifest_version=manifest.version, domain_id=domain_id,
-                domain_schema_hash=bytes.fromhex(manifest.domain_hashes[domain_id]),
-                academic_year=document.academic_year, pdf_sha256=doc.pdf_sha256,
-                status=packet["status"], packet=packet,
-            )
-        except cds_store.PacketValidationError as exc:
-            raise CdsAdminValidationError(str(exc)) from exc
-        await cds_store.activate_packet(
-            conn, document_id=document_id, extraction_id=extraction.id, domain_id=domain_id
-        )
-    await _activate_untouched(conn, document_id, by_domain, skip=set(edits_by_domain))
-    return str(extraction.id)
-
-
-async def _activate_untouched(
-    conn: asyncpg.Connection,
-    document_id: int,
-    by_domain: dict[str, DomainPacketSummary],
-    *,
-    skip: set[str],
-) -> None:
-    for domain_id, domain_summary in by_domain.items():
-        if domain_id in skip:
-            continue
-        await cds_store.activate_packet(
-            conn, document_id=document_id, extraction_id=uuid.UUID(domain_summary.extraction_id),
-            domain_id=domain_id,
-        )
-
-
-async def approve_document(
-    app_pool: asyncpg.Pool,
-    pipeline_pool: asyncpg.Pool,
-    settings: Any,
-    *,
-    document_id: int,
-    actor_user_id: UUID,
-    override_flags: bool,
-    note: str | None,
-) -> ApproveResult:
-    raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
-    if raw is None:
-        raise CdsAdminNotFoundError(f"document {document_id} not found")
-    await _require_reviewable(pipeline_pool, raw.document, document_id, action="approve")
-    if not raw.domains:
-        raise CdsAdminValidationError("document has no extracted domains to approve")
-
-    pending = await _pending_edits(app_pool, document_id)
-    flags_summary = _flags_summary(raw.domains, pending)
-    if flags_summary.unresolved > 0 and not override_flags:
-        raise CdsAdminConflictError(
-            f"{flags_summary.unresolved} unresolved review flag(s) — resolve them or "
-            "approve with override_flags=true"
-        )
-
-    manifest = manifest_mod.load_compiled_manifest()
-    by_domain = {domain.domain_id: domain for domain in raw.domains}
-    edits_by_domain: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in pending.values():
-        edits_by_domain[row["domain_id"]].append(row)
-
-    new_extraction_id: str | None = None
-    async with pipeline_pool.acquire() as conn, conn.transaction():
-        if edits_by_domain:
-            new_extraction_id = await _apply_edits_and_activate(
-                conn, settings=settings, manifest=manifest, document_id=document_id,
-                document=raw.document, by_domain=by_domain, edits_by_domain=edits_by_domain,
-                actor_user_id=actor_user_id, note=note,
-            )
-        else:
-            await _activate_untouched(conn, document_id, by_domain, skip=set())
-        if raw.document.is_candidate:
-            await cds_store.promote_candidate_document(
-                conn, school_year_id=raw.document.school_year_id, document_id=document_id
-            )
-        # else: an `active_update` correction against an already-active
-        # document -- skip the document-level swap (it would be a harmless
-        # no-op, both fields are already correct) so the audit log stays
-        # honest: this approval corrected the document in place, it didn't
-        # promote anything (SHIP-PLAN §2.2).
-        await cds_store.close_pending_active_updates(conn, document_id=document_id)
-
-    await _clear_pending_edits(app_pool, document_id)
-    async with app_pool.acquire() as conn:
-        await audit.record_audit(
-            conn,
-            actor_user_id=actor_user_id,
-            action="approve_override" if flags_summary.unresolved > 0 else "approve",
-            school_id=raw.document.school_id,
-            academic_year=raw.document.academic_year,
-            document_id=document_id,
-            extraction_id=new_extraction_id,
-            detail={
-                "note": note,
-                "activated_domains": sorted(by_domain),
-                "unresolved_flags": flags_summary.unresolved,
-            },
-        )
-    return ApproveResult(
-        document_id=document_id,
-        activated_domains=sorted(by_domain),
-        extraction_id=new_extraction_id,
-    )
-
-
-async def reject_document(
-    app_pool: asyncpg.Pool,
-    pipeline_pool: asyncpg.Pool,
-    *,
-    document_id: int,
-    actor_user_id: UUID,
-    reason: str,
-) -> None:
-    raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
-    if raw is None:
-        raise CdsAdminNotFoundError(f"document {document_id} not found")
-    await _require_reviewable(pipeline_pool, raw.document, document_id, action="reject")
-    async with pipeline_pool.acquire() as conn, conn.transaction():
-        if raw.document.is_candidate:
-            try:
-                await cds_store.reject_candidate_document(
-                    conn, school_year_id=raw.document.school_year_id, document_id=document_id
-                )
-            except cds_store.CdsStoreError as exc:
-                raise CdsAdminConflictError(str(exc)) from exc
-        else:
-            # Rejecting an `active_update` correction against an already-
-            # active document (SHIP-PLAN §2.3): the document keeps serving
-            # its prior packets untouched -- no `invalidated_at`, no
-            # `cds_school_years` write. "Discard" can only mean taking no
-            # action on `status` (no DELETE grant, no `rejected` status);
-            # closing the gate is the only write.
-            await cds_store.close_pending_active_updates(conn, document_id=document_id)
-    await _clear_pending_edits(app_pool, document_id)
-    async with app_pool.acquire() as conn:
-        await audit.record_audit(
-            conn,
-            actor_user_id=actor_user_id,
-            action="reject",
-            school_id=raw.document.school_id,
-            academic_year=raw.document.academic_year,
-            document_id=document_id,
-            detail={"reason": reason},
-        )
-
-
-async def rerun_extraction(
-    app_pool: asyncpg.Pool,
-    pipeline_pool: asyncpg.Pool,
-    settings: Any,
-    *,
-    document_id: int,
-    actor_user_id: UUID,
-    domains: list[str] | None,
-) -> RerunResult:
-    raw = await cds_admin_queries.get_document_review(pipeline_pool, document_id)
-    if raw is None:
-        raise CdsAdminNotFoundError(f"document {document_id} not found")
-    manifest = manifest_mod.load_compiled_manifest()
-    all_domains = manifest_mod.domain_ids(manifest)
-    unknown = set(domains or []) - set(all_domains)
-    if unknown:
-        raise CdsAdminValidationError(f"unknown domain id(s): {sorted(unknown)}")
-    requested = domains if domains else list(all_domains)
-    # Keyed on `is_active` alone (SHIP-PLAN §2.1) -- a domain-scoped rerun of
-    # an already-active document is still a correction against the active
-    # document, not a full re-extraction. `is_active` is false by
-    # construction for a candidate document (`cds_school_years_check`), so
-    # that path is unaffected.
-    target_kind = "active_update" if raw.document.is_active else "full_reextract"
-    model_id = model_name_from_setting(settings.model_cds_extract)
-    try:
-        async with pipeline_pool.acquire() as conn, conn.transaction():
-            extraction = await cds_store.create_extraction(
-                conn,
-                school_year_id=raw.document.school_year_id,
-                document_id=document_id,
-                manifest_version=manifest.version,
-                target_kind=target_kind,  # type: ignore[arg-type]
-                requested_domains=requested,
-                extractor_version=MODEL_EXTRACTOR_VERSION,
-                model_id=model_id,
-            )
-    except asyncpg.UniqueViolationError as exc:
-        raise CdsAdminConflictError(
-            "a job is already running or queued for this school-year slot"
-        ) from exc
-    async with app_pool.acquire() as conn:
-        await audit.record_audit(
-            conn,
-            actor_user_id=actor_user_id,
-            action="rerun",
-            school_id=raw.document.school_id,
-            academic_year=raw.document.academic_year,
-            document_id=document_id,
-            extraction_id=extraction.id,
-            detail={"domains": requested, "target_kind": target_kind},
-        )
-    return RerunResult(extraction_id=str(extraction.id))
-
-
 __all__ = [
-    "approve_document",
     "get_review",
-    "reject_document",
-    "rerun_extraction",
     "save_metric_edits",
 ]

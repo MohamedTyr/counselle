@@ -24,7 +24,7 @@ from api.auth_security import auth_origin_protect
 from api.deps import EnvelopeError, require_json
 from api.ratelimit import workspace_write_rate_limit
 from api.users_db import UserDB
-from app.cds import service_ingest, service_review
+from app.cds import service_ingest, service_review, service_review_approve
 from app.cds.errors import CdsAdminConflictError, CdsAdminNotFoundError, CdsAdminValidationError
 from app.cds.models import (
     ApproveBody,
@@ -303,7 +303,7 @@ async def approve_route(
 ) -> ApproveResult:
     pipeline_pool, app_pool, settings = _cds_parts(request)
     result = await map_cds_errors(
-        lambda: service_review.approve_document(
+        lambda: service_review_approve.approve_document(
             app_pool, pipeline_pool, settings, document_id=document_id, actor_user_id=user.id,
             override_flags=body.override_flags, note=body.note,
         )
@@ -327,7 +327,7 @@ async def reject_route(
 ) -> Response:
     pipeline_pool, app_pool, _settings = _cds_parts(request)
     await map_cds_errors(
-        lambda: service_review.reject_document(
+        lambda: service_review_approve.reject_document(
             app_pool, pipeline_pool, document_id=document_id, actor_user_id=user.id,
             reason=body.reason,
         )
@@ -344,7 +344,7 @@ async def rerun_route(
 ) -> RerunResult:
     pipeline_pool, app_pool, settings = _cds_parts(request)
     return await map_cds_errors(
-        lambda: service_review.rerun_extraction(
+        lambda: service_review_approve.rerun_extraction(
             app_pool, pipeline_pool, settings, document_id=document_id, actor_user_id=user.id,
             domains=body.domains,
         )

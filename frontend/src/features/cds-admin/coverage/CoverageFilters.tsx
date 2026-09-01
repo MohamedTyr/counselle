@@ -42,11 +42,15 @@ function isTypingTarget(target: EventTarget | null): boolean {
  * a menu selection is already a deliberate, discrete action. */
 export function CoverageFilters({
   className,
+  focusSearchToken,
   onChange,
   state,
   years,
 }: {
   className?: string;
+  /** Bumped by the caller on a genuine with_documents→all scope
+   * transition; see the focus effect below. */
+  focusSearchToken: number;
   onChange: (patch: Partial<CoverageUrlState>) => void;
   state: CoverageUrlState;
   years: number[];
@@ -75,6 +79,24 @@ export function CoverageFilters({
     return () => window.clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryDraft]);
+
+  // "All schools" renders nothing until the operator types (find-mode-idle,
+  // coverage-params.ts) — focus the search box the moment the scope
+  // actually *changes* to "all" so they can just type. The scope→all
+  // transition is detected in the page component, not here: switching
+  // scope changes the `useCoverage` query key, and on a cache miss the
+  // page swaps this whole filter bar out for `CoverageSkeleton` and back
+  // — remounting this component — so a ref-based "did scope just change"
+  // check owned locally here would reset on that remount and never fire.
+  // `focusSearchToken` is a counter that only increments on a genuine
+  // with_documents→all transition (`cds-coverage-page.tsx`), so it stays
+  // correct across that remount; 0 means "no transition yet" (covers
+  // initial mount, including a page load that's already scope=all).
+  useEffect(() => {
+    if (focusSearchToken > 0) {
+      inputRef.current?.focus();
+    }
+  }, [focusSearchToken]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -123,11 +145,20 @@ export function CoverageFilters({
         value={state.scope}
       >
         <TabsList>
+          {/* Label only — the "with_documents" URL param and the backend
+              query it maps to are unchanged. The default scope is every
+              school with >=1 cds_school_years row, i.e. any CDS *activity*
+              (adapters/cds_admin_queries.py `coverage_grid` docstring) — a
+              school can sit in this scope with status "none" in every year
+              (a slot exists, no document landed or survived on it), so
+              "With documents" was a false claim for those rows. "Tracked"
+              matches the query's real scope and the backend's own word for
+              it. */}
           <TabsTab
             className="sm:h-7 sm:px-2 sm:text-xs"
             value="with_documents"
           >
-            With documents
+            Tracked
           </TabsTab>
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="all">
             All schools

@@ -41,19 +41,33 @@ export function ReviewHeader({
       <Button aria-label="Back to coverage" render={<Link to="/app/admin/cds" />} size="icon-sm" variant="ghost">
         <ArrowLeft />
       </Button>
-      <span className="font-heading text-base font-medium tracking-tight">
+      <span className="shrink-0 font-heading text-base font-medium whitespace-nowrap tracking-tight">
         {document.school_name}
       </span>
-      <span className="text-muted-foreground">·</span>
-      <span className="text-sm">{formatAcademicYear(document.academic_year)}</span>
+      <span className="shrink-0 text-muted-foreground">·</span>
+      <span className="shrink-0 text-sm whitespace-nowrap">
+        {formatAcademicYear(document.academic_year)}
+      </span>
       {status ? (
         <StatusChip running={running} status={status} />
       ) : (
-        <span className="text-xs text-muted-foreground">
+        <span className="shrink-0 text-xs text-muted-foreground">
           {documentStatusFallbackLabel(document)}
         </span>
       )}
-      <span className="truncate text-xs text-muted-foreground">
+      {/* The document's identity (school, year, status) is the strip's most
+          important content — it must never wrap (§1.10, ≥1280px is the
+          target bucket, not degraded). The filename is the least important
+          thing here, so it's the one flex item that shrinks: `min-w-0`
+          lets it size below its text's intrinsic width (the flexbox
+          min-width:auto trap — without it, a long unbreakable filename
+          refuses to shrink and squeezes the identity spans into wrapping
+          instead), `flex-1` claims the remaining space, `truncate` ellipses
+          what doesn't fit. */}
+      <span
+        className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+        title={document.original_filename ?? undefined}
+      >
         {document.original_filename ?? "document.pdf"}
         {document.page_count != null && ` · ${document.page_count} pp`}
       </span>

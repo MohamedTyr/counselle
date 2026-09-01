@@ -237,7 +237,7 @@ class DomainHashDiff:
     """Which domain ids differ between a *published* manifest row's
     `domain_hashes` and a *compiled* candidate's -- the cheap half of
     hash-scoped incremental re-extraction (SHIP-PLAN §6.8). Feed
-    `.changed_domains` straight into `service_review.rerun_extraction`'s
+    `.changed_domains` straight into `service_review_approve.rerun_extraction`'s
     `domains` argument so a targeted rerun costs one domain instead of all
     thirteen.
 

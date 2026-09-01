@@ -7,7 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 export interface MetricEditPayload {
   rawValue: string;
-  page: number | null;
+  /** Always a real page: Save stays disabled until the admin supplies one, so
+   * no caller has to invent a fallback (§5.8's honesty rule). */
+  page: number;
   excerpt: string;
 }
 
@@ -41,13 +43,24 @@ export function MetricEditor({
   );
   const [excerpt, setExcerpt] = useState(source.evidence?.excerpt ?? "");
   const excerptEmpty = excerpt.trim().length === 0;
+  // The page is required on exactly the same terms as the excerpt (§5.8's
+  // honesty rule): an excerpt is a claim about a *specific page*, so half of
+  // that citation cannot be optional. Blank used to submit `null`, which
+  // `MetricRow` turned into page 1 — a citation pointing somewhere the value
+  // never came from.
+  const pageTrimmed = page.trim();
+  const pageEmpty = pageTrimmed === "";
+  const pageNumber = Number(pageTrimmed);
+  // A page is a 1-indexed position in the document, so `0`, negatives, and
+  // fractions are exactly as dishonest as blank — they're not a real page
+  // either, they just look like one. The field has no `type="number"`, so
+  // nothing upstream stops an admin from typing them.
+  const pageInvalid = !pageEmpty && (!Number.isInteger(pageNumber) || pageNumber < 1);
+  const invalid = excerptEmpty || pageEmpty || pageInvalid;
 
   function submit(andNext: boolean) {
-    if (excerptEmpty || saving) return;
-    onSave(
-      { rawValue: value, page: page.trim() ? Number(page) : null, excerpt },
-      { andNext },
-    );
+    if (invalid || saving) return;
+    onSave({ rawValue: value, page: pageNumber, excerpt }, { andNext });
   }
 
   function handleKeyDown(
@@ -79,16 +92,44 @@ export function MetricEditor({
         onKeyDown={(event) => handleKeyDown(event, false)}
         value={value}
       />
-      <Input
-        aria-label="Evidence page number"
-        className="w-20 tabular-nums"
-        onChange={(event) => setPage(event.target.value)}
-        onKeyDown={(event) => handleKeyDown(event, false)}
-        placeholder="Page"
-        value={page}
-      />
+      <div className="space-y-1">
+        <Input
+          aria-describedby={
+            pageEmpty || pageInvalid ? "metric-editor-page-error" : undefined
+          }
+          aria-invalid={pageEmpty || pageInvalid}
+          aria-label="Evidence page number"
+          className="w-20 tabular-nums"
+          onChange={(event) => setPage(event.target.value)}
+          onKeyDown={(event) => handleKeyDown(event, false)}
+          placeholder="Page"
+          value={page}
+        />
+        {pageEmpty && (
+          <p
+            className="text-xs text-destructive"
+            id="metric-editor-page-error"
+            role="alert"
+          >
+            A page number is required.
+          </p>
+        )}
+        {pageInvalid && (
+          <p
+            className="text-xs text-destructive"
+            id="metric-editor-page-error"
+            role="alert"
+          >
+            Page must be a whole number, 1 or greater.
+          </p>
+        )}
+      </div>
       <div className="space-y-1">
         <Textarea
+          aria-describedby={
+            excerptEmpty ? "metric-editor-excerpt-error" : undefined
+          }
+          aria-invalid={excerptEmpty}
           aria-label="Evidence excerpt"
           onChange={(event) => setExcerpt(event.target.value)}
           onKeyDown={(event) => handleKeyDown(event, true)}
@@ -99,13 +140,19 @@ export function MetricEditor({
           What the document actually says on page {page || "—"}.
         </p>
         {excerptEmpty && (
-          <p className="text-xs text-destructive">An excerpt is required.</p>
+          <p
+            className="text-xs text-destructive"
+            id="metric-editor-excerpt-error"
+            role="alert"
+          >
+            An excerpt is required.
+          </p>
         )}
       </div>
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-2">
           <Button
-            disabled={excerptEmpty || saving}
+            disabled={invalid || saving}
             loading={saving}
             onClick={() => submit(false)}
             size="sm"

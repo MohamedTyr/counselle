@@ -43,9 +43,17 @@ export function useReviewController(params: {
   currentPage: number;
   onApprove: () => void;
   announce: (message: string) => void;
+  supersededRefs: ReadonlySet<string>;
 }): ReviewController {
-  const { sections, flaggedFirst, viewerRef, currentPage, onApprove, announce } =
-    params;
+  const {
+    sections,
+    flaggedFirst,
+    viewerRef,
+    currentPage,
+    onApprove,
+    announce,
+    supersededRefs,
+  } = params;
 
   const [openDomains, setOpenDomainsState] = useState<Set<string>>(
     () => new Set(sectionsWithUnresolvedFlags(sections)),
@@ -60,6 +68,10 @@ export function useReviewController(params: {
   const flagQueue = useMemo(
     () => buildFlagQueue(sections, flaggedFirst),
     [sections, flaggedFirst],
+  );
+  const flagQueueIndex = useMemo(
+    () => flagQueue.findIndex((m) => m.ref === focusedRef),
+    [flagQueue, focusedRef],
   );
   const visibleMetrics = useMemo(() => {
     const ordered: { metric: ReviewMetric; domainId: string }[] = [];
@@ -202,11 +214,16 @@ export function useReviewController(params: {
     },
     reportFocus: setFocusedRef,
     focusMetric,
+    focusedRef,
     jumpEvidence,
     goToNextFlag: () => goToFlagBy(1),
     goToPrevFlag: () => goToFlagBy(-1),
+    currentPage,
+    flagQueueLength: flagQueue.length,
+    flagQueueIndex,
     flaggedFirst,
     shortcutsOpen,
     setShortcutsOpen,
+    supersededRefs,
   };
 }

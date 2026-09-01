@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 
 import { useSearchSchools } from "@/api/cds-admin/hooks";
 import type { SchoolSummary } from "@/api/cds-admin/types";
-import { Button } from "@/components/ui/button";
 import {
   Command,
   CommandEmpty,
@@ -12,6 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
+import { SelectButton } from "@/components/ui/select";
 
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -30,7 +30,10 @@ function schoolLocation(school: SchoolSummary): string {
 
 /** DESIGN.md §4.6: school is always directly editable, on every row — not
  * just `needs_input` rows. Same trigger for both states; only its visual
- * treatment changes. */
+ * treatment changes. The trigger renders through the shared `SelectButton`
+ * idiom (`components/ui/select.tsx`) so it reads as the same control family
+ * as the adjacent Year `Select` — same border, fill, height, and chevron —
+ * rather than a bordered pill button standing next to a filled-well select. */
 export function SchoolPicker({
   disabled = false,
   onSelect,
@@ -60,19 +63,14 @@ export function SchoolPicker({
       }}
       open={open}
     >
-      {schoolName ? (
-        <PopoverTrigger
-          aria-label={`Change school, currently ${schoolName}`}
-          className="-mx-1 block max-w-full truncate rounded-sm px-1 text-left text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-          disabled={disabled}
-        >
-          {schoolName}
-        </PopoverTrigger>
-      ) : (
-        <PopoverTrigger disabled={disabled} render={<Button size="sm" variant="outline" />}>
-          Pick a school
-        </PopoverTrigger>
-      )}
+      <PopoverTrigger
+        aria-label={schoolName ? `Change school, currently ${schoolName}` : "Pick a school"}
+        data-placeholder={schoolName ? undefined : ""}
+        disabled={disabled}
+        render={<SelectButton data-disabled={disabled || undefined} size="sm" />}
+      >
+        {schoolName ?? "Pick a school"}
+      </PopoverTrigger>
       <PopoverPopup align="start" className="w-80 p-0">
         <Command shouldFilter={false}>
           <CommandInput

@@ -182,7 +182,7 @@ export function StatusChip({
     <Badge size={size} variant={meta.variant}>
       <Icon
         aria-hidden="true"
-        className={spinning ? "animate-spin" : undefined}
+        className={spinning ? "motion-safe:animate-spin" : undefined}
       />
       {short ? meta.shortLabel : label}
     </Badge>
@@ -204,7 +204,7 @@ export function UploadStatusChip({
     <Badge variant={meta.variant}>
       <Icon
         aria-hidden="true"
-        className={spinning ? "animate-spin" : undefined}
+        className={spinning ? "motion-safe:animate-spin" : undefined}
       />
       {meta.label}
     </Badge>
@@ -218,16 +218,22 @@ export function UploadStatusChip({
 export function FlagChip({
   severity,
   code,
+  ariaLabel,
 }: {
   severity: FlagSeverity;
   code: string;
+  /** Overrides the default `"{severity}: {code}"` name — needed at the one
+   * call site (`ReviewSection`'s accordion rail) that reuses this chip to
+   * show a *count* rather than a flag code, where "Warning: 3" would read
+   * as a flag literally named "3" instead of "3 unresolved flags". */
+  ariaLabel?: string;
 }): React.ReactElement {
   const meta = flagSeverityMeta[severity];
   const Icon = meta.Icon;
 
   return (
     <Badge
-      aria-label={`${meta.label}: ${code}`}
+      aria-label={ariaLabel ?? `${meta.label}: ${code}`}
       size="sm"
       variant={meta.variant}
     >

@@ -131,6 +131,18 @@ def _densest_hit_span(hits: list[int]) -> tuple[int, int]:
     return (best[0], best[-1])
 
 
+def _span_rank(span: tuple[int, int], hits: list[int]) -> tuple[int, int]:
+    """`_densest_hit_span`'s own ranking key, lifted so a caller holding several
+    hints' spans can rank BETWEEN them the same way that function ranks between
+    one hint's clusters: hit density first, later position to break a tie.
+
+    Density is the hits inside the returned span, not `len(hits)` -- the whole
+    point of `_densest_hit_span` is that a hint's other hits are spurious, so
+    counting them would rank a hint by how much noise it collected."""
+    first, last = span
+    return (sum(1 for hit in hits if first <= hit <= last), last)
+
+
 def _route_batches(
     routing_text: dict[int, str], batches: list[batching.Batch]
 ) -> dict[str, tuple[int, int]]:
@@ -192,11 +204,35 @@ async def _form_mark_pages(
     if not await cds_pdf.has_form_fields(pdf_content):
         return []
     hints = frozenset(hint for metric in metrics for hint in metric["source_hints"])
-    hits = _hit_pages_for_hints(routing_text, hints)
-    if not hits:
+    # Cluster each hint SEPARATELY, then union the survivors' spans -- pooling every
+    # hint's hits before clustering (the previous approach here) is exactly what
+    # `_route_batches` above was changed away from: a batch that legitimately carries
+    # two hints sitting far apart (gap > `_HIT_CLUSTER_GAP`) gets ONE tie-broken span,
+    # silently dropping the other hint's section entirely. It is worse here than in
+    # `_route_batches`, because this result is what makes `_call_evidence` withhold the
+    # PDF (module docstring) -- a page dropped here has no fallback text evidence left.
+    # `sorted(hints)` only so a full rank tie below breaks the same way twice --
+    # `hints` is a frozenset, and iteration order over one is not stable.
+    per_hint = (_hit_pages_for_hints(routing_text, frozenset({hint})) for hint in sorted(hints))
+    spans = [(_densest_hit_span(hits), hits) for hits in per_hint if hits]
+    if not spans:
         return []
-    first, last = _densest_hit_span(hits)
-    return list(range(first, last + 1))[:_FORM_MARK_MAX_PAGES]
+    # Spend the page budget DENSEST-SPAN-FIRST, not lowest-page-number-first.
+    # Capping a sorted union (the shape this cap first shipped in) ranks pages by
+    # POSITION, which is exactly the ranking `_densest_hit_span` exists to
+    # override: a hint whose only hit is a table-of-contents line near the front
+    # ("J. DEGREES CONFERRED" on page 3) took a slot from the real section deep
+    # in the document AND truncated its tail. Hints {H1, H2} hitting page 3 and
+    # pages 40-44 gave [3, 40, 41, 42]; ranking by span gives [40, 41, 42, 43].
+    #
+    # A span wider than the whole budget is still truncated -- there is no more
+    # budget to give it -- but from its own tail, in reading order, rather than
+    # losing pages to an unrelated hint's contents line.
+    ranked = sorted(spans, key=lambda item: _span_rank(*item), reverse=True)
+    ordered = dict.fromkeys(
+        page for (first, last), _hits in ranked for page in range(first, last + 1)
+    )
+    return sorted(list(ordered)[:_FORM_MARK_MAX_PAGES])
 
 
 async def _c7_supplementary_images(
@@ -210,18 +246,32 @@ async def _c7_supplementary_images(
     narrowed native PDF only when this call's own `metrics` (a batch, or a
     starved-retry domain's full catalog) carry the C7 source hint -- the one
     targeted case spike part B found a real accuracy gain (Harvard's
-    `class_rank` column-position miscall)."""
+    `class_rank` column-position miscall).
+
+    UNIONS with `form_mark_pages` rather than choosing one or the other. When
+    `_call_evidence` withholds the PDF because `_form_mark_pages` found
+    pages, those pages are this batch's ONLY truthful evidence (see that
+    docstring) and must be sent regardless of whether the batch also carries
+    a C7/column-position hint. Treating the two as mutually exclusive (the
+    previous shape here) meant a boolean batch that was both form-mark-hinted
+    and grid-hinted got only the raw, unclustered grid hits capped at 2 --
+    `_form_mark_pages`'s own clustered, up-to-4-page result was silently
+    discarded, and the PDF was gone too. Grid hits are clustered with
+    `_densest_hit_span` before capping, same as every other routing path,
+    instead of taken as raw hits."""
     grid_hints = frozenset(
         hint
         for metric in metrics
         for hint in metric["source_hints"]
         if hint == _CHECKBOX_GRID_HINT or hint in _COLUMN_POSITION_HINTS
     )
+    grid_pages: list[int] = []
     if grid_hints:
-        hit_pages = _hit_pages_for_hints(routing_text, grid_hints)
-        hit_pages = hit_pages[:_CHECKBOX_GRID_MAX_PAGES]
-    else:
-        hit_pages = form_mark_pages or []
+        hits = _hit_pages_for_hints(routing_text, grid_hints)
+        if hits:
+            first, last = _densest_hit_span(hits)
+            grid_pages = list(range(first, last + 1))[:_CHECKBOX_GRID_MAX_PAGES]
+    hit_pages = sorted(set(grid_pages) | set(form_mark_pages or []))
     if not hit_pages:
         return ()
     images = [

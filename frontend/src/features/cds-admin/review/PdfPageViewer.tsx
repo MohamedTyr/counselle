@@ -39,9 +39,9 @@ export const PdfPageViewer = forwardRef<
   {
     documentId: number;
     /** The document's true page count, or `null` when unknown (a document
-     * that didn't come through the upload flow). Falls back to the
-     * currently-shown page so the "/ N" toolbar never claims a wrong total —
-     * it just grows with navigation instead. */
+     * that didn't come through the upload flow). When `null`, the toolbar
+     * renders "/ ?" instead of a number — a total we don't have is never
+     * shown as one we do (DESIGN.md §0 law 4). */
     pageCount: number | null;
     onPageChange?: (page: number) => void;
     className?: string;
@@ -98,7 +98,12 @@ export const PdfPageViewer = forwardRef<
 
   const isLoading = loadedPage !== page && !failed;
   const showPage = failed ? page : (loadedPage ?? page);
-  const total = pageCount ?? showPage;
+  // `null` when the document never came through the upload flow, so no
+  // staging row carries its page count (`service_review._document_page_count`).
+  // Echoing the current page as the total would read as "1 of 1" on a 36-page
+  // PDF whose evidence chips point at p.19 — a number we don't have is never
+  // shown as one we do (DESIGN.md §0 law 4).
+  const total = pageCount;
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
@@ -123,8 +128,8 @@ export const PdfPageViewer = forwardRef<
           size="sm"
           value={pageInput}
         />
-        <span className="text-sm text-muted-foreground tabular-nums">
-          / {Math.max(total, showPage)}
+        <span className="shrink-0 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+          {total === null ? "of ?" : `/ ${Math.max(total, showPage)}`}
         </span>
         <Button
           aria-label="Next page"
@@ -179,7 +184,11 @@ export const PdfPageViewer = forwardRef<
             )}
           >
             <img
-              alt={`Page ${showPage} of ${Math.max(total, showPage)}`}
+              alt={
+                total === null
+                  ? `Page ${showPage}`
+                  : `Page ${showPage} of ${Math.max(total, showPage)}`
+              }
               className={cn(
                 "rounded-lg border transition-opacity",
                 fit === "width" ? "mx-auto w-full max-w-3xl" : "max-w-none",

@@ -4,7 +4,7 @@ currently compiled ``config/cds/`` -- the cheap half of hash-scoped
 incremental re-extraction (ship plan §6.8).
 
 The expensive half already exists: ``rerun_extraction`` (`app/cds/
-service_review.py`) accepts an explicit ``domains`` list and, once §2.1's
+service_review_approve.py`) accepts an explicit ``domains`` list and, once §2.1's
 `target_kind` fix ships, correctly treats a domain-scoped rerun of an
 already-active document as an `active_update` whose packets land back in the
 review queue instead of a dead end. What's been missing is telling an

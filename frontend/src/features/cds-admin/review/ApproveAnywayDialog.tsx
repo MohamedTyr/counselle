@@ -16,21 +16,45 @@ import { FlagChip } from "@/features/cds-admin/cds-status";
 import { buildFlagQueue, hiddenUnresolvedCount } from "@/features/cds-admin/review/flag-queue";
 import { useReviewControllerContext } from "@/features/cds-admin/review/review-context";
 
-/** "Approve with N unresolved flags?" (§5.10) — the flag list doubles as an
+/** "Approve with N blocking flags?" (§5.10) — the flag list doubles as an
  * escape hatch back to doing it properly: each row closes the dialog and
- * jumps straight to that metric. */
+ * jumps straight to that metric.
+ *
+ * `ownEditConflictMessage` covers the other 409 `approve_document` can raise
+ * (`app/cds/service_review_approve.py::_prepare_edited_packets`): the
+ * admin's own pending edit would introduce a blocking flag on a packet that
+ * was refused before it was ever written. `review.flags_summary`/
+ * `buildFlagQueue` describe only the document's already-*stored* flags, so
+ * they read `0`/empty here and would otherwise show a dialog that lies about
+ * what it's asking the admin to override. When set, this renders the
+ * server's own message in place of the flag list — nothing invented — and
+ * keeps the same acknowledge-and-note friction (never a one-click override)
+ * so this case isn't easier to wave through than a stored flag is.
+ *
+ * `isOwnEditConflict` also requires `review.flags_summary.unresolved === 0`,
+ * not just a non-null message: this dialog can be reopened by two unrelated
+ * callers that share `approveAnywayOpen` but not this message (`ApproveBar`'s
+ * real blocking-flags "Approve anyway", which never sets or clears it), and
+ * the message from a past edit-conflict click can outlive the click that set
+ * it (a re-run, or another admin's concurrent write, can raise `unresolved`
+ * above 0 while the message is still sitting in state). Once `unresolved` is
+ * above 0, only the stored-flags story is true — this must show that list,
+ * never the leftover message, or the admin overrides real flags without ever
+ * seeing them. */
 export function ApproveAnywayDialog({
   open,
   onOpenChange,
   review,
   onConfirm,
   confirming,
+  ownEditConflictMessage,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   review: DocumentReviewOut;
   onConfirm: (note: string) => void;
   confirming: boolean;
+  ownEditConflictMessage?: string;
 }) {
   const controller = useReviewControllerContext();
   const [acknowledged, setAcknowledged] = useState(false);
@@ -38,6 +62,11 @@ export function ApproveAnywayDialog({
   const flagged = buildFlagQueue(review.sections, false);
   const hidden = hiddenUnresolvedCount(review.sections, review.flags_summary);
   const count = review.flags_summary.unresolved;
+  // See the doc comment above: the message alone is not enough to prove this
+  // is still an edit conflict, since it can survive past the click that set
+  // it (dismissal, or `ApproveBar`'s own "Approve anyway" reopening the same
+  // dialog for a real, unrelated flag count).
+  const isOwnEditConflict = ownEditConflictMessage !== undefined && count === 0;
 
   function jumpTo(ref: string, page: number | null | undefined) {
     onOpenChange(false);
@@ -49,39 +78,52 @@ export function ApproveAnywayDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Approve with {count} unresolved flags?</DialogTitle>
+          <DialogTitle>
+            {isOwnEditConflict
+              ? "Approve despite this edit's validation failure?"
+              : `Approve with ${count} blocking flags?`}
+          </DialogTitle>
           <DialogDescription>
-            These flags will stay on record as overridden, not resolved.
+            {isOwnEditConflict
+              ? "This edit will still be recorded as overridden, not resolved."
+              : "These flags will stay on record as overridden, not resolved."}
           </DialogDescription>
         </DialogHeader>
-        <ul className="max-h-48 space-y-1.5 overflow-y-auto">
-          {flagged.map((metric) =>
-            metric.flags.map((flag) => (
-              <li key={flag.code + metric.ref}>
-                <button
-                  className="flex w-full items-start gap-2 rounded-sm px-1 py-1 text-left text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                  onClick={() => jumpTo(metric.ref, metric.evidence?.page_number)}
-                  type="button"
-                >
-                  <FlagChip code={flag.code} severity={flag.severity} />
-                  <span className="text-muted-foreground">{flag.message}</span>
-                </button>
+        {isOwnEditConflict ? (
+          <p className="rounded-md border bg-muted/50 p-3 text-xs text-muted-foreground">
+            {ownEditConflictMessage}
+          </p>
+        ) : (
+          <ul className="max-h-48 space-y-1.5 overflow-y-auto">
+            {flagged.map((metric) =>
+              metric.flags.map((flag) => (
+                <li key={flag.code + metric.ref}>
+                  <button
+                    className="flex w-full items-start gap-2 rounded-sm px-1 py-1 text-left text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                    onClick={() => jumpTo(metric.ref, metric.evidence?.page_number)}
+                    type="button"
+                  >
+                    <FlagChip code={flag.code} severity={flag.severity} />
+                    <span className="text-muted-foreground">{flag.message}</span>
+                  </button>
+                </li>
+              )),
+            )}
+            {hidden > 0 && (
+              <li className="px-1 text-xs text-muted-foreground">
+                {hidden} more not shown here.
               </li>
-            )),
-          )}
-          {hidden > 0 && (
-            <li className="px-1 text-xs text-muted-foreground">
-              {hidden} more not shown here.
-            </li>
-          )}
-        </ul>
+            )}
+          </ul>
+        )}
         <label className="flex items-start gap-2 text-sm">
           <Checkbox
             checked={acknowledged}
             className="mt-0.5"
             onCheckedChange={(checked) => setAcknowledged(checked === true)}
           />
-          I've checked these against the document.
+          I've checked th{isOwnEditConflict ? "is" : "ese"} against the
+          document.
         </label>
         <Textarea
           aria-label="Approval note"
@@ -100,7 +142,7 @@ export function ApproveAnywayDialog({
             onClick={() => onConfirm(note)}
             variant="destructive"
           >
-            Approve with {count} unresolved flags
+            {isOwnEditConflict ? "Approve anyway" : `Approve with ${count} blocking flags`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,5 +1,5 @@
 import { FileStack, Upload } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { isTransportError } from "@/api/http/errors";
@@ -34,10 +34,13 @@ import {
  * Schools × academic years, answering "what do we have?" in one glance.
  *
  * The central problem this screen solves: ~2,746 schools exist and a
- * handful have documents, so the default scope loads only schools with
- * documents (a handful of rows, no scrolling), and "All schools" is a find
- * mode — with an empty query it costs one cheap request for the school
- * count, not 2,746 rows (see `coverage-params.ts`).
+ * handful have any CDS activity, so the default ("Tracked") scope loads
+ * only schools with >=1 `cds_school_years` row (a handful of rows, no
+ * scrolling — not the same thing as "has a document"; a tracked school can
+ * still show "none" in a given year), and "All schools" is a find mode —
+ * with an empty query the API returns zero rows and the real school count
+ * (enforced server-side in `coverage_grid`'s idle branch), not a row dump
+ * (see `coverage-params.ts`).
  */
 export function CdsCoveragePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,6 +63,21 @@ export function CdsCoveragePage() {
     isTransportError(coverage.error) && coverage.error.status === 503;
   const activeFilters = hasActiveCoverageFilters(state);
   const findModeIdle = isCoverageFindModeIdle(state);
+
+  // A with_documents→all scope change swaps `CoverageFilters` out for
+  // `CoverageSkeleton` and back whenever the new scope is a fresh query-key
+  // (cache miss) — this page component itself never unmounts across that
+  // swap, so a token counted here (not inside CoverageFilters, which does
+  // unmount/remount across it) survives to tell the remounted filter bar a
+  // real transition happened and it should focus the search box. Computed
+  // during render, not an effect, so it's ready before the first paint of
+  // whichever branch renders below.
+  const prevScopeRef = useRef(state.scope);
+  const focusSearchTokenRef = useRef(0);
+  if (prevScopeRef.current !== "all" && state.scope === "all") {
+    focusSearchTokenRef.current += 1;
+  }
+  prevScopeRef.current = state.scope;
   const showNoDocumentsYet =
     coverage.data !== undefined &&
     coverage.data.rows.length === 0 &&
@@ -114,18 +132,30 @@ export function CdsCoveragePage() {
         </Empty>
       ) : (
         <>
-          <CoverageCounters
-            className="mt-4"
-            counters={coverage.data.counters}
-            failedActive={state.failed}
-            needsReviewActive={state.needsReview}
-            onToggleFailed={() => updateState({ failed: !state.failed })}
-            onToggleNeedsReview={() =>
-              updateState({ needsReview: !state.needsReview })
-            }
-          />
+          {/* find-mode-idle always renders zero rows (coverage_grid's idle
+              branch), but `counters` still describes the Tracked activity
+              set the backend groups from before the idle short-circuit —
+              a school/edition count for a scope that isn't on screen. There
+              is no honest per-scope number to show instead (the idle branch
+              never counts the full catalog), so the line is omitted rather
+              than showing a count that describes something else (root
+              DESIGN.md §1.1: never a plausible-looking value that isn't
+              real). */}
+          {!findModeIdle && (
+            <CoverageCounters
+              className="mt-4"
+              counters={coverage.data.counters}
+              failedActive={state.failed}
+              needsReviewActive={state.needsReview}
+              onToggleFailed={() => updateState({ failed: !state.failed })}
+              onToggleNeedsReview={() =>
+                updateState({ needsReview: !state.needsReview })
+              }
+            />
+          )}
           <CoverageFilters
             className="mt-3"
+            focusSearchToken={focusSearchTokenRef.current}
             onChange={updateState}
             state={state}
             years={coverage.data.years}

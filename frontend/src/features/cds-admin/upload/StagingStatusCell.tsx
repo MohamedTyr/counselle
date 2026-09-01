@@ -22,12 +22,15 @@ function CommittedStatus({ job, row }: { job: JobStatusRow | undefined; row: Upl
   const { running, status } = cdsStatusFromJob(job);
   const progress = jobProgress(job);
 
+  // `items-start`: a flex column stretches its children, which made the status
+  // badge span the whole column and read as a wide disabled button, not a chip.
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col items-start gap-1">
       <StatusChip running={running} status={status} />
       {progress ? (
         <div className="flex items-center gap-2">
           <Meter
+            aria-label={`${progress.done} of ${progress.total} domains extracted`}
             className="w-16"
             max={progress.total}
             value={progress.done}
@@ -75,7 +78,7 @@ export function StagingStatusCell({
   const reason = stagingReason(entry);
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col items-start gap-0.5">
       <UploadStatusChip status={chipStatus} />
       {reason.text ? (
         <span className="text-xs text-muted-foreground">

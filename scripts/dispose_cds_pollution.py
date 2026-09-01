@@ -8,7 +8,7 @@ mechanism to all 16 rows uniformly, the years and states genuinely differ:
 (a) 12 fabricated-year Alabama A&M rows (school_year_id 4008, 4009, 4011,
     4012, 4013, 4020, 4021, 4022, 4024, 4028, 4029, 4030 -- years 2091-2195,
     none legitimate): reject each live candidate document through the
-    existing, already-legal service path (``app.cds.service_review.
+    existing, already-legal service path (``app.cds.service_review_approve.
     reject_document``, the same function the admin API's reject endpoint
     calls), then retire the slot. Row 4009 has no candidate (its two
     documents are already orphaned/invalidated) -- retire only.
@@ -49,7 +49,7 @@ Usage::
     uv run python scripts/dispose_cds_pollution.py             # dry-run (default)
     uv run python scripts/dispose_cds_pollution.py --execute    # writes
 
-Reuses the app's own write path -- ``app.cds.service_review.reject_document``
+Reuses the app's own write path -- ``app.cds.service_review_approve.reject_document``
 for every reject -- and only adds bare adapter calls for the two writes that
 have no service-layer equivalent yet: ``cds_store.retire_school_year`` and
 ``cds_store.discard_active_document``. This is UPDATE-only throughout:
@@ -68,7 +68,7 @@ from uuid import UUID
 import asyncpg
 
 from adapters import cds_store
-from app.cds import service_review
+from app.cds import service_review_approve
 from app.cds.errors import CdsAdminValidationError
 from config.settings import get_settings
 from counselle_db.db import create_pool
@@ -143,7 +143,7 @@ def _plan_actions() -> list[_PlannedAction]:
                 label=f"school_year={school_year_id} document={document_id} (case a)",
                 steps=(
                     f"reject_document(document_id={document_id}) "
-                    "via app.cds.service_review.reject_document",
+                    "via app.cds.service_review_approve.reject_document",
                     f"retire_school_year(school_year_id={school_year_id})",
                 ),
             )
@@ -177,7 +177,7 @@ def _plan_actions() -> list[_PlannedAction]:
                 label=f"school_year={school_year_id} document={document_id} (case c, NOT retired)",
                 steps=(
                     f"reject_document(document_id={document_id}) "
-                    "via app.cds.service_review.reject_document",
+                    "via app.cds.service_review_approve.reject_document",
                 ),
             )
         )
@@ -190,7 +190,7 @@ def _plan_actions() -> list[_PlannedAction]:
             ),
             steps=(
                 f"reject_document(document_id={_YALE_DOCUMENT_ID}) "
-                "via app.cds.service_review.reject_document",
+                "via app.cds.service_review_approve.reject_document",
             ),
         )
     )
@@ -245,7 +245,7 @@ async def _reject(
     reason: str,
 ) -> None:
     try:
-        await service_review.reject_document(
+        await service_review_approve.reject_document(
             app_pool,
             pipeline_pool,
             document_id=document_id,

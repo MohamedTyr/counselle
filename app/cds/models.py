@@ -44,6 +44,8 @@ __all__ = [
     "JobStatusRow",
     "SchoolSummary",
     # uploads / staging
+    "MAX_ACADEMIC_YEAR",
+    "MIN_ACADEMIC_YEAR",
     "DetectionCandidate",
     "DetectionInfo",
     "ProcessQueuedItem",
@@ -79,6 +81,13 @@ class _Model(BaseModel):
 # ---------------------------------------------------------------------------
 # Uploads / staging (endpoints #3-#7)
 # ---------------------------------------------------------------------------
+
+# The `counselle.cds_upload_files.academic_year` CHECK constraint
+# (migrations/0015_cds_admin.sql) -- named once here so `UploadPatchBody` and
+# `service_ingest.create_upload`'s detected-year guard can't drift into two
+# copies of the same bound.
+MIN_ACADEMIC_YEAR = 2000
+MAX_ACADEMIC_YEAR = 2200
 
 UploadStatus = Literal[
     "matched", "needs_input", "replaces_existing", "duplicate", "committed", "error"
@@ -130,7 +139,9 @@ class UploadBatch(_Model):
 
 class UploadPatchBody(_Model):
     school_id: int | None = None
-    academic_year: int | None = Field(default=None, ge=2000, le=2200)
+    academic_year: int | None = Field(
+        default=None, ge=MIN_ACADEMIC_YEAR, le=MAX_ACADEMIC_YEAR
+    )
 
 
 class ProcessQueuedItem(_Model):

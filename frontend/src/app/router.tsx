@@ -156,6 +156,22 @@ export function createAppRouter() {
                   ),
                 },
                 {
+                  /*
+                   * A mistyped or stale `/app/admin/cds/*` path (the review
+                   * route carries a document id, so "review" instead of
+                   * "documents/:id" is a plausible typo) used to fall
+                   * through to the generic `*` below and land the operator
+                   * on /app/tasks with no explanation. The app has no
+                   * dedicated not-found surface anywhere, so — matching its
+                   * existing redirect-to-nearest-known-place pattern — this
+                   * scopes that fallback to the CDS admin index instead of
+                   * an unrelated screen. More specific admin/cds routes
+                   * above always win on match specificity.
+                   */
+                  path: "admin/cds/*",
+                  element: <Navigate replace to="/app/admin/cds" />,
+                },
+                {
                   path: "*",
                   element: <Navigate replace to="/app/tasks" />,
                 },

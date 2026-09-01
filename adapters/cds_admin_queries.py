@@ -148,6 +148,11 @@ SELECT DISTINCT academic_year FROM cds_library.cds_school_years
 WHERE retired_at IS NULL ORDER BY academic_year
 """
 
+# The real catalog size for the "All schools" find-mode idle prompt
+# (DESIGN.md §3.9: "Search 2,746 schools by name to add a document.") — the
+# number must come from the DB, never be hardcoded.
+_SCHOOL_COUNT_SQL = "SELECT count(*) FROM cds_library.schools"
+
 _DOCUMENT_META_SQL = """
 SELECT d.id, d.school_year_id, sy.school_id, s.name AS school_name, sy.academic_year,
        encode(d.pdf_sha256, 'hex') AS pdf_sha256, d.pdf_size_bytes, d.original_filename,
@@ -350,8 +355,16 @@ async def coverage_grid(
     activity, not the 2,746-school catalog). `all_schools=True` additionally
     surfaces catalog schools with zero rows, but only when `q` is set — it
     never dumps the full catalog.
+
+    `all_schools=True` with a blank `q` is the find-mode *idle* state
+    (DESIGN.md §3.1 move 2 / §3.9): the toggle changes what search reaches,
+    not what is rendered, so this always answers with zero rows — never the
+    with-documents activity subset the base query would otherwise return —
+    and `total` is the real school-catalog count, so the UI's search prompt
+    can say "Search 2,746 schools..." with a true number.
     """
     normalized = _normalize(q)
+    is_find_mode_idle = all_schools and normalized is None
     years = await coverage_years(pool)
     async with pool.acquire() as conn:
         activity_rows = await conn.fetch(_COVERAGE_SQL, normalized)
@@ -365,11 +378,15 @@ async def coverage_grid(
                         school_id=row["school_id"], name=row["name"], state=row["state"], cells={}
                     ),
                 )
+        if is_find_mode_idle:
+            school_count = await conn.fetchval(_SCHOOL_COUNT_SQL)
     filtered = _apply_filters(
         groups, status_filter=status_filter, missing_year=missing_year, year_filter=year_filter
     )
     counters = _counters_from_groups(filtered, years)
     ordered = sorted(filtered.values(), key=lambda r: r.name)
+    if is_find_mode_idle:
+        return CoverageResult(years=years, rows=[], counters=counters, total=int(school_count))
     page = ordered[offset : offset + limit]
     return CoverageResult(years=years, rows=page, counters=counters, total=len(ordered))
 

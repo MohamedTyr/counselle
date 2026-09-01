@@ -268,6 +268,30 @@ async def create_extraction(
     return _extraction_record(row)
 
 
+async def find_latest_extraction_id(
+    conn: asyncpg.Connection, *, document_id: int
+) -> uuid.UUID | None:
+    """The most recently queued extraction for this document, if any.
+
+    Used when `insert_document` reports `is_duplicate=True` (the same PDF
+    staged twice in one upload batch, or a retried commit): the document
+    already has an extraction in flight, so the duplicate row is pointed at
+    it instead of `create_extraction` queuing a second, billable run over
+    identical content. `None` only if the document exists with no extraction
+    at all, which should not happen -- every document this module creates
+    gets one in the same transaction (see `create_extraction`) -- but the
+    caller still checks rather than assuming."""
+    row = await conn.fetchrow(
+        """
+        SELECT id FROM cds_library.cds_extractions
+        WHERE document_id = $1
+        ORDER BY queued_at DESC LIMIT 1
+        """,
+        document_id,
+    )
+    return row["id"] if row is not None else None
+
+
 async def claim_next_extraction(
     pool: asyncpg.Pool, *, lease_seconds: int
 ) -> ExtractionRecord | None:
@@ -377,6 +401,20 @@ async def insert_packet(
     students. Raises ``PacketValidationError`` and writes nothing on
     failure. Caller is responsible for running this inside a transaction it
     can roll back (the ``INSERT`` below is not itself wrapped in one).
+
+    Also fences on ``extraction_id``'s own lease (PLAN §E), the same
+    predicate ``complete_extraction`` re-checks before finishing the row —
+    unlike that function, this one folds the check into the ``INSERT``
+    itself (``WHERE EXISTS`` below) rather than a separate statement, since
+    the write and the check must be atomic: a worker whose lease dies
+    between a check and a later write would otherwise still slip a packet
+    in. ``lease_expires_at IS NULL`` passes unconditionally for a human
+    correction's already-``succeeded`` extraction (``create_human_review_
+    extraction`` never sets a lease at all — there is nothing to fence
+    there); a worker-run extraction always has a lease once claimed, so for
+    that path the check reduces to exactly ``complete_extraction``'s
+    ``lease_expires_at > now()``. Raises ``LeaseLostError`` and writes
+    nothing when the fence fails.
     """
     manifest_row = await conn.fetchrow(
         "SELECT version, content, domain_hashes FROM cds_library.cds_manifests WHERE version = $1",
@@ -420,7 +458,11 @@ async def insert_packet(
         INSERT INTO cds_library.cds_domain_packets
             (document_id, extraction_id, manifest_version, domain_id, domain_schema_hash,
              status, packet, validation)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        SELECT $1, $2, $3, $4, $5, $6, $7, $8
+        WHERE EXISTS (
+            SELECT 1 FROM cds_library.cds_extractions
+            WHERE id = $2 AND (lease_expires_at IS NULL OR lease_expires_at > now())
+        )
         RETURNING document_id, extraction_id, domain_id, status, is_active, created_at
         """,
         document_id,
@@ -432,6 +474,11 @@ async def insert_packet(
         packet,
         validation or {},
     )
+    if row is None:
+        raise LeaseLostError(
+            f"extraction {extraction_id} lost its lease before its {domain_id!r} packet "
+            "could be stored"
+        )
     return PacketRecord(**dict(row))
 
 
@@ -545,6 +592,7 @@ async def sweep_expired_leases(
 async def create_human_review_extraction(
     conn: asyncpg.Connection,
     *,
+    extraction_id: uuid.UUID,
     school_year_id: int,
     document_id: int,
     manifest_version: str,
@@ -555,7 +603,13 @@ async def create_human_review_extraction(
     always queues work for the poller. A correction never runs through the
     model, so it is recorded as immediately complete: ``target_kind =
     'active_update'``, ``extractor_version = 'human-review-v1'``,
-    ``model_id = 'human'``."""
+    ``model_id = 'human'``.
+
+    ``extraction_id`` is minted by the caller rather than here, because a
+    correction's packets have to be *built and validated before this row is
+    written* (`app/cds/service_review_approve.py::_prepare_edited_packets`) and every
+    packet embeds the id of the extraction it belongs to. Handing the id in is
+    what lets a refused correction leave the database completely untouched."""
     row = await conn.fetchrow(
         """
         INSERT INTO cds_library.cds_extractions
@@ -565,7 +619,7 @@ async def create_human_review_extraction(
         RETURNING id, school_year_id, document_id, manifest_version, target_kind,
                   requested_domains, status, extractor_version, model_id, lease_expires_at
         """,
-        uuid.uuid4(),
+        extraction_id,
         school_year_id,
         document_id,
         manifest_version,

@@ -228,14 +228,27 @@ export function usePatchMetrics() {
   });
 }
 
-/** 409 (`kind: "conflict"`) means unresolved flags without
- * `override_flags` — an expected, recoverable state, not a failure. The
- * review screen turns it into flow control (open "Approve anyway") instead
- * of a generic error toast, so it's deliberately excluded below. 422
- * (`kind: "invalid_edit"`) means the document isn't a candidate — a real
- * error, and still toasts via `handleCdsError`. Both are available on the
- * thrown `TransportError` via `.kind`/`.status` for the screen to branch on
- * beyond the toast. */
+/** 409 (`kind: "conflict"`) covers two distinct server-side refusals
+ * (`app/cds/service_review_approve.py::approve_document`), both deliberately
+ * excluded from the generic toast below because the review screen turns
+ * each into its own visible flow control instead:
+ * 1. Unresolved flags already on the document (`flags_summary.unresolved >
+ *    0` at fetch time) — recoverable by a refetch, which raises
+ *    `flags_summary.unresolved` and re-renders the bar's blocking sentence
+ *    ("Approve anyway" opens `ApproveAnywayDialog` from there).
+ * 2. The admin's own pending edit would introduce a *new* blocking flag on
+ *    a packet that is validated and refused before anything is written
+ *    (`_prepare_edited_packets`) — `flags_summary.unresolved` was, and
+ *    stays, `0` here, since nothing changed server-side for a refetch to
+ *    reveal. The review screen tells the two apart by that same pre-click
+ *    `flags_summary.unresolved` value (a real signal, already computed) and,
+ *    for case 2, surfaces the server's own message directly, since no other
+ *    UI element can describe a flag that was never stored.
+ *
+ * 422 (`kind: "invalid_edit"`) means the document isn't a candidate — a real
+ * error, and still toasts via `handleCdsError`. All three are available on
+ * the thrown `TransportError` via `.kind`/`.status`/`.message` for the
+ * screen to branch on beyond the toast. */
 export function useApproveDocument() {
   return useMutation({
     mutationFn: (input: { documentId: number; body: ApproveBody }) =>

@@ -72,26 +72,43 @@ _DETECTION_PROMPT = (
     "reports (from the document's own title or A0 section, e.g. 2022 for a document titled "
     "'Common Data Set 2022-2023'). A running header printed on a LATER page can be stale, "
     "carried over from a prior year's template -- if anything conflicts, trust the "
-    "document's own title/A0 section over any later page's header."
+    "document's own title/A0 section over any later page's header. "
+    "Only report a value you can actually read from THIS document's own A0/A1 section or "
+    "title -- never guess, infer from general knowledge, or fill in a plausible-sounding "
+    "answer. If the identity section is blank, unfilled (e.g. an empty template), "
+    "illegible, redacted, or names only a generic system/consortium with no specific "
+    "campus identified, return null for school_name (and/or academic_year_start) instead "
+    "of a guess."
 )
 
 
 class _DetectedIdentity(BaseModel):
     """Structured read of the document's own stated identity -- a claim, not
     a verified fact; `detect_school_year` cross-checks it against the school
-    catalog before anything downstream trusts it."""
+    catalog before anything downstream trusts it. Both fields are nullable
+    on purpose: the document's own A0/A1 section is sometimes blank,
+    illegible, or names only a generic system with no specific campus, and
+    the model must be able to say "I can't tell" rather than being forced
+    into a syntactically-valid but ungrounded guess (see `detect_school_year`
+    and `service_ingest.create_upload` for how a null is handled -- it never
+    auto-fills and always falls through to `needs_input`, exactly like a
+    low-confidence catalog match)."""
 
     model_config = ConfigDict(extra="forbid")
-    school_name: str = Field(
+    school_name: str | None = Field(
+        default=None,
         description="The institution's name exactly as printed in the A0/A1 "
-        "respondent/address information section."
+        "respondent/address information section, or null if the document does not "
+        "actually state a specific institution's name there.",
     )
-    academic_year_start: int = Field(
+    academic_year_start: int | None = Field(
+        default=None,
         ge=1980,
         le=2100,
         description="The FIRST year of the Common Data Set edition this document reports "
         "(e.g. 2022 for a document titled 'Common Data Set 2022-2023'), read from the "
-        "document's own title/A0 section, never from a later page's running header.",
+        "document's own title/A0 section, never from a later page's running header, or "
+        "null if the document does not actually state a year there.",
     )
 
 
@@ -240,7 +257,15 @@ async def detect_school_year(
             None, None, (), result.model_id, "model returned an unexpected shape"
         )
     identity = result.parsed
-    candidates = await _rank_candidates(pool, identity.school_name)
+    # A null school_name means the model itself found no groundable identity
+    # to report (blank/illegible A0/A1 section, generic system name, ...) --
+    # there is nothing to fuzzy-match against the catalog, so `candidates`
+    # stays empty and `DetectionResult.confident` is naturally False. That
+    # routes through the *existing* `needs_input` path (same as a genuine
+    # low-score match) with no new status or confidence framework needed.
+    candidates: tuple[SchoolCandidate, ...] = ()
+    if identity.school_name is not None:
+        candidates = await _rank_candidates(pool, identity.school_name)
     return DetectionResult(
         identity.school_name, identity.academic_year_start, candidates, result.model_id, None
     )

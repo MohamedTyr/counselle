@@ -143,7 +143,19 @@ async def _process_calls(
     packet per requested domain -- never one packet per batch. Hands off to
     `starved_retry.retry_starved_domains` (still domain-level, using
     `domain_padded_ranges`, not the per-batch windows) for anything still
-    empty afterward."""
+    empty afterward.
+
+    `lease_lost` is checked once more here, between the batch calls and the
+    packet writes: `batch_run._run_one_batch` only consults it BEFORE each
+    model call, so a worker whose lease expired mid-run can still reach this
+    point having made every call it was going to make. Writing packets built
+    from a run the lease sweep may have already marked `failed` would commit
+    a half-executed document with no record of what got skipped (plan §E) --
+    so a lost lease here skips `store_domain_packets` and the starved retry
+    entirely and returns whatever's already in `state` (no outcomes), rather
+    than risk even a partial commit. `insert_packet` also fences on the
+    lease itself (`adapters/cds_store.py`) as defense in depth, since this
+    check and the store loop that follows are not atomic with each other."""
     state = _RunState(domain_outcomes={}, call_records=[], usage_total=_zero_usage())
     results = await batch_run.run_batches(
         batches,
@@ -157,6 +169,8 @@ async def _process_calls(
         page_text=doc_facts.page_text,
     )
     domain_findings = batch_run.collect_batch_results(results, state, requested_domains)
+    if lease_lost is not None and lease_lost.is_set():
+        return state
     model_id = _observed_model_id(results, settings)
 
     state.domain_outcomes = await batch_run.store_domain_packets(
@@ -185,6 +199,7 @@ async def _process_calls(
         routing_text=routing_text,
         padded_ranges=domain_padded_ranges,
         doc_facts=doc_facts,
+        domain_findings=domain_findings,
         lease_lost=lease_lost,
     )
     return state
@@ -365,6 +380,17 @@ async def run_extraction(
     making further wasted model calls. Never raises on a normal failure
     path; any unexpected exception is caught and the extraction is marked
     `failed` rather than left `running` until the lease sweep recovers it.
+
+    A lost lease is handled as its own outcome, not folded into the generic
+    `engine_error` path: by the time `lease_lost` is set (or `insert_packet`
+    raises `LeaseLostError` mid-store, see `_process_calls`), the lease
+    sweep has already flipped this row to `failed` with its own
+    `error_message` (`cds_store.sweep_expired_leases`), so `_finalize_run`'s
+    `complete_extraction` call is doomed to lose its own fencing check no
+    matter what -- attempting it anyway would only produce a second, vaguer
+    warning log with no actual write. Logging explicitly here instead means
+    the log trail says "we stopped because the lease was gone" rather than
+    looking like an unexplained silent no-op.
     """
     started = time.monotonic()
     manifest = manifest_mod.load_compiled_manifest()
@@ -388,9 +414,23 @@ async def run_extraction(
             doc_facts=inputs.doc_facts,
             lease_lost=lease_lost,
         )
+    except cds_store.LeaseLostError as exc:
+        # `insert_packet`'s own lease fencing caught a write racing a lease that
+        # expired mid-store (the `_process_calls` pre-store check above can't see
+        # a loss that happens partway through that same loop) -- no packets from
+        # this call landed for whichever domain hit it, and nothing after it in
+        # `store_domain_packets`'s loop ran either.
+        logger.warning(
+            "cds_engine_lease_lost_mid_store", extraction_id=str(extraction.id), error=str(exc)
+        )
+        return
     except Exception as exc:  # noqa: BLE001 -- last-resort finalizer, never leave the row `running`
         logger.exception("cds_engine_run_failed", extraction_id=str(extraction.id))
         await _finish_failed(pool, extraction.id, "engine_error", str(exc))
+        return
+
+    if lease_lost is not None and lease_lost.is_set():
+        logger.warning("cds_engine_lease_lost_no_packets_stored", extraction_id=str(extraction.id))
         return
 
     await _finalize_run(

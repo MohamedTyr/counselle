@@ -20,11 +20,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters import cds_gemini, cds_pdf, cds_store
+from adapters import cds_store
 from app.cds import calling
 from app.cds import usage as usage_mod
 from domain.cds import packet_build, validators
 from domain.cds import pages as pages_mod
+from domain.cds.claims import Finding
 from domain.cds.manifest_compile import CompiledManifest
 
 if TYPE_CHECKING:
@@ -44,13 +45,31 @@ async def retry_starved_domains(
     routing_text: dict[int, str],
     padded_ranges: dict[str, tuple[int, int]],
     doc_facts: validators.DocFacts,
+    domain_findings: dict[str, list[Finding]],
     lease_lost: Any,
 ) -> None:
     """One retry, ISOLATED to just this domain with its own window grown one
     notch, before the run accepts the loss -- removing the shared-call
     attention confound is itself sometimes the fix. Mutates `state` in
     place; an outcome is only ever REPLACED, and only when the retry
-    actually produced a storable packet."""
+    actually produced a storable packet.
+
+    `domain_findings` is the main pass's already-accumulated findings per
+    domain (`batch_run.collect_batch_results`'s return value) -- the retry's
+    own findings are ADDED to it, never used alone, so a metric the main
+    pass already saw claimed twice with disagreeing values (an honest
+    `conflict` in the rebuilt packet) stays a conflict instead of being
+    silently overwritten by whatever single value this isolated retry
+    happens to see.
+
+    The call itself catches `Exception` broadly, not just
+    `CdsGeminiError`/`CdsPdfError` -- same rationale as
+    `batch_run._run_one_batch`'s docstring: a raw transport error (observed
+    live: `httpx.WriteTimeout`) can escape the SDK unwrapped, matching
+    neither type. Left narrow, that error would propagate out of this
+    function -> `_process_calls` -> `run_extraction`'s catch-all, which
+    marks the WHOLE extraction `failed` with no `validation_summary` at all
+    -- even though the main pass's packets already committed."""
     candidates = [
         domain_id
         for domain_id, outcome in state.domain_outcomes.items()
@@ -79,7 +98,7 @@ async def retry_starved_domains(
                 clusters=clusters,
                 page_text=doc_facts.page_text,
             )
-        except (cds_gemini.CdsGeminiError, cds_pdf.CdsPdfError) as exc:
+        except Exception as exc:  # noqa: BLE001 -- see docstring above
             error_record = {"domains": [domain_id], "starved_retry": True, "error": str(exc)}
             state.call_records.append(error_record)
             continue
@@ -99,12 +118,18 @@ async def retry_starved_domains(
         )
         if not attempt.remapped_findings:
             continue
+        # ADD to the main pass's findings for this domain, never replace them --
+        # otherwise a metric the main pass already resolved as `conflict` (module
+        # docstring: an honesty signal, not noise) would be rebuilt from this
+        # retry's single value alone and come out looking like a clean, confident
+        # `verified` fact.
+        merged_findings = domain_findings.get(domain_id, []) + attempt.remapped_findings
         outcome = await calling._build_and_store_domain_packet(
             pool=pool,
             settings=settings,
             manifest=manifest,
             domain_id=domain_id,
-            findings=attempt.remapped_findings,
+            findings=merged_findings,
             run_contract=run_contract,
             doc=doc,
             extraction=extraction,

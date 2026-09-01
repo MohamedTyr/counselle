@@ -49,7 +49,11 @@ export function ReviewSection({
           {verified}/{total} verified
         </span>
         {unresolved > 0 && (
-          <FlagChip code={String(unresolved)} severity={rail ?? "warning"} />
+          <FlagChip
+            ariaLabel={`${unresolved} unresolved flag${unresolved === 1 ? "" : "s"} in this section`}
+            code={String(unresolved)}
+            severity={rail ?? "warning"}
+          />
         )}
       </AccordionTrigger>
       <AccordionPanel className="px-3">

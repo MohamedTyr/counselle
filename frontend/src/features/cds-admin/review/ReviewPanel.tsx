@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Loader2, OctagonX } from "lucide-react";
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
 import type { DocumentReviewOut } from "@/api/cds-admin/types";
 import { Accordion } from "@/components/ui/accordion";
@@ -14,6 +14,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { countFlaggedMetrics } from "@/features/cds-admin/review/flag-queue";
 import { ShortcutsPopover } from "@/features/cds-admin/review/ShortcutsPopover";
 import { useReviewControllerContext } from "@/features/cds-admin/review/review-context";
 import { ReviewSection } from "@/features/cds-admin/review/ReviewSection";
@@ -50,6 +51,28 @@ export const ReviewPanel = forwardRef<
   const controller = useReviewControllerContext();
   const { extraction, sections, flags_summary: flagsSummary } = review;
   const nextFlagButtonRef = useRef<HTMLButtonElement>(null);
+  // What's left for a human to look at, matching the section counts and the
+  // row flag icons (`hasUnresolvedFlag`) rather than `flags_summary.unresolved`,
+  // which counts only Approve-blocking `error` flags. A document whose flags
+  // are all `warning` must not claim "No flags" while listing them below, and
+  // `n`/`p` must still walk them (§5.1 — the flag queue *is* the review).
+  //
+  // DEVIATION from §5.5's "3 unresolved of 7": that wording assumed unresolved
+  // meant blocking. It doesn't, so "to review" is the word — otherwise this bar
+  // and the approve bar's "Ready to approve" read as contradicting each other.
+  const toReview = controller.flagQueueLength;
+  // The "of M" denominator has to be the same unit as `toReview`: a count of
+  // *metrics*, not `flags_summary.total`'s count of *flags*. One metric can
+  // carry more than one flag (`excerpt_on_cited_page` and
+  // `corrupt_text_layer` each independently flag the same ref), so a
+  // 20-metric, 25-flag document previously read "20 to review of 25" — five
+  // metrics looked already handled when none were. `countFlaggedMetrics`
+  // walks the same `sections` this panel already has, no new wire field
+  // needed (`flag-queue.ts`).
+  const flaggedMetricsTotal = useMemo(
+    () => countFlaggedMetrics(sections),
+    [sections],
+  );
 
   useImperativeHandle(ref, () => ({
     focusNextFlag: () => nextFlagButtonRef.current?.focus(),
@@ -61,14 +84,18 @@ export const ReviewPanel = forwardRef<
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Loader2 className="animate-spin" />
+              <Loader2 className="motion-safe:animate-spin" />
             </EmptyMedia>
             <EmptyTitle>Extracting…</EmptyTitle>
-            <EmptyDescription>
-              {sections.length > 0
-                ? `${sections.length} domain(s) extracted so far.`
-                : "This can take a few minutes."}
-            </EmptyDescription>
+            {/* No count here: `sections` is whatever is *currently active* on
+                the document, not this run's progress. On a re-run of an
+                approved document that is the previous extraction's 13 domains,
+                so "13 domains extracted so far" appeared seconds in, describing
+                the old data as if it were the new run's. This endpoint carries
+                no real per-domain progress (`counts` is aggregated from the
+                same active packets), and law 4 is that we don't show a number
+                we don't have. */}
+            <EmptyDescription>This can take a few minutes.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       </div>
@@ -105,22 +132,45 @@ export const ReviewPanel = forwardRef<
       {/* Not `aria-live` here — the screen has exactly one polite live
           region (§1.11/§6 checklist), owned by the page and fed by the
           controller's `announce` callback. */}
-      <div className="flex h-10 shrink-0 items-center gap-3 border-b px-4 text-sm">
-        {flagsSummary.unresolved > 0 ? (
-          <span>
+      {/* `whitespace-nowrap` + `shrink-0` on the summary text and the
+          checkbox label: at 1024-1152px (DESIGN.md §1.10's "1024-1279,
+          supported, degraded" bucket) this row is otherwise narrow enough
+          that the flex layout shrinks those two text nodes below their
+          content width, wrapping each onto a second line inside this fixed
+          `h-10` bar and overlapping the border and the accordion below it.
+          "Flagged first" additionally drops its label text below `xl`
+          (1280px, the same threshold and pattern `StagingTable.tsx` already
+          uses to hide the Size/Pages columns) and keeps only the checkbox —
+          the flag-walk controls are the ones that matter at this width, so
+          they're what stays labeled. */}
+      <div
+        className="flex h-10 shrink-0 items-center gap-3 border-b px-4 text-sm"
+        data-testid="flag-bar"
+      >
+        {toReview > 0 ? (
+          <span className="shrink-0 whitespace-nowrap">
             <span className="font-medium text-warning tabular-nums">
-              {flagsSummary.unresolved}
+              {toReview}
             </span>{" "}
-            unresolved of{" "}
-            <span className="tabular-nums">{flagsSummary.total}</span>
+            to review of{" "}
+            <span className="tabular-nums">{flaggedMetricsTotal}</span>{" "}
+            flagged {flaggedMetricsTotal === 1 ? "metric" : "metrics"}
+          </span>
+        ) : flagsSummary.total > 0 ? (
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground">
+            <span className="tabular-nums">{flagsSummary.total}</span> flag
+            {flagsSummary.total === 1 ? "" : "s"}, all edited
           </span>
         ) : (
-          <span className="text-muted-foreground">No flags</span>
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground">
+            No flags
+          </span>
         )}
         <Button
           aria-keyshortcuts="p"
           aria-label="Previous unresolved flag"
-          disabled={flagsSummary.unresolved === 0}
+          className="shrink-0"
+          disabled={toReview === 0}
           onClick={controller.goToPrevFlag}
           size="icon-sm"
           variant="ghost"
@@ -130,7 +180,8 @@ export const ReviewPanel = forwardRef<
         <Button
           aria-keyshortcuts="n"
           aria-label="Next unresolved flag"
-          disabled={flagsSummary.unresolved === 0}
+          className="shrink-0"
+          disabled={toReview === 0}
           onClick={controller.goToNextFlag}
           ref={nextFlagButtonRef}
           size="icon-sm"
@@ -138,13 +189,31 @@ export const ReviewPanel = forwardRef<
         >
           <ChevronRight />
         </Button>
+        {/* Position within the flag queue, not a remaining-count — "N to
+            review" above doesn't say *where* n/p have gotten to, so a
+            12-press walk on a read-only document (the remaining count never
+            moves) can silently lap the queue one and a half times with no
+            way to tell. `flagQueueIndex` wraps via the same modulo
+            `goToFlagBy` itself uses, so a completed lap shows up as this
+            number resetting to 1 — no separate wrap signal needed, and
+            none invented. Hidden until a flag is actually focused
+            (`flagQueueIndex === -1`): before the first n/p press there is no
+            position to report. */}
+        {controller.flagQueueIndex !== -1 && (
+          <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+            {controller.flagQueueIndex + 1} of {controller.flagQueueLength}
+          </span>
+        )}
         <div className="flex-1" />
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <label
+          aria-label="Flagged first"
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"
+        >
           <Checkbox
             checked={flaggedFirst}
             onCheckedChange={(checked) => onFlaggedFirstChange(checked === true)}
           />
-          Flagged first
+          <span className="hidden xl:inline">Flagged first</span>
         </label>
         <ShortcutsPopover />
       </div>
@@ -155,10 +224,11 @@ export const ReviewPanel = forwardRef<
           </p>
         ) : (
           <>
-            {flagsSummary.unresolved === 0 && (
+            {toReview === 0 && flagsSummary.total === 0 && (
               <p className="px-3 py-2 text-xs text-muted-foreground">
-                Everything extracted cleanly. Spot-check a section, then
-                approve.
+                {readOnly
+                  ? "Everything extracted cleanly."
+                  : "Everything extracted cleanly. Spot-check a section, then approve."}
               </p>
             )}
             <Accordion
