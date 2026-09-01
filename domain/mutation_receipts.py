@@ -63,7 +63,7 @@ SchoolFieldKey = Literal[
     "scholarship_deadline", "test_plan", "intended_major", "notes",
 ]
 EssayFieldKey = Literal[
-    "title", "school", "type", "status", "word_limit", "deadline", "prompt", "prompt_link",
+    "title", "school", "type", "status", "word_limit", "deadline", "prompt",
 ]
 ActivityFieldKey = Literal[
     "position", "organization", "type", "grades", "timing", "hours_per_week",

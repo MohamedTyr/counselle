@@ -72,21 +72,23 @@ async def workspace_event_stream(
         if after_id is not None:
             replay_after_id = after_id
             while True:
-                replayed = await replay_changes(
+                replayed, replay_after_id, row_count = await replay_changes(
                     request.app.state.runtime.app_pool,
                     user_id=user.id,
                     after_id=replay_after_id,
                     limit=_WORKSPACE_REPLAY_LIMIT,
                 )
-                if not replayed:
+                # Advance/terminate on row_count (rows read), not len(replayed)
+                # (events that survived filtering) — otherwise a page that is
+                # entirely filtered out looks exhausted and truncates the replay.
+                if row_count == 0:
                     break
-                replay_after_id = max(change.id for change in replayed)
                 for change in replayed:
                     if _should_emit_change(
                         change, after_id=after_id, delivered_ids=delivered_ids
                     ):
                         yield encode_workspace_sse(change)
-                if len(replayed) < _WORKSPACE_REPLAY_LIMIT:
+                if row_count < _WORKSPACE_REPLAY_LIMIT:
                     break
 
         while True:

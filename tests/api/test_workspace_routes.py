@@ -22,7 +22,6 @@ from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter
 from api.routes import (
     activities,
     applications,
-    essay_prompt_drafts,
     essays,
     tasks,
     workspace_events,
@@ -53,7 +52,6 @@ def _app(*, authed: bool = True, workspace_writes_per_minute: int = 240) -> Fast
     app.include_router(applications.router, prefix="/v1")
     app.include_router(tasks.router, prefix="/v1")
     app.include_router(essays.router, prefix="/v1")
-    app.include_router(essay_prompt_drafts.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
     app.state.settings = settings
@@ -282,24 +280,6 @@ def test_unknown_workspace_item_maps_to_404() -> None:
             "post",
             f"/v1/essays/{_UNKNOWN_UUID}/duplicate",
             None,
-        ),
-        (
-            "api.routes.essay_prompt_drafts.archive_essay_prompt_draft",
-            "delete",
-            f"/v1/essay-prompt-drafts/{_UNKNOWN_UUID}",
-            None,
-        ),
-        (
-            "api.routes.essay_prompt_drafts.restore_essay_prompt_draft",
-            "post",
-            f"/v1/essay-prompt-drafts/{_UNKNOWN_UUID}/restore",
-            None,
-        ),
-        (
-            "api.routes.essay_prompt_drafts.convert_essay_prompt_draft",
-            "post",
-            f"/v1/essay-prompt-drafts/{_UNKNOWN_UUID}/convert",
-            {"title": "Supplement"},
         ),
         (
             "api.routes.activities.update_activity",
@@ -559,12 +539,14 @@ async def test_workspace_sse_encoding_replay_and_subscription(
         op="created",
     )
 
-    async def fake_replay(pool: object, *, user_id: UUID, after_id: int, limit: int) -> list[Any]:
+    async def fake_replay(
+        pool: object, *, user_id: UUID, after_id: int, limit: int
+    ) -> tuple[list[Any], int, int]:
         assert pool is app.state.runtime.app_pool
         assert user_id == TEST_USER_ID
         assert after_id == 6
         assert limit == 1000
-        return [replayed]
+        return [replayed], 7, 1
 
     monkeypatch.setattr(workspace_events, "replay_changes", fake_replay)
 
@@ -608,10 +590,12 @@ async def test_workspace_sse_subscribes_before_replay_and_drains_race_event(
         op="updated",
     )
 
-    async def fake_replay(pool: object, *, user_id: UUID, after_id: int, limit: int) -> list[Any]:
+    async def fake_replay(
+        pool: object, *, user_id: UUID, after_id: int, limit: int
+    ) -> tuple[list[Any], int, int]:
         assert after_id == 10
         bus.publish(user_id, race_event)
-        return []
+        return [], after_id, 0
 
     monkeypatch.setattr(workspace_events, "replay_changes", fake_replay)
 
@@ -642,9 +626,11 @@ async def test_workspace_sse_dedupes_change_present_in_replay_and_live_queue(
         op="updated",
     )
 
-    async def fake_replay(pool: object, *, user_id: UUID, after_id: int, limit: int) -> list[Any]:
+    async def fake_replay(
+        pool: object, *, user_id: UUID, after_id: int, limit: int
+    ) -> tuple[list[Any], int, int]:
         bus.publish(user_id, duplicated)
-        return [duplicated]
+        return [duplicated], duplicated.id, 1
 
     monkeypatch.setattr(workspace_events, "replay_changes", fake_replay)
 
@@ -682,12 +668,16 @@ async def test_workspace_sse_replays_more_than_one_page_without_silent_loss(
     ]
     replay_after_ids: list[int] = []
 
-    async def fake_replay(pool: object, *, user_id: UUID, after_id: int, limit: int) -> list[Any]:
+    async def fake_replay(
+        pool: object, *, user_id: UUID, after_id: int, limit: int
+    ) -> tuple[list[Any], int, int]:
         assert pool is app.state.runtime.app_pool
         assert user_id == TEST_USER_ID
         assert limit == 1000
         replay_after_ids.append(after_id)
-        return [event for event in events if event.id > after_id][:limit]
+        page = [event for event in events if event.id > after_id][:limit]
+        last_id = page[-1].id if page else after_id
+        return page, last_id, len(page)
 
     monkeypatch.setattr(workspace_events, "replay_changes", fake_replay)
 
@@ -723,12 +713,14 @@ async def test_workspace_events_route_replays_missed_rows_only_with_last_event_i
     )
     seen: dict[str, Any] = {}
 
-    async def fake_replay(pool: object, *, user_id: UUID, after_id: int, limit: int) -> list[Any]:
+    async def fake_replay(
+        pool: object, *, user_id: UUID, after_id: int, limit: int
+    ) -> tuple[list[Any], int, int]:
         seen["pool"] = pool
         seen["user_id"] = user_id
         seen["after_id"] = after_id
         seen["limit"] = limit
-        return [old, replayed]
+        return [old, replayed], replayed.id, 2
 
     monkeypatch.setattr(workspace_events, "replay_changes", fake_replay)
 
@@ -769,7 +761,7 @@ async def test_workspace_events_route_without_header_emits_live_only_not_replay(
     )
 
     app = _app()
-    replay = AsyncMock(return_value=[historical])
+    replay = AsyncMock(return_value=([historical], historical.id, 1))
     monkeypatch.setattr(workspace_events, "replay_changes", replay)
 
     request_task = asyncio.create_task(_call_workspace_events_until_first_body(app))
@@ -795,9 +787,11 @@ async def test_workspace_events_route_malformed_last_event_id_replays_from_zero(
     )
     seen: dict[str, Any] = {}
 
-    async def fake_replay(pool: object, *, user_id: UUID, after_id: int, limit: int) -> list[Any]:
+    async def fake_replay(
+        pool: object, *, user_id: UUID, after_id: int, limit: int
+    ) -> tuple[list[Any], int, int]:
         seen["after_id"] = after_id
-        return [replayed]
+        return [replayed], replayed.id, 1
 
     monkeypatch.setattr(workspace_events, "replay_changes", fake_replay)
 
@@ -822,7 +816,7 @@ async def test_workspace_events_route_future_last_event_id_does_not_starve_live_
         object_id=uuid4(),
         op="created",
     )
-    replay = AsyncMock(return_value=[])
+    replay = AsyncMock(return_value=([], 0, 0))
     monkeypatch.setattr(workspace_events, "replay_changes", replay)
 
     app = _app()

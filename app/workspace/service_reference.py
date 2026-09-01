@@ -9,8 +9,6 @@ import asyncpg
 from app.caveats import render_caveat
 from app.workspace.models import (
     ReferenceProvenance,
-    SchoolEssayPrompt,
-    SchoolPromptGroup,
     SchoolReference,
     SchoolRequirement,
 )
@@ -35,35 +33,6 @@ async def get_school_reference(
         return SchoolReference(status="cycle_required", cycle_year=None)
 
     async with app_pool.acquire() as conn:
-        group_rows = await conn.fetch(
-            """
-            SELECT * FROM counselle.school_prompt_groups
-            WHERE school_unitid = $1 AND cycle_year = $2
-              AND state = 'published' AND retired_at IS NULL
-            ORDER BY label, id
-            """,
-            unitid,
-            cycle_year,
-        )
-        prompt_rows = await conn.fetch(
-            """
-            SELECT * FROM counselle.school_essay_prompts
-            WHERE school_unitid = $1 AND cycle_year = $2
-              AND state = 'published' AND retired_at IS NULL
-              AND (
-                group_id IS NULL OR EXISTS (
-                  SELECT 1 FROM counselle.school_prompt_groups g
-                  WHERE g.id = school_essay_prompts.group_id
-                    AND g.school_unitid = school_essay_prompts.school_unitid
-                    AND g.cycle_year = school_essay_prompts.cycle_year
-                    AND g.state = 'published' AND g.retired_at IS NULL
-                )
-              )
-            ORDER BY ordinal, id
-            """,
-            unitid,
-            cycle_year,
-        )
         requirement_rows = await conn.fetch(
             """
             SELECT * FROM counselle.school_requirements
@@ -76,17 +45,11 @@ async def get_school_reference(
         )
 
     test_policy = await _compatible_test_policy(catalog, unitid, cycle_year)
-    groups = [_prompt_group(row) for row in group_rows]
-    prompts = [_prompt(row) for row in prompt_rows]
     requirements = [_requirement(row) for row in requirement_rows]
     return SchoolReference(
         status="loaded",
         cycle_year=cycle_year,
-        populated=bool(
-            groups or prompts or requirements or (test_policy and test_policy.available)
-        ),
-        prompt_groups=groups,
-        prompts=prompts,
+        populated=bool(requirements or (test_policy and test_policy.available)),
         requirements=requirements,
         test_policy=test_policy,
     )
@@ -98,32 +61,6 @@ def _provenance(row: asyncpg.Record) -> ReferenceProvenance:
         source_url=row["source_url"],
         verified_at=row["verified_at"],
         published_at=row["published_at"],
-    )
-
-
-def _prompt_group(row: asyncpg.Record) -> SchoolPromptGroup:
-    return SchoolPromptGroup(
-        id=row["id"],
-        school_unitid=row["school_unitid"],
-        cycle_year=row["cycle_year"],
-        label=row["label"],
-        choice_min=row["choice_min"],
-        provenance=_provenance(row),
-    )
-
-
-def _prompt(row: asyncpg.Record) -> SchoolEssayPrompt:
-    return SchoolEssayPrompt(
-        id=row["id"],
-        school_unitid=row["school_unitid"],
-        cycle_year=row["cycle_year"],
-        ordinal=row["ordinal"],
-        prompt=row["prompt"],
-        word_limit=row["word_limit"],
-        applicability=row["applicability"],
-        audience=row["audience"],
-        group_id=row["group_id"],
-        provenance=_provenance(row),
     )
 
 

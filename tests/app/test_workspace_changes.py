@@ -11,6 +11,7 @@ import pytest_asyncio
 
 from app.workspace.changes import (
     WorkspaceEventBus,
+    _event_from_row,
     make_change_event,
     record_change,
     replay_changes,
@@ -48,6 +49,39 @@ async def test_record_change_uses_parameterized_insert() -> None:
     assert change_id == 41
     assert "$1" in sql and "$6" in sql
     assert args == (user_id, "counselle", "task", object_id, "updated", application_id)
+
+
+def test_event_from_row_skips_retired_object_type_but_builds_valid_ones() -> None:
+    object_id = uuid4()
+    application_id = uuid4()
+    retired_row = {
+        "id": 1,
+        "actor": "student",
+        "object_type": "essay_prompt_draft",
+        "object_id": object_id,
+        "op": "created",
+        "application_id": None,
+    }
+    valid_row = {
+        "id": 2,
+        "actor": "counselle",
+        "object_type": "task",
+        "object_id": object_id,
+        "op": "updated",
+        "application_id": application_id,
+    }
+
+    assert _event_from_row(retired_row) is None
+
+    event = _event_from_row(valid_row)
+    assert event is not None
+    assert event.id == 2
+    assert event.type == "task.updated"
+    assert event.data.object_type == "task"
+    assert event.data.object_id == object_id
+    assert event.data.op == "updated"
+    assert event.data.actor == "counselle"
+    assert event.data.application_id == application_id
 
 
 async def test_event_bus_delivers_to_matching_user_only() -> None:
@@ -125,11 +159,13 @@ async def test_record_change_and_replay_roundtrip(app_pool: asyncpg.Pool) -> Non
                     op="created",
                 )
 
-            events = await replay_changes(
+            events, last_row_id, row_count = await replay_changes(
                 app_pool, user_id=user_id, after_id=change_id - 1, limit=10
             )
 
             assert len(events) == 1
+            assert row_count == 1
+            assert last_row_id == change_id
             assert events[0].id == change_id
             assert events[0].type == "activity.created"
             assert events[0].data.object_id == object_id

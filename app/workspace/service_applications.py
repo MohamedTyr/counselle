@@ -17,7 +17,6 @@ from app.workspace.models import (
     ApplicationView,
     ChangeEvent,
     ChangeOp,
-    EssayPromptDraft,
     EssaySummary,
     ObjectType,
     Rollup,
@@ -249,10 +248,6 @@ async def update_application(
     async with app_pool.acquire() as conn, conn.transaction():
         current = await _require_active_application(conn, user_id, application_id)
         _validate_platform_patch(current, values)
-        if "cycle_year" in values:
-            await _validate_application_prompt_cycle(
-                conn, user_id, application_id, values["cycle_year"]
-            )
         try:
             row = await conn.fetchrow(
                 """
@@ -349,7 +344,6 @@ async def archive_application(
         await _require_active_application(conn, user_id, application_id)
         task_rows = await _archive_linked_tasks(conn, user_id, application_id)
         essay_rows = await _archive_linked_essays(conn, user_id, application_id)
-        prompt_draft_rows = await _archive_linked_prompt_drafts(conn, user_id, application_id)
         await conn.execute(
             """
             UPDATE counselle.applications
@@ -391,17 +385,6 @@ async def archive_application(
                 application_id=application_id,
             )
         )
-        events.extend(
-            await _record_many(
-                conn,
-                user_id=user_id,
-                actor=actor,
-                rows=prompt_draft_rows,
-                object_type="essay_prompt_draft",
-                op="archived",
-                application_id=application_id,
-            )
-        )
     publish_events(event_bus, user_id, events)
 
 
@@ -438,7 +421,6 @@ async def restore_application(
             )
             essay_rows = await _restore_linked_essays(conn, user_id, application_id)
             task_rows = await _restore_linked_tasks(conn, user_id, application_id)
-            prompt_draft_rows = await _restore_linked_prompt_drafts(conn, user_id, application_id)
             events.extend(
                 await _record_many(
                     conn,
@@ -467,17 +449,6 @@ async def restore_application(
                     actor=actor,
                     rows=essay_rows,
                     object_type="essay",
-                    op="restored",
-                    application_id=application_id,
-                )
-            )
-            events.extend(
-                await _record_many(
-                    conn,
-                    user_id=user_id,
-                    actor=actor,
-                    rows=prompt_draft_rows,
-                    object_type="essay_prompt_draft",
                     op="restored",
                     application_id=application_id,
                 )
@@ -517,26 +488,12 @@ async def get_application_detail(
         essay_rows = await conn.fetch(
             """
             SELECT e.*,
-                   CASE WHEN e.prompt_ref IS NOT NULL THEN p.prompt ELSE e.prompt END AS prompt,
-                   CASE WHEN e.prompt_ref IS NOT NULL
-                        THEN p.word_limit ELSE e.word_limit END AS word_limit,
                    ''::text AS preview,
                    jsonb_array_length(comments) AS comment_count,
                    jsonb_array_length(suggestions) AS suggestion_count
             FROM counselle.essays e
-            LEFT JOIN counselle.school_essay_prompts p ON p.id = e.prompt_ref
             WHERE e.user_id = $1 AND e.application_id = $2 AND e.archived_at IS NULL
             ORDER BY e.created_at
-            """,
-            user_id,
-            application_id,
-        )
-        prompt_draft_rows = await conn.fetch(
-            """
-            SELECT *
-            FROM counselle.essay_prompt_drafts
-            WHERE user_id = $1 AND application_id = $2 AND archived_at IS NULL
-            ORDER BY created_at
             """,
             user_id,
             application_id,
@@ -545,7 +502,6 @@ async def get_application_detail(
         application=application,
         tasks=[Task.model_validate(dict(row)) for row in task_rows],
         essays=[EssaySummary.model_validate(dict(row)) for row in essay_rows],
-        prompt_drafts=[EssayPromptDraft.model_validate(dict(row)) for row in prompt_draft_rows],
         reference=reference,
     )
 
@@ -640,33 +596,6 @@ def _validate_platform_patch(current: asyncpg.Record, values: dict[str, object])
         raise WorkspaceValidationError("platform_other must be cleared unless platform is other")
 
 
-async def _validate_application_prompt_cycle(
-    conn: asyncpg.Connection,
-    user_id: UUID,
-    application_id: UUID,
-    cycle_year: object,
-) -> None:
-    mismatch = await conn.fetchval(
-        """
-        SELECT EXISTS (
-          SELECT 1
-          FROM counselle.essays e
-          JOIN counselle.applications a ON a.id = e.application_id
-          JOIN counselle.school_essay_prompts p ON p.id = e.prompt_ref
-          WHERE e.user_id = $1 AND e.application_id = $2
-            AND (p.school_unitid <> a.school_unitid OR p.cycle_year IS DISTINCT FROM $3)
-        )
-        """,
-        user_id,
-        application_id,
-        cycle_year,
-    )
-    if mismatch:
-        raise WorkspaceValidationError(
-            "application cycle cannot change while essays are linked to another cycle"
-        )
-
-
 async def _archive_linked_tasks(
     conn: asyncpg.Connection, user_id: UUID, application_id: UUID
 ) -> list[dict[str, UUID]]:
@@ -747,42 +676,6 @@ async def _restore_linked_essays(
         SET archived_at = NULL, updated_at = now(),
             archived_via_application = NULL
         WHERE user_id = $1 AND archived_via_application = $2
-        RETURNING id
-        """,
-        user_id,
-        application_id,
-    )
-    return [dict(row) for row in rows]
-
-
-async def _archive_linked_prompt_drafts(
-    conn: asyncpg.Connection, user_id: UUID, application_id: UUID
-) -> list[dict[str, UUID]]:
-    rows = await conn.fetch(
-        """
-        UPDATE counselle.essay_prompt_drafts
-        SET archived_at = now(), updated_at = now(),
-            archived_via_application = $1
-        WHERE user_id = $2 AND application_id = $1 AND archived_at IS NULL
-          AND converted_to_essay_id IS NULL
-        RETURNING id
-        """,
-        application_id,
-        user_id,
-    )
-    return [dict(row) for row in rows]
-
-
-async def _restore_linked_prompt_drafts(
-    conn: asyncpg.Connection, user_id: UUID, application_id: UUID
-) -> list[dict[str, UUID]]:
-    rows = await conn.fetch(
-        """
-        UPDATE counselle.essay_prompt_drafts
-        SET archived_at = NULL, updated_at = now(),
-            archived_via_application = NULL
-        WHERE user_id = $1 AND archived_via_application = $2
-          AND converted_to_essay_id IS NULL
         RETURNING id
         """,
         user_id,

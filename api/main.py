@@ -48,7 +48,6 @@ from api.routes import (
     applications,
     cds_admin,
     documents,
-    essay_prompt_drafts,
     essays,
     me,
     memories,
@@ -262,7 +261,6 @@ def create_app() -> FastAPI:
     app.include_router(applications.router, prefix="/v1")
     app.include_router(tasks.router, prefix="/v1")
     app.include_router(essays.router, prefix="/v1")
-    app.include_router(essay_prompt_drafts.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")
     app.include_router(profile.router, prefix="/v1")
     app.include_router(onboarding.router, prefix="/v1")

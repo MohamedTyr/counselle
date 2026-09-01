@@ -52,7 +52,6 @@ ObjectType = Literal[
     "application",
     "task",
     "essay",
-    "essay_prompt_draft",
     "activity",
     "honor",
     "profile",
@@ -358,7 +357,6 @@ class Essay(_Model):
     id: UUID
     user_id: UUID
     application_id: UUID | None = None
-    prompt_ref: UUID | None = None
     title: str
     essay_type: EssayType
     status: EssayStatus
@@ -383,7 +381,6 @@ class EssaySummary(_Model):
     id: UUID
     user_id: UUID
     application_id: UUID | None = None
-    prompt_ref: UUID | None = None
     title: str
     essay_type: EssayType
     status: EssayStatus
@@ -407,7 +404,6 @@ class EssaySummary(_Model):
 class EssayCreate(_Model):
     title: str
     application_id: UUID | None = None
-    prompt_ref: UUID | None = None
     essay_type: EssayType = "Supplement"
     status: EssayStatus = "Not started"
     prompt: str | None = None
@@ -418,7 +414,6 @@ class EssayCreate(_Model):
 class EssayPatch(_Model):
     title: str | None = None
     application_id: UUID | None = None
-    prompt_ref: UUID | None = None
     essay_type: EssayType | None = None
     status: EssayStatus | None = None
     prompt: str | None = None
@@ -433,58 +428,6 @@ class EssayPatch(_Model):
         if value is None:
             raise ValueError("field may be omitted but cannot be null")
         return value
-
-
-PROMPT_DRAFT_TEXT_MAX_LENGTH = 2_000  # generous ceiling for a supplement prompt
-
-
-def _reject_blank_prompt(value: str) -> str:
-    stripped = value.strip()
-    if not stripped:
-        raise ValueError("prompt cannot be blank")
-    return stripped
-
-
-PromptDraftText = Annotated[
-    str,
-    AfterValidator(_reject_blank_prompt),
-    Field(max_length=PROMPT_DRAFT_TEXT_MAX_LENGTH),
-]
-
-
-class EssayPromptDraft(_Model):
-    id: UUID
-    user_id: UUID
-    application_id: UUID
-    prompt: str
-    word_limit: int | None = None
-    archived_via_application: UUID | None = None
-    converted_to_essay_id: UUID | None = None
-    created_at: datetime
-    updated_at: datetime
-    archived_at: datetime | None = None
-
-
-class EssayPromptDraftSummary(EssayPromptDraft):
-    school_name: str
-    school_city: str | None = None
-    school_state: str | None = None
-    school_website_url: str | None = None
-
-
-class EssayPromptDraftCreate(_Model):
-    application_id: UUID
-    prompt: PromptDraftText
-    word_limit: int | None = Field(default=None, gt=0)
-
-
-class EssayPromptDraftConvert(_Model):
-    """Title is caller-supplied, matching how every other essay-create path
-    (catalog "Start writing", "Add essay") already builds its own title
-    string client-side rather than having the backend guess one."""
-
-    title: str = Field(min_length=1)
-    essay_type: EssayType = "Supplement"
 
 
 class Activity(_Model):
@@ -911,28 +854,6 @@ class ReferenceProvenance(_Model):
     published_at: datetime
 
 
-class SchoolPromptGroup(_Model):
-    id: UUID
-    school_unitid: int
-    cycle_year: int
-    label: str
-    choice_min: int = Field(gt=0)
-    provenance: ReferenceProvenance
-
-
-class SchoolEssayPrompt(_Model):
-    id: UUID
-    school_unitid: int
-    cycle_year: int
-    ordinal: int = Field(gt=0)
-    prompt: str = Field(min_length=1)
-    word_limit: int | None = Field(default=None, gt=0)
-    applicability: Applicability
-    audience: dict[str, Any] = Field(default_factory=dict)
-    group_id: UUID | None = None
-    provenance: ReferenceProvenance
-
-
 class FeeRequirementDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -999,8 +920,6 @@ class SchoolReference(_Model):
     status: Literal["cycle_required", "loaded"]
     cycle_year: int | None
     populated: bool = False
-    prompt_groups: list[SchoolPromptGroup] = Field(default_factory=list)
-    prompts: list[SchoolEssayPrompt] = Field(default_factory=list)
     requirements: list[SchoolRequirement] = Field(default_factory=list)
     test_policy: CitationEnvelope | None = None
 
@@ -1009,5 +928,4 @@ class ApplicationDetail(_Model):
     application: ApplicationView
     tasks: list[Task]
     essays: list[EssaySummary]
-    prompt_drafts: list[EssayPromptDraft] = Field(default_factory=list)
     reference: SchoolReference

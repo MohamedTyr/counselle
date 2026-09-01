@@ -15,18 +15,9 @@ from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import (
     ApplicationCreate,
     ApplicationPatch,
-    EssayCreate,
-    EssayPatch,
     WorkspaceValidationError,
 )
 from app.workspace.service_applications import add_application, update_application
-from app.workspace.service_essays import (
-    archive_essay,
-    create_essay,
-    duplicate_essay,
-    restore_essay,
-    update_essay,
-)
 from app.workspace.service_reference import get_school_reference
 from config.settings import get_settings
 from counselle_db.catalog import Catalog
@@ -72,12 +63,6 @@ async def user_id(app_pool: asyncpg.Pool) -> AsyncIterator[UUID]:
             await conn.execute("DELETE FROM counselle.users WHERE id = $1", value)
             await conn.execute(
                 "DELETE FROM counselle.school_requirements WHERE source_url = $1", source_url
-            )
-            await conn.execute(
-                "DELETE FROM counselle.school_essay_prompts WHERE source_url = $1", source_url
-            )
-            await conn.execute(
-                "DELETE FROM counselle.school_prompt_groups WHERE source_url = $1", source_url
             )
 
 
@@ -186,8 +171,6 @@ async def test_empty_reference_is_loaded_not_a_query_failure(
     )
     assert reference.status == "loaded"
     assert reference.populated is False
-    assert reference.prompt_groups == []
-    assert reference.prompts == []
     assert reference.requirements == []
 
 
@@ -249,134 +232,6 @@ async def test_platform_validation_uses_and_persists_combined_application_state(
     assert common_app.platform_other is None
 
 
-async def test_prompt_links_are_school_cycle_scoped_unique_and_duplicates_unlink(
-    app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID
-) -> None:
-    result = await _application(app_pool, catalog, user_id)
-    unitid = result.application.school_unitid
-    prompt_id = uuid4()
-    other_prompt_id = uuid4()
-    async with app_pool.acquire() as conn:
-        for identifier, prompt_unitid in ((prompt_id, unitid), (other_prompt_id, unitid + 1)):
-            await conn.execute(
-                """INSERT INTO counselle.school_essay_prompts
-                   (id, school_unitid, cycle_year, ordinal, prompt, state, source, source_url,
-                    verified_at, published_at)
-                   VALUES ($1, $2, 2027, 1, 'Why us?', 'published', 'Admissions office',
-                           $4, $3, now())""",
-                identifier,
-                prompt_unitid,
-                date(2026, 7, 12),
-                f"https://example.edu/{user_id}",
-            )
-    essay = await create_essay(
-        app_pool,
-        catalog,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        data=EssayCreate(
-            title="Why us",
-            application_id=result.application.id,
-            prompt_ref=prompt_id,
-            prompt="Caller-supplied contradiction",
-            word_limit=999,
-        ),
-    )
-    assert essay.prompt == "Why us?"
-    assert essay.word_limit is None
-    essay = await update_essay(
-        app_pool,
-        catalog,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        essay_id=essay.id,
-        data=EssayPatch(prompt="Another contradiction", word_limit=1),
-    )
-    assert essay.prompt == "Why us?"
-    assert essay.word_limit is None
-    with pytest.raises(WorkspaceValidationError):
-        await create_essay(
-            app_pool,
-            catalog,
-            WorkspaceEventBus(),
-            user_id=user_id,
-            actor="student",
-            data=EssayCreate(
-                title="Duplicate", application_id=result.application.id, prompt_ref=prompt_id
-            ),
-        )
-    with pytest.raises(WorkspaceValidationError):
-        await update_essay(
-            app_pool,
-            catalog,
-            WorkspaceEventBus(),
-            user_id=user_id,
-            actor="student",
-            essay_id=essay.id,
-            data=EssayPatch(prompt_ref=other_prompt_id),
-        )
-    duplicate = await duplicate_essay(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=essay.id
-    )
-    assert duplicate.prompt_ref is None
-    unlinked = await update_essay(
-        app_pool,
-        catalog,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        essay_id=essay.id,
-        data=EssayPatch(prompt_ref=None),
-    )
-    assert unlinked.prompt_ref is None
-    assert unlinked.prompt == "Why us?"
-    assert unlinked.word_limit is None
-    reattached = await update_essay(
-        app_pool,
-        catalog,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        essay_id=essay.id,
-        data=EssayPatch(prompt_ref=prompt_id),
-    )
-    assert reattached.prompt_ref == prompt_id
-
-
-async def test_prompt_link_rejects_a_different_cycle(
-    app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID
-) -> None:
-    result = await _application(app_pool, catalog, user_id, cycle=2027)
-    prompt_id = uuid4()
-    async with app_pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO counselle.school_essay_prompts
-               (id, school_unitid, cycle_year, ordinal, prompt, state, source, source_url,
-                verified_at, published_at)
-               VALUES ($1, $2, 2028, 1, 'Next-cycle prompt', 'published',
-                       'Admissions office', $3, $4, now())""",
-            prompt_id,
-            result.application.school_unitid,
-            f"https://example.edu/{user_id}",
-            date(2026, 7, 12),
-        )
-    with pytest.raises(WorkspaceValidationError, match="cycle"):
-        await create_essay(
-            app_pool,
-            catalog,
-            WorkspaceEventBus(),
-            user_id=user_id,
-            actor="student",
-            data=EssayCreate(
-                title="Wrong cycle",
-                application_id=result.application.id,
-                prompt_ref=prompt_id,
-            ),
-        )
-
-
 async def test_checklist_patch_is_atomic_and_json_null_deletes(
     app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID
 ) -> None:
@@ -405,142 +260,3 @@ async def test_checklist_patch_is_atomic_and_json_null_deletes(
             user_id,
         )
     assert update_count == 3
-
-
-async def test_archived_prompt_link_blocks_cycle_change_and_restore_revalidates_unique_link(
-    app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID
-) -> None:
-    result = await _application(app_pool, catalog, user_id)
-    prompt_id = uuid4()
-    async with app_pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO counselle.school_essay_prompts
-               (id, school_unitid, cycle_year, ordinal, prompt, state, source, source_url,
-                verified_at, published_at)
-               VALUES ($1, $2, 2027, 1, 'Why here?', 'published', 'Admissions office',
-                       $3, $4, now())""",
-            prompt_id,
-            result.application.school_unitid,
-            f"https://example.edu/{user_id}",
-            date(2026, 7, 12),
-        )
-    first = await create_essay(
-        app_pool,
-        catalog,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        data=EssayCreate(title="First", application_id=result.application.id, prompt_ref=prompt_id),
-    )
-    await archive_essay(
-        app_pool, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=first.id
-    )
-    with pytest.raises(WorkspaceValidationError, match="cycle"):
-        await update_application(
-            app_pool,
-            catalog,
-            WorkspaceEventBus(),
-            user_id=user_id,
-            actor="student",
-            application_id=result.application.id,
-            data=ApplicationPatch(cycle_year=2028),
-        )
-    await create_essay(
-        app_pool,
-        catalog,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        data=EssayCreate(
-            title="Second", application_id=result.application.id, prompt_ref=prompt_id
-        ),
-    )
-    with pytest.raises(WorkspaceValidationError, match="already has an active essay"):
-        await restore_essay(
-            app_pool,
-            catalog,
-            WorkspaceEventBus(),
-            user_id=user_id,
-            actor="student",
-            essay_id=first.id,
-        )
-
-
-async def test_prompt_is_hidden_when_its_group_is_retired(
-    app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID
-) -> None:
-    result = await _application(app_pool, catalog, user_id)
-    group_id = uuid4()
-    source_url = f"https://example.edu/{user_id}"
-    async with app_pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO counselle.school_prompt_groups
-               (id, school_unitid, cycle_year, label, choice_min, state, source, source_url,
-                verified_at, published_at, retired_at)
-               VALUES ($1, $2, 2027, 'Choose one', 1, 'published', 'Admissions office',
-                       $3, $4, now(), now())""",
-            group_id,
-            result.application.school_unitid,
-            source_url,
-            date(2026, 7, 12),
-        )
-        await conn.execute(
-            """INSERT INTO counselle.school_essay_prompts
-               (school_unitid, cycle_year, ordinal, prompt, group_id, state, source, source_url,
-                verified_at, published_at)
-               VALUES ($1, 2027, 1, 'Choose one response', $2, 'published',
-                       'Admissions office', $3, $4, now())""",
-            result.application.school_unitid,
-            group_id,
-            source_url,
-            date(2026, 7, 12),
-        )
-    reference = await get_school_reference(
-        app_pool, catalog, unitid=result.application.school_unitid, cycle_year=2027
-    )
-    assert reference.prompts == []
-
-
-async def test_archived_essay_can_restore_against_matching_historical_prompt(
-    app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID
-) -> None:
-    result = await _application(app_pool, catalog, user_id)
-    prompt_id = uuid4()
-    async with app_pool.acquire() as conn:
-        await conn.execute(
-            """INSERT INTO counselle.school_essay_prompts
-               (id, school_unitid, cycle_year, ordinal, prompt, word_limit, state,
-                source, source_url, verified_at, published_at)
-               VALUES ($1, $2, 2027, 1, 'Historical prompt', 250, 'published',
-                       'Admissions office', $3, $4, now())""",
-            prompt_id,
-            result.application.school_unitid,
-            f"https://example.edu/{user_id}",
-            date(2026, 7, 12),
-        )
-    essay = await create_essay(
-        app_pool,
-        catalog,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        data=EssayCreate(
-            title="Historical", application_id=result.application.id, prompt_ref=prompt_id
-        ),
-    )
-    await archive_essay(
-        app_pool, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=essay.id
-    )
-    async with app_pool.acquire() as conn:
-        await conn.execute(
-            """UPDATE counselle.school_essay_prompts
-               SET state = 'retracted', retired_at = now(), updated_at = now()
-               WHERE id = $1""",
-            prompt_id,
-        )
-    restored = await restore_essay(
-        app_pool, catalog, WorkspaceEventBus(), user_id=user_id, actor="student", essay_id=essay.id
-    )
-    assert restored.prompt_ref == prompt_id
-    assert restored.prompt == "Historical prompt"
-    assert restored.word_limit == 250
