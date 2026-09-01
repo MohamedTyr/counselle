@@ -44,6 +44,7 @@ export function useReviewController(params: {
   onApprove: () => void;
   announce: (message: string) => void;
   supersededRefs: ReadonlySet<string>;
+  modalOpen: boolean;
 }): ReviewController {
   const {
     sections,
@@ -53,6 +54,7 @@ export function useReviewController(params: {
     onApprove,
     announce,
     supersededRefs,
+    modalOpen,
   } = params;
 
   const [openDomains, setOpenDomainsState] = useState<Set<string>>(
@@ -142,6 +144,17 @@ export function useReviewController(params: {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // A Reject/Approve-anyway dialog owns keyboard input while it's open —
+      // without this, ⌘Enter behind an open Reject dialog fires `onApprove`
+      // instead of the dialog's own confirm button, discarding the typed
+      // rejection reason (U-01). Neither dialog intercepts keys itself
+      // beyond Radix's own Escape/Tab, so this effect's `window` listener
+      // must stand down instead. The (non-modal) shortcuts popover gets the
+      // same treatment: it documents ⌘↵ in its own content, so leaving it
+      // out would let a user reading it trigger an approve by muscle memory.
+      // Base UI's Popover already closes itself on Escape, so guarding this
+      // handler out doesn't trap the keyboard user.
+      if (modalOpen || shortcutsOpen) return;
       if (isEditableTarget(event.target)) return;
       const isSubmit = (event.metaKey || event.ctrlKey) && event.key === "Enter";
       if (isSubmit) {

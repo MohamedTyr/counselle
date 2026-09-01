@@ -298,6 +298,10 @@ function DocumentReviewLoaded({
     announce: setLiveMessage,
     currentPage,
     flaggedFirst,
+    // U-01: a dialog owns the keyboard while it's open, so ⌘Enter behind an
+    // open Reject dialog can't fall through to `onApprove` and discard the
+    // typed rejection reason.
+    modalOpen: rejectOpen || approveAnywayOpen,
     onApprove: () => {
       if (review.flags_summary.unresolved > 0) return;
       handleApprove();

@@ -84,8 +84,9 @@ rules in §5–§9 — applies to it exactly as written, unchanged.
 
 - **Role and DSN.** The write path authenticates as `cds_library_app` over a third
   credential, `COUNSELLE_DB_PIPELINE_DSN` (`config/settings.py`'s `db_pipeline_dsn`,
-  optional — the app boots fine without it, and the CDS admin router returns a clean
-  503 until it is configured). `cds_library_app` holds `INSERT, SELECT, UPDATE` —
+  optional — the app boots fine whether this is unset or set-but-unreachable, and the
+  CDS admin router returns a clean 503 until it is configured). `cds_library_app` holds
+  `INSERT, SELECT, UPDATE` —
   **never `DELETE`** — on all 8 `cds_library` base tables (`schools`,
   `cds_school_years`, `cds_documents`, `cds_manifests`, `cds_extractions`,
   `cds_domain_packets`, `ct_index_entries`, `ct_index_state`). The missing `DELETE`
