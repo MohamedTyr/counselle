@@ -22,7 +22,12 @@ import type { CoverageFilters } from "@/api/cds-admin/types";
  *   deleteUploadRow (DELETE .../{id}) batch.detail(batchId — caller-supplied,
  *                                       the 204 response carries nothing)
  *   processBatch (POST .../process)   batch.detail(batchId), jobs.byBatch(batchId),
- *                                       coverage.all() — cells flip to "processing"
+ *                                       coverage.all() — cells flip to "processing".
+ *                                       batch.queueFailures(batchId) is written directly
+ *                                       via setQueryData with the response's `skipped`
+ *                                       list (survives the calling screen unmounting,
+ *                                       [F-03]) — never invalidated, only overwritten by
+ *                                       the next processBatch call for the same batch.
  *   patchMetrics (PATCH .../metrics)  document.detail(documentId) is written
  *                                       directly via setQueryData with the
  *                                       response (no coverage change — a
@@ -62,6 +67,12 @@ export const cdsAdminKeys = {
   batch: {
     all: () => [...cdsAdminKeys.all, "batch"] as const,
     detail: (batchId: string) => [...cdsAdminKeys.batch.all(), batchId] as const,
+    // [F-03]: the last `processBatch` response's `skipped` list, written by
+    // `useProcessBatch`'s hook-level `onSuccess` (survives the triggering
+    // component unmounting, unlike a call-level `mutate()` callback) and
+    // read back by `useBatchUpload` via its own `useQuery` on this key.
+    queueFailures: (batchId: string) =>
+      [...cdsAdminKeys.batch.all(), batchId, "queue-failures"] as const,
   },
 
   jobs: {

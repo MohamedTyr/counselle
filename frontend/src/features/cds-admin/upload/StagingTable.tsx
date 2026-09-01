@@ -65,6 +65,7 @@ export function StagingTable({
   jobsByExtractionId,
   onDelete,
   onPatch,
+  queueFailuresByFileId,
 }: {
   academicYearOptions: number[];
   className?: string;
@@ -72,6 +73,7 @@ export function StagingTable({
   jobsByExtractionId: Map<string, JobStatusRow>;
   onDelete: (entry: StagingEntry) => void;
   onPatch: (fileId: string, body: UploadPatchBody) => void;
+  queueFailuresByFileId?: Map<string, string>;
 }) {
   const isWide = useIsWide();
   const schoolColumnWidth = isWide
@@ -159,6 +161,9 @@ export function StagingTable({
             key={entry.clientId}
             onDelete={onDelete}
             onPatch={onPatch}
+            queueFailureReason={
+              entry.row ? queueFailuresByFileId?.get(entry.row.id) : undefined
+            }
           />
         ))}
       </TableBody>

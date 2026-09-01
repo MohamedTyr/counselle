@@ -307,7 +307,7 @@ class TestApproveIgnoresSupersededEdits:
         )
 
         [(_query, params)] = app_pool.conn.statements("DELETE FROM counselle.cds_pending_edits")
-        assert params == (_DOCUMENT_ID, [_REF])
+        assert params == (_DOCUMENT_ID, [_REF], [datetime(2026, 1, 2, tzinfo=UTC)])
 
 
 # ---------------------------------------------------------------------------

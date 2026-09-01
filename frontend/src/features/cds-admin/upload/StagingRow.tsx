@@ -22,12 +22,14 @@ export function StagingRow({
   job,
   onDelete,
   onPatch,
+  queueFailureReason,
 }: {
   academicYearOptions: number[];
   entry: StagingEntry;
   job: JobStatusRow | undefined;
   onDelete: (entry: StagingEntry) => void;
   onPatch: (fileId: string, body: UploadPatchBody) => void;
+  queueFailureReason?: string;
 }) {
   const row = entry.row;
   const isDuplicate = row?.status === "duplicate";
@@ -92,7 +94,7 @@ export function StagingRow({
       </TableCell>
 
       <TableCell>
-        <StagingStatusCell entry={entry} job={job} />
+        <StagingStatusCell entry={entry} job={job} queueFailureReason={queueFailureReason} />
       </TableCell>
 
       <TableCell className="text-right">

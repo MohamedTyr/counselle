@@ -7,11 +7,15 @@
   with the other. Regression for the bug where replacing it wholesale
   silently dropped every metric's title/description/unit/source_hints the
   moment an admin corrected even one value in the domain.
-- `_clear_pending_edits` must delete exactly the snapshotted `metric_refs`
-  when given, and everything for the document when omitted (`reject_document`'s
-  case) -- never conflate "nothing was snapshotted" with "delete everything",
-  or an admin's freshly-inserted edit (racing `approve_document`'s own
-  snapshot) would be silently discarded with no error or trace.
+- `_clear_pending_edits` must delete exactly the snapshotted
+  `(metric_ref, edited_at)` pairs when given, and everything for the document
+  when omitted (`reject_document`'s case) -- never conflate "nothing was
+  snapshotted" with "delete everything", or an admin's freshly-inserted edit
+  (racing `approve_document`'s own snapshot) would be silently discarded with
+  no error or trace. Pairing on `edited_at`, not just `metric_ref`, is what
+  lets a *resubmitted* edit to the same ref (which keeps the same key under
+  `save_metric_edits`' `ON CONFLICT ... DO UPDATE`) survive too, not only a
+  brand-new ref (plan A-02).
 
 No live database needed: `_human_reviewed_packet` only touches
 `domain.cds.packet_build` (pure), and `_clear_pending_edits` is exercised
@@ -177,15 +181,23 @@ class _RecordingPool:
         return _AcquireCtx(self.conn)
 
 
-class TestClearPendingEditsScoping:
-    async def test_scoped_call_deletes_only_the_snapshotted_refs(self) -> None:
-        pool = _RecordingPool()
-        await _clear_pending_edits(pool, 42, metric_refs=["identity.applicants"])
-        [(query, params)] = pool.conn.calls
-        assert "metric_ref = ANY($2::text[])" in query
-        assert params == (42, ["identity.applicants"])
+def _pending_row(edited_at: Any) -> dict[str, Any]:
+    return {"edited_at": edited_at}
 
-    async def test_omitted_metric_refs_deletes_every_row_for_the_document(self) -> None:
+
+class TestClearPendingEditsScoping:
+    async def test_scoped_call_deletes_only_the_snapshotted_ref_and_edited_at(self) -> None:
+        pool = _RecordingPool()
+        edited_at = "2026-01-01T00:00:00+00:00"
+        await _clear_pending_edits(
+            pool, 42, pending={"identity.applicants": _pending_row(edited_at)}
+        )
+        [(query, params)] = pool.conn.calls
+        assert "unnest($2::text[], $3::timestamptz[])" in query
+        assert "pe.edited_at = snap.edited_at" in query
+        assert params == (42, ["identity.applicants"], [edited_at])
+
+    async def test_omitted_pending_deletes_every_row_for_the_document(self) -> None:
         """`reject_document`'s case: the whole document is discarded, so an
         unscoped delete is correct -- there is nothing later that could ever
         apply a leftover edit."""
@@ -201,7 +213,27 @@ class TestClearPendingEditsScoping:
         the whole document's pending-edit table -- an empty snapshot means
         "nothing to clear", not "clear it all"."""
         pool = _RecordingPool()
-        await _clear_pending_edits(pool, 42, metric_refs=[])
+        await _clear_pending_edits(pool, 42, pending={})
         [(query, params)] = pool.conn.calls
-        assert "ANY($2::text[])" in query
-        assert params == (42, [])
+        assert "unnest($2::text[], $3::timestamptz[])" in query
+        assert params == (42, [], [])
+
+    async def test_a_resubmitted_edit_to_the_same_ref_survives_the_delete(self) -> None:
+        """[A-02]: a second admin re-editing the *same* metric_ref mid-approve
+        keeps the same key under `save_metric_edits`' `ON CONFLICT ... DO
+        UPDATE`, but gets a fresh `edited_at`. The delete must be scoped so
+        that fresh row -- never read or applied by this approve -- survives
+        to be picked up by the next one, exactly like a genuinely new ref
+        already does."""
+        pool = _RecordingPool()
+        stale_snapshot_time = "2026-01-01T00:00:00+00:00"
+        await _clear_pending_edits(
+            pool, 42, pending={"identity.applicants": _pending_row(stale_snapshot_time)}
+        )
+        [(query, params)] = pool.conn.calls
+        # The concurrent resubmit's row now has a newer `edited_at` than what
+        # was snapshotted -- the delete's own params only ever carry the
+        # stale snapshot value, so a real `unnest(...) ... AND pe.edited_at =
+        # snap.edited_at` join can never match that fresher row.
+        assert params[2] == [stale_snapshot_time]
+        assert "pe.edited_at = snap.edited_at" in query

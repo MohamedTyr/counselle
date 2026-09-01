@@ -1,8 +1,9 @@
-import type { UploadRow } from "@/api/cds-admin/types";
+import type { ProcessSkippedItem, UploadRow } from "@/api/cds-admin/types";
 import {
   buildReadinessSentence,
   needsInputReason,
   partitionFiles,
+  queueFailureReasons,
   readyToProcessCount,
   reconcileWithServer,
   rejectedFilesMessage,
@@ -157,6 +158,45 @@ describe("stagingReason", () => {
       makeEntry({ phase: "request-failed", requestError: "Could not reach the server.", row: null }),
     );
     expect(text).toBe("Could not reach the server.");
+  });
+
+  it("[F-03] surfaces a queue-failure reason for a row that otherwise has none", () => {
+    // A `matched` row's default reason is empty -- indistinguishable from
+    // "about to be queued" once "Process all" has actually tried and failed.
+    const { linkedDocumentId, text } = stagingReason(
+      makeEntry({ row: makeRow({ status: "matched" }) }),
+      "connection was closed in the middle",
+    );
+    expect(text).toBe("connection was closed in the middle");
+    expect(linkedDocumentId).toBeNull();
+  });
+});
+
+describe("queueFailureReasons", () => {
+  it("[F-03] keeps a reason that explains a real queuing failure", () => {
+    const skipped: ProcessSkippedItem[] = [
+      { file_id: "row-1", reason: "connection was closed in the middle" },
+    ];
+    expect(queueFailureReasons(skipped)).toEqual(
+      new Map([["row-1", "connection was closed in the middle"]]),
+    );
+  });
+
+  it('drops the "status is …" case -- already implied by the row\'s own chip', () => {
+    const skipped: ProcessSkippedItem[] = [
+      { file_id: "row-1", reason: "status is 'committed'" },
+    ];
+    expect(queueFailureReasons(skipped)).toEqual(new Map());
+  });
+
+  it("handles a mix of both kinds independently", () => {
+    const skipped: ProcessSkippedItem[] = [
+      { file_id: "row-1", reason: "status is 'duplicate'" },
+      { file_id: "row-2", reason: "school_year 9 not found" },
+    ];
+    expect(queueFailureReasons(skipped)).toEqual(
+      new Map([["row-2", "school_year 9 not found"]]),
+    );
   });
 });
 

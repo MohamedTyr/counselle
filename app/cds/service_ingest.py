@@ -317,6 +317,17 @@ async def patch_upload_row(
             raise CdsAdminValidationError(
                 "cannot edit an upload row that failed to read -- delete it and re-upload the file"
             )
+        if existing["status"] == "duplicate":
+            # `_resolve_status` reads `duplicate_of` from this row's original
+            # detection JSON and returns `"duplicate"` unconditionally when
+            # it is set -- a new school/year here would still resolve right
+            # back to `"duplicate"`, so the PATCH would echo 200 with the new
+            # values reflected while the row stays permanently unqueueable
+            # (`_READY_STATUSES` never includes `"duplicate"`). Refuse instead
+            # of returning a false success.
+            raise CdsAdminValidationError(
+                "cannot edit a duplicate upload row -- delete it and re-upload the file"
+            )
         new_school_id = school_id if school_id is not None else existing["school_id"]
         new_year = academic_year if academic_year is not None else existing["academic_year"]
         duplicate_of = (existing["detection"] or {}).get("duplicate_of")

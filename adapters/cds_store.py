@@ -523,6 +523,44 @@ async def activate_packet(
 
 
 @dataclass(frozen=True)
+class ActivePacketRef:
+    """One domain's currently-active packet identity, for comparing against a
+    pre-write snapshot (`app/cds/service_review_approve.py::_activate_untouched`,
+    plan A-01). ``created_at`` is what lets the caller tell apart the two
+    ways a snapshot can be stale: a snapshot *older* than what's live is a
+    still-pending correction waiting to be published; a snapshot the same age
+    or older than something already live is the race A-01 describes."""
+
+    extraction_id: uuid.UUID
+    created_at: datetime
+
+
+async def fetch_active_extraction_ids(
+    conn: asyncpg.Connection, *, document_id: int
+) -> dict[str, ActivePacketRef]:
+    """Every currently-active packet's identity for this document, keyed by
+    ``domain_id``. Read fresh, inside the write transaction, so a caller can
+    tell whether a domain's active packet already matches what it intends to
+    (re)activate -- or was changed by a concurrent write since an earlier
+    snapshot was taken (`app/cds/service_review_approve.py::
+    _activate_untouched`, plan A-01)."""
+    rows = await conn.fetch(
+        """
+        SELECT domain_id, extraction_id, created_at
+        FROM cds_library.cds_domain_packets
+        WHERE document_id = $1 AND is_active
+        """,
+        document_id,
+    )
+    return {
+        row["domain_id"]: ActivePacketRef(
+            extraction_id=row["extraction_id"], created_at=row["created_at"]
+        )
+        for row in rows
+    }
+
+
+@dataclass(frozen=True)
 class DocumentForExtraction:
     """Everything the engine (P4) needs to run one document through a model
     call: the actual PDF bytes plus the identity facts that go into every
@@ -692,7 +730,7 @@ async def reject_candidate_document(
         )
         if result == "UPDATE 0":
             raise CdsStoreError(f"document {document_id} is already invalidated")
-        await conn.execute(
+        result = await conn.execute(
             """
             UPDATE cds_library.cds_school_years
             SET candidate_document_id = CASE
@@ -704,6 +742,8 @@ async def reject_candidate_document(
             school_year_id,
             document_id,
         )
+        if result == "UPDATE 0":
+            raise CdsStoreError(f"school_year {school_year_id} not found")
 
 
 async def promote_candidate_document(
@@ -712,7 +752,7 @@ async def promote_candidate_document(
     """Activate a candidate document (PLAN §B6 candidate -> ACTIVE): points
     ``active_document_id`` at it and clears ``candidate_document_id`` if it
     was pointing at the same document."""
-    await conn.execute(
+    result = await conn.execute(
         """
         UPDATE cds_library.cds_school_years
         SET active_document_id = $2,
@@ -726,6 +766,8 @@ async def promote_candidate_document(
         school_year_id,
         document_id,
     )
+    if result == "UPDATE 0":
+        raise CdsStoreError(f"school_year {school_year_id} not found")
 
 
 async def retire_school_year(conn: asyncpg.Connection, *, school_year_id: int) -> None:

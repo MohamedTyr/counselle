@@ -137,11 +137,21 @@ export function useDeleteUploadRow() {
   });
 }
 
+/** `onSuccess` is hook-level (not a call-level callback passed to `mutate()`)
+ * so the `skipped` write below survives the calling component unmounting —
+ * e.g. an admin clicking "Process all" and immediately navigating away
+ * (F-03): TanStack Query drops call-level callbacks with the unsubscribed
+ * observer, but a hook-level callback and the query cache it writes into
+ * both live on the `QueryClient`, independent of any one component. */
 export function useProcessBatch() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (batchId: string) => processBatch(batchId),
     onError: (error, _batchId, _snapshot, context) => {
       handleCdsError(error, context);
+    },
+    onSuccess: (data, batchId) => {
+      queryClient.setQueryData(cdsAdminKeys.batch.queueFailures(batchId), data.skipped);
     },
     onSettled: (_data, _error, batchId, _snapshot, context) => {
       void context.client.invalidateQueries({

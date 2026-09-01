@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import {
@@ -10,8 +11,9 @@ import {
   useProcessBatch,
   useUploadBatch,
 } from "@/api/cds-admin/hooks";
+import { cdsAdminKeys } from "@/api/cds-admin/keys";
 import { isTransportError } from "@/api/http/errors";
-import type { UploadPatchBody, UploadRow } from "@/api/cds-admin/types";
+import type { ProcessSkippedItem, UploadPatchBody, UploadRow } from "@/api/cds-admin/types";
 import { buildAcademicYearOptions } from "@/features/cds-admin/upload/academic-years";
 import { createConcurrencyQueue } from "@/features/cds-admin/upload/concurrency-queue";
 import {
@@ -22,6 +24,7 @@ import {
   buildReadinessSentence,
   markEntryFailed,
   partitionFiles,
+  queueFailureReasons,
   readyToProcessCount,
   reconcileWithServer,
   rejectedFilesMessage,
@@ -88,6 +91,18 @@ export function useBatchUpload() {
   const deleteUploadRowMutation = useDeleteUploadRow();
   const processBatchMutation = useProcessBatch();
   const jobsQuery = useJobs({ batchId: batchId ?? "" });
+  // [F-03]: the last "Process all" response's `skipped` list, read back off
+  // the query cache `useProcessBatch` writes into on success (hook-level,
+  // not a call-level `mutate()` callback) -- this is what lets the reason
+  // survive the admin navigating away before the mutation settles. Never
+  // fetched (`enabled: false`); `initialData` only seeds an empty list the
+  // first time this batch has no cache entry yet.
+  const queueFailuresQuery = useQuery({
+    queryKey: cdsAdminKeys.batch.queueFailures(batchId ?? ""),
+    queryFn: () => [] as ProcessSkippedItem[],
+    enabled: false,
+    initialData: () => [] as ProcessSkippedItem[],
+  });
 
   // A 503 means the pipeline DSN isn't configured — page-scoped, overrides
   // everything else (DESIGN.md §1.9 #2). It can surface from either the
@@ -291,6 +306,7 @@ export function useBatchUpload() {
     jobsByExtractionId,
     patchRow,
     processedSentence,
+    queueFailuresByFileId: queueFailureReasons(queueFailuresQuery.data),
     readinessSentence: buildReadinessSentence(entries),
     readyCount: readyToProcessCount(entries),
     retryBatchFetch: () => void batchQuery.refetch(),
