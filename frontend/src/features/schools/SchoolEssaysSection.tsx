@@ -1,34 +1,18 @@
-import {
-  BookOpenText,
-  FilePenLine,
-  Link2,
-  Plus,
-  Sparkles,
-  Unlink,
-} from "lucide-react";
-import { useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { BookOpenText, Plus } from "lucide-react";
+import type * as React from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
-import {
-  useArchiveEssayPromptDraft,
-  useConvertEssayPromptDraft,
-  useCreateEssay,
-  useCreateEssayPromptDraft,
-  useRestoreEssayPromptDraft,
-  useUpdateEssay,
-} from "@/api/workspace/hooks";
-import type {
-  ApplicationDetail,
-  EssayPromptDraft,
-  EssaySummary,
-  SchoolEssayPrompt,
-  SchoolPromptGroup,
-} from "@/api/workspace/types";
-import { Badge } from "@/components/ui/badge";
+import { useCreateEssay } from "@/api/workspace/hooks";
+import type { ApplicationDetail, EssaySummary } from "@/api/workspace/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Empty,
   EmptyContent,
@@ -37,562 +21,353 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
-import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter";
-import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectGroup,
-  SelectItem,
-  SelectPopup,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { UndoToast } from "@/components/undo-toast";
-import { PromptDraftRow } from "@/features/essays/PromptDraftRow";
-import { Provenance } from "@/features/schools/school-workspace-fields";
-import {
-  applicabilityLabels,
-  audienceDescription,
-  cycleLabel,
-} from "@/features/schools/school-workspace-format";
-import { useUndoableDelete } from "@/hooks/useUndoableDelete";
+  EssayPromptComposer,
+  isWordLimitInvalid,
+  parseWordLimit,
+} from "@/features/essays/EssayPromptComposer";
+import { cycleLabel } from "@/features/schools/school-workspace-format";
 
-/* Extracted verbatim from SchoolWorkspace.tsx (the 800-line limit). */
+/** Rule 34: an absent prompt renders as words, never a blank word count. */
+function essayProgress(essay: EssaySummary): string {
+  if (!essay.prompt) return "No prompt";
+  return essay.word_limit
+    ? `${essay.word_count}/${essay.word_limit}`
+    : `${essay.word_count} words`;
+}
 
-function PromptRow({
-  applicationId,
-  essay,
-  group,
-  prompt,
-  unlinkedEssays,
-}: {
-  applicationId: string;
-  essay?: EssaySummary;
-  group?: SchoolPromptGroup;
-  prompt: SchoolEssayPrompt;
-  unlinkedEssays: EssaySummary[];
-}) {
-  const navigate = useNavigate();
-  const createEssay = useCreateEssay();
-  const updateEssay = useUpdateEssay();
-  const [selectedEssay, setSelectedEssay] = useState("");
-  const progress = prompt.word_limit
-    ? Math.min(essay?.word_count ?? 0, prompt.word_limit)
-    : 0;
-  async function startWriting() {
-    const created = await createEssay.mutateAsync({
-      application_id: applicationId,
-      essay_type: "Supplement",
-      prompt: prompt.prompt,
-      prompt_ref: prompt.id,
-      status: "Not started",
-      title: `Supplement ${prompt.ordinal}`,
-      word_limit: prompt.word_limit,
-    });
-    void navigate(`/app/essays/${created.id}`);
-  }
-  async function attach() {
-    if (!selectedEssay) return;
-    await updateEssay.mutateAsync({
-      id: selectedEssay,
-      patch: { application_id: applicationId, prompt_ref: prompt.id },
-    });
-    setSelectedEssay("");
-  }
+function EssayRow({ essay }: { essay: EssaySummary }) {
   return (
-    <div className="flex flex-col gap-4 py-5 first:pt-0 last:pb-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Prompt {prompt.ordinal}</Badge>
-            <Badge variant="secondary">
-              {applicabilityLabels[prompt.applicability]}
-            </Badge>
-            {group ? (
-              <span className="text-xs text-muted-foreground">
-                {group.label} · choose {group.choice_min}
-              </span>
-            ) : null}
-          </div>
-          <p className="text-sm leading-6">{prompt.prompt}</p>
-          {prompt.applicability === "conditional" ? (
-            <p className="text-sm text-warning">
-              Verify whether this prompt applies to you
-              {audienceDescription(prompt.audience)
-                ? `: ${audienceDescription(prompt.audience)}`
-                : "."}
-            </p>
-          ) : null}
-          <Provenance provenance={prompt.provenance} />
-          {group ? (
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-foreground">
-                Choice-group source
-              </span>
-              <Provenance provenance={group.provenance} />
-            </div>
-          ) : null}
-        </div>
-        {essay ? (
-          <div className="flex shrink-0 gap-2">
-            <Badge variant="secondary">{essay.status}</Badge>
-            <Button
-              onClick={() => void navigate(`/app/essays/${essay.id}`)}
-              size="sm"
-            >
-              Open
-            </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={`Detach ${essay.title} as a personal copy`}
-                  onClick={() =>
-                    updateEssay.mutate({
-                      id: essay.id,
-                      patch: { prompt_ref: null },
-                    })
-                  }
-                  size="sm"
-                  variant="outline"
-                >
-                  <Unlink data-icon="inline-start" />
-                  Detach as personal copy
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                The current prompt text stays with your essay, but catalog
-                updates and source provenance will no longer apply.
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        ) : prompt.applicability === "not_required" ? (
-          <p className="text-sm text-muted-foreground">
-            No draft action because this prompt is published as not required.
-          </p>
-        ) : (
-          <Button
-            disabled={createEssay.isPending}
-            onClick={() => void startWriting()}
-            size="sm"
-          >
-            <FilePenLine data-icon="inline-start" />
-            Start writing
-          </Button>
-        )}
+    <div className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{essay.title}</p>
+        <p className="text-xs text-muted-foreground">
+          {essay.status} · {essayProgress(essay)}
+        </p>
       </div>
-      {essay ? (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{essay.title}</span>
-            <span className="tabular-nums">
-              {essay.word_count}
-              {prompt.word_limit ? ` / ${prompt.word_limit}` : " words"}
-            </span>
-          </div>
-          {prompt.word_limit ? (
-            <Meter
-              aria-label={`${essay.title} word progress: ${essay.word_count} of ${prompt.word_limit}`}
-              max={prompt.word_limit}
-              value={progress}
-            >
-              <MeterTrack className="h-1.5 rounded-full">
-                <MeterIndicator />
-              </MeterTrack>
-            </Meter>
-          ) : null}
-        </div>
-      ) : prompt.applicability !== "not_required" &&
-        unlinkedEssays.length > 0 ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Select
-            onValueChange={(value) => value && setSelectedEssay(value)}
-            value={selectedEssay}
-          >
-            <SelectTrigger
-              aria-label={`Use existing essay for prompt ${prompt.ordinal}`}
-              size="sm"
-            >
-              <SelectValue placeholder="Use existing essay" />
-            </SelectTrigger>
-            <SelectPopup>
-              <SelectGroup>
-                {unlinkedEssays.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.title}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectPopup>
-          </Select>
-          <Button
-            disabled={!selectedEssay || updateEssay.isPending}
-            onClick={() => void attach()}
-            size="sm"
-            variant="outline"
-          >
-            <Link2 data-icon="inline-start" />
-            Attach
-          </Button>
-        </div>
-      ) : null}
+      <Button
+        render={<Link to={`/app/essays/${essay.id}`} />}
+        size="sm"
+        variant="ghost"
+      >
+        Open
+      </Button>
     </div>
   );
 }
 
-function PromptDraftsCard({ detail }: { detail: ApplicationDetail }) {
-  const navigate = useNavigate();
-  const reduceMotion = useReducedMotion();
-  const [promptText, setPromptText] = useState("");
-  const [wordLimitText, setWordLimitText] = useState("");
-  const createDraft = useCreateEssayPromptDraft();
-  const convertDraft = useConvertEssayPromptDraft();
-  const archiveDraft = useArchiveEssayPromptDraft();
-  const restoreDraft = useRestoreEssayPromptDraft();
-  const draftUndo = useUndoableDelete<EssayPromptDraft>({
-    archiveMutation: archiveDraft,
-    getLabel: () => "Prompt",
-    restoreMutation: restoreDraft,
-  });
-
-  async function submit() {
-    const trimmed = promptText.trim();
-    if (!trimmed) return;
-    const wordLimit = wordLimitText.trim()
-      ? Number.parseInt(wordLimitText, 10)
-      : null;
-    await createDraft.mutateAsync({
-      application_id: detail.application.id,
-      prompt: trimmed,
-      word_limit: wordLimit && wordLimit > 0 ? wordLimit : null,
-    });
-    setPromptText("");
-    setWordLimitText("");
-  }
-
-  async function startWriting(draft: EssayPromptDraft) {
-    const created = await convertDraft.mutateAsync({
-      id: draft.id,
-      title: `${detail.application.school_name} supplement`,
+/*
+ * The composer draws no border and no fill (rule 9, §17.2 — a bordered
+ * sub-panel here would be a card inside a card). It is just another row of
+ * the divide-y list its caller renders it inside, separated from the essays
+ * below it by the same --hairline rule. The row's own vertical rhythm
+ * (`py-5 first:pt-0 last:pb-0`) lives on the `CollapsibleContent` wrapper in
+ * the caller, not here — that's the element that is actually a sibling of
+ * the essay rows in the divide-y list, so it's the one whose `first`/`last`
+ * pseudo-classes need to see the real list position.
+ */
+/**
+ * The mutation + navigate side effect, lifted out of `AddEssayRow` so that
+ * component stays under the house function-length limit. Errors are
+ * swallowed deliberately: the mutation hook owns optimistic rollback and
+ * the error toast, so there is nothing left for the caller to do.
+ */
+async function createSupplementEssay({
+  applicationId,
+  createEssay,
+  navigate,
+  prompt,
+  schoolName,
+  wordLimitText,
+}: {
+  applicationId: string;
+  createEssay: ReturnType<typeof useCreateEssay>;
+  navigate: ReturnType<typeof useNavigate>;
+  prompt: string;
+  schoolName: string;
+  wordLimitText: string;
+}): Promise<void> {
+  try {
+    const created = await createEssay.mutateAsync({
+      application_id: applicationId,
+      essay_type: "Supplement",
+      prompt: prompt.trim() || null,
+      status: "Not started",
+      title: `${schoolName} supplement`,
+      word_limit: parseWordLimit(wordLimitText),
     });
     void navigate(`/app/essays/${created.id}`);
+  } catch {
+    // Mutation hooks own optimistic rollback and error toast behavior.
   }
+}
 
+function AddEssayActions({
+  isSubmitting,
+  onCancel,
+  onSubmit,
+}: {
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Prompts you're tracking</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <InputGroup className="flex-1">
-            <InputGroupInput
-              aria-label="Add a prompt you're tracking"
-              onChange={(event) => setPromptText(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void submit();
-              }}
-              placeholder="Add a prompt you know about — you can turn it into a full essay later"
-              value={promptText}
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                disabled={!promptText.trim() || createDraft.isPending}
-                onClick={() => void submit()}
-              >
-                Add
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
-          <Input
-            aria-label="Word limit (optional)"
-            className="sm:w-32"
-            min={1}
-            onChange={(event) => setWordLimitText(event.currentTarget.value)}
-            placeholder="Word limit"
-            type="number"
-            value={wordLimitText}
-          />
-        </div>
-        {detail.prompt_drafts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No tracked prompts yet. Add one above, or start writing directly
-            from a catalog prompt above.
-          </p>
-        ) : (
-          <div className="flex flex-col divide-y">
-            {detail.prompt_drafts.map((draft) => (
-              <PromptDraftRow
-                draft={{
-                  ...draft,
-                  school_name: detail.application.school_name,
-                  school_city: detail.application.school_city,
-                  school_state: detail.application.school_state,
-                  school_website_url: detail.application.website_url,
-                }}
-                isConverting={convertDraft.isPending}
-                key={draft.id}
-                onConvert={() => void startWriting(draft)}
-                onDelete={() => draftUndo.archive(draft)}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-      <UndoToast
-        onDismiss={draftUndo.clearPending}
-        onUndo={draftUndo.undo}
-        pending={draftUndo.pending}
-        reduceMotion={!!reduceMotion}
-      />
-    </Card>
+    <div className="flex justify-end gap-2">
+      <Button onClick={onCancel} size="sm" variant="ghost">
+        Cancel
+      </Button>
+      <Button disabled={isSubmitting} onClick={onSubmit} size="sm">
+        Add essay
+      </Button>
+    </div>
   );
 }
 
-export function SchoolEssaysSection({ detail }: { detail: ApplicationDetail }) {
+interface AddEssayRowProps {
+  applicationId: string;
+  onCancel: () => void;
+  schoolName: string;
+}
+
+/**
+ * `submit` blocks rather than disabling [Add essay] on an invalid word
+ * limit: a disabled button would hide *why* it won't respond, while
+ * `EssayPromptComposer` already shows that inline as soon as it's typed.
+ */
+function AddEssayRow({
+  applicationId,
+  onCancel,
+  schoolName,
+}: AddEssayRowProps) {
   const navigate = useNavigate();
   const createEssay = useCreateEssay();
-  const updateEssay = useUpdateEssay();
-  const prompts =
-    detail.reference.status === "loaded" ? detail.reference.prompts : [];
-  const promptGroups = new Map(
-    (detail.reference.status === "loaded"
-      ? detail.reference.prompt_groups
-      : []
-    ).map((group) => [group.id, group]),
+  const [prompt, setPrompt] = useState("");
+  const [wordLimitText, setWordLimitText] = useState("");
+  const promptFieldRef = useRef<HTMLTextAreaElement>(null);
+  const wordLimitFieldRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    promptFieldRef.current?.focus();
+  }, []);
+
+  function submit() {
+    if (isWordLimitInvalid(wordLimitText)) {
+      wordLimitFieldRef.current?.focus();
+      return;
+    }
+    void createSupplementEssay({
+      applicationId,
+      createEssay,
+      navigate,
+      prompt,
+      schoolName,
+      wordLimitText,
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <EssayPromptComposer
+        onPromptChange={setPrompt}
+        onWordLimitChange={setWordLimitText}
+        prompt={prompt}
+        promptFieldRef={promptFieldRef}
+        wordLimit={wordLimitText}
+        wordLimitFieldRef={wordLimitFieldRef}
+      />
+      <AddEssayActions
+        isSubmitting={createEssay.isPending}
+        onCancel={onCancel}
+        onSubmit={submit}
+      />
+    </div>
   );
+}
+
+/**
+ * The card's zero-essay state. Rendered as a sibling of `CollapsibleContent`
+ * inside the same `divide-y` list rather than swapped in for it — see the
+ * comment above `SchoolEssaysSection`'s return for why that placement is
+ * load-bearing for the collapse animation.
+ */
+function EssaysEmptyState({
+  onAddEssay,
+  onCopyRequest,
+}: {
+  onAddEssay: () => void;
+  onCopyRequest: () => void;
+}) {
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <BookOpenText />
+        </EmptyMedia>
+        <EmptyTitle>No essays yet</EmptyTitle>
+        <EmptyDescription>
+          Add a supplement for this school, with or without the prompt.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="flex flex-wrap justify-center gap-2">
+        <Button onClick={onAddEssay}>
+          <Plus data-icon="inline-start" />
+          Add essay
+        </Button>
+        <Button onClick={onCopyRequest} variant="outline">
+          Copy research request
+        </Button>
+      </EmptyContent>
+    </Empty>
+  );
+}
+
+interface EssaysListProps {
+  applicationId: string;
+  composerOpen: boolean;
+  onAddEssay: () => void;
+  onCancelComposer: () => void;
+  onComposerKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+  onCopyRequest: () => void;
+  schoolEssays: EssaySummary[];
+  schoolName: string;
+}
+
+/**
+ * The `divide-y` list — composer row plus essays or the empty state. Kept
+ * as its own component so `SchoolEssaysSection` stays under the house
+ * function-length limit; extracted whole (not split further) because the
+ * container, `CollapsibleContent`, and the empty/non-empty split all have
+ * to stay mounted together for the collapse animation to land (see the
+ * comment on the outer `div` below).
+ */
+function EssaysList({
+  applicationId,
+  composerOpen,
+  onAddEssay,
+  onCancelComposer,
+  onComposerKeyDown,
+  onCopyRequest,
+  schoolEssays,
+  schoolName,
+}: EssaysListProps) {
+  // Mirrors whether CollapsibleContent is actually present in the DOM
+  // (mounted while open, and for the duration of its exit animation while
+  // closing), not just `composerOpen`. Radix's Presence keeps the node
+  // mounted until the exit animation's `animationend` fires, so gating the
+  // empty state on `composerOpen` alone shows both the closing composer row
+  // and `EssaysEmptyState` at once for that ~200ms. This ref callback tracks
+  // the same mount signal Presence itself uses, so it self-corrects for
+  // `prefers-reduced-motion` and jsdom: both skip the animation and unmount
+  // synchronously, so `composerMounted` flips false in the same tick and the
+  // empty state appears immediately, exactly as before this fix.
+  const [composerMounted, setComposerMounted] = useState(false);
+  return (
+    <div className="divide-y divide-[var(--hairline)]">
+      {/*
+       * This container and CollapsibleContent inside it stay mounted across
+       * the empty/non-empty split below. Radix's Presence needs the closing
+       * element to survive the render where `composerOpen` flips false so
+       * it can play the collapse animation instead of the tree just
+       * swapping it for `EssaysEmptyState` in the same tick.
+       *
+       * Real height transition (DESIGN §12.4), not a fade: Radix exposes
+       * the measured content height as
+       * `--radix-collapsible-content-height`, and tw-animate-css's
+       * `animate-collapsible-*` utilities (already imported app-wide, no
+       * new @keyframes) animate `height` between 0 and that value.
+       * `motion-reduce:animate-none` drops straight to the end state for
+       * reduced-motion users.
+       */}
+      <CollapsibleContent
+        className="overflow-hidden py-5 first:pt-0 last:pb-0 data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none"
+        onKeyDown={onComposerKeyDown}
+        ref={(node) => setComposerMounted(node !== null)}
+      >
+        <AddEssayRow
+          applicationId={applicationId}
+          onCancel={onCancelComposer}
+          schoolName={schoolName}
+        />
+      </CollapsibleContent>
+      {schoolEssays.length === 0 && !composerOpen && !composerMounted ? (
+        <EssaysEmptyState onAddEssay={onAddEssay} onCopyRequest={onCopyRequest} />
+      ) : (
+        schoolEssays.map((essay) => <EssayRow essay={essay} key={essay.id} />)
+      )}
+    </div>
+  );
+}
+
+async function copySuggestedRequest(suggestedRequest: string) {
+  try {
+    await navigator.clipboard.writeText(suggestedRequest);
+    toast.success("Research request copied");
+  } catch {
+    toast.error("Could not copy the research request");
+  }
+}
+
+/**
+ * Escape has no built-in Collapsible handling (that's a Dialog/Popover
+ * behavior) — wired up here so a student who opens the composer by
+ * accident isn't stuck tabbing forward to Cancel. Bubble-phase, so
+ * anything nested that wants to handle Escape itself gets first refusal.
+ */
+function handleComposerEscape(
+  event: React.KeyboardEvent<HTMLDivElement>,
+  onClose: () => void,
+) {
+  if (event.key !== "Escape") return;
+  event.stopPropagation();
+  onClose();
+}
+
+export function SchoolEssaysSection({ detail }: { detail: ApplicationDetail }) {
+  const [composerOpen, setComposerOpen] = useState(false);
+  const addEssayButtonRef = useRef<HTMLButtonElement>(null);
   const schoolEssays = detail.essays.filter(
     (essay) => essay.essay_type !== "Personal statement",
   );
-  const catalogEssays = schoolEssays.filter((essay) => essay.prompt_ref);
-  const addedEssays = schoolEssays.filter((essay) => !essay.prompt_ref);
-  const publishedPromptIds = new Set(prompts.map((prompt) => prompt.id));
-  const unavailablePromptEssays = catalogEssays.filter(
-    (essay) => essay.prompt_ref && !publishedPromptIds.has(essay.prompt_ref),
-  );
   const suggestedRequest = `Find the official ${cycleLabel(detail.application.cycle_year)} supplemental essay prompts for ${detail.application.school_name}. Cite each source and clearly mark anything uncertain.`;
-  async function copySuggestedRequest() {
-    try {
-      await navigator.clipboard.writeText(suggestedRequest);
-      toast.success("Research request copied");
-    } catch {
-      toast.error("Could not copy the research request");
-    }
+
+  function closeComposer() {
+    setComposerOpen(false);
+    addEssayButtonRef.current?.focus();
   }
-  async function addEssay() {
-    const created = await createEssay.mutateAsync({
-      application_id: detail.application.id,
-      essay_type: "Supplement",
-      status: "Not started",
-      title: `${detail.application.school_name} supplement`,
-    });
-    void navigate(`/app/essays/${created.id}`);
-  }
+
   return (
     <section className="flex scroll-mt-20 flex-col gap-5" id="essays">
-      <div>
-        <h2 className="font-heading text-xl font-medium">Essays</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Catalog prompts stay separate from drafts you add yourself.
-        </p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>School prompts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!detail.application.cycle_year ||
-          detail.reference.status === "cycle_required" ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <BookOpenText />
-                </EmptyMedia>
-                <EmptyTitle>Confirm the application cycle first</EmptyTitle>
-                <EmptyDescription>
-                  Catalog facts are never loaded against an unknown cycle.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : prompts.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <BookOpenText />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {detail.reference.populated
-                    ? "No published essay prompts for this cycle"
-                    : `No catalog data for the ${cycleLabel(detail.application.cycle_year)} application cycle`}
-                </EmptyTitle>
-                <EmptyDescription>
-                  {detail.reference.populated
-                    ? `The catalog contains other ${detail.application.school_name} facts, but no published essay prompts.`
-                    : `We do not have any published ${detail.application.school_name} catalog facts for this cycle.`}{" "}
-                  Nothing is inferred or fabricated.
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent className="flex flex-wrap justify-center gap-2">
-                <Button onClick={() => void addEssay()}>
-                  <Plus data-icon="inline-start" />
-                  Add an essay
-                </Button>
-                <Button
-                  onClick={() => void copySuggestedRequest()}
-                  variant="outline"
-                >
-                  Copy research request
-                </Button>
-                <Button render={<Link to="/app/ai" />} variant="outline">
-                  <Sparkles data-icon="inline-start" />
-                  Open Counselle
-                </Button>
-              </EmptyContent>
-            </Empty>
-          ) : (
-            prompts.map((prompt, index) => (
-              <div key={prompt.id}>
-                {index > 0 ? <Separator /> : null}
-                <PromptRow
-                  applicationId={detail.application.id}
-                  essay={catalogEssays.find(
-                    (essay) => essay.prompt_ref === prompt.id,
-                  )}
-                  group={
-                    prompt.group_id
-                      ? promptGroups.get(prompt.group_id)
-                      : undefined
-                  }
-                  prompt={prompt}
-                  unlinkedEssays={addedEssays}
-                />
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-      <PromptDraftsCard detail={detail} />
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle>Added by you</CardTitle>
-            <Button
-              disabled={createEssay.isPending}
-              onClick={() => void addEssay()}
-              size="sm"
-              variant="outline"
-            >
-              <Plus data-icon="inline-start" />
-              Add essay
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {addedEssays.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No unlinked school essays yet.
-            </p>
-          ) : (
-            <div className="flex flex-col divide-y">
-              {addedEssays.map((essay) => (
-                <div
-                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                  key={essay.id}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {essay.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {essay.word_count} words · {essay.status}
-                    </p>
-                  </div>
-                  <Button
-                    render={<Link to={`/app/essays/${essay.id}`} />}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    Open
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      {unavailablePromptEssays.length > 0 ? (
+      <Collapsible onOpenChange={setComposerOpen} open={composerOpen}>
         <Card>
           <CardHeader>
-            <CardTitle>Historical or unavailable prompts</CardTitle>
+            <CardTitle render={<h2 />}>Essays</CardTitle>
+            <CardAction>
+              <Button
+                render={<CollapsibleTrigger />}
+                ref={addEssayButtonRef}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Plus data-icon="inline-start" />
+                Add essay
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent>
-            <p className="mb-3 text-sm text-muted-foreground">
-              These drafts remain linked to prompt records that are no longer in
-              the published catalog. Your writing is preserved.
-            </p>
-            <div className="flex flex-col divide-y">
-              {unavailablePromptEssays.map((essay) => (
-                <div
-                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                  key={essay.id}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {essay.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {essay.status} · Prompt unavailable
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      render={<Link to={`/app/essays/${essay.id}`} />}
-                      size="sm"
-                      variant="outline"
-                    >
-                      Open
-                    </Button>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          aria-label={`Detach ${essay.title} as a personal copy`}
-                          onClick={() =>
-                            updateEssay.mutate({
-                              id: essay.id,
-                              patch: { prompt_ref: null },
-                            })
-                          }
-                          size="sm"
-                          variant="ghost"
-                        >
-                          <Unlink data-icon="inline-start" />
-                          Detach as personal copy
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        The current prompt text stays with your essay, but
-                        catalog updates and source provenance will no longer
-                        apply.
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <EssaysList
+              applicationId={detail.application.id}
+              composerOpen={composerOpen}
+              onAddEssay={() => setComposerOpen(true)}
+              onCancelComposer={closeComposer}
+              onComposerKeyDown={(event) => handleComposerEscape(event, closeComposer)}
+              onCopyRequest={() => void copySuggestedRequest(suggestedRequest)}
+              schoolEssays={schoolEssays}
+              schoolName={detail.application.school_name}
+            />
           </CardContent>
         </Card>
-      ) : null}
+      </Collapsible>
     </section>
   );
 }

@@ -1,11 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type {
-  ApplicationDetail,
-  SchoolEssayPrompt,
-  SchoolRequirement,
-} from "@/api/workspace/types";
+import type { ApplicationDetail, SchoolRequirement } from "@/api/workspace/types";
 
 import {
   createWorkspaceFetchPreset,
@@ -13,7 +9,6 @@ import {
   jsonResponse,
   renderApp,
   workspaceApplicationFixture,
-  workspaceEssayFixture,
   workspaceReferenceFixture,
 } from "@/test/render-app";
 
@@ -23,22 +18,6 @@ const provenance = {
   source_url: "https://example.edu/admissions",
   verified_at: "2026-07-12",
 };
-
-function prompt(overrides: Partial<SchoolEssayPrompt> = {}): SchoolEssayPrompt {
-  return {
-    applicability: "required",
-    audience: {},
-    cycle_year: 2027,
-    group_id: null,
-    id: "60000000-0000-4000-8000-000000000001",
-    ordinal: 1,
-    prompt: "Why this school?",
-    provenance,
-    school_unitid: workspaceApplicationFixture.school_unitid,
-    word_limit: 250,
-    ...overrides,
-  };
-}
 
 function requirement(
   overrides: Partial<SchoolRequirement> = {},
@@ -74,7 +53,7 @@ function renderWorkspace(detail: ApplicationDetail) {
 }
 
 describe("SchoolWorkspace honesty states", () => {
-  it("renders a loaded empty catalog as unavailable data without inventing facts", async () => {
+  it("renders common items to verify when there is no published requirements catalog", async () => {
     renderApp(
       `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
       {
@@ -98,14 +77,8 @@ describe("SchoolWorkspace honesty states", () => {
     );
 
     expect(
-      await screen.findByText(
-        "No catalog data for the 2026-27 application cycle",
-      ),
+      await screen.findByText("Common items to verify"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Nothing is inferred or fabricated\./),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Common items to verify")).toBeInTheDocument();
     expect(
       screen.queryByText("Published school requirements"),
     ).not.toBeInTheDocument();
@@ -142,30 +115,7 @@ describe("SchoolWorkspace honesty states", () => {
     expect(screen.queryByText(/No catalog data for/)).not.toBeInTheDocument();
   });
 
-  it("requires a cycle and suppresses supplied reference prompts when it is unknown", async () => {
-    renderWorkspace({
-      application: { ...workspaceApplicationFixture, cycle_year: null },
-      essays: [],
-      prompt_drafts: [],
-      reference: {
-        ...workspaceReferenceFixture,
-        cycle_year: null,
-        prompts: [prompt()],
-        status: "cycle_required",
-      },
-      tasks: [],
-    });
-
-    expect(
-      await screen.findByText("Confirm the application cycle first"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Why this school?")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Start writing" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("suppresses draft and tracking actions for published not-required items", async () => {
+  it("suppresses tracking actions for published not-required items", async () => {
     const user = userEvent.setup();
     renderWorkspace({
       application: workspaceApplicationFixture,
@@ -174,21 +124,12 @@ describe("SchoolWorkspace honesty states", () => {
       reference: {
         ...workspaceReferenceFixture,
         populated: true,
-        prompts: [prompt({ applicability: "not_required" })],
         requirements: [requirement({ applicability: "not_required" })],
       },
       tasks: [],
     });
 
-    expect(
-      await screen.findByText(
-        "No draft action because this prompt is published as not required.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Start writing" }),
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByText("Application fee"));
+    await user.click(await screen.findByText("Application fee"));
     expect(
       screen.getByText("No tracking needed for a cataloged not-required item."),
     ).toBeInTheDocument();
@@ -196,28 +137,6 @@ describe("SchoolWorkspace honesty states", () => {
       screen.queryByLabelText("Tracking status for Application fee"),
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Add task for Fee")).not.toBeInTheDocument();
-  });
-
-  it("keeps a linked essay visible when its prompt leaves the published catalog", async () => {
-    renderWorkspace({
-      application: workspaceApplicationFixture,
-      essays: [
-        {
-          ...workspaceEssayFixture,
-          prompt_ref: "60000000-0000-4000-8000-000000000099",
-          title: "Preserved historical draft",
-        },
-      ],
-      prompt_drafts: [],
-      reference: workspaceReferenceFixture,
-      tasks: [],
-    });
-
-    expect(
-      await screen.findByText("Historical or unavailable prompts"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Preserved historical draft")).toBeInTheDocument();
-    expect(screen.getByText(/Prompt unavailable/)).toBeInTheDocument();
   });
 
   it("archives from the workspace and offers an undo restore", async () => {
@@ -242,7 +161,7 @@ describe("SchoolWorkspace honesty states", () => {
     ).toBeInTheDocument();
   });
 
-  it("reloads the cycle-scoped reference after changing cycle year", async () => {
+  it("reloads the application after changing cycle year", async () => {
     const fetchHandler = createWorkspaceFetchPreset();
     renderApp(
       `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
@@ -251,19 +170,11 @@ describe("SchoolWorkspace honesty states", () => {
       },
     );
 
-    expect(
-      await screen.findByText(
-        "No catalog data for the 2026-27 application cycle",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("2026-27")).toBeInTheDocument();
     const cycleInput = screen.getByLabelText("Cycle year");
     fireEvent.change(cycleInput, { target: { value: "2028" } });
     fireEvent.blur(cycleInput);
 
-    expect(
-      await screen.findByText(
-        "No catalog data for the 2027-28 application cycle",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("2027-28")).toBeInTheDocument();
   });
 });
