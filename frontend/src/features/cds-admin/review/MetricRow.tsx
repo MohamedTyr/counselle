@@ -85,6 +85,18 @@ export function MetricRow({
   // screen.
   const isSuperseded =
     metric.pending_edit === null && controller.supersededRefs.has(metric.ref);
+  // The chip already resyncs the viewer on click — this only makes that
+  // affordance legible. Scoped to the focused row, not every row with a
+  // stale-looking page: `n`/`p` moves the viewer, `j`/`k` deliberately
+  // doesn't (§5.9), so almost every row's evidence page differs from
+  // whatever the viewer happens to be showing at any given moment — flagging
+  // all of them would be constant noise, not a hint. The one row worth
+  // telling is the one the admin is actually on.
+  const isFocused = controller.focusedRef === metric.ref;
+  const pageMismatch =
+    isFocused &&
+    displayEvidence?.page_number != null &&
+    displayEvidence.page_number !== controller.currentPage;
 
   function submitEdit(
     edit: { value: unknown; raw_value: string | null; evidence: MetricEditIn["evidence"] },
@@ -178,7 +190,15 @@ export function MetricRow({
           edge lands at the same x on every row regardless of whether this
           one has a page chip (§5.6, "compared numbers want tabular
           numerics"). */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_5rem] items-center gap-3 py-0.5 text-sm">
+      {/* Label and value both shrink (`minmax(0, …)`), weighted 2:1 toward
+          the label: at ≥1280 this changes nothing visible (both tracks have
+          more room than either needs, so the boundary between them just
+          moves through blank space), but under real squeeze — the 1024
+          bucket's narrower data pane (§1.10) — the value truncates before
+          the label does. The label is the identifier; the value is usually
+          a short number or enum and is the one that can afford to give up
+          space first. */}
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_5rem] items-center gap-3 py-0.5 text-sm">
         <Tooltip>
           <TooltipTrigger className="flex min-w-0 items-center gap-1.5 text-left">
             {unresolvedSeverity && (
@@ -214,13 +234,14 @@ export function MetricRow({
           // keeps it out of the Tab order while still being focusable.
           <span
             className={cn(
-              "px-1 text-right outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              "min-w-0 truncate px-1 text-right outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               isUnavailableValue(metric) && "text-muted-foreground",
               !isUnavailableValue(metric) && "font-medium tabular-nums",
             )}
             onFocus={() => controller.reportFocus(metric.ref)}
             ref={(el) => controller.registerMetricRef(metric.ref, el)}
             tabIndex={-1}
+            title={draft.value}
           >
             {draft.value}
           </span>
@@ -228,7 +249,7 @@ export function MetricRow({
           <button
             aria-label={`Edit ${metric.title}, currently ${draft.value}`}
             className={cn(
-              "-mx-1 rounded-sm px-1 text-right outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              "-mx-1 min-w-0 truncate rounded-sm px-1 text-right outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               isUnavailableValue(metric) && "text-muted-foreground",
               !isUnavailableValue(metric) && "font-medium tabular-nums",
               patchMetrics.isPending && "opacity-64",
@@ -236,6 +257,7 @@ export function MetricRow({
             onClick={() => controller.setEditingRef(metric.ref)}
             onFocus={() => controller.reportFocus(metric.ref)}
             ref={(el) => controller.registerMetricRef(metric.ref, el)}
+            title={draft.value}
             type="button"
           >
             {draft.value}
@@ -244,7 +266,14 @@ export function MetricRow({
 
         {displayEvidence?.page_number != null ? (
           <Button
-            aria-label={`Jump to page ${displayEvidence.page_number}`}
+            aria-label={
+              pageMismatch
+                ? `Jump to page ${displayEvidence.page_number} — viewer is showing page ${controller.currentPage}`
+                : `Jump to page ${displayEvidence.page_number}`
+            }
+            className={cn(
+              pageMismatch && "underline decoration-dotted underline-offset-2",
+            )}
             onClick={() => controller.jumpEvidence(displayEvidence?.page_number)}
             size="xs"
             variant="ghost"

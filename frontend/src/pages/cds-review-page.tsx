@@ -317,7 +317,15 @@ function DocumentReviewLoaded({
           onRerun={handleRerun}
           rerunPending={rerunExtraction.isPending}
         />
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {/* §1.10's degraded bucket (1024–1279, `lg:` without `xl:`) keeps the
+            spec's 50/50 split at ≥1280 (`xl:`) but shifts to 60/40 in favour
+            of the data pane below it: at 1024 the PDF is already too narrow
+            to read at 50/50 (~310px), so a further-narrowed 40% costs it
+            nothing it wasn't already missing, while the wider data pane is
+            what actually fixes MetricRow's label truncation. Justified
+            deviation from the spec's literal 1fr/1fr grid — noted here per
+            §5.3's precedent for this screen. */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <PdfPageViewer
             className="min-h-0 border-r"
             documentId={documentId}

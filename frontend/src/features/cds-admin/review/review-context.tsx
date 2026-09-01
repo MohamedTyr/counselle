@@ -13,9 +13,23 @@ export interface ReviewController {
   registerMetricRef: (ref: string, el: HTMLElement | null) => void;
   reportFocus: (ref: string) => void;
   focusMetric: (ref: string) => void;
+  /** The ref most recently reported by `reportFocus` — i.e. the metric whose
+   * value element currently has DOM focus, however it got there (`n`/`p`,
+   * `j`/`k`, or a plain Tab). Exposed so a row can tell whether *it* is the
+   * one the admin is looking at, without a second focus-tracking mechanism —
+   * `MetricRow` uses it to decide whether its own evidence chip should flag
+   * a page mismatch against the viewer (see `currentPage` below). */
+  focusedRef: string | null;
   jumpEvidence: (page: number | null | undefined) => void;
   goToNextFlag: () => void;
   goToPrevFlag: () => void;
+  /** The PDF viewer's current page, mirrored down from `cds-review-page.tsx`
+   * (already threaded through `useReviewController` for the `[`/`]`
+   * shortcuts) — not new state, just surfaced here too so `MetricRow` can
+   * compare it against a row's own evidence page (§5.7's jump only moves the
+   * viewer on `n`/`p`, never on `j`/`k`, so the two can legitimately
+   * disagree; the focused row's chip should say so). */
+  currentPage: number;
   /** How many metrics `n`/`p` can actually walk — every flagged metric with
    * no pending edit, warnings included. Deliberately *not*
    * `flags_summary.unresolved`, which counts only `error`-severity flags
