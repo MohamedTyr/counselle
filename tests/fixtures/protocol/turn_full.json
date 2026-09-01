@@ -213,7 +213,7 @@
                 "citation": {
                   "v": 2,
                   "source": "web",
-                  "tier": "official",
+                  "tier": "community",
                   "vintage": "Retrieved Jun 10, 2026 (live web)",
                   "url": "https://example.com/1",
                   "document_sha256": null,
@@ -303,7 +303,7 @@
             "citation": {
               "v": 2,
               "source": "web",
-              "tier": "official",
+              "tier": "community",
               "vintage": "Retrieved Jun 10, 2026 (live web)",
               "url": "https://example.com/1",
               "document_sha256": null,
