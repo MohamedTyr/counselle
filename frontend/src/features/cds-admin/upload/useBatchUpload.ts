@@ -317,5 +317,3 @@ export function useBatchUpload() {
     triggerProcess,
   };
 }
-
-export type UseBatchUploadResult = ReturnType<typeof useBatchUpload>;

@@ -245,7 +245,7 @@ describe("CdsReviewPage — the approve-anyway dialog never misdescribes what it
     // a confirm button naming the real count -- never the old edit-conflict
     // title/body/button, and never a bare flag-less "Approve anyway".
     expect(
-      await screen.findByRole("heading", { name: "Approve with 1 blocking flags?" }),
+      await screen.findByRole("heading", { name: "Approve with 1 blocking flag?" }),
     ).toBeInTheDocument();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(YEAR_FLAG_MESSAGE)).toBeInTheDocument();
@@ -254,7 +254,7 @@ describe("CdsReviewPage — the approve-anyway dialog never misdescribes what it
       within(dialog).queryByText("Approve despite this edit's validation failure?"),
     ).not.toBeInTheDocument();
     expect(
-      within(dialog).getByRole("button", { name: "Approve with 1 blocking flags" }),
+      within(dialog).getByRole("button", { name: "Approve with 1 blocking flag" }),
     ).toBeInTheDocument();
   });
 });

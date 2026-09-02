@@ -322,11 +322,3 @@ export function readyToProcessCount(entries: StagingEntry[]): number {
       (entry.row.status === "matched" || entry.row.status === "replaces_existing"),
   ).length;
 }
-
-export function committedFileIds(entries: StagingEntry[]): Set<string> {
-  return new Set(
-    entries
-      .filter((entry) => entry.row?.status === "committed")
-      .map((entry) => entry.row!.id),
-  );
-}

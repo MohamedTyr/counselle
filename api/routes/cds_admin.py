@@ -52,6 +52,7 @@ _PAGE_IMAGE_DEFAULT_WIDTH = 1400
 _PAGE_IMAGE_MAX_WIDTH = 2400
 _PAGE_IMAGE_MIN_WIDTH = 200
 _LETTER_WIDTH_INCHES = 8.5  # dpi = pixels-across / page-width-in-inches
+_JOBS_IDS_MAX = 200  # matches the coverage route's own limit clamp above
 
 
 def _cds_parts(request: Request) -> tuple[Any, Any, Any]:
@@ -223,6 +224,8 @@ async def jobs_route(
     pipeline_pool, app_pool, _settings = _cds_parts(request)
     if batch_id is None and not ids:
         raise EnvelopeError(422, "batch_id or ids is required")
+    if ids is not None and len(ids) > _JOBS_IDS_MAX:
+        raise EnvelopeError(422, f"ids must not exceed {_JOBS_IDS_MAX} items")
     extraction_ids = list(ids) if ids else await service_ingest.batch_extraction_ids(
         app_pool, batch_id=batch_id  # type: ignore[arg-type]
     )

@@ -81,7 +81,7 @@ export function ApproveAnywayDialog({
           <DialogTitle>
             {isOwnEditConflict
               ? "Approve despite this edit's validation failure?"
-              : `Approve with ${count} blocking flags?`}
+              : `Approve with ${count} blocking flag${count === 1 ? "" : "s"}?`}
           </DialogTitle>
           <DialogDescription>
             {isOwnEditConflict
@@ -142,7 +142,9 @@ export function ApproveAnywayDialog({
             onClick={() => onConfirm(note)}
             variant="destructive"
           >
-            {isOwnEditConflict ? "Approve anyway" : `Approve with ${count} blocking flags`}
+            {isOwnEditConflict
+              ? "Approve anyway"
+              : `Approve with ${count} blocking flag${count === 1 ? "" : "s"}`}
           </Button>
         </DialogFooter>
       </DialogContent>

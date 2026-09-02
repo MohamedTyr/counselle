@@ -347,6 +347,12 @@ def _flags_summary(
     for domain in domains:
         for flag in domain.flags:
             total += 1
+            # `metric_ref is None` is currently unreachable -- all six
+            # `ReviewFlag(...)` call sites in `domain/cds/validators.py` pass an
+            # explicit ref, so such a flag can only ever be overridden, never
+            # "addressed" via a pending edit. If a future domain-level (not
+            # metric-level) validator ever constructs a ref-less flag, decide
+            # deliberately whether it should be addressable here.
             addressed = flag.metric_ref is not None and flag.metric_ref in pending
             if not addressed and flag.severity == "error":
                 unresolved += 1

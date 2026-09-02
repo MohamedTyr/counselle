@@ -79,7 +79,7 @@ uv run python scripts/cds_manifest_check.py
 | `docs/DEPLOY.md` | The deployment guide and its open gotchas (env matrix, DB provisioning, the `--forwarded-allow-ips` trap). **Deploy itself is deferred** — this is the plan, not a tested runbook |
 | `docs/research/agent-stack-evaluation.md` | The frontier-tech survey behind the stack choice: agent frameworks, model-provider abstraction, and the agent-skills ecosystem, with scorecards and the verdict |
 | `docs/research/deep-research-bakeoff.md` | The 4-way quality-vs-cost comparison of open-source deep-research systems (Alibaba DeepResearch, STORM, dzhng/deep-research, GPT-Researcher) and the verdict |
-| `docs/adr/README.md` | **Index of all 32 ADRs** (number, title, one-line summary). Start here for decisions |
+| `docs/adr/README.md` | **Index of all ADRs** (number, title, one-line summary). Start here for decisions |
 | `docs/adr/` | One file per architectural decision (context → decision → rationale → alternatives → consequences). Do not silently break an ADR |
 | `specs/mvp1/plan/` | The MVP1 implementation plan (archived): `00-overview.md` (phases, git/milestone protocol, orchestration + model-routing rules, credentials) + one file per phase (0–7) |
 | `specs/deep-research/plan.md` | Stub plan for the deferred deep-research follow-up (PRD stories 39–41) |

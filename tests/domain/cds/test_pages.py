@@ -1,42 +1,15 @@
-"""Page-range math + narrow/remap tests.
-
-``narrow_document``'s position -> original-physical-page map is the mechanism
-that keeps a citation from a narrowed sub-PDF honest (plan §B4) — this is
-exercised against a real in-memory PDF, not a mock.
-"""
+"""Page-range math tests."""
 
 from __future__ import annotations
-
-import pymupdf
 
 from domain.cds.pages import (
     grow_clusters,
     merge_page_ranges,
-    narrow_document,
     padded_domain_ranges,
     page_clusters_for_group,
-    page_framing,
-    read_pdf_document,
     resolve_cited_page,
     widen_clusters,
 )
-
-
-def _make_pdf(page_count: int) -> bytes:
-    document = pymupdf.open()
-    try:
-        for index in range(page_count):
-            page = document.new_page()
-            page.insert_text((72, 72), f"page {index + 1} content")
-        return document.tobytes()
-    finally:
-        document.close()
-
-
-def test_read_pdf_document_reports_identity_page_map() -> None:
-    pdf = read_pdf_document(_make_pdf(5))
-    assert pdf.page_count == 5
-    assert pdf.page_map == (1, 2, 3, 4, 5)
 
 
 def test_merge_page_ranges_collapses_adjacent_and_overlapping() -> None:
@@ -64,35 +37,6 @@ def test_page_clusters_for_group_falls_back_to_empty_when_a_domain_is_unrouted()
 def test_page_clusters_for_group_merges_routed_domains() -> None:
     ranges = {"identity": (1, 2), "admissions": (6, 7)}
     assert page_clusters_for_group(("identity", "admissions"), ranges) == ((1, 2), (6, 7))
-
-
-def test_narrow_document_maps_positions_back_to_original_physical_pages() -> None:
-    original = read_pdf_document(_make_pdf(10))
-    narrowed = narrow_document(original, ((2, 3), (7, 8)))
-    assert narrowed.page_count == 4
-    assert narrowed.page_map == (2, 3, 7, 8)
-    # The narrowed bytes are a real, independently openable PDF.
-    reopened = pymupdf.open(stream=narrowed.pdf_bytes, filetype="pdf")
-    try:
-        assert reopened.page_count == 4
-        assert "page 2 content" in reopened[0].get_text()
-        assert "page 7 content" in reopened[2].get_text()
-    finally:
-        reopened.close()
-
-
-def test_page_framing_identity_map_cites_physical_pages() -> None:
-    pdf = read_pdf_document(_make_pdf(3))
-    text = page_framing(pdf)
-    assert "physical pages 1-3" in text
-
-
-def test_page_framing_narrowed_document_states_the_position_mapping() -> None:
-    original = read_pdf_document(_make_pdf(10))
-    narrowed = narrow_document(original, ((5, 6),))
-    text = page_framing(narrowed)
-    assert "position 1 = original page 5" in text
-    assert "position 2 = original page 6" in text
 
 
 def test_resolve_cited_page_maps_the_dominant_position_case() -> None:

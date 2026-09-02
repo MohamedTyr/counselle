@@ -33,6 +33,7 @@ import asyncpg
 from pydantic import BaseModel, Field
 
 from adapters import cds_gemini, cds_pdf, cds_store
+from app.cds.manifest import load_compiled_manifest
 from config.settings import get_settings
 from counselle_db.db import create_pool
 
@@ -52,7 +53,10 @@ _OUTPUT_PRICE_PER_1M = 1.50
 _DEMO_DOMAIN_ID = "academics"
 _DEMO_METRIC_REF = "academics.special_study_accelerated_program"
 _DEMO_DOMAIN_SCHEMA_HASH_HEX = "74f96589b5523c2bd28021736471a1bc41d05b003fc6c7a2b635f6281fb0ae36"
-_DEMO_MANIFEST_VERSION = "5.0.2"
+# Whatever manifest is actually current, per the same compiled source of
+# truth production reads (app/cds/manifest.py) -- never a hardcoded version
+# string that silently drifts behind a manifest bump.
+_DEMO_MANIFEST_VERSION = load_compiled_manifest().version
 _DEMO_SCHOOL_ID = 100654  # Alabama A&M University — same probe row recon-db-live.md used
 _DEMO_ACADEMIC_YEAR = 2099  # far future, never collides with real coverage
 
