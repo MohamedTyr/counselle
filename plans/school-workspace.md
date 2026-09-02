@@ -59,7 +59,7 @@ the reference tables and tracking columns. The app-owned pool reads `counselle.*
 
 ### 3.1 Catalog lifecycle and provenance
 
-Both reference tables have:
+The reference table has:
 
 - `state text NOT NULL CHECK (state IN ('draft','published','retracted'))`
 - `source text`, `source_url text`, `verified_at date`, `published_at timestamptz`,
@@ -67,33 +67,11 @@ Both reference tables have:
 - a database constraint requiring nonblank `source`, HTTPS `source_url`, `verified_at`, and
   `published_at` when `state='published'`
 - services return only published, non-retired rows to students
-- corrections retract/retire rows; linked prompt rows are preserved
+- corrections retract/retire rows rather than editing published facts in place
 
 Draft rows are editorial data and never become student-visible facts. Empty tables mean no facts.
 
-### 3.2 Prompt groups and prompts
-
-`school_prompt_groups` represents `answer N of M` without encoding policy in display text:
-
-- `id uuid PK`, `school_unitid integer`, `cycle_year integer`, `label text`,
-  `choice_min integer NOT NULL CHECK (choice_min > 0)`, lifecycle/provenance columns
-- unique active identity `(school_unitid, cycle_year, label)`
-
-`school_essay_prompts`:
-
-- `id uuid PK`, `school_unitid integer`, `cycle_year integer`, `ordinal integer > 0`
-- `prompt text NOT NULL CHECK (btrim(prompt) <> '')`, `word_limit integer > 0 nullable`
-- `applicability text NOT NULL DEFAULT 'unknown' CHECK (... IN
-  ('required','optional','not_required','conditional','unknown'))`
-- `audience jsonb NOT NULL DEFAULT '{}'` for structured conditions such as college, program,
-  major, residency, or applicant type; conditional prompts render `Verify whether this applies`
-  unless the condition can be resolved from student data
-- optional `group_id`; `(group_id, school_unitid, cycle_year)` has a composite foreign key to a
-  matching unique key on the group table, so imports cannot cross-link schools or cycles
-- lifecycle/provenance columns and lookup indexes on `(school_unitid, cycle_year)`
-- unique active ordinal per school/cycle
-
-### 3.3 Non-essay requirements
+### 3.2 Non-essay requirements
 
 `school_requirements`:
 
@@ -119,32 +97,18 @@ Add:
   `common_app|coalition|school_portal|direct|other`, plus nullable
   `applications.platform_other` required only for `other`
 - `tasks.requirement_kind text` using the same open slug validation as catalog kinds
-- `essays.prompt_ref uuid NULL REFERENCES school_essay_prompts(id) ON DELETE RESTRICT`
 
 Checklist keys remain a closed trackable subset (`fee`, `css_profile`, `fafsa`, `testing`).
 Checklist status is validated per key. Missing means `Not tracked`, never `Not started`.
 Checklist patches use one atomic SQL jsonb merge with explicit JSON-null deletion semantics; no
 fetch/merge/write race.
 
-`prompt_ref` rules are enforced inside the essay create/patch transaction:
-
-- it requires `application_id`
-- prompt school and cycle must equal the application's school and cycle
-- changing `application_id` revalidates or rejects the link
-- one active essay per `(application_id, prompt_ref)` via a partial unique index
-- duplicate-essay clears `prompt_ref`
-- the UI supports `Use existing essay` and `Unlink` so essays created before catalog population
-  can attach later without duplicate documents
-
-Rollback drops `essays.prompt_ref` and its index before prompt tables, then the remaining columns
-and reference tables in dependency order.
-
 ## 5. Backend contract
 
 ### 5.1 Types
 
-Extend workspace models with cycle, platform, checklist, task kind, and prompt reference fields.
-Add DTOs for prompt groups, prompts, requirements, provenance, and `SchoolReference`.
+Extend workspace models with cycle, platform, checklist, and task kind fields.
+Add DTOs for requirements, provenance, and `SchoolReference`.
 `ApplicationDetail` becomes `{ application, tasks, essays, reference }`.
 
 ### 5.2 Read path
@@ -163,7 +127,7 @@ school/cycle. Application detail revalidates on window focus and exposes manual 
 
 All student mutations continue through existing application/task/essay services, actor-attributed
 change rows, and SSE invalidation. Reference data is not editable from this UI and emits no user
-workspace events. `create_essay`/`update_essay` own transactional prompt-link validation.
+workspace events.
 
 Remove add-school workspace seeding and its unused configuration/response plumbing. Adding a
 school creates only the application row.
@@ -179,20 +143,7 @@ school creates only the application row.
   cycle. Every chip maps to stored data. Portal links out.
 - Use the existing workspace max-width/rhythm and semantic tokens. No decorative card dashboard.
 
-### 6.2 Essays
-
-Two visibly distinct groups:
-
-- **School prompts:** published catalog slots for the selected cycle, with provenance,
-  applicability, group choice rule, word limit, and linked essay state. Actions: Start writing,
-  Open, Use existing essay, Unlink.
-- **Added by you:** application essays with no prompt reference.
-
-Word progress renders a meter only when a word limit exists; otherwise count only. Loaded-empty
-copy names the school and cycle and offers Add an essay plus the plain `/app/ai` handoff. Reference
-loading failure renders an error/retry state, never absence copy.
-
-### 6.3 Requirements
+### 6.2 Requirements
 
 The view-model is data-driven: known common rows plus all catalog rows, including unknown kinds.
 It never hardcodes school facts. Each row has two explicit facets:
@@ -206,7 +157,7 @@ the school requires. Catalog-only unknown kinds render generically. `not_require
 tracking controls; conditional rows show the condition and verification prompt. Rows expand to
 tasks filtered by `requirement_kind` and an explicit inline Add task action.
 
-### 6.4 Notes and navigation coherence
+### 6.3 Notes and navigation coherence
 
 - Existing application notes remain collapsible.
 - Task/essay cards link their school context to the school page. Nested links stop propagation
@@ -234,8 +185,6 @@ Tests earn their place here because these failures can lie to a student or corru
 - draft/retracted/unprovenanced rows never publish
 - loaded-empty versus reference-query error
 - stale/mismatched test-policy vintage handling
-- cross-school/cross-cycle prompt link rejection
-- duplicate slot link rejection, attach/unlink, and duplication clearing `prompt_ref`
 - atomic concurrent checklist patches and delete semantics
 - add-school creates no tasks or essays
 
