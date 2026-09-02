@@ -498,7 +498,6 @@ async def _update_task_impl(ctx: ToolCtx, task_id: str, **fields: Any) -> dict[s
     except WorkspaceNotFoundError:
         return stale_task_error(task_id)
 
-    apps, essays = await active_workspace_links(ctx)
     app_name = application_name(task.application_id, apps)
     essay_display_name = essay_name(task.essay_id, essays)
     row = render_task_row(
