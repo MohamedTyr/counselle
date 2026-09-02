@@ -94,8 +94,11 @@ export function useUploadBatch(batchId: string | undefined) {
 export function useCreateUpload() {
   return useMutation({
     mutationFn: createUpload,
+    // [F-01] Row-scoped: the failure already renders inline in the row via
+    // `markEntryFailed` (DESIGN.md law 3). Silence the toast but keep the
+    // 401 → session-invalidate redirect `handleCdsError` also does.
     onError: (error, _input, _snapshot, context) => {
-      handleCdsError(error, context);
+      handleCdsError(error, context, { silent: true });
     },
     onSettled: (data, _error, input, _snapshot, context) => {
       const batchId = data?.batch_id ?? input.batchId;

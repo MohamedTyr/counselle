@@ -67,7 +67,6 @@ export function useBatchUpload() {
 
   const [localEntries, setLocalEntries] = useState<StagingEntry[]>([]);
   const [deletedRowIds, setDeletedRowIds] = useState<ReadonlySet<string>>(new Set());
-  const [hasTriggeredProcess, setHasTriggeredProcess] = useState(false);
   const [mutationServiceUnavailable, setMutationServiceUnavailable] = useState(false);
 
   const queueRef = useRef(createConcurrencyQueue(MAX_CONCURRENT_UPLOADS));
@@ -264,7 +263,6 @@ export function useBatchUpload() {
 
   function triggerProcess() {
     if (!batchId) return;
-    setHasTriggeredProcess(true);
     processBatchMutation.mutate(batchId);
   }
 
@@ -272,7 +270,13 @@ export function useBatchUpload() {
   const committedRows = entries
     .map((entry) => entry.row)
     .filter((row): row is UploadRow => row?.status === "committed");
-  const isProcessed = hasTriggeredProcess || committedRows.length > 0;
+  const readyCount = readyToProcessCount(entries);
+  // [F-04] Driven off *current* readiness, not batch history: a row only
+  // ever counts as "processed" once nothing is left to queue. Recomputing
+  // this from live entries (rather than latching a one-way
+  // `hasTriggeredProcess` flag) is what lets "Process all" reappear for a
+  // file added after an earlier batch already finished.
+  const isProcessed = readyCount === 0 && committedRows.length > 0;
   const { sentence: processedSentence, isComplete: isBatchComplete } = buildProcessedSentence(
     committedRows,
     jobsByExtractionId,
@@ -308,7 +312,7 @@ export function useBatchUpload() {
     processedSentence,
     queueFailuresByFileId: queueFailureReasons(queueFailuresQuery.data),
     readinessSentence: buildReadinessSentence(entries),
-    readyCount: readyToProcessCount(entries),
+    readyCount,
     retryBatchFetch: () => void batchQuery.refetch(),
     triggerProcess,
   };

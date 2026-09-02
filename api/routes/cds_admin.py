@@ -141,8 +141,10 @@ async def create_upload_route(
     pipeline_pool, app_pool, settings = _cds_parts(request)
     content = await file.read(settings.cds_upload_max_bytes + 1)
     if len(content) > settings.cds_upload_max_bytes:
-        max_mb = settings.cds_upload_max_bytes // (1024 * 1024)
-        raise EnvelopeError(413, f"file must be no larger than {max_mb} MiB")
+        # [F-02] `cds_upload_max_bytes` is a decimal cap (50_000_000, i.e. 50
+        # MB) — dividing by 1024*1024 printed "47 MiB" for a 50 MB limit.
+        max_mb = settings.cds_upload_max_bytes // (1000 * 1000)
+        raise EnvelopeError(413, f"file must be no larger than {max_mb} MB")
     if not content:
         raise EnvelopeError(422, "file must be non-empty")
     return await service_ingest.create_upload(

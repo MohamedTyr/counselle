@@ -109,7 +109,10 @@ export function removeEntry(
 // File acceptance
 // ---------------------------------------------------------------------------
 
-export const MAX_UPLOAD_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+// [F-02] Must match the server's decimal cap (`config/settings.py`
+// `cds_upload_max_bytes`), not a binary 50 MiB — a file between 50,000,001
+// and 52,428,800 bytes used to pass here and then 413 on the server.
+export const MAX_UPLOAD_FILE_SIZE_BYTES = 50_000_000;
 
 function isPdfFile(file: File): boolean {
   return (

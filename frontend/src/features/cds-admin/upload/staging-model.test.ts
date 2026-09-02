@@ -63,7 +63,10 @@ describe("partitionFiles", () => {
 
   it("rejects non-PDFs and oversized files", () => {
     const notPdf = new File(["x"], "a.png", { type: "image/png" });
-    const tooBig = new File([new Uint8Array(51 * 1024 * 1024)], "big.pdf", {
+    // [F-02] One byte over the server's decimal cap (`cds_upload_max_bytes`
+    // = 50_000_000) — this used to pass the old 50 MiB (52,428,800-byte)
+    // client check and then 413 on the server.
+    const tooBig = new File([new Uint8Array(50_000_001)], "big.pdf", {
       type: "application/pdf",
     });
     const { accepted, rejected } = partitionFiles([notPdf, tooBig]);
