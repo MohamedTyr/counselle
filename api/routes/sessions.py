@@ -511,14 +511,28 @@ async def post_message(
         )
 
     # The claim succeeded — now persist the side effects (BC-12).
-    # Source-config stickiness (PRD story 10): upsert the per-message toggle so
-    # it survives devices/cleared storage; the session read seeds the dropdown.
-    if requested_source_config is not None:
-        await set_session_source_config(pool, sid, requested_source_config.model_dump(mode="json"))
-    # Default title on first message: stamp the (truncated) question so the chat
-    # has a name immediately; the on_turn_complete hook may upgrade it later.
-    if row.get("title") is None:
-        await set_session_title(pool, sid, default_title(text, settings.title_max_len))
+    # A blip here must not 500 the request: the turn is already running on the
+    # claim, and a 500 tells the client to retry into a 409 on a claim it
+    # cannot release — same treatment as touch_session (app/run_turn.py).
+    try:
+        # Source-config stickiness (PRD story 10): upsert the per-message toggle
+        # so it survives devices/cleared storage; the session read seeds the
+        # dropdown.
+        if requested_source_config is not None:
+            await set_session_source_config(
+                pool, sid, requested_source_config.model_dump(mode="json")
+            )
+        # Default title on first message: stamp the (truncated) question so the
+        # chat has a name immediately; the on_turn_complete hook may upgrade it
+        # later.
+        if row.get("title") is None:
+            await set_session_title(pool, sid, default_title(text, settings.title_max_len))
+    except Exception:
+        logger.warning(
+            "post-spawn sticky-config/title write failed — turn continues",
+            session_id=sid,
+            exc_info=True,
+        )
 
     return _sse_response(stream, request)
 
