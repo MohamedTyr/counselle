@@ -13,7 +13,7 @@ import { CdsUploadPage } from "./cds-upload-page";
  * `hasTriggeredProcess`/`committedRows.length > 0` permanently true, so
  * "Process all" never reappeared for a file dropped after an earlier batch
  * in the same `?batch=` session had already finished — see
- * `plans/cds-admin-polish-2.md` [F-04]. This in-memory fetch mock plays the
+ * `specs/cds-pipeline/plan/cds-admin-polish-2.md` [F-04]. This in-memory fetch mock plays the
  * server for one batch: `POST /uploads` stages a ready row, `POST
  * /uploads/{id}/process` commits every ready row and hands it an
  * extraction, and `GET /jobs` reports every committed row as already

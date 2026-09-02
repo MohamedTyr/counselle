@@ -4,11 +4,11 @@
 -- docs/DATABASE_GUIDE.md documents as the agent's read-only contract.
 --
 -- This is the ONLY schema-DDL source of record for cds_library in this repo
--- (finding M-01/W-06, plans/cds-admin-polish-2.md): this repo's own yoyo
+-- (finding M-01/W-06, specs/cds-pipeline/plan/cds-admin-polish-2.md): this repo's own yoyo
 -- migrations/ never touch cds_library (see migrations/0015_cds_admin.sql's
 -- header), and the old counselle-data-pipeline repo that used to own this
 -- DDL is retired. Transcribed by hand from a live introspection snapshot
--- (plans/cds-admin-polish-2-live-schema.md) plus a live pg_get_functiondef /
+-- (specs/cds-pipeline/plan/cds-admin-polish-2-live-schema.md) plus a live pg_get_functiondef /
 -- pg_get_viewdef pull for the function body and the 5 view bodies, which the
 -- snapshot did not capture. Keep this file consistent with the live schema
 -- -- do not let it silently drift into a second, competing definition --
@@ -122,13 +122,13 @@ CREATE TABLE IF NOT EXISTS cds_library.cds_documents (
         CHECK (source_kind = ANY (ARRAY['upload'::text, 'college_transitions'::text]))
 );
 
--- V-01/T-101 (plans/cds-admin-polish-2.md): NOT YET APPLIED TO THE LIVE
+-- V-01/T-101 (specs/cds-pipeline/plan/cds-admin-polish-2.md): NOT YET APPLIED TO THE LIVE
 -- DATABASE -- an owner decision. No unique constraint on
 -- (school_year_id, pdf_sha256) backs adapters/cds_store.py's
 -- insert_document dedupe; this partial index closes that gap while still
 -- allowing a byte-identical re-upload after the original was invalidated or
 -- superseded. Verified against live data in a rolled-back transaction
--- (plans/cds-admin-polish-2.md V-01 write-up): zero current rows violate it.
+-- (specs/cds-pipeline/plan/cds-admin-polish-2.md V-01 write-up): zero current rows violate it.
 CREATE UNIQUE INDEX IF NOT EXISTS cds_documents_active_sha256_uidx
     ON cds_library.cds_documents (school_year_id, pdf_sha256)
     WHERE invalidated_at IS NULL AND superseded_at IS NULL;

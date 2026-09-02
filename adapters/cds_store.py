@@ -63,7 +63,7 @@ _PENDING_ACTIVE_UPDATE_PREDICATE_SQL = f"""
     AND reactivated_at IS NULL
 """
 
-# V-01 (plans/cds-admin-polish-2.md): `insert_document`'s dedupe was a plain
+# V-01 (specs/cds-pipeline/plan/cds-admin-polish-2.md): `insert_document`'s dedupe was a plain
 # check-then-insert with no lock, so two concurrent uploads of the same PDF
 # into the same school-year slot could both pass the SELECT and both INSERT.
 # A transaction-scoped advisory lock keyed on `school_year_id` serializes

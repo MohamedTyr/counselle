@@ -10,7 +10,7 @@ import { isTransportError, type TransportError } from "@/api/http/errors";
  * that calls this with `{ silent: true }`: DESIGN.md law 3 requires its
  * failure to render inline in the row (via `markEntryFailed` in
  * `useBatchUpload.ts`), never as a toast, and the inline path is already
- * complete on its own — see `plans/cds-admin-polish-2.md` [F-01]'s
+ * complete on its own — see `specs/cds-pipeline/plan/cds-admin-polish-2.md` [F-01]'s
  * "Adjudicated in review round 3" note. `usePatchUploadRow` and
  * `useDeleteUploadRow` are also row-scoped but are *not* silenced: neither
  * has an inline affordance yet, and the delete-cleanup mutation on the
