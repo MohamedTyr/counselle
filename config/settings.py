@@ -252,9 +252,9 @@ class Settings(BaseSettings):
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required
     db_app_dsn: str  # counselle.* schema (sessions, users, workspace) — required
     # The third DSN (plan §C3): cds_library_app role, INSERT/SELECT/UPDATE on the
-    # cds_library.* base tables. Optional — the app boots without it and the CDS
-    # admin surface returns a clean 503 until it is configured (mirrors
-    # cds_data_enabled below).
+    # cds_library.* base tables. Optional — the app boots fine whether this is
+    # unset or set-but-unreachable, and the CDS admin surface returns a clean
+    # 503 until it is configured (mirrors cds_data_enabled below).
     db_pipeline_dsn: str | None = None
     cds_data_enabled: bool = True
     db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS

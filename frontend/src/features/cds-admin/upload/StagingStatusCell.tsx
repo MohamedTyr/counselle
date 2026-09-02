@@ -61,9 +61,11 @@ function CommittedStatus({ job, row }: { job: JobStatusRow | undefined; row: Upl
 export function StagingStatusCell({
   entry,
   job,
+  queueFailureReason,
 }: {
   entry: StagingEntry;
   job: JobStatusRow | undefined;
+  queueFailureReason?: string;
 }) {
   if (entry.row?.status === "committed") {
     return <CommittedStatus job={job} row={entry.row} />;
@@ -75,7 +77,7 @@ export function StagingStatusCell({
     // for TypeScript without a fallthrough default that could hide a bug.
     return null;
   }
-  const reason = stagingReason(entry);
+  const reason = stagingReason(entry, queueFailureReason);
 
   return (
     <div className="flex flex-col items-start gap-0.5">

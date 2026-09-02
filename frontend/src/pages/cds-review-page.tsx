@@ -298,6 +298,10 @@ function DocumentReviewLoaded({
     announce: setLiveMessage,
     currentPage,
     flaggedFirst,
+    // U-01: a dialog owns the keyboard while it's open, so ⌘Enter behind an
+    // open Reject dialog can't fall through to `onApprove` and discard the
+    // typed rejection reason.
+    modalOpen: rejectOpen || approveAnywayOpen,
     onApprove: () => {
       if (review.flags_summary.unresolved > 0) return;
       handleApprove();
@@ -325,7 +329,19 @@ function DocumentReviewLoaded({
             what actually fixes MetricRow's label truncation. Justified
             deviation from the spec's literal 1fr/1fr grid — noted here per
             §5.3's precedent for this screen. */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {/* C-01/U-02 sibling fix: below `lg:` the grid stacks the two panes
+            as rows with no `grid-rows-*`, so `grid-auto-rows: auto` sizes
+            each row to its content instead of the container's bounded
+            `flex-1 min-h-0` box — `ReviewPanel` (the actual reviewing
+            surface) could run past the fold with the ancestor `<section>`'s
+            `overflow-hidden` clipping it and no scroll path to reach it.
+            `grid-rows-[minmax(0,1fr)_minmax(0,1fr)]` bounds both rows at the
+            base breakpoint (mirrors the column axis's own `minmax(0, …)`
+            pattern), letting each pane's existing internal scroll container
+            (`PdfPageViewer`'s `overflow-auto` image pane, `ReviewPanel`'s
+            `ScrollArea`) do the rest; `lg:grid-rows-none` reverts to
+            content-sized rows once the layout goes side-by-side. */}
+        <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-none xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <PdfPageViewer
             className="min-h-0 border-r"
             documentId={documentId}

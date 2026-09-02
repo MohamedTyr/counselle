@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, test, vi } from "vitest";
 
@@ -51,6 +51,7 @@ function reviewFixture(): DocumentReviewOut {
       finished_at: "2026-08-01T00:01:00Z",
       error_code: null,
       counts: {},
+      is_mixed_generation: false,
     },
     sections: [],
     // Pre-click `unresolved: 0` is what makes the Approve button clickable
@@ -244,7 +245,7 @@ describe("CdsReviewPage — the approve-anyway dialog never misdescribes what it
     // a confirm button naming the real count -- never the old edit-conflict
     // title/body/button, and never a bare flag-less "Approve anyway".
     expect(
-      await screen.findByRole("heading", { name: "Approve with 1 blocking flags?" }),
+      await screen.findByRole("heading", { name: "Approve with 1 blocking flag?" }),
     ).toBeInTheDocument();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(YEAR_FLAG_MESSAGE)).toBeInTheDocument();
@@ -253,7 +254,145 @@ describe("CdsReviewPage — the approve-anyway dialog never misdescribes what it
       within(dialog).queryByText("Approve despite this edit's validation failure?"),
     ).not.toBeInTheDocument();
     expect(
-      within(dialog).getByRole("button", { name: "Approve with 1 blocking flags" }),
+      within(dialog).getByRole("button", { name: "Approve with 1 blocking flag" }),
     ).toBeInTheDocument();
+  });
+});
+
+/** U-01: a single `window` keydown listener drives the ⌘Enter "Approve"
+ * shortcut for the whole page, and had no open-dialog exclusion — Cancel
+ * and Reject/Discard are plain `<button>`s, not editable targets, so tabbing
+ * to either while the Reject dialog is open and pressing ⌘Enter approved the
+ * document out from under the admin, discarding the typed rejection reason.
+ * This pins the fix (`modalOpen` computed in this page, checked at the top
+ * of `handleKeyDown`) without regressing the shortcut when no dialog is
+ * open. */
+function renderPageForShortcutTest() {
+  const approveCalls: string[] = [];
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (url.endsWith("/v1/admin/cds/documents/42") && method === "GET") {
+      return Promise.resolve(jsonResponse(reviewFixture()));
+    }
+    if (url.endsWith("/v1/admin/cds/documents/42/approve") && method === "POST") {
+      approveCalls.push(url);
+      return Promise.resolve(jsonResponse(reviewFixture()));
+    }
+    throw new Error(`unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(
+    <AppProviders queryClient={createTestQueryClient()}>
+      <MemoryRouter initialEntries={["/admin/cds/documents/42"]}>
+        <Routes>
+          <Route element={<CdsReviewPage />} path="/admin/cds/documents/:documentId" />
+        </Routes>
+      </MemoryRouter>
+    </AppProviders>,
+  );
+
+  return { approveCalls };
+}
+
+describe("CdsReviewPage — the Approve shortcut respects an open dialog (U-01)", () => {
+  test("Cmd+Enter with the Reject dialog open does not approve, and the typed reason survives", async () => {
+    const { approveCalls } = renderPageForShortcutTest();
+
+    const rejectButton = await screen.findByRole("button", { name: "Reject" });
+    rejectButton.click();
+
+    const dialog = await screen.findByRole("dialog");
+    const reasonField = within(dialog).getByLabelText("Rejection reason");
+    fireEvent.change(reasonField, { target: { value: "Wrong document uploaded." } });
+
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+
+    // Give the (absent) approve mutation a tick to have fired if the guard
+    // were broken, then assert it never did — the dialog and the typed
+    // reason are both untouched.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(approveCalls).toHaveLength(0);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(reasonField).toHaveValue("Wrong document uploaded.");
+  });
+
+  test("Cmd+Enter with no dialog open still approves", async () => {
+    const { approveCalls } = renderPageForShortcutTest();
+
+    await screen.findByRole("button", { name: "Approve" });
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+
+    await waitFor(() => expect(approveCalls).toHaveLength(1));
+  });
+
+  test("Cmd+Enter with the (non-modal) shortcuts popover open does not approve", async () => {
+    const { approveCalls } = renderPageForShortcutTest();
+
+    const shortcutsButton = await screen.findByRole("button", {
+      name: "Keyboard shortcuts",
+    });
+    shortcutsButton.click();
+
+    // The popover's own content documents "⌘↵" — this is the "reading it
+    // then pressing it by muscle memory" path the guard closes off.
+    await screen.findByText("Save (in editor) · Approve (elsewhere)");
+
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(approveCalls).toHaveLength(0);
+  });
+});
+
+/** R-01: the header must never let one named extraction claim credit for
+ * domains that didn't come from it. `is_mixed_generation` is what the
+ * backend sets when the document's current domains came from more than one
+ * extraction run — this pins that the header actually surfaces it (a flag
+ * nothing displays would be worse than useless), and that the common,
+ * single-extraction case renders exactly as before with no such notice. */
+function renderReviewPage(review: DocumentReviewOut) {
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (url.endsWith("/v1/admin/cds/documents/42") && method === "GET") {
+      return Promise.resolve(jsonResponse(review));
+    }
+    throw new Error(`unexpected fetch: ${method} ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(
+    <AppProviders queryClient={createTestQueryClient()}>
+      <MemoryRouter initialEntries={["/admin/cds/documents/42"]}>
+        <Routes>
+          <Route element={<CdsReviewPage />} path="/admin/cds/documents/:documentId" />
+        </Routes>
+      </MemoryRouter>
+    </AppProviders>,
+  );
+}
+
+describe("CdsReviewPage — the header surfaces mixed-generation data (R-01)", () => {
+  test("shows a 'Mixed runs' notice when the domains on screen came from more than one extraction", async () => {
+    const review = reviewFixture();
+    renderReviewPage({
+      ...review,
+      extraction: {
+        ...review.extraction!,
+        model_id: null,
+        is_mixed_generation: true,
+      },
+    });
+
+    expect(await screen.findByText("Mixed runs")).toBeInTheDocument();
+  });
+
+  test("shows no notice for the common, single-extraction case", async () => {
+    renderReviewPage(reviewFixture());
+
+    await screen.findByRole("button", { name: "Approve" });
+    expect(screen.queryByText("Mixed runs")).not.toBeInTheDocument();
   });
 });

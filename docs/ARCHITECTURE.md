@@ -1232,7 +1232,11 @@ over `COUNSELLE_DB_PIPELINE_DSN` — `INSERT, SELECT, UPDATE` (never `DELETE`) o
 the eight `cds_library` base tables the five reader views are built from.
 Every route in this subsystem sits behind the pre-existing `current_superuser`
 dependency (ADR 0021); there is no path from an ordinary authenticated
-session into it.
+session into it. If this DSN is set but the pipeline database is briefly
+unreachable at boot, pool creation fails locally and the pipeline pool
+degrades to unavailable rather than failing the whole app's startup — chat,
+auth, and workspace all still serve; only the CDS admin router returns its
+documented clean 503 until the DSN is reachable again.
 
 **Layout, mirroring the read side's layering:**
 
@@ -1330,11 +1334,21 @@ already been approved or rejected does not keep re-surfacing as pending. A
 pending edit is stamped, server-side, with the extraction whose packet the
 admin was actually reading; one a later re-extraction has moved past is
 neither shown as pending nor applied, so a rerun can never be silently
-overwritten by a stale correction. Approving a document validates the
+overwritten by a stale correction. Saving a metric edit that a concurrent
+rerun has already superseded returns a conflict naming the affected refs
+rather than a 200 whose returned review silently omits the edit. Approving a document validates the
 human-reviewed packets it would write with the same content-level validator
 gate the model path runs (`docs/DATABASE_GUIDE.md` §1) before anything is
 committed, so an admin's own edit cannot introduce a blocking error and
-still reach students unnoticed.
+still reach students unnoticed. The review screen's header names a single
+extraction only when every domain's latest packet actually came from it; if
+a targeted rerun leaves domains attributed to different extractions, the
+header marks itself mixed-generation rather than naming one run as the
+source of all of them. Approving a document that leaves some of its domains
+untouched re-reads each one's current extraction at write time before
+reactivating it, so a domain a concurrent re-extraction already finished is
+never silently reverted back to the stale snapshot the approve request
+started with.
 
 **The admin surface.** Fourteen endpoints under `/v1/admin/cds/*`
 (`api/routes/cds_admin.py`), all `current_superuser`-gated: coverage (a grid

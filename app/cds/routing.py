@@ -241,7 +241,7 @@ async def _c7_supplementary_images(
     metrics: tuple[dict[str, Any], ...],
     routing_text: dict[int, str],
     form_mark_pages: list[int] | None = None,
-) -> tuple[bytes, ...]:
+) -> tuple[tuple[bytes, ...], list[int]]:
     """Decision 3: a 150 DPI PNG of the routed C7 page(s), sent alongside the
     narrowed native PDF only when this call's own `metrics` (a batch, or a
     starved-retry domain's full catalog) carry the C7 source hint -- the one
@@ -258,7 +258,12 @@ async def _c7_supplementary_images(
     `_form_mark_pages`'s own clustered, up-to-4-page result was silently
     discarded, and the PDF was gone too. Grid hits are clustered with
     `_densest_hit_span` before capping, same as every other routing path,
-    instead of taken as raw hits."""
+    instead of taken as raw hits.
+
+    Returns `(images, hit_pages)` -- the caller (`calling._call_evidence`)
+    needs `hit_pages` too, to describe the real rendered pages in the prompt
+    instead of a narrowed `page_map` that may name pages never actually sent
+    (plan finding E-01)."""
     grid_hints = frozenset(
         hint
         for metric in metrics
@@ -273,12 +278,12 @@ async def _c7_supplementary_images(
             grid_pages = list(range(first, last + 1))[:_CHECKBOX_GRID_MAX_PAGES]
     hit_pages = sorted(set(grid_pages) | set(form_mark_pages or []))
     if not hit_pages:
-        return ()
+        return (), []
     images = [
         await cds_pdf.render_page_png(pdf_content, page, dpi=_CHECKBOX_GRID_IMAGE_DPI)
         for page in hit_pages
     ]
-    return tuple(images)
+    return tuple(images), hit_pages
 
 
 def _page_note(*, page_map: dict[int, int] | None, original_page_count: int) -> str:

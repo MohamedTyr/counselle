@@ -90,3 +90,75 @@
 - **Why:** the viz-v2 seam now accepts known and opaque types, so an unknown card already degrades safely; this TODO is the richer qualitative/Reddit presentation, not a schema-union change.
 - **Context:** see `domain/specs.py` (`RenderSpec`) and ARCHITECTURE §17. No honesty risk deferred — community content is never quantified anyway; this is a UX improvement only.
 - *(Logged from Phase 7 Slice D docs audit, 2026-06-11.)*
+
+## CDS admin polish-2: two UI fixes never confirmed in a real browser
+- **What:** the audit's §6 required a real-browser check for two findings before their fixes
+  landed. **Neither check was performed.** Both fixes shipped anyway:
+  1. **U-02** — load the review page for a real document, resize to ~768px, and confirm
+     `ReviewPanel`'s flag bar and accordion are actually reachable (not clipped with no scroll
+     path). The fix (`frontend/src/pages/cds-review-page.tsx`, a bounded `grid-rows-*` at the
+     base breakpoint) was reasoned from CSS Grid semantics and independently re-verified by
+     reading the full ancestor chain — `WorkspaceShell` → `WorkspaceOutlet` → the page
+     `<section>`, all `overflow-hidden` with no scrollable intermediate, neither pane bounding
+     its own height at the base breakpoint — but jsdom computes no layout, so the fix has never
+     been seen working in an actual browser.
+  2. **U-01** — open the Reject dialog, type a reason, tab to a button, and press ⌘Enter to
+     confirm Radix does not `stopPropagation` on non-Escape keys (i.e. that the bug was
+     exploitable end-to-end the way described, and that the fix's `modalOpen` guard actually
+     blocks it in a live DOM). The missing guard itself was code-confirmed with certainty; only
+     the end-to-end browser confirmation was skipped.
+  Both have jsdom-level regression tests, so a *literal* regression is caught — but neither was
+  ever seen rendering correctly in a real browser, which is what §6 asked for.
+- **Why:** cost/time pressure during the fix batch; the reasoning behind both fixes is solid, but
+  "reasoned to be correct" and "seen working" are different claims, and the plan was explicit
+  that these two specifically needed the latter.
+- **Context (start here):** `specs/cds-pipeline/plan/cds-admin-polish-2.md` §6 ("Verification
+  still owed") for the exact repro steps; `frontend/src/pages/cds-review-page.tsx` (U-02's grid
+  fix) and `frontend/src/features/cds-admin/review/use-review-controller.ts` (U-01's `modalOpen`
+  guard).
+- *(Logged from the CDS admin polish-2 batch, 2026-09-02.)*
+
+## CDS admin polish-2: the sha256 unique index is in source control but not applied
+- **What:** `deploy/seed/cds_library_schema.sql` now declares
+  `cds_documents_active_sha256_uidx` — `UNIQUE (school_year_id, pdf_sha256) WHERE
+  invalidated_at IS NULL AND superseded_at IS NULL`, fixing V-01 (no constraint backs the
+  document-dedupe logic). It was verified creatable against current live data inside a
+  rolled-back transaction (zero violating rows) but **deliberately not applied to the running
+  database.**
+- **Why:** the live `cds_library` schema is mid-cutover, with owner acceptance of the whole CDS
+  extraction pipeline ship gate still pending (see CLAUDE.md Status). Applying a schema change to
+  that database ahead of that sign-off is an owner decision, not something to do silently inside
+  a fix batch. This means the seed file and the live database have **drifted** — do not assume
+  they match, and do not assume the index exists when reasoning about the live system.
+  `adapters/cds_store.py`'s advisory-lock guard (added in the same batch) closes the concurrent
+  double-insert race at the application level regardless, so the race V-01 also worried about is
+  not live-exposed even without the index — the index is defense-in-depth for a DB-level
+  guarantee, not the only thing standing between here and a duplicate row.
+- **Context (start here):** `deploy/seed/cds_library_schema.sql` (the index's DDL and its
+  inline comments), `specs/cds-pipeline/plan/cds-admin-polish-2.md` finding V-01 and finding
+  W-06 (which V-01 was blocked on), `adapters/cds_store.py` (the advisory-lock guard).
+- *(Logged from the CDS admin polish-2 batch, 2026-09-02.)*
+
+## Two pre-existing `live_db` test failures, untriaged (found during CDS admin polish-2)
+- **What:** two `live_db`-marked tests were already failing at the audit's baseline commit
+  (`2217fbd`), before any of the polish-2 fixes landed, and are **still failing** now. Neither
+  was recorded as a finding in the audit itself, so this is the record of them:
+  1. `tests/app/cds/test_service_review.py::test_pending_active_update_predicate_resolves_and_closes`
+     — asserts that `close_pending_active_updates` resolves both of two back-to-back
+     `active_update` rows; it currently resolves neither.
+  2. `tests/domain/cds/test_packet_build_golden.py::test_rebuild_a_live_packet_byte_identical_from_its_own_contract`
+     — rebuilding a live packet from its own stored contract is not byte-identical; the diff
+     involves `class_size.class_sections_*` entries.
+- **Why:** both depend on live local Postgres state, so they may be genuine defects or fixture
+  drift against the current database — nobody has triaged which. They are **not caused by this
+  batch's work** — confirmed present before the first fix commit. The first one is worth
+  triaging first: it sits directly in the approve/correction machinery (`active_update`
+  resolution) that this batch's A-01/A-02/R-02 fixes touched, so a real defect there could
+  interact with those fixes in ways nobody has checked.
+- **Context (start here):** run
+  `uv run pytest tests/app/cds/test_service_review.py::test_pending_active_update_predicate_resolves_and_closes tests/domain/cds/test_packet_build_golden.py::test_rebuild_a_live_packet_byte_identical_from_its_own_contract -m live_db -v`
+  against local Postgres to reproduce; `app/cds/service_review_approve.py`'s
+  `close_pending_active_updates` for the first, `domain/cds/packet_build.py` /
+  `class_size` metric handling for the second.
+- *(Logged from the CDS admin polish-2 batch, 2026-09-02 — found at baseline, not introduced by
+  it.)*

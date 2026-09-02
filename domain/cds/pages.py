@@ -6,16 +6,14 @@ strictly an optimization: a missing or bad routing result only costs the narrowi
 benefit, never correctness (``page_clusters_for_group`` falls back to "call the whole
 document" by returning ``()``; the caller must honor that fallback — see plan §B4).
 
-Operates purely on in-memory PDF bytes via PyMuPDF — no file I/O, no network, no
-model calls.
+Pure page-number arithmetic — no PDF I/O, no network, no model calls. The actual PDF
+slicing (`narrow_document`) lives in ``adapters/cds_pdf.py``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-
-import pymupdf as fitz
 
 from domain.cds import validators
 
@@ -36,34 +34,6 @@ MAX_TRAILING_PAD_EXTRA = 6
 # fires when the cheap first attempt already came up short, so paying for a
 # bigger window once is the point.
 RETRY_WIDEN_PAGE_PAD = 6
-
-
-class PdfError(RuntimeError):
-    """The supplied bytes are not a readable PDF."""
-
-
-@dataclass(frozen=True)
-class PdfDocument:
-    """The bytes actually sent to the provider, and the map from each of its
-    positions back to the original uploaded document's physical page number."""
-
-    pdf_bytes: bytes
-    page_count: int
-    page_map: tuple[int, ...]  # 1-indexed position i -> original physical page page_map[i-1]
-
-
-def read_pdf_document(content: bytes) -> PdfDocument:
-    """Validate the PDF and count pages; PyMuPDF makes no content decisions here."""
-    try:
-        document = fitz.open(stream=content, filetype="pdf")
-    except (fitz.FileDataError, RuntimeError, ValueError) as exc:
-        raise PdfError("PDF cannot be opened") from exc
-    try:
-        if document.page_count < 1:
-            raise PdfError("PDF has no pages")
-        return PdfDocument(content, document.page_count, tuple(range(1, document.page_count + 1)))
-    finally:
-        document.close()
 
 
 def _clip_page(page: int, page_count: int) -> int:
@@ -274,62 +244,15 @@ def page_clusters_for_group(
     return merge_page_ranges(ranges)
 
 
-def narrow_document(document: PdfDocument, clusters: tuple[tuple[int, int], ...]) -> PdfDocument:
-    """Build a physical-page-order sub-document from 1-indexed inclusive page clusters,
-    carrying the position -> original-physical-page map forward."""
-    source = fitz.open(stream=document.pdf_bytes, filetype="pdf")
-    try:
-        mini = fitz.open()
-        try:
-            page_map: list[int] = []
-            for start, end in clusters:
-                mini.insert_pdf(source, from_page=start - 1, to_page=end - 1)
-                page_map.extend(range(start, end + 1))
-            mini_bytes = mini.tobytes()
-        finally:
-            mini.close()
-    finally:
-        source.close()
-    return PdfDocument(mini_bytes, len(page_map), tuple(page_map))
-
-
-def page_framing(document: PdfDocument) -> str:
-    """The prompt sentence(s) telling the model how to cite pages for this document —
-    identity mapping (whole document) or the explicit position->original-page table
-    (narrowed document). Every citation must be translated through this before it
-    reaches a packet."""
-    identity_map = tuple(range(1, document.page_count + 1))
-    if document.page_map == identity_map:
-        return (
-            f"The document contains physical pages 1-{document.page_count} in order; "
-            "cite one-indexed physical page numbers."
-        )
-    mapping = ", ".join(
-        f"position {position} = original page {physical}"
-        for position, physical in enumerate(document.page_map, start=1)
-    )
-    return (
-        f"This document contains {document.page_count} pages, a subset of the original CDS "
-        f"PDF's physical pages assembled in original order. Position-to-original-page mapping: "
-        f"{mapping}. Every citation must use the ORIGINAL physical page number from this "
-        "mapping, never the position within this file."
-    )
-
-
 __all__ = [
     "DEFAULT_ROUTING_PAGE_PAD",
     "MAX_TRAILING_PAD_EXTRA",
     "RETRY_WIDEN_PAGE_PAD",
     "CitationResolution",
-    "PdfDocument",
-    "PdfError",
     "grow_clusters",
     "merge_page_ranges",
-    "narrow_document",
     "padded_domain_ranges",
     "page_clusters_for_group",
-    "page_framing",
-    "read_pdf_document",
     "resolve_cited_page",
     "widen_clusters",
 ]

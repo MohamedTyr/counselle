@@ -109,6 +109,7 @@ export function CdsUploadPage() {
                 jobsByExtractionId={batch.jobsByExtractionId}
                 onDelete={batch.deleteEntry}
                 onPatch={batch.patchRow}
+                queueFailuresByFileId={batch.queueFailuresByFileId}
               />
             </div>
           ) : batch.hasFetchedEmptyBatch ? (

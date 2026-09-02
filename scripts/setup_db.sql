@@ -1,14 +1,24 @@
 -- Counselle role & schema bootstrap for the connected CDS Library database.
 -- Idempotent: safe to rerun. Passwords are read from the environment, never argv.
 -- ADR 0012 (read-only role), ADR 0019 (counselle-owned schema), ADR 0032 (db-rewire).
+--
+-- WARNING: roles and their passwords are cluster-global, not database-local.
+-- Running this script against ANY database on a Postgres instance overwrites
+-- the live passwords for counselle_ro, counselle_app, and cds_library_app
+-- across that entire instance -- every other database sharing the cluster,
+-- not just the one you connected to. Point this at a scratch/local Postgres
+-- instance, never at a shared cluster that also serves a live deployment.
 
 \set ON_ERROR_STOP on
 \set counselle_ro_password ''
 \set counselle_app_password ''
+\set counselle_pipeline_password ''
 \getenv counselle_ro_password COUNSELLE_RO_PASSWORD
 \getenv counselle_app_password COUNSELLE_APP_PASSWORD
+\getenv counselle_pipeline_password COUNSELLE_PIPELINE_PASSWORD
 SELECT nullif(:'counselle_ro_password', '') IS NOT NULL AS ro_password_present,
-       nullif(:'counselle_app_password', '') IS NOT NULL AS app_password_present \gset
+       nullif(:'counselle_app_password', '') IS NOT NULL AS app_password_present,
+       nullif(:'counselle_pipeline_password', '') IS NOT NULL AS pipeline_password_present \gset
 SELECT current_database() AS target_database \gset
 -- \quit takes no exit-code argument in psql 16, so a missing password is
 -- enforced as a real SQL error under ON_ERROR_STOP, not a silent \quit.
@@ -19,6 +29,14 @@ SELECT current_database() AS target_database \gset
 \if :app_password_present
 \else
   DO $$ BEGIN RAISE EXCEPTION 'COUNSELLE_APP_PASSWORD is required'; END $$;
+\endif
+-- cds_library_app (the CDS admin write path, ADR 0036) is optional: only
+-- required once deploy/seed/cds_library_schema.sql has been applied to this
+-- target. Skip its role/grant block entirely when the password is unset,
+-- rather than forcing every caller of this script onto the write path.
+\if :pipeline_password_present
+\else
+  \echo 'COUNSELLE_PIPELINE_PASSWORD not set -- skipping cds_library_app role/grants'
 \endif
 
 DO $$
@@ -38,6 +56,20 @@ BEGIN
 END
 $$;
 
+\if :pipeline_password_present
+-- cds_library_app (ADR 0036): the CDS admin write path's role. Same
+-- reconciliation shape as the two roles above, gated on the password being
+-- supplied (see the \if block near the top of this file).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cds_library_app') THEN
+    CREATE ROLE cds_library_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
+  END IF;
+END
+$$;
+\endif
+
 -- Existing roles are normalized too: setup is reconciliation, not create-only.
 ALTER ROLE counselle_ro LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
@@ -45,6 +77,10 @@ ALTER ROLE counselle_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
 ALTER ROLE cds_library_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
+\if :pipeline_password_present
+ALTER ROLE cds_library_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOREPLICATION NOBYPASSRLS;
+\endif
 
 -- Remove inherited authority before granting the one intended reader membership.
 SELECT format('REVOKE %I FROM counselle_ro', granted.rolname)
@@ -65,6 +101,9 @@ ORDER BY granted.rolname
 
 SELECT format('ALTER ROLE counselle_ro PASSWORD %L', :'counselle_ro_password') \gexec
 SELECT format('ALTER ROLE counselle_app PASSWORD %L', :'counselle_app_password') \gexec
+\if :pipeline_password_present
+SELECT format('ALTER ROLE cds_library_app PASSWORD %L', :'counselle_pipeline_password') \gexec
+\endif
 
 -- Read role: the five cds_library reader views only, read-only session defaults.
 GRANT USAGE ON SCHEMA cds_library TO cds_library_reader;
@@ -83,6 +122,33 @@ ALTER ROLE counselle_ro SET default_transaction_read_only = on;
 ALTER ROLE counselle_ro SET statement_timeout = '8s';
 ALTER ROLE counselle_ro IN DATABASE :"target_database"
   SET search_path = cds_library, pg_catalog;
+
+\if :pipeline_password_present
+-- Write role (ADR 0036, docs/DATABASE_GUIDE.md §1): INSERT, SELECT, UPDATE on
+-- every cds_library base table and view -- never DELETE, anywhere, on
+-- anything (verified live, specs/cds-pipeline/plan/recon/recon-db-live.md
+-- §4). Reconciled the same way as the reader role above: REVOKE ALL, then
+-- GRANT exactly the intended privilege set.
+GRANT USAGE ON SCHEMA cds_library TO cds_library_app;
+REVOKE ALL ON ALL TABLES IN SCHEMA cds_library FROM cds_library_app;
+GRANT INSERT, SELECT, UPDATE ON TABLE
+  cds_library.schools,
+  cds_library.cds_school_years,
+  cds_library.cds_documents,
+  cds_library.cds_manifests,
+  cds_library.cds_extractions,
+  cds_library.cds_domain_packets,
+  cds_library.ct_index_entries,
+  cds_library.ct_index_state,
+  cds_library.school_profiles,
+  cds_library.active_cds_documents,
+  cds_library.active_cds_domain_packets,
+  cds_library.cds_document_sources,
+  cds_library.cds_manifest_snapshots
+TO cds_library_app;
+ALTER ROLE cds_library_app RESET ALL;
+ALTER ROLE cds_library_app IN DATABASE :"target_database" RESET ALL;
+\endif
 
 -- App role: owns the counselle schema, no pipeline membership.
 ALTER ROLE counselle_app RESET ALL;
