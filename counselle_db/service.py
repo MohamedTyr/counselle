@@ -879,13 +879,18 @@ async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainRes
         )
         for definition in definitions.values()
     )
+    current_refs = {metric.ref for metric in domain.metrics}
     verified = sum(
         metric.extraction_status == "verified"
         for ref, metric in packet.packet.metrics.items()
-        if ref in definitions
+        if ref in definitions and ref in current_refs
     )
-    available = sum(row.available for row in rows)
-    absent = sum(row.availability_status == "not_in_template_version" for row in rows)
+    available = sum(row.available for row in rows if row.ref in current_refs)
+    absent = sum(
+        row.availability_status == "not_in_template_version"
+        for row in rows
+        if row.ref in current_refs
+    )
     summary = f"{verified} of {len(domain.metrics)} metrics verified"
     if absent:
         summary += f"; {absent} not in this template version"

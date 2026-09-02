@@ -629,3 +629,27 @@ async def test_get_domain_rejects_inconsistent_binder_packet_contract() -> None:
             1,
             "admissions",
         )
+
+
+async def test_get_domain_verified_never_exceeds_current_configured_metrics() -> None:
+    # A packet pinned to a superseded manifest (4.0.0) carries "admissions.rate",
+    # a metric the current manifest no longer configures for this domain. The
+    # availability summary's numerator (verified) and denominator (configured)
+    # must stay commensurable with the *current* manifest, or coverage is
+    # overstated (docs/DATABASE_GUIDE.md §6).
+    current = compile_manifest(
+        "5.1.0", {"domains": [{"id": "admissions", "title": "Admissions", "metrics": []}]}
+    )
+    row = _packet_row(
+        "admissions", {"admissions.rate": _verified(0.2, "20%")}, manifest_version="4.0.0"
+    )
+
+    result = await get_domain(
+        _service_catalog(_DomainConnection(_document(), [row]), current_manifest=current),
+        1,
+        "admissions",
+    )
+
+    assert result.availability.configured == 0
+    assert result.availability.verified <= result.availability.configured
+    assert result.summary == "0 of 0 metrics verified"
