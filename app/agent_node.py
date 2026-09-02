@@ -827,7 +827,19 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
         state.get("data_picture", "Live data picture unavailable in this test harness."),
     )
-    source_instructions = render_source_availability(source_config)
+    # R2: render_source_availability must describe what was actually mounted,
+    # not merely what was requested — build_tools additionally gates .edu on
+    # a nonempty catalog (empty-catalog demo deployments), and if the prompt
+    # claims ".edu is enabled and mounted" while no such tool exists, the
+    # model's call gets pydantic-ai's unknown-tool retry (not a teaching
+    # payload) and the step is silently suppressed (search_school_site is in
+    # GATEABLE_TOOLS - mounted) with no disclosure to the student.
+    mounted_names = {tool.name for tool in tools}
+    source_instructions = render_source_availability(
+        source_config.model_copy(
+            update={"edu": source_config.edu and "search_school_site" in mounted_names}
+        )
+    )
     selected_instructions = render_selected_skills(ids["selected_skills"])
     instructions = "\n\n".join(
         part for part in (base_instructions, source_instructions, selected_instructions) if part
