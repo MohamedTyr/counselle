@@ -187,6 +187,7 @@ def _db_envelope(result: DomainResult, ref: str) -> CitationEnvelope | None:
         field=ref,
         label=row.label,
         display=row.display,
+        unit=row.unit,
         raw=row.value,
         available=True,
         citation=citation,

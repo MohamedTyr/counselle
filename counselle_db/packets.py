@@ -467,6 +467,7 @@ def read_metric(
         display=display,
         available=available,
         availability_status=metric.availability_status,
+        unit=definition.unit,
         value=metric.value if available else None,
         vintage=vintage,
         caveat_kinds=tuple(caveats),

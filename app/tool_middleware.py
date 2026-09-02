@@ -74,6 +74,7 @@ def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
                 field=row.get("ref"),
                 label=row.get("label") or row.get("ref") or "Value",
                 display=row.get("display") if available else "not available",
+                unit=row.get("unit"),
                 raw=row.get("value") if available else None,
                 available=available,
                 citation=citation if available else None,
