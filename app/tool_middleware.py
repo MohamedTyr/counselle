@@ -9,6 +9,7 @@ from app.caveats import render_caveat
 from app.sources import SourceRegistry
 from app.tool_overflow import ToolResultStore, reduce_tool_result
 from app.workspace_step_receipts import with_workspace_public_receipt
+from counselle_db.formatting import format_cds_edition
 from counselle_db.models import ProfileProvenanceReceipt
 from domain.envelope import Citation, CitationEnvelope, EvidenceItem
 from domain.events import tool_ui_from_payload
@@ -57,7 +58,7 @@ def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
         citation = Citation(
             source="cds",
             tier="official",
-            vintage=f"Common Data Set {year}-{str(year + 1)[-2:]}",
+            vintage=format_cds_edition(year),
             document_sha256=sha,
             source_kind=result["source_kind"],
             retrieved_at=result["retrieved_at"],
@@ -65,7 +66,7 @@ def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
             manifest_version=result["manifest_version"],
             school_unitid=school.get("unitid"),
         )
-        label = f"{school.get('name')} — Common Data Set {year}-{str(year + 1)[-2:]}"
+        label = f"{school.get('name')} — {format_cds_edition(year)}"
         rows = []
         for row in result["rows"]:
             available = bool(row.get("available"))
@@ -74,6 +75,7 @@ def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
                 field=row.get("ref"),
                 label=row.get("label") or row.get("ref") or "Value",
                 display=row.get("display") if available else "not available",
+                unit=row.get("unit"),
                 raw=row.get("value") if available else None,
                 available=available,
                 citation=citation if available else None,

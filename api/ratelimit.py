@@ -7,9 +7,12 @@ library (KISS). Two surfaces use it:
   ``turns_per_day``. Over → 429 + ``Retry-After``. Every message send spends a
   token (no exemption).
 - **auth** — per-IP (uvicorn's resolved ``request.client.host`` — the real client
-  IP, since the deploy runs with ``--forwarded-allow-ips`` so uvicorn parses the
-  proxy chain itself; we never read ``X-Forwarded-For`` directly, which would be
-  trivially spoofable), enforcing ``auth_attempts_per_window`` over
+  IP, PROVIDED the deploy runs ``--forwarded-allow-ips`` naming the platform's
+  trusted proxy CIDR (never ``'*'`` — that lets uvicorn take the leftmost,
+  client-supplied ``X-Forwarded-For`` entry, i.e. whatever the client claims) so
+  uvicorn parses the proxy chain itself; we never read ``X-Forwarded-For``
+  directly, which would be trivially spoofable), enforcing
+  ``auth_attempts_per_window`` over
   ``auth_window_seconds`` on login + forgot-password. IP-only is the robust
   half of "email/IP": email-keying would need a body read in a dependency (which
   consumes the stream), so we don't — IP is the effective brute-force control.
@@ -143,9 +146,12 @@ def get_limiter(request: Request) -> SlidingWindowLimiter:
 
 
 def _client_ip(request: Request) -> str:
-    """The caller's real IP — uvicorn resolves it from the proxy chain (the deploy
-    runs ``--forwarded-allow-ips``), so we trust ``client.host`` and never read a
-    spoofable ``X-Forwarded-For`` header ourselves."""
+    """The caller's real IP — uvicorn resolves it from the proxy chain, so we
+    trust ``client.host`` and never read a spoofable ``X-Forwarded-For`` header
+    ourselves. This guarantee holds ONLY when the deploy's ``--forwarded-allow-ips``
+    names the platform's trusted proxy CIDR — passing ``'*'`` makes uvicorn take
+    the leftmost, client-supplied ``X-Forwarded-For`` entry instead, i.e. an
+    attacker-chosen value."""
     return request.client.host if request.client else "unknown"
 
 

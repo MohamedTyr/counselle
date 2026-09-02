@@ -100,9 +100,11 @@ def _duplicate_honor_error(exc: HonorDuplicateError) -> dict[str, Any]:
     )
 
 
-async def _rank_honors(ctx: ToolCtx, honor_id: UUID) -> int:
+async def _rank_honors(ctx: ToolCtx, honor_id: UUID) -> int | None:
     honors = await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
-    return next(index for index, honor in enumerate(honors, start=1) if honor.id == honor_id)
+    return next(
+        (index for index, honor in enumerate(honors, start=1) if honor.id == honor_id), None
+    )
 
 
 # --------------------------------------------------------------------------
@@ -315,7 +317,7 @@ async def _archive_honors_impl(ctx: ToolCtx, honor_ids: list[str]) -> dict[str, 
         return batch_size_error("archive_honors", len(honor_ids))
 
     active_titles = {
-        str(honor.id): honor.title
+        honor.id: honor.title
         for honor in await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
     }
     archived: list[str] = []
@@ -340,7 +342,7 @@ async def _archive_honors_impl(ctx: ToolCtx, honor_ids: list[str]) -> dict[str, 
                 batch_item(
                     index,
                     "changed",
-                    item_subject=subject(active_titles.get(raw_id, "Honor"), raw_id),
+                    item_subject=subject(active_titles.get(parsed_id, "Honor"), parsed_id),
                 )
             )
         except WorkspaceNotFoundError:
@@ -425,11 +427,18 @@ async def _restore_honor_impl(ctx: ToolCtx, honor_id: str) -> dict[str, Any]:
         return slot_cap_error("honor", MAX_HONORS, len(active))
 
     ordered = await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
-    rank = next(index for index, item in enumerate(ordered, start=1) if item.id == honor.id)
+    rank = next(
+        (index for index, item in enumerate(ordered, start=1) if item.id == honor.id), None
+    )
+    summary = (
+        f'Restored "{honor.title}" at rank {rank}.'
+        if rank is not None
+        else f'Restored "{honor.title}".'
+    )
     payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
-        "summary": f'Restored "{honor.title}" at rank {rank}.',
+        "summary": summary,
         "honor": render_honor_row(honor, rank=rank),
     }
     receipt = state_transition_receipt(

@@ -161,7 +161,7 @@ def _find_service(token: str, *, owner_id: str, name: str) -> dict[str, Any] | N
         query={"ownerId": owner_id, "name": name, "type": "web_service"},
     )
     for item in results or []:
-        service = item.get("service", item)
+        service: dict[str, Any] = item.get("service", item)
         if service.get("name") == name:
             return service
     return None
@@ -184,7 +184,7 @@ def _current_commit() -> str:
 
 def _wait_for_deploy(token: str, service_id: str, deploy_id: str, timeout_s: int) -> str:
     deadline = time.monotonic() + timeout_s
-    status = "created"
+    status: str = "created"
     while time.monotonic() < deadline:
         deploy = _request("GET", f"/services/{service_id}/deploys/{deploy_id}", token=token)
         status = deploy.get("status", "unknown")
@@ -199,7 +199,8 @@ def _http_status(url: str) -> int:
     request = urllib.request.Request(url, headers={"User-Agent": "counselle-render-staging/1"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return response.status
+            status: int = response.status
+            return status
     except urllib.error.HTTPError as exc:
         return exc.code
 

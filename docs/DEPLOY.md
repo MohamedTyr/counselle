@@ -134,6 +134,7 @@ A first deploy easily forgets the agent-core half. The complete set:
 **API**
 - `COUNSELLE_CORS_ORIGINS` — the default is now **empty** (06-L1; the fail-safe under same-origin serving, ADR 0023). Leave it empty in prod; the split-origin **dev** setup sets `["http://localhost:5173"]`.
 - `COUNSELLE_API_HOST=0.0.0.0`, `COUNSELLE_API_PORT=8000`
+- `COUNSELLE_TRUSTED_PROXY_CIDR` (required) — the platform's proxy CIDR, passed straight through to uvicorn's `--forwarded-allow-ips` by `scripts/entrypoint.sh`. Never `'*'` (see below) — that lets a client forge its own `X-Forwarded-For` entry and defeat the per-IP auth rate limit. Consumed only by the entrypoint shell script as a CLI argument; deliberately not on the ADR 0018 Settings surface, so it is never read by Python.
 
 > **`$PORT`-injecting hosts (CFG-11):** `scripts/entrypoint.sh` binds
 > `--port "${PORT:-8000}"`, so Render's injected port works without a target-specific
@@ -152,10 +153,10 @@ when Google OAuth is unconfigured and public signup/password reset are disabled.
 The entrypoint runs `yoyo apply --batch` (app DSN — migrations stay additive, so a failure crash-loops back to the previous image) then:
 
 ```bash
-exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips='*'
+exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips="${COUNSELLE_TRUSTED_PROXY_CIDR}"
 ```
 
-**`--forwarded-allow-ips='*'` is the flag the first OAuth attempt dies without.** Behind the host's TLS terminator, an untrusted `X-Forwarded-Proto` makes the app think it's on `http`, so the Google `redirect_uri` generates as `http://` → `redirect_uri_mismatch`.
+**`--forwarded-allow-ips` is the flag the first OAuth attempt dies without — but it must name the platform's trusted proxy CIDR, never `'*'`.** Behind the host's TLS terminator, an untrusted `X-Forwarded-Proto` makes the app think it's on `http`, so the Google `redirect_uri` generates as `http://` → `redirect_uri_mismatch`; trusting the proxy's real CIDR (set via `COUNSELLE_TRUSTED_PROXY_CIDR`) fixes that the same way `'*'` would, without also letting a client forge its own `X-Forwarded-For` entry and walk straight through the per-IP auth rate limit.
 
 ## Deploy checklist
 

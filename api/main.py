@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -237,13 +237,18 @@ def _install_spa_routes(app: FastAPI, settings: Any) -> None:
         return FileResponse(landing_preview_path)
 
     @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
-    async def spa_fallback(full_path: str) -> FileResponse | JSONResponse:
+    async def spa_fallback(full_path: str, request: Request) -> FileResponse | JSONResponse:
         if full_path == "landing.html":
             return FileResponse(landing_path)
         if full_path.startswith("v1/"):
             return JSONResponse(
                 status_code=404,
-                content={"error": {"message": "Not found", "trace_id": None}},
+                content={
+                    "error": {
+                        "message": "Not found",
+                        "trace_id": getattr(request.state, "trace_id", None),
+                    }
+                },
             )
         return FileResponse(index_path)
 

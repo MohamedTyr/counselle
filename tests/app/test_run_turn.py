@@ -239,7 +239,7 @@ class Rig:
             app_pool=self.pool,  # duck-typed fake (asyncpg.Pool is Any to mypy)
             settings=self.settings,
             tool_deps=ToolDeps(
-                catalog=None,
+                catalog=SimpleNamespace(school_count=1),
                 search_max_results=5,
                 subreddit_menu=["ApplyingToCollege", "{school}"],
                 tavily_client_factory=lambda: self.tavily,
@@ -2887,12 +2887,6 @@ async def test_viz_without_marker_falls_back_after_final_answer(
     record = values["turn_records"][-1]
     assert [part["type"] for part in record["parts"]] == ["text", "viz", "viz"]
     assert prose_of(record["parts"]) == "Final answer after the cards."
-
-
-async def test_event_order_final_answer_streams_staged_cards_after_answer_delta(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    await test_viz_without_marker_falls_back_after_final_answer(monkeypatch)
 
 
 async def test_duplicate_render_viz_final_flush_persists_one_viz_part(

@@ -450,29 +450,29 @@ class Activity(_Model):
 
 
 class ActivityCreate(_Model):
-    activity_type: str = ""
-    position: str = ""
-    organization: str = ""
-    description: str = ""
+    activity_type: ProfileShortText = ""
+    position: ProfileShortText = ""
+    organization: ProfileShortText = ""
+    description: ProfileText = ""
     grades: list[str] = Field(default_factory=list)
     timing: list[str] = Field(default_factory=list)
     hours_per_week: float | None = None
     weeks_per_year: float | None = None
     continue_in_college: bool | None = None
-    story: str | None = None
+    story: ProfileText | None = None
 
 
 class ActivityPatch(_Model):
-    activity_type: str | None = None
-    position: str | None = None
-    organization: str | None = None
-    description: str | None = None
+    activity_type: ProfileShortText | None = None
+    position: ProfileShortText | None = None
+    organization: ProfileShortText | None = None
+    description: ProfileText | None = None
     grades: list[str] | None = None
     timing: list[str] | None = None
     hours_per_week: float | None = None
     weeks_per_year: float | None = None
     continue_in_college: bool | None = None
-    story: str | None = None
+    story: ProfileText | None = None
 
 
 class Honor(_Model):
@@ -488,13 +488,13 @@ class Honor(_Model):
 
 
 class HonorCreate(_Model):
-    title: str = ""
+    title: ProfileShortText = ""
     grades: list[str] = Field(default_factory=list)
     levels: list[str] = Field(default_factory=list)
 
 
 class HonorPatch(_Model):
-    title: str | None = None
+    title: ProfileShortText | None = None
     grades: list[str] | None = None
     levels: list[str] | None = None
 

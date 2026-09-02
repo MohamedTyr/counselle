@@ -252,9 +252,9 @@ class Settings(BaseSettings):
     db_ro_dsn: str  # pipeline DB, counselle_ro role (read-only) — required
     db_app_dsn: str  # counselle.* schema (sessions, users, workspace) — required
     # The third DSN (plan §C3): cds_library_app role, INSERT/SELECT/UPDATE on the
-    # cds_library.* base tables. Optional — the app boots without it and the CDS
-    # admin surface returns a clean 503 until it is configured (mirrors
-    # cds_data_enabled below).
+    # cds_library.* base tables. Optional — the app boots fine whether this is
+    # unset or set-but-unreachable, and the CDS admin surface returns a clean
+    # 503 until it is configured (mirrors cds_data_enabled below).
     db_pipeline_dsn: str | None = None
     cds_data_enabled: bool = True
     db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
@@ -318,7 +318,6 @@ class Settings(BaseSettings):
     # (the split-origin Vite setup runs the SPA on :5173). Default-empty is the
     # fail-safe — a prod deploy never accidentally ships a localhost CORS allowance.
     cors_origins: list[str] = Field(default_factory=list)  # 06-L1
-    allowed_hosts: list[str] = Field(default_factory=lambda: ["*"])
     serve_spa: bool = False
     spa_dist_dir: Path = Path("frontend/dist")
     sse_keepalive_s: int = 15
@@ -409,6 +408,12 @@ class Settings(BaseSettings):
     password_min_length: int = 8  # the password-policy floor (CFG-03; security knob)
     auth_self_signup_enabled: bool = True
     password_reset_enabled: bool = True
+    # PATCH /v1/me `settings` jsonb ceiling. `AsyncpgUserDatabase.get` (SELECT *)
+    # re-reads and json-decodes this column on every authenticated request (the
+    # auth dependency), so an unbounded blob taxes the whole db_pool_max=5 pool,
+    # not just the one PATCH. Shipped keys (theme, default_source_config,
+    # onboarding) run low hundreds of bytes; 64 KB leaves ample headroom.
+    user_settings_max_bytes: int = Field(default=64_000, gt=0)
 
     # --- Email (B3) ---
     email_provider: Literal["console"] = "console"

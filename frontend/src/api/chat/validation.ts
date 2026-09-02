@@ -108,6 +108,12 @@ function hasSourcePeriodEvidence(value: JsonRecord): boolean {
   );
 }
 
+function tierMatchesSource(source: SourceName, tier: Tier): boolean {
+  if (source === "reddit") return tier === "community";
+  if (source === "edu") return tier === "official";
+  return true;
+}
+
 export function isCurrentCitation(value: unknown): value is Citation {
   if (
     !record(value) ||
@@ -187,7 +193,7 @@ export function isCurrentCitation(value: unknown): value is Citation {
       periodKeys.every((key) => absentOrNull(value, key))
     );
   return (
-    value.tier === (value.source === "reddit" ? "community" : "official") &&
+    tierMatchesSource(value.source as SourceName, value.tier as Tier) &&
     nonEmpty(value.url) &&
     dbKeys.every((key) => absentOrNull(value, key)) &&
     hasSourcePeriodEvidence(value)

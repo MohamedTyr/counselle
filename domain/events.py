@@ -427,7 +427,7 @@ def ev_clarify_response(
 
 
 def ev_sources(sources: list[SourceEntry]) -> Event:
-    return Event(type="sources", data=SourcesData(sources=sources).model_dump())
+    return Event(type="sources", data=SourcesData(sources=sources).model_dump(mode="json"))
 
 
 def ev_usage(usage: UsageData) -> Event:

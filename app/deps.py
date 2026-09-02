@@ -13,12 +13,14 @@ compiled graph — and one ``aclose()`` that puts it all away.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
 import asyncpg
+import structlog
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.models import Model
@@ -32,6 +34,8 @@ from app.workspace.document_summary import DocumentSummaryGenerator, make_docume
 from config.settings import get_settings
 from counselle_db.catalog import Catalog, CatalogSnapshot
 from counselle_db.db import create_pool
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -120,14 +124,22 @@ async def build_runtime(settings: Any = None) -> Runtime:
     except BaseException:
         await ro_pool.close()
         raise
-    try:
-        pipeline_pool: asyncpg.Pool | None = None
-        if settings.db_pipeline_dsn:
+    pipeline_pool: asyncpg.Pool | None = None
+    if settings.db_pipeline_dsn:
+        try:
             pipeline_pool = await create_pool(dsn=settings.db_pipeline_dsn, settings=settings)
-    except BaseException:
-        await ro_pool.close()
-        await app_pool.close()
-        raise
+        except asyncio.CancelledError:
+            # Not a connection failure to degrade from — close the pools
+            # already open above before propagating the cancellation.
+            await ro_pool.close()
+            await app_pool.close()
+            raise
+        except Exception:
+            # Degrade, don't take down the whole app: this DSN only backs the
+            # superuser-only CDS admin surface, which already 503s cleanly
+            # when pipeline_pool is None (mirrors the DSN-unset posture).
+            logger.exception("cds_pipeline_pool_unreachable")
+            pipeline_pool = None
     try:
         checkpointer = await build_checkpointer(settings)
     except BaseException:

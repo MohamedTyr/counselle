@@ -26,9 +26,15 @@ import asyncpg
 import structlog
 
 from adapters import cds_admin_queries, cds_store
-from adapters.cds_admin_types import DocumentMeta, DomainPacketSummary, EvidenceRow, MetricRow
+from adapters.cds_admin_types import (
+    DocumentMeta,
+    DomainPacketSummary,
+    EvidenceRow,
+    ExtractionRow,
+    MetricRow,
+)
 from app.cds import audit
-from app.cds.errors import CdsAdminNotFoundError, CdsAdminValidationError
+from app.cds.errors import CdsAdminConflictError, CdsAdminNotFoundError, CdsAdminValidationError
 from app.cds.models import (
     DocumentReviewOut,
     FlagsSummary,
@@ -259,6 +265,60 @@ def _build_section(
     )
 
 
+# Mirrors the frontend's `CDS_NON_TERMINAL_EXTRACTION_STATUSES`
+# (`frontend/src/api/cds-admin/types.ts`) and the coverage query's own
+# `status IN ('queued', 'running')` -- there is no shared Python/TS constant
+# to route both through, so this is the third literal copy of the same two
+# values, not a new duplication pattern.
+_NON_TERMINAL_EXTRACTION_STATUSES = {"queued", "running"}
+
+
+def _select_header_extraction(
+    domains: list[DomainPacketSummary], extractions: list[ExtractionRow]
+) -> tuple[ExtractionRow | None, bool]:
+    """Which extraction the review header's identity (id/model/version/finish
+    time/error) is drawn from, and whether the domains on screen actually
+    came from more than one (R-01).
+
+    The old code took ``extractions[0]`` -- whichever extraction was queued
+    most recently for the *document*, even if it had not produced a single
+    domain packet yet. That let an unrelated in-flight or failed rerun
+    narrate the header over other domains' unrelated, already-good data.
+    Instead, only extractions a domain's *current* packet actually came from
+    (``domain.extraction_id``, the same id ``_current_edits`` already keys
+    on) are eligible.
+
+    ``extractions`` is already ``ORDER BY queued_at DESC``
+    (``_DOCUMENT_EXTRACTIONS_SQL``). When more than one is eligible, the
+    most recently queued *non-terminal* one wins the identity fields, so the
+    header's ``status`` stays "non-terminal if any contributing extraction
+    is" -- the contract `document-status.ts` / `ReviewHeader.tsx` already
+    rely on -- otherwise the most recently queued eligible one, matching the
+    old tie-break.
+    """
+    contributing_ids = {d.extraction_id for d in domains}
+    if not contributing_ids:
+        # No domain has a packet yet (e.g. a document's very first
+        # extraction hasn't finished any domain) -- there is no completed
+        # data to misattribute, so the most recently queued extraction is
+        # shown exactly as before.
+        return (extractions[0] if extractions else None), False
+    eligible = [
+        extraction for extraction in extractions if extraction.id in contributing_ids
+    ]
+    if not eligible:
+        # Every contributing id is missing from `extractions` -- shouldn't
+        # happen (a packet's extraction row always exists), but leaves the
+        # header honestly blank rather than guessing.
+        return None, False
+    is_mixed = len({extraction.id for extraction in eligible}) > 1
+    primary = next(
+        (e for e in eligible if e.status in _NON_TERMINAL_EXTRACTION_STATUSES),
+        eligible[0],
+    )
+    return primary, is_mixed
+
+
 def _aggregate_counts(domains: list[DomainPacketSummary]) -> dict[str, int]:
     totals: dict[str, int] = {}
     for domain in domains:
@@ -287,6 +347,12 @@ def _flags_summary(
     for domain in domains:
         for flag in domain.flags:
             total += 1
+            # `metric_ref is None` is currently unreachable -- all six
+            # `ReviewFlag(...)` call sites in `domain/cds/validators.py` pass an
+            # explicit ref, so such a flag can only ever be overridden, never
+            # "addressed" via a pending edit. If a future domain-level (not
+            # metric-level) validator ever constructs a ref-less flag, decide
+            # deliberately whether it should be addressable here.
             addressed = flag.metric_ref is not None and flag.metric_ref in pending
             if not addressed and flag.severity == "error":
                 unresolved += 1
@@ -314,17 +380,19 @@ async def get_review(
     )
     ordered = sorted(raw.domains, key=_domain_sort_key)
     sections = [_build_section(domain, pending) for domain in ordered]
+    header_extraction, is_mixed = _select_header_extraction(raw.domains, raw.extractions)
     extraction = (
         ReviewExtraction(
-            id=raw.extractions[0].id,
-            status=raw.extractions[0].status,
-            extractor_version=raw.extractions[0].extractor_version,
-            model_id=raw.extractions[0].model_id,
-            finished_at=raw.extractions[0].finished_at,
-            error_code=raw.extractions[0].error_code,
+            id=header_extraction.id,
+            status=header_extraction.status,
+            extractor_version=None if is_mixed else header_extraction.extractor_version,
+            model_id=None if is_mixed else header_extraction.model_id,
+            finished_at=None if is_mixed else header_extraction.finished_at,
+            error_code=None if is_mixed else header_extraction.error_code,
             counts=_aggregate_counts(raw.domains),
+            is_mixed_generation=is_mixed,
         )
-        if raw.extractions
+        if header_extraction
         else None
     )
     return DocumentReviewOut(
@@ -401,7 +469,34 @@ async def save_metric_edits(
             document_id=document_id,
             detail={"metric_refs": [edit.metric_ref for edit in edits]},
         )
-    return await get_review(pipeline_pool, app_pool, document_id=document_id)
+    review = await get_review(pipeline_pool, app_pool, document_id=document_id)
+    superseded = _superseded_refs(edits, review)
+    if superseded:
+        raise CdsAdminConflictError(
+            f"a re-extraction completed while saving -- {superseded} were not applied "
+            "and must be re-entered"
+        )
+    return review
+
+
+def _superseded_refs(edits: list[MetricEditIn], review: DocumentReviewOut) -> list[str]:
+    """R-02: the `base_extraction_id` stamped in `save_metric_edits` comes
+    from `raw`, read before that transaction opened. If a rerun
+    (`rerun_extraction`) committed a new packet for one of these domains in
+    that window, the row was written already-superseded, and
+    `_current_edits` (inside the `get_review` call just before this)
+    correctly drops it -- so without this check the endpoint would return
+    200 with a review that silently omits the edit the admin just saved.
+    Comparing what was written against what the fresh review still shows as
+    pending turns that into a named 409 instead of a silent no-op."""
+    written_refs = {edit.metric_ref for edit in edits}
+    still_pending_refs = {
+        metric.ref
+        for section in review.sections
+        for metric in section.metrics
+        if metric.pending_edit is not None
+    }
+    return sorted(written_refs - still_pending_refs)
 
 
 __all__ = [

@@ -63,6 +63,15 @@ _PENDING_ACTIVE_UPDATE_PREDICATE_SQL = f"""
     AND reactivated_at IS NULL
 """
 
+# V-01 (specs/cds-pipeline/plan/cds-admin-polish-2.md): `insert_document`'s dedupe was a plain
+# check-then-insert with no lock, so two concurrent uploads of the same PDF
+# into the same school-year slot could both pass the SELECT and both INSERT.
+# A transaction-scoped advisory lock keyed on `school_year_id` serializes
+# every insert into one slot, closing the race. Namespace tag `2` --
+# `app/workspace/service_activities.py` already reserved `0` and `1` for its
+# own per-user locks; pick a new tag if this module ever needs a second one.
+_INSERT_DOCUMENT_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 2))"
+
 
 class CdsStoreError(Exception):
     """Base for CDS write-path failures — never swallowed silently."""
@@ -156,13 +165,24 @@ async def insert_document(
     repository_school_name: str | None = None,
 ) -> DocumentRecord:
     """Insert one PDF, deduped on ``(school_year_id, sha256)`` against
-    non-invalidated documents already in that slot. Returns the existing row
-    (``is_duplicate=True``) instead of inserting a byte-identical copy."""
+    documents already in that slot that are neither invalidated nor
+    superseded. Returns the existing row (``is_duplicate=True``) instead of
+    inserting a byte-identical copy.
+
+    V-01: an advisory transaction lock on ``school_year_id`` serializes this
+    whole check-then-insert against any other concurrent call for the same
+    slot -- see ``_INSERT_DOCUMENT_LOCK_SQL`` above. Paired with a partial
+    unique index on the same predicate in
+    ``deploy/seed/cds_library_schema.sql`` as a second, DB-enforced barrier
+    (not yet applied to the live database -- an owner decision, T-101/V-01).
+    """
     digest = sha256(pdf_content).digest()
+    await conn.execute(_INSERT_DOCUMENT_LOCK_SQL, str(school_year_id))
     existing = await conn.fetchrow(
         """
         SELECT id, school_year_id, pdf_sha256 FROM cds_library.cds_documents
-        WHERE school_year_id = $1 AND pdf_sha256 = $2 AND invalidated_at IS NULL
+        WHERE school_year_id = $1 AND pdf_sha256 = $2
+          AND invalidated_at IS NULL AND superseded_at IS NULL
         """,
         school_year_id,
         digest,
@@ -523,6 +543,44 @@ async def activate_packet(
 
 
 @dataclass(frozen=True)
+class ActivePacketRef:
+    """One domain's currently-active packet identity, for comparing against a
+    pre-write snapshot (`app/cds/service_review_approve.py::_activate_untouched`,
+    plan A-01). ``created_at`` is what lets the caller tell apart the two
+    ways a snapshot can be stale: a snapshot *older* than what's live is a
+    still-pending correction waiting to be published; a snapshot the same age
+    or older than something already live is the race A-01 describes."""
+
+    extraction_id: uuid.UUID
+    created_at: datetime
+
+
+async def fetch_active_extraction_ids(
+    conn: asyncpg.Connection, *, document_id: int
+) -> dict[str, ActivePacketRef]:
+    """Every currently-active packet's identity for this document, keyed by
+    ``domain_id``. Read fresh, inside the write transaction, so a caller can
+    tell whether a domain's active packet already matches what it intends to
+    (re)activate -- or was changed by a concurrent write since an earlier
+    snapshot was taken (`app/cds/service_review_approve.py::
+    _activate_untouched`, plan A-01)."""
+    rows = await conn.fetch(
+        """
+        SELECT domain_id, extraction_id, created_at
+        FROM cds_library.cds_domain_packets
+        WHERE document_id = $1 AND is_active
+        """,
+        document_id,
+    )
+    return {
+        row["domain_id"]: ActivePacketRef(
+            extraction_id=row["extraction_id"], created_at=row["created_at"]
+        )
+        for row in rows
+    }
+
+
+@dataclass(frozen=True)
 class DocumentForExtraction:
     """Everything the engine (P4) needs to run one document through a model
     call: the actual PDF bytes plus the identity facts that go into every
@@ -692,7 +750,7 @@ async def reject_candidate_document(
         )
         if result == "UPDATE 0":
             raise CdsStoreError(f"document {document_id} is already invalidated")
-        await conn.execute(
+        result = await conn.execute(
             """
             UPDATE cds_library.cds_school_years
             SET candidate_document_id = CASE
@@ -704,6 +762,8 @@ async def reject_candidate_document(
             school_year_id,
             document_id,
         )
+        if result == "UPDATE 0":
+            raise CdsStoreError(f"school_year {school_year_id} not found")
 
 
 async def promote_candidate_document(
@@ -712,7 +772,7 @@ async def promote_candidate_document(
     """Activate a candidate document (PLAN §B6 candidate -> ACTIVE): points
     ``active_document_id`` at it and clears ``candidate_document_id`` if it
     was pointing at the same document."""
-    await conn.execute(
+    result = await conn.execute(
         """
         UPDATE cds_library.cds_school_years
         SET active_document_id = $2,
@@ -726,6 +786,8 @@ async def promote_candidate_document(
         school_year_id,
         document_id,
     )
+    if result == "UPDATE 0":
+        raise CdsStoreError(f"school_year {school_year_id} not found")
 
 
 async def retire_school_year(conn: asyncpg.Connection, *, school_year_id: int) -> None:

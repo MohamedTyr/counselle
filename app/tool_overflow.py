@@ -13,7 +13,6 @@ from base64 import b64decode, b64encode
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import Any, TypeGuard
-from urllib.parse import urlparse
 from uuid import uuid4
 
 from pydantic_core import to_json
@@ -309,20 +308,6 @@ def _public_receipt(value: Any, *, chars: int, handle: str) -> dict[str, Any]:
     elif isinstance(value, list):
         receipt["row_count"] = len(value)
     return {key: val for key, val in receipt.items() if val not in (None, [])}
-
-
-def _domains_of(results: list[Any]) -> list[str]:
-    domains: list[str] = []
-    for result in results:
-        if not isinstance(result, Mapping):
-            continue
-        url = result.get("url")
-        if not url:
-            continue
-        host = urlparse(str(url)).netloc.removeprefix("www.")
-        if host and host not in domains:
-            domains.append(host)
-    return domains
 
 
 def _source_results(results: list[Any]) -> list[dict[str, str]]:

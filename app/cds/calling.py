@@ -112,23 +112,28 @@ async def _call_evidence(
     pdf_content: bytes,
     batch_metrics: tuple[dict[str, Any], ...],
     routing_text: dict[int, str],
-) -> tuple[bytes | None, tuple[bytes, ...], bool]:
+) -> tuple[bytes | None, tuple[bytes, ...], bool, list[int]]:
     """The image evidence (if any) this call sends alongside its PDF bytes,
     and the possibly-overridden `call_bytes` to use -- decision 3's C7/
     column-position supplement, plus the AcroForm form-marks path where the
     text layer is positively misleading (module docstring).
 
-    Returns `(call_bytes, image_pngs, form_marks_note)`. Images ONLY, no PDF,
-    on the form-marks path -- telling the model the text layer lies is not
-    enough -- with both in hand it keeps quoting the empty ballot box (24/24
-    wrong on UGA `academics` with the warning AND the image attached). The
-    misleading evidence has to be absent, not merely contradicted. Safe
-    because this path is gated on every metric in the batch being a boolean,
-    whose only truthful witness is the rendering."""
+    Returns `(call_bytes, image_pngs, form_marks_note, image_pages)`.
+    `image_pages` is the real, original physical page number behind each
+    entry in `image_pngs`, in the same order -- the caller needs this to
+    describe what was actually sent (plan finding E-01), since it is
+    computed independently of the padded routing window's `clusters`/
+    `page_map` and can name a different page range entirely. Images ONLY, no
+    PDF, on the form-marks path -- telling the model the text layer lies is
+    not enough -- with both in hand it keeps quoting the empty ballot box
+    (24/24 wrong on UGA `academics` with the warning AND the image
+    attached). The misleading evidence has to be absent, not merely
+    contradicted. Safe because this path is gated on every metric in the
+    batch being a boolean, whose only truthful witness is the rendering."""
     form_mark_pages = await _form_mark_pages(
         pdf_content=pdf_content, metrics=batch_metrics, routing_text=routing_text
     )
-    image_pngs = await _c7_supplementary_images(
+    image_pngs, image_pages = await _c7_supplementary_images(
         pdf_content=pdf_content,
         metrics=batch_metrics,
         routing_text=routing_text,
@@ -136,7 +141,7 @@ async def _call_evidence(
     )
     if form_mark_pages:
         call_bytes = None
-    return call_bytes, image_pngs, bool(form_mark_pages)
+    return call_bytes, image_pngs, bool(form_mark_pages), image_pages
 
 
 async def _run_call_once(
@@ -164,16 +169,30 @@ async def _run_call_once(
     else:
         call_bytes, page_map, narrowed = pdf_content, None, False
 
-    call_bytes, image_pngs, form_marks_note = await _call_evidence(
+    call_bytes, image_pngs, form_marks_note, image_pages = await _call_evidence(
         call_bytes=call_bytes,
         pdf_content=pdf_content,
         batch_metrics=batch_metrics,
         routing_text=routing_text,
     )
+    # `_call_evidence` may have just nulled `call_bytes` (the form-marks path,
+    # module docstring): no PDF is sent at all, only `image_pages` rendered
+    # as PNGs. Those pages are computed independently of `clusters`/`page_map`
+    # above (routing.py's `_c7_supplementary_images`/`_form_mark_pages`) and
+    # can name a different page range entirely, so the narrowed `page_map`
+    # describes pages the model was never shown in that case. Describe the
+    # images actually sent instead -- otherwise a "position N" citation
+    # resolves through the wrong map to a real-but-unseen page instead of
+    # being dropped (plan finding E-01).
+    effective_page_map = (
+        {position: page for position, page in enumerate(image_pages, start=1)}
+        if call_bytes is None
+        else page_map
+    )
     prompt = _build_prompt(
         manifest_content=manifest_content,
         metrics=batch_metrics,
-        page_map=page_map,
+        page_map=effective_page_map,
         original_page_count=original_page_count,
         form_marks_note=form_marks_note,
     )
@@ -192,12 +211,16 @@ async def _run_call_once(
         raise cds_gemini.CdsGeminiEmptyResponseError(
             f"model call returned {type(result.parsed).__name__}, expected WindowExtraction"
         )
-    pages_sent = len(page_map) if page_map is not None else original_page_count
+    pages_sent = (
+        len(effective_page_map) if effective_page_map is not None else original_page_count
+    )
     return _Attempt(
         remapped_findings=citation_remap.remap_findings(
-            result.parsed.findings, page_map, page_text=page_text
+            result.parsed.findings, effective_page_map, page_text=page_text
         ),
-        dropped_pages=citation_remap.dropped_citation_pages(result.parsed.findings, page_map),
+        dropped_pages=citation_remap.dropped_citation_pages(
+            result.parsed.findings, effective_page_map
+        ),
         usage=result.usage,
         model_id=result.model_id,
         latency_seconds=result.latency_seconds,

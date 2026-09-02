@@ -6,6 +6,7 @@ assert a disabled source's machinery is NEVER constructed (ADR 0013).
 
 from __future__ import annotations
 
+import sys
 from datetime import date
 from types import SimpleNamespace
 from typing import Any
@@ -65,7 +66,7 @@ class Rig:
         self.client = StubTavilyClient()
         self.registry = SourceRegistry()
         self.deps = ToolDeps(
-            catalog=None,
+            catalog=SimpleNamespace(school_count=1),
             search_max_results=5,
             subreddit_menu=list(MENU),
             tavily_client_factory=self._factory,
@@ -275,8 +276,8 @@ class TestMcpToolset:
         assert toolset.id == "counselle-db"
         assert toolset.process_tool_call is annotate_mcp_result
         transport = toolset.client.transport
-        assert transport.command == "uv"
-        assert transport.args == ["run", "python", "-m", "counselle_db.server"]
+        assert transport.command == sys.executable
+        assert transport.args == ["-m", "counselle_db.server"]
         # The child env does NOT inherit the parent env (notes §2) — the DSNs
         # must be passed explicitly.
         assert transport.env["COUNSELLE_DB_RO_DSN"] == settings.db_ro_dsn

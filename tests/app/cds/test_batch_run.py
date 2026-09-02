@@ -26,9 +26,10 @@ from types import SimpleNamespace
 import pymupdf
 import pytest
 
-from adapters import cds_gemini
+from adapters import cds_gemini, cds_store
 from app.cds import batch_run
 from app.cds.batching import Batch
+from app.cds.calling import DomainOutcome
 from domain.cds.claims import Finding, WindowExtraction
 
 # Two widely-separated windows in a 30-page document -- if a batch's
@@ -183,4 +184,83 @@ async def test_many_batches_stress_concurrency_bound_without_cross_contamination
         assert [f.page_number for f in call_result.findings] == [expected_first_page], (
             f"batch {batch.key} resolved its position-1 citation to the wrong original page "
             "-- cross-batch PageMap contamination"
+        )
+
+
+async def test_store_domain_packets_isolates_one_domains_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Plan finding Z-01: a DB error (or any other exception) building/storing
+    ONE domain's packet must not abort the whole loop -- it must be reported
+    as that domain's own failed `DomainOutcome`, mirroring the existing
+    `PacketValidationError` handling in `calling._store_packet`, while every
+    OTHER domain's outcome still lands. Before this fix, an exception escaping
+    `_build_and_store_domain_packet` unwound the whole loop: an 11/13-domain
+    partial success got recorded as a total `failed` extraction with no
+    `validation_summary` at all, even though 11 domains' packets were already
+    durably committed in their own transactions."""
+    seen_domains: list[str] = []
+
+    async def _fake_build_and_store(*, domain_id: str, **_kwargs: object) -> DomainOutcome:
+        seen_domains.append(domain_id)
+        if domain_id == "domain_b":
+            raise RuntimeError("transient db error")
+        return DomainOutcome(domain_id, "succeeded", {"verified": 1}, 0, None)
+
+    monkeypatch.setattr(batch_run, "_build_and_store_domain_packet", _fake_build_and_store)
+
+    requested_domains = ["domain_a", "domain_b", "domain_c"]
+    outcomes = await batch_run.store_domain_packets(
+        pool=None,
+        settings=None,
+        manifest=None,  # type: ignore[arg-type]
+        requested_domains=requested_domains,
+        domain_findings={domain_id: [] for domain_id in requested_domains},
+        run_contract={},
+        doc=None,  # type: ignore[arg-type]
+        extraction=None,  # type: ignore[arg-type]
+        original_page_count=10,
+        doc_facts=None,  # type: ignore[arg-type]
+        model_id="fake-model",
+    )
+
+    # The loop kept going past domain_b's failure instead of unwinding.
+    assert seen_domains == requested_domains
+    assert outcomes["domain_a"].status == "succeeded"
+    assert outcomes["domain_c"].status == "succeeded"
+    assert outcomes["domain_b"].status is None
+    assert outcomes["domain_b"].error == "transient db error"
+    assert outcomes["domain_b"].counts is None
+    assert outcomes["domain_b"].flags == 0
+
+
+async def test_store_domain_packets_still_reraises_lease_lost_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`LeaseLostError` must still propagate out of the loop, unlike an
+    ordinary failure: the run has lost its claim, so every remaining domain
+    is equally doomed (mirrors `_store_packet`'s own deliberate non-catch of
+    this exception, documented in its docstring)."""
+
+    async def _fake_build_and_store(*, domain_id: str, **_kwargs: object) -> DomainOutcome:
+        if domain_id == "domain_a":
+            raise cds_store.LeaseLostError("lease gone")
+        pytest.fail("the loop must stop at the first LeaseLostError, not keep going")
+
+    monkeypatch.setattr(batch_run, "_build_and_store_domain_packet", _fake_build_and_store)
+
+    requested_domains = ["domain_a", "domain_b"]
+    with pytest.raises(cds_store.LeaseLostError):
+        await batch_run.store_domain_packets(
+            pool=None,
+            settings=None,
+            manifest=None,  # type: ignore[arg-type]
+            requested_domains=requested_domains,
+            domain_findings={domain_id: [] for domain_id in requested_domains},
+            run_contract={},
+            doc=None,  # type: ignore[arg-type]
+            extraction=None,  # type: ignore[arg-type]
+            original_page_count=10,
+            doc_facts=None,  # type: ignore[arg-type]
+            model_id="fake-model",
         )

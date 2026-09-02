@@ -90,32 +90,47 @@ def _finding_from_pending(row: dict[str, Any]) -> Finding:
 
 
 async def _clear_pending_edits(
-    app_pool: asyncpg.Pool, document_id: int, *, metric_refs: list[str] | None = None
+    app_pool: asyncpg.Pool,
+    document_id: int,
+    *,
+    pending: dict[str, dict[str, Any]] | None = None,
 ) -> None:
-    """Delete pending-edit rows for the document -- scoped to exactly
-    ``metric_refs`` when given, every row for the document when omitted
-    (`reject_document`'s case: the whole document is being discarded, so
-    there is nothing later that could apply a leftover edit).
+    """Delete pending-edit rows for the document -- scoped to exactly the
+    ``(metric_ref, edited_at)`` pairs in ``pending`` when given, every row for
+    the document when omitted (`reject_document`'s case: the whole document is
+    being discarded, so there is nothing later that could apply a leftover
+    edit).
 
-    `approve_document` must pass the metric_refs it actually snapshotted
+    `approve_document` must pass the `pending` dict it actually snapshotted
     from `cds_pending_edits` before opening its write transaction, not omit
     this: an admin's `PATCH .../metrics` (`save_metric_edits`) can insert a
     *new* edit in the gap between that snapshot and this delete. An
-    unconditional `DELETE ... WHERE document_id = $1` would silently discard
-    that concurrent edit -- never applied to any packet, and gone with no
-    error or trace. Scoping to the snapshotted refs lets a concurrent edit
-    survive to be picked up (and actually applied) by the next approve."""
+    unconditional `DELETE ... WHERE document_id = $1`, or one scoped by
+    `metric_ref` alone, would silently discard that concurrent edit --
+    never read, applied, or reported, just gone. `save_metric_edits` upserts
+    `ON CONFLICT (document_id, metric_ref) DO UPDATE ... edited_at = now()`,
+    so a *second* edit to the very same ref lands under the same key with a
+    newer `edited_at` -- pairing the delete with the snapshotted `edited_at`,
+    not just the ref, is what lets that resubmit survive to be picked up (and
+    actually applied) by the next approve, the same as a genuinely new ref
+    already did."""
     async with app_pool.acquire() as conn:
-        if metric_refs is None:
+        if pending is None:
             await conn.execute(
                 "DELETE FROM counselle.cds_pending_edits WHERE document_id = $1", document_id
             )
         else:
             await conn.execute(
-                "DELETE FROM counselle.cds_pending_edits "
-                "WHERE document_id = $1 AND metric_ref = ANY($2::text[])",
+                """
+                DELETE FROM counselle.cds_pending_edits pe
+                USING unnest($2::text[], $3::timestamptz[]) AS snap(metric_ref, edited_at)
+                WHERE pe.document_id = $1
+                  AND pe.metric_ref = snap.metric_ref
+                  AND pe.edited_at = snap.edited_at
+                """,
                 document_id,
-                metric_refs,
+                list(pending.keys()),
+                [row["edited_at"] for row in pending.values()],
             )
 
 
@@ -394,11 +409,49 @@ async def _activate_untouched(
     *,
     skip: set[str],
 ) -> None:
+    """Activate every domain's packet the admin did not just edit -- needed so
+    a first-time candidate approval flips its never-active packets on, *and*
+    so an `active_update` correction (a domain-scoped rerun of an
+    already-active document, SHIP-PLAN §2.1) actually publishes the packet it
+    exists to publish -- approve is the only place anything ever calls
+    `activate_packet` (see this module's header), so skipping a domain just
+    because *something* is already active would mean the corrected packet
+    never goes live at all, silently, on every such approval.
+
+    `by_domain` is a snapshot read before the write phase (plan A-01): for an
+    already-active document, a concurrent write (another admin, or the
+    poller finishing a second, later `active_update`) can activate a newer
+    packet for an untouched domain between that snapshot and this
+    transaction. Re-reading what is actually active right now, inside the
+    transaction, tells the two cases apart by `created_at`:
+
+    - Nothing active yet -> first-time candidate approval; activate.
+    - The active packet's own `extraction_id` matches the snapshot's ->
+      already published; no-op.
+    - The active packet is *older* than the snapshot (`created_at` order) ->
+      the snapshot is the correction still waiting to be published, and this
+      approve is the mechanism that publishes it; activate.
+    - The active packet is the same age or *newer* than the snapshot -> a
+      concurrent write already activated something the snapshot doesn't
+      know about (plan A-01's race); reactivating the stale snapshot over it
+      would silently clobber that write, so refuse instead and let the whole
+      approve be retried against fresh state.
+    """
+    active_now = await cds_store.fetch_active_extraction_ids(conn, document_id=document_id)
     for domain_id, domain_summary in by_domain.items():
         if domain_id in skip:
             continue
+        snapshot_extraction_id = uuid.UUID(domain_summary.extraction_id)
+        active = active_now.get(domain_id)
+        if active is not None and active.extraction_id == snapshot_extraction_id:
+            continue
+        if active is not None and active.created_at >= domain_summary.created_at:
+            raise CdsAdminConflictError(
+                f"domain {domain_id!r} was activated by a concurrent extraction "
+                f"({active.extraction_id}) after this review was opened -- reload and retry"
+            )
         await cds_store.activate_packet(
-            conn, document_id=document_id, extraction_id=uuid.UUID(domain_summary.extraction_id),
+            conn, document_id=document_id, extraction_id=snapshot_extraction_id,
             domain_id=domain_id,
         )
 
@@ -445,9 +498,12 @@ async def _approve_writes(
                 conn, document_id, by_domain, skip=set(edited.domain_ids) if edited else set()
             )
             if document.is_candidate:
-                await cds_store.promote_candidate_document(
-                    conn, school_year_id=document.school_year_id, document_id=document_id
-                )
+                try:
+                    await cds_store.promote_candidate_document(
+                        conn, school_year_id=document.school_year_id, document_id=document_id
+                    )
+                except cds_store.CdsStoreError as exc:
+                    raise CdsAdminConflictError(str(exc)) from exc
             # else: an `active_update` correction against an already-active
             # document -- skip the document-level swap (it would be a harmless
             # no-op, both fields are already correct) so the audit log stays
@@ -541,7 +597,7 @@ async def approve_document(
         override_flags=override_flags,
     )
 
-    await _clear_pending_edits(app_pool, document_id, metric_refs=list(pending))
+    await _clear_pending_edits(app_pool, document_id, pending=pending)
     await _record_approve_audit(
         app_pool, document=raw.document, document_id=document_id, actor_user_id=actor_user_id,
         note=note, new_extraction_id=new_extraction_id, activated_domains=sorted(by_domain),

@@ -8,7 +8,7 @@ from typing import Any, Literal
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
-from counselle_db.formatting import format_decimal
+from counselle_db.formatting import format_cds_edition, format_decimal
 from counselle_db.models import DomainRow, ServiceError
 
 logger = structlog.get_logger(__name__)
@@ -300,6 +300,16 @@ def parse_packet_row(
         try:
             if metric.extraction_status == "verified" and metric.availability_status == "reported":
                 _display(metric, definitions[ref])
+                # DATABASE_GUIDE §9: never convert unavailable to zero.  A raw cell that
+                # carries no digits (a CDS "-"/"N/A" dash) is not a reported number, no
+                # matter what the extractor typed alongside it.
+                if (
+                    definitions[ref].type in {"integer", "number"}
+                    and metric.raw_value is not None
+                    and metric.raw_value.strip()
+                    and not any(char.isdigit() for char in metric.raw_value)
+                ):
+                    raise ValueError("non-numeric raw for a reported numeric metric")
         except ValueError:
             raise _reject("metric_value_type_invalid", row) from None
     actual = {name: 0 for name in PacketCounts.model_fields}
@@ -424,7 +434,7 @@ def read_metric(
         caveats.append("stale_edition")
     if not available and metric.availability_status:
         caveats.append(metric.availability_status)
-    vintage = f"CDS {academic_year}-{str(academic_year + 1)[-2:]}"
+    vintage = format_cds_edition(academic_year)
     qualifiers_resolved = 0
     for context in definition.contexts:
         displays: list[str] = []
@@ -457,6 +467,7 @@ def read_metric(
         display=display,
         available=available,
         availability_status=metric.availability_status,
+        unit=definition.unit,
         value=metric.value if available else None,
         vintage=vintage,
         caveat_kinds=tuple(caveats),

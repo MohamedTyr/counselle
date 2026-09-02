@@ -84,14 +84,26 @@ rules in §5–§9 — applies to it exactly as written, unchanged.
 
 - **Role and DSN.** The write path authenticates as `cds_library_app` over a third
   credential, `COUNSELLE_DB_PIPELINE_DSN` (`config/settings.py`'s `db_pipeline_dsn`,
-  optional — the app boots fine without it, and the CDS admin router returns a clean
-  503 until it is configured). `cds_library_app` holds `INSERT, SELECT, UPDATE` —
+  optional — the app boots fine whether this is unset or set-but-unreachable, and the
+  CDS admin router returns a clean 503 until it is configured). `cds_library_app` holds
+  `INSERT, SELECT, UPDATE` —
   **never `DELETE`** — on all 8 `cds_library` base tables (`schools`,
   `cds_school_years`, `cds_documents`, `cds_manifests`, `cds_extractions`,
-  `cds_domain_packets`, `ct_index_entries`, `ct_index_state`). The missing `DELETE`
+  `cds_domain_packets`, `ct_index_entries`, `ct_index_state`) plus the 5 reader views.
+  The missing `DELETE`
   grant was confirmed empirically against the live database, including a direct
   `DELETE` attempt that Postgres rejected (`specs/cds-pipeline/plan/recon/recon-db-live.md` §4),
   not just read from a grant table.
+- **Schema source of record.** This repo's own yoyo `migrations/` never create or alter
+  `cds_library` — it is populated once, outside this repo's migration history (the old,
+  now-retired `counselle-data-pipeline` repo originally owned this DDL).
+  `deploy/seed/cds_library_schema.sql` is the schema-DDL and grant-model source of
+  record: every base table, index, constraint, the `is_sorted_distinct_text_array()`
+  helper, the 5 reader views (real view bodies, not the plain placeholder tables
+  `deploy/seed/schema.sql` uses for the Render staging container's self-seed step),
+  and the `cds_library_app` role's exact grant. `scripts/setup_db.sql` bootstraps that
+  role and its grants (gated on `COUNSELLE_PIPELINE_PASSWORD`); see `README.md`'s
+  Prerequisites section for the run order on a fresh database.
 - **Code boundary.** Only `adapters/cds_store.py` and `adapters/cds_admin_queries.py`
   ever open a connection on this DSN, and only reachable behind the `current_superuser`
   dependency gating `/v1/admin/cds/*`. No other adapter, service, tool, or route holds
@@ -250,6 +262,10 @@ Reject malformed identity rather than repairing it. At minimum, enforce:
   citations, or logs;
 - evidence page numbers are positive physical PDF page numbers;
 - unavailable and failed states cannot carry a student value;
+- a `verified`/`reported` integer or number metric whose raw value strips to
+  non-empty text with no digit rejects the whole domain packet rather than serving
+  a corrupted value (blank or whitespace-only raw values are unaffected and reach
+  the typed formatter);
 - packets are readable only under these explicitly supported extractor identifiers
   (`config/settings.py`'s `supported_packet_extractor_versions`): the legacy
   `gemini-native-pdf-v2`, `gemini-native-pdf-v5`, and `gemini-routed-extraction-v7`;

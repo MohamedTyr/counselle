@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import {
@@ -10,8 +11,9 @@ import {
   useProcessBatch,
   useUploadBatch,
 } from "@/api/cds-admin/hooks";
+import { cdsAdminKeys } from "@/api/cds-admin/keys";
 import { isTransportError } from "@/api/http/errors";
-import type { UploadPatchBody, UploadRow } from "@/api/cds-admin/types";
+import type { ProcessSkippedItem, UploadPatchBody, UploadRow } from "@/api/cds-admin/types";
 import { buildAcademicYearOptions } from "@/features/cds-admin/upload/academic-years";
 import { createConcurrencyQueue } from "@/features/cds-admin/upload/concurrency-queue";
 import {
@@ -22,6 +24,7 @@ import {
   buildReadinessSentence,
   markEntryFailed,
   partitionFiles,
+  queueFailureReasons,
   readyToProcessCount,
   reconcileWithServer,
   rejectedFilesMessage,
@@ -64,7 +67,6 @@ export function useBatchUpload() {
 
   const [localEntries, setLocalEntries] = useState<StagingEntry[]>([]);
   const [deletedRowIds, setDeletedRowIds] = useState<ReadonlySet<string>>(new Set());
-  const [hasTriggeredProcess, setHasTriggeredProcess] = useState(false);
   const [mutationServiceUnavailable, setMutationServiceUnavailable] = useState(false);
 
   const queueRef = useRef(createConcurrencyQueue(MAX_CONCURRENT_UPLOADS));
@@ -88,6 +90,18 @@ export function useBatchUpload() {
   const deleteUploadRowMutation = useDeleteUploadRow();
   const processBatchMutation = useProcessBatch();
   const jobsQuery = useJobs({ batchId: batchId ?? "" });
+  // [F-03]: the last "Process all" response's `skipped` list, read back off
+  // the query cache `useProcessBatch` writes into on success (hook-level,
+  // not a call-level `mutate()` callback) -- this is what lets the reason
+  // survive the admin navigating away before the mutation settles. Never
+  // fetched (`enabled: false`); `initialData` only seeds an empty list the
+  // first time this batch has no cache entry yet.
+  const queueFailuresQuery = useQuery({
+    queryKey: cdsAdminKeys.batch.queueFailures(batchId ?? ""),
+    queryFn: () => [] as ProcessSkippedItem[],
+    enabled: false,
+    initialData: () => [] as ProcessSkippedItem[],
+  });
 
   // A 503 means the pipeline DSN isn't configured — page-scoped, overrides
   // everything else (DESIGN.md §1.9 #2). It can surface from either the
@@ -249,7 +263,6 @@ export function useBatchUpload() {
 
   function triggerProcess() {
     if (!batchId) return;
-    setHasTriggeredProcess(true);
     processBatchMutation.mutate(batchId);
   }
 
@@ -257,7 +270,13 @@ export function useBatchUpload() {
   const committedRows = entries
     .map((entry) => entry.row)
     .filter((row): row is UploadRow => row?.status === "committed");
-  const isProcessed = hasTriggeredProcess || committedRows.length > 0;
+  const readyCount = readyToProcessCount(entries);
+  // [F-04] Driven off *current* readiness, not batch history: a row only
+  // ever counts as "processed" once nothing is left to queue. Recomputing
+  // this from live entries (rather than latching a one-way
+  // `hasTriggeredProcess` flag) is what lets "Process all" reappear for a
+  // file added after an earlier batch already finished.
+  const isProcessed = readyCount === 0 && committedRows.length > 0;
   const { sentence: processedSentence, isComplete: isBatchComplete } = buildProcessedSentence(
     committedRows,
     jobsByExtractionId,
@@ -291,11 +310,10 @@ export function useBatchUpload() {
     jobsByExtractionId,
     patchRow,
     processedSentence,
+    queueFailuresByFileId: queueFailureReasons(queueFailuresQuery.data),
     readinessSentence: buildReadinessSentence(entries),
-    readyCount: readyToProcessCount(entries),
+    readyCount,
     retryBatchFetch: () => void batchQuery.refetch(),
     triggerProcess,
   };
 }
-
-export type UseBatchUploadResult = ReturnType<typeof useBatchUpload>;

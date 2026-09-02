@@ -128,107 +128,144 @@ async def _resolve_status(
     return "replaces_existing" if exists else "matched"
 
 
-async def create_upload(
+async def _stage_unreadable_upload_row(
     app_pool: asyncpg.Pool,
+    *,
+    row_id: UUID,
+    batch_id: UUID,
+    user_id: UUID,
+    filename: str,
+    content: bytes,
+    digest: bytes,
+    error_message: str,
+) -> UploadRow:
+    """The unreadable-PDF path: stage an `error`-status row with no content
+    instead of raising out of `create_upload` (per-file isolation)."""
+    async with app_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            f"""
+            INSERT INTO counselle.cds_upload_files
+                (id, batch_id, uploaded_by, filename, content, size_bytes, sha256,
+                 page_count, status, detection, error_message)
+            VALUES ($1, $2, $3, $4, NULL, $5, $6, NULL, 'error', $7, $8)
+            RETURNING {_SELECT_COLUMNS}
+            """,
+            row_id,
+            batch_id,
+            user_id,
+            filename,
+            len(content),
+            digest,
+            {},
+            error_message,
+        )
+    return _row_to_upload(row)
+
+
+def _build_detection_info(result: Any, *, looks_like_cds: bool) -> DetectionInfo:
+    """Build the `DetectionInfo` envelope: candidates plus the combined note
+    -- see the two-defenses comment above `_NOT_A_CDS_DETECTION_NOTE`."""
+    candidates = [
+        DetectionCandidate(
+            school_id=candidate.school_id,
+            name=candidate.name,
+            state=candidate.state,
+            city=candidate.city,
+            score=candidate.score,
+        )
+        for candidate in result.candidates
+    ]
+    # Both notes when both apply. A detection call that failed and a document
+    # whose first page never says "Common Data Set" are independent facts;
+    # showing only the transport error dropped the more actionable of the
+    # two. Either one alone still lands the row on `needs_input`.
+    detection_notes = [
+        note
+        for note in (
+            result.error,
+            None if looks_like_cds else _NOT_A_CDS_DETECTION_NOTE,
+        )
+        if note
+    ]
+    return DetectionInfo(
+        name=result.detected_name,
+        year=result.detected_academic_year,
+        confident=result.confident,
+        candidates=candidates,
+        error="; ".join(detection_notes) or None,
+    )
+
+
+async def _run_detection_call(
+    pipeline_pool: asyncpg.Pool, settings: Any, content: bytes
+) -> tuple[DetectionInfo, int | None, int | None]:
+    """Run the per-file detection call and score it against the two auto-fill
+    gates (confident match + `looks_like_cds`). Returns `(detection_info,
+    school_id, academic_year)`; school/year stay `None` unless both gates
+    pass."""
+    result = await detect.detect_school_year(
+        settings=settings, pool=pipeline_pool, pdf_content=content
+    )
+    looks_like_cds = await cds_pdf.sanity_check_cds_pdf(content)
+    detection_info = _build_detection_info(result, looks_like_cds=looks_like_cds)
+    school_id: int | None = None
+    academic_year: int | None = None
+    if looks_like_cds and result.confident and result.best_match is not None:
+        school_id = result.best_match.school_id
+        detected_year = result.detected_academic_year
+        # `_DetectedIdentity.academic_year_start` (detect.py) accepts any
+        # year in [1980, 2100] -- generous on purpose, since an OCR misread
+        # is exactly the kind of thing this field exists to catch. The
+        # `cds_upload_files.academic_year` column is stricter (CHECK
+        # BETWEEN 2000 AND 2200, same bound `UploadPatchBody` enforces): a
+        # detected year outside that range is treated like a low-confidence
+        # match and left unset, so the row falls through to `needs_input`
+        # instead of the INSERT below raising `CheckViolationError`.
+        year_in_range = (
+            detected_year is not None and MIN_ACADEMIC_YEAR <= detected_year <= MAX_ACADEMIC_YEAR
+        )
+        if year_in_range:
+            academic_year = detected_year
+    return detection_info, school_id, academic_year
+
+
+async def _detect_upload_identity(
     pipeline_pool: asyncpg.Pool,
     settings: Any,
     *,
-    user_id: UUID,
+    content: bytes,
+    digest: bytes,
+) -> tuple[DetectionInfo, int | None, int | None, int | None]:
+    """Dedup by sha256 against already-committed documents; otherwise defer to
+    `_run_detection_call`. Returns `(detection_info, school_id, academic_year,
+    duplicate_of)`."""
+    duplicate = await cds_admin_queries.find_document_by_sha256(pipeline_pool, digest)
+    if duplicate is not None:
+        detection_info = DetectionInfo(duplicate_of=duplicate.document_id)
+        return detection_info, duplicate.school_id, duplicate.academic_year, duplicate.document_id
+    detection_info, school_id, academic_year = await _run_detection_call(
+        pipeline_pool, settings, content
+    )
+    return detection_info, school_id, academic_year, None
+
+
+async def _stage_upload_row(
+    app_pool: asyncpg.Pool,
+    *,
+    row_id: UUID,
     batch_id: UUID,
+    user_id: UUID,
     filename: str,
     content: bytes,
-) -> UploadRow:
-    """Stage one uploaded PDF: hash, page count, dedupe, and a per-file
-    detection call. Never raises on an unreadable PDF -- an `error`-status
-    row is returned instead of failing the whole upload request."""
-    digest = sha256(content).digest()
-    row_id = uuid.uuid4()
-    try:
-        page_count = await cds_pdf.get_page_count(content)
-    except cds_pdf.CdsPdfError as exc:
-        async with app_pool.acquire() as conn:
-            row = await conn.fetchrow(
-                f"""
-                INSERT INTO counselle.cds_upload_files
-                    (id, batch_id, uploaded_by, filename, content, size_bytes, sha256,
-                     page_count, status, detection, error_message)
-                VALUES ($1, $2, $3, $4, NULL, $5, $6, NULL, 'error', $7, $8)
-                RETURNING {_SELECT_COLUMNS}
-                """,
-                row_id,
-                batch_id,
-                user_id,
-                filename,
-                len(content),
-                digest,
-                {},
-                str(exc)[:2000],
-            )
-        return _row_to_upload(row)
-
-    duplicate = await cds_admin_queries.find_document_by_sha256(pipeline_pool, digest)
-    school_id: int | None = None
-    academic_year: int | None = None
-    duplicate_of: int | None = None
-    if duplicate is not None:
-        duplicate_of = duplicate.document_id
-        school_id, academic_year = duplicate.school_id, duplicate.academic_year
-        detection_info = DetectionInfo(duplicate_of=duplicate_of)
-    else:
-        result = await detect.detect_school_year(
-            settings=settings, pool=pipeline_pool, pdf_content=content
-        )
-        looks_like_cds = await cds_pdf.sanity_check_cds_pdf(content)
-        candidates = [
-            DetectionCandidate(
-                school_id=candidate.school_id,
-                name=candidate.name,
-                state=candidate.state,
-                city=candidate.city,
-                score=candidate.score,
-            )
-            for candidate in result.candidates
-        ]
-        # Both notes when both apply. A detection call that failed and a document
-        # whose first page never says "Common Data Set" are independent facts;
-        # showing only the transport error dropped the more actionable of the
-        # two. Either one alone still lands the row on `needs_input`.
-        detection_notes = [
-            note
-            for note in (
-                result.error,
-                None if looks_like_cds else _NOT_A_CDS_DETECTION_NOTE,
-            )
-            if note
-        ]
-        detection_info = DetectionInfo(
-            name=result.detected_name,
-            year=result.detected_academic_year,
-            confident=result.confident,
-            candidates=candidates,
-            error="; ".join(detection_notes) or None,
-        )
-        if looks_like_cds and result.confident and result.best_match is not None:
-            school_id = result.best_match.school_id
-            detected_year = result.detected_academic_year
-            # `_DetectedIdentity.academic_year_start` (detect.py) accepts any
-            # year in [1980, 2100] -- generous on purpose, since an OCR misread
-            # is exactly the kind of thing this field exists to catch. The
-            # `cds_upload_files.academic_year` column is stricter (CHECK
-            # BETWEEN 2000 AND 2200, same bound `UploadPatchBody` enforces): a
-            # detected year outside that range is treated like a low-confidence
-            # match and left unset, so the row falls through to `needs_input`
-            # instead of the INSERT below raising `CheckViolationError`.
-            year_in_range = (
-                detected_year is not None
-                and MIN_ACADEMIC_YEAR <= detected_year <= MAX_ACADEMIC_YEAR
-            )
-            if year_in_range:
-                academic_year = detected_year
-
-    status = await _resolve_status(
-        pipeline_pool, duplicate_of=duplicate_of, school_id=school_id, academic_year=academic_year
-    )
+    digest: bytes,
+    page_count: int,
+    status: str,
+    school_id: int | None,
+    academic_year: int | None,
+    detection_info: DetectionInfo,
+) -> asyncpg.Record:
+    """Insert the staged row and its `upload` audit entry in one
+    transaction."""
     async with app_pool.acquire() as conn, conn.transaction():
         row = await conn.fetchrow(
             f"""
@@ -259,9 +296,67 @@ async def create_upload(
             academic_year=academic_year,
             detail={"filename": filename, "batch_id": str(batch_id), "status": status},
         )
+    return row
+
+
+async def _finalize_upload_row(
+    pipeline_pool: asyncpg.Pool, row: asyncpg.Record, school_id: int | None
+) -> UploadRow:
+    """Resolve the school's display name (if any) and wrap the raw row."""
     school_id_set = {school_id} if school_id else set()
     names = await cds_admin_queries.schools_by_ids(pipeline_pool, school_id_set)
     return _row_to_upload(row, school_name=names.get(school_id) if school_id else None)
+
+
+async def create_upload(
+    app_pool: asyncpg.Pool,
+    pipeline_pool: asyncpg.Pool,
+    settings: Any,
+    *,
+    user_id: UUID,
+    batch_id: UUID,
+    filename: str,
+    content: bytes,
+) -> UploadRow:
+    """Stage one uploaded PDF: hash, page count, dedupe, and a per-file
+    detection call. Never raises on an unreadable PDF -- an `error`-status
+    row is returned instead of failing the whole upload request."""
+    digest = sha256(content).digest()
+    row_id = uuid.uuid4()
+    try:
+        page_count = await cds_pdf.get_page_count(content)
+    except cds_pdf.CdsPdfError as exc:
+        return await _stage_unreadable_upload_row(
+            app_pool,
+            row_id=row_id,
+            batch_id=batch_id,
+            user_id=user_id,
+            filename=filename,
+            content=content,
+            digest=digest,
+            error_message=str(exc)[:2000],
+        )
+    detection_info, school_id, academic_year, duplicate_of = await _detect_upload_identity(
+        pipeline_pool, settings, content=content, digest=digest
+    )
+    status = await _resolve_status(
+        pipeline_pool, duplicate_of=duplicate_of, school_id=school_id, academic_year=academic_year
+    )
+    row = await _stage_upload_row(
+        app_pool,
+        row_id=row_id,
+        batch_id=batch_id,
+        user_id=user_id,
+        filename=filename,
+        content=content,
+        digest=digest,
+        page_count=page_count,
+        status=status,
+        school_id=school_id,
+        academic_year=academic_year,
+        detection_info=detection_info,
+    )
+    return await _finalize_upload_row(pipeline_pool, row, school_id)
 
 
 async def list_batch(
@@ -317,6 +412,17 @@ async def patch_upload_row(
             raise CdsAdminValidationError(
                 "cannot edit an upload row that failed to read -- delete it and re-upload the file"
             )
+        if existing["status"] == "duplicate":
+            # `_resolve_status` reads `duplicate_of` from this row's original
+            # detection JSON and returns `"duplicate"` unconditionally when
+            # it is set -- a new school/year here would still resolve right
+            # back to `"duplicate"`, so the PATCH would echo 200 with the new
+            # values reflected while the row stays permanently unqueueable
+            # (`_READY_STATUSES` never includes `"duplicate"`). Refuse instead
+            # of returning a false success.
+            raise CdsAdminValidationError(
+                "cannot edit a duplicate upload row -- delete it and re-upload the file"
+            )
         new_school_id = school_id if school_id is not None else existing["school_id"]
         new_year = academic_year if academic_year is not None else existing["academic_year"]
         duplicate_of = (existing["detection"] or {}).get("duplicate_of")
@@ -368,18 +474,17 @@ async def batch_extraction_ids(app_pool: asyncpg.Pool, *, batch_id: UUID) -> lis
     return [row["committed_extraction_id"] for row in rows]
 
 
-async def _commit_row(
-    app_pool: asyncpg.Pool,
+async def _commit_row_to_library(
     pipeline_pool: asyncpg.Pool,
     *,
     compiled: Any,
     domains: tuple[str, ...],
     model_id: str,
     row: asyncpg.Record,
-    actor_user_id: UUID,
-) -> ProcessQueuedItem:
-    if row["school_id"] is None or row["academic_year"] is None:
-        raise CdsAdminValidationError("row is missing school_id/academic_year")
+) -> tuple[int, cds_store.DocumentRecord, uuid.UUID]:
+    """Transaction 1 of 2 (see module docstring): write the candidate document
+    and queue its extraction in `cds_library`, on the pipeline pool. Returns
+    `(school_year_id, doc, extraction_id)`."""
     async with pipeline_pool.acquire() as conn, conn.transaction():
         slot = await cds_store.upsert_school_year(
             conn, school_id=row["school_id"], academic_year=row["academic_year"]
@@ -416,6 +521,20 @@ async def _commit_row(
                 model_id=model_id,
             )
             extraction_id = extraction.id
+    return slot.id, doc, extraction_id
+
+
+async def _record_commit(
+    app_pool: asyncpg.Pool,
+    *,
+    row: asyncpg.Record,
+    doc: cds_store.DocumentRecord,
+    extraction_id: uuid.UUID,
+    actor_user_id: UUID,
+) -> None:
+    """Transaction 2 of 2 (see module docstring): mark the staging row
+    committed and write its audit trail, on the app pool -- strictly after
+    `_commit_row_to_library`'s transaction has already committed."""
     async with app_pool.acquire() as conn, conn.transaction():
         await conn.execute(
             """
@@ -449,9 +568,29 @@ async def _commit_row(
                 document_id=doc.id,
                 extraction_id=extraction_id,
             )
+
+
+async def _commit_row(
+    app_pool: asyncpg.Pool,
+    pipeline_pool: asyncpg.Pool,
+    *,
+    compiled: Any,
+    domains: tuple[str, ...],
+    model_id: str,
+    row: asyncpg.Record,
+    actor_user_id: UUID,
+) -> ProcessQueuedItem:
+    if row["school_id"] is None or row["academic_year"] is None:
+        raise CdsAdminValidationError("row is missing school_id/academic_year")
+    school_year_id, doc, extraction_id = await _commit_row_to_library(
+        pipeline_pool, compiled=compiled, domains=domains, model_id=model_id, row=row
+    )
+    await _record_commit(
+        app_pool, row=row, doc=doc, extraction_id=extraction_id, actor_user_id=actor_user_id
+    )
     return ProcessQueuedItem(
         file_id=str(row["id"]),
-        school_year_id=slot.id,
+        school_year_id=school_year_id,
         document_id=doc.id,
         extraction_id=str(extraction_id),
     )

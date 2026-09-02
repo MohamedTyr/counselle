@@ -1,4 +1,4 @@
-import type { UploadRow } from "@/api/cds-admin/types";
+import type { ProcessSkippedItem, UploadRow } from "@/api/cds-admin/types";
 import { formatAcademicYear } from "@/features/cds-admin/cds-format";
 import type { UploadRowStatus } from "@/features/cds-admin/cds-status";
 
@@ -109,7 +109,10 @@ export function removeEntry(
 // File acceptance
 // ---------------------------------------------------------------------------
 
-export const MAX_UPLOAD_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+// [F-02] Must match the server's decimal cap (`config/settings.py`
+// `cds_upload_max_bytes`), not a binary 50 MiB — a file between 50,000,001
+// and 52,428,800 bytes used to pass here and then 413 on the server.
+export const MAX_UPLOAD_FILE_SIZE_BYTES = 50_000_000;
 
 function isPdfFile(file: File): boolean {
   return (
@@ -178,15 +181,51 @@ export function needsInputReason(row: UploadRow): string {
   return "";
 }
 
+// `service_ingest.py`'s two skip reasons: `f"status is {row['status']!r}"`
+// when the row's own status already explains why it wasn't queued (that
+// case is implied by the row's own chip — nothing new to say), and
+// `str(exc)[:200]` when queuing itself raised (transient DB error, a race
+// with another admin) -- that one is real information the row doesn't
+// otherwise carry, and [F-03] is what makes it visible.
+const _STATUS_SKIP_REASON_PREFIX = "status is ";
+
+/** Every `ProcessResult.skipped` reason worth surfacing on a row, keyed by
+ * `file_id` -- everything except the `"status is …"` case, which is already
+ * implied by the row's own chip. */
+export function queueFailureReasons(
+  skipped: ProcessSkippedItem[],
+): Map<string, string> {
+  const reasons = new Map<string, string>();
+  for (const item of skipped) {
+    if (!item.reason.startsWith(_STATUS_SKIP_REASON_PREFIX)) {
+      reasons.set(item.file_id, item.reason);
+    }
+  }
+  return reasons;
+}
+
 /** The `text-xs text-muted-foreground` reason sub-line under a row's status
  * chip, plus an optional document id to link (`replaces_existing`'s target
  * isn't identifiable from the wire contract — `DetectionInfo.duplicate_of`
  * is documented as duplicate-only, so it's deliberately left unlinked
- * rather than guessed; see the PR notes). */
-export function stagingReason(entry: StagingEntry): {
+ * rather than guessed; see the PR notes).
+ *
+ * `queueFailureReason`, when given, always wins: it means this row's own
+ * "Process all" queuing attempt raised server-side (transient DB error, a
+ * race with another admin editing the same school-year) and the row is
+ * still sitting on its pre-process status (`matched`/`replaces_existing`),
+ * which otherwise falls through to the empty default below -- indistinguishable
+ * from "about to be queued" (plan F-03). */
+export function stagingReason(
+  entry: StagingEntry,
+  queueFailureReason?: string,
+): {
   text: string;
   linkedDocumentId: number | null;
 } {
+  if (queueFailureReason) {
+    return { text: queueFailureReason, linkedDocumentId: null };
+  }
   if (entry.phase === "request-failed") {
     return { text: entry.requestError ?? "Could not upload this file.", linkedDocumentId: null };
   }
@@ -282,12 +321,4 @@ export function readyToProcessCount(entries: StagingEntry[]): number {
       entry.row &&
       (entry.row.status === "matched" || entry.row.status === "replaces_existing"),
   ).length;
-}
-
-export function committedFileIds(entries: StagingEntry[]): Set<string> {
-  return new Set(
-    entries
-      .filter((entry) => entry.row?.status === "committed")
-      .map((entry) => entry.row!.id),
-  );
 }

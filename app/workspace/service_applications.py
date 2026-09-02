@@ -604,7 +604,10 @@ async def _archive_linked_tasks(
         UPDATE counselle.tasks
         SET archived_at = now(), updated_at = now(),
             archived_via_application = $1
-        WHERE user_id = $2 AND application_id = $1 AND archived_at IS NULL
+        WHERE user_id = $2 AND archived_at IS NULL
+          AND (application_id = $1
+               OR essay_id IN (SELECT id FROM counselle.essays
+                               WHERE user_id = $2 AND application_id = $1 AND archived_at IS NULL))
         RETURNING id
         """,
         application_id,

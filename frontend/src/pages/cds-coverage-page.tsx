@@ -179,6 +179,22 @@ export function CdsCoveragePage() {
               years={coverage.data.years}
             />
           </div>
+          {/* C-01: `coverage_grid` computes `counters` over the full
+              filtered set but slices `rows` to `limit` (default 50) — with
+              no pagination control anywhere in this page, a scope matching
+              more than 50 schools would silently drop the rest while the
+              counters above kept describing the whole set, reading as if
+              the counters had gone stale. Excluded in find-mode-idle: there
+              `rows` is deliberately always empty against the full catalog
+              count (`emptyMessage` above already explains that), not a
+              truncation. */}
+          {!findModeIdle && coverage.data.rows.length < coverage.data.total && (
+            <p className="shrink-0 pb-4 text-sm text-muted-foreground">
+              Showing {coverage.data.rows.length} of{" "}
+              {coverage.data.total.toLocaleString()} schools. Narrow the
+              filters (try Needs review) to see the rest.
+            </p>
+          )}
         </>
       )}
     </section>

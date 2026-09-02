@@ -132,3 +132,18 @@ async def test_a_committed_row_is_still_refused() -> None:
         await _patch(conn)
 
     assert "already-committed" in str(excinfo.value)
+
+
+async def test_a_duplicate_row_is_refused_not_silently_reechoed() -> None:
+    """[I-02]: `_resolve_status` reads `duplicate_of` from this row's
+    *original* detection JSON and returns `"duplicate"` unconditionally when
+    it is set, regardless of the school/year the PATCH supplies. Without this
+    guard the PATCH would return 200 with the new values reflected while the
+    status stayed `"duplicate"` forever -- `_READY_STATUSES` never includes
+    it, so `process_batch` can never pick the row up again."""
+    conn = _FakeConn(no_content=False, status="duplicate")
+
+    with pytest.raises(CdsAdminValidationError) as excinfo:
+        await _patch(conn)
+
+    assert "duplicate" in str(excinfo.value)

@@ -1,4 +1,4 @@
-"""asyncpg pool factory + fetch helper for the read-only pipeline DB (ADR 0012).
+"""asyncpg pool factory for the read-only pipeline DB (ADR 0012).
 
 The pool connects as ``counselle_ro`` (read-only role). The role already carries
 ``statement_timeout``/``default_transaction_read_only`` server-side; we set the
@@ -71,14 +71,3 @@ async def create_pool(
         server_settings={"statement_timeout": str(statement_timeout_ms)},
     )
 
-
-def vector_literal(vec: list[float]) -> str:
-    """pgvector text input format: '[0.1,0.2,...]' — cast to ::vector in SQL."""
-    return "[" + ",".join(str(value) for value in vec) + "]"
-
-
-async def fetch(pool: asyncpg.Pool, sql: str, *args: object) -> list[asyncpg.Record]:
-    """Run one parameterized SELECT and return the rows."""
-    async with pool.acquire() as conn:
-        rows: list[asyncpg.Record] = await conn.fetch(sql, *args)
-        return rows

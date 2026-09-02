@@ -6,7 +6,6 @@ import {
   Clock,
   Copy,
   Flag,
-  Info,
   Loader2,
   OctagonX,
   TriangleAlert,
@@ -55,7 +54,7 @@ export type UploadRowStatus =
   | "failed";
 
 /** Validation-flag severity — Document review only. */
-export type FlagSeverity = "error" | "warning" | "info";
+export type FlagSeverity = "error" | "warning";
 
 type CdsStatusEntry = {
   variant: BadgeVariant | null;
@@ -136,7 +135,6 @@ export const uploadRowStatusMeta: Record<
 export const flagSeverityMeta: Record<FlagSeverity, FlagSeverityEntry> = {
   error: { variant: "destructive", Icon: OctagonX, label: "Error" },
   warning: { variant: "warning", Icon: TriangleAlert, label: "Warning" },
-  info: { variant: "secondary", Icon: Info, label: "Note" },
 };
 
 /**

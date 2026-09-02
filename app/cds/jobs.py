@@ -59,6 +59,7 @@ class Poller:
                 extraction_ids=[str(extraction_id) for extraction_id in swept],
             )
         self._loop_task = asyncio.create_task(self._loop(), name="cds-worker-poller")
+        self._loop_task.add_done_callback(self._on_loop_done)
 
     async def stop(self) -> None:
         """Cancel the poll loop and let every in-flight run finish naturally
@@ -74,25 +75,52 @@ class Poller:
             await asyncio.gather(*in_flight, return_exceptions=True)
 
     async def _loop(self) -> None:
+        """Survives transient errors (N-01) -- a DB blip must never silently
+        stop new extractions from ever being claimed again. Release is
+        exactly once per `acquire()`, guaranteed by mutually exclusive paths
+        rather than by reasoning: the sweep can fail before anything is
+        acquired (nothing to release), the claim can fail after acquiring
+        (release on that one path only), or the claim succeeds and the run
+        task's own `_on_task_done` releases on completion."""
         while True:
-            await cds_store.sweep_expired_leases(self._pool)
+            try:
+                await cds_store.sweep_expired_leases(self._pool)
+            except Exception:
+                logger.exception("cds_worker_sweep_failed")
+                await asyncio.sleep(self._settings.cds_worker_poll_seconds)
+                continue  # nothing acquired yet -- nothing to release
             await self._semaphore.acquire()
-            claimed = await cds_store.claim_next_extraction(
-                self._pool, lease_seconds=self._settings.cds_extraction_lease_seconds
-            )
+            try:
+                claimed = await cds_store.claim_next_extraction(
+                    self._pool, lease_seconds=self._settings.cds_extraction_lease_seconds
+                )
+            except Exception:
+                self._semaphore.release()  # the only release on this path
+                logger.exception("cds_worker_claim_failed")
+                await asyncio.sleep(self._settings.cds_worker_poll_seconds)
+                continue
             if claimed is None:
-                self._semaphore.release()
+                self._semaphore.release()  # unchanged
                 await asyncio.sleep(self._settings.cds_worker_poll_seconds)
                 continue
             task = asyncio.create_task(self._run_claimed(claimed), name=f"cds-run-{claimed.id}")
             self._running_tasks.add(task)
-            task.add_done_callback(self._on_task_done)
+            task.add_done_callback(self._on_task_done)  # releases on the success path
 
     def _on_task_done(self, task: asyncio.Task[None]) -> None:
         self._running_tasks.discard(task)
         self._semaphore.release()
         if not task.cancelled() and task.exception() is not None:
             logger.error("cds_worker_task_crashed", error=str(task.exception()))
+
+    def _on_loop_done(self, task: asyncio.Task[None]) -> None:
+        """The poll loop is now supposed to run forever, surviving its own
+        errors (N-01). If it ever exits un-cancelled anyway, that's a bug
+        that must be loud, not the silent "no extraction is ever claimed
+        again until someone restarts the process" failure this whole fix
+        exists to prevent."""
+        if not task.cancelled() and task.exception() is not None:
+            logger.error("cds_worker_poll_loop_crashed", error=str(task.exception()))
 
     async def _run_claimed(self, extraction: cds_store.ExtractionRecord) -> None:
         lease_lost = asyncio.Event()
@@ -105,6 +133,16 @@ class Poller:
             keeper.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await keeper
+            # If the keeper failed for any other reason, log it here rather
+            # than letting it propagate out of `finally` and replace
+            # `run_extraction`'s own exception (N-02) -- suppressed, but
+            # never silently.
+            if not keeper.cancelled() and keeper.exception() is not None:
+                logger.error(
+                    "cds_worker_lease_keeper_failed",
+                    extraction_id=str(extraction.id),
+                    error=str(keeper.exception()),
+                )
 
     async def _renew_lease(self, extraction_id: uuid.UUID, lease_lost: asyncio.Event) -> None:
         """Background lease renewal (plan §E): pushes the lease forward every
@@ -127,6 +165,15 @@ class Poller:
                 logger.warning("cds_worker_lease_lost", extraction_id=str(extraction_id))
                 lease_lost.set()
                 return
+            except Exception:
+                # A transient failure (pool-acquire timeout, connection
+                # reset) is survivable -- the renewal interval is a third of
+                # the lease window precisely to tolerate one (N-02). Only
+                # `LeaseLostError` above means the row is genuinely gone;
+                # everything else just tries again next interval.
+                logger.exception(
+                    "cds_worker_lease_renewal_failed", extraction_id=str(extraction_id)
+                )
 
 
 async def start_cds_worker(runtime: Any, settings: Any) -> Poller | None:

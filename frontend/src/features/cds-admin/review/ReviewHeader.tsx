@@ -1,8 +1,10 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { Link } from "react-router";
 
 import type { DocumentMeta, ReviewExtraction } from "@/api/cds-admin/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatAcademicYear } from "@/features/cds-admin/cds-format";
 import { StatusChip } from "@/features/cds-admin/cds-status";
 import {
@@ -54,6 +56,31 @@ export function ReviewHeader({
         <span className="shrink-0 text-xs text-muted-foreground">
           {documentStatusFallbackLabel(document)}
         </span>
+      )}
+      {/* R-01: the domains on screen didn't all come out of the same
+          extraction run (e.g. a domain-scoped rerun finished for some
+          domains but not others), so the `StatusChip` and the Re-run/Reject
+          actions beside it still reflect only one contributing run — the
+          tooltip has to say that, not just name the missing attribution,
+          or an admin can read a "Failed" chip as covering all the domains
+          underneath it. `warning` (DESIGN.md §14.1, "not ready") plus
+          `TriangleAlert` match the caution-badge convention already used
+          for a data-trust caveat (`FactTable.tsx`, `SectionStatus.tsx`),
+          not the neutral `flagSeverityMeta.info` note this used to mirror. */}
+      {extraction?.is_mixed_generation && (
+        <Tooltip>
+          <TooltipTrigger className="shrink-0">
+            <Badge size="sm" variant="warning">
+              <TriangleAlert aria-hidden="true" />
+              Mixed runs
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            The status chip and the actions beside it reflect only one of
+            these runs, not all of them. Check each domain&apos;s own status
+            before you approve.
+          </TooltipContent>
+        </Tooltip>
       )}
       {/* The document's identity (school, year, status) is the strip's most
           important content — it must never wrap (§1.10, ≥1280px is the

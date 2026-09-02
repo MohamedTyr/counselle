@@ -105,6 +105,7 @@ async def _compatible_test_policy(
         field=row.ref,
         label=row.label,
         display=row.display or "",
+        unit=row.unit,
         raw=row.value,
         available=True,
         citation=citation,
