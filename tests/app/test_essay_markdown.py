@@ -421,6 +421,42 @@ def test_adjacent_link_runs_with_same_href_stay_idempotent_despite_a_dropped_mar
     assert visible == "ab"
 
 
+def test_link_href_with_unbalanced_paren_does_not_corrupt_the_essay() -> None:
+    """W1: a bare `[text](href)` destination containing an unescaped ")" ends
+    the link early and leaks the href's tail into the paragraph as literal
+    text (e.g. "http://a.com/a)b" -> link text stays "click" but the visible
+    paragraph gains junk "b)" and the href truncates to "http://a.com/a").
+    The angle-bracket destination form must be used instead so the full href
+    and the link mark both survive a render/parse/render round trip.
+    """
+    doc = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "click",
+                        "marks": [{"type": "link", "attrs": {"href": "http://a.com/a)b"}}],
+                    }
+                ],
+            }
+        ],
+    }
+    md = em.to_markdown(doc)
+    reparsed = em.to_tiptap(md)
+    assert em.to_markdown(reparsed) == md
+
+    paragraph_content = reparsed["content"][0]["content"]
+    visible = "".join(n.get("text", "") for n in paragraph_content)
+    assert visible == "click"
+
+    link_marks = [m for n in paragraph_content for m in n.get("marks") or [] if m["type"] == "link"]
+    assert len(link_marks) == 1
+    assert link_marks[0]["attrs"]["href"] == "http://a.com/a)b"
+
+
 def test_apply_edits_does_not_corrupt_an_untouched_sibling_paragraph_with_split_code_marks() -> (
     None
 ):

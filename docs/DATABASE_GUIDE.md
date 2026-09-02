@@ -262,6 +262,10 @@ Reject malformed identity rather than repairing it. At minimum, enforce:
   citations, or logs;
 - evidence page numbers are positive physical PDF page numbers;
 - unavailable and failed states cannot carry a student value;
+- a `verified`/`reported` integer or number metric whose raw value strips to
+  non-empty text with no digit rejects the whole domain packet rather than serving
+  a corrupted value (blank or whitespace-only raw values are unaffected and reach
+  the typed formatter);
 - packets are readable only under these explicitly supported extractor identifiers
   (`config/settings.py`'s `supported_packet_extractor_versions`): the legacy
   `gemini-native-pdf-v2`, `gemini-native-pdf-v5`, and `gemini-routed-extraction-v7`;

@@ -509,7 +509,7 @@ def test_setup_db_reconciles_existing_roles_and_legacy_authority() -> None:
     for role in ("counselle_ro", "counselle_app"):
         assert f"ALTER ROLE {role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE" in setup
         assert f"ALTER ROLE {role} RESET ALL" in setup
-        assert f"ALTER ROLE {role} IN DATABASE counselle_data RESET ALL" in setup
+        assert f'ALTER ROLE {role} IN DATABASE :"target_database" RESET ALL' in setup
     assert "granted.rolname <> 'cds_library_reader'" in setup
     assert "REVOKE %I FROM counselle_app" in setup
     assert "REVOKE ALL ON ALL TABLES IN SCHEMA %I FROM %I" in setup

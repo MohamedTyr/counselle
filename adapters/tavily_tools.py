@@ -289,6 +289,15 @@ def _safe_error(exc: Exception) -> dict[str, Any]:
     return {"error": msg, "retryable": True}
 
 
+def _malformed_response_error() -> dict[str, Any]:
+    """A 200 with no result list is a failed search, never an evidenced absence."""
+    return {
+        "error": "the search service returned no result list — this search failed and "
+                 "proves nothing about whether the information exists",
+        "retryable": True,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
@@ -362,9 +371,12 @@ async def search_web(
     ) as exc:
         return _safe_error(exc)
 
+    raw_results = resp.get("results")
+    if not isinstance(raw_results, list):
+        return _malformed_response_error()
     results = [
         result
-        for result in resp.get("results", [])
+        for result in raw_results
         if isinstance(result, dict)
         and _web_result_allowed(result.get("url"), exclude_domains)
     ]
@@ -429,7 +441,10 @@ async def search_school_site(
     ) as exc:
         return _safe_error(exc)
 
-    results = resp.get("results", [])
+    raw_results = resp.get("results")
+    if not isinstance(raw_results, list):
+        return _malformed_response_error()
+    results = raw_results
 
     requested_domain = search_domain
     items: list[dict[str, Any]] = []
@@ -537,9 +552,12 @@ async def search_reddit(
     ) as exc:
         return _safe_error(exc)
 
+    raw_results = resp.get("results")
+    if not isinstance(raw_results, list):
+        return _malformed_response_error()
     results = [
         result
-        for result in resp.get("results", [])
+        for result in raw_results
         if isinstance(result, dict) and _reddit_result_allowed(result.get("url"), valid_subs)
     ]
     items = [

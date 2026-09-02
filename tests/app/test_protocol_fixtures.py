@@ -204,7 +204,7 @@ _CANNED_SPEC = RenderSpec(
                     unit="percent",
                     citation=Citation(
                         source="web",
-                        tier="official",
+                        tier="community",
                         vintage="Retrieved Jun 10, 2026 (live web)",
                         url="https://example.com/1",
                     ),

@@ -49,7 +49,7 @@ class EditItem(BaseModel):
 
 
 def _parse_version(
-    essay_id: str, expected_version: str
+    expected_version: str,
 ) -> tuple[datetime | None, dict[str, Any] | None]:
     try:
         return datetime.fromisoformat(expected_version), None
@@ -68,7 +68,7 @@ async def _apply_content_write(
     parsed_id = try_uuid(essay_id)
     if parsed_id is None:
         return stale_essay_error(essay_id)
-    parsed_version, version_err = _parse_version(essay_id, expected_version)
+    parsed_version, version_err = _parse_version(expected_version)
     if version_err is not None:
         return version_err
 

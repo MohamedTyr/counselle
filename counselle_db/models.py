@@ -102,6 +102,7 @@ class DomainRow(FrozenModel):
     display: str | None
     available: bool
     availability_status: str | None = None
+    unit: str | None = None            # the manifest's declared unit for this metric
     value: Any = None
     vintage: str
     caveat_kinds: tuple[str, ...] = ()

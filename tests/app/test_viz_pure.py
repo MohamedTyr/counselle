@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import pytest
 
+from adapters.tavily_tools import _citation_for_web_result
 from app.agent_node import _make_render_viz_tool
 from app.sources import SourceRegistry
 from app.viz import render_viz
@@ -264,6 +265,48 @@ async def test_official_database_marker_cannot_be_laundered_as_sourced() -> None
     )
     assert result["ok"] is False
     assert "not an external" in result["rejected_cells"][0]["reason"]
+
+
+@pytest.mark.asyncio
+async def test_reddit_sourced_cell_cannot_carry_a_model_typed_number() -> None:
+    """ADR 0014: community sentiment is never a quantified cell.
+
+    A Reddit citation is registered, and the model tries to type a number
+    against it in a viz cell. That number was never fetched from anywhere —
+    the model inferred it from thread text — so it must be rejected with a
+    reason that steers the model toward prose, not silently rendered next to
+    genuine tool-fetched values.
+    """
+    registry = SourceRegistry()
+    registry.register_source(
+        Citation(
+            source="reddit",
+            tier="community",
+            vintage="Retrieved 2026-07-15",
+            url="https://reddit.com/r/example/comments/1",
+        ),
+        "Example thread",
+    )
+    result = await render_viz(
+        _catalog(),
+        registry,
+        [],
+        "stat_block",
+        [ColumnInput(name="One")],
+        [VizRowInput(label="Class size", cells=(SourcedCellInput(display="18", marker="[1]"),))],
+    )
+    assert result["ok"] is False
+    assert result["status"] == "rejected"
+    assert result["rejected_cells"] == [
+        {
+            "row": 0,
+            "col": 0,
+            "reason": (
+                "marker [1] is community sentiment, not a quantifiable source — "
+                "state it in prose instead of a visualization cell"
+            ),
+        }
+    ]
 
 
 def test_actual_agent_tool_schema_has_only_v2_shape() -> None:
@@ -693,6 +736,44 @@ async def test_source_markers_are_reported_in_numeric_order() -> None:
         ],
     )
     assert result["sources"] == ["[2]", "[10]"]
+
+
+@pytest.mark.asyncio
+async def test_web_source_tier_matches_across_viz_cells_and_sources_rail() -> None:
+    """Pins: one source carries one tier, in both places a turn shows it.
+
+    Production has exactly one tier-assignment site
+    (``adapters/tavily_tools.py::_citation_for_web_result``), and the viz cell
+    reuses ``entry.citation`` — the same object — so the two surfaces cannot
+    disagree in production. But unlike ``reddit``/``edu``, ``web`` has no
+    ``Citation``-level invariant tying its tier to anything
+    (``domain/envelope.py::Citation.validate_identity``): a hand-authored
+    ``tier="official"`` literal for a ``source="web"`` citation sat undetected
+    in golden fixtures for two weeks after commit 0fb1740 made production
+    emit ``community`` for third-party domains. This test builds the citation
+    through the real production function (never a hand-written tier literal)
+    and asserts both surfaces read the same tier off it.
+    """
+    citation = _citation_for_web_result("https://blog.example.com/rankings", date(2026, 7, 15))
+    assert citation.tier == "community"  # a non-.edu/.gov domain, per _is_official_domain
+    registry = SourceRegistry()
+    marker = registry.register_source(citation, "Example blog")
+    emitted: list[dict[str, object]] = []
+
+    result = await render_viz(
+        _catalog(),
+        registry,
+        emitted,
+        "stat_block",
+        [ColumnInput(name="One")],
+        [VizRowInput(label="Rank", cells=(SourcedCellInput(display="12", marker=marker),))],
+    )
+
+    assert result["ok"] is True
+    viz_cell = emitted[0]["rows"][0]["cells"][0]  # type: ignore[index]
+    viz_tier = viz_cell["citation"]["tier"]
+    rail_tier = registry.entries_for_wire()[0].citation.tier
+    assert viz_tier == rail_tier == citation.tier
 
 
 @pytest.mark.asyncio

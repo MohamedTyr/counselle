@@ -648,44 +648,44 @@ async def run_continuation_turn(
     last_usage_dict_inline: dict[str, Any] | None = None
     messages_offset = prepared.messages_offset
 
-    inherited_source_config = (
-        SourceConfig.model_validate(prepared.inherited_source_config)
-        if prepared.inherited_source_config is not None
-        else source_config
-    )
-    effective_config = await _ensure_session(
-        deps.app_pool, session_id, inherited_source_config, settings, response_mode
-    )
-    graph_input = {
-        "messages": prepared.completed_message_history
-        + _serialized_user_message(prepared.model_input_text),
-        "source_config": effective_config.model_dump(mode="json"),
-        "turn_ids": turn_ids,
-    }
-
-    # Move the durable intent "accepted" -> "running" before A2's first model
-    # request (plan architecture decision §4): a hard restart after this point
-    # must never auto-replay A2's tools. Best-effort — a write failure here
-    # does not abort the turn (the intent staying "accepted" is a safe,
-    # idempotent-retry state, not a correctness hazard on its own).
     try:
-        snapshot = await graph.aget_state(config)
-        raw_intent = snapshot.values.get("continuation_intent") if snapshot else None
-        if isinstance(raw_intent, dict):
-            intent = ContinuationIntent.model_validate(raw_intent)
-            running_intent = mark_continuation_running(intent)
-            await graph.aupdate_state(
-                config, {"continuation_intent": running_intent.model_dump(mode="json")}
-            )
-    except Exception:
-        logger.warning(
-            "failed to mark continuation intent running (trace_id=%s, session_id=%s)",
-            trace_id,
-            session_id,
-            exc_info=True,
+        inherited_source_config = (
+            SourceConfig.model_validate(prepared.inherited_source_config)
+            if prepared.inherited_source_config is not None
+            else source_config
         )
+        effective_config = await _ensure_session(
+            deps.app_pool, session_id, inherited_source_config, settings, response_mode
+        )
+        graph_input = {
+            "messages": prepared.completed_message_history
+            + _serialized_user_message(prepared.model_input_text),
+            "source_config": effective_config.model_dump(mode="json"),
+            "turn_ids": turn_ids,
+        }
 
-    try:
+        # Move the durable intent "accepted" -> "running" before A2's first model
+        # request (plan architecture decision §4): a hard restart after this point
+        # must never auto-replay A2's tools. Best-effort — a write failure here
+        # does not abort the turn (the intent staying "accepted" is a safe,
+        # idempotent-retry state, not a correctness hazard on its own).
+        try:
+            snapshot = await graph.aget_state(config)
+            raw_intent = snapshot.values.get("continuation_intent") if snapshot else None
+            if isinstance(raw_intent, dict):
+                intent = ContinuationIntent.model_validate(raw_intent)
+                running_intent = mark_continuation_running(intent)
+                await graph.aupdate_state(
+                    config, {"continuation_intent": running_intent.model_dump(mode="json")}
+                )
+        except Exception:
+            logger.warning(
+                "failed to mark continuation intent running (trace_id=%s, session_id=%s)",
+                trace_id,
+                session_id,
+                exc_info=True,
+            )
+
         async for mode, chunk in graph.astream(
             graph_input, config, stream_mode=["custom", "updates"]
         ):

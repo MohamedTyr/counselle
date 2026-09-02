@@ -417,10 +417,11 @@ def _activity_changes(before: Activity, patch: dict[str, Any]) -> list[MutationC
     return changes
 
 
-async def _activity_rank(ctx: ToolCtx, activity_id: UUID) -> int:
+async def _activity_rank(ctx: ToolCtx, activity_id: UUID) -> int | None:
     activities = await service_activities.list_activities(ctx.app_pool, user_id=ctx.user_id)
     return next(
-        index for index, activity in enumerate(activities, start=1) if activity.id == activity_id
+        (index for index, activity in enumerate(activities, start=1) if activity.id == activity_id),
+        None,
     )
 
 
@@ -450,7 +451,7 @@ async def _archive_activities_impl(ctx: ToolCtx, activity_ids: list[str]) -> dic
         return batch_size_error("archive_activities", len(activity_ids))
 
     active_positions = {
-        str(activity.id): activity.position
+        activity.id: activity.position
         for activity in await service_activities.list_activities(ctx.app_pool, user_id=ctx.user_id)
     }
     archived: list[str] = []
@@ -475,7 +476,7 @@ async def _archive_activities_impl(ctx: ToolCtx, activity_ids: list[str]) -> dic
                 batch_item(
                     index,
                     "changed",
-                    item_subject=subject(active_positions.get(raw_id, "Activity"), raw_id),
+                    item_subject=subject(active_positions.get(parsed_id, "Activity"), parsed_id),
                 )
             )
         except WorkspaceNotFoundError:
@@ -563,11 +564,18 @@ async def _restore_activity_impl(ctx: ToolCtx, activity_id: str) -> dict[str, An
         return slot_cap_error("activity", MAX_ACTIVITIES, len(active))
 
     ordered = await service_activities.list_activities(ctx.app_pool, user_id=ctx.user_id)
-    rank = next(index for index, item in enumerate(ordered, start=1) if item.id == activity.id)
+    rank = next(
+        (index for index, item in enumerate(ordered, start=1) if item.id == activity.id), None
+    )
+    summary = (
+        f'Restored "{activity.position}" at rank {rank}.'
+        if rank is not None
+        else f'Restored "{activity.position}".'
+    )
     payload: dict[str, Any] = {
         "status": "ok",
         "today": today(),
-        "summary": f'Restored "{activity.position}" at rank {rank}.',
+        "summary": summary,
         "activity": render_activity_row(activity, rank=rank),
     }
     receipt = state_transition_receipt(

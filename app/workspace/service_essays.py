@@ -321,13 +321,13 @@ async def duplicate_essay(
             """
             INSERT INTO counselle.essays
               (user_id, application_id, title, essay_type, status, prompt,
-               content, word_count, word_limit, comments, suggestions)
+               content, word_count, word_limit, deadline, comments, suggestions)
             SELECT e.user_id, e.application_id, 'Copy of ' || e.title, e.essay_type,
                    e.status,
                    CASE WHEN e.prompt_ref IS NOT NULL THEN p.prompt ELSE e.prompt END,
                    e.content, e.word_count,
                    CASE WHEN e.prompt_ref IS NOT NULL THEN p.word_limit ELSE e.word_limit END,
-                   e.comments, e.suggestions
+                   e.deadline, e.comments, e.suggestions
             FROM counselle.essays e
             LEFT JOIN counselle.school_essay_prompts p ON p.id = e.prompt_ref
             WHERE e.id = $1 AND e.user_id = $2 AND e.archived_at IS NULL

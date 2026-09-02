@@ -57,3 +57,4 @@ Deferred: **net-price-by-income bars** (#4) and **admissions-factor weight grid*
 - The eval set (ADR 0009 / ARCHITECTURE §19) gains a **field-selection-accuracy** dimension.
 - Supersedes the visualization open questions in ARCHITECTURE §13 and §19 and the PRD "Visualizations" open question.
 - Post-MVP2 correction: the earlier interleaved/tool-call-order placement is historical context; the live protocol batches viz specs at final-answer start.
+- **R3 clarification (2026-09):** ADR 0032's amendment sanctioning model-typed `display`/`raw` for a registered external citation applies only to `web`/`edu` — it did not widen this ADR's community-quantification ban. `reddit` remains excluded from `SourcedCellInput`; a Reddit-sourced marker in a viz cell is rejected with a corrective reason steering the model to state it in prose instead.
