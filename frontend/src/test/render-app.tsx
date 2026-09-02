@@ -92,8 +92,6 @@ export const workspaceReferenceFixture: SchoolReference = {
   status: "loaded",
   cycle_year: 2027,
   populated: false,
-  prompt_groups: [],
-  prompts: [],
   requirements: [],
   test_policy: null,
 };
@@ -136,7 +134,6 @@ export const workspaceEssayFixture: EssaySummary = {
   id: "30000000-0000-4000-8000-000000000001",
   user_id: authUserFixture.id,
   application_id: workspaceApplicationFixture.id,
-  prompt_ref: null,
   title: "Supplemental essay",
   essay_type: "Supplement",
   status: "Not started",
@@ -328,15 +325,11 @@ export function createWorkspaceFetchPreset(
         application,
         tasks,
         essays,
-        prompt_drafts: [],
         reference: {
           ...data.reference,
           cycle_year: application.cycle_year,
         },
       });
-    }
-    if (url.includes("/v1/essay-prompt-drafts")) {
-      return jsonResponse([]);
     }
     if (url.endsWith("/v1/tasks/bulk-status")) {
       const body = JSON.parse(String(init?.body ?? "{}")) as {
@@ -446,7 +439,6 @@ export function createWorkspaceFetchPreset(
           ...workspaceEssayDetailFixture,
           id: crypto.randomUUID(),
           application_id: body.application_id ?? null,
-          prompt_ref: body.prompt_ref ?? null,
           title: body.title,
           essay_type: body.essay_type ?? "Supplement",
           status: body.status ?? "Not started",
@@ -509,7 +501,6 @@ export function createWorkspaceFetchPreset(
         const copy: Essay = {
           ...source,
           id: crypto.randomUUID(),
-          prompt_ref: null,
           title: `${source.title} copy`,
           status: "Drafting",
           comment_count: 0,
@@ -802,12 +793,8 @@ export function defaultAuthenticatedFetch(
       application: workspaceApplicationFixture,
       tasks: [workspaceTaskFixture],
       essays: [workspaceEssayFixture],
-      prompt_drafts: [],
       reference: workspaceReferenceFixture,
     });
-  }
-  if (url.includes("/v1/essay-prompt-drafts")) {
-    return jsonResponse([]);
   }
   if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture]);
   if (url.endsWith("/v1/essays")) return jsonResponse([workspaceEssayFixture]);

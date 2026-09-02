@@ -38,7 +38,6 @@ export type WorkspaceObjectType =
   | "application"
   | "task"
   | "essay"
-  | "essay_prompt_draft"
   | "activity"
   | "honor"
   | "profile"
@@ -180,7 +179,6 @@ export type EssaySummary = {
   id: string;
   user_id: string;
   application_id: string | null;
-  prompt_ref: string | null;
   title: string;
   essay_type: EssayType;
   status: EssayStatus;
@@ -213,7 +211,6 @@ export type Essay = EssaySummary & {
 export type EssayCreate = {
   title: string;
   application_id?: string | null;
-  prompt_ref?: string | null;
   essay_type?: EssayType;
   status?: EssayStatus;
   prompt?: string | null;
@@ -225,7 +222,6 @@ export type EssayCreate = {
 export type EssayPatch = Partial<{
   title: string;
   application_id: string | null;
-  prompt_ref: string | null;
   essay_type: EssayType;
   status: EssayStatus;
   prompt: string | null;
@@ -234,37 +230,6 @@ export type EssayPatch = Partial<{
   deadline: string | null;
   expected_updated_at: string | null;
 }>;
-
-export type EssayPromptDraft = {
-  id: string;
-  user_id: string;
-  application_id: string;
-  prompt: string;
-  word_limit: number | null;
-  archived_via_application: string | null;
-  converted_to_essay_id: string | null;
-  created_at: string;
-  updated_at: string;
-  archived_at: string | null;
-};
-
-export type EssayPromptDraftSummary = EssayPromptDraft & {
-  school_name: string;
-  school_city: string | null;
-  school_state: string | null;
-  school_website_url: string | null;
-};
-
-export type EssayPromptDraftCreate = {
-  application_id: string;
-  prompt: string;
-  word_limit?: number | null;
-};
-
-export type EssayPromptDraftConvert = {
-  title: string;
-  essay_type?: EssayType;
-};
 
 export type Activity = {
   id: string;
@@ -324,7 +289,6 @@ export type ApplicationDetail = {
   application: ApplicationView;
   tasks: Task[];
   essays: EssaySummary[];
-  prompt_drafts: EssayPromptDraft[];
   reference: SchoolReference;
 };
 
@@ -332,26 +296,6 @@ export type ReferenceProvenance = {
   source: string;
   source_url: string;
   verified_at: string;
-};
-
-export type SchoolPromptGroup = {
-  id: string;
-  label: string;
-  choice_min: number;
-  provenance: ReferenceProvenance;
-};
-
-export type SchoolEssayPrompt = {
-  id: string;
-  school_unitid: number;
-  cycle_year: number;
-  ordinal: number;
-  prompt: string;
-  word_limit: number | null;
-  applicability: RequirementApplicability;
-  audience: Record<string, unknown>;
-  group_id?: string | null;
-  provenance: ReferenceProvenance;
 };
 
 export type SchoolRequirement = {
@@ -382,8 +326,6 @@ export type SchoolReference = {
   status: "cycle_required" | "loaded";
   cycle_year: number | null;
   populated: boolean;
-  prompt_groups: SchoolPromptGroup[];
-  prompts: SchoolEssayPrompt[];
   requirements: SchoolRequirement[];
   test_policy?: TestPolicyReference | null;
 };

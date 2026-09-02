@@ -187,7 +187,6 @@ describe("workspace mutation hooks", () => {
       application: workspaceApplicationFixture,
       tasks: [],
       essays: [],
-      prompt_drafts: [],
       reference: workspaceReferenceFixture,
     };
     queryClient.setQueryData(workspaceKeys.applications.list(), [

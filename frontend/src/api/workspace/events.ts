@@ -18,7 +18,6 @@ const objectTypes: WorkspaceObjectType[] = [
   "application",
   "task",
   "essay",
-  "essay_prompt_draft",
   "activity",
   "honor",
 ];
@@ -86,14 +85,6 @@ export function useWorkspaceEvents(
             queryKey: workspaceKeys.applications.all(),
           });
           break;
-        case "essay_prompt_draft":
-          void queryClient.invalidateQueries({
-            queryKey: workspaceKeys.essayPromptDrafts.list(),
-          });
-          void queryClient.invalidateQueries({
-            queryKey: workspaceKeys.applications.all(),
-          });
-          break;
         case "activity":
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.activities.list(),
@@ -102,6 +93,15 @@ export function useWorkspaceEvents(
         case "honor":
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.honors.list(),
+          });
+          break;
+        default:
+          // Only reachable if objectTypes gains a value with no matching
+          // case above — the SSE subscription only listens for known
+          // "type.op" names, so an unrecognized event never reaches here.
+          // Guards against silently no-op'ing on that future drift.
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.all,
           });
           break;
       }

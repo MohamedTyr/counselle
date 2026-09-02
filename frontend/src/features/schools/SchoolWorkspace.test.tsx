@@ -67,7 +67,6 @@ describe("SchoolWorkspace honesty states", () => {
               application: workspaceApplicationFixture,
               tasks: [],
               essays: [],
-              prompt_drafts: [],
               reference: workspaceReferenceFixture,
             });
           }
@@ -120,7 +119,6 @@ describe("SchoolWorkspace honesty states", () => {
     renderWorkspace({
       application: workspaceApplicationFixture,
       essays: [],
-      prompt_drafts: [],
       reference: {
         ...workspaceReferenceFixture,
         populated: true,
