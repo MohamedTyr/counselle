@@ -183,7 +183,9 @@ def _typed_exact_value(value: Any) -> MutationValue:
         return text_list_value([str(item) for item in value])
     if isinstance(value, (float, str)):
         return text_value(str(value))
-    # Decimal (GPA fields) and any other JSON-mode scalar not covered above.
+    # `_build_patch_dict` dumps mode="json", so a Decimal (e.g. GPA) has
+    # already been coerced to `str` and is handled by the branch above.
+    # This tail is the fallback for any other JSON-mode scalar not covered.
     return decimal_value(value)
 
 
