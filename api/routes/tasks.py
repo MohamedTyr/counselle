@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.auth import current_active_user
 from api.deps import require_json
@@ -22,17 +22,18 @@ from app.workspace.service_tasks import (
     restore_task,
     update_task,
 )
+from app.workspace_mutation_receipts import BATCH_ITEMS_MAX
 
 router = APIRouter(tags=["workspace"])
 
 
 class BulkStatusBody(BaseModel):
-    ids: list[UUID]
+    ids: list[UUID] = Field(max_length=BATCH_ITEMS_MAX)
     status: TaskStatus
 
 
 class BulkArchiveBody(BaseModel):
-    ids: list[UUID]
+    ids: list[UUID] = Field(max_length=BATCH_ITEMS_MAX)
 
 
 @router.get("/tasks")
