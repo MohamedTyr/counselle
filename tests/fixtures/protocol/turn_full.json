@@ -334,7 +334,7 @@
               "url": null,
               "document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "source_kind": "upload",
-              "retrieved_at": "2026-07-15T00:00:00+00:00",
+              "retrieved_at": "2026-07-15T00:00:00Z",
               "academic_year": 2024,
               "manifest_version": "5.0.1",
               "school_unitid": 198419,
