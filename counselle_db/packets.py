@@ -8,7 +8,7 @@ from typing import Any, Literal
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
-from counselle_db.formatting import format_decimal
+from counselle_db.formatting import format_cds_edition, format_decimal
 from counselle_db.models import DomainRow, ServiceError
 
 logger = structlog.get_logger(__name__)
@@ -434,7 +434,7 @@ def read_metric(
         caveats.append("stale_edition")
     if not available and metric.availability_status:
         caveats.append(metric.availability_status)
-    vintage = f"CDS {academic_year}-{str(academic_year + 1)[-2:]}"
+    vintage = format_cds_edition(academic_year)
     qualifiers_resolved = 0
     for context in definition.contexts:
         displays: list[str] = []
