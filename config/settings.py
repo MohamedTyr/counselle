@@ -318,7 +318,6 @@ class Settings(BaseSettings):
     # (the split-origin Vite setup runs the SPA on :5173). Default-empty is the
     # fail-safe — a prod deploy never accidentally ships a localhost CORS allowance.
     cors_origins: list[str] = Field(default_factory=list)  # 06-L1
-    allowed_hosts: list[str] = Field(default_factory=lambda: ["*"])
     serve_spa: bool = False
     spa_dist_dir: Path = Path("frontend/dist")
     sse_keepalive_s: int = 15
