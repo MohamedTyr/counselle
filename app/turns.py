@@ -531,6 +531,8 @@ class TurnRegistry:
         """
         if session_id in self._turns:
             raise StreamActive(session_id)
+        if len(self._turns) >= self._settings.max_concurrent_turns:
+            raise TooManyTurns(session_id)
         self._require_response_mode_available(response_mode)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
