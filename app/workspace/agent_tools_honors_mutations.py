@@ -315,7 +315,7 @@ async def _archive_honors_impl(ctx: ToolCtx, honor_ids: list[str]) -> dict[str, 
         return batch_size_error("archive_honors", len(honor_ids))
 
     active_titles = {
-        str(honor.id): honor.title
+        honor.id: honor.title
         for honor in await service_activities.list_honors(ctx.app_pool, user_id=ctx.user_id)
     }
     archived: list[str] = []
@@ -340,7 +340,7 @@ async def _archive_honors_impl(ctx: ToolCtx, honor_ids: list[str]) -> dict[str, 
                 batch_item(
                     index,
                     "changed",
-                    item_subject=subject(active_titles.get(raw_id, "Honor"), raw_id),
+                    item_subject=subject(active_titles.get(parsed_id, "Honor"), parsed_id),
                 )
             )
         except WorkspaceNotFoundError:

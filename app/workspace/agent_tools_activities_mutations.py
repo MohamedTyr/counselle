@@ -450,7 +450,7 @@ async def _archive_activities_impl(ctx: ToolCtx, activity_ids: list[str]) -> dic
         return batch_size_error("archive_activities", len(activity_ids))
 
     active_positions = {
-        str(activity.id): activity.position
+        activity.id: activity.position
         for activity in await service_activities.list_activities(ctx.app_pool, user_id=ctx.user_id)
     }
     archived: list[str] = []
@@ -475,7 +475,7 @@ async def _archive_activities_impl(ctx: ToolCtx, activity_ids: list[str]) -> dic
                 batch_item(
                     index,
                     "changed",
-                    item_subject=subject(active_positions.get(raw_id, "Activity"), raw_id),
+                    item_subject=subject(active_positions.get(parsed_id, "Activity"), parsed_id),
                 )
             )
         except WorkspaceNotFoundError:
