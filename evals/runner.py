@@ -35,7 +35,11 @@ from app.workspace.service_documents import create_document
 from app.workspace.service_memory import create_memories
 from config.logging import setup_logging
 from config.settings import get_settings
-from counselle_db.service import get_domain
+from counselle_db.service import (
+    _join_has_exact_document_keys,
+    _ordered_column,
+    get_domain,
+)
 from domain.events import Event
 from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
@@ -483,12 +487,6 @@ def _table_is(table: exp.Table, schema: str, name: str) -> bool:
     return table.db.casefold() == schema and table.name.casefold() == name
 
 
-def _ordered_column(item: exp.Expression) -> tuple[str, bool] | None:
-    if not isinstance(item, exp.Ordered) or not isinstance(item.this, exp.Column):
-        return None
-    return item.this.name.casefold(), item.args.get("desc") is True
-
-
 def _selected_document_cte(tree: exp.Query) -> tuple[str, exp.Select] | None:
     for cte in tree.find_all(exp.CTE):
         select = cte.this
@@ -537,25 +535,6 @@ def _selected_document_cte(tree: exp.Query) -> tuple[str, exp.Select] | None:
         ):
             return cte.alias.casefold(), select
     return None
-
-
-def _join_has_exact_document_keys(
-    join: exp.Join, selected_alias: str, packet_alias: str
-) -> bool:
-    on = join.args.get("on")
-    if not isinstance(on, exp.Expression) or on.find(exp.Or) is not None:
-        return False
-    matched: set[str] = set()
-    for equality in on.find_all(exp.EQ):
-        left, right = equality.this, equality.expression
-        if not isinstance(left, exp.Column) or not isinstance(right, exp.Column):
-            continue
-        columns = (left, right)
-        names = {column.name.casefold() for column in columns}
-        tables = {column.table.casefold() for column in columns}
-        if len(names) == 1 and tables == {selected_alias, packet_alias}:
-            matched.update(names)
-    return {"school_id", "document_id"} <= matched
 
 
 def _has_selected_document_candidate_sql(sql: str) -> bool:
