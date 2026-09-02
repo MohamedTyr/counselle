@@ -89,10 +89,21 @@ rules in §5–§9 — applies to it exactly as written, unchanged.
   `INSERT, SELECT, UPDATE` —
   **never `DELETE`** — on all 8 `cds_library` base tables (`schools`,
   `cds_school_years`, `cds_documents`, `cds_manifests`, `cds_extractions`,
-  `cds_domain_packets`, `ct_index_entries`, `ct_index_state`). The missing `DELETE`
+  `cds_domain_packets`, `ct_index_entries`, `ct_index_state`) plus the 5 reader views.
+  The missing `DELETE`
   grant was confirmed empirically against the live database, including a direct
   `DELETE` attempt that Postgres rejected (`specs/cds-pipeline/plan/recon/recon-db-live.md` §4),
   not just read from a grant table.
+- **Schema source of record.** This repo's own yoyo `migrations/` never create or alter
+  `cds_library` — it is populated once, outside this repo's migration history (the old,
+  now-retired `counselle-data-pipeline` repo originally owned this DDL).
+  `deploy/seed/cds_library_schema.sql` is the schema-DDL and grant-model source of
+  record: every base table, index, constraint, the `is_sorted_distinct_text_array()`
+  helper, the 5 reader views (real view bodies, not the plain placeholder tables
+  `deploy/seed/schema.sql` uses for the Render staging container's self-seed step),
+  and the `cds_library_app` role's exact grant. `scripts/setup_db.sql` bootstraps that
+  role and its grants (gated on `COUNSELLE_PIPELINE_PASSWORD`); see `README.md`'s
+  Prerequisites section for the run order on a fresh database.
 - **Code boundary.** Only `adapters/cds_store.py` and `adapters/cds_admin_queries.py`
   ever open a connection on this DSN, and only reachable behind the `current_superuser`
   dependency gating `/v1/admin/cds/*`. No other adapter, service, tool, or route holds

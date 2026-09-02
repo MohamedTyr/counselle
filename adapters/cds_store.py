@@ -63,6 +63,15 @@ _PENDING_ACTIVE_UPDATE_PREDICATE_SQL = f"""
     AND reactivated_at IS NULL
 """
 
+# V-01 (plans/cds-admin-polish-2.md): `insert_document`'s dedupe was a plain
+# check-then-insert with no lock, so two concurrent uploads of the same PDF
+# into the same school-year slot could both pass the SELECT and both INSERT.
+# A transaction-scoped advisory lock keyed on `school_year_id` serializes
+# every insert into one slot, closing the race. Namespace tag `2` --
+# `app/workspace/service_activities.py` already reserved `0` and `1` for its
+# own per-user locks; pick a new tag if this module ever needs a second one.
+_INSERT_DOCUMENT_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 2))"
+
 
 class CdsStoreError(Exception):
     """Base for CDS write-path failures — never swallowed silently."""
@@ -156,13 +165,24 @@ async def insert_document(
     repository_school_name: str | None = None,
 ) -> DocumentRecord:
     """Insert one PDF, deduped on ``(school_year_id, sha256)`` against
-    non-invalidated documents already in that slot. Returns the existing row
-    (``is_duplicate=True``) instead of inserting a byte-identical copy."""
+    documents already in that slot that are neither invalidated nor
+    superseded. Returns the existing row (``is_duplicate=True``) instead of
+    inserting a byte-identical copy.
+
+    V-01: an advisory transaction lock on ``school_year_id`` serializes this
+    whole check-then-insert against any other concurrent call for the same
+    slot -- see ``_INSERT_DOCUMENT_LOCK_SQL`` above. Paired with a partial
+    unique index on the same predicate in
+    ``deploy/seed/cds_library_schema.sql`` as a second, DB-enforced barrier
+    (not yet applied to the live database -- an owner decision, T-101/V-01).
+    """
     digest = sha256(pdf_content).digest()
+    await conn.execute(_INSERT_DOCUMENT_LOCK_SQL, str(school_year_id))
     existing = await conn.fetchrow(
         """
         SELECT id, school_year_id, pdf_sha256 FROM cds_library.cds_documents
-        WHERE school_year_id = $1 AND pdf_sha256 = $2 AND invalidated_at IS NULL
+        WHERE school_year_id = $1 AND pdf_sha256 = $2
+          AND invalidated_at IS NULL AND superseded_at IS NULL
         """,
         school_year_id,
         digest,

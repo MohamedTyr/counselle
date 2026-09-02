@@ -32,14 +32,23 @@ It is two pieces, both in this repo:
 - **Python 3.12+** and **[uv](https://github.com/astral-sh/uv)**
 - **Node 22.12+** and **npm** (for the frontend)
 - **Postgres 16** running on `localhost:5433` by default, containing the CDS Library schema and Counselle's application schema
-- A LOGIN role that is a member only of `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. Run `scripts/setup_db.sql` for Counselle-owned state, then apply migrations with `yoyo`:
+- A LOGIN role that is a member only of `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. On a genuinely fresh database, first create the `cds_library` schema itself — this repo's own yoyo migrations never touch it (see `docs/DATABASE_GUIDE.md` §1) — then run `scripts/setup_db.sql` for role/grant bootstrap, then apply migrations with `yoyo`:
 
 ```bash
-# setup_db.sql reads both role passwords from the environment via \getenv (see
-# the script header) — never pass them as psql -v argv. Supply both, matching
-# the passwords in your .env DSNs.
+# Fresh database only: cds_library's own schema/tables/views/function
+# (source of record — see docs/DATABASE_GUIDE.md §1). Skip this step
+# against a database that already has cds_library populated.
+psql "$COUNSELLE_ADMIN_DSN" -f deploy/seed/cds_library_schema.sql
+
+# setup_db.sql reads role passwords from the environment via \getenv (see
+# the script header) — never pass them as psql -v argv. Supply the two
+# required passwords, matching the passwords in your .env DSNs.
+# COUNSELLE_PIPELINE_PASSWORD is optional — set it to also bootstrap
+# `cds_library_app` (the CDS admin write path, ADR 0036); omit it and that
+# role/grant block is skipped.
 COUNSELLE_RO_PASSWORD="<CDS Library reader-login password>" \
 COUNSELLE_APP_PASSWORD="<counselle_app password>" \
+COUNSELLE_PIPELINE_PASSWORD="<cds_library_app password, optional>" \
   psql "$COUNSELLE_ADMIN_DSN" -f scripts/setup_db.sql
 # Append ?schema=counselle so yoyo keeps its bookkeeping tables in the
 # counselle schema (owned by counselle_app), not in public.
