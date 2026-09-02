@@ -1,7 +1,6 @@
 import type { Essay as ApiEssay, EssaySummary } from "@/api/workspace/types";
 import { essayFromApi, essayFromSummary, isEssayDueSoon } from "@/domain/essay";
 import {
-  commonAppPrompt,
   countWords,
   getEssayPrompt,
   getPreviewLines,
@@ -307,15 +306,23 @@ describe("essay editor content derivations", () => {
     ]);
   });
 
-  it("returns prompt text for essay kinds", () => {
-    expect(getEssayPrompt(essay({ essay_type: "Personal statement" }))).toBe(
-      commonAppPrompt,
-    );
-    expect(getEssayPrompt(essay({ prompt: "Custom prompt" }))).toBe(
-      "Custom prompt",
-    );
+  it("returns null for a promptless essay of either type, never a fabricated prompt", () => {
     expect(
-      getEssayPrompt(essay({ school_name: "Stanford University" })),
-    ).toContain("Stanford University supplement");
+      getEssayPrompt(essay({ essay_type: "Personal statement", prompt: null })),
+    ).toBeNull();
+    expect(
+      getEssayPrompt(essay({ essay_type: "Supplement", prompt: null })),
+    ).toBeNull();
+    expect(
+      getEssayPrompt(
+        essay({
+          essay_type: "Personal statement",
+          prompt: "Share your story.",
+        }),
+      ),
+    ).toBe("Share your story.");
+    expect(
+      getEssayPrompt(essay({ essay_type: "Supplement", prompt: "Why us?" })),
+    ).toBe("Why us?");
   });
 });

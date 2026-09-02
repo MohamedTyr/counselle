@@ -18,6 +18,14 @@ import { cn } from "@/lib/utils";
  * radio, no second button. One affordance that degrades.
  */
 
+/**
+ * Shared with the prompt-only edit form in `EssayEditorHeader.tsx` (rule:
+ * one source of truth, no magic values) — both surfaces enter the same kind
+ * of text, so they say the same thing about it.
+ */
+export const PROMPT_PLACEHOLDER =
+  "Paste or type the prompt — leave it blank if you don't have it yet";
+
 export interface EssayPromptComposerProps {
   prompt: string;
   onPromptChange: (value: string) => void;
@@ -45,7 +53,7 @@ export function EssayPromptComposer({
         Prompt (optional)
         <Textarea
           onChange={(event) => onPromptChange(event.currentTarget.value)}
-          placeholder="Paste or type the prompt — leave it blank if you don't have it yet"
+          placeholder={PROMPT_PLACEHOLDER}
           ref={promptFieldRef}
           value={prompt}
         />

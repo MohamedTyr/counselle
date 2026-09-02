@@ -115,7 +115,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 </div>
                 <HeaderDivider />
                 <div className="flex items-center gap-0.5">
-                  <PromptMenu prompt={prompt} />
+                  <PromptMenu essayId={essay.id} prompt={prompt} />
                   <Button
                     className={cn(
                       "h-8",

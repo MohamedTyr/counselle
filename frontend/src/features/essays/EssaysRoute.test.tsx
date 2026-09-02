@@ -587,8 +587,11 @@ describe("EssayEditorPage", () => {
 
     await user.click(screen.getByRole("button", { name: /Prompt/ }));
 
+    // This essay has no prompt (workspaceEssayFixture: prompt: null) — the
+    // menu must say so honestly rather than showing a fabricated prompt.
+    expect(screen.getByText("No prompt")).toBeInTheDocument();
     expect(
-      screen.getByText(/Stanford University supplement/),
+      screen.getByText("No prompt added yet."),
     ).toBeInTheDocument();
   });
 
