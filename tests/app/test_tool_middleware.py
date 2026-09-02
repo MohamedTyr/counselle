@@ -156,9 +156,7 @@ def test_domain_normalization_preserves_each_metric_vintage() -> None:
         enrollment_vintage,
         tuition_vintage,
     ]
-    assert {row["citation"]["vintage"] for row in result["rows"]} == {
-        "Common Data Set 2024-25"
-    }
+    assert {row["citation"]["vintage"] for row in result["rows"]} == {"CDS 2024-25"}
 
 
 def test_overflow_runs_after_annotation() -> None:
