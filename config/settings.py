@@ -409,6 +409,12 @@ class Settings(BaseSettings):
     password_min_length: int = 8  # the password-policy floor (CFG-03; security knob)
     auth_self_signup_enabled: bool = True
     password_reset_enabled: bool = True
+    # PATCH /v1/me `settings` jsonb ceiling. `AsyncpgUserDatabase.get` (SELECT *)
+    # re-reads and json-decodes this column on every authenticated request (the
+    # auth dependency), so an unbounded blob taxes the whole db_pool_max=5 pool,
+    # not just the one PATCH. Shipped keys (theme, default_source_config,
+    # onboarding) run low hundreds of bytes; 64 KB leaves ample headroom.
+    user_settings_max_bytes: int = Field(default=64_000, gt=0)
 
     # --- Email (B3) ---
     email_provider: Literal["console"] = "console"

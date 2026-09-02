@@ -14,6 +14,7 @@ we never report a full deletion while a student's conversation checkpoints survi
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import structlog
@@ -137,6 +138,9 @@ async def patch_me(
                     raise EnvelopeError(404, "user not found")
                 current_settings = row["settings"] or {}
                 new_settings = _merge_settings(current_settings, settings_patch)
+                max_bytes = request.app.state.settings.user_settings_max_bytes
+                if len(json.dumps(new_settings).encode()) > max_bytes:
+                    raise EnvelopeError(422, "settings is too large.")
             assignments = ", ".join(f"{col} = ${i + 2}" for i, col in enumerate(cols))
             args = [new_settings if col == "settings" else fields[col] for col in cols]
             await conn.execute(
