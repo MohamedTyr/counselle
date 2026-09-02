@@ -493,6 +493,92 @@ def test_vintage_is_year_only_and_carries_disclosure_when_domain_has_no_contexts
     assert "vintage_period_unavailable" in row.caveat_kinds
 
 
+def _manifest_integer(version: str = "5.0.1") -> ManifestSnapshot:
+    return compile_manifest(
+        version,
+        {
+            "domains": [
+                {
+                    "id": "financial_aid",
+                    "title": "Financial Aid",
+                    "metrics": [
+                        {
+                            "id": "financial_aid.count",
+                            "description": "Awards count",
+                            "type": "integer",
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+
+def _row_integer(
+    raw_value: str | None, extractor: str = "gemini-routed-extraction-v8"
+) -> dict[str, object]:
+    packet = {
+        "document_sha256": "aa",
+        "academic_year": 2025,
+        "extraction_id": "00000000-0000-0000-0000-000000000004",
+        "manifest_version": "5.0.1",
+        "domain_id": "financial_aid",
+        "domain_schema_hash": "bb",
+        "extractor_version": extractor,
+        "model_id": "model",
+        "status": "validated",
+        "counts": {"verified": 1, "not_extracted": 0, "conflict": 0, "invalid": 0},
+        "provider_contract": {},
+        "metrics": {
+            "financial_aid.count": {
+                "extraction_status": "verified",
+                "availability_status": "reported",
+                "value": 0,
+                "raw_value": raw_value,
+                "evidence": {"page_number": 1, "excerpt": "Awards: -"},
+            }
+        },
+    }
+    return {
+        "school_id": 1,
+        "academic_year": 2025,
+        "document_id": 2,
+        "pdf_sha256": b"\xaa",
+        "domain_id": "financial_aid",
+        "accepted_packet_status": "validated",
+        "packet": packet,
+        "extraction_id": packet["extraction_id"],
+        "manifest_version": "5.0.1",
+        "domain_schema_hash": memoryview(b"\xbb"),
+        "current_definition_match": True,
+        "currentness": "current",
+    }
+
+
+def test_reported_integer_metric_with_digit_free_raw_value_rejects_the_whole_packet() -> None:
+    """DATABASE_GUIDE §9: never convert unavailable to zero. A raw CDS cell that
+    carries no digits (a '-'/'N/A' dash) is not a reported number no matter what
+    value the extractor typed alongside it — silently accepting it would let
+    `value=0` stand in for "not reported" for every downstream consumer (charts,
+    rankings, the agent's own reasoning)."""
+    row = _row_integer(raw_value="-")
+    with pytest.raises(ServiceError, match="unsupported/inconsistent"):
+        parse_packet_row(
+            row, {"5.0.1": _manifest_integer()}, frozenset({"gemini-routed-extraction-v8"})
+        )
+
+
+def test_reported_integer_metric_with_blank_raw_value_is_accepted() -> None:
+    """Pins the `.strip()` condition: an empty raw_value falls through to the typed
+    formatter in `_display` (rendering the honest typed `0`), so it must NOT trip the
+    digit-free guard meant for a genuine dash/N/A cell."""
+    row = _row_integer(raw_value="")
+    parsed = parse_packet_row(
+        row, {"5.0.1": _manifest_integer()}, frozenset({"gemini-routed-extraction-v8"})
+    )
+    assert parsed.packet.metrics["financial_aid.count"].value == 0
+
+
 def test_manifest_rejects_duplicate_domains_refs_bad_binders_and_hash_coverage() -> None:
     content = {
         "domains": [
