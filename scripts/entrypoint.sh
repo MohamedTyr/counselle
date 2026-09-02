@@ -5,6 +5,7 @@ required_env="
 COUNSELLE_DB_APP_DSN
 COUNSELLE_DB_RO_DSN
 COUNSELLE_JWT_SECRET
+COUNSELLE_TRUSTED_PROXY_CIDR
 "
 
 for name in $required_env; do
@@ -27,9 +28,11 @@ esac
 
 .venv/bin/yoyo apply --batch --database "$schema_dsn" migrations/
 
+# Trust ONLY the platform's proxy CIDR. '*' makes uvicorn 0.49 take the LEFTMOST,
+# client-supplied X-Forwarded-For entry, turning the per-IP auth limit into a no-op.
 exec .venv/bin/uvicorn api.main:create_app \
   --factory \
   --host 0.0.0.0 \
   --port "${PORT:-8000}" \
   --proxy-headers \
-  --forwarded-allow-ips "*"
+  --forwarded-allow-ips "${COUNSELLE_TRUSTED_PROXY_CIDR}"
