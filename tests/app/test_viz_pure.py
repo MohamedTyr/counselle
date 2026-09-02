@@ -267,6 +267,48 @@ async def test_official_database_marker_cannot_be_laundered_as_sourced() -> None
     assert "not an external" in result["rejected_cells"][0]["reason"]
 
 
+@pytest.mark.asyncio
+async def test_reddit_sourced_cell_cannot_carry_a_model_typed_number() -> None:
+    """ADR 0014: community sentiment is never a quantified cell.
+
+    A Reddit citation is registered, and the model tries to type a number
+    against it in a viz cell. That number was never fetched from anywhere —
+    the model inferred it from thread text — so it must be rejected with a
+    reason that steers the model toward prose, not silently rendered next to
+    genuine tool-fetched values.
+    """
+    registry = SourceRegistry()
+    registry.register_source(
+        Citation(
+            source="reddit",
+            tier="community",
+            vintage="Retrieved 2026-07-15",
+            url="https://reddit.com/r/example/comments/1",
+        ),
+        "Example thread",
+    )
+    result = await render_viz(
+        _catalog(),
+        registry,
+        [],
+        "stat_block",
+        [ColumnInput(name="One")],
+        [VizRowInput(label="Class size", cells=(SourcedCellInput(display="18", marker="[1]"),))],
+    )
+    assert result["ok"] is False
+    assert result["status"] == "rejected"
+    assert result["rejected_cells"] == [
+        {
+            "row": 0,
+            "col": 0,
+            "reason": (
+                "marker [1] is community sentiment, not a quantifiable source — "
+                "state it in prose instead of a visualization cell"
+            ),
+        }
+    ]
+
+
 def test_actual_agent_tool_schema_has_only_v2_shape() -> None:
     tool = _make_render_viz_tool(_catalog(), SourceRegistry(), [], {}, None)
     schema = tool.function_schema.json_schema
