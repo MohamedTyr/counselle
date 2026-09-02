@@ -189,12 +189,17 @@ def batch_item(
 
 
 def _reduce_items_for_bounds(items: list[MutationItem]) -> tuple[MutationItem, ...]:
-    """Under size pressure, drop optional item detail first — never a row.
+    """Under size pressure, strip optional item detail from the tail, then
+    truncate to ``BATCH_ITEMS_MAX``.
 
-    The core ``{input_index, disposition}`` skeleton is mandatory (§6.6); when
-    the item count itself exceeds the bound, item detail is stripped from the
-    tail first rather than dropping rows, since every requested position must
-    have exactly one disposition entry (§6.4).
+    The core ``{input_index, disposition}`` skeleton is mandatory (§6.6); every
+    item at or past the bound has its optional ``subject``/``reason``/
+    ``recovery`` detail dropped first. Because ``BATCH_ITEMS_MAX`` is the same
+    cutoff used for both the strip and the final truncation, every item that
+    gets stripped is also the one truncated away — so in practice the bound
+    wins over §6.4's "exactly one disposition entry per requested position":
+    a batch longer than ``BATCH_ITEMS_MAX`` loses trailing rows outright, not
+    just their detail.
     """
     if len(items) <= BATCH_ITEMS_MAX:
         return tuple(items)
