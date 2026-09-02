@@ -12,7 +12,7 @@ import base64
 import binascii
 from datetime import datetime
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import asyncpg
 
@@ -137,7 +137,9 @@ def _decode_cursor(cursor: str) -> tuple[datetime, str] | None:
     try:
         raw = base64.urlsafe_b64decode(cursor.encode("ascii")).decode("utf-8")
         ts_str, sid = raw.split("|", 1)
-        return datetime.fromisoformat(ts_str), sid
+        parsed_ts = datetime.fromisoformat(ts_str)
+        UUID(sid)  # validate before the uuid-typed column; keep sid as str, not the UUID object
+        return parsed_ts, sid
     except (binascii.Error, ValueError, UnicodeDecodeError):
         return None
 
