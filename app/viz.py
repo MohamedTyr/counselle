@@ -187,6 +187,7 @@ def _db_envelope(result: DomainResult, ref: str) -> CitationEnvelope | None:
         field=ref,
         label=row.label,
         display=row.display,
+        unit=row.unit,
         raw=row.value,
         available=True,
         citation=citation,
@@ -362,8 +363,13 @@ async def render_viz(
                 entry = candidate_registry.lookup_marker(cell.marker)
                 if entry is None:
                     reason = f"marker {cell.marker} is not available in this turn"
-                elif entry.citation.source not in {"web", "edu", "reddit"}:
-                    reason = f"marker {cell.marker} is not an external web/edu/reddit source"
+                elif entry.citation.source == "reddit":
+                    reason = (
+                        f"marker {cell.marker} is community sentiment, not a quantifiable "
+                        "source — state it in prose instead of a visualization cell"
+                    )
+                elif entry.citation.source not in {"web", "edu"}:
+                    reason = f"marker {cell.marker} is not an external web/edu source"
                 else:
                     try:
                         envelope = CitationEnvelope(

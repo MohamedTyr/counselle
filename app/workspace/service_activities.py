@@ -399,6 +399,7 @@ async def create_honor(
     data: HonorCreate,
 ) -> Honor:
     async with app_pool.acquire() as conn, conn.transaction():
+        await _lock_honors(conn, user_id)
         await _require_capacity(conn, "honors", user_id, HONOR_CAP)
         sort_order = await _next_sort_order(conn, "honors", user_id)
         row = await conn.fetchrow(
@@ -722,6 +723,8 @@ async def _restore_row(
     async with app_pool.acquire() as conn, conn.transaction():
         if table == "activities":
             await _lock_activities(conn, user_id)
+        else:
+            await _lock_honors(conn, user_id)
         await _require_archived(conn, table, user_id, row_id)
         await _require_capacity(conn, table, user_id, cap)
         if table == "activities":
@@ -753,6 +756,8 @@ async def _reorder_rows(
     async with app_pool.acquire() as conn, conn.transaction():
         if table == "activities":
             await _lock_activities(conn, user_id)
+        else:
+            await _lock_honors(conn, user_id)
         active = await conn.fetch(
             _ACTIVE_IDS_SQL[table],
             user_id,

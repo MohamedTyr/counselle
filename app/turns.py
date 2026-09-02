@@ -56,7 +56,7 @@ from app.clarify_lifecycle import ClarificationConflict, ClarifyClaimRegistry, P
 from app.clarify_lifecycle import accept_clarification as _accept_clarification
 from app.model_selection import counselor_model_selection
 from app.parked_sources import ParkedSourceStore
-from app.records import Emission, FinalEmissionDeduper, TurnStatus
+from app.records import Emission, FinalEmissionDeduper, TurnStatus, _is_v2_clarify
 from app.run_handle import RunHandle, SteeringMessage
 from app.run_turn import _USER_SAFE_ERROR, run_continuation_turn, run_turn
 from app.sessions import set_session_response_mode
@@ -531,6 +531,8 @@ class TurnRegistry:
         """
         if session_id in self._turns:
             raise StreamActive(session_id)
+        if len(self._turns) >= self._settings.max_concurrent_turns:
+            raise TooManyTurns(session_id)
         self._require_response_mode_available(response_mode)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
@@ -1169,6 +1171,31 @@ class TurnRegistry:
         values = dict(snapshot.values) if snapshot else {}
         messages = list(values.get("messages") or [])
         records = list(values.get("turn_records") or [])
+        # The turn already committed its own terminal record (the node's state delta
+        # landed before this cancel/timeout won the race). Appending a second record
+        # for the same message_id would duplicate the assistant answer in the
+        # transcript — ADR 0022's "cancel racing completion = the idle no-op". The
+        # parked case still needs the write, but ONLY the v1 one: append_or_replace
+        # replaces an awaiting_input tail with the same id *and* `not _is_v2_clarify`
+        # (app/records.py:349-356). For a v2 parked tail it APPENDS, so letting that
+        # case through here would write the very duplicate this guard exists to stop.
+        message_id = turn.ids.get("message_id")
+        already_committed = any(r.get("message_id") == message_id for r in records)
+        replaces_parked = (
+            is_parked(records)
+            and records[-1].get("message_id") == message_id
+            and not _is_v2_clarify(records[-1])
+        )
+        if already_committed and not replaces_parked:
+            logger.info(
+                "terminal record already committed — skipping duplicate partial "
+                "(session_id=%s, status=%s)", turn.session_id, status,
+            )
+            if turn.continuation_of is not None:
+                await self._graph.aupdate_state(
+                    config, {"continuation_intent": None}, as_node=AGENT_NODE
+                )
+            return
         registry_dump = SourceRegistry(values.get("source_registry") or []).wire_dump()
         user_text, offset, clarify, synthesized, selected_skills = _partial_anchor(
             turn, messages, records

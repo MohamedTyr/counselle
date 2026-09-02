@@ -15,7 +15,6 @@ SourceName = Literal["cds", "profile", "web", "edu", "reddit"]
 Tier = Literal["official", "community"]
 SourceCurrentness = Literal["current", "historical", "undated"]
 SourcePeriodBasis = Literal["page_content", "metadata"]
-Unit = Literal["percent", "currency", "count", "number", "bool", "text", "date"]
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 

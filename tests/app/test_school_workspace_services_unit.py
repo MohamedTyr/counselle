@@ -85,6 +85,7 @@ async def test_test_policy_uses_compatible_preference_fallback(
         display="Required",
         value="Required",
         vintage="CDS 2026-27",
+        unit=None,
         evidence={
             "eid": "admissions.test_policy_clarification",
             "value_display": "Required",
@@ -125,6 +126,7 @@ async def test_stale_test_policy_is_unavailable_and_requires_portal_verification
         display="Optional",
         value="Optional",
         vintage="CDS 2024-25",
+        unit=None,
         evidence={
             "eid": "admissions.test_policy_clarification",
             "value_display": "Optional",

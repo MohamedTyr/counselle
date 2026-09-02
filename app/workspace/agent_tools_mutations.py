@@ -37,12 +37,14 @@ from app.workspace.agent_tools_shared import (
 )
 from app.workspace.models import (
     Assignee,
+    Task,
     TaskCategory,
     TaskCreate,
     TaskPatch,
     TaskPriority,
     TaskStatus,
     WorkspaceNotFoundError,
+    WorkspaceValidationError,
 )
 from app.workspace_mutation_receipts import (
     attach_mutation,
@@ -193,18 +195,34 @@ async def _create_tasks_impl(
             )
         warnings.append(message)
 
-    created: list[dict[str, str]] = []
-    items = []
-    for index, (draft, fields) in enumerate(zip(drafts, parsed, strict=True)):
-        task = await service_tasks.create_task(
+    try:
+        # One service transaction for the whole batch, mirroring
+        # create_essays_batch/create_honors_batch — a validation/TOCTOU
+        # failure on any draft rolls back every insert, matching the tool's
+        # all-or-nothing promise.
+        created_tasks: list[Task] = await service_tasks.create_tasks_batch(
             ctx.app_pool,
             ctx.workspace_events,
             user_id=ctx.user_id,
             actor="counselle",
-            data=_draft_to_task_create(draft, fields),
+            data=[
+                _draft_to_task_create(draft, fields)
+                for draft, fields in zip(drafts, parsed, strict=True)
+            ],
         )
-        created.append({"id": str(task.id), "title": task.title})
-        items.append(batch_item(index, "changed", item_subject=subject(task.title, task.id)))
+    except (WorkspaceNotFoundError, WorkspaceValidationError) as exc:
+        return error(
+            f"Nothing was created — {exc}",
+            retryable=True,
+            recovery="Call view_tasks to check the linked applications/essays are still "
+            "active, then resubmit the whole batch.",
+        )
+
+    created = [{"id": str(task.id), "title": task.title} for task in created_tasks]
+    items = [
+        batch_item(index, "changed", item_subject=subject(task.title, task.id))
+        for index, task in enumerate(created_tasks)
+    ]
 
     payload: dict[str, Any] = {
         "status": "warning" if warnings else "ok",
@@ -480,7 +498,6 @@ async def _update_task_impl(ctx: ToolCtx, task_id: str, **fields: Any) -> dict[s
     except WorkspaceNotFoundError:
         return stale_task_error(task_id)
 
-    apps, essays = await active_workspace_links(ctx)
     app_name = application_name(task.application_id, apps)
     essay_display_name = essay_name(task.essay_id, essays)
     row = render_task_row(

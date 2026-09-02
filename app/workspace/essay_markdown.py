@@ -318,8 +318,37 @@ def _serialize_leaf(atom: dict[str, Any]) -> str:
     link = next((m for m in marks if m["type"] == "link"), None)
     if link is not None:
         href = (link.get("attrs") or {}).get("href", "")
-        text = f"[{text}]({href})"
+        text = f"[{text}]({_link_destination(href)})"
     return text
+
+
+_UNSAFE_BARE_HREF = re.compile(r"[ \t\n<>]")
+
+
+def _link_destination(href: str) -> str:
+    """Angle-bracket form for destinations CommonMark won't take bare.
+
+    CommonMark only accepts an unescaped (bare) link destination when it has
+    no ASCII whitespace/"<"/">" and balanced parens; otherwise the bare form
+    isn't a link at all and re-parses as literal text, silently rewriting the
+    student's essay. Falling back to the angle-bracket form for exactly the
+    hrefs that would fail keeps every other href's rendering unchanged.
+    """
+    if _UNSAFE_BARE_HREF.search(href) or not _parens_balanced(href):
+        return "<" + href.replace("\\", "\\\\").replace("<", "\\<").replace(">", "\\>") + ">"
+    return href
+
+
+def _parens_balanced(href: str) -> bool:
+    depth = 0
+    for ch in href:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth < 0:
+                return False
+    return depth == 0
 
 
 def _code_span(text: str) -> str:

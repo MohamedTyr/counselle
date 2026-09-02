@@ -230,6 +230,67 @@ async def create_task(
     return task
 
 
+async def create_tasks_batch(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    data: list[TaskCreate],
+) -> list[Task]:
+    """Create every draft in one service transaction — true all-or-nothing
+    (mirrors ``create_essays_batch``/``create_honors_batch``): any draft's
+    validation/insert failure rolls back every insert in the batch, unlike
+    looping ``create_task`` (one transaction per call), which left earlier
+    successful creates committed on a later failure.
+    """
+    if not data:
+        return []
+    events: list[ChangeEvent] = []
+    tasks: list[Task] = []
+    async with app_pool.acquire() as conn, conn.transaction():
+        for item in data:
+            await _validate_links(
+                conn,
+                user_id,
+                item.application_id,
+                item.essay_id,
+                item.requirement_kind,
+            )
+            row = await conn.fetchrow(
+                """
+                INSERT INTO counselle.tasks
+                  (user_id, application_id, essay_id, requirement_kind, title, notes, status,
+                   category, priority, assignee, needs_input, due_at, planned_for, reminder_at,
+                   completed_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                        CASE WHEN $7 = 'done' THEN now() ELSE NULL END)
+                RETURNING *
+                """,
+                user_id,
+                item.application_id,
+                item.essay_id,
+                item.requirement_kind,
+                item.title,
+                item.notes,
+                item.status,
+                item.category,
+                item.priority,
+                item.assignee,
+                item.needs_input,
+                item.due_at,
+                item.planned_for,
+                item.reminder_at,
+            )
+            task = Task.model_validate(dict(row))
+            tasks.append(task)
+            events.append(
+                await _record_task_change(conn, user_id, actor, task, "created")
+            )
+    publish_events(event_bus, user_id, events)
+    return tasks
+
+
 async def update_task(
     app_pool: asyncpg.Pool,
     event_bus: WorkspaceEventBus,

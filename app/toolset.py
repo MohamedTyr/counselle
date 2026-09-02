@@ -112,7 +112,7 @@ async def annotate_mcp_result(
 
 # Bound the MCP child's long-lived stdio connection — a dead child would
 # otherwise hang tool calls forever (read_timeout_seconds=None by default).
-# 30 s is generous for any single DB-backed tool call; change only if a
+# 60 s is generous for any single DB-backed tool call; change only if a
 # tool starts timing out legitimately in production.
 _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS: float = 60.0
 
