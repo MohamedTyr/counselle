@@ -4,27 +4,20 @@ from __future__ import annotations
 
 import re
 
-import asyncpg
-
 from app.caveats import render_caveat
-from app.workspace.models import (
-    ReferenceProvenance,
-    SchoolReference,
-    SchoolRequirement,
-)
+from app.workspace.models import SchoolReference
 from counselle_db.catalog import Catalog
 from counselle_db.service import get_domain
 from domain.envelope import Citation, CitationEnvelope, EvidenceItem
 
 
 async def get_school_reference(
-    app_pool: asyncpg.Pool,
     catalog: Catalog,
     *,
     unitid: int,
     cycle_year: int | None,
 ) -> SchoolReference:
-    """Load published app-owned facts and compatible pipeline test policy.
+    """Load the compatible pipeline test policy for one application cycle.
 
     Query failures intentionally propagate. A database failure must never be
     represented as an honestly loaded, empty catalog.
@@ -32,49 +25,12 @@ async def get_school_reference(
     if cycle_year is None:
         return SchoolReference(status="cycle_required", cycle_year=None)
 
-    async with app_pool.acquire() as conn:
-        requirement_rows = await conn.fetch(
-            """
-            SELECT * FROM counselle.school_requirements
-            WHERE school_unitid = $1 AND cycle_year = $2
-              AND state = 'published' AND retired_at IS NULL
-            ORDER BY kind, id
-            """,
-            unitid,
-            cycle_year,
-        )
-
     test_policy = await _compatible_test_policy(catalog, unitid, cycle_year)
-    requirements = [_requirement(row) for row in requirement_rows]
     return SchoolReference(
         status="loaded",
         cycle_year=cycle_year,
-        populated=bool(requirements or (test_policy and test_policy.available)),
-        requirements=requirements,
+        populated=bool(test_policy and test_policy.available),
         test_policy=test_policy,
-    )
-
-
-def _provenance(row: asyncpg.Record) -> ReferenceProvenance:
-    return ReferenceProvenance(
-        source=row["source"],
-        source_url=row["source_url"],
-        verified_at=row["verified_at"],
-        published_at=row["published_at"],
-    )
-
-
-def _requirement(row: asyncpg.Record) -> SchoolRequirement:
-    return SchoolRequirement(
-        id=row["id"],
-        school_unitid=row["school_unitid"],
-        cycle_year=row["cycle_year"],
-        kind=row["kind"],
-        label=row["label"],
-        applicability=row["applicability"],
-        audience=row["audience"],
-        detail=row["detail"],
-        provenance=_provenance(row),
     )
 
 

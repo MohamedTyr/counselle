@@ -10,7 +10,6 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -41,7 +40,6 @@ TaskStatus = Literal["todo", "doing", "waiting", "done"]
 TaskCategory = Literal["essay", "lor", "aid", "research", "other", "form", "interview"]
 TestPlan = Literal["submit", "withhold", "undecided"]
 Platform = Literal["common_app", "coalition", "school_portal", "direct", "other"]
-Applicability = Literal["required", "optional", "not_required", "conditional", "unknown"]
 ReferenceState = Literal["draft", "published", "retracted"]
 TrackableRequirementKind = Literal["fee", "css_profile", "fafsa", "testing"]
 TaskPriority = Literal["low", "med", "high"]
@@ -831,96 +829,10 @@ class ChangeEvent(_Model):
     data: ChangeEventData
 
 
-def _https_source_url(value: str) -> str:
-    from urllib.parse import urlsplit
-
-    if any(character.isspace() for character in value):
-        raise ValueError("source_url must not contain whitespace")
-    parsed = urlsplit(value)
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise ValueError("source_url must be an absolute HTTPS URL")
-    if parsed.username is not None or parsed.password is not None:
-        raise ValueError("source_url must not contain credentials")
-    return value
-
-
-HttpsSourceUrl = Annotated[str, AfterValidator(_https_source_url)]
-
-
-class ReferenceProvenance(_Model):
-    source: str = Field(min_length=1)
-    source_url: HttpsSourceUrl
-    verified_at: Date
-    published_at: datetime
-
-
-class FeeRequirementDetail(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    amount_cents: Annotated[int, Field(strict=True, ge=0)] | None = None
-    waiver_available: StrictBool | None = None
-
-
-class RecommendationRequirementDetail(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    count: Annotated[int, Field(strict=True, ge=0)] | None = None
-
-
-class FormRequirementDetail(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    form_name: str | None = Field(default=None, min_length=1)
-    form_url: str | None = Field(default=None, pattern=r"^https://")
-    deadline: Date | None = None
-
-
-class TestingRequirementDetail(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    policy: Literal["required", "optional", "blind", "flexible", "unknown"] | None = None
-    notes: str | None = Field(default=None, min_length=1)
-
-
-class AidRequirementDetail(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    form_name: str | None = Field(default=None, min_length=1)
-    deadline: Date | None = None
-    notes: str | None = Field(default=None, min_length=1)
-
-
-class SchoolRequirement(_Model):
-    id: UUID
-    school_unitid: int
-    cycle_year: int
-    kind: str = Field(pattern=r"^[a-z][a-z0-9_]{1,63}$")
-    label: str = Field(min_length=1)
-    applicability: Applicability
-    audience: dict[str, Any] = Field(default_factory=dict)
-    detail: dict[str, Any] = Field(default_factory=dict)
-    provenance: ReferenceProvenance
-
-    @model_validator(mode="after")
-    def validate_known_detail(self) -> SchoolRequirement:
-        if self.kind == "fee":
-            FeeRequirementDetail.model_validate(self.detail)
-        elif self.kind in {"teacher_rec", "counselor_rec"}:
-            RecommendationRequirementDetail.model_validate(self.detail)
-        elif self.kind == "form":
-            FormRequirementDetail.model_validate(self.detail)
-        elif self.kind == "testing":
-            TestingRequirementDetail.model_validate(self.detail)
-        elif self.kind in {"aid", "css_profile", "fafsa"}:
-            AidRequirementDetail.model_validate(self.detail)
-        return self
-
-
 class SchoolReference(_Model):
     status: Literal["cycle_required", "loaded"]
     cycle_year: int | None
     populated: bool = False
-    requirements: list[SchoolRequirement] = Field(default_factory=list)
     test_policy: CitationEnvelope | None = None
 
 

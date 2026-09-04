@@ -469,7 +469,6 @@ async def get_application_detail(
 ) -> ApplicationDetail:
     application = await _application_view_by_id(app_pool, catalog, user_id, application_id)
     reference = await get_school_reference(
-        app_pool,
         catalog,
         unitid=application.school_unitid,
         cycle_year=application.cycle_year,

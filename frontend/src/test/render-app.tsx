@@ -92,7 +92,6 @@ export const workspaceReferenceFixture: SchoolReference = {
   status: "loaded",
   cycle_year: 2027,
   populated: false,
-  requirements: [],
   test_policy: null,
 };
 
