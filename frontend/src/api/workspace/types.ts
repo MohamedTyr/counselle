@@ -141,6 +141,12 @@ export type Task = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  when_on: string | null;
+  deadline_on: string | null;
+  done_at: string | null;
+  flagged: boolean;
+  created_by_actor: "student" | "counselle";
+  last_actor: "student" | "counselle";
 };
 
 export type TaskCreate = {
@@ -157,6 +163,9 @@ export type TaskCreate = {
   due_at?: string | null;
   planned_for?: string | null;
   reminder_at?: string | null;
+  when_on?: string | null;
+  deadline_on?: string | null;
+  flagged?: boolean;
 };
 
 export type TaskPatch = Partial<{
@@ -173,6 +182,10 @@ export type TaskPatch = Partial<{
   due_at: string | null;
   planned_for: string | null;
   reminder_at: string | null;
+  when_on: string | null;
+  deadline_on: string | null;
+  done_at: string | null;
+  flagged: boolean;
 }>;
 
 export type EssaySummary = {

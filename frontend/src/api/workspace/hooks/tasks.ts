@@ -19,14 +19,12 @@ import {
 } from "@/api/workspace/optimistic";
 import {
   archiveTask,
-  bulkArchiveTasks,
-  bulkUpdateTaskStatus,
   createTask,
   listTasks,
   restoreTask,
   updateTask,
 } from "@/api/workspace/tasks";
-import type { Task, TaskPatch, TaskStatus } from "@/api/workspace/types";
+import type { Task, TaskPatch } from "@/api/workspace/types";
 
 type TaskListSnapshot = Snapshot<Task[]> & {
   applicationIds: string[];
@@ -95,13 +93,11 @@ export function useUpdateTask() {
       const previousTask = previous?.find((task) => task.id === id);
       const timestamp = nowIso();
       const optimisticPatch =
-        patch.status !== undefined
+        patch.done_at !== undefined
           ? {
               ...patch,
-              completed_at:
-                patch.status === "done"
-                  ? (previousTask?.completed_at ?? timestamp)
-                  : null,
+              status: patch.done_at ? ("done" as const) : ("todo" as const),
+              completed_at: patch.done_at,
               updated_at: timestamp,
             }
           : { ...patch, updated_at: timestamp };
@@ -146,64 +142,63 @@ export function useUpdateTask() {
   });
 }
 
-export function useBulkUpdateTaskStatus() {
-  return useMutation({
-    mutationFn: ({ ids, status }: { ids: string[]; status: TaskStatus }) =>
-      bulkUpdateTaskStatus(ids, status),
-    onMutate: async ({ ids, status }, context): Promise<TaskListSnapshot> => {
-      await context.client.cancelQueries({
-        queryKey: workspaceKeys.tasks.list(),
-      });
-      const previous = context.client.getQueryData<Task[]>(
-        workspaceKeys.tasks.list(),
-      );
-      const movingIds = new Set(ids);
-      const applicationIds = uniqueIds(
-        previous
-          ?.filter((task) => movingIds.has(task.id))
-          .map((task) => task.application_id) ?? [],
-      );
-      const timestamp = nowIso();
-      context.client.setQueryData<Task[]>(
-        workspaceKeys.tasks.list(),
-        (current) =>
-          current?.map((task) =>
-            movingIds.has(task.id)
-              ? {
-                  ...task,
-                  status,
-                  completed_at:
-                    status === "done" ? (task.completed_at ?? timestamp) : null,
-                  updated_at: timestamp,
-                }
-              : task,
-          ),
-      );
-      return { previous, applicationIds };
-    },
-    onError: (error, _vars, snapshot, context) => {
-      context.client.setQueryData(
-        workspaceKeys.tasks.list(),
-        snapshot?.previous,
-      );
-      handleMutationError(error, context);
-    },
-    onSuccess: (tasks, _vars, _snapshot, context) => {
-      context.client.setQueryData(workspaceKeys.tasks.list(), tasks);
-    },
-    onSettled: (_data, _error, _vars, snapshot, context) => {
-      void context.client.invalidateQueries({
-        queryKey: workspaceKeys.tasks.list(),
-      });
-      void context.client.invalidateQueries({
-        queryKey: workspaceKeys.applications.list(),
-      });
-      invalidateApplicationDetails(context.client, [
-        ...(_data?.map((task) => task.application_id) ?? []),
-        ...(snapshot?.applicationIds ?? []),
-      ]);
-    },
+/**
+ * Thin wrappers around `useUpdateTask`'s mutation. Each builds the right
+ * `TaskPatch` and delegates — none re-implements the optimistic machinery.
+ */
+export function useCompleteTask() {
+  const { mutate, mutateAsync, ...rest } = useUpdateTask();
+  const buildVars = ({ id, done }: { id: string; done: boolean }) => ({
+    id,
+    patch: { done_at: done ? nowIso() : null } as TaskPatch,
   });
+  return {
+    ...rest,
+    mutate: (vars: { id: string; done: boolean }) => mutate(buildVars(vars)),
+    mutateAsync: (vars: { id: string; done: boolean }) =>
+      mutateAsync(buildVars(vars)),
+  };
+}
+
+export function useScheduleTask() {
+  const { mutate, mutateAsync, ...rest } = useUpdateTask();
+  const buildVars = ({
+    id,
+    field,
+    value,
+  }: {
+    id: string;
+    field: "when_on" | "deadline_on";
+    value: string | null;
+  }) => ({ id, patch: { [field]: value } as TaskPatch });
+  return {
+    ...rest,
+    mutate: (vars: {
+      id: string;
+      field: "when_on" | "deadline_on";
+      value: string | null;
+    }) => mutate(buildVars(vars)),
+    mutateAsync: (vars: {
+      id: string;
+      field: "when_on" | "deadline_on";
+      value: string | null;
+    }) => mutateAsync(buildVars(vars)),
+  };
+}
+
+export function useToggleFlag() {
+  const { mutate, mutateAsync, ...rest } = useUpdateTask();
+  const buildVars = ({ id, flagged }: { id: string; flagged: boolean }) => ({
+    id,
+    patch: { flagged } as TaskPatch,
+  });
+  return {
+    ...rest,
+    mutate: (vars: { id: string; flagged: boolean }) =>
+      mutate(buildVars(vars)),
+    mutateAsync: (vars: { id: string; flagged: boolean }) =>
+      mutateAsync(buildVars(vars)),
+  };
 }
 
 export function useArchiveTask() {
@@ -265,50 +260,6 @@ export function useRestoreTask() {
         queryKey: workspaceKeys.applications.list(),
       });
       invalidateApplicationDetail(context.client, task?.application_id);
-    },
-  });
-}
-
-export function useBulkArchiveTasks() {
-  return useMutation({
-    mutationFn: bulkArchiveTasks,
-    onMutate: async (ids, context): Promise<TaskListSnapshot> => {
-      await context.client.cancelQueries({
-        queryKey: workspaceKeys.tasks.list(),
-      });
-      const previous = context.client.getQueryData<Task[]>(
-        workspaceKeys.tasks.list(),
-      );
-      const removingIds = new Set(ids);
-      const applicationIds = uniqueIds(
-        previous
-          ?.filter((task) => removingIds.has(task.id))
-          .map((task) => task.application_id) ?? [],
-      );
-      context.client.setQueryData<Task[]>(
-        workspaceKeys.tasks.list(),
-        (current) => current?.filter((task) => !removingIds.has(task.id)),
-      );
-      return { previous, applicationIds };
-    },
-    onError: (error, _ids, snapshot, context) => {
-      context.client.setQueryData(
-        workspaceKeys.tasks.list(),
-        snapshot?.previous,
-      );
-      handleMutationError(error, context);
-    },
-    onSettled: (_data, _error, _ids, snapshot, context) => {
-      void context.client.invalidateQueries({
-        queryKey: workspaceKeys.tasks.list(),
-      });
-      void context.client.invalidateQueries({
-        queryKey: workspaceKeys.applications.list(),
-      });
-      invalidateApplicationDetails(context.client, [
-        ...(_data?.map((task) => task.application_id) ?? []),
-        ...(snapshot?.applicationIds ?? []),
-      ]);
     },
   });
 }
