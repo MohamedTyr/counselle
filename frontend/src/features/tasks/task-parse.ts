@@ -67,6 +67,14 @@ function toLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Capture is always about the future: a student typing "fri" on a Saturday
+ * means the coming Friday, never yesterday. chrono's default picks whichever
+ * matching day is closest, which silently schedules into the past, so every
+ * parse in this module is forward-only.
+ */
+const CHRONO_OPTIONS = { forwardDate: true } as const;
+
 type DateMatch = { start: number; end: number; date: Date };
 
 /** `by <date>` / `due <date>` → deadline_on. Run before the bare-date pass. */
@@ -75,7 +83,7 @@ function findDeadlineMatch(
   referenceDate: Date,
   ignored: IgnoredRanges,
 ): DateMatch | null {
-  const results = chrono.parse(input, referenceDate);
+  const results = chrono.parse(input, referenceDate, CHRONO_OPTIONS);
   for (const result of results) {
     const before = input.slice(0, result.index);
     const prefixMatch = before.match(DEADLINE_PREFIX_PATTERN);
@@ -107,7 +115,7 @@ function findWhenMatch(
       input.slice(maskRange.end);
   }
 
-  const results = chrono.parse(working, referenceDate);
+  const results = chrono.parse(working, referenceDate, CHRONO_OPTIONS);
   for (const result of results) {
     const start = result.index;
     const end = start + result.text.length;

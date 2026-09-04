@@ -27,6 +27,16 @@ describe("parseQuickAdd", () => {
     expect(result.tokens).toEqual([{ start: 21, end: 24, kind: "when" }]);
   });
 
+  // Regression: chrono's default picks the *closest* matching day, so a bare
+  // weekday typed the day after that weekday resolved to yesterday — silently
+  // scheduling a task in the past. Capture is always about the future.
+  it("resolves a bare weekday forward, never into the past", () => {
+    const saturday = new Date(2026, 8, 5, 12, 0, 0); // the day after REFERENCE_DATE
+    const result = parseQuickAdd("Berkeley CSS Profile fri", ctx, undefined, saturday);
+    expect(result.when_on).toBe("2026-09-11");
+    expect(result.title).toBe("Berkeley CSS Profile");
+  });
+
   it("parses trailing ! into flagged", () => {
     const result = parseQuickAdd("Call financial aid office!", ctx, undefined, REFERENCE_DATE);
     expect(result.flagged).toBe(true);
