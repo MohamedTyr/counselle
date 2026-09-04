@@ -77,9 +77,9 @@ describe("OnboardingGate", () => {
   it("allows a grandfathered (absent-key) user into the workspace", async () => {
     renderApp("/app/tasks", { fetchHandler: createOnboardingFetch(undefined) });
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks/today"));
     expect(
-      await screen.findByRole("button", { name: "New task" }),
+      await screen.findByPlaceholderText("Add a task…"),
     ).toBeInTheDocument();
   });
 
@@ -125,9 +125,9 @@ describe("OnboardingGate", () => {
       ),
     });
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks/today"));
     expect(
-      await screen.findByRole("button", { name: "New task" }),
+      await screen.findByPlaceholderText("Add a task…"),
     ).toBeInTheDocument();
   });
 
@@ -217,9 +217,9 @@ describe("OnboardingGate", () => {
 
   it("never traps a malformed state on /app/* and shows a recoverable error on /onboarding", async () => {
     renderApp("/app/tasks", { fetchHandler: createOnboardingFetch("malformed") });
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks/today"));
     expect(
-      await screen.findByRole("button", { name: "New task" }),
+      await screen.findByPlaceholderText("Add a task…"),
     ).toBeInTheDocument();
 
     renderApp("/onboarding", { fetchHandler: createOnboardingFetch("malformed") });

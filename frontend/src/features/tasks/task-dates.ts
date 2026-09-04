@@ -1,28 +1,5 @@
 import { getNowDate } from "@/lib/time";
 
-export function formatShortDate(value?: string) {
-  if (!value) {
-    return "No due date";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value));
-}
-
-export function formatPickerDate(value?: string) {
-  if (!value) {
-    return "Pick date";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
 export function startOfLocalDay(value: Date) {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);

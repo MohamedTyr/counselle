@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/empty";
 import { PlanWithCounselleButton } from "@/features/tasks/task-actions";
 import { buildTasksDraftPrompt } from "@/features/tasks/task-plan-prompt";
-import { TaskGroupHeader, useTasksOutletContext } from "@/features/tasks/TasksLayout";
+import { TaskGroupHeader } from "@/features/tasks/TasksLayout";
+import { useTasksOutletContext } from "@/features/tasks/tasks-outlet-context";
 import { TaskRow } from "@/features/tasks/TaskRow";
 import { getNowDate } from "@/lib/time";
 

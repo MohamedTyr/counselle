@@ -13,11 +13,9 @@ import {
   Outlet,
   useLocation,
   useNavigate,
-  useOutletContext,
   useSearchParams,
 } from "react-router";
 
-import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
 import {
   useApplications,
   useArchiveTask,
@@ -47,40 +45,12 @@ import {
   getTodayGroups,
   getUpcomingGroups,
   hasCompletedTodayPlan,
-  type TaskGroup,
-  type TodayGroups,
 } from "@/features/tasks/task-filters";
 import { formatPageSubtitle, getDateKey, type TaskSubtitleView } from "@/features/tasks/task-dates";
 import { useTaskKeymap, type TaskKeymapView } from "@/features/tasks/useTaskKeymap";
 import { getNowDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
-
-export type TasksOutletContext = {
-  tasks: Task[];
-  applications: ApplicationView[];
-  essays: EssaySummary[];
-  applicationsById: ReadonlyMap<string, ApplicationView>;
-  essaysById: ReadonlyMap<string, EssaySummary>;
-  todayGroups: TodayGroups;
-  upcomingGroups: TaskGroup[];
-  anytimeGroups: TaskGroup[];
-  logbookGroups: TaskGroup[];
-  doneThisWeekCount: number;
-  hasCompletedTodayPlan: boolean;
-  activeTaskId: string | null;
-  onOpenTask: (taskId: string) => void;
-  onComplete: (taskId: string, done: boolean) => void;
-  onSchedule: (
-    taskId: string,
-    field: "when_on" | "deadline_on",
-    value: string | null,
-  ) => void;
-  onToggleFlag: (taskId: string) => void;
-};
-
-export function useTasksOutletContext() {
-  return useOutletContext<TasksOutletContext>();
-}
+import type { TasksOutletContext } from "@/features/tasks/tasks-outlet-context";
 
 type TaskViewName = "today" | "upcoming" | "anytime" | "logbook";
 

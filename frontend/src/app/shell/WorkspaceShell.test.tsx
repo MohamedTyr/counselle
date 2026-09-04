@@ -24,7 +24,7 @@ function sidebarMenuButtonFor(link: HTMLElement) {
 }
 
 async function waitForTasksRoute() {
-  await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+  await waitFor(() => expect(window.location.pathname).toBe("/app/tasks/today"));
 }
 
 async function waitForDesktopSidebar() {
@@ -259,7 +259,7 @@ describe("workspace shell", () => {
     });
     await user.click(brandLinks[0]!);
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks/today"));
     await waitFor(() => {
       expect(
         screen.queryByRole("dialog", { hidden: true }),

@@ -79,21 +79,33 @@ const EXIT_MS = 150;
 function useDelayedUnmount(open: boolean): { mounted: boolean; entered: boolean } {
   const [mounted, setMounted] = useState(open);
   const [entered, setEntered] = useState(open);
+  const [wasOpen, setWasOpen] = useState(open);
 
-  useEffect(() => {
+  // Mounting on open has to happen before paint — the element must already
+  // be in the tree, at its from-state, for the enter transition to have
+  // something to interpolate from. Unmounting is deferred to the effect
+  // below so the exit transition can play out first.
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setMounted(true);
-      // One frame at the from-state, then transition to the to-state.
-      const frame = window.requestAnimationFrame(() => setEntered(true));
-      return () => window.cancelAnimationFrame(frame);
+    } else {
+      setEntered(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!open) {
+      const timeout = window.setTimeout(
+        () => setMounted(false),
+        prefersReducedMotion() ? 0 : EXIT_MS,
+      );
+      return () => window.clearTimeout(timeout);
     }
 
-    setEntered(false);
-    const timeout = window.setTimeout(
-      () => setMounted(false),
-      prefersReducedMotion() ? 0 : EXIT_MS,
-    );
-    return () => window.clearTimeout(timeout);
+    // One frame at the from-state, then transition to the to-state.
+    const frame = window.requestAnimationFrame(() => setEntered(true));
+    return () => window.cancelAnimationFrame(frame);
   }, [open]);
 
   return { mounted, entered };

@@ -15,8 +15,8 @@ import {
 import {
   TaskGroupCloseRule,
   TaskGroupHeader,
-  useTasksOutletContext,
 } from "@/features/tasks/TasksLayout";
+import { useTasksOutletContext } from "@/features/tasks/tasks-outlet-context";
 import { TaskRow } from "@/features/tasks/TaskRow";
 
 export function UpcomingView() {
