@@ -1,11 +1,11 @@
-import { EditorContent } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
 import { ArrowLeft, Save } from "lucide-react";
-import { motion } from "motion/react";
 import { useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/workspace/PageHeader";
+import { EssayDocumentSurface } from "@/features/essays/EssayDocumentSurface";
 import {
   EssayContextTrail,
   EssayStatusIndicator,
@@ -13,7 +13,10 @@ import {
   PromptMenu,
 } from "@/features/essays/EssayEditorHeader";
 import { EssayEditorToolbar } from "@/features/essays/EssayEditorToolbar";
-import { emptyToolbarState } from "@/features/essays/essay-toolbar-config";
+import {
+  emptyToolbarState,
+  type ToolbarState,
+} from "@/features/essays/essay-toolbar-config";
 import {
   getEssayPrompt,
   getSchoolFallback,
@@ -22,12 +25,17 @@ import {
 import type { EssayEditorUpdate } from "@/features/essays/useEssayEditor";
 import type { EssayEditorPageProps } from "@/features/essays/essays-types";
 import { useEssayAutosave } from "@/features/essays/useEssayAutosave";
-import { useEssayEditor } from "@/features/essays/useEssayEditor";
 import { getEssayActivityLabel } from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
 
 export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
   const [wordCount, setWordCount] = useState(essay.wordCount);
+  /* The document surface owns the editor; the toolbar lives up here in its own
+   * chrome band, so it needs the instance and its state handed back. */
+  const [editorHandle, setEditorHandle] = useState<{
+    editor: Editor;
+    toolbarState: ToolbarState;
+  } | null>(null);
   const autosave = useEssayAutosave(essay.id, {
     content: essay.content,
     wordCount: essay.wordCount,
@@ -51,13 +59,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
     setWordCount(update.wordCount);
     autosave.flush();
   }
-
-  const { editor, toolbarState } = useEssayEditor({
-    content: essay.content,
-    onBlur: handleBlur,
-    onUpdate: handleUpdate,
-    syncContent: !autosave.isDirty,
-  });
 
   const saveLabel =
     autosave.saveState === "error"
@@ -195,8 +196,8 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
          */}
         <div className="overflow-x-auto px-6 py-1.5 md:px-10">
           <EssayEditorToolbar
-            editor={editor}
-            state={toolbarState ?? emptyToolbarState}
+            editor={editorHandle?.editor ?? null}
+            state={editorHandle?.toolbarState ?? emptyToolbarState}
           />
         </div>
       </div>
@@ -204,15 +205,17 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
       <div className="min-h-0 flex-1 overflow-y-auto bg-(--essay-editor-chrome-surface)">
         <div className="mx-auto flex w-full max-w-[1440px] px-4 pt-6 pb-12 lg:px-7 lg:pt-8 lg:pb-16">
           <main className="min-w-0 flex-1">
-            <motion.div
-              className="essay-editor-shell mx-auto min-h-[860px] w-full max-w-[820px] rounded-lg border border-(--essay-document-border) bg-(--essay-document-surface) px-7 py-8 text-(--essay-document-foreground) shadow-[var(--elevation-1)] sm:px-12 sm:py-11 lg:px-16 lg:py-14"
+            <EssayDocumentSurface
+              content={essay.content}
+              density="editor"
               layoutId={`essay-document-${essay.id}`}
-              transition={{
-                layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
-              }}
-            >
-              <EditorContent editor={editor} />
-            </motion.div>
+              onBlur={handleBlur}
+              onEditorReady={(editor, toolbarState) =>
+                setEditorHandle({ editor, toolbarState })
+              }
+              onUpdate={handleUpdate}
+              syncContent={!autosave.isDirty}
+            />
           </main>
         </div>
       </div>
