@@ -12,6 +12,7 @@ import { CalendarPlus, CircleAlert, Flag, GripVertical, Sparkles } from "lucide-
 import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Task } from "@/domain/task";
+import { SchedulerPopover } from "@/features/tasks/SchedulerPopover";
 import { getDerivedLabel } from "@/features/tasks/task-config";
 import {
   formatDeadline,
@@ -29,9 +30,19 @@ export type TaskRowProps = {
   suppress?: { label?: boolean; when?: boolean };
   isSelected: boolean;
   showReorderGrip?: boolean; // Today only, P9
+  /**
+   * Render the schedule affordance at rest instead of on hover. Only the two
+   * groups that exist to say "this needs a when" set it — Today's "Due soon"
+   * and Upcoming's "Deadlines without a plan" (plan P6.2).
+   */
+  scheduleAffordanceAtRest?: boolean;
   onOpen: (taskId: string) => void;
   onComplete: (taskId: string, done: boolean) => void;
-  onSchedule: (taskId: string, field: "when_on" | "deadline_on") => void;
+  onSchedule: (
+    taskId: string,
+    field: "when_on" | "deadline_on",
+    value: string | null,
+  ) => void;
   onToggleFlag: (taskId: string) => void;
 };
 
@@ -110,6 +121,7 @@ export function TaskRow({
   suppress = {},
   isSelected,
   showReorderGrip = false,
+  scheduleAffordanceAtRest = false,
   onOpen,
   onComplete,
   onSchedule,
@@ -274,43 +286,57 @@ export function TaskRow({
           </span>
         )}
 
-        {showWhenChip ? (
-          <button
-            aria-label={`Reschedule ${task.title}, currently ${whenLabel}`}
-            className={cn(
-              "-mx-1.5 inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-xs tabular-nums text-[var(--ink-secondary)] outline-none",
-              "transition-[background-color] duration-150 ease-out",
-              "hover:bg-[var(--surface-inset)] active:bg-[var(--control-quiet-active)]",
-              "focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--canvas)]",
-              hasDeadlineChip && "hidden sm:inline-flex",
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSchedule(task.id, "when_on");
-            }}
-            type="button"
-          >
-            {whenLabel}
-          </button>
-        ) : (
-          <button
-            aria-label={`Add a when date to "${task.title}"`}
-            className={cn(
-              "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[var(--ink-faint)] opacity-0 outline-none",
-              "transition-[opacity,background-color] duration-150 ease-out motion-reduce:transition-none",
-              "hover:bg-[var(--surface-inset)]",
-              "focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--canvas)]",
-              "group-hover/row:opacity-100 group-focus-within/row:opacity-100",
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSchedule(task.id, "when_on");
-            }}
-            type="button"
-          >
-            <CalendarPlus aria-hidden="true" className="size-3.5" />
-          </button>
-        )}
+        {/*
+          Both affordances are the *trigger* of a SchedulerPopover, so
+          rescheduling from any surface stays two clicks — the chip, then the
+          choice (spec §13). Routing them through the detail panel instead
+          would make it three.
+        */}
+        <SchedulerPopover
+          field="when_on"
+          onChange={(value) => onSchedule(task.id, "when_on", value)}
+          value={task.when_on}
+        >
+          {showWhenChip ? (
+            <button
+              aria-label={`Reschedule ${task.title}, currently ${whenLabel}`}
+              className={cn(
+                "-mx-1.5 inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-xs tabular-nums text-[var(--ink-secondary)] outline-none",
+                "transition-[background-color] duration-150 ease-out",
+                "hover:bg-[var(--surface-inset)] active:bg-[var(--control-quiet-active)]",
+                "data-[popup-open]:bg-[var(--surface-inset)]",
+                "focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--canvas)]",
+                hasDeadlineChip && "hidden sm:inline-flex",
+              )}
+              onClick={(event) => event.stopPropagation()}
+              type="button"
+            >
+              {whenLabel}
+            </button>
+          ) : (
+            <button
+              aria-label={`Add a when date to "${task.title}"`}
+              className={cn(
+                "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[var(--ink-faint)] outline-none",
+                "transition-[opacity,background-color] duration-150 ease-out motion-reduce:transition-none",
+                "hover:bg-[var(--surface-inset)] data-[popup-open]:bg-[var(--surface-inset)]",
+                "focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--canvas)]",
+                // Hidden until hover by default. The two groups whose whole
+                // purpose is "this needs a when" — Today's Due soon and
+                // Upcoming's Deadlines without a plan — render it at rest,
+                // because hiding the one control that fixes the group would
+                // defeat the group (plan P6.2).
+                scheduleAffordanceAtRest
+                  ? "opacity-100"
+                  : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 data-[popup-open]:opacity-100",
+              )}
+              onClick={(event) => event.stopPropagation()}
+              type="button"
+            >
+              <CalendarPlus aria-hidden="true" className="size-3.5" />
+            </button>
+          )}
+        </SchedulerPopover>
 
         <DeadlineChip task={task} />
 

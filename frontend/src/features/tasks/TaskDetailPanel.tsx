@@ -62,15 +62,31 @@ function prefersReducedMotion(): boolean {
  * mid-slide. */
 const EXIT_MS = 150;
 
-function useDelayedUnmount(open: boolean): boolean {
+/**
+ * Two-phase presence for the docked aside, which is a plain `<aside>` and so
+ * has no built-in presence management the way the mobile `Sheet` does.
+ *
+ * `mounted` keeps the element in the tree across the exit so the transition
+ * can play. `entered` is what the enter transition needs: the element must
+ * first paint at its *from* state (`translate-x-4 opacity-0`) and only then
+ * flip to its *to* state, or the browser has nothing to interpolate from and
+ * the panel simply appears. That is why `entered` is set from an effect after
+ * a frame rather than adjusted during render — a render-phase flip lands both
+ * states in the same paint and animates nothing.
+ */
+function useDelayedUnmount(open: boolean): { mounted: boolean; entered: boolean } {
   const [mounted, setMounted] = useState(open);
+  const [entered, setEntered] = useState(open);
 
   useEffect(() => {
     if (open) {
       setMounted(true);
-      return;
+      // One frame at the from-state, then transition to the to-state.
+      const frame = window.requestAnimationFrame(() => setEntered(true));
+      return () => window.cancelAnimationFrame(frame);
     }
 
+    setEntered(false);
     const timeout = window.setTimeout(
       () => setMounted(false),
       prefersReducedMotion() ? 0 : EXIT_MS,
@@ -78,7 +94,7 @@ function useDelayedUnmount(open: boolean): boolean {
     return () => window.clearTimeout(timeout);
   }, [open]);
 
-  return mounted;
+  return { mounted, entered };
 }
 
 /**
@@ -488,31 +504,41 @@ export function TaskDetailPanel({
   onOpenChange,
 }: TaskDetailPanelProps) {
   const isDesktop = useIsDesktop();
-  const mounted = useDelayedUnmount(open && Boolean(task));
-
-  if (!task || !mounted) {
-    return null;
-  }
+  // Only the aside needs manual delayed-unmount: it's a plain element with a
+  // hand-rolled transition, not a dialog. The mobile `Sheet` (Base UI) owns
+  // its own presence/exit animation once `open` goes false — wrapping it in
+  // this too would cut that animation off early instead of complementing it.
+  const { mounted: asideMounted, entered: asideEntered } = useDelayedUnmount(
+    open && Boolean(task),
+  );
 
   if (!isDesktop) {
     return (
-      <Sheet onOpenChange={onOpenChange} open={open}>
+      <Sheet onOpenChange={onOpenChange} open={open && Boolean(task)}>
         <SheetPopup
           className="max-h-[85dvh] rounded-t-2xl p-6"
           showCloseButton={false}
           side="bottom"
         >
-          <SheetTitle className="sr-only">{task.title}</SheetTitle>
-          <PanelBody
-            applicationsById={applicationsById}
-            essaysById={essaysById}
-            key={task.id}
-            onClose={() => onOpenChange(false)}
-            task={task}
-          />
+          {task ? (
+            <>
+              <SheetTitle className="sr-only">{task.title}</SheetTitle>
+              <PanelBody
+                applicationsById={applicationsById}
+                essaysById={essaysById}
+                key={task.id}
+                onClose={() => onOpenChange(false)}
+                task={task}
+              />
+            </>
+          ) : null}
         </SheetPopup>
       </Sheet>
     );
+  }
+
+  if (!task || !asideMounted) {
+    return null;
   }
 
   return (
@@ -521,7 +547,7 @@ export function TaskDetailPanel({
       className={cn(
         "fixed inset-y-0 end-0 z-[var(--z-sticky)] hidden w-[26rem] flex-col border-s border-[var(--edge)] bg-[var(--surface-raised)] p-6 lg:flex",
         "transition-[opacity,translate] ease-out motion-reduce:transition-[opacity]",
-        open
+        asideEntered
           ? "translate-x-0 opacity-100 duration-200"
           : "translate-x-4 opacity-0 duration-150",
       )}
