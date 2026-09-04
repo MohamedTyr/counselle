@@ -148,7 +148,7 @@ export function TaskGroupHeader({
   return (
     <div
       className={cn(
-        "-mx-2 mb-1 flex h-7 items-center bg-[var(--canvas)] pr-2 pl-[calc(var(--task-row-spine)+--spacing(2))]",
+        "-mx-2 mb-1 flex h-7 items-center bg-[var(--canvas)] pr-2 pl-[var(--task-row-spine)]",
         !isFirst && "mt-6",
         sticky && "sticky top-0 z-[var(--z-sticky)]",
       )}

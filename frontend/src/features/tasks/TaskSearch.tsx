@@ -10,6 +10,7 @@ import { Search } from "lucide-react";
 
 import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
 import {
+  Command,
   CommandDialog,
   CommandInput,
   CommandList,
@@ -79,52 +80,60 @@ export function TaskSearch({
       open={open}
       title="Search tasks"
     >
-      <CommandInput
-        onValueChange={setQuery}
-        placeholder="Search tasks…"
-        value={query}
-      />
-      <CommandList>
-        {trimmedQuery && results.length === 0 ? (
-          // design doc §8's filtered-to-zero template, not the empty
-          // template — the student has data, a query is hiding it.
-          <Empty className="py-12">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Search aria-hidden="true" />
-              </EmptyMedia>
-              <EmptyTitle className="text-sm font-medium text-[var(--ink)]">
-                No tasks match
-              </EmptyTitle>
-              <EmptyDescription className="max-w-[36ch] text-sm text-pretty text-[var(--ink-secondary)]">
-                Nothing matches &quot;{trimmedQuery}&quot; in open or done
-                tasks.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button onClick={() => setQuery("")} size="sm" variant="ghost">
-                Clear search
-              </Button>
-            </EmptyContent>
-          </Empty>
-        ) : (
-          <ul className="flex flex-col" role="list">
-            {results.map((task) => (
-              <TaskRow
-                applicationsById={applicationsById}
-                essaysById={essaysById}
-                isSelected={false}
-                key={task.id}
-                onComplete={onComplete}
-                onOpen={openResult}
-                onSchedule={onSchedule}
-                onToggleFlag={onToggleFlag}
-                task={task}
-              />
-            ))}
-          </ul>
-        )}
-      </CommandList>
+      {/*
+        CommandDialog supplies only the Dialog shell — the cmdk Command root
+        has to be provided here, exactly as AddSchoolDialog does, or
+        CommandInput has no store to subscribe to. Filtering is ours (a
+        client-side pass over the cached list), so shouldFilter is off.
+      */}
+      <Command shouldFilter={false}>
+        <CommandInput
+          onValueChange={setQuery}
+          placeholder="Search tasks…"
+          value={query}
+        />
+        <CommandList>
+          {trimmedQuery && results.length === 0 ? (
+            // design doc §8's filtered-to-zero template, not the empty
+            // template — the student has data, a query is hiding it.
+            <Empty className="py-12">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Search aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle className="text-sm font-medium text-[var(--ink)]">
+                  No tasks match
+                </EmptyTitle>
+                <EmptyDescription className="max-w-[36ch] text-sm text-pretty text-[var(--ink-secondary)]">
+                  Nothing matches &quot;{trimmedQuery}&quot; in open or done
+                  tasks.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button onClick={() => setQuery("")} size="sm" variant="ghost">
+                  Clear search
+                </Button>
+              </EmptyContent>
+            </Empty>
+          ) : (
+            <ul className="flex flex-col" role="list">
+              {results.map((task) => (
+                <TaskRow
+                  applicationsById={applicationsById}
+                  essaysById={essaysById}
+                  isSelected={false}
+                  key={task.id}
+                  onComplete={onComplete}
+                  onOpen={openResult}
+                  onSchedule={onSchedule}
+                  onToggleFlag={onToggleFlag}
+                  task={task}
+                />
+              ))}
+            </ul>
+          )}
+        </CommandList>
+      </Command>
     </CommandDialog>
   );
 }

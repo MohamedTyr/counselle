@@ -111,8 +111,15 @@ export function TodayView() {
 
   return (
     <div className="flex flex-col">
+      {/*
+        The reorder grip is absolutely positioned at `-left-4` on the row and
+        overflows into the page's own gutter, so this list takes no `pl-4`:
+        padding it would shift every Today title 16px right of the group
+        headers, quick-add bar and footer on the same page, and break design
+        doc §3.10.2's promise that row geometry is identical across views.
+      */}
       {main.length > 0 && (
-        <ul className="-mx-2 flex flex-col pl-4" role="list">
+        <ul className="-mx-2 flex flex-col" role="list">
           {orderedMain.map((task) => (
             <TaskRow
               applicationsById={applicationsById}
@@ -160,7 +167,7 @@ export function TodayView() {
 
       {doneThisWeekCount > 0 && (
         <Link
-          className="mt-6 inline-flex w-fit items-center gap-1 rounded-sm pl-[var(--task-row-spine)] text-chrome text-[var(--ink-faint)] outline-none hover:text-[var(--ink-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas)]"
+          className="mt-6 -mx-2 inline-flex w-fit items-center gap-1 rounded-sm pl-[var(--task-row-spine)] text-chrome text-[var(--ink-faint)] outline-none hover:text-[var(--ink-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas)]"
           to="/app/tasks/logbook"
         >
           {doneThisWeekCount} done this week

@@ -330,7 +330,10 @@ export function QuickAddBar({
   const showWaitingHint = isFocused && parsed.needsCheckIn;
 
   return (
-    <div className="w-full" data-slot="quick-add-bar">
+    // -mx-2 puts the bar in the same 8px-outdented box as a TaskRow, so its
+    // Plus glyph lands in the checkbox column and its input lands on the
+    // shared 36px spine — "the same shape as the thing it creates".
+    <div className="-mx-2 w-full" data-slot="quick-add-bar">
       <div
         className={cn(
           "group relative flex h-10 items-center gap-3 rounded-md border border-transparent pr-2 pl-2",
@@ -377,7 +380,7 @@ export function QuickAddBar({
       </div>
 
       {showFirstFocusHint && (
-        <p className="mt-1.5 pl-9 text-xs text-[var(--ink-faint)]">
+        <p className="mt-1.5 pl-[var(--task-row-spine)] text-xs text-[var(--ink-faint)]">
           Try &quot;Berkeley CSS Profile fri&quot; — dates are picked up as
           you type.
         </p>
@@ -387,7 +390,7 @@ export function QuickAddBar({
         {showWaitingHint && (
           <motion.div
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-            className="mt-1.5 flex flex-wrap items-center gap-2 pl-9"
+            className="mt-1.5 flex flex-wrap items-center gap-2 pl-[var(--task-row-spine)]"
             data-slot="quick-add-waiting-hint"
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}

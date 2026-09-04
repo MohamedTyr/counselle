@@ -148,4 +148,38 @@ describe("TasksLayout", () => {
       await screen.findByRole("textbox", { name: "Task title" }),
     ).toHaveValue(todayTask.title);
   });
+
+  it("opens the detail panel when a row title is clicked", async () => {
+    const user = userEvent.setup();
+    await renderTasks([todayTask]);
+
+    await user.click(screen.getByRole("button", { name: todayTask.title }));
+
+    expect(
+      await screen.findByRole("textbox", { name: "Task title" }),
+    ).toHaveValue(todayTask.title);
+  });
+
+  // Regression: `CommandDialog` supplies only the Dialog shell, so a
+  // `CommandInput` rendered without a `Command` root threw
+  // "Cannot read properties of undefined (reading 'subscribe')" from cmdk
+  // and took the whole route down through the error boundary.
+  it("opens search without crashing and filters the cached tasks", async () => {
+    const user = userEvent.setup();
+    await renderTasks();
+
+    await user.keyboard("/");
+
+    const input = await screen.findByPlaceholderText("Search tasks…");
+    await user.type(input, "Georgia");
+
+    expect(
+      await screen.findByRole("button", { name: todayTask.title }),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: anytimeTask.title }),
+      ).not.toBeInTheDocument();
+    });
+  });
 });
