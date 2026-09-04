@@ -51,6 +51,28 @@ _EXPECTED_SKILLS = {
     "school-list",
     "testing-strategy",
     "essay-fit",
+    "essay-brainstorm",
+    "essay-drafting",
+    "essay-revision",
+    "essay-honesty",
+    "essay-values",
+    "essay-structure",
+    "essay-exercises",
+    "essay-types",
+    "essay-depth",
+    "essay-craft",
+    "essay-advanced",
+}
+
+# The essay library skills deliberately exceed the 120-line default: they carry
+# the interview banks and step guides the essay method needs at full fidelity
+# (see plans/essay-skill/proposal.md). Internal bodies load on demand via
+# load_skill, so the cost is paid only when the skill is actually used.
+_BODY_LINE_LIMIT_EXCEPTIONS = {
+    "essay-types": 200,
+    "essay-revision": 145,
+    "essay-depth": 145,
+    "essay-advanced": 140,
 }
 
 _EXPECTED_USER_SKILL_CATALOG = [
@@ -70,9 +92,24 @@ _EXPECTED_USER_SKILL_CATALOG = [
         "description": "Plan affordability, financial aid, FAFSA/CSS, and scholarships.",
     },
     {
+        "name": "essay-brainstorm",
+        "display_name": "Essay brainstorm",
+        "description": "Find your essay topic through guided exercises.",
+    },
+    {
+        "name": "essay-drafting",
+        "display_name": "Essay drafting",
+        "description": "Turn your material into a full essay draft.",
+    },
+    {
         "name": "essay-fit",
         "display_name": "Essay fit",
         "description": "Find real school-specific details for essays and fit.",
+    },
+    {
+        "name": "essay-revision",
+        "display_name": "Essay revision",
+        "description": "Get your draft diagnosed and revised.",
     },
     {
         "name": "major-and-fit",
@@ -209,7 +246,10 @@ class TestAllSkillsParse:
         for m in self.meta:
             body = self.skills_mod.load_skill(m["name"])
             line_count = len(body.splitlines())
-            assert line_count <= 120, f"skill '{m['name']}' has {line_count} lines (limit 120)"
+            limit = _BODY_LINE_LIMIT_EXCEPTIONS.get(m["name"], 120)
+            assert line_count <= limit, (
+                f"skill '{m['name']}' has {line_count} lines (limit {limit})"
+            )
 
     def test_backticked_tool_references_exist_in_tool_registry(self) -> None:
         specs = build_tool_specs(load_yaml_asset("step_labels"), _receipt)
