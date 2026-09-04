@@ -12,9 +12,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { PlanWithAgentButton } from "@/features/tasks/task-actions";
+import { PlanWithCounselleButton } from "@/features/tasks/task-actions";
+import { buildTasksDraftPrompt } from "@/features/tasks/task-plan-prompt";
 import { TaskGroupHeader, useTasksOutletContext } from "@/features/tasks/TasksLayout";
 import { TaskRow } from "@/features/tasks/TaskRow";
+import { getNowDate } from "@/lib/time";
 
 export function TodayView() {
   const {
@@ -66,9 +68,20 @@ export function TodayView() {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent className="flex-row justify-center">
-          <PlanWithAgentButton size="sm" variant="default">
+          <PlanWithCounselleButton
+            draftPrompt={buildTasksDraftPrompt({
+              applicationsById,
+              defaultQuestion: "Help me plan today.",
+              essaysById,
+              referenceDate: getNowDate(),
+              tasks: [],
+              viewName: "Today",
+            })}
+            size="sm"
+            variant="default"
+          >
             Plan with Counselle
-          </PlanWithAgentButton>
+          </PlanWithCounselleButton>
           <Button render={<Link to="/app/tasks/upcoming" />} size="sm" variant="ghost">
             Go to Upcoming
           </Button>

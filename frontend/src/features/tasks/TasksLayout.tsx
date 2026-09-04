@@ -6,11 +6,13 @@
 // context={…} />`. Also owns the page scaffold, the view tabs, the
 // quick-add bar, the detail panel, and the undo-toast seam.
 import { useMemo, useState } from "react";
+import { useReducedMotion } from "motion/react";
 import { Search } from "lucide-react";
 import {
   NavLink,
   Outlet,
   useLocation,
+  useNavigate,
   useOutletContext,
   useSearchParams,
 } from "react-router";
@@ -18,8 +20,10 @@ import {
 import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
 import {
   useApplications,
+  useArchiveTask,
   useCompleteTask,
   useEssays,
+  useRestoreTask,
   useTasks,
   useScheduleTask,
   useToggleFlag,
@@ -30,9 +34,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UndoToast } from "@/components/undo-toast";
 import { PageContainer } from "@/components/workspace/PageContainer";
 import { taskFromApi, type Task } from "@/domain/task";
+import { useUndoableAction } from "@/hooks/useUndoableAction";
 import { QuickAddBar, type QuickAddDefaults } from "@/features/tasks/QuickAddBar";
-import { PlanWithAgentButton } from "@/features/tasks/task-actions";
+import { PlanWithCounselleButton } from "@/features/tasks/task-actions";
 import { TaskDetailPanel } from "@/features/tasks/TaskDetailPanel";
+import { TaskSearch } from "@/features/tasks/TaskSearch";
+import { buildTasksDraftPrompt } from "@/features/tasks/task-plan-prompt";
 import {
   getAnytimeGroups,
   getDoneThisWeekCount,
@@ -44,6 +51,7 @@ import {
   type TodayGroups,
 } from "@/features/tasks/task-filters";
 import { formatPageSubtitle, getDateKey, type TaskSubtitleView } from "@/features/tasks/task-dates";
+import { useTaskKeymap, type TaskKeymapView } from "@/features/tasks/useTaskKeymap";
 import { getNowDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +102,14 @@ const VIEW_TITLES: Record<TaskViewName, string> = {
   logbook: "Logbook",
   today: "Today",
   upcoming: "Upcoming",
+};
+
+/** spec §8.1 — one default question per view. Logbook has none (the "Plan
+ * with Counselle" button doesn't render there, same as the quick-add bar). */
+const PLAN_DEFAULT_QUESTIONS: Record<"today" | "upcoming" | "anytime", string> = {
+  anytime: "Which of these should I schedule, and when?",
+  today: "Help me plan today.",
+  upcoming: "Look at my next two weeks and tell me what's unrealistic.",
 };
 
 function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
@@ -194,10 +210,15 @@ export function TasksLayout() {
   const completeTaskMutation = useCompleteTask();
   const scheduleTaskMutation = useScheduleTask();
   const toggleFlagMutation = useToggleFlag();
+  const archiveTaskMutation = useArchiveTask();
+  const restoreTaskMutation = useRestoreTask();
+  const undoableAction = useUndoableAction();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const view = resolveView(location.pathname);
   const referenceDate = getNowDate();
 
@@ -293,17 +314,33 @@ export function TasksLayout() {
   // The row's When chip and hover-revealed affordance are themselves
   // SchedulerPopover triggers, so by the time this runs the student has
   // already chosen a date — this only writes it. That is what keeps
-  // "reschedule from any surface" at two clicks (spec §13).
+  // "reschedule from any surface" at two clicks (spec §13). Every write here
+  // also registers with `useUndoableAction` (plan P7.5, spec §9's `⌘Z`) so
+  // the toast and the keymap's undo binding stay one code path.
   function handleSchedule(
     taskId: string,
     field: "when_on" | "deadline_on",
     value: string | null,
   ) {
+    const task = tasks.find((item) => item.id === taskId);
+    const previousValue = task?.[field] ?? null;
     scheduleTaskMutation.mutate({ id: taskId, field, value });
+    undoableAction.perform({
+      inverse: () =>
+        scheduleTaskMutation.mutate({ id: taskId, field, value: previousValue }),
+      kind: "rescheduled",
+      label: task?.title ?? "Task",
+    });
   }
 
   function handleComplete(taskId: string, done: boolean) {
+    const task = tasks.find((item) => item.id === taskId);
     completeTaskMutation.mutate({ id: taskId, done });
+    undoableAction.perform({
+      inverse: () => completeTaskMutation.mutate({ id: taskId, done: !done }),
+      kind: done ? "completed" : "reopened",
+      label: task?.title ?? "Task",
+    });
   }
 
   function handleToggleFlag(taskId: string) {
@@ -314,11 +351,57 @@ export function TasksLayout() {
     toggleFlagMutation.mutate({ id: taskId, flagged: !task.flagged });
   }
 
+  function handleDelete(taskId: string) {
+    const task = tasks.find((item) => item.id === taskId);
+    archiveTaskMutation.mutate(taskId);
+    closeTask();
+    undoableAction.perform({
+      inverse: () => restoreTaskMutation.mutate(taskId),
+      kind: "deleted",
+      label: task?.title ?? "Task",
+    });
+  }
+
+  function isTaskDone(taskId: string): boolean {
+    return Boolean(tasks.find((task) => task.id === taskId)?.done_at);
+  }
+
   const quickAddDefaults: QuickAddDefaults =
     view === "today" ? { when_on: getDateKey(referenceDate) } : {};
 
   const isLoading = tasksQuery.isLoading;
   const isError = tasksQuery.isError;
+
+  const planViewTasks: Task[] =
+    view === "today"
+      ? [...todayGroups.main, ...todayGroups.dueSoon]
+      : view === "upcoming"
+        ? upcomingGroups.flatMap((group) => group.tasks)
+        : view === "anytime"
+          ? anytimeGroups.flatMap((group) => group.tasks)
+          : [];
+  const draftPrompt =
+    view !== "logbook"
+      ? buildTasksDraftPrompt({
+          applicationsById,
+          defaultQuestion: PLAN_DEFAULT_QUESTIONS[view],
+          essaysById,
+          referenceDate,
+          tasks: planViewTasks,
+          viewName: VIEW_TITLES[view],
+        })
+      : "";
+
+  useTaskKeymap({
+    isTaskDone,
+    onComplete: handleComplete,
+    onNavigateView: (nextView: TaskKeymapView) => navigate(`/app/tasks/${nextView}`),
+    onOpenSearch: () => setSearchOpen(true),
+    onOpenTask: openTask,
+    onSchedule: handleSchedule,
+    onToggleFlag: handleToggleFlag,
+    onUndo: undoableAction.undo,
+  });
 
   const outletContext: TasksOutletContext = {
     activeTaskId,
@@ -343,8 +426,6 @@ export function TasksLayout() {
     <PageContainer
       actions={
         <>
-          {/* TaskSearch itself is P7.3 — this is the seam: a plain toggle
-           * button with local `searchOpen` state and no dialog wired yet. */}
           <Button
             aria-label="Search tasks"
             aria-pressed={searchOpen}
@@ -355,21 +436,26 @@ export function TasksLayout() {
             <Search aria-hidden="true" />
             <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
           </Button>
-          <PlanWithAgentButton>Plan with Counselle</PlanWithAgentButton>
+          {view !== "logbook" && (
+            <PlanWithCounselleButton draftPrompt={draftPrompt}>
+              Plan with Counselle
+            </PlanWithCounselleButton>
+          )}
         </>
       }
       className="gap-0"
       overlay={
         <>
           <UndoToast
-            onDismiss={() => {}}
-            onUndo={() => {}}
-            pending={null}
-            reduceMotion={false}
+            onDismiss={undoableAction.clearPending}
+            onUndo={undoableAction.undo}
+            pending={undoableAction.pending}
+            reduceMotion={reduceMotion ?? false}
           />
           <TaskDetailPanel
             applicationsById={applicationsById}
             essaysById={essaysById}
+            onDelete={handleDelete}
             onOpenChange={(open) => {
               if (!open) {
                 closeTask();
@@ -377,6 +463,17 @@ export function TasksLayout() {
             }}
             open={Boolean(activeTask)}
             task={activeTask}
+          />
+          <TaskSearch
+            applicationsById={applicationsById}
+            essaysById={essaysById}
+            onComplete={handleComplete}
+            onOpenChange={setSearchOpen}
+            onOpenTask={openTask}
+            onSchedule={handleSchedule}
+            onToggleFlag={handleToggleFlag}
+            open={searchOpen}
+            tasks={tasks}
           />
         </>
       }

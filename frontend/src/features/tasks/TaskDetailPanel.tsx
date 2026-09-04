@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Flag, X } from "lucide-react";
+import { Flag, Trash2, X } from "lucide-react";
 
 import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
 import { useScheduleTask, useUpdateTask } from "@/api/workspace/hooks";
@@ -16,6 +16,7 @@ import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import type { Task } from "@/domain/task";
 import { SchedulerPopover } from "@/features/tasks/SchedulerPopover";
+import { parseDateOnly } from "@/features/tasks/task-dates";
 import { formatRelativeTime, getNowDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export type TaskDetailPanelProps = {
   applicationsById: ReadonlyMap<string, ApplicationView>;
   essaysById: ReadonlyMap<string, EssaySummary>;
   open: boolean;
+  onDelete: (taskId: string) => void;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -95,17 +97,6 @@ function useDelayedUnmount(open: boolean): { mounted: boolean; entered: boolean 
   }, [open]);
 
   return { mounted, entered };
-}
-
-/**
- * `YYYY-MM-DD` → local-midnight `Date`. Never `new Date(dateKey)` — that
- * parses as UTC and can render the previous day in a negative-offset
- * timezone (plan §P5.1's correctness rule, repeated here because this file
- * formats dates independently of task-dates.ts's row-chip forms).
- */
-function parseDateOnly(dateKey: string): Date {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return new Date(year, month - 1, day);
 }
 
 /** "Jan 1" (+ year, only when it differs from `referenceDate`'s). Used for
@@ -327,11 +318,13 @@ function PanelBody({
   applicationsById,
   essaysById,
   onClose,
+  onDelete,
 }: {
   task: Task;
   applicationsById: ReadonlyMap<string, ApplicationView>;
   essaysById: ReadonlyMap<string, EssaySummary>;
   onClose: () => void;
+  onDelete: (taskId: string) => void;
 }) {
   const updateTask = useUpdateTask();
   const scheduleTask = useScheduleTask();
@@ -398,18 +391,35 @@ function PanelBody({
             )}
           />
         </button>
-        <button
-          aria-label="Close"
-          className={cn(
-            "flex size-8 items-center justify-center rounded-md outline-none transition-[background-color] duration-150 ease-out",
-            "hover:bg-[var(--surface-hover)]",
-            "focus-visible:bg-[var(--surface-inset)] focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
-          )}
-          onClick={onClose}
-          type="button"
-        >
-          <X aria-hidden="true" className="size-4 text-[var(--ink-faint)]" />
-        </button>
+        {/* No `···` menu, ever (design doc §3, "actions live in the detail
+         * panel and on the keyboard") — a single explicit action, grouped
+         * with Close rather than floated by `justify-between`. */}
+        <div className="flex items-center gap-1">
+          <button
+            aria-label={`Delete "${task.title}"`}
+            className={cn(
+              "flex size-8 items-center justify-center rounded-md outline-none transition-[background-color] duration-150 ease-out",
+              "hover:bg-[var(--surface-hover)]",
+              "focus-visible:bg-[var(--surface-inset)] focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
+            )}
+            onClick={() => onDelete(task.id)}
+            type="button"
+          >
+            <Trash2 aria-hidden="true" className="size-4 text-[var(--ink-faint)]" />
+          </button>
+          <button
+            aria-label="Close"
+            className={cn(
+              "flex size-8 items-center justify-center rounded-md outline-none transition-[background-color] duration-150 ease-out",
+              "hover:bg-[var(--surface-hover)]",
+              "focus-visible:bg-[var(--surface-inset)] focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
+            )}
+            onClick={onClose}
+            type="button"
+          >
+            <X aria-hidden="true" className="size-4 text-[var(--ink-faint)]" />
+          </button>
+        </div>
       </div>
 
       <div className="mt-4">
@@ -501,6 +511,7 @@ export function TaskDetailPanel({
   applicationsById,
   essaysById,
   open,
+  onDelete,
   onOpenChange,
 }: TaskDetailPanelProps) {
   const isDesktop = useIsDesktop();
@@ -528,6 +539,7 @@ export function TaskDetailPanel({
                 essaysById={essaysById}
                 key={task.id}
                 onClose={() => onOpenChange(false)}
+                onDelete={onDelete}
                 task={task}
               />
             </>
@@ -557,6 +569,7 @@ export function TaskDetailPanel({
         essaysById={essaysById}
         key={task.id}
         onClose={() => onOpenChange(false)}
+        onDelete={onDelete}
         task={task}
       />
     </aside>

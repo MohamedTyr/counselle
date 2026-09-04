@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { MoreHorizontal, School, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -15,70 +15,38 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
- * The agent cannot yet plan tasks (Decision D2, MVP3 workspace plan): the
- * button stays visible as an affordance but is disabled with a tooltip
- * instead of fabricating fake agent-authored tasks.
+ * "Plan with Counselle" (spec §8.1, decision D2): opens the composer with a
+ * visible, editable draft prompt — exactly the same `<Link state=
+ * {{ draftPrompt }}>` handoff `SchoolDetailRoute.tsx` and
+ * `SchoolFactsPanel.tsx` already use. There is no hidden context channel.
  */
-export function PlanWithAgentButton({
-  children = "Plan with agent",
+export function PlanWithCounselleButton({
+  children = "Plan with Counselle",
   className,
+  draftPrompt,
   size,
   variant = "outline",
 }: {
   children?: ReactNode;
   className?: string;
+  draftPrompt: string;
   size?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
 }) {
-  const unavailableReason = "Counselle agent — coming soon";
-  const accessibleLabel = `Plan with agent unavailable: ${unavailableReason}`;
-
-  const preventUnavailableActivation = (
-    event: KeyboardEvent<HTMLButtonElement> | MouseEvent<HTMLButtonElement>,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const preventUnavailableKeyboardActivation = (
-    event: KeyboardEvent<HTMLButtonElement>,
-  ) => {
-    if (event.key === "Enter" || event.key === " ") {
-      preventUnavailableActivation(event);
-    }
-  };
-
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          aria-disabled="true"
-          aria-label={accessibleLabel}
-          className={cn(
-            "aria-disabled:cursor-not-allowed aria-disabled:opacity-64",
-            className,
-          )}
-          onClick={preventUnavailableActivation}
-          onKeyDown={preventUnavailableKeyboardActivation}
-          size={size}
-          title={unavailableReason}
-          type="button"
-          variant={variant}
-        >
-          <Sparkles aria-hidden="true" data-icon="inline-start" />
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{unavailableReason}</TooltipContent>
-    </Tooltip>
+    <Button
+      className={className}
+      render={<Link state={{ draftPrompt }} to="/app/ai" />}
+      size={size}
+      type="button"
+      variant={variant}
+    >
+      <Sparkles aria-hidden="true" data-icon="inline-start" />
+      {children}
+    </Button>
   );
 }
 

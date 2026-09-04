@@ -1,11 +1,18 @@
 import { useMemo } from "react";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 
 import type {
   ApplicationDetail,
   ApplicationPatch,
+  ApplicationView,
+  EssaySummary,
   SchoolRequirement,
 } from "@/api/workspace/types";
+import {
+  useCompleteTask,
+  useScheduleTask,
+  useToggleFlag,
+} from "@/api/workspace/hooks";
 import {
   Accordion,
   AccordionItem,
@@ -22,10 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Provenance,
-  QuickAddTask,
-} from "@/features/schools/school-workspace-fields";
+import { taskFromApi } from "@/domain/task";
+import { Provenance } from "@/features/schools/school-workspace-fields";
 import {
   applicabilityLabels,
   audienceDescription,
@@ -34,6 +39,8 @@ import {
   referenceDetail,
 } from "@/features/schools/school-workspace-format";
 import type { CommonRequirement } from "@/features/schools/school-workspace-format";
+import { QuickAddBar } from "@/features/tasks/QuickAddBar";
+import { TaskRow } from "@/features/tasks/TaskRow";
 
 /* Extracted verbatim from SchoolWorkspace.tsx (the 800-line limit). */
 
@@ -44,6 +51,49 @@ export function SchoolRequirementsSection({
   detail: ApplicationDetail;
   patchApplication: (patch: ApplicationPatch) => void;
 }) {
+  const navigate = useNavigate();
+  const completeTaskMutation = useCompleteTask();
+  const scheduleTaskMutation = useScheduleTask();
+  const toggleFlagMutation = useToggleFlag();
+
+  // A single-entry map (this application) plus this application's own
+  // essays — exactly what `TaskRow`'s derived-label lookup needs, built
+  // locally rather than threaded down from a page-level query.
+  const applicationsById = useMemo<ReadonlyMap<string, ApplicationView>>(
+    () => new Map([[detail.application.id, detail.application]]),
+    [detail.application],
+  );
+  const essaysById = useMemo<ReadonlyMap<string, EssaySummary>>(
+    () => new Map(detail.essays.map((essay) => [essay.id, essay])),
+    [detail.essays],
+  );
+
+  function openTask(taskId: string) {
+    // Keeps the pre-existing deep-link behaviour: `/app/tasks?task=<id>`
+    // opens the redesigned Tasks page with that task's detail panel open.
+    navigate(`/app/tasks?task=${taskId}`);
+  }
+
+  function handleComplete(taskId: string, done: boolean) {
+    completeTaskMutation.mutate({ id: taskId, done });
+  }
+
+  function handleSchedule(
+    taskId: string,
+    field: "when_on" | "deadline_on",
+    value: string | null,
+  ) {
+    scheduleTaskMutation.mutate({ id: taskId, field, value });
+  }
+
+  function handleToggleFlag(taskId: string) {
+    const task = detail.tasks.find((item) => item.id === taskId);
+    if (!task) {
+      return;
+    }
+    toggleFlagMutation.mutate({ id: taskId, flagged: !task.flagged });
+  }
+
   const visibleRequirements = useMemo(
     () =>
       detail.reference.status === "loaded" ? detail.reference.requirements : [],
@@ -193,22 +243,32 @@ export function SchoolRequirementsSection({
                     preserved for you to review.
                   </p>
                 ) : null}
-                {tasks.map((task) => (
-                  <Link
-                    className="rounded-md border px-3 py-2 text-sm text-foreground outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
-                    key={task.id}
-                    to={`/app/tasks?task=${task.id}`}
-                  >
-                    {task.title}
-                  </Link>
-                ))}
+                <ul className="-mx-2 flex flex-col" role="list">
+                  {tasks.map((task) => (
+                    <TaskRow
+                      applicationsById={applicationsById}
+                      essaysById={essaysById}
+                      isSelected={false}
+                      key={task.id}
+                      onComplete={handleComplete}
+                      onOpen={openTask}
+                      onSchedule={handleSchedule}
+                      onToggleFlag={handleToggleFlag}
+                      suppress={{ label: true }}
+                      task={taskFromApi(task)}
+                    />
+                  ))}
+                </ul>
               </div>
             ) : null}
             {!cannotTrack ? (
-              <QuickAddTask
-                applicationId={detail.application.id}
-                category={common.category}
-                requirementKind={common.kind}
+              <QuickAddBar
+                applications={[detail.application]}
+                defaults={{
+                  application_id: detail.application.id,
+                  requirement_kind: common.kind,
+                }}
+                essays={detail.essays}
               />
             ) : null}
           </AccordionPanel>

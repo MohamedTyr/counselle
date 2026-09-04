@@ -208,6 +208,7 @@ export function TaskRow({
       )}
       data-selected={isSelected || undefined}
       data-slot="task-row"
+      data-task-id={task.id}
       exit={{ opacity: 0, transition: { duration: 0 } }}
       layout="position"
       transition={{

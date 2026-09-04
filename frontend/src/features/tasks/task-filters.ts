@@ -12,6 +12,8 @@ import type { Task } from "@/domain/task";
 import { getDerivedLabel } from "@/features/tasks/task-config";
 import {
   addDays,
+  formatDeadline,
+  formatWhenChip,
   getCalendarDayDiff,
   getDateKey,
   parseDateOnly,
@@ -390,4 +392,55 @@ export function getDoneThisWeekCount(
     const diff = getCalendarDayDiff(new Date(task.done_at), referenceDate);
     return diff >= -DONE_THIS_WEEK_WINDOW_DAYS && diff <= 0;
   }).length;
+}
+
+// ---- Search (spec §6.5, plan P7.3, decision D3) ------------------------
+//
+// Client-side filter over the already-cached `useTasks()` list — adapted
+// from the pre-redesign `task-filters.ts` (`git show HEAD~2:…`) to the new
+// field set. `status`/`category`/`priority`/`assignee`/`needs_input` are
+// gone; `when_on`/`deadline_on`/`flagged`/the derived label take their
+// place. Searches both open and done tasks (spec §6.5).
+
+/**
+ * The lowercased blob a search query matches against — title, notes, the
+ * formatted when/deadline chips (so "Friday" or "overdue" finds a task),
+ * and the derived label (so "MIT" or "Essay" finds a task by its school or
+ * essay link).
+ */
+export function getSearchableTaskText(
+  task: Task,
+  applicationsById: ReadonlyMap<string, ApplicationView>,
+  essaysById: ReadonlyMap<string, EssaySummary>,
+): string {
+  return [
+    task.title,
+    task.notes,
+    task.when_on ? formatWhenChip(task.when_on) : undefined,
+    task.deadline_on ? formatDeadline(task.deadline_on) : undefined,
+    getDerivedLabel(task, applicationsById, essaysById),
+    task.flagged ? "flagged" : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+export function filterTasksByQuery(
+  tasks: Task[],
+  query: string,
+  applicationsById: ReadonlyMap<string, ApplicationView>,
+  essaysById: ReadonlyMap<string, EssaySummary>,
+): Task[] {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  return tasks.filter((task) =>
+    getSearchableTaskText(task, applicationsById, essaysById).includes(
+      normalizedQuery,
+    ),
+  );
 }

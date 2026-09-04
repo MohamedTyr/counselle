@@ -10,7 +10,7 @@ import { MutationReceiptBody } from "./MutationReceiptBody";
  * the shared generic renderer, so "update" delegates there.
  */
 
-function TaskRow({ item }: { item: MutationItem }) {
+function TaskReceiptRow({ item }: { item: MutationItem }) {
   const title = item.subject?.title.text;
   const isProblem = item.disposition !== "changed";
   return (
@@ -41,14 +41,14 @@ export function TaskMutationBody({ receipt }: { receipt: WorkspaceMutationReceip
         {changed.length > 0 && (
           <ul className="grid gap-0.5">
             {changed.map((item) => (
-              <TaskRow item={item} key={item.input_index} />
+              <TaskReceiptRow item={item} key={item.input_index} />
             ))}
           </ul>
         )}
         {rest.length > 0 && (
           <ul className="grid gap-0.5 border-t border-[var(--edge)] pt-2">
             {rest.map((item) => (
-              <TaskRow item={item} key={item.input_index} />
+              <TaskReceiptRow item={item} key={item.input_index} />
             ))}
           </ul>
         )}

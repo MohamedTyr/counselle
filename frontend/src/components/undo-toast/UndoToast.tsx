@@ -8,14 +8,17 @@ export type UndoToastPending = {
   label?: string;
 } | null;
 
-function pendingLabel(pending: UndoToastPending) {
+/**
+ * `kind` doubles as the verb ("deleted", "completed", "rescheduled" — plans/
+ * tasks-redesign-plan.md P7.5's `useUndoableAction`); every existing caller
+ * (`useUndoableDelete`) never sets it, so it defaults to "deleted" and every
+ * pre-existing toast reads exactly as before.
+ */
+function pendingCopy(pending: UndoToastPending) {
   if (!pending) {
     return "";
   }
-  if (pending.label) {
-    return pending.label;
-  }
-  return pending.kind === "honor" ? "Honor" : "Activity";
+  return `${pending.label ?? "Item"} ${pending.kind ?? "deleted"}`;
 }
 
 export function UndoToast({
@@ -43,7 +46,7 @@ export function UndoToast({
             className="pointer-events-auto flex items-center gap-3 rounded-xl border bg-popover px-4 py-2.5 text-sm text-popover-foreground shadow-lg"
             role="status"
           >
-            <span>{pendingLabel(pending)} deleted</span>
+            <span>{pendingCopy(pending)}</span>
             <Button
               className="h-7"
               onClick={onUndo}

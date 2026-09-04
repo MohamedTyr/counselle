@@ -13,6 +13,7 @@ import {
   PromptMenu,
 } from "@/features/essays/EssayEditorHeader";
 import { EssayEditorToolbar } from "@/features/essays/EssayEditorToolbar";
+import { EssayTasksSection } from "@/features/essays/EssayTasksSection";
 import { emptyToolbarState } from "@/features/essays/essay-toolbar-config";
 import {
   getEssayPrompt,
@@ -202,7 +203,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-(--essay-editor-chrome-surface)">
-        <div className="mx-auto flex w-full max-w-[1440px] px-4 pt-6 pb-12 lg:px-7 lg:pt-8 lg:pb-16">
+        <div className="mx-auto flex w-full max-w-[1440px] gap-8 px-4 pt-6 pb-12 lg:px-7 lg:pt-8 lg:pb-16">
           <main className="min-w-0 flex-1">
             <motion.div
               className="essay-editor-shell mx-auto min-h-[860px] w-full max-w-[820px] rounded-lg border border-(--essay-document-border) bg-(--essay-document-surface) px-7 py-8 text-(--essay-document-foreground) shadow-[var(--elevation-1)] sm:px-12 sm:py-11 lg:px-16 lg:py-14"
@@ -214,6 +215,12 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
               <EditorContent editor={editor} />
             </motion.div>
           </main>
+          {/* Hidden below `xl`: the editor toolbar already scrolls sideways
+           * under pressure, and a task rail is the thing that should give up
+           * the width first on a document-focused page (spec §6.6). */}
+          <aside className="hidden w-72 shrink-0 xl:block">
+            <EssayTasksSection essayId={essay.id} />
+          </aside>
         </div>
       </div>
     </section>
