@@ -1,5 +1,40 @@
 # TODOS
 
+## School-page-slim: `school_requirements` migration is written but not applied
+- **What:** `migrations/0019_drop_school_requirements.sql` (+ `.rollback.sql`) drops
+  `counselle.school_requirements`, its two indexes, and the
+  `protect_published_requirement_facts` trigger/function. It is written and reviewed
+  but **deliberately not run against any database.**
+- **Why:** per `CLAUDE.md` Status, the CDS extraction pipeline cutover (ADR 0036) is
+  still awaiting owner acceptance, and the live `counselle`/`cds_library` databases are
+  already drifted from source control pending that sign-off (see the sha256-index TODO
+  below for the precedent this follows). Applying a second un-signed-off schema change
+  ahead of that acceptance is the owner's call, not something to do inside a UI-slimming
+  refactor. The table costs nothing to leave: it is empty in every real environment (the
+  only `INSERT INTO counselle.school_requirements` in the repo is raw SQL inside a test
+  fixture) and, as of this refactor, nothing in the app reads or writes it anymore.
+- **Context (start here):** `plans/school-page-slim.md` Phase 3 and risk R2;
+  `migrations/0019_drop_school_requirements.sql` for the drop and its ordering rationale;
+  `migrations/0011_school_workspace.sql` lines ~100-224 for the original DDL the
+  rollback restores.
+- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04.)*
+
+## School-page-slim: optional follow-up column removals
+- **What:** `tasks.requirement_kind`, `applications.checklist`, `applications.platform`,
+  and `applications.platform_other` are no longer driven by any UI surface after the
+  school-page-slim refactor, but were all deliberately **kept** this round.
+- **Why:** each is still a valid, server-validated API field with no orphaning risk —
+  `requirement_kind` is free text with a regex `CHECK`, not a foreign key, so it can't be
+  orphaned by the `school_requirements` drop above; `checklist` is the student's own
+  tracking map on a separate validated patch path; `platform`/`platform_other` are
+  validated by `_validate_platform_patch`. Removing the columns is a data-model decision,
+  not a UI one, and none of them cost anything sitting unused. Only pursue this if the
+  product decides those fields are gone for good — it would need its own migration.
+- **Context (start here):** `plans/school-page-slim.md` Phase 2 step 3 and step 5;
+  `app/workspace/service_applications.py` (`_validate_platform_patch`);
+  `migrations/0011_school_workspace.sql` (original column definitions).
+- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04.)*
+
 ## Identify the owner of `cds_deploy_export` / `cds_deploy_seed`
 - **What:** two schemas exist on the live database (`cds_deploy_export`, `cds_deploy_seed`) that appear in no migration in either this repo or the retired `counselle-data-pipeline` repo. They contain static snapshot tables and are correctly inaccessible to `counselle_ro`, but nobody on this project knows what writes them.
 - **Why:** an undocumented schema on a production database is a liability — it could be dead, or it could be a deploy-tooling dependency nobody's tracked.
