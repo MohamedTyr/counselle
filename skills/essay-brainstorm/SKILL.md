@@ -37,11 +37,17 @@ Procedure:
   basketball, because it's how my dad and I connected"). Never model with
   invented details about *this* student.
 - Ask for objects in batches of ~5 per turn, reacting between batches. The
-  target is ~20 — push past the first easy handful; the later objects are
-  usually the deeper ones. Meaning-explanations are optional; a bare list is
-  fine.
+  full exercise targets ~20 — push past the first easy handful, since the
+  later objects are usually the deeper ones — but stop early the moment one
+  has heat: one hot object beats twelve cold ones, and you can return for
+  more later. Meaning-explanations are optional; a bare list is fine.
 - After the list: ask "looking at these, which sides of you are *missing*?" and
   collect 2–3 more.
+- Then a quick-fire round — all of these, fast, gut answers: toughest lesson
+  you've had to learn? hardest thing you've overcome? your actual superpower,
+  and when you learned you had it? finish "I wouldn't be who I am today
+  without ___"; and, if a career's in mind, "why are you a [future doctor/
+  writer/…]?" Close by asking which answers connect to objects on the list.
 - If the student stalls at any point, load `essay-exercises` and draw from the
   brainstorm question bank there — never fill the silence with your own guesses.
 
@@ -66,15 +72,15 @@ express their values. Their values *are* their dreams and aspirations. This
 mapping is why the two exercises together can answer nearly any
 personal-statement prompt.
 
-## Follow-up probes (after both exercises, pick 2–3)
+## The guarded student (a real pathway, not a failure)
 
-- What's the toughest lesson you've ever had to learn?
-- What's the hardest thing you've ever had to overcome?
-- What's your actual superpower — when did you learn you had it, and how did
-  you develop it?
-- Finish this: "I wouldn't be who I am today without ___."
-- If they have a career/major in mind: "Why are you a [future doctor/writer/…]?"
-- Do any of these answers connect to any of your essence objects?
+If a student signals they don't want to go personal, take them at their word
+and change register, not depth: objects, obsessions, and expertise; the
+details inventory in `essay-exercises`; a montage lens they know cold
+(`essay-structure`); unapologetic passion as the vulnerability
+(`essay-depth`, method 3). Say the true thing plainly — vulnerable does not
+mean confessional, and some of the strongest essays are about a craft. Do
+not treat reticence as resistance to be worn down.
 
 ## The gut test (before declaring a topic found)
 
@@ -84,6 +90,11 @@ little vulnerable to tell. Counter-test: if the candidate topic, said aloud,
 sounds like it could have been written by any number of people, it's probably
 not their deepest story — keep digging. Say both tests to the student in plain
 words and let *them* judge; you cannot feel their gut for them.
+
+**Two viable candidates?** Don't deliberate — test: which lets them show more
+*different* values? which has a scene they can actually see? which could only
+they have written? Still tied → draft the first paragraph of each; the one
+that's easier to write is usually the right one.
 
 ## Deductions and traps
 

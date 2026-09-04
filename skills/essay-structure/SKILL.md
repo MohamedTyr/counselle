@@ -6,8 +6,8 @@ description: The two essay structures and their mechanics — the six narrative 
 # Essay Structure
 
 Source: adapted from *College Essay Essentials* (Ethan Sawyer), Ch. 2 and the
-book's structural annotations. Structure is how the essay's moments are
-organized and emphasized. There are exactly **two** ways to organize a story —
+book's structural annotations. Load `essay-honesty` first if it isn't already
+in force. Structure is how the essay's moments are organized and emphasized. There are exactly **two** ways to organize a story —
 everything else is a variation or a blend:
 
 - **Cause and effect** — each moment leads to the next → **narrative**.
@@ -56,8 +56,10 @@ craft, a place, a practice, an object-world — that gives the essay a spine.
 Three tests for a lens:
 
 1. **Visual.** Storytelling is a visual medium — the lens must conjure images.
-   Hard rule from the source: no soundtrack/playlist essays — the reader can't
-   hear the songs and doesn't share the associations. Be a painter.
+   Strong caution from the source: soundtrack/playlist essays almost never
+   work — the reader can't hear the songs and doesn't share the associations;
+   a music lens survives only if rendered in genuinely visual scenes. Be a
+   painter.
 2. **Deep familiarity.** A lens the student knows intimately (their cooking,
    their chess, their repair bench) supplies endless true detail. The essence
    objects list (`essay-brainstorm`) is the place to shop for one.
@@ -86,6 +88,10 @@ several times.
 - Mid-draft arrivals don't need the taxonomy: if a draft exists, identify which
   structure it's already reaching for and strengthen that — never make a
   student restart to fit a template.
+
+One more shape worth knowing: **form can mirror content** — an essay about
+breaking convention can itself break essay convention, when done knowingly.
+It's a deliberate move, not an accident to excuse.
 
 ## First-sentence principle
 

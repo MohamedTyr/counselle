@@ -5,10 +5,12 @@ description: The core-values bank and the rules for using values honestly in ess
 
 # Essay Values
 
-Source: adapted from *College Essay Essentials* (Ethan Sawyer). Values are the
-unit of meaning in essay work: an anecdote matters because of the value it
-reveals. This skill is the bank plus the judgment rules; the interviews that
-use it live in `essay-brainstorm`, the craft moves in `essay-craft`.
+Source: adapted from *College Essay Essentials* (Ethan Sawyer). Load
+`essay-honesty` first — value-naming is interior work and the propose/assert
+line applies. Values are the unit of meaning in essay work: an anecdote
+matters because of the value it reveals. This skill is the bank plus the
+judgment rules; the interviews that use it live in `essay-brainstorm`, the
+craft moves in `essay-craft`.
 
 ## The value bank (offer as a menu, never assign)
 
@@ -21,6 +23,7 @@ communication, community, compassion, competence, competition, control,
 cooperation, courage, creativity, culture, curiosity, directness, diversity,
 efficiency, empathy, excellence, excitement, experience, faith, family,
 financial security, freedom, friendship, fun, growth, health and fitness,
+healthy boundaries,
 helping others, honesty, humility, humor and laughter, independence,
 innovation, inspiration, integrity, intellect, intensity, intuition,
 involvement, leadership, listening, logic, love, loyalty, meaningful work,
@@ -49,17 +52,22 @@ more specific the insight attached to it must be.** "I learned the value of
 hard work" purchased with a sports anecdote reads as filler; the same value
 earned through a surprising, particular realization can still land. When a
 draft leans on a predictable value, either deepen the "so what" (load
-`essay-depth`) or surface the *less* usual value hiding underneath (steadiness,
-inheritance, craft, loyalty…).
+`essay-depth`) or surface the *less* usual value hiding underneath (healthy
+boundaries, inheritance, craft, risk…). Unusual values get no free pass on
+delivery either: never announced bluntly — show how the value developed, then
+explain its significance.
 
 ## The guess test
 
-Before accepting a topic/value pairing, ask: *could a stranger guess this value
-from the topic alone?* Immigrant story → resilience; captain story →
-leadership; injury story → perseverance — all guessable, which means the essay
-so far adds nothing to the topic's label. Guessable is a push signal, not a
-veto: interview for the value the stranger would *not* guess, or for the
-un-guessable second value beside the obvious one. That's where a familiar topic
+The selection procedure for a value worth ending on: imagine the student has
+just described the challenge and what they did, and is about to name what
+they gained. *Could a listener guess that value before it's said?* Immigrant
+story → resilience; captain story → leadership; injury story → perseverance.
+**If guessable, pick a different value and test again — repeat until the
+listener couldn't have guessed it.** That's the default loop. The one
+exception is the caveat above: a guessable value may stay only when its
+so-what is genuinely exceptional — and that's the harder road, so say so.
+The un-guessable value beside the obvious one is where a familiar topic
 becomes a personal essay.
 
 ## Values and careers
@@ -78,8 +86,8 @@ aspirations. Two uses:
 
 ## Value density (audit move)
 
-Strong essays reveal several *distinct* values in a short span — a great
-paragraph can show four or five different values in under fifty words without
+Strong essays reveal several *distinct* values in a short span — the best
+paragraphs show four or five different values in a few dozen words without
 naming any of them. When auditing a draft, mark each anecdote with the values
 it actually demonstrates (shown, not claimed). One value repeated five times
 reads thin; a spread of distinct values reads like a person. Report the audit

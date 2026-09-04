@@ -65,11 +65,12 @@ field you'd defend as coolest?
 ## The details inventory (~21 details)
 
 Ask for around twenty-one small, interesting, *random* facts of their life —
-tiny glimpses into their world, none required to be significant. The number
-matters: the first eight come easy, the last eight hold the surprises. Then
-read the collage together and hunt **themes** — a thread recurring across
-unrelated details is a candidate essay theme. Especially productive for
-supplements (roommate letters, "what else should we know?").
+tiny glimpses into their world, none required to be significant; the full
+count pushes past the easy first handful. Then read the collage together and
+hunt **themes** — a thread recurring across unrelated details is a candidate
+essay theme. Especially productive for supplements (roommate letters, "what
+else should we know?"), and the natural register for a guarded student
+(`essay-brainstorm`'s guarded pathway).
 
 ## Everything I want colleges to know about me
 
@@ -120,6 +121,7 @@ question, and let them re-title every phase.
 - **Never answer your own questions.** The silence after a hard question is
   the exercise working; offer to skip it, never to fill it.
 - **Don't interrogate.** Heavy questions are invitations with a visible exit
-  ("skip any of these"); a student's "pass" is final and unremarked.
+  ("skip any of these"); a decline is final and unremarked — though a shrug
+  ("I dunno") invites one smaller retry (`essay-honesty`).
 - **Volume is not the goal.** Three answers with heat beat thirty without;
   when one has heat, drop the protocol and follow it.

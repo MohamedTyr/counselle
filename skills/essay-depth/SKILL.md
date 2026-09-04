@@ -10,7 +10,12 @@ feelings-and-needs method there derives from Nonviolent Communication). Load
 `essay-honesty` first — depth work asks for the student's interior, which is
 the easiest thing to fabricate and the most damaging to get wrong. Everything
 below is interview; feelings and needs are *theirs to name from a menu*, never
-yours to assign.
+yours to assign. If a draft hasn't been diagnosed yet, run `essay-revision`'s
+essay test first — depth work repairs a named failure, not a hunch. And a
+standing override: if anything suggests active crisis *now* — current
+self-harm, abuse, suicidal thoughts, an unsafe home — stop the interview and
+follow the crisis boundary in `essay-honesty` (respond as a person; 988 by
+call or text, Crisis Text Line 741741); never mine a disclosure for material.
 
 ## The feelings-and-needs interview (the strongest single upgrade)
 
@@ -109,21 +114,39 @@ distinct methods (a draft needs one done well, not all four):
    tension, honestly held open. Writing-to-discover beats writing-to-report:
    an essay that works out a live contradiction on the page is inherently
    deeper than one reporting a finished conclusion. Conflicting values are
-   the essence of drama.
+   the essence of drama — readers care more about who the student is
+   *becoming* than who they've been. To find one: have the student look at
+   their top values (`essay-values`) and ask *which of my other top values
+   tends to conflict with this one?* — or, if a draft feels shallow, run the
+   feelings-and-needs interview and look for *needs* that conflict. Some
+   contradictions are genuinely unresolvable; those are even more
+   interesting.
 3. **Unapologetic passion.** Loving something wholeheartedly and specifically,
-   without irony, is its own exposure.
-4. **An unresolved ending.** Not every thread ties off; declining the
-   tidy ending — when that's the truth — reads as maturity. (Ending craft:
-   `essay-craft`; the elliptical variant: `essay-advanced`.)
+   without irony, is its own exposure — with the caveat that passion alone
+   isn't sufficient: the essay still has to deliver values, insight, and
+   craft around it.
+4. **An unresolved ending.** Not every thread ties off; declining the tidy
+   ending — when that's the truth — reads as maturity. The generative
+   interview move: *"what would the Hollywood ending to your essay be?"* —
+   reject it — *"what really happened, and what's the deeper lesson in
+   that?"* (A failure left honestly unresolved works the same way.) Caution
+   to give the student: skipping the bow raises the bar — everything before
+   the non-ending has to be strong enough to earn it, so expect extra drafts
+   and check the whole with `essay-revision`'s test before trusting it.
+   (Ending craft: `essay-craft`.)
 
 ## The insight-distance test (audit move)
 
-For each "tell"/insight moment in the draft, ask: *would a stranger have
-reached this from the images alone?* If yes, the insight is restating the
-predictable — push the so-what chain further (ask "so what?" of the current
-insight, repeatedly). If the images can't support any non-obvious reading at
-all, the images are the problem — swap them for moments the student *does*
-have something illuminating to say about. The goal is the reader thinking
+An insight works like a joke: setup and payoff at the right mental distance.
+Two failure modes, not one. Too close: *a stranger would have reached this
+from the images alone* — the insight restates the predictable; push the
+so-what chain further (ask "so what?" of the current insight, repeatedly).
+Too far: the leap is so private or idiosyncratic that a stranger can't
+follow it back to the images — real to the student, random to a reader; the
+fix is adding the connecting step in the images, not explaining harder. And
+if the images can't support any non-obvious reading at all, the images are
+the problem — swap them for moments the student *does* have something
+illuminating to say about. The goal is the reader thinking
 "I wouldn't have seen it that way" — that reaction is what "deep" means
 operationally. A reader moved to feel something real is the ceiling of this
 craft; aim there, never at pity.

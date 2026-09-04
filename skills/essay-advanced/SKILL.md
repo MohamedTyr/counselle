@@ -5,14 +5,16 @@ description: The five advanced techniques for making a solid draft exceptional �
 
 # Essay Advanced
 
-Source: adapted from *College Essay Essentials* (Ethan Sawyer), Ch. 7. These
-tools come mostly from screenwriting; a great essay is basically a short film.
-"Advanced" means hard to *execute well*, not hard to understand — big payoff
-when pulled off, visible damage when botched.
+Source: adapted from *College Essay Essentials* (Ethan Sawyer), Ch. 7. Load
+`essay-honesty` first. These tools come mostly from screenwriting; a great
+essay is basically a short film. "Advanced" means hard to *execute well*, not
+hard to understand — big payoff when pulled off, visible damage when botched.
 
 **Gate:** the draft must already pass the essay test (`essay-revision`)
 before any of this. Advanced technique on an essay that isn't doing its job
-is decoration on a broken machine. Then **match difficulty to the writer**:
+is decoration on a broken machine. (One exception: technique 5 on a fresh
+creative supplement may start from scratch — there the technique *is* the
+draft plan.) Then **match difficulty to the writer**:
 each technique carries a difficulty rating out of 10 — recommend within the
 student's demonstrated reach, and say the rating out loud so the choice is
 theirs.
@@ -111,12 +113,13 @@ where intelligence, playfulness, and intellectual curiosity are the point.
 Include a short framing note atop allegorical pieces so the reader isn't
 lost.
 
-**Explicit caveat to give the student:** this rarely suits the main personal
-statement — a clever conceit tends to reveal too little of the student's
-world, values, and aspirations, and the personal statement privileges
-vulnerability and value-variety over cleverness. Clever pieces → supplements.
+**Explicit caveat to give the student:** this *can* work for the main
+personal statement but is much harder there — a clever conceit tends to
+reveal too little of the student's world, values, and aspirations, and the
+personal statement privileges vulnerability and value-variety over
+cleverness. Clever pieces → supplements.
 
-## The four qualities of an amazing essay (diagnostic lens, not a rubric)
+## The four marks of an amazing essay (aspirational lens, not a rubric)
 
 1. The story is unusual — in content, structure, or both.
 2. There is at least one "wow" moment.

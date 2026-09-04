@@ -29,10 +29,11 @@ type matters little; what matters is that the essay works.
   learning difference, illness of self or someone close), and personal
   (extreme shyness, failure, rejection, crushing expectations, peer
   pressure, loss). A menu, never a diagnosis.
-- **Two standing permissions:** having faced challenges does not oblige anyone
-  to write about them; and a student with no significant challenge can still
-  run the Type A machinery by substituting "meaningful experience" for
-  "challenge" throughout.
+- **The meaningful-experience substitution:** a student with no significant
+  challenge can still run the Type A machinery by substituting "meaningful
+  experience" for "challenge" throughout. (The two standing permissions —
+  challenges don't oblige writing about them; a known career doesn't oblige
+  featuring it — live in `essay-drafting`'s picker.)
 - **Application red flags** (grade dips, dropped classes, school changes)
   belong in the Additional Information section, or at most briefly in the
   essay — the essay should never be *about* explaining them.
@@ -47,13 +48,33 @@ learned. Come through it → the topic can work. Still in it, or the deadline is
 too close to find that distance → steer to another topic; writing about an
 unprocessed wound on a deadline adds stress, not quality. (Sometimes writing —
 with real support — is how someone works through it, but that takes time the
-application calendar rarely gives.) When in doubt, suggest they also talk it
+application calendar rarely gives.) One narrow deadline exception: when the
+student has come through it, the runway is short, and no other real material
+exists, don't force a topic switch — write it *at distance*: name what
+happened plainly in one early paragraph, then spend the great majority of the
+essay on what they did and learned. When in doubt, suggest they also talk it
 through with a counselor experienced in essay advising. Two companion rules:
 "should I write about X?" is almost always "it depends on how" — and **no one
 needs to shock the reader**; naming that something happened, plainly and
-without graphic detail, is enough. If the conversation suggests the student is
-in active crisis *now*, the crisis boundary in `essay-honesty` overrides all
-of this.
+without graphic detail, is enough.
+
+Beyond still-in-it, flag four topic shapes and say plainly why:
+1. **Someone else's story** — if the growth, agency, and stakes belong to a
+   parent, sibling, or patient, the essay is about them; refocus on what the
+   *student* did, or cut it.
+2. **The savior frame** — a service trip or poverty encounter where the
+   student's growth is the payoff and other people are scenery; the fix is
+   making the student's own assumptions the subject.
+3. **Contempt** — an essay whose energy is disdain for a group reads as a
+   risk to admit, however clever.
+4. **Unresolved rule-breaking** — cheating, substances, arrests belong in
+   Additional Information with resolution, not in the statement.
+None of these are bans; each is an "it depends on how," and each needs
+saying out loud. And a hard override on all of it: if anything suggests
+active crisis *now* — current self-harm, abuse, suicidal thoughts, an unsafe
+home — stop the exercise and the editing entirely and follow the crisis
+boundary in `essay-honesty` (respond as a person; 988 by call or text, Crisis
+Text Line 741741, emergency services if in immediate danger).
 
 ## Type A — challenges + knows career
 
@@ -161,10 +182,11 @@ strengths. Every sentence's content comes from the interview columns.
 
 ## Type D — no challenges + doesn't know career
 
-The most open-ended type — nothing is preset, so the honest instruction is
-**patience**: strong essays of this type routinely take eight to ten drafts,
-with restarts. Say that up front; it reframes frustration as the process
-working.
+**Secret: find a focusing lens wide enough to carry many different values.**
+Reassure first: content will come fast — the exercises generate ideas in
+minutes. The patience belongs to the *shaping*: this is the most open-ended
+type, and strong Type D essays routinely take eight to ten drafts, with
+restarts. Said up front, that reframes frustration as the process working.
 
 **Step 1 — generate content** until real gems surface: essence objects and
 the values funnel (`essay-brainstorm`), then the deeper banks in

@@ -32,7 +32,8 @@ A good strange-image opening is also a problem-opening — the techniques stack.
 **Anti-perfectionism rule.** The opening is usually rewritten last anyway.
 A student frozen on their first line should just start the essay — an opening
 will emerge. And quiet openings are fine: plenty of great essays begin
-plainly; a forced fireworks opening on a warm, quiet essay is a mismatch.
+plainly, sometimes with nothing more than one small, precise, true detail; a
+forced fireworks opening on a warm, quiet essay is a mismatch.
 
 ## Sounding smart (without trying to sound smart)
 
@@ -92,15 +93,17 @@ Working moves:
 - **The callback last line.** Return to an earlier moment or image **from a
   different perspective** — the beginning recontextualized by everything since.
   This is the single most reliable great-last-line pattern: in the beginning
-  is the end.
+  is the end. (The layered, whole-essay version of this move is
+  `essay-advanced`'s setup/payoff.)
 - **The so-what fallback.** If surprising-but-inevitable feels out of reach,
   simply answer "so what?" at the end, ideally in an unexpected way. A clear
   earned so-what beats a strained twist.
 - **The values payoff.** An ending that names a future (career, field, hope)
   should read as the expression of the values the essay showed — check it
   against the ending audit in `essay-values`.
-- Unresolved endings are allowed when true (`essay-depth`, vulnerability #4);
-  the buried-hints reveal is `essay-advanced` territory.
+- Unresolved and deliberately open endings are allowed when true — the method
+  and its raised-bar caution live in `essay-depth` (vulnerability #4); the
+  buried-hints reveal is `essay-advanced` territory.
 
 ## Style pass (last, quick)
 
@@ -109,17 +112,30 @@ Working moves:
   hides an unfinished thought; fix the thought, not the phrasing.
 - Big words only where they're the *right* words; complex thoughts stated
   succinctly impress more than simple thoughts stated complexly.
-- Every paragraph should survive four so-what questions: so what does this
-  show? why this image? why here? what would be lost if cut?
+- **Deepening a so-what:** to push a major point past common knowledge,
+  interrogate the belief under it with four questions — what are its
+  positive and negative consequences? what's a counterargument you can
+  debunk? what's the call to action? what unexpected value does it reveal?
+  The answers *are* the so-what; then compress the fresh idea until it's
+  succinct.
+- **Restraint in detail** — not too much, just enough; and prize words doing
+  double duty, literal and metaphorical at once. A stated value can even
+  serve as the literal transition between paragraphs.
+- **Making the reader feel something real** has three parts: it must come
+  from something deep enough that it moves the *student* to recall; it must
+  never read as trying to move the reader; and something is left unaccounted
+  for. It works only without visibly trying.
 
 ## Traps
 
 - **Craft on hollow material is lipstick on a pig** — if the so-whats keep
   coming up empty, stop polishing and go to `essay-depth` or back to the
   interviews.
-- **Never install your own images or phrases as fixes.** Diagnose ("this
-  opening resolves its question immediately"), show the *pattern* of the fix,
-  and let the student write it — or propose candidates built strictly from
-  their own material, marked as candidates.
+- **Diagnose and demonstrate; don't install.** Name the fault ("this opening
+  resolves its question immediately"), show the pattern of the fix, and let
+  the student write it. Demonstrating on **one** of their sentences — their
+  facts, their words, labeled "one way to say it; now say it your way,"
+  ideally two options — is legal teaching (`essay-honesty`). A rewritten
+  paragraph, or your own invented image, is not.
 - **Don't sand off the voice.** An unusual rhythm or informal register may be
   the draft's most alive thing; `essay-honesty`'s voice rules outrank style.

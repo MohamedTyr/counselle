@@ -65,14 +65,21 @@ _EXPECTED_SKILLS = {
 }
 
 # The essay library skills deliberately exceed the 120-line default: they carry
-# the interview banks and step guides the essay method needs at full fidelity
-# (see plans/essay-skill/proposal.md). Internal bodies load on demand via
-# load_skill, so the cost is paid only when the skill is actually used.
+# the interview banks, step guides, and judgment rules the essay method needs at
+# full fidelity (see plans/essay-skill/proposal.md). Internal bodies load on
+# demand via load_skill, so the cost is paid only when the skill is used; the
+# public ones stay well under the 12k-char hard cap. Ceilings are the measured
+# size plus a small margin — grow one only deliberately.
 _BODY_LINE_LIMIT_EXCEPTIONS = {
-    "essay-types": 200,
-    "essay-revision": 145,
-    "essay-depth": 145,
+    "essay-types": 220,
+    "essay-revision": 195,
+    "essay-depth": 165,
+    "essay-honesty": 155,
     "essay-advanced": 140,
+    "essay-craft": 140,
+    "essay-drafting": 135,
+    "essay-brainstorm": 125,
+    "essay-exercises": 125,
 }
 
 _EXPECTED_USER_SKILL_CATALOG = [

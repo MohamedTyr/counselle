@@ -1,6 +1,6 @@
 ---
 name: essay-revision
-description: Judgment procedure for reviewing and revising a drafted essay — run the four-part essay test to diagnose whether the draft is doing its job, triage each failure to the right repair, execute the first-sentence revision method, and deliver feedback under the ownership rules. Use when a student shares a draft and asks if it's good, or wants help making it better.
+description: Judgment procedure for reviewing and revising a drafted essay — run the four-part essay test to diagnose whether the draft is doing its job, triage each failure to the right repair in priority order, handle deadlines and word limits, and deliver feedback under the ownership rules. Use when a student shares a draft and asks if it's good, wants help making it better, or wants it to stand out.
 user_invokable: true
 display_name: Essay revision
 user_description: Get your draft diagnosed and revised.
@@ -9,8 +9,10 @@ user_description: Get your draft diagnosed and revised.
 # Essay Revision
 
 Source: adapted from *College Essay Essentials* (Ethan Sawyer), Chs. 5 and 8.
-Load `essay-honesty` first — revision is where an agent most easily overwrites
-a student's voice, and the ownership rules below are binding.
+Load `essay-honesty` first — run its intake (which essay, word limit,
+deadline) before diagnosing, and `read_essay` any workspace draft rather
+than working from memory. Revision is where an agent most easily overwrites
+a student's voice; the ownership rules are binding.
 
 ## The hidden decision
 
@@ -18,131 +20,182 @@ a student's voice, and the ownership rules below are binding.
 without diagnosis is this feature's failure mode. The essay's job: colleges
 already have the grades, scores, and activities list; the essay must show
 something not already evident — that this student will contribute, in college
-and beyond. Diagnose against that job first; only then repair, one thing at a
-time.
+and beyond. Diagnose against that job first; then repair one rung at a time.
 
-## The essay test (run this on every draft before any line edits)
+What experience says about the reader (share as experience, never authority):
+the essay is read fast, late in a file, by someone looking for a reason to
+advocate. The first fifty words decide whether they read or skim — which is
+why openings pose problems and values must be *shown*; a hurried reader
+can't be argued into liking someone.
 
-Have the student read the draft aloud if possible (what the mouth stumbles on,
-the reader stumbles on). Then score four qualities honestly:
+## The essay test (run on every draft before any line edits)
 
-1. **Values.** Can you name **four to five** core values of the author from
-   the text alone — *shown*, not claimed? Are they **varied**, or the same
-   value repeated in synonyms (hard work / determination / perseverance are
-   one value wearing three hats)?
-2. **Vulnerability.** Does it read from the head (analytical, reporting) or
-   from somewhere deeper? The two-part check: after reading, do you *know
-   more* about the author **and** *feel closer* to them? Both must be yes.
-3. **Insight.** Are there **three to five** genuine "so what" moments? Test
-   each: is it illuminating, or would a stranger have predicted it from the
-   images alone?
-4. **Craft.** Do ideas connect logically but not too obviously? Does it read
-   as carefully chosen and revised? Is it interesting and succinct
-   *throughout* — and if not, mark exactly where attention drops.
+Preliminary: **who is the protagonist, and what do they *do*?** If the
+answer is someone else (a parent, a patient, a coach) or nothing, that
+outranks every other finding — fix it first.
 
-Report the score plainly, per quality, quoting the draft's own lines as
-evidence (the lines that show a value, the moment attention drops). Never a
-vague "it's good, maybe add detail." A great story ≠ automatically a great
-college essay — gorgeous risky writing can still fail the job test, and a
-quiet, non-dramatic topic can ace it; say which is happening.
+Then score four qualities. The student reads aloud if they can; you read for
+stumbles regardless and quote the lines that tripped you. Verdict per
+quality: **clear / partial / missing**, each with the draft's own lines as
+evidence — never a vague "it's good, maybe add detail."
 
-## Triage — route each failure to its repair
+1. **Values.** Can you name **four to five** core values from the text alone
+   — *shown*, not claimed? Varied, or one value in synonyms (hard work /
+   determination / perseverance are one value wearing three hats)?
+2. **Vulnerability.** Head or heart? The two-part check: after reading, do
+   you *know more* about the author **and** *feel closer* to them? Both must
+   be yes.
+3. **Insight.** **Three to five** genuine "so what" moments? Test each: would
+   a stranger have predicted it from the images alone?
+4. **Craft.** Ideas connect logically but not too obviously? Reads as chosen
+   and revised? Interesting and succinct *throughout* — mark exactly where
+   attention drops.
 
-| Test failure | Repair |
-|---|---|
-| Fewer than 4 values, or repetitive ones | Values audit below + `essay-values` |
-| Reads analytical / reader feels no closer | `essay-depth` (feelings-and-needs, want vs. need, the four vulnerability methods) |
-| Insights thin or predictable | `essay-depth` (insight-distance test, the so-what chain) |
-| Opening, brag, or ending not landing | `essay-craft` |
-| Shapeless, saggy middle, ends where it began | `essay-structure` |
-| Passes everything; student wants exceptional | `essay-advanced` |
-| The topic itself is the problem | Say so honestly; back to `essay-brainstorm` |
+A great story ≠ a great college essay — gorgeous risky writing can fail the
+job test, and a quiet, non-dramatic topic can ace it; say which is happening.
+A trusted human reader running these same four checks is a good second
+opinion — suggest it once the draft is stable.
 
-Fix in that spirit: **substance before sentences.** Line-polish on a draft
-failing the values or vulnerability check is wasted work.
+## Triage — repairs in priority order
+
+Repair **one rung at a time, top down, re-running the test between rungs** —
+substance before sentences; line-polish on a draft failing values or
+vulnerability is wasted work.
+
+| Priority | Failure | Repair |
+|---|---|---|
+| 1 | The topic itself (test below) | Say so plainly → `essay-brainstorm` |
+| 2 | Values thin/repetitive | Values audit + `essay-values` |
+| 3 | Analytical / no closeness | `essay-depth` |
+| 4 | Shapeless, sags, ends at start | `essay-structure` |
+| 5 | Insights predictable | `essay-depth` (insight-distance) |
+| 6 | Opening, brag, ending | `essay-craft` |
+| 7 | Passes; wants exceptional | `essay-advanced` |
+
+**The topic-kill test.** Call the topic wrong when **two or more** hold:
+(a) the guess test fails and interviewing surfaces no un-guessable value;
+(b) the student isn't the protagonist; (c) the draft has only what happened
+to them, nothing they *did*; (d) two passes of the so-what chain end in
+common knowledge; (e) they can't name one concrete scene they actually
+remember. Deliver it immediately and kindly — "I'd change topics; here's
+why" — then go straight into a short brainstorm, never verdict-and-exit.
+Keeping a weak topic to spare feelings is the expensive kindness.
 
 ## The values audit (the most common repair)
 
 Walk the draft with the student: which values clearly come through (mark the
-lines)? Which are half-there? Which do they *want* in that aren't? Then three
-verbs — **cut** sections showing no value, **rewrite** sections where the
-value is muddy, **add** (by interview) material for a missing value. Merge
-near-duplicate values unless the student can articulate a real difference.
+lines)? Which are half-there? Which do they *want* in that aren't? Three
+verbs — **cut** sections showing no value, **rewrite** where the value is
+muddy, **add** (by interview) for a missing value. Merge near-duplicates
+unless the student can articulate a real difference.
 
 ## The first-sentence revision (the structural pass)
 
-In a strong essay, the first sentences of the paragraphs, read in sequence,
-form a coherent miniature of the whole. The method:
+In a strong essay the paragraphs' first sentences, read in sequence, form a
+coherent miniature of the whole. The method: (1) extract every paragraph's
+first sentence; read the sequence — does it tell a short version of the
+essay? (2) If not, outline anew until the first sentences flow as a
+mini-essay. (3) Rebuild fresh from those sentences here in the chat before
+touching the workspace essay — writers fall in love with old phrasings, and
+patching stitches new life from dead parts; the old draft stays available.
+(4) The student rewrites each paragraph to serve its topic sentence. (5)
+Close the session there; next session, re-run step 1 before anything else —
+distance is part of the method. If the exercise keeps failing, walk them
+through it step by step; if flow fails after two guided passes, the problem
+is depth or topic — re-run the test instead of polishing. Foggy writing is
+foggy thinking: a paragraph that resists usually holds an unfinished
+thought, not a phrasing problem.
 
-1. Extract every paragraph's first sentence; read the sequence aloud. Does it
-   tell a short version of the essay?
-2. If not: outline anew until the first sentences *do* flow as a mini-essay.
-3. Rebuild on a **fresh document** from those sentences — not by patching the
-   old draft. (Writers fall in love with old phrasings; stitching new life
-   from dead parts produces a monster. The old draft stays available; nothing
-   is destroyed.)
-4. Rewrite each paragraph to genuinely serve its topic sentence.
-5. Step away — at least half an hour — then re-run step 1 aloud and check
-   each paragraph supports its first sentence.
+## Word limit and deadline
 
-Foggy writing is foggy thinking: a paragraph that resists this usually
-contains an unfinished thought, not a phrasing problem. If flow keeps failing
-after two passes, the real problem is usually depth or topic — re-run the test
-rather than polishing again.
+**Over the limit:** cut whole moments before words — a fragment repeating an
+already-shown value is the cheapest 80 words there are. Then throat-clearing
+openers, restated ideas, setup a reader can infer, intensifiers. Never
+compress by raising the register or swapping clauses for jargon — that
+trades voice for count. Recount after each pass and say the number; hard
+caps mean over-limit text simply doesn't get read.
+
+**Under ~5 days:** suppress the fresh-rebuild and many-drafts framing. Order
+of work: (1) does it pass the job check at all; (2) the last two paragraphs
+— the so-what and the ending carry most of the remaining upside; (3) values
+spread; (4) limit compliance; (5) mechanics. Don't restructure a passing
+essay under deadline; don't start a new topic inside 72 hours unless the
+current one fails the job check outright.
 
 ## Suggestion mechanics (how edits are delivered)
 
-- Small, targeted suggestions — never a wholesale rewrite of the student's
-  text.
+- `edit_essay` applies directly — so keep edits small, targeted, and
+  **announced**, each one plainly described so the student can reject or
+  revert it.
 - **Each suggestion stands independently**: it must make sense whether or not
   the student accepts any other suggestion in the batch; never chain edits
   that only work together.
-- Diagnose and show the pattern; let the student write the fix. Candidate
-  phrasings are allowed only when built from the student's own words and
-  labeled as candidates.
-- Preserve voice: an unusual rhythm or informal register is content, not
-  error (`essay-honesty`).
+- Diagnose and show the pattern; let the student write the fix. A one-
+  sentence demonstration from their own words is legal (`essay-honesty`);
+  a rewritten paragraph is not.
 
 ## Feedback conduct (binding)
 
-- Frame judgments as experience, not authority: "what I've seen work," never
-  "what colleges want" — no one objectively knows what every reader thinks.
-- Be the *one* feedback source at a time; advise the student not to collect
-  five simultaneous opinions (too many cooks), and to also get **one** human
-  reader they trust — after they know what every paragraph is doing and why.
-- Don't judge a fragile new idea as if it were a finished draft — calibrate
-  to the draft's stage; a first draft gets a job-check, not a style audit.
-- Ask what feedback they want, and honor it — but if the real problem is the
-  topic, say so kindly and directly even when they asked about grammar.
-- **"It's your essay. You get final say."** Say it, and mean it: a rejected
-  suggestion is closed, not re-argued.
+- "What I've seen work," never "what colleges want" — no one objectively
+  knows what every reader thinks.
+- Be the one feedback source at a time; advise against collecting many
+  simultaneous opinions (too many cooks), and for **one** trusted human
+  reader — after the student knows what every paragraph is doing.
+- Calibrate to the draft's stage: a first draft gets a job-check, not a
+  style audit; a fragile new idea isn't judged like a finished draft.
+- Ask what feedback they want and honor it — but if the real problem is the
+  topic, say so kindly even when they asked about grammar.
+- **"It's your essay. You get final say."** — including over a parent's or
+  teacher's preference. A rejected suggestion is closed, not re-argued.
 
-## When to scrap and start over
+## Across the application
 
-Any time the student wants — if it's before the deadline, there's time. The
-work done is not wasted: it cleared the way for the better essay (the
-brainstorm, the values, the interviews all carry forward). Say this when a
-student is trapped by sunk cost in a draft that keeps failing the test — and
-also when they *want* to start over but feel guilty. Eight to ten drafts is a
-normal count for a great essay; at some point, though, the last revision is
-done and the essay must be sent — work really hard, then let go.
+Before declaring an essay done, check it against the student's other essays
+and activities list: if the same activity, person, or value centers two
+pieces, one has to move — say which. Ask what's still unwritten: a polished
+statement beside eight blank supplements is a worse application than a good
+statement and eight finished ones. A strong essay can often be re-opened or
+re-ended for another prompt instead of started over.
+
+## Done — and saying so
+
+Call it done when: all four qualities score clear; no placeholders remain;
+it's within the limit; the student can say in one line what each paragraph
+does; and it sounds like them read aloud. Past that point more editing
+trades voice for polish — say "this is done; send it, and put the hours into
+the supplements." The inverse also holds: starting over is allowed any time
+before the deadline, and the work done isn't wasted — it cleared the way.
+Great essays routinely take many drafts (the strongest samples are fifth,
+sixth, even fifteenth drafts); at some point the last one is done — work
+really hard, then let go.
+
+## Deductions and traps
+
+- **Don't line-edit a draft that fails values or vulnerability** — repair
+  rung order is the discipline.
+- **Don't rewrite wholesale.** The moment your edits outnumber their
+  sentences, you're the author.
+- **Don't soften the topic verdict.** Two-plus kill criteria and no un-
+  guessable value found = say it now.
+- **Don't run the full method under deadline** — deadline mode exists so the
+  three-week method never eats a three-day runway.
 
 ## Final answer shape
 
-1. The test verdict, quality by quality, with the draft's own lines as
-   evidence.
-2. The one or two highest-leverage repairs, named, in order — with the next
-   skill loaded and the first concrete step taken.
-3. Suggestions (if any) as small independent items the student can accept or
-   reject one by one.
+1. The test verdict — protagonist check, then quality by quality
+   (clear/partial/missing) with quoted evidence.
+2. The one or two highest-leverage repairs by priority, with the next skill
+   loaded and the first concrete step taken.
+3. Edits (if any) as small independent announced items.
 4. The ownership close: their essay, their call.
 
 ## Exemplar shape
 
-A student pastes a polished-sounding draft about their team captaincy. The
-test finds: two values (both flavors of hard work), head-voice throughout,
-one predictable insight, clean craft. The verdict names that honestly —
-strong sentences, essay not yet doing its job — routes to `essay-depth`,
-runs the feelings-and-needs interview on the season that actually mattered,
-and the rebuilt draft passes with five varied values and an insight the
-stranger wouldn't guess. The agent never rewrote a paragraph; the student did.
+A student pastes a polished draft about their team captaincy, limit 650,
+deadline three weeks. Protagonist: them, barely acting. Test: values
+partial (two, both flavors of hard work), vulnerability missing, insight
+partial, craft clear. Verdict named honestly — strong sentences, essay not
+yet doing its job — triage picks rung 3, `essay-depth` runs feelings-and-
+needs on the season that mattered, and the rebuilt draft scores clear on
+all four with an insight a stranger wouldn't guess. The agent never
+rewrote a paragraph; the student did.
