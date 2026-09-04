@@ -1,14 +1,3 @@
-import { ExternalLink, Plus } from "lucide-react";
-import { useState } from "react";
-
-import { useCreateTask } from "@/api/workspace/hooks";
-import type { TaskCategory } from "@/api/workspace/types";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
 import {
   Select,
   SelectGroup,
@@ -19,27 +8,7 @@ import {
 } from "@/components/ui/select";
 import { humanize } from "@/features/schools/school-workspace-format";
 
-/* The three shared field/display components, extracted from SchoolWorkspace. */
-
-export function Provenance({
-  provenance,
-}: {
-  provenance: { source: string; source_url: string; verified_at: string };
-}) {
-  return (
-    <p className="text-xs text-muted-foreground">
-      Verified {provenance.verified_at} from{" "}
-      <a
-        className="underline underline-offset-3 hover:text-foreground"
-        href={provenance.source_url}
-        rel="noreferrer"
-        target="_blank"
-      >
-        {provenance.source} <ExternalLink className="inline size-3" />
-      </a>
-    </p>
-  );
-}
+/* The shared field component, extracted from SchoolWorkspace. */
 
 export function FieldSelect<TValue extends string>({
   label,
@@ -72,53 +41,5 @@ export function FieldSelect<TValue extends string>({
         </SelectPopup>
       </Select>
     </label>
-  );
-}
-
-export function QuickAddTask({
-  applicationId,
-  category,
-  requirementKind,
-}: {
-  applicationId: string;
-  category: TaskCategory;
-  requirementKind: string;
-}) {
-  const [title, setTitle] = useState("");
-  const createTask = useCreateTask();
-  async function submit() {
-    const trimmed = title.trim();
-    if (!trimmed) return;
-    await createTask.mutateAsync({
-      application_id: applicationId,
-      category,
-      requirement_kind: requirementKind,
-      title: trimmed,
-    });
-    setTitle("");
-  }
-  return (
-    <InputGroup>
-      <InputGroupAddon>
-        <Plus />
-      </InputGroupAddon>
-      <InputGroupInput
-        aria-label={`Add task for ${humanize(requirementKind)}`}
-        onChange={(event) => setTitle(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") void submit();
-        }}
-        placeholder="Add a task"
-        value={title}
-      />
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton
-          disabled={!title.trim() || createTask.isPending}
-          onClick={() => void submit()}
-        >
-          Add
-        </InputGroupButton>
-      </InputGroupAddon>
-    </InputGroup>
   );
 }
